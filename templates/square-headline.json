@@ -1,0 +1,31 @@
+{
+  "id": "square-headline",
+  "name": "Square, Headline Left",
+  "lighting": "Soft frontal fill",
+  "subject": "either",
+  "collections": ["Social"],
+  "verticals": ["Apparel", "Sport", "Beauty", "Food & drink", "Accessories"],
+  "description": "Square frame with the left third deliberately empty and evenly lit, so type lands on clean ground instead of baked pixels.",
+  "prompt": "composed for a square social post with the left third left deliberately empty and evenly lit as clean ground for a headline, subject weighted to the right, soft frontal fill, confident brand-campaign styling, absolutely no text or lettering rendered in the image",
+  "width": 1024,
+  "height": 1024,
+  "fields": [
+    {
+      "key": "headline",
+      "label": "Headline",
+      "placeholder": "Built to move"
+    }
+  ],
+  "textZones": [
+    {
+      "fieldKey": "headline",
+      "x": 8,
+      "y": 7,
+      "width": 84,
+      "size": 96,
+      "align": "center",
+      "weightHint": 700
+    }
+  ],
+  "aliases": ["ig-post-headline"]
+}

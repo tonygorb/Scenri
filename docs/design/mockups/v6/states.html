@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scenri v6 · Dialogs, popovers, states</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{ --r-card:14px; --gold:#f5c518; --gold-ink:#191300; }
+  [data-theme="light"]{
+    --bg:#ffffff; --panel:#ffffff; --raised:#f6f6f6; --line:#e8e8e8; --line-strong:#d4d4d4;
+    --fg:#0a0a0a; --fg2:#666666; --fg3:#9a9a9a;
+    --inv-bg:#0a0a0a; --inv-fg:#ffffff; --hover:#f4f4f4; --red:#d93025; --green:#188038; --scrim:rgba(255,255,255,.72);
+  
+    --sb:rgba(10,10,10,.18); --sb-hover:rgba(10,10,10,.34);
+  }
+  [data-theme="dark"]{
+    --bg:#0d0d0d; --panel:#141414; --raised:#1a1a1a; --line:#262626; --line-strong:#383838;
+    --fg:#f5f5f5; --fg2:#9a9a9a; --fg3:#6b6b6b;
+    --inv-bg:#f5f5f5; --inv-fg:#0d0d0d; --hover:#1c1c1c; --red:#ff6b62; --green:#4ade80; --scrim:rgba(13,13,13,.72);
+  
+    --sb:rgba(245,245,245,.20); --sb-hover:rgba(245,245,245,.36);
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 'Inter Tight',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  svg{display:block}
+
+  /* ---------- scrollbars: part of the page, never louder than it ----------
+     Thin, no track, thumb tinted from the theme's own line color and only
+     fully visible while the pointer is over the scrollable area. Firefox gets
+     the same treatment through scrollbar-color. */
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:999px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--sb-hover);background-clip:content-box}
+
+
+  main{max-width:1180px;margin:0 auto;padding:34px 24px 90px}
+  h1{font:600 28px 'Inter Tight';letter-spacing:-.02em;margin-bottom:4px}
+  h1 em{font:500 italic 30px 'Playfair Display'}
+  .sub{color:var(--fg2);margin-bottom:28px}
+  .sheet{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  .spec{border:1px dashed var(--line-strong);border-radius:16px;padding:18px;display:grid;place-items:center;min-height:240px;position:relative}
+  .spec .cap{position:absolute;top:10px;left:14px;font:10.5px ui-monospace,monospace;color:var(--fg3);letter-spacing:.06em;text-transform:uppercase}
+
+  /* credits popover */
+  .pop{width:270px;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 14px 40px rgba(0,0,0,.3);overflow:hidden}
+  .pop-h{display:flex;align-items:center;gap:9px;padding:13px 15px;border-bottom:1px solid var(--line)}
+  .coin{width:15px;height:15px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff3b0, #f0b90b 60%, #a67c00);box-shadow:inset 0 0 0 1.5px rgba(120,86,0,.55)}
+  .pop-h b{font:600 14px 'Inter Tight'}
+  .prow{display:flex;align-items:center;gap:9px;padding:10px 15px;font-size:12.5px}
+  .prow + .prow{border-top:1px solid var(--line)}
+  .prow small{color:var(--fg2)}
+  .prow .sp{flex:1}
+  .free-tag{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#8a6d00;border:1px solid color-mix(in srgb, var(--gold) 45%, transparent);border-radius:999px;padding:2px 8px}
+  [data-theme="dark"] .free-tag{color:var(--gold)}
+  .pop-f{padding:10px 15px;border-top:1px solid var(--line);font-size:11.5px;color:var(--fg3)}
+  .pop-f button{border:none;background:none;color:var(--fg2);text-decoration:underline;padding:0}
+
+  /* brand switcher */
+  .prow .bdot{width:9px;height:9px;border-radius:3px}
+  .prow[data-on]{background:var(--raised);font-weight:600}
+  .prow .tick{color:var(--fg)}
+
+  /* export dialog */
+  .dlg{width:330px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:0 18px 50px rgba(0,0,0,.34);padding:18px}
+  .dlg h3{font:600 15px 'Inter Tight';margin-bottom:3px}
+  .dlg .d-sub{color:var(--fg2);font-size:12px;margin-bottom:14px}
+  .opt{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px;font-size:12.5px}
+  .opt[data-on]{border-color:var(--fg)}
+  .opt small{display:block;color:var(--fg3);font-size:11px}
+  .opt .cb{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--line-strong);flex:none}
+  .opt[data-on] .cb{background:var(--fg);border-color:var(--fg);position:relative}
+  .opt[data-on] .cb::after{content:"";position:absolute;inset:3px 4px 5px;border-left:2px solid var(--bg);border-bottom:2px solid var(--bg);transform:rotate(-45deg)}
+  .dlg .go{width:100%;border:none;background:var(--inv-bg);color:var(--inv-fg);border-radius:11px;padding:11px;font:600 12.5px 'Inter Tight';margin-top:6px}
+
+  /* compare dialog */
+  .cmp{width:420px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:0 18px 50px rgba(0,0,0,.34);padding:16px}
+  .cmp h3{font:600 15px 'Inter Tight';margin-bottom:12px}
+  .cmp .tri{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .cmp .tri figure{margin:0}
+  .cmp .tri img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px;border:1px solid var(--line);display:block}
+  .cmp .tri .heat{background:linear-gradient(135deg,#1a1a1a 40%,#f5c518 65%,#ff5c00 90%);border-radius:9px;aspect-ratio:1;border:1px solid var(--line)}
+  .cmp figcaption{font-size:10.5px;color:var(--fg3);text-align:center;margin-top:5px}
+  .cmp .score{margin-top:12px;font-size:12.5px;color:var(--fg2);text-align:center}
+  .cmp .score b{color:var(--fg)}
+
+  /* toasts */
+  .toast{display:flex;align-items:center;gap:10px;width:300px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.28);padding:11px 13px;font-size:12.5px}
+  .toast + .toast{margin-top:8px}
+  .toast .ok{color:var(--green)}
+  .toast .err{color:var(--red)}
+  .toast .sp{flex:1}
+  .toast .act{border:1px solid var(--line);background:none;border-radius:999px;padding:3px 11px;font-size:11.5px}
+
+  /* empty + error states */
+  .empty{text-align:center;max-width:300px}
+  .empty h4{font:600 20px 'Inter Tight';margin-bottom:6px}
+  .empty h4 em{font:500 italic 22px 'Playfair Display'}
+  .empty p{color:var(--fg2);font-size:12.5px;margin-bottom:14px}
+  .empty .cta{background:var(--inv-bg);color:var(--inv-fg);border:none;border-radius:999px;padding:9px 18px;font:600 12.5px 'Inter Tight'}
+  .ghosts{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+  .ghost{width:64px;aspect-ratio:4/5;border:1.5px dashed var(--line-strong);border-radius:10px}
+  .ghost:nth-child(2){transform:translateY(8px)}
+
+  /* project picker */
+  .picker{width:430px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:0 18px 50px rgba(0,0,0,.34);padding:16px}
+  .picker h3{font:600 15px 'Inter Tight';margin-bottom:12px}
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:none;padding:0;text-align:left}
+  .pcard:hover{border-color:var(--line-strong)}
+  .pcard img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+  .pcard .m{padding:8px 11px}
+  .pcard b{font-size:12px}
+  .pcard small{display:block;color:var(--fg3);font-size:10.5px}
+  .pcard.new{display:grid;place-content:center;gap:6px;justify-items:center;color:var(--fg3);border-style:dashed;font-size:12px;min-height:110px}
+
+  .theme-flip{position:fixed;right:16px;bottom:16px;z-index:60;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg2)}
+
+  /* sign in */
+  .in{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--fg);height:38px;padding:0 12px;font:13px 'Inter Tight';outline:none;margin-bottom:10px}
+  .in::placeholder{color:var(--fg3)}
+  .in:focus{border-color:var(--fg)}
+  .dlg label{display:block;font:600 11.5px 'Inter Tight';color:var(--fg2);margin-bottom:5px}
+  .oauth{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;border:1px solid var(--line);background:none;border-radius:10px;padding:10px;font:600 12.5px 'Inter Tight';margin-bottom:8px}
+  .oauth:hover{background:var(--hover)}
+  .or{display:flex;align-items:center;gap:10px;color:var(--fg3);font-size:10.5px;margin:12px 0}
+  .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+  .dlg .foot{font-size:11.5px;color:var(--fg3);text-align:center;margin-top:12px}
+  .dlg .foot button{border:none;background:none;color:var(--fg2);text-decoration:underline;padding:0}
+
+  /* add product */
+  .drop{border:1.5px dashed var(--line-strong);border-radius:12px;display:grid;place-content:center;gap:7px;justify-items:center;height:120px;color:var(--fg3);font-size:12px;margin-bottom:12px}
+  .lockrow{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-size:11.5px;color:var(--fg2);margin-bottom:12px}
+  .lockrow svg{flex:none;color:var(--fg)}
+
+  /* confirm */
+  .dlg.confirm p{font-size:12.5px;color:var(--fg2);margin-bottom:16px}
+  .dlg .btns{display:flex;gap:8px;justify-content:flex-end}
+  .dlg .ghostb{border:1px solid var(--line);background:none;border-radius:999px;padding:8px 16px;font:600 12.5px 'Inter Tight'}
+  .dlg .ghostb:hover{background:var(--hover)}
+  .dlg .redb{border:none;background:var(--red);color:#fff;border-radius:999px;padding:8px 16px;font:600 12.5px 'Inter Tight'}
+  .dlg .redb:hover{opacity:.88}
+
+  /* shortcuts */
+  .keys{width:330px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:0 18px 50px rgba(0,0,0,.34);padding:16px}
+  .keys h3{font:600 15px 'Inter Tight';margin-bottom:10px}
+  .krow{display:flex;align-items:center;font-size:12.5px;color:var(--fg2);padding:7px 0;border-top:1px solid var(--line)}
+  .krow .sp{flex:1}
+  kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--raised);padding:2px 7px;color:var(--fg);margin-left:4px}
+
+  /* composer: brief line, tokens, sigil menus */
+  .briefwrap{width:420px;position:relative}
+  .brief{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:13px 14px;font-size:13.5px;line-height:2.1;min-height:74px}
+  .brief .caret{display:inline-block;width:1.5px;height:15px;background:var(--fg);vertical-align:-3px;animation:bl 1s steps(1) infinite}
+  @keyframes bl{50%{opacity:0}}
+  .brief .q{color:var(--fg);font-weight:500}
+  .tok{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line-strong);background:var(--raised);border-radius:999px;padding:2px 10px 2px 4px;font-size:12.5px;font-weight:500;vertical-align:1px}
+  .tok img{width:17px;height:17px;border-radius:50%;object-fit:cover}
+  .tok .ic{width:17px;height:17px;border-radius:50%;display:grid;place-items:center;background:var(--line);color:var(--fg2);flex:none}
+  .tok .sw{width:17px;height:17px;border-radius:50%;flex:none}
+  .tok.look{border-style:dashed}
+  .cmd{position:absolute;left:12px;bottom:calc(100% + 8px);width:300px;border:1px solid var(--line);border-radius:13px;background:var(--panel);box-shadow:0 18px 50px rgba(0,0,0,.34);overflow:hidden}
+  .cmd-h{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--fg3)}
+  .cmd-h .sig{font:600 12.5px 'Inter Tight';color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+  .cmd-h .sp{flex:1}
+  .cmd-g{font:600 11px 'Inter Tight';color:var(--fg3);padding:9px 13px 5px}
+  .cmd-row{display:flex;align-items:center;gap:9px;padding:7px 13px;font-size:12.5px}
+  .cmd-row[data-on]{background:var(--raised)}
+  .cmd-row img{width:22px;height:22px;border-radius:6px;object-fit:cover;flex:none}
+  .cmd-row .ic{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;background:var(--raised);color:var(--fg2);flex:none}
+  .cmd-row .sw{width:22px;height:22px;border-radius:6px;flex:none}
+  .cmd-row small{color:var(--fg3);font-size:11.5px;margin-left:auto}
+  .cmd-f{padding:8px 13px;border-top:1px solid var(--line);font-size:11px;color:var(--fg3)}
+  .cmd-f kbd{margin:0 2px}
+
+  /* engine unavailable banner */
+  .banner{display:flex;align-items:center;gap:10px;width:460px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:12px;background:var(--panel);padding:11px 14px;font-size:12.5px}
+  .banner small{display:block;color:var(--fg2);font-size:11.5px}
+  .banner .act{margin-left:auto;border:1px solid var(--line);background:none;border-radius:999px;padding:5px 13px;font:600 11.5px 'Inter Tight';flex:none}
+  .banner .act:hover{background:var(--hover)}
+</style>
+</head>
+<body>
+<main>
+  <h1>The small <em>surfaces</em></h1>
+  <p class="sub">Popovers, dialogs and states, specified once so nothing ships as an afterthought.</p>
+
+  <div class="sheet">
+
+    <div class="spec">
+      <span class="cap">Credits popover</span>
+      <div class="pop">
+        <div class="pop-h"><span class="coin"></span><b>228 generations left</b></div>
+        <div class="prow"><span>Codex CLI</span><span class="sp"></span><span class="free-tag">free</span></div>
+        <div class="prow"><span>Demo</span><span class="sp"></span><span class="free-tag">free</span></div>
+        <div class="prow"><span>OpenRouter</span><span class="sp"></span><small>228 left of 300</small></div>
+        <div class="prow"><span>Replicate</span><span class="sp"></span><small>no key</small></div>
+        <div class="pop-f">Credits are your own API budget translated into generations. <button>Adjust caps</button></div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Brand switcher popover</span>
+      <div class="pop">
+        <div class="prow" data-on><span class="bdot" style="background:#f5a623"></span>Stripe<span class="sp"></span><span class="tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 13 4 4L19 7"/></svg></span></div>
+        <div class="prow"><span class="bdot" style="background:#6c5ce7"></span>Shida Cosmetics</div>
+        <div class="prow"><span class="bdot" style="background:#00b894"></span>Verdant Coffee</div>
+        <div class="prow" style="color:var(--fg2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Set up a brand</div>
+        <div class="prow" style="color:var(--fg2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>Settings</div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Export dialog</span>
+      <div class="dlg">
+        <h3>Export this shot</h3>
+        <p class="d-sub">Text layers render into the pixels exactly as shown.</p>
+        <div class="opt" data-on><span class="cb"></span><span>PNG with text<small>2048 wide, layers flattened</small></span></div>
+        <div class="opt" data-on><span class="cb"></span><span>Instagram post<small>1080 x 1080</small></span></div>
+        <div class="opt"><span class="cb"></span><span>Story<small>1080 x 1920</small></span></div>
+        <div class="opt"><span class="cb"></span><span>Original<small>untouched render</small></span></div>
+        <button class="go">Download zip</button>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Compare, drift heatmap</span>
+      <div class="cmp">
+        <h3>What changed</h3>
+        <div class="tri">
+          <figure><img src="http://127.0.0.1:4747/api/images/8292b1e3eade11fbaedb3f74d225b51c" alt=""><figcaption>Source</figcaption></figure>
+          <figure><img src="http://127.0.0.1:4747/api/images/ccb8fb48583b1711f1d63ba8fedcd0ff" alt=""><figcaption>This shot</figcaption></figure>
+          <figure><span class="heat"></span><figcaption>Drift</figcaption></figure>
+        </div>
+        <p class="score"><b>12% of pixels moved.</b> The product held still, the light did not.</p>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Toasts</span>
+      <div>
+        <div class="toast"><span class="ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4L19 7"/></svg></span>2 shots ready<span class="sp"></span><button class="act">View</button></div>
+        <div class="toast"><span class="err"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg></span>Engine timed out<span class="sp"></span><button class="act">Retry</button></div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Empty project</span>
+      <div class="empty">
+        <div class="ghosts"><span class="ghost"></span><span class="ghost"></span><span class="ghost"></span></div>
+        <h4>An empty <em>set</em></h4>
+        <p>Describe the first shot below, or start from a template. Everything you make lands here as a tree.</p>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">First run, no brand yet</span>
+      <div class="empty">
+        <h4>Whose <em>brand</em> is this?</h4>
+        <p>scenri needs a kit to keep every image on brand. Build one from a URL in about a minute.</p>
+        <button class="cta">Set up a brand</button>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Project picker, Create with no open project</span>
+      <div class="picker">
+        <h3>Pick up where you left off</h3>
+        <div class="pgrid">
+          <button class="pcard"><img src="http://127.0.0.1:4747/api/images/8292b1e3eade11fbaedb3f74d225b51c" alt=""><span class="m"><b>Summer campaign</b><small>5 shots · today</small></span></button>
+          <button class="pcard"><img src="http://127.0.0.1:4747/api/images/6958e8be2f7618b7d0e6d55173091c37" alt=""><span class="m"><b>Project 1</b><small>14 shots · today</small></span></button>
+          <button class="pcard new"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New project</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Sign in, hosted studio only</span>
+      <div class="dlg">
+        <h3>Welcome <em style="font:italic 500 17px 'Playfair Display'">back</em></h3>
+        <p class="d-sub">The local app never asks you to sign in.</p>
+        <button class="oauth"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.2-3.4-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.4 1.1 3 .8.1-.6.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.2-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.4.1 2.6.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg>Continue with GitHub</button>
+        <div class="or">or</div>
+        <label>Email</label>
+        <input class="in" placeholder="you@studio.com">
+        <button class="go">Send magic link</button>
+        <p class="foot">New here? <button>Start with a brief instead</button></p>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Add product dialog</span>
+      <div class="dlg">
+        <h3>Add a product</h3>
+        <p class="d-sub">Clean shots on plain backgrounds work best.</p>
+        <div class="drop">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0 4 4m-4-4-4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          Drop images, or click to browse
+        </div>
+        <label>Product name</label>
+        <input class="in" placeholder="Sparkling can, 330ml">
+        <div class="lockrow">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          The first shot becomes the locked reference. It travels with every brief so the label and shape never drift.
+        </div>
+        <button class="go">Save product</button>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Destructive confirm</span>
+      <div class="dlg confirm">
+        <h3>Delete Summer campaign?</h3>
+        <p>5 shots, their briefs and text layers go with it. Exports you already downloaded stay yours. This cannot be undone.</p>
+        <div class="btns">
+          <button class="ghostb">Keep it</button>
+          <button class="redb">Delete project</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Keyboard shortcuts, press ?</span>
+      <div class="keys">
+        <h3>Shortcuts</h3>
+        <div class="krow" style="border-top:none">Generate<span class="sp"></span><kbd>cmd</kbd><kbd>enter</kbd></div>
+        <div class="krow">Ingredient menu<span class="sp"></span><kbd>@</kbd></div>
+        <div class="krow">Look menu<span class="sp"></span><kbd>#</kbd></div>
+        <div class="krow">Walk siblings<span class="sp"></span><kbd>&larr;</kbd><kbd>&rarr;</kbd></div>
+        <div class="krow">Walk lineage<span class="sp"></span><kbd>&uarr;</kbd><kbd>&darr;</kbd></div>
+        <div class="krow">Step variants<span class="sp"></span><kbd>[</kbd><kbd>]</kbd></div>
+        <div class="krow">Keep or unkeep<span class="sp"></span><kbd>k</kbd></div>
+        <div class="krow">Open the shot<span class="sp"></span><kbd>enter</kbd></div>
+        <div class="krow">Close the shot<span class="sp"></span><kbd>esc</kbd></div>
+        <div class="krow">Assets panel<span class="sp"></span><kbd>.</kbd></div>
+        <div class="krow">This list<span class="sp"></span><kbd>?</kbd></div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Brief · @ picks an ingredient</span>
+      <div class="briefwrap">
+        <div class="cmd">
+          <div class="cmd-h"><span class="sig">@</span>Ingredients<span class="sp"></span><span>mar</span></div>
+          <div class="cmd-g">Cast</div>
+          <div class="cmd-row" data-on><img src="http://127.0.0.1:4747/api/template-previews/candlelit-mantel.jpg" alt=""><span>Marco</span><small>character</small></div>
+          <div class="cmd-g">Products</div>
+          <div class="cmd-row"><img src="http://127.0.0.1:4747/api/template-previews/aluminium-studio.jpg" alt=""><span>Market tin</span><small>2 shots</small></div>
+          <div class="cmd-f">Enter to place it, <kbd>esc</kbd> to keep typing</div>
+        </div>
+        <div class="brief">A studio shot of <span class="tok"><img src="http://127.0.0.1:4747/api/template-previews/structural-studio.jpg" alt="">Anti-chafe stick</span> held by <span class="q">@mar</span><span class="caret"></span></div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Brief · # picks a look</span>
+      <div class="briefwrap">
+        <div class="cmd">
+          <div class="cmd-h"><span class="sig">#</span>Looks<span class="sp"></span><span>morn</span></div>
+          <div class="cmd-g">Lived-in</div>
+          <div class="cmd-row" data-on><img src="http://127.0.0.1:4747/api/template-previews/morning-tabletop.jpg" alt=""><span>Morning Tabletop</span><small>low window light</small></div>
+          <div class="cmd-row"><img src="http://127.0.0.1:4747/api/template-previews/candlelit-mantel.jpg" alt=""><span>Golden Hour Outdoor</span><small>warm low sun</small></div>
+          <div class="cmd-f">One look per brief. A second one replaces the first</div>
+        </div>
+        <div class="brief">A studio shot of <span class="tok"><img src="http://127.0.0.1:4747/api/template-previews/structural-studio.jpg" alt="">Anti-chafe stick</span> in <span class="q">#morn</span><span class="caret"></span></div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Brief · placed, and a hex that stays text</span>
+      <div class="briefwrap">
+        <div class="brief">
+          <span class="tok"><img src="http://127.0.0.1:4747/api/template-previews/structural-studio.jpg" alt="">Anti-chafe stick</span>
+          held by
+          <span class="tok"><span class="ic"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>Marco</span>
+          in <span class="tok look"><img src="http://127.0.0.1:4747/api/template-previews/morning-tabletop.jpg" alt="">Morning Tabletop</span>,
+          keep the cap #F5A623<span class="caret"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="cap">Engine unavailable banner</span>
+      <div class="banner">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--fg2)"><path d="m13 2-9 12h7l-1 8 9-12h-7Z"/></svg>
+        <span>Codex CLI not detected<small>Falling back to Demo. Generations are placeholders until an engine is connected.</small></span>
+        <button class="act">Open settings</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<button class="theme-flip" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'" title="Flip theme">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+</button>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "id": "candlelit-mantel",
+  "name": "Candlelit Mantel",
+  "lighting": "Single warm flame",
+  "subject": "either",
+  "collections": ["Lived-in"],
+  "verticals": ["Home", "Fragrance", "Beauty"],
+  "description": "One warm flame carrying the frame, brass and evergreen at the edges, everything else falling into shadow.",
+  "prompt": "on a dark mantel lit almost entirely by a single warm flame, brass and evergreen at the edges of frame, deep falloff into shadow, restrained seasonal set dressing, premium campaign still-life quality",
+  "width": 1024,
+  "height": 1024,
+  "aliases": ["seasonal-scene"]
+}

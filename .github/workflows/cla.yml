@@ -1,0 +1,47 @@
+name: CLA
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, synchronize, closed]
+
+# SAFETY: this uses `pull_request_target`, which runs with a writable token even
+# for pull requests from forks. That is required for a CLA bot to comment, and it
+# is only safe because this workflow never checks out or executes the pull
+# request's code. Do not add `actions/checkout` here, and never add a `run:` step
+# that interpolates `github.event.*` text: comment bodies and PR titles are
+# attacker controlled. The one comparison below is an expression-level equality
+# check, which is evaluated by GitHub and never reaches a shell.
+permissions:
+  actions: write
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  cla:
+    runs-on: ubuntu-latest
+    # Only act on PR comments, and only on the signature phrase. Without this
+    # every comment on every issue would spin up a job.
+    if: >
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA')
+      || github.event_name == 'pull_request_target'
+    steps:
+      - uses: contributor-assistant/github-action@v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-signatures: signatures/cla.json
+          path-to-document: https://github.com/tonygorb/scenri/blob/main/CLA.md
+          branch: cla-signatures
+          allowlist: tonygorb,dependabot[bot],github-actions[bot]
+          custom-notsigned-prcomment: >
+            Thank you for the pull request. scenri asks every contributor to sign its
+            [Contributor License Agreement](https://github.com/tonygorb/scenri/blob/main/CLA.md)
+            once. You keep the copyright in your contribution and every right to use it
+            elsewhere. To sign, reply to this pull request with exactly:
+          custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
+          custom-allsigned-prcomment: 'CLA signed. Thank you.'

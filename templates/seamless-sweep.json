@@ -1,0 +1,23 @@
+{
+  "id": "seamless-sweep",
+  "name": "Seamless Sweep",
+  "lighting": "Big soft key",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": [
+    "Beauty",
+    "Fragrance",
+    "Home",
+    "Food & drink",
+    "Jewelry",
+    "Electronics",
+    "Sport",
+    "Accessories",
+    "Apparel"
+  ],
+  "description": "A paper sweep with no visible horizon, one large soft key and a gentle fill. Commercial polish, nothing to read but the subject.",
+  "prompt": "on a seamless ivory cyclorama with no visible horizon, a single large softbox key with subtle fill, faint mirror reflection beneath, razor-sharp focus with a 100mm macro-lens look, retouch-grade commercial finish",
+  "width": 1024,
+  "height": 1024,
+  "aliases": ["studio-packshot"]
+}

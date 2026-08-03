@@ -1,0 +1,13 @@
+{
+  "id": "aluminium-studio",
+  "name": "Aluminium Studio",
+  "lighting": "Hard specular",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": ["Food & drink", "Beauty", "Home"],
+  "description": "A narrow hard source raking a metal surface, tight speculars, condensation catching the highlight. Cold, clean, industrial.",
+  "prompt": "under a narrow hard studio source raking across the surface, tight controlled speculars and micro-condensation, crisp three-point separation on a cool neutral ground, beverage-advertising grade realism",
+  "width": 1024,
+  "height": 1024,
+  "aliases": ["label-on-can"]
+}

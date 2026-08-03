@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Versions are never typed by hand. release-please reads the conventional
+# commits on main, opens a PR carrying the version bump and CHANGELOG, and
+# publishing happens only when that PR is merged.
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      cli_released: ${{ steps.release.outputs['packages/cli--release_created'] }}
+      brand_released: ${{ steps.release.outputs['packages/brand-spec--release_created'] }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release
+    if: needs.release.outputs.cli_released == 'true' || needs.release.outputs.brand_released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the studio into the CLI bundle
+        run: pnpm build
+
+      - name: Publish @scenri/brand
+        if: needs.release.outputs.brand_released == 'true'
+        run: pnpm --filter @scenri/brand publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish scenri
+        if: needs.release.outputs.cli_released == 'true'
+        run: pnpm --filter scenri publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

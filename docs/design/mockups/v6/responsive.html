@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scenri v6 · Responsive frames</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{ --r-full:999px; --gold:#f5c518; --gold-ink:#191300; }
+  [data-theme="light"]{
+    --bg:#ffffff; --panel:#ffffff; --raised:#f6f6f6; --line:#e8e8e8; --line-strong:#d4d4d4;
+    --fg:#0a0a0a; --fg2:#666666; --fg3:#9a9a9a;
+    --inv-bg:#0a0a0a; --inv-fg:#ffffff; --hover:#f4f4f4; --scrim:rgba(255,255,255,.72); --red:#d93025;
+  
+    --sb:rgba(10,10,10,.18); --sb-hover:rgba(10,10,10,.34);
+  }
+  [data-theme="dark"]{
+    --bg:#0d0d0d; --panel:#141414; --raised:#1a1a1a; --line:#262626; --line-strong:#383838;
+    --fg:#f5f5f5; --fg2:#9a9a9a; --fg3:#6b6b6b;
+    --inv-bg:#f5f5f5; --inv-fg:#0d0d0d; --hover:#1c1c1c; --scrim:rgba(13,13,13,.72); --red:#ff6b62;
+  
+    --sb:rgba(245,245,245,.20); --sb-hover:rgba(245,245,245,.36);
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--fg);font:400 13.5px/1.55 'Inter Tight',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  svg{display:block}
+
+  /* ---------- scrollbars: part of the page, never louder than it ----------
+     Thin, no track, thumb tinted from the theme's own line color and only
+     fully visible while the pointer is over the scrollable area. Firefox gets
+     the same treatment through scrollbar-color. */
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:999px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--sb-hover);background-clip:content-box}
+
+
+  main{max-width:1240px;margin:0 auto;padding:34px 24px 110px}
+  h1{font:600 28px 'Inter Tight';letter-spacing:-.02em;margin-bottom:4px}
+  h1 em{font:italic 500 30px 'Playfair Display'}
+  .sub{color:var(--fg2);margin-bottom:30px}
+  .lineup{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+  .device{flex:none}
+  .device > .cap{font:10.5px ui-monospace,monospace;color:var(--fg3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;display:block}
+  .shell{border:1.5px solid var(--line-strong);border-radius:26px;overflow:hidden;background:var(--bg);box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
+  .phone{width:300px;height:620px}
+  .tab{width:520px;height:620px}
+
+  /* shared mini components */
+  .m-top{display:flex;align-items:center;gap:8px;height:46px;padding:0 12px}
+  .m-word{font:600 13px 'Inter Tight';letter-spacing:-.02em}
+  .m-credits{margin-left:auto;display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:var(--gold);color:var(--gold-ink);font-weight:650;font-size:10.5px}
+  .m-coin{width:11px;height:11px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff3b0, #f0b90b 60%, #a67c00)}
+  .m-ico{width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;color:var(--fg2);background:var(--panel)}
+  .m-nav{display:flex;gap:2px;padding:2.5px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+  .m-nav button{border:none;background:none;width:28px;height:24px;border-radius:999px;display:grid;place-items:center;color:var(--fg2)}
+  .m-nav button[data-on]{background:var(--inv-bg);color:var(--inv-fg)}
+  .m-greet{font:600 19px/1.2 'Inter Tight';letter-spacing:-.02em;padding:8px 14px 12px}
+  .m-greet em{font:italic 500 21px 'Playfair Display'}
+  .m-tabs{display:flex;gap:12px;padding:0 14px 8px;border-bottom:1px solid var(--line);font-size:11px;color:var(--fg2)}
+  .m-tabs b{color:var(--fg);border-bottom:1.5px solid var(--fg);padding-bottom:8px;margin-bottom:-9px;font-weight:600}
+  .m-masonry{columns:2;column-gap:7px;padding:10px 12px 120px}
+  .m-cell{break-inside:avoid;margin-bottom:7px;border-radius:8px;overflow:hidden;border:1px solid var(--line);position:relative}
+  .m-cell img{width:100%;display:block}
+  .m-run{aspect-ratio:4/5;background:var(--raised)}
+  .m-run i{position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb, var(--gold) 14%, transparent) 50%,transparent 70%);background-size:220% 100%;animation:sh 1.6s linear infinite}
+  @keyframes sh{from{background-position:180% 0}to{background-position:-80% 0}}
+  .m-run em{position:absolute;left:7px;bottom:6px;font:500 8.5px ui-monospace,monospace;font-style:normal;color:var(--fg2);background:var(--scrim);border:1px solid var(--line);border-radius:4px;padding:2px 5px}
+  .m-dock{position:absolute;left:10px;right:10px;bottom:12px;background:var(--panel);border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 12px 34px rgba(0,0,0,.32);padding:9px 9px 8px}
+  .m-dock .ph{font-size:11px;color:var(--fg3);padding:1px 3px 7px}
+  .m-dock .row{display:flex;align-items:center;gap:6px}
+  .m-attach{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:none;border-radius:999px;padding:3px 9px;font-size:10px;color:var(--fg2)}
+  .m-go{margin-left:auto;width:26px;height:26px;border-radius:50%;border:none;background:var(--inv-bg);color:var(--inv-fg);display:grid;place-items:center}
+
+  /* phone overlay frame */
+  .o-top{display:flex;align-items:center;gap:8px;padding:12px}
+  .o-title{font:600 13px 'Inter Tight'}
+  .o-title small{font:400 10px 'Inter Tight';color:var(--fg3);margin-left:5px}
+  .o-strip{display:flex;gap:6px;padding:0 12px 10px;overflow-x:auto}
+  .o-fr{width:40px;height:40px;flex:none;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+  .o-fr img{width:100%;height:100%;object-fit:cover}
+  .o-fr[data-on]{border:2px solid var(--fg);width:44px;height:44px}
+  .o-img{margin:0 12px;border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative}
+  .o-img img{width:100%;display:block}
+  .o-layer{position:absolute;left:8%;top:10%;color:#fff;font:700 15px 'Inter Tight';text-shadow:0 2px 8px rgba(0,0,0,.5);outline:1.5px solid #fff;outline-offset:3px}
+  .o-h{position:absolute;width:13px;height:13px;border-radius:50%;background:#fff;border:1.5px solid #333}
+  .o-acts{display:flex;flex-wrap:wrap;gap:6px;padding:12px}
+  .o-act{border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:5px 11px;font-size:10.5px}
+  .o-act.pri{background:var(--inv-bg);color:var(--inv-fg);border-color:transparent;font-weight:600}
+  .o-edit{position:absolute;left:10px;right:10px;bottom:12px;border:1px solid var(--line-strong);border-radius:12px;background:var(--panel);box-shadow:0 12px 34px rgba(0,0,0,.32);padding:8px}
+  .o-edit .ph{font-size:10.5px;color:var(--fg3);padding:0 3px 6px}
+
+  /* tablet create */
+  .t-body{display:grid;grid-template-columns:1fr;height:calc(100% - 46px);position:relative}
+  .t-masonry{columns:3;column-gap:7px;padding:10px 12px 90px;overflow:hidden}
+  .t-sheet{position:absolute;right:0;top:0;bottom:0;width:172px;border-left:1px solid var(--line);background:var(--panel);padding:12px;box-shadow:-14px 0 34px rgba(0,0,0,.22)}
+  .t-sheet .hd{display:flex;align-items:center;justify-content:space-between;font:600 11px 'Inter Tight';margin-bottom:8px}
+  .t-sheet .hd .x{border:none;background:none;color:var(--fg3);padding:0}
+  .t-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+  .t-grid button{border:1px solid var(--line);border-radius:7px;overflow:hidden;padding:0;background:var(--raised);aspect-ratio:1}
+  .t-grid img{width:100%;height:100%;object-fit:cover;display:block}
+  .t-cap{font:600 9.5px 'Inter Tight';letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);margin-bottom:6px}
+  .note{font-size:11.5px;color:var(--fg2);max-width:280px;margin-top:12px}
+
+  .theme-flip{position:fixed;right:16px;bottom:16px;z-index:60;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg2)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Three widths, one <em>language</em></h1>
+  <p class="sub">Drawn frames for the breakpoint rules in system.html. Same tokens, same hierarchy, nothing improvised per device.</p>
+
+  <div class="lineup">
+
+    <!-- ============ mobile home ============ -->
+    <div class="device">
+      <span class="cap">Mobile · home · under 768</span>
+      <div class="shell phone">
+        <div class="m-top">
+          <span class="m-word">scenri</span>
+          <nav class="m-nav">
+            <button data-on><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 4l9 6.5M5 9v11h14V9"/></svg></button>
+            <button><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="2.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2-1.5 3-3 3h-3a2.5 2.5 0 0 0-2 4c.5.6.5 1.5 0 2-.6.6-1.3 1-2 1Z"/></svg></button>
+          </nav>
+          <span class="m-credits"><span class="m-coin"></span>228</span>
+        </div>
+        <div class="m-greet">Make something <em>on brand</em></div>
+        <div class="m-tabs"><b>All</b><span>Keepers</span><span>Summer campaign</span></div>
+        <div class="m-masonry">
+          <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/6958e8be2f7618b7d0e6d55173091c37" alt=""></span>
+          <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/8292b1e3eade11fbaedb3f74d225b51c" alt=""></span>
+          <span class="m-cell m-run"><i></i><em>41s</em></span>
+          <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/90e4a82eeef94e0b6bdc25ebf932b32f" alt=""></span>
+          <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/348b0542c153f5f054f214209b338640" alt=""></span>
+          <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/17841eed5374d74b26dd20a12a3ba3e4" alt=""></span>
+        </div>
+        <div class="m-dock">
+          <div class="ph">Describe the visual you want</div>
+          <div class="row">
+            <button class="m-attach"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Attach</button>
+            <button class="m-go"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ mobile detail overlay ============ -->
+    <div class="device">
+      <span class="cap">Mobile · detail overlay, stacked</span>
+      <div class="shell phone">
+        <div class="o-top">
+          <button class="m-ico"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+          <span class="o-title">Refine<small>Codex · 92s</small></span>
+          <span class="m-credits" style="margin-left:auto"><span class="m-coin"></span>228</span>
+        </div>
+        <div class="o-strip">
+          <span class="o-fr"><img src="http://127.0.0.1:4747/api/images/8292b1e3eade11fbaedb3f74d225b51c" alt=""></span>
+          <span class="o-fr" data-on><img src="http://127.0.0.1:4747/api/images/ccb8fb48583b1711f1d63ba8fedcd0ff" alt=""></span>
+          <span class="o-fr"><img src="http://127.0.0.1:4747/api/images/e406bf4c39609b3931d58b5088d124be" alt=""></span>
+          <span class="o-fr"><img src="http://127.0.0.1:4747/api/images/9a674a1eb271219b486b1bfa4d6a2910" alt=""></span>
+        </div>
+        <div class="o-img">
+          <img src="http://127.0.0.1:4747/api/images/ccb8fb48583b1711f1d63ba8fedcd0ff" alt="">
+          <span class="o-layer">Summer, served cold
+            <span class="o-h" style="left:-14px;top:50%;transform:translateY(-50%)"></span>
+            <span class="o-h" style="right:-14px;top:50%;transform:translateY(-50%)"></span>
+          </span>
+        </div>
+        <div class="o-acts">
+          <button class="o-act pri">Make text editable</button>
+          <button class="o-act">Remix</button>
+          <button class="o-act">Compare</button>
+          <button class="o-act">Export</button>
+        </div>
+        <div class="o-edit">
+          <div class="ph">Refine this shot</div>
+          <div class="row" style="display:flex;align-items:center;gap:6px">
+            <button class="m-attach"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Attach</button>
+            <button class="m-go"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <p class="note">Filmstrip goes horizontal under the header. Text handles grow to 24px touch targets in edit mode.</p>
+    </div>
+
+    <!-- ============ tablet create with assets sheet ============ -->
+    <div class="device">
+      <span class="cap">Tablet · create · 768 to 1279, assets as sheet</span>
+      <div class="shell tab">
+        <div class="m-top">
+          <span class="m-word">scenri</span>
+          <nav class="m-nav" style="position:absolute;left:50%;transform:translateX(-50%)">
+            <button><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 4l9 6.5M5 9v11h14V9"/></svg></button>
+            <button data-on><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="2.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2-1.5 3-3 3h-3a2.5 2.5 0 0 0-2 4c.5.6.5 1.5 0 2-.6.6-1.3 1-2 1Z"/></svg></button>
+          </nav>
+          <span class="m-credits"><span class="m-coin"></span>228</span>
+          <button class="m-ico"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+        </div>
+        <div class="t-body">
+          <div class="t-masonry">
+            <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/8292b1e3eade11fbaedb3f74d225b51c" alt=""></span>
+            <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/90e4a82eeef94e0b6bdc25ebf932b32f" alt=""></span>
+            <span class="m-cell m-run"><i></i><em>58s</em></span>
+            <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/ccb8fb48583b1711f1d63ba8fedcd0ff" alt=""></span>
+            <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/e406bf4c39609b3931d58b5088d124be" alt=""></span>
+            <span class="m-cell"><img src="http://127.0.0.1:4747/api/images/9a674a1eb271219b486b1bfa4d6a2910" alt=""></span>
+          </div>
+          <div class="t-sheet">
+            <div class="hd">Assets<button class="x"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+            <p class="t-cap">Products</p>
+            <div class="t-grid">
+              <button><img src="http://127.0.0.1:4747/api/images/42a2553fd093ab346237c840f3799e24" alt=""></button>
+              <button><img src="http://127.0.0.1:4747/api/images/06deabdf4a58a20a14a1c6132d860b98" alt=""></button>
+            </div>
+            <p class="t-cap">Looks</p>
+            <div class="t-grid">
+              <button><img src="http://127.0.0.1:4747/api/template-previews/seamless-sweep.jpg" alt=""></button>
+              <button><img src="http://127.0.0.1:4747/api/template-previews/aluminium-studio.jpg" alt=""></button>
+            </div>
+            <p class="t-cap">Brand colors</p>
+            <div class="t-grid">
+              <button style="background:#f5a623;aspect-ratio:2.4/1"></button>
+              <button style="background:#424770;aspect-ratio:2.4/1"></button>
+            </div>
+          </div>
+          <div class="m-dock" style="right:186px">
+            <div class="ph">Describe the visual you want</div>
+            <div class="row">
+              <button class="m-attach"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Attach</button>
+              <button class="m-go"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note">Sheet slides over the canvas and dismisses on outside tap. Composer shifts left of the sheet while it is open.</p>
+    </div>
+
+  </div>
+</main>
+
+<button class="theme-flip" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'" title="Flip theme">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+</button>
+</body>
+</html>

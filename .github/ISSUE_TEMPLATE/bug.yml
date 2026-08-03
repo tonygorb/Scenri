@@ -1,0 +1,64 @@
+name: Bug report
+description: Something behaves differently than it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Found a security issue instead? Do not file it here. See [SECURITY.md](../blob/main/SECURITY.md) for private reporting.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `npx scenri`
+        2. Create a brand from acme.com
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Which engine
+      options:
+        - Demo (no key needed)
+        - Codex CLI
+        - OpenRouter
+        - Replicate
+        - fal
+        - Not engine related
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: scenri version
+      description: From Settings, About. Or `npx scenri --version`.
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and Node version
+      placeholder: macOS 15.2, Node 22.11
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal output
+      description: Anything the server printed. Redact API keys before pasting.
+      render: shell

@@ -1,0 +1,31 @@
+{
+  "id": "story-headline",
+  "name": "Story, Headline Top",
+  "lighting": "Even frontal fill",
+  "subject": "either",
+  "collections": ["Social"],
+  "verticals": ["Apparel", "Sport", "Beauty", "Fragrance", "Accessories"],
+  "description": "Vertical 9:16 with the top third open for a headline and the base kept clear for a call to action.",
+  "prompt": "composed for a vertical 9:16 story with the top third open and evenly lit for a headline and the base kept clear for a call to action, subject centred in the middle band, even frontal fill, absolutely no text or lettering rendered in the image",
+  "width": 1080,
+  "height": 1920,
+  "fields": [
+    {
+      "key": "headline",
+      "label": "Headline",
+      "placeholder": "New season"
+    }
+  ],
+  "textZones": [
+    {
+      "fieldKey": "headline",
+      "x": 10,
+      "y": 6,
+      "width": 80,
+      "size": 84,
+      "align": "center",
+      "weightHint": 700
+    }
+  ],
+  "aliases": ["story-vertical"]
+}

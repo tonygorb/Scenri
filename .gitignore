@@ -1,0 +1,38 @@
+node_modules/
+dist/
+build/
+out/
+*.tgz
+
+# assembled by packages/cli/scripts/prepack.mjs at publish time, never committed
+packages/cli/studio-dist/
+packages/cli/templates/
+packages/cli/LICENSE
+packages/cli/NOTICE
+packages/cli/README.md
+.pnpm-store/
+.DS_Store
+*.local
+coverage/
+*.log
+
+# secrets. .env* is broad on purpose: it catches .env.local, .env.production
+# and anything else someone reaches for in a hurry.
+.env*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# agent and editor tooling. These write into the repo and have already leaked
+# an absolute home path once, so they stay out.
+.claude/
+.serena/
+.cursor/
+.remember/
+.aider*
+
+# playwright
+apps/studio/test-results/
+apps/studio/playwright-report/
+.playwright-mcp/

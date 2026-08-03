@@ -1,0 +1,73 @@
+{
+  "name": "scenri",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "bin": {
+    "scenri": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsup",
+    "prepublishOnly": "node scripts/prepack.mjs"
+  },
+  "dependencies": {
+    "@fastify/multipart": "^9.0.0",
+    "@fastify/static": "^8.0.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "better-sqlite3": "^12.0.0",
+    "cheerio": "^1.0.0",
+    "fastify": "^5.0.0",
+    "jszip": "^3.10.1",
+    "node-html-parser": "^7.0.1",
+    "open": "^10.1.0",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "sharp": "^0.34.0"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5",
+    "tsup": "^8.5.1",
+    "@scenri/brand": "workspace:*",
+    "@scenri/catalog": "workspace:*",
+    "@scenri/core": "workspace:*",
+    "@scenri/engine-codex": "workspace:*",
+    "@scenri/engine-demo": "workspace:*",
+    "@scenri/engine-fal": "workspace:*",
+    "@scenri/engine-openrouter": "workspace:*",
+    "@scenri/engine-replicate": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "studio-dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tonygorb/scenri.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://scenri.dev",
+  "bugs": {
+    "url": "https://github.com/tonygorb/scenri/issues"
+  },
+  "keywords": [
+    "brand",
+    "ai",
+    "image-generation",
+    "local-first",
+    "art-direction",
+    "design",
+    "cli"
+  ],
+  "description": "The open studio for brand-consistent AI visuals. Runs locally, on your own AI accounts."
+}

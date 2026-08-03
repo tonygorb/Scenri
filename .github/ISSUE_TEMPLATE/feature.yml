@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest something scenri should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: Describe the situation, not the solution. What are you working on when you hit this?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: Optional. If you already have a shape in mind, describe it.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This works offline, on my own machine, without an account
+        - label: I have read ROADMAP.md and this is not already planned

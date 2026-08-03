@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    groups:
+      # One PR per family instead of a dozen. A solo maintainer cannot review
+      # fifteen dependency PRs a week, and unreviewed ones just rot.
+      dev-tooling:
+        patterns: ['@biomejs/*', 'typescript', 'vitest', 'tsx', '@types/*']
+      playwright:
+        patterns: ['@playwright/*', 'playwright']
+      react:
+        patterns: ['react', 'react-dom', '@radix-ui/*', '@phosphor-icons/*']
+      fonts:
+        patterns: ['@fontsource/*', '@fontsource-variable/*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: 'chore(ci)'

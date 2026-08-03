@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scenri v6 · Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --r-card:14px; --r-tile:10px; --r-bar:18px;
+    --gold:#f5c518; --gold-ink:#191300;
+  }
+  [data-theme="light"]{
+    --bg:#ffffff; --panel:#ffffff; --raised:#f6f6f6; --line:#e8e8e8; --line-strong:#d4d4d4;
+    --fg:#0a0a0a; --fg2:#666666; --fg3:#9a9a9a;
+    --inv-bg:#0a0a0a; --inv-fg:#ffffff; --hover:#f4f4f4; --scrim:rgba(255,255,255,.72);
+    --star:#c9980f;
+  
+    --sb:rgba(10,10,10,.18); --sb-hover:rgba(10,10,10,.34);
+  }
+  [data-theme="dark"]{
+    --bg:#0d0d0d; --panel:#141414; --raised:#1a1a1a; --line:#262626; --line-strong:#383838;
+    --fg:#f5f5f5; --fg2:#9a9a9a; --fg3:#6b6b6b;
+    --inv-bg:#f5f5f5; --inv-fg:#0d0d0d; --hover:#1c1c1c; --scrim:rgba(13,13,13,.72);
+    --star:#f5c518;
+  
+    --sb:rgba(245,245,245,.20); --sb-hover:rgba(245,245,245,.36);
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 'Inter Tight',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  svg{display:block}
+
+  /* ---------- scrollbars: part of the page, never louder than it ----------
+     Thin, no track, thumb tinted from the theme's own line color and only
+     fully visible while the pointer is over the scrollable area. Firefox gets
+     the same treatment through scrollbar-color. */
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:999px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--sb-hover);background-clip:content-box}
+
+
+  /* ---------- top bar: logo left, centered pill nav, credits right ---------- */
+  .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;height:60px;padding:0 20px;background:var(--bg)}
+  .wordmark{font:600 15px 'Inter Tight';letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+  .brand-pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:12.5px}
+  .brand-pill:hover{background:var(--hover)}
+  .brand-dot{width:9px;height:9px;border-radius:3px;background:#f5a623}
+  .nav{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+  .nav button{border:none;background:none;padding:6px 16px;border-radius:999px;font-size:13px;font-weight:500;color:var(--fg2)}
+  .nav button:hover{color:var(--fg)}
+  .nav button[data-active]{background:var(--inv-bg);color:var(--inv-fg);font-weight:600}
+  .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .credits{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:none;border-radius:999px;background:var(--gold);color:var(--gold-ink);font-weight:650;font-size:12.5px}
+  .credits:hover{filter:brightness(1.05)}
+  .coin{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff3b0, #f0b90b 60%, #a67c00);box-shadow:inset 0 0 0 1.5px rgba(120,86,0,.55)}
+  .icon-btn{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg2)}
+  .icon-btn:hover{background:var(--hover);color:var(--fg)}
+
+  main{max-width:1200px;margin:0 auto;padding:28px 24px 140px}
+
+  /* ---------- greeting + quick create ---------- */
+  .greet{font:600 30px/1.15 'Inter Tight';letter-spacing:-.02em;margin:14px 0 22px}
+  .greet em{font:500 italic 33px 'Playfair Display';letter-spacing:0}
+  .create{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:36px}
+  .create-card{display:flex;align-items:center;gap:12px;padding:15px 16px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--panel);text-align:left;transition:border-color .12s,background .12s}
+  .create-card:hover{border-color:var(--line-strong);background:var(--hover)}
+  .glyph{width:34px;height:34px;flex:none;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--raised)}
+  .create-card b{display:block;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+  .create-card small{color:var(--fg2);font-size:12px}
+
+  /* ---------- templates carousel ---------- */
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+  .sec-title{font:600 15px 'Inter Tight';letter-spacing:-.01em}
+  .sec-link{border:none;background:none;color:var(--fg2);font-size:12.5px}
+  .sec-link:hover{color:var(--fg)}
+  .tpl-row{display:grid;grid-auto-flow:column;grid-auto-columns:218px;gap:12px;overflow-x:auto;padding-bottom:6px;margin-bottom:34px;scrollbar-width:none}
+  .tpl-row::-webkit-scrollbar{display:none}
+  .tpl{border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--panel);text-align:left;padding:0;transition:border-color .12s}
+  .tpl:hover{border-color:var(--line-strong)}
+  .tpl img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block}
+  .tpl .m{padding:10px 12px 11px;display:flex;align-items:center;justify-content:space-between}
+  .tpl b{font-size:12.5px;font-weight:600}
+  .tpl small{color:var(--fg3);font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+
+  /* ---------- feed tabs + masonry ---------- */
+  .tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .tabs button{border:none;background:none;padding:0 2px 10px;font-size:13px;color:var(--fg2);border-bottom:1.5px solid transparent;margin-bottom:-1px}
+  .tabs button:hover{color:var(--fg)}
+  .tabs button[data-active]{color:var(--fg);font-weight:600;border-bottom-color:var(--fg)}
+  .masonry{columns:4 240px;column-gap:12px}
+  .cell{position:relative;break-inside:avoid;margin-bottom:12px;border-radius:var(--r-tile);overflow:hidden;border:1px solid var(--line);background:var(--raised);padding:0;display:block;width:100%}
+  .cell img{width:100%;display:block}
+  .cell:hover img{opacity:.92}
+  .cell .hover-meta{position:absolute;inset-inline:0;bottom:0;padding:22px 10px 8px;font-size:11.5px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.62));opacity:0;transition:opacity .12s;text-align:left}
+  .cell:hover .hover-meta{opacity:1}
+  .star{position:absolute;top:8px;right:8px;color:var(--star);filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+  /* honest in-flight: shimmer + elapsed, never a fake percent */
+  .cell.running{aspect-ratio:4/5}
+  .shimmer{position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb, var(--gold) 14%, transparent) 50%,transparent 70%);background-size:220% 100%;animation:sh 1.6s linear infinite}
+  @keyframes sh{from{background-position:180% 0}to{background-position:-80% 0}}
+  .running .tag{position:absolute;left:10px;bottom:10px;font:500 11px ui-monospace,monospace;color:var(--fg2);background:var(--scrim);border:1px solid var(--line);border-radius:6px;padding:3px 7px;backdrop-filter:blur(4px)}
+  .cell.failed{aspect-ratio:4/5;border-style:dashed;background:none}
+  .cell.failed .fmsg{position:absolute;inset:0;display:grid;place-content:center;gap:6px;justify-items:center;color:var(--fg3);font-size:12px}
+  .fmsg .retry{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:12px;color:var(--fg)}
+  .fmsg .retry:hover{background:var(--hover)}
+
+  /* ---------- floating composer bar ---------- */
+  .composer-wrap{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:50;width:min(720px,calc(100vw - 40px))}
+  .composer{background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--r-bar);box-shadow:0 16px 44px rgba(0,0,0,.28);padding:12px 12px 10px}
+  .brief{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-height:26px;padding:2px 4px 8px;font-size:13.5px}
+  .brief .ph{color:var(--fg3)}
+  .crow{display:flex;align-items:center;gap:8px}
+  .attach{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:none;border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--fg2)}
+  .attach:hover{color:var(--fg);background:var(--hover)}
+  .crow .grow{flex:1}
+  .ghost-sel{display:inline-flex;align-items:center;gap:5px;border:none;background:none;font-size:12.5px;color:var(--fg2);padding:5px 6px}
+  .ghost-sel:hover{color:var(--fg)}
+  .stepper{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:2px 4px;font-size:12.5px;color:var(--fg2)}
+  .stepper button{border:none;background:none;width:20px;height:20px;border-radius:50%;color:var(--fg2)}
+  .stepper button:hover{background:var(--hover);color:var(--fg)}
+  .go{width:34px;height:34px;border-radius:50%;border:none;background:var(--inv-bg);color:var(--inv-fg);display:grid;place-items:center}
+  .go:hover{opacity:.88}
+  .tip{margin-top:8px;text-align:center;font:11.5px ui-monospace,monospace;color:var(--fg3)}
+  .tip button{border:none;background:none;font:inherit;color:var(--fg2);text-decoration:underline dotted}
+
+  .theme-flip{position:fixed;right:16px;bottom:16px;z-index:60}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <span class="wordmark">scenri
+      <button class="brand-pill"><span class="brand-dot"></span>Stripe
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </span>
+    <nav class="nav">
+      <button data-active>Home</button>
+      <button>Create</button>
+      <button>Brand</button>
+    </nav>
+    <div class="right">
+      <button class="credits"><span class="coin"></span>228 left</button>
+      <button class="icon-btn" title="Theme"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg></button>
+      <button class="icon-btn" title="Settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10 2.1 2.1M4.9 19.1l2.1-2.1m10-10 2.1-2.1"/></svg></button>
+    </div>
+  </div>
+
+  <main>
+    <h1 class="greet">Make something <em>on brand</em></h1>
+
+    <div class="create">
+      <button class="create-card">
+        <span class="glyph"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.2 2.2m8.4 8.4 2.2 2.2M5.6 18.4l2.2-2.2m8.4-8.4 2.2-2.2"/></svg></span>
+        <span><b>New photoshoot</b><small>Template plus your product</small></span>
+      </button>
+      <button class="create-card">
+        <span class="glyph"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></span>
+        <span><b>Start from scratch</b><small>Describe any visual</small></span>
+      </button>
+      <button class="create-card">
+        <span class="glyph"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></span>
+        <span><b>Add a product</b><small>Locked shots keep it exact</small></span>
+      </button>
+      <button class="create-card">
+        <span class="glyph"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="13.5" cy="6.5" r="2.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2-1.5 3-3 3h-3a2.5 2.5 0 0 0-2 4c.5.6.5 1.5 0 2-.6.6-1.3 1-2 1Z"/></svg></span>
+        <span><b>Set up a brand</b><small>Kit from a URL in a minute</small></span>
+      </button>
+    </div>
+
+    <div class="sec-head"><span class="sec-title">Templates</span><button class="sec-link">All templates</button></div>
+    <div class="tpl-row">
+      <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/seamless-sweep.jpg" alt=""><span class="m"><b>Studio packshot</b><small>Shoot</small></span></button>
+      <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/morning-tabletop.jpg" alt=""><span class="m"><b>Lifestyle tabletop</b><small>Shoot</small></span></button>
+      <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/device-on-stone.jpg" alt=""><span class="m"><b>App on device</b><small>Mockup</small></span></button>
+      <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/square-headline.jpg" alt=""><span class="m"><b>IG post with headline</b><small>Ad</small></span></button>
+      <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/aluminium-studio.jpg" alt=""><span class="m"><b>Label on can</b><small>Mockup</small></span></button>
+      <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/brand-gradient.jpg" alt=""><span class="m"><b>Hero on gradient</b><small>Shoot</small></span></button>
+      <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/candlelit-mantel.jpg" alt=""><span class="m"><b>Seasonal scene</b><small>Shoot</small></span></button>
+    </div>
+
+    <div class="tabs">
+      <button data-active>All</button>
+      <button>Keepers</button>
+      <button>Project 1</button>
+      <button>Summer campaign</button>
+      <button>Label exploration</button>
+    </div>
+
+    <div class="masonry">
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/6958e8be2f7618b7d0e6d55173091c37" alt=""><span class="hover-meta">Project 1 · Studio packshot</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/8292b1e3eade11fbaedb3f74d225b51c" alt=""><span class="star"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.5l7-.9Z"/></svg></span><span class="hover-meta">Summer campaign · Keeper</span></button>
+      <button class="cell running"><span class="shimmer"></span><span class="tag">generating · 41s</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/348b0542c153f5f054f214209b338640" alt=""><span class="hover-meta">Project 1 · Refine</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/90e4a82eeef94e0b6bdc25ebf932b32f" alt=""><span class="hover-meta">Summer campaign</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/17841eed5374d74b26dd20a12a3ba3e4" alt=""><span class="hover-meta">Project 1</span></button>
+      <button class="cell failed"><span class="fmsg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg>Engine timed out<button class="retry">Try again</button></span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/23c2b150614dc3fc83f9fbfaa0dd5af5" alt=""><span class="hover-meta">Project 1</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/ccb8fb48583b1711f1d63ba8fedcd0ff" alt=""><span class="star"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.5l7-.9Z"/></svg></span><span class="hover-meta">Summer campaign · Keeper</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/21665b0b6c9b7e5cd93c104998ab4b18" alt=""><span class="hover-meta">Project 1</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/e406bf4c39609b3931d58b5088d124be" alt=""><span class="hover-meta">Summer campaign</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/2f62490e3c44bff7d49581c47286da8f" alt=""><span class="hover-meta">Project 1</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/9a674a1eb271219b486b1bfa4d6a2910" alt=""><span class="hover-meta">Summer campaign</span></button>
+      <button class="cell"><img src="http://127.0.0.1:4747/api/images/7b13a33d248ecb0fe3213fe8f49f76ec" alt=""><span class="hover-meta">Project 1</span></button>
+    </div>
+  </main>
+
+  <div class="composer-wrap">
+    <div class="composer">
+      <div class="brief"><span class="ph">Describe the visual you want, / attaches products, colors, references</span></div>
+      <div class="crow">
+        <button class="attach"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Attach</button>
+        <span class="grow"></span>
+        <button class="ghost-sel">Codex<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></button>
+        <span class="stepper"><button>&minus;</button><span>2</span><button>+</button></span>
+        <button class="go"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+      </div>
+    </div>
+    <div class="tip">Starts a new project in Stripe · <button>see the brief</button></div>
+  </div>
+
+  <button class="theme-flip icon-btn" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'" title="Flip theme">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+</body>
+</html>

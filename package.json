@@ -1,0 +1,30 @@
+{
+  "name": "scenri-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "license": "AGPL-3.0-only",
+  "author": "Tony Gorb <bytonygorb@gmail.com>",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "pnpm -r --no-bail test",
+    "build": "pnpm --filter @scenri/studio build",
+    "dev": "tsx packages/cli/src/index.ts",
+    "typecheck": "pnpm -r --no-bail typecheck",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check .",
+    "ci": "biome ci ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.6",
+    "@types/node": "^22.0.0",
+    "iconv-lite": "0.6.3",
+    "tsup": "^8.5.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^3.0.0"
+  }
+}

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scenri v6 · Brand setup wizard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{ --r-card:14px; --gold:#f5c518; --gold-ink:#191300; }
+  [data-theme="light"]{
+    --bg:#ffffff; --panel:#ffffff; --raised:#f6f6f6; --line:#e8e8e8; --line-strong:#d4d4d4;
+    --fg:#0a0a0a; --fg2:#666666; --fg3:#9a9a9a;
+    --inv-bg:#0a0a0a; --inv-fg:#ffffff; --hover:#f4f4f4;
+  
+    --sb:rgba(10,10,10,.18); --sb-hover:rgba(10,10,10,.34);
+  }
+  [data-theme="dark"]{
+    --bg:#0d0d0d; --panel:#141414; --raised:#1a1a1a; --line:#262626; --line-strong:#383838;
+    --fg:#f5f5f5; --fg2:#9a9a9a; --fg3:#6b6b6b;
+    --inv-bg:#f5f5f5; --inv-fg:#0d0d0d; --hover:#1c1c1c;
+  
+    --sb:rgba(245,245,245,.20); --sb-hover:rgba(245,245,245,.36);
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 'Inter Tight',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  svg{display:block}
+
+  /* ---------- scrollbars: part of the page, never louder than it ----------
+     Thin, no track, thumb tinted from the theme's own line color and only
+     fully visible while the pointer is over the scrollable area. Firefox gets
+     the same treatment through scrollbar-color. */
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:999px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--sb-hover);background-clip:content-box}
+
+  .note{max-width:520px;margin:26px auto 0;text-align:center;color:var(--fg3);font-size:11.5px}
+  .note b{color:var(--fg2);font-weight:600}
+
+  .step{min-height:92vh;display:grid;grid-template-columns:minmax(380px,460px) 1fr;gap:40px;max-width:1180px;margin:0 auto;padding:30px 24px;border-bottom:1px dashed var(--line)}
+  .form-side{display:flex;flex-direction:column;padding-top:8px}
+  .backlink{display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--fg2);font-size:12.5px;padding:0;margin-bottom:26px;align-self:flex-start}
+  .backlink:hover{color:var(--fg)}
+  .dots{display:flex;gap:7px;justify-content:center;margin:0 0 40px}
+  .dots i{width:6px;height:6px;border-radius:50%;background:var(--line-strong)}
+  .dots i[data-on]{background:var(--fg);transform:scale(1.25)}
+  h1{font:600 34px/1.12 'Inter Tight';letter-spacing:-.02em;margin-bottom:10px}
+  h1 em{font:500 italic 37px 'Playfair Display'}
+  .sub{color:var(--fg2);font-size:13.5px;margin-bottom:28px;max-width:400px}
+
+  label{display:block;font-size:12px;font-weight:600;margin:0 0 6px}
+  .in{width:100%;max-width:400px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--fg);padding:11px 13px;font:13.5px 'Inter Tight';margin-bottom:16px;outline:none}
+  .in::placeholder{color:var(--fg3)}
+  .in:focus{border-color:var(--fg)}
+  .hint{font-size:11.5px;color:var(--fg3);margin:-10px 0 18px}
+  .cta{display:inline-flex;align-items:center;gap:8px;background:var(--inv-bg);color:var(--inv-fg);border:none;border-radius:999px;padding:11px 22px;font:600 13.5px 'Inter Tight';align-self:flex-start;margin-top:8px}
+  .cta:hover{opacity:.88}
+  .skip{border:none;background:none;color:var(--fg3);font-size:12.5px;margin-top:14px;align-self:flex-start;padding:0}
+  .skip:hover{color:var(--fg)}
+
+  .preview-side{display:grid;place-items:center}
+  .canvas-card{width:100%;max-width:560px;border:1px solid var(--line);border-radius:20px;background:var(--panel);overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.3)}
+  .canvas-card .cap{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);padding:12px 16px;border-bottom:1px solid var(--line)}
+  .canvas-body{padding:22px}
+
+  /* step 1 preview: scrape in progress */
+  .scrape{display:flex;flex-direction:column;gap:12px}
+  .scrape .row{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--fg2)}
+  .ok{color:var(--fg)}
+  .spin{width:13px;height:13px;border:1.6px solid var(--line-strong);border-top-color:var(--fg);border-radius:50%;animation:r 1s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
+
+  /* step 2 preview: live kit */
+  .kit-prev .toprow{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .kit-prev .logo{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;padding:7px;background:var(--raised)}
+  .kit-prev .logo img{width:100%;height:100%;object-fit:contain}
+  .kit-prev b{font:600 16px 'Inter Tight'}
+  .kit-prev small{display:block;color:var(--fg3);font-size:11.5px}
+  .sw-row{display:flex;gap:8px;margin-bottom:4px}
+  .sw{flex:1;height:44px;border-radius:9px;border:1px solid var(--line)}
+  .sw-names{display:flex;gap:8px}
+  .sw-names span{flex:1;font:10.5px ui-monospace,monospace;color:var(--fg3);text-align:center}
+
+  /* editable field chips on step 2 form */
+  .field-review{max-width:400px;border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px}
+  .field-review .fr{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-radius:9px}
+  .field-review .fr:hover{background:var(--hover)}
+  .field-review .fr + .fr{border-top:1px solid var(--line)}
+  .field-review b{font-size:12.5px;font-weight:600}
+  .field-review small{color:var(--fg3);font-size:11.5px}
+  .field-review .edit{border:none;background:none;color:var(--fg3);font-size:11.5px}
+  .field-review .edit:hover{color:var(--fg)}
+
+  /* step 3 preview: product cards */
+  .drop{border:1.5px dashed var(--line-strong);border-radius:14px;display:grid;place-content:center;gap:8px;justify-items:center;height:150px;color:var(--fg3);font-size:12.5px;max-width:400px;margin-bottom:14px}
+  .prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .pcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--raised)}
+  .pcard img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+  .pcard .m{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;font-size:11.5px}
+  .pcard .lock{font-size:9.5px;color:var(--fg3);border:1px solid var(--line);border-radius:999px;padding:1px 7px}
+
+  /* step 4: looks picker */
+  .looks{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:460px}
+  .look{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;padding:0;background:var(--raised)}
+  .look img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+  .look .nm{position:absolute;left:0;right:0;bottom:0;padding:16px 8px 6px;font-size:10.5px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.65));text-align:left}
+  .look[data-on]{border:2px solid var(--fg)}
+  .look .tick{position:absolute;top:7px;right:7px;width:20px;height:20px;border-radius:50%;background:var(--fg);color:var(--bg);display:none;place-items:center}
+  .look[data-on] .tick{display:grid}
+
+  .theme-flip{position:fixed;right:16px;bottom:16px;z-index:60;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg2)}
+</style>
+</head>
+<body>
+
+  <p class="note"><b>Wizard mockup.</b> All four steps shown stacked for review. In the app each step is its own full screen with the dots advancing.</p>
+
+  <!-- ============ STEP 1: Your brand ============ -->
+  <section class="step">
+    <div class="form-side">
+      <button class="backlink"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18 9 12l6-6"/></svg>Back</button>
+      <div class="dots"><i data-on></i><i></i><i></i><i></i></div>
+      <h1>Your <em>brand</em></h1>
+      <p class="sub">Paste a website and the kit builds itself: name, logo, palette, tone. You can also start from nothing.</p>
+      <label>Website</label>
+      <input class="in" value="https://stripe.com">
+      <p class="hint">We only read public pages. Nothing is uploaded anywhere.</p>
+      <button class="cta">Build the kit
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+      </button>
+      <button class="skip">Start from scratch instead</button>
+    </div>
+    <div class="preview-side">
+      <div class="canvas-card">
+        <div class="cap">Reading stripe.com</div>
+        <div class="canvas-body scrape">
+          <div class="row ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4L19 7"/></svg>Name and tagline</div>
+          <div class="row ok"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4L19 7"/></svg>Logo found</div>
+          <div class="row"><span class="spin"></span>Extracting palette</div>
+          <div class="row" style="color:var(--fg3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/></svg>Voice and tone</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 2: Review the kit ============ -->
+  <section class="step">
+    <div class="form-side">
+      <button class="backlink"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18 9 12l6-6"/></svg>Back</button>
+      <div class="dots"><i></i><i data-on></i><i></i><i></i></div>
+      <h1>Review the <em>kit</em></h1>
+      <p class="sub">Everything came from the site. Fix anything that reads wrong; it all stays editable later.</p>
+      <div class="field-review">
+        <div class="fr"><span><b>Name</b><small> Stripe</small></span><button class="edit">Edit</button></div>
+        <div class="fr"><span><b>Tagline</b><small> Financial infrastructure to grow your revenue</small></span><button class="edit">Edit</button></div>
+        <div class="fr"><span><b>Palette</b><small> 5 colors extracted</small></span><button class="edit">Edit</button></div>
+        <div class="fr"><span><b>Voice</b><small> Confident, precise, no fluff</small></span><button class="edit">Edit</button></div>
+      </div>
+      <button class="cta">Looks right
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="preview-side">
+      <div class="canvas-card">
+        <div class="cap">Live kit preview</div>
+        <div class="canvas-body kit-prev">
+          <div class="toprow">
+            <span class="logo"><img src="http://127.0.0.1:4747/api/images/8d49f4741feb7dc6eb1f6dba87b0d702" alt=""></span>
+            <span><b>Stripe</b><small>stripe.com</small></span>
+          </div>
+          <div class="sw-row">
+            <span class="sw" style="background:#f5a623"></span>
+            <span class="sw" style="background:#424770"></span>
+            <span class="sw" style="background:#cad2d9"></span>
+            <span class="sw" style="background:#929eaa"></span>
+            <span class="sw" style="background:#e0e0e0"></span>
+          </div>
+          <div class="sw-names"><span>#F5A623</span><span>#424770</span><span>#CAD2D9</span><span>#929EAA</span><span>#E0E0E0</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 3: Your products ============ -->
+  <section class="step">
+    <div class="form-side">
+      <button class="backlink"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18 9 12l6-6"/></svg>Back</button>
+      <div class="dots"><i></i><i></i><i data-on></i><i></i></div>
+      <h1>Your <em>products</em></h1>
+      <p class="sub">Upload clean shots of what you sell. A locked shot travels with every brief so the model never invents your product.</p>
+      <div class="drop">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0 4 4m-4-4-4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        Drop images here, or click to browse
+      </div>
+      <button class="cta">Continue
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+      </button>
+      <button class="skip">Skip for now</button>
+    </div>
+    <div class="preview-side">
+      <div class="canvas-card">
+        <div class="cap">2 products</div>
+        <div class="canvas-body">
+          <div class="prod-grid">
+            <div class="pcard"><img src="http://127.0.0.1:4747/api/images/42a2553fd093ab346237c840f3799e24" alt=""><div class="m"><b>can</b><span class="lock">locked shot</span></div></div>
+            <div class="pcard"><img src="http://127.0.0.1:4747/api/images/06deabdf4a58a20a14a1c6132d860b98" alt=""><div class="m"><b>Shida</b><span class="lock">locked shot</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 4: Which looks fit ============ -->
+  <section class="step" style="border-bottom:none">
+    <div class="form-side">
+      <button class="backlink"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18 9 12l6-6"/></svg>Back</button>
+      <div class="dots"><i></i><i></i><i></i><i data-on></i></div>
+      <h1>Which <em>looks</em> fit?</h1>
+      <p class="sub">Pick a few directions you like. They become your favorite templates: front and center whenever you start a shoot.</p>
+      <div class="looks">
+        <button class="look" data-on><img src="http://127.0.0.1:4747/api/template-previews/seamless-sweep.jpg" alt=""><span class="nm">Studio packshot</span><span class="tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m5 13 4 4L19 7"/></svg></span></button>
+        <button class="look"><img src="http://127.0.0.1:4747/api/template-previews/knolled-flat-lay.jpg" alt=""><span class="nm">Flat-lay</span><span class="tick"></span></button>
+        <button class="look" data-on><img src="http://127.0.0.1:4747/api/template-previews/morning-tabletop.jpg" alt=""><span class="nm">Lifestyle tabletop</span><span class="tick"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m5 13 4 4L19 7"/></svg></span></button>
+        <button class="look"><img src="http://127.0.0.1:4747/api/template-previews/brand-gradient.jpg" alt=""><span class="nm">Hero on gradient</span><span class="tick"></span></button>
+        <button class="look"><img src="http://127.0.0.1:4747/api/template-previews/candlelit-mantel.jpg" alt=""><span class="nm">Seasonal scene</span><span class="tick"></span></button>
+        <button class="look"><img src="http://127.0.0.1:4747/api/template-previews/aluminium-studio.jpg" alt=""><span class="nm">Label on can</span><span class="tick"></span></button>
+      </div>
+      <button class="cta" style="margin-top:22px">Open the studio
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="preview-side">
+      <div class="canvas-card">
+        <div class="cap">Your studio, ready</div>
+        <div class="canvas-body">
+          <div class="prod-grid">
+            <div class="pcard"><img src="http://127.0.0.1:4747/api/template-previews/seamless-sweep.jpg" alt=""><div class="m"><b>Studio packshot</b></div></div>
+            <div class="pcard"><img src="http://127.0.0.1:4747/api/template-previews/morning-tabletop.jpg" alt=""><div class="m"><b>Lifestyle tabletop</b></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <button class="theme-flip" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'" title="Flip theme">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+</body>
+</html>

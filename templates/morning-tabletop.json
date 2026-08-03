@@ -1,0 +1,13 @@
+{
+  "id": "morning-tabletop",
+  "name": "Morning Tabletop",
+  "lighting": "Low window light",
+  "subject": "either",
+  "collections": ["Lived-in"],
+  "verticals": ["Beauty", "Fragrance", "Home", "Food & drink"],
+  "description": "Early side light across linen and ceramic. Long soft shadows, quiet props that look owned rather than styled.",
+  "prompt": "in early morning side light from a single window at frame left, warm domestic palette of oak, linen and matte ceramic, long soft shadows falling to the right, shallow depth of field, quiet props that look owned rather than styled, editorial lifestyle photography with natural film grain",
+  "width": 1024,
+  "height": 1024,
+  "aliases": ["lifestyle-tabletop"]
+}

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>scenri studio</title>
+    <style>html,body,#root{height:100%;margin:0}html[data-theme=dark]{background:#0d0d0d}html[data-theme=light]{background:#ffffff}</style>
+    <script>try{const t=localStorage.getItem('bt-theme');document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark')}catch(_e){document.documentElement.dataset.theme='dark'}</script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

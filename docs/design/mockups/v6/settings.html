@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scenri v6 · Settings dialog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{ --r-card:14px; --gold:#f5c518; --gold-ink:#191300; }
+  [data-theme="light"]{
+    --bg:#ffffff; --panel:#ffffff; --raised:#f6f6f6; --line:#e8e8e8; --line-strong:#d4d4d4;
+    --fg:#0a0a0a; --fg2:#666666; --fg3:#9a9a9a;
+    --inv-bg:#0a0a0a; --inv-fg:#ffffff; --hover:#f4f4f4; --red:#d93025; --green:#188038;
+    --scrim:rgba(20,20,20,.42);
+  
+    --sb:rgba(10,10,10,.18); --sb-hover:rgba(10,10,10,.34);
+  }
+  [data-theme="dark"]{
+    --bg:#0d0d0d; --panel:#141414; --raised:#1a1a1a; --line:#262626; --line-strong:#383838;
+    --fg:#f5f5f5; --fg2:#9a9a9a; --fg3:#6b6b6b;
+    --inv-bg:#f5f5f5; --inv-fg:#0d0d0d; --hover:#1c1c1c; --red:#ff6b62; --green:#4ade80;
+    --scrim:rgba(0,0,0,.62);
+  
+    --sb:rgba(245,245,245,.20); --sb-hover:rgba(245,245,245,.36);
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 'Inter Tight',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  svg{display:block}
+
+  /* ---------- scrollbars: part of the page, never louder than it ----------
+     Thin, no track, thumb tinted from the theme's own line color and only
+     fully visible while the pointer is over the scrollable area. Firefox gets
+     the same treatment through scrollbar-color. */
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:999px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--sb-hover);background-clip:content-box}
+
+
+  /* ---------- the app carries on behind: settings is a detour, not a destination ---------- */
+  .behind{position:fixed;inset:0;overflow:hidden}
+  .behind .topbar{display:flex;align-items:center;height:60px;padding:0 20px}
+  .wordmark{font:600 15px 'Inter Tight';letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+  .brand-pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:12.5px}
+  .brand-dot{width:9px;height:9px;border-radius:3px;background:#f5a623}
+  .nav{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+  .nav button{border:none;background:none;padding:6px 16px;border-radius:999px;font-size:13px;font-weight:500;color:var(--fg2)}
+  .nav button[data-active]{background:var(--inv-bg);color:var(--inv-fg);font-weight:600}
+  .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .credits{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:none;border-radius:999px;background:var(--gold);color:var(--gold-ink);font-weight:650;font-size:12.5px}
+  .coin{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff3b0, #f0b90b 60%, #a67c00);box-shadow:inset 0 0 0 1.5px rgba(120,86,0,.55)}
+  .icon-btn{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg2)}
+  .ghosts{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:20px}
+  .ghosts i{display:block;border-radius:12px;background:var(--raised)}
+  .ghosts i:nth-child(5n+1){height:230px}.ghosts i:nth-child(5n+2){height:180px}
+  .ghosts i:nth-child(5n+3){height:260px}.ghosts i:nth-child(5n+4){height:200px}
+  .ghosts i:nth-child(5n+5){height:240px}
+
+  .scrim{position:fixed;inset:0;background:var(--scrim);backdrop-filter:blur(2px);display:grid;place-items:center;padding:24px;z-index:50}
+
+  /* ---------- the dialog: rail on the left, one pane on the right ---------- */
+  .dlg{width:min(940px,100%);height:min(640px,92vh);display:grid;grid-template-columns:214px minmax(0,1fr);
+    border:1px solid var(--line);border-radius:18px;background:var(--panel);overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45)}
+  .rail{border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:2px;background:var(--bg);overflow-y:auto;min-height:0}
+  .rail .grouplabel{font-size:11px;color:var(--fg3);padding:12px 10px 5px;font-weight:600}
+  .rail .grouplabel:first-child{padding-top:2px}
+  .rail button{display:flex;align-items:center;gap:10px;border:none;background:none;text-align:left;
+    padding:9px 10px;border-radius:9px;font-size:13px;color:var(--fg2);width:100%}
+  .rail button:hover{background:var(--hover);color:var(--fg)}
+  .rail button[data-on]{background:var(--raised);color:var(--fg);font-weight:600}
+  .rail svg{flex:none;opacity:.85}
+  .rail .danger{color:var(--red)}
+  .rail .spacer{flex:1}
+  .rail .ver{padding:10px;font-size:11.5px;color:var(--fg3)}
+
+  .body{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .body-h{flex:none;display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .body-h h2{font:600 16px 'Inter Tight'}
+  .body-h .sp{flex:1}
+  .close{width:30px;height:30px;display:grid;place-items:center;border:none;background:none;border-radius:8px;color:var(--fg2)}
+  .close:hover{background:var(--hover);color:var(--fg)}
+  .scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:20px;display:flex;flex-direction:column;gap:26px}
+
+  .pane{display:none;flex-direction:column;gap:26px}
+  .pane[data-on]{display:flex}
+  .grp-h{margin-bottom:11px}
+  .grp-h h3{font:400 15px 'Inter Tight'}
+  .grp-h p{color:var(--fg3);font-size:12.5px;margin-top:3px;max-width:62ch}
+  .card{border:1px solid var(--line);border-radius:var(--r-card);background:var(--bg);overflow:hidden}
+
+  .row{display:flex;align-items:center;gap:14px;padding:13px 15px}
+  .row + .row{border-top:1px solid var(--line)}
+  .row .txt{min-width:0;flex:1}
+  .row b{display:block;font:600 13px 'Inter Tight'}
+  .row small{display:block;color:var(--fg3);font-size:12px}
+  .row code{font-family:inherit;color:var(--fg2)}
+  .btn{border:1px solid var(--line);background:none;border-radius:999px;height:34px;padding:0 14px;font:600 12.5px 'Inter Tight';color:var(--fg2);white-space:nowrap}
+  .btn:hover{background:var(--hover);color:var(--fg);border-color:var(--line-strong)}
+  .btn.red{color:var(--red)}
+  .btn.red:hover{border-color:var(--red)}
+  .tag{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--fg2);white-space:nowrap}
+  .tag.gold{color:#8a6d00;border-color:color-mix(in srgb, var(--gold) 45%, transparent)}
+  [data-theme="dark"] .tag.gold{color:var(--gold)}
+  .stat{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--fg2);white-space:nowrap}
+  .stat .d{width:7px;height:7px;border-radius:50%;flex:none}
+  .stat.on .d{background:var(--green)}
+  .stat.off .d{background:var(--fg3)}
+  .in{flex:1;min-width:160px;height:34px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--fg);padding:0 12px;font:13px 'Inter Tight';outline:none}
+  .in::placeholder{color:var(--fg3)}
+  .in:focus{border-color:var(--fg)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px;flex:none}
+  .seg button{border:none;background:none;border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--fg2)}
+  .seg button[data-on]{background:var(--raised);color:var(--fg);font-weight:600}
+
+  .eng + .eng{border-top:1px solid var(--line)}
+  .eng-top{display:flex;align-items:center;gap:12px;padding:13px 15px}
+  .eng-ic{width:32px;height:32px;border:1px solid var(--line);border-radius:9px;display:grid;place-items:center;background:var(--raised);flex:none;color:var(--fg2)}
+  .eng-name{min-width:0;flex:1}
+  .eng-name b{display:block;font:600 13px 'Inter Tight'}
+  .eng-name small{display:block;color:var(--fg3);font-size:12px}
+  .eng-key{display:flex;align-items:center;gap:8px;padding:0 15px 13px 59px;flex-wrap:wrap}
+  .hintrow{padding:0 15px 13px 59px;font-size:12px;color:var(--fg3)}
+
+  .cap{padding:14px 15px}
+  .cap + .cap{border-top:1px solid var(--line)}
+  .cap-top{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+  .cap-top b{font:600 13px 'Inter Tight'}
+  .cap-top .sp{flex:1}
+  .cap-top .amount{font:600 13.5px 'Inter Tight'}
+  .cap-top .amount small{font-weight:400;color:var(--fg3);margin-left:6px}
+  input[type=range]{width:100%;accent-color:var(--fg)}
+  .meter{height:6px;border-radius:4px;background:var(--raised);overflow:hidden;margin:11px 0 8px}
+  .meter i{display:block;height:100%;background:var(--gold);border-radius:4px}
+  .cap-foot{display:flex;justify-content:space-between;font-size:12px;color:var(--fg3)}
+  .bars{padding:14px 15px}
+  .bar{display:flex;align-items:center;gap:12px;font-size:12.5px;padding:5px 0}
+  .bar .k{width:128px;color:var(--fg2);flex:none}
+  .bar .t{flex:1;height:8px;border-radius:4px;background:var(--raised);overflow:hidden}
+  .bar .t i{display:block;height:100%;background:var(--fg3);border-radius:4px}
+  .bar .v{width:52px;text-align:right;color:var(--fg2)}
+
+  .themes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:15px}
+  .tp{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:none;padding:0;text-align:left}
+  .tp:hover{border-color:var(--line-strong)}
+  .tp[data-on]{border-color:var(--fg)}
+  .swl{display:block;height:62px}
+  .tp .lbl{display:flex;align-items:center;gap:7px;padding:8px 11px;font-size:12.5px;font-weight:600}
+  .tp .dot{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--line-strong);flex:none}
+  .tp[data-on] .dot{border-color:var(--fg);background:var(--fg);box-shadow:inset 0 0 0 2.5px var(--panel)}
+  .switch{width:36px;height:21px;border-radius:999px;background:var(--line-strong);border:none;position:relative;flex:none}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--panel);transition:left .14s}
+  .switch[data-on]{background:var(--fg)}
+  .switch[data-on]::after{left:17px}
+
+  /* ---------- a year of runs, sized to the pane: 53 week columns, never a scrollbar ---------- */
+  .heat{padding:15px}
+  .heat-h{display:flex;align-items:center;gap:10px;margin-bottom:11px;font-size:12px;color:var(--fg3)}
+  .heat-h b{font:600 13px 'Inter Tight';color:var(--fg)}
+  .heat-h .sp{flex:1}
+  .heat-months{display:grid;grid-template-columns:repeat(53,1fr);gap:2px;margin-bottom:4px;height:13px;font-size:10px;color:var(--fg3)}
+  .heat-months span{grid-row:1;white-space:nowrap}
+  .heat-grid{display:grid;grid-template-columns:repeat(53,1fr);grid-template-rows:repeat(7,1fr);grid-auto-flow:column;gap:2px}
+  .heat-grid i{display:block;aspect-ratio:1;border-radius:2px;background:var(--raised)}
+  /* ink, not gold: gold stays reserved for credits, keepers and the shimmer */
+  .heat-grid i[data-l="1"]{background:color-mix(in srgb, var(--fg) 20%, var(--raised))}
+  .heat-grid i[data-l="2"]{background:color-mix(in srgb, var(--fg) 40%, var(--raised))}
+  .heat-grid i[data-l="3"]{background:color-mix(in srgb, var(--fg) 64%, var(--raised))}
+  .heat-grid i[data-l="4"]{background:var(--fg)}
+  .heat-grid i:hover{outline:1.5px solid var(--line-strong);outline-offset:1px}
+  .legend{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+  .legend i{width:10px;height:10px;border-radius:2px;background:var(--raised);display:block}
+  .legend i[data-l="1"]{background:color-mix(in srgb, var(--fg) 20%, var(--raised))}
+  .legend i[data-l="2"]{background:color-mix(in srgb, var(--fg) 40%, var(--raised))}
+  .legend i[data-l="3"]{background:color-mix(in srgb, var(--fg) 64%, var(--raised))}
+  .legend i[data-l="4"]{background:var(--fg)}
+
+  .danger{border-color:color-mix(in srgb, var(--red) 35%, var(--line))}
+  .danger .row b{color:var(--red)}
+
+  .theme-flip{position:fixed;right:16px;bottom:16px;z-index:60}
+  @media (max-width:720px){
+    .dlg{grid-template-columns:1fr;height:94vh}
+    .rail{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px}
+    .rail .grouplabel,.rail .spacer,.rail .ver{display:none}
+    .rail button{width:auto;white-space:nowrap}
+    .eng-key,.hintrow{padding-left:15px}
+    .themes{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+  <!-- the studio, still there, still where you left it -->
+  <div class="behind">
+    <div class="topbar">
+      <span class="wordmark">scenri <button class="brand-pill"><span class="brand-dot"></span>Stripe</button></span>
+      <nav class="nav"><button>Home</button><button data-active>Create</button><button>Looks</button><button>Brand</button></nav>
+      <div class="right">
+        <button class="credits"><span class="coin"></span>228 left</button>
+        <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg></button>
+      </div>
+    </div>
+    <div class="ghosts"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="scrim">
+    <div class="dlg" role="dialog" aria-label="Settings">
+
+      <nav class="rail">
+        <p class="grouplabel">Generation</p>
+        <button data-on onclick="pick(this,'engines','Engines and keys')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m13 2-9 12h7l-1 8 9-12h-7Z"/></svg>Engines</button>
+        <button onclick="pick(this,'budget','Budget')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v4h3"/></svg>Budget</button>
+        <button onclick="pick(this,'usage','Usage')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 20h18"/><rect x="5" y="11" width="3.4" height="6" rx="1"/><rect x="10.3" y="7" width="3.4" height="10" rx="1"/><rect x="15.6" y="13" width="3.4" height="4" rx="1"/></svg>Usage</button>
+
+        <p class="grouplabel">This machine</p>
+        <button onclick="pick(this,'library','Library')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Library</button>
+        <button onclick="pick(this,'appearance','Appearance')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Appearance</button>
+        <button onclick="pick(this,'about','About')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4m0-4h.01"/></svg>About</button>
+        <button class="danger" onclick="pick(this,'danger','Danger zone')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Danger zone</button>
+
+        <span class="spacer"></span>
+        <p class="ver">v0.1.0 · local</p>
+      </nav>
+
+      <div class="body">
+        <div class="body-h">
+          <h2 id="paneTitle">Engines and keys</h2>
+          <span class="sp"></span>
+          <button class="close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+
+        <div class="scroll">
+
+          <div class="pane" id="engines" data-on>
+            <div>
+              <div class="grp-h"><h3>Default for a new brief</h3><p>What a fresh composer reaches for. Changeable per brief.</p></div>
+              <div class="card">
+                <div class="row"><span class="txt"><b>Engine</b><small>Free engines are tried first</small></span>
+                  <span class="seg"><button data-on>Codex CLI</button><button>OpenRouter</button><button>Demo</button></span></div>
+                <div class="row"><span class="txt"><b>Quality</b><small>High is for labels and small type</small></span>
+                  <span class="seg"><button>Draft</button><button data-on>Standard</button><button>High</button></span></div>
+              </div>
+            </div>
+            <div>
+              <div class="grp-h"><h3>Engines and keys</h3><p>Keys are stored in your local library folder, sent only to that provider, and never shown again.</p></div>
+              <div class="card">
+                <div class="eng">
+                  <div class="eng-top">
+                    <span class="eng-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 17V7l8-4 8 4v10l-8 4Z"/><path d="m4 7 8 4m0 0 8-4m-8 4v10"/></svg></span>
+                    <span class="eng-name"><b>Codex CLI</b><small>Your ChatGPT plan, through your own terminal</small></span>
+                    <span class="tag gold">local only</span>
+                    <span class="stat on"><span class="d"></span>detected</span>
+                  </div>
+                  <p class="hintrow">No key needed, nothing per image.</p>
+                </div>
+                <div class="eng">
+                  <div class="eng-top">
+                    <span class="eng-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M8 12h8m-4-4v8"/></svg></span>
+                    <span class="eng-name"><b>OpenRouter</b><small>Gemini, Flux and friends</small></span>
+                    <span class="stat on"><span class="d"></span>key valid</span>
+                  </div>
+                  <div class="eng-key">
+                    <input class="in" type="password" value="································" aria-label="OpenRouter key">
+                    <button class="btn">Replace</button><button class="btn">Test</button>
+                  </div>
+                </div>
+                <div class="eng">
+                  <div class="eng-top">
+                    <span class="eng-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg></span>
+                    <span class="eng-name"><b>Replicate</b><small>Open-weight models on demand</small></span>
+                    <span class="stat off"><span class="d"></span>no key</span>
+                  </div>
+                  <div class="eng-key"><input class="in" placeholder="r8_..." aria-label="Replicate key"><button class="btn">Save</button></div>
+                </div>
+                <div class="eng">
+                  <div class="eng-top">
+                    <span class="eng-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v18M3 12h18"/></svg></span>
+                    <span class="eng-name"><b>fal</b><small>Fast inference for quick drafts</small></span>
+                    <span class="stat off"><span class="d"></span>no key</span>
+                  </div>
+                  <div class="eng-key"><input class="in" placeholder="fal_..." aria-label="fal key"><button class="btn">Save</button></div>
+                </div>
+                <div class="eng">
+                  <div class="eng-top">
+                    <span class="eng-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9 12h6"/></svg></span>
+                    <span class="eng-name"><b>Demo</b><small>Placeholder frames, so every flow works with no key</small></span>
+                    <span class="stat on"><span class="d"></span>always on</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane" id="budget">
+            <div>
+              <div class="grp-h"><h3>Monthly caps</h3><p>Your own API budget. Generation stops before a cap is crossed, so a runaway loop cannot spend your month.</p></div>
+              <div class="card">
+                <div class="cap">
+                  <div class="cap-top"><b>OpenRouter</b><span class="sp"></span><span class="amount">300 generations<small>$12.00 / month</small></span></div>
+                  <input type="range" min="0" max="50" value="12" aria-label="OpenRouter cap">
+                  <div class="meter"><i style="width:24%"></i></div>
+                  <div class="cap-foot"><span>72 used · $2.88 spent</span><span>228 left</span></div>
+                </div>
+                <div class="cap">
+                  <div class="cap-top"><b>Replicate</b><span class="sp"></span><span class="amount">No cap<small>needs a key first</small></span></div>
+                  <input type="range" min="0" max="50" value="0" aria-label="Replicate cap">
+                  <div class="cap-foot"><span>Nothing spent</span><span>0 used</span></div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="grp-h"><h3>When a cap is reached</h3></div>
+              <div class="card">
+                <div class="row"><span class="txt"><b>Fall back to a free engine</b><small>Keep working on Codex CLI or Demo instead of stopping</small></span><button class="switch" data-on aria-label="Fall back to a free engine"></button></div>
+                <div class="row"><span class="txt"><b>Warn me at</b><small>A quiet note in the composer before the cap actually bites</small></span><span class="seg"><button>50%</button><button data-on>80%</button><button>Never</button></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane" id="usage">
+            <div>
+              <div class="grp-h"><h3>The last year</h3><p>One square per day. Hover a day for what ran on it.</p></div>
+              <div class="card">
+                <div class="heat">
+                  <div class="heat-h">
+                    <b id="heatTotal">runs in the last year</b>
+                    <span class="sp"></span>
+                    <span class="legend">Less <i data-l="0"></i><i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i> More</span>
+                  </div>
+                  <div class="heat-months" id="heatMonths"></div>
+                  <div class="heat-grid" id="heatGrid"></div>
+                </div>
+                <div class="row"><span class="txt"><b>Longest streak</b><small>11 days, ending 14 July</small></span><span class="tag">busiest day 46 runs</span></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="grp-h"><h3>This month</h3><p>Where the credits went. Free engines are counted but cost nothing.</p></div>
+              <div class="card">
+                <div class="bars">
+                  <div class="bar"><span class="k">Generations</span><span class="t"><i style="width:74%"></i></span><span class="v">148</span></div>
+                  <div class="bar"><span class="k">Edits</span><span class="t"><i style="width:26%"></i></span><span class="v">52</span></div>
+                  <div class="bar"><span class="k">Compare and diff</span><span class="t"><i style="width:9%"></i></span><span class="v">18</span></div>
+                  <div class="bar"><span class="k">Exports</span><span class="t"><i style="width:5%"></i></span><span class="v">10</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="grp-h"><h3>By engine</h3></div>
+              <div class="card">
+                <div class="bars">
+                  <div class="bar"><span class="k">Codex CLI</span><span class="t"><i style="width:68%"></i></span><span class="v">156</span></div>
+                  <div class="bar"><span class="k">OpenRouter</span><span class="t"><i style="width:31%"></i></span><span class="v">72</span></div>
+                  <div class="bar"><span class="k">Demo</span><span class="t"><i style="width:0%"></i></span><span class="v">0</span></div>
+                </div>
+                <div class="row"><span class="txt"><b>Activity log</b><small>Every run with its engine, look, cost and outcome</small></span><button class="btn">Export CSV</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane" id="library">
+            <div>
+              <div class="grp-h"><h3>Where your work lives</h3><p>Plain files on this machine. Open them yourself, back them up like anything else.</p></div>
+              <div class="card">
+                <div class="row"><span class="txt"><b>Library folder</b><small><code>~/.scenri</code> · 1.4 GB across 1,284 images</small></span><button class="btn">Reveal in Finder</button></div>
+                <div class="row"><span class="txt"><b>Database</b><small><code>~/.scenri/scenri.db</code> · brands, cast, projects, briefs</small></span><span class="tag">SQLite</span></div>
+                <div class="row"><span class="txt"><b>Export everything</b><small>One zip: brands, cast, briefs, shots and overlays. Never keys.</small></span><button class="btn">Export</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane" id="appearance">
+            <div>
+              <div class="grp-h"><h3>Theme</h3><p>Follows your system unless you pick a side.</p></div>
+              <div class="card">
+                <div class="themes">
+                  <button class="tp"><span class="swl" style="background:linear-gradient(140deg,#ffffff 55%,#f1f1f1)"></span><span class="lbl"><span class="dot"></span>Light</span></button>
+                  <button class="tp" data-on><span class="swl" style="background:linear-gradient(140deg,#0d0d0d 55%,#1c1c1c)"></span><span class="lbl"><span class="dot"></span>Dark</span></button>
+                  <button class="tp"><span class="swl" style="background:linear-gradient(110deg,#ffffff 50%,#0d0d0d 50%)"></span><span class="lbl"><span class="dot"></span>System</span></button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="grp-h"><h3>Motion and density</h3></div>
+              <div class="card">
+                <div class="row"><span class="txt"><b>Reduce motion</b><small>Stops the shimmer and the slider easing</small></span><button class="switch" aria-label="Reduce motion"></button></div>
+                <div class="row"><span class="txt"><b>Feed density</b><small>How tightly the masonry packs</small></span><span class="seg"><button>Roomy</button><button data-on>Dense</button></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane" id="about">
+            <div>
+              <div class="grp-h"><h3>About</h3></div>
+              <div class="card">
+                <div class="row"><span class="txt"><b>scenri</b><small>v0.1.0 · local studio</small></span><button class="btn">Check for updates</button></div>
+                <div class="row"><span class="txt"><b>License</b><small>AGPL-3.0 for the app · Apache-2.0 for the .brand format</small></span><button class="btn">Read the spec</button></div>
+                <div class="row"><span class="txt"><b>Telemetry</b><small>There is none. This row exists to say so.</small></span><span class="tag">off, permanently</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane" id="danger">
+            <div>
+              <div class="grp-h"><h3>Danger zone</h3><p>These do not come back. Export from Library first if you are not certain.</p></div>
+              <div class="card danger">
+                <div class="row"><span class="txt"><b>Delete generated shots</b><small>Keeps brands, cast and looks. Frees 1.2 GB.</small></span><button class="btn red">Delete shots</button></div>
+                <div class="row"><span class="txt"><b>Delete all local data</b><small>Brands, cast, projects, shots and saved keys, in one go</small></span><button class="btn red">Delete everything</button></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 53 weeks of squares. Deterministic on purpose so the mockup looks the same
+    // in every screenshot: no Math.random, just a cheap hash of the day index.
+    (function heat(){
+      const grid = document.getElementById('heatGrid');
+      const months = document.getElementById('heatMonths');
+      if (!grid) return;
+      const WEEKS = 53, DAYS = WEEKS * 7;
+      const end = new Date(2026, 7, 3);                    // the mockup's "today"
+      const start = new Date(end);
+      start.setDate(end.getDate() - (DAYS - 1) - end.getDay());
+      const NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      let total = 0, lastMonth = -1;
+
+      for (let i = 0; i < DAYS; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const h = (i * 2654435761) % 4294967296;
+        const r = (h >>> 8) % 100;
+        const weekend = d.getDay() === 0 || d.getDay() === 6;
+        const busy = i > 150 && i < 250;                    // a stretch where the work piled up
+        let level = r > (weekend ? 86 : busy ? 32 : 58) ? 1 + ((r + i) % 4) : 0;
+        if (weekend && level > 2) level = 2;
+        const runs = level === 0 ? 0 : level * 3 + (r % 5);
+        total += runs;
+        const cell = document.createElement('i');
+        if (level) cell.dataset.l = String(level);
+        cell.title = runs
+          ? `${runs} run${runs === 1 ? '' : 's'} on ${d.getDate()} ${NAMES[d.getMonth()]}`
+          : `nothing on ${d.getDate()} ${NAMES[d.getMonth()]}`;
+        grid.appendChild(cell);
+
+        if (d.getDay() === 0) {                             // one label slot per week column
+          const label = document.createElement('span');
+          if (d.getMonth() !== lastMonth && d.getDate() <= 7) {
+            label.textContent = NAMES[d.getMonth()];
+            lastMonth = d.getMonth();
+          }
+          months.appendChild(label);
+        }
+      }
+      document.getElementById('heatTotal').textContent =
+        total.toLocaleString() + ' runs in the last year';
+    })();
+
+    function pick(btn, id, title){
+      document.querySelectorAll('.rail button').forEach((b) => b.removeAttribute('data-on'));
+      btn.setAttribute('data-on', '');
+      document.querySelectorAll('.pane').forEach((p) => p.id === id ? p.setAttribute('data-on','') : p.removeAttribute('data-on'));
+      document.getElementById('paneTitle').textContent = title;
+      document.querySelector('.scroll').scrollTop = 0;
+    }
+  </script>
+
+  <button class="theme-flip icon-btn" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'" title="Flip theme">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+</body>
+</html>

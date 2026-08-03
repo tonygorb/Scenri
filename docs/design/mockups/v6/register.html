@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scenri v6 · Smart registration (hosted studio)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{ --r-card:14px; --gold:#f5c518; --gold-ink:#191300; --formw:404px; }
+  [data-theme="light"]{
+    --bg:#ffffff; --panel:#ffffff; --raised:#f6f6f6; --line:#e8e8e8; --line-strong:#d4d4d4;
+    --fg:#0a0a0a; --fg2:#666666; --fg3:#9a9a9a;
+    --inv-bg:#0a0a0a; --inv-fg:#ffffff; --hover:#f4f4f4;
+  
+    --sb:rgba(10,10,10,.18); --sb-hover:rgba(10,10,10,.34);
+  }
+  [data-theme="dark"]{
+    --bg:#0d0d0d; --panel:#141414; --raised:#1a1a1a; --line:#262626; --line-strong:#383838;
+    --fg:#f5f5f5; --fg2:#9a9a9a; --fg3:#6b6b6b;
+    --inv-bg:#f5f5f5; --inv-fg:#0d0d0d; --hover:#1c1c1c;
+  
+    --sb:rgba(245,245,245,.20); --sb-hover:rgba(245,245,245,.36);
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 'Inter Tight',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  svg{display:block}
+
+  /* ---------- scrollbars: part of the page, never louder than it ----------
+     Thin, no track, thumb tinted from the theme's own line color and only
+     fully visible while the pointer is over the scrollable area. Firefox gets
+     the same treatment through scrollbar-color. */
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:999px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--sb-hover);background-clip:content-box}
+
+  .note{max-width:680px;margin:24px auto 0;text-align:center;color:var(--fg3);font-size:11.5px}
+  .note b{color:var(--fg2);font-weight:600}
+
+  /* ---------- one split, identical on every step ---------- */
+  .step{min-height:96vh;display:grid;grid-template-columns:minmax(430px,1fr) minmax(400px,46%);
+    gap:32px;max-width:1400px;margin:0 auto;padding:20px 20px 32px;border-bottom:1px dashed var(--line)}
+  .step.solo{grid-template-columns:1fr;max-width:920px}
+
+  /* the form column is one centred stack: header, then body, then the button */
+  .formcol{display:grid;grid-template-rows:auto 1fr;justify-items:center;padding:4px 0 8px}
+  .headrow{width:100%;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-bottom:auto}
+  .back{display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--fg2);font-size:12.5px;padding:0;justify-self:start}
+  .back:hover{color:var(--fg)}
+  .dots{display:flex;gap:7px;justify-self:center}
+  .dots i{width:5.5px;height:5.5px;border-radius:50%;background:var(--line-strong)}
+  .dots i[data-on]{background:var(--fg);transform:scale(1.3)}
+  /* the brief typed on the landing dock rides every step */
+  .carried{justify-self:end;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:11.5px;color:var(--fg2);max-width:290px;white-space:nowrap;overflow:hidden}
+  .carried .coin{width:11px;height:11px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff3b0, #f0b90b 60%, #a67c00)}
+  .carried em{font-style:normal;color:var(--fg);overflow:hidden;text-overflow:ellipsis}
+
+  .mid{width:100%;max-width:var(--formw);align-self:center;display:flex;flex-direction:column}
+  .step.solo .mid{max-width:760px}
+  h1{font:600 38px/1.12 'Inter Tight';letter-spacing:-.028em;text-align:center}
+  h1 em{font:500 italic 41px 'Playfair Display'}
+  .sub{color:var(--fg2);font-size:13.5px;text-align:center;margin:10px 0 26px;text-wrap:balance}
+
+  label{display:block;font-size:12px;font-weight:600;margin:0 0 6px;color:var(--fg2)}
+  label .info{display:inline-block;vertical-align:-2px;margin-left:4px;color:var(--fg3)}
+  .in{width:100%;height:44px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--fg);
+    padding:0 13px;font:13.5px 'Inter Tight';outline:none}
+  .in::placeholder{color:var(--fg3)}
+  .in:focus{border-color:var(--fg)}
+  .field{margin-bottom:14px}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .hint{font-size:11.5px;color:var(--fg3);margin-top:-8px;margin-bottom:14px}
+  .hint.gold{color:#8a6d00}
+  [data-theme="dark"] .hint.gold{color:var(--gold)}
+  .sel{position:relative}
+  .sel svg{position:absolute;right:13px;top:15px;color:var(--fg3);pointer-events:none}
+
+  .cta{width:100%;height:46px;margin-top:8px;border:none;border-radius:999px;background:var(--inv-bg);color:var(--inv-fg);
+    font:600 14px 'Inter Tight';display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  .cta:hover{opacity:.9}
+  .skip{display:block;margin:14px auto 0;border:none;background:none;color:var(--fg3);font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+  .skip:hover{color:var(--fg2)}
+
+  /* choice cards */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .card{position:relative;border:1px solid var(--line);border-radius:14px;background:none;padding:16px;text-align:left}
+  .card:hover{border-color:var(--line-strong)}
+  .card[data-on]{border-color:var(--fg)}
+  .card .ic{width:34px;height:34px;border-radius:10px;background:var(--raised);display:grid;place-items:center;color:var(--fg2);margin-bottom:11px}
+  .card b{display:block;font:600 13.5px 'Inter Tight';margin-bottom:3px}
+  .card small{color:var(--fg3);font-size:12px;line-height:1.45}
+  .radio{position:absolute;top:14px;right:14px;width:17px;height:17px;border-radius:50%;border:1.5px solid var(--line-strong)}
+  .card[data-on] .radio{border-color:var(--fg);background:var(--fg);box-shadow:inset 0 0 0 3px var(--panel)}
+
+  /* chips */
+  .chips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
+  .chip{border:1px solid var(--line);background:none;border-radius:999px;padding:9px 15px;font-size:13px;color:var(--fg2)}
+  .chip:hover{border-color:var(--line-strong);color:var(--fg)}
+  .chip[data-on]{background:var(--inv-bg);color:var(--inv-fg);border-color:transparent;font-weight:600}
+
+  /* taste picker: our own output, which is the whole argument */
+  .taste{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .tcell{position:relative;border-radius:12px;overflow:hidden;background:var(--raised);border:none;padding:0;line-height:0}
+  .tcell img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+  .tcell .tick{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--fg);color:var(--bg);display:none;place-items:center}
+  .tcell[data-on] .tick{display:grid}
+  .tcell[data-on]{outline:2px solid var(--fg);outline-offset:-2px}
+
+  /* plans */
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
+  .plan{position:relative;border:1px solid var(--line);border-radius:14px;padding:18px 16px;background:none;text-align:left}
+  .plan[data-on]{border-color:var(--fg)}
+  .plan .name{font:600 15px 'Inter Tight'}
+  .plan .price{font:600 26px 'Inter Tight';letter-spacing:-.02em;margin:8px 0 2px}
+  .plan .price span{font:400 12.5px 'Inter Tight';color:var(--fg3)}
+  .plan .who{color:var(--fg3);font-size:12px;margin-bottom:12px}
+  .plan ul{list-style:none;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--fg2)}
+  .plan li{display:flex;gap:8px;align-items:flex-start}
+  .plan li svg{flex:none;margin-top:3px;color:var(--fg3)}
+  .reco{position:absolute;top:-10px;left:16px;background:var(--fg);color:var(--bg);font:600 11px 'Inter Tight';border-radius:999px;padding:3px 10px}
+  .billing{display:flex;justify-content:center;margin-bottom:20px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+  .seg button{border:none;background:none;border-radius:999px;padding:7px 16px;font-size:12.5px;color:var(--fg2)}
+  .seg button[data-on]{background:var(--raised);color:var(--fg);font-weight:600}
+
+  /* ---------- the picture column: our own work, labelled as such ---------- */
+  .herocol{position:relative;border-radius:18px;overflow:hidden;background:var(--raised);min-height:520px}
+  .herocol img{width:100%;height:100%;object-fit:cover;display:block}
+  .madewith{position:absolute;left:14px;bottom:14px;display:inline-flex;align-items:center;gap:8px;
+    background:rgba(10,10,10,.62);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);
+    border-radius:999px;padding:7px 13px;color:#fff;font-size:11.5px}
+  .madewith b{font-weight:600}
+  .madewith .dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.5);flex:none}
+
+  .theme-flip{position:fixed;right:16px;bottom:16px;z-index:60;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg2)}
+
+  @media (max-width:1000px){
+    .step{grid-template-columns:1fr}
+    .herocol{display:none}
+    .plans,.taste{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+  <p class="note"><b>Hosted-studio registration, all steps stacked for review.</b> The brief typed on the landing dock rides the whole flow as the pill top-right, and it is the first thing that runs after setup. Every picture here was generated by the app. The local OSS app never sees this flow.</p>
+
+  <!-- 1 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="formcol">
+      <div class="headrow">
+        <span></span>
+        <span class="dots"><i data-on></i><i></i><i></i><i></i><i></i></span>
+        <span class="carried"><span class="coin"></span><em>matte black headphones on wet slate, dawn light</em></span>
+      </div>
+      <div class="mid">
+        <h1>Your <em>profile</em></h1>
+        <p class="sub">You can change any of this later</p>
+        <div class="frow field">
+          <div><label>First name</label><input class="in" value="Tony"></div>
+          <div><label>Last name</label><input class="in" placeholder="Last name"></div>
+        </div>
+        <div class="field"><label>Brand or studio</label><input class="in" placeholder="Zingy Drinks"></div>
+        <div class="field">
+          <label>Brand website <span class="info"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg></span></label>
+          <input class="in" placeholder="https://example.com">
+        </div>
+        <p class="hint gold">With a live site, your brand kit builds itself while you answer the next three questions</p>
+        <div class="field">
+          <label>Where did you hear about us</label>
+          <div class="sel">
+            <input class="in" placeholder="Select an option" readonly>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
+        <button class="cta">Continue <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+      </div>
+    </div>
+    <div class="herocol">
+      <img src="assets/mk-hero.jpg" alt="">
+      <span class="madewith"><b>Made in scenri</b><span class="dot"></span>#Golden Hour Outdoor<span class="dot"></span>@Zingy Wild Berry</span>
+    </div>
+  </section>
+
+  <!-- 2 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="formcol">
+      <div class="headrow">
+        <button class="back"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button>
+        <span class="dots"><i></i><i data-on></i><i></i><i></i><i></i></span>
+        <span class="carried"><span class="coin"></span><em>matte black headphones on wet slate, dawn light</em></span>
+      </div>
+      <div class="mid">
+        <h1>What best describes <em>your work</em></h1>
+        <p class="sub">So your studio starts in the right place</p>
+        <div class="cards">
+          <button class="card" data-on>
+            <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 9h18l-1.4 10a2 2 0 0 1-2 1.7H6.4a2 2 0 0 1-2-1.7Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg></span>
+            <span class="radio"></span>
+            <b>Brand or online store</b><small>Products, catalogue and campaigns</small>
+          </button>
+          <button class="card">
+            <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20a6 6 0 0 1 12 0M15 20a5 5 0 0 1 6-4.6"/></svg></span>
+            <span class="radio"></span>
+            <b>Agency</b><small>Client campaigns and asset libraries</small>
+          </button>
+          <button class="card">
+            <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 19l7-7-4-4-7 7v4Z"/><path d="m15 8 1.5-1.5a2.1 2.1 0 0 1 3 3L18 11"/></svg></span>
+            <span class="radio"></span>
+            <b>Freelance creative</b><small>Client projects and portfolio work</small>
+          </button>
+          <button class="card">
+            <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4m0-4h.01"/></svg></span>
+            <span class="radio"></span>
+            <b>Just exploring</b><small>Ideas, inspiration and learning</small>
+          </button>
+        </div>
+        <button class="cta">Continue <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+      </div>
+    </div>
+    <div class="herocol">
+      <img src="assets/mk-lineup.jpg" alt="">
+      <span class="madewith"><b>Made in scenri</b><span class="dot"></span>#Brand Gradient<span class="dot"></span>3 products, one brief</span>
+    </div>
+  </section>
+
+  <!-- 3 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="formcol">
+      <div class="headrow">
+        <button class="back"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button>
+        <span class="dots"><i></i><i></i><i data-on></i><i></i><i></i></span>
+        <span class="carried"><span class="coin"></span><em>matte black headphones on wet slate, dawn light</em></span>
+      </div>
+      <div class="mid">
+        <h1>What are you <em>shooting</em></h1>
+        <p class="sub">Pick a few. It only decides which looks we show first</p>
+        <div class="chips">
+          <button class="chip" data-on>Food &amp; drink</button>
+          <button class="chip">Beauty</button>
+          <button class="chip" data-on>Fragrance</button>
+          <button class="chip">Home</button>
+          <button class="chip">Apparel</button>
+          <button class="chip">Jewelry</button>
+          <button class="chip">Electronics</button>
+          <button class="chip">Sport</button>
+          <button class="chip">Accessories</button>
+        </div>
+        <button class="cta">Continue <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+      </div>
+    </div>
+    <div class="herocol">
+      <img src="http://127.0.0.1:4747/api/look-previews/morning-tabletop/ref-02.jpg" alt="">
+      <span class="madewith"><b>Made in scenri</b><span class="dot"></span>#Morning Tabletop<span class="dot"></span>@Amber candle</span>
+    </div>
+  </section>
+
+  <!-- 4 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="formcol">
+      <div class="headrow">
+        <button class="back"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button>
+        <span class="dots"><i></i><i></i><i></i><i data-on></i><i></i></span>
+        <span class="carried"><span class="coin"></span><em>matte black headphones on wet slate, dawn light</em></span>
+      </div>
+      <div class="mid">
+        <h1>Which <em>light</em> feels right</h1>
+        <p class="sub">Every frame here came out of scenri. Your picks order the looks library</p>
+        <div class="taste">
+          <button class="tcell" data-on><img src="http://127.0.0.1:4747/api/look-previews/morning-tabletop/ref-01.jpg" alt=""><span class="tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4 10-10"/></svg></span></button>
+          <button class="tcell"><img src="http://127.0.0.1:4747/api/template-previews/seamless-sweep.jpg" alt=""><span class="tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4 10-10"/></svg></span></button>
+          <button class="tcell" data-on><img src="http://127.0.0.1:4747/api/look-previews/morning-tabletop/ref-03.jpg" alt=""><span class="tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4 10-10"/></svg></span></button>
+          <button class="tcell"><img src="http://127.0.0.1:4747/api/template-previews/candlelit-mantel.jpg" alt=""><span class="tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4 10-10"/></svg></span></button>
+          <button class="tcell"><img src="http://127.0.0.1:4747/api/template-previews/knolled-flat-lay.jpg" alt=""><span class="tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4 10-10"/></svg></span></button>
+          <button class="tcell" data-on><img src="http://127.0.0.1:4747/api/look-previews/morning-tabletop/ref-04.jpg" alt=""><span class="tick"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4 10-10"/></svg></span></button>
+        </div>
+        <button class="cta">Continue <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+      </div>
+    </div>
+    <div class="herocol">
+      <img src="http://127.0.0.1:4747/api/look-previews/morning-tabletop/ref-06.jpg" alt="">
+      <span class="madewith"><b>Made in scenri</b><span class="dot"></span>#Morning Tabletop<span class="dot"></span>@Marco</span>
+    </div>
+  </section>
+
+  <!-- 5 ------------------------------------------------------------------ -->
+  <section class="step solo">
+    <div class="formcol">
+      <div class="headrow">
+        <button class="back"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button>
+        <span class="dots"><i></i><i></i><i></i><i></i><i data-on></i></span>
+        <span class="carried"><span class="coin"></span><em>matte black headphones on wet slate, dawn light</em></span>
+      </div>
+      <div class="mid">
+        <h1>Pick a <em>plan</em></h1>
+        <p class="sub">Bring your own key and pay nothing to us, or let us handle the engines</p>
+        <div class="billing">
+          <span class="seg"><button data-on>Yearly, save 20%</button><button>Monthly</button></span>
+        </div>
+        <div class="plans">
+          <button class="plan">
+            <span class="name">Free</span>
+            <div class="price">$0<span> / month</span></div>
+            <p class="who">Your own API keys</p>
+            <ul>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>Every look and every tool</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>You pay the engine directly</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>Or run it all locally, forever</li>
+            </ul>
+          </button>
+          <button class="plan" data-on>
+            <span class="reco">Most pick this</span>
+            <span class="name">Pro</span>
+            <div class="price">$24<span> / month</span></div>
+            <p class="who">Engines included</p>
+            <ul>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>600 generations a month</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>No keys to manage</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>Cloud library, shared links</li>
+            </ul>
+          </button>
+          <button class="plan">
+            <span class="name">Studio</span>
+            <div class="price">$89<span> / month</span></div>
+            <p class="who">For a team</p>
+            <ul>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>2,500 generations a month</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>Five seats, shared brands</li>
+              <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>Priority queue</li>
+            </ul>
+          </button>
+        </div>
+        <button class="cta">Finish setup <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+        <button class="skip">Not ready. Skip this step</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- payoff ------------------------------------------------------------- -->
+  <section class="step solo">
+    <div class="formcol">
+      <div class="headrow"><span></span><span class="dots"></span><span></span></div>
+      <div class="mid">
+        <h1>Your first shots are <em>already running</em></h1>
+        <p class="sub">We started the brief you typed before signing up. Your kit scraped itself from zingydrinks.com while you answered four questions.</p>
+        <div class="taste" style="grid-template-columns:repeat(3,1fr)">
+          <button class="tcell"><img src="assets/mk-hero.jpg" alt=""></button>
+          <button class="tcell"><img src="assets/mk-lineup.jpg" alt=""></button>
+          <button class="tcell"><img src="http://127.0.0.1:4747/api/look-previews/morning-tabletop/ref-05.jpg" alt=""></button>
+        </div>
+        <button class="cta" style="max-width:var(--formw);margin:22px auto 0">Open the studio <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <button class="theme-flip" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'" title="Flip theme">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+</body>
+</html>

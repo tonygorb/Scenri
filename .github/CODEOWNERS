@@ -1,0 +1,9 @@
+# Every path falls to the maintainer until there are more of us.
+*       @tonygorb
+
+# The open format is the part other tools depend on. Changes here are not
+# just code changes, they are compatibility promises.
+/packages/brand-spec/    @tonygorb
+/SECURITY.md             @tonygorb
+/LICENSE                 @tonygorb
+/CLA.md                  @tonygorb

@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenri.dev/schema/brand-0.1.schema.json",
+  "title": ".brand \u2014 portable brand DNA (v0.1 draft)",
+  "type": "object",
+  "required": ["specVersion", "meta"],
+  "additionalProperties": false,
+  "properties": {
+    "specVersion": {
+      "const": "0.1"
+    },
+    "meta": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "tagline": {
+          "type": "string"
+        },
+        "industry": {
+          "type": "string"
+        },
+        "website": {
+          "type": "string",
+          "format": "uri"
+        },
+        "createdWith": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "$ref": "#/$defs/color"
+        },
+        "secondary": {
+          "$ref": "#/$defs/color"
+        },
+        "accent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/color"
+          }
+        },
+        "neutrals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/color"
+          }
+        },
+        "usage": {
+          "type": "string"
+        }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "$ref": "#/$defs/typeface"
+        },
+        "body": {
+          "$ref": "#/$defs/typeface"
+        },
+        "rules": {
+          "type": "string"
+        }
+      }
+    },
+    "logos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "file"],
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": ["primary", "mark", "wordmark", "monochrome", "alternate"]
+          },
+          "file": {
+            "$ref": "#/$defs/assetRef"
+          },
+          "background": {
+            "enum": ["light", "dark", "any"]
+          },
+          "clearSpace": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "imagery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "styleReferences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["file"],
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "$ref": "#/$defs/assetRef"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mood": {
+          "type": "string"
+        }
+      }
+    },
+    "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tone": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sampleLines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file"],
+              "additionalProperties": false,
+              "properties": {
+                "file": {
+                  "$ref": "#/$defs/assetRef"
+                },
+                "angle": {
+                  "type": "string"
+                },
+                "locked": {
+                  "type": "boolean",
+                  "default": false
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file"],
+              "additionalProperties": false,
+              "properties": {
+                "file": {
+                  "$ref": "#/$defs/assetRef"
+                },
+                "angle": {
+                  "type": "string"
+                },
+                "locked": {
+                  "type": "boolean",
+                  "default": false
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Named people who can appear in shots. Same shape as products: a name plus locked reference photos, so a person stays the same person across generations."
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)+$"
+      }
+    }
+  },
+  "$defs": {
+    "color": {
+      "type": "object",
+      "required": ["hex"],
+      "additionalProperties": false,
+      "properties": {
+        "hex": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "typeface": {
+      "type": "object",
+      "required": ["family"],
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "weights": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 1000
+          }
+        },
+        "fallback": {
+          "type": "string"
+        }
+      }
+    },
+    "assetRef": {
+      "type": "string",
+      "description": "URL or path relative to brand.json; bundle form uses assets/ paths"
+    }
+  }
+}

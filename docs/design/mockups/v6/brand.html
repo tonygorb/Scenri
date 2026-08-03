@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scenri v6 · Brand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{ --r-card:14px; --r-tile:10px; --gold:#f5c518; --gold-ink:#191300; }
+  [data-theme="light"]{
+    --bg:#ffffff; --panel:#ffffff; --raised:#f6f6f6; --line:#e8e8e8; --line-strong:#d4d4d4;
+    --fg:#0a0a0a; --fg2:#666666; --fg3:#9a9a9a;
+    --inv-bg:#0a0a0a; --inv-fg:#ffffff; --hover:#f4f4f4; --red:#d93025;
+  
+    --sb:rgba(10,10,10,.18); --sb-hover:rgba(10,10,10,.34);
+  }
+  [data-theme="dark"]{
+    --bg:#0d0d0d; --panel:#141414; --raised:#1a1a1a; --line:#262626; --line-strong:#383838;
+    --fg:#f5f5f5; --fg2:#9a9a9a; --fg3:#6b6b6b;
+    --inv-bg:#f5f5f5; --inv-fg:#0d0d0d; --hover:#1c1c1c; --red:#ff6b62;
+  
+    --sb:rgba(245,245,245,.20); --sb-hover:rgba(245,245,245,.36);
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 'Inter Tight',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  svg{display:block}
+
+  /* ---------- scrollbars: part of the page, never louder than it ----------
+     Thin, no track, thumb tinted from the theme's own line color and only
+     fully visible while the pointer is over the scrollable area. Firefox gets
+     the same treatment through scrollbar-color. */
+  *{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:999px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--sb-hover);background-clip:content-box}
+
+  .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;height:60px;padding:0 20px;background:var(--bg)}
+  .wordmark{font:600 15px 'Inter Tight';letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+  .brand-pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:12.5px}
+  .brand-dot{width:9px;height:9px;border-radius:3px;background:#f5a623}
+  .nav{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+  .nav button{border:none;background:none;padding:6px 16px;border-radius:999px;font-size:13px;font-weight:500;color:var(--fg2)}
+  .nav button[data-active]{background:var(--inv-bg);color:var(--inv-fg);font-weight:600}
+  .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .credits{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:none;border-radius:999px;background:var(--gold);color:var(--gold-ink);font-weight:650;font-size:12.5px}
+  .coin{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff3b0, #f0b90b 60%, #a67c00);box-shadow:inset 0 0 0 1.5px rgba(120,86,0,.55)}
+  .icon-btn{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg2)}
+  .icon-btn:hover{background:var(--hover);color:var(--fg)}
+
+  main{max-width:920px;margin:0 auto;padding:30px 24px 90px}
+  .hero{display:flex;align-items:center;gap:18px;margin-bottom:30px}
+  .logo{width:64px;height:64px;border:1px solid var(--line);border-radius:16px;padding:10px;background:var(--panel)}
+  .logo img{width:100%;height:100%;object-fit:contain;display:block}
+  .hero h1{font:600 26px 'Inter Tight';letter-spacing:-.02em}
+  .hero h1 em{font:500 italic 28px 'Playfair Display'}
+  .hero p{color:var(--fg2);max-width:560px;font-size:12.5px;margin-top:2px}
+  .hero .edit{margin-left:auto;border:1px solid var(--line);background:none;border-radius:999px;padding:7px 15px;font-size:12.5px;font-weight:500}
+  .hero .edit:hover{background:var(--hover)}
+
+  .sec{margin-bottom:28px}
+  .sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .sec-title{font:600 14px 'Inter Tight'}
+  .add{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:none;border-radius:999px;padding:5px 13px;font-size:12px;color:var(--fg2)}
+  .add:hover{background:var(--hover);color:var(--fg)}
+
+  .palette{display:flex;gap:10px}
+  .col{flex:1;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--panel)}
+  .col .chipfill{height:74px}
+  .col .m{padding:9px 12px}
+  .col b{display:block;font-size:12px;font-weight:600}
+  .col small{color:var(--fg3);font-size:11px;font-family:ui-monospace,monospace}
+
+  .prods{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .prod{border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--panel);padding:0;text-align:left}
+  .prod:hover{border-color:var(--line-strong)}
+  .prod img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+  .prod .m{padding:8px 11px;display:flex;align-items:center;justify-content:space-between}
+  .prod b{font-size:12px;font-weight:600}
+  .prod small{font-size:10px;color:var(--fg3);border:1px solid var(--line);border-radius:999px;padding:1px 7px}
+  .prod-add{border:1px dashed var(--line-strong);border-radius:var(--r-card);display:grid;place-content:center;gap:6px;justify-items:center;aspect-ratio:1/1.22;background:none;color:var(--fg3);font-size:12px}
+  .prod-add:hover{color:var(--fg);background:var(--hover)}
+
+  .tpls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .tpl{position:relative;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--panel);padding:0;text-align:left}
+  .tpl:hover{border-color:var(--line-strong)}
+  .tpl img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block}
+  .tpl .m{padding:9px 11px}
+  .tpl b{font-size:12px;font-weight:600}
+  .tpl .fav{position:absolute;top:8px;right:8px;color:var(--gold);filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+
+  .danger{border:1px solid var(--line);border-radius:var(--r-card);background:var(--panel);padding:14px 16px;display:flex;align-items:center;gap:12px}
+  .danger b{font-size:13px}
+  .danger small{color:var(--fg3);display:block}
+  .danger .del{margin-left:auto;border:1px solid var(--line);background:none;border-radius:999px;padding:6px 14px;font-size:12px;color:var(--red)}
+  .danger .del:hover{border-color:var(--red)}
+
+  .theme-flip{position:fixed;right:16px;bottom:16px;z-index:60}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <span class="wordmark">scenri
+      <button class="brand-pill"><span class="brand-dot"></span>Stripe</button>
+    </span>
+    <nav class="nav">
+      <button>Home</button>
+      <button>Create</button>
+      <button data-active>Brand</button>
+    </nav>
+    <div class="right">
+      <button class="credits"><span class="coin"></span>228 left</button>
+      <button class="icon-btn" title="Theme"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg></button>
+      <button class="icon-btn" title="Settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10 2.1 2.1M4.9 19.1l2.1-2.1m10-10 2.1-2.1"/></svg></button>
+    </div>
+  </div>
+
+  <main>
+    <div class="hero">
+      <span class="logo"><img src="http://127.0.0.1:4747/api/images/8d49f4741feb7dc6eb1f6dba87b0d702" alt=""></span>
+      <div>
+        <h1>The Stripe <em>kit</em></h1>
+        <p>Financial services platform that helps businesses accept payments and manage money movement. Everything generated in this brand starts from what is on this page.</p>
+      </div>
+      <button class="edit">Edit details</button>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title">Palette</span></div>
+      <div class="palette">
+        <div class="col"><div class="chipfill" style="background:#f5a623"></div><div class="m"><b>Primary</b><small>#F5A623</small></div></div>
+        <div class="col"><div class="chipfill" style="background:#424770"></div><div class="m"><b>Secondary</b><small>#424770</small></div></div>
+        <div class="col"><div class="chipfill" style="background:#cad2d9"></div><div class="m"><b>Accent</b><small>#CAD2D9</small></div></div>
+        <div class="col"><div class="chipfill" style="background:#929eaa"></div><div class="m"><b>Accent 2</b><small>#929EAA</small></div></div>
+        <div class="col"><div class="chipfill" style="background:#e0e0e0"></div><div class="m"><b>Neutral</b><small>#E0E0E0</small></div></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head">
+        <span class="sec-title">Products</span>
+        <button class="add"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Add product</button>
+      </div>
+      <div class="prods">
+        <button class="prod"><img src="http://127.0.0.1:4747/api/images/42a2553fd093ab346237c840f3799e24" alt=""><span class="m"><b>can</b><small>locked</small></span></button>
+        <button class="prod"><img src="http://127.0.0.1:4747/api/images/06deabdf4a58a20a14a1c6132d860b98" alt=""><span class="m"><b>Shida</b><small>locked</small></span></button>
+        <button class="prod-add">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+          Add a product
+        </button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head"><span class="sec-title">Favorite looks</span></div>
+      <div class="tpls">
+        <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/seamless-sweep.jpg" alt=""><span class="fav"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.5l7-.9Z"/></svg></span><span class="m"><b>Studio packshot</b></span></button>
+        <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/morning-tabletop.jpg" alt=""><span class="fav"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.5l7-.9Z"/></svg></span><span class="m"><b>Lifestyle tabletop</b></span></button>
+        <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/brand-gradient.jpg" alt=""><span class="m"><b>Hero on gradient</b></span></button>
+        <button class="tpl"><img src="http://127.0.0.1:4747/api/template-previews/aluminium-studio.jpg" alt=""><span class="m"><b>Label on can</b></span></button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="danger">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--fg3)"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        <span><b>Delete this brand</b><small>Removes the kit, projects and shots. Cannot be undone.</small></span>
+        <button class="del">Delete brand</button>
+      </div>
+    </div>
+  </main>
+
+  <button class="theme-flip icon-btn" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'" title="Flip theme">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+</body>
+</html>

@@ -1,0 +1,61 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'apps/studio/**'
+      - 'packages/cli/**'
+      - '.github/workflows/e2e.yml'
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  composer:
+    name: composer caret and chips
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm --filter @scenri/studio exec playwright install --with-deps chromium
+
+      - name: Build the studio
+        run: pnpm build
+
+      # The suite drives a real server on purpose: synthetic events cannot
+      # reproduce focus or caret behaviour, so there is nothing to mock.
+      - name: Start scenri and wait for it
+        run: |
+          pnpm dev &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:4747/api/engines >/dev/null && exit 0
+            sleep 1
+          done
+          echo "server never came up" >&2
+          exit 1
+        env:
+          SCENRI_NO_OPEN: '1'
+          SCENRI_HOME: ${{ runner.temp }}/scenri-e2e
+
+      - name: Run Playwright
+        run: pnpm --filter @scenri/studio test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/studio/playwright-report/
+          retention-days: 7

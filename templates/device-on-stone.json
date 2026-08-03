@@ -1,0 +1,13 @@
+{
+  "id": "device-on-stone",
+  "name": "Device on Stone",
+  "lighting": "Cool key, screen glow",
+  "subject": "product",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Electronics", "Accessories"],
+  "description": "Hardware at a dynamic angle on cut stone, glass reflections, the screen its own light source. Launch-page register.",
+  "prompt": "at a dynamic angle resting on cut stone against a deep cool gradient, subtle glass reflections, the screen acting as its own light source, crisp legible interface, product-launch render quality",
+  "width": 1024,
+  "height": 1024,
+  "aliases": ["app-on-device"]
+}
