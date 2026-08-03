@@ -1,0 +1,24 @@
+#!/bin/sh
+# Block a commit that contains anything shaped like a credential.
+#
+# GitHub's own push protection is free on public repositories only, so while
+# this repo is private this hook is the thing standing between a stray API key
+# and the history. It runs on staged changes only, so it is fast.
+#
+# Install: git config core.hooksPath .githooks
+# Bypass once, deliberately: git commit --no-verify
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not found, skipping the secret scan."
+  echo "            install it with: brew install gitleaks"
+  exit 0
+fi
+
+if ! gitleaks protect --staged --redact --no-banner; then
+  echo ""
+  echo "pre-commit: BLOCKED. Something in the staged changes looks like a secret."
+  echo "  Values above are redacted on purpose."
+  echo "  If it is a real credential: unstage it, and rotate the key. It is burned."
+  echo "  If it is a false positive: add a rule to .gitleaks.toml, not --no-verify."
+  exit 1
+fi
