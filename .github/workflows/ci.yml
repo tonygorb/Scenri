@@ -42,6 +42,11 @@ jobs:
   secrets:
     name: secret scan
     runs-on: ubuntu-latest
+    # Repo default GITHUB_TOKEN is contents/packages read only; gitleaks needs
+    # pull-requests:read to list commits on pull_request events.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:

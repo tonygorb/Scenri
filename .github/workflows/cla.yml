@@ -15,7 +15,8 @@ on:
 # check, which is evaluated by GitHub and never reaches a shell.
 permissions:
   actions: write
-  contents: read
+  # Write is required so the action can push signatures to cla-signatures.
+  contents: write
   pull-requests: write
   statuses: write
 
@@ -37,7 +38,9 @@ jobs:
           path-to-signatures: signatures/cla.json
           path-to-document: https://github.com/tonygorb/scenri/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: tonygorb,dependabot[bot],github-actions[bot]
+          # Bots cannot sign a CLA. These are all first-party automation acting
+          # on this repo's behalf, so there is no third-party copyright to assign.
+          allowlist: tonygorb,dependabot[bot],github-actions[bot],scenri-release-bot[bot]
           custom-notsigned-prcomment: >
             Thank you for the pull request. scenri asks every contributor to sign its
             [Contributor License Agreement](https://github.com/tonygorb/scenri/blob/main/CLA.md)
