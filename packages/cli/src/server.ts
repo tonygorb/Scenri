@@ -495,7 +495,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       engineId: String(engineId),
     });
     if (brief) core.store.setBrief(node.id, brief);
-    void runNode(node.id, engine, estimate, work);
+    // Fire and forget: the 202 is the answer and the node's own status carries
+    // the outcome. runNode records failures itself, so a rejection here means
+    // even that failed — log it, but never let it reach the process unhandled.
+    void runNode(node.id, engine, estimate, work).catch((err) => app.log.error({ err }, 'node run failed'));
     return reply.status(202).send(node);
   });
 

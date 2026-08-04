@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
 import { compileBrief, briefLabel, type Brief } from '../src/brief.js';
 import { loadLooks, lookResolver, defaultLooksDir } from '../src/looks.js';
+import { waitDone } from './helpers.js';
 
 let home: string;
 let core: Core;
@@ -296,7 +297,8 @@ describe('brief through the API', () => {
     expect(created.statusCode).toBe(202);
     expect(created.json().prompt).toContain('House Blend');
 
-    const node = (await app.inject({ method: 'GET', url: `/api/nodes/${created.json().id}` })).json();
+    // the engine really runs, so drain it before afterEach closes the database
+    const node = await waitDone(app, created.json().id);
     expect(node.brief.tokens).toHaveLength(5); // remix can reopen exactly this
     await app.close();
   });
