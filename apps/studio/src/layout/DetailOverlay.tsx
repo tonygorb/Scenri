@@ -363,7 +363,6 @@ export function DetailOverlay({
             engines={engines}
             parent={node}
             shots={nodes}
-            costLine={false}
             onQueued={onChanged}
           />
         </div>

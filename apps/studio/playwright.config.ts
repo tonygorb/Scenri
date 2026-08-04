@@ -39,6 +39,8 @@ export default defineConfig({
     stderr: 'pipe',
     env: {
       SCENRI_NO_OPEN: '1',
+      // keep e2e on loopback so health checks do not need a LAN access token
+      SCENRI_HOST: '127.0.0.1',
       SCENRI_PORT: String(PORT),
       SCENRI_HOME: process.env.SCENRI_E2E_HOME ?? join(tmpdir(), 'scenri-e2e'),
     },
@@ -47,6 +49,23 @@ export default defineConfig({
     // A setup project rather than globalSetup: it is an ordinary test, so it
     // provably runs after webServer is up and can use the request fixture.
     { name: 'setup', testMatch: /seed\.setup\.ts/, timeout: 60_000 },
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'] },
+    // the touch cases below assert rules that only exist under pointer:coarse,
+    // so a mouse must not be asked to satisfy them
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: /mobile\.spec\.ts/,
+      dependencies: ['setup'],
+    },
+    // The composer row is the one piece of chrome that has to survive a hand's
+    // width, so it gets real devices rather than a resized desktop: a phone
+    // reports pointer:coarse, and the touch rules hang off that.
+    { name: 'mobile', use: { ...devices['Pixel 5'] }, testMatch: /mobile\.spec\.ts/, dependencies: ['setup'] },
+    {
+      name: 'tablet',
+      use: { ...devices['iPad Mini landscape'] },
+      testMatch: /mobile\.spec\.ts/,
+      dependencies: ['setup'],
+    },
   ],
 });

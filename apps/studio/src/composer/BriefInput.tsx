@@ -12,6 +12,7 @@ import {
   chipLabel,
   closeIcon,
   collapseDoubleSpaceAtCaret,
+  syncEmpty,
   decode,
   emptySentence,
   encode,
@@ -76,10 +77,12 @@ export const BriefInput = forwardRef<
     shots: TreeNode[];
     templates: Look[];
     placeholder: string;
+    /** Shorter line for narrow viewports; falls back to placeholder. */
+    placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
     onSubmit: () => void;
   }
->(function BriefInput({ initialTokens, onChange, brand, shots, templates, placeholder, flag, onSubmit }, ref) {
+>(function BriefInput({ initialTokens, onChange, brand, shots, templates, placeholder, placeholderSm, flag, onSubmit }, ref) {
   const rootRef = useRef<HTMLDivElement>(null);
   const chipCount = useRef(0);
   /**
@@ -91,7 +94,7 @@ export const BriefInput = forwardRef<
   const [menu, setMenu] = useState<{
     anchor: { getBoundingClientRect(): DOMRect } | null;
     replaceUid?: string;
-    sigil?: '@' | '#';
+    sigil?: '/' | '@' | '#';
   } | null>(null);
   const [query, setQuery] = useState('');
   const uidSeq = useRef(0);
@@ -183,6 +186,7 @@ export const BriefInput = forwardRef<
     if (!root) return;
     renderLine(root, initialTokens?.length ? initialTokens : emptySentence(), (t) => chipFor(t));
     chipCount.current = root.querySelectorAll(`.${CHIP}`).length;
+    syncEmpty(root);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -244,6 +248,7 @@ export const BriefInput = forwardRef<
       if (!root) return;
       renderLine(root, t.length ? t : emptySentence(), (tok) => chipFor(tok));
       chipCount.current = root.querySelectorAll(`.${CHIP}`).length;
+      syncEmpty(root);
       onChange(readLine(root));
     },
     openMenu: (anchor) => {
@@ -302,6 +307,7 @@ export const BriefInput = forwardRef<
     ? decode(rootRef.current?.querySelector<HTMLElement>(`[data-uid="${openChip}"]`)?.dataset.tok ?? '')
     : null;
   const menuGroup = openTok ? groupOf(openTok) : null;
+  // / = everything, @ = ingredients (not looks), # = looks only
   const bySigil =
     menu?.sigil === '#'
       ? options.filter((o) => o.group === 'Looks')
@@ -368,13 +374,13 @@ export const BriefInput = forwardRef<
       return;
     }
     if (menu) return;
-    // '@' reaches for an ingredient, '#' for a look. Which one you typed is the
-    // filter, so the menu opens already narrowed instead of showing everything.
-    if (e.key === '@' || e.key === '#') {
+    // '/' inserts anything, '@' an ingredient, '#' a look. Which one you typed
+    // is the filter, so the menu opens already narrowed instead of everything.
+    if (e.key === '/' || e.key === '@' || e.key === '#') {
       const root = rootRef.current;
       const before = textBeforeCaret(root);
       const prev = before.slice(-1);
-      if (before.length && !/[\s\u00a0]/.test(prev)) return; // mid-word: an email, or a hex
+      if (before.length && !/[\s\u00a0]/.test(prev)) return; // mid-word: path, email, or hex
       const rect = caretRect();
       if (rect) {
         setQuery('');
@@ -389,6 +395,9 @@ export const BriefInput = forwardRef<
     // a chip deleted with Backspace or Delete leaves both of its spaces behind
     if (chips < chipCount.current) collapseDoubleSpaceAtCaret(root);
     chipCount.current = chips;
+    // clearing the line leaves a <br>; strip it and flip data-empty so the
+    // placeholder returns even if Chromium re-inserts a caret host
+    if (syncEmpty(root)) caretToEnd(root);
     if (menu && !menu.replaceUid) {
       const live = sigilAtCaret(root);
       if (!live) {
@@ -492,6 +501,7 @@ export const BriefInput = forwardRef<
         aria-multiline="true"
         dir="auto"
         data-ph={placeholder}
+        {...(placeholderSm ? { 'data-ph-sm': placeholderSm } : {})}
         onClick={onClick}
         onKeyDown={onKeyDown}
         onInput={onInput}

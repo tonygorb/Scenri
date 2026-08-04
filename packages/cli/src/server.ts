@@ -281,6 +281,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!p) return reply.status(404).send({ error: 'project not found' });
     return { project: p, nodes: core.store.treeFor(p.id) };
   });
+  /**
+   * Everything the brand has running or lately finished, generations and
+   * catalog imports together. One request, so the notifications bell costs the
+   * same whether you have two projects or forty.
+   */
+  app.get('/api/brands/:id/activity', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const limit = Math.min(Number((req.query as any).limit) || 60, 200);
+    return { nodes: core.store.recentActivity(brand.id, limit), jobs: core.catalog.listJobs(brand.id) };
+  });
 
   // ---- engines / caps / costs
   app.get('/api/engines', async () => {

@@ -5,7 +5,6 @@ import {
   Circle,
   Cube,
   Database,
-  GearSix,
   Globe,
   Info,
   Lightning,
@@ -19,7 +18,7 @@ import { api, type EngineInfo, type Project, type TreeNode } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { useThemeMode, type ThemeChoice } from '../theme.js';
 
-type Pane = 'engines' | 'budget' | 'usage' | 'library' | 'appearance' | 'about' | 'danger';
+export type Pane = 'engines' | 'budget' | 'usage' | 'library' | 'appearance' | 'about' | 'danger';
 
 const PANES: { id: Pane; label: string; title: string; icon: React.ReactNode; danger?: boolean }[] = [
   { id: 'engines', label: 'Engines', title: 'Engines and keys', icon: <Lightning size={14} /> },
@@ -60,16 +59,6 @@ const bytes = (n: number) =>
 export function useOpenSettings() {
   const { open } = useDialogParam('settings');
   return (pane: Pane = 'engines') => open(pane);
-}
-
-/** The gear anywhere in the app. The dialog itself is mounted once, per brand. */
-export function SettingsButton() {
-  const openSettings = useOpenSettings();
-  return (
-    <button type="button" className="bt-icon-btn" aria-label="Settings" title="Settings" onClick={() => openSettings()}>
-      <GearSix size={16} />
-    </button>
-  );
 }
 
 export function SettingsDialog({

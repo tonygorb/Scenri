@@ -6,6 +6,7 @@ import {
   chipLabel,
   closeIcon,
   collapseDoubleSpaceAtCaret,
+  syncEmpty,
   decode,
   emptySentence,
   encode,
@@ -148,6 +149,37 @@ describe('normalizeLine invariants', () => {
     normalizeLine(root);
     expect(text()).toBe('lead');
     expect(root.childNodes).toHaveLength(1);
+  });
+
+  it('strips a lone <br> and sets data-empty for the placeholder', () => {
+    root.appendChild(document.createElement('br'));
+    expect(syncEmpty(root)).toBe(true);
+    expect(root.childNodes).toHaveLength(0);
+    expect(root.hasAttribute('data-empty')).toBe(true);
+  });
+
+  it('treats an empty chrome wrapper div as blank', () => {
+    const wrap = document.createElement('div');
+    wrap.appendChild(document.createElement('br'));
+    root.appendChild(wrap);
+    expect(syncEmpty(root)).toBe(true);
+    expect(root.childNodes).toHaveLength(0);
+    expect(root.hasAttribute('data-empty')).toBe(true);
+  });
+
+  it('normalizeLine clears Chromium empty-editor leftovers', () => {
+    root.append(document.createElement('br'), document.createTextNode('\u200B'));
+    normalizeLine(root);
+    expect(root.childNodes).toHaveLength(0);
+    expect(root.hasAttribute('data-empty')).toBe(true);
+  });
+
+  it('clears data-empty when the line has real text', () => {
+    root.appendChild(document.createTextNode('keep'));
+    root.setAttribute('data-empty', '');
+    expect(syncEmpty(root)).toBe(false);
+    expect(text()).toBe('keep');
+    expect(root.hasAttribute('data-empty')).toBe(false);
   });
 
   it('always leaves somewhere to type after a trailing chip', () => {
@@ -597,6 +629,10 @@ describe('sigilAtCaret: which menu the caret is asking for', () => {
     sel.addRange(range);
     return root;
   };
+
+  it('reads an insert query after / at a word start', () => {
+    expect(sigilAtCaret(caretAfter('try /mar'))).toEqual({ sigil: '/', query: 'mar' });
+  });
 
   it('reads an ingredient query after @ at a word start', () => {
     expect(sigilAtCaret(caretAfter('a shot of @mar'))).toEqual({ sigil: '@', query: 'mar' });

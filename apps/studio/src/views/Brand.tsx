@@ -1,21 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { AlertDialog, Button, Flex } from '@radix-ui/themes';
-import { CaretDown, ImageSquare, Star, TrashSimple } from '@phosphor-icons/react';
-import { DropdownMenu } from '@radix-ui/themes';
+import { ImageSquare, Star, TrashSimple } from '@phosphor-icons/react';
 import { api, assetUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { TopBar, Wordmark } from '../layout/TopBar.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks, toggleFavoriteLook } from '../favorites.js';
-import { SettingsButton } from './SettingsDialog.js';
 
 const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
 
 /** The kit page: everything generation starts from, first class. */
 export function BrandView() {
-  const { brands, looks: templates, refresh } = useAppData();
+  const { looks: templates, refresh } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const [favs, setFavs] = useState<string[]>(() => favoriteLooks(brand.id));
@@ -42,34 +39,7 @@ export function BrandView() {
 
   return (
     <div className="bt-home">
-      <TopBar
-        left={
-          <Flex align="center" gap="3">
-            <Wordmark />
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                <button type="button" className="bt-brand-pill">
-                  <span className="bt-brand-dot" style={{ background: palette[0]?.hex ?? 'var(--bt-fg3)' }} />
-                  {name}
-                  <CaretDown size={11} />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content>
-                {brands.map((b) => (
-                  <DropdownMenu.Item key={b.id} onSelect={() => navigate(`/b/${b.id}`)}>
-                    {b.json?.meta?.name ?? b.slug}
-                  </DropdownMenu.Item>
-                ))}
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={() => navigate('/setup')}>Set up a brand</DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          </Flex>
-        }
-        right={<SettingsButton />}
-      />
-
-      <main className="bt-brandpage">
+      <main className="bt-brandpage" id="main">
         <div className="bt-kit-hero">
           <span className="bt-kit-logo">
             {logo ? <img src={logo} alt="" /> : <ImageSquare size={20} color="var(--bt-fg3)" />}

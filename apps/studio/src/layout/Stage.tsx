@@ -3,12 +3,8 @@ import { Box, Flex, Spinner, Text } from '@radix-ui/themes';
 import { ArrowClockwise, WarningCircle } from '@phosphor-icons/react';
 import { imgUrl, type TextLayer, type TreeNode } from '../api.js';
 import { TextOverlayEditor } from '../editor/TextOverlayEditor.js';
-
-/** SQLite datetime('now') is UTC without a zone marker — anchor it before diffing. */
-export function elapsedSec(createdAt: string): number {
-  const t = Date.parse(createdAt.includes('T') ? createdAt : `${createdAt.replace(' ', 'T')}Z`);
-  return Math.max(0, Math.round((Date.now() - t) / 1000));
-}
+// one clock for the whole app: the canvas and the bell must not disagree
+import { elapsedSec } from '../tasks.js';
 
 export function StageFrame({
   node,

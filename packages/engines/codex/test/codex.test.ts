@@ -64,7 +64,7 @@ describe('capabilities / costEstimate', () => {
     const engine = createCodexEngine({ saveImage: newSaveImage() });
     expect(engine.capabilities()).toEqual({
       id: 'codex-cli',
-      displayName: 'Codex CLI (your local session)',
+      displayName: 'Codex CLI',
       localOnly: true,
       supportsEdit: true,
       supportsMask: false,

@@ -5,8 +5,6 @@ import { api, imgUrl, type Look, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useApplyLook } from '../app/useApplyLook.js';
-import { TopBar, Wordmark } from '../layout/TopBar.js';
-import { SettingsButton } from './SettingsDialog.js';
 
 /**
  * One look. The reference frames say what the light is; they are ours and are
@@ -98,21 +96,17 @@ export function LookPage() {
     }
   }, [looks, look]);
 
-  if (!look)
-    return (
-      <div className="bt-home">
-        <TopBar left={<Wordmark />} right={<SettingsButton />} />
-      </div>
-    );
+  // TODO: useLooks starts empty and fills in async, so this covers two cases
+  // that deserve different screens: looks.length === 0 is still loading, while
+  // looks.length > 0 && !look is a look id that does not exist.
+  if (!look) return <div className="bt-home" />;
 
   const visibleRefs = openAll ? refs : refs.slice(0, 3);
   const frames = refs.length ? visibleRefs : look.previewUrl ? [look.previewUrl] : [];
 
   return (
     <div className="bt-home">
-      <TopBar left={<Wordmark />} right={<SettingsButton />} />
-
-      <main className="bt-lookpage">
+      <main className="bt-lookpage" id="main">
         <div className="bt-lookpage-crumb">
           <button type="button" onClick={() => navigate(`/b/${brandId}/looks`)}>
             Looks

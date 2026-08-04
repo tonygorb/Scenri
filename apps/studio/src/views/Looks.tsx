@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useApplyLook } from '../app/useApplyLook.js';
-import { TopBar, Wordmark } from '../layout/TopBar.js';
-import { SettingsButton } from './SettingsDialog.js';
 
 /**
  * The looks library. A look is a photographic setup, so the browsing surface
@@ -29,9 +27,7 @@ export function LooksView() {
 
   return (
     <div className="bt-home">
-      <TopBar left={<Wordmark />} right={<SettingsButton />} />
-
-      <main className="bt-looks">
+      <main className="bt-looks" id="main">
         <div className="bt-verticals" role="tablist" aria-label="Verticals">
           <button
             type="button"

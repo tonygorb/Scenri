@@ -285,7 +285,36 @@ export function normalizeLine(root: HTMLElement | null): void {
   if (isChip(root.lastChild)) root.appendChild(document.createTextNode(' '));
   if (isChip(root.firstChild)) root.insertBefore(document.createTextNode(''), root.firstChild);
 
+  // Chromium leaves a lone <br> (or an empty wrapper) when the user clears the
+  // line. Strip it and keep data-empty in sync for the placeholder.
+  if (syncEmpty(root)) return;
+
   if (at !== null) setCaretUnits(root, at);
+}
+
+/**
+ * True when the line has no chips and no real text.
+ *
+ * Chromium often leaves a lone <br>, a zwsp, or an empty <div><br></div>
+ * wrapper after the user clears the line — none of those count as content.
+ */
+export function isBlankLine(root: HTMLElement): boolean {
+  if (root.querySelector(CHIP_SELECTOR)) return false;
+  return !(root.textContent ?? '').replace(/[\u200B\uFEFF\u00a0]/g, '').trim();
+}
+
+/**
+ * Drop empty-editor leftovers and mirror blankness onto data-empty.
+ *
+ * The placeholder is driven by [data-empty], not :empty — :empty fails as soon
+ * as Chromium inserts a <br> on focus or after a clear.
+ */
+export function syncEmpty(root: HTMLElement | null): boolean {
+  if (!root) return false;
+  const blank = isBlankLine(root);
+  if (blank && root.firstChild) root.replaceChildren();
+  root.toggleAttribute('data-empty', blank);
+  return blank;
 }
 
 const isChip = (n: ChildNode | null): boolean =>
@@ -367,7 +396,8 @@ export function insertToken(root: HTMLElement | null, chip: HTMLElement, opts: I
   normalizeLine(root);
 }
 
-export const SIGILS = ['@', '#'] as const;
+/** `/` inserts anything; `@` ingredients; `#` a look. */
+export const SIGILS = ['/', '@', '#'] as const;
 export type Sigil = (typeof SIGILS)[number];
 const isSigil = (c: string): c is Sigil => (SIGILS as readonly string[]).includes(c);
 const isBreak = (c: string) => c === ' ' || c === '\n' || c === '\u00a0';
@@ -393,9 +423,9 @@ export function sigilAtCaret(root: HTMLElement | null): { sigil: Sigil; query: s
   return null;
 }
 
-/** Remove the "@query" or "#query" that opened the menu, even across text nodes. */
+/** Remove the "/query", "@query" or "#query" that opened the menu, even across text nodes. */
 function eatQuery(host: Text, before: string): string {
-  const cut = (v: string) => Math.max(v.lastIndexOf('@'), v.lastIndexOf('#'));
+  const cut = (v: string) => Math.max(v.lastIndexOf('/'), v.lastIndexOf('@'), v.lastIndexOf('#'));
   const here = cut(before);
   if (here >= 0) return before.slice(0, here);
   const wipe: ChildNode[] = [];

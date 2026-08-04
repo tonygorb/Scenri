@@ -28,6 +28,11 @@ export interface TreeNode {
   brief: { tokens: any[]; templateId?: string; templateFields?: Record<string, string> } | null;
 }
 
+/** A node that knows which project it came from, for lists that span projects. */
+export interface ActivityNode extends TreeNode {
+  projectName: string;
+}
+
 export interface TextLayer {
   id: string;
   text: string;
@@ -92,6 +97,9 @@ export const api = {
   createProject: (brandId: string, name: string) =>
     req<{ project: Project; root: TreeNode }>('POST', '/api/projects', { brandId, name }),
   tree: (projectId: string) => req<{ project: Project; nodes: TreeNode[] }>('GET', `/api/projects/${projectId}/tree`),
+  /** Everything running or lately finished in a brand, generations and imports together. */
+  activity: (brandId: string) =>
+    req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[] }>('GET', `/api/brands/${brandId}/activity`),
   engines: () => req<EngineInfo[]>('GET', '/api/engines'),
   setCap: (engineId: string, capUsd: number | null) => req<{ ok: true }>('PUT', '/api/caps', { engineId, capUsd }),
   addNode: (p: {

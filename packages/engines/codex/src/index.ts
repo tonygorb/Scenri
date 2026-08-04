@@ -127,7 +127,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     capabilities(): EngineCapabilities {
       return {
         id: 'codex-cli',
-        displayName: 'Codex CLI (your local session)',
+        displayName: 'Codex CLI',
         localOnly: true, // OSS-local only — ToS boundary, see docs/STRATEGY.md §13
         supportsEdit: true,
         supportsMask: false,

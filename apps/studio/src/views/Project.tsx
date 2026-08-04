@@ -1,19 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
-import { Callout, DropdownMenu, Flex } from '@radix-ui/themes';
-import { CaretDown, SidebarSimple } from '@phosphor-icons/react';
+import { Callout } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo, type TextLayer, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
-import { useBrand } from '../app/BrandLayout.js';
-import { TopBar, Wordmark } from '../layout/TopBar.js';
+import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
 import { Canvas } from '../layout/Canvas.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import type { InspectorTab } from '../layout/Inspector.js';
-import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
-import { SettingsButton } from './SettingsDialog.js';
 
 /**
  * What the shot overlay needs from the canvas behind it. The overlay is a child
@@ -45,7 +41,7 @@ export interface ShotContext {
 export function ProjectView() {
   const { projectId = '' } = useParams();
   const { engines, looks: templates } = useAppData();
-  const { brand, projects } = useBrand();
+  const { brand } = useBrand();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const nodeId = useNodeId();
@@ -53,7 +49,7 @@ export function ProjectView() {
   const [nodes, setNodes] = useState<TreeNode[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [assetsOpen, setAssetsOpen] = useLocalPref(PREF.assetsOpen, true);
+  const { open: assetsOpen, toggle: toggleAssets, setOpen: setAssetsOpen } = useAssetsPanel();
   const [err, setErr] = useState<string | null>(null);
   const [draftLayers, setDraftLayers] = useState<TextLayer[]>([]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -64,8 +60,6 @@ export function ProjectView() {
   const imageIndex = Number.parseInt(iParam, 10) || 0;
   const inspectorTab = (panel === 'info' ? 'info' : 'text') as InspectorTab;
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { push } = useToasts();
-  const statusRef = useRef<Map<string, string>>(new Map());
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<ComposerHandle>(null);
 
@@ -73,34 +67,17 @@ export function ProjectView() {
   const openShot = useCallback((id: string) => navigate(`${base}/n/${id}`), [base, navigate]);
   const closeShot = useCallback(() => navigate(base), [base, navigate]);
 
-  // loadTree must not change identity when the URL does, or the effect below
-  // would blank the canvas every time a shot is opened
-  const openShotRef = useRef(openShot);
-  openShotRef.current = openShot;
-
+  // announcing a finish is TaskCenter's job now: it is mounted above the router
+  // and so can still speak once you have walked away from this project
   const loadTree = useCallback(async () => {
     try {
       const t = await api.tree(projectId);
-      for (const n of t.nodes) {
-        const prev = statusRef.current.get(n.id);
-        if (prev === 'running' && n.status === 'done') {
-          push({
-            kind: 'success',
-            title: 'Generation finished',
-            detail: n.prompt.replace(/^\[[^\]]*\]\s*/, '').slice(0, 60),
-            action: { label: 'View', onClick: () => openShotRef.current(n.id) },
-          });
-        } else if (prev === 'running' && n.status === 'error') {
-          push({ kind: 'error', title: 'Generation failed', detail: n.error ?? undefined });
-        }
-        statusRef.current.set(n.id, n.status);
-      }
       setNodes(t.nodes);
       setErr(null);
     } catch (e: any) {
       setErr(String(e.message ?? e));
     }
-  }, [projectId, push]);
+  }, [projectId]);
 
   useEffect(() => {
     setNodes(null);
@@ -300,7 +277,7 @@ export function ProjectView() {
       } else if (e.key === '[' && imageIndex > 0) setImageIndex(imageIndex - 1);
       else if (e.key === ']' && selected.images.length - 1 > imageIndex) setImageIndex(imageIndex + 1);
       else if (e.key === 'Enter' && !nodeId && selected.kind !== 'root') openShot(selected.id);
-      else if (e.key === '.' && !nodeId) setAssetsOpen((v) => !v);
+      else if (e.key === '.' && !nodeId) toggleAssets();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -334,60 +311,7 @@ export function ProjectView() {
 
   return (
     <div className="bt-work" data-assets={assetsOpen}>
-      <TopBar
-        left={
-          <Flex align="center" gap="2">
-            <span className="bt-desktop-only">
-              <Wordmark />
-            </span>
-            <span className="bt-crumb">{brand.json?.meta?.name} / </span>
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                <button
-                  type="button"
-                  className="bt-crumb"
-                  style={{
-                    border: 'none',
-                    background: 'none',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '4px 2px',
-                  }}
-                >
-                  <b>{projects.find((x) => x.id === projectId)?.name ?? 'Project'}</b>
-                  <CaretDown size={11} />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content>
-                {projects.map((pr) => (
-                  <DropdownMenu.Item key={pr.id} onSelect={() => navigate(`/b/${brand.id}/p/${pr.id}`)}>
-                    {pr.name}
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          </Flex>
-        }
-        right={
-          <>
-            <SettingsButton />
-            <button
-              type="button"
-              className="bt-icon-btn bt-desktop-only"
-              onClick={() => setAssetsOpen((v) => !v)}
-              aria-label="Toggle assets panel"
-              title="Assets panel (.)"
-              style={assetsOpen ? { background: 'var(--bt-raised)', color: 'var(--bt-fg)' } : undefined}
-            >
-              <SidebarSimple size={14} mirrored />
-            </button>
-          </>
-        }
-      />
-
-      <div className="bt-canvas">
+      <main className="bt-canvas" id="main">
         {err && (
           <Callout.Root color="red" mb="3">
             <Callout.Text>{err}</Callout.Text>
@@ -407,7 +331,7 @@ export function ProjectView() {
         {nodes !== null && (
           <Canvas nodes={nodes} selectedId={selected?.id ?? null} onOpen={openShot} onRetry={(n) => void retry(n)} />
         )}
-      </div>
+      </main>
 
       {assetsOpen && <div className="bt-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
       <Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />

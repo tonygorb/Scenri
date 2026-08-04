@@ -30,19 +30,12 @@ import {
   type SentenceToken,
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
+import { QUALITIES, ShotSettings, type QualityId } from '../composer/ShotSettings.js';
 import { keepCaret } from '../composer/line.js';
 import { useOpenSettings } from '../views/SettingsDialog.js';
 import { useAppData } from '../app/AppShell.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useProductLibrary } from '../useProductLibrary.js';
-
-type QualityId = 'draft' | 'standard' | 'high';
-/** Quality is the long edge we ask the engine for; aspect keeps the shape. */
-const QUALITIES: { id: QualityId; label: string; edge: number; note: string }[] = [
-  { id: 'draft', label: 'Draft', edge: 768, note: 'fast look-see' },
-  { id: 'standard', label: 'Standard', edge: 1024, note: 'everyday shots' },
-  { id: 'high', label: 'High', edge: 1536, note: 'print and hero use' },
-];
 
 export interface ComposerHandle {
   /** Append a token to the brief (assets panel click path). */
@@ -69,8 +62,6 @@ export const Composer = forwardRef<
     parent: TreeNode | null;
     shots: TreeNode[];
     initialBrief?: { tokens: BriefToken[]; templateId?: string; templateFields?: Record<string, string> } | null;
-    /** Mono cost line under the card. On for docks, off inside the overlay. */
-    costLine?: boolean;
     /** Template chosen before this project existed: seed it into the brief. */
     startTemplate?: string;
     /** Open the attach panel on this tab as soon as the composer mounts. */
@@ -78,19 +69,7 @@ export const Composer = forwardRef<
     onQueued: () => void;
   }
 >(function Composer(
-  {
-    projectId,
-    resolveProjectId,
-    brand,
-    engines,
-    parent,
-    shots,
-    initialBrief,
-    costLine = true,
-    startTemplate,
-    openAttachTab,
-    onQueued,
-  },
+  { projectId, resolveProjectId, brand, engines, parent, shots, initialBrief, startTemplate, openAttachTab, onQueued },
   handleRef,
 ) {
   const libraryProducts = useProductLibrary(brand.id);
@@ -407,7 +386,10 @@ export const Composer = forwardRef<
               ? 'Add art direction, or run it as written'
               : mode === 'edit'
                 ? 'Refine this shot, or describe a new one'
-                : 'Describe the visual you want. @ for a product or someone, # for a look'
+                : 'What should we shoot? (use / to insert, @ for a product, # for a look)'
+          }
+          placeholderSm={
+            template || mode === 'edit' ? undefined : 'What should we shoot? (use / @ #)'
           }
           onSubmit={() => void go()}
         />
@@ -529,6 +511,17 @@ export const Composer = forwardRef<
               </DropdownMenu.Content>
             </DropdownMenu.Root>
 
+            {/* the phone's stand-in for the three pills above: CSS picks one */}
+            <ShotSettings
+              mode={mode}
+              formatId={formatId}
+              onFormat={setFormat}
+              count={count}
+              onCount={setVariants}
+              quality={quality}
+              onQuality={setQualityId}
+            />
+
             <button
               type="button"
               className="bt-send"
@@ -542,18 +535,6 @@ export const Composer = forwardRef<
           </div>
         </div>
       </div>
-
-      {costLine && (
-        <div className="bt-composer-cost">
-          {engine?.free
-            ? `Free on ${engine.displayName}`
-            : engine && engine.generationsLeft !== null
-              ? `Costs ${count > 1 ? `${count} generations` : '1 generation'} · ${engine.generationsLeft} left`
-              : engine
-                ? `Uses your ${engine.displayName} key`
-                : ''}
-        </div>
-      )}
     </div>
   );
 });

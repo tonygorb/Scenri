@@ -413,6 +413,54 @@ describe('diff + export + settings', () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it('activity: every project in the brand, named, root excluded', async () => {
+    const brand = await mkBrand();
+    const other = await mkBrand();
+    const a = await mkProject(brand.id);
+    const b = await mkProject(brand.id);
+    const away = await mkProject(other.id);
+
+    const gen = async (p: any, prompt: string) => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: {
+          projectId: p.project.id,
+          parentId: p.root.id,
+          kind: 'generation',
+          prompt,
+          engineId: 'demo',
+          width: 64,
+          height: 64,
+        },
+      });
+      return waitDone(res.json().id);
+    };
+    const inA = await gen(a, 'first');
+    const inB = await gen(b, 'second');
+    const elsewhere = await gen(away, 'not mine');
+
+    const res = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/activity` });
+    expect(res.statusCode).toBe(200);
+    const ids = res.json().nodes.map((n: any) => n.id);
+    expect(ids).toContain(inA.id);
+    expect(ids).toContain(inB.id);
+    // another brand's work, and the project roots, are not activity
+    expect(ids).not.toContain(elsewhere.id);
+    expect(res.json().nodes.every((n: any) => n.kind !== 'root')).toBe(true);
+    // every row can name its own project without a second request
+    expect(
+      res
+        .json()
+        .nodes.map((n: any) => n.projectName)
+        .every(Boolean),
+    ).toBe(true);
+    expect(res.json().jobs).toEqual([]);
+
+    const missing = await app.inject({ method: 'GET', url: '/api/brands/nope/activity' });
+    expect(missing.statusCode).toBe(404);
+  });
+
   it('settings: secrets write-only', async () => {
     await app.inject({ method: 'PUT', url: '/api/settings', payload: { openrouter_api_key: 'sk-secret' } });
     const res = await app.inject({ method: 'GET', url: '/api/settings' });

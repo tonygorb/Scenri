@@ -1,191 +1,166 @@
-import type { ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
-import { Popover } from '@radix-ui/themes';
-import { House, Moon, PlusCircle, Stack, Sun, UsersThree } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
+import { useLocation, useMatch, useNavigate } from 'react-router';
+import { DropdownMenu, Popover } from '@radix-ui/themes';
+import { CaretDown, SidebarSimple } from '@phosphor-icons/react';
+import { BrandMenu } from './BrandMenu.js';
 import { Coin } from './Coin.js';
+import { NotificationsButton } from './Notifications.js';
+import { summarizeCredits, useMainNav } from './nav.js';
 import type { EngineInfo } from '../api.js';
-import { useThemeMode } from '../theme.js';
-import { useAppData, useDialogParam } from '../app/AppShell.js';
-import { useBrand } from '../app/BrandLayout.js';
+import { useAppData } from '../app/AppShell.js';
+import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 
 /**
- * Shared chrome bar: view-specific content left, pill nav centered, credits
- * and theme on the right. The nav reads where it is from the router, so no
- * screen can hand it a wrong answer.
+ * The one chrome bar, mounted once by BrandLayout. Three tracks: where you are,
+ * the nav dead centre, what you can do.
+ *
+ * Everything here is subtraction. No track under the nav, no outline on any
+ * control, no fill on the credits, no divider, nothing uppercase, one hairline
+ * at the bottom and 52px of height. The shape of a top bar is not the problem
+ * worth solving twice; the amount of furniture in it is. Active is stated by
+ * ink and weight alone, which is all it has ever needed.
  */
-export function TopBar({ left, right }: { left: ReactNode; right?: ReactNode }) {
+export function TopBar() {
   const { engines } = useAppData();
+  const project = useMatch({ path: '/b/:brandId/p/:projectId', end: false });
+
   return (
-    <div className="bt-topbar">
-      <div className="bt-topbar-left">{left}</div>
-      <MainNav />
-      <div className="bt-topbar-right">
-        {right}
-        <Credits engines={engines} />
-        <ThemeButton />
+    <header className="bt-topbar" data-project={project ? '' : undefined}>
+      <a className="bt-skip" href="#main">
+        Skip to content
+      </a>
+      <div className="bt-topbar-lead">
+        <span className="bt-wordmark bt-display">scenri</span>
+        {project ? (
+          <div className="bt-topbar-context">
+            <ProjectCrumb projectId={project.params.projectId ?? ''} />
+          </div>
+        ) : null}
       </div>
-    </div>
+      <MainNav />
+      <div className="bt-topbar-end">
+        {project ? <AssetsToggle /> : null}
+        <NotificationsButton />
+        <Credits engines={engines} />
+        <BrandMenu />
+      </div>
+    </header>
   );
 }
 
 function MainNav() {
-  const { brand } = useBrand();
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
-  const picker = useDialogParam('picker');
-  const base = `/b/${brand.id}`;
-  const rest = pathname.startsWith(base) ? pathname.slice(base.length) : '';
-  const onCreate = rest.startsWith('/p/');
-
-  const items = [
-    { label: 'Home', icon: <House size={13} />, active: rest === '' || rest === '/', go: () => navigate(base) },
-    // with nothing open, ask which project rather than guessing the newest
-    {
-      label: 'Create',
-      icon: <PlusCircle size={13} />,
-      active: onCreate,
-      go: () => {
-        if (!onCreate) picker.open('1');
-      },
-    },
-    {
-      label: 'Looks',
-      icon: <Stack size={13} />,
-      active: rest.startsWith('/looks'),
-      go: () => navigate(`${base}/looks`),
-    },
-    {
-      label: 'Brand',
-      icon: <UsersThree size={13} />,
-      active: rest.startsWith('/brand'),
-      go: () => navigate(`${base}/brand`),
-    },
-  ];
-
+  const items = useMainNav(16);
   return (
-    <nav className="bt-nav" aria-label="Main">
-      {items.map((item) => (
-        <button
-          type="button"
-          key={item.label}
-          data-active={item.active || undefined}
-          onClick={item.go}
-          aria-label={item.label}
-        >
-          <span className="bt-nav-ic">{item.icon}</span>
-          <span className="bt-nav-lb">{item.label}</span>
-        </button>
-      ))}
+    <nav className="bt-nav bt-desktop-only" aria-label="Main">
+      <ul>
+        {items.map((item) => (
+          <li key={item.key}>
+            <button
+              type="button"
+              data-active={item.active || undefined}
+              aria-current={item.active ? 'page' : undefined}
+              onClick={item.go}
+            >
+              {item.label}
+            </button>
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 }
 
-export function Wordmark() {
+/** Second step of the breadcrumb, and a switcher in its own right. */
+function ProjectCrumb({ projectId }: { projectId: string }) {
+  const { brand, projects } = useBrand();
+  const navigate = useNavigate();
   return (
-    <span className="bt-display" style={{ fontSize: 15 }}>
-      scenri
-    </span>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        <button type="button" className="bt-crumb-btn">
+          <b>{projects.find((x) => x.id === projectId)?.name ?? 'Project'}</b>
+          <CaretDown size={11} className="bt-caret" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content>
+        {projects.map((pr) => (
+          <DropdownMenu.Item key={pr.id} onSelect={() => navigate(`/b/${brand.id}/p/${pr.id}`)}>
+            {pr.name}
+          </DropdownMenu.Item>
+        ))}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   );
 }
 
-function ThemeButton() {
-  const { mode, toggle } = useThemeMode();
+/** Reachable at every width: closing the panel on a phone used to be final. */
+function AssetsToggle() {
+  const { open, toggle } = useAssetsPanel();
   return (
     <button
       type="button"
       className="bt-icon-btn"
+      data-on={open || undefined}
       onClick={toggle}
-      title="Theme"
-      aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label="Toggle assets panel"
+      aria-pressed={open}
+      title="Assets panel (.)"
     >
-      {mode === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+      <SidebarSimple size={16} mirrored />
     </button>
   );
 }
 
 /**
- * Credits, not dollars: chrome speaks in generations remaining. Free engines
- * lead the list so the resting state reads as abundance; money stays in
- * Settings where caps are actually configured.
+ * Credits are generations, not dollars. Money stays in Settings, where caps are
+ * actually configured; the bar only ever says how much work is left.
  */
-export function Credits({ engines }: { engines: EngineInfo[] }) {
-  const metered = engines.filter((e) => !e.free && e.generationsLeft !== null);
-  const left = metered.reduce((s, e) => s + (e.generationsLeft ?? 0), 0);
-  const total = metered.reduce((s, e) => s + (e.generationsTotal ?? 0), 0);
-  const pct = total > 0 ? Math.max(0, Math.min(1, left / total)) : 1;
-  const low = total > 0 && pct < 0.15;
-  const freeOnly = metered.length === 0;
-  const label = freeOnly ? 'Unlimited' : `${left} left`;
+function Credits({ engines }: { engines: EngineInfo[] }) {
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  const { left, low, freeOnly, label } = summarizeCredits(engines);
+
+  // the bar outlives the screen now, so an open popover would follow you around
+  useEffect(() => setOpen(false), [pathname]);
 
   return (
-    <Popover.Root>
+    <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger>
         <button
           type="button"
           className="bt-credits-pill"
+          data-low={low || undefined}
           aria-label={freeOnly ? 'Unlimited generations on your free engines' : `${left} generations left`}
         >
           <Coin size={14} dim={low} />
           <span className="bt-credits-label">{label}</span>
         </button>
       </Popover.Trigger>
-      <Popover.Content align="end" style={{ width: 268, padding: 6 }}>
+      <Popover.Content align="end" className="bt-credits-pop">
         {engines
           .filter((e) => e.available || !e.free)
           .map((e) => (
-            <div key={e.id} style={{ padding: '9px 10px', borderRadius: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 500, flex: 1 }}>{e.displayName}</span>
+            <div key={e.id} className="bt-credits-row">
+              <div className="bt-credits-line">
+                <span className="bt-credits-name">{e.displayName}</span>
                 {e.free ? (
-                  <span
-                    style={{
-                      fontSize: 10.5,
-                      fontWeight: 650,
-                      letterSpacing: '0.05em',
-                      textTransform: 'uppercase',
-                      border: '1px solid color-mix(in srgb, var(--bt-gold) 45%, transparent)',
-                      color: 'var(--bt-star)',
-                      padding: '1px 8px',
-                      borderRadius: 999,
-                    }}
-                  >
-                    {e.localOnly ? 'Free · yours' : 'Free'}
-                  </span>
+                  <span className="bt-credits-free">{e.localOnly ? 'Free · yours' : 'Free'}</span>
                 ) : e.generationsLeft === null ? (
-                  <span style={{ fontSize: 12, color: 'var(--bt-fg3)' }}>No limit set</span>
+                  <span className="bt-credits-none">No limit set</span>
                 ) : (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--bt-fg2)' }}>
+                  <span className="bt-credits-num">
                     {e.generationsLeft} / {e.generationsTotal}
                   </span>
                 )}
               </div>
               {!e.free && e.generationsTotal ? (
-                <div
-                  style={{ height: 3, borderRadius: 2, background: 'var(--bt-line)', overflow: 'hidden', marginTop: 6 }}
-                >
-                  <div
-                    style={{
-                      height: '100%',
-                      width: `${((e.generationsLeft ?? 0) / e.generationsTotal) * 100}%`,
-                      background: 'var(--bt-gold)',
-                    }}
-                  />
+                <div className="bt-credits-meter">
+                  <div style={{ width: `${((e.generationsLeft ?? 0) / e.generationsTotal) * 100}%` }} />
                 </div>
               ) : null}
             </div>
           ))}
-        <div
-          style={{
-            fontSize: 11.5,
-            color: 'var(--bt-fg3)',
-            padding: '8px 10px',
-            borderTop: '1px solid var(--bt-line)',
-            marginTop: 4,
-            lineHeight: 1.5,
-          }}
-        >
-          Credits are generations. Free engines never count. Set limits in Settings.
-        </div>
+        <p className="bt-credits-note">Credits are generations. Free engines never count. Set limits in Settings.</p>
       </Popover.Content>
     </Popover.Root>
   );

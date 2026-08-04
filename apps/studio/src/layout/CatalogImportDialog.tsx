@@ -1,6 +1,7 @@
 import { Dialog, Spinner, Callout } from '@radix-ui/themes';
 import { CheckCircle, WarningCircle, XCircle } from '@phosphor-icons/react';
 import type { CatalogImportJob } from '../api.js';
+import { catalogPercent } from '../tasks.js';
 
 const _STAGE_LABEL: Record<string, string> = {
   queued: 'Queued',
@@ -33,21 +34,8 @@ export function CatalogImportDialog({
   const usable = productCount > 0 || (job?.upserted ?? 0) > 0;
   const done = stage === 'completed' || stage === 'partial' || stage === 'failed';
 
-  const pct = (() => {
-    if (!job) return 0;
-    if (stage === 'discovering') return job.discovered ? 15 : 8;
-    if (stage === 'fetching_products') {
-      const d = Math.max(job.discovered, job.fetched, 1);
-      return 15 + Math.min(45, Math.round((job.fetched / d) * 45));
-    }
-    if (stage === 'processing_assets') {
-      const t = Math.max(job.imagesTotal, 1);
-      return 60 + Math.min(35, Math.round((job.imagesDone / t) * 35));
-    }
-    if (stage === 'completed') return 100;
-    if (stage === 'partial') return 95;
-    return 5;
-  })();
+  // the notifications bell draws the same import; one formula, not two
+  const pct = catalogPercent(job);
 
   return (
     <Dialog.Root

@@ -11,7 +11,7 @@
   "scripts": {
     "test": "pnpm -r --no-bail test",
     "build": "pnpm --filter @scenri/studio build",
-    "dev": "tsx packages/cli/src/index.ts",
+    "dev": "SCENRI_HOST=${SCENRI_HOST:-0.0.0.0} tsx packages/cli/src/index.ts",
     "typecheck": "pnpm -r --no-bail typecheck",
     "lint": "biome lint .",
     "format": "biome format --write .",

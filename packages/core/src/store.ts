@@ -35,6 +35,11 @@ export interface TreeNode {
   brief: unknown | null;
 }
 
+/** A node carrying the name of the project it belongs to, for cross-project lists. */
+export interface ActivityNode extends TreeNode {
+  projectName: string;
+}
+
 const slugify = (s: string) =>
   s
     .toLowerCase()
@@ -170,6 +175,30 @@ export function createStore(db: DB) {
       return (db.prepare('SELECT * FROM nodes WHERE project_id=? ORDER BY created_at').all(projectId) as any[]).map(
         rowToNode,
       );
+    },
+    /**
+     * Every piece of work a brand has in flight, plus whatever finished lately,
+     * in one query. The bar outlives the project screen, so the thing that used
+     * to be answerable only by polling one tree at a time has to be answerable
+     * without knowing which project you are looking at.
+     *
+     * The cutoff is computed in SQL rather than passed in: created_at is
+     * SQLite's own datetime('now') text, and comparing that against a caller's
+     * ISO string is a silent, timezone-shaped mis-filter.
+     */
+    recentActivity(brandId: string, limit = 60): ActivityNode[] {
+      const rows = db
+        .prepare(
+          `SELECT n.*, p.name AS project_name
+             FROM nodes n JOIN projects p ON p.id = n.project_id
+            WHERE p.brand_id = ?
+              AND n.kind != 'root'
+              AND (n.status = 'running' OR n.created_at >= datetime('now', '-2 days'))
+            ORDER BY n.created_at DESC
+            LIMIT ?`,
+        )
+        .all(brandId, limit) as any[];
+      return rows.map((r) => ({ ...rowToNode(r), projectName: r.project_name }));
     },
     setKept(id: string, kept: boolean): void {
       db.prepare('UPDATE nodes SET kept=? WHERE id=?').run(kept ? 1 : 0, id);

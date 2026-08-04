@@ -7,6 +7,7 @@ import { Dialog } from '@radix-ui/themes';
  */
 const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Generate', keys: ['cmd', 'enter'] },
+  { label: 'Insert menu', keys: ['/'] },
   { label: 'Ingredient menu', keys: ['@'] },
   { label: 'Look menu', keys: ['#'] },
   { label: 'Walk siblings', keys: ['←', '→'] },

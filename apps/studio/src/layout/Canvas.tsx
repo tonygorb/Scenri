@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Star, WarningCircle } from '@phosphor-icons/react';
 import { imgUrl, type TreeNode } from '../api.js';
+import { elapsedSec } from '../tasks.js';
 
 /**
  * The session canvas: every shot in the project as a masonry tile.
@@ -98,6 +99,7 @@ function RunningTag({ since }: { since: string }) {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  const sec = Math.max(0, Math.floor((now - new Date(since).getTime()) / 1000));
-  return <span className="bt-cell-tag">generating · {sec}s</span>;
+  // new Date() read SQLite's zone-less UTC as local time, so this counter used
+  // to start at the timezone offset instead of at zero
+  return <span className="bt-cell-tag">generating · {elapsedSec(since, now)}s</span>;
 }

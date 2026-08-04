@@ -14,6 +14,26 @@
   --bt-gutter: 24px; /* one page edge: top bar and content agree at every width */
   --bt-prompt-w: clamp(640px, 50vw, 1000px); /* the dock owns this; the card fills it */
   --bt-topbar-h: 60px;
+  --bt-assets-w: 264px;
+  --bt-tabbar-h: 0px;
+  /* How much of the viewport the software keyboard is sitting on. iOS leaves
+     the layout viewport alone and only shrinks the visual one, so a fixed dock
+     ends up under the keyboard; useKeyboardInset writes the real number here
+     and the docks add it to their offset. 0 everywhere else. */
+  --bt-kb: 0px;
+  /* Coarse pointers get a 44px floor on every chrome control. The graphic stays
+     32px; the extra reach comes from an invisible ::after, so the bar does not
+     grow chunky on a phone. */
+  --bt-tap: 44px;
+
+  /* One stacking order for the whole app, so nothing is guessed:
+     rail 20 · topbar 50 · assets backdrop 54 · assets drawer 55 · dock fade 55
+     docks 60 · attach panel 70 · plus scrim 79 · plus menu 80 · detail overlay 80
+     overlay winbar 90 · sheet scrim 91 · sheet 92 · dialog overlay 95
+     toasts 100 · command menu 200 */
+  --bt-z-topbar: 50;
+  --bt-z-sheet-scrim: 91;
+  --bt-z-sheet: 92;
   /* One tile floor for every picture grid: the feed, the canvas, the look
      shelves. Grids count columns from it and stretch what is left over, so a
      tile lands near 340px at any width instead of shrinking to fit more in. */
@@ -52,6 +72,8 @@
   --bt-red: #d93025;
   --bt-green: #188038;
   --bt-star: #c9980f;
+  /* the same gold, dark enough to state a fact rather than decorate one */
+  --bt-star-ink: #a37908;
   --bt-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.07);
   --bt-shadow-2: 0 10px 30px rgba(0, 0, 0, 0.12);
   --bt-shadow-3: 0 18px 50px rgba(0, 0, 0, 0.18);
@@ -84,6 +106,7 @@
   --bt-red: #ff6b62;
   --bt-green: #4ade80;
   --bt-star: #f5c518;
+  --bt-star-ink: #f5c518;
   --bt-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
   --bt-shadow-2: 0 10px 30px rgba(0, 0, 0, 0.28);
   --bt-shadow-3: 0 18px 50px rgba(0, 0, 0, 0.34);
@@ -166,14 +189,31 @@ select {
 }
 
 /* ---------- shells ---------- */
+/* The bar is a grid row above the screen, not a child of it. dvh rather than
+   100%: the Radix Themes wrapper between #root and here is auto-height, so a
+   percentage would resolve against nothing and collapse the shell. minmax(0,1fr)
+   rather than 1fr: a bare 1fr has min-height auto, which lets a long canvas push
+   the row open and start the window scrolling. */
+.bt-shell {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: var(--bt-topbar-h) minmax(0, 1fr) var(--bt-tabbar-h);
+  overflow: hidden;
+  background: var(--bt-bg);
+}
 .bt-home {
-  height: 100vh;
+  height: 100%;
   overflow: auto;
   background: var(--bt-bg);
 }
 
 @media (max-width: 767px) {
   .bt-desktop-only {
+    display: none !important;
+  }
+}
+@media (min-width: 768px) {
+  .bt-mobile-only {
     display: none !important;
   }
 }
@@ -186,122 +226,315 @@ select {
   }
 }
 
-/* ---------- top bar: wordmark left, pill nav center, credits right ---------- */
+/* Reachable only by keyboard, and only until it is used. */
+.bt-skip {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 1;
+  padding: 8px 14px;
+  border-radius: var(--bt-radius);
+  background: var(--bt-inv-bg);
+  color: var(--bt-inv-fg);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 16px));
+  transition: transform 120ms ease;
+}
+.bt-skip:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--bt-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- top bar ----------------------------------------------------------
+   Three tracks: where you are, the nav dead centre, what you can do.
+
+   This block is mostly subtraction. There is no track under the nav, no outline
+   on any control, no fill on the credits, no divider and nothing uppercase: one
+   hairline at the bottom, 52px of height, and active stated by ink and weight
+   alone. A top bar earns its keep by disappearing, and every box drawn around
+   something in a 52px row is furniture the work has to look past. */
 .bt-topbar {
-  grid-area: topbar;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   height: var(--bt-topbar-h);
-  padding: 0 20px;
+  padding-left: max(var(--bt-gutter), env(safe-area-inset-left));
+  padding-right: max(var(--bt-gutter), env(safe-area-inset-right));
   background: var(--bt-bg);
   border-bottom: 1px solid var(--bt-line-chrome);
-  position: relative;
+  z-index: var(--bt-z-topbar);
 }
-.bt-topbar-left {
+.bt-topbar-lead {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
 }
-.bt-topbar-right {
-  margin-left: auto;
+.bt-topbar-context {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+  min-width: 0;
+}
+.bt-topbar-end {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 2px;
+  min-width: 0;
+}
+.bt-topbar-lead > .bt-wordmark:first-child {
+  margin-left: -1px;
+}
+.bt-topbar-end {
+  gap: 6px;
+}
+.bt-wordmark {
+  font-size: 15px;
+  font-weight: 640;
+  color: var(--bt-fg);
+  flex: none;
+  letter-spacing: -0.03em;
+  padding-right: 6px;
 }
 
-.bt-nav {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+/* text, and nothing else. The gap does the grouping the pill used to do. */
+.bt-nav ul {
   display: flex;
   gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--bt-line);
-  border-radius: var(--bt-radius-full);
-  background: var(--bt-panel);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .bt-nav button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 6px 16px;
-  border-radius: var(--bt-radius-full);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--bt-fg2);
-  transition:
-    color 120ms ease,
-    background 120ms ease;
-}
-.bt-nav button:hover {
-  color: var(--bt-fg);
-}
-.bt-nav button[data-active="true"] {
-  background: var(--bt-inv-bg);
-  color: var(--bt-inv-fg);
-  font-weight: 600;
-}
-.bt-nav button:focus-visible {
-  outline: 2px solid var(--bt-focus);
-  outline-offset: 2px;
-}
-@media (max-width: 860px) {
-  .bt-nav button {
-    padding: 6px 11px;
-  }
-}
-
-.bt-brand-pill {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 11px;
-  border: 1px solid var(--bt-line);
-  border-radius: var(--bt-radius-full);
-  background: var(--bt-panel);
-  color: var(--bt-fg);
-  font-size: 12.5px;
-  font-weight: 500;
+  border: none;
+  background: none;
   cursor: pointer;
-  max-width: 200px;
-  transition: background 120ms ease;
+  padding: 8px 16px;
+  border-radius: var(--bt-radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--bt-fg2);
+  white-space: nowrap;
+  transition:
+    color 120ms cubic-bezier(0.3, 0, 0.2, 1),
+    background 120ms cubic-bezier(0.3, 0, 0.2, 1);
 }
-.bt-brand-pill:hover {
+.bt-nav button:hover {
+  color: var(--bt-fg);
   background: var(--bt-hover);
 }
-.bt-brand-pill:focus-visible {
+.bt-nav button[data-active="true"] {
+  color: var(--bt-fg);
+  background: var(--bt-chip);
+}
+@media (max-width: 960px) {
+  .bt-nav button {
+    padding: 8px 12px;
+  }
+}
+
+/* The identity control: the avatar and nothing else. The name is not lost, it
+   opens the menu's header, which is where a trigger this small has to put it. */
+.bt-avatar-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  margin-left: 4px;
+  padding: 3px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: box-shadow 120ms ease;
+}
+.bt-avatar-btn:hover {
+  box-shadow: 0 0 0 2px var(--bt-line-strong);
+}
+.bt-avatar-btn[data-state="open"] {
+  box-shadow: 0 0 0 2px var(--bt-fg3);
+}
+.bt-avatar-btn:focus-visible {
   outline: 2px solid var(--bt-focus);
   outline-offset: 2px;
 }
-.bt-brand-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-.bt-crumb {
-  font-size: 13px;
+
+.bt-caret {
   color: var(--bt-fg3);
+  flex: none;
+}
+/* The kit's own face. Logos arrive at any aspect and often transparent, so they
+   sit contained on a neutral tile rather than cropped; a brand with no logo gets
+   its initial on its own primary, which is still the brand and not a swatch. */
+.bt-brand-av {
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--bt-radius-sm);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.16) inset;
+}
+/* A white plate, in both themes, on purpose. Brand logos are overwhelmingly
+   dark ink on transparency: this one is 84% transparent with ink at luminance
+   91, which sat at 2.6:1 on a dark tile and a pure black mark would have
+   disappeared outright. A light plate is what every org avatar does, and it is
+   the only tile that cannot swallow the artwork. */
+.bt-brand-av[data-logo] {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.16) inset;
+}
+.bt-brand-av[data-round] {
+  border-radius: 50%;
+}
+.bt-brand-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
+  display: block;
+}
+
+/* ---------- the brand menu -------------------------------------------------
+   Radix Themes' own item chrome is a 24px left inset with no leading slot, which
+   left three different left edges in one menu once icons and a radio group were
+   in it. Every row here is one grid instead: 20px mark, label, optional trailing
+   mark, on a 34px row. */
+.bt-menu {
+  width: 268px;
+  padding: 6px;
+}
+/* the trigger is an avatar, so the menu opens by saying whose it is */
+.bt-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 10px 10px;
+  min-width: 0;
+}
+.bt-menu-head-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+.bt-menu-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--bt-fg);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bt-menu-sub {
+  font-size: 11.5px;
+  line-height: 1.2;
+  color: var(--bt-fg2);
+}
+
+.bt-menu-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--bt-line);
+}
+.bt-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--bt-radius-sm);
+  font-size: 13.5px;
+  color: var(--bt-fg);
+  cursor: pointer;
+}
+.bt-menu-item[data-highlighted] {
+  background: var(--bt-hover);
+  color: var(--bt-fg);
+  outline: none;
+}
+.bt-menu-ic {
+  flex: none;
+  color: var(--bt-fg2);
+}
+.bt-menu-lb {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* the brand is context and reads as a prefix; only the project is a control */
+.bt-crumb {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--bt-fg2);
+}
+.bt-crumb-sep {
+  color: var(--bt-fg3);
+  white-space: nowrap;
+  flex: none;
+  font-size: 12px;
+  user-select: none;
+}
+.bt-crumb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--bt-radius-sm);
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.bt-crumb-btn:hover {
+  background: var(--bt-hover);
+}
+.bt-crumb-btn b {
+  color: var(--bt-fg);
+  font-weight: 450;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.bt-crumb b {
-  color: var(--bt-fg);
-  font-weight: 500;
+.bt-crumb-btn:focus-visible {
+  outline: 2px solid var(--bt-focus);
+  outline-offset: 2px;
 }
 
 /* ---------- primitives ---------- */
 .bt-icon-btn {
+  position: relative;
   width: 32px;
   height: 32px;
+  flex: none;
   display: grid;
   place-items: center;
   border: 1px solid var(--bt-line);
   border-radius: var(--bt-radius-full);
-  background: var(--bt-panel);
+  background: var(--bt-well);
   color: var(--bt-fg2);
   cursor: pointer;
 }
@@ -313,21 +546,31 @@ select {
   outline: 2px solid var(--bt-focus);
   outline-offset: 2px;
 }
-/* legacy alias used by the settings gear and products button */
-.bt-rail-btn {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--bt-line);
-  border-radius: var(--bt-radius-full);
-  background: var(--bt-panel);
-  color: var(--bt-fg2);
-  cursor: pointer;
+.bt-icon-btn[data-on] {
+  background: var(--bt-raised);
+  color: var(--bt-fg);
+  border-color: var(--bt-line-strong);
 }
-.bt-rail-btn:hover {
+/* Actions are rounded squares, not pills, so a glance tells a place from a verb.
+   No resting outline: twelve hairline boxes in one row is clutter, and the hover
+   halo says "pressable" at the moment it matters. Chrome elsewhere (the detail
+   overlay) keeps its chip, because there the button sits on a photograph. */
+.bt-topbar .bt-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-color: transparent;
+  background: none;
+  border-radius: var(--bt-radius-sm);
+  color: var(--bt-fg2);
+}
+.bt-topbar .bt-icon-btn:hover {
   background: var(--bt-hover);
   color: var(--bt-fg);
+}
+.bt-topbar .bt-icon-btn[data-on] {
+  background: var(--bt-raised);
+  color: var(--bt-fg);
+  border-color: transparent;
 }
 
 .bt-btn {
@@ -535,13 +778,16 @@ select {
   outline-offset: 2px;
 }
 
-/* ---------- credits: the only gold fill in the app ---------- */
+/* ---------- credits ----------------------------------------------------------
+   A solid gold slab shouted the least-used control in the bar. At rest this is
+   now just the coin and a number in muted ink; the gold fill is held back for
+   the one state that has to interrupt you, which is running out. */
 .bt-credits-pill {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   border: none;
   border-radius: var(--bt-radius-full);
   height: 30px;
@@ -552,11 +798,458 @@ select {
   transition: filter 120ms ease;
 }
 .bt-credits-pill:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.06);
+}
+.bt-credits-pill[data-low="true"] {
+  background: var(--bt-gold);
+  border-color: transparent;
+  color: var(--bt-gold-ink);
+  font-weight: 600;
+}
+.bt-credits-pill[data-low="true"]:hover {
+  background: var(--bt-gold);
+  filter: brightness(1.06);
 }
 .bt-credits-pill:focus-visible {
   outline: 2px solid var(--bt-focus);
   outline-offset: 2px;
+}
+.bt-credits-pop {
+  width: min(268px, calc(100vw - 24px));
+  padding: 6px;
+}
+.bt-credits-row {
+  padding: 9px 10px;
+  border-radius: var(--bt-radius-sm);
+}
+.bt-credits-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bt-credits-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+}
+.bt-credits-free {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid color-mix(in srgb, var(--bt-gold) 45%, transparent);
+  color: var(--bt-star);
+  padding: 1px 8px;
+  border-radius: var(--bt-radius-full);
+  white-space: nowrap;
+}
+.bt-credits-none {
+  font-size: 12px;
+  color: var(--bt-fg2);
+}
+.bt-credits-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bt-fg2);
+}
+.bt-credits-meter {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--bt-line);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.bt-credits-meter > div {
+  height: 100%;
+  background: var(--bt-gold);
+}
+.bt-credits-note {
+  font-size: 11.5px;
+  color: var(--bt-fg2);
+  padding: 8px 10px 2px;
+  border-top: 1px solid var(--bt-line);
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+/* ---------- notifications: one place for work in flight --------------------
+   Two lists behind one bell. Tasks is what is happening now and what just
+   happened; Notifications is the record you can come back to. A row is a
+   thumbnail, a title and one line of fact — the same grammar as the credits
+   rows above, at list scale.
+
+   The badge never adds running work to unread history: they are different
+   questions and a single number would answer neither. A count means there is
+   something you have not read; a bare pulse means something is happening.
+
+   On a phone the same body opens as a bottom sheet instead, because a 360px
+   card pinned to the top right corner of a 390px screen is a popover in name
+   only. That is the one reason there are two shells. */
+.bt-notif-btn {
+  position: relative;
+}
+.bt-bell-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 7px;
+  height: 7px;
+  border-radius: var(--bt-radius-full);
+  background: var(--bt-gold);
+  box-shadow: 0 0 0 2px var(--bt-bg);
+  pointer-events: none;
+}
+/* a number needs a plate to sit on; a pulse does not */
+.bt-bell-dot[data-count] {
+  top: 1px;
+  right: 0;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--bt-gold-ink);
+  font-variant-numeric: tabular-nums;
+}
+.bt-bell-dot[data-running]:not([data-count]) {
+  animation: bt-bell-pulse 1.8s ease-in-out infinite;
+}
+@keyframes bt-bell-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+
+.bt-notif-pop {
+  width: min(360px, calc(100vw - 24px));
+  padding: 6px;
+}
+/* A switch between two lists of the same kind, not a journey between two
+   places: that is a segmented control, not underlined tabs. */
+.bt-notif-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 3px;
+  margin: 2px 2px 6px;
+  background: var(--bt-well);
+  border-radius: var(--bt-radius);
+}
+.bt-notif-tab {
+  height: 30px;
+  border: none;
+  background: none;
+  border-radius: calc(var(--bt-radius) - 3px);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--bt-fg2);
+  cursor: pointer;
+}
+.bt-notif-tab:hover {
+  color: var(--bt-fg);
+}
+.bt-notif-tab[aria-selected="true"] {
+  background: var(--bt-panel);
+  color: var(--bt-fg);
+  font-weight: 650;
+  box-shadow: var(--bt-shadow-1);
+}
+.bt-notif-tab:focus-visible {
+  outline: 2px solid var(--bt-focus);
+  outline-offset: -2px;
+}
+.bt-notif-n {
+  color: var(--bt-fg3);
+  font-weight: 600;
+  margin-left: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bt-notif-scroll {
+  max-height: min(52vh, var(--radix-popover-content-available-height, 52vh));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.bt-notif-scroll:focus-visible {
+  outline: 2px solid var(--bt-focus);
+  outline-offset: -2px;
+  border-radius: var(--bt-radius-sm);
+}
+.bt-notif-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
+  border: none;
+  background: none;
+  border-radius: var(--bt-radius-sm);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.bt-notif-row:hover {
+  background: var(--bt-hover);
+}
+.bt-notif-row:focus-visible {
+  outline: 2px solid var(--bt-focus);
+  outline-offset: -2px;
+}
+.bt-notif-row[data-unread]::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: var(--bt-radius-full);
+  background: var(--bt-gold);
+  flex: none;
+  margin-left: -3px;
+}
+/* relative, so .bt-shimmer sits inside it unchanged */
+.bt-notif-thumb {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--bt-radius-sm);
+  background: var(--bt-raised);
+  display: grid;
+  place-items: center;
+  color: var(--bt-fg3);
+}
+.bt-notif-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bt-notif-row[data-state="error"] .bt-notif-thumb {
+  color: var(--bt-red);
+}
+.bt-notif-txt {
+  min-width: 0;
+  flex: 1;
+}
+.bt-notif-txt b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--bt-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bt-notif-txt small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--bt-fg2);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bt-notif-row[data-state="error"] .bt-notif-txt small {
+  color: var(--bt-red);
+}
+.bt-notif-time {
+  font-size: 11px;
+  color: var(--bt-fg3);
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+/* only where a real counter exists — a generation never earns a bar */
+.bt-notif-meter {
+  height: 3px;
+  border-radius: var(--bt-radius-xs);
+  background: var(--bt-line);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.bt-notif-meter > div {
+  height: 100%;
+  background: var(--bt-gold);
+  transition: width 0.35s ease;
+}
+.bt-notif-empty {
+  padding: 34px 14px 38px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--bt-fg2);
+}
+.bt-notif-foot {
+  border-top: 1px solid var(--bt-line);
+  margin-top: 4px;
+  padding: 6px 4px 2px;
+  display: flex;
+  justify-content: flex-end;
+}
+.bt-notif-clear {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--bt-fg2);
+  padding: 4px 8px;
+  border-radius: var(--bt-radius-sm);
+}
+.bt-notif-clear:hover {
+  background: var(--bt-hover);
+  color: var(--bt-fg);
+}
+
+/* the phone shell: same body, reachable edge */
+.bt-notif-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--bt-scrim);
+  z-index: var(--bt-z-sheet-scrim);
+  animation: bt-fade-in 140ms ease;
+}
+.bt-notif-sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: var(--bt-z-sheet);
+  max-height: 78dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px calc(8px + env(safe-area-inset-bottom));
+  background: var(--bt-panel);
+  border-top: 1px solid var(--bt-line);
+  border-radius: var(--bt-radius-xl) var(--bt-radius-xl) 0 0;
+  box-shadow: var(--bt-shadow-3);
+  animation: bt-sheet-up 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* The same strip as the shot sheet's handle: pinned to the top edge the bar
+   reads as trim on the panel rather than something you can pull, and the tabs
+   under it have nothing to breathe against. */
+.bt-notif-grab {
+  flex: none;
+  width: 40px;
+  height: 4px;
+  margin: 16px auto 14px;
+  border-radius: var(--bt-radius-full);
+  background: var(--bt-line-strong);
+}
+.bt-notif-sheet .bt-notif-scroll {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+}
+.bt-notif-sheet .bt-notif-row {
+  padding: 10px 8px;
+}
+.bt-notif-sheet .bt-notif-thumb {
+  width: 44px;
+  height: 44px;
+}
+@keyframes bt-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes bt-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bt-bell-dot,
+  .bt-notif-sheet,
+  .bt-notif-scrim {
+    animation: none;
+  }
+  .bt-notif-meter > div {
+    transition: none;
+  }
+}
+
+/* ---------- tab bar: the phone's navigation --------------------------------
+   Icon over label, five-ish columns, the active one stated by ink and a filled
+   glyph. It only exists under 768px; above that the row in the top bar has the
+   space and the thumb is not holding the device. */
+.bt-tabbar {
+  display: none;
+  grid-row: 3;
+  position: relative;
+  z-index: 62;
+  background: var(--bt-bg);
+  border-top: 1px solid var(--bt-line-chrome);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bt-tabbar ul {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  height: var(--bt-tabbar-h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bt-tabbar li {
+  display: flex;
+}
+.bt-tabbar button {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: none;
+  color: var(--bt-fg3);
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 120ms ease;
+}
+.bt-tabbar button:hover {
+  color: var(--bt-fg2);
+}
+.bt-tabbar button[data-on] {
+  color: var(--bt-fg);
+}
+.bt-tab-ic {
+  display: grid;
+  place-items: center;
+  height: 24px;
+}
+.bt-tab-lb {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bt-tabbar button:focus-visible {
+  outline: 2px solid var(--bt-focus);
+  outline-offset: -3px;
+  border-radius: var(--bt-radius-sm);
 }
 
 /* ---------- inspector ---------- */
@@ -678,7 +1371,6 @@ select {
 
 /* ---------- interaction states ---------- */
 .bt-icon-btn,
-.bt-rail-btn,
 .bt-chip,
 .bt-btn {
   transition:
@@ -1196,7 +1888,7 @@ select {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 18px;
+  bottom: calc(var(--bt-tabbar-h) + 18px);
   z-index: 60;
   width: min(680px, calc(100vw - 40px));
 }
@@ -1273,10 +1965,9 @@ select {
 /* ---------- project canvas: masonry + assets panel + floating dock ---------- */
 .bt-work {
   display: grid;
-  height: 100vh;
-  grid-template-columns: 1fr var(--bt-assets-w, 264px);
-  grid-template-rows: var(--bt-topbar-h) 1fr;
-  grid-template-areas: "topbar topbar" "canvas assets";
+  height: 100%;
+  grid-template-columns: 1fr var(--bt-assets-w);
+  grid-template-areas: "canvas assets";
   background: var(--bt-bg);
 }
 .bt-work[data-assets="false"] {
@@ -1461,16 +2152,27 @@ select {
   line-height: 1.45;
 }
 
-/* floating dock over the canvas (shifts with the assets panel) */
+/* Floating dock over the canvas. It only shifts for the assets panel where the
+   panel is a grid column; under 1280px the panel is a fixed drawer over the
+   canvas, so subtracting its width there squeezed the composer to ~51px. */
 .bt-canvas-dock {
   position: fixed;
-  bottom: 18px;
+  bottom: calc(var(--bt-tabbar-h) + 18px);
   z-index: 60;
-  left: calc((100vw - var(--bt-assets-w, 264px)) / 2);
+  left: 50%;
   transform: translateX(-50%);
-  width: min(680px, calc(100vw - var(--bt-assets-w, 264px) - 60px));
+  width: min(680px, calc(100vw - 40px));
 }
-.bt-work[data-assets="false"] ~ .bt-canvas-dock,
+@media (min-width: 1280px) {
+  .bt-canvas-dock {
+    left: calc((100vw - var(--bt-assets-w)) / 2);
+    width: min(680px, calc(100vw - var(--bt-assets-w) - 60px));
+  }
+  .bt-canvas-dock[data-full="true"] {
+    left: 50%;
+    width: min(680px, calc(100vw - 40px));
+  }
+}
 .bt-canvas-dock[data-full="true"] {
   left: 50%;
   width: min(680px, calc(100vw - 40px));
@@ -1479,7 +2181,7 @@ select {
 @media (max-width: 1279px) {
   .bt-work {
     grid-template-columns: 1fr;
-    grid-template-areas: "topbar" "canvas";
+    grid-template-areas: "canvas";
   }
   .bt-assets {
     position: fixed;
@@ -1494,11 +2196,6 @@ select {
   }
   .bt-work[data-assets="true"] .bt-assets {
     transform: translateX(0);
-  }
-  .bt-canvas-dock,
-  .bt-canvas-dock[data-full="true"] {
-    left: 50%;
-    width: min(680px, calc(100vw - 40px));
   }
 }
 
@@ -2497,7 +3194,6 @@ select {
     font-size: 13px;
     font-weight: 600;
   }
-  .bt-work[data-assets="true"] ~ .bt-assets-backdrop,
   .bt-work[data-assets="true"] .bt-assets-backdrop {
     display: block;
   }
@@ -2509,8 +3205,7 @@ select {
     z-index: 54;
     background: rgba(0, 0, 0, 0.32);
   }
-  .bt-work[data-assets="false"] .bt-assets-backdrop,
-  .bt-work[data-assets="false"] ~ .bt-assets-backdrop {
+  .bt-work[data-assets="false"] .bt-assets-backdrop {
     display: none;
   }
 }
@@ -2520,43 +3215,37 @@ select {
   }
 }
 
+/* Under 768px the bar carries context and nothing else: the wordmark, the nav,
+   settings and theme all live in the sheet, which leaves the brand or project
+   name the room it never had. */
+/* The phone bar is the native three-slot arrangement: identity leading, the
+   thing you are looking at centred, the menu trailing. display:contents lifts
+   the wordmark and the context out of their desktop wrapper so each can take
+   its own column without duplicating either in the markup. */
 @media (max-width: 767px) {
-  .bt-nav .bt-nav-lb {
-    display: none;
+  :root {
+    --bt-tabbar-h: 58px;
   }
-  .bt-nav button {
-    padding: 7px 12px;
-    display: grid;
-    place-items: center;
+  .bt-tabbar {
+    display: block;
   }
   .bt-topbar {
-    padding: 0 12px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 8px;
   }
-  .bt-topbar .bt-crumb {
-    display: none;
+  .bt-topbar-lead {
+    display: contents;
   }
-  /* the centred pill overlapped both ends here: at this width the row is a row */
-  .bt-nav {
-    position: static;
-    transform: none;
-    margin-left: auto;
+  .bt-wordmark {
+    grid-column: 1;
   }
-  .bt-topbar-left {
-    flex: 0 1 auto;
-    overflow: hidden;
+  .bt-topbar-context {
+    grid-column: 2;
+    justify-self: center;
+    max-width: 100%;
   }
-  .bt-topbar-left .bt-crumb {
-    max-width: 96px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bt-credits-label {
-    display: none;
-  }
-  .bt-credits-pill {
-    padding: 0 9px;
+  .bt-topbar-end {
+    grid-column: 3;
   }
   .bt-main {
     padding: 18px 14px 150px;
@@ -2584,18 +3273,6 @@ select {
     flex-wrap: wrap;
   }
 }
-@media (min-width: 768px) {
-  .bt-nav .bt-nav-ic {
-    display: none;
-  }
-}
-@media (max-width: 767px) {
-  .bt-nav .bt-nav-ic {
-    display: grid;
-    place-items: center;
-  }
-}
-
 @media (max-width: 479px) {
   .bt-feed {
     columns: 2;
@@ -2642,6 +3319,26 @@ select {
   .bt-editor-handle {
     width: 24px !important;
     height: 24px !important;
+  }
+
+  /* A finger needs 44px; the bar does not. The graphic keeps its size and the
+     reach comes from an invisible box centred on it, so nothing grows chunky. */
+  .bt-topbar .bt-icon-btn::after,
+  .bt-topbar .bt-credits-pill::after,
+  .bt-topbar .bt-avatar-btn::after,
+  .bt-topbar .bt-crumb-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: var(--bt-tap);
+    min-width: var(--bt-tap);
+  }
+  .bt-topbar .bt-credits-pill,
+  .bt-topbar .bt-crumb-btn {
+    position: relative;
   }
 }
 
@@ -2699,13 +3396,6 @@ select {
 .bt-send:focus-visible {
   outline: 2px solid var(--bt-focus);
   outline-offset: 2px;
-}
-.bt-composer-cost {
-  margin-top: 8px;
-  text-align: center;
-  font-family: var(--bt-font-mono);
-  font-size: 11px;
-  color: var(--bt-fg3);
 }
 .bt-prompt-row .bt-attach-toggle {
   width: 30px;
@@ -2781,10 +3471,6 @@ select {
   font-size: 12.5px;
   padding: 6px 8px;
   border-radius: var(--bt-radius-full);
-}
-.bt-composer-cost {
-  margin-top: 10px;
-  letter-spacing: 0.01em;
 }
 .bt-ap-head {
   gap: 8px;
@@ -3218,9 +3904,27 @@ select {
   min-height: 24px;
   cursor: text;
 }
-.bt-brief-line:empty::before {
+/* Placeholder is driven by data-empty from syncEmpty(), not :empty — Chromium
+   inserts a <br> on focus/clear which breaks :empty permanently. */
+.bt-brief-line[data-empty]::before {
   content: attr(data-ph);
   color: var(--bt-fg3);
+  pointer-events: none;
+  /* the line uses overflow-wrap:anywhere for real prose; mid-word breaks
+     make the placeholder look broken on a phone */
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media (max-width: 767px) {
+  .bt-brief-line[data-empty]::before {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bt-brief-line[data-empty][data-ph-sm]::before {
+    content: attr(data-ph-sm);
+  }
 }
 /* chips are atoms in the flow, so they sit on the text baseline */
 /* chips take part in selection so select all, copy and cut carry their labels;
@@ -3258,10 +3962,11 @@ select {
   padding: 8px 24px 96px;
 }
 
-/* the vertical rail rides with you down the page */
+/* the vertical rail rides with you down the page. The bar is a shell row above
+   this scrollport now, so the offset is the scrollport's own top, not 60px. */
 .bt-verticals {
   position: sticky;
-  top: var(--bt-topbar-h);
+  top: 0;
   z-index: 20;
   display: flex;
   gap: 24px;
@@ -4390,9 +5095,6 @@ select {
   max-width: none;
   padding: 26px var(--bt-gutter) 230px;
 }
-.bt-topbar {
-  padding: 0 var(--bt-gutter);
-}
 .bt-looks {
   padding: 8px var(--bt-gutter) 96px;
 }
@@ -4434,14 +5136,27 @@ select {
   width: min(var(--bt-prompt-w), calc(100vw - 40px));
 }
 .bt-canvas-dock {
-  width: min(var(--bt-prompt-w), calc(100vw - var(--bt-assets-w, 264px) - 60px));
-}
-.bt-work[data-assets="false"] ~ .bt-canvas-dock,
-.bt-canvas-dock[data-full="true"] {
   width: min(var(--bt-prompt-w), calc(100vw - 40px));
+}
+@media (min-width: 1280px) {
+  .bt-canvas-dock {
+    width: min(var(--bt-prompt-w), calc(100vw - var(--bt-assets-w) - 60px));
+  }
+  .bt-canvas-dock[data-full="true"] {
+    width: min(var(--bt-prompt-w), calc(100vw - 40px));
+  }
 }
 .bt-dock-fade {
   height: 300px;
+}
+
+/* Stops at the tab bar rather than washing over it. This has to sit after the
+   base rule, not in the earlier phone block, or the unmediated bottom:0 below
+   simply wins on source order. */
+@media (max-width: 767px) {
+  .bt-dock-fade {
+    bottom: var(--bt-tabbar-h);
+  }
 }
 
 .bt-promptcard {
@@ -4474,10 +5189,6 @@ select {
 .bt-send {
   width: 44px;
   height: 44px;
-}
-.bt-composer-cost {
-  font-size: 11.5px;
-  margin-top: 12px;
 }
 /* the filled send is the loud one, so the ghost + sits a notch under it */
 .bt-prompt-row .bt-attach-toggle {
@@ -4546,5 +5257,324 @@ select {
     height: 30px !important;
     padding: 0 10px !important;
     font-size: 12.5px !important;
+  }
+}
+
+/* ---------- 6.1 the composer at hand width ---------------------------------
+   The row was asked to hold six controls inside calc(100vw - 24px) and could
+   not. Two faults, both fixed here. Everywhere: the engine chip had a fixed
+   200px ceiling but no min-width of its own, so it could not compress and the
+   two groups overlapped instead. Under 768px: aspect, variants and quality
+   leave the row for a sheet under the thumb, which buys back the room the 44px
+   touch floor needs. Nothing above 768px changes shape. */
+.bt-mini-sel {
+  min-width: 0 !important;
+  flex: 0 1 auto;
+  max-width: clamp(96px, 30vw, 200px) !important;
+}
+/* the chip stands in for the three pills, so on a desktop it is not there */
+.bt-shotset {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .bt-prompt-right > .bt-var:not(.bt-shotset) {
+    display: none;
+  }
+  .bt-shotset {
+    display: inline-flex;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+  }
+  /* with three pills gone the row can afford honest targets again */
+  .bt-send {
+    width: 44px;
+    height: 44px;
+  }
+  .bt-prompt-row .bt-attach-toggle {
+    width: 40px;
+    height: 40px;
+  }
+  .bt-prompt-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .bt-prompt-right {
+    gap: 6px;
+  }
+  /* the engine name is the only thing left that can use slack, so let it */
+  .bt-mini-sel {
+    height: 40px !important;
+    max-width: none !important;
+  }
+  /* the panel shares this screen with a keyboard */
+  .bt-attachpanel {
+    height: min(340px, 44vh);
+  }
+}
+
+/* A tablet keeps the full row, so its pills are the ones short of reach. Same
+   trick the top bar uses: the graphic keeps its size and an invisible box
+   centred on it carries the finger. */
+@media (pointer: coarse) {
+  .bt-prompt-row .bt-var,
+  .bt-prompt-row .bt-mini-sel {
+    position: relative;
+  }
+  .bt-prompt-row .bt-var::after,
+  .bt-prompt-row .bt-mini-sel::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: var(--bt-tap);
+    min-width: var(--bt-tap);
+  }
+}
+
+/* The docks are fixed, and iOS shrinks only the visual viewport, so without
+   this the keyboard covers the thing you are typing into. */
+.bt-home-dock,
+.bt-canvas-dock,
+.bt-canvas-dock[data-full="true"] {
+  bottom: calc(var(--bt-kb) + var(--bt-tabbar-h) + 18px);
+}
+.bt-dock-fade {
+  bottom: calc(var(--bt-kb) + var(--bt-tabbar-h));
+}
+
+/* ---------- shot settings sheet --------------------------------------------
+   The phone's home for aspect, variants and quality. It takes the z-order the
+   nav sheet reserved (scrim 91, panel 92), so it clears the detail overlay at
+   80 and the docks at 60. Rows are 48px and state their value, rather than
+   hiding it inside a 30px pill. */
+.bt-shotsheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--bt-z-sheet-scrim);
+  background: rgba(0, 0, 0, 0.42);
+}
+.bt-shotsheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: var(--bt-z-sheet);
+  max-height: 80dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 18px max(20px, env(safe-area-inset-bottom));
+  background: var(--bt-panel);
+  border-top: 1px solid var(--bt-line);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--bt-shadow-3);
+  /* the spring back when a drag does not go far enough to dismiss */
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bt-shotsheet:focus,
+.bt-shotsheet:focus-visible {
+  outline: none;
+}
+/* Said to a screen reader, shown to nobody. */
+.bt-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The bar is the handle, and the handle is real: this whole strip takes the
+   drag. touch-action none, or the browser scrolls the page instead.
+   The generous strip is the point: a bar pinned to the top edge reads as trim
+   on the panel, and the first row underneath has nothing to breathe against. */
+.bt-shotsheet-grip {
+  display: grid;
+  justify-items: center;
+  padding: 16px 0 14px;
+  touch-action: none;
+  cursor: grab;
+}
+.bt-shotsheet-grip:active {
+  cursor: grabbing;
+}
+.bt-shotsheet-bar {
+  width: 40px;
+  height: 4px;
+  border-radius: var(--bt-radius-full);
+  background: var(--bt-line-strong);
+  transition: background 120ms ease;
+}
+.bt-shotsheet-grip:active .bt-shotsheet-bar {
+  background: var(--bt-fg3);
+}
+.bt-shotsheet-scrim[data-state="open"] {
+  animation: bt-fade-in 160ms ease-out;
+}
+.bt-shotsheet-scrim[data-state="closed"] {
+  animation: bt-fade-out 140ms ease-in;
+}
+.bt-shotsheet[data-state="open"] {
+  animation: bt-sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bt-shotsheet[data-state="closed"] {
+  animation: bt-sheet-down 160ms ease-in;
+}
+@keyframes bt-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes bt-sheet-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes bt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes bt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bt-shotsheet,
+  .bt-shotsheet-scrim {
+    animation: none !important;
+  }
+}
+
+/* Name on the left, every answer on the right, one hairline between each. The
+   rules do the separating, so the rows can stay tight without running
+   together. Under ~360px the answers drop to their own line rather than
+   squeezing the name out of legibility. */
+.bt-shotfield {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  min-height: 54px;
+}
+.bt-shotfield + .bt-shotfield {
+  border-top: 1px solid var(--bt-line);
+}
+.bt-shotfield-lb {
+  flex: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--bt-fg2);
+}
+.bt-seg {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--bt-well);
+}
+.bt-seg-o {
+  min-width: 42px;
+  height: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--bt-fg2);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.bt-seg-o:hover {
+  color: var(--bt-fg);
+}
+/* the chosen one is lifted out of the track, the way a real switch reads. The
+   inset hairline is what keeps that edge legible in dark, where a drop shadow
+   on a dark panel says nothing. */
+.bt-seg-o[data-on] {
+  background: var(--bt-panel);
+  color: var(--bt-fg);
+  font-weight: 600;
+  box-shadow:
+    var(--bt-shadow-1),
+    inset 0 0 0 1px var(--bt-line);
+}
+.bt-seg-o:focus-visible {
+  outline: 2px solid var(--bt-focus);
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bt-shotsheet {
+    transition: none;
+  }
+}
+
+/* ---------- cursors: one answer for the whole app --------------------------
+   A <button> is `cursor: default` in every browser, so every control has to
+   ask for a pointer and a dozen of them never did. State it once, here, for
+   anything that is actually a control. Radix Themes keeps its own answers
+   behind variables, so the parts we do not own are set the same way rather
+   than fought selector by selector. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="menuitem"],
+[role="option"],
+[role="tab"],
+summary,
+label[for],
+a[href] {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"],
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+/* a scrim is a way out, not a control, so it keeps the plain arrow */
+.bt-plus-scrim,
+.bt-assets-backdrop,
+.bt-shotsheet-scrim {
+  cursor: default;
+}
+.radix-themes {
+  --cursor-button: pointer;
+  --cursor-checkbox: pointer;
+  --cursor-disabled: not-allowed;
+  --cursor-link: pointer;
+  --cursor-menu-item: pointer;
+  --cursor-radio: pointer;
+  --cursor-slider-thumb: grab;
+  --cursor-slider-thumb-active: grabbing;
+  --cursor-switch: pointer;
+}
+
+/* ---------- no zoom on focus ------------------------------------------------
+   Safari zooms the page whenever it focuses a control computing under 16px,
+   and leaves you scrolled sideways in a layout that no longer fits. The fix
+   is the 16px: `maximum-scale=1` is the other way to stop it and it takes
+   pinch-zoom with it, which fails WCAG 1.4.4. So on a touch device every
+   text-entry control is 16px and the chrome around it keeps its own scale.
+   These beat rules like `.bt-ap-search input`, hence the !important. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  textarea,
+  select,
+  [contenteditable]:not([contenteditable="false"]) {
+    font-size: 16px !important;
   }
 }

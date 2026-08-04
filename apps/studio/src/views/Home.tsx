@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Badge, Dialog, DropdownMenu, Flex } from '@radix-ui/themes';
-import { CaretDown, ImageSquare, Package, Sparkle, Star, UsersThree, WarningCircle } from '@phosphor-icons/react';
+import { Badge, Dialog } from '@radix-ui/themes';
+import { ImageSquare, Package, Sparkle, Star, UsersThree, WarningCircle } from '@phosphor-icons/react';
 import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { TopBar, Wordmark } from '../layout/TopBar.js';
 import { Composer } from '../layout/Composer.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
-import { SettingsButton } from './SettingsDialog.js';
 
 interface FeedItem {
   node: TreeNode;
@@ -19,7 +17,7 @@ interface FeedItem {
 }
 
 export function HomeView() {
-  const { brands, engines, looks: templates, refresh } = useAppData();
+  const { engines, looks: templates, refresh } = useAppData();
   const { brand, projects, refreshProjects } = useBrand();
   const navigate = useNavigate();
   const [feed, setFeed] = useState<FeedItem[] | null>(null);
@@ -75,13 +73,7 @@ export function HomeView() {
     return created.project.id;
   };
 
-  const palette = [
-    brand.json?.palette?.primary?.hex,
-    brand.json?.palette?.secondary?.hex,
-    ...(brand.json?.palette?.accent ?? []).map((a: any) => a?.hex),
-  ].filter(Boolean) as string[];
   const products = (brand.json?.products ?? []) as any[];
-  const brandName: string = brand.json?.meta?.name ?? brand.slug;
 
   const shown = useMemo(() => {
     if (!feed) return null;
@@ -97,36 +89,7 @@ export function HomeView() {
 
   return (
     <div className="bt-home">
-      <TopBar
-        left={
-          <Flex align="center" gap="3">
-            <Wordmark />
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                <button type="button" className="bt-brand-pill">
-                  <span className="bt-brand-dot" style={{ background: palette[0] ?? 'var(--bt-fg3)' }} />
-                  <span dir="auto" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {brandName}
-                  </span>
-                  <CaretDown size={11} />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content>
-                {brands.map((b) => (
-                  <DropdownMenu.Item key={b.id} onSelect={() => navigate(`/b/${b.id}`)}>
-                    {b.json?.meta?.name ?? b.slug}
-                  </DropdownMenu.Item>
-                ))}
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={() => navigate('/setup')}>Set up a brand</DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          </Flex>
-        }
-        right={<SettingsButton />}
-      />
-
-      <main className="bt-main">
+      <main className="bt-main" id="main">
         <h1 className="bt-greet">
           Make something <em>on brand</em>
         </h1>

@@ -1,0 +1,299 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { useLocation, useNavigate } from 'react-router';
+import { Popover } from '@radix-ui/themes';
+import { Bell, ImageSquare, Storefront, WarningCircle } from '@phosphor-icons/react';
+import { imgUrl } from '../api.js';
+import { useTaskCenter } from '../app/TaskCenter.js';
+import { agoLabel, elapsedLabel, type NotificationItem, type Task } from '../tasks.js';
+
+/**
+ * The bell, and the two lists behind it.
+ *
+ * Tasks answers "is anything happening"; Notifications answers "what happened
+ * while I was elsewhere". They are the same events at two lifetimes, so they
+ * share one panel and one id space, and the badge tells them apart rather than
+ * adding them together.
+ *
+ * The panel body is written once. Above 768px it is a popover under the bell;
+ * below, a sheet off the bottom edge, because the top right corner of a phone
+ * is the furthest point from a thumb and a 360px card there is a popover in
+ * name only.
+ */
+const PHONE = '(max-width: 767px)';
+
+type TabKey = 'tasks' | 'feed';
+
+export function NotificationsButton() {
+  const { running, unread, panelOpen, setPanelOpen, markSeen } = useTaskCenter();
+  const { pathname } = useLocation();
+  const phone = useMediaQuery(PHONE);
+
+  // the bar outlives the screen now, so an open panel would follow you around
+  useEffect(() => setPanelOpen(false), [pathname, setPanelOpen]);
+
+  const label =
+    'Notifications' +
+    (unread ? `, ${unread} unread` : '') +
+    (running ? `, ${running} task${running === 1 ? '' : 's'} running` : '');
+
+  const badge =
+    unread > 0 ? (
+      <span className="bt-bell-dot" data-count={unread} aria-hidden>
+        {unread > 9 ? '9+' : unread}
+      </span>
+    ) : running > 0 ? (
+      <span className="bt-bell-dot" data-running="" aria-hidden />
+    ) : null;
+
+  if (phone) {
+    return (
+      <>
+        <button
+          type="button"
+          className="bt-icon-btn bt-notif-btn"
+          data-on={panelOpen || undefined}
+          aria-label={label}
+          aria-expanded={panelOpen}
+          title="Notifications"
+          onClick={() => setPanelOpen(!panelOpen)}
+        >
+          <Bell size={16} weight={running ? 'fill' : 'regular'} />
+          {badge}
+        </button>
+        {panelOpen ? <Sheet onClose={() => setPanelOpen(false)} onSeen={markSeen} /> : null}
+      </>
+    );
+  }
+
+  return (
+    <Popover.Root open={panelOpen} onOpenChange={setPanelOpen}>
+      <Popover.Trigger>
+        <button type="button" className="bt-icon-btn bt-notif-btn" aria-label={label} title="Notifications">
+          <Bell size={16} weight={running ? 'fill' : 'regular'} />
+          {badge}
+        </button>
+      </Popover.Trigger>
+      <Popover.Content align="end" className="bt-notif-pop">
+        <Panel onClose={() => setPanelOpen(false)} onSeen={markSeen} />
+      </Popover.Content>
+    </Popover.Root>
+  );
+}
+
+/**
+ * Escape and an outside click are what a sheet owes you; Radix gives those to
+ * the popover for free and this is the half of the app that has to earn them.
+ */
+function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape above is the keyboard path; the scrim is a mouse convenience */}
+      <div className="bt-notif-scrim" onClick={onClose} aria-hidden />
+      <div className="bt-notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div className="bt-notif-grab" aria-hidden />
+        <Panel onClose={onClose} onSeen={onSeen} />
+      </div>
+    </>,
+    document.body,
+  );
+}
+
+function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
+  const { tasks, feed, unread, clearFeed } = useTaskCenter();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<TabKey>('tasks');
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // seconds tick on their own; the poll is slower than the clock
+  const now = useNow(1000);
+
+  // opening on Tasks must not silently clear the badge: the mark belongs to the
+  // list you actually looked at
+  useEffect(() => {
+    if (tab === 'feed') onSeen();
+  }, [tab, onSeen]);
+
+  const open = (href: string) => {
+    navigate(href);
+    onClose();
+  };
+
+  // left/right move between the two; up/down stay free to scroll the list
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const order: TabKey[] = ['tasks', 'feed'];
+    const i = order.indexOf(tab);
+    let next: TabKey | null = null;
+    if (e.key === 'ArrowRight') next = order[(i + 1) % order.length];
+    else if (e.key === 'ArrowLeft') next = order[(i - 1 + order.length) % order.length];
+    else if (e.key === 'Home') next = order[0];
+    else if (e.key === 'End') next = order[order.length - 1];
+    if (!next) return;
+    e.preventDefault();
+    setTab(next);
+    tabsRef.current?.querySelector<HTMLButtonElement>(`#bt-notif-tab-${next}`)?.focus();
+  };
+
+  return (
+    <>
+      {/* biome-ignore lint/a11y/useFocusableInteractive: the tabs themselves are the focusable elements */}
+      <div className="bt-notif-tabs" role="tablist" aria-label="Notifications" ref={tabsRef} onKeyDown={onKeyDown}>
+        <Tab id="tasks" tab={tab} onSelect={setTab} count={tasks.length}>
+          Tasks
+        </Tab>
+        <Tab id="feed" tab={tab} onSelect={setTab} count={unread || undefined}>
+          Notifications
+        </Tab>
+      </div>
+
+      <div
+        className="bt-notif-scroll"
+        role="tabpanel"
+        id={`bt-notif-panel-${tab}`}
+        aria-labelledby={`bt-notif-tab-${tab}`}
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard (WCAG 2.1.1) and the tabpanel is the scroller
+        tabIndex={0}
+      >
+        {tab === 'tasks' ? (
+          tasks.length === 0 ? (
+            <p className="bt-notif-empty">Nothing running. Generations show up here as they go.</p>
+          ) : (
+            tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onOpen={open} />)
+          )
+        ) : feed.length === 0 ? (
+          <p className="bt-notif-empty">You have no notifications yet.</p>
+        ) : (
+          feed.map((n) => <FeedRow key={n.id} item={n} now={now} onOpen={open} />)
+        )}
+      </div>
+
+      {tab === 'feed' && feed.length > 0 ? (
+        <div className="bt-notif-foot">
+          <button type="button" className="bt-notif-clear" onClick={clearFeed}>
+            Clear all
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function Tab({
+  id,
+  tab,
+  onSelect,
+  count,
+  children,
+}: {
+  id: TabKey;
+  tab: TabKey;
+  onSelect: (t: TabKey) => void;
+  count?: number;
+  children: ReactNode;
+}) {
+  const on = tab === id;
+  return (
+    <button
+      type="button"
+      role="tab"
+      id={`bt-notif-tab-${id}`}
+      className="bt-notif-tab"
+      aria-selected={on}
+      aria-controls={`bt-notif-panel-${id}`}
+      tabIndex={on ? 0 : -1}
+      onClick={() => onSelect(id)}
+    >
+      {children}
+      {count ? <span className="bt-notif-n">{count}</span> : null}
+    </button>
+  );
+}
+
+function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'> }) {
+  if (task.thumb) return <img src={imgUrl(task.thumb)} alt="" />;
+  if (task.state === 'running') return <span className="bt-shimmer" />;
+  if (task.state === 'error') return <WarningCircle size={17} weight="fill" />;
+  if (task.kind === 'catalog') return <Storefront size={17} />;
+  return <ImageSquare size={17} />;
+}
+
+function TaskRow({ task, now, onOpen }: { task: Task; now: number; onOpen: (href: string) => void }) {
+  const running = task.state === 'running';
+  return (
+    <button
+      type="button"
+      className="bt-notif-row"
+      data-state={task.state}
+      data-running={running || undefined}
+      disabled={!task.href}
+      onClick={() => task.href && onOpen(task.href)}
+    >
+      <span className="bt-notif-thumb">
+        <Thumb task={task} />
+      </span>
+      <span className="bt-notif-txt">
+        <b dir="auto">{task.title}</b>
+        <small dir="auto">{task.subtitle}</small>
+        {running && task.percent !== null ? (
+          <span className="bt-notif-meter">
+            <div style={{ width: `${task.percent}%` }} />
+          </span>
+        ) : null}
+      </span>
+      <span className="bt-notif-time">
+        {running ? elapsedLabel(task.startedAt, now) : agoLabel(task.startedAt, now)}
+      </span>
+    </button>
+  );
+}
+
+function FeedRow({ item, now, onOpen }: { item: NotificationItem; now: number; onOpen: (href: string) => void }) {
+  return (
+    <button
+      type="button"
+      className="bt-notif-row"
+      data-state={item.state}
+      disabled={!item.href}
+      onClick={() => item.href && onOpen(item.href)}
+    >
+      <span className="bt-notif-thumb">
+        <Thumb task={item} />
+      </span>
+      <span className="bt-notif-txt">
+        <b dir="auto">{item.title}</b>
+        <small dir="auto">{item.subtitle}</small>
+      </span>
+      <span className="bt-notif-time">{agoLabel(item.at, now)}</span>
+    </button>
+  );
+}
+
+/** Which shell to render. Watched, not sampled: a rotated phone is a new answer. */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatches(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [query]);
+  return matches;
+}
+
+/** A clock only while the panel is open — elapsed seconds should not cost a poll. */
+function useNow(ms: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
+}
