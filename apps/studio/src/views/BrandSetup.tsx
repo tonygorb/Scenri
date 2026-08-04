@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Callout, Spinner } from '@radix-ui/themes';
 import { ArrowRight, CaretLeft, Check, Circle, ImageSquare } from '@phosphor-icons/react';
-import { api, assetUrl, type Brand, type Look, type Product } from '../api.js';
+import { api, assetUrl, type Brand, type Product } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { saveFavoriteLooks } from '../favorites.js';
 
@@ -12,16 +14,11 @@ type Step = 1 | 2 | 3 | 4;
  * products, pick favorite looks. Replaces the AddBrand and BrandReview
  * dialogs; also serves as the first-run screen.
  */
-export function BrandSetup({
-  onDone,
-  onCancel,
-  canCancel,
-}: {
-  onDone: (brandId: string) => void;
-  /** Back from step 1; hidden on true first run where there is nothing to go back to. */
-  onCancel: () => void;
-  canCancel: boolean;
-}) {
+export function BrandSetup() {
+  const { brands, looks: templates, refresh } = useAppData();
+  const navigate = useNavigate();
+  /** Back from step 1 has nowhere to go on a true first run. */
+  const canCancel = brands.length > 0;
   const [step, setStep] = useState<Step>(1);
   const [brand, setBrand] = useState<Brand | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -32,16 +29,8 @@ export function BrandSetup({
   const [err, setErr] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [tagline, setTagline] = useState('');
-  const [templates, setTemplates] = useState<Look[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
   const [libraryProducts, setLibraryProducts] = useState<Product[]>([]);
-
-  useEffect(() => {
-    void api
-      .looks()
-      .then((r) => setTemplates(r.looks))
-      .catch(() => {});
-  }, []);
 
   const refreshLibrary = async (brandId?: string) => {
     const id = brandId ?? brand?.id;
@@ -125,13 +114,16 @@ export function BrandSetup({
         /* already gone */
       }
     }
-    onCancel();
+    await refresh();
+    // "/" resolves to the brand you were last on, which is where cancelling
+    // has always put you
+    navigate('/', { replace: true });
   };
 
   const finish = () => {
     if (!brand) return;
     saveFavoriteLooks(brand.id, picked);
-    onDone(brand.id);
+    void refresh().then(() => navigate(`/b/${brand.id}`, { replace: true }));
   };
 
   const refreshBrand = async () => {
@@ -174,7 +166,7 @@ export function BrandSetup({
         {step === 1 && (
           <>
             <div className="bt-wiz-head">
-              {back(onCancel, canCancel)}
+              {back(() => void discard(), canCancel)}
               {dots}
               <span />
             </div>

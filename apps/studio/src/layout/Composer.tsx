@@ -18,7 +18,6 @@ import {
   type Brand,
   type BriefPreview,
   type EngineInfo,
-  type Look,
   type TextLayer,
   type TreeNode,
 } from '../api.js';
@@ -32,7 +31,9 @@ import {
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import { keepCaret } from '../composer/line.js';
-import { openSettings } from '../views/SettingsDialog.js';
+import { useOpenSettings } from '../views/SettingsDialog.js';
+import { useAppData } from '../app/AppShell.js';
+import { PREF, useLocalPref } from '../prefs.js';
 import { useProductLibrary } from '../useProductLibrary.js';
 
 type QualityId = 'draft' | 'standard' | 'high';
@@ -93,8 +94,10 @@ export const Composer = forwardRef<
   handleRef,
 ) {
   const libraryProducts = useProductLibrary(brand.id);
+  const { looks: templates } = useAppData();
+  const openSettings = useOpenSettings();
   const usable = engines.filter((e) => e.available);
-  const [engineId, setEngineId] = useState('demo');
+  const [engineId, setEngineId] = useLocalPref(PREF.engine, 'demo');
   useEffect(() => {
     if (!usable.some((e) => e.id === engineId)) setEngineId(usable[0]?.id ?? 'demo');
   }, [usable, engineId]);
@@ -113,28 +116,20 @@ export const Composer = forwardRef<
 
   const [sentence, setSentence] = useState<SentenceToken[]>(emptySentence());
   const [seedTokens, setSeedTokens] = useState<SentenceToken[] | undefined>(undefined);
-  const [formatId, setFormatId] = useState('square');
-  const [templates, setTemplates] = useState<Look[]>([]);
+  const [formatId, setFormatId] = useLocalPref(PREF.format, 'square');
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
-  const [count, setCount] = useState(2);
+  const [count, setCount] = useLocalPref(PREF.count, 2);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [preview, setPreview] = useState<BriefPreview | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTab, setAttachTab] = useState<AttachTab>('All');
   const [plusOpen, setPlusOpen] = useState(false);
-  const [quality, setQuality] = useState<QualityId>('standard');
+  const [quality, setQuality] = useLocalPref<QualityId>(PREF.quality, 'standard');
   const [uploading, setUploading] = useState(false);
   const briefRef = useRef<BriefInputHandle>(null);
   const attachRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    void api
-      .looks()
-      .then((r) => setTemplates(r.looks))
-      .catch(() => {});
-  }, []);
 
   // a template picked on Home, or "New photoshoot", lands here once
   const seeded = useRef(false);

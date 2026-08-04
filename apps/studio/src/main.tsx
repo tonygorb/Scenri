@@ -5,9 +5,10 @@ import '@fontsource-variable/inter-tight';
 import '@fontsource/playfair-display/400-italic.css';
 import '@fontsource/playfair-display/500-italic.css';
 import './styles/tokens.css';
+import { RouterProvider } from 'react-router';
 import { ThemeProvider } from './theme.js';
 import { ToastProvider } from './toasts.js';
-import { App } from './App.js';
+import { router } from './router.js';
 
 // set theme before first paint to avoid a flash of the wrong scheme
 const saved = localStorage.getItem('bt-theme');
@@ -22,7 +23,7 @@ createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>
       <ToastProvider>
-        <App />
+        <RouterProvider router={router} />
       </ToastProvider>
     </ThemeProvider>
   </React.StrictMode>,

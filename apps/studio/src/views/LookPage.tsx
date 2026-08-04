@@ -1,45 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react';
-import { api, imgUrl, type EngineInfo, type Look, type TreeNode } from '../api.js';
-import { TopBar, Wordmark, type NavItem } from '../layout/TopBar.js';
+import { api, imgUrl, type Look, type TreeNode } from '../api.js';
+import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
+import { useApplyLook } from '../app/useApplyLook.js';
+import { TopBar, Wordmark } from '../layout/TopBar.js';
+import { SettingsButton } from './SettingsDialog.js';
 
 /**
  * One look. The reference frames say what the light is; they are ours and are
  * deliberately not clickable. Everything below is yours: what you made with it,
  * and which looks sit nearest by light.
  */
-export function LookPage({
-  lookId,
-  brandId,
-  engines,
-  nav,
-  brandPill,
-  settingsButton,
-  onOpenLook,
-  onUseLook,
-  onBack,
-}: {
-  lookId: string;
-  brandId: string | null;
-  engines: EngineInfo[];
-  nav: NavItem[];
-  brandPill?: React.ReactNode;
-  settingsButton: React.ReactNode;
-  onOpenLook: (id: string) => void;
-  onUseLook: (id: string) => void;
-  onBack: () => void;
-}) {
-  const [looks, setLooks] = useState<Look[]>([]);
+export function LookPage() {
+  const { lookId = '' } = useParams();
+  const { looks } = useAppData();
+  const { brand } = useBrand();
+  const navigate = useNavigate();
+  const applyLook = useApplyLook();
+  const brandId = brand.id;
   const [shots, setShots] = useState<TreeNode[]>([]);
   const [refs, setRefs] = useState<string[]>([]);
-  const [openAll, setOpenAll] = useState(false);
+  const [allParam, setOpenAll] = useFilterParam('all');
+  const openAll = allParam === '1';
 
-  useEffect(() => {
-    void api
-      .looks()
-      .then((r) => setLooks(r.looks))
-      .catch(() => {});
-  }, []);
+  const openLook = (id: string) => navigate(`/b/${brandId}/looks/${id}`);
 
   // Shots live per project, so gather them: this page is the only place that
   // asks "what did this look actually produce", across the whole brand.
@@ -70,7 +56,6 @@ export function LookPage({
   useEffect(() => {
     let alive = true;
     setRefs([]);
-    setOpenAll(false);
     void api
       .lookFrames(lookId)
       .then((r) => {
@@ -116,17 +101,7 @@ export function LookPage({
   if (!look)
     return (
       <div className="bt-home">
-        <TopBar
-          left={
-            <>
-              <Wordmark />
-              {brandPill}
-            </>
-          }
-          nav={nav}
-          engines={engines}
-          right={settingsButton}
-        />
+        <TopBar left={<Wordmark />} right={<SettingsButton />} />
       </div>
     );
 
@@ -135,21 +110,11 @@ export function LookPage({
 
   return (
     <div className="bt-home">
-      <TopBar
-        left={
-          <>
-            <Wordmark />
-            {brandPill}
-          </>
-        }
-        nav={nav}
-        engines={engines}
-        right={settingsButton}
-      />
+      <TopBar left={<Wordmark />} right={<SettingsButton />} />
 
       <main className="bt-lookpage">
         <div className="bt-lookpage-crumb">
-          <button type="button" onClick={onBack}>
+          <button type="button" onClick={() => navigate(`/b/${brandId}/looks`)}>
             Looks
           </button>
           <span>/</span>
@@ -163,7 +128,7 @@ export function LookPage({
           {look.width === look.height ? 'square by default' : `${look.width}×${look.height} by default`}
         </p>
         <div className="bt-lookpage-acts">
-          <button type="button" className="bt-btn bt-btn-primary" onClick={() => onUseLook(look.id)}>
+          <button type="button" className="bt-btn bt-btn-primary" onClick={() => void applyLook(look.id)}>
             Use this look
           </button>
         </div>
@@ -178,7 +143,7 @@ export function LookPage({
               ))}
             </div>
             {refs.length > 3 && (
-              <button type="button" className="bt-lookpage-expand" onClick={() => setOpenAll((o) => !o)}>
+              <button type="button" className="bt-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
                 {openAll ? 'Enough, close it' : 'See the whole set'}
               </button>
             )}
@@ -199,7 +164,7 @@ export function LookPage({
           <Slider label="Other looks, similar light">
             {near.map((l) => (
               <figure key={l.id}>
-                <button type="button" className="bt-lookcard bt-lookcard-plain" onClick={() => onOpenLook(l.id)}>
+                <button type="button" className="bt-lookcard bt-lookcard-plain" onClick={() => openLook(l.id)}>
                   {l.previewUrl ? (
                     <img src={l.previewUrl} alt={l.name} loading="lazy" />
                   ) : (

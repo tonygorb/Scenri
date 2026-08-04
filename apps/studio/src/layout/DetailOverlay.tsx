@@ -19,7 +19,6 @@ import {
   assetUrl,
   imgUrl,
   nodeLabel,
-  type Look,
   type Brand,
   type EngineInfo,
   type TextLayer,
@@ -31,6 +30,7 @@ import { StageFrame } from './Stage.js';
 import { Inspector, type InspectorTab } from './Inspector.js';
 import { Composer } from './Composer.js';
 import { Coin } from './Coin.js';
+import { useAppData } from '../app/AppShell.js';
 import { useToasts } from '../toasts.js';
 
 /**
@@ -379,13 +379,7 @@ export function DetailOverlay({
  * ingredients are a read of the record rather than a guess from the pixels.
  */
 function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand | null }) {
-  const [looks, setLooks] = useState<Look[]>([]);
-  useEffect(() => {
-    void api
-      .looks()
-      .then((r) => setLooks(r.looks))
-      .catch(() => {});
-  }, []);
+  const { looks } = useAppData();
 
   const tokens = brief?.tokens ?? [];
   if (!tokens.length) return null;

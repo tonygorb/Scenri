@@ -1,59 +1,82 @@
 import type { ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { Popover } from '@radix-ui/themes';
-import { Moon, Sun } from '@phosphor-icons/react';
+import { House, Moon, PlusCircle, Stack, Sun, UsersThree } from '@phosphor-icons/react';
 import { Coin } from './Coin.js';
-import { useThemeMode } from '../theme.js';
 import type { EngineInfo } from '../api.js';
-
-export interface NavItem {
-  label: string;
-  /** Shown instead of the label under 768px. */
-  icon?: ReactNode;
-  active?: boolean;
-  onClick: () => void;
-}
+import { useThemeMode } from '../theme.js';
+import { useAppData, useDialogParam } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
 
 /**
  * Shared chrome bar: view-specific content left, pill nav centered, credits
- * and theme on the right. Nav items arrive as props so the bar never claims
- * a surface that does not exist yet.
+ * and theme on the right. The nav reads where it is from the router, so no
+ * screen can hand it a wrong answer.
  */
-export function TopBar({
-  left,
-  right,
-  nav,
-  engines,
-}: {
-  left: ReactNode;
-  right?: ReactNode;
-  nav?: NavItem[];
-  engines: EngineInfo[];
-}) {
+export function TopBar({ left, right }: { left: ReactNode; right?: ReactNode }) {
+  const { engines } = useAppData();
   return (
     <div className="bt-topbar">
       <div className="bt-topbar-left">{left}</div>
-      {nav && nav.length > 0 && (
-        <nav className="bt-nav" aria-label="Main">
-          {nav.map((item) => (
-            <button
-              type="button"
-              key={item.label}
-              data-active={item.active || undefined}
-              onClick={item.onClick}
-              aria-label={item.label}
-            >
-              {item.icon && <span className="bt-nav-ic">{item.icon}</span>}
-              <span className="bt-nav-lb">{item.label}</span>
-            </button>
-          ))}
-        </nav>
-      )}
+      <MainNav />
       <div className="bt-topbar-right">
         {right}
         <Credits engines={engines} />
         <ThemeButton />
       </div>
     </div>
+  );
+}
+
+function MainNav() {
+  const { brand } = useBrand();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const picker = useDialogParam('picker');
+  const base = `/b/${brand.id}`;
+  const rest = pathname.startsWith(base) ? pathname.slice(base.length) : '';
+  const onCreate = rest.startsWith('/p/');
+
+  const items = [
+    { label: 'Home', icon: <House size={13} />, active: rest === '' || rest === '/', go: () => navigate(base) },
+    // with nothing open, ask which project rather than guessing the newest
+    {
+      label: 'Create',
+      icon: <PlusCircle size={13} />,
+      active: onCreate,
+      go: () => {
+        if (!onCreate) picker.open('1');
+      },
+    },
+    {
+      label: 'Looks',
+      icon: <Stack size={13} />,
+      active: rest.startsWith('/looks'),
+      go: () => navigate(`${base}/looks`),
+    },
+    {
+      label: 'Brand',
+      icon: <UsersThree size={13} />,
+      active: rest.startsWith('/brand'),
+      go: () => navigate(`${base}/brand`),
+    },
+  ];
+
+  return (
+    <nav className="bt-nav" aria-label="Main">
+      {items.map((item) => (
+        <button
+          type="button"
+          key={item.label}
+          data-active={item.active || undefined}
+          onClick={item.go}
+          aria-label={item.label}
+        >
+          <span className="bt-nav-ic">{item.icon}</span>
+          <span className="bt-nav-lb">{item.label}</span>
+        </button>
+      ))}
+    </nav>
   );
 }
 

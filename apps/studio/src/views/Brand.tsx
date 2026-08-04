@@ -1,45 +1,25 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { AlertDialog, Button, Flex } from '@radix-ui/themes';
 import { CaretDown, ImageSquare, Star, TrashSimple } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
-import { api, assetUrl, type Brand, type EngineInfo, type Look } from '../api.js';
-import { TopBar, Wordmark, type NavItem } from '../layout/TopBar.js';
+import { api, assetUrl } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
+import { TopBar, Wordmark } from '../layout/TopBar.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks, toggleFavoriteLook } from '../favorites.js';
+import { SettingsButton } from './SettingsDialog.js';
 
 const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
 
 /** The kit page: everything generation starts from, first class. */
-export function BrandView({
-  brand,
-  brands,
-  engines,
-  nav,
-  onSelectBrand,
-  onSetup,
-  onDeleted,
-  onBrandChanged,
-  settingsButton,
-}: {
-  brand: Brand;
-  brands: Brand[];
-  engines: EngineInfo[];
-  nav: NavItem[];
-  onSelectBrand: (id: string) => void;
-  onSetup: () => void;
-  onDeleted: () => void;
-  onBrandChanged: () => void;
-  settingsButton: React.ReactNode;
-}) {
-  const [templates, setTemplates] = useState<Look[]>([]);
+export function BrandView() {
+  const { brands, looks: templates, refresh } = useAppData();
+  const { brand } = useBrand();
+  const navigate = useNavigate();
   const [favs, setFavs] = useState<string[]>(() => favoriteLooks(brand.id));
 
-  useEffect(() => {
-    void api
-      .looks()
-      .then((r) => setTemplates(r.looks))
-      .catch(() => {});
-  }, []);
   useEffect(() => {
     setFavs(favoriteLooks(brand.id));
   }, [brand.id]);
@@ -63,8 +43,6 @@ export function BrandView({
   return (
     <div className="bt-home">
       <TopBar
-        engines={engines}
-        nav={nav}
         left={
           <Flex align="center" gap="3">
             <Wordmark />
@@ -78,17 +56,17 @@ export function BrandView({
               </DropdownMenu.Trigger>
               <DropdownMenu.Content>
                 {brands.map((b) => (
-                  <DropdownMenu.Item key={b.id} onSelect={() => onSelectBrand(b.id)}>
+                  <DropdownMenu.Item key={b.id} onSelect={() => navigate(`/b/${b.id}`)}>
                     {b.json?.meta?.name ?? b.slug}
                   </DropdownMenu.Item>
                 ))}
                 <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={onSetup}>Set up a brand</DropdownMenu.Item>
+                <DropdownMenu.Item onSelect={() => navigate('/setup')}>Set up a brand</DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           </Flex>
         }
-        right={settingsButton}
+        right={<SettingsButton />}
       />
 
       <main className="bt-brandpage">
@@ -128,7 +106,7 @@ export function BrandView({
           <div className="bt-sec-head">
             <span className="bt-sec-title">Products</span>
           </div>
-          <ProductsPanel brand={brand} onChanged={onBrandChanged} />
+          <ProductsPanel brand={brand} onChanged={refresh} />
         </div>
 
         <div className="bt-kit-sec">
@@ -138,7 +116,7 @@ export function BrandView({
               Name someone with @ and the same face comes back
             </span>
           </div>
-          <ProductsPanel brand={brand} onChanged={onBrandChanged} kind="characters" />
+          <ProductsPanel brand={brand} onChanged={refresh} kind="characters" />
         </div>
 
         {sorted.length > 0 && (
@@ -206,7 +184,15 @@ export function BrandView({
                     </Button>
                   </AlertDialog.Cancel>
                   <AlertDialog.Action>
-                    <Button color="red" onClick={() => void api.deleteBrand(brand.id).then(onDeleted)}>
+                    <Button
+                      color="red"
+                      onClick={() =>
+                        void api
+                          .deleteBrand(brand.id)
+                          .then(refresh)
+                          .then(() => navigate('/', { replace: true }))
+                      }
+                    >
                       Delete brand
                     </Button>
                   </AlertDialog.Action>

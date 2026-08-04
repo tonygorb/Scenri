@@ -22,13 +22,13 @@ function ago(iso: string): string {
  */
 export function ProjectPicker({
   open,
-  onOpenChange,
+  onClose,
   brandId,
   onPick,
   onCreate,
 }: {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
   brandId: string | null;
   onPick: (id: string) => void;
   onCreate: () => void;
@@ -68,7 +68,7 @@ export function ProjectPicker({
   }, [open, brandId]);
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
       <Dialog.Content maxWidth="470px" aria-describedby={undefined}>
         <Dialog.Title>Pick up where you left off</Dialog.Title>
         {rows === null ? (
@@ -84,7 +84,7 @@ export function ProjectPicker({
                 className="bt-pcard"
                 onClick={() => {
                   onPick(project.id);
-                  onOpenChange(false);
+                  onClose();
                 }}
               >
                 {cover ? <img src={imgUrl(cover)} alt="" loading="lazy" /> : <span className="bt-pcard-blank" />}
@@ -101,7 +101,7 @@ export function ProjectPicker({
               className="bt-pcard bt-pcard-new"
               onClick={() => {
                 onCreate();
-                onOpenChange(false);
+                onClose();
               }}
             >
               <Plus size={18} />

@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Badge, Dialog, DropdownMenu, Flex } from '@radix-ui/themes';
 import { CaretDown, ImageSquare, Package, Sparkle, Star, UsersThree, WarningCircle } from '@phosphor-icons/react';
-import { api, imgUrl, type Brand, type EngineInfo, type Project, type Look, type TreeNode } from '../api.js';
-import { TopBar, Wordmark, type NavItem } from '../layout/TopBar.js';
+import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
+import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
+import { TopBar, Wordmark } from '../layout/TopBar.js';
 import { Composer } from '../layout/Composer.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
+import { SettingsButton } from './SettingsDialog.js';
 
 interface FeedItem {
   node: TreeNode;
@@ -14,48 +18,32 @@ interface FeedItem {
   projectName: string;
 }
 
-export function HomeView({
-  brand,
-  brands,
-  engines,
-  nav,
-  onSelectBrand,
-  onOpenProject,
-  onLooks,
-  onSetup,
-  settingsButton,
-  onBrandChanged,
-}: {
-  brand: Brand;
-  brands: Brand[];
-  engines: EngineInfo[];
-  onSelectBrand: (id: string) => void;
-  onOpenProject: (id: string, opts?: { startTemplate?: string; openTemplates?: boolean }) => void;
-  nav: NavItem[];
-  onLooks: () => void;
-  onSetup: () => void;
-  settingsButton: React.ReactNode;
-  onBrandChanged: () => void;
-}) {
-  const [projects, setProjects] = useState<Project[] | null>(null);
+export function HomeView() {
+  const { brands, engines, looks: templates, refresh } = useAppData();
+  const { brand, projects, refreshProjects } = useBrand();
+  const navigate = useNavigate();
   const [feed, setFeed] = useState<FeedItem[] | null>(null);
-  const [templates, setTemplates] = useState<Look[]>([]);
-  const [tab, setTab] = useState<string>('all');
+  const [tabParam, setTab] = useFilterParam('tab', 'all');
   const dockProject = useRef<string | null>(null);
 
-  useEffect(() => {
-    void api
-      .looks()
-      .then((r) => setTemplates(r.looks))
-      .catch(() => {});
-  }, []);
+  // a tab can name a project that has since been deleted: fall back to All
+  // rather than rendering a feed that looks empty for no stated reason
+  const tab =
+    tabParam === 'all' || tabParam === 'keepers' || projects.some((p) => p.id === tabParam) ? tabParam : 'all';
+
+  const openProject = (id: string, opts?: { startTemplate?: string; openTemplates?: boolean }) => {
+    const qs = new URLSearchParams();
+    if (opts?.startTemplate) qs.set('look', opts.startTemplate);
+    if (opts?.openTemplates) qs.set('attach', 'looks');
+    const q = qs.toString();
+    navigate(`/b/${brand.id}/p/${id}${q ? `?${q}` : ''}`);
+  };
 
   useEffect(() => {
     let alive = true;
     void (async () => {
       const list = await api.projects(brand.id);
       if (!alive) return;
-      setProjects(list);
       const trees = await Promise.all(
         list.map(async (p) => {
           try {
@@ -81,8 +69,9 @@ export function HomeView({
   }, [brand.id]);
 
   const newProject = async (opts?: { startTemplate?: string; openTemplates?: boolean }) => {
-    const created = await api.createProject(brand.id, `Project ${(projects?.length ?? 0) + 1}`);
-    onOpenProject(created.project.id, opts);
+    const created = await api.createProject(brand.id, `Project ${projects.length + 1}`);
+    await refreshProjects();
+    openProject(created.project.id, opts);
     return created.project.id;
   };
 
@@ -109,8 +98,6 @@ export function HomeView({
   return (
     <div className="bt-home">
       <TopBar
-        engines={engines}
-        nav={nav}
         left={
           <Flex align="center" gap="3">
             <Wordmark />
@@ -126,17 +113,17 @@ export function HomeView({
               </DropdownMenu.Trigger>
               <DropdownMenu.Content>
                 {brands.map((b) => (
-                  <DropdownMenu.Item key={b.id} onSelect={() => onSelectBrand(b.id)}>
+                  <DropdownMenu.Item key={b.id} onSelect={() => navigate(`/b/${b.id}`)}>
                     {b.json?.meta?.name ?? b.slug}
                   </DropdownMenu.Item>
                 ))}
                 <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={onSetup}>Set up a brand</DropdownMenu.Item>
+                <DropdownMenu.Item onSelect={() => navigate('/setup')}>Set up a brand</DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           </Flex>
         }
-        right={settingsButton}
+        right={<SettingsButton />}
       />
 
       <main className="bt-main">
@@ -163,8 +150,8 @@ export function HomeView({
               <small>Describe any visual</small>
             </span>
           </button>
-          <ProductsCard brand={brand} onChanged={onBrandChanged} count={products.length} />
-          <button type="button" className="bt-create-card" onClick={onSetup}>
+          <ProductsCard brand={brand} onChanged={refresh} count={products.length} />
+          <button type="button" className="bt-create-card" onClick={() => navigate('/setup')}>
             <span className="bt-glyph">
               <UsersThree size={16} />
             </span>
@@ -179,7 +166,7 @@ export function HomeView({
           <>
             <div className="bt-sec-head">
               <span className="bt-sec-title">Looks</span>
-              <button type="button" className="bt-sec-more" onClick={onLooks}>
+              <button type="button" className="bt-sec-more" onClick={() => navigate(`/b/${brand.id}/looks`)}>
                 All looks
               </button>
             </div>
@@ -221,7 +208,7 @@ export function HomeView({
           <button type="button" className="bt-tab" data-active={tab === 'keepers'} onClick={() => setTab('keepers')}>
             Keepers
           </button>
-          {(projects ?? []).slice(0, 8).map((p) => (
+          {projects.slice(0, 8).map((p) => (
             <button type="button" key={p.id} className="bt-tab" data-active={tab === p.id} onClick={() => setTab(p.id)}>
               {p.name}
             </button>
@@ -267,7 +254,7 @@ export function HomeView({
                     key={n.id}
                     className="bt-cell"
                     data-failed="true"
-                    onClick={() => onOpenProject(f.projectId)}
+                    onClick={() => openProject(f.projectId)}
                   >
                     <span className="bt-cell-failed">
                       <WarningCircle size={16} />
@@ -277,7 +264,7 @@ export function HomeView({
                 );
               }
               return (
-                <button type="button" key={n.id} className="bt-cell" onClick={() => onOpenProject(f.projectId)}>
+                <button type="button" key={n.id} className="bt-cell" onClick={() => openProject(f.projectId)}>
                   <img src={imgUrl(f.hash)} alt="" loading="lazy" />
                   {n.kept && (
                     <span className="bt-cell-star">
@@ -297,8 +284,9 @@ export function HomeView({
         <Composer
           projectId={null}
           resolveProjectId={async () => {
-            const created = await api.createProject(brand.id, `Project ${(projects?.length ?? 0) + 1}`);
+            const created = await api.createProject(brand.id, `Project ${projects.length + 1}`);
             dockProject.current = created.project.id;
+            await refreshProjects();
             return created.project.id;
           }}
           brand={brand}
@@ -306,7 +294,7 @@ export function HomeView({
           parent={null}
           shots={doneShots}
           onQueued={() => {
-            if (dockProject.current) onOpenProject(dockProject.current);
+            if (dockProject.current) openProject(dockProject.current);
           }}
         />
       </div>

@@ -16,6 +16,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { api, type EngineInfo, type Project, type TreeNode } from '../api.js';
+import { useDialogParam } from '../app/AppShell.js';
 import { useThemeMode, type ThemeChoice } from '../theme.js';
 
 type Pane = 'engines' | 'budget' | 'usage' | 'library' | 'appearance' | 'about' | 'danger';
@@ -52,14 +53,18 @@ const bytes = (n: number) =>
  * Settings is a detour, not a destination: it opens over the work and gives it
  * back when you close. Rail on the left, one pane at a time.
  */
-/** Any surface can ask for Settings without a prop threaded through the tree. */
-const OPEN_SETTINGS = 'scenri:open-settings';
-export function openSettings(pane?: Pane) {
-  window.dispatchEvent(new CustomEvent(OPEN_SETTINGS, { detail: pane }));
+/**
+ * Any surface can ask for Settings without a prop threaded through the tree,
+ * and the ask is a URL, so it survives a refresh and answers to Back.
+ */
+export function useOpenSettings() {
+  const { open } = useDialogParam('settings');
+  return (pane: Pane = 'engines') => open(pane);
 }
 
-/** The gear anywhere in the app. The dialog itself is mounted once, in App. */
+/** The gear anywhere in the app. The dialog itself is mounted once, per brand. */
 export function SettingsButton() {
+  const openSettings = useOpenSettings();
   return (
     <button type="button" className="bt-icon-btn" aria-label="Settings" title="Settings" onClick={() => openSettings()}>
       <GearSix size={16} />
@@ -76,21 +81,13 @@ export function SettingsDialog({
   projects: Project[];
   onSaved: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [pane, setPane] = useState<Pane>('engines');
-
-  useEffect(() => {
-    const ask = (e: Event) => {
-      const want = (e as CustomEvent<Pane | undefined>).detail;
-      if (want) setPane(want);
-      setOpen(true);
-    };
-    window.addEventListener(OPEN_SETTINGS, ask);
-    return () => window.removeEventListener(OPEN_SETTINGS, ask);
-  }, []);
+  const settings = useDialogParam('settings');
+  const open = settings.value !== null;
+  const pane = (PANES.some((p) => p.id === settings.value) ? settings.value : 'engines') as Pane;
+  const setPane = (next: Pane) => settings.set(next);
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root open={open} onOpenChange={(next) => !next && settings.close()}>
       <Dialog.Content className="bt-set" maxWidth="940px" aria-describedby={undefined}>
         <Dialog.Title style={{ display: 'none' }}>Settings</Dialog.Title>
         <div className="bt-set-grid">
@@ -513,7 +510,9 @@ function Danger({ onDone }: { onDone: () => void }) {
       try {
         await api.deleteData(scope);
         onDone();
-        if (scope === 'all') window.location.reload();
+        // wiping everything means starting at the wizard, not reloading back
+        // into this dialog on a brand that no longer exists
+        if (scope === 'all') window.location.replace('/');
       } finally {
         setBusy(false);
       }

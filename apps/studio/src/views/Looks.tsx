@@ -1,42 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
-import { api, type EngineInfo, type Look } from '../api.js';
-import { TopBar, Wordmark, type NavItem } from '../layout/TopBar.js';
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router';
+import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
+import { useApplyLook } from '../app/useApplyLook.js';
+import { TopBar, Wordmark } from '../layout/TopBar.js';
+import { SettingsButton } from './SettingsDialog.js';
 
 /**
  * The looks library. A look is a photographic setup, so the browsing surface
  * is nothing but the pictures: name, light and the Use action wait for hover.
  * Sections are collections; the sticky rail filters by vertical.
  */
-export function LooksView({
-  engines,
-  nav,
-  brandPill,
-  settingsButton,
-  onOpenLook,
-  onUseLook,
-}: {
-  engines: EngineInfo[];
-  nav: NavItem[];
-  brandPill?: React.ReactNode;
-  settingsButton: React.ReactNode;
-  onOpenLook: (id: string) => void;
-  onUseLook: (id: string) => void;
-}) {
-  const [looks, setLooks] = useState<Look[]>([]);
-  const [collections, setCollections] = useState<string[]>([]);
-  const [verticals, setVerticals] = useState<string[]>([]);
-  const [vertical, setVertical] = useState<string | null>(null);
+export function LooksView() {
+  const { looks, collections, verticals } = useAppData();
+  const { brand } = useBrand();
+  const navigate = useNavigate();
+  const applyLook = useApplyLook();
+  const [verticalParam, setVertical] = useFilterParam('vertical');
+  const vertical = verticalParam || null;
 
-  useEffect(() => {
-    void api
-      .looks()
-      .then((r) => {
-        setLooks(r.looks);
-        setCollections(r.collections);
-        setVerticals(r.verticals);
-      })
-      .catch(() => {});
-  }, []);
+  const openLook = (id: string) => navigate(`/b/${brand.id}/looks/${id}`);
 
   const shown = useMemo(
     () => (vertical ? looks.filter((l) => l.verticals.includes(vertical)) : looks),
@@ -46,17 +29,7 @@ export function LooksView({
 
   return (
     <div className="bt-home">
-      <TopBar
-        left={
-          <>
-            <Wordmark />
-            {brandPill}
-          </>
-        }
-        nav={nav}
-        engines={engines}
-        right={settingsButton}
-      />
+      <TopBar left={<Wordmark />} right={<SettingsButton />} />
 
       <main className="bt-looks">
         <div className="bt-verticals" role="tablist" aria-label="Verticals">
@@ -91,7 +64,7 @@ export function LooksView({
               <h2>{c}</h2>
               <div className="bt-coll-names">
                 {inCollection.map((l) => (
-                  <button type="button" key={l.id} onClick={() => onOpenLook(l.id)}>
+                  <button type="button" key={l.id} onClick={() => openLook(l.id)}>
                     {l.name}
                   </button>
                 ))}
@@ -102,7 +75,7 @@ export function LooksView({
                     type="button"
                     key={l.id}
                     className="bt-lookcard"
-                    onClick={() => onOpenLook(l.id)}
+                    onClick={() => openLook(l.id)}
                     title={`${l.name} — ${l.lighting}`}
                   >
                     {l.previewUrl ? (
@@ -115,7 +88,7 @@ export function LooksView({
                       className="bt-lookuse"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onUseLook(l.id);
+                        void applyLook(l.id);
                       }}
                     >
                       Use this look
