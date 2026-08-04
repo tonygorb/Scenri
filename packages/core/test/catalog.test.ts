@@ -8,7 +8,7 @@ let home: string;
 let core: Core;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'bt-cat-'));
+  home = mkdtempSync(join(tmpdir(), 'sc-cat-'));
   core = createCore(home);
 });
 afterEach(() => {

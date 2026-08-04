@@ -25,11 +25,11 @@ export function Shortcuts({ open, onOpenChange }: { open: boolean; onOpenChange:
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content maxWidth="360px" aria-describedby={undefined}>
         <Dialog.Title>Shortcuts</Dialog.Title>
-        <div className="bt-keys">
+        <div className="sc-keys">
           {KEYS.map((k) => (
-            <div className="bt-krow" key={k.label}>
+            <div className="sc-krow" key={k.label}>
               <span>{k.label}</span>
-              <span className="bt-ksp" />
+              <span className="sc-ksp" />
               {k.keys.map((key) => (
                 <kbd key={key}>{key}</kbd>
               ))}

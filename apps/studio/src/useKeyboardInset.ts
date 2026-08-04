@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 const FLOOR = 60;
 
 /**
- * Publishes the height the software keyboard is covering as `--bt-kb`.
+ * Publishes the height the software keyboard is covering as `--sc-kb`.
  *
  * iOS leaves the layout viewport alone and shrinks only the visual one, so a
  * `position: fixed` dock keeps its bottom offset and ends up underneath the
@@ -21,7 +21,7 @@ export function useKeyboardInset(): void {
 
     const apply = () => {
       const covered = window.innerHeight - vv.height - vv.offsetTop;
-      root.style.setProperty('--bt-kb', covered > FLOOR ? `${Math.round(covered)}px` : '0px');
+      root.style.setProperty('--sc-kb', covered > FLOOR ? `${Math.round(covered)}px` : '0px');
     };
 
     apply();
@@ -31,7 +31,7 @@ export function useKeyboardInset(): void {
     return () => {
       vv.removeEventListener('resize', apply);
       vv.removeEventListener('scroll', apply);
-      root.style.removeProperty('--bt-kb');
+      root.style.removeProperty('--sc-kb');
     };
   }, []);
 }

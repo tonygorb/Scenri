@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Outlet, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
 import { Callout } from '@radix-ui/themes';
-import { api, type Brand, type EngineInfo, type TextLayer, type TreeNode } from '../api.js';
+import { api, type Brand, type EngineInfo, type Project, type TextLayer, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
+import { brandPath } from '../app/brandPath.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
 import { Canvas } from '../layout/Canvas.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
@@ -38,8 +39,8 @@ export interface ShotContext {
   setTab: (tab: InspectorTab) => void;
 }
 
-export function ProjectView() {
-  const { projectId = '' } = useParams();
+export function ProjectView({ project }: { project: Project }) {
+  const projectId = project.id;
   const { engines, looks: templates } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
@@ -63,7 +64,7 @@ export function ProjectView() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<ComposerHandle>(null);
 
-  const base = `/b/${brand.id}/p/${projectId}`;
+  const base = brandPath(brand, `/p/${project.slug}`);
   const openShot = useCallback((id: string) => navigate(`${base}/n/${id}`), [base, navigate]);
   const closeShot = useCallback(() => navigate(base), [base, navigate]);
 
@@ -310,19 +311,19 @@ export function ProjectView() {
   };
 
   return (
-    <div className="bt-work" data-assets={assetsOpen}>
-      <main className="bt-canvas" id="main">
+    <div className="sc-work" data-assets={assetsOpen}>
+      <main className="sc-canvas" id="main">
         {err && (
           <Callout.Root color="red" mb="3">
             <Callout.Text>{err}</Callout.Text>
           </Callout.Root>
         )}
         {nodes === null && (
-          <div className="bt-feed">
+          <div className="sc-feed">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="bt-cell bt-skeleton"
+                className="sc-cell sc-skeleton"
                 style={{ aspectRatio: i % 3 === 0 ? '4/5' : '1', cursor: 'default' }}
               />
             ))}
@@ -333,7 +334,7 @@ export function ProjectView() {
         )}
       </main>
 
-      {assetsOpen && <div className="bt-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
+      {assetsOpen && <div className="sc-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
       <Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
       <AssetsPanel
@@ -349,8 +350,8 @@ export function ProjectView() {
         onClose={() => setAssetsOpen(false)}
       />
 
-      <div className="bt-dock-fade" aria-hidden />
-      <div className="bt-canvas-dock" data-full={!assetsOpen}>
+      <div className="sc-dock-fade" aria-hidden />
+      <div className="sc-canvas-dock" data-full={!assetsOpen}>
         <Composer
           ref={composerRef}
           projectId={projectId}

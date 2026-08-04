@@ -10,8 +10,9 @@ import { ThemeProvider } from './theme.js';
 import { ToastProvider } from './toasts.js';
 import { router } from './router.js';
 
-// set theme before first paint to avoid a flash of the wrong scheme
-const saved = localStorage.getItem('bt-theme');
+// Set theme before first paint to avoid a flash of the wrong scheme. Reads
+// only: bt-theme is the pre-rename key, and ThemeProvider owns moving it.
+const saved = localStorage.getItem('sc-theme') ?? localStorage.getItem('bt-theme');
 document.documentElement.dataset.theme =
   saved === 'light' || saved === 'dark'
     ? saved

@@ -28,7 +28,7 @@ const brandWith = (productHashRef: string, castHashRef?: string) => ({
 });
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'bt-brief-'));
+  home = mkdtempSync(join(tmpdir(), 'sc-brief-'));
   core = createCore(home);
   productHash = core.images.save(Buffer.from('product-bytes'));
   refHash = core.images.save(Buffer.from('reference-bytes'));

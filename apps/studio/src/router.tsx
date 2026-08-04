@@ -1,7 +1,8 @@
-import { Navigate, createBrowserRouter, useParams, useRouteError } from 'react-router';
+import { Navigate, createBrowserRouter, useLocation, useParams, useRouteError } from 'react-router';
 import { Callout, Flex } from '@radix-ui/themes';
 import { AppShell } from './app/AppShell.js';
-import { BrandLayout } from './app/BrandLayout.js';
+import { BrandLayout, useBrand } from './app/BrandLayout.js';
+import { brandPath } from './app/brandPath.js';
 import { RootRedirect } from './app/RootRedirect.js';
 import { BrandSetup } from './views/BrandSetup.js';
 import { HomeView } from './views/Home.js';
@@ -23,14 +24,32 @@ function RouteError() {
 }
 
 /**
+ * Turns the path segment into a project. It is the slug, but an id still
+ * resolves and rewrites itself, so older links and anything holding an id keep
+ * landing in the right place.
+ *
  * React Router keeps a component mounted when only a param changes, and
  * ProjectView carries per-project drafts (text layers, a pending remix) that
  * must not follow you into the next project. Keying on the id restores the
  * clean slate the old route switch gave for free.
  */
 function ProjectRoute() {
-  const { projectId } = useParams();
-  return <ProjectView key={projectId} />;
+  const { projectId = '' } = useParams();
+  const { pathname, search } = useLocation();
+  const { brand, projects, projectsLoaded } = useBrand();
+  const project = projects.find((p) => p.slug === projectId) ?? projects.find((p) => p.id === projectId) ?? null;
+
+  // nothing to resolve against until the brand's projects land
+  if (!projectsLoaded) return null;
+  // a deleted project, or a link from another machine
+  if (!project) return <Navigate to={brandPath(brand)} replace />;
+  if (project.slug !== projectId) {
+    // keep whatever follows, so /n/:nodeId survives the rewrite
+    const seg = pathname.split('/');
+    seg[4] = project.slug;
+    return <Navigate to={seg.join('/') + search} replace />;
+  }
+  return <ProjectView key={project.id} project={project} />;
 }
 
 function LookRoute() {

@@ -9,6 +9,8 @@ export interface Project {
   id: string;
   brandId: string;
   name: string;
+  /** Its place in the address bar, unique within the brand. */
+  slug: string;
   createdAt: string;
 }
 export interface TreeNode {
@@ -31,6 +33,8 @@ export interface TreeNode {
 /** A node that knows which project it came from, for lists that span projects. */
 export interface ActivityNode extends TreeNode {
   projectName: string;
+  /** So a task can link to the project the way the address bar spells it. */
+  projectSlug: string;
 }
 
 export interface TextLayer {

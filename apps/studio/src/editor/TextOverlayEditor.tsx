@@ -119,7 +119,7 @@ export function TextOverlayEditor({
             top: 0,
             bottom: 0,
             width: 1,
-            background: 'var(--bt-focus)',
+            background: 'var(--sc-focus)',
             opacity: 0.8,
           }}
         />
@@ -141,7 +141,7 @@ export function TextOverlayEditor({
               top: `${l.y}%`,
               width: `${l.width}%`,
               cursor: 'move',
-              outline: sel ? '1.5px solid var(--bt-focus)' : '1.5px solid transparent',
+              outline: sel ? '1.5px solid var(--sc-focus)' : '1.5px solid transparent',
               outlineOffset: 2,
               userSelect: 'none',
               touchAction: 'none',
@@ -160,7 +160,7 @@ export function TextOverlayEditor({
                 style={{
                   width: '100%',
                   background: 'rgba(0,0,0,0.35)',
-                  border: '1px dashed var(--bt-focus)',
+                  border: '1px dashed var(--sc-focus)',
                   borderRadius: 4,
                   color: l.color,
                   fontFamily: font.family,
@@ -230,7 +230,7 @@ export function TextOverlayEditor({
 function Handle({ side, onPointerDown }: { side: 'left' | 'right'; onPointerDown: (e: React.PointerEvent) => void }) {
   return (
     <div
-      className="bt-editor-handle"
+      className="sc-editor-handle"
       onPointerDown={onPointerDown}
       style={{
         position: 'absolute',
@@ -240,9 +240,9 @@ function Handle({ side, onPointerDown }: { side: 'left' | 'right'; onPointerDown
         width: 10,
         height: 22,
         borderRadius: 5,
-        background: 'var(--bt-focus)',
+        background: 'var(--sc-focus)',
         cursor: 'ew-resize',
-        border: '2px solid var(--bt-panel)',
+        border: '2px solid var(--sc-panel)',
       }}
     />
   );

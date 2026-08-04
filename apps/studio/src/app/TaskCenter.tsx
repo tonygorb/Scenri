@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { api } from '../api.js';
+import { api, type Brand } from '../api.js';
 import { useToasts } from '../toasts.js';
+import { brandPath } from './brandPath.js';
 import {
   loadFeed,
   loadSeen,
@@ -57,9 +58,13 @@ export function useTaskCenter(): TaskCenterValue {
   return value;
 }
 
-export function TaskCenterProvider({ brandId, children }: { brandId: string; children: ReactNode }) {
+export function TaskCenterProvider({ brand, children }: { brand: Brand; children: ReactNode }) {
   const navigate = useNavigate();
   const { push } = useToasts();
+  // the feed is keyed by id and the links are built from the slug: a rename
+  // changes where a task points, never which brand's history it belongs to
+  const brandId = brand.id;
+  const base = brandPath(brand);
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [feed, setFeed] = useState<NotificationItem[]>(() => loadFeed(brandId));
@@ -94,7 +99,7 @@ export function TaskCenterProvider({ brandId, children }: { brandId: string; chi
     let next: Task[];
     try {
       const { nodes, jobs } = await api.activity(brandId);
-      next = [...nodes.map((n) => taskFromNode(n, brandId)), ...jobs.map((j) => taskFromCatalogJob(j, brandId))];
+      next = [...nodes.map((n) => taskFromNode(n, base)), ...jobs.map((j) => taskFromCatalogJob(j, base))];
     } catch {
       // the bell is not worth an error state; the next tick will tell the truth
       return;
@@ -130,7 +135,7 @@ export function TaskCenterProvider({ brandId, children }: { brandId: string; chi
             },
       );
     }
-  }, [brandId]);
+  }, [brandId, base]);
 
   // One timer, re-armed at whichever cadence the current answer deserves. A
   // hidden tab skips the request — polling a screen nobody is looking at is the

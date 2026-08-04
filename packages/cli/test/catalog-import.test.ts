@@ -65,7 +65,7 @@ describe('catalog import API', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
 
   beforeEach(async () => {
-    home = mkdtempSync(join(tmpdir(), 'bt-cli-cat-'));
+    home = mkdtempSync(join(tmpdir(), 'sc-cli-cat-'));
     core = createCore(home);
     app = buildServer({
       core,

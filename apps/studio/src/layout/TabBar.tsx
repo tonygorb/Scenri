@@ -11,7 +11,7 @@ import { useMainNav } from './nav.js';
 export function TabBar() {
   const items = useMainNav(22);
   return (
-    <nav className="bt-tabbar" aria-label="Main">
+    <nav className="sc-tabbar" aria-label="Main">
       <ul>
         {items.map((item) => (
           <li key={item.key}>
@@ -21,8 +21,8 @@ export function TabBar() {
               aria-current={item.active ? 'page' : undefined}
               onClick={item.go}
             >
-              <span className="bt-tab-ic">{item.icon}</span>
-              <span className="bt-tab-lb">{item.label}</span>
+              <span className="sc-tab-ic">{item.icon}</span>
+              <span className="sc-tab-lb">{item.label}</span>
             </button>
           </li>
         ))}

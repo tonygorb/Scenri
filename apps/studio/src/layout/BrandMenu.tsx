@@ -4,6 +4,7 @@ import { GearSix, Plus } from '@phosphor-icons/react';
 import { BrandAvatar, brandName } from './nav.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { brandPath } from '../app/brandPath.js';
 import { useOpenSettings } from '../views/SettingsDialog.js';
 
 /**
@@ -31,42 +32,42 @@ export function BrandMenu() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
-        <button type="button" className="bt-avatar-btn" aria-label={`${brandName(brand)} — brand and settings`}>
+        <button type="button" className="sc-avatar-btn" aria-label={`${brandName(brand)} — brand and settings`}>
           <BrandAvatar brand={brand} size={30} round />
         </button>
       </DropdownMenu.Trigger>
 
-      <DropdownMenu.Content align="end" sideOffset={8} className="bt-menu">
-        <div className="bt-menu-head">
+      <DropdownMenu.Content align="end" sideOffset={8} className="sc-menu">
+        <div className="sc-menu-head">
           <BrandAvatar brand={brand} size={34} />
-          <span className="bt-menu-head-txt">
-            <span dir="auto" className="bt-menu-name">
+          <span className="sc-menu-head-txt">
+            <span dir="auto" className="sc-menu-name">
               {brandName(brand)}
             </span>
-            <span className="bt-menu-sub">Current brand</span>
+            <span className="sc-menu-sub">Current brand</span>
           </span>
         </div>
 
-        <div className="bt-menu-sep" />
+        <div className="sc-menu-sep" />
 
         {others.map((b) => (
-          <DropdownMenu.Item key={b.id} className="bt-menu-item" onSelect={() => navigate(`/b/${b.id}`)}>
+          <DropdownMenu.Item key={b.id} className="sc-menu-item" onSelect={() => navigate(brandPath(b))}>
             <BrandAvatar brand={b} size={20} />
-            <span dir="auto" className="bt-menu-lb">
+            <span dir="auto" className="sc-menu-lb">
               {brandName(b)}
             </span>
           </DropdownMenu.Item>
         ))}
-        <DropdownMenu.Item className="bt-menu-item" onSelect={() => navigate('/setup')}>
-          <Plus size={18} className="bt-menu-ic" />
-          <span className="bt-menu-lb">Set up a brand</span>
+        <DropdownMenu.Item className="sc-menu-item" onSelect={() => navigate('/setup')}>
+          <Plus size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">Set up a brand</span>
         </DropdownMenu.Item>
 
-        <div className="bt-menu-sep" />
+        <div className="sc-menu-sep" />
 
-        <DropdownMenu.Item className="bt-menu-item" onSelect={() => openSettings()}>
-          <GearSix size={18} className="bt-menu-ic" />
-          <span className="bt-menu-lb">Settings</span>
+        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings()}>
+          <GearSix size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">Settings</span>
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu.Root>

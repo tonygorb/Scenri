@@ -459,8 +459,8 @@ describe('clipboard', () => {
   it('html carries the token inside our own wrapper', () => {
     renderLine(root, [{ t: 'product', id: 'p1' }], chipFor);
     const { html } = serializeSelection(selectAll());
-    expect(html).toContain('data-bt-brief');
-    expect(html).toContain('data-bt-tok="p:p1"');
+    expect(html).toContain('data-sc-brief');
+    expect(html).toContain('data-sc-tok="p:p1"');
   });
 
   it('escapes a label that looks like markup', () => {
@@ -484,20 +484,31 @@ describe('clipboard', () => {
   });
 
   it('ignores html that is not ours, however it is dressed up', () => {
-    // any page can put a data-bt-tok on the clipboard; without our wrapper it
+    // any page can put a data-sc-tok on the clipboard; without our wrapper it
     // must never become a chip
-    expect(parseBriefHtml('<b>bold</b><span data-bt-tok="t:app-on-device">fake</span>')).toBeNull();
+    expect(parseBriefHtml('<b>bold</b><span data-sc-tok="t:app-on-device">fake</span>')).toBeNull();
     expect(parseBriefHtml('<p>just words</p>')).toBeNull();
   });
 
   it('keeps a token that is inside our wrapper', () => {
-    const parts = parseBriefHtml('<span data-bt-brief="1">use <span data-bt-tok="p:p1">Thing</span></span>');
+    const parts = parseBriefHtml('<span data-sc-brief="1">use <span data-sc-tok="p:p1">Thing</span></span>');
     expect(parts).toEqual(['use ', { t: 'product', id: 'p1' }]);
   });
 
   it('a chip with an unreadable token pastes as its words', () => {
-    const parts = parseBriefHtml('<span data-bt-brief="1"><span data-bt-tok="zz:nope">Ghost</span></span>');
+    const parts = parseBriefHtml('<span data-sc-brief="1"><span data-sc-tok="zz:nope">Ghost</span></span>');
     expect(parts).toEqual(['Ghost']);
+  });
+
+  // a brief copied before the sc- rename is still sitting on somebody's
+  // clipboard, so the pre-rename spelling has to keep pasting as chips
+  it('still reads the pre-rename data-bt-* flavour', () => {
+    const parts = parseBriefHtml('<span data-bt-brief="1">use <span data-bt-tok="p:p1">Thing</span></span>');
+    expect(parts).toEqual(['use ', { t: 'product', id: 'p1' }]);
+  });
+
+  it('the wrapper is still required for the pre-rename flavour', () => {
+    expect(parseBriefHtml('<b>bold</b><span data-bt-tok="t:app-on-device">fake</span>')).toBeNull();
   });
 });
 

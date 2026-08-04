@@ -72,23 +72,23 @@ export function ProjectPicker({
       <Dialog.Content maxWidth="470px" aria-describedby={undefined}>
         <Dialog.Title>Pick up where you left off</Dialog.Title>
         {rows === null ? (
-          <div className="bt-pickload">
+          <div className="sc-pickload">
             <Spinner />
           </div>
         ) : (
-          <div className="bt-pgrid">
+          <div className="sc-pgrid">
             {rows.map(({ project, shots, cover }) => (
               <button
                 type="button"
                 key={project.id}
-                className="bt-pcard"
+                className="sc-pcard"
                 onClick={() => {
                   onPick(project.id);
                   onClose();
                 }}
               >
-                {cover ? <img src={imgUrl(cover)} alt="" loading="lazy" /> : <span className="bt-pcard-blank" />}
-                <span className="bt-pcard-m">
+                {cover ? <img src={imgUrl(cover)} alt="" loading="lazy" /> : <span className="sc-pcard-blank" />}
+                <span className="sc-pcard-m">
                   <b>{project.name}</b>
                   <small>
                     {shots === 0 ? 'nothing yet' : `${shots} shot${shots === 1 ? '' : 's'}`} · {ago(project.createdAt)}
@@ -98,7 +98,7 @@ export function ProjectPicker({
             ))}
             <button
               type="button"
-              className="bt-pcard bt-pcard-new"
+              className="sc-pcard sc-pcard-new"
               onClick={() => {
                 onCreate();
                 onClose();
@@ -110,7 +110,7 @@ export function ProjectPicker({
           </div>
         )}
         {total > RECENT && (
-          <p className="bt-dlg-foot">
+          <p className="sc-dlg-foot">
             Your {RECENT} most recent, of {total}.
           </p>
         )}

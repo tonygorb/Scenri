@@ -4,6 +4,7 @@ import { House, PlusCircle, Stack, UsersThree } from '@phosphor-icons/react';
 import { assetUrl, type Brand, type EngineInfo } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { brandPath } from '../app/brandPath.js';
 
 /**
  * The four destinations, and the credit maths, shared by the bar and the sheet.
@@ -28,7 +29,7 @@ export function useMainNav(iconSize: number): NavItem[] {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const picker = useDialogParam('picker');
-  const base = `/b/${brand.id}`;
+  const base = brandPath(brand);
   const rest = pathname.startsWith(base) ? pathname.slice(base.length) : '';
   const onCreate = rest.startsWith('/p/');
 
@@ -122,7 +123,7 @@ export function BrandAvatar({ brand, size = 20, round }: { brand: Brand; size?: 
   const hex: string = brand.json?.palette?.primary?.hex ?? '#6b6b6b';
   return (
     <span
-      className="bt-brand-av"
+      className="sc-brand-av"
       data-logo={logo ? '' : undefined}
       data-round={round ? '' : undefined}
       style={{

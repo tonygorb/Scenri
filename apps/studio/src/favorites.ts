@@ -1,12 +1,16 @@
+import { migrateKey } from './prefs.js';
+
 /**
  * Favorite looks live in localStorage, keyed per brand. Keeps the .brand
  * format untouched: taste is a studio preference, not brand truth.
  */
-const key = (brandId: string) => `bt-favlooks-${brandId}`;
+const key = (brandId: string) => `sc-favlooks-${brandId}`;
+/** Pre-rename spelling, moved to `key` the first time a brand is read. */
+const legacyKey = (brandId: string) => `bt-favlooks-${brandId}`;
 
 export function favoriteLooks(brandId: string): string[] {
   try {
-    const raw = localStorage.getItem(key(brandId));
+    const raw = localStorage.getItem(key(brandId)) ?? migrateKey(legacyKey(brandId), key(brandId));
     const arr = raw ? JSON.parse(raw) : [];
     return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string') : [];
   } catch {

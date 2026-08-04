@@ -57,13 +57,13 @@ export function CatalogImportDialog({
         </Dialog.Description>
 
         <div
-          style={{ height: 6, borderRadius: 99, background: 'var(--bt-line)', overflow: 'hidden', marginBottom: 14 }}
+          style={{ height: 6, borderRadius: 99, background: 'var(--sc-line)', overflow: 'hidden', marginBottom: 14 }}
         >
           <div
             style={{
               height: '100%',
               width: `${pct}%`,
-              background: stage === 'failed' ? 'var(--red-9)' : 'var(--bt-fg)',
+              background: stage === 'failed' ? 'var(--red-9)' : 'var(--sc-fg)',
               transition: 'width 0.35s ease',
             }}
           />
@@ -111,10 +111,10 @@ export function CatalogImportDialog({
           />
         </div>
 
-        {job?.message && <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--bt-fg2)' }}>{job.message}</p>}
+        {job?.message && <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--sc-fg2)' }}>{job.message}</p>}
 
         {productCount > 0 && (
-          <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--bt-fg3)' }}>
+          <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--sc-fg3)' }}>
             {productCount} product{productCount === 1 ? '' : 's'} in your library
           </p>
         )}
@@ -134,7 +134,7 @@ export function CatalogImportDialog({
           </Callout.Root>
         )}
         {job?.errors?.length && job.errors.length <= 5 && stage !== 'failed' ? (
-          <ul style={{ margin: '0 0 12px', paddingLeft: 18, fontSize: 11.5, color: 'var(--bt-fg3)' }}>
+          <ul style={{ margin: '0 0 12px', paddingLeft: 18, fontSize: 11.5, color: 'var(--sc-fg3)' }}>
             {job.errors.slice(0, 5).map((e) => (
               <li key={`${e.url ?? ''}:${e.message}`}>
                 {e.message}
@@ -146,17 +146,17 @@ export function CatalogImportDialog({
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           {running && usable && onContinue && (
-            <button type="button" className="bt-btn bt-btn-ghost" onClick={onContinue}>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={onContinue}>
               {continueLabel}
             </button>
           )}
           {running && !usable && (
-            <button type="button" className="bt-btn bt-btn-ghost" onClick={onClose}>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={onClose}>
               Hide
             </button>
           )}
           {done && (
-            <button type="button" className="bt-wiz-cta" style={{ margin: 0 }} onClick={onContinue ?? onClose}>
+            <button type="button" className="sc-wiz-cta" style={{ margin: 0 }} onClick={onContinue ?? onClose}>
               {stage === 'failed' && !usable ? 'Close' : continueLabel}
             </button>
           )}
@@ -181,7 +181,7 @@ function Row({
         display: 'flex',
         alignItems: 'center',
         gap: 8,
-        color: state === 'idle' ? 'var(--bt-fg3)' : 'var(--bt-fg)',
+        color: state === 'idle' ? 'var(--sc-fg3)' : 'var(--sc-fg)',
       }}
     >
       {state === 'active' && <Spinner size="1" />}
@@ -194,13 +194,13 @@ function Row({
             width: 14,
             height: 14,
             borderRadius: 99,
-            border: '1px solid var(--bt-line)',
+            border: '1px solid var(--sc-line)',
             display: 'inline-block',
           }}
         />
       )}
       <span style={{ flex: 1 }}>{label}</span>
-      {detail && <span style={{ fontSize: 11.5, color: 'var(--bt-fg3)' }}>{detail}</span>}
+      {detail && <span style={{ fontSize: 11.5, color: 'var(--sc-fg3)' }}>{detail}</span>}
     </div>
   );
 }

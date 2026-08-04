@@ -4,6 +4,7 @@ import { Callout, Spinner } from '@radix-ui/themes';
 import { ArrowRight, CaretLeft, Check, Circle, ImageSquare } from '@phosphor-icons/react';
 import { api, assetUrl, type Brand, type Product } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
+import { brandPath } from '../app/brandPath.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { saveFavoriteLooks } from '../favorites.js';
 
@@ -123,7 +124,7 @@ export function BrandSetup() {
   const finish = () => {
     if (!brand) return;
     saveFavoriteLooks(brand.id, picked);
-    void refresh().then(() => navigate(`/b/${brand.id}`, { replace: true }));
+    void refresh().then(() => navigate(brandPath(brand), { replace: true }));
   };
 
   const refreshBrand = async () => {
@@ -148,24 +149,24 @@ export function BrandSetup() {
     brand?.json?.meta?.website || (url.trim() ? (/^https?:\/\//.test(url) ? url : `https://${url}`) : '');
 
   const dots = (
-    <span className="bt-dots">
+    <span className="sc-dots">
       {([1, 2, 3, 4] as Step[]).map((s) => (
         <i key={s} data-on={s === step} />
       ))}
     </span>
   );
   const back = (onClick: () => void, show = true) => (
-    <button type="button" className="bt-wiz-back" onClick={onClick} style={show ? undefined : { visibility: 'hidden' }}>
+    <button type="button" className="sc-wiz-back" onClick={onClick} style={show ? undefined : { visibility: 'hidden' }}>
       <CaretLeft size={11} /> Back
     </button>
   );
 
   return (
-    <div className="bt-wiz">
-      <div className="bt-wiz-form">
+    <div className="sc-wiz">
+      <div className="sc-wiz-form">
         {step === 1 && (
           <>
-            <div className="bt-wiz-head">
+            <div className="sc-wiz-head">
               {back(() => void discard(), canCancel)}
               {dots}
               <span />
@@ -173,25 +174,25 @@ export function BrandSetup() {
             <h1>
               Your <em>brand</em>
             </h1>
-            <p className="bt-wiz-sub">
+            <p className="sc-wiz-sub">
               Paste a website and the kit builds itself: name, logo, palette, tone. You can also start from nothing.
             </p>
-            <div className="bt-wiz-fields">
+            <div className="sc-wiz-fields">
               {!scratch ? (
                 <>
                   <label>Website</label>
                   <input
-                    className="bt-in"
+                    className="sc-in"
                     placeholder="acme.com"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && url.trim() && !busy && void buildFromUrl()}
                   />
-                  <p className="bt-wiz-hint">We only read public pages. Nothing leaves this machine.</p>
+                  <p className="sc-wiz-hint">We only read public pages. Nothing leaves this machine.</p>
                   <div style={{ textAlign: 'center' }}>
                     <button
                       type="button"
-                      className="bt-wiz-cta"
+                      className="sc-wiz-cta"
                       disabled={!url.trim() || busy}
                       onClick={() => void buildFromUrl()}
                     >
@@ -204,7 +205,7 @@ export function BrandSetup() {
                       )}
                     </button>
                     <div>
-                      <button type="button" className="bt-wiz-skip" onClick={() => setScratch(true)}>
+                      <button type="button" className="sc-wiz-skip" onClick={() => setScratch(true)}>
                         Start from scratch instead
                       </button>
                     </div>
@@ -214,7 +215,7 @@ export function BrandSetup() {
                 <>
                   <label>Brand name</label>
                   <input
-                    className="bt-in"
+                    className="sc-in"
                     placeholder="Brand name"
                     value={scratchName}
                     onChange={(e) => setScratchName(e.target.value)}
@@ -223,7 +224,7 @@ export function BrandSetup() {
                   <div style={{ textAlign: 'center' }}>
                     <button
                       type="button"
-                      className="bt-wiz-cta"
+                      className="sc-wiz-cta"
                       disabled={!scratchName.trim() || busy}
                       onClick={() => void buildFromScratch()}
                     >
@@ -236,7 +237,7 @@ export function BrandSetup() {
                       )}
                     </button>
                     <div>
-                      <button type="button" className="bt-wiz-skip" onClick={() => setScratch(false)}>
+                      <button type="button" className="sc-wiz-skip" onClick={() => setScratch(false)}>
                         Build from a website instead
                       </button>
                     </div>
@@ -254,7 +255,7 @@ export function BrandSetup() {
 
         {step === 2 && brand && (
           <>
-            <div className="bt-wiz-head">
+            <div className="sc-wiz-head">
               {back(() => void discard())}
               {dots}
               <span />
@@ -262,10 +263,10 @@ export function BrandSetup() {
             <h1>
               Review the <em>kit</em>
             </h1>
-            <p className="bt-wiz-sub">
+            <p className="sc-wiz-sub">
               Everything came from the site. Fix anything that reads wrong; it all stays editable later.
             </p>
-            <div className="bt-wiz-fields">
+            <div className="sc-wiz-fields">
               {warnings.map((w) => (
                 <Callout.Root key={w} color="gray" size="1" mb="2">
                   <Callout.Text>{w}</Callout.Text>
@@ -273,7 +274,7 @@ export function BrandSetup() {
               ))}
               <label>Name</label>
               <input
-                className="bt-in"
+                className="sc-in"
                 dir="auto"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -281,14 +282,14 @@ export function BrandSetup() {
               />
               <label>Tagline</label>
               <input
-                className="bt-in"
+                className="sc-in"
                 dir="auto"
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
                 placeholder="Tagline or positioning"
               />
               <div style={{ textAlign: 'center' }}>
-                <button type="button" className="bt-wiz-cta" disabled={busy} onClick={() => void saveReview()}>
+                <button type="button" className="sc-wiz-cta" disabled={busy} onClick={() => void saveReview()}>
                   {busy ? (
                     <Spinner size="1" />
                   ) : (
@@ -298,7 +299,7 @@ export function BrandSetup() {
                   )}
                 </button>
                 <div>
-                  <button type="button" className="bt-wiz-skip" onClick={() => void discard()}>
+                  <button type="button" className="sc-wiz-skip" onClick={() => void discard()}>
                     Discard this brand
                   </button>
                 </div>
@@ -314,7 +315,7 @@ export function BrandSetup() {
 
         {step === 3 && brand && (
           <>
-            <div className="bt-wiz-head">
+            <div className="sc-wiz-head">
               {back(() => setStep(2))}
               {dots}
               <span />
@@ -322,23 +323,23 @@ export function BrandSetup() {
             <h1>
               Your <em>products</em>
             </h1>
-            <p className="bt-wiz-sub">
+            <p className="sc-wiz-sub">
               {storeUrl
                 ? 'We pull the full store catalog when we can. You can also upload locked shots by hand.'
                 : 'Upload clean shots of what you sell. A locked shot travels with every brief so the model never invents your product.'}
             </p>
-            <div className="bt-wiz-fields">
+            <div className="sc-wiz-fields">
               <ProductsPanel
                 brand={brand}
                 onChanged={() => void refreshBrand()}
                 autoImportUrl={!scratch && storeUrl ? storeUrl : null}
               />
               <div style={{ textAlign: 'center', marginTop: 18 }}>
-                <button type="button" className="bt-wiz-cta" onClick={() => setStep(4)}>
+                <button type="button" className="sc-wiz-cta" onClick={() => setStep(4)}>
                   Continue <ArrowRight size={12} />
                 </button>
                 <div>
-                  <button type="button" className="bt-wiz-skip" onClick={() => setStep(4)}>
+                  <button type="button" className="sc-wiz-skip" onClick={() => setStep(4)}>
                     Skip for now
                   </button>
                 </div>
@@ -349,7 +350,7 @@ export function BrandSetup() {
 
         {step === 4 && brand && (
           <>
-            <div className="bt-wiz-head">
+            <div className="sc-wiz-head">
               {back(() => setStep(3))}
               {dots}
               <span />
@@ -357,17 +358,17 @@ export function BrandSetup() {
             <h1>
               Which <em>looks</em> fit?
             </h1>
-            <p className="bt-wiz-sub">
+            <p className="sc-wiz-sub">
               Pick a few directions you like. They lead the template shelf whenever you start a shoot.
             </p>
-            <div className="bt-wiz-looks">
+            <div className="sc-wiz-looks">
               {templates.slice(0, 9).map((t) => {
                 const on = picked.includes(t.id);
                 return (
                   <button
                     type="button"
                     key={t.id}
-                    className="bt-wiz-look"
+                    className="sc-wiz-look"
                     data-on={on}
                     onClick={() => setPicked((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))}
                   >
@@ -375,13 +376,13 @@ export function BrandSetup() {
                       <img src={(t as any).previewUrl} alt={t.name} />
                     ) : (
                       <span
-                        style={{ display: 'grid', placeItems: 'center', aspectRatio: '4/3', color: 'var(--bt-fg3)' }}
+                        style={{ display: 'grid', placeItems: 'center', aspectRatio: '4/3', color: 'var(--sc-fg3)' }}
                       >
                         <ImageSquare size={18} />
                       </span>
                     )}
-                    <span className="bt-wiz-lookname">{t.name}</span>
-                    <span className="bt-wiz-tick">
+                    <span className="sc-wiz-lookname">{t.name}</span>
+                    <span className="sc-wiz-tick">
                       <Check size={11} weight="bold" />
                     </span>
                   </button>
@@ -389,11 +390,11 @@ export function BrandSetup() {
               })}
             </div>
             <div style={{ textAlign: 'center', marginTop: 24 }}>
-              <button type="button" className="bt-wiz-cta" onClick={finish}>
+              <button type="button" className="sc-wiz-cta" onClick={finish}>
                 Open the studio <ArrowRight size={12} />
               </button>
               <div>
-                <button type="button" className="bt-wiz-skip" onClick={finish}>
+                <button type="button" className="sc-wiz-skip" onClick={finish}>
                   Skip for now
                 </button>
               </div>
@@ -402,45 +403,45 @@ export function BrandSetup() {
         )}
       </div>
 
-      <div className="bt-wiz-preview">
-        <div className="bt-wiz-card">
-          <div className="bt-wiz-cap">
+      <div className="sc-wiz-preview">
+        <div className="sc-wiz-card">
+          <div className="sc-wiz-cap">
             {step === 1 && (busy ? `Reading ${url || 'the site'}` : 'Live kit preview')}
             {step === 2 && 'Live kit preview'}
             {step === 3 && `${products.length} product${products.length === 1 ? '' : 's'}`}
             {step === 4 && `${picked.length} look${picked.length === 1 ? '' : 's'} picked`}
           </div>
-          <div className="bt-wiz-body">
+          <div className="sc-wiz-body">
             {step === 1 &&
               (busy ? (
                 <>
-                  <div className="bt-scrape-row" data-done="true">
+                  <div className="sc-scrape-row" data-done="true">
                     <Check size={13} /> Fetching the page
                   </div>
-                  <div className="bt-scrape-row">
+                  <div className="sc-scrape-row">
                     <Spinner size="1" /> Extracting name, logo and palette
                   </div>
-                  <div className="bt-scrape-row" style={{ color: 'var(--bt-fg3)' }}>
+                  <div className="sc-scrape-row" style={{ color: 'var(--sc-fg3)' }}>
                     <Circle size={13} /> Voice and tone
                   </div>
                 </>
               ) : (
-                <p style={{ color: 'var(--bt-fg3)', fontSize: 12.5, margin: 0 }}>
+                <p style={{ color: 'var(--sc-fg3)', fontSize: 12.5, margin: 0 }}>
                   The kit appears here as it is found.
                 </p>
               ))}
             {step >= 2 && brand && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: palette.length ? 16 : 0 }}>
-                  <span className="bt-kit-logo" style={{ width: 44, height: 44, padding: 7, borderRadius: 12 }}>
-                    {logo ? <img src={logo} alt="" /> : <ImageSquare size={16} color="var(--bt-fg3)" />}
+                  <span className="sc-kit-logo" style={{ width: 44, height: 44, padding: 7, borderRadius: 12 }}>
+                    {logo ? <img src={logo} alt="" /> : <ImageSquare size={16} color="var(--sc-fg3)" />}
                   </span>
                   <span>
-                    <b dir="auto" style={{ fontFamily: 'var(--bt-font-display)', fontSize: 16 }}>
+                    <b dir="auto" style={{ fontFamily: 'var(--sc-font-display)', fontSize: 16 }}>
                       {name || brand.json?.meta?.name}
                     </b>
                     {tagline && (
-                      <small dir="auto" style={{ display: 'block', color: 'var(--bt-fg3)', fontSize: 11.5 }}>
+                      <small dir="auto" style={{ display: 'block', color: 'var(--sc-fg3)', fontSize: 11.5 }}>
                         {tagline.slice(0, 60)}
                       </small>
                     )}
@@ -455,7 +456,7 @@ export function BrandSetup() {
                           flex: 1,
                           height: 44,
                           borderRadius: 9,
-                          border: '1px solid var(--bt-line)',
+                          border: '1px solid var(--sc-line)',
                           background: c.hex,
                         }}
                       />
@@ -476,7 +477,7 @@ export function BrandSetup() {
                             aspectRatio: '1',
                             objectFit: 'cover',
                             borderRadius: 12,
-                            border: '1px solid var(--bt-line)',
+                            border: '1px solid var(--sc-line)',
                           }}
                         />
                       ) : null;

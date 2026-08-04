@@ -30,7 +30,7 @@ export type BriefToken = SentenceToken | FormatToken;
 export const isSentence = (t: BriefToken): t is SentenceToken => t.t !== 'format';
 export const emptySentence = (): SentenceToken[] => [{ t: 'text', v: '' }];
 
-export const CHIP = 'bt-token';
+export const CHIP = 'sc-token';
 const CHIP_SELECTOR = `.${CHIP}`;
 
 // ---------------------------------------------------------------- tokens <-> attribute
@@ -659,7 +659,7 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
  *
  * text/plain reads a chip as its label, so anywhere else in the world this
  * pastes as the sentence you see. text/html carries each chip's token inside a
- * data-bt-brief wrapper, so pasting back into a brief rebuilds the chips.
+ * data-sc-brief wrapper, so pasting back into a brief rebuilds the chips.
  *
  * Chromium reports an empty Selection.toString() when the endpoints land on an
  * editable host, so the default clipboard write would be empty on a select all.
@@ -679,13 +679,13 @@ export function serializeSelection(range: Range): { text: string; html: string }
     if (raw) {
       const label = chipLabel(el);
       text += label;
-      html += `<span data-bt-tok="${esc(raw)}">${esc(label)}</span>`;
+      html += `<span data-sc-tok="${esc(raw)}">${esc(label)}</span>`;
       return;
     }
     node.childNodes.forEach(walk);
   };
   range.cloneContents().childNodes.forEach(walk);
-  return { text, html: `<span data-bt-brief="1">${html}</span>` };
+  return { text, html: `<span data-sc-brief="1">${html}</span>` };
 }
 
 /** A chip's words, without the remove button's own (empty) text. */
@@ -700,13 +700,18 @@ export function chipLabel(chip: HTMLElement): string {
 /**
  * Read our own clipboard flavour into parts. Markup is never inserted: only
  * the tokens are read, and the chips get rebuilt from scratch by the caller.
- * The data-bt-brief wrapper is required, because any page on the web can put a
- * data-bt-tok in the HTML it puts on your clipboard.
+ * The data-sc-brief wrapper is required, because any page on the web can put a
+ * data-sc-tok in the HTML it puts on your clipboard.
+ *
+ * data-bt-* is the pre-rename spelling, read but never written: a brief copied
+ * before the upgrade is still on the clipboard, and it should still paste as
+ * chips. The wrapper requirement applies to it identically, so accepting the
+ * old name widens no trust.
  */
 export function parseBriefHtml(html: string): (string | SentenceToken)[] | null {
-  if (!html.includes('data-bt-brief')) return null;
+  if (!html.includes('data-sc-brief') && !html.includes('data-bt-brief')) return null;
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const host = doc.querySelector('[data-bt-brief]');
+  const host = doc.querySelector('[data-sc-brief], [data-bt-brief]');
   if (!host) return null;
   const parts: (string | SentenceToken)[] = [];
   const walk = (n: Node) => {
@@ -715,7 +720,7 @@ export function parseBriefHtml(html: string): (string | SentenceToken)[] | null 
       return;
     }
     const el = n as HTMLElement;
-    const raw = el.dataset?.btTok;
+    const raw = el.dataset?.scTok ?? el.dataset?.btTok;
     if (raw === undefined) {
       n.childNodes.forEach(walk);
       return;

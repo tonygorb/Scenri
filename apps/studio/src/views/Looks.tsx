@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { brandPath } from '../app/brandPath.js';
 import { useApplyLook } from '../app/useApplyLook.js';
 
 /**
@@ -17,7 +18,7 @@ export function LooksView() {
   const [verticalParam, setVertical] = useFilterParam('vertical');
   const vertical = verticalParam || null;
 
-  const openLook = (id: string) => navigate(`/b/${brand.id}/looks/${id}`);
+  const openLook = (id: string) => navigate(brandPath(brand, `/looks/${id}`));
 
   const shown = useMemo(
     () => (vertical ? looks.filter((l) => l.verticals.includes(vertical)) : looks),
@@ -26,9 +27,9 @@ export function LooksView() {
   const countFor = (v: string) => looks.filter((l) => l.verticals.includes(v)).length;
 
   return (
-    <div className="bt-home">
-      <main className="bt-looks" id="main">
-        <div className="bt-verticals" role="tablist" aria-label="Verticals">
+    <div className="sc-home">
+      <main className="sc-looks" id="main">
+        <div className="sc-verticals" role="tablist" aria-label="Verticals">
           <button
             type="button"
             role="tab"
@@ -36,7 +37,7 @@ export function LooksView() {
             data-on={!vertical ? '' : undefined}
             onClick={() => setVertical(null)}
           >
-            Every look <span className="bt-vcount">{looks.length}</span>
+            Every look <span className="sc-vcount">{looks.length}</span>
           </button>
           {verticals.map((v) => (
             <button
@@ -47,7 +48,7 @@ export function LooksView() {
               data-on={vertical === v ? '' : undefined}
               onClick={() => setVertical(v)}
             >
-              {v} <span className="bt-vcount">{countFor(v)}</span>
+              {v} <span className="sc-vcount">{countFor(v)}</span>
             </button>
           ))}
         </div>
@@ -56,32 +57,32 @@ export function LooksView() {
           const inCollection = shown.filter((l) => l.collections.includes(c));
           if (!inCollection.length) return null;
           return (
-            <section className="bt-coll" key={c}>
+            <section className="sc-coll" key={c}>
               <h2>{c}</h2>
-              <div className="bt-coll-names">
+              <div className="sc-coll-names">
                 {inCollection.map((l) => (
                   <button type="button" key={l.id} onClick={() => openLook(l.id)}>
                     {l.name}
                   </button>
                 ))}
               </div>
-              <div className="bt-masonry">
+              <div className="sc-masonry">
                 {inCollection.map((l) => (
                   <button
                     type="button"
                     key={l.id}
-                    className="bt-lookcard"
+                    className="sc-lookcard"
                     onClick={() => openLook(l.id)}
                     title={`${l.name} — ${l.lighting}`}
                   >
                     {l.previewUrl ? (
                       <img src={l.previewUrl} alt={l.name} loading="lazy" />
                     ) : (
-                      <span className="bt-lookcard-blank" />
+                      <span className="sc-lookcard-blank" />
                     )}
-                    <span className="bt-lookveil" />
+                    <span className="sc-lookveil" />
                     <span
-                      className="bt-lookuse"
+                      className="sc-lookuse"
                       onClick={(e) => {
                         e.stopPropagation();
                         void applyLook(l.id);
@@ -89,7 +90,7 @@ export function LooksView() {
                     >
                       Use this look
                     </span>
-                    <span className="bt-lookcap">
+                    <span className="sc-lookcap">
                       <b>{l.name}</b>
                       <span>{l.lighting}</span>
                     </span>
@@ -100,7 +101,7 @@ export function LooksView() {
           );
         })}
 
-        {!shown.length && looks.length > 0 && <p className="bt-looks-empty">No look carries that vertical yet.</p>}
+        {!shown.length && looks.length > 0 && <p className="sc-looks-empty">No look carries that vertical yet.</p>}
       </main>
     </div>
   );

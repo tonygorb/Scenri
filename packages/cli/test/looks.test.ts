@@ -35,7 +35,7 @@ describe('look loader + composer', () => {
   });
 
   it('rejects a look whose prompt still names the product', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'bt-look-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sc-look-'));
     writeFileSync(
       join(dir, 'coupled.json'),
       JSON.stringify({ ...base, id: 'coupled', prompt: 'shot of {product_name} on a sweep' }),
@@ -48,7 +48,7 @@ describe('look loader + composer', () => {
   });
 
   it('skips broken files and bad subjects with warnings', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'bt-look-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sc-look-'));
     writeFileSync(join(dir, 'bad.json'), '{nope');
     writeFileSync(join(dir, 'incomplete.json'), JSON.stringify({ id: 'x' }));
     writeFileSync(join(dir, 'subject.json'), JSON.stringify({ ...base, id: 'subject', subject: 'vibes' }));
@@ -115,7 +115,7 @@ describe('cast + look generation via API', () => {
   };
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'bt-look-api-'));
+    home = mkdtempSync(join(tmpdir(), 'sc-look-api-'));
     core = createCore(home);
     lastGen = null;
     app = buildServer({ core, engines: { all: () => [spy], get: (id) => (id === 'spy' ? spy : null) } });

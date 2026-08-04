@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DB } from './db.js';
+import { firstFree, slugify } from './slug.js';
 
 export interface BrandRow {
   id: string;
@@ -12,6 +13,8 @@ export interface ProjectRow {
   id: string;
   brandId: string;
   name: string;
+  /** Its place in the address bar, unique within the brand. */
+  slug: string;
   createdAt: string;
 }
 export type NodeKind = 'root' | 'generation' | 'edit';
@@ -38,14 +41,25 @@ export interface TreeNode {
 /** A node carrying the name of the project it belongs to, for cross-project lists. */
 export interface ActivityNode extends TreeNode {
   projectName: string;
+  /** So a task can link to the project the way the address bar spells it. */
+  projectSlug: string;
 }
 
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48) || 'brand';
+/**
+ * The slug is the brand's URL, so two brands cannot share one: the second
+ * "Acme" becomes acme-2. Renaming a brand back onto a taken slug suffixes
+ * rather than steals, so no existing link ever changes owner.
+ */
+export function uniqueSlug(db: DB, name: string, excludeId?: string): string {
+  const stmt = db.prepare('SELECT 1 FROM brands WHERE slug=? AND id IS NOT ?');
+  return firstFree(slugify(name), (c) => !!stmt.get(c, excludeId ?? null));
+}
+
+/** Same, per brand: two brands may each have a project called Untitled. */
+export function uniqueProjectSlug(db: DB, brandId: string, name: string): string {
+  const stmt = db.prepare('SELECT 1 FROM projects WHERE brand_id=? AND slug=?');
+  return firstFree(slugify(name, 'project'), (c) => !!stmt.get(brandId, c));
+}
 
 function rowToNode(r: any): TreeNode {
   return {
@@ -73,7 +87,7 @@ export function createStore(db: DB) {
       const id = randomUUID();
       db.prepare('INSERT INTO brands (id, slug, json) VALUES (?,?,?)').run(
         id,
-        slugify(json.meta.name),
+        uniqueSlug(db, json.meta.name),
         JSON.stringify(json),
       );
       return this.getBrand(id)!;
@@ -96,7 +110,7 @@ export function createStore(db: DB) {
     updateBrand(id: string, json: { meta: { name: string } } & Record<string, unknown>): BrandRow | null {
       db.prepare("UPDATE brands SET json=?, slug=?, updated_at=datetime('now') WHERE id=?").run(
         JSON.stringify(json),
-        slugify(json.meta.name),
+        uniqueSlug(db, json.meta.name, id),
         id,
       );
       return this.getBrand(id);
@@ -108,7 +122,12 @@ export function createStore(db: DB) {
     // projects
     createProject(brandId: string, name: string): { project: ProjectRow; root: TreeNode } {
       const id = randomUUID();
-      db.prepare('INSERT INTO projects (id, brand_id, name) VALUES (?,?,?)').run(id, brandId, name);
+      db.prepare('INSERT INTO projects (id, brand_id, name, slug) VALUES (?,?,?,?)').run(
+        id,
+        brandId,
+        name,
+        uniqueProjectSlug(db, brandId, name),
+      );
       const rootId = randomUUID();
       db.prepare("INSERT INTO nodes (id, project_id, parent_id, kind, status) VALUES (?,?,NULL,'root','done')").run(
         rootId,
@@ -121,7 +140,7 @@ export function createStore(db: DB) {
     },
     getProject(id: string): ProjectRow | null {
       const r = db.prepare('SELECT * FROM projects WHERE id=?').get(id) as any;
-      return r ? { id: r.id, brandId: r.brand_id, name: r.name, createdAt: r.created_at } : null;
+      return r ? { id: r.id, brandId: r.brand_id, name: r.name, slug: r.slug, createdAt: r.created_at } : null;
     },
     listProjects(brandId: string): ProjectRow[] {
       return (db.prepare('SELECT * FROM projects WHERE brand_id=? ORDER BY created_at').all(brandId) as any[]).map(
@@ -129,6 +148,7 @@ export function createStore(db: DB) {
           id: r.id,
           brandId: r.brand_id,
           name: r.name,
+          slug: r.slug,
           createdAt: r.created_at,
         }),
       );
@@ -189,7 +209,7 @@ export function createStore(db: DB) {
     recentActivity(brandId: string, limit = 60): ActivityNode[] {
       const rows = db
         .prepare(
-          `SELECT n.*, p.name AS project_name
+          `SELECT n.*, p.name AS project_name, p.slug AS project_slug
              FROM nodes n JOIN projects p ON p.id = n.project_id
             WHERE p.brand_id = ?
               AND n.kind != 'root'
@@ -198,7 +218,7 @@ export function createStore(db: DB) {
             LIMIT ?`,
         )
         .all(brandId, limit) as any[];
-      return rows.map((r) => ({ ...rowToNode(r), projectName: r.project_name }));
+      return rows.map((r) => ({ ...rowToNode(r), projectName: r.project_name, projectSlug: r.project_slug }));
     },
     setKept(id: string, kept: boolean): void {
       db.prepare('UPDATE nodes SET kept=? WHERE id=?').run(kept ? 1 : 0, id);

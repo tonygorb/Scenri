@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Theme } from '@radix-ui/themes';
+import { migrateKey } from './prefs.js';
 
 /** What the user chose. 'system' follows the OS and keeps following it. */
 export type ThemeChoice = 'light' | 'dark' | 'system';
 type Resolved = 'light' | 'dark';
 
-const KEY = 'bt-theme';
+const KEY = 'sc-theme';
+/** Pre-rename spelling, moved to KEY the first time anyone loads the studio. */
+const LEGACY_KEY = 'bt-theme';
 const prefersLight = () => window.matchMedia('(prefers-color-scheme: light)').matches;
 
 const ThemeCtx = createContext<{
@@ -18,7 +21,7 @@ const ThemeCtx = createContext<{
 export const useThemeMode = () => useContext(ThemeCtx);
 
 function initialChoice(): ThemeChoice {
-  const saved = localStorage.getItem(KEY);
+  const saved = localStorage.getItem(KEY) ?? migrateKey(LEGACY_KEY, KEY);
   return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system';
 }
 

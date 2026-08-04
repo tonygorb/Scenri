@@ -77,33 +77,33 @@ export function SettingsDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && settings.close()}>
-      <Dialog.Content className="bt-set" maxWidth="940px" aria-describedby={undefined}>
+      <Dialog.Content className="sc-set" maxWidth="940px" aria-describedby={undefined}>
         <Dialog.Title style={{ display: 'none' }}>Settings</Dialog.Title>
-        <div className="bt-set-grid">
-          <nav className="bt-set-rail">
-            <p className="bt-set-group">Generation</p>
+        <div className="sc-set-grid">
+          <nav className="sc-set-rail">
+            <p className="sc-set-group">Generation</p>
             {PANES.slice(0, 3).map((p) => (
               <RailItem key={p.id} p={p} on={pane === p.id} pick={() => setPane(p.id)} />
             ))}
-            <p className="bt-set-group">This machine</p>
+            <p className="sc-set-group">This machine</p>
             {PANES.slice(3).map((p) => (
               <RailItem key={p.id} p={p} on={pane === p.id} pick={() => setPane(p.id)} />
             ))}
-            <span className="bt-set-spacer" />
-            <p className="bt-set-ver">v0.1.0 · local</p>
+            <span className="sc-set-spacer" />
+            <p className="sc-set-ver">v0.1.0 · local</p>
           </nav>
 
-          <div className="bt-set-body">
-            <div className="bt-set-head">
+          <div className="sc-set-body">
+            <div className="sc-set-head">
               <b>{PANES.find((p) => p.id === pane)!.title}</b>
-              <span className="bt-set-sp" />
+              <span className="sc-set-sp" />
               <Dialog.Close>
-                <button type="button" className="bt-set-close" aria-label="Close">
+                <button type="button" className="sc-set-close" aria-label="Close">
                   <X size={16} />
                 </button>
               </Dialog.Close>
             </div>
-            <div className="bt-set-scroll">
+            <div className="sc-set-scroll">
               {pane === 'engines' && <Engines engines={engines} onSaved={onSaved} />}
               {pane === 'budget' && <Budget engines={engines} onSaved={onSaved} />}
               {pane === 'usage' && <Usage projects={projects} open={open} />}
@@ -123,7 +123,7 @@ function RailItem({ p, on, pick }: { p: (typeof PANES)[number]; on: boolean; pic
   return (
     <button
       type="button"
-      className="bt-set-item"
+      className="sc-set-item"
       data-on={on ? '' : undefined}
       data-danger={p.danger ? '' : undefined}
       onClick={pick}
@@ -136,14 +136,14 @@ function RailItem({ p, on, pick }: { p: (typeof PANES)[number]; on: boolean; pic
 
 function Group({ title, sub, children }: { title?: string; sub?: string; children: React.ReactNode }) {
   return (
-    <section className="bt-set-sec">
+    <section className="sc-set-sec">
       {(title || sub) && (
-        <div className="bt-set-sech">
+        <div className="sc-set-sech">
           {title && <h3>{title}</h3>}
           {sub && <p>{sub}</p>}
         </div>
       )}
-      <div className="bt-set-card">{children}</div>
+      <div className="sc-set-card">{children}</div>
     </section>
   );
 }
@@ -179,15 +179,15 @@ function Engines({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => v
       {engines.map((e) => {
         const spec = KEYS.find((k) => k.engineId === e.id);
         return (
-          <div className="bt-eng" key={e.id}>
-            <div className="bt-eng-top">
-              <span className="bt-eng-ic">{ENGINE_ICON[e.id] ?? <Lightning size={15} />}</span>
-              <span className="bt-eng-name">
+          <div className="sc-eng" key={e.id}>
+            <div className="sc-eng-top">
+              <span className="sc-eng-ic">{ENGINE_ICON[e.id] ?? <Lightning size={15} />}</span>
+              <span className="sc-eng-name">
                 <b>{e.displayName}</b>
                 <small>{e.free ? 'Free per image' : `about $${e.perGeneration.toFixed(3)} a generation`}</small>
               </span>
-              {e.localOnly && <span className="bt-tag bt-tag-gold">local only</span>}
-              <span className={`bt-stat ${e.available ? 'on' : 'off'}`}>
+              {e.localOnly && <span className="sc-tag sc-tag-gold">local only</span>}
+              <span className={`sc-stat ${e.available ? 'on' : 'off'}`}>
                 <span className="d" />
                 {e.available
                   ? 'ready'
@@ -200,14 +200,14 @@ function Engines({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => v
             </div>
             {spec && (
               <form
-                className="bt-eng-key"
+                className="sc-eng-key"
                 onSubmit={(ev) => {
                   ev.preventDefault();
                   void save(spec.key);
                 }}
               >
                 <input
-                  className="bt-in"
+                  className="sc-in"
                   type="password"
                   placeholder={present[spec.key] ? 'key saved' : spec.hint}
                   value={draft[spec.key] ?? ''}
@@ -217,7 +217,7 @@ function Engines({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => v
                   aria-label={`${e.displayName} key`}
                 />
                 <button
-                  className="bt-btn bt-btn-ghost"
+                  className="sc-btn sc-btn-ghost"
                   type="submit"
                   disabled={busy || !(draft[spec.key] ?? '').trim()}
                 >
@@ -225,7 +225,7 @@ function Engines({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => v
                 </button>
               </form>
             )}
-            {!spec && <p className="bt-eng-hint">No key needed.</p>}
+            {!spec && <p className="sc-eng-hint">No key needed.</p>}
           </div>
         );
       })}
@@ -251,7 +251,7 @@ function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => vo
   if (!paid.length) {
     return (
       <Group sub="Nothing here to cap: every engine you have connected is free.">
-        <p className="bt-set-empty">Add a paid engine key and its cap appears here.</p>
+        <p className="sc-set-empty">Add a paid engine key and its cap appears here.</p>
       </Group>
     );
   }
@@ -263,19 +263,19 @@ function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => vo
         const total = e.generationsTotal;
         const pct = total && total > 0 ? Math.min(100, Math.round(((total - (left ?? 0)) / total) * 100)) : 0;
         return (
-          <div className="bt-cap" key={e.id}>
-            <div className="bt-cap-top">
+          <div className="sc-cap" key={e.id}>
+            <div className="sc-cap-top">
               <b>{e.displayName}</b>
-              <span className="bt-set-sp" />
-              <span className="bt-cap-amount">
+              <span className="sc-set-sp" />
+              <span className="sc-cap-amount">
                 {total === null ? 'No cap' : `${total} generations`}
                 <small>{e.cap === null ? 'set one below' : `$${e.cap.toFixed(2)} / month`}</small>
               </span>
             </div>
             <Flex align="center" gap="2">
-              <span className="bt-cap-dollar">$</span>
+              <span className="sc-cap-dollar">$</span>
               <input
-                className="bt-in"
+                className="sc-in"
                 inputMode="decimal"
                 placeholder="no cap"
                 value={caps[e.id] ?? ''}
@@ -285,11 +285,11 @@ function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => vo
               />
             </Flex>
             {total !== null && (
-              <div className="bt-meter">
+              <div className="sc-meter">
                 <i style={{ width: `${pct}%` }} />
               </div>
             )}
-            <div className="bt-cap-foot">
+            <div className="sc-cap-foot">
               <span>${e.monthlySpend.toFixed(2)} spent this month</span>
               <span>{left === null ? 'uncapped' : `${left} left`}</span>
             </div>
@@ -358,22 +358,22 @@ function Usage({ projects, open }: { projects: Project[]; open: boolean }) {
     return { cells: out, months: labels, total: sum, byKind: kinds };
   }, [nodes]);
 
-  if (nodes === null) return <p className="bt-set-empty">Reading your library…</p>;
+  if (nodes === null) return <p className="sc-set-empty">Reading your library…</p>;
 
   const most = Math.max(byKind.generation, byKind.edit, 1);
   return (
     <>
       <Group title="The last year" sub="One square per day, counted from your own runs.">
-        <div className="bt-heat">
-          <div className="bt-heat-h">
+        <div className="sc-heat">
+          <div className="sc-heat-h">
             <b>{total.toLocaleString()} runs in the last year</b>
           </div>
-          <div className="bt-heat-months">
+          <div className="sc-heat-months">
             {months.map((m) => (
               <span key={m.key}>{m.label}</span>
             ))}
           </div>
-          <div className="bt-heat-grid">
+          <div className="sc-heat-grid">
             {cells.map((c) => (
               <i key={c.key} data-l={c.level || undefined} title={c.title} />
             ))}
@@ -381,15 +381,15 @@ function Usage({ projects, open }: { projects: Project[]; open: boolean }) {
         </div>
       </Group>
       <Group title="By activity">
-        <div className="bt-bars">
-          <div className="bt-bar">
+        <div className="sc-bars">
+          <div className="sc-bar">
             <span className="k">Generations</span>
             <span className="t">
               <i style={{ width: `${(byKind.generation / most) * 100}%` }} />
             </span>
             <span className="v">{byKind.generation}</span>
           </div>
-          <div className="bt-bar">
+          <div className="sc-bar">
             <span className="k">Edits</span>
             <span className="t">
               <i style={{ width: `${(byKind.edit / most) * 100}%` }} />
@@ -413,30 +413,30 @@ function Library() {
 
   return (
     <Group sub="Plain files on this machine. Open them yourself, back them up like anything else.">
-      <div className="bt-set-row">
+      <div className="sc-set-row">
         <span className="txt">
           <b>Library folder</b>
           <small>{info ? `${info.dir} · ${bytes(info.bytes)} across ${info.images} images` : '…'}</small>
         </span>
-        <button type="button" className="bt-btn bt-btn-ghost" onClick={() => void api.reveal()}>
+        <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void api.reveal()}>
           Reveal
         </button>
       </div>
-      <div className="bt-set-row">
+      <div className="sc-set-row">
         <span className="txt">
           <b>Export everything</b>
           <small>One zip: brands, cast, briefs, shots. Never keys.</small>
         </span>
-        <a className="bt-btn bt-btn-ghost" href="/api/export/all" download>
+        <a className="sc-btn sc-btn-ghost" href="/api/export/all" download>
           Export
         </a>
       </div>
-      <div className="bt-set-row">
+      <div className="sc-set-row">
         <span className="txt">
           <b>Telemetry</b>
           <small>There is none. This row exists to say so.</small>
         </span>
-        <span className="bt-tag">off, permanently</span>
+        <span className="sc-tag">off, permanently</span>
       </div>
     </Group>
   );
@@ -451,12 +451,12 @@ function Appearance() {
   ];
   return (
     <Group sub="Follows your system unless you pick a side.">
-      <div className="bt-themes">
+      <div className="sc-themes">
         {opts.map((o) => (
           <button
             type="button"
             key={o.id}
-            className="bt-tp"
+            className="sc-tp"
             data-on={choice === o.id ? '' : undefined}
             onClick={() => setChoice(o.id)}
           >
@@ -475,13 +475,13 @@ function Appearance() {
 function About() {
   return (
     <Group>
-      <div className="bt-set-row">
+      <div className="sc-set-row">
         <span className="txt">
           <b>scenri</b>
           <small>v0.1.0 · local studio</small>
         </span>
       </div>
-      <div className="bt-set-row">
+      <div className="sc-set-row">
         <span className="txt">
           <b>License</b>
           <small>AGPL-3.0 for the app · Apache-2.0 for the .brand format</small>
@@ -511,7 +511,7 @@ function Danger({ onDone }: { onDone: () => void }) {
 
   return (
     <Group sub="These do not come back. Export from Library first if you are not certain.">
-      <div className="bt-set-row">
+      <div className="sc-set-row">
         <span className="txt">
           <b>Delete generated shots</b>
           <small>Keeps brands, cast and looks. Removes every project and its tree.</small>
@@ -524,7 +524,7 @@ function Danger({ onDone }: { onDone: () => void }) {
           onConfirm={() => void run('shots')}
         />
       </div>
-      <div className="bt-set-row">
+      <div className="sc-set-row">
         <span className="txt">
           <b>Delete all local data</b>
           <small>Brands, cast, projects, shots and saved keys, in one go.</small>
@@ -557,7 +557,7 @@ function Confirm({
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger>
-        <button type="button" className="bt-btn bt-btn-ghost bt-btn-red" disabled={busy}>
+        <button type="button" className="sc-btn sc-btn-ghost sc-btn-red" disabled={busy}>
           {label}
         </button>
       </AlertDialog.Trigger>

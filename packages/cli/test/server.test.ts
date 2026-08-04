@@ -20,7 +20,7 @@ function registryWith(...adapters: EngineAdapter[]) {
 const waitDone = (nodeId: string) => waitDoneOn(app, nodeId);
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'bt-srv-'));
+  home = mkdtempSync(join(tmpdir(), 'sc-srv-'));
   core = createCore(home);
   app = buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))) });
 });

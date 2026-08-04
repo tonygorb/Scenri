@@ -7,7 +7,7 @@ import { test, expect, type Page } from '@playwright/test';
  * told when it lands.
  *
  * Like the other specs this runs against a real scenri server on the free Demo
- * engine, and selects by the `bt-` class names the app actually ships.
+ * engine, and selects by the `sc-` class names the app actually ships.
  */
 
 const api = async (p: Page, path: string, init?: RequestInit) =>
@@ -25,16 +25,19 @@ const postJson = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-async function brandId(p: Page): Promise<string> {
+/** The path carries the brand's slug; the API still speaks in ids. */
+async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
   await p.goto('/');
   await p.waitForURL(/\/b\/[^/]+$/);
-  return new URL(p.url()).pathname.split('/')[2];
+  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[2]);
+  const brands = (await api(p, '/api/brands')) as any[];
+  return { id: brands.find((b) => b.slug === slug).id, slug };
 }
 
-const bell = (p: Page) => p.locator('.bt-topbar .bt-notif-btn');
-const pop = (p: Page) => p.locator('.bt-notif-pop');
-const tabs = (p: Page) => p.locator('.bt-notif-tab');
-const rows = (p: Page) => p.locator('.bt-notif-scroll .bt-notif-row');
+const bell = (p: Page) => p.locator('.sc-topbar .sc-notif-btn');
+const pop = (p: Page) => p.locator('.sc-notif-pop');
+const tabs = (p: Page) => p.locator('.sc-notif-tab');
+const rows = (p: Page) => p.locator('.sc-notif-scroll .sc-notif-row');
 
 /** Start a generation without ever opening the project it belongs to. */
 async function fireAndWalkAway(p: Page, brand: string) {
@@ -55,7 +58,7 @@ async function fireAndWalkAway(p: Page, brand: string) {
       count: 1,
     }),
   )) as any;
-  return { projectId: project.id, nodeId: made.id };
+  return { projectId: project.id, slug: project.slug, nodeId: made.id };
 }
 
 /** Nothing in this spec should inherit another case's history. */
@@ -68,23 +71,23 @@ async function clearHistory(p: Page) {
 }
 
 test('the bell is in the bar on every screen', async ({ page }) => {
-  const brand = await brandId(page);
-  const projects = (await api(page, `/api/projects?brandId=${brand}`)) as any[];
+  const brand = await currentBrand(page);
+  const projects = (await api(page, `/api/projects?brandId=${brand.id}`)) as any[];
 
-  for (const path of [`/b/${brand}`, `/b/${brand}/looks`, `/b/${brand}/brand`]) {
+  for (const path of [`/b/${brand.slug}`, `/b/${brand.slug}/looks`, `/b/${brand.slug}/brand`]) {
     await page.goto(path);
     await expect(bell(page)).toBeVisible();
   }
   if (projects[0]) {
-    await page.goto(`/b/${brand}/p/${projects[0].id}`);
+    await page.goto(`/b/${brand.slug}/p/${projects[0].slug}`);
     await expect(bell(page)).toBeVisible();
   }
 });
 
 test('opens on Tasks; Notifications starts empty and is keyboard reachable', async ({ page }) => {
-  const brand = await brandId(page);
+  const brand = await currentBrand(page);
   await clearHistory(page);
-  await page.goto(`/b/${brand}/looks`);
+  await page.goto(`/b/${brand.slug}/looks`);
 
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
@@ -97,23 +100,23 @@ test('opens on Tasks; Notifications starts empty and is keyboard reachable', asy
   await tabs(page).nth(0).focus();
   await page.keyboard.press('ArrowRight');
   await expect(tabs(page).nth(1)).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('.bt-notif-empty')).toHaveText('You have no notifications yet.');
+  await expect(page.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
   await page.keyboard.press('ArrowRight');
   await expect(tabs(page).nth(0)).toHaveAttribute('aria-selected', 'true');
 });
 
 test('work started from another screen still arrives, survives a reload, and clears', async ({ page }) => {
-  const brand = await brandId(page);
+  const brand = await currentBrand(page);
   await clearHistory(page);
 
   // stand on Home. The project this belongs to is never opened.
-  await page.goto(`/b/${brand}`);
+  await page.goto(`/b/${brand.slug}`);
   await expect(bell(page)).toBeVisible();
-  await fireAndWalkAway(page, brand);
+  await fireAndWalkAway(page, brand.id);
 
   // the badge is the first thing that should change
-  await expect(page.locator('.bt-bell-dot')).toBeVisible({ timeout: 20_000 });
-  await expect(page).toHaveURL(new RegExp(`/b/${brand}$`));
+  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+  await expect(page).toHaveURL(new RegExp(`/b/${brand.slug}$`));
 
   await bell(page).click();
   await tabs(page).nth(1).click();
@@ -124,7 +127,7 @@ test('work started from another screen still arrives, survives a reload, and cle
   // reading the list is what clears the badge, not opening the bell
   await page.keyboard.press('Escape');
   await expect(pop(page)).toHaveCount(0);
-  await expect(page.locator('.bt-bell-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-bell-dot')).toHaveCount(0);
 
   // the record outlives the page
   await page.reload();
@@ -135,40 +138,40 @@ test('work started from another screen still arrives, survives a reload, and cle
   // and a row is a way back to the thing it is about
   await rows(page).first().click();
   await page.waitForURL(/\/p\/[^/]+\/n\/[^/]+/);
-  await expect(page.locator('.bt-ovl')).toBeVisible();
+  await expect(page.locator('.sc-ovl')).toBeVisible();
 });
 
 test('the panel does not follow you to the next screen', async ({ page }) => {
-  const brand = await brandId(page);
-  await page.goto(`/b/${brand}`);
+  const brand = await currentBrand(page);
+  await page.goto(`/b/${brand.slug}`);
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
 
-  await page.locator('.bt-nav button', { hasText: 'Looks' }).click();
+  await page.locator('.sc-nav button', { hasText: 'Looks' }).click();
   await page.waitForURL(/\/looks$/);
   await expect(pop(page)).toHaveCount(0);
 });
 
 test('clearing empties the record', async ({ page }) => {
-  const brand = await brandId(page);
-  await page.goto(`/b/${brand}`);
+  const brand = await currentBrand(page);
+  await page.goto(`/b/${brand.slug}`);
   await bell(page).click();
   await tabs(page).nth(1).click();
 
-  const clear = page.locator('.bt-notif-clear');
+  const clear = page.locator('.sc-notif-clear');
   if (await clear.isVisible().catch(() => false)) {
     await clear.click();
   }
-  await expect(page.locator('.bt-notif-empty')).toHaveText('You have no notifications yet.');
+  await expect(page.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
 });
 
 test('a finish still toasts while you are on the project', async ({ page }) => {
-  const brand = await brandId(page);
+  const brand = await currentBrand(page);
   await clearHistory(page);
-  const { projectId } = await fireAndWalkAway(page, brand);
+  const { slug } = await fireAndWalkAway(page, brand.id);
 
   // the emitter moved up to TaskCenter; the toast must not have gone with it
-  await page.goto(`/b/${brand}/p/${projectId}`);
-  await fireAndWalkAway(page, brand);
-  await expect(page.locator('.bt-toast').first()).toBeVisible({ timeout: 20_000 });
+  await page.goto(`/b/${brand.slug}/p/${slug}`);
+  await fireAndWalkAway(page, brand.id);
+  await expect(page.locator('.sc-toast').first()).toBeVisible({ timeout: 20_000 });
 });

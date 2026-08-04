@@ -64,12 +64,12 @@ export function AssetsPanel({
   const fPalette = palette.filter((c) => match(c.name) || match(c.hex));
 
   return (
-    <aside className="bt-assets" aria-label="Assets">
-      <div className="bt-assets-head">
+    <aside className="sc-assets" aria-label="Assets">
+      <div className="sc-assets-head">
         <b>Assets</b>
         <button
           type="button"
-          className="bt-icon-btn"
+          className="sc-icon-btn"
           onClick={onClose}
           aria-label="Close assets"
           style={{ width: 28, height: 28 }}
@@ -77,17 +77,17 @@ export function AssetsPanel({
           <X size={12} />
         </button>
       </div>
-      <div className="bt-assets-search">
+      <div className="sc-assets-search">
         <MagnifyingGlass size={12} />
         <input placeholder="Search assets" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
-      <div className="bt-agroup">
-        <div className="bt-agroup-h">
+      <div className="sc-agroup">
+        <div className="sc-agroup-h">
           <b>Products</b>
           <Dialog.Root>
             <Dialog.Trigger>
-              <button type="button" className="bt-aadd" title="Add product" aria-label="Add product">
+              <button type="button" className="sc-aadd" title="Add product" aria-label="Add product">
                 <Plus size={10} />
               </button>
             </Dialog.Trigger>
@@ -99,7 +99,7 @@ export function AssetsPanel({
         </div>
         {fProducts.length > 0 ? (
           <>
-            <div className="bt-arow">
+            <div className="sc-arow">
               {fProducts.map((p) => {
                 const shot = assetUrl(p.shots?.[0]?.file);
                 return (
@@ -107,7 +107,7 @@ export function AssetsPanel({
                     {shot ? (
                       <img src={shot} alt={p.name} />
                     ) : (
-                      <span className="bt-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
+                      <span className="sc-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
                         <ImageSquare size={14} />
                       </span>
                     )}
@@ -115,19 +115,19 @@ export function AssetsPanel({
                 );
               })}
             </div>
-            <p className="bt-anote">Click to attach. Locked shots keep the product exact.</p>
+            <p className="sc-anote">Click to attach. Locked shots keep the product exact.</p>
           </>
         ) : (
-          <p className="bt-anote">{q ? 'No product matches.' : 'No products yet. Add one so shots stay exact.'}</p>
+          <p className="sc-anote">{q ? 'No product matches.' : 'No products yet. Add one so shots stay exact.'}</p>
         )}
       </div>
 
-      <div className="bt-agroup">
-        <div className="bt-agroup-h">
+      <div className="sc-agroup">
+        <div className="sc-agroup-h">
           <b>Cast</b>
           <Dialog.Root>
             <Dialog.Trigger>
-              <button type="button" className="bt-aadd" title="Add someone" aria-label="Add someone">
+              <button type="button" className="sc-aadd" title="Add someone" aria-label="Add someone">
                 <Plus size={10} />
               </button>
             </Dialog.Trigger>
@@ -139,7 +139,7 @@ export function AssetsPanel({
         </div>
         {fCast.length > 0 ? (
           <>
-            <div className="bt-arow">
+            <div className="sc-arow">
               {fCast.map((c) => {
                 const shot = assetUrl(c.shots?.[0]?.file);
                 return (
@@ -147,7 +147,7 @@ export function AssetsPanel({
                     {shot ? (
                       <img src={shot} alt={c.name} />
                     ) : (
-                      <span className="bt-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
+                      <span className="sc-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
                         <ImageSquare size={14} />
                       </span>
                     )}
@@ -155,25 +155,25 @@ export function AssetsPanel({
                 );
               })}
             </div>
-            <p className="bt-anote">Name someone once and they come back the same.</p>
+            <p className="sc-anote">Name someone once and they come back the same.</p>
           </>
         ) : (
-          <p className="bt-anote">{q ? 'Nobody matches.' : 'No cast yet. Add someone to keep a face consistent.'}</p>
+          <p className="sc-anote">{q ? 'Nobody matches.' : 'No cast yet. Add someone to keep a face consistent.'}</p>
         )}
       </div>
 
       {fTemplates.length > 0 && (
-        <div className="bt-agroup">
-          <div className="bt-agroup-h">
+        <div className="sc-agroup">
+          <div className="sc-agroup-h">
             <b>Looks</b>
           </div>
-          <div className="bt-arow">
+          <div className="sc-arow">
             {fTemplates.slice(0, 8).map((t) => (
               <button type="button" key={t.id} title={t.name} onClick={() => onTemplate(t.id)}>
                 {(t as any).previewUrl ? (
                   <img src={(t as any).previewUrl} alt={t.name} />
                 ) : (
-                  <span className="bt-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
+                  <span className="sc-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
                     <ImageSquare size={14} />
                   </span>
                 )}
@@ -184,14 +184,14 @@ export function AssetsPanel({
       )}
 
       {fPalette.length > 0 && (
-        <div className="bt-agroup">
-          <div className="bt-agroup-h">
+        <div className="sc-agroup">
+          <div className="sc-agroup-h">
             <b>Brand colors</b>
           </div>
-          <div className="bt-arow">
+          <div className="sc-arow">
             {fPalette.map((c) => (
               <button type="button" key={c.hex} title={`${c.name} ${c.hex}`} onClick={() => onColor(c.hex, c.name)}>
-                <span className="bt-aswatch" style={{ background: c.hex }} />
+                <span className="sc-aswatch" style={{ background: c.hex }} />
               </button>
             ))}
           </div>
@@ -199,18 +199,18 @@ export function AssetsPanel({
       )}
 
       {recent.length > 0 && !q && (
-        <div className="bt-agroup">
-          <div className="bt-agroup-h">
+        <div className="sc-agroup">
+          <div className="sc-agroup-h">
             <b>Recent shots</b>
           </div>
-          <div className="bt-arow">
+          <div className="sc-arow">
             {recent.map((s) => (
               <button type="button" key={s.id} title="Attach as a style reference" onClick={() => onRef(s.images[0])}>
                 <img src={imgUrl(s.images[0])} alt="" />
               </button>
             ))}
           </div>
-          <p className="bt-anote">Attach as a style reference.</p>
+          <p className="sc-anote">Attach as a style reference.</p>
         </div>
       )}
     </aside>

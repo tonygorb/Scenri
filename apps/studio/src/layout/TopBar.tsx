@@ -9,6 +9,7 @@ import { summarizeCredits, useMainNav } from './nav.js';
 import type { EngineInfo } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
+import { brandPath } from '../app/brandPath.js';
 
 /**
  * The one chrome bar, mounted once by BrandLayout. Three tracks: where you are,
@@ -25,20 +26,20 @@ export function TopBar() {
   const project = useMatch({ path: '/b/:brandId/p/:projectId', end: false });
 
   return (
-    <header className="bt-topbar" data-project={project ? '' : undefined}>
-      <a className="bt-skip" href="#main">
+    <header className="sc-topbar" data-project={project ? '' : undefined}>
+      <a className="sc-skip" href="#main">
         Skip to content
       </a>
-      <div className="bt-topbar-lead">
-        <span className="bt-wordmark bt-display">scenri</span>
+      <div className="sc-topbar-lead">
+        <span className="sc-wordmark sc-display">scenri</span>
         {project ? (
-          <div className="bt-topbar-context">
-            <ProjectCrumb projectId={project.params.projectId ?? ''} />
+          <div className="sc-topbar-context">
+            <ProjectCrumb slug={project.params.projectId ?? ''} />
           </div>
         ) : null}
       </div>
       <MainNav />
-      <div className="bt-topbar-end">
+      <div className="sc-topbar-end">
         {project ? <AssetsToggle /> : null}
         <NotificationsButton />
         <Credits engines={engines} />
@@ -51,7 +52,7 @@ export function TopBar() {
 function MainNav() {
   const items = useMainNav(16);
   return (
-    <nav className="bt-nav bt-desktop-only" aria-label="Main">
+    <nav className="sc-nav sc-desktop-only" aria-label="Main">
       <ul>
         {items.map((item) => (
           <li key={item.key}>
@@ -71,20 +72,22 @@ function MainNav() {
 }
 
 /** Second step of the breadcrumb, and a switcher in its own right. */
-function ProjectCrumb({ projectId }: { projectId: string }) {
+/** `slug` is what the path carries; an id still resolves, mid-rewrite. */
+function ProjectCrumb({ slug }: { slug: string }) {
   const { brand, projects } = useBrand();
   const navigate = useNavigate();
+  const here = projects.find((x) => x.slug === slug) ?? projects.find((x) => x.id === slug);
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
-        <button type="button" className="bt-crumb-btn">
-          <b>{projects.find((x) => x.id === projectId)?.name ?? 'Project'}</b>
-          <CaretDown size={11} className="bt-caret" />
+        <button type="button" className="sc-crumb-btn">
+          <b>{here?.name ?? 'Project'}</b>
+          <CaretDown size={11} className="sc-caret" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content>
         {projects.map((pr) => (
-          <DropdownMenu.Item key={pr.id} onSelect={() => navigate(`/b/${brand.id}/p/${pr.id}`)}>
+          <DropdownMenu.Item key={pr.id} onSelect={() => navigate(brandPath(brand, `/p/${pr.slug}`))}>
             {pr.name}
           </DropdownMenu.Item>
         ))}
@@ -99,7 +102,7 @@ function AssetsToggle() {
   return (
     <button
       type="button"
-      className="bt-icon-btn"
+      className="sc-icon-btn"
       data-on={open || undefined}
       onClick={toggle}
       aria-label="Toggle assets panel"
@@ -128,39 +131,39 @@ function Credits({ engines }: { engines: EngineInfo[] }) {
       <Popover.Trigger>
         <button
           type="button"
-          className="bt-credits-pill"
+          className="sc-credits-pill"
           data-low={low || undefined}
           aria-label={freeOnly ? 'Unlimited generations on your free engines' : `${left} generations left`}
         >
           <Coin size={14} dim={low} />
-          <span className="bt-credits-label">{label}</span>
+          <span className="sc-credits-label">{label}</span>
         </button>
       </Popover.Trigger>
-      <Popover.Content align="end" className="bt-credits-pop">
+      <Popover.Content align="end" className="sc-credits-pop">
         {engines
           .filter((e) => e.available || !e.free)
           .map((e) => (
-            <div key={e.id} className="bt-credits-row">
-              <div className="bt-credits-line">
-                <span className="bt-credits-name">{e.displayName}</span>
+            <div key={e.id} className="sc-credits-row">
+              <div className="sc-credits-line">
+                <span className="sc-credits-name">{e.displayName}</span>
                 {e.free ? (
-                  <span className="bt-credits-free">{e.localOnly ? 'Free · yours' : 'Free'}</span>
+                  <span className="sc-credits-free">{e.localOnly ? 'Free · yours' : 'Free'}</span>
                 ) : e.generationsLeft === null ? (
-                  <span className="bt-credits-none">No limit set</span>
+                  <span className="sc-credits-none">No limit set</span>
                 ) : (
-                  <span className="bt-credits-num">
+                  <span className="sc-credits-num">
                     {e.generationsLeft} / {e.generationsTotal}
                   </span>
                 )}
               </div>
               {!e.free && e.generationsTotal ? (
-                <div className="bt-credits-meter">
+                <div className="sc-credits-meter">
                   <div style={{ width: `${((e.generationsLeft ?? 0) / e.generationsTotal) * 100}%` }} />
                 </div>
               ) : null}
             </div>
           ))}
-        <p className="bt-credits-note">Credits are generations. Free engines never count. Set limits in Settings.</p>
+        <p className="sc-credits-note">Credits are generations. Free engines never count. Set limits in Settings.</p>
       </Popover.Content>
     </Popover.Root>
   );

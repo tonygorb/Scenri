@@ -138,7 +138,7 @@ export function DetailOverlay({
     <button
       type="button"
       key={n.id}
-      className="bt-fr"
+      className="sc-fr"
       data-current={current}
       data-failed={n.status === 'error' || (!n.images[0] && n.status !== 'running')}
       title={nodeLabel(n)}
@@ -147,12 +147,12 @@ export function DetailOverlay({
       {n.images[0] ? (
         <img src={imgUrl(n.images[0])} alt="" />
       ) : n.status === 'running' ? (
-        <span className="bt-shimmer" />
+        <span className="sc-shimmer" />
       ) : (
         <WarningCircle size={13} />
       )}
       {n.kept && (
-        <span className="bt-fr-star">
+        <span className="sc-fr-star">
           <Star size={11} weight="fill" />
         </span>
       )}
@@ -160,14 +160,14 @@ export function DetailOverlay({
   );
 
   return createPortal(
-    <div className="bt-ovl" role="dialog" aria-modal="true" aria-label={nodeLabel(node)}>
-      <div className="bt-ovl-winbar">
-        <button type="button" className="bt-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
+    <div className="sc-ovl" role="dialog" aria-modal="true" aria-label={nodeLabel(node)}>
+      <div className="sc-ovl-winbar">
+        <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
           <X size={13} />
         </button>
         <button
           type="button"
-          className="bt-icon-btn"
+          className="sc-icon-btn"
           disabled={sibIndex <= 0}
           style={sibIndex <= 0 ? { opacity: 0.4 } : undefined}
           onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
@@ -177,7 +177,7 @@ export function DetailOverlay({
         </button>
         <button
           type="button"
-          className="bt-icon-btn"
+          className="sc-icon-btn"
           disabled={sibIndex >= siblings.length - 1}
           style={sibIndex >= siblings.length - 1 ? { opacity: 0.4 } : undefined}
           onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
@@ -187,28 +187,28 @@ export function DetailOverlay({
         </button>
       </div>
 
-      <div className="bt-ovl-strip">
-        <span className="bt-eyebrow">Lineage</span>
+      <div className="sc-ovl-strip">
+        <span className="sc-eyebrow">Lineage</span>
         {ancestors.map((a) => (
           <span key={a.id} style={{ display: 'contents' }}>
             {frame(a)}
-            <span className="bt-wire" />
+            <span className="sc-wire" />
           </span>
         ))}
         {frame(node, true)}
         {children.length > 0 && (
           <>
-            <span className="bt-wire" />
-            <span className="bt-sib-row">{children.slice(0, 4).map((c) => frame(c))}</span>
+            <span className="sc-wire" />
+            <span className="sc-sib-row">{children.slice(0, 4).map((c) => frame(c))}</span>
           </>
         )}
       </div>
 
-      <div className="bt-ovl-stage">
+      <div className="sc-ovl-stage">
         {node.status === 'done' && node.images.length > 0 && (
-          <div className="bt-ovl-tools">
+          <div className="sc-ovl-tools">
             <span
-              className="bt-ovl-cost"
+              className="sc-ovl-cost"
               title={node.costUsd > 0 ? `$${node.costUsd.toFixed(3)} of your API budget` : 'Generated on a free engine'}
             >
               <Coin size={13} />
@@ -216,7 +216,7 @@ export function DetailOverlay({
             </span>
             <button
               type="button"
-              className="bt-icon-btn"
+              className="sc-icon-btn"
               onClick={() => setExportOpen(true)}
               aria-label="Export"
               title="Export"
@@ -225,18 +225,18 @@ export function DetailOverlay({
             </button>
             <button
               type="button"
-              className="bt-icon-btn"
+              className="sc-icon-btn"
               onClick={() => void api.keep(node.id, !node.kept).then(onChanged)}
               aria-label={node.kept ? 'Remove from keepers' : 'Keep'}
               title={node.kept ? 'Keeper' : 'Keep'}
-              style={node.kept ? { color: 'var(--bt-star)' } : undefined}
+              style={node.kept ? { color: 'var(--sc-star)' } : undefined}
             >
               <Star size={14} weight={node.kept ? 'fill' : 'regular'} />
             </button>
             {parentShot && (
               <button
                 type="button"
-                className="bt-icon-btn"
+                className="sc-icon-btn"
                 onClick={() => onTabChange('info')}
                 aria-label="Compare with source"
                 title="Compare with source"
@@ -246,7 +246,7 @@ export function DetailOverlay({
             )}
             <button
               type="button"
-              className="bt-icon-btn"
+              className="sc-icon-btn"
               onClick={() => void copyImage()}
               aria-label="Copy image"
               title="Copy image"
@@ -277,7 +277,7 @@ export function DetailOverlay({
                 <img
                   src={imgUrl(h)}
                   alt=""
-                  className="bt-thumb"
+                  className="sc-thumb"
                   data-active={i === imageIndex}
                   width={52}
                   height={52}
@@ -288,29 +288,29 @@ export function DetailOverlay({
         )}
       </div>
 
-      <aside className="bt-ovl-meta">
-        <div className="bt-ovl-head">
+      <aside className="sc-ovl-meta">
+        <div className="sc-ovl-head">
           <b>{node.kind === 'edit' ? 'Refine' : 'Generation'}</b>
           <small>
             {node.images.length > 1 ? `${imageIndex + 1} of ${node.images.length} variants` : nodeLabel(node)}
           </small>
         </div>
-        <div className="bt-ovl-who">
+        <div className="sc-ovl-who">
           {node.engineId} · {node.costUsd > 0 ? `$${node.costUsd.toFixed(3)}` : 'free'}
         </div>
 
         <Ingredients brief={node.brief} brand={brand} />
 
         {parentShot && (
-          <div className="bt-ctx">
+          <div className="sc-ctx">
             <button
               type="button"
-              className="bt-ctx-chip"
+              className="sc-ctx-chip"
               onClick={() => onSelect(parentShot.id)}
               title="Open the shot this came from"
             >
               {parentShot.images[0] && <img src={imgUrl(parentShot.images[0])} alt="" />}
-              edited from <b style={{ color: 'var(--bt-fg)', fontWeight: 500 }}>{nodeLabel(parentShot)}</b>
+              edited from <b style={{ color: 'var(--sc-fg)', fontWeight: 500 }}>{nodeLabel(parentShot)}</b>
             </button>
           </div>
         )}
@@ -318,25 +318,25 @@ export function DetailOverlay({
         {/* What to do next, offered rather than hunted for. Every one of these
             already existed; they were just buried in tabs and menus. */}
         {node.status === 'done' && node.images.length > 0 && (
-          <div className="bt-sugg">
-            <button type="button" className="bt-s bt-s-primary" onClick={onLift} disabled={lifting}>
+          <div className="sc-sugg">
+            <button type="button" className="sc-s sc-s-primary" onClick={onLift} disabled={lifting}>
               {lifting ? <Spinner size="1" /> : <PencilSimple size={12} />} Make text editable
             </button>
-            <button type="button" className="bt-s" onClick={onAddLayer}>
+            <button type="button" className="sc-s" onClick={onAddLayer}>
               <Plus size={12} /> Add text
             </button>
             {node.brief && (
-              <button type="button" className="bt-s" onClick={() => onRemix(node)}>
+              <button type="button" className="sc-s" onClick={() => onRemix(node)}>
                 <ArrowsClockwise size={12} /> Remix this brief
               </button>
             )}
-            <button type="button" className="bt-s" onClick={() => setExportOpen(true)}>
+            <button type="button" className="sc-s" onClick={() => setExportOpen(true)}>
               <DownloadSimple size={12} /> Export
             </button>
           </div>
         )}
 
-        <div className="bt-ovl-body">
+        <div className="sc-ovl-body">
           <Inspector
             node={node.kind !== 'root' ? node : null}
             nodes={nodes}
@@ -356,7 +356,7 @@ export function DetailOverlay({
           />
         </div>
 
-        <div className="bt-ovl-edit">
+        <div className="sc-ovl-edit">
           <Composer
             projectId={projectId}
             brand={brand}
@@ -407,9 +407,9 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
   if (!chips.length) return null;
 
   return (
-    <div className="bt-ingredients">
+    <div className="sc-ingredients">
       {chips.map((c) => (
-        <span className="bt-ingredient" key={c.key} data-kind={c.kind} title={`${c.kind}: ${c.label}`}>
+        <span className="sc-ingredient" key={c.key} data-kind={c.kind} title={`${c.kind}: ${c.label}`}>
           {c.thumb ? <img src={c.thumb} alt="" /> : c.swatch ? <i style={{ background: c.swatch }} /> : null}
           {c.label}
         </span>

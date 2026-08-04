@@ -39,11 +39,11 @@ export function NotificationsButton() {
 
   const badge =
     unread > 0 ? (
-      <span className="bt-bell-dot" data-count={unread} aria-hidden>
+      <span className="sc-bell-dot" data-count={unread} aria-hidden>
         {unread > 9 ? '9+' : unread}
       </span>
     ) : running > 0 ? (
-      <span className="bt-bell-dot" data-running="" aria-hidden />
+      <span className="sc-bell-dot" data-running="" aria-hidden />
     ) : null;
 
   if (phone) {
@@ -51,7 +51,7 @@ export function NotificationsButton() {
       <>
         <button
           type="button"
-          className="bt-icon-btn bt-notif-btn"
+          className="sc-icon-btn sc-notif-btn"
           data-on={panelOpen || undefined}
           aria-label={label}
           aria-expanded={panelOpen}
@@ -69,12 +69,12 @@ export function NotificationsButton() {
   return (
     <Popover.Root open={panelOpen} onOpenChange={setPanelOpen}>
       <Popover.Trigger>
-        <button type="button" className="bt-icon-btn bt-notif-btn" aria-label={label} title="Notifications">
+        <button type="button" className="sc-icon-btn sc-notif-btn" aria-label={label} title="Notifications">
           <Bell size={16} weight={running ? 'fill' : 'regular'} />
           {badge}
         </button>
       </Popover.Trigger>
-      <Popover.Content align="end" className="bt-notif-pop">
+      <Popover.Content align="end" className="sc-notif-pop">
         <Panel onClose={() => setPanelOpen(false)} onSeen={markSeen} />
       </Popover.Content>
     </Popover.Root>
@@ -97,9 +97,9 @@ function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
   return createPortal(
     <>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape above is the keyboard path; the scrim is a mouse convenience */}
-      <div className="bt-notif-scrim" onClick={onClose} aria-hidden />
-      <div className="bt-notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
-        <div className="bt-notif-grab" aria-hidden />
+      <div className="sc-notif-scrim" onClick={onClose} aria-hidden />
+      <div className="sc-notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div className="sc-notif-grab" aria-hidden />
         <Panel onClose={onClose} onSeen={onSeen} />
       </div>
     </>,
@@ -138,13 +138,13 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
     if (!next) return;
     e.preventDefault();
     setTab(next);
-    tabsRef.current?.querySelector<HTMLButtonElement>(`#bt-notif-tab-${next}`)?.focus();
+    tabsRef.current?.querySelector<HTMLButtonElement>(`#sc-notif-tab-${next}`)?.focus();
   };
 
   return (
     <>
       {/* biome-ignore lint/a11y/useFocusableInteractive: the tabs themselves are the focusable elements */}
-      <div className="bt-notif-tabs" role="tablist" aria-label="Notifications" ref={tabsRef} onKeyDown={onKeyDown}>
+      <div className="sc-notif-tabs" role="tablist" aria-label="Notifications" ref={tabsRef} onKeyDown={onKeyDown}>
         <Tab id="tasks" tab={tab} onSelect={setTab} count={tasks.length}>
           Tasks
         </Tab>
@@ -154,29 +154,29 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
       </div>
 
       <div
-        className="bt-notif-scroll"
+        className="sc-notif-scroll"
         role="tabpanel"
-        id={`bt-notif-panel-${tab}`}
-        aria-labelledby={`bt-notif-tab-${tab}`}
+        id={`sc-notif-panel-${tab}`}
+        aria-labelledby={`sc-notif-tab-${tab}`}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard (WCAG 2.1.1) and the tabpanel is the scroller
         tabIndex={0}
       >
         {tab === 'tasks' ? (
           tasks.length === 0 ? (
-            <p className="bt-notif-empty">Nothing running. Generations show up here as they go.</p>
+            <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
           ) : (
             tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onOpen={open} />)
           )
         ) : feed.length === 0 ? (
-          <p className="bt-notif-empty">You have no notifications yet.</p>
+          <p className="sc-notif-empty">You have no notifications yet.</p>
         ) : (
           feed.map((n) => <FeedRow key={n.id} item={n} now={now} onOpen={open} />)
         )}
       </div>
 
       {tab === 'feed' && feed.length > 0 ? (
-        <div className="bt-notif-foot">
-          <button type="button" className="bt-notif-clear" onClick={clearFeed}>
+        <div className="sc-notif-foot">
+          <button type="button" className="sc-notif-clear" onClick={clearFeed}>
             Clear all
           </button>
         </div>
@@ -203,22 +203,22 @@ function Tab({
     <button
       type="button"
       role="tab"
-      id={`bt-notif-tab-${id}`}
-      className="bt-notif-tab"
+      id={`sc-notif-tab-${id}`}
+      className="sc-notif-tab"
       aria-selected={on}
-      aria-controls={`bt-notif-panel-${id}`}
+      aria-controls={`sc-notif-panel-${id}`}
       tabIndex={on ? 0 : -1}
       onClick={() => onSelect(id)}
     >
       {children}
-      {count ? <span className="bt-notif-n">{count}</span> : null}
+      {count ? <span className="sc-notif-n">{count}</span> : null}
     </button>
   );
 }
 
 function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'> }) {
   if (task.thumb) return <img src={imgUrl(task.thumb)} alt="" />;
-  if (task.state === 'running') return <span className="bt-shimmer" />;
+  if (task.state === 'running') return <span className="sc-shimmer" />;
   if (task.state === 'error') return <WarningCircle size={17} weight="fill" />;
   if (task.kind === 'catalog') return <Storefront size={17} />;
   return <ImageSquare size={17} />;
@@ -229,25 +229,25 @@ function TaskRow({ task, now, onOpen }: { task: Task; now: number; onOpen: (href
   return (
     <button
       type="button"
-      className="bt-notif-row"
+      className="sc-notif-row"
       data-state={task.state}
       data-running={running || undefined}
       disabled={!task.href}
       onClick={() => task.href && onOpen(task.href)}
     >
-      <span className="bt-notif-thumb">
+      <span className="sc-notif-thumb">
         <Thumb task={task} />
       </span>
-      <span className="bt-notif-txt">
+      <span className="sc-notif-txt">
         <b dir="auto">{task.title}</b>
         <small dir="auto">{task.subtitle}</small>
         {running && task.percent !== null ? (
-          <span className="bt-notif-meter">
+          <span className="sc-notif-meter">
             <div style={{ width: `${task.percent}%` }} />
           </span>
         ) : null}
       </span>
-      <span className="bt-notif-time">
+      <span className="sc-notif-time">
         {running ? elapsedLabel(task.startedAt, now) : agoLabel(task.startedAt, now)}
       </span>
     </button>
@@ -258,19 +258,19 @@ function FeedRow({ item, now, onOpen }: { item: NotificationItem; now: number; o
   return (
     <button
       type="button"
-      className="bt-notif-row"
+      className="sc-notif-row"
       data-state={item.state}
       disabled={!item.href}
       onClick={() => item.href && onOpen(item.href)}
     >
-      <span className="bt-notif-thumb">
+      <span className="sc-notif-thumb">
         <Thumb task={item} />
       </span>
-      <span className="bt-notif-txt">
+      <span className="sc-notif-txt">
         <b dir="auto">{item.title}</b>
         <small dir="auto">{item.subtitle}</small>
       </span>
-      <span className="bt-notif-time">{agoLabel(item.at, now)}</span>
+      <span className="sc-notif-time">{agoLabel(item.at, now)}</span>
     </button>
   );
 }

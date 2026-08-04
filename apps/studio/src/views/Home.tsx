@@ -5,6 +5,7 @@ import { ImageSquare, Package, Sparkle, Star, UsersThree, WarningCircle } from '
 import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { brandPath } from '../app/brandPath.js';
 import { Composer } from '../layout/Composer.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
@@ -26,15 +27,18 @@ export function HomeView() {
 
   // a tab can name a project that has since been deleted: fall back to All
   // rather than rendering a feed that looks empty for no stated reason
+  // the tab shows in the address bar too, so it names a project by slug
   const tab =
-    tabParam === 'all' || tabParam === 'keepers' || projects.some((p) => p.id === tabParam) ? tabParam : 'all';
+    tabParam === 'all' || tabParam === 'keepers' || projects.some((p) => p.slug === tabParam) ? tabParam : 'all';
 
   const openProject = (id: string, opts?: { startTemplate?: string; openTemplates?: boolean }) => {
     const qs = new URLSearchParams();
     if (opts?.startTemplate) qs.set('look', opts.startTemplate);
     if (opts?.openTemplates) qs.set('attach', 'looks');
     const q = qs.toString();
-    navigate(`/b/${brand.id}/p/${id}${q ? `?${q}` : ''}`);
+    // callers hold ids, the address bar wants the slug
+    const seg = projects.find((p) => p.id === id)?.slug ?? id;
+    navigate(brandPath(brand, `/p/${seg}${q ? `?${q}` : ''}`));
   };
 
   useEffect(() => {
@@ -69,7 +73,8 @@ export function HomeView() {
   const newProject = async (opts?: { startTemplate?: string; openTemplates?: boolean }) => {
     const created = await api.createProject(brand.id, `Project ${projects.length + 1}`);
     await refreshProjects();
-    openProject(created.project.id, opts);
+    // by slug: the list in this closure predates the project we just made
+    openProject(created.project.slug, opts);
     return created.project.id;
   };
 
@@ -79,8 +84,9 @@ export function HomeView() {
     if (!feed) return null;
     if (tab === 'all') return feed;
     if (tab === 'keepers') return feed.filter((f) => f.node.kept);
-    return feed.filter((f) => f.projectId === tab);
-  }, [feed, tab]);
+    const picked = projects.find((p) => p.slug === tab);
+    return feed.filter((f) => f.projectId === picked?.id);
+  }, [feed, tab, projects]);
 
   const doneShots = useMemo(
     () => (feed ?? []).map((f) => f.node).filter((n) => n.status === 'done' && n.images.length > 0),
@@ -88,15 +94,15 @@ export function HomeView() {
   );
 
   return (
-    <div className="bt-home">
-      <main className="bt-main" id="main">
-        <h1 className="bt-greet">
+    <div className="sc-home">
+      <main className="sc-main" id="main">
+        <h1 className="sc-greet">
           Make something <em>on brand</em>
         </h1>
 
-        <div className="bt-create-grid">
-          <button type="button" className="bt-create-card" onClick={() => void newProject({ openTemplates: true })}>
-            <span className="bt-glyph">
+        <div className="sc-create-grid">
+          <button type="button" className="sc-create-card" onClick={() => void newProject({ openTemplates: true })}>
+            <span className="sc-glyph">
               <Sparkle size={16} />
             </span>
             <span>
@@ -104,8 +110,8 @@ export function HomeView() {
               <small>Template plus your product</small>
             </span>
           </button>
-          <button type="button" className="bt-create-card" onClick={() => void newProject()}>
-            <span className="bt-glyph">
+          <button type="button" className="sc-create-card" onClick={() => void newProject()}>
+            <span className="sc-glyph">
               <ImageSquare size={16} />
             </span>
             <span>
@@ -114,8 +120,8 @@ export function HomeView() {
             </span>
           </button>
           <ProductsCard brand={brand} onChanged={refresh} count={products.length} />
-          <button type="button" className="bt-create-card" onClick={() => navigate('/setup')}>
-            <span className="bt-glyph">
+          <button type="button" className="sc-create-card" onClick={() => navigate('/setup')}>
+            <span className="sc-glyph">
               <UsersThree size={16} />
             </span>
             <span>
@@ -127,13 +133,13 @@ export function HomeView() {
 
         {templates.length > 0 && (
           <>
-            <div className="bt-sec-head">
-              <span className="bt-sec-title">Looks</span>
-              <button type="button" className="bt-sec-more" onClick={() => navigate(`/b/${brand.id}/looks`)}>
+            <div className="sc-sec-head">
+              <span className="sc-sec-title">Looks</span>
+              <button type="button" className="sc-sec-more" onClick={() => navigate(brandPath(brand, '/looks'))}>
                 All looks
               </button>
             </div>
-            <div className="bt-tplrow">
+            <div className="sc-tplrow">
               {[...templates]
                 .sort((a, b) => {
                   const favs = favoriteLooks(brand.id);
@@ -143,18 +149,18 @@ export function HomeView() {
                   <button
                     type="button"
                     key={t.id}
-                    className="bt-tpl"
+                    className="sc-tpl"
                     onClick={() => void newProject({ startTemplate: t.id })}
                     title={t.description}
                   >
                     {(t as any).previewUrl ? (
                       <img src={(t as any).previewUrl} alt="" />
                     ) : (
-                      <span className="bt-tpl-ph">
+                      <span className="sc-tpl-ph">
                         <ImageSquare size={20} />
                       </span>
                     )}
-                    <span className="bt-tpl-m">
+                    <span className="sc-tpl-m">
                       <b>{t.name}</b>
                       <small>{t.lighting}</small>
                     </span>
@@ -164,26 +170,32 @@ export function HomeView() {
           </>
         )}
 
-        <div className="bt-tabs" style={{ background: 'none' }}>
-          <button type="button" className="bt-tab" data-active={tab === 'all'} onClick={() => setTab('all')}>
+        <div className="sc-tabs" style={{ background: 'none' }}>
+          <button type="button" className="sc-tab" data-active={tab === 'all'} onClick={() => setTab('all')}>
             All
           </button>
-          <button type="button" className="bt-tab" data-active={tab === 'keepers'} onClick={() => setTab('keepers')}>
+          <button type="button" className="sc-tab" data-active={tab === 'keepers'} onClick={() => setTab('keepers')}>
             Keepers
           </button>
           {projects.slice(0, 8).map((p) => (
-            <button type="button" key={p.id} className="bt-tab" data-active={tab === p.id} onClick={() => setTab(p.id)}>
+            <button
+              type="button"
+              key={p.id}
+              className="sc-tab"
+              data-active={tab === p.slug}
+              onClick={() => setTab(p.slug)}
+            >
               {p.name}
             </button>
           ))}
         </div>
 
         {shown === null && (
-          <div className="bt-feed">
+          <div className="sc-feed">
             {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
               <div
                 key={i}
-                className="bt-cell bt-skeleton"
+                className="sc-cell sc-skeleton"
                 style={{ aspectRatio: i % 3 === 0 ? '4/5' : '1', cursor: 'default' }}
               />
             ))}
@@ -191,7 +203,7 @@ export function HomeView() {
         )}
 
         {shown !== null && shown.length === 0 && (
-          <div className="bt-feed-empty">
+          <div className="sc-feed-empty">
             {feed?.length === 0
               ? 'Nothing on the feed yet. Describe the first shot below.'
               : 'Nothing here. Star a shot to make it a keeper.'}
@@ -199,14 +211,14 @@ export function HomeView() {
         )}
 
         {shown !== null && shown.length > 0 && (
-          <div className="bt-feed">
+          <div className="sc-feed">
             {shown.map((f) => {
               const n = f.node;
               if (n.status === 'running') {
                 return (
-                  <div key={n.id} className="bt-cell" data-running="true">
-                    <span className="bt-shimmer" />
-                    <span className="bt-cell-tag">generating</span>
+                  <div key={n.id} className="sc-cell" data-running="true">
+                    <span className="sc-shimmer" />
+                    <span className="sc-cell-tag">generating</span>
                   </div>
                 );
               }
@@ -215,11 +227,11 @@ export function HomeView() {
                   <button
                     type="button"
                     key={n.id}
-                    className="bt-cell"
+                    className="sc-cell"
                     data-failed="true"
                     onClick={() => openProject(f.projectId)}
                   >
-                    <span className="bt-cell-failed">
+                    <span className="sc-cell-failed">
                       <WarningCircle size={16} />
                       Failed
                     </span>
@@ -227,14 +239,14 @@ export function HomeView() {
                 );
               }
               return (
-                <button type="button" key={n.id} className="bt-cell" onClick={() => openProject(f.projectId)}>
+                <button type="button" key={n.id} className="sc-cell" onClick={() => openProject(f.projectId)}>
                   <img src={imgUrl(f.hash)} alt="" loading="lazy" />
                   {n.kept && (
-                    <span className="bt-cell-star">
+                    <span className="sc-cell-star">
                       <Star size={14} weight="fill" />
                     </span>
                   )}
-                  <span className="bt-cell-meta">{f.projectName}</span>
+                  <span className="sc-cell-meta">{f.projectName}</span>
                 </button>
               );
             })}
@@ -242,13 +254,13 @@ export function HomeView() {
         )}
       </main>
 
-      <div className="bt-dock-fade" aria-hidden />
-      <div className="bt-home-dock">
+      <div className="sc-dock-fade" aria-hidden />
+      <div className="sc-home-dock">
         <Composer
           projectId={null}
           resolveProjectId={async () => {
             const created = await api.createProject(brand.id, `Project ${projects.length + 1}`);
-            dockProject.current = created.project.id;
+            dockProject.current = created.project.slug;
             await refreshProjects();
             return created.project.id;
           }}
@@ -269,8 +281,8 @@ function ProductsCard({ brand, onChanged, count }: { brand: Brand; onChanged: ()
   return (
     <Dialog.Root>
       <Dialog.Trigger>
-        <button type="button" className="bt-create-card">
-          <span className="bt-glyph">
+        <button type="button" className="sc-create-card">
+          <span className="sc-glyph">
             <Package size={16} />
           </span>
           <span>

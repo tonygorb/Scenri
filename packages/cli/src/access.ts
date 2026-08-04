@@ -11,7 +11,15 @@ import type { FastifyInstance } from 'fastify';
 const LOOPBACK = ['localhost', '127.0.0.1', '::1'];
 
 /** Cookie the browser carries after arriving with a token in the URL. */
-export const ACCESS_COOKIE = 'bt_access';
+export const ACCESS_COOKIE = 'sc_access';
+
+/**
+ * The pre-rename spelling. Read, never written, so a tab that was already open
+ * across an upgrade is not bounced back to the token URL. The name is not the
+ * secret: whichever cookie carries the value, it still has to survive
+ * `tokenMatches`, so this widens no trust.
+ */
+const LEGACY_ACCESS_COOKIE = 'bt_access';
 
 export interface AccessOptions {
   /** Hostnames accepted beyond loopback, i.e. the LAN addresses we printed. */
@@ -88,7 +96,10 @@ export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = 
     const fromQuery = typeof q === 'string' ? q : undefined;
     const header = req.headers['x-access-token'];
     const supplied =
-      fromQuery ?? (typeof header === 'string' ? header : undefined) ?? cookieValue(req.headers.cookie, ACCESS_COOKIE);
+      fromQuery ??
+      (typeof header === 'string' ? header : undefined) ??
+      cookieValue(req.headers.cookie, ACCESS_COOKIE) ??
+      cookieValue(req.headers.cookie, LEGACY_ACCESS_COOKIE);
 
     if (!tokenMatches(token, supplied)) {
       return reply.status(403).send({ error: 'access token required' });

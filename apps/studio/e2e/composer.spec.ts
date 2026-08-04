@@ -10,26 +10,26 @@ import { test, expect, type Page } from '@playwright/test';
  * so this spec clicks and types for real.
  */
 
-const line = (p: Page) => p.locator('.bt-brief-line').first();
-const dock = (p: Page) => p.locator('.bt-home-dock, .bt-canvas-dock').first();
-const chips = (p: Page) => p.locator('.bt-brief-line .bt-token');
+const line = (p: Page) => p.locator('.sc-brief-line').first();
+const dock = (p: Page) => p.locator('.sc-home-dock, .sc-canvas-dock').first();
+const chips = (p: Page) => p.locator('.sc-brief-line .sc-token');
 
 /** What the sentence reads as, chips included. */
 const sentence = async (p: Page) => (await line(p).textContent())?.replace(/ /g, ' ') ?? '';
 
 /** Open the plus menu and pick one of its entries. */
 async function plusMenu(p: Page, entry: RegExp) {
-  const panel = p.locator('.bt-attachpanel');
+  const panel = p.locator('.sc-attachpanel');
   if (await panel.isVisible().catch(() => false)) {
-    await dock(p).locator('.bt-attach-toggle').click();
+    await dock(p).locator('.sc-attach-toggle').click();
   }
-  await dock(p).locator('.bt-attach-toggle').click();
-  await p.locator('.bt-plusmenu button', { hasText: entry }).click();
-  await p.locator('.bt-ap-card').first().waitFor();
+  await dock(p).locator('.sc-attach-toggle').click();
+  await p.locator('.sc-plusmenu button', { hasText: entry }).click();
+  await p.locator('.sc-ap-card').first().waitFor();
 }
 
 async function pickCard(p: Page, index = 0) {
-  await p.locator('.bt-ap-card').nth(index).click();
+  await p.locator('.sc-ap-card').nth(index).click();
   await expect(chips(p)).not.toHaveCount(0);
 }
 
@@ -43,7 +43,7 @@ async function pickCard(p: Page, index = 0) {
 async function clickAtChar(p: Page, nodeIndex: number, charOffset: number) {
   const pt = await p.evaluate(
     ([ni, off]) => {
-      const el = document.querySelector('.bt-brief-line')!;
+      const el = document.querySelector('.sc-brief-line')!;
       const node = el.childNodes[ni as number];
       const len = (node.textContent ?? '').length;
       const r = document.createRange();
@@ -89,8 +89,8 @@ test('a chip lands at the caret, not at the end', async ({ page }) => {
 test('@ reaches for an ingredient and typing carries on', async ({ page }) => {
   await page.keyboard.type('put the ');
   await page.keyboard.type('@');
-  await page.locator('.bt-cmd-row').first().waitFor();
-  await page.locator('.bt-cmd-row').first().click();
+  await page.locator('.sc-cmd-row').first().waitFor();
+  await page.locator('.sc-cmd-row').first().click();
   await page.keyboard.type('on ice');
   const text = await sentence(page);
   expect(text).not.toContain('@');
@@ -100,11 +100,11 @@ test('@ reaches for an ingredient and typing carries on', async ({ page }) => {
 test('# reaches for a look, and offers only looks', async ({ page }) => {
   await page.keyboard.type('a shot ');
   await page.keyboard.type('#');
-  await page.locator('.bt-cmd-row').first().waitFor();
+  await page.locator('.sc-cmd-row').first().waitFor();
   // the sigil is the filter: a look menu never lists products or colors
-  const groups = await page.locator('.bt-cmd-group').allInnerTexts();
+  const groups = await page.locator('.sc-cmd-group').allInnerTexts();
   expect(groups.every((g) => /looks/i.test(g))).toBe(true);
-  await page.locator('.bt-cmd-row').first().click();
+  await page.locator('.sc-cmd-row').first().click();
   await page.keyboard.type('at dawn');
   const text = await sentence(page);
   expect(text).not.toContain('#');
@@ -114,13 +114,13 @@ test('# reaches for a look, and offers only looks', async ({ page }) => {
 test('a hex colour is text, not a look query', async ({ page }) => {
   await page.keyboard.type('keep the cap #F5C518 exactly');
   // the menu must not be open, and nothing may have been eaten
-  await expect(page.locator('.bt-cmd')).toHaveCount(0);
+  await expect(page.locator('.sc-cmd')).toHaveCount(0);
   expect(await sentence(page)).toContain('#F5C518');
 });
 
 test('an email keeps its @', async ({ page }) => {
   await page.keyboard.type('credit tony@example.com in the corner');
-  await expect(page.locator('.bt-cmd')).toHaveCount(0);
+  await expect(page.locator('.sc-cmd')).toHaveCount(0);
   expect(await sentence(page)).toContain('tony@example.com');
 });
 
@@ -158,19 +158,19 @@ test('backspace over a chip removes it and leaves one space', async ({ page }) =
 test('changing aspect and quality does not disturb the sentence', async ({ page }) => {
   await page.keyboard.type('a careful sentence');
 
-  await page.locator('.bt-var').first().click(); // aspect
+  await page.locator('.sc-var').first().click(); // aspect
   await page.locator('[role="menuitem"]').filter({ hasText: /Story/ }).first().click();
   await expect(page.locator('[role="menuitem"]')).toHaveCount(0); // the menu hands focus back as it closes
   await page.keyboard.type(' more');
 
-  await page.locator('.bt-var', { hasText: /Draft|Standard|High/ }).click(); // quality
+  await page.locator('.sc-var', { hasText: /Draft|Standard|High/ }).click(); // quality
   await page.locator('[role="menuitem"]').filter({ hasText: /High/ }).first().click();
   await expect(page.locator('[role="menuitem"]')).toHaveCount(0);
   await page.keyboard.type(' still');
 
   // the sentence never repainted, and the caret came back both times
   expect(await sentence(page)).toBe('a careful sentence more still');
-  await expect(page.locator('.bt-var', { hasText: '9:16' })).toBeVisible();
+  await expect(page.locator('.sc-var', { hasText: '9:16' })).toBeVisible();
 });
 
 test('copy and paste rebuilds the chips', async ({ page }) => {
@@ -216,7 +216,7 @@ test('clicking a chip puts the caret beside it, never inside it', async ({ page 
   expect(
     await page.evaluate(() => {
       const n = getSelection()?.anchorNode as Node | null;
-      return !!n?.parentElement?.closest('.bt-token');
+      return !!n?.parentElement?.closest('.sc-token');
     }),
   ).toBe(false);
   await page.keyboard.type('X');
@@ -241,13 +241,13 @@ test('clicking in the gap after a chip lands after it, not in front of it', asyn
   // which threw the caret back in front of the chip on every click.
   for (const dx of [2, 6, 10]) {
     const pt = await page.evaluate((d) => {
-      const cr = document.querySelector('.bt-token')!.getBoundingClientRect();
+      const cr = document.querySelector('.sc-token')!.getBoundingClientRect();
       return { x: cr.right + (d as number), y: cr.top + cr.height / 2 };
     }, dx);
     await page.mouse.click(pt.x, pt.y);
     const side = await page.evaluate(() => {
       const r = getSelection()!.getRangeAt(0);
-      const chip = document.querySelector('.bt-token')!;
+      const chip = document.querySelector('.sc-token')!;
       // DOCUMENT_POSITION_FOLLOWING means the caret's node comes after the chip
       return (chip.compareDocumentPosition(r.startContainer) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     });
@@ -256,7 +256,7 @@ test('clicking in the gap after a chip lands after it, not in front of it', asyn
 
   // and back in the gap itself, typing lands immediately after the chip
   const gap = await page.evaluate(() => {
-    const cr = document.querySelector('.bt-token')!.getBoundingClientRect();
+    const cr = document.querySelector('.sc-token')!.getBoundingClientRect();
     return { x: cr.right + 3, y: cr.top + cr.height / 2 };
   });
   await page.mouse.click(gap.x, gap.y);
@@ -278,8 +278,8 @@ test('every point in the card puts the caret where it was clicked', async ({ pag
    * click a few pixels off the text threw the caret to the front of the brief.
    */
   const points = await page.evaluate(() => {
-    const card = document.querySelector('.bt-brief')!.getBoundingClientRect();
-    const c = document.querySelector('.bt-token')!.getBoundingClientRect();
+    const card = document.querySelector('.sc-brief')!.getBoundingClientRect();
+    const c = document.querySelector('.sc-token')!.getBoundingClientRect();
     const mid = c.top + c.height / 2;
     return {
       'gap after the chip': { x: c.right + 4, y: mid },
@@ -294,7 +294,7 @@ test('every point in the card puts the caret where it was clicked', async ({ pag
     await page.keyboard.press('Escape');
     const after = await page.evaluate(() => {
       const r = getSelection()!.getRangeAt(0);
-      const chip = document.querySelector('.bt-token')!;
+      const chip = document.querySelector('.sc-token')!;
       return (chip.compareDocumentPosition(r.startContainer) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     });
     expect(after, `${label} should land after the chip`).toBe(true);
@@ -302,8 +302,8 @@ test('every point in the card puts the caret where it was clicked', async ({ pag
 
   // and the empty stretch after the sentence means the end of it
   const far = await page.evaluate(() => {
-    const card = document.querySelector('.bt-brief')!.getBoundingClientRect();
-    const c = document.querySelector('.bt-token')!.getBoundingClientRect();
+    const card = document.querySelector('.sc-brief')!.getBoundingClientRect();
+    const c = document.querySelector('.sc-token')!.getBoundingClientRect();
     return { x: card.right - 30, y: c.top + c.height / 2 };
   });
   await page.mouse.click(far.x, far.y);
@@ -319,5 +319,5 @@ test('clicking the body of a chip opens its own menu', async ({ page }) => {
   const box = await chips(page).first().boundingBox();
   if (!box) throw new Error('no chip');
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(page.locator('.bt-cmd-row').first()).toBeVisible();
+  await expect(page.locator('.sc-cmd-row').first()).toBeVisible();
 });

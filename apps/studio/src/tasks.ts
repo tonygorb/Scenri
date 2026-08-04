@@ -95,7 +95,8 @@ export function catalogPercent(j: CatalogImportJob | null): number {
   return 5;
 }
 
-export function taskFromNode(n: ActivityNode, brandId: string): Task {
+/** `base` is the brand's path prefix, `/b/<slug>` — see app/brandPath.ts. */
+export function taskFromNode(n: ActivityNode, base: string): Task {
   const where = n.projectName || 'Project';
   // the elapsed count lives in the time column; saying it twice in one row was
   // the kind of thing that reads as detail and lands as noise
@@ -115,11 +116,11 @@ export function taskFromNode(n: ActivityNode, brandId: string): Task {
     // a generation has no honest percent: the house shows shimmer and seconds
     percent: null,
     startedAt: n.createdAt,
-    href: `/b/${brandId}/p/${n.projectId}/n/${n.id}`,
+    href: `${base}/p/${n.projectSlug}/n/${n.id}`,
   };
 }
 
-export function taskFromCatalogJob(j: CatalogImportJob, brandId: string): Task {
+export function taskFromCatalogJob(j: CatalogImportJob, base: string): Task {
   const state: TaskState =
     j.stage === 'completed' ? 'done' : j.stage === 'partial' ? 'partial' : j.stage === 'failed' ? 'error' : 'running';
   let host = j.url;
@@ -138,7 +139,7 @@ export function taskFromCatalogJob(j: CatalogImportJob, brandId: string): Task {
     thumb: null,
     percent: catalogPercent(j),
     startedAt: j.createdAt,
-    href: `/b/${brandId}/brand`,
+    href: `${base}/brand`,
   };
 }
 

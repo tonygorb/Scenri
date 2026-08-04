@@ -339,7 +339,7 @@ export const Composer = forwardRef<
   };
 
   return (
-    <div className="bt-composer">
+    <div className="sc-composer">
       <input
         ref={fileRef}
         type="file"
@@ -362,18 +362,18 @@ export const Composer = forwardRef<
         />
       )}
       {engineNote && (
-        <div className="bt-banner">
+        <div className="sc-banner">
           <Lightning size={15} />
           <span>
             {engineNote.title}
             <small>{engineNote.detail}</small>
           </span>
-          <button type="button" className="bt-banner-act" onClick={() => openSettings('engines')}>
+          <button type="button" className="sc-banner-act" onClick={() => openSettings('engines')}>
             Open settings
           </button>
         </div>
       )}
-      <div className="bt-promptcard">
+      <div className="sc-promptcard">
         <BriefInput
           ref={briefRef}
           onChange={setSentence}
@@ -388,19 +388,17 @@ export const Composer = forwardRef<
                 ? 'Refine this shot, or describe a new one'
                 : 'What should we shoot? (use / to insert, @ for a product, # for a look)'
           }
-          placeholderSm={
-            template || mode === 'edit' ? undefined : 'What should we shoot? (use / @ #)'
-          }
+          placeholderSm={template || mode === 'edit' ? undefined : 'What should we shoot? (use / @ #)'}
           onSubmit={() => void go()}
         />
 
-        <div className="bt-prompt-row">
-          <div className="bt-prompt-left">
-            <span className="bt-plus-wrap">
+        <div className="sc-prompt-row">
+          <div className="sc-prompt-left">
+            <span className="sc-plus-wrap">
               <button
                 type="button"
                 ref={attachRef}
-                className="bt-icon-btn bt-attach-toggle"
+                className="sc-icon-btn sc-attach-toggle"
                 aria-expanded={plusOpen || attachOpen}
                 aria-label="Attach"
                 title="Attach"
@@ -415,8 +413,8 @@ export const Composer = forwardRef<
               </button>
               {plusOpen && (
                 <>
-                  <span className="bt-plus-scrim" onClick={() => setPlusOpen(false)} aria-hidden />
-                  <div className="bt-plusmenu" role="menu" onMouseDownCapture={keepCaret}>
+                  <span className="sc-plus-scrim" onClick={() => setPlusOpen(false)} aria-hidden />
+                  <div className="sc-plusmenu" role="menu" onMouseDownCapture={keepCaret}>
                     <button type="button" role="menuitem" onClick={() => openAttach('Products')}>
                       <Package size={14} /> Product
                     </button>
@@ -445,9 +443,9 @@ export const Composer = forwardRef<
             </span>
 
             <Select.Root value={engineId} onValueChange={setEngineId}>
-              <Select.Trigger variant="ghost" className="bt-mini-sel">
+              <Select.Trigger variant="ghost" className="sc-mini-sel">
                 <Lightning size={14} />
-                <span className="bt-mini-sel-t">{engine?.displayName ?? 'Demo'}</span>
+                <span className="sc-mini-sel-t">{engine?.displayName ?? 'Demo'}</span>
               </Select.Trigger>
               <Select.Content>
                 {usable.map((e) => (
@@ -460,10 +458,10 @@ export const Composer = forwardRef<
             </Select.Root>
           </div>
 
-          <div className="bt-prompt-right">
+          <div className="sc-prompt-right">
             <DropdownMenu.Root>
               <DropdownMenu.Trigger>
-                <button type="button" className="bt-var" aria-label={`Aspect ${ratio}`} title="Aspect ratio">
+                <button type="button" className="sc-var" aria-label={`Aspect ${ratio}`} title="Aspect ratio">
                   <Crop size={14} />
                   {ratio}
                 </button>
@@ -480,7 +478,7 @@ export const Composer = forwardRef<
             {mode === 'generation' && (
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger>
-                  <button type="button" className="bt-var" aria-label={`${count} variants`} title="Variants">
+                  <button type="button" className="sc-var" aria-label={`${count} variants`} title="Variants">
                     <Stack size={14} />
                     {count}v
                   </button>
@@ -497,7 +495,7 @@ export const Composer = forwardRef<
 
             <DropdownMenu.Root>
               <DropdownMenu.Trigger>
-                <button type="button" className="bt-var" aria-label={`Quality ${quality}`} title="Quality">
+                <button type="button" className="sc-var" aria-label={`Quality ${quality}`} title="Quality">
                   <Gauge size={14} />
                   {QUALITIES.find((q) => q.id === quality)?.label}
                 </button>
@@ -524,7 +522,7 @@ export const Composer = forwardRef<
 
             <button
               type="button"
-              className="bt-send"
+              className="sc-send"
               disabled={!canGo}
               onClick={() => void go()}
               aria-label={mode === 'edit' ? 'Refine' : 'Generate'}

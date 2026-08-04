@@ -135,7 +135,7 @@ export function ProductsPanel({
           />
           <button
             type="button"
-            className="bt-btn bt-btn-ghost"
+            className="sc-btn sc-btn-ghost"
             style={{ height: 32, flexShrink: 0 }}
             disabled={!importUrl.trim()}
             onClick={() => void startImport(importUrl.trim())}
@@ -160,7 +160,7 @@ export function ProductsPanel({
         />
         <button
           type="button"
-          className="bt-btn bt-btn-ghost"
+          className="sc-btn sc-btn-ghost"
           disabled={busy}
           onClick={() => fileRef.current?.click()}
           style={{ height: 32, flexShrink: 0 }}

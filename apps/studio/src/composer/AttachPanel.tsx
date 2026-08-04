@@ -65,8 +65,8 @@ export function AttachPanel({
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (
-        !(e.target as HTMLElement).closest('.bt-attachpanel') &&
-        !(e.target as HTMLElement).closest('.bt-attach-toggle')
+        !(e.target as HTMLElement).closest('.sc-attachpanel') &&
+        !(e.target as HTMLElement).closest('.sc-attach-toggle')
       )
         onClose();
     };
@@ -152,13 +152,13 @@ export function AttachPanel({
   const groups: Exclude<Tab, 'All'>[] = ['Products', 'Cast', 'Looks', 'Colors', 'Shots'];
 
   const card = (c: Card) => (
-    <button type="button" key={c.key} className="bt-ap-card" title={c.label} onClick={c.run}>
+    <button type="button" key={c.key} className="sc-ap-card" title={c.label} onClick={c.run}>
       {c.swatch ? (
-        <span className="bt-ap-thumb" style={{ background: c.swatch }} />
+        <span className="sc-ap-thumb" style={{ background: c.swatch }} />
       ) : c.thumb ? (
-        <img className="bt-ap-thumb" src={c.thumb} alt="" loading="lazy" />
+        <img className="sc-ap-thumb" src={c.thumb} alt="" loading="lazy" />
       ) : (
-        <span className="bt-ap-thumb bt-ap-thumb-empty">
+        <span className="sc-ap-thumb sc-ap-thumb-empty">
           <ImageSquare size={16} />
         </span>
       )}
@@ -168,22 +168,22 @@ export function AttachPanel({
   );
 
   return (
-    <div className="bt-attachpanel" role="dialog" aria-label="Attach to brief" onMouseDownCapture={keepCaret}>
-      <div className="bt-ap-head">
-        <div className="bt-ap-tabs">
+    <div className="sc-attachpanel" role="dialog" aria-label="Attach to brief" onMouseDownCapture={keepCaret}>
+      <div className="sc-ap-head">
+        <div className="sc-ap-tabs">
           {TABS.map((t) => (
             <button type="button" key={t} data-active={t === tab} onClick={() => setTab(t)}>
               {t}
             </button>
           ))}
         </div>
-        <div className="bt-ap-search">
+        <div className="sc-ap-search">
           <MagnifyingGlass size={12} />
           <input placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <button
           type="button"
-          className="bt-icon-btn bt-ap-close"
+          className="sc-icon-btn sc-ap-close"
           onClick={onUpload}
           aria-label="Upload image"
           title="Upload an image"
@@ -193,7 +193,7 @@ export function AttachPanel({
         </button>
         <button
           type="button"
-          className="bt-icon-btn bt-ap-close"
+          className="sc-icon-btn sc-ap-close"
           onClick={onClose}
           aria-label="Close"
           style={{ width: 28, height: 28 }}
@@ -202,21 +202,21 @@ export function AttachPanel({
         </button>
       </div>
 
-      <div className="bt-ap-body">
-        {shown.length === 0 && <div className="bt-ap-empty">Nothing matches{query ? ` "${q.trim()}"` : ''}.</div>}
+      <div className="sc-ap-body">
+        {shown.length === 0 && <div className="sc-ap-empty">Nothing matches{query ? ` "${q.trim()}"` : ''}.</div>}
         {tab === 'All' ? (
           groups.map((g) => {
             const items = shown.filter((c) => c.tab === g);
             if (!items.length) return null;
             return (
-              <div key={g} className="bt-ap-group">
-                <div className="bt-eyebrow">{g === 'Shots' ? 'Recent shots' : g === 'Colors' ? 'Brand colors' : g}</div>
-                <div className="bt-ap-grid">{items.map(card)}</div>
+              <div key={g} className="sc-ap-group">
+                <div className="sc-eyebrow">{g === 'Shots' ? 'Recent shots' : g === 'Colors' ? 'Brand colors' : g}</div>
+                <div className="sc-ap-grid">{items.map(card)}</div>
               </div>
             );
           })
         ) : (
-          <div className="bt-ap-grid">{shown.map(card)}</div>
+          <div className="sc-ap-grid">{shown.map(card)}</div>
         )}
       </div>
     </div>

@@ -24,6 +24,7 @@ const node = (over: Partial<ActivityNode> = {}): ActivityNode => ({
   id: 'n1',
   projectId: 'p1',
   projectName: 'Spring',
+  projectSlug: 'spring',
   parentId: null,
   kind: 'generation',
   prompt: 'golden hour on the roof',
@@ -111,30 +112,31 @@ describe('time', () => {
 
 describe('taskFromNode', () => {
   it('never invents a percent for a generation', () => {
-    expect(taskFromNode(node(), 'b1').percent).toBeNull();
-    expect(taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), 'b1').percent).toBeNull();
+    expect(taskFromNode(node(), '/b/b1').percent).toBeNull();
+    expect(taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), '/b/b1').percent).toBeNull();
   });
   it('says where the work is and what came of it', () => {
-    const done = taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), 'b1');
+    const done = taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), '/b/b1');
     expect(done.subtitle).toBe('Spring · 2 images');
     expect(done.thumb).toBe('h1');
-    expect(done.href).toBe('/b/b1/p/p1/n/n1');
-    expect(taskFromNode(node({ status: 'done', images: ['h1'] }), 'b1').subtitle).toBe('Spring · 1 image');
-    expect(taskFromNode(node({ status: 'error', error: 'engine refused' }), 'b1').subtitle).toBe(
+    // the link spells the project the way the address bar does
+    expect(done.href).toBe('/b/b1/p/spring/n/n1');
+    expect(taskFromNode(node({ status: 'done', images: ['h1'] }), '/b/b1').subtitle).toBe('Spring · 1 image');
+    expect(taskFromNode(node({ status: 'error', error: 'engine refused' }), '/b/b1').subtitle).toBe(
       'Spring · engine refused',
     );
   });
   it('marks an edit as an edit', () => {
-    const t = taskFromNode(node({ kind: 'edit' }), 'b1');
+    const t = taskFromNode(node({ kind: 'edit' }), '/b/b1');
     expect(t.kind).toBe('edit');
     expect(t.title.startsWith('Edit · ')).toBe(true);
   });
   it('falls back when the project has no name', () => {
-    expect(taskFromNode(node({ projectName: '' }), 'b1').subtitle.startsWith('Project · ')).toBe(true);
+    expect(taskFromNode(node({ projectName: '' }), '/b/b1').subtitle.startsWith('Project · ')).toBe(true);
   });
   it('leaves the elapsed count to the time column', () => {
     // the row already carries the seconds on the right; twice is noise
-    expect(taskFromNode(node({ status: 'running' }), 'b1').subtitle).toBe('Spring · generating');
+    expect(taskFromNode(node({ status: 'running' }), '/b/b1').subtitle).toBe('Spring · generating');
   });
 });
 
@@ -157,17 +159,17 @@ describe('catalogPercent', () => {
 
 describe('taskFromCatalogJob', () => {
   it('gets a real percent, because it has real counters', () => {
-    expect(taskFromCatalogJob(job({ stage: 'completed' }), 'b1').percent).toBe(100);
+    expect(taskFromCatalogJob(job({ stage: 'completed' }), '/b/b1').percent).toBe(100);
   });
   it('titles by host and maps stage to state', () => {
-    expect(taskFromCatalogJob(job(), 'b1').title).toBe('acme.example');
-    expect(taskFromCatalogJob(job({ stage: 'discovering' }), 'b1').state).toBe('running');
-    expect(taskFromCatalogJob(job({ stage: 'completed' }), 'b1').state).toBe('done');
-    expect(taskFromCatalogJob(job({ stage: 'partial' }), 'b1').state).toBe('partial');
-    expect(taskFromCatalogJob(job({ stage: 'failed' }), 'b1').state).toBe('error');
+    expect(taskFromCatalogJob(job(), '/b/b1').title).toBe('acme.example');
+    expect(taskFromCatalogJob(job({ stage: 'discovering' }), '/b/b1').state).toBe('running');
+    expect(taskFromCatalogJob(job({ stage: 'completed' }), '/b/b1').state).toBe('done');
+    expect(taskFromCatalogJob(job({ stage: 'partial' }), '/b/b1').state).toBe('partial');
+    expect(taskFromCatalogJob(job({ stage: 'failed' }), '/b/b1').state).toBe('error');
   });
   it('survives a url it cannot parse', () => {
-    expect(taskFromCatalogJob(job({ url: 'not a url' }), 'b1').title).toBe('not a url');
+    expect(taskFromCatalogJob(job({ url: 'not a url' }), '/b/b1').title).toBe('not a url');
   });
 });
 

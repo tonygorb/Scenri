@@ -30,13 +30,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ push }}>
       {children}
-      <div className="bt-toasts" role="status" aria-live="polite">
+      <div className="sc-toasts" role="status" aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className="bt-toast">
+          <div key={t.id} className="sc-toast">
             {t.kind === 'success' ? (
-              <CheckCircle className="bt-toast-ok" size={17} weight="fill" />
+              <CheckCircle className="sc-toast-ok" size={17} weight="fill" />
             ) : (
-              <WarningCircle className="bt-toast-err" size={17} weight="fill" />
+              <WarningCircle className="sc-toast-err" size={17} weight="fill" />
             )}
             <div style={{ minWidth: 0, flex: 1 }}>
               <b>{t.title}</b>
@@ -44,7 +44,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {t.action && (
                 <button
                   type="button"
-                  className="bt-toast-act"
+                  className="sc-toast-act"
                   onClick={() => {
                     t.action!.onClick();
                     dismiss(t.id);
@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 </button>
               )}
             </div>
-            <button type="button" className="bt-toast-x" onClick={() => dismiss(t.id)} aria-label="Dismiss">
+            <button type="button" className="sc-toast-x" onClick={() => dismiss(t.id)} aria-label="Dismiss">
               <X size={13} />
             </button>
           </div>

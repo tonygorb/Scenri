@@ -20,7 +20,7 @@ const serve = (access?: Parameters<typeof buildServer>[0]['access']) =>
   buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))), access });
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'bt-access-'));
+  home = mkdtempSync(join(tmpdir(), 'sc-access-'));
   core = createCore(home);
 });
 afterEach(() => {
@@ -128,6 +128,21 @@ describe('LAN access token', () => {
       headers: lan({ cookie: `${ACCESS_COOKIE}=${token}` }),
     });
     expect(res.statusCode).toBe(200);
+  });
+
+  // a tab open across the sc- rename still carries the old cookie name
+  it('accepts the pre-rename bt_access cookie', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/brands',
+      headers: lan({ cookie: `bt_access=${token}` }),
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('does not trust the pre-rename cookie name with a wrong value', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/brands', headers: lan({ cookie: 'bt_access=nope' }) });
+    expect(res.statusCode).toBe(403);
   });
 
   it('accepts an x-access-token header', async () => {

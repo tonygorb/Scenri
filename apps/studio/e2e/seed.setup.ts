@@ -5,7 +5,7 @@ import { test as setup, expect, type APIRequestContext } from '@playwright/test'
  *
  * The composer only exists once a brand exists: with an empty library the app
  * renders the brand wizard instead, and every spec times out waiting for
- * `.bt-brief-line`. This used to pass only on machines whose `~/.scenri`
+ * `.sc-brief-line`. This used to pass only on machines whose `~/.scenri`
  * already held the right data, which meant the suite could not be run by
  * anyone else and CI could not run it at all.
  *

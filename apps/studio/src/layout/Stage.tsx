@@ -59,9 +59,9 @@ export function StageFrame({
 
   if (node.kind === 'root') {
     return (
-      <Box className="bt-frame" p="8">
+      <Box className="sc-frame" p="8">
         <Flex direction="column" align="center" gap="2" py="6">
-          <Text className="bt-display" size="7" align="center">
+          <Text className="sc-display" size="7" align="center">
             Blank canvas, full brand.
           </Text>
           <Text color="gray" size="2" align="center">
@@ -73,7 +73,7 @@ export function StageFrame({
   }
   return (
     <Flex justify="center">
-      <Box className="bt-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
+      <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
         {node.status === 'running' && (
           <Flex
             align="center"
@@ -99,16 +99,16 @@ export function StageFrame({
                 This shot did not finish
               </Text>
             </Flex>
-            <Text size="1" style={{ color: 'var(--bt-fg2)', lineHeight: 1.5 }}>
+            <Text size="1" style={{ color: 'var(--sc-fg2)', lineHeight: 1.5 }}>
               {node.error}
             </Text>
             {node.prompt && (
               <Text
                 size="1"
                 style={{
-                  color: 'var(--bt-fg3)',
+                  color: 'var(--sc-fg3)',
                   lineHeight: 1.5,
-                  borderTop: '1px solid var(--bt-line)',
+                  borderTop: '1px solid var(--sc-line)',
                   paddingTop: 10,
                 }}
               >
@@ -116,7 +116,7 @@ export function StageFrame({
               </Text>
             )}
             {onRetry && (
-              <button type="button" className="bt-btn bt-btn-primary" style={{ alignSelf: 'start' }} onClick={onRetry}>
+              <button type="button" className="sc-btn sc-btn-primary" style={{ alignSelf: 'start' }} onClick={onRetry}>
                 <ArrowClockwise size={13} /> Try again
               </button>
             )}

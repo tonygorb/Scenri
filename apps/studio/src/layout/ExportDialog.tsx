@@ -86,22 +86,22 @@ export function ExportDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content maxWidth="360px" aria-describedby={undefined}>
         <Dialog.Title>Export this shot</Dialog.Title>
-        <p className="bt-dlg-sub">
+        <p className="sc-dlg-sub">
           {layers.length > 0
             ? 'Text layers render into the pixels exactly as shown.'
             : 'Pick the sizes you need. Several downloads one zip.'}
         </p>
-        <div className="bt-opts">
+        <div className="sc-opts">
           {rows.map((r) => (
             <button
               type="button"
               key={r.id}
-              className="bt-opt"
+              className="sc-opt"
               data-active={picked.includes(r.id)}
               onClick={() => toggle(r.id)}
               aria-pressed={picked.includes(r.id)}
             >
-              <span className="bt-cb" />
+              <span className="sc-cb" />
               <span>
                 {r.label}
                 <small>{r.note}</small>
@@ -109,10 +109,10 @@ export function ExportDialog({
             </button>
           ))}
         </div>
-        {err && <p className="bt-dlg-err">{err}</p>}
+        {err && <p className="sc-dlg-err">{err}</p>}
         <button
           type="button"
-          className="bt-btn bt-btn-primary bt-dlg-go"
+          className="sc-btn sc-btn-primary sc-dlg-go"
           disabled={files === 0 || busy}
           onClick={() => void run()}
         >

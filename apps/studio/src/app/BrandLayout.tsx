@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Navigate, Outlet, useNavigate, useParams } from 'react-router';
+import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router';
 import { api, type Brand, type Project } from '../api.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
 import { TabBar } from '../layout/TabBar.js';
@@ -8,11 +8,14 @@ import { useKeyboardInset } from '../useKeyboardInset.js';
 import { ProjectPicker } from '../views/ProjectPicker.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
 import { useAppData, useDialogParam } from './AppShell.js';
+import { brandPath } from './brandPath.js';
 import { TaskCenterProvider } from './TaskCenter.js';
 
 interface BrandData {
   brand: Brand;
   projects: Project[];
+  /** False until the first list lands, so /p/:slug knows it cannot resolve yet. */
+  projectsLoaded: boolean;
   refreshProjects: () => Promise<void>;
 }
 
@@ -47,12 +50,17 @@ export function useAssetsPanel(): AssetsPanelState {
 /**
  * Everything under /b/:brandId. The brand lives in the path rather than in
  * state, so a refresh cannot quietly hand you a different client's work.
+ *
+ * The segment is the slug, but an id still resolves: bookmarks and links made
+ * before slugs, and anything a rename left behind, keep working.
  */
 export function BrandLayout() {
   const { brandId } = useParams();
+  const { pathname, search } = useLocation();
   const { brands, engines, refresh } = useAppData();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const picker = useDialogParam('picker');
   // narrow screens get the panel as a drawer over the canvas: opening one by
   // default is a first run that starts behind a scrim
@@ -68,11 +76,17 @@ export function BrandLayout() {
   // the docks are fixed, so the keyboard has to be measured for them
   useKeyboardInset();
 
-  const brand = brands.find((b) => b.id === brandId) ?? null;
+  const brand = brands.find((b) => b.slug === brandId) ?? brands.find((b) => b.id === brandId) ?? null;
 
   const refreshProjects = useCallback(async () => {
     if (!brand) return;
     setProjects(await api.projects(brand.id));
+    setProjectsLoaded(true);
+  }, [brand?.id]);
+
+  // the other brand's list is not an answer about this one
+  useEffect(() => {
+    setProjectsLoaded(false);
   }, [brand?.id]);
 
   useEffect(() => {
@@ -86,27 +100,40 @@ export function BrandLayout() {
   // a deleted brand, or a link to one this machine has never seen
   if (!brand) return <Navigate to="/" replace />;
 
+  // reached by id: rewrite to the slug so the address bar stays readable and
+  // everything downstream can assume one spelling of the path. Swapping the
+  // segment rather than slicing by length, because a param arrives decoded
+  // while the pathname around it is still percent-encoded.
+  if (brandId !== brand.slug) {
+    const seg = pathname.split('/');
+    seg[2] = brand.slug;
+    return <Navigate to={seg.join('/') + search} replace />;
+  }
+
+  const base = brandPath(brand);
+  const openProject = (id: string) => navigate(`${base}/p/${projects.find((p) => p.id === id)?.slug ?? id}`);
+
   const newProject = async () => {
     const made = await api.createProject(brand.id, 'Untitled');
     await refreshProjects();
-    navigate(`/b/${brand.id}/p/${made.project.id}`);
+    navigate(`${base}/p/${made.project.slug}`);
   };
 
   return (
-    <Ctx.Provider value={{ brand, projects, refreshProjects }}>
+    <Ctx.Provider value={{ brand, projects, projectsLoaded, refreshProjects }}>
       <SettingsDialog engines={engines} projects={projects} onSaved={refresh} />
       <ProjectPicker
         open={picker.value === '1'}
         onClose={picker.close}
         brandId={brand.id}
-        onPick={(id) => navigate(`/b/${brand.id}/p/${id}`)}
+        onPick={openProject}
         onCreate={() => {
           void newProject();
         }}
       />
-      <TaskCenterProvider brandId={brand.id}>
+      <TaskCenterProvider brand={brand}>
         <AssetsCtx.Provider value={assets}>
-          <div className="bt-shell">
+          <div className="sc-shell">
             <TopBar />
             <Outlet />
             <TabBar />

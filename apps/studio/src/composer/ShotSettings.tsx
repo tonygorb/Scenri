@@ -86,31 +86,31 @@ export function ShotSettings({
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <button type="button" className="bt-var bt-shotset" aria-label="Shot settings" title="Shot settings">
+        <button type="button" className="sc-var sc-shotset" aria-label="Shot settings" title="Shot settings">
           <SlidersHorizontal size={16} />
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="bt-shotsheet-scrim" />
+        <Dialog.Overlay className="sc-shotsheet-scrim" />
         <Dialog.Content
           ref={sheet}
-          className="bt-shotsheet"
+          className="sc-shotsheet"
           aria-describedby={undefined}
           /* Radix would otherwise pull focus to the chip, and the next
              keystroke meant for the brief would be lost */
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <div
-            className="bt-shotsheet-grip"
+            className="sc-shotsheet-grip"
             onPointerDown={grab}
             onPointerMove={drag}
             onPointerUp={release}
             onPointerCancel={release}
           >
-            <span className="bt-shotsheet-bar" aria-hidden />
+            <span className="sc-shotsheet-bar" aria-hidden />
             {/* the three named rows below say what this is; the heading is for
                 the screen reader that cannot see them yet */}
-            <Dialog.Title className="bt-vh">Shot settings</Dialog.Title>
+            <Dialog.Title className="sc-vh">Shot settings</Dialog.Title>
           </div>
 
           <Field label="Aspect ratio">
@@ -152,9 +152,9 @@ export function ShotSettings({
  */
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="bt-shotfield">
-      <span className="bt-shotfield-lb">{label}</span>
-      <div className="bt-seg">{children}</div>
+    <div className="sc-shotfield">
+      <span className="sc-shotfield-lb">{label}</span>
+      <div className="sc-seg">{children}</div>
     </div>
   );
 }
@@ -174,7 +174,7 @@ function Opt({
   return (
     <button
       type="button"
-      className="bt-seg-o"
+      className="sc-seg-o"
       data-on={on || undefined}
       aria-pressed={on}
       aria-label={label}

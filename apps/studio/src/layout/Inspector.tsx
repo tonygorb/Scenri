@@ -36,17 +36,17 @@ export function Inspector(props: {
   const { node, tab, onTabChange } = props;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
-      <div className="bt-tabs" style={{ background: 'none' }}>
-        <button type="button" className="bt-tab" data-active={tab === 'text'} onClick={() => onTabChange('text')}>
+      <div className="sc-tabs" style={{ background: 'none' }}>
+        <button type="button" className="sc-tab" data-active={tab === 'text'} onClick={() => onTabChange('text')}>
           Text
         </button>
-        <button type="button" className="bt-tab" data-active={tab === 'info'} onClick={() => onTabChange('info')}>
+        <button type="button" className="sc-tab" data-active={tab === 'info'} onClick={() => onTabChange('info')}>
           Info
         </button>
       </div>
       {!node ? (
         <Flex align="center" justify="center" style={{ flex: 1 }} p="4">
-          <Text size="1" style={{ color: 'var(--bt-fg3)', textAlign: 'center' }}>
+          <Text size="1" style={{ color: 'var(--sc-fg3)', textAlign: 'center' }}>
             Pick a shot to add text or see its details.
           </Text>
         </Flex>
@@ -63,7 +63,7 @@ export function Inspector(props: {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bt-eyebrow" style={{ margin: '16px 0 7px' }}>
+    <div className="sc-eyebrow" style={{ margin: '16px 0 7px' }}>
       {children}
     </div>
   );
@@ -93,7 +93,7 @@ function TextTab({
   if (node.status !== 'done' || node.images.length === 0) {
     return (
       <Flex direction="column" gap="2" align="start">
-        <Text size="1" style={{ color: 'var(--bt-fg3)', lineHeight: 1.5 }}>
+        <Text size="1" style={{ color: 'var(--sc-fg3)', lineHeight: 1.5 }}>
           {node.status === 'error'
             ? 'This shot did not finish, so there is nothing to place text on. Try it again from the stage, or pick another shot.'
             : 'Text tools open the moment this shot lands.'}
@@ -126,7 +126,7 @@ function TextTab({
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           type="button"
-          className="bt-btn bt-btn-primary"
+          className="sc-btn sc-btn-primary"
           style={{ flex: 1, justifyContent: 'center' }}
           onClick={onAddLayer}
         >
@@ -134,7 +134,7 @@ function TextTab({
         </button>
         <button
           type="button"
-          className="bt-btn bt-btn-ghost"
+          className="sc-btn sc-btn-ghost"
           style={{ flex: 1, justifyContent: 'center' }}
           disabled={lifting}
           onClick={onLift}
@@ -149,27 +149,27 @@ function TextTab({
           )}
         </button>
       </div>
-      <Text size="1" style={{ color: 'var(--bt-fg3)', display: 'block', margin: '10px 0 14px', lineHeight: 1.5 }}>
+      <Text size="1" style={{ color: 'var(--sc-fg3)', display: 'block', margin: '10px 0 14px', lineHeight: 1.5 }}>
         Drag text right on the image. If a shot came out with text baked in, one click turns it into editable text.
       </Text>
 
       {layers.length > 0 && (
-        <div className="bt-layers">
+        <div className="sc-layers">
           {layers.map((l) => (
             <button
               type="button"
               key={l.id}
-              className="bt-lrow"
+              className="sc-lrow"
               data-active={l.id === selectedLayerId}
               onClick={() => onSelectLayer(l.id)}
             >
               <TextT size={13} />
-              <span className="bt-lrow-t" dir="auto">
+              <span className="sc-lrow-t" dir="auto">
                 {l.text.split('\n')[0] || '(empty)'}
               </span>
               {l.id === selectedLayerId && (
                 <span
-                  className="bt-lrow-x"
+                  className="sc-lrow-x"
                   role="button"
                   aria-label="Remove layer"
                   onClick={(e) => {
@@ -182,7 +182,7 @@ function TextTab({
               )}
             </button>
           ))}
-          <button type="button" className="bt-addlayer" onClick={onAddLayer}>
+          <button type="button" className="sc-addlayer" onClick={onAddLayer}>
             <Plus size={11} /> Add text layer
           </button>
         </div>
@@ -190,10 +190,10 @@ function TextTab({
 
       {sel && font && (
         <>
-          <div className="bt-prop">
+          <div className="sc-prop">
             <label>Font</label>
             <select
-              className="bt-select"
+              className="sc-select"
               value={`${sel.fontId}|${sel.weight}`}
               onChange={(e) => {
                 const [id, w] = e.target.value.split('|');
@@ -209,10 +209,10 @@ function TextTab({
               )}
             </select>
           </div>
-          <div className="bt-prop">
+          <div className="sc-prop">
             <label>Size</label>
             <input
-              className="bt-range"
+              className="sc-range"
               type="range"
               min={16}
               max={220}
@@ -221,10 +221,10 @@ function TextTab({
               aria-label="Size"
             />
           </div>
-          <div className="bt-prop">
+          <div className="sc-prop">
             <label>Spacing</label>
             <input
-              className="bt-range"
+              className="sc-range"
               type="range"
               min={0}
               max={30}
@@ -233,10 +233,10 @@ function TextTab({
               aria-label="Letter spacing"
             />
           </div>
-          <div className="bt-prop">
+          <div className="sc-prop">
             <label>Line height</label>
             <input
-              className="bt-range"
+              className="sc-range"
               type="range"
               min={80}
               max={200}
@@ -245,10 +245,10 @@ function TextTab({
               aria-label="Line height"
             />
           </div>
-          <div className="bt-prop">
+          <div className="sc-prop">
             <label>Opacity</label>
             <input
-              className="bt-range"
+              className="sc-range"
               type="range"
               min={10}
               max={100}
@@ -257,9 +257,9 @@ function TextTab({
               aria-label="Opacity"
             />
           </div>
-          <div className="bt-prop">
+          <div className="sc-prop">
             <label>Align</label>
-            <span className="bt-seg2">
+            <span className="sc-seg2">
               {(['left', 'center', 'right'] as const).map((a) => (
                 <button
                   type="button"
@@ -279,14 +279,14 @@ function TextTab({
               ))}
             </span>
           </div>
-          <div className="bt-prop">
+          <div className="sc-prop">
             <label>Color</label>
             <Flex gap="1" align="center" wrap="wrap">
               {swatches.map((hex) => (
                 <button
                   type="button"
                   key={hex}
-                  className="bt-swatch"
+                  className="sc-swatch"
                   data-active={sel.color.toLowerCase() === hex.toLowerCase()}
                   style={{ background: hex }}
                   onClick={() => update({ color: hex })}
@@ -303,10 +303,10 @@ function TextTab({
             </Flex>
           </div>
 
-          <div className="bt-fx" style={{ marginTop: 14 }}>
+          <div className="sc-fx" style={{ marginTop: 14 }}>
             <button
               type="button"
-              className="bt-fxc"
+              className="sc-fxc"
               data-active={!!sel.uppercase}
               onClick={() => update({ uppercase: !sel.uppercase })}
             >
@@ -314,7 +314,7 @@ function TextTab({
             </button>
             <button
               type="button"
-              className="bt-fxc"
+              className="sc-fxc"
               data-active={!!sel.shadow}
               onClick={() =>
                 update({ shadow: sel.shadow ? null : { x: 0, y: 2, blur: 10, color: 'rgba(0,0,0,0.45)' } })
@@ -324,7 +324,7 @@ function TextTab({
             </button>
             <button
               type="button"
-              className="bt-fxc"
+              className="sc-fxc"
               data-active={!!sel.background}
               onClick={() =>
                 update({
@@ -338,7 +338,7 @@ function TextTab({
             </button>
             <button
               type="button"
-              className="bt-fxc"
+              className="sc-fxc"
               data-active={!!sel.stroke}
               onClick={() => update({ stroke: sel.stroke ? null : { color: '#111111', width: 3 } })}
             >
@@ -387,18 +387,18 @@ function InfoTab({
 
   return (
     <>
-      <div className="bt-eyebrow">Brief</div>
-      <Text size="1" style={{ display: 'block', lineHeight: 1.55, marginTop: 6, color: 'var(--bt-fg2)' }}>
+      <div className="sc-eyebrow">Brief</div>
+      <Text size="1" style={{ display: 'block', lineHeight: 1.55, marginTop: 6, color: 'var(--sc-fg2)' }}>
         {node.prompt || '(none)'}
       </Text>
       <Flex gap="2" mt="3" wrap="wrap">
-        <span className="bt-chip" style={{ cursor: 'default' }}>
+        <span className="sc-chip" style={{ cursor: 'default' }}>
           {node.kind === 'edit' ? 'Refinement' : 'Generation'}
         </span>
-        <span className="bt-chip" style={{ cursor: 'default' }}>
+        <span className="sc-chip" style={{ cursor: 'default' }}>
           {node.engineId}
         </span>
-        <span className="bt-chip" style={{ cursor: 'default' }}>
+        <span className="sc-chip" style={{ cursor: 'default' }}>
           {node.costUsd > 0 ? `$${node.costUsd.toFixed(3)}` : 'Free'}
         </span>
       </Flex>
@@ -406,7 +406,7 @@ function InfoTab({
       {node.status === 'done' && node.images.length > 0 && (
         <>
           <SectionLabel>Export</SectionLabel>
-          <button type="button" className="bt-btn bt-btn-ghost" style={{ width: '100%' }} onClick={onExport}>
+          <button type="button" className="sc-btn sc-btn-ghost" style={{ width: '100%' }} onClick={onExport}>
             Choose sizes
           </button>
         </>
@@ -418,7 +418,7 @@ function InfoTab({
           {!diff ? (
             <button
               type="button"
-              className="bt-btn bt-btn-ghost"
+              className="sc-btn sc-btn-ghost"
               style={{ width: '100%' }}
               disabled={loadingDiff}
               onClick={() => void runDiff()}
@@ -438,7 +438,7 @@ function InfoTab({
                   position: 'relative',
                   borderRadius: 8,
                   overflow: 'hidden',
-                  border: '1px solid var(--bt-line)',
+                  border: '1px solid var(--sc-line)',
                 }}
               >
                 <img src={imgUrl(node.images[0])} alt="" style={{ width: '100%', display: 'block' }} />
@@ -448,7 +448,7 @@ function InfoTab({
                   style={{ position: 'absolute', inset: 0, width: '100%', opacity: 0.55, pointerEvents: 'none' }}
                 />
               </div>
-              <Text size="1" style={{ display: 'block', marginTop: 8, color: 'var(--bt-fg2)' }}>
+              <Text size="1" style={{ display: 'block', marginTop: 8, color: 'var(--sc-fg2)' }}>
                 {(diff.score * 100).toFixed(1)}% of pixels changed.{' '}
                 {diff.score > 0.35
                   ? 'Check the product survived.'
@@ -469,7 +469,7 @@ function InfoTab({
       <div style={{ height: 8 }} />
       <button
         type="button"
-        className="bt-btn bt-btn-ghost"
+        className="sc-btn sc-btn-ghost"
         style={{ width: '100%' }}
         onClick={() => void api.keep(node.id, !node.kept).then(onChanged)}
       >

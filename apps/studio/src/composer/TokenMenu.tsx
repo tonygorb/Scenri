@@ -96,7 +96,7 @@ export function TokenMenu({
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('.bt-cmd')) onClose();
+      if (!(e.target as HTMLElement).closest('.sc-cmd')) onClose();
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -105,8 +105,8 @@ export function TokenMenu({
   if (!pos) return null;
   if (!filtered.length) {
     return createPortal(
-      <div className="bt-cmd" style={{ left: pos.left, bottom: pos.bottom }}>
-        <div className="bt-cmd-empty">Nothing matches “{query}”</div>
+      <div className="sc-cmd" style={{ left: pos.left, bottom: pos.bottom }}>
+        <div className="sc-cmd-empty">Nothing matches “{query}”</div>
       </div>,
       document.body,
     );
@@ -115,7 +115,7 @@ export function TokenMenu({
   let lastGroup = '';
   return createPortal(
     <div
-      className="bt-cmd"
+      className="sc-cmd"
       style={{ left: pos.left, bottom: pos.bottom }}
       ref={listRef}
       role="listbox"
@@ -127,10 +127,10 @@ export function TokenMenu({
         lastGroup = o.group;
         return (
           <div key={o.key}>
-            {head && <div className="bt-cmd-group">{head}</div>}
+            {head && <div className="sc-cmd-group">{head}</div>}
             <button
               type="button"
-              className="bt-cmd-row"
+              className="sc-cmd-row"
               role="option"
               aria-selected={i === active}
               data-active={i === active}
@@ -141,21 +141,21 @@ export function TokenMenu({
               {o.thumb ? (
                 <img src={o.thumb} alt="" />
               ) : o.swatch ? (
-                <span className="bt-cmd-swatch" style={{ background: o.swatch }} />
+                <span className="sc-cmd-swatch" style={{ background: o.swatch }} />
               ) : (
-                <span className="bt-cmd-swatch bt-cmd-swatch-empty" />
+                <span className="sc-cmd-swatch sc-cmd-swatch-empty" />
               )}
-              <span className="bt-cmd-label">{o.label}</span>
+              <span className="sc-cmd-label">{o.label}</span>
               {o.key === selectedKey ? (
-                <Check className="bt-cmd-check" size={12} weight="bold" />
+                <Check className="sc-cmd-check" size={12} weight="bold" />
               ) : (
-                o.hint && <span className="bt-cmd-hint">{o.hint}</span>
+                o.hint && <span className="sc-cmd-hint">{o.hint}</span>
               )}
             </button>
           </div>
         );
       })}
-      <div className="bt-cmd-foot">
+      <div className="sc-cmd-foot">
         <kbd>↑↓</kbd> move <kbd>↵</kbd> insert <kbd>esc</kbd> close
       </div>
     </div>,

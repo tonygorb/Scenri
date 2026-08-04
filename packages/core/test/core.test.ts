@@ -8,7 +8,7 @@ let home: string;
 let core: Core;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'bt-core-'));
+  home = mkdtempSync(join(tmpdir(), 'sc-core-'));
   core = createCore(home);
 });
 afterEach(() => {
@@ -28,12 +28,55 @@ describe('brands + projects', () => {
     expect(core.store.listBrands()).toHaveLength(1);
   });
 
+  it('keeps slugs unique: the slug is the brand URL, so it cannot be shared or stolen', () => {
+    const first = core.store.createBrand(brandJson as any);
+    const second = core.store.createBrand(brandJson as any);
+    expect(first.slug).toBe('acme-coffee');
+    expect(second.slug).toBe('acme-coffee-2');
+
+    // renaming onto a taken name suffixes rather than taking the other's URL
+    const renamed = core.store.updateBrand(second.id, {
+      ...brandJson,
+      meta: { name: 'Acme Coffee' },
+    } as any)!;
+    expect(renamed.slug).toBe('acme-coffee-2');
+    expect(core.store.getBrand(first.id)!.slug).toBe('acme-coffee');
+
+    // and a brand keeps its own slug when saved with an unchanged name
+    expect(core.store.updateBrand(first.id, brandJson as any)!.slug).toBe('acme-coffee');
+  });
+
+  it('keeps the letters of a name written in any script', () => {
+    const named = (name: string) => core.store.createBrand({ specVersion: '0.1', meta: { name } } as any).slug;
+    // the old filter kept only a-z, so each of these flattened to "brand"
+    expect(named('מותג קפה')).toBe('מותג-קפה');
+    expect(named('قهوة أكمي')).toBe('قهوة-أكمي');
+    expect(named('Кофе Акме')).toBe('кофе-акме');
+    // latin accents fold, because café and cafe are one word to anyone typing
+    expect(named('Café Ölwerk')).toBe('cafe-olwerk');
+    // mixed scripts keep both halves
+    expect(named('Acme קפה')).toBe('acme-קפה');
+    // and a name with no letters at all still has to be addressable
+    expect(named('☕️ !!! ☕️')).toBe('brand');
+  });
+
   it('creates project with done root node', () => {
     const b = core.store.createBrand(brandJson as any);
     const { project, root } = core.store.createProject(b.id, 'Summer campaign');
+    expect(project.slug).toBe('summer-campaign');
     expect(root.kind).toBe('root');
     expect(root.status).toBe('done');
     expect(core.store.treeFor(project.id)).toHaveLength(1);
+  });
+
+  it('scopes project slugs to the brand: same name, different brands, no suffix', () => {
+    const one = core.store.createBrand(brandJson as any);
+    const two = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Beta' } } as any);
+    expect(core.store.createProject(one.id, 'Untitled').project.slug).toBe('untitled');
+    expect(core.store.createProject(two.id, 'Untitled').project.slug).toBe('untitled');
+    // but a second Untitled inside one brand has to be told apart
+    expect(core.store.createProject(one.id, 'Untitled').project.slug).toBe('untitled-2');
+    expect(core.store.listProjects(one.id).map((p) => p.slug)).toEqual(['untitled', 'untitled-2']);
   });
 });
 

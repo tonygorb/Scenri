@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { firstFree, slugify } from './slug.js';
 
 export type DB = Database.Database;
 
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
   brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  slug TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS nodes (
@@ -141,6 +143,61 @@ CREATE TABLE IF NOT EXISTS import_jobs (
 CREATE INDEX IF NOT EXISTS idx_import_jobs_brand ON import_jobs(brand_id);
 `;
 
+/**
+ * Slugs are the address bar now, so every row needs one and no two rows in the
+ * same scope may share it — otherwise a link opens the wrong project.
+ *
+ * Three things this repairs, all in databases written before that was true:
+ * brands whose name was not Latin (the old filter kept only a-z, so every
+ * Hebrew or Arabic name flattened to the same "brand"), brands that ended up
+ * sharing a slug anyway, and projects, which had no slug at all. Runs after
+ * MIGRATIONS rather than inside it, because a unique index cannot be created
+ * while a duplicate is still standing.
+ */
+function backfillSlugs(db: DB): void {
+  const brands = db.prepare('SELECT id, slug, json FROM brands ORDER BY created_at, id').all() as {
+    id: string;
+    slug: string;
+    json: string;
+  }[];
+  const setBrand = db.prepare('UPDATE brands SET slug=? WHERE id=?');
+  const takenBrand = new Set<string>();
+  for (const b of brands) {
+    // a name the old filter could not spell reads as brand, brand-2, brand-3
+    const flattened = /^brand(-\d+)?$/.test(b.slug);
+    let name: string | undefined;
+    if (flattened) {
+      try {
+        name = JSON.parse(b.json)?.meta?.name;
+      } catch {
+        /* a brand we cannot parse still needs a slug */
+      }
+    }
+    const wanted = flattened && name ? slugify(name) : b.slug;
+    const slug = firstFree(wanted, (c) => takenBrand.has(c));
+    takenBrand.add(slug);
+    if (slug !== b.slug) setBrand.run(slug, b.id);
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_brands_slug ON brands(slug)');
+
+  const projects = db.prepare('SELECT id, brand_id, name, slug FROM projects ORDER BY created_at, id').all() as {
+    id: string;
+    brand_id: string;
+    name: string;
+    slug: string | null;
+  }[];
+  const setProject = db.prepare('UPDATE projects SET slug=? WHERE id=?');
+  const takenProject = new Map<string, Set<string>>();
+  for (const p of projects) {
+    const inBrand = takenProject.get(p.brand_id) ?? new Set<string>();
+    takenProject.set(p.brand_id, inBrand);
+    const slug = firstFree(p.slug || slugify(p.name, 'project'), (c) => inBrand.has(c));
+    inBrand.add(slug);
+    if (slug !== p.slug) setProject.run(slug, p.id);
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects(brand_id, slug)');
+}
+
 export function openDb(homeDir: string): DB {
   mkdirSync(homeDir, { recursive: true });
   const db = new Database(join(homeDir, 'scenri.db'));
@@ -155,6 +212,11 @@ export function openDb(homeDir: string): DB {
   if (!nodeCols.includes('brief')) {
     db.exec('ALTER TABLE nodes ADD COLUMN brief TEXT');
   }
+  const projectCols = (db.pragma('table_info(projects)') as { name: string }[]).map((c) => c.name);
+  if (!projectCols.includes('slug')) {
+    db.exec('ALTER TABLE projects ADD COLUMN slug TEXT');
+  }
+  backfillSlugs(db);
   // Nodes only leave 'running' via the in-process generation promise; after a
   // crash/restart those rows would spin forever in the UI. Sweep them to error.
   db.prepare(

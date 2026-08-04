@@ -19,12 +19,19 @@ const api = async (p: Page, path: string, init?: RequestInit) =>
     [path, init ?? undefined],
   );
 
-/** The brand the app resolves "/" to, whatever this machine happens to hold. */
-async function brandId(p: Page): Promise<string> {
+/**
+ * The brand the app resolves "/" to, whatever this machine happens to hold.
+ * Both spellings: the path carries the slug, the API still speaks in ids.
+ */
+async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
   await p.goto('/');
   await p.waitForURL(/\/b\/[^/]+$/);
-  return new URL(p.url()).pathname.split('/')[2];
+  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[2]);
+  const brands = (await api(p, '/api/brands')) as any[];
+  return { id: brands.find((b) => b.slug === slug).id, slug };
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * A project holding a finished multi-image shot, on the free Demo engine.
@@ -40,7 +47,7 @@ async function seedShot(p: Page, brand: string) {
 
   const tree = (await api(p, `/api/projects/${project.id}/tree`)) as any;
   const done = (tree.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 1);
-  if (done) return { projectId: project.id, nodeId: done.id, images: done.images.length };
+  if (done) return { projectId: project.id, slug: project.slug, nodeId: done.id, images: done.images.length };
 
   const root = (tree.nodes ?? []).find((n: any) => n.kind === 'root');
   const made = (await api(
@@ -59,7 +66,8 @@ async function seedShot(p: Page, brand: string) {
   for (let i = 0; i < 40; i++) {
     const t = (await api(p, `/api/projects/${project.id}/tree`)) as any;
     const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
-    if (n?.status === 'done') return { projectId: project.id, nodeId: n.id, images: n.images.length };
+    if (n?.status === 'done')
+      return { projectId: project.id, slug: project.slug, nodeId: n.id, images: n.images.length };
     await p.waitForTimeout(300);
   }
   throw new Error('demo generation never finished');
@@ -71,135 +79,154 @@ const postJson = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-const activeNav = (p: Page) => p.locator('.bt-nav button[data-active="true"]');
+const activeNav = (p: Page) => p.locator('.sc-nav button[data-active="true"]');
 
 test('every screen cold-loads from its own URL', async ({ page }) => {
-  const brand = await brandId(page);
-  const { projectId, nodeId } = await seedShot(page, brand);
+  const brand = await currentBrand(page);
+  const { slug, nodeId } = await seedShot(page, brand.id);
 
-  await page.goto(`/b/${brand}`);
+  await page.goto(`/b/${brand.slug}`);
   await expect(activeNav(page)).toHaveText('Home');
 
-  await page.goto(`/b/${brand}/brand`);
+  await page.goto(`/b/${brand.slug}/brand`);
   await expect(activeNav(page)).toHaveText('Brand');
 
-  await page.goto(`/b/${brand}/looks`);
+  await page.goto(`/b/${brand.slug}/looks`);
   await expect(activeNav(page)).toHaveText('Looks');
-  await expect(page.locator('.bt-lookcard').first()).toBeVisible();
+  await expect(page.locator('.sc-lookcard').first()).toBeVisible();
 
   // the card's own centre is covered by the hover "Use this look" action, which
   // is a different destination: click the collection's name list instead
-  const name = page.locator('.bt-coll-names button').first();
+  const name = page.locator('.sc-coll-names button').first();
   const looked = (await name.innerText()).trim();
   await name.click();
   await page.waitForURL(/\/looks\/[^/]+$/);
-  await expect(page.locator('.bt-lookpage h1')).toHaveText(looked);
+  await expect(page.locator('.sc-lookpage h1')).toHaveText(looked);
 
-  await page.goto(`/b/${brand}/p/${projectId}`);
-  await expect(page.locator('.bt-canvas')).toBeVisible();
-  await expect(page.locator('.bt-ovl')).toHaveCount(0);
+  await page.goto(`/b/${brand.slug}/p/${slug}`);
+  await expect(page.locator('.sc-canvas')).toBeVisible();
+  await expect(page.locator('.sc-ovl')).toHaveCount(0);
 
-  await page.goto(`/b/${brand}/p/${projectId}/n/${nodeId}`);
-  await expect(page.locator('.bt-ovl')).toBeVisible();
+  await page.goto(`/b/${brand.slug}/p/${slug}/n/${nodeId}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
 });
 
 test('a reloaded shot comes back to the same shot and the same variant', async ({ page }) => {
-  const brand = await brandId(page);
-  const { projectId, nodeId, images } = await seedShot(page, brand);
+  const brand = await currentBrand(page);
+  const { slug, nodeId, images } = await seedShot(page, brand.id);
   test.skip(images < 2, 'needs a multi-image generation to have a variant to hold');
 
-  await page.goto(`/b/${brand}/p/${projectId}/n/${nodeId}?i=${images - 1}`);
-  await expect(page.locator('.bt-ovl')).toBeVisible();
-  const before = await page.locator('.bt-ovl').innerText();
+  await page.goto(`/b/${brand.slug}/p/${slug}/n/${nodeId}?i=${images - 1}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  const before = await page.locator('.sc-ovl').innerText();
   expect(before).toContain(`${images} of ${images} variants`);
 
   await page.reload();
-  await expect(page.locator('.bt-ovl')).toBeVisible();
-  expect(await page.locator('.bt-ovl').innerText()).toContain(`${images} of ${images} variants`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  expect(await page.locator('.sc-ovl').innerText()).toContain(`${images} of ${images} variants`);
 });
 
 test('back and forward walk the trail, and escape is one step', async ({ page }) => {
-  const brand = await brandId(page);
-  const { projectId, nodeId } = await seedShot(page, brand);
+  const brand = await currentBrand(page);
+  const { slug, nodeId } = await seedShot(page, brand.id);
 
-  await page.goto(`/b/${brand}/p/${projectId}`);
-  await page.goto(`/b/${brand}/p/${projectId}/n/${nodeId}`);
-  await expect(page.locator('.bt-ovl')).toBeVisible();
+  await page.goto(`/b/${brand.slug}/p/${slug}`);
+  await page.goto(`/b/${brand.slug}/p/${slug}/n/${nodeId}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
 
   await page.keyboard.press('Escape');
   await page.waitForURL((u) => !u.pathname.includes('/n/'));
-  await expect(page.locator('.bt-ovl')).toHaveCount(0);
+  await expect(page.locator('.sc-ovl')).toHaveCount(0);
 
   await page.goBack();
-  await expect(page.locator('.bt-ovl')).toBeVisible();
+  await expect(page.locator('.sc-ovl')).toBeVisible();
 
   await page.goForward();
-  await expect(page.locator('.bt-ovl')).toHaveCount(0);
+  await expect(page.locator('.sc-ovl')).toHaveCount(0);
 });
 
 test('filters live in the URL and survive a reload', async ({ page }) => {
-  const brand = await brandId(page);
+  const brand = await currentBrand(page);
 
-  await page.goto(`/b/${brand}/looks`);
-  const vertical = page.locator('.bt-verticals button').nth(1);
+  await page.goto(`/b/${brand.slug}/looks`);
+  const vertical = page.locator('.sc-verticals button').nth(1);
   const label = (await vertical.innerText()).split('\n')[0].trim();
   await vertical.click();
   await page.waitForURL(/[?&]vertical=/);
 
   await page.reload();
-  await expect(page.locator('.bt-verticals button[data-on]')).toHaveText(new RegExp(label));
+  await expect(page.locator('.sc-verticals button[data-on]')).toHaveText(new RegExp(label));
 
   // a filter is not a destination: Back leaves the screen, it does not undo it
-  await page.goto(`/b/${brand}`);
+  await page.goto(`/b/${brand.slug}`);
   await expect(activeNav(page)).toHaveText('Home');
 });
 
 test('settings is a URL, and Back closes it', async ({ page }) => {
-  const brand = await brandId(page);
+  const brand = await currentBrand(page);
 
-  await page.goto(`/b/${brand}?settings=budget`);
-  await expect(page.locator('.bt-set')).toBeVisible();
-  await expect(page.locator('.bt-set-head b')).toHaveText('Budget');
+  await page.goto(`/b/${brand.slug}?settings=budget`);
+  await expect(page.locator('.sc-set')).toBeVisible();
+  await expect(page.locator('.sc-set-head b')).toHaveText('Budget');
 
   await page.goBack();
-  await expect(page.locator('.bt-set')).toHaveCount(0);
+  await expect(page.locator('.sc-set')).toHaveCount(0);
 });
 
 test('switching project does not carry the last one text layers', async ({ page }) => {
-  const brand = await brandId(page);
-  const { projectId, nodeId } = await seedShot(page, brand);
-  const second = (await api(page, '/api/projects', postJson({ brandId: brand, name: 'Routing spec B' }))) as any;
+  const brand = await currentBrand(page);
+  const { slug, nodeId } = await seedShot(page, brand.id);
+  const second = (await api(page, '/api/projects', postJson({ brandId: brand.id, name: 'Routing spec B' }))) as any;
 
-  await page.goto(`/b/${brand}/p/${projectId}/n/${nodeId}`);
+  await page.goto(`/b/${brand.slug}/p/${slug}/n/${nodeId}`);
   await page
-    .locator('.bt-ovl')
+    .locator('.sc-ovl')
     .getByRole('button', { name: /^Add text$/ })
     .first()
     .click();
-  await expect(page.locator('.bt-lrow')).not.toHaveCount(0);
+  await expect(page.locator('.sc-lrow')).not.toHaveCount(0);
 
   // React Router keeps a component mounted across a param change, so the
   // project route is keyed; without that key these drafts follow you over
-  await page.goto(`/b/${brand}/p/${second.project.id}`);
-  await expect(page.locator('.bt-ovl')).toHaveCount(0);
-  await expect(page.locator('.bt-lrow')).toHaveCount(0);
+  await page.goto(`/b/${brand.slug}/p/${second.project.slug}`);
+  await expect(page.locator('.sc-ovl')).toHaveCount(0);
+  await expect(page.locator('.sc-lrow')).toHaveCount(0);
+});
+
+test('the address bar spells names, not uuids', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const { projectId, slug, nodeId } = await seedShot(page, brand.id);
+
+  // "/" resolves to a brand, and says which one in words
+  expect(brand.slug).not.toMatch(UUID);
+  expect(slug).not.toMatch(UUID);
+
+  // an id still resolves, and rewrites itself to the readable spelling
+  await page.goto(`/b/${brand.id}/looks`);
+  await page.waitForURL(`**/b/${brand.slug}/looks`);
+  await expect(activeNav(page)).toHaveText('Looks');
+
+  // including deeper in the path, where the rest of it has to survive
+  await page.goto(`/b/${brand.id}/p/${projectId}/n/${nodeId}`);
+  await page.waitForURL(`**/b/${brand.slug}/p/${slug}/n/${nodeId}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
 });
 
 test('an unknown brand or path lands somewhere real', async ({ page }) => {
-  const brand = await brandId(page);
+  const brand = await currentBrand(page);
 
   await page.goto('/b/does-not-exist/looks');
-  await page.waitForURL(`**/b/${brand}`);
+  await page.waitForURL(`**/b/${brand.slug}`);
 
   await page.goto('/total/nonsense/path');
-  await page.waitForURL(`**/b/${brand}`);
+  await page.waitForURL(`**/b/${brand.slug}`);
 });
 
 test('a shot URL whose node is gone falls back to the canvas', async ({ page }) => {
-  const brand = await brandId(page);
-  const { projectId } = await seedShot(page, brand);
+  const brand = await currentBrand(page);
+  const { slug } = await seedShot(page, brand.id);
 
-  await page.goto(`/b/${brand}/p/${projectId}/n/no-such-node`);
-  await page.waitForURL(`**/p/${projectId}`);
-  await expect(page.locator('.bt-canvas')).toBeVisible();
+  await page.goto(`/b/${brand.slug}/p/${slug}/n/no-such-node`);
+  await page.waitForURL(`**/p/${slug}`);
+  await expect(page.locator('.sc-canvas')).toBeVisible();
 });

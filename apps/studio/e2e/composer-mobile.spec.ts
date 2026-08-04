@@ -12,17 +12,17 @@ import { test, expect, type Page } from '@playwright/test';
  * `pointer: coarse` and a narrow desktop window does not report it.
  */
 
-const line = (p: Page) => p.locator('.bt-brief-line').first();
-const row = (p: Page) => p.locator('.bt-prompt-row').first();
-const chip = (p: Page) => p.locator('.bt-shotset');
-const pills = (p: Page) => p.locator('.bt-prompt-right > .bt-var:not(.bt-shotset)');
+const line = (p: Page) => p.locator('.sc-brief-line').first();
+const row = (p: Page) => p.locator('.sc-prompt-row').first();
+const chip = (p: Page) => p.locator('.sc-shotset');
+const pills = (p: Page) => p.locator('.sc-prompt-right > .sc-var:not(.sc-shotset)');
 
 const isPhone = (p: Page) => (p.viewportSize()?.width ?? 0) < 768;
 
 /** What the row spills, if anything. 1px of rounding is not a spill. */
 async function overflow(p: Page): Promise<number> {
   return p.evaluate(() => {
-    const el = document.querySelector('.bt-prompt-row') as HTMLElement;
+    const el = document.querySelector('.sc-prompt-row') as HTMLElement;
     return el.scrollWidth - el.clientWidth;
   });
 }
@@ -73,28 +73,28 @@ test('a phone trades the three pills for a sheet', async ({ page }) => {
   await expect(pills(page).first()).toBeHidden();
 
   await chip(page).click();
-  const sheet = page.locator('.bt-shotsheet');
+  const sheet = page.locator('.sc-shotsheet');
   await expect(sheet).toBeVisible();
 
   // two settings in one visit, because nothing here closes the sheet
-  await sheet.locator('.bt-seg-o', { hasText: /^High$/ }).click();
-  await sheet.locator('.bt-seg-o', { hasText: /^9:16$/ }).click();
+  await sheet.locator('.sc-seg-o', { hasText: /^High$/ }).click();
+  await sheet.locator('.sc-seg-o', { hasText: /^9:16$/ }).click();
   await expect(sheet).toBeVisible();
-  await expect(sheet.locator('.bt-seg-o[data-on]', { hasText: /^High$/ })).toHaveCount(1);
+  await expect(sheet.locator('.sc-seg-o[data-on]', { hasText: /^High$/ })).toHaveCount(1);
 
   // the sheet and the pills are one state, not two copies of it
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
-  await expect(page.locator('.bt-prompt-right .bt-var', { hasText: 'High' })).toHaveCount(1);
-  await expect(page.locator('.bt-prompt-right .bt-var', { hasText: '9:16' })).toHaveCount(1);
+  await expect(page.locator('.sc-prompt-right .sc-var', { hasText: 'High' })).toHaveCount(1);
+  await expect(page.locator('.sc-prompt-right .sc-var', { hasText: '9:16' })).toHaveCount(1);
 });
 
 test('the sheet is dragged away, and springs back from a nudge', async ({ page }) => {
   test.skip(!isPhone(page), 'the sheet only exists below 768px');
 
-  const sheet = page.locator('.bt-shotsheet');
+  const sheet = page.locator('.sc-shotsheet');
   const pull = async (dy: number) => {
-    const box = (await page.locator('.bt-shotsheet-grip').boundingBox())!;
+    const box = (await page.locator('.sc-shotsheet-grip').boundingBox())!;
     const x = box.x + box.width / 2;
     const y = box.y + box.height / 2;
     await page.mouse.move(x, y);

@@ -82,7 +82,10 @@ export const BriefInput = forwardRef<
     flag?: (t: SentenceToken) => string | null;
     onSubmit: () => void;
   }
->(function BriefInput({ initialTokens, onChange, brand, shots, templates, placeholder, placeholderSm, flag, onSubmit }, ref) {
+>(function BriefInput(
+  { initialTokens, onChange, brand, shots, templates, placeholder, placeholderSm, flag, onSubmit },
+  ref,
+) {
   const rootRef = useRef<HTMLDivElement>(null);
   const chipCount = useRef(0);
   /**
@@ -152,7 +155,7 @@ export const BriefInput = forwardRef<
         el.appendChild(img);
       } else if (swatch) {
         const sw = document.createElement('span');
-        sw.className = 'bt-token-swatch';
+        sw.className = 'sc-token-swatch';
         sw.style.background = swatch;
         el.appendChild(sw);
       }
@@ -491,10 +494,10 @@ export const BriefInput = forwardRef<
   };
 
   return (
-    <div className="bt-brief">
+    <div className="sc-brief">
       <div
         ref={rootRef}
-        className="bt-brief-line"
+        className="sc-brief-line"
         contentEditable
         suppressContentEditableWarning
         role="textbox"

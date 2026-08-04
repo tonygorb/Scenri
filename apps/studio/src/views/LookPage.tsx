@@ -4,6 +4,7 @@ import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { api, imgUrl, type Look, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { brandPath } from '../app/brandPath.js';
 import { useApplyLook } from '../app/useApplyLook.js';
 
 /**
@@ -18,12 +19,13 @@ export function LookPage() {
   const navigate = useNavigate();
   const applyLook = useApplyLook();
   const brandId = brand.id;
+  const base = brandPath(brand);
   const [shots, setShots] = useState<TreeNode[]>([]);
   const [refs, setRefs] = useState<string[]>([]);
   const [allParam, setOpenAll] = useFilterParam('all');
   const openAll = allParam === '1';
 
-  const openLook = (id: string) => navigate(`/b/${brandId}/looks/${id}`);
+  const openLook = (id: string) => navigate(`${base}/looks/${id}`);
 
   // Shots live per project, so gather them: this page is the only place that
   // asks "what did this look actually produce", across the whole brand.
@@ -99,16 +101,16 @@ export function LookPage() {
   // TODO: useLooks starts empty and fills in async, so this covers two cases
   // that deserve different screens: looks.length === 0 is still loading, while
   // looks.length > 0 && !look is a look id that does not exist.
-  if (!look) return <div className="bt-home" />;
+  if (!look) return <div className="sc-home" />;
 
   const visibleRefs = openAll ? refs : refs.slice(0, 3);
   const frames = refs.length ? visibleRefs : look.previewUrl ? [look.previewUrl] : [];
 
   return (
-    <div className="bt-home">
-      <main className="bt-lookpage" id="main">
-        <div className="bt-lookpage-crumb">
-          <button type="button" onClick={() => navigate(`/b/${brandId}/looks`)}>
+    <div className="sc-home">
+      <main className="sc-lookpage" id="main">
+        <div className="sc-lookpage-crumb">
+          <button type="button" onClick={() => navigate(`${base}/looks`)}>
             Looks
           </button>
           <span>/</span>
@@ -116,28 +118,28 @@ export function LookPage() {
         </div>
 
         <h1>{look.name}</h1>
-        <p className="bt-lookpage-lede">{look.description}</p>
-        <p className="bt-lookpage-facts">
+        <p className="sc-lookpage-lede">{look.description}</p>
+        <p className="sc-lookpage-facts">
           {look.lighting} · {look.subject === 'either' ? 'product or person' : `for a ${look.subject}`} ·{' '}
           {look.width === look.height ? 'square by default' : `${look.width}×${look.height} by default`}
         </p>
-        <div className="bt-lookpage-acts">
-          <button type="button" className="bt-btn bt-btn-primary" onClick={() => void applyLook(look.id)}>
+        <div className="sc-lookpage-acts">
+          <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyLook(look.id)}>
             Use this look
           </button>
         </div>
 
         {frames.length > 0 && (
           <>
-            <div className="bt-lookpage-refs">
+            <div className="sc-lookpage-refs">
               {frames.map((src) => (
-                <div className="bt-lookpage-ref" key={src}>
+                <div className="sc-lookpage-ref" key={src}>
                   <img src={src} alt="" loading="lazy" />
                 </div>
               ))}
             </div>
             {refs.length > 3 && (
-              <button type="button" className="bt-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
+              <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
                 {openAll ? 'Enough, close it' : 'See the whole set'}
               </button>
             )}
@@ -147,7 +149,7 @@ export function LookPage() {
         {made.length > 0 && (
           <Slider label="Your shots in this look">
             {made.map((s) => (
-              <button type="button" className="bt-lookcard" key={s.id} title={s.prompt}>
+              <button type="button" className="sc-lookcard" key={s.id} title={s.prompt}>
                 <img src={imgUrl(s.images[0])} alt="" loading="lazy" />
               </button>
             ))}
@@ -158,11 +160,11 @@ export function LookPage() {
           <Slider label="Other looks, similar light">
             {near.map((l) => (
               <figure key={l.id}>
-                <button type="button" className="bt-lookcard bt-lookcard-plain" onClick={() => openLook(l.id)}>
+                <button type="button" className="sc-lookcard sc-lookcard-plain" onClick={() => openLook(l.id)}>
                   {l.previewUrl ? (
                     <img src={l.previewUrl} alt={l.name} loading="lazy" />
                   ) : (
-                    <span className="bt-lookcard-blank" />
+                    <span className="sc-lookcard-blank" />
                   )}
                 </button>
                 <figcaption>
@@ -206,16 +208,16 @@ function Slider({ label, children }: { label: string; children: React.ReactNode 
   };
 
   return (
-    <section className="bt-lookpage-band">
-      <p className="bt-bandhead">{label}</p>
-      <div className="bt-slider">
-        <button type="button" className="bt-slider-arrow prev" aria-label="Previous" onClick={() => slide(-1)}>
+    <section className="sc-lookpage-band">
+      <p className="sc-bandhead">{label}</p>
+      <div className="sc-slider">
+        <button type="button" className="sc-slider-arrow prev" aria-label="Previous" onClick={() => slide(-1)}>
           <CaretLeft size={13} weight="bold" />
         </button>
-        <button type="button" className="bt-slider-arrow next" aria-label="Next" onClick={() => slide(1)}>
+        <button type="button" className="sc-slider-arrow next" aria-label="Next" onClick={() => slide(1)}>
           <CaretRight size={13} weight="bold" />
         </button>
-        <div className="bt-slider-track" ref={track}>
+        <div className="sc-slider-track" ref={track}>
           {children}
           {children}
         </div>
