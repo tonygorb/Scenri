@@ -37,6 +37,21 @@ Anything that would break one of those is out of scope, however useful it sounds
 
 **Make adapters easy to write.** An engine adapter is one file behind one interface. It should be documented well enough that adding a provider is an afternoon, and it is the contribution the project most wants.
 
+## Before first public / npm release
+
+Parked on purpose — do **not** publish until the product is ready for strangers to run `npx scenri`.
+
+Checklist (also mirrored for agents in `.cursor/rules/first-release.mdc`):
+
+1. Product ready enough for an early `0.x` public CLI
+2. Add GitHub Actions secret `NPM_TOKEN` (npm granular automation token, write access for `scenri`)
+3. Confirm the open release-please PR (`chore: release main`) is green
+4. Merge that PR — creates the GitHub release/tag and publishes to npm
+5. Verify `npm view scenri version` and the Release workflow publish job
+6. Optionally make the GitHub repo public and enable private vulnerability reporting
+
+Until then: keep developing on `dev`, leave the release-please PR alone, do not add `NPM_TOKEN` just to “get it over with.”
+
 ## Later
 
 - Mask-based local edits, so a change can be scoped to a region rather than a whole frame
