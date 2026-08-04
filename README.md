@@ -15,10 +15,11 @@ npx scenri
 ```
 
 <!-- BEFORE LAUNCH: record a 10 to 15 second loop showing generate, branch an
-     edit, compare the drift, keep the winner. Save to docs/media/demo.gif.
-     This is the single highest-leverage asset on the page. -->
+     edit, compare the drift, keep the winner. Save to docs/media/demo.gif,
+     then uncomment the img below. This is the single highest-leverage asset
+     on the page, so it stays commented out rather than rendering broken. -->
 
-<img src="docs/media/demo.gif" alt="Generating a shot, branching an edit, and comparing the drift" width="820">
+<!-- <img src="docs/media/demo.gif" alt="Generating a shot, branching an edit, and comparing the drift" width="820"> -->
 
 </div>
 
@@ -107,7 +108,7 @@ Keys are stored in your local library folder, sent only to that provider, and ne
 | `packages/engines/*` | engine adapters: `codex`, `openrouter`, `replicate`, `fal`, `demo` |
 | `apps/studio` | the React studio the CLI serves |
 
-Only two packages publish to npm: **`scenri`**, the CLI, which bundles everything else, and **`@scenri/brand`**, the open format. The rest are internal.
+One package publishes to npm: **`scenri`**, the CLI, which bundles everything else. The rest are internal.
 
 ## Contributing
 
@@ -123,7 +124,7 @@ Early. The version is `0.x` and interfaces can still move. Everything documented
 
 ## License
 
-The application is [AGPL-3.0-only](LICENSE). The `.brand` format, its schema, and its validator are Apache-2.0, so any tool can read and write `.brand` files without taking on copyleft. Contributions require a [CLA](CLA.md).
+The application is [AGPL-3.0-only](LICENSE). The `.brand` format, its schema, and its validator live in [packages/brand-spec](packages/brand-spec) under Apache-2.0, so any tool may implement or reuse them without taking on copyleft. Contributions require a [CLA](CLA.md).
 
 ---
 

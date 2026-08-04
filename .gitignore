@@ -36,3 +36,9 @@ coverage/
 apps/studio/test-results/
 apps/studio/playwright-report/
 .playwright-mcp/
+
+# design mockups. Tony sketches new pages and components as static HTML here
+# before building them for real. That is a personal pre-code step, so it lives
+# in a private working repo and this path is a symlink to it. No trailing
+# slash: git sees a symlink, not a directory, and a trailing slash would miss it.
+docs/design

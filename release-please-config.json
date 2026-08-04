@@ -6,11 +6,6 @@
       "release-type": "node",
       "package-name": "scenri",
       "changelog-path": "CHANGELOG.md"
-    },
-    "packages/brand-spec": {
-      "release-type": "node",
-      "package-name": "@scenri/brand",
-      "changelog-path": "CHANGELOG.md"
     }
   }
 }

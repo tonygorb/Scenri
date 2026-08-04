@@ -75,4 +75,4 @@ A portable, tool-neutral description of a brand's visual and verbal identity —
 4. **`extensions`** is a namespaced escape hatch (`"com.example.tool": {...}`); tools must ignore unknown namespaces. Spec evolution via RFC issues, additive-only within 0.x.
 5. **No secrets.** A `.brand` must always be safe to email to a client. Keys, tokens, and provider config live in the tool, never the format.
 
-Machine-readable schema: [`schema/brand.schema.json`](schema/brand.schema.json). Validation: `@scenri/brand` package (`validateBrand(json)`).
+Machine-readable schema: [`schema/brand.schema.json`](schema/brand.schema.json). Reference validator: `validateBrand(json)` in this package, which ships inside the `scenri` CLI rather than as its own npm package. The schema and this spec are Apache-2.0, so implement them however you like. If you are building a tool that needs the validator on npm, open an issue and it will be published.

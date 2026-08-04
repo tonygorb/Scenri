@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       cli_released: ${{ steps.release.outputs['packages/cli--release_created'] }}
-      brand_released: ${{ steps.release.outputs['packages/brand-spec--release_created'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -26,7 +25,7 @@ jobs:
 
   publish:
     needs: release
-    if: needs.release.outputs.cli_released == 'true' || needs.release.outputs.brand_released == 'true'
+    if: needs.release.outputs.cli_released == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,14 +46,7 @@ jobs:
       - name: Build the studio into the CLI bundle
         run: pnpm build
 
-      - name: Publish @scenri/brand
-        if: needs.release.outputs.brand_released == 'true'
-        run: pnpm --filter @scenri/brand publish --access public --no-git-checks --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Publish scenri
-        if: needs.release.outputs.cli_released == 'true'
         run: pnpm --filter scenri publish --access public --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

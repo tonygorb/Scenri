@@ -1,11 +1,13 @@
 import { defineConfig } from 'tsup';
 
 /**
- * The nine `@scenri/*` workspace packages are never published, so the CLI has to
- * carry them: `noExternal` inlines their source into this bundle. Everything
- * that comes from npm stays external and is installed normally, which matters
- * most for `better-sqlite3` and `sharp`, whose native binaries cannot be
- * bundled at all.
+ * No `@scenri/*` workspace package is published, so the CLI has to carry them:
+ * `noExternal` inlines the source of every one it imports into this bundle.
+ * (`@scenri/studio` is the exception, because it is not imported: it is a
+ * separate vite build copied in as `studio-dist` by scripts/prepack.mjs.)
+ * Everything that comes from npm stays external and is installed normally,
+ * which matters most for `better-sqlite3` and `sharp`, whose native binaries
+ * cannot be bundled at all.
  *
  * Note that inlining those packages promotes *their* npm dependencies into this
  * package's own dependencies. Keep `package.json` in step: ajv, ajv-formats and

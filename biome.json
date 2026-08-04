@@ -10,7 +10,7 @@
       "!**/test-results",
       "!**/playwright-report",
       "!**/pnpm-lock.yaml",
-      "!docs/design/mockups",
+      "!docs/design",
       "!templates/previews"
     ]
   },
