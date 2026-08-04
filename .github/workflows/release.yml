@@ -17,9 +17,20 @@ jobs:
     outputs:
       cli_released: ${{ steps.release.outputs['packages/cli--release_created'] }}
     steps:
+      # The automatic GITHUB_TOKEN cannot open a pull request unless the repo
+      # opts into "Actions can create and approve pull requests", and any PR it
+      # did open would trigger no further workflows, so CI would never run on
+      # the release PR. A short-lived App token has neither problem.
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { createCore, type Core, type EngineAdapter } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
+import { waitDone as waitDoneOn } from './helpers.js';
 import type { FastifyInstance } from 'fastify';
 
 let home: string;
@@ -16,15 +17,7 @@ function registryWith(...adapters: EngineAdapter[]) {
   return { all: () => adapters, get: (id: string) => byId.get(id) ?? null };
 }
 
-const waitDone = async (nodeId: string, tries = 50): Promise<any> => {
-  for (let i = 0; i < tries; i++) {
-    const res = await app.inject({ method: 'GET', url: `/api/nodes/${nodeId}` });
-    const node = res.json();
-    if (node.status !== 'running') return node;
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  throw new Error('node never finished');
-};
+const waitDone = (nodeId: string) => waitDoneOn(app, nodeId);
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'bt-srv-'));
