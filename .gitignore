@@ -42,3 +42,6 @@ apps/studio/playwright-report/
 # in a private working repo and this path is a symlink to it. No trailing
 # slash: git sees a symlink, not a directory, and a trailing slash would miss it.
 docs/design
+
+# local research notes — keep off GitHub
+docs/research/
