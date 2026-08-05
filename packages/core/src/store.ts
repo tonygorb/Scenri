@@ -38,11 +38,25 @@ export interface TreeNode {
   brief: unknown | null;
 }
 
-/** A node carrying the name of the project it belongs to, for cross-project lists. */
+/** A node carrying the sets it has been put in, for lists that span the brand. */
 export interface ActivityNode extends TreeNode {
-  projectName: string;
-  /** So a task can link to the project the way the address bar spells it. */
-  projectSlug: string;
+  /** Empty when the shot is in no set, which is an ordinary state, not a gap. */
+  setNames: string[];
+}
+
+/**
+ * An opt-in grouping of shots. Not a place work happens — that is the brand's
+ * one workspace — only a name you hang finished shots on, and a shot may hang
+ * on several.
+ */
+export interface SetRow {
+  id: string;
+  brandId: string;
+  name: string;
+  /** Its place in the address bar, unique within the brand. */
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -59,6 +73,30 @@ export function uniqueSlug(db: DB, name: string, excludeId?: string): string {
 export function uniqueProjectSlug(db: DB, brandId: string, name: string): string {
   const stmt = db.prepare('SELECT 1 FROM projects WHERE brand_id=? AND slug=?');
   return firstFree(slugify(name, 'project'), (c) => !!stmt.get(brandId, c));
+}
+
+/** And again for sets, which share the brand's address space with nothing else. */
+export function uniqueSetSlug(db: DB, brandId: string, name: string, excludeId?: string): string {
+  const stmt = db.prepare('SELECT 1 FROM sets WHERE brand_id=? AND slug=? AND id IS NOT ?');
+  return firstFree(slugify(name, 'set'), (c) => !!stmt.get(brandId, c, excludeId ?? null));
+}
+
+/**
+ * What `group_concat` glues set names with. A comma would be ambiguous the
+ * moment somebody names a set "Spring, Summer"; the unit separator cannot
+ * appear in a name typed by a human.
+ */
+const SET_NAME_SEP = String.fromCharCode(31);
+
+function rowToSet(r: any): SetRow {
+  return {
+    id: r.id,
+    brandId: r.brand_id,
+    name: r.name,
+    slug: r.slug,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
 }
 
 function rowToNode(r: any): TreeNode {
@@ -153,6 +191,94 @@ export function createStore(db: DB) {
         }),
       );
     },
+    /**
+     * The brand's one project, made on demand.
+     *
+     * Every node still hangs from a project root, but that is plumbing now, not
+     * a place: nothing in the UI names it and nothing but this creates one. The
+     * five buttons that used to invent a project each call this instead, so a
+     * brand ends up with exactly one no matter which door you came through.
+     */
+    workspaceFor(brandId: string): ProjectRow {
+      return this.listProjects(brandId)[0] ?? this.createProject(brandId, 'Workspace').project;
+    },
+
+    // sets
+    createSet(brandId: string, name: string): SetRow {
+      const id = randomUUID();
+      db.prepare('INSERT INTO sets (id, brand_id, name, slug) VALUES (?,?,?,?)').run(
+        id,
+        brandId,
+        name,
+        uniqueSetSlug(db, brandId, name),
+      );
+      return this.getSet(id)!;
+    },
+    getSet(id: string): SetRow | null {
+      const r = db.prepare('SELECT * FROM sets WHERE id=?').get(id) as any;
+      return r ? rowToSet(r) : null;
+    },
+    /**
+     * Most recently touched first, everywhere. The old project lists each chose
+     * their own order — one ascending by creation, one descending, one capped
+     * before it sorted — so the same six names came back in three different
+     * sequences depending on which control you opened.
+     */
+    listSets(brandId: string): SetRow[] {
+      return (
+        db
+          .prepare('SELECT * FROM sets WHERE brand_id=? ORDER BY updated_at DESC, created_at DESC')
+          .all(brandId) as any[]
+      ).map(rowToSet);
+    },
+    renameSet(id: string, name: string): SetRow | null {
+      const current = this.getSet(id);
+      if (!current) return null;
+      db.prepare("UPDATE sets SET name=?, slug=?, updated_at=datetime('now') WHERE id=?").run(
+        name,
+        uniqueSetSlug(db, current.brandId, name, id),
+        id,
+      );
+      return this.getSet(id);
+    },
+    /** The set goes; the shots do not. Membership is a label, never ownership. */
+    deleteSet(id: string): void {
+      db.prepare('DELETE FROM sets WHERE id=?').run(id);
+    },
+    addToSet(setId: string, nodeIds: string[]): void {
+      const add = db.prepare('INSERT OR IGNORE INTO set_nodes (set_id, node_id) VALUES (?,?)');
+      db.transaction(() => {
+        for (const nodeId of nodeIds) add.run(setId, nodeId);
+        db.prepare("UPDATE sets SET updated_at=datetime('now') WHERE id=?").run(setId);
+      })();
+    },
+    removeFromSet(setId: string, nodeId: string): void {
+      db.transaction(() => {
+        db.prepare('DELETE FROM set_nodes WHERE set_id=? AND node_id=?').run(setId, nodeId);
+        db.prepare("UPDATE sets SET updated_at=datetime('now') WHERE id=?").run(setId);
+      })();
+    },
+    /**
+     * Every membership in the brand, keyed by set. One query rather than one
+     * per set, because the workspace screen filters on the client: the feed is
+     * already loaded, and a set is only a subset of it.
+     */
+    membershipFor(brandId: string): Record<string, string[]> {
+      const rows = db
+        .prepare(
+          `SELECT sn.set_id, sn.node_id
+             FROM set_nodes sn JOIN sets s ON s.id = sn.set_id
+            WHERE s.brand_id = ?
+            ORDER BY sn.added_at`,
+        )
+        .all(brandId) as { set_id: string; node_id: string }[];
+      const out: Record<string, string[]> = {};
+      for (const r of rows) {
+        if (!out[r.set_id]) out[r.set_id] = [];
+        out[r.set_id].push(r.node_id);
+      }
+      return out;
+    },
 
     // nodes / version tree
     addNode(input: {
@@ -209,7 +335,11 @@ export function createStore(db: DB) {
     recentActivity(brandId: string, limit = 60): ActivityNode[] {
       const rows = db
         .prepare(
-          `SELECT n.*, p.name AS project_name, p.slug AS project_slug
+          `SELECT n.*, (
+                    SELECT group_concat(s.name, char(31))
+                      FROM set_nodes sn JOIN sets s ON s.id = sn.set_id
+                     WHERE sn.node_id = n.id
+                  ) AS set_names
              FROM nodes n JOIN projects p ON p.id = n.project_id
             WHERE p.brand_id = ?
               AND n.kind != 'root'
@@ -218,7 +348,11 @@ export function createStore(db: DB) {
             LIMIT ?`,
         )
         .all(brandId, limit) as any[];
-      return rows.map((r) => ({ ...rowToNode(r), projectName: r.project_name, projectSlug: r.project_slug }));
+      // char(31) is the unit separator: a set may legally be called "A, B"
+      return rows.map((r) => ({
+        ...rowToNode(r),
+        setNames: r.set_names ? String(r.set_names).split(SET_NAME_SEP) : [],
+      }));
     },
     setKept(id: string, kept: boolean): void {
       db.prepare('UPDATE nodes SET kept=? WHERE id=?').run(kept ? 1 : 0, id);

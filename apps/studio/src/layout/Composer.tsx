@@ -1,19 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { DropdownMenu, Select, Spinner } from '@radix-ui/themes';
-import {
-  ArrowUp,
-  Crop,
-  Gauge,
-  Image as ImageIcon,
-  Lightning,
-  Package,
-  Palette,
-  Plus,
-  Stack,
-  UploadSimple,
-} from '@phosphor-icons/react';
+import { ArrowUp, Crop, Gauge, Lightning, Plus, Stack, X } from '@phosphor-icons/react';
 import {
   api,
+  imgUrl,
+  nodeLabel,
   uploadImage,
   type Brand,
   type BriefPreview,
@@ -31,7 +22,6 @@ import {
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import { QUALITIES, ShotSettings, type QualityId } from '../composer/ShotSettings.js';
-import { keepCaret } from '../composer/line.js';
 import { useOpenSettings } from '../views/SettingsDialog.js';
 import { useAppData } from '../app/AppShell.js';
 import { PREF, useLocalPref } from '../prefs.js';
@@ -42,6 +32,8 @@ export interface ComposerHandle {
   insertToken: (t: SentenceToken) => void;
   /** Attach a look by id (assets panel click path). */
   applyTemplate: (id: string) => void;
+  /** Open the attach panel on a tab, the way "New photoshoot" does. */
+  openAttach: (tab: AttachTab) => void;
   focus: () => void;
   /** Run the brief as it stands. cmd+enter from anywhere reaches this. */
   submit: () => void;
@@ -55,8 +47,6 @@ export const Composer = forwardRef<
   ComposerHandle,
   {
     projectId: string | null;
-    /** Home dock: no project yet; called on first submit to create one. */
-    resolveProjectId?: () => Promise<string>;
     brand: Brand;
     engines: EngineInfo[];
     parent: TreeNode | null;
@@ -66,10 +56,38 @@ export const Composer = forwardRef<
     startTemplate?: string;
     /** Open the attach panel on this tab as soon as the composer mounts. */
     openAttachTab?: AttachTab;
-    onQueued: () => void;
+    /** The shot that was queued, so a caller filtered to a set can claim it. */
+    onQueued: (nodeId?: string) => void;
+    /**
+     * A submit is in flight, with the prose of the brief that started it, so a
+     * feed can stand something in for the shot before the server has answered.
+     * Cleared here only on failure: on success the caller clears it once the
+     * real shot has actually landed, or the tile would blink out and back in.
+     */
+    onSending?: (text: string | null) => void;
+    /**
+     * The shot this brief will branch from, chosen with Branch. Null means a
+     * new shot, which is the resting state and the only other one there is.
+     */
+    target?: TreeNode | null;
+    /** Given only where the target can be dropped, which is where it is shown. */
+    onClearTarget?: () => void;
   }
 >(function Composer(
-  { projectId, resolveProjectId, brand, engines, parent, shots, initialBrief, startTemplate, openAttachTab, onQueued },
+  {
+    projectId,
+    brand,
+    engines,
+    parent,
+    shots,
+    initialBrief,
+    startTemplate,
+    openAttachTab,
+    onQueued,
+    onSending,
+    target,
+    onClearTarget,
+  },
   handleRef,
 ) {
   const libraryProducts = useProductLibrary(brand.id);
@@ -103,7 +121,6 @@ export const Composer = forwardRef<
   const [preview, setPreview] = useState<BriefPreview | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTab, setAttachTab] = useState<AttachTab>('All');
-  const [plusOpen, setPlusOpen] = useState(false);
   const [quality, setQuality] = useLocalPref<QualityId>(PREF.quality, 'standard');
   const [uploading, setUploading] = useState(false);
   const briefRef = useRef<BriefInputHandle>(null);
@@ -130,6 +147,7 @@ export const Composer = forwardRef<
   useImperativeHandle(handleRef, () => ({
     insertToken: (t) => briefRef.current?.insert(t),
     applyTemplate: (id) => briefRef.current?.insert({ t: 'template', id }),
+    openAttach: (tab) => openAttach(tab),
     focus: () => briefRef.current?.focus(),
     submit: () => {
       void go();
@@ -198,14 +216,44 @@ export const Composer = forwardRef<
     };
   }, [brief, engineId, brand.id, hasContent]);
 
-  const parentHasImage = !!parent && parent.status === 'done' && parent.images.length > 0;
   const engine = engines.find((e) => e.id === engineId);
-  const mode: 'generation' | 'edit' = !template && parentHasImage && engine?.supportsEdit ? 'edit' : 'generation';
+
+  /**
+   * What this brief will do, and why.
+   *
+   * Mode used to be inferred from whichever shot the screen had quietly
+   * selected, so the send button changed meaning on its own and the only way to
+   * find out which one you were about to get was to press it. Now a branch is
+   * something you ask for: `target` is set by Branch and by nothing else.
+   *
+   * Two things overrule a target, and both say so on screen rather than
+   * silently doing the other thing:
+   *  - an engine that cannot edit has nothing to branch with
+   *  - a look is a fresh setup, so it starts a new shot by definition
+   */
+  const branchable = target && target.kind !== 'root' && target.status === 'done' && target.images.length > 0;
+  const engineCanEdit = !!engine?.supportsEdit;
+  const mode: 'generation' | 'edit' = branchable && engineCanEdit ? 'edit' : 'generation';
+  const targetNote =
+    branchable && !engineCanEdit ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.` : null;
+
+  /**
+   * A look is a fresh setup, so it cannot also be an edit of an existing shot.
+   * Rather than explain that in a sentence nobody asked for, the branch simply
+   * lets go: the look chip appears and the branch chip disappears, which is the
+   * same fact told in the place you are already looking.
+   */
+  useEffect(() => {
+    if (template && branchable && onClearTarget) onClearTarget();
+  }, [template, branchable, onClearTarget]);
   // A template that wants a product still runs without one: it says "the
   // product" instead. Nine of ten templates ask for one, so blocking here
   // meant a brand with no products could never generate at all. Warn, allow.
   const blocking = preview?.warnings.filter((w) => w.includes('builds around a product')) ?? [];
-  const canGo = !busy && hasContent;
+  // the workspace arrives a beat after the screen does, and typing is faster
+  // than a round trip: without this the first brief of a cold load could be sent
+  // into nothing and come back as an error the user did nothing to cause
+  const canGo = !busy && hasContent && !!projectId;
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -246,7 +294,6 @@ export const Composer = forwardRef<
   const openAttach = (tab: AttachTab) => {
     setAttachTab(tab);
     setAttachOpen(true);
-    setPlusOpen(false);
   };
   const pickFiles = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -290,12 +337,24 @@ export const Composer = forwardRef<
     if (!canGo) return;
     setBusy(true);
     setErr(null);
+    // the prose only: chips are pictures, and this is a one-line caption for a
+    // tile that exists for a second or two
+    const said = sentence
+      .flatMap((t) => (t.t === 'text' ? [t.v] : []))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    onSending?.(said || 'Your shot');
     try {
-      const pid = projectId ?? (resolveProjectId ? await resolveProjectId() : null);
-      if (!pid) throw new Error('no project to generate into');
+      // the brand's workspace always exists by the time a brief can be run; a
+      // missing one is a load that has not landed, not a container to invent
+      if (!projectId) throw new Error('the workspace is still loading');
       const created = await api.addNode({
-        projectId: pid,
-        parentId: parent?.id ?? null,
+        projectId,
+        // an edit hangs off the shot it edits; anything else hangs off the
+        // root, so a brief that only *looked* like a branch is not filed as a
+        // version of a shot it never used
+        parentId: mode === 'edit' && target ? target.id : (parent?.id ?? null),
         kind: mode,
         engineId,
         count,
@@ -330,9 +389,12 @@ export const Composer = forwardRef<
       }
       briefRef.current?.setTokens(emptySentence());
       setTplFields({});
-      onQueued();
+      onQueued(created.id);
     } catch (e: any) {
       setErr(String(e.message ?? e));
+      // the brief is deliberately not cleared above until the shot exists, so
+      // everything typed is still on screen to send again
+      onSending?.(null);
     } finally {
       setBusy(false);
     }
@@ -374,6 +436,22 @@ export const Composer = forwardRef<
         </div>
       )}
       <div className="sc-promptcard">
+        {/* What this brief is about to do, stated before it does it. Only the
+            hub can drop a target, so only the hub shows the chip: inside the
+            overlay the shot being refined is the whole screen. */}
+        {branchable && onClearTarget && (
+          <div className="sc-target" data-note={targetNote ? '' : undefined}>
+            <span className="sc-target-lb">
+              Branching from
+              <img src={imgUrl(target.images[0])} alt="" />
+              <b dir="auto">{nodeLabel(target)}</b>
+            </span>
+            {targetNote && <small className="sc-target-note">{targetNote}</small>}
+            <button type="button" className="sc-target-x" onClick={onClearTarget} aria-label="Make a new shot instead">
+              <X size={12} />
+            </button>
+          </div>
+        )}
         <BriefInput
           ref={briefRef}
           onChange={setSentence}
@@ -394,53 +472,25 @@ export const Composer = forwardRef<
 
         <div className="sc-prompt-row">
           <div className="sc-prompt-left">
-            <span className="sc-plus-wrap">
-              <button
-                type="button"
-                ref={attachRef}
-                className="sc-icon-btn sc-attach-toggle"
-                aria-expanded={plusOpen || attachOpen}
-                aria-label="Attach"
-                title="Attach"
-                onClick={() => {
-                  if (attachOpen) {
-                    setAttachOpen(false);
-                    setPlusOpen(false);
-                  } else setPlusOpen((v) => !v);
-                }}
-              >
-                {uploading ? <Spinner size="1" /> : <Plus size={16} />}
-              </button>
-              {plusOpen && (
-                <>
-                  <span className="sc-plus-scrim" onClick={() => setPlusOpen(false)} aria-hidden />
-                  <div className="sc-plusmenu" role="menu" onMouseDownCapture={keepCaret}>
-                    <button type="button" role="menuitem" onClick={() => openAttach('Products')}>
-                      <Package size={14} /> Product
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => openAttach('Looks')}>
-                      <Stack size={14} /> Look
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => openAttach('Colors')}>
-                      <Palette size={14} /> Brand color
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => openAttach('Shots')}>
-                      <ImageIcon size={14} /> Recent shot
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setPlusOpen(false);
-                        fileRef.current?.click();
-                      }}
-                    >
-                      <UploadSimple size={14} /> Upload image
-                    </button>
-                  </div>
-                </>
-              )}
-            </span>
+            {/* One click, not two.
+
+                This used to open a menu naming five kinds, and picking one
+                opened a panel that already had those same five as tabs. The
+                menu was a question the panel then asked again, so it is gone
+                and the panel opens on All. The kinds are still one click away,
+                as its tabs, and `@` and `#` still open the same list inline at
+                the caret for anyone who would rather not leave the keyboard. */}
+            <button
+              type="button"
+              ref={attachRef}
+              className="sc-icon-btn sc-attach-toggle"
+              aria-expanded={attachOpen}
+              aria-label="Attach"
+              title="Attach a product, a look, a colour or an image"
+              onClick={() => (attachOpen ? setAttachOpen(false) : openAttach('All'))}
+            >
+              {uploading ? <Spinner size="1" /> : <Plus size={16} />}
+            </button>
 
             <Select.Root value={engineId} onValueChange={setEngineId}>
               <Select.Trigger variant="ghost" className="sc-mini-sel">

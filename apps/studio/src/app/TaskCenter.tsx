@@ -48,6 +48,12 @@ export interface TaskCenterValue {
   clearFeed: () => void;
   panelOpen: boolean;
   setPanelOpen: (v: boolean) => void;
+  /**
+   * Ask for a poll now. Work that has just been queued from inside the app is
+   * the one case where waiting out the idle cadence is plainly wrong: the
+   * server is already busy and only this timer has not been told yet.
+   */
+  poke: () => void;
 }
 
 const Ctx = createContext<TaskCenterValue | null>(null);
@@ -77,6 +83,9 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
   const prevRef = useRef<Map<string, Task> | null>(null);
   const announcedRef = useRef<Set<string>>(new Set());
   const runningRef = useRef(0);
+  // the live timer's own re-arm, published by the effect below so poke() can
+  // reach it without owning a timer of its own
+  const restartRef = useRef<(() => void) | null>(null);
   const panelOpenRef = useRef(panelOpen);
   panelOpenRef.current = panelOpen;
   const navRef = useRef(navigate);
@@ -159,17 +168,23 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       timer = null;
       if (!document.hidden) void tick();
     };
+    // poke() reaches the live timer through here, so it re-arms the one loop
+    // rather than starting a second one beside it
+    restartRef.current = restart;
 
     void tick();
     document.addEventListener('visibilitychange', restart);
     window.addEventListener('focus', restart);
     return () => {
       alive = false;
+      restartRef.current = null;
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', restart);
       window.removeEventListener('focus', restart);
     };
   }, [pull]);
+
+  const poke = useCallback(() => restartRef.current?.(), []);
 
   const markSeen = useCallback(() => {
     const at = new Date().toISOString();
@@ -193,8 +208,9 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       clearFeed,
       panelOpen,
       setPanelOpen,
+      poke,
     }),
-    [tasks, feed, seenAt, markSeen, clearFeed, panelOpen],
+    [tasks, feed, seenAt, markSeen, clearFeed, panelOpen, poke],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -1,22 +1,39 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router';
-import { api, type Brand, type Project } from '../api.js';
+import { Navigate, Outlet, useLocation, useParams } from 'react-router';
+import { api, type Brand, type Project, type ShotSet, type TreeNode } from '../api.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
 import { TabBar } from '../layout/TabBar.js';
 import { TopBar } from '../layout/TopBar.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
-import { ProjectPicker } from '../views/ProjectPicker.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
-import { useAppData, useDialogParam } from './AppShell.js';
-import { brandPath } from './brandPath.js';
+import { useAppData } from './AppShell.js';
 import { TaskCenterProvider } from './TaskCenter.js';
 
 interface BrandData {
   brand: Brand;
-  projects: Project[];
-  /** False until the first list lands, so /p/:slug knows it cannot resolve yet. */
-  projectsLoaded: boolean;
-  refreshProjects: () => Promise<void>;
+  /**
+   * The brand's one hidden project. Every node hangs from it; nothing in the UI
+   * names it. Null only for the moment before the first answer lands.
+   */
+  workspace: Project | null;
+  /** Every shot in the brand, newest last, roots included. */
+  nodes: TreeNode[];
+  sets: ShotSet[];
+  /** Which shots are in which set, keyed by set id. */
+  membership: Record<string, string[]>;
+  /** False until the first answer lands, so /s/:slug knows it cannot resolve yet. */
+  loaded: boolean;
+  refresh: () => Promise<void>;
+  /**
+   * Put a renamed set back into the list without waiting for a round trip.
+   *
+   * Renaming moves the slug, and the slug is the address. Refetching first left
+   * one render where the list knew only the old name and the URL still asked
+   * for it, so /s/:slug decided the set was deleted and bounced to the feed.
+   * Patching in place lets the new name and the new URL arrive together.
+   */
+  applySet: (next: ShotSet) => void;
+  dropSet: (id: string) => void;
 }
 
 const Ctx = createContext<BrandData | null>(null);
@@ -58,10 +75,11 @@ export function BrandLayout() {
   const { brandId } = useParams();
   const { pathname, search } = useLocation();
   const { brands, engines, refresh } = useAppData();
-  const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsLoaded, setProjectsLoaded] = useState(false);
-  const picker = useDialogParam('picker');
+  const [workspace, setWorkspace] = useState<Project | null>(null);
+  const [nodes, setNodes] = useState<TreeNode[]>([]);
+  const [sets, setSets] = useState<ShotSet[]>([]);
+  const [membership, setMembership] = useState<Record<string, string[]>>({});
+  const [loaded, setLoaded] = useState(false);
   // narrow screens get the panel as a drawer over the canvas: opening one by
   // default is a first run that starts behind a scrim
   const [assetsOpen, setAssetsOpen] = useLocalPref(PREF.assetsOpen, window.innerWidth >= 1280);
@@ -78,15 +96,27 @@ export function BrandLayout() {
 
   const brand = brands.find((b) => b.slug === brandId) ?? brands.find((b) => b.id === brandId) ?? null;
 
-  const refreshProjects = useCallback(async () => {
+  /**
+   * One ask for the whole brand: its shots, its sets, and who is in what.
+   * Drawing the feed used to cost one request per project, so a studio with
+   * forty of them paid forty round trips to see one screen.
+   */
+  const refreshWorkspace = useCallback(async () => {
     if (!brand) return;
-    setProjects(await api.projects(brand.id));
-    setProjectsLoaded(true);
+    const ws = await api.workspace(brand.id);
+    setWorkspace(ws.project);
+    setNodes(ws.nodes);
+    setSets(ws.sets);
+    setMembership(ws.membership);
+    setLoaded(true);
   }, [brand?.id]);
 
-  // the other brand's list is not an answer about this one
+  const applySet = useCallback((next: ShotSet) => setSets((cur) => cur.map((s) => (s.id === next.id ? next : s))), []);
+  const dropSet = useCallback((id: string) => setSets((cur) => cur.filter((s) => s.id !== id)), []);
+
+  // the other brand's answer is not an answer about this one
   useEffect(() => {
-    setProjectsLoaded(false);
+    setLoaded(false);
   }, [brand?.id]);
 
   useEffect(() => {
@@ -94,8 +124,8 @@ export function BrandLayout() {
   }, [brand?.id]);
 
   useEffect(() => {
-    void refreshProjects();
-  }, [refreshProjects, brand?.updatedAt]);
+    void refreshWorkspace();
+  }, [refreshWorkspace, brand?.updatedAt]);
 
   // a deleted brand, or a link to one this machine has never seen
   if (!brand) return <Navigate to="/" replace />;
@@ -110,27 +140,11 @@ export function BrandLayout() {
     return <Navigate to={seg.join('/') + search} replace />;
   }
 
-  const base = brandPath(brand);
-  const openProject = (id: string) => navigate(`${base}/p/${projects.find((p) => p.id === id)?.slug ?? id}`);
-
-  const newProject = async () => {
-    const made = await api.createProject(brand.id, 'Untitled');
-    await refreshProjects();
-    navigate(`${base}/p/${made.project.slug}`);
-  };
-
   return (
-    <Ctx.Provider value={{ brand, projects, projectsLoaded, refreshProjects }}>
-      <SettingsDialog engines={engines} projects={projects} onSaved={refresh} />
-      <ProjectPicker
-        open={picker.value === '1'}
-        onClose={picker.close}
-        brandId={brand.id}
-        onPick={openProject}
-        onCreate={() => {
-          void newProject();
-        }}
-      />
+    <Ctx.Provider
+      value={{ brand, workspace, nodes, sets, membership, loaded, refresh: refreshWorkspace, applySet, dropSet }}
+    >
+      <SettingsDialog engines={engines} shots={nodes} onSaved={refresh} />
       <TaskCenterProvider brand={brand}>
         <AssetsCtx.Provider value={assets}>
           <div className="sc-shell">

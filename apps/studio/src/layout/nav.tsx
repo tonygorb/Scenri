@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { House, PlusCircle, Stack, UsersThree } from '@phosphor-icons/react';
 import { assetUrl, type Brand, type EngineInfo } from '../api.js';
-import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
 
@@ -21,23 +20,27 @@ export interface NavItem {
 
 /**
  * The nav reads where it is from the router, so no screen can hand it a wrong
- * answer. Create is the odd one out: with nothing open it asks which project
- * rather than guessing the newest.
+ * answer.
+ *
+ * Create used to open a picker asking which project to work in, and did nothing
+ * at all once you were already inside one — which is the single place people
+ * press it twice. It is an ordinary destination now: the hub holding everything
+ * this brand has made, and the brief that makes more.
  */
 export function useMainNav(iconSize: number): NavItem[] {
   const { brand } = useBrand();
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const picker = useDialogParam('picker');
   const base = brandPath(brand);
   const rest = pathname.startsWith(base) ? pathname.slice(base.length) : '';
-  const onCreate = rest.startsWith('/p/');
 
   // the glyph fills where you are: a real Phosphor weight, not a stroked icon
   // told to fill, which thickens the counters and reads as a smudge
   const w = (on: boolean) => (on ? ('fill' as const) : ('regular' as const));
 
   const home = rest === '' || rest === '/';
+  // a set is the hub wearing a filter, so it lights the same lamp
+  const create = rest.startsWith('/create') || rest.startsWith('/s/');
   const looks = rest.startsWith('/looks');
   const brandPage = rest.startsWith('/brand');
 
@@ -52,11 +55,10 @@ export function useMainNav(iconSize: number): NavItem[] {
     {
       key: 'create',
       label: 'Create',
-      icon: <PlusCircle size={iconSize} weight={w(onCreate)} />,
-      active: onCreate,
-      go: () => {
-        if (!onCreate) picker.open('1');
-      },
+      icon: <PlusCircle size={iconSize} weight={w(create)} />,
+      active: create,
+      // already there: put the caret in the brief rather than reload the screen
+      go: () => navigate(create ? `${pathname}?compose=1` : `${base}/create?compose=1`),
     },
     {
       key: 'looks',

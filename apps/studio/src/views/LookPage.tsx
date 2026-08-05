@@ -15,39 +15,18 @@ import { useApplyLook } from '../app/useApplyLook.js';
 export function LookPage() {
   const { lookId = '' } = useParams();
   const { looks } = useAppData();
-  const { brand } = useBrand();
+  // one ask upstairs holds the whole brand now, so this page no longer walks
+  // twenty project trees to answer "what did this look actually produce"
+  const { brand, nodes: shots } = useBrand();
   const navigate = useNavigate();
   const applyLook = useApplyLook();
   const brandId = brand.id;
   const base = brandPath(brand);
-  const [shots, setShots] = useState<TreeNode[]>([]);
   const [refs, setRefs] = useState<string[]>([]);
   const [allParam, setOpenAll] = useFilterParam('all');
   const openAll = allParam === '1';
 
   const openLook = (id: string) => navigate(`${base}/looks/${id}`);
-
-  // Shots live per project, so gather them: this page is the only place that
-  // asks "what did this look actually produce", across the whole brand.
-  useEffect(() => {
-    if (!brandId) {
-      setShots([]);
-      return;
-    }
-    let alive = true;
-    void api
-      .projects(brandId)
-      // newest first, or a cap silently drops the work you just did
-      .then((ps) => [...ps].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20))
-      .then((ps) => Promise.all(ps.map((p) => api.tree(p.id).catch(() => null))))
-      .then((trees) => {
-        if (alive) setShots(trees.flatMap((t) => t?.nodes ?? []));
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [brandId]);
 
   const look = looks.find((l) => l.id === lookId);
 

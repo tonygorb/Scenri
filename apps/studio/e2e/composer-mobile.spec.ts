@@ -28,7 +28,10 @@ async function overflow(p: Page): Promise<number> {
 }
 
 test.beforeEach(async ({ page }) => {
+  // the brief lives on the hub: Home is the way in and carries no tools
   await page.goto('/');
+  await page.waitForURL(/\/b\/[^/]+$/);
+  await page.goto(`${new URL(page.url()).pathname}/create`);
   await line(page).waitFor();
 });
 

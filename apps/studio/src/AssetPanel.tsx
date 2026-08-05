@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Callout, Card, Flex, Spinner, Text, TextField } from '@radix-ui/themes';
 import { api, assetUrl, deleteAsset, uploadAsset, type Brand, type CatalogImportJob, type Product } from './api.js';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { CatalogImportDialog } from './layout/CatalogImportDialog.js';
+
+/** Cards drawn at once. Past this, the search box above is the way through. */
+const PANEL_CAP = 60;
 
 /** Inline uploader and grid. One panel, two collections: products and cast. */
 const KINDS = {
@@ -35,6 +39,7 @@ export function ProductsPanel({
 }) {
   const spec = KINDS[kind];
   const [name, setName] = useState('');
+  const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -95,6 +100,14 @@ export function ProductsPanel({
 
   const manualProducts: Product[] = ((brand.json as any)?.[spec.key] ?? []) as Product[];
   const products: Product[] = kind === 'products' ? library : manualProducts;
+  /**
+   * A catalog import can land hundreds, and this dialog drew all of them as
+   * 120px cards with no way to find one. Filter first, then cap what is drawn,
+   * and say plainly when there is more behind the cap.
+   */
+  const needle = filter.trim().toLowerCase();
+  const matching = needle ? products.filter((p) => (p.name ?? '').toLowerCase().includes(needle)) : products;
+  const visible = matching.slice(0, PANEL_CAP);
 
   const upload = async (file: File) => {
     setBusy(true);
@@ -176,8 +189,25 @@ export function ProductsPanel({
           <Callout.Text>{err}</Callout.Text>
         </Callout.Root>
       )}
+      {products.length > 12 && (
+        <TextField.Root
+          size="2"
+          placeholder={`Search ${products.length} ${kind === 'products' ? 'products' : 'people'}`}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <TextField.Slot>
+            <MagnifyingGlass size={14} />
+          </TextField.Slot>
+        </TextField.Root>
+      )}
+      {matching.length === 0 && needle && (
+        <Text size="1" color="gray">
+          Nothing matches “{filter.trim()}”.
+        </Text>
+      )}
       <Flex gap="2" wrap="wrap">
-        {products.map((p) => {
+        {visible.map((p) => {
           const url = assetUrl(p.shots?.[0]?.file);
           return (
             <Card key={p.id} variant="surface" style={{ width: 120 }}>
@@ -214,6 +244,11 @@ export function ProductsPanel({
           </Text>
         )}
       </Flex>
+      {matching.length > visible.length && (
+        <Text size="1" color="gray">
+          Showing {visible.length} of {matching.length}. Search to narrow it down.
+        </Text>
+      )}
 
       {kind === 'products' && (
         <CatalogImportDialog

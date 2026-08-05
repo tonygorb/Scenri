@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { firstFree, slugify } from './slug.js';
@@ -35,6 +36,22 @@ CREATE TABLE IF NOT EXISTS nodes (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_nodes_project ON nodes(project_id);
+CREATE TABLE IF NOT EXISTS sets (
+  id TEXT PRIMARY KEY,
+  brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sets_slug ON sets(brand_id, slug);
+CREATE TABLE IF NOT EXISTS set_nodes (
+  set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+  added_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (set_id, node_id)
+);
+CREATE INDEX IF NOT EXISTS idx_set_nodes_node ON set_nodes(node_id);
 CREATE TABLE IF NOT EXISTS cost_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   engine_id TEXT NOT NULL,
@@ -198,6 +215,74 @@ function backfillSlugs(db: DB): void {
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects(brand_id, slug)');
 }
 
+/**
+ * One workspace per brand, and every project that held work becomes a set.
+ *
+ * A project was the root of a node tree, so a fresh generation needed one and
+ * five separate buttons quietly made one — "Project 3", "Untitled", one per
+ * send from the home dock. Nobody asked for them and nothing could rename or
+ * delete them. Meanwhile the feed people actually looked at already spanned
+ * every project, which is the tell: the container was never the place, only a
+ * grouping wearing a place's clothes.
+ *
+ * So it becomes one. Each brand keeps exactly one project as the hidden
+ * workspace every node hangs from, and each surplus project that held shots
+ * turns into a set of the same name and slug. Empty ones are dropped, because
+ * they are precisely the litter this is meant to stop producing.
+ *
+ * Idempotent by shape rather than by a version flag: a brand already down to
+ * one project has nothing to collapse, so a second run does nothing.
+ */
+function collapseProjects(db: DB): void {
+  const brands = db.prepare('SELECT id FROM brands').all() as { id: string }[];
+  const listProjects = db.prepare('SELECT id, name, slug FROM projects WHERE brand_id=? ORDER BY created_at, id');
+  const shotsIn = db.prepare("SELECT id FROM nodes WHERE project_id=? AND kind!='root' ORDER BY created_at, id");
+  const takenSlug = db.prepare('SELECT slug FROM sets WHERE brand_id=?');
+  const addSet = db.prepare('INSERT INTO sets (id, brand_id, name, slug) VALUES (?,?,?,?)');
+  const addMember = db.prepare('INSERT OR IGNORE INTO set_nodes (set_id, node_id) VALUES (?,?)');
+
+  for (const brand of brands) {
+    const projects = listProjects.all(brand.id) as { id: string; name: string; slug: string }[];
+    if (projects.length <= 1) continue;
+    const workspace = projects[0];
+
+    db.transaction(() => {
+      // mint the sets first: after the reparent below, nothing remembers which
+      // project a shot came from
+      const taken = new Set((takenSlug.all(brand.id) as { slug: string }[]).map((r) => r.slug));
+      for (const p of projects) {
+        const shots = shotsIn.all(p.id) as { id: string }[];
+        if (shots.length === 0) continue;
+        const slug = firstFree(p.slug || slugify(p.name, 'set'), (c) => taken.has(c));
+        taken.add(slug);
+        const setId = randomUUID();
+        addSet.run(setId, brand.id, p.name, slug);
+        for (const s of shots) addMember.run(setId, s.id);
+      }
+
+      // reparent before deleting: nodes.project_id cascades, so dropping the
+      // projects first would take the shots with them
+      db.prepare(
+        'UPDATE nodes SET project_id=? WHERE project_id IN (SELECT id FROM projects WHERE brand_id=? AND id!=?)',
+      ).run(workspace.id, brand.id, workspace.id);
+
+      // every old project brought its own root. Keep the oldest, and orphan the
+      // children of the rest first — parent_id has no ON DELETE clause
+      const roots = db
+        .prepare("SELECT id FROM nodes WHERE project_id=? AND kind='root' ORDER BY created_at, id")
+        .all(workspace.id) as { id: string }[];
+      const surplus = roots.slice(1).map((r) => r.id);
+      if (surplus.length > 0) {
+        const holes = surplus.map(() => '?').join(',');
+        db.prepare(`UPDATE nodes SET parent_id=NULL WHERE parent_id IN (${holes})`).run(...surplus);
+        db.prepare(`DELETE FROM nodes WHERE id IN (${holes})`).run(...surplus);
+      }
+
+      db.prepare('DELETE FROM projects WHERE brand_id=? AND id!=?').run(brand.id, workspace.id);
+    })();
+  }
+}
+
 export function openDb(homeDir: string): DB {
   mkdirSync(homeDir, { recursive: true });
   const db = new Database(join(homeDir, 'scenri.db'));
@@ -217,6 +302,8 @@ export function openDb(homeDir: string): DB {
     db.exec('ALTER TABLE projects ADD COLUMN slug TEXT');
   }
   backfillSlugs(db);
+  // after the backfill, so a set can inherit the slug its project already has
+  collapseProjects(db);
   // Nodes only leave 'running' via the in-process generation promise; after a
   // crash/restart those rows would spin forever in the UI. Sweep them to error.
   db.prepare(

@@ -39,18 +39,15 @@ const pop = (p: Page) => p.locator('.sc-notif-pop');
 const tabs = (p: Page) => p.locator('.sc-notif-tab');
 const rows = (p: Page) => p.locator('.sc-notif-scroll .sc-notif-row');
 
-/** Start a generation without ever opening the project it belongs to. */
+/** Start a generation while standing somewhere the feed is not on screen. */
 async function fireAndWalkAway(p: Page, brand: string) {
-  const projects = (await api(p, `/api/projects?brandId=${brand}`)) as any[];
-  const project =
-    projects[0] ?? (await api(p, '/api/projects', postJson({ brandId: brand, name: 'Bell spec' }))).project;
-  const tree = (await api(p, `/api/projects/${project.id}/tree`)) as any;
-  const root = (tree.nodes ?? []).find((n: any) => n.kind === 'root');
+  const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
   const made = (await api(
     p,
     '/api/nodes',
     postJson({
-      projectId: project.id,
+      projectId: ws.project.id,
       parentId: root?.id ?? null,
       kind: 'generation',
       prompt: 'bell spec shot',
@@ -58,7 +55,7 @@ async function fireAndWalkAway(p: Page, brand: string) {
       count: 1,
     }),
   )) as any;
-  return { projectId: project.id, slug: project.slug, nodeId: made.id };
+  return { nodeId: made.id };
 }
 
 /** Nothing in this spec should inherit another case's history. */
@@ -72,14 +69,16 @@ async function clearHistory(p: Page) {
 
 test('the bell is in the bar on every screen', async ({ page }) => {
   const brand = await currentBrand(page);
-  const projects = (await api(page, `/api/projects?brandId=${brand.id}`)) as any[];
+  const set = (await api(page, `/api/brands/${brand.id}/sets`, postJson({ name: 'Bell spec' }))) as any;
 
-  for (const path of [`/b/${brand.slug}`, `/b/${brand.slug}/looks`, `/b/${brand.slug}/brand`]) {
+  for (const path of [
+    `/b/${brand.slug}`,
+    `/b/${brand.slug}/create`,
+    `/b/${brand.slug}/looks`,
+    `/b/${brand.slug}/brand`,
+    `/b/${brand.slug}/s/${set.slug}`,
+  ]) {
     await page.goto(path);
-    await expect(bell(page)).toBeVisible();
-  }
-  if (projects[0]) {
-    await page.goto(`/b/${brand.slug}/p/${projects[0].slug}`);
     await expect(bell(page)).toBeVisible();
   }
 });
@@ -137,7 +136,7 @@ test('work started from another screen still arrives, survives a reload, and cle
 
   // and a row is a way back to the thing it is about
   await rows(page).first().click();
-  await page.waitForURL(/\/p\/[^/]+\/n\/[^/]+/);
+  await page.waitForURL(/\/b\/[^/]+\/create\/n\/[^/]+/);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 });
 
@@ -165,13 +164,29 @@ test('clearing empties the record', async ({ page }) => {
   await expect(page.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
 });
 
-test('a finish still toasts while you are on the project', async ({ page }) => {
+test('a finish still toasts while you are on the feed', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
-  const { slug } = await fireAndWalkAway(page, brand.id);
 
   // the emitter moved up to TaskCenter; the toast must not have gone with it
-  await page.goto(`/b/${brand.slug}/p/${slug}`);
+  await page.goto(`/b/${brand.slug}`);
   await fireAndWalkAway(page, brand.id);
   await expect(page.locator('.sc-toast').first()).toBeVisible({ timeout: 20_000 });
+});
+
+test('a notification row opens the shot it is about', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await clearHistory(page);
+
+  await page.goto(`/b/${brand.slug}/looks`);
+  const { nodeId } = await fireAndWalkAway(page, brand.id);
+  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+
+  await bell(page).click();
+  await tabs(page).nth(1).click();
+  await rows(page).first().click();
+
+  // the href used to name a project route that no longer exists
+  await page.waitForURL(`**/b/${brand.slug}/create/n/${nodeId}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
 });

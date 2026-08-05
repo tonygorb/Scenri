@@ -34,27 +34,23 @@ async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * A project holding a finished multi-image shot, on the free Demo engine.
+ * A finished multi-image shot on the brand's feed, on the free Demo engine.
  *
  * Several cases here are about the variant the URL names, so one image is not
  * enough — seed.setup.ts asks for a single one, which is right for the composer
  * spec and useless to this one.
  */
 async function seedShot(p: Page, brand: string) {
-  const projects = (await api(p, `/api/projects?brandId=${brand}`)) as any[];
-  const project =
-    projects[0] ?? (await api(p, '/api/projects', postJson({ brandId: brand, name: 'Routing spec' }))).project;
+  const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
+  const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 1);
+  if (done) return { nodeId: done.id, images: done.images.length };
 
-  const tree = (await api(p, `/api/projects/${project.id}/tree`)) as any;
-  const done = (tree.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 1);
-  if (done) return { projectId: project.id, slug: project.slug, nodeId: done.id, images: done.images.length };
-
-  const root = (tree.nodes ?? []).find((n: any) => n.kind === 'root');
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
   const made = (await api(
     p,
     '/api/nodes',
     postJson({
-      projectId: project.id,
+      projectId: ws.project.id,
       parentId: root?.id ?? null,
       kind: 'generation',
       prompt: 'routing spec shot',
@@ -64,13 +60,19 @@ async function seedShot(p: Page, brand: string) {
   )) as any;
 
   for (let i = 0; i < 40; i++) {
-    const t = (await api(p, `/api/projects/${project.id}/tree`)) as any;
+    const t = (await api(p, `/api/brands/${brand}/workspace`)) as any;
     const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
-    if (n?.status === 'done')
-      return { projectId: project.id, slug: project.slug, nodeId: n.id, images: n.images.length };
+    if (n?.status === 'done') return { nodeId: n.id, images: n.images.length };
     await p.waitForTimeout(300);
   }
   throw new Error('demo generation never finished');
+}
+
+/** A set holding one shot, so the filtered route has something to show. */
+async function seedSet(p: Page, brand: string, name: string, nodeIds: string[]) {
+  const made = (await api(p, `/api/brands/${brand}/sets`, postJson({ name }))) as any;
+  if (nodeIds.length) await api(p, `/api/sets/${made.id}/nodes`, postJson({ nodeIds }));
+  return made as { id: string; slug: string; name: string };
 }
 
 const postJson = (body: unknown): RequestInit => ({
@@ -83,7 +85,8 @@ const activeNav = (p: Page) => p.locator('.sc-nav button[data-active="true"]');
 
 test('every screen cold-loads from its own URL', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { slug, nodeId } = await seedShot(page, brand.id);
+  const { nodeId } = await seedShot(page, brand.id);
+  const set = await seedSet(page, brand.id, 'Cold load', [nodeId]);
 
   await page.goto(`/b/${brand.slug}`);
   await expect(activeNav(page)).toHaveText('Home');
@@ -103,20 +106,24 @@ test('every screen cold-loads from its own URL', async ({ page }) => {
   await page.waitForURL(/\/looks\/[^/]+$/);
   await expect(page.locator('.sc-lookpage h1')).toHaveText(looked);
 
-  await page.goto(`/b/${brand.slug}/p/${slug}`);
+  await page.goto(`/b/${brand.slug}/s/${set.slug}`);
   await expect(page.locator('.sc-canvas')).toBeVisible();
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
 
-  await page.goto(`/b/${brand.slug}/p/${slug}/n/${nodeId}`);
+  // the overlay hangs off the plain feed and off a set alike
+  await page.goto(`/b/${brand.slug}/create/n/${nodeId}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+
+  await page.goto(`/b/${brand.slug}/s/${set.slug}/n/${nodeId}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 });
 
 test('a reloaded shot comes back to the same shot and the same variant', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { slug, nodeId, images } = await seedShot(page, brand.id);
+  const { nodeId, images } = await seedShot(page, brand.id);
   test.skip(images < 2, 'needs a multi-image generation to have a variant to hold');
 
-  await page.goto(`/b/${brand.slug}/p/${slug}/n/${nodeId}?i=${images - 1}`);
+  await page.goto(`/b/${brand.slug}/create/n/${nodeId}?i=${images - 1}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
   const before = await page.locator('.sc-ovl').innerText();
   expect(before).toContain(`${images} of ${images} variants`);
@@ -128,10 +135,10 @@ test('a reloaded shot comes back to the same shot and the same variant', async (
 
 test('back and forward walk the trail, and escape is one step', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { slug, nodeId } = await seedShot(page, brand.id);
+  const { nodeId } = await seedShot(page, brand.id);
 
-  await page.goto(`/b/${brand.slug}/p/${slug}`);
-  await page.goto(`/b/${brand.slug}/p/${slug}/n/${nodeId}`);
+  await page.goto(`/b/${brand.slug}/create`);
+  await page.goto(`/b/${brand.slug}/create/n/${nodeId}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 
   await page.keyboard.press('Escape');
@@ -173,12 +180,13 @@ test('settings is a URL, and Back closes it', async ({ page }) => {
   await expect(page.locator('.sc-set')).toHaveCount(0);
 });
 
-test('switching project does not carry the last one text layers', async ({ page }) => {
+test('switching set does not carry the last one text layers', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { slug, nodeId } = await seedShot(page, brand.id);
-  const second = (await api(page, '/api/projects', postJson({ brandId: brand.id, name: 'Routing spec B' }))) as any;
+  const { nodeId } = await seedShot(page, brand.id);
+  const first = await seedSet(page, brand.id, 'Layers A', [nodeId]);
+  const second = await seedSet(page, brand.id, 'Layers B', []);
 
-  await page.goto(`/b/${brand.slug}/p/${slug}/n/${nodeId}`);
+  await page.goto(`/b/${brand.slug}/s/${first.slug}/n/${nodeId}`);
   await page
     .locator('.sc-ovl')
     .getByRole('button', { name: /^Add text$/ })
@@ -186,20 +194,81 @@ test('switching project does not carry the last one text layers', async ({ page 
     .click();
   await expect(page.locator('.sc-lrow')).not.toHaveCount(0);
 
-  // React Router keeps a component mounted across a param change, so the
-  // project route is keyed; without that key these drafts follow you over
-  await page.goto(`/b/${brand.slug}/p/${second.project.slug}`);
+  // React Router keeps a component mounted across a param change, so the set
+  // route is keyed; without that key these drafts follow you over
+  await page.goto(`/b/${brand.slug}/s/${second.slug}`);
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
   await expect(page.locator('.sc-lrow')).toHaveCount(0);
 });
 
+test('a set can be renamed and deleted from the crumb, and the shots survive', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const { nodeId } = await seedShot(page, brand.id);
+  // the e2e home persists between runs, so the names have to be this run's own
+  const stamp = String(process.hrtime.bigint()).slice(-8);
+  const set = await seedSet(page, brand.id, `Crumb ${stamp}`, [nodeId]);
+
+  await page.goto(`/b/${brand.slug}/s/${set.slug}`);
+  await expect(page.locator('.sc-crumb-btn b')).toHaveText(`Crumb ${stamp}`);
+
+  await page.locator('.sc-crumb-btn').click();
+  await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+  await page.locator('.sc-crumb-input').fill(`Renamed ${stamp}`);
+  await page.keyboard.press('Enter');
+
+  // the slug is the address: renaming has to move the path with it
+  await page.waitForURL(`**/b/${brand.slug}/s/renamed-${stamp}`);
+  await expect(page.locator('.sc-crumb-btn b')).toHaveText(`Renamed ${stamp}`);
+
+  await page.locator('.sc-crumb-btn').click();
+  await page.getByRole('menuitem', { name: 'Delete set', exact: true }).click();
+  await page.waitForURL(`**/b/${brand.slug}/create`);
+
+  // deleting a set is a label coming off, never a shot going away
+  const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  expect(ws.nodes.some((n: any) => n.id === nodeId)).toBe(true);
+  expect(ws.sets.some((s: any) => s.id === set.id)).toBe(false);
+});
+
+test('Create is never inert, wherever it is pressed from', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await seedShot(page, brand.id);
+
+  // it used to do nothing at all whenever a project was already open, and to
+  // open a picker otherwise. It now lands the caret in the brief either way.
+  await page.goto(`/b/${brand.slug}/looks`);
+  await page.locator('.sc-nav button', { hasText: 'Create' }).click();
+  await page.waitForURL(new RegExp(`/b/${brand.slug}/create`));
+  await expect(activeNav(page)).toHaveText('Create');
+  await expect(page.locator('.sc-canvas-dock [contenteditable="true"]')).toBeFocused();
+
+  // and again from the hub itself, where there is no journey left to make
+  await page.locator('.sc-canvas').click({ position: { x: 5, y: 5 } });
+  await page.locator('.sc-nav button', { hasText: 'Create' }).click();
+  await expect(page.locator('.sc-canvas-dock [contenteditable="true"]')).toBeFocused();
+});
+
+test('an old project link lands on the hub rather than an error', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const { nodeId } = await seedShot(page, brand.id);
+
+  await page.goto(`/b/${brand.slug}/p/anything-at-all`);
+  await page.waitForURL(`**/b/${brand.slug}/create`);
+  await expect(activeNav(page)).toHaveText('Create');
+
+  // and a shot link from before Home and Create were separate screens
+  await page.goto(`/b/${brand.slug}/n/${nodeId}`);
+  await page.waitForURL(`**/b/${brand.slug}/create/n/${nodeId}`);
+});
+
 test('the address bar spells names, not uuids', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { projectId, slug, nodeId } = await seedShot(page, brand.id);
+  const { nodeId } = await seedShot(page, brand.id);
+  const set = await seedSet(page, brand.id, 'Readable', [nodeId]);
 
   // "/" resolves to a brand, and says which one in words
   expect(brand.slug).not.toMatch(UUID);
-  expect(slug).not.toMatch(UUID);
+  expect(set.slug).not.toMatch(UUID);
 
   // an id still resolves, and rewrites itself to the readable spelling
   await page.goto(`/b/${brand.id}/looks`);
@@ -207,8 +276,8 @@ test('the address bar spells names, not uuids', async ({ page }) => {
   await expect(activeNav(page)).toHaveText('Looks');
 
   // including deeper in the path, where the rest of it has to survive
-  await page.goto(`/b/${brand.id}/p/${projectId}/n/${nodeId}`);
-  await page.waitForURL(`**/b/${brand.slug}/p/${slug}/n/${nodeId}`);
+  await page.goto(`/b/${brand.id}/s/${set.id}/n/${nodeId}`);
+  await page.waitForURL(`**/b/${brand.slug}/s/${set.slug}/n/${nodeId}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 });
 
@@ -222,11 +291,11 @@ test('an unknown brand or path lands somewhere real', async ({ page }) => {
   await page.waitForURL(`**/b/${brand.slug}`);
 });
 
-test('a shot URL whose node is gone falls back to the canvas', async ({ page }) => {
+test('a shot URL whose node is gone falls back to the feed', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { slug } = await seedShot(page, brand.id);
+  await seedShot(page, brand.id);
 
-  await page.goto(`/b/${brand.slug}/p/${slug}/n/no-such-node`);
-  await page.waitForURL(`**/p/${slug}`);
+  await page.goto(`/b/${brand.slug}/create/n/no-such-node`);
+  await page.waitForURL(`**/b/${brand.slug}/create`);
   await expect(page.locator('.sc-canvas')).toBeVisible();
 });

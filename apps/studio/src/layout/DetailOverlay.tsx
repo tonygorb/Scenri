@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowsClockwise,
+  GitBranch,
   ArrowsLeftRight,
   CaretLeft,
   CaretRight,
@@ -25,6 +26,7 @@ import {
   type TreeNode,
 } from '../api.js';
 import { flattenToBlob } from '../editor/flatten.js';
+import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
 import { Inspector, type InspectorTab } from './Inspector.js';
@@ -51,6 +53,7 @@ export function DetailOverlay({
   onRetry,
   onChanged,
   onRemix,
+  onBranch,
   layers,
   selectedLayerId,
   onSelectLayer,
@@ -73,6 +76,8 @@ export function DetailOverlay({
   onRetry: (n: TreeNode) => void;
   onChanged: () => void;
   onRemix: (n: TreeNode) => void;
+  /** Point the brief at this shot and stand back so you can see it. */
+  onBranch: (n: TreeNode) => void;
   layers: TextLayer[];
   selectedLayerId: string | null;
   onSelectLayer: (id: string | null) => void;
@@ -99,11 +104,13 @@ export function DetailOverlay({
     [nodes, node.parentId],
   );
   const sibIndex = siblings.findIndex((n) => n.id === node.id);
+  const root = useMemo(() => nodes.find((n) => n.kind === 'root') ?? null, [nodes]);
   const parent = node.parentId ? byId.get(node.parentId) : null;
   const parentShot = parent && parent.kind !== 'root' ? parent : null;
   const { push } = useToasts();
   const [working, setWorking] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const hash = node.images[imageIndex] ?? node.images[0];
   const baseName =
     node.prompt
@@ -165,13 +172,17 @@ export function DetailOverlay({
         <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
           <X size={13} />
         </button>
+        {/* These step siblings, which are whole runs off the same parent, so
+            they are versions. Variants are the images inside one run and are
+            stepped on the stage with [ and ]. */}
         <button
           type="button"
           className="sc-icon-btn"
           disabled={sibIndex <= 0}
           style={sibIndex <= 0 ? { opacity: 0.4 } : undefined}
           onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
-          aria-label="Previous variant"
+          aria-label="Previous version"
+          title="Previous version"
         >
           <CaretLeft size={13} />
         </button>
@@ -181,7 +192,8 @@ export function DetailOverlay({
           disabled={sibIndex >= siblings.length - 1}
           style={sibIndex >= siblings.length - 1 ? { opacity: 0.4 } : undefined}
           onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
-          aria-label="Next variant"
+          aria-label="Next version"
+          title="Next version"
         >
           <CaretRight size={13} />
         </button>
@@ -233,12 +245,16 @@ export function DetailOverlay({
             >
               <Star size={14} weight={node.kept ? 'fill' : 'regular'} />
             </button>
-            {parentShot && (
+            {parentShot?.images[0] && (
+              // Compare used to mean "switch to a tab called Info and scroll",
+              // which is why nobody found the one feature that answers what the
+              // model changed without being asked. It is an action, so it is a
+              // button, next to the shot it is about.
               <button
                 type="button"
                 className="sc-icon-btn"
-                onClick={() => onTabChange('info')}
-                aria-label="Compare with source"
+                onClick={() => setCompareOpen(true)}
+                aria-label="Compare with the shot this came from"
                 title="Compare with source"
               >
                 <ArrowsLeftRight size={14} />
@@ -325,6 +341,9 @@ export function DetailOverlay({
             <button type="button" className="sc-s" onClick={onAddLayer}>
               <Plus size={12} /> Add text
             </button>
+            <button type="button" className="sc-s" onClick={() => onBranch(node)}>
+              <GitBranch size={12} /> Branch from this
+            </button>
             {node.brief && (
               <button type="button" className="sc-s" onClick={() => onRemix(node)}>
                 <ArrowsClockwise size={12} /> Remix this brief
@@ -357,17 +376,34 @@ export function DetailOverlay({
         </div>
 
         <div className="sc-ovl-edit">
+          {/* In here the target is the whole screen, so it is stated rather
+              than chosen: `target` is this shot and there is no chip, because
+              there is nothing else this composer could be talking about. The
+              root is the fallback for the cases that cannot branch, so a look
+              or a non-editing engine still makes a new shot rather than filing
+              one under a shot it never used. */}
           <Composer
             projectId={projectId}
             brand={brand}
             engines={engines}
-            parent={node}
+            parent={root}
+            target={node}
             shots={nodes}
             onQueued={onChanged}
           />
         </div>
       </aside>
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} layers={layers} />
+      {parentShot?.images[0] && (
+        <CompareDialog
+          open={compareOpen}
+          onOpenChange={setCompareOpen}
+          a={parentShot}
+          b={node}
+          imageA={parentShot.images[0]}
+          imageB={hash}
+        />
+      )}
     </div>,
     document.body,
   );

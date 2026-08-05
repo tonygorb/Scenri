@@ -1253,13 +1253,14 @@ select {
 }
 
 /* ---------- inspector ---------- */
+/* Now only the Inspector's Text/Info pair. Its one caller used to cancel the
+   background inline, so the background is gone rather than fought. */
 .sc-tabs {
   display: flex;
   gap: 16px;
   padding: 0 14px;
   border-bottom: 1px solid var(--sc-line);
   flex-shrink: 0;
-  background: var(--sc-panel);
 }
 .sc-tab {
   font-size: 13px;
@@ -1785,15 +1786,28 @@ select {
   text-overflow: ellipsis;
 }
 
-/* feed tabs reuse .sc-tabs/.sc-tab; feed masonry: */
+/* Real columns, not CSS multicol.
+   Multicol balances column *height*, so a few tall tiles packed two columns and
+   left the third empty. Canvas.tsx counts the columns that fit and deals tiles
+   into them, which fills the width at every size and at every grid size. */
 .sc-feed {
-  columns: auto var(--sc-tile);
-  column-gap: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
   padding-top: 16px;
+}
+/* Exactly the width the grid-size slider asks for, never stretched to fill.
+   Stretching made the slider feel broken: the tiles only ever changed when the
+   column *count* changed, so half the drag did nothing at all and the tiles
+   were never the size you set. Fixed width means every step moves something,
+   and the leftover — always less than one tile — sits at the end of the row. */
+.sc-feed-col {
+  flex: 0 0 var(--sc-tile);
+  min-width: 0;
 }
 .sc-cell {
   position: relative;
-  break-inside: avoid;
+  /* break-inside is gone with multicol; the columns are real elements now */
   margin-bottom: 12px;
   border-radius: var(--sc-radius);
   overflow: hidden;
@@ -1843,6 +1857,235 @@ select {
   color: var(--sc-star);
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
+
+/* The tile is a div now, so opening it is its own button filling the frame. */
+.sc-cell-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.sc-cell-open:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+
+/*
+ * Selecting shots for a set. The checkbox is a real control rather than a
+ * modifier-click, because a phone has no modifier to hold; it stays out of the
+ * way until the tile is hovered, and stays put once anything is selected.
+ */
+.sc-cell-pick {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.sc-cell:hover .sc-cell-pick,
+.sc-cell-pick:focus-visible,
+.sc-cell-pick[data-on],
+.sc-feed[data-picking] .sc-cell-pick {
+  opacity: 1;
+}
+.sc-cell-pick[data-on] {
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  border-color: transparent;
+}
+.sc-cell[data-picked] {
+  border-color: var(--sc-fg);
+}
+@media (hover: none) {
+  .sc-cell-pick {
+    opacity: 1;
+  }
+}
+
+/* What you can do with a handful of shots. Only ever about membership. */
+/* Rides in the dock directly above the composer, so it clears whatever height
+   the composer happens to be rather than a distance guessed in advance. */
+.sc-picked {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--sc-line-strong);
+  background: var(--sc-raised);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+}
+.sc-picked-n {
+  font-size: 13px;
+  color: var(--sc-fg2);
+  white-space: nowrap;
+}
+
+/*
+ * Home's glance at the work. A scrolling strip rather than the full masonry:
+ * Home is the way in, and a second copy of the hub on it was what made the two
+ * screens indistinguishable in the first place.
+ */
+.sc-recentrow {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+.sc-recent {
+  position: relative;
+  flex: 0 0 auto;
+  width: 150px;
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: var(--sc-radius);
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-raised);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.sc-recent img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sc-recent:hover {
+  border-color: var(--sc-line-strong);
+}
+.sc-recent:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+
+/* ---------- the feed toolbar ----------
+   Each kind of thing in its own shape: a segmented control filters, a menu
+   navigates, an icon acts. The old row made all three look identical. */
+.sc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* sticky so the lenses stay reachable down a long feed; the canvas is the
+     scroller, so this pins to its top edge */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 4px 0 12px;
+  margin-bottom: 4px;
+  background: var(--sc-bg);
+}
+/* The row shares the page's left edge with the tiles below it. It used to sit
+   14px further in, from a padding meant for a different container. */
+.sc-toolbar-lenses {
+  flex: none;
+}
+.sc-toolbar-gap {
+  flex: 1;
+}
+.sc-toolbar-count {
+  font-family: var(--sc-font-mono);
+  font-size: 11.5px;
+  color: var(--sc-fg3);
+  white-space: nowrap;
+}
+
+/* Sets are places, so this reads as navigation rather than as a filter. */
+.sc-setsbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg2);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  max-width: 220px;
+}
+.sc-setsbtn:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-setsbtn[data-on] {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+  background: var(--sc-raised);
+}
+.sc-setsbtn-t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-setsbtn-n {
+  font-family: var(--sc-font-mono);
+  font-size: 10.5px;
+  color: var(--sc-fg3);
+}
+.sc-newset {
+  flex: none;
+}
+
+/* Grid size. Hidden on a phone, where there is no room to drag anything and
+   the column count is not really a choice. */
+.sc-density {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--sc-fg3);
+}
+.sc-density input {
+  width: 96px;
+  accent-color: var(--sc-fg);
+  cursor: pointer;
+}
+@media (max-width: 767px) {
+  .sc-density {
+    display: none;
+  }
+  .sc-toolbar-count {
+    display: none;
+  }
+}
+
+/* Renaming a set happens in the crumb itself, where its name already is. */
+.sc-crumb-input {
+  font: inherit;
+  font-weight: 600;
+  color: var(--sc-fg);
+  background: var(--sc-raised);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 8px;
+  padding: 2px 8px;
+  min-width: 12ch;
+  max-width: 28ch;
+}
+.sc-crumb-input:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
 .sc-cell[data-running] {
   aspect-ratio: 4 / 5;
   cursor: default;
@@ -1860,6 +2103,256 @@ select {
   border-radius: var(--sc-radius-sm);
   padding: 3px 7px;
   backdrop-filter: blur(4px);
+}
+/* Branch sits on the tile, revealed the way the pick checkbox is, because the
+   feed is where you decide a shot is nearly right.
+
+   Bottom right is the only free corner: the pick checkbox owns top left, the
+   keeper star owns top right, and the variants label owns bottom left. */
+.sc-cell-branch {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sc-fg);
+  background: var(--sc-glass);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  padding: 4px 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    border-color 120ms ease;
+  backdrop-filter: blur(4px);
+}
+.sc-cell:hover .sc-cell-branch,
+.sc-cell-branch:focus-visible,
+.sc-cell-branch[data-on] {
+  opacity: 1;
+}
+.sc-cell-branch[data-on] {
+  border-color: var(--sc-fg);
+}
+/* a coarse pointer has no hover to reveal with, so it never hides */
+@media (pointer: coarse) {
+  .sc-cell-branch {
+    opacity: 1;
+  }
+}
+
+/* A run that returned several images says so with a control, not a caption:
+   the count is the way into the other variants rather than a note that they
+   exist somewhere. Bottom left, where the caption used to sit. */
+.sc-cell-stack,
+.sc-cell-versions {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--sc-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sc-fg2);
+  background: var(--sc-glass);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  padding: 3px 7px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+.sc-cell-stack:hover,
+.sc-cell-versions:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+/* both can be on one tile, so the lineage pip sits above the variant count */
+.sc-cell-versions {
+  bottom: 34px;
+}
+/* An opened run reads as a group: its first tile keeps the edge that the
+   stacked one had, so the eye can see where the run begins. */
+.sc-cell[data-variant][data-first] {
+  box-shadow: inset 3px 0 0 0 var(--sc-line-strong);
+}
+
+/* Two shots and the drift between them, on one row. */
+.sc-cmp {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 6px;
+}
+.sc-cmp-side {
+  margin: 0;
+}
+.sc-cmp-side img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--sc-radius-lg);
+  border: 1px solid var(--sc-line);
+  display: block;
+  background: var(--sc-raised);
+}
+.sc-cmp-side figcaption {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-cmp-wait,
+.sc-cmp-err {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: var(--sc-radius-lg);
+  border: 1px dashed var(--sc-line);
+  color: var(--sc-fg3);
+  font-size: 12px;
+  padding: 12px;
+  text-align: center;
+}
+.sc-cmp-note {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--sc-fg2);
+  line-height: 1.5;
+}
+.sc-cmp-note b {
+  color: var(--sc-fg);
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .sc-cmp {
+    grid-template-columns: 1fr 1fr;
+  }
+  /* the drift is the answer, so on a narrow screen it gets the full width
+     under the two it is about rather than being squeezed beside them */
+  .sc-cmp-side:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Which lineage the feed is showing, and the way back out of it. */
+.sc-lineage-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--sc-fg2);
+}
+.sc-lineage-bar b {
+  color: var(--sc-fg);
+  font-weight: 500;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-crumb-back {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--sc-fg2);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sc-crumb-back:hover {
+  color: var(--sc-fg);
+}
+.sc-crumb-sep {
+  color: var(--sc-fg3);
+}
+.sc-crumb-here {
+  color: var(--sc-fg3);
+}
+
+/* The brief says what it is about to do before it does it.
+
+   The card itself carries no padding on purpose (the editable owns it, so a
+   click in the padding still lands in the text), so this matches the brief
+   line's own 14px rather than inheriting a gutter that is not there. */
+.sc-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 12px 14px 0;
+}
+.sc-target-lb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+}
+.sc-target-lb img {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sc-radius-sm);
+  object-fit: cover;
+}
+.sc-target-lb b {
+  color: var(--sc-fg);
+  font-weight: 500;
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* When something overrules the branch, the chip says so instead of quietly
+   doing the other thing. */
+.sc-target-note {
+  font-size: 11px;
+  color: var(--sc-warn, var(--sc-fg3));
+}
+.sc-target-x {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--sc-fg3);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.sc-target-x:hover {
+  color: var(--sc-fg);
+  background: var(--sc-raised);
+}
+
+/* The stand-in for a brief that has been sent and not yet come back. It says
+   what was asked for, because for the second or two it exists that is the only
+   thing distinguishing it from any other shot starting up. */
+.sc-cell-said {
+  position: absolute;
+  inset: auto 10px 34px 10px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--sc-fg2);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  text-align: left;
 }
 .sc-cell[data-failed] {
   aspect-ratio: 4 / 5;
@@ -2005,11 +2498,24 @@ select {
   max-width: 320px;
   margin: 0 auto;
 }
-/* The canvas is the page minus the assets panel, so it reads the same tile and
-   simply carries one column fewer. A hard count here used to blow a canvas tile
-   up to 480px while a home tile sat at 280. */
+/* The look row is the second offer, so it sits under the first and reads as a
+   shelf rather than as the point of the screen. It is a column grid, so it
+   starts at the left edge on its own; only the copy above it is centred. */
+.sc-empty-looks {
+  margin-top: 26px;
+  text-align: left;
+}
+/* A lens empty is one line and, where there is a way out, one button under it. */
+.sc-feed-empty p {
+  margin: 0;
+}
+.sc-feed-empty .sc-btn {
+  margin-top: 12px;
+}
+/* The canvas is the page minus the assets panel, so it simply fits one column
+   fewer. The count is measured in Canvas.tsx from the real width, so the panel
+   opening or closing is just another resize. */
 .sc-canvas .sc-feed {
-  columns: auto var(--sc-tile);
   padding-top: 0;
 }
 .sc-cell[data-selected="true"] {
@@ -2092,6 +2598,64 @@ select {
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
+}
+/* A folded group keeps its header and gives its space back to the ones below,
+   which is the whole point when a catalog import has landed 500 products. */
+.sc-agroup[data-closed] {
+  margin-bottom: 8px;
+}
+.sc-agroup-t {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+.sc-agroup-t b {
+  font-size: 12px;
+  font-weight: 600;
+}
+.sc-agroup-caret {
+  color: var(--sc-fg3);
+  transition: transform 120ms ease;
+  transform: rotate(90deg);
+  flex: none;
+}
+.sc-agroup[data-closed] .sc-agroup-caret {
+  transform: rotate(0deg);
+}
+/* How many there are, so a folded group still says whether it is worth opening. */
+.sc-agroup-n {
+  font-family: var(--sc-font-mono);
+  font-size: 10.5px;
+  color: var(--sc-fg3);
+  background: var(--sc-raised);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.sc-agroup-t:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.sc-amore {
+  border: none;
+  background: none;
+  padding: 6px 0 0;
+  color: var(--sc-fg2);
+  font-size: 11.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sc-amore:hover {
+  color: var(--sc-fg);
 }
 .sc-agroup-h b {
   font-size: 12.5px;
@@ -5577,4 +6141,18 @@ textarea:disabled {
   [contenteditable]:not([contenteditable="false"]) {
     font-size: 16px !important;
   }
+}
+
+/* Honest truncation: both of these say what is not on screen and how to reach
+   it. A list that silently stops at sixty reads as a list of sixty. */
+.sc-ap-capped,
+.sc-cmd-capped {
+  font-size: 11.5px;
+  color: var(--sc-fg3);
+  padding: 10px 2px 2px;
+  margin: 0;
+}
+.sc-cmd-capped {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--sc-line);
 }

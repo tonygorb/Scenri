@@ -293,6 +293,66 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return { nodes: core.store.recentActivity(brand.id, limit), jobs: core.catalog.listJobs(brand.id) };
   });
 
+  // ---- workspace + sets
+  /**
+   * The whole brand in one answer: its shots, its sets, and who is in what.
+   *
+   * The feed used to be assembled by asking for every project's tree in turn,
+   * so a brand with forty of them cost forty requests to draw one screen. There
+   * is one project now and the sets are a filter over it, so there is one ask.
+   */
+  app.get('/api/brands/:id/workspace', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const project = core.store.workspaceFor(brand.id);
+    return {
+      project,
+      nodes: core.store.treeFor(project.id),
+      sets: core.store.listSets(brand.id),
+      membership: core.store.membershipFor(brand.id),
+    };
+  });
+  app.get('/api/brands/:id/sets', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    return core.store.listSets(brand.id);
+  });
+  app.post('/api/brands/:id/sets', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const name = String((req.body as any)?.name ?? '').trim();
+    if (!name) return reply.status(400).send({ error: 'name is required' });
+    return core.store.createSet(brand.id, name);
+  });
+  app.patch('/api/sets/:id', async (req, reply) => {
+    const name = String((req.body as any)?.name ?? '').trim();
+    if (!name) return reply.status(400).send({ error: 'name is required' });
+    const set = core.store.renameSet((req.params as any).id, name);
+    if (!set) return reply.status(404).send({ error: 'set not found' });
+    return set;
+  });
+  /** The set goes; every shot that was in it stays exactly where it was. */
+  app.delete('/api/sets/:id', async (req, reply) => {
+    if (!core.store.getSet((req.params as any).id)) return reply.status(404).send({ error: 'set not found' });
+    core.store.deleteSet((req.params as any).id);
+    return { ok: true };
+  });
+  app.post('/api/sets/:id/nodes', async (req, reply) => {
+    const set = core.store.getSet((req.params as any).id);
+    if (!set) return reply.status(404).send({ error: 'set not found' });
+    const raw = (req.body as any)?.nodeIds;
+    const nodeIds = (Array.isArray(raw) ? raw : []).map(String).filter((id) => core.store.getNode(id));
+    if (nodeIds.length === 0) return reply.status(400).send({ error: 'nodeIds must name at least one shot' });
+    core.store.addToSet(set.id, nodeIds);
+    return { ok: true, added: nodeIds.length };
+  });
+  app.delete('/api/sets/:id/nodes/:nodeId', async (req, reply) => {
+    const { id, nodeId } = req.params as any;
+    if (!core.store.getSet(id)) return reply.status(404).send({ error: 'set not found' });
+    core.store.removeFromSet(id, nodeId);
+    return { ok: true };
+  });
+
   // ---- engines / caps / costs
   app.get('/api/engines', async () => {
     const list = [];
@@ -650,6 +710,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (scope === 'shots') {
       let removed = 0;
       for (const brand of core.store.listBrands()) {
+        // the sets go with the shots: a set that survives a wipe is a name with
+        // nothing behind it, which reads as work that quietly went missing
+        for (const set of core.store.listSets(brand.id)) core.store.deleteSet(set.id);
         for (const project of core.store.listProjects(brand.id)) {
           core.store.deleteProject(project.id);
           removed++;

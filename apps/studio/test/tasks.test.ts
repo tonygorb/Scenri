@@ -23,8 +23,7 @@ import {
 const node = (over: Partial<ActivityNode> = {}): ActivityNode => ({
   id: 'n1',
   projectId: 'p1',
-  projectName: 'Spring',
-  projectSlug: 'spring',
+  setNames: ['Spring'],
   parentId: null,
   kind: 'generation',
   prompt: 'golden hour on the roof',
@@ -119,8 +118,8 @@ describe('taskFromNode', () => {
     const done = taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), '/b/b1');
     expect(done.subtitle).toBe('Spring · 2 images');
     expect(done.thumb).toBe('h1');
-    // the link spells the project the way the address bar does
-    expect(done.href).toBe('/b/b1/p/spring/n/n1');
+    // the shot hangs off the hub, not off a project nobody named
+    expect(done.href).toBe('/b/b1/create/n/n1');
     expect(taskFromNode(node({ status: 'done', images: ['h1'] }), '/b/b1').subtitle).toBe('Spring · 1 image');
     expect(taskFromNode(node({ status: 'error', error: 'engine refused' }), '/b/b1').subtitle).toBe(
       'Spring · engine refused',
@@ -131,8 +130,15 @@ describe('taskFromNode', () => {
     expect(t.kind).toBe('edit');
     expect(t.title.startsWith('Edit · ')).toBe(true);
   });
-  it('falls back when the project has no name', () => {
-    expect(taskFromNode(node({ projectName: '' }), '/b/b1').subtitle.startsWith('Project · ')).toBe(true);
+  it('says only what happened when the shot is in no set', () => {
+    // the ordinary case now: no container to name, so no container is named
+    expect(taskFromNode(node({ setNames: [], status: 'done', images: ['h1'] }), '/b/b1').subtitle).toBe('1 image');
+    expect(taskFromNode(node({ setNames: [] }), '/b/b1').subtitle).toBe('generating');
+  });
+  it('names every set a shot belongs to', () => {
+    expect(
+      taskFromNode(node({ setNames: ['Spring', 'Packshots'], status: 'done', images: ['h1'] }), '/b/b1').subtitle,
+    ).toBe('Spring, Packshots · 1 image');
   });
   it('leaves the elapsed count to the time column', () => {
     // the row already carries the seconds on the right; twice is noise

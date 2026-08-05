@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useOutletContext, useParams } from 'react-router';
 import { DetailOverlay } from '../layout/DetailOverlay.js';
-import type { ShotContext } from './Project.js';
+import type { ShotContext } from './Create.js';
 
 /**
  * The shot overlay as a URL. Being a child route keeps the canvas mounted
@@ -36,6 +36,7 @@ export function ShotDetailRoute() {
       onRetry={ctx.retry}
       onChanged={ctx.reload}
       onRemix={ctx.remix}
+      onBranch={ctx.branch}
       layers={ctx.layers}
       selectedLayerId={ctx.selectedLayerId}
       onSelectLayer={ctx.setSelectedLayerId}

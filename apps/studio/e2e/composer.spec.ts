@@ -17,14 +17,20 @@ const chips = (p: Page) => p.locator('.sc-brief-line .sc-token');
 /** What the sentence reads as, chips included. */
 const sentence = async (p: Page) => (await line(p).textContent())?.replace(/ /g, ' ') ?? '';
 
-/** Open the plus menu and pick one of its entries. */
-async function plusMenu(p: Page, entry: RegExp) {
+/**
+ * Open the attach panel and pick a tab.
+ *
+ * Attach used to be two clicks: a menu naming five kinds, then a panel that
+ * already had those same five as tabs. The menu is gone, so this opens the
+ * panel and goes straight to the tab.
+ */
+async function plusMenu(p: Page, tab: RegExp) {
   const panel = p.locator('.sc-attachpanel');
   if (await panel.isVisible().catch(() => false)) {
     await dock(p).locator('.sc-attach-toggle').click();
   }
   await dock(p).locator('.sc-attach-toggle').click();
-  await p.locator('.sc-plusmenu button', { hasText: entry }).click();
+  await p.locator('.sc-ap-tabs button', { hasText: tab }).click();
   await p.locator('.sc-ap-card').first().waitFor();
 }
 
@@ -58,7 +64,10 @@ async function clickAtChar(p: Page, nodeIndex: number, charOffset: number) {
 }
 
 test.beforeEach(async ({ page }) => {
+  // the brief lives on the hub: Home is the way in and carries no tools
   await page.goto('/');
+  await page.waitForURL(/\/b\/[^/]+$/);
+  await page.goto(`${new URL(page.url()).pathname}/create`);
   await line(page).waitFor();
   await line(page).click();
   // start from a clean sentence whatever the last run left behind
@@ -68,7 +77,7 @@ test.beforeEach(async ({ page }) => {
 
 test('typing after a chip added from the plus menu', async ({ page }) => {
   await page.keyboard.type('change the background color of this ');
-  await plusMenu(page, /recent shot/i);
+  await plusMenu(page, /shots/i);
   await pickCard(page);
   await page.keyboard.type('to warm beige');
   expect(await sentence(page)).toMatch(/reference\s*to warm beige$/);

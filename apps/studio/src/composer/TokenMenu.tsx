@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { Check } from '@phosphor-icons/react';
 import { keepCaret } from './line.js';
 
+/** Rows a caret menu will draw. Past this, typing is faster than scrolling. */
+const MENU_CAP = 40;
+
 export interface MenuOption {
   key: string;
   group: string;
@@ -40,11 +43,21 @@ export function TokenMenu({
   const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const filtered = useMemo(() => {
+  /**
+   * Matches, capped.
+   *
+   * A caret menu is a shortlist you arrow through, not a catalog: with several
+   * hundred products imported, an unfiltered `@` drew every one of them into a
+   * portal above the brief and the keyboard walk became useless. Typing is the
+   * way through a list this size, and the cap is what makes typing the obvious
+   * move rather than scrolling.
+   */
+  const all = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter((o) => `${o.label} ${o.group} ${o.hint ?? ''}`.toLowerCase().includes(q));
   }, [options, query]);
+  const filtered = useMemo(() => all.slice(0, MENU_CAP), [all]);
 
   useEffect(() => {
     const i = selectedKey ? filtered.findIndex((o) => o.key === selectedKey) : -1;
@@ -121,6 +134,11 @@ export function TokenMenu({
       role="listbox"
       onMouseDownCapture={keepCaret}
     >
+      {all.length > filtered.length && (
+        <div className="sc-cmd-capped">
+          {filtered.length} of {all.length}. Keep typing to narrow.
+        </div>
+      )}
       {filtered.map((o, i) => {
         // first row of each group carries the group heading
         const head = o.group === lastGroup ? null : o.group;

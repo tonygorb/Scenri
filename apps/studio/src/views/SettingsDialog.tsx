@@ -14,7 +14,7 @@ import {
   TrashSimple,
   X,
 } from '@phosphor-icons/react';
-import { api, type EngineInfo, type Project, type TreeNode } from '../api.js';
+import { api, type EngineInfo, type TreeNode } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { useThemeMode, type ThemeChoice } from '../theme.js';
 
@@ -63,11 +63,11 @@ export function useOpenSettings() {
 
 export function SettingsDialog({
   engines,
-  projects,
+  shots,
   onSaved,
 }: {
   engines: EngineInfo[];
-  projects: Project[];
+  shots: TreeNode[];
   onSaved: () => void;
 }) {
   const settings = useDialogParam('settings');
@@ -106,7 +106,7 @@ export function SettingsDialog({
             <div className="sc-set-scroll">
               {pane === 'engines' && <Engines engines={engines} onSaved={onSaved} />}
               {pane === 'budget' && <Budget engines={engines} onSaved={onSaved} />}
-              {pane === 'usage' && <Usage projects={projects} open={open} />}
+              {pane === 'usage' && <Usage shots={shots} />}
               {pane === 'library' && <Library />}
               {pane === 'appearance' && <Appearance />}
               {pane === 'about' && <About />}
@@ -300,20 +300,15 @@ function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => vo
   );
 }
 
-/** A year of real runs, one square per day, read from the trees themselves. */
-function Usage({ projects, open }: { projects: Project[]; open: boolean }) {
-  const [nodes, setNodes] = useState<TreeNode[] | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    void Promise.all(projects.slice(0, 40).map((p) => api.tree(p.id).catch(() => null))).then((trees) => {
-      if (alive) setNodes(trees.flatMap((t) => t?.nodes ?? []).filter((n) => n.kind !== 'root'));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [projects, open]);
+/**
+ * A year of real runs, one square per day.
+ *
+ * This used to fetch up to forty project trees to draw one grid, and silently
+ * told the truth about only the first forty. The brand's shots are already in
+ * hand upstairs, so it now counts what it was given.
+ */
+function Usage({ shots }: { shots: TreeNode[] }) {
+  const nodes = useMemo(() => shots.filter((n) => n.kind !== 'root'), [shots]);
 
   const { cells, months, total, byKind } = useMemo(() => {
     const perDay = new Map<string, number>();

@@ -6,6 +6,10 @@ import type { SentenceToken } from './BriefInput.js';
 import { keepCaret } from './line.js';
 
 const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
+/** Per group on the All tab, where the point is breadth rather than depth. */
+const ALL_TAB_PREVIEW = 8;
+/** On a single tab, enough to browse; past this, searching beats scrolling. */
+const TAB_CAP = 60;
 const TABS = ['All', 'Products', 'Cast', 'Looks', 'Colors', 'Shots'] as const;
 export type AttachTab = (typeof TABS)[number];
 type Tab = AttachTab;
@@ -208,15 +212,37 @@ export function AttachPanel({
           groups.map((g) => {
             const items = shown.filter((c) => c.tab === g);
             if (!items.length) return null;
+            /**
+             * All is a summary, not an inventory. A brand with a catalog import
+             * has hundreds of products, and drawing every one of them here
+             * pushed Cast, Looks and Colours off the bottom of a panel whose
+             * whole job is to show you what there is.
+             */
+            const preview = items.slice(0, ALL_TAB_PREVIEW);
+            const rest = items.length - preview.length;
             return (
               <div key={g} className="sc-ap-group">
                 <div className="sc-eyebrow">{g === 'Shots' ? 'Recent shots' : g === 'Colors' ? 'Brand colors' : g}</div>
-                <div className="sc-ap-grid">{items.map(card)}</div>
+                <div className="sc-ap-grid">{preview.map(card)}</div>
+                {rest > 0 && (
+                  <button type="button" className="sc-amore" onClick={() => setTab(g)}>
+                    Show all {items.length}
+                  </button>
+                )}
               </div>
             );
           })
         ) : (
-          <div className="sc-ap-grid">{shown.map(card)}</div>
+          <>
+            <div className="sc-ap-grid">{shown.slice(0, TAB_CAP).map(card)}</div>
+            {shown.length > TAB_CAP && (
+              // never a silent truncation: say what is not on screen and how to
+              // reach it, which for a list this size is the search box above
+              <p className="sc-ap-capped">
+                Showing {TAB_CAP} of {shown.length}. Search to narrow it down.
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>

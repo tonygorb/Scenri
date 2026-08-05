@@ -97,15 +97,18 @@ export function catalogPercent(j: CatalogImportJob | null): number {
 
 /** `base` is the brand's path prefix, `/b/<slug>` — see app/brandPath.ts. */
 export function taskFromNode(n: ActivityNode, base: string): Task {
-  const where = n.projectName || 'Project';
+  // A shot in no set is the ordinary case now, so the row says what happened
+  // and stops. Naming the container was worth a column back when every shot had
+  // one; saying "Workspace" on all of them would be furniture, not information.
+  const where = n.setNames.length > 0 ? `${n.setNames.join(', ')} · ` : '';
   // the elapsed count lives in the time column; saying it twice in one row was
   // the kind of thing that reads as detail and lands as noise
   const subtitle =
     n.status === 'running'
-      ? `${where} · generating`
+      ? `${where}generating`
       : n.status === 'error'
-        ? `${where} · ${n.error ?? 'failed'}`
-        : `${where} · ${n.images.length} image${n.images.length === 1 ? '' : 's'}`;
+        ? `${where}${n.error ?? 'failed'}`
+        : `${where}${n.images.length} image${n.images.length === 1 ? '' : 's'}`;
   return {
     id: `node:${n.id}`,
     kind: n.kind === 'edit' ? 'edit' : 'generation',
@@ -116,7 +119,8 @@ export function taskFromNode(n: ActivityNode, base: string): Task {
     // a generation has no honest percent: the house shows shimmer and seconds
     percent: null,
     startedAt: n.createdAt,
-    href: `${base}/p/${n.projectSlug}/n/${n.id}`,
+    // the overlay hangs off the hub now, not off a project nobody named
+    href: `${base}/create/n/${n.id}`,
   };
 }
 

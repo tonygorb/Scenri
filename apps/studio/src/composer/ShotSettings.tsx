@@ -122,9 +122,14 @@ export function ShotSettings({
           </Field>
 
           {mode === 'generation' && (
-            <Field label="Versions">
+            /* Variants, not versions: these are the images one brief returns.
+               A version is a branch off a finished shot, which is a different
+               thing entirely, and the desktop pills for this same state have
+               always said variants. CSS picks which of the two you see, so a
+               disagreement here changed the word when the window narrowed. */
+            <Field label="Variants">
               {[1, 2, 3, 4].map((n) => (
-                <Opt key={n} on={n === count} label={`${n} version${n === 1 ? '' : 's'}`} onClick={() => onCount(n)}>
+                <Opt key={n} on={n === count} label={`${n} variant${n === 1 ? '' : 's'}`} onClick={() => onCount(n)}>
                   {n}
                 </Opt>
               ))}
@@ -147,7 +152,7 @@ export function ShotSettings({
 /**
  * A named setting and every answer it has, on one line where there is room.
  * The name is a caption, not a group label: every option states itself in full
- * through its own aria-label ("Square", "2 versions", "Draft, 768px"), so a
+ * through its own aria-label ("Square", "2 variants", "Draft, 768px"), so a
  * screen reader gets the whole answer without a wrapper role.
  */
 function Field({ label, children }: { label: string; children: ReactNode }) {

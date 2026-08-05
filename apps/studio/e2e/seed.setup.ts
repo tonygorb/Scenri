@@ -45,9 +45,11 @@ setup('seed the fixture brand', async ({ request }) => {
   expect(brandRes.ok(), await brandRes.text()).toBeTruthy();
   const brand = await brandRes.json();
 
-  const projectRes = await request.post('/api/projects', { data: { brandId: brand.id, name: 'E2E' } });
-  expect(projectRes.ok(), await projectRes.text()).toBeTruthy();
-  const { project } = await projectRes.json();
+  // the brand's one workspace, made by asking for it rather than by inventing
+  // a project — nothing in the app creates containers any more
+  const wsRes = await request.get(`/api/brands/${brand.id}/workspace`);
+  expect(wsRes.ok(), await wsRes.text()).toBeTruthy();
+  const { project } = await wsRes.json();
 
   // One finished shot, so the plus menu has a "recent shot" to attach. The
   // demo engine ships registered by default, so this needs no keys and is free.

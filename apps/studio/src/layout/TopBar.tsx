@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useMatch, useNavigate } from 'react-router';
+import { useLocation, useMatch, useNavigate, useSearchParams } from 'react-router';
 import { DropdownMenu, Popover } from '@radix-ui/themes';
 import { CaretDown, SidebarSimple } from '@phosphor-icons/react';
 import { BrandMenu } from './BrandMenu.js';
 import { Coin } from './Coin.js';
 import { NotificationsButton } from './Notifications.js';
 import { summarizeCredits, useMainNav } from './nav.js';
-import type { EngineInfo } from '../api.js';
+import { api, type EngineInfo } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
@@ -23,24 +23,30 @@ import { brandPath } from '../app/brandPath.js';
  */
 export function TopBar() {
   const { engines } = useAppData();
-  const project = useMatch({ path: '/b/:brandId/p/:projectId', end: false });
+  const set = useMatch({ path: '/b/:brandId/s/:setId', end: false });
+  // taken unconditionally: a hook behind || is a hook that only sometimes runs,
+  // and React counts them by position
+  const hub = useMatch({ path: '/b/:brandId/create', end: false });
+  // the assets rail belongs to the hub alone. On Home it was furniture from a
+  // screen you were not on.
+  const onHub = !!hub || !!set;
 
   return (
-    <header className="sc-topbar" data-project={project ? '' : undefined}>
+    <header className="sc-topbar" data-project={onHub ? '' : undefined}>
       <a className="sc-skip" href="#main">
         Skip to content
       </a>
       <div className="sc-topbar-lead">
         <span className="sc-wordmark sc-display">scenri</span>
-        {project ? (
+        {set ? (
           <div className="sc-topbar-context">
-            <ProjectCrumb slug={project.params.projectId ?? ''} />
+            <SetCrumb slug={set.params.setId ?? ''} />
           </div>
         ) : null}
       </div>
       <MainNav />
       <div className="sc-topbar-end">
-        {project ? <AssetsToggle /> : null}
+        {onHub ? <AssetsToggle /> : null}
         <NotificationsButton />
         <Credits engines={engines} />
         <BrandMenu />
@@ -71,26 +77,101 @@ function MainNav() {
   );
 }
 
-/** Second step of the breadcrumb, and a switcher in its own right. */
-/** `slug` is what the path carries; an id still resolves, mid-rewrite. */
-function ProjectCrumb({ slug }: { slug: string }) {
-  const { brand, projects } = useBrand();
+/**
+ * Second step of the breadcrumb, a switcher, and the only place a set can be
+ * renamed or deleted — which the old project crumb never offered at all, so a
+ * name typed once was a name kept forever.
+ *
+ * `slug` is what the path carries; an id still resolves, mid-rewrite.
+ */
+function SetCrumb({ slug }: { slug: string }) {
+  const { brand, sets, refresh, applySet, dropSet } = useBrand();
   const navigate = useNavigate();
-  const here = projects.find((x) => x.slug === slug) ?? projects.find((x) => x.id === slug);
+  const [renaming, setRenaming] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const here = sets.find((x) => x.slug === slug) ?? sets.find((x) => x.id === slug);
+
+  // a set made from the feed arrives asking to be named, rather than keeping
+  // "Untitled set" because nobody found where to change it
+  useEffect(() => {
+    if (params.get('rename') === null) return;
+    setRenaming(true);
+    setParams(
+      (cur) => {
+        const p = new URLSearchParams(cur);
+        p.delete('rename');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [params, setParams]);
+
+  if (!here) return null;
+
+  const rename = async (name: string) => {
+    setRenaming(false);
+    const clean = name.trim();
+    if (!clean || clean === here.name) return;
+    const saved = await api.renameSet(here.id, clean);
+    // patch and navigate together, then reconcile. Refetching first left one
+    // render where the list knew only the old slug and the URL still asked for
+    // it, and /s/:slug read that as a deleted set and bounced to the feed
+    applySet(saved);
+    navigate(brandPath(brand, `/s/${saved.slug}`), { replace: true });
+    void refresh();
+  };
+
+  const remove = async () => {
+    await api.deleteSet(here.id);
+    dropSet(here.id);
+    navigate(brandPath(brand, '/create'), { replace: true });
+    void refresh();
+  };
+
+  if (renaming) {
+    return (
+      <input
+        className="sc-crumb-input"
+        // the control exists only because you asked to rename: landing anywhere
+        // but in it would mean a second click to do the thing you just chose
+        // biome-ignore lint/a11y/noAutofocus: opened by an explicit Rename
+        autoFocus
+        defaultValue={here.name}
+        aria-label="Set name"
+        onBlur={(e) => void rename(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') setRenaming(false);
+        }}
+      />
+    );
+  }
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         <button type="button" className="sc-crumb-btn">
-          <b>{here?.name ?? 'Project'}</b>
+          <b>{here.name}</b>
           <CaretDown size={11} className="sc-caret" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content>
-        {projects.map((pr) => (
-          <DropdownMenu.Item key={pr.id} onSelect={() => navigate(brandPath(brand, `/p/${pr.slug}`))}>
-            {pr.name}
-          </DropdownMenu.Item>
-        ))}
+        {/* the hub, not Home: leaving a set is dropping a filter, not leaving */}
+        <DropdownMenu.Item onSelect={() => navigate(brandPath(brand, '/create'))}>All shots</DropdownMenu.Item>
+        {sets.length > 1 && <DropdownMenu.Separator />}
+        {sets
+          .filter((s) => s.id !== here.id)
+          .map((s) => (
+            <DropdownMenu.Item key={s.id} onSelect={() => navigate(brandPath(brand, `/s/${s.slug}`))}>
+              {s.name}
+            </DropdownMenu.Item>
+          ))}
+        <DropdownMenu.Separator />
+        <DropdownMenu.Item onSelect={() => setRenaming(true)}>Rename</DropdownMenu.Item>
+        {/* the shots outlive the set: this is a label coming off, not a delete */}
+        <DropdownMenu.Item color="red" onSelect={() => void remove()}>
+          Delete set
+        </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   );

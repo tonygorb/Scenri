@@ -1,97 +1,49 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { Badge, Dialog } from '@radix-ui/themes';
-import { ImageSquare, Package, Sparkle, Star, UsersThree, WarningCircle } from '@phosphor-icons/react';
-import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
-import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { ImageSquare, Package, Sparkle, Star, UsersThree } from '@phosphor-icons/react';
+import { imgUrl, type Brand } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
-import { Composer } from '../layout/Composer.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
 
-interface FeedItem {
-  node: TreeNode;
-  hash: string | null;
-  projectId: string;
-  projectName: string;
-}
+/**
+ * The launcher.
+ *
+ * Home decides what to do; Create is where it gets done. They were briefly one
+ * screen, and Home inherited the working surface's furniture — an assets rail
+ * down the side, an "empty set" where the greeting should be. Two jobs, two
+ * screens: nothing here is a tool, everything is a way in.
+ *
+ * So there is no assets panel, no lens row and no selection here. Every control
+ * on this page ends in a navigation to Create, carrying whatever it chose.
+ */
+const RECENT = 12;
 
 export function HomeView() {
-  const { engines, looks: templates, refresh } = useAppData();
-  const { brand, projects, refreshProjects } = useBrand();
+  const { looks: templates, refresh } = useAppData();
+  const { brand, nodes, loaded } = useBrand();
   const navigate = useNavigate();
-  const [feed, setFeed] = useState<FeedItem[] | null>(null);
-  const [tabParam, setTab] = useFilterParam('tab', 'all');
-  const dockProject = useRef<string | null>(null);
 
-  // a tab can name a project that has since been deleted: fall back to All
-  // rather than rendering a feed that looks empty for no stated reason
-  // the tab shows in the address bar too, so it names a project by slug
-  const tab =
-    tabParam === 'all' || tabParam === 'keepers' || projects.some((p) => p.slug === tabParam) ? tabParam : 'all';
+  /** Newest first. The strip is a glance at the work, not the work itself. */
+  const recent = useMemo(
+    () =>
+      [...nodes]
+        .filter((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, RECENT),
+    [nodes],
+  );
 
-  const openProject = (id: string, opts?: { startTemplate?: string; openTemplates?: boolean }) => {
-    const qs = new URLSearchParams();
-    if (opts?.startTemplate) qs.set('look', opts.startTemplate);
-    if (opts?.openTemplates) qs.set('attach', 'looks');
-    const q = qs.toString();
-    // callers hold ids, the address bar wants the slug
-    const seg = projects.find((p) => p.id === id)?.slug ?? id;
-    navigate(brandPath(brand, `/p/${seg}${q ? `?${q}` : ''}`));
-  };
-
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const list = await api.projects(brand.id);
-      if (!alive) return;
-      const trees = await Promise.all(
-        list.map(async (p) => {
-          try {
-            return { p, nodes: (await api.tree(p.id)).nodes };
-          } catch {
-            return { p, nodes: [] as TreeNode[] };
-          }
-        }),
-      );
-      if (!alive) return;
-      const items: FeedItem[] = trees
-        .flatMap(({ p, nodes }) =>
-          nodes
-            .filter((n) => n.kind !== 'root')
-            .map((n) => ({ node: n, hash: n.images[0] ?? null, projectId: p.id, projectName: p.name })),
-        )
-        .sort((a, b) => b.node.createdAt.localeCompare(a.node.createdAt));
-      setFeed(items);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [brand.id]);
-
-  const newProject = async (opts?: { startTemplate?: string; openTemplates?: boolean }) => {
-    const created = await api.createProject(brand.id, `Project ${projects.length + 1}`);
-    await refreshProjects();
-    // by slug: the list in this closure predates the project we just made
-    openProject(created.project.slug, opts);
-    return created.project.id;
+  /** Every way in lands on the same hub, differing only in what it carries. */
+  const toCreate = (qs?: Record<string, string>) => {
+    const q = new URLSearchParams(qs ?? {}).toString();
+    navigate(brandPath(brand, `/create${q ? `?${q}` : ''}`));
   };
 
   const products = (brand.json?.products ?? []) as any[];
-
-  const shown = useMemo(() => {
-    if (!feed) return null;
-    if (tab === 'all') return feed;
-    if (tab === 'keepers') return feed.filter((f) => f.node.kept);
-    const picked = projects.find((p) => p.slug === tab);
-    return feed.filter((f) => f.projectId === picked?.id);
-  }, [feed, tab, projects]);
-
-  const doneShots = useMemo(
-    () => (feed ?? []).map((f) => f.node).filter((n) => n.status === 'done' && n.images.length > 0),
-    [feed],
-  );
 
   return (
     <div className="sc-home">
@@ -101,7 +53,7 @@ export function HomeView() {
         </h1>
 
         <div className="sc-create-grid">
-          <button type="button" className="sc-create-card" onClick={() => void newProject({ openTemplates: true })}>
+          <button type="button" className="sc-create-card" onClick={() => toCreate({ attach: 'looks', compose: '1' })}>
             <span className="sc-glyph">
               <Sparkle size={16} />
             </span>
@@ -110,7 +62,7 @@ export function HomeView() {
               <small>Template plus your product</small>
             </span>
           </button>
-          <button type="button" className="sc-create-card" onClick={() => void newProject()}>
+          <button type="button" className="sc-create-card" onClick={() => toCreate({ compose: '1' })}>
             <span className="sc-glyph">
               <ImageSquare size={16} />
             </span>
@@ -150,7 +102,7 @@ export function HomeView() {
                     type="button"
                     key={t.id}
                     className="sc-tpl"
-                    onClick={() => void newProject({ startTemplate: t.id })}
+                    onClick={() => toCreate({ look: t.id, compose: '1' })}
                     title={t.description}
                   >
                     {(t as any).previewUrl ? (
@@ -170,109 +122,41 @@ export function HomeView() {
           </>
         )}
 
-        <div className="sc-tabs" style={{ background: 'none' }}>
-          <button type="button" className="sc-tab" data-active={tab === 'all'} onClick={() => setTab('all')}>
-            All
-          </button>
-          <button type="button" className="sc-tab" data-active={tab === 'keepers'} onClick={() => setTab('keepers')}>
-            Keepers
-          </button>
-          {projects.slice(0, 8).map((p) => (
-            <button
-              type="button"
-              key={p.id}
-              className="sc-tab"
-              data-active={tab === p.slug}
-              onClick={() => setTab(p.slug)}
-            >
-              {p.name}
+        <div className="sc-sec-head">
+          <span className="sc-sec-title">Recent work</span>
+          {recent.length > 0 && (
+            <button type="button" className="sc-sec-more" onClick={() => toCreate()}>
+              Open Create
             </button>
-          ))}
+          )}
         </div>
 
-        {shown === null && (
-          <div className="sc-feed">
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <div
-                key={i}
-                className="sc-cell sc-skeleton"
-                style={{ aspectRatio: i % 3 === 0 ? '4/5' : '1', cursor: 'default' }}
-              />
+        {/* loaded, so an empty brand is told it is empty rather than left blank */}
+        {!loaded && <div className="sc-tplrow" aria-hidden />}
+        {loaded && recent.length === 0 && (
+          <p className="sc-feed-empty">Nothing yet. Start from scratch above, or pick a look.</p>
+        )}
+        {loaded && recent.length > 0 && (
+          <div className="sc-recentrow">
+            {recent.map((n) => (
+              <button
+                type="button"
+                key={n.id}
+                className="sc-recent"
+                onClick={() => navigate(brandPath(brand, `/create/n/${n.id}`))}
+                title={n.prompt}
+              >
+                <img src={imgUrl(n.images[0])} alt="" loading="lazy" />
+                {n.kept && (
+                  <span className="sc-cell-star">
+                    <Star size={13} weight="fill" />
+                  </span>
+                )}
+              </button>
             ))}
           </div>
         )}
-
-        {shown !== null && shown.length === 0 && (
-          <div className="sc-feed-empty">
-            {feed?.length === 0
-              ? 'Nothing on the feed yet. Describe the first shot below.'
-              : 'Nothing here. Star a shot to make it a keeper.'}
-          </div>
-        )}
-
-        {shown !== null && shown.length > 0 && (
-          <div className="sc-feed">
-            {shown.map((f) => {
-              const n = f.node;
-              if (n.status === 'running') {
-                return (
-                  <div key={n.id} className="sc-cell" data-running="true">
-                    <span className="sc-shimmer" />
-                    <span className="sc-cell-tag">generating</span>
-                  </div>
-                );
-              }
-              if (n.status === 'error' || !f.hash) {
-                return (
-                  <button
-                    type="button"
-                    key={n.id}
-                    className="sc-cell"
-                    data-failed="true"
-                    onClick={() => openProject(f.projectId)}
-                  >
-                    <span className="sc-cell-failed">
-                      <WarningCircle size={16} />
-                      Failed
-                    </span>
-                  </button>
-                );
-              }
-              return (
-                <button type="button" key={n.id} className="sc-cell" onClick={() => openProject(f.projectId)}>
-                  <img src={imgUrl(f.hash)} alt="" loading="lazy" />
-                  {n.kept && (
-                    <span className="sc-cell-star">
-                      <Star size={14} weight="fill" />
-                    </span>
-                  )}
-                  <span className="sc-cell-meta">{f.projectName}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
       </main>
-
-      <div className="sc-dock-fade" aria-hidden />
-      <div className="sc-home-dock">
-        <Composer
-          projectId={null}
-          resolveProjectId={async () => {
-            const created = await api.createProject(brand.id, `Project ${projects.length + 1}`);
-            dockProject.current = created.project.slug;
-            await refreshProjects();
-            return created.project.id;
-          }}
-          brand={brand}
-          engines={engines}
-          parent={null}
-          shots={doneShots}
-          onQueued={() => {
-            if (dockProject.current) openProject(dockProject.current);
-          }}
-        />
-      </div>
     </div>
   );
 }

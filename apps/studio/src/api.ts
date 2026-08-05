@@ -30,11 +30,33 @@ export interface TreeNode {
   brief: { tokens: any[]; templateId?: string; templateFields?: Record<string, string> } | null;
 }
 
-/** A node that knows which project it came from, for lists that span projects. */
+/** A node carrying the sets it has been put in, for lists that span the brand. */
 export interface ActivityNode extends TreeNode {
-  projectName: string;
-  /** So a task can link to the project the way the address bar spells it. */
-  projectSlug: string;
+  /** Empty when the shot is in no set, which is an ordinary state, not a gap. */
+  setNames: string[];
+}
+
+/**
+ * An opt-in grouping of shots. Not a place work happens — that is the brand's
+ * one workspace — only a name you hang finished shots on, and a shot may hang
+ * on several.
+ */
+export interface ShotSet {
+  id: string;
+  brandId: string;
+  name: string;
+  /** Its place in the address bar, unique within the brand. */
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The whole brand in one answer: its shots, its sets, and who is in what. */
+export interface Workspace {
+  project: Project;
+  nodes: TreeNode[];
+  sets: ShotSet[];
+  membership: Record<string, string[]>;
 }
 
 export interface TextLayer {
@@ -104,6 +126,16 @@ export const api = {
   /** Everything running or lately finished in a brand, generations and imports together. */
   activity: (brandId: string) =>
     req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[] }>('GET', `/api/brands/${brandId}/activity`),
+  /** The brand's shots, sets and memberships in one request. */
+  workspace: (brandId: string) => req<Workspace>('GET', `/api/brands/${brandId}/workspace`),
+  sets: (brandId: string) => req<ShotSet[]>('GET', `/api/brands/${brandId}/sets`),
+  createSet: (brandId: string, name: string) => req<ShotSet>('POST', `/api/brands/${brandId}/sets`, { name }),
+  renameSet: (id: string, name: string) => req<ShotSet>('PATCH', `/api/sets/${id}`, { name }),
+  /** The set goes; every shot that was in it stays where it was. */
+  deleteSet: (id: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}`),
+  addToSet: (id: string, nodeIds: string[]) =>
+    req<{ ok: true; added: number }>('POST', `/api/sets/${id}/nodes`, { nodeIds }),
+  removeFromSet: (id: string, nodeId: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}/nodes/${nodeId}`),
   engines: () => req<EngineInfo[]>('GET', '/api/engines'),
   setCap: (engineId: string, capUsd: number | null) => req<{ ok: true }>('PUT', '/api/caps', { engineId, capUsd }),
   addNode: (p: {
@@ -276,6 +308,28 @@ export interface ExportPreset {
   label: string;
   width: number | null;
   height: number | null;
+}
+
+/**
+ * A last-gasp overlay save for a page that is going away.
+ *
+ * `beforeunload` cannot await anything: the normal request is abandoned the
+ * moment the document is torn down, which is how a headline typed in the last
+ * fraction of a second before a reload was lost. `keepalive` hands the request
+ * to the browser to finish on its own, and it is the only reason this is not
+ * simply `api.saveOverlays`. Nothing can be reported back, so nothing tries.
+ */
+export function saveOverlaysOnUnload(nodeId: string, overlays: Record<string, TextLayer[]>): void {
+  try {
+    void fetch(`/api/nodes/${nodeId}/overlays`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ overlays }),
+      keepalive: true,
+    });
+  } catch {
+    /* the page is leaving and there is no one left to tell */
+  }
 }
 
 export const imgUrl = (hash: string) => `/api/images/${hash}`;

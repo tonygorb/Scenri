@@ -448,17 +448,88 @@ describe('diff + export + settings', () => {
     // another brand's work, and the project roots, are not activity
     expect(ids).not.toContain(elsewhere.id);
     expect(res.json().nodes.every((n: any) => n.kind !== 'root')).toBe(true);
-    // every row can name its own project without a second request
-    expect(
-      res
-        .json()
-        .nodes.map((n: any) => n.projectName)
-        .every(Boolean),
-    ).toBe(true);
+    // every row carries its sets without a second request, and none is fine
+    expect(res.json().nodes.every((n: any) => Array.isArray(n.setNames))).toBe(true);
     expect(res.json().jobs).toEqual([]);
 
     const missing = await app.inject({ method: 'GET', url: '/api/brands/nope/activity' });
     expect(missing.statusCode).toBe(404);
+  });
+
+  it('workspace: one request for the shots, the sets and who is in what', async () => {
+    const brand = await mkBrand();
+    const ws = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    expect(ws.statusCode).toBe(200);
+    // the brand had no project at all: asking is what makes the one
+    expect(ws.json().project.brandId).toBe(brand.id);
+    expect(ws.json().sets).toEqual([]);
+    expect(ws.json().membership).toEqual({});
+
+    const again = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    expect(again.json().project.id).toBe(ws.json().project.id);
+
+    const missing = await app.inject({ method: 'GET', url: '/api/brands/nope/workspace' });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('sets: create, rename, add a shot, and delete without taking the shot with it', async () => {
+    const brand = await mkBrand();
+    const ws = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const shot = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId, kind: 'generation', prompt: 'a shot', engineId: 'demo', width: 64, height: 64 },
+    });
+    const nodeId = shot.json().id;
+
+    const made = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/sets`, payload: { name: 'Spring' } });
+    expect(made.statusCode).toBe(200);
+    expect(made.json().slug).toBe('spring');
+    const setId = made.json().id;
+
+    // a set with no name is not a set
+    const unnamed = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/sets`, payload: { name: '  ' } });
+    expect(unnamed.statusCode).toBe(400);
+
+    const added = await app.inject({ method: 'POST', url: `/api/sets/${setId}/nodes`, payload: { nodeIds: [nodeId] } });
+    expect(added.json()).toEqual({ ok: true, added: 1 });
+    const withShot = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    expect(withShot.json().membership[setId]).toEqual([nodeId]);
+
+    const renamed = await app.inject({ method: 'PATCH', url: `/api/sets/${setId}`, payload: { name: 'Autumn' } });
+    expect(renamed.json().name).toBe('Autumn');
+    expect(renamed.json().slug).toBe('autumn');
+
+    // a shot id nobody knows is refused rather than quietly stored
+    const bogus = await app.inject({ method: 'POST', url: `/api/sets/${setId}/nodes`, payload: { nodeIds: ['nope'] } });
+    expect(bogus.statusCode).toBe(400);
+
+    await app.inject({ method: 'DELETE', url: `/api/sets/${setId}/nodes/${nodeId}` });
+    const emptied = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    expect(emptied.json().membership[setId]).toBeUndefined();
+    // removing from a set is not deleting: the shot is still on the feed
+    expect(emptied.json().nodes.some((n: any) => n.id === nodeId)).toBe(true);
+
+    expect((await app.inject({ method: 'DELETE', url: `/api/sets/${setId}` })).json()).toEqual({ ok: true });
+    const gone = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    expect(gone.json().sets).toEqual([]);
+    expect(gone.json().nodes.some((n: any) => n.id === nodeId)).toBe(true);
+
+    expect((await app.inject({ method: 'PATCH', url: '/api/sets/nope', payload: { name: 'x' } })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'DELETE', url: '/api/sets/nope' })).statusCode).toBe(404);
+  });
+
+  it('wiping shots takes the sets with them, so no name is left pointing at nothing', async () => {
+    const brand = await mkBrand();
+    await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/sets`, payload: { name: 'Spring' } });
+
+    const wiped = await app.inject({ method: 'DELETE', url: '/api/data?scope=shots' });
+    expect(wiped.statusCode).toBe(200);
+
+    const after = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/sets` });
+    expect(after.json()).toEqual([]);
   });
 
   it('settings: secrets write-only', async () => {

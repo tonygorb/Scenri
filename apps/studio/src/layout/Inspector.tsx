@@ -36,7 +36,7 @@ export function Inspector(props: {
   const { node, tab, onTabChange } = props;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
-      <div className="sc-tabs" style={{ background: 'none' }}>
+      <div className="sc-tabs">
         <button type="button" className="sc-tab" data-active={tab === 'text'} onClick={() => onTabChange('text')}>
           Text
         </button>

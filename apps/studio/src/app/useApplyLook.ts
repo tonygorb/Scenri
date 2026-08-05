@@ -1,27 +1,29 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import { api } from '../api.js';
 import { useBrand } from './BrandLayout.js';
 import { brandPath } from './brandPath.js';
 
 /**
- * "Use this look" from the Looks index or a look page. Reuses the newest
- * project rather than littering one per try, and makes the first one when the
- * brand has none.
+ * "Use this look" from the Looks index or a look page.
+ *
+ * It used to reach for `projects[0]`, and make an "Untitled" project when the
+ * brand had none. The list it reached into is ordered oldest-first, so the
+ * comment claiming it reused the newest project had it exactly backwards. There
+ * is nothing to reach for now: the look rides to the feed as a seed for the
+ * brief, and no container is created on the way.
  */
-export function useApplyLook(): (lookId: string) => Promise<void> {
-  const { brand, projects, refreshProjects } = useBrand();
+export function useApplyLook(): (lookId: string) => void {
+  const { brand } = useBrand();
   const navigate = useNavigate();
   // a string, so the callback survives a brand refetch handing back a new object
   const base = brandPath(brand);
 
   return useCallback(
-    async (lookId: string) => {
-      const existing = projects[0];
-      const slug = existing?.slug ?? (await api.createProject(brand.id, 'Untitled')).project.slug;
-      if (!existing) await refreshProjects();
-      navigate(`${base}/p/${slug}?look=${encodeURIComponent(lookId)}`);
+    (lookId: string) => {
+      // the hub, because that is where the brief is: Home holds no composer for
+      // the look to be seeded into
+      navigate(`${base}/create?look=${encodeURIComponent(lookId)}&compose=1`);
     },
-    [brand.id, base, projects, refreshProjects, navigate],
+    [base, navigate],
   );
 }
