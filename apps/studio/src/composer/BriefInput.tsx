@@ -53,6 +53,8 @@ export interface BriefInputHandle {
   insert: (t: SentenceToken) => void;
   /** The only repaint: a remix loaded, the brief cleared, a template seeded. */
   setTokens: (t: SentenceToken[]) => void;
+  /** Drop the current template chip, if any: it no longer resolves against the catalog. */
+  removeTemplate: () => void;
   focus: () => void;
 }
 
@@ -76,6 +78,8 @@ export const BriefInput = forwardRef<
     brand: Brand;
     shots: TreeNode[];
     templates: Look[];
+    /** A Look picked from the `#`/`/` menu goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
+    onTemplatePick: (id: string) => void;
     placeholder: string;
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
@@ -83,7 +87,7 @@ export const BriefInput = forwardRef<
     onSubmit: () => void;
   }
 >(function BriefInput(
-  { initialTokens, onChange, brand, shots, templates, placeholder, placeholderSm, flag, onSubmit },
+  { initialTokens, onChange, brand, shots, templates, onTemplatePick, placeholder, placeholderSm, flag, onSubmit },
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -254,6 +258,13 @@ export const BriefInput = forwardRef<
       syncEmpty(root);
       onChange(readLine(root));
     },
+    removeTemplate: () => {
+      const root = rootRef.current;
+      const chip = root ? templateChip(root) : null;
+      if (!root || !chip) return;
+      removeChip(root, chip);
+      emit();
+    },
     openMenu: (anchor) => {
       setQuery('');
       setMenu({ anchor });
@@ -269,7 +280,7 @@ export const BriefInput = forwardRef<
         label: t.name,
         hint: t.lighting,
         thumb: t.previewUrl ?? undefined,
-        run: () => placeRef.current({ t: 'template', id: t.id }),
+        run: () => onTemplatePick(t.id),
       })),
       ...products.map((p) => ({
         key: `p:${p.id}`,
@@ -303,7 +314,7 @@ export const BriefInput = forwardRef<
         run: () => placeRef.current({ t: 'ref', imageHash: s.images[0] }),
       })),
     ],
-    [templates, products, cast, palette, recent],
+    [templates, products, cast, palette, recent, onTemplatePick],
   );
 
   const openTok = openChip

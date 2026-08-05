@@ -796,6 +796,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           openAttachTab={params.get('attach') === 'looks' ? 'Looks' : undefined}
           target={target}
           onClearTarget={() => setBranchId(null)}
+          onRestoreBranchId={setBranchId}
+          setSlug={set?.slug ?? null}
           onSending={setSending}
           onQueued={(made) => {
             setRemixBrief(null);

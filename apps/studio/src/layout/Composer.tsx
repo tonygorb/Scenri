@@ -1,6 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { DropdownMenu, Select, Spinner } from '@radix-ui/themes';
-import { ArrowUp, Crop, Gauge, Lightning, Plus, Stack, X } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, ArrowUp, Crop, Gauge, Lightning, Plus, Stack, X } from '@phosphor-icons/react';
 import {
   api,
   imgUrl,
@@ -26,6 +26,9 @@ import { useOpenSettings } from '../views/SettingsDialog.js';
 import { useAppData } from '../app/AppShell.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useProductLibrary } from '../useProductLibrary.js';
+import { useToasts } from '../toasts.js';
+import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
+import { resolveLookSwitch } from '../composer/applyLook.js';
 
 export interface ComposerHandle {
   /** Append a token to the brief (assets panel click path). */
@@ -72,6 +75,10 @@ export const Composer = forwardRef<
     target?: TreeNode | null;
     /** Given only where the target can be dropped, which is where it is shown. */
     onClearTarget?: () => void;
+    /** A restored draft's branch target: apply it without stealing focus. */
+    onRestoreBranchId?: (id: string) => void;
+    /** Which set the draft was written from, carried for information only. */
+    setSlug?: string | null;
   }
 >(function Composer(
   {
@@ -87,12 +94,15 @@ export const Composer = forwardRef<
     onSending,
     target,
     onClearTarget,
+    onRestoreBranchId,
+    setSlug,
   },
   handleRef,
 ) {
   const libraryProducts = useProductLibrary(brand.id);
-  const { looks: templates } = useAppData();
+  const { looks: templates, loaded } = useAppData();
   const openSettings = useOpenSettings();
+  const { push } = useToasts();
   const usable = engines.filter((e) => e.available);
   const [engineId, setEngineId] = useLocalPref(PREF.engine, 'demo');
   useEffect(() => {
@@ -127,32 +137,39 @@ export const Composer = forwardRef<
   const attachRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // a template picked on Home, or "New photoshoot", lands here once
-  const seeded = useRef(false);
+  // per-brand draft persistence: an unsent brief must survive a navigation, a
+  // brand switch, or a closed tab, none of which reliably unmount this component
+  const [restored, setRestored] = useState(false);
+  const hydratingRef = useRef(false);
+  const contentRef = useRef({ tokens: sentence, tplFields, branchId: target?.id ?? null });
+  contentRef.current = { tokens: sentence, tplFields, branchId: target?.id ?? null };
+  const draftBrandIdRef = useRef<string | null>(null);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Which `?look=` value has already been applied, so a re-render with the
+   * same value doesn't reapply it, but a genuinely new one still does. */
+  const lastAppliedStartTemplate = useRef<string | undefined>(undefined);
+
+  const flushDraft = useCallback(
+    (brandId: string) => {
+      if (draftTimer.current) {
+        clearTimeout(draftTimer.current);
+        draftTimer.current = null;
+      }
+      const c = contentRef.current;
+      if (isNonTrivial(c.tokens, c.tplFields, c.branchId)) saveDraft(brandId, { ...c, setSlug });
+      else clearDraft(brandId);
+    },
+    [setSlug],
+  );
+
+  // "New photoshoot" opens the attach panel; this is orthogonal to whatever
+  // draft may or may not restore, so it's independent of the hydrate effect
   useEffect(() => {
-    if (seeded.current) return;
-    if (startTemplate) {
-      seeded.current = true;
-      setSeedTokens([
-        { t: 'template', id: startTemplate },
-        { t: 'text', v: ' ' },
-      ]);
-    } else if (openAttachTab) {
-      seeded.current = true;
+    if (openAttachTab) {
       setAttachTab(openAttachTab);
       setAttachOpen(true);
     }
-  }, [startTemplate, openAttachTab]);
-
-  useImperativeHandle(handleRef, () => ({
-    insertToken: (t) => briefRef.current?.insert(t),
-    applyTemplate: (id) => briefRef.current?.insert({ t: 'template', id }),
-    openAttach: (tab) => openAttach(tab),
-    focus: () => briefRef.current?.focus(),
-    submit: () => {
-      void go();
-    },
-  }));
+  }, [openAttachTab]);
 
   useEffect(() => {
     if (!initialBrief) return;
@@ -170,9 +187,91 @@ export const Composer = forwardRef<
     setTplFields(initialBrief.templateFields ?? {});
   }, [initialBrief]);
 
+  /**
+   * A brand switch does not remount this component (only the set route keys
+   * on it), so this effect is what notices: it flushes whatever the outgoing
+   * brand was holding, then hydrates the incoming brand's own saved draft —
+   * unless a Remix is already claiming this mount, which is a genuine
+   * full-brief replacement and should win over a silently restored one.
+   *
+   * A `?look=` seed is deliberately NOT in that same "wins over restore"
+   * bucket: it is folded into whatever this pass resolves as the base state
+   * (restored or empty) and merged through the same `resolveLookSwitch`
+   * policy every other look-attach entry point uses, so "Use this look" from
+   * the Looks page reads as attaching a look to your draft, not replacing it.
+   */
+  useEffect(() => {
+    const prior = draftBrandIdRef.current;
+    if (prior && prior !== brand.id) flushDraft(prior);
+
+    const hasExplicitSeed = !!initialBrief;
+    let tokens: SentenceToken[] | null = null;
+    let tplFieldsToApply: Record<string, string> | null = null;
+    let branchIdToApply: string | null = null;
+    let draftWasRestored = false;
+
+    if (!hasExplicitSeed) {
+      const draft = loadDraft(brand.id);
+      if (draft && isNonTrivial(draft.tokens, draft.tplFields, draft.branchId)) {
+        tokens = draft.tokens;
+        tplFieldsToApply = draft.tplFields;
+        branchIdToApply = draft.branchId;
+        draftWasRestored = true;
+      }
+    }
+
+    if (startTemplate && startTemplate !== lastAppliedStartTemplate.current) {
+      lastAppliedStartTemplate.current = startTemplate;
+      const base = tokens ?? emptySentence();
+      const existingTok = base.find((t) => t.t === 'template') as Extract<SentenceToken, { t: 'template' }> | undefined;
+      const existingLookId = existingTok?.id ?? null;
+      const priorBranchId = branchIdToApply;
+      const lookName = templates.find((t) => t.id === startTemplate)?.name ?? 'this look';
+      const branchNode = priorBranchId ? shots.find((s) => s.id === priorBranchId) : null;
+      const result = resolveLookSwitch(
+        existingLookId,
+        startTemplate,
+        lookName,
+        priorBranchId,
+        branchNode ? nodeLabel(branchNode) : null,
+      );
+      if (result.changed) {
+        tokens = [{ t: 'template', id: startTemplate }, ...base.filter((t) => t.t !== 'template')];
+        if (result.toast?.branchWasCleared) branchIdToApply = null;
+        if (result.toast) {
+          const toast = result.toast;
+          push({
+            kind: 'success',
+            title: toast.title,
+            action: {
+              label: 'Undo',
+              onClick: () => {
+                if (toast.prevLookId) briefRef.current?.insert({ t: 'template', id: toast.prevLookId });
+                else briefRef.current?.removeTemplate();
+                if (toast.branchWasCleared && priorBranchId) onRestoreBranchId?.(priorBranchId);
+              },
+            },
+          });
+        }
+      }
+    }
+
+    if (tokens) {
+      setSeedTokens(tokens);
+      setTplFields(tplFieldsToApply ?? {});
+      if (branchIdToApply) onRestoreBranchId?.(branchIdToApply);
+      if (draftWasRestored) setRestored(true);
+    }
+    draftBrandIdRef.current = brand.id;
+    // deliberately keyed on brand.id + startTemplate only: this must run once
+    // per brand, and again whenever a genuinely new `?look=` value arrives
+  }, [brand.id, startTemplate]);
+
   useEffect(() => {
     if (!seedTokens) return;
+    hydratingRef.current = true;
     briefRef.current?.setTokens(seedTokens);
+    hydratingRef.current = false;
     setSeedTokens(undefined);
   }, [seedTokens]);
 
@@ -197,6 +296,62 @@ export const Composer = forwardRef<
     const tok = sentence.find((t) => t.t === 'template') as Extract<SentenceToken, { t: 'template' }> | undefined;
     return tok ? (templates.find((x) => x.id === tok.id) ?? null) : null;
   }, [sentence, templates]);
+  const templateTokenId = useMemo(() => {
+    const tok = sentence.find((t) => t.t === 'template') as Extract<SentenceToken, { t: 'template' }> | undefined;
+    return tok?.id ?? null;
+  }, [sentence]);
+
+  /**
+   * The one shared policy behind every live look-attach entry point (the
+   * Assets rail, the AttachPanel's Looks tab, and the sigil menu) — decides
+   * through `resolveLookSwitch`, applies through the same `insert`/
+   * `removeTemplate` mechanics `place()` already uses for everything else.
+   */
+  const applyLook = useCallback(
+    (lookId: string) => {
+      const existingLookId = template?.id ?? null;
+      const branchId = target?.id ?? null;
+      const lookName = templates.find((t) => t.id === lookId)?.name ?? 'this look';
+      const result = resolveLookSwitch(existingLookId, lookId, lookName, branchId, target ? nodeLabel(target) : null);
+      if (!result.changed) return;
+      briefRef.current?.insert({ t: 'template', id: lookId });
+      if (result.toast) {
+        const toast = result.toast;
+        push({
+          kind: 'success',
+          title: toast.title,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              if (toast.prevLookId) briefRef.current?.insert({ t: 'template', id: toast.prevLookId });
+              else briefRef.current?.removeTemplate();
+              if (toast.branchWasCleared && branchId) onRestoreBranchId?.(branchId);
+            },
+          },
+        });
+      }
+    },
+    [template, target, templates, push, onRestoreBranchId],
+  );
+
+  useImperativeHandle(handleRef, () => ({
+    insertToken: (t) => briefRef.current?.insert(t),
+    applyTemplate: (id) => applyLook(id),
+    openAttach: (tab) => openAttach(tab),
+    focus: () => briefRef.current?.focus(),
+    submit: () => {
+      void go();
+    },
+  }));
+
+  // a `?look=` id (or a restored draft) that no longer resolves must not sit as
+  // a silent, still-submittable chip — mirrors Create.tsx's stale-branch-target
+  // toast for the same class of problem
+  useEffect(() => {
+    if (!loaded || !templateTokenId || template) return;
+    briefRef.current?.removeTemplate();
+    push({ kind: 'error', title: 'That look is no longer available.', detail: 'Starting from scratch.' });
+  }, [loaded, templateTokenId, template, push]);
 
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -215,6 +370,28 @@ export const Composer = forwardRef<
       if (debounce.current) clearTimeout(debounce.current);
     };
   }, [brief, engineId, brand.id, hasContent]);
+
+  // the draft is owed to whichever brand it belongs to, not necessarily the
+  // one currently in `brand.id` — see the hydrate effect above
+  useEffect(() => {
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => flushDraft(draftBrandIdRef.current ?? brand.id), 500);
+    return () => {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+    };
+  }, [sentence, tplFields, target?.id, brand.id, flushDraft]);
+
+  useEffect(() => {
+    // brand.id intentionally omitted from deps: an unmount must flush whatever
+    // brand the content actually belongs to, not whatever brand.id is by then
+    return () => flushDraft(draftBrandIdRef.current ?? brand.id);
+  }, [flushDraft]);
+
+  useEffect(() => {
+    const onLeave = () => flushDraft(draftBrandIdRef.current ?? brand.id);
+    window.addEventListener('beforeunload', onLeave);
+    return () => window.removeEventListener('beforeunload', onLeave);
+  }, [flushDraft, brand.id]);
 
   const engine = engines.find((e) => e.id === engineId);
 
@@ -389,6 +566,7 @@ export const Composer = forwardRef<
       }
       briefRef.current?.setTokens(emptySentence());
       setTplFields({});
+      clearDraft(brand.id);
       onQueued(created.id);
     } catch (e: any) {
       setErr(String(e.message ?? e));
@@ -419,7 +597,7 @@ export const Composer = forwardRef<
           initialTab={attachTab}
           onUpload={() => fileRef.current?.click()}
           onToken={(t) => briefRef.current?.insert(t)}
-          onTemplate={(id) => briefRef.current?.insert({ t: 'template', id })}
+          onTemplate={(id) => applyLook(id)}
           onClose={() => setAttachOpen(false)}
         />
       )}
@@ -432,6 +610,25 @@ export const Composer = forwardRef<
           </span>
           <button type="button" className="sc-banner-act" onClick={() => openSettings('engines')}>
             Open settings
+          </button>
+        </div>
+      )}
+      {restored && (
+        <div className="sc-banner">
+          <ArrowCounterClockwise size={15} />
+          <span>Picked up where you left off</span>
+          <button
+            type="button"
+            className="sc-banner-act"
+            onClick={() => {
+              briefRef.current?.setTokens(emptySentence());
+              setTplFields({});
+              onClearTarget?.();
+              clearDraft(brand.id);
+              setRestored(false);
+            }}
+          >
+            Discard
           </button>
         </div>
       )}
@@ -454,10 +651,16 @@ export const Composer = forwardRef<
         )}
         <BriefInput
           ref={briefRef}
-          onChange={setSentence}
+          onChange={(t) => {
+            setSentence(t);
+            // a hydration writes through this same path; only a genuine edit
+            // should retire the "picked up where you left off" notice
+            if (!hydratingRef.current) setRestored(false);
+          }}
           brand={brand}
           shots={shots}
           templates={templates}
+          onTemplatePick={applyLook}
           flag={flagToken}
           placeholder={
             template
