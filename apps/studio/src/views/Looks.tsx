@@ -11,7 +11,7 @@ import { useApplyLook } from '../app/useApplyLook.js';
  * Sections are collections; the sticky rail filters by vertical.
  */
 export function LooksView() {
-  const { looks, collections, verticals } = useAppData();
+  const { looks, collections, verticals, loaded } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const applyLook = useApplyLook();
@@ -53,55 +53,60 @@ export function LooksView() {
           ))}
         </div>
 
-        {collections.map((c) => {
-          const inCollection = shown.filter((l) => l.collections.includes(c));
-          if (!inCollection.length) return null;
-          return (
-            <section className="sc-coll" key={c}>
-              <h2>{c}</h2>
-              <div className="sc-coll-names">
-                {inCollection.map((l) => (
-                  <button type="button" key={l.id} onClick={() => openLook(l.id)}>
-                    {l.name}
-                  </button>
-                ))}
-              </div>
-              <div className="sc-masonry">
-                {inCollection.map((l) => (
-                  <button
-                    type="button"
-                    key={l.id}
-                    className="sc-lookcard"
-                    onClick={() => openLook(l.id)}
-                    title={`${l.name} — ${l.lighting}`}
-                  >
-                    {l.previewUrl ? (
-                      <img src={l.previewUrl} alt={l.name} loading="lazy" />
-                    ) : (
-                      <span className="sc-lookcard-blank" />
-                    )}
-                    <span className="sc-lookveil" />
-                    <span
-                      className="sc-lookuse"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void applyLook(l.id);
-                      }}
-                    >
-                      Use this look
-                    </span>
-                    <span className="sc-lookcap">
-                      <b>{l.name}</b>
-                      <span>{l.lighting}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          );
-        })}
+        {!loaded && <div className="sc-tplrow" aria-hidden />}
 
-        {!shown.length && looks.length > 0 && <p className="sc-looks-empty">No look carries that vertical yet.</p>}
+        {loaded &&
+          collections.map((c) => {
+            const inCollection = shown.filter((l) => l.collections.includes(c));
+            if (!inCollection.length) return null;
+            return (
+              <section className="sc-coll" key={c}>
+                <h2>{c}</h2>
+                <div className="sc-coll-names">
+                  {inCollection.map((l) => (
+                    <button type="button" key={l.id} onClick={() => openLook(l.id)}>
+                      {l.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="sc-masonry">
+                  {inCollection.map((l) => (
+                    <button
+                      type="button"
+                      key={l.id}
+                      className="sc-lookcard"
+                      onClick={() => openLook(l.id)}
+                      title={`${l.name} — ${l.lighting}`}
+                    >
+                      {l.previewUrl ? (
+                        <img src={l.previewUrl} alt={l.name} loading="lazy" />
+                      ) : (
+                        <span className="sc-lookcard-blank" />
+                      )}
+                      <span className="sc-lookveil" />
+                      <span
+                        className="sc-lookuse"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void applyLook(l.id);
+                        }}
+                      >
+                        Use this look
+                      </span>
+                      <span className="sc-lookcap">
+                        <b>{l.name}</b>
+                        <span>{l.lighting}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+
+        {loaded && !shown.length && looks.length > 0 && (
+          <p className="sc-looks-empty">No look carries that vertical yet.</p>
+        )}
       </main>
     </div>
   );

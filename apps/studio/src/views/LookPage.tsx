@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react';
-import { api, imgUrl, type Look, type TreeNode } from '../api.js';
+import { api, imgUrl, type Look } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
 import { useApplyLook } from '../app/useApplyLook.js';
+import { favoriteLooks } from '../favorites.js';
 
 /**
  * One look. The reference frames say what the light is; they are ours and are
@@ -14,7 +15,7 @@ import { useApplyLook } from '../app/useApplyLook.js';
  */
 export function LookPage() {
   const { lookId = '' } = useParams();
-  const { looks } = useAppData();
+  const { looks, loaded, error, refetch } = useAppData();
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this look actually produce"
   const { brand, nodes: shots } = useBrand();
@@ -77,10 +78,80 @@ export function LookPage() {
     }
   }, [looks, look]);
 
-  // TODO: useLooks starts empty and fills in async, so this covers two cases
-  // that deserve different screens: looks.length === 0 is still loading, while
-  // looks.length > 0 && !look is a look id that does not exist.
-  if (!look) return <div className="sc-home" />;
+  /** Favorites-first, same ordering rule as Home's shelf and Create's FirstRun. */
+  const recovery = useMemo(() => {
+    if (look || !loaded || error) return [];
+    const favs = favoriteLooks(brandId);
+    return [...looks].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id))).slice(0, 6);
+  }, [look, loaded, error, looks, brandId]);
+
+  if (!loaded) {
+    return (
+      <div className="sc-home">
+        <main className="sc-lookpage" id="main">
+          <div className="sc-tplrow" aria-hidden />
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="sc-home">
+        <main className="sc-lookpage" id="main">
+          <h1>Couldn't load this look</h1>
+          <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
+          <div className="sc-lookpage-acts">
+            <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetch()}>
+              Retry
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!look) {
+    return (
+      <div className="sc-home">
+        <main className="sc-lookpage" id="main">
+          <h1>This look isn't here anymore</h1>
+          <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
+          <div className="sc-lookpage-acts">
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary"
+              onClick={() => navigate(`${base}/create?compose=1`)}
+            >
+              Start from scratch
+            </button>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => navigate(`${base}/looks`)}>
+              Browse all looks
+            </button>
+          </div>
+          {recovery.length > 0 && (
+            <Slider label="You might like">
+              {recovery.map((l) => (
+                <figure key={l.id}>
+                  <button type="button" className="sc-lookcard sc-lookcard-plain" onClick={() => openLook(l.id)}>
+                    {l.previewUrl ? (
+                      <img src={l.previewUrl} alt={l.name} loading="lazy" />
+                    ) : (
+                      <span className="sc-lookcard-blank" />
+                    )}
+                  </button>
+                  <figcaption>
+                    <b>{l.name}</b>
+                    <span>{l.lighting}</span>
+                  </figcaption>
+                </figure>
+              ))}
+            </Slider>
+          )}
+        </main>
+      </div>
+    );
+  }
 
   const visibleRefs = openAll ? refs : refs.slice(0, 3);
   const frames = refs.length ? visibleRefs : look.previewUrl ? [look.previewUrl] : [];

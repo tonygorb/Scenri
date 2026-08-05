@@ -23,7 +23,7 @@ import { favoriteLooks } from '../favorites.js';
 const RECENT = 12;
 
 export function HomeView() {
-  const { looks: templates, refresh } = useAppData();
+  const { looks: templates, loaded: looksLoaded, refresh } = useAppData();
   const { brand, nodes, loaded } = useBrand();
   const navigate = useNavigate();
 
@@ -83,7 +83,9 @@ export function HomeView() {
           </button>
         </div>
 
-        {templates.length > 0 && (
+        {!looksLoaded && <div className="sc-tplrow" aria-hidden />}
+
+        {looksLoaded && templates.length > 0 && (
           <>
             <div className="sc-sec-head">
               <span className="sc-sec-title">Looks</span>

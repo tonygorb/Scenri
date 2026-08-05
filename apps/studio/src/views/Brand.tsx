@@ -12,7 +12,7 @@ const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Ne
 
 /** The kit page: everything generation starts from, first class. */
 export function BrandView() {
-  const { looks: templates, refresh } = useAppData();
+  const { looks: templates, loaded: looksLoaded, refresh } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const [favs, setFavs] = useState<string[]>(() => favoriteLooks(brand.id));
@@ -89,7 +89,9 @@ export function BrandView() {
           <ProductsPanel brand={brand} onChanged={refresh} kind="characters" />
         </div>
 
-        {sorted.length > 0 && (
+        {!looksLoaded && <div className="sc-lookgrid" aria-hidden />}
+
+        {looksLoaded && sorted.length > 0 && (
           <div className="sc-kit-sec">
             <div className="sc-sec-head">
               <span className="sc-sec-title">Favorite looks</span>

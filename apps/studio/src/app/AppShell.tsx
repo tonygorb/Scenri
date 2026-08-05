@@ -2,9 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Callout, Flex, Spinner } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo } from '../api.js';
-import { useLooks, type LooksData } from '../useLooks.js';
+import { useLooks, type UseLooksResult } from '../useLooks.js';
 
-interface AppData extends LooksData {
+interface AppData extends UseLooksResult {
   brands: Brand[];
   engines: EngineInfo[];
   /** Re-read brands and engines: brand edits and key changes both land here. */

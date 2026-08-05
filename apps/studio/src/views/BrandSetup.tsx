@@ -16,7 +16,7 @@ type Step = 1 | 2 | 3 | 4;
  * dialogs; also serves as the first-run screen.
  */
 export function BrandSetup() {
-  const { brands, looks: templates, refresh } = useAppData();
+  const { brands, looks: templates, loaded: looksLoaded, refresh } = useAppData();
   const navigate = useNavigate();
   /** Back from step 1 has nowhere to go on a true first run. */
   const canCancel = brands.length > 0;
@@ -361,34 +361,37 @@ export function BrandSetup() {
             <p className="sc-wiz-sub">
               Pick a few directions you like. They lead the template shelf whenever you start a shoot.
             </p>
-            <div className="sc-wiz-looks">
-              {templates.slice(0, 9).map((t) => {
-                const on = picked.includes(t.id);
-                return (
-                  <button
-                    type="button"
-                    key={t.id}
-                    className="sc-wiz-look"
-                    data-on={on}
-                    onClick={() => setPicked((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))}
-                  >
-                    {(t as any).previewUrl ? (
-                      <img src={(t as any).previewUrl} alt={t.name} />
-                    ) : (
-                      <span
-                        style={{ display: 'grid', placeItems: 'center', aspectRatio: '4/3', color: 'var(--sc-fg3)' }}
-                      >
-                        <ImageSquare size={18} />
+            {!looksLoaded && <div className="sc-wiz-looks" aria-hidden />}
+            {looksLoaded && (
+              <div className="sc-wiz-looks">
+                {templates.slice(0, 9).map((t) => {
+                  const on = picked.includes(t.id);
+                  return (
+                    <button
+                      type="button"
+                      key={t.id}
+                      className="sc-wiz-look"
+                      data-on={on}
+                      onClick={() => setPicked((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))}
+                    >
+                      {(t as any).previewUrl ? (
+                        <img src={(t as any).previewUrl} alt={t.name} />
+                      ) : (
+                        <span
+                          style={{ display: 'grid', placeItems: 'center', aspectRatio: '4/3', color: 'var(--sc-fg3)' }}
+                        >
+                          <ImageSquare size={18} />
+                        </span>
+                      )}
+                      <span className="sc-wiz-lookname">{t.name}</span>
+                      <span className="sc-wiz-tick">
+                        <Check size={11} weight="bold" />
                       </span>
-                    )}
-                    <span className="sc-wiz-lookname">{t.name}</span>
-                    <span className="sc-wiz-tick">
-                      <Check size={11} weight="bold" />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div style={{ textAlign: 'center', marginTop: 24 }}>
               <button type="button" className="sc-wiz-cta" onClick={finish}>
                 Open the studio <ArrowRight size={12} />

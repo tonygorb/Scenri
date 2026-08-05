@@ -433,7 +433,14 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
     }
     if (t?.t === 'template') {
       const l = looks.find((x) => x.id === t.id);
-      return [{ key: `t${t.id}`, kind: 'look', label: l?.name ?? t.id, thumb: l?.previewUrl ?? null }];
+      return [
+        {
+          key: `t${t.id}`,
+          kind: 'look',
+          label: l?.name ?? 'a look no longer in the catalog',
+          thumb: l?.previewUrl ?? null,
+        },
+      ];
     }
     if (t?.t === 'color') {
       return [{ key: `c${t.hex}`, kind: 'color', label: t.name ?? t.hex, swatch: t.hex }];
