@@ -23,6 +23,8 @@ import { brandPath } from '../app/brandPath.js';
  */
 export function TopBar() {
   const { engines } = useAppData();
+  const { brand } = useBrand();
+  const navigate = useNavigate();
   const set = useMatch({ path: '/b/:brandId/s/:setId', end: false });
   // taken unconditionally: a hook behind || is a hook that only sometimes runs,
   // and React counts them by position
@@ -37,7 +39,9 @@ export function TopBar() {
         Skip to content
       </a>
       <div className="sc-topbar-lead">
-        <span className="sc-wordmark sc-display">scenri</span>
+        <button type="button" className="sc-wordmark sc-display" onClick={() => navigate(brandPath(brand))}>
+          scenri
+        </button>
         {set ? (
           <div className="sc-topbar-context">
             <SetCrumb slug={set.params.setId ?? ''} />

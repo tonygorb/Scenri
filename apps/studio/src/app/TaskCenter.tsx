@@ -135,14 +135,15 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       // you already know: you are the one who cancelled it
       if (n.state === 'cancelled') continue;
       const href = n.href;
+      const action = href ? { label: 'View', onClick: () => navRef.current(href) } : undefined;
       pushRef.current(
         n.state === 'error'
-          ? { kind: 'error', title: `${n.title} failed`, detail: n.subtitle }
+          ? { kind: 'error', title: `${n.title} failed`, detail: n.subtitle, action }
           : {
               kind: 'success',
               title: n.kind === 'catalog' ? 'Catalog import finished' : 'Generation finished',
               detail: n.title,
-              action: href ? { label: 'View', onClick: () => navRef.current(href) } : undefined,
+              action,
             },
       );
     }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
 import { Callout, DropdownMenu } from '@radix-ui/themes';
-import { CaretDown, FolderSimple, Plus, SquaresFour } from '@phosphor-icons/react';
+import { ArrowUpRight, CaretDown, FolderSimple, Plus, SquaresFour } from '@phosphor-icons/react';
 import {
   api,
   hasNoShots,
@@ -464,6 +464,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   };
 
   const liftText = async (node: TreeNode) => {
+    if (lifting) return;
     const engine =
       ['codex-cli', 'openrouter', 'demo']
         .map((id) => engines.find((e) => e.id === id && e.available && e.supportsEdit))
@@ -974,18 +975,25 @@ function FeedToolbar({
 
   return (
     <div className="sc-toolbar">
-      <div className="sc-seg sc-toolbar-lenses">
+      <div className="sc-seg sc-toolbar-lenses" data-leaves-set={!!active || undefined}>
         {LENSES.map((l) => (
           <button
             key={l.id}
             type="button"
             className="sc-seg-o"
             // standing in a set means no lens is active: a set is somewhere you
-            // are, and leaving it is a navigation rather than a filter change
+            // are, and leaving it is a navigation rather than a filter change —
+            // the icon is what says so, since the click itself looks identical
             data-on={(!active && lens === l.id) || undefined}
             aria-pressed={!active && lens === l.id}
+            // title alone is a mouse-hover-only signal — the same fact belongs
+            // in the accessible name too, or a keyboard/screen-reader user gets
+            // none of what the icon and color are telling everyone else
+            title={active ? `Leaves ${active.name}, back to the whole brand` : undefined}
+            aria-label={active ? `${l.label}, leaves ${active.name}` : undefined}
             onClick={() => (active ? toHub(l.query) : onLens(l.id))}
           >
+            {active && <ArrowUpRight size={11} />}
             {l.label}
           </button>
         ))}
@@ -1080,8 +1088,13 @@ function PickedBar({
         <button
           type="button"
           className="sc-btn"
-          onClick={onCompare}
-          disabled={!comparable}
+          // aria-disabled: keeps the button tab-reachable so its title —
+          // the only explanation for why Compare is inert — stays
+          // discoverable to keyboard/screen-reader users, not just mouse hover
+          aria-disabled={!comparable || undefined}
+          onClick={() => {
+            if (comparable) onCompare();
+          }}
           title={comparable ? 'Show the drift between these two' : 'Both shots need to have finished'}
         >
           Compare

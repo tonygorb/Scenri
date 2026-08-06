@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DB } from './db.js';
-import { firstFree, slugify } from './slug.js';
+import { firstFree, slugifyWithId } from './slug.js';
 
 export interface BrandRow {
   id: string;
@@ -62,23 +62,27 @@ export interface SetRow {
 /**
  * The slug is the brand's URL, so two brands cannot share one: the second
  * "Acme" becomes acme-2. Renaming a brand back onto a taken slug suffixes
- * rather than steals, so no existing link ever changes owner.
+ * rather than steals, so no existing link ever changes owner. `id` is always
+ * the brand's own id — the row being created or updated — used both to seed
+ * a Latin-free name's fallback and to exclude itself from the collision
+ * check; for a brand new row neither matters yet, so passing it unconditionally
+ * is harmless.
  */
-export function uniqueSlug(db: DB, name: string, excludeId?: string): string {
+export function uniqueSlug(db: DB, name: string, id: string): string {
   const stmt = db.prepare('SELECT 1 FROM brands WHERE slug=? AND id IS NOT ?');
-  return firstFree(slugify(name), (c) => !!stmt.get(c, excludeId ?? null));
+  return firstFree(slugifyWithId(name, id), (c) => !!stmt.get(c, id));
 }
 
 /** Same, per brand: two brands may each have a project called Untitled. */
-export function uniqueProjectSlug(db: DB, brandId: string, name: string): string {
+export function uniqueProjectSlug(db: DB, brandId: string, name: string, id: string): string {
   const stmt = db.prepare('SELECT 1 FROM projects WHERE brand_id=? AND slug=?');
-  return firstFree(slugify(name, 'project'), (c) => !!stmt.get(brandId, c));
+  return firstFree(slugifyWithId(name, id, 'project'), (c) => !!stmt.get(brandId, c));
 }
 
 /** And again for sets, which share the brand's address space with nothing else. */
-export function uniqueSetSlug(db: DB, brandId: string, name: string, excludeId?: string): string {
+export function uniqueSetSlug(db: DB, brandId: string, name: string, id: string): string {
   const stmt = db.prepare('SELECT 1 FROM sets WHERE brand_id=? AND slug=? AND id IS NOT ?');
-  return firstFree(slugify(name, 'set'), (c) => !!stmt.get(brandId, c, excludeId ?? null));
+  return firstFree(slugifyWithId(name, id, 'set'), (c) => !!stmt.get(brandId, c, id));
 }
 
 /**
@@ -125,7 +129,7 @@ export function createStore(db: DB) {
       const id = randomUUID();
       db.prepare('INSERT INTO brands (id, slug, json) VALUES (?,?,?)').run(
         id,
-        uniqueSlug(db, json.meta.name),
+        uniqueSlug(db, json.meta.name, id),
         JSON.stringify(json),
       );
       return this.getBrand(id)!;
@@ -164,7 +168,7 @@ export function createStore(db: DB) {
         id,
         brandId,
         name,
-        uniqueProjectSlug(db, brandId, name),
+        uniqueProjectSlug(db, brandId, name, id),
       );
       const rootId = randomUUID();
       db.prepare("INSERT INTO nodes (id, project_id, parent_id, kind, status) VALUES (?,?,NULL,'root','done')").run(
@@ -210,7 +214,7 @@ export function createStore(db: DB) {
         id,
         brandId,
         name,
-        uniqueSetSlug(db, brandId, name),
+        uniqueSetSlug(db, brandId, name, id),
       );
       return this.getSet(id)!;
     },

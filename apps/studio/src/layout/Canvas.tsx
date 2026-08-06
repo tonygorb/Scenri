@@ -98,82 +98,72 @@ export function Canvas({
       const parentShot = parent && parent.kind !== 'root' ? parent : null;
       if (n.status === 'running') {
         return [
+          // Cancel used to be a <button> inside .sc-cell-open — invalid HTML
+          // (React warned on it), and the same nested-interactive mistake this
+          // pass already fixed for LookCard and the kept-star badge. A sibling
+          // now, matching that pattern.
           <div key={n.id} className="sc-cell" data-running="true">
             <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
               <span className="sc-shimmer" />
               <RunningTag since={n.createdAt} />
-              {onCancel && (
-                <button
-                  type="button"
-                  className="sc-cell-retry"
-                  data-urgent={elapsedSec(n.createdAt) >= 60 || undefined}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCancel(n);
-                  }}
-                >
-                  Cancel
-                </button>
-              )}
             </button>
+            {onCancel && (
+              <button
+                type="button"
+                className="sc-cell-retry"
+                data-urgent={elapsedSec(n.createdAt) >= 60 || undefined}
+                onClick={() => onCancel(n)}
+              >
+                Cancel
+              </button>
+            )}
           </div>,
         ];
       }
       if (n.status === 'cancelled') {
         return [
           <div key={n.id} className="sc-cell" data-cancelled="true" data-selected={n.id === selectedId}>
-            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
-              <span className="sc-cell-failed">
-                <XCircle size={16} />
-                <span>Cancelled</span>
-                <button
-                  type="button"
-                  className="sc-cell-retry"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    dismissNode(brandId, n.id);
-                    setDismissTick((t) => t + 1);
-                  }}
-                >
-                  Dismiss
-                </button>
-              </span>
-            </button>
+            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)} />
+            <span className="sc-cell-failed">
+              <XCircle size={16} />
+              <span>Cancelled</span>
+              <button
+                type="button"
+                className="sc-cell-retry"
+                onClick={() => {
+                  dismissNode(brandId, n.id);
+                  setDismissTick((t) => t + 1);
+                }}
+              >
+                Dismiss
+              </button>
+            </span>
           </div>,
         ];
       }
       if (n.status === 'error' || n.images.length === 0) {
         return [
           <div key={n.id} className="sc-cell" data-failed="true" data-selected={n.id === selectedId}>
-            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
-              <span className="sc-cell-failed">
-                <WarningCircle size={16} />
-                <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {n.error?.slice(0, 40) || 'Failed'}
-                </span>
-                <button
-                  type="button"
-                  className="sc-cell-retry"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRetry(n);
-                  }}
-                >
-                  Try again
-                </button>
-                <button
-                  type="button"
-                  className="sc-cell-retry"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    dismissNode(brandId, n.id);
-                    setDismissTick((t) => t + 1);
-                  }}
-                >
-                  Dismiss
-                </button>
+            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)} />
+            <span className="sc-cell-failed">
+              <WarningCircle size={16} />
+              <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {n.error?.slice(0, 40) || 'Failed'}
               </span>
-            </button>
+              <button type="button" className="sc-cell-retry" onClick={() => onRetry(n)}>
+                Try again
+              </button>
+              <button
+                type="button"
+                className="sc-cell-retry"
+                onClick={() => {
+                  dismissNode(brandId, n.id);
+                  setDismissTick((t) => t + 1);
+                }}
+              >
+                Dismiss
+              </button>
+            </span>
           </div>,
         ];
       }

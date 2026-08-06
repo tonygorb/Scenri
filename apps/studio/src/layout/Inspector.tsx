@@ -135,8 +135,10 @@ function TextTab({
           type="button"
           className="sc-btn sc-btn-ghost"
           style={{ flex: 1, justifyContent: 'center' }}
-          disabled={lifting}
-          onClick={onLift}
+          aria-disabled={lifting || undefined}
+          onClick={() => {
+            if (!lifting) onLift();
+          }}
           title="Turns text the AI painted into the image back into editable text"
         >
           {lifting ? (

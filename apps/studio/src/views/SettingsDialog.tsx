@@ -75,6 +75,15 @@ export function SettingsDialog({
   const pane = (PANES.some((p) => p.id === settings.value) ? settings.value : 'engines') as Pane;
   const setPane = (next: Pane) => settings.set(next);
 
+  // A key mid-type lived in <Engines>'s own state, which unmounts — and
+  // silently drops it — every time the rail leaves the Engines pane, not just
+  // when the whole dialog closes. SettingsDialog itself never unmounts across
+  // opens/closes/pane switches (only its pane content does), so holding the
+  // draft here instead survives all three. Kept in memory only, never
+  // persisted: unlike the Composer's prose draft, a secret should not outlive
+  // a page reload.
+  const [engineDraft, setEngineDraft] = useState<Record<string, string>>({});
+
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && settings.close()}>
       <Dialog.Content className="sc-set" maxWidth="940px" aria-describedby={undefined}>
@@ -104,7 +113,9 @@ export function SettingsDialog({
               </Dialog.Close>
             </div>
             <div className="sc-set-scroll">
-              {pane === 'engines' && <Engines engines={engines} onSaved={onSaved} />}
+              {pane === 'engines' && (
+                <Engines engines={engines} onSaved={onSaved} draft={engineDraft} setDraft={setEngineDraft} />
+              )}
               {pane === 'budget' && <Budget engines={engines} onSaved={onSaved} />}
               {pane === 'usage' && <Usage shots={shots} />}
               {pane === 'library' && <Library />}
@@ -148,9 +159,18 @@ function Group({ title, sub, children }: { title?: string; sub?: string; childre
   );
 }
 
-function Engines({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => void }) {
+function Engines({
+  engines,
+  onSaved,
+  draft,
+  setDraft,
+}: {
+  engines: EngineInfo[];
+  onSaved: () => void;
+  draft: Record<string, string>;
+  setDraft: (update: (d: Record<string, string>) => Record<string, string>) => void;
+}) {
   const [present, setPresent] = useState<Record<string, boolean>>({});
-  const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {

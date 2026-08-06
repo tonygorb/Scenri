@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { AlertDialog, Button, Flex, Spinner } from '@radix-ui/themes';
-import { ImageSquare, TrashSimple } from '@phosphor-icons/react';
+import { ImageSquare, Plus, TrashSimple } from '@phosphor-icons/react';
 import { api, assetUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -41,6 +41,73 @@ export function BrandView() {
     }));
   const sorted = [...templates].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id)));
 
+  // Every scratch-created brand (not scraped from a website) permanently and
+  // silently omitted this whole section — read-only with no fallback at zero
+  // colors. Local state, not the derived `palette` above, is what renders:
+  // that keeps a name edit's cursor and an in-flight save from fighting each
+  // other across a `brand` re-render that hasn't reflected it yet.
+  const [colors, setColors] = useState<{ hex: string; name: string }[]>(() => palette);
+  useEffect(() => {
+    setColors(palette);
+    // deliberately brand.id only: resync on a brand switch, not on every
+    // write this same section just made
+  }, [brand.id]);
+  const nameSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const rebuildPalette = (list: { hex: string; name: string }[]) => {
+    const [p, s, ...rest] = list;
+    const asColor = (c: { hex: string; name: string }) =>
+      c.name.trim() ? { hex: c.hex, name: c.name.trim() } : { hex: c.hex };
+    const out: any = {};
+    if (p) out.primary = asColor(p);
+    if (s) out.secondary = asColor(s);
+    if (rest.length) out.accent = rest.map(asColor);
+    if (json.palette?.usage) out.usage = json.palette.usage;
+    return out;
+  };
+
+  const savePalette = (list: { hex: string; name: string }[]) => {
+    void api
+      .updateBrand(brand.id, { ...json, palette: rebuildPalette(list) })
+      .then(() => refresh())
+      .catch((e: any) =>
+        push({ kind: 'error', title: 'Could not update the palette', detail: String(e.message ?? e) }),
+      );
+  };
+
+  /** Every mutation cancels whatever save was pending, immediate or debounced
+   * — otherwise an in-flight name edit could complete after a later remove/add
+   * and silently resurrect what the user just deleted. */
+  const commitPalette = (list: { hex: string; name: string }[], debounce: boolean) => {
+    if (nameSaveTimer.current) {
+      clearTimeout(nameSaveTimer.current);
+      nameSaveTimer.current = null;
+    }
+    if (debounce) nameSaveTimer.current = setTimeout(() => savePalette(list), 500);
+    else savePalette(list);
+  };
+
+  const updateColorHex = (i: number, hex: string) => {
+    const next = colors.map((c, idx) => (idx === i ? { ...c, hex } : c));
+    setColors(next);
+    commitPalette(next, false);
+  };
+  const updateColorName = (i: number, name: string) => {
+    const next = colors.map((c, idx) => (idx === i ? { ...c, name } : c));
+    setColors(next);
+    commitPalette(next, true);
+  };
+  const removeColor = (i: number) => {
+    const next = colors.filter((_, idx) => idx !== i);
+    setColors(next);
+    commitPalette(next, false);
+  };
+  const addColor = () => {
+    const next = [...colors, { hex: '#CCCCCC', name: '' }];
+    setColors(next);
+    commitPalette(next, false);
+  };
+
   return (
     <div className="sc-home">
       <main className="sc-brandpage" id="main">
@@ -57,24 +124,53 @@ export function BrandView() {
           </div>
         </div>
 
-        {palette.length > 0 && (
-          <div className="sc-kit-sec">
-            <div className="sc-sec-head">
-              <span className="sc-sec-title">Palette</span>
-            </div>
+        <div className="sc-kit-sec">
+          <div className="sc-sec-head">
+            <span className="sc-sec-title">Palette</span>
+            <button type="button" className="sc-sec-more" onClick={addColor}>
+              <Plus size={12} /> Add color
+            </button>
+          </div>
+          {colors.length === 0 ? (
+            <p className="sc-palette-empty">
+              No colors yet. Add one so shots pull from your real brand palette instead of guessing.
+            </p>
+          ) : (
             <div className="sc-palette">
-              {palette.slice(0, 6).map((c) => (
-                <div key={c.hex} className="sc-palcol">
-                  <span className="sc-palfill" style={{ background: c.hex }} />
+              {colors.map((c, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: positions, not records — a swatch has no id of its own, only append/remove-by-index
+                <div key={i} className="sc-palcol">
+                  <label className="sc-palfill" style={{ background: c.hex }}>
+                    <input
+                      type="color"
+                      value={c.hex}
+                      onChange={(e) => updateColorHex(i, e.target.value)}
+                      aria-label={`${c.name || ROLE_NAMES[i] || `Color ${i + 1}`} value`}
+                    />
+                  </label>
                   <div className="sc-palmeta">
-                    <b>{c.name}</b>
-                    <small>{c.hex}</small>
+                    <input
+                      className="sc-palname"
+                      value={c.name}
+                      placeholder={ROLE_NAMES[i] ?? `Color ${i + 1}`}
+                      onChange={(e) => updateColorName(i, e.target.value)}
+                      aria-label="Color name"
+                    />
+                    <small>{c.hex.toUpperCase()}</small>
                   </div>
+                  <button
+                    type="button"
+                    className="sc-palremove"
+                    onClick={() => removeColor(i)}
+                    aria-label={`Remove ${c.name || ROLE_NAMES[i] || `color ${i + 1}`}`}
+                  >
+                    <TrashSimple size={12} />
+                  </button>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="sc-kit-sec">
           <div className="sc-sec-head">

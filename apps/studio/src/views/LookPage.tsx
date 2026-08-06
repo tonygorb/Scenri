@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { CaretLeft, CaretRight } from '@phosphor-icons/react';
-import { api, imgUrl, type Look } from '../api.js';
+import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
+import { api, imgUrl, type Look, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
@@ -168,13 +168,11 @@ export function LookPage() {
           </button>
         </div>
 
-        {frames.length > 0 && (
+        {frames.length > 0 ? (
           <>
             <div className="sc-lookpage-refs">
               {frames.map((src) => (
-                <div className="sc-lookpage-ref" key={src}>
-                  <img src={src} alt="" loading="lazy" />
-                </div>
+                <RefFrame key={src} src={src} />
               ))}
             </div>
             {refs.length > 3 && (
@@ -183,14 +181,23 @@ export function LookPage() {
               </button>
             )}
           </>
+        ) : (
+          // a look with no reference frame used to omit this whole section —
+          // the same blank box a broken/missing image falls back to below,
+          // rather than nothing where the look's visual identity should be
+          <div className="sc-lookpage-refs">
+            <div className="sc-lookpage-ref">
+              <span className="sc-lookpage-ref-blank">
+                <ImageSquare size={20} />
+              </span>
+            </div>
+          </div>
         )}
 
         {made.length > 0 && (
           <Slider label="Your shots in this look">
             {made.map((s) => (
-              <button type="button" className="sc-lookcard" key={s.id} title={s.prompt}>
-                <img src={imgUrl(s.images[0])} alt="" loading="lazy" />
-              </button>
+              <ShotThumb key={s.id} node={s} onClick={() => navigate(`${base}/create/n/${s.id}`)} />
             ))}
           </Slider>
         )}
@@ -204,6 +211,39 @@ export function LookPage() {
         )}
       </main>
     </div>
+  );
+}
+
+/** One reference frame. A 404 reads the same as never having had one: the
+ * blank box, not a broken-image glyph the browser drew on its own. */
+function RefFrame({ src }: { src: string }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <div className="sc-lookpage-ref">
+      {broken ? (
+        <span className="sc-lookpage-ref-blank">
+          <ImageSquare size={20} />
+        </span>
+      ) : (
+        <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} />
+      )}
+    </div>
+  );
+}
+
+/** One shot in the "made with this look" slider — same broken-image fallback. */
+function ShotThumb({ node, onClick }: { node: TreeNode; onClick: () => void }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <button type="button" className="sc-lookcard" title={node.prompt} onClick={onClick}>
+      {broken ? (
+        <span className="sc-lookcard-blank">
+          <ImageSquare size={20} />
+        </span>
+      ) : (
+        <img src={imgUrl(node.images[0])} alt="" loading="lazy" onError={() => setBroken(true)} />
+      )}
+    </button>
   );
 }
 

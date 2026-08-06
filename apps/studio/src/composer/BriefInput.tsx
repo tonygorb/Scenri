@@ -84,10 +84,27 @@ export const BriefInput = forwardRef<
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
+    /** The one warning a click can actually fix: a template chip that builds
+     * around a product with none attached. A click there used to be the same
+     * swap-this-template menu every chip gets — which doesn't add a product —
+     * so this takes over instead and opens where one gets attached. */
+    onProductWarningClick?: () => void;
     onSubmit: () => void;
   }
 >(function BriefInput(
-  { initialTokens, onChange, brand, shots, templates, onTemplatePick, placeholder, placeholderSm, flag, onSubmit },
+  {
+    initialTokens,
+    onChange,
+    brand,
+    shots,
+    templates,
+    onTemplatePick,
+    placeholder,
+    placeholderSm,
+    flag,
+    onProductWarningClick,
+    onSubmit,
+  },
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -166,7 +183,10 @@ export const BriefInput = forwardRef<
       el.appendChild(document.createTextNode(label));
 
       const warning = flag?.(token) ?? null;
-      if (warning) el.title = warning;
+      if (warning) {
+        el.title = warning;
+        if (token.t === 'template') el.dataset.warn = '1';
+      }
 
       const x = document.createElement('button');
       x.type = 'button';
@@ -196,6 +216,30 @@ export const BriefInput = forwardRef<
     syncEmpty(root);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Chips are DOM nodes React never revisits (see chipFor above), so a
+   * warning set at creation — "builds around a product", "cannot read this
+   * reference" — stayed on the chip even after the thing it warned about was
+   * fixed. Attaching a product from the warning chip's own click left it
+   * stuck warning, and stuck hijacking the next click into re-opening
+   * AttachPanel instead of the normal swap-this-token menu. Re-synced here
+   * against every chip whenever what a chip should say might have changed. */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    for (const chip of root.querySelectorAll<HTMLElement>(`.${CHIP}`)) {
+      const token = decode(chip.dataset.tok ?? '');
+      if (!token) continue;
+      const warning = flag?.(token) ?? null;
+      if (warning) {
+        chip.title = warning;
+        if (token.t === 'template') chip.dataset.warn = '1';
+      } else {
+        chip.removeAttribute('title');
+        delete chip.dataset.warn;
+      }
+    }
+  }, [flag]);
 
   useEffect(() => {
     const track = () => {
@@ -363,6 +407,11 @@ export const BriefInput = forwardRef<
     // the outer few pixels are for reaching the caret, not for opening the menu
     const box = chip.getBoundingClientRect();
     if (e.clientX - box.left <= EDGE || box.right - e.clientX <= EDGE) return;
+    if (chip.dataset.warn && onProductWarningClick) {
+      e.preventDefault();
+      onProductWarningClick();
+      return;
+    }
     const uid = chip.dataset.uid ?? null;
     if (openChip === uid) {
       setMenu(null);

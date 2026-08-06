@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ImageSquare, MagnifyingGlass, UploadSimple, X } from '@phosphor-icons/react';
+import { Dialog } from '@radix-ui/themes';
+import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
 import { assetUrl, imgUrl, type Brand, type Look, type TreeNode } from '../api.js';
+import { ProductsPanel } from '../AssetPanel.js';
 import { useProductLibrary } from '../useProductLibrary.js';
 import type { SentenceToken } from './BriefInput.js';
 import { keepCaret } from './line.js';
@@ -53,21 +55,28 @@ export function AttachPanel({
     setTab(initialTab);
   }, [initialTab]);
   const [q, setQ] = useState('');
+  const [addProductOpen, setAddProductOpen] = useState(false);
   const library = useProductLibrary(brand.id);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      // the Add-product dialog is a real Radix Dialog stacked on top — its
+      // own Escape closes it; this only steps in once nothing is on top
+      if (e.key === 'Escape' && !addProductOpen) {
         e.stopPropagation();
         onClose();
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose]);
+  }, [onClose, addProductOpen]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
+      // same reason: the Add-product dialog portals to document.body, so a
+      // click inside it — its input, its own close button — reads as "outside
+      // .sc-attachpanel" and closed both the dialog and the panel underneath it
+      if (addProductOpen) return;
       if (
         !(e.target as HTMLElement).closest('.sc-attachpanel') &&
         !(e.target as HTMLElement).closest('.sc-attach-toggle')
@@ -76,7 +85,7 @@ export function AttachPanel({
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [onClose]);
+  }, [onClose, addProductOpen]);
 
   const cards = useMemo<Card[]>(() => {
     const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
@@ -234,7 +243,19 @@ export function AttachPanel({
           })
         ) : (
           <>
-            <div className="sc-ap-grid">{shown.slice(0, TAB_CAP).map(card)}</div>
+            <div className="sc-ap-grid">
+              {tab === 'Products' && (
+                // Add-a-product used to mean close this panel, open the Assets
+                // rail, upload, close, reopen, find it, click it. One button.
+                <button type="button" className="sc-ap-card sc-ap-add" onClick={() => setAddProductOpen(true)}>
+                  <span className="sc-ap-thumb sc-ap-thumb-empty">
+                    <Plus size={16} />
+                  </span>
+                  <b>Add product</b>
+                </button>
+              )}
+              {shown.slice(0, TAB_CAP).map(card)}
+            </div>
             {shown.length > TAB_CAP && (
               // never a silent truncation: say what is not on screen and how to
               // reach it, which for a list this size is the search box above
@@ -245,6 +266,17 @@ export function AttachPanel({
           </>
         )}
       </div>
+      <Dialog.Root open={addProductOpen} onOpenChange={setAddProductOpen}>
+        <Dialog.Content maxWidth="560px">
+          <Dialog.Close>
+            <button type="button" className="sc-set-close sc-dlg-close" aria-label="Close">
+              <X size={16} />
+            </button>
+          </Dialog.Close>
+          <Dialog.Title>Products: {brand.json?.meta?.name}</Dialog.Title>
+          <ProductsPanel brand={brand} onChanged={() => {}} />
+        </Dialog.Content>
+      </Dialog.Root>
     </div>
   );
 }

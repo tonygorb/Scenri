@@ -426,7 +426,10 @@ export const Composer = forwardRef<
   // A template that wants a product still runs without one: it says "the
   // product" instead. Nine of ten templates ask for one, so blocking here
   // meant a brand with no products could never generate at all. Warn, allow.
-  const blocking = preview?.warnings.filter((w) => w.includes('builds around a product')) ?? [];
+  // packages/cli/src/brief.ts's actual wording is "is built around a product" —
+  // this filter checked for "builds around a product" (wrong verb form) and so
+  // never matched anything, silently making this whole warning path dead code
+  const blocking = preview?.warnings.filter((w) => w.includes('built around a product')) ?? [];
   // the workspace arrives a beat after the screen does, and typing is faster
   // than a round trip: without this the first brief of a cold load could be sent
   // into nothing and come back as an error the user did nothing to cause
@@ -663,6 +666,7 @@ export const Composer = forwardRef<
           templates={templates}
           onTemplatePick={applyLook}
           flag={flagToken}
+          onProductWarningClick={() => openAttach('Products')}
           placeholder={
             template
               ? 'Add art direction, or run it as written'
@@ -777,7 +781,11 @@ export const Composer = forwardRef<
             <button
               type="button"
               className="sc-send"
-              disabled={!canGo}
+              // aria-disabled: a native disabled button drops out of the tab
+              // order, taking its title — often the one thing explaining why
+              // — with it. go() already no-ops on !canGo, so this is purely
+              // the accessible-name/keyboard-focus fix, not a new guard.
+              aria-disabled={!canGo || undefined}
               onClick={() => void go()}
               aria-label={mode === 'edit' ? 'Refine' : 'Generate'}
               title={err ?? templateFlag ?? `${mode === 'edit' ? 'Refine' : 'Generate'} (enter)`}

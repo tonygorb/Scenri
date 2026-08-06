@@ -29,9 +29,21 @@ export interface NavItem {
  */
 export function useMainNav(iconSize: number): NavItem[] {
   const { brand } = useBrand();
-  const { pathname } = useLocation();
+  const { pathname: rawPathname } = useLocation();
   const navigate = useNavigate();
   const base = brandPath(brand);
+  // location.pathname stays percent-encoded for a non-ASCII slug (Hebrew,
+  // Arabic, accented Latin — whatever a scraped or renamed brand's name
+  // slugifies to), while `base` is built from the brand's raw decoded slug.
+  // Comparing the two encoded/decoded left `rest` empty for every route on
+  // such a brand, and an empty `rest` reads as Home — the nav lit Home no
+  // matter which of these four screens you were actually on.
+  let pathname = rawPathname;
+  try {
+    pathname = decodeURIComponent(rawPathname);
+  } catch {
+    // a malformed sequence: fall back to the raw string rather than throw
+  }
   const rest = pathname.startsWith(base) ? pathname.slice(base.length) : '';
 
   // the glyph fills where you are: a real Phosphor weight, not a stroked icon

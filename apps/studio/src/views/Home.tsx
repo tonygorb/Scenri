@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { Badge } from '@radix-ui/themes';
-import { ImageSquare, Package, Sparkle, Star, UsersThree } from '@phosphor-icons/react';
-import { hasNoShots, imgUrl } from '../api.js';
+import { Badge, Dialog } from '@radix-ui/themes';
+import { ImageSquare, Package, Sparkle, Star, UsersThree, X } from '@phosphor-icons/react';
+import { hasNoShots, imgUrl, type Brand } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
+import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
 import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
+import { useProductLibrary } from '../useProductLibrary.js';
 
 /**
  * The launcher.
@@ -23,7 +25,7 @@ import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
 const RECENT = 12;
 
 export function HomeView() {
-  const { looks: templates, loaded: looksLoaded } = useAppData();
+  const { looks: templates, loaded: looksLoaded, refresh } = useAppData();
   const { brand, nodes, loaded } = useBrand();
   const navigate = useNavigate();
 
@@ -43,7 +45,12 @@ export function HomeView() {
     navigate(brandPath(brand, `/create${q ? `?${q}` : ''}`));
   };
 
-  const products = (brand.json?.products ?? []) as any[];
+  // the hook starts at [] and only fills in after its first poll resolves —
+  // brand.json is already loaded by the time this mounts, so it covers that
+  // gap instead of flashing the badge hidden (same fallback every other
+  // consumer of this hook already uses)
+  const library = useProductLibrary(brand.id);
+  const products = library.length ? library : ((brand.json?.products ?? []) as any[]);
 
   /** A real pre-fill, not "Start from scratch" with a different label: pick
    * the look for you (favorite first, else whatever's first) and go straight
@@ -80,36 +87,15 @@ export function HomeView() {
               <small>Describe any visual</small>
             </span>
           </button>
-          <button
-            type="button"
-            className="sc-create-card"
-            onClick={() => toCreate({ attach: 'products', compose: '1' })}
-          >
-            <span className="sc-glyph">
-              <Package size={16} />
-            </span>
-            <span>
-              <b>
-                Add a product{' '}
-                {products.length > 0 && (
-                  <Badge variant="soft" radius="full" size="1">
-                    {products.length}
-                  </Badge>
-                )}
-              </b>
-              <small>Locked shots keep it exact</small>
-            </span>
-          </button>
-          <button type="button" className="sc-create-card" onClick={() => navigate('/setup')}>
-            <span className="sc-glyph">
-              <UsersThree size={16} />
-            </span>
-            <span>
-              <b>Set up a brand</b>
-              <small>Kit from a URL in a minute</small>
-            </span>
-          </button>
+          <ProductsCard brand={brand} onChanged={refresh} count={products.length} />
         </div>
+
+        {/* Already one click away from BrandMenu at every viewport — this is
+            a convenience for a first-time visitor, not the only way in, so it
+            doesn't compete with the three things this screen is actually for. */}
+        <button type="button" className="sc-create-more" onClick={() => navigate('/setup')}>
+          <UsersThree size={13} /> Set up a brand
+        </button>
 
         {!looksLoaded && (
           <div className="sc-tplrow" aria-hidden>
@@ -188,5 +174,39 @@ export function HomeView() {
         )}
       </main>
     </div>
+  );
+}
+
+function ProductsCard({ brand, onChanged, count }: { brand: Brand; onChanged: () => void; count: number }) {
+  return (
+    <Dialog.Root>
+      <Dialog.Trigger>
+        <button type="button" className="sc-create-card">
+          <span className="sc-glyph">
+            <Package size={16} />
+          </span>
+          <span>
+            <b>
+              Add a product{' '}
+              {count > 0 && (
+                <Badge variant="soft" radius="full" size="1">
+                  {count}
+                </Badge>
+              )}
+            </b>
+            <small>Locked shots keep it exact</small>
+          </span>
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Content maxWidth="560px">
+        <Dialog.Close>
+          <button type="button" className="sc-set-close sc-dlg-close" aria-label="Close">
+            <X size={16} />
+          </button>
+        </Dialog.Close>
+        <Dialog.Title>Products: {brand.json?.meta?.name}</Dialog.Title>
+        <ProductsPanel brand={brand} onChanged={onChanged} />
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }

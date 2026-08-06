@@ -119,8 +119,15 @@ export function ExportDialog({
         <button
           type="button"
           className="sc-btn sc-btn-primary sc-dlg-go"
-          disabled={files === 0 || busy}
-          onClick={() => void run()}
+          // aria-disabled, not the native attribute: a disabled button drops
+          // out of the tab order, so its title — the only explanation for why
+          // it's inert — became unreachable to keyboard and screen-reader
+          // users even though a mouse user could still hover to see it
+          aria-disabled={files === 0 || busy || undefined}
+          title={files === 0 && !busy ? 'Pick at least one size to download' : undefined}
+          onClick={() => {
+            if (files !== 0 && !busy) void run();
+          }}
         >
           {busy ? (
             <Spinner size="1" />

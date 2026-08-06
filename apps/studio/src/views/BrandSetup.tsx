@@ -385,9 +385,11 @@ export function BrandSetup() {
               Your <em>products</em>
             </h1>
             <p className="sc-wiz-sub">
-              {storeUrl
-                ? 'We pull the full store catalog when we can. You can also upload locked shots by hand.'
-                : 'Upload clean shots of what you sell. A locked shot travels with every brief so the model never invents your product.'}
+              {!scratch && storeUrl
+                ? "We're pulling the full store catalog now. You can also upload locked shots by hand."
+                : storeUrl
+                  ? 'We pull the full store catalog when we can. You can also upload locked shots by hand.'
+                  : 'Upload clean shots of what you sell. A locked shot travels with every brief so the model never invents your product.'}
             </p>
             <div className="sc-wiz-fields">
               <ProductsPanel

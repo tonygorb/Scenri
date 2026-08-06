@@ -46,18 +46,27 @@ describe('brands + projects', () => {
     expect(core.store.updateBrand(first.id, brandJson as any)!.slug).toBe('acme-coffee');
   });
 
-  it('keeps the letters of a name written in any script', () => {
-    const named = (name: string) => core.store.createBrand({ specVersion: '0.1', meta: { name } } as any).slug;
-    // the old filter kept only a-z, so each of these flattened to "brand"
-    expect(named('מותג קפה')).toBe('מותג-קפה');
-    expect(named('قهوة أكمي')).toBe('قهوة-أكمي');
-    expect(named('Кофе Акме')).toBe('кофе-акме');
+  it('keeps slugs ASCII regardless of what script the name is written in', () => {
+    const named = (name: string) => core.store.createBrand({ specVersion: '0.1', meta: { name } } as any);
     // latin accents fold, because café and cafe are one word to anyone typing
-    expect(named('Café Ölwerk')).toBe('cafe-olwerk');
-    // mixed scripts keep both halves
-    expect(named('Acme קפה')).toBe('acme-קפה');
+    // a URL — the name itself, brand.json.meta.name, is untouched; this is
+    // only ever the address bar
+    expect(named('Café Ölwerk').slug).toBe('cafe-olwerk');
+    // a mixed-script name keeps only its Latin half — this is nalla's own
+    // real shape, "נלה - Nalla", which is exactly the case this reverses
+    expect(named('נלה - Nalla').slug).toBe('nalla');
+    expect(named('Acme קפה').slug).toBe('acme');
+    // a name with no Latin content at all still has to be addressable, and
+    // two such brands must not become indistinguishable brand-2/brand-3 —
+    // a slice of the brand's own id keeps them apart while staying ASCII
+    const hebrew = named('מותג קפה');
+    expect(hebrew.slug).toBe(`brand-${hebrew.id.slice(0, 8)}`);
+    const arabic = named('قهوة أكمي');
+    expect(arabic.slug).toBe(`brand-${arabic.id.slice(0, 8)}`);
+    expect(hebrew.slug).not.toBe(arabic.slug);
     // and a name with no letters at all still has to be addressable
-    expect(named('☕️ !!! ☕️')).toBe('brand');
+    const noLetters = named('☕️ !!! ☕️');
+    expect(noLetters.slug).toBe(`brand-${noLetters.id.slice(0, 8)}`);
   });
 
   it('creates project with done root node', () => {

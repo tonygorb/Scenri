@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { firstFree, slugify } from './slug.js';
+import { firstFree, slugifyWithId } from './slug.js';
 
 export type DB = Database.Database;
 
@@ -208,16 +208,28 @@ function widenNodeStatusCheck(db: DB): void {
   db.pragma('foreign_keys = ON');
 }
 
+/** A slug column may only ever hold what `slugify` can produce: ASCII letters,
+ * digits and hyphens. Anything else — a bare non-Latin name stored verbatim
+ * by an older build, or the old ASCII-only filter's ambiguous "brand" — needs
+ * re-deriving. */
+const SLUG_CHARS = /^[a-z0-9-]+$/;
+
 /**
  * Slugs are the address bar now, so every row needs one and no two rows in the
  * same scope may share it — otherwise a link opens the wrong project.
  *
- * Three things this repairs, all in databases written before that was true:
- * brands whose name was not Latin (the old filter kept only a-z, so every
- * Hebrew or Arabic name flattened to the same "brand"), brands that ended up
- * sharing a slug anyway, and projects, which had no slug at all. Runs after
- * MIGRATIONS rather than inside it, because a unique index cannot be created
- * while a duplicate is still standing.
+ * Four things this repairs, all in databases written before that was true, or
+ * before a later pass changed what "true" meant:
+ *   - brands whose name had no Latin content under the *original* ASCII-only
+ *     filter, which flattened every such name to the same "brand"
+ *   - a later pass that went the other way and stored non-Latin script
+ *     straight into the slug column, since reverted — those rows get
+ *     re-derived back to ASCII here on the next server start, no separate
+ *     one-off script needed
+ *   - brands that ended up sharing a slug anyway
+ *   - projects, which had no slug at all
+ * Runs after MIGRATIONS rather than inside it, because a unique index cannot
+ * be created while a duplicate is still standing.
  */
 function backfillSlugs(db: DB): void {
   const brands = db.prepare('SELECT id, slug, json FROM brands ORDER BY created_at, id').all() as {
@@ -228,17 +240,16 @@ function backfillSlugs(db: DB): void {
   const setBrand = db.prepare('UPDATE brands SET slug=? WHERE id=?');
   const takenBrand = new Set<string>();
   for (const b of brands) {
-    // a name the old filter could not spell reads as brand, brand-2, brand-3
-    const flattened = /^brand(-\d+)?$/.test(b.slug);
+    const needsRederiving = /^brand(-\d+)?$/.test(b.slug) || !SLUG_CHARS.test(b.slug);
     let name: string | undefined;
-    if (flattened) {
+    if (needsRederiving) {
       try {
         name = JSON.parse(b.json)?.meta?.name;
       } catch {
         /* a brand we cannot parse still needs a slug */
       }
     }
-    const wanted = flattened && name ? slugify(name) : b.slug;
+    const wanted = needsRederiving && name ? slugifyWithId(name, b.id) : b.slug;
     const slug = firstFree(wanted, (c) => takenBrand.has(c));
     takenBrand.add(slug);
     if (slug !== b.slug) setBrand.run(slug, b.id);
@@ -256,7 +267,8 @@ function backfillSlugs(db: DB): void {
   for (const p of projects) {
     const inBrand = takenProject.get(p.brand_id) ?? new Set<string>();
     takenProject.set(p.brand_id, inBrand);
-    const slug = firstFree(p.slug || slugify(p.name, 'project'), (c) => inBrand.has(c));
+    const current = p.slug && SLUG_CHARS.test(p.slug) ? p.slug : null;
+    const slug = firstFree(current || slugifyWithId(p.name, p.id, 'project'), (c) => inBrand.has(c));
     inBrand.add(slug);
     if (slug !== p.slug) setProject.run(slug, p.id);
   }
@@ -301,9 +313,10 @@ function collapseProjects(db: DB): void {
       for (const p of projects) {
         const shots = shotsIn.all(p.id) as { id: string }[];
         if (shots.length === 0) continue;
-        const slug = firstFree(p.slug || slugify(p.name, 'set'), (c) => taken.has(c));
-        taken.add(slug);
         const setId = randomUUID();
+        const current = p.slug && SLUG_CHARS.test(p.slug) ? p.slug : null;
+        const slug = firstFree(current || slugifyWithId(p.name, setId, 'set'), (c) => taken.has(c));
+        taken.add(slug);
         addSet.run(setId, brand.id, p.name, slug);
         for (const s of shots) addMember.run(setId, s.id);
       }

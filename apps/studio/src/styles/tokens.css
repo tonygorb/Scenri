@@ -294,12 +294,21 @@ select {
   gap: 6px;
 }
 .sc-wordmark {
+  border: none;
+  background: none;
+  padding: 0 6px 0 0;
+  cursor: pointer;
+  font: inherit;
   font-size: 15px;
   font-weight: 640;
   color: var(--sc-fg);
   flex: none;
   letter-spacing: -0.03em;
-  padding-right: 6px;
+}
+.sc-wordmark:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* text, and nothing else. The gap does the grouping the pill used to do. */
@@ -589,6 +598,11 @@ select {
   outline: 2px solid var(--sc-focus);
   outline-offset: 2px;
 }
+.sc-btn:disabled,
+.sc-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .sc-btn-primary {
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
@@ -596,7 +610,8 @@ select {
 .sc-btn-primary:hover {
   opacity: 0.88;
 }
-.sc-btn-primary:disabled {
+.sc-btn-primary:disabled,
+.sc-btn-primary[aria-disabled="true"] {
   opacity: 0.42;
   cursor: not-allowed;
 }
@@ -609,7 +624,8 @@ select {
   background: var(--sc-hover);
   border-color: var(--sc-line-strong);
 }
-.sc-btn-ghost:disabled {
+.sc-btn-ghost:disabled,
+.sc-btn-ghost[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -1665,11 +1681,11 @@ select {
 
 .sc-create-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 34px;
 }
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .sc-create-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1678,6 +1694,28 @@ select {
   .sc-create-grid {
     grid-template-columns: 1fr;
   }
+}
+/* "Set up a brand" demoted out of the grid: already one click away via
+   BrandMenu at every viewport, so it reads as a footnote, not a fourth peer
+   of the three things this screen is actually for. */
+.sc-create-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 34px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+}
+.sc-create-more:hover {
+  color: var(--sc-fg);
+}
+.sc-create-more:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 .sc-create-card {
   display: flex;
@@ -2383,6 +2421,28 @@ select {
   justify-items: center;
   color: var(--sc-fg3);
   font-size: 12px;
+  /* the icon/text/button used to live inside .sc-cell-open, so a click
+     anywhere here bubbled up to "open" for free; now a sibling, so the tile
+     stays clickable everywhere except the button's own small hit area */
+  pointer-events: none;
+}
+.sc-cell-failed .sc-cell-retry {
+  pointer-events: auto;
+}
+/* .sc-cell-open's own children were absolutely positioned (shimmer, tag) or
+   have moved out entirely (Cancel/Dismiss/Try again, now siblings) — without
+   this it has no in-flow content left to size itself by and collapses to
+   zero height, taking its click-to-open area with it. */
+.sc-cell[data-running] .sc-cell-open,
+.sc-cell[data-cancelled] .sc-cell-open,
+.sc-cell[data-failed] .sc-cell-open {
+  position: absolute;
+  inset: 0;
+}
+.sc-cell[data-running] .sc-cell-retry {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
 }
 .sc-feed-empty {
   padding: 60px 0 30px;
@@ -3024,6 +3084,7 @@ select {
   flex-wrap: wrap;
 }
 .sc-palcol {
+  position: relative;
   flex: 1;
   min-width: 120px;
   border: 1px solid var(--sc-line);
@@ -3032,8 +3093,22 @@ select {
   background: var(--sc-panel);
 }
 .sc-palcol .sc-palfill {
+  position: relative;
   height: 74px;
   display: block;
+  cursor: pointer;
+}
+/* The swatch is the picker trigger: the native input sits over it, invisible
+   but real, so the OS color picker opens on click with no custom UI to build. */
+.sc-palcol .sc-palfill input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
 }
 .sc-palcol .sc-palmeta {
   padding: 9px 12px;
@@ -3043,10 +3118,60 @@ select {
   font-size: 12px;
   font-weight: 600;
 }
+.sc-palname {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0 0 1px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sc-fg);
+}
+.sc-palname:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.sc-palname::placeholder {
+  color: var(--sc-fg3);
+  font-weight: 500;
+}
 .sc-palcol small {
   color: var(--sc-fg3);
   font-size: 11px;
   font-family: var(--sc-font-mono);
+}
+.sc-palremove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.sc-palcol:hover .sc-palremove,
+.sc-palremove:focus-visible {
+  opacity: 1;
+}
+.sc-palremove:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-palette-empty {
+  color: var(--sc-fg3);
+  font-size: 12.5px;
+  margin: 0;
 }
 /* The favorites shelf lives in the kit column, not the gallery, so it keeps a
    smaller floor than --sc-tile: four cards across 872px, and it counts columns
@@ -3395,6 +3520,9 @@ select {
 .sc-ap-card:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 1px;
+}
+.sc-ap-add {
+  border-style: dashed;
 }
 .sc-ap-thumb {
   display: block;
@@ -3904,7 +4032,8 @@ select {
 .sc-send:hover {
   opacity: 0.88;
 }
-.sc-send:disabled {
+.sc-send:disabled,
+.sc-send[aria-disabled="true"] {
   opacity: 0.42;
   cursor: not-allowed;
 }
@@ -4102,7 +4231,7 @@ select {
   padding: 26px 24px 190px;
 }
 .sc-create-grid {
-  margin-bottom: 32px;
+  margin-bottom: 10px;
 }
 .sc-tplrow {
   margin-bottom: 32px;
@@ -4797,6 +4926,14 @@ select {
   aspect-ratio: 1;
   object-fit: cover;
   display: block;
+}
+.sc-lookpage-ref-blank {
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+  background: var(--sc-raised);
 }
 .sc-lookpage-expand {
   display: block;
@@ -6073,6 +6210,9 @@ select {
   background: var(--sc-well);
 }
 .sc-seg-o {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   min-width: 42px;
   height: 34px;
   padding: 0 10px;
@@ -6087,6 +6227,14 @@ select {
   transition:
     background 140ms ease,
     color 140ms ease;
+}
+/* Leaving the set the segmented control's own click already did silently —
+   this is the visible half of the fix, the icon being the tell. */
+.sc-seg[data-leaves-set] {
+  background: color-mix(in srgb, var(--sc-well) 100%, var(--sc-fg3) 8%);
+}
+.sc-seg[data-leaves-set] .sc-seg-o {
+  color: var(--sc-fg3);
 }
 .sc-seg-o:hover {
   color: var(--sc-fg);
