@@ -274,7 +274,18 @@ export function AttachPanel({
             </button>
           </Dialog.Close>
           <Dialog.Title>Products: {brand.json?.meta?.name}</Dialog.Title>
-          <ProductsPanel brand={brand} onChanged={() => {}} />
+          <ProductsPanel
+            brand={brand}
+            onChanged={(newProductId) => {
+              // a single manual upload lands one product: insert it as a chip
+              // and close the small dialog, collapsing what used to be a
+              // close-reopen-find-click round trip down to this one upload
+              if (newProductId) {
+                onToken({ t: 'product', id: newProductId });
+                setAddProductOpen(false);
+              }
+            }}
+          />
         </Dialog.Content>
       </Dialog.Root>
     </div>

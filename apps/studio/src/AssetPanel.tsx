@@ -32,7 +32,8 @@ export function ProductsPanel({
   autoImportUrl,
 }: {
   brand: Brand;
-  onChanged: () => void;
+  /** The id of a product just added, when a single manual upload just landed one — omitted for a bulk import or a removal, which have nothing single to insert. */
+  onChanged: (newProductId?: string) => void;
   kind?: keyof typeof KINDS;
   /** When set (products only), auto-start a catalog import for this URL. */
   autoImportUrl?: string | null;
@@ -49,13 +50,15 @@ export function ProductsPanel({
   const [dialogOpen, setDialogOpen] = useState(false);
   const autoStarted = useRef(false);
 
-  const loadLibrary = async () => {
-    if (kind !== 'products') return;
+  const loadLibrary = async (): Promise<Product[]> => {
+    if (kind !== 'products') return [];
     try {
       const r = await api.productsLibrary(brand.id);
       setLibrary(r.products);
+      return r.products;
     } catch (e: any) {
       setErr(String(e.message ?? e));
+      return [];
     }
   };
 
@@ -112,11 +115,14 @@ export function ProductsPanel({
   const upload = async (file: File) => {
     setBusy(true);
     setErr(null);
+    // uploadAsset returns the whole updated Brand, not the one new product in
+    // productsLibrary's own shape — diff the library instead of trusting order
+    const before = new Set(library.map((p) => p.id));
     try {
       await uploadAsset(brand.id, spec.key, file, name.trim() || file.name.replace(/\.[a-z]+$/i, ''));
       setName('');
-      await loadLibrary();
-      onChanged();
+      const fresh = await loadLibrary();
+      onChanged(fresh.find((p) => !before.has(p.id))?.id);
     } catch (e: any) {
       setErr(String(e.message ?? e));
     } finally {

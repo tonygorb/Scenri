@@ -18,6 +18,8 @@ import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { brandPath } from '../app/brandPath.js';
+import { briefTokens } from '../composer/BriefInput.js';
+import { saveDraft } from '../draft.js';
 import { favoriteLooks } from '../favorites.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
@@ -45,7 +47,7 @@ export interface ShotContext {
   select: (id: string) => void;
   retry: (node: TreeNode) => void;
   cancel: (node: TreeNode) => void;
-  reload: () => void;
+  reload: () => Promise<void>;
   remix: (node: TreeNode) => void;
   branch: (node: TreeNode) => void;
   layers: TextLayer[];
@@ -267,8 +269,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   // a lineage whose shot is gone is not a lineage; drop it rather than show an
   // empty feed under a breadcrumb naming something that is not there
   useEffect(() => {
-    if (lineageId && loaded && !lineage) setLineageId(null);
-  }, [lineageId, loaded, lineage, setLineageId]);
+    if (!lineageId || !loaded || lineage) return;
+    setLineageId(null);
+    push({ kind: 'error', title: 'That shot is no longer available', detail: 'Showing everything instead.' });
+  }, [lineageId, loaded, lineage, setLineageId, push]);
 
   const shown = useMemo(() => {
     if (lineage) return shots.filter((n) => lineage.ids.has(n.id));
@@ -688,9 +692,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     select: goToShot,
     retry: (n) => void retry(n),
     cancel: (n) => void cancel(n),
-    reload: () => void reload(),
+    reload: () => reload(),
     remix: (n) => {
       setRemixBrief({ ...n.brief, _at: Date.now() });
+      // durable against a reload landing between this click and the hub
+      // Composer actually consuming the live prop above: the same persisted
+      // per-brand draft record loadDraft() already restores from on mount
+      if (n.brief)
+        saveDraft(brand.id, { tokens: briefTokens(n.brief), tplFields: n.brief.templateFields ?? {}, branchId: null });
       closeShot();
     },
     // branching closes the overlay on purpose: the next thing you do is judge

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
-import { api, imgUrl, type Look, type TreeNode } from '../api.js';
+import { api, imgUrl, nodeLabel, type Look, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
@@ -235,7 +235,13 @@ function RefFrame({ src }: { src: string }) {
 function ShotThumb({ node, onClick }: { node: TreeNode; onClick: () => void }) {
   const [broken, setBroken] = useState(false);
   return (
-    <button type="button" className="sc-lookcard" title={node.prompt} onClick={onClick}>
+    <button
+      type="button"
+      className="sc-lookcard"
+      title={node.prompt}
+      aria-label={`Open ${nodeLabel(node)}`}
+      onClick={onClick}
+    >
       {broken ? (
         <span className="sc-lookcard-blank">
           <ImageSquare size={20} />

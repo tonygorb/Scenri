@@ -13,6 +13,7 @@ import {
   type TreeNode,
 } from '../api.js';
 import {
+  briefTokens,
   BriefInput,
   emptySentence,
   FORMATS,
@@ -174,16 +175,11 @@ export const Composer = forwardRef<
   useEffect(() => {
     if (!initialBrief) return;
     // a stored brief carries its size too: lift it back out of the sentence
-    const all = (initialBrief.tokens ?? []) as BriefToken[];
-    const carriedFormat = all.find((t) => t.t === 'format') as Extract<BriefToken, { t: 'format' }> | undefined;
+    const carriedFormat = (initialBrief.tokens ?? []).find((t) => t.t === 'format') as
+      | Extract<BriefToken, { t: 'format' }>
+      | undefined;
     if (carriedFormat) setFormatId(carriedFormat.id);
-    const carried = all.filter((t): t is SentenceToken => t.t !== 'format');
-    const body = carried.length ? carried : emptySentence();
-    // legacy shots carry templateId; lift it into a token so the chip shows up
-    const hasTemplateToken = body.some((t) => t.t === 'template');
-    setSeedTokens(
-      initialBrief.templateId && !hasTemplateToken ? [{ t: 'template', id: initialBrief.templateId }, ...body] : body,
-    );
+    setSeedTokens(briefTokens(initialBrief));
     setTplFields(initialBrief.templateFields ?? {});
   }, [initialBrief]);
 

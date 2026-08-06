@@ -30,6 +30,20 @@ export type BriefToken = SentenceToken | FormatToken;
 export const isSentence = (t: BriefToken): t is SentenceToken => t.t !== 'format';
 export const emptySentence = (): SentenceToken[] => [{ t: 'text', v: '' }];
 
+/**
+ * A stored brief's tokens, ready to seed a sentence: its size is not sentence
+ * content and is dropped, and a legacy brief's bare `templateId` (no token for
+ * it yet) is folded into a real template token so the chip shows up. Shared by
+ * the Composer's own initialBrief hydration and by anything that needs to
+ * write a brief into the persisted per-brand draft using the exact same rules.
+ */
+export function briefTokens(brief: { tokens: BriefToken[]; templateId?: string }): SentenceToken[] {
+  const carried = (brief.tokens ?? []).filter(isSentence);
+  const body = carried.length ? carried : emptySentence();
+  const hasTemplateToken = body.some((t) => t.t === 'template');
+  return brief.templateId && !hasTemplateToken ? [{ t: 'template', id: brief.templateId }, ...body] : body;
+}
+
 export const CHIP = 'sc-token';
 const CHIP_SELECTOR = `.${CHIP}`;
 

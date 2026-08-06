@@ -12,7 +12,7 @@ import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
  * Sections are collections; the sticky rail filters by vertical.
  */
 export function LooksView() {
-  const { looks, collections, verticals, loaded } = useAppData();
+  const { looks, collections, verticals, loaded, error, refetch } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const applyLook = useApplyLook();
@@ -60,7 +60,20 @@ export function LooksView() {
           </div>
         )}
 
+        {loaded && error && (
+          <>
+            <h1>Couldn't load this look</h1>
+            <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
+            <div className="sc-lookpage-acts">
+              <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetch()}>
+                Retry
+              </button>
+            </div>
+          </>
+        )}
+
         {loaded &&
+          !error &&
           collections.map((c) => {
             const inCollection = shown.filter((l) => l.collections.includes(c));
             if (!inCollection.length) return null;
@@ -83,7 +96,7 @@ export function LooksView() {
             );
           })}
 
-        {loaded && !shown.length && looks.length > 0 && (
+        {loaded && !error && !shown.length && looks.length > 0 && (
           <p className="sc-looks-empty">No look carries that vertical yet.</p>
         )}
       </main>

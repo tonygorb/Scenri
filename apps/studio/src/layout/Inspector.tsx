@@ -31,6 +31,8 @@ export function Inspector(props: {
   tab: InspectorTab;
   onTabChange: (t: InspectorTab) => void;
   onExport: () => void;
+  /** Omitted rather than disabled: there's nothing to diff against without a parent shot. */
+  onCompare?: () => void;
 }) {
   const { node, tab, onTabChange } = props;
   return (
@@ -352,7 +354,17 @@ function TextTab({
   );
 }
 
-function InfoTab({ node, onChanged, onExport }: { node: TreeNode; onChanged: () => void; onExport: () => void }) {
+function InfoTab({
+  node,
+  onChanged,
+  onExport,
+  onCompare,
+}: {
+  node: TreeNode;
+  onChanged: () => void;
+  onExport: () => void;
+  onCompare?: () => void;
+}) {
   const { push } = useToasts();
 
   return (
@@ -378,6 +390,15 @@ function InfoTab({ node, onChanged, onExport }: { node: TreeNode; onChanged: () 
           <SectionLabel>Export</SectionLabel>
           <button type="button" className="sc-btn sc-btn-ghost" style={{ width: '100%' }} onClick={onExport}>
             Choose sizes
+          </button>
+        </>
+      )}
+
+      {onCompare && (
+        <>
+          <SectionLabel>Compare</SectionLabel>
+          <button type="button" className="sc-btn sc-btn-ghost" style={{ width: '100%' }} onClick={onCompare}>
+            Show what changed
           </button>
         </>
       )}

@@ -49,6 +49,9 @@ export function CatalogImportDialog({
         onPointerDownOutside={(e) => {
           if (running) e.preventDefault();
         }}
+        onEscapeKeyDown={(e) => {
+          if (running) e.preventDefault();
+        }}
       >
         <Dialog.Title>Importing catalog</Dialog.Title>
         <Dialog.Description size="2" color="gray" mb="3">

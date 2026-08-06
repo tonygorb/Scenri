@@ -12,6 +12,7 @@ export interface BuildResult {
 }
 
 const HEX_RE = /#[0-9a-fA-F]{6}\b/g;
+const FETCH_TIMEOUT_MS = 15_000;
 
 function hexToHsl(hex: string): { h: number; s: number; l: number } {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -54,10 +55,23 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
   const warnings: string[] = [];
   const origin = new URL(url);
 
-  const res = await fetchImpl(url, {
-    redirect: 'follow',
-    headers: { 'user-agent': 'scenri/0.1 (+https://scenri.dev)' },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetchImpl(url, {
+      redirect: 'follow',
+      headers: { 'user-agent': 'scenri/0.1 (+https://scenri.dev)' },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Timed out fetching ${url}`);
+    }
+    throw new Error(`Could not reach that site: ${url}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
   if (!res.ok) throw new Error(`Could not fetch ${url}: HTTP ${res.status}`);
   const html = await res.text();
   const $ = cheerio.load(html);

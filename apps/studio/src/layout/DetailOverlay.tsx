@@ -78,7 +78,7 @@ export function DetailOverlay({
   onSelect: (id: string) => void;
   onRetry: (n: TreeNode) => void;
   onCancel: (n: TreeNode) => void;
-  onChanged: () => void;
+  onChanged: () => Promise<void> | void;
   onRemix: (n: TreeNode) => void;
   /** Point the brief at this shot and stand back so you can see it. */
   onBranch: (n: TreeNode) => void;
@@ -390,6 +390,7 @@ export function DetailOverlay({
               tab={tab}
               onTabChange={onTabChange}
               onExport={() => setExportOpen(true)}
+              onCompare={parentShot?.images[0] ? () => setCompareOpen(true) : undefined}
             />
           </div>
 
@@ -407,7 +408,15 @@ export function DetailOverlay({
               parent={root}
               target={node}
               shots={nodes}
-              onQueued={onChanged}
+              // an edit/regen submitted from inside the overlay used to only
+              // reload the tree in place, leaving you looking at the shot you
+              // just replaced; wait for the new node to actually exist, then
+              // reuse the same in-overlay navigation the lineage filmstrip
+              // and Prev/Next already use to land on it
+              onQueued={async (id) => {
+                await onChanged();
+                if (id) onSelect(id);
+              }}
             />
           </div>
         </aside>

@@ -33,7 +33,7 @@ import {
 } from './line.js';
 
 export type { SentenceToken, BriefToken, FormatToken } from './line.js';
-export { emptySentence, isSentence } from './line.js';
+export { briefTokens, emptySentence, isSentence } from './line.js';
 
 /** Kept as the composer's own list: size renders as nothing in the sentence. */
 export const FORMATS = [
