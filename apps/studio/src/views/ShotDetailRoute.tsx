@@ -8,13 +8,13 @@ import type { ShotContext } from './Create.js';
 /**
  * The shot overlay as a URL. Being a child route keeps the canvas mounted
  * underneath, so opening a shot does not refetch the tree, and a reload of
- * /n/:nodeId comes straight back to the same picture.
+ * /shots/:shotId comes straight back to the same picture.
  */
 export function ShotDetailRoute() {
-  const { nodeId } = useParams();
+  const { shotId } = useParams();
   const ctx = useOutletContext<ShotContext>();
   const { push } = useToasts();
-  const node = ctx.nodes.find((n) => n.id === nodeId) ?? null;
+  const node = ctx.nodes.find((n) => n.id === shotId) ?? null;
   const missing = ctx.loaded && (!node || node.kind === 'root');
 
   // a link to a shot that has since been deleted, or to the project root:

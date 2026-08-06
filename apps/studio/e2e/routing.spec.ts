@@ -22,11 +22,17 @@ const api = async (p: Page, path: string, init?: RequestInit) =>
 /**
  * The brand the app resolves "/" to, whatever this machine happens to hold.
  * Both spellings: the path carries the slug, the API still speaks in ids.
+ *
+ * A brand is the whole first segment now, so "settled" is a one-segment path
+ * that is not the setup wizard — the only other thing living at that depth.
  */
 async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
   await p.goto('/');
-  await p.waitForURL(/\/b\/[^/]+$/);
-  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[2]);
+  await p.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
+  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[1]);
   const brands = (await api(p, '/api/brands')) as any[];
   return { id: brands.find((b) => b.slug === slug).id, slug };
 }
@@ -88,13 +94,13 @@ test('every screen cold-loads from its own URL', async ({ page }) => {
   const { nodeId } = await seedShot(page, brand.id);
   const set = await seedSet(page, brand.id, 'Cold load', [nodeId]);
 
-  await page.goto(`/b/${brand.slug}`);
+  await page.goto(`/${brand.slug}`);
   await expect(activeNav(page)).toHaveText('Home');
 
-  await page.goto(`/b/${brand.slug}/brand`);
-  await expect(activeNav(page)).toHaveText('Brand');
+  await page.goto(`/${brand.slug}/kit`);
+  await expect(activeNav(page)).toHaveText('Kit');
 
-  await page.goto(`/b/${brand.slug}/looks`);
+  await page.goto(`/${brand.slug}/looks`);
   await expect(activeNav(page)).toHaveText('Looks');
   await expect(page.locator('.sc-lookcard').first()).toBeVisible();
 
@@ -106,16 +112,41 @@ test('every screen cold-loads from its own URL', async ({ page }) => {
   await page.waitForURL(/\/looks\/[^/]+$/);
   await expect(page.locator('.sc-lookpage h1')).toHaveText(looked);
 
-  await page.goto(`/b/${brand.slug}/s/${set.slug}`);
+  await page.goto(`/${brand.slug}/sets/${set.slug}`);
   await expect(page.locator('.sc-canvas')).toBeVisible();
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
 
   // the overlay hangs off the plain feed and off a set alike
-  await page.goto(`/b/${brand.slug}/create/n/${nodeId}`);
+  await page.goto(`/${brand.slug}/create/shots/${nodeId}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 
-  await page.goto(`/b/${brand.slug}/s/${set.slug}/n/${nodeId}`);
+  await page.goto(`/${brand.slug}/sets/${set.slug}/shots/${nodeId}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
+});
+
+test('every segment of the path is a word, not an initial', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const { nodeId } = await seedShot(page, brand.id);
+  const set = await seedSet(page, brand.id, 'Readable path', [nodeId]);
+
+  // the whole point of the scheme: /b/, /s/ and /n/ read as a link shortener,
+  // and `n` said node while every label on the screen says shot
+  await page.goto(`/${brand.slug}/sets/${set.slug}/shots/${nodeId}`);
+  for (const seg of new URL(page.url()).pathname.split('/').filter(Boolean)) {
+    expect(seg.length).toBeGreaterThan(1);
+  }
+  expect(new URL(page.url()).pathname).toContain('/sets/');
+  expect(new URL(page.url()).pathname).toContain('/shots/');
+});
+
+test('setup keeps its own URL rather than being read as a brand', async ({ page }) => {
+  await currentBrand(page);
+
+  // a brand is the whole first segment now, so the one static route sharing
+  // that depth has to out-rank it — otherwise /setup opens a brand named setup
+  await page.goto('/setup');
+  await expect(page).toHaveURL(/\/setup$/);
+  await expect(page.locator('.sc-wiz')).toBeVisible();
 });
 
 test('a reloaded shot comes back to the same shot and the same variant', async ({ page }) => {
@@ -123,7 +154,7 @@ test('a reloaded shot comes back to the same shot and the same variant', async (
   const { nodeId, images } = await seedShot(page, brand.id);
   test.skip(images < 2, 'needs a multi-image generation to have a variant to hold');
 
-  await page.goto(`/b/${brand.slug}/create/n/${nodeId}?i=${images - 1}`);
+  await page.goto(`/${brand.slug}/create/shots/${nodeId}?i=${images - 1}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
   const before = await page.locator('.sc-ovl').innerText();
   expect(before).toContain(`${images} of ${images} variants`);
@@ -137,12 +168,12 @@ test('back and forward walk the trail, and escape is one step', async ({ page })
   const brand = await currentBrand(page);
   const { nodeId } = await seedShot(page, brand.id);
 
-  await page.goto(`/b/${brand.slug}/create`);
-  await page.goto(`/b/${brand.slug}/create/n/${nodeId}`);
+  await page.goto(`/${brand.slug}/create`);
+  await page.goto(`/${brand.slug}/create/shots/${nodeId}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 
   await page.keyboard.press('Escape');
-  await page.waitForURL((u) => !u.pathname.includes('/n/'));
+  await page.waitForURL((u) => !u.pathname.includes('/shots/'));
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
 
   await page.goBack();
@@ -155,7 +186,7 @@ test('back and forward walk the trail, and escape is one step', async ({ page })
 test('filters live in the URL and survive a reload', async ({ page }) => {
   const brand = await currentBrand(page);
 
-  await page.goto(`/b/${brand.slug}/looks`);
+  await page.goto(`/${brand.slug}/looks`);
   const vertical = page.locator('.sc-verticals button').nth(1);
   const label = (await vertical.innerText()).split('\n')[0].trim();
   await vertical.click();
@@ -165,14 +196,14 @@ test('filters live in the URL and survive a reload', async ({ page }) => {
   await expect(page.locator('.sc-verticals button[data-on]')).toHaveText(new RegExp(label));
 
   // a filter is not a destination: Back leaves the screen, it does not undo it
-  await page.goto(`/b/${brand.slug}`);
+  await page.goto(`/${brand.slug}`);
   await expect(activeNav(page)).toHaveText('Home');
 });
 
 test('settings is a URL, and Back closes it', async ({ page }) => {
   const brand = await currentBrand(page);
 
-  await page.goto(`/b/${brand.slug}?settings=budget`);
+  await page.goto(`/${brand.slug}?settings=budget`);
   await expect(page.locator('.sc-set')).toBeVisible();
   await expect(page.locator('.sc-set-head b')).toHaveText('Budget');
 
@@ -186,7 +217,7 @@ test('switching set does not carry the last one text layers', async ({ page }) =
   const first = await seedSet(page, brand.id, 'Layers A', [nodeId]);
   const second = await seedSet(page, brand.id, 'Layers B', []);
 
-  await page.goto(`/b/${brand.slug}/s/${first.slug}/n/${nodeId}`);
+  await page.goto(`/${brand.slug}/sets/${first.slug}/shots/${nodeId}`);
   await page
     .locator('.sc-ovl')
     .getByRole('button', { name: /^Add text$/ })
@@ -196,7 +227,7 @@ test('switching set does not carry the last one text layers', async ({ page }) =
 
   // React Router keeps a component mounted across a param change, so the set
   // route is keyed; without that key these drafts follow you over
-  await page.goto(`/b/${brand.slug}/s/${second.slug}`);
+  await page.goto(`/${brand.slug}/sets/${second.slug}`);
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
   await expect(page.locator('.sc-lrow')).toHaveCount(0);
 });
@@ -208,7 +239,7 @@ test('a set can be renamed and deleted from the crumb, and the shots survive', a
   const stamp = String(process.hrtime.bigint()).slice(-8);
   const set = await seedSet(page, brand.id, `Crumb ${stamp}`, [nodeId]);
 
-  await page.goto(`/b/${brand.slug}/s/${set.slug}`);
+  await page.goto(`/${brand.slug}/sets/${set.slug}`);
   await expect(page.locator('.sc-crumb-btn b')).toHaveText(`Crumb ${stamp}`);
 
   await page.locator('.sc-crumb-btn').click();
@@ -216,13 +247,15 @@ test('a set can be renamed and deleted from the crumb, and the shots survive', a
   await page.locator('.sc-crumb-input').fill(`Renamed ${stamp}`);
   await page.keyboard.press('Enter');
 
-  // the slug is the address: renaming has to move the path with it
-  await page.waitForURL(`**/b/${brand.slug}/s/renamed-${stamp}`);
+  // the slug is the address: renaming has to move the path with it. On the
+  // pathname alone, because the lens and the branch target ride in the query
+  // and are nothing to do with which set this is.
+  await page.waitForURL((u) => u.pathname === `/${brand.slug}/sets/renamed-${stamp}`);
   await expect(page.locator('.sc-crumb-btn b')).toHaveText(`Renamed ${stamp}`);
 
   await page.locator('.sc-crumb-btn').click();
   await page.getByRole('menuitem', { name: 'Delete set', exact: true }).click();
-  await page.waitForURL(`**/b/${brand.slug}/create`);
+  await page.waitForURL((u) => u.pathname === `/${brand.slug}/create`);
 
   // deleting a set is a label coming off, never a shot going away
   const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
@@ -236,9 +269,9 @@ test('Create is never inert, wherever it is pressed from', async ({ page }) => {
 
   // it used to do nothing at all whenever a project was already open, and to
   // open a picker otherwise. It now lands the caret in the brief either way.
-  await page.goto(`/b/${brand.slug}/looks`);
+  await page.goto(`/${brand.slug}/looks`);
   await page.locator('.sc-nav button', { hasText: 'Create' }).click();
-  await page.waitForURL(new RegExp(`/b/${brand.slug}/create`));
+  await page.waitForURL(new RegExp(`/${brand.slug}/create`));
   await expect(activeNav(page)).toHaveText('Create');
   await expect(page.locator('.sc-canvas-dock [contenteditable="true"]')).toBeFocused();
 
@@ -248,17 +281,40 @@ test('Create is never inert, wherever it is pressed from', async ({ page }) => {
   await expect(page.locator('.sc-canvas-dock [contenteditable="true"]')).toBeFocused();
 });
 
-test('an old project link lands on the hub rather than an error', async ({ page }) => {
+test('every shape the old /b/ scheme could spell still lands', async ({ page }) => {
   const brand = await currentBrand(page);
   const { nodeId } = await seedShot(page, brand.id);
+  const set = await seedSet(page, brand.id, 'Legacy', [nodeId]);
 
+  // the prefix itself
+  await page.goto(`/b/${brand.slug}`);
+  await page.waitForURL(`**/${brand.slug}`);
+  await expect(activeNav(page)).toHaveText('Home');
+
+  // the page whose URL used to stutter: /b/<brand>/brand
+  await page.goto(`/b/${brand.slug}/brand`);
+  await page.waitForURL(`**/${brand.slug}/kit`);
+  await expect(activeNav(page)).toHaveText('Kit');
+
+  await page.goto(`/b/${brand.slug}/looks`);
+  await page.waitForURL(`**/${brand.slug}/looks`);
+
+  await page.goto(`/b/${brand.slug}/create/n/${nodeId}`);
+  await page.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+
+  await page.goto(`/b/${brand.slug}/s/${set.slug}/n/${nodeId}`);
+  await page.waitForURL(`**/${brand.slug}/sets/${set.slug}/shots/${nodeId}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+
+  // and the two that were already legacy before the prefix went: a project,
+  // from when sets were projects, and a shot at the brand root
   await page.goto(`/b/${brand.slug}/p/anything-at-all`);
-  await page.waitForURL(`**/b/${brand.slug}/create`);
+  await page.waitForURL(`**/${brand.slug}/create`);
   await expect(activeNav(page)).toHaveText('Create');
 
-  // and a shot link from before Home and Create were separate screens
   await page.goto(`/b/${brand.slug}/n/${nodeId}`);
-  await page.waitForURL(`**/b/${brand.slug}/create/n/${nodeId}`);
+  await page.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`);
 });
 
 test('the address bar spells names, not uuids', async ({ page }) => {
@@ -271,31 +327,34 @@ test('the address bar spells names, not uuids', async ({ page }) => {
   expect(set.slug).not.toMatch(UUID);
 
   // an id still resolves, and rewrites itself to the readable spelling
-  await page.goto(`/b/${brand.id}/looks`);
-  await page.waitForURL(`**/b/${brand.slug}/looks`);
+  await page.goto(`/${brand.id}/looks`);
+  await page.waitForURL(`**/${brand.slug}/looks`);
   await expect(activeNav(page)).toHaveText('Looks');
 
   // including deeper in the path, where the rest of it has to survive
-  await page.goto(`/b/${brand.id}/s/${set.id}/n/${nodeId}`);
-  await page.waitForURL(`**/b/${brand.slug}/s/${set.slug}/n/${nodeId}`);
+  await page.goto(`/${brand.id}/sets/${set.id}/shots/${nodeId}`);
+  await page.waitForURL(`**/${brand.slug}/sets/${set.slug}/shots/${nodeId}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 });
 
 test('an unknown brand or path lands somewhere real', async ({ page }) => {
   const brand = await currentBrand(page);
 
-  await page.goto('/b/does-not-exist/looks');
-  await page.waitForURL(`**/b/${brand.slug}`);
+  // the brand is not one this machine holds, but /looks is still a real page —
+  // so the tail rides along rather than being dropped at the brand root
+  await page.goto('/does-not-exist/looks');
+  await page.waitForURL(`**/${brand.slug}/looks`);
+  await expect(activeNav(page)).toHaveText('Looks');
 
   await page.goto('/total/nonsense/path');
-  await page.waitForURL(`**/b/${brand.slug}`);
+  await page.waitForURL(`**/${brand.slug}`);
 });
 
 test('a shot URL whose node is gone falls back to the feed', async ({ page }) => {
   const brand = await currentBrand(page);
   await seedShot(page, brand.id);
 
-  await page.goto(`/b/${brand.slug}/create/n/no-such-node`);
-  await page.waitForURL(`**/b/${brand.slug}/create`);
+  await page.goto(`/${brand.slug}/create/shots/no-such-node`);
+  await page.waitForURL(`**/${brand.slug}/create`);
   await expect(page.locator('.sc-canvas')).toBeVisible();
 });

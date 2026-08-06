@@ -1,9 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { Navigate, createBrowserRouter, useLocation, useNavigate, useParams, useRouteError } from 'react-router';
+import {
+  Navigate,
+  createBrowserRouter,
+  useLocation,
+  useMatch,
+  useNavigate,
+  useParams,
+  useRouteError,
+} from 'react-router';
 import { Callout, Flex } from '@radix-ui/themes';
 import { AppShell } from './app/AppShell.js';
 import { BrandLayout, useBrand } from './app/BrandLayout.js';
-import { brandPath } from './app/brandPath.js';
+import { P, hubPath, rewriteLegacyPath, setPath } from './routes.js';
 import { RootRedirect } from './app/RootRedirect.js';
 import { BrandSetup } from './views/BrandSetup.js';
 import { BrandView } from './views/Brand.js';
@@ -35,11 +43,12 @@ function RouteError() {
  * clean slate a route swap used to give for free.
  */
 function SetRoute() {
-  const { setId = '' } = useParams();
+  const { setSlug = '' } = useParams();
   const { pathname, search } = useLocation();
   const { brand, sets, loaded } = useBrand();
   const navigate = useNavigate();
-  const set = sets.find((s) => s.slug === setId) ?? sets.find((s) => s.id === setId) ?? null;
+  const here = useMatch({ path: P.set, end: false });
+  const set = sets.find((s) => s.slug === setSlug) ?? sets.find((s) => s.id === setSlug) ?? null;
 
   /**
    * A rename moves two things that live in different stores: the slug in the
@@ -54,14 +63,14 @@ function SetRoute() {
    * through a ref rather than closing over the render that scheduled it, which
    * is what made the first attempt at this fire on a stale snapshot anyway.
    */
-  const latest = useRef({ setId, sets });
-  latest.current = { setId, sets };
+  const latest = useRef({ setSlug, sets });
+  latest.current = { setSlug, sets };
   useEffect(() => {
     if (!loaded || set) return;
     const t = setTimeout(() => {
-      const { setId: id, sets: list } = latest.current;
+      const { setSlug: id, sets: list } = latest.current;
       if (list.some((s) => s.slug === id || s.id === id)) return;
-      navigate(brandPath(brand, '/create'), { replace: true });
+      navigate(hubPath(brand), { replace: true });
     }, 0);
     return () => clearTimeout(t);
   }, [loaded, set, brand, navigate]);
@@ -69,30 +78,26 @@ function SetRoute() {
   // nothing to resolve against until the brand's sets land, and nothing to draw
   // while the miss above is still being given its tick
   if (!loaded || !set) return null;
-  if (set.slug !== setId) {
-    // keep whatever follows, so /n/:nodeId survives the rewrite
-    const seg = pathname.split('/');
-    seg[4] = set.slug;
-    return <Navigate to={seg.join('/') + search} replace />;
+  if (set.slug !== setSlug) {
+    // keep whatever follows, so an open shot survives the rewrite
+    const tail = here ? pathname.slice(here.pathnameBase.length) : '';
+    return <Navigate to={setPath(brand, set) + tail + search} replace />;
   }
   return <CreateView key={set.id} set={set} />;
 }
 
 /**
- * Projects are gone: their shots are on the hub and their names became sets. A
- * bookmark, or a notification queued before the upgrade, lands on the hub —
- * which is where a project link was always trying to go.
+ * Every URL the old scheme could spell, sent to the one that replaced it.
+ *
+ * Three redirects used to live here — one for projects once they became sets,
+ * one for a shot that predates the overlay moving under the hub, and now the
+ * `/b/` prefix itself. They are one rewrite rather than three components
+ * because they are one question, and because a pure function is testable in a
+ * way a tree of <Navigate> elements is not.
  */
-function LegacyProjectRedirect() {
-  const { brand } = useBrand();
-  return <Navigate to={brandPath(brand, '/create')} replace />;
-}
-
-/** The overlay lives under the hub now, not at the brand root. */
-function LegacyShotRedirect() {
-  const { brand } = useBrand();
-  const { nodeId } = useParams();
-  return <Navigate to={brandPath(brand, `/create/n/${nodeId}`)} replace />;
+function LegacyRedirect() {
+  const { pathname, search } = useLocation();
+  return <Navigate to={rewriteLegacyPath(pathname, search)} replace />;
 }
 
 function LookRoute() {
@@ -106,9 +111,11 @@ export const router = createBrowserRouter([
     errorElement: <RouteError />,
     children: [
       { index: true, element: <RootRedirect /> },
-      { path: 'setup', element: <BrandSetup /> },
+      { path: P.setup, element: <BrandSetup /> },
+      // the scheme this replaced, kept alive for the links that outlived it
+      { path: P.legacy, element: <LegacyRedirect /> },
       {
-        path: 'b/:brandId',
+        path: P.brand,
         element: <BrandLayout />,
         children: [
           // Home is the way in and carries no tools. Create is the hub, and the
@@ -117,24 +124,21 @@ export const router = createBrowserRouter([
           // the shot overlay is a child route, so opening one keeps the hub
           // mounted underneath and does not refetch it
           {
-            path: 'create',
+            path: P.hub,
             element: <CreateView set={null} />,
-            children: [{ path: 'n/:nodeId', element: <ShotDetailRoute /> }],
+            children: [{ path: P.hubShot, element: <ShotDetailRoute /> }],
           },
           {
-            path: 's/:setId',
+            path: P.set,
             element: <SetRoute />,
-            children: [{ path: 'n/:nodeId', element: <ShotDetailRoute /> }],
+            children: [{ path: P.setShot, element: <ShotDetailRoute /> }],
           },
-          { path: 'brand', element: <BrandView /> },
-          { path: 'looks', element: <LooksView /> },
-          { path: 'looks/:lookId', element: <LookRoute /> },
-          { path: 'p/*', element: <LegacyProjectRedirect /> },
-          // a shot link from before the split still opens the shot
-          { path: 'n/:nodeId', element: <LegacyShotRedirect /> },
+          { path: P.kit, element: <BrandView /> },
+          { path: P.looks, element: <LooksView /> },
+          { path: P.look, element: <LookRoute /> },
         ],
       },
-      { path: '*', element: <Navigate to="/" replace /> },
+      { path: P.notFound, element: <Navigate to={P.root} replace /> },
     ],
   },
 ]);

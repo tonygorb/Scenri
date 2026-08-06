@@ -1,4 +1,5 @@
 import { type ActivityNode, type CatalogImportJob, nodeLabel } from './api.js';
+import { kitPath, shotPath } from './routes.js';
 
 /**
  * The model behind the notifications bell.
@@ -108,8 +109,12 @@ export function catalogPercent(j: CatalogImportJob | null): number {
   return 5;
 }
 
-/** `base` is the brand's path prefix, `/b/<slug>` — see app/brandPath.ts. */
-export function taskFromNode(n: ActivityNode, base: string, now = Date.now()): Task {
+/**
+ * The brand, rather than a path prefix built from it: these hrefs are written
+ * into localStorage and read back after an upgrade, so the one thing they must
+ * not do is spell a route by hand.
+ */
+export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Date.now()): Task {
   // A shot in no set is the ordinary case now, so the row says what happened
   // and stops. Naming the container was worth a column back when every shot had
   // one; saying "Workspace" on all of them would be furniture, not information.
@@ -135,11 +140,11 @@ export function taskFromNode(n: ActivityNode, base: string, now = Date.now()): T
     percent: null,
     startedAt: n.createdAt,
     // the overlay hangs off the hub now, not off a project nobody named
-    href: `${base}/create/n/${n.id}`,
+    href: shotPath(brand, null, n.id),
   };
 }
 
-export function taskFromCatalogJob(j: CatalogImportJob, base: string): Task {
+export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string }): Task {
   const state: TaskState =
     j.stage === 'completed' ? 'done' : j.stage === 'partial' ? 'partial' : j.stage === 'failed' ? 'error' : 'running';
   let host = j.url;
@@ -158,7 +163,7 @@ export function taskFromCatalogJob(j: CatalogImportJob, base: string): Task {
     thumb: null,
     percent: catalogPercent(j),
     startedAt: j.createdAt,
-    href: `${base}/brand`,
+    href: kitPath(brand),
   };
 }
 

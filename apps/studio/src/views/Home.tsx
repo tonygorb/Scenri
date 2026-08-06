@@ -5,7 +5,7 @@ import { ImageSquare, Package, Sparkle, Star, UsersThree, X } from '@phosphor-ic
 import { hasNoShots, imgUrl, type Brand } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { brandPath } from '../app/brandPath.js';
+import { hubPath, looksPath, shotPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
 import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
@@ -42,7 +42,7 @@ export function HomeView() {
   /** Every way in lands on the same hub, differing only in what it carries. */
   const toCreate = (qs?: Record<string, string>) => {
     const q = new URLSearchParams(qs ?? {}).toString();
-    navigate(brandPath(brand, `/create${q ? `?${q}` : ''}`));
+    navigate(`${hubPath(brand)}${q ? `?${q}` : ''}`);
   };
 
   // the hook starts at [] and only fills in after its first poll resolves —
@@ -107,7 +107,7 @@ export function HomeView() {
           <>
             <div className="sc-sec-head">
               <span className="sc-sec-title">Looks</span>
-              <button type="button" className="sc-sec-more" onClick={() => navigate(brandPath(brand, '/looks'))}>
+              <button type="button" className="sc-sec-more" onClick={() => navigate(looksPath(brand))}>
                 All looks
               </button>
             </div>
@@ -159,7 +159,7 @@ export function HomeView() {
                 type="button"
                 key={n.id}
                 className="sc-recent"
-                onClick={() => navigate(brandPath(brand, `/create/n/${n.id}`))}
+                onClick={() => navigate(shotPath(brand, null, n.id))}
                 title={n.prompt}
               >
                 <img src={imgUrl(n.images[0])} alt="" loading="lazy" />

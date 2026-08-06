@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DB } from './db.js';
-import { firstFree, slugifyWithId } from './slug.js';
+import { RESERVED_SLUGS, firstFree, slugifyWithId } from './slug.js';
 
 export interface BrandRow {
   id: string;
@@ -70,10 +70,14 @@ export interface SetRow {
  * a Latin-free name's fallback and to exclude itself from the collision
  * check; for a brand new row neither matters yet, so passing it unconditionally
  * is harmless.
+ *
+ * A brand sits at the web root, so the names that root already owns are taken
+ * in the same sense another brand's slug is: a brand called "Assets" becomes
+ * assets-2 rather than a page that never loads.
  */
 export function uniqueSlug(db: DB, name: string, id: string): string {
   const stmt = db.prepare('SELECT 1 FROM brands WHERE slug=? AND id IS NOT ?');
-  return firstFree(slugifyWithId(name, id), (c) => !!stmt.get(c, id));
+  return firstFree(slugifyWithId(name, id), (c) => RESERVED_SLUGS.has(c) || !!stmt.get(c, id));
 }
 
 /** Same, per brand: two brands may each have a project called Untitled. */

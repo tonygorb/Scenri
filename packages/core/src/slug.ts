@@ -37,6 +37,23 @@ export const slugifyWithId = (s: string, id: string, fallback = 'brand'): string
   return base === fallback ? `${fallback}-${id.slice(0, 8)}` : base;
 };
 
+/**
+ * Slugs a brand may not hold, because the web root is not ours alone.
+ *
+ * A brand lives at /<slug>, and four names at that level already belong to
+ * someone: `api` is the server's whole namespace and its not-found handler
+ * answers there in JSON, so every page under a brand called that would come
+ * back as an error rather than the app; `assets` is the directory the studio
+ * builds into and is served from the same root; `b` is the old scheme the
+ * redirect shim still answers for; `setup` is the app's own first-run wizard.
+ *
+ * Nothing else can collide. Sections (`create`, `sets`, `kit`, `looks`) sit a
+ * level below a brand and set slugs a level below those, so neither can reach
+ * the root — and `slugify` turns every character that is not a letter or a
+ * digit into a hyphen, so no slug can ever be spelled like a file.
+ */
+export const RESERVED_SLUGS: ReadonlySet<string> = new Set(['api', 'assets', 'b', 'setup']);
+
 /** First free name in a series: acme, then acme-2, acme-3. */
 export function firstFree(base: string, taken: (candidate: string) => boolean): string {
   for (let n = 1; ; n++) {

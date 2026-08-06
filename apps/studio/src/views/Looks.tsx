@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { brandPath } from '../app/brandPath.js';
+import { lookPath } from '../routes.js';
 import { useApplyLook } from '../app/useApplyLook.js';
 import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
 
@@ -19,7 +19,7 @@ export function LooksView() {
   const [verticalParam, setVertical] = useFilterParam('vertical');
   const vertical = verticalParam || null;
 
-  const openLook = (id: string) => navigate(brandPath(brand, `/looks/${id}`));
+  const openLook = (id: string) => navigate(lookPath(brand, id));
 
   const shown = useMemo(
     () => (vertical ? looks.filter((l) => l.verticals.includes(vertical)) : looks),

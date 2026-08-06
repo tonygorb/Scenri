@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { firstFree, slugifyWithId } from './slug.js';
+import { RESERVED_SLUGS, firstFree, slugifyWithId } from './slug.js';
 
 export type DB = Database.Database;
 
@@ -251,7 +251,10 @@ function backfillSlugs(db: DB): void {
       }
     }
     const wanted = needsRederiving && name ? slugifyWithId(name, b.id) : b.slug;
-    const slug = firstFree(wanted, (c) => takenBrand.has(c));
+    // a brand slugged before it lived at the web root may be holding a name the
+    // root owns; moving it costs its old links, which the redirect shim cannot
+    // help with, but the alternative is a brand that cannot be opened at all
+    const slug = firstFree(wanted, (c) => RESERVED_SLUGS.has(c) || takenBrand.has(c));
     takenBrand.add(slug);
     if (slug !== b.slug) setBrand.run(slug, b.id);
   }

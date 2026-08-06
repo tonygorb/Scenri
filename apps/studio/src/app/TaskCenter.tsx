@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useNavigate } from 'react-router';
 import { api, type Brand } from '../api.js';
 import { useToasts } from '../toasts.js';
-import { brandPath } from './brandPath.js';
 import {
   loadFeed,
   loadSeen,
@@ -70,7 +69,6 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
   // the feed is keyed by id and the links are built from the slug: a rename
   // changes where a task points, never which brand's history it belongs to
   const brandId = brand.id;
-  const base = brandPath(brand);
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [feed, setFeed] = useState<NotificationItem[]>(() => loadFeed(brandId));
@@ -108,7 +106,7 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
     let next: Task[];
     try {
       const { nodes, jobs } = await api.activity(brandId);
-      next = [...nodes.map((n) => taskFromNode(n, base)), ...jobs.map((j) => taskFromCatalogJob(j, base))];
+      next = [...nodes.map((n) => taskFromNode(n, brand)), ...jobs.map((j) => taskFromCatalogJob(j, brand))];
     } catch {
       // the bell is not worth an error state; the next tick will tell the truth
       return;
@@ -147,7 +145,7 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
             },
       );
     }
-  }, [brandId, base]);
+  }, [brandId, brand]);
 
   // One timer, re-armed at whichever cadence the current answer deserves. A
   // hidden tab skips the request — polling a screen nobody is looking at is the

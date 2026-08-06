@@ -4,7 +4,7 @@ import { AlertDialog, Button, Callout, Flex, Spinner } from '@radix-ui/themes';
 import { ArrowRight, CaretLeft, ImageSquare } from '@phosphor-icons/react';
 import { api, assetUrl, type Brand, type Product } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
-import { brandPath } from '../app/brandPath.js';
+import { brandPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { saveFavoriteLooks } from '../favorites.js';
 import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';

@@ -69,6 +69,30 @@ describe('brands + projects', () => {
     expect(noLetters.slug).toBe(`brand-${noLetters.id.slice(0, 8)}`);
   });
 
+  it('will not let a brand take one of the names the web root already owns', () => {
+    const named = (name: string) => core.store.createBrand({ specVersion: '0.1', meta: { name } } as any);
+    // a brand lives at /<slug>, so these four would each be shadowed by
+    // something that was already answering there
+    expect(named('API').slug).toBe('api-2');
+    expect(named('Assets').slug).toBe('assets-2');
+    expect(named('Setup').slug).toBe('setup-2');
+    expect(named('B').slug).toBe('b-2');
+    // and a rename onto one is refused the same way a rename onto another
+    // brand's slug is — assets-3, because the brand created above is already
+    // sitting on assets-2
+    const brand = named('Acme');
+    expect(core.store.updateBrand(brand.id, { specVersion: '0.1', meta: { name: 'Assets' } } as any)!.slug).toBe(
+      'assets-3',
+    );
+  });
+
+  it('leaves set slugs alone: they sit below a brand, so the root cannot shadow them', () => {
+    const b = core.store.createBrand(brandJson as any);
+    // /<brand>/sets/api is nobody else's, so there is nothing to dodge
+    expect(core.store.createSet(b.id, 'API').slug).toBe('api');
+    expect(core.store.createSet(b.id, 'Assets').slug).toBe('assets');
+  });
+
   it('creates project with done root node', () => {
     const b = core.store.createBrand(brandJson as any);
     const { project, root } = core.store.createProject(b.id, 'Summer campaign');

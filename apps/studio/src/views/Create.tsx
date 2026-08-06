@@ -17,7 +17,7 @@ import {
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
-import { brandPath } from '../app/brandPath.js';
+import { P, hubPath, setPath } from '../routes.js';
 import { briefTokens } from '../composer/BriefInput.js';
 import { Confirm } from '../Confirm.js';
 import { saveDraft } from '../draft.js';
@@ -142,7 +142,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [sending, setSending] = useState<string | null>(null);
 
   const projectId = workspace?.id ?? '';
-  const base = set ? brandPath(brand, `/s/${set.slug}`) : brandPath(brand, '/create');
+  const base = set ? setPath(brand, set) : hubPath(brand);
   /**
    * Opening a shot used to navigate to a bare path, which threw away the whole
    * query string: the lens you were looking through, and now the shot you had
@@ -155,7 +155,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       if (i > 0) p.set('i', String(i));
       else p.delete('i');
       const q = p.toString();
-      navigate(`${base}/n/${id}${q ? `?${q}` : ''}`, { replace });
+      navigate(`${base}/shots/${id}${q ? `?${q}` : ''}`, { replace });
     },
     [base, navigate, params],
   );
@@ -686,7 +686,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       if (nodeIds.length > 0) await api.addToSet(made.id, nodeIds);
       setPicked(new Set());
       await reload();
-      navigate(brandPath(brand, `/s/${made.slug}?rename=1`));
+      navigate(`${setPath(brand, made)}?rename=1`);
     } catch (e: any) {
       push({ kind: 'error', title: 'Could not create the set', detail: String(e?.message ?? e) });
     }
@@ -1029,7 +1029,7 @@ function FeedToolbar({
   onTile: (px: number) => void;
 }) {
   const navigate = useNavigate();
-  const toHub = (q = '') => navigate(brandPath(brand, `/create${q}`));
+  const toHub = (q = '') => navigate(hubPath(brand) + q);
 
   return (
     <div className="sc-toolbar">
@@ -1069,7 +1069,7 @@ function FeedToolbar({
         <DropdownMenu.Content align="start">
           {sets.length === 0 && <DropdownMenu.Item disabled>No sets yet</DropdownMenu.Item>}
           {sets.map((s) => (
-            <DropdownMenu.Item key={s.id} onSelect={() => navigate(brandPath(brand, `/s/${s.slug}`))}>
+            <DropdownMenu.Item key={s.id} onSelect={() => navigate(setPath(brand, s))}>
               {s.name}
             </DropdownMenu.Item>
           ))}
@@ -1210,12 +1210,12 @@ function PickedBar({
 
 /**
  * useParams only reaches as far as the route that rendered you, so the child
- * route's nodeId is invisible from here. The overlay hangs off the hub and off
+ * route's shotId is invisible from here. The overlay hangs off the hub and off
  * a set alike, so both spellings have to be matched — and unconditionally,
  * because React counts hooks by position.
  */
 function useNodeId(): string | null {
-  const onHub = useMatch('/b/:brandId/create/n/:nodeId');
-  const inSet = useMatch('/b/:brandId/s/:setId/n/:nodeId');
-  return onHub?.params.nodeId ?? inSet?.params.nodeId ?? null;
+  const onHub = useMatch(P.hubShot);
+  const inSet = useMatch(P.setShot);
+  return onHub?.params.shotId ?? inSet?.params.shotId ?? null;
 }

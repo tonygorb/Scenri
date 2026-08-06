@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Navigate, Outlet, useLocation, useParams } from 'react-router';
+import { Navigate, Outlet, useLocation, useMatch, useParams } from 'react-router';
 import { api, type Brand, type Project, type ShotSet, type TreeNode } from '../api.js';
+import { P, brandPath } from '../routes.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
 import { TabBar } from '../layout/TabBar.js';
 import { TopBar } from '../layout/TopBar.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
 import { useAppData } from './AppShell.js';
+import { pickBrand } from './RootRedirect.js';
 import { TaskCenterProvider } from './TaskCenter.js';
 
 interface BrandData {
@@ -65,15 +67,18 @@ export function useAssetsPanel(): AssetsPanelState {
 }
 
 /**
- * Everything under /b/:brandId. The brand lives in the path rather than in
+ * Everything under /:brandSlug. The brand lives in the path rather than in
  * state, so a refresh cannot quietly hand you a different client's work.
  *
  * The segment is the slug, but an id still resolves: bookmarks and links made
  * before slugs, and anything a rename left behind, keep working.
  */
 export function BrandLayout() {
-  const { brandId } = useParams();
+  const { brandSlug } = useParams();
   const { pathname, search } = useLocation();
+  // where this brand's own segment ends, so a rewrite can keep the rest of the
+  // path without counting segments and without re-encoding what it passes on
+  const here = useMatch({ path: P.brand, end: false });
   const { brands, engines, refresh } = useAppData();
   const [workspace, setWorkspace] = useState<Project | null>(null);
   const [nodes, setNodes] = useState<TreeNode[]>([]);
@@ -94,7 +99,7 @@ export function BrandLayout() {
   // the docks are fixed, so the keyboard has to be measured for them
   useKeyboardInset();
 
-  const brand = brands.find((b) => b.slug === brandId) ?? brands.find((b) => b.id === brandId) ?? null;
+  const brand = brands.find((b) => b.slug === brandSlug) ?? brands.find((b) => b.id === brandSlug) ?? null;
 
   /**
    * One ask for the whole brand: its shots, its sets, and who is in what.
@@ -127,18 +132,23 @@ export function BrandLayout() {
     void refreshWorkspace();
   }, [refreshWorkspace, brand?.updatedAt]);
 
-  // a deleted brand, or a link to one this machine has never seen
-  if (!brand) return <Navigate to="/" replace />;
+  // The tail comes off the raw pathname rather than out of a param, so whatever
+  // follows — /looks/<id>, /sets/<slug>/shots/<id> — survives a swap of the
+  // brand segment exactly as it arrived, and no part of this has to know how
+  // deep the path goes.
+  const tail = here ? pathname.slice(here.pathnameBase.length) : '';
+
+  // a deleted brand, or a link to one this machine has never seen. The page
+  // asked for is still a real page, so it comes along: landing on /looks of a
+  // brand you do have beats being dropped at a home you did not ask for.
+  if (!brand) {
+    const fallback = pickBrand(brands);
+    return <Navigate to={fallback ? brandPath(fallback) + tail + search : P.root} replace />;
+  }
 
   // reached by id: rewrite to the slug so the address bar stays readable and
-  // everything downstream can assume one spelling of the path. Swapping the
-  // segment rather than slicing by length, because a param arrives decoded
-  // while the pathname around it is still percent-encoded.
-  if (brandId !== brand.slug) {
-    const seg = pathname.split('/');
-    seg[2] = brand.slug;
-    return <Navigate to={seg.join('/') + search} replace />;
-  }
+  // everything downstream can assume one spelling of the path
+  if (brandSlug !== brand.slug) return <Navigate to={brandPath(brand) + tail + search} replace />;
 
   return (
     <Ctx.Provider

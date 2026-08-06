@@ -28,8 +28,12 @@ const postJson = (body: unknown): RequestInit => ({
 /** The path carries the brand's slug; the API still speaks in ids. */
 async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
   await p.goto('/');
-  await p.waitForURL(/\/b\/[^/]+$/);
-  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[2]);
+  // a brand is the whole first segment: one segment, and not the setup wizard
+  await p.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
+  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[1]);
   const brands = (await api(p, '/api/brands')) as any[];
   return { id: brands.find((b) => b.slug === slug).id, slug };
 }
@@ -72,11 +76,11 @@ test('the bell is in the bar on every screen', async ({ page }) => {
   const set = (await api(page, `/api/brands/${brand.id}/sets`, postJson({ name: 'Bell spec' }))) as any;
 
   for (const path of [
-    `/b/${brand.slug}`,
-    `/b/${brand.slug}/create`,
-    `/b/${brand.slug}/looks`,
-    `/b/${brand.slug}/brand`,
-    `/b/${brand.slug}/s/${set.slug}`,
+    `/${brand.slug}`,
+    `/${brand.slug}/create`,
+    `/${brand.slug}/looks`,
+    `/${brand.slug}/kit`,
+    `/${brand.slug}/sets/${set.slug}`,
   ]) {
     await page.goto(path);
     await expect(bell(page)).toBeVisible();
@@ -86,7 +90,7 @@ test('the bell is in the bar on every screen', async ({ page }) => {
 test('opens on Tasks; Notifications starts empty and is keyboard reachable', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
-  await page.goto(`/b/${brand.slug}/looks`);
+  await page.goto(`/${brand.slug}/looks`);
 
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
@@ -109,13 +113,13 @@ test('work started from another screen still arrives, survives a reload, and cle
   await clearHistory(page);
 
   // stand on Home. The project this belongs to is never opened.
-  await page.goto(`/b/${brand.slug}`);
+  await page.goto(`/${brand.slug}`);
   await expect(bell(page)).toBeVisible();
   await fireAndWalkAway(page, brand.id);
 
   // the badge is the first thing that should change
   await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
-  await expect(page).toHaveURL(new RegExp(`/b/${brand.slug}$`));
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}$`));
 
   await bell(page).click();
   await tabs(page).nth(1).click();
@@ -136,13 +140,13 @@ test('work started from another screen still arrives, survives a reload, and cle
 
   // and a row is a way back to the thing it is about
   await rows(page).first().click();
-  await page.waitForURL(/\/b\/[^/]+\/create\/n\/[^/]+/);
+  await page.waitForURL(/\/create\/shots\/[^/]+/);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 });
 
 test('the panel does not follow you to the next screen', async ({ page }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/b/${brand.slug}`);
+  await page.goto(`/${brand.slug}`);
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
 
@@ -153,7 +157,7 @@ test('the panel does not follow you to the next screen', async ({ page }) => {
 
 test('clearing empties the record', async ({ page }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/b/${brand.slug}`);
+  await page.goto(`/${brand.slug}`);
   await bell(page).click();
   await tabs(page).nth(1).click();
 
@@ -169,7 +173,7 @@ test('a finish still toasts while you are on the feed', async ({ page }) => {
   await clearHistory(page);
 
   // the emitter moved up to TaskCenter; the toast must not have gone with it
-  await page.goto(`/b/${brand.slug}`);
+  await page.goto(`/${brand.slug}`);
   await fireAndWalkAway(page, brand.id);
   await expect(page.locator('.sc-toast').first()).toBeVisible({ timeout: 20_000 });
 });
@@ -178,7 +182,7 @@ test('a notification row opens the shot it is about', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
 
-  await page.goto(`/b/${brand.slug}/looks`);
+  await page.goto(`/${brand.slug}/looks`);
   const { nodeId } = await fireAndWalkAway(page, brand.id);
   await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
 
@@ -187,6 +191,34 @@ test('a notification row opens the shot it is about', async ({ page }) => {
   await rows(page).first().click();
 
   // the href used to name a project route that no longer exists
-  await page.waitForURL(`**/b/${brand.slug}/create/n/${nodeId}`);
+  await page.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+});
+
+test('a notification stored under the old scheme still opens its shot', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await clearHistory(page);
+
+  // The feed is written to localStorage, so an upgrade inherits whatever the
+  // release before it spelled. This is the case the redirect shim exists for,
+  // and the only one nothing else here would catch.
+  const { nodeId } = await fireAndWalkAway(page, brand.id);
+  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+
+  await page.evaluate(
+    ([key, slug, id]) => {
+      const feed = JSON.parse(localStorage.getItem(key as string) ?? '[]');
+      for (const item of feed) item.href = `/b/${slug}/create/n/${id}`;
+      localStorage.setItem(key as string, JSON.stringify(feed));
+    },
+    [`scenri:notifications-${brand.id}`, brand.slug, nodeId],
+  );
+
+  await page.goto(`/${brand.slug}`);
+  await bell(page).click();
+  await tabs(page).nth(1).click();
+  await rows(page).first().click();
+
+  await page.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 });

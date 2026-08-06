@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useBrand } from './BrandLayout.js';
-import { brandPath } from './brandPath.js';
+import { hubPath } from '../routes.js';
 
 /**
  * "Use this look" from the Looks index or a look page.
@@ -16,14 +16,14 @@ export function useApplyLook(): (lookId: string) => void {
   const { brand } = useBrand();
   const navigate = useNavigate();
   // a string, so the callback survives a brand refetch handing back a new object
-  const base = brandPath(brand);
+  const hub = hubPath(brand);
 
   return useCallback(
     (lookId: string) => {
       // the hub, because that is where the brief is: Home holds no composer for
       // the look to be seeded into
-      navigate(`${base}/create?look=${encodeURIComponent(lookId)}&compose=1`);
+      navigate(`${hub}?look=${encodeURIComponent(lookId)}&compose=1`);
     },
-    [base, navigate],
+    [hub, navigate],
   );
 }

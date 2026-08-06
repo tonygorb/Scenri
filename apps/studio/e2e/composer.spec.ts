@@ -66,7 +66,11 @@ async function clickAtChar(p: Page, nodeIndex: number, charOffset: number) {
 test.beforeEach(async ({ page }) => {
   // the brief lives on the hub: Home is the way in and carries no tools
   await page.goto('/');
-  await page.waitForURL(/\/b\/[^/]+$/);
+  // a brand is the whole first segment now: one segment, and not the wizard
+  await page.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
   await page.goto(`${new URL(page.url()).pathname}/create`);
   await line(page).waitFor();
   await line(page).click();

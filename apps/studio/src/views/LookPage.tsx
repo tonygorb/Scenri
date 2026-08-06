@@ -4,7 +4,7 @@ import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
 import { api, imgUrl, nodeLabel, type Look, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { brandPath } from '../app/brandPath.js';
+import { hubPath, lookPath, looksPath, shotPath } from '../routes.js';
 import { useApplyLook } from '../app/useApplyLook.js';
 import { favoriteLooks } from '../favorites.js';
 import { LookCard } from '../layout/LookCard.js';
@@ -23,12 +23,11 @@ export function LookPage() {
   const navigate = useNavigate();
   const applyLook = useApplyLook();
   const brandId = brand.id;
-  const base = brandPath(brand);
   const [refs, setRefs] = useState<string[]>([]);
   const [allParam, setOpenAll] = useFilterParam('all');
   const openAll = allParam === '1';
 
-  const openLook = (id: string) => navigate(`${base}/looks/${id}`);
+  const openLook = (id: string) => navigate(lookPath(brand, id));
 
   const look = looks.find((l) => l.id === lookId);
 
@@ -122,11 +121,11 @@ export function LookPage() {
             <button
               type="button"
               className="sc-btn sc-btn-primary"
-              onClick={() => navigate(`${base}/create?compose=1`)}
+              onClick={() => navigate(`${hubPath(brand)}?compose=1`)}
             >
               Start from scratch
             </button>
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => navigate(`${base}/looks`)}>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => navigate(looksPath(brand))}>
               Browse all looks
             </button>
           </div>
@@ -149,7 +148,7 @@ export function LookPage() {
     <div className="sc-home">
       <main className="sc-lookpage" id="main">
         <div className="sc-lookpage-crumb">
-          <button type="button" onClick={() => navigate(`${base}/looks`)}>
+          <button type="button" onClick={() => navigate(looksPath(brand))}>
             Looks
           </button>
           <span>/</span>
@@ -197,7 +196,7 @@ export function LookPage() {
         {made.length > 0 && (
           <Slider label="Your shots in this look">
             {made.map((s) => (
-              <ShotThumb key={s.id} node={s} onClick={() => navigate(`${base}/create/n/${s.id}`)} />
+              <ShotThumb key={s.id} node={s} onClick={() => navigate(shotPath(brand, null, s.id))} />
             ))}
           </Slider>
         )}

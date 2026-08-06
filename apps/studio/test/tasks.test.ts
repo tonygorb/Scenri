@@ -21,6 +21,9 @@ import {
   type Task,
 } from '../src/tasks.js';
 
+/** Only the slug is read: an href is spelled from it, never from the id. */
+const brand = { slug: 'b1' };
+
 const node = (over: Partial<ActivityNode> = {}): ActivityNode => ({
   id: 'n1',
   projectId: 'p1',
@@ -70,7 +73,7 @@ const task = (over: Partial<Task> = {}): Task => ({
   thumb: null,
   percent: null,
   startedAt: '2026-08-04 12:00:00',
-  href: '/b/b1/p/p1/n/n1',
+  href: '/b1/create/shots/n1',
   ...over,
 });
 
@@ -82,7 +85,7 @@ const notif = (over: Partial<NotificationItem> = {}): NotificationItem => ({
   subtitle: 'Spring · 2 images',
   thumb: null,
   at: '2026-08-04T12:00:00.000Z',
-  href: '/b/b1/p/p1/n/n1',
+  href: '/b1/create/shots/n1',
   ...over,
 });
 
@@ -129,48 +132,48 @@ describe('runningPhrase', () => {
 
 describe('taskFromNode', () => {
   it('never invents a percent for a generation', () => {
-    expect(taskFromNode(node(), '/b/b1').percent).toBeNull();
-    expect(taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), '/b/b1').percent).toBeNull();
+    expect(taskFromNode(node(), brand).percent).toBeNull();
+    expect(taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), brand).percent).toBeNull();
   });
   it('says where the work is and what came of it', () => {
-    const done = taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), '/b/b1');
+    const done = taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), brand);
     expect(done.subtitle).toBe('Spring · 2 images');
     expect(done.thumb).toBe('h1');
     // the shot hangs off the hub, not off a project nobody named
-    expect(done.href).toBe('/b/b1/create/n/n1');
-    expect(taskFromNode(node({ status: 'done', images: ['h1'] }), '/b/b1').subtitle).toBe('Spring · 1 image');
-    expect(taskFromNode(node({ status: 'error', error: 'engine refused' }), '/b/b1').subtitle).toBe(
+    expect(done.href).toBe('/b1/create/shots/n1');
+    expect(taskFromNode(node({ status: 'done', images: ['h1'] }), brand).subtitle).toBe('Spring · 1 image');
+    expect(taskFromNode(node({ status: 'error', error: 'engine refused' }), brand).subtitle).toBe(
       'Spring · engine refused',
     );
   });
   it('marks an edit as an edit', () => {
-    const t = taskFromNode(node({ kind: 'edit' }), '/b/b1');
+    const t = taskFromNode(node({ kind: 'edit' }), brand);
     expect(t.kind).toBe('edit');
     expect(t.title.startsWith('Edit · ')).toBe(true);
   });
   it('says only what happened when the shot is in no set', () => {
     // the ordinary case now: no container to name, so no container is named
-    expect(taskFromNode(node({ setNames: [], status: 'done', images: ['h1'] }), '/b/b1').subtitle).toBe('1 image');
+    expect(taskFromNode(node({ setNames: [], status: 'done', images: ['h1'] }), brand).subtitle).toBe('1 image');
     // the fixture's createdAt is long in the past, so the honest staged copy is this, not "generating"
-    expect(taskFromNode(node({ setNames: [] }), '/b/b1').subtitle).toBe('taking longer than usual');
+    expect(taskFromNode(node({ setNames: [] }), brand).subtitle).toBe('taking longer than usual');
   });
   it('names every set a shot belongs to', () => {
     expect(
-      taskFromNode(node({ setNames: ['Spring', 'Packshots'], status: 'done', images: ['h1'] }), '/b/b1').subtitle,
+      taskFromNode(node({ setNames: ['Spring', 'Packshots'], status: 'done', images: ['h1'] }), brand).subtitle,
     ).toBe('Spring, Packshots · 1 image');
   });
   it('leaves the elapsed count to the time column', () => {
     // the row already carries the seconds on the right; twice is noise
-    expect(taskFromNode(node({ status: 'running' }), '/b/b1').subtitle).toBe('Spring · taking longer than usual');
+    expect(taskFromNode(node({ status: 'running' }), brand).subtitle).toBe('Spring · taking longer than usual');
   });
   it('names a cancelled shot instead of reporting an image count of zero', () => {
-    expect(taskFromNode(node({ setNames: [], status: 'cancelled' }), '/b/b1').subtitle).toBe('cancelled');
+    expect(taskFromNode(node({ setNames: [], status: 'cancelled' }), brand).subtitle).toBe('cancelled');
   });
   it('stages the running phrase by elapsed time', () => {
     const now = Date.parse('2026-08-04T12:00:10Z');
-    expect(taskFromNode(node({ setNames: [], status: 'running' }), '/b/b1', now).subtitle).toBe('generating');
+    expect(taskFromNode(node({ setNames: [], status: 'running' }), brand, now).subtitle).toBe('generating');
     const now30 = Date.parse('2026-08-04T12:00:30Z');
-    expect(taskFromNode(node({ setNames: [], status: 'running' }), '/b/b1', now30).subtitle).toBe('still generating');
+    expect(taskFromNode(node({ setNames: [], status: 'running' }), brand, now30).subtitle).toBe('still generating');
   });
 });
 
@@ -193,17 +196,20 @@ describe('catalogPercent', () => {
 
 describe('taskFromCatalogJob', () => {
   it('gets a real percent, because it has real counters', () => {
-    expect(taskFromCatalogJob(job({ stage: 'completed' }), '/b/b1').percent).toBe(100);
+    expect(taskFromCatalogJob(job({ stage: 'completed' }), brand).percent).toBe(100);
   });
   it('titles by host and maps stage to state', () => {
-    expect(taskFromCatalogJob(job(), '/b/b1').title).toBe('acme.example');
-    expect(taskFromCatalogJob(job({ stage: 'discovering' }), '/b/b1').state).toBe('running');
-    expect(taskFromCatalogJob(job({ stage: 'completed' }), '/b/b1').state).toBe('done');
-    expect(taskFromCatalogJob(job({ stage: 'partial' }), '/b/b1').state).toBe('partial');
-    expect(taskFromCatalogJob(job({ stage: 'failed' }), '/b/b1').state).toBe('error');
+    expect(taskFromCatalogJob(job(), brand).title).toBe('acme.example');
+    expect(taskFromCatalogJob(job({ stage: 'discovering' }), brand).state).toBe('running');
+    expect(taskFromCatalogJob(job({ stage: 'completed' }), brand).state).toBe('done');
+    expect(taskFromCatalogJob(job({ stage: 'partial' }), brand).state).toBe('partial');
+    expect(taskFromCatalogJob(job({ stage: 'failed' }), brand).state).toBe('error');
   });
   it('survives a url it cannot parse', () => {
-    expect(taskFromCatalogJob(job({ url: 'not a url' }), '/b/b1').title).toBe('not a url');
+    expect(taskFromCatalogJob(job({ url: 'not a url' }), brand).title).toBe('not a url');
+  });
+  it('points a finished catalog import at the kit, where the products landed', () => {
+    expect(taskFromCatalogJob(job({ stage: 'completed' }), brand).href).toBe('/b1/kit');
   });
 });
 

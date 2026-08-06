@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation, useMatch, useNavigate } from 'react-router';
 import { House, PlusCircle, Stack, UsersThree } from '@phosphor-icons/react';
 import { assetUrl, type Brand, type EngineInfo } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { brandPath } from '../app/brandPath.js';
+import { P, brandPath, hubPath, kitPath, looksPath } from '../routes.js';
 
 /**
  * The four destinations, and the credit maths, shared by the bar and the sheet.
@@ -29,32 +29,27 @@ export interface NavItem {
  */
 export function useMainNav(iconSize: number): NavItem[] {
   const { brand } = useBrand();
-  const { pathname: rawPathname } = useLocation();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
-  const base = brandPath(brand);
-  // location.pathname stays percent-encoded for a non-ASCII slug (Hebrew,
-  // Arabic, accented Latin — whatever a scraped or renamed brand's name
-  // slugifies to), while `base` is built from the brand's raw decoded slug.
-  // Comparing the two encoded/decoded left `rest` empty for every route on
-  // such a brand, and an empty `rest` reads as Home — the nav lit Home no
-  // matter which of these four screens you were actually on.
-  let pathname = rawPathname;
-  try {
-    pathname = decodeURIComponent(rawPathname);
-  } catch {
-    // a malformed sequence: fall back to the raw string rather than throw
-  }
-  const rest = pathname.startsWith(base) ? pathname.slice(base.length) : '';
+
+  // Asking the router where we are, rather than slicing the pathname against a
+  // string built from the brand's slug. That comparison had to reconcile a
+  // percent-encoded pathname with a decoded slug by hand, and when it got it
+  // wrong the remainder came back empty — which read as Home, so the nav lit
+  // Home on every one of these four screens. useMatch answers from the same
+  // patterns the route table is built from, so it cannot disagree with it.
+  // Hooks are taken unconditionally: React counts them by position.
+  const home = !!useMatch(P.brand);
+  // a set is the hub wearing a filter, so it lights the same lamp
+  const onHub = !!useMatch({ path: P.hub, end: false });
+  const inSet = !!useMatch({ path: P.set, end: false });
+  const create = onHub || inSet;
+  const looks = !!useMatch({ path: P.looks, end: false });
+  const brandPage = !!useMatch(P.kit);
 
   // the glyph fills where you are: a real Phosphor weight, not a stroked icon
   // told to fill, which thickens the counters and reads as a smudge
   const w = (on: boolean) => (on ? ('fill' as const) : ('regular' as const));
-
-  const home = rest === '' || rest === '/';
-  // a set is the hub wearing a filter, so it lights the same lamp
-  const create = rest.startsWith('/create') || rest.startsWith('/s/');
-  const looks = rest.startsWith('/looks');
-  const brandPage = rest.startsWith('/brand');
 
   return [
     {
@@ -62,7 +57,7 @@ export function useMainNav(iconSize: number): NavItem[] {
       label: 'Home',
       icon: <House size={iconSize} weight={w(home)} />,
       active: home,
-      go: () => navigate(base),
+      go: () => navigate(brandPath(brand)),
     },
     {
       key: 'create',
@@ -70,21 +65,21 @@ export function useMainNav(iconSize: number): NavItem[] {
       icon: <PlusCircle size={iconSize} weight={w(create)} />,
       active: create,
       // already there: put the caret in the brief rather than reload the screen
-      go: () => navigate(create ? `${pathname}?compose=1` : `${base}/create?compose=1`),
+      go: () => navigate(create ? `${pathname}?compose=1` : `${hubPath(brand)}?compose=1`),
     },
     {
       key: 'looks',
       label: 'Looks',
       icon: <Stack size={iconSize} weight={w(looks)} />,
       active: looks,
-      go: () => navigate(`${base}/looks`),
+      go: () => navigate(looksPath(brand)),
     },
     {
-      key: 'brand',
-      label: 'Brand',
+      key: 'kit',
+      label: 'Kit',
       icon: <UsersThree size={iconSize} weight={w(brandPage)} />,
       active: brandPage,
-      go: () => navigate(`${base}/brand`),
+      go: () => navigate(kitPath(brand)),
     },
   ];
 }

@@ -9,7 +9,7 @@ import { summarizeCredits, useMainNav } from './nav.js';
 import { api, type EngineInfo } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
-import { brandPath } from '../app/brandPath.js';
+import { P, brandPath, hubPath, setPath } from '../routes.js';
 
 /**
  * The one chrome bar, mounted once by BrandLayout. Three tracks: where you are,
@@ -25,10 +25,10 @@ export function TopBar() {
   const { engines } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
-  const set = useMatch({ path: '/b/:brandId/s/:setId', end: false });
+  const set = useMatch({ path: P.set, end: false });
   // taken unconditionally: a hook behind || is a hook that only sometimes runs,
   // and React counts them by position
-  const hub = useMatch({ path: '/b/:brandId/create', end: false });
+  const hub = useMatch({ path: P.hub, end: false });
   // the assets rail belongs to the hub alone. On Home it was furniture from a
   // screen you were not on.
   const onHub = !!hub || !!set;
@@ -44,7 +44,7 @@ export function TopBar() {
         </button>
         {set ? (
           <div className="sc-topbar-context">
-            <SetCrumb slug={set.params.setId ?? ''} />
+            <SetCrumb slug={set.params.setSlug ?? ''} />
           </div>
         ) : null}
       </div>
@@ -121,14 +121,14 @@ function SetCrumb({ slug }: { slug: string }) {
     // render where the list knew only the old slug and the URL still asked for
     // it, and /s/:slug read that as a deleted set and bounced to the feed
     applySet(saved);
-    navigate(brandPath(brand, `/s/${saved.slug}`), { replace: true });
+    navigate(setPath(brand, saved), { replace: true });
     void refresh();
   };
 
   const remove = async () => {
     await api.deleteSet(here.id);
     dropSet(here.id);
-    navigate(brandPath(brand, '/create'), { replace: true });
+    navigate(hubPath(brand), { replace: true });
     void refresh();
   };
 
@@ -161,12 +161,12 @@ function SetCrumb({ slug }: { slug: string }) {
       </DropdownMenu.Trigger>
       <DropdownMenu.Content>
         {/* the hub, not Home: leaving a set is dropping a filter, not leaving */}
-        <DropdownMenu.Item onSelect={() => navigate(brandPath(brand, '/create'))}>All shots</DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => navigate(hubPath(brand))}>All shots</DropdownMenu.Item>
         {sets.length > 1 && <DropdownMenu.Separator />}
         {sets
           .filter((s) => s.id !== here.id)
           .map((s) => (
-            <DropdownMenu.Item key={s.id} onSelect={() => navigate(brandPath(brand, `/s/${s.slug}`))}>
+            <DropdownMenu.Item key={s.id} onSelect={() => navigate(setPath(brand, s))}>
               {s.name}
             </DropdownMenu.Item>
           ))}
