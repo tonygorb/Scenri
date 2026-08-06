@@ -1,0 +1,12 @@
+{
+  "id": "studio-spotlit-vertical-stage",
+  "name": "Spotlit Vertical Stage",
+  "description": "A single top-down beam holds the subject in a tall dark stage, shadow pooling straight down. Vertical, theatrical, built for one hero object standing alone.",
+  "lighting": "Hard key light, sharp falling shadow",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": ["Apparel", "Sport", "Jewelry"],
+  "prompt": "isolated on a near-black vertical stage under one hard key light from above, a sharp shadow falling straight down, a narrow highlight along one edge of the form, tall dramatic negative space above and below, cinematic luxury-campaign realism",
+  "width": 1024,
+  "height": 1280
+}

@@ -81,18 +81,18 @@ describe('compileBrief', () => {
         tokens: [
           { t: 'product', id: 'p1' },
           { t: 'text', v: ' ' },
-          { t: 'template', id: 'morning-tabletop' },
+          { t: 'template', id: 'lived-in-sunlit-linen-corner' },
         ],
       },
       mkCtx(),
     );
     expect(r.prompt.match(/House Blend/g)).toHaveLength(1);
-    expect(r.prompt).toContain('early morning side light');
+    expect(r.prompt).toContain('warm diffused daylight with soft falloff');
   });
 
   it('a person-only look without anyone in the cast says so', () => {
     const personLook = {
-      ...allLooks.find((l) => l.id === 'morning-tabletop')!,
+      ...allLooks.find((l) => l.id === 'lived-in-sunlit-linen-corner')!,
       subject: 'person' as const,
       name: 'Test Portrait',
     };
@@ -192,7 +192,7 @@ describe('compileBrief', () => {
 
   it('a template writes the brief and free text becomes art direction', () => {
     const { looks: templates } = loadLooks(defaultLooksDir());
-    const template = templates.find((t) => t.id === 'seamless-sweep')!;
+    const template = templates.find((t) => t.id === 'studio-polished-pedestal')!;
     const r = compileBrief(
       {
         tokens: [
@@ -204,16 +204,16 @@ describe('compileBrief', () => {
       },
       ctx({ template }),
     );
-    expect(r.prompt).toContain('[Seamless Sweep]');
+    expect(r.prompt).toContain('[Polished Pedestal Studio]');
     expect(r.prompt).toContain('House Blend');
-    expect(r.prompt).toContain('seamless ivory cyclorama');
+    expect(r.prompt).toContain('tack-sharp studio-catalogue finish');
     expect(r.prompt).toContain('Art direction: keep it airy');
     expect([r.width, r.height]).toEqual([template.width, template.height]);
   });
 
   it('warns when a product-hungry template has no product, and when assets vanish', () => {
     const { looks: templates } = loadLooks(defaultLooksDir());
-    const template = templates.find((t) => t.id === 'seamless-sweep')!;
+    const template = templates.find((t) => t.id === 'studio-polished-pedestal')!;
     const noProduct = compileBrief({ tokens: [], templateId: template.id }, ctx({ template }));
     expect(noProduct.warnings.join(' ')).toContain('is built around a product');
 
@@ -332,7 +332,7 @@ describe('brief through the API', () => {
     const first = compileBrief(
       {
         tokens: [
-          { t: 'template', id: 'seamless-sweep' },
+          { t: 'template', id: 'studio-polished-pedestal' },
           { t: 'text', v: ' shot at dusk' },
         ],
       },
@@ -342,13 +342,13 @@ describe('brief through the API', () => {
       {
         tokens: [
           { t: 'text', v: 'shot at dusk ' },
-          { t: 'template', id: 'seamless-sweep' },
+          { t: 'template', id: 'studio-polished-pedestal' },
         ],
       },
       ctx,
     );
     // same words, different order: the recipe moves with the chip
-    expect(first.prompt.startsWith('Award-winning') || first.prompt.length > 40).toBe(true);
+    expect(first.prompt.startsWith('[Polished Pedestal Studio]') || first.prompt.length > 40).toBe(true);
     expect(first.prompt.endsWith('shot at dusk')).toBe(true);
     expect(last.prompt.startsWith('shot at dusk')).toBe(true);
     expect(first.prompt).not.toBe(last.prompt);
@@ -356,14 +356,14 @@ describe('brief through the API', () => {
     expect(first.width).toBe(last.width);
   });
 
-  it('a legacy templateId brief compiles exactly as before', () => {
+  it('a templateId brief compiles exactly as before', () => {
     const ctx = mkCtx();
-    const legacy = compileBrief(
-      { tokens: [{ t: 'text', v: 'warm light' }], templateId: 'studio-packshot' },
-      { ...ctx, template: byId.get('studio-packshot') },
+    const direct = compileBrief(
+      { tokens: [{ t: 'text', v: 'warm light' }], templateId: 'studio-polished-pedestal' },
+      { ...ctx, template: byId.get('studio-polished-pedestal') },
     );
-    expect(legacy.prompt.startsWith('[Seamless Sweep]')).toBe(true);
-    expect(legacy.prompt).toContain('Art direction: warm light');
+    expect(direct.prompt.startsWith('[Polished Pedestal Studio]')).toBe(true);
+    expect(direct.prompt).toContain('Art direction: warm light');
   });
 
   it('an unknown template token warns instead of vanishing silently', () => {
@@ -375,15 +375,15 @@ describe('brief through the API', () => {
     const out = compileBrief(
       {
         tokens: [
-          { t: 'template', id: 'seamless-sweep' },
-          { t: 'template', id: 'knolled-flat-lay' },
+          { t: 'template', id: 'studio-polished-pedestal' },
+          { t: 'template', id: 'cut-paper-stage' },
         ],
       },
       mkCtx(),
     );
     expect(out.warnings.join(' ')).toContain('was ignored');
-    expect(out.warnings.join(' ')).toContain('Seamless Sweep came first');
+    expect(out.warnings.join(' ')).toContain('Polished Pedestal Studio came first');
     // the second recipe never reaches the prompt
-    expect(out.prompt.toLowerCase()).not.toContain('knolling');
+    expect(out.prompt.toLowerCase()).not.toContain('graphic-design');
   });
 });

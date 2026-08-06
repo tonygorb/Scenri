@@ -1,0 +1,12 @@
+{
+  "id": "cut-paper-stage",
+  "name": "Cut-Paper Stage",
+  "description": "The subject sits where several sheets of sharply-angled, flat-colored paper converge, each plane a hard-edged saturated hue with no blending between them. A graphic-design-built stage, shot from a slightly elevated three-quarter angle so the planes recede visibly.",
+  "lighting": "Flat poster key, hard edges",
+  "subject": "product",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Beauty", "Electronics", "Accessories", "Sport"],
+  "prompt": "resting on a tiered set of overlapping colored paper planes cut at sharp angles, each plane a different saturated hue meeting in hard graphic edges, flat poster-style key light with no soft falloff, crisp architectural shadows stacking behind the subject, bold graphic-design editorial finish",
+  "width": 1024,
+  "height": 1280
+}

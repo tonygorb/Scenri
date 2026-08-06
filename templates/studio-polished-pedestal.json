@@ -1,0 +1,12 @@
+{
+  "id": "studio-polished-pedestal",
+  "name": "Polished Pedestal Studio",
+  "description": "A single object raised on a low pedestal at the center of a seamless pale ground, lit by one broad overhead wash with nothing to distract from the form. Clean, quiet, unmistakably neutral.",
+  "lighting": "Broad soft overhead wash",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": ["Home", "Beauty", "Electronics", "Accessories"],
+  "prompt": "on a low pedestal centered on a seamless pale grey backdrop, one broad soft overhead wash spread evenly with nothing punching through, a whisper of reflection on the surface below, generous untouched space on every side, tack-sharp studio-catalogue finish",
+  "width": 1024,
+  "height": 1024
+}

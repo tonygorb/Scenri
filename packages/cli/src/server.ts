@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyMultipart from '@fastify/multipart';
 import { randomUUID } from 'node:crypto';
@@ -221,11 +221,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   }));
   /** @deprecated kept one release so stored briefs and outside callers keep resolving. */
   app.get('/api/templates', async () => Promise.all(looks.map(decorate)));
+  // A generated look's own jpg can be regenerated at the same filename (a
+  // rejected preview, redone), so a long max-age alone would leave a stale
+  // copy in every browser cache for up to a day. An mtime-based ETag lets
+  // the cache stay long while still revalidating the moment the file changes.
+  const serveJpeg = (req: FastifyRequest, reply: FastifyReply, path: string) => {
+    const etag = `"${statSync(path).mtimeMs}"`;
+    reply.header('cache-control', 'public, max-age=86400, must-revalidate').header('etag', etag);
+    if (req.headers['if-none-match'] === etag) return reply.status(304).send();
+    return reply.header('content-type', 'image/jpeg').send(readFileSync(path));
+  };
   app.get('/api/template-previews/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
     if (!m || !existsSync(previewPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
-    reply.header('content-type', 'image/jpeg').header('cache-control', 'public, max-age=86400');
-    return reply.send(readFileSync(previewPath(m[1])));
+    return serveJpeg(req, reply, previewPath(m[1]));
   });
   // A look's reference set: several frames sharing one light, one per subject.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.
@@ -247,8 +256,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
     const slot = /^(ref-[0-9]{2})\.jpg$/.exec(String(p.file))?.[1];
     if (!id || !slot || !existsSync(refPath(id, slot))) return reply.status(404).send({ error: 'no frame' });
-    reply.header('content-type', 'image/jpeg').header('cache-control', 'public, max-age=86400');
-    return reply.send(readFileSync(refPath(id, slot)));
+    return serveJpeg(req, reply, refPath(id, slot));
   });
 
   // ---- brief compiler: the composer previews exactly what will run

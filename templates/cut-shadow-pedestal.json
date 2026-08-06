@@ -1,0 +1,12 @@
+{
+  "id": "cut-shadow-pedestal",
+  "name": "Cut-Shadow Pedestal",
+  "description": "The subject rests on a low plinth inside a single-color infinity cove, a hard gobo-cut spotlight throwing sharp graphic shadow shapes across the floor and back wall. A gallery-installation feeling hero shot, wide enough for the shadow graphics to breathe.",
+  "lighting": "Gobo-cut spot, saturated cove",
+  "subject": "product",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Electronics", "Home", "Beauty", "Fragrance"],
+  "prompt": "set on a low plinth inside a deep saturated color cove, a hard gobo-cut spotlight throwing sharp graphic shadow bars and cut-out shapes across the ground and background, high-contrast color blocking either side of the subject, wide stage-like negative space, gallery-installation product realism",
+  "width": 1600,
+  "height": 900
+}

@@ -1,0 +1,12 @@
+{
+  "id": "studio-sharp-shadow-stage",
+  "name": "Sharp Shadow Stage",
+  "description": "One hard key light carves the subject out of near-black, a sharp shadow doing half the storytelling. The family's first genuinely moody register — nothing about it reads as safe.",
+  "lighting": "Hard key light, sharp falling shadow",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": ["Electronics", "Fragrance", "Jewelry"],
+  "prompt": "on a dark seamless stage lit by one hard key light from the side, a sharp shadow falling cleanly across the ground, a narrow highlight catching just one edge of the form, everything outside the beam falling to near black, moody luxury-campaign realism",
+  "width": 1024,
+  "height": 1024
+}

@@ -1,0 +1,30 @@
+{
+  "id": "candid-banner-side-caption",
+  "name": "Candid Banner, Side Caption",
+  "description": "A wide banner frame in flat, unretouched daylight across a real, lived-in setting — the subject left of frame, handheld-feeling and unstyled, with the right third left open and evenly lit for a caption.",
+  "lighting": "Flat daylight, unretouched",
+  "subject": "either",
+  "collections": ["Social"],
+  "verticals": ["Food & drink", "Home", "Beauty", "Apparel"],
+  "prompt": "composed for a wide 16:9 banner, flat unretouched daylight across a real, lived-in setting, the subject positioned left of frame with the right third left open and evenly lit for a caption, handheld-feeling naturalism with no visible styling, absolutely no text or lettering rendered in the image",
+  "width": 1600,
+  "height": 900,
+  "fields": [
+    {
+      "key": "headline",
+      "label": "Headline",
+      "placeholder": "Real life, unfiltered"
+    }
+  ],
+  "textZones": [
+    {
+      "fieldKey": "headline",
+      "x": 64,
+      "y": 28,
+      "width": 30,
+      "size": 60,
+      "align": "left",
+      "weightHint": 700
+    }
+  ]
+}

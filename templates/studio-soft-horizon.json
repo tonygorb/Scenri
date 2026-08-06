@@ -1,0 +1,12 @@
+{
+  "id": "studio-soft-horizon",
+  "name": "Soft Horizon Backdrop",
+  "description": "The subject floats on a backdrop with no visible horizon, wrapped in one wide soft wash. The plainest, most flexible Look in the family — a blank stage for anything.",
+  "lighting": "Wide soft ambient wash",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": ["Home", "Sport", "Accessories"],
+  "prompt": "resting on a seamless pale backdrop with the horizon line fully dissolved, a wide soft ambient wash filling the frame evenly, a faint contact shadow directly beneath, wide open space surrounding the subject, clean commercial-catalogue realism",
+  "width": 1024,
+  "height": 1024
+}

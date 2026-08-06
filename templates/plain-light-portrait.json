@@ -1,0 +1,12 @@
+{
+  "id": "plain-light-portrait",
+  "name": "Plain Light Portrait",
+  "description": "Same seamless studio stage as the rest of the Cast set, standing three-quarter under flat, unmodified light with no shaping and no gloss. The plainest, least art-directed register in the family.",
+  "lighting": "Flat frontal light, no fill",
+  "subject": "person",
+  "collections": ["Cast"],
+  "verticals": ["Apparel", "Sport", "Accessories"],
+  "prompt": "standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, flat unmodified frontal light with no added fill or shaping, unposed and true-to-life color, no retouch-grade polish, documentary reportage grain",
+  "width": 1024,
+  "height": 1280
+}

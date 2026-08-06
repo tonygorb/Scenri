@@ -1,0 +1,12 @@
+{
+  "id": "lived-in-unstaged-kitchen-counter",
+  "name": "Unstaged Kitchen Counter",
+  "description": "Left on the counter beside a chipped mug, lit by whatever daylight happens to be in the room. No styling, no fill light — just an ordinary domestic moment.",
+  "lighting": "Available daylight only, no fill",
+  "subject": "product",
+  "collections": ["Lived-in"],
+  "verticals": ["Food & drink", "Home"],
+  "prompt": "left on a lived-in kitchen counter beside a chipped mug and a folded dish towel, available daylight only with no fill, ordinary clutter kept just out of focus at the edges, an unposed everyday moment, honest documentary realism",
+  "width": 1024,
+  "height": 1024
+}

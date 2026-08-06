@@ -22,9 +22,9 @@ const base = {
 };
 
 describe('look loader + composer', () => {
-  it('loads the 10 shipped looks, all valid, none naming a product', () => {
+  it('loads the 20 shipped looks, all valid, none naming a product', () => {
     const { looks, warnings } = loadLooks(defaultLooksDir());
-    expect(looks).toHaveLength(10);
+    expect(looks).toHaveLength(20);
     expect(warnings).toEqual([]);
     for (const l of looks) {
       expect(l.prompt).not.toContain('{product_name}');
@@ -60,11 +60,10 @@ describe('look loader + composer', () => {
   });
 
   it('resolves a look by a former id, so stored briefs keep working', () => {
-    const { looks } = loadLooks(defaultLooksDir());
+    const looks: Look[] = [{ ...base, id: 'new-id', aliases: ['old-id'] }];
     const resolve = lookResolver(looks);
-    expect(resolve('lifestyle-tabletop')?.id).toBe('morning-tabletop');
-    expect(resolve('studio-packshot')?.id).toBe('seamless-sweep');
-    expect(resolve('morning-tabletop')?.id).toBe('morning-tabletop');
+    expect(resolve('old-id')?.id).toBe('new-id');
+    expect(resolve('new-id')?.id).toBe('new-id');
     expect(resolve('never-existed')).toBeUndefined();
   });
 
@@ -72,6 +71,7 @@ describe('look loader + composer', () => {
     const { collections, verticals } = facetsOf(loadLooks(defaultLooksDir()).looks);
     expect(collections).toContain('Lived-in');
     expect(collections).toContain('Social');
+    expect(collections).toContain('Cast');
     expect(verticals).toContain('Beauty');
     expect(collections).toEqual([...collections].sort());
   });
@@ -186,16 +186,16 @@ describe('cast + look generation via API', () => {
   it('GET /api/looks carries the facets; the deprecated alias still returns a bare list', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/looks' });
     const body = res.json();
-    expect(body.looks).toHaveLength(10);
+    expect(body.looks).toHaveLength(20);
     expect(body.collections).toContain('Lived-in');
     expect(body.verticals).toContain('Beauty');
 
     const legacy = (await app.inject({ method: 'GET', url: '/api/templates' })).json();
     expect(Array.isArray(legacy)).toBe(true);
-    expect(legacy).toHaveLength(10);
+    expect(legacy).toHaveLength(20);
   });
 
-  it('a former id still resolves through the legacy generate route', async () => {
+  it('a look id resolves through the generate route', async () => {
     const brand = await newBrand();
     const withProduct = (await upload(brand.id, 'products', 'House Blend')).json();
     const productId = withProduct.json.products[0].id;
@@ -210,16 +210,16 @@ describe('cast + look generation via API', () => {
         projectId: proj.project.id,
         kind: 'generation',
         engineId: 'spy',
-        templateId: 'studio-packshot',
+        templateId: 'studio-polished-pedestal',
         productId,
         prompt: 'keep it airy',
       },
     });
     expect(res.statusCode).toBe(202);
-    expect(res.json().prompt).toContain('[Seamless Sweep]');
+    expect(res.json().prompt).toContain('[Polished Pedestal Studio]');
     await new Promise((r) => setTimeout(r, 50));
     expect(lastGen!.prompt).toContain('House Blend');
-    expect(lastGen!.prompt).toContain('seamless ivory cyclorama');
+    expect(lastGen!.prompt).toContain('tack-sharp studio-catalogue finish');
     expect(lastGen!.prompt).toContain('Art direction: keep it airy');
     expect(lastGen!.width).toBe(1024);
     expect(lastGen!.referenceImages).toHaveLength(1);
@@ -233,7 +233,12 @@ describe('cast + look generation via API', () => {
     const noProd = await app.inject({
       method: 'POST',
       url: '/api/nodes',
-      payload: { projectId: proj.project.id, kind: 'generation', engineId: 'spy', templateId: 'seamless-sweep' },
+      payload: {
+        projectId: proj.project.id,
+        kind: 'generation',
+        engineId: 'spy',
+        templateId: 'studio-polished-pedestal',
+      },
     });
     expect(noProd.statusCode).toBe(400);
     expect(noProd.json().error).toMatch(/needs a product/);
@@ -250,7 +255,7 @@ describe('cast + look generation via API', () => {
     expect(withSet.frames.length).toBeGreaterThan(0);
     expect(withSet.frames[0]).toMatch(/^\/api\/look-previews\/morning-tabletop\/ref-\d\d\.jpg$/);
 
-    const without = await app.inject({ method: 'GET', url: '/api/look-previews/brand-gradient' });
+    const without = await app.inject({ method: 'GET', url: '/api/look-previews/studio-polished-pedestal' });
     expect(without.statusCode).toBe(200);
     expect(without.json().frames).toEqual([]);
 

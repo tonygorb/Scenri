@@ -1,0 +1,12 @@
+{
+  "id": "soft-diffusion-portrait",
+  "name": "Soft Diffusion Portrait",
+  "description": "Same seamless studio stage as the rest of the Cast set, standing three-quarter under one broad soft frontal light with no hard shadow edge. Calm rather than glossy.",
+  "lighting": "Soft frontal diffusion, no shadow edge",
+  "subject": "person",
+  "collections": ["Cast"],
+  "verticals": ["Beauty", "Fragrance", "Sport"],
+  "prompt": "standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, one broad soft frontal light wrapping the face with no hard shadow edge, bare warm-toned skin, pale neutral wardrobe, calm unguarded expression, wellness-editorial finish with natural film grain",
+  "width": 1024,
+  "height": 1280
+}

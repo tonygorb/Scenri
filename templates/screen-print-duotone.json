@@ -1,0 +1,12 @@
+{
+  "id": "screen-print-duotone",
+  "name": "Screen-Print Duotone",
+  "description": "The subject reduced to a true two-ink duotone, halftone dot patterns standing in for tonal gradation, a slight deliberate registration offset at the edges — flat, frontal, and printed on coarse poster paper rather than photographed.",
+  "lighting": "Screened flash, halftone grain",
+  "subject": "either",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Apparel", "Sport", "Accessories", "Beauty"],
+  "prompt": "rendered as a two-ink screen-print poster, the subject reduced to bold halftone dot patterns in two contrasting saturated inks, visible registration offset at the edges, flat frontal composition like a pressed concert poster, coarse paper-grain texture, retro print-shop authenticity",
+  "width": 1080,
+  "height": 1920
+}

@@ -1,0 +1,12 @@
+{
+  "id": "suspended-color-field",
+  "name": "Suspended Color Field",
+  "description": "The subject hangs weightless at the centre of a saturated two-tone gradient, rim-lit from both sides with a fine drift of glowing particulate selling the hover. Campaign-hero framing with no ground plane at all.",
+  "lighting": "Dual-color rim, glow falloff",
+  "subject": "either",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Electronics", "Beauty", "Fragrance", "Accessories", "Jewelry"],
+  "prompt": "hovering weightless at the centre of a saturated two-tone color field, a fine drift of glowing dust catching a dual-color rim light, soft contact shadow dissolving into the gradient far below, generous negative space framing the subject, immaculate commercial-render clarity",
+  "width": 1024,
+  "height": 1024
+}

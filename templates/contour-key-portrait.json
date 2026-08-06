@@ -1,0 +1,12 @@
+{
+  "id": "contour-key-portrait",
+  "name": "Contour Key Portrait",
+  "description": "Same seamless studio stage as the rest of the Cast set, standing three-quarter with one hard side key drawing a graphic line across the face and body. Fashion-plate poise.",
+  "lighting": "Hard side key, graphic shadow edge",
+  "subject": "person",
+  "collections": ["Cast"],
+  "verticals": ["Apparel", "Accessories", "Jewelry", "Beauty"],
+  "prompt": "standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, one hard side key light cutting a graphic line down the face and body, a crisp controlled shadow falling across the far side, poised fashion-plate posture, chin lifted, tack-sharp editorial retouch, magazine-plate finish",
+  "width": 1024,
+  "height": 1280
+}
