@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Box, Flex, Spinner, Text } from '@radix-ui/themes';
-import { ArrowClockwise, WarningCircle } from '@phosphor-icons/react';
+import { ArrowClockwise, WarningCircle, XCircle } from '@phosphor-icons/react';
 import { imgUrl, type TextLayer, type TreeNode } from '../api.js';
 import { TextOverlayEditor } from '../editor/TextOverlayEditor.js';
 // one clock for the whole app: the canvas and the bell must not disagree
-import { elapsedSec } from '../tasks.js';
+import { elapsedSec, runningPhrase } from '../tasks.js';
 
 export function StageFrame({
   node,
@@ -14,10 +14,12 @@ export function StageFrame({
   onSelectLayer,
   onLayersChange,
   onRetry,
+  onCancel,
 }: {
   node: TreeNode;
   imageIndex: number;
   onRetry?: () => void;
+  onCancel?: () => void;
   layers: TextLayer[];
   selectedLayerId: string | null;
   onSelectLayer: (id: string | null) => void;
@@ -84,9 +86,32 @@ export function StageFrame({
           >
             <Spinner size="3" />
             <Text size="2" color="gray">
-              generating, {elapsedSec(node.createdAt)}s
+              {runningPhrase(node.createdAt)}, {elapsedSec(node.createdAt)}s
             </Text>
             <Text size="1" color="gray" style={{ maxWidth: 420, textAlign: 'center' }} truncate>
+              {node.prompt}
+            </Text>
+            {onCancel && (
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                data-urgent={elapsedSec(node.createdAt) >= 60 || undefined}
+                onClick={onCancel}
+              >
+                Cancel
+              </button>
+            )}
+          </Flex>
+        )}
+        {node.status === 'cancelled' && (
+          <Flex direction="column" gap="3" p="5" style={{ width: 'min(420px, 78vw)' }}>
+            <Flex align="center" gap="2">
+              <XCircle size={16} color="var(--sc-fg3)" weight="fill" />
+              <Text size="2" weight="medium">
+                Cancelled
+              </Text>
+            </Flex>
+            <Text size="1" style={{ color: 'var(--sc-fg2)', lineHeight: 1.5 }}>
               {node.prompt}
             </Text>
           </Flex>

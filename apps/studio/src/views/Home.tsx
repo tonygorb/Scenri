@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { Badge, Dialog } from '@radix-ui/themes';
 import { ImageSquare, Package, Sparkle, Star, UsersThree } from '@phosphor-icons/react';
-import { imgUrl, type Brand } from '../api.js';
+import { hasNoShots, imgUrl, type Brand } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
@@ -135,8 +135,11 @@ export function HomeView() {
 
         {/* loaded, so an empty brand is told it is empty rather than left blank */}
         {!loaded && <div className="sc-tplrow" aria-hidden />}
-        {loaded && recent.length === 0 && (
+        {loaded && hasNoShots(nodes) && (
           <p className="sc-feed-empty">Nothing yet. Start from scratch above, or pick a look.</p>
+        )}
+        {loaded && !hasNoShots(nodes) && recent.length === 0 && (
+          <p className="sc-feed-empty">Still working on your first shots. Check back in a moment.</p>
         )}
         {loaded && recent.length > 0 && (
           <div className="sc-recentrow">

@@ -4,6 +4,7 @@ import { Callout, DropdownMenu } from '@radix-ui/themes';
 import { CaretDown, FolderSimple, ImageSquare, Plus, SquaresFour } from '@phosphor-icons/react';
 import {
   api,
+  hasNoShots,
   nodeLabel,
   saveOverlaysOnUnload,
   type Brand,
@@ -33,6 +34,7 @@ import type { InspectorTab } from '../layout/Inspector.js';
  */
 export interface ShotContext {
   nodes: TreeNode[];
+  loaded: boolean;
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
@@ -41,6 +43,7 @@ export interface ShotContext {
   close: () => void;
   select: (id: string) => void;
   retry: (node: TreeNode) => void;
+  cancel: (node: TreeNode) => void;
   reload: () => void;
   remix: (node: TreeNode) => void;
   branch: (node: TreeNode) => void;
@@ -138,12 +141,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * variant index is the one part of it this owns.
    */
   const openShot = useCallback(
-    (id: string, i = 0) => {
+    (id: string, i = 0, replace = false) => {
       const p = new URLSearchParams(params);
       if (i > 0) p.set('i', String(i));
       else p.delete('i');
       const q = p.toString();
-      navigate(`${base}/n/${id}${q ? `?${q}` : ''}`);
+      navigate(`${base}/n/${id}${q ? `?${q}` : ''}`, { replace });
     },
     [base, navigate, params],
   );
@@ -152,7 +155,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     // the variant was about the shot that is closing, the rest is about the view
     p.delete('i');
     const q = p.toString();
-    navigate(`${base}${q ? `?${q}` : ''}`);
+    // replace, not push: every in-overlay navigation since the initial open
+    // has itself replaced rather than pushed, so this is the one entry to
+    // consume, making X and the browser's Back button interchangeable
+    navigate(`${base}${q ? `?${q}` : ''}`, { replace: true });
   }, [base, navigate, params]);
 
   const lens: Lens = lensParam === 'keepers' || lensParam === 'ungrouped' ? lensParam : 'all';
@@ -325,6 +331,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     setSelectedId(id);
     setIParam(null);
   };
+  /**
+   * The overlay-context equivalent of `openShot`: the lineage filmstrip,
+   * Prev/Next, the parent chip and arrow keys all move to a different shot
+   * while already looking at one, so the URL has to move with them (replace,
+   * so ten steps through a run don't become ten Back presses to leave it).
+   * Arrow keys also walk the closed canvas grid, where there is no overlay
+   * route to update; `select`'s plain local-state move still owns that case.
+   */
+  const goToShot = (id: string) => (nodeId ? openShot(id, 0, true) : select(id));
   const setImageIndex = (i: number) => setIParam(i === 0 ? null : String(i));
 
   // hydrate editable layers when the edited surface changes
@@ -433,8 +448,18 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       prompt: node.prompt,
       engineId: node.engineId,
       count: Math.max(1, node.images.length || 1),
+      brief: node.brief,
     });
     await reload();
+  };
+
+  const cancel = async (node: TreeNode) => {
+    try {
+      await api.cancelNode(node.id);
+      await reload();
+    } catch (e: any) {
+      push({ kind: 'error', title: 'Could not cancel this shot', detail: String(e.message ?? e) });
+    }
   };
 
   const liftText = async (node: TreeNode) => {
@@ -474,7 +499,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       }));
       await api.saveOverlays(child.id, { '0': layers });
       await reload();
-      select(child.id);
+      goToShot(child.id);
     } finally {
       setLifting(false);
     }
@@ -562,18 +587,18 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       const sibs = (byParent.get(selected.parentId) ?? []).filter((n) => n.kind !== 'root');
       const i = sibs.findIndex((n) => n.id === selected.id);
       if (e.key === 'ArrowLeft' && i > 0) {
-        select(sibs[i - 1].id);
+        goToShot(sibs[i - 1].id);
         e.preventDefault();
       } else if (e.key === 'ArrowRight' && i >= 0 && i < sibs.length - 1) {
-        select(sibs[i + 1].id);
+        goToShot(sibs[i + 1].id);
         e.preventDefault();
       } else if (e.key === 'ArrowUp' && selected.parentId) {
-        select(selected.parentId);
+        goToShot(selected.parentId);
         e.preventDefault();
       } else if (e.key === 'ArrowDown') {
         const kids = byParent.get(selected.id) ?? [];
         if (kids.length) {
-          select(kids[0].id);
+          goToShot(kids[0].id);
           e.preventDefault();
         }
       } else if (e.key === '[' && imageIndex > 0) setImageIndex(imageIndex - 1);
@@ -620,11 +645,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   };
 
   const newSetWith = async (nodeIds: string[]) => {
-    const made = await api.createSet(brand.id, 'Untitled set');
-    if (nodeIds.length > 0) await api.addToSet(made.id, nodeIds);
-    setPicked(new Set());
-    await reload();
-    navigate(brandPath(brand, `/s/${made.slug}?rename=1`));
+    try {
+      const made = await api.createSet(brand.id, 'Untitled set');
+      if (nodeIds.length > 0) await api.addToSet(made.id, nodeIds);
+      setPicked(new Set());
+      await reload();
+      navigate(brandPath(brand, `/s/${made.slug}?rename=1`));
+    } catch (e: any) {
+      push({ kind: 'error', title: 'Could not create the set', detail: String(e?.message ?? e) });
+    }
   };
 
   /**
@@ -635,27 +664,28 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * The brand being empty outranks the lens: "star a shot to make it a keeper"
    * is useless advice when there is no shot to star.
    */
-  const emptyState =
-    shots.length === 0 ? (
-      <FirstRun looks={templates} brandId={brand.id} onLook={(id) => compose({ look: id })} />
-    ) : set ? (
-      <LensEmpty text="Nothing in this set yet. Pick shots on All, then add them here." />
-    ) : lens === 'keepers' ? (
-      <LensEmpty text="No keepers yet. Star a shot and it lands here." onAll={() => setLens(null)} />
-    ) : lens === 'ungrouped' ? (
-      <LensEmpty text="Every shot is already in a set." onAll={() => setLens(null)} />
-    ) : null;
+  const emptyState = hasNoShots(shots) ? (
+    <FirstRun looks={templates} brandId={brand.id} onLook={(id) => compose({ look: id })} />
+  ) : set ? (
+    <LensEmpty text="Nothing in this set yet. Pick shots on All, then add them here." />
+  ) : lens === 'keepers' ? (
+    <LensEmpty text="No keepers yet. Star a shot and it lands here." onAll={() => setLens(null)} />
+  ) : lens === 'ungrouped' ? (
+    <LensEmpty text="Every shot is already in a set." onAll={() => setLens(null)} />
+  ) : null;
 
   const shotContext: ShotContext = {
     nodes: allNodes,
+    loaded,
     brand,
     engines,
     projectId,
     imageIndex,
     setImageIndex,
     close: closeShot,
-    select,
+    select: goToShot,
     retry: (n) => void retry(n),
+    cancel: (n) => void cancel(n),
     reload: () => void reload(),
     remix: (n) => {
       setRemixBrief({ ...n.brief, _at: Date.now() });
@@ -717,6 +747,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           selectedId={selected?.id ?? null}
           onOpen={openShot}
           onRetry={(n) => void retry(n)}
+          onCancel={(n) => void cancel(n)}
+          brandId={brand.id}
           setsFor={(id) => setsByNode.get(id) ?? []}
           picked={picked}
           onPick={togglePick}

@@ -13,6 +13,7 @@ import {
   Star,
   WarningCircle,
   X,
+  XCircle,
 } from '@phosphor-icons/react';
 import { Spinner } from '@radix-ui/themes';
 import {
@@ -51,6 +52,7 @@ export function DetailOverlay({
   onClose,
   onSelect,
   onRetry,
+  onCancel,
   onChanged,
   onRemix,
   onBranch,
@@ -74,6 +76,7 @@ export function DetailOverlay({
   onClose: () => void;
   onSelect: (id: string) => void;
   onRetry: (n: TreeNode) => void;
+  onCancel: (n: TreeNode) => void;
   onChanged: () => void;
   onRemix: (n: TreeNode) => void;
   /** Point the brief at this shot and stand back so you can see it. */
@@ -147,7 +150,8 @@ export function DetailOverlay({
       key={n.id}
       className="sc-fr"
       data-current={current}
-      data-failed={n.status === 'error' || (!n.images[0] && n.status !== 'running')}
+      data-failed={n.status === 'error' || (!n.images[0] && n.status !== 'running' && n.status !== 'cancelled')}
+      data-cancelled={n.status === 'cancelled' && !n.images[0]}
       title={nodeLabel(n)}
       onClick={() => onSelect(n.id)}
     >
@@ -155,6 +159,8 @@ export function DetailOverlay({
         <img src={imgUrl(n.images[0])} alt="" />
       ) : n.status === 'running' ? (
         <span className="sc-shimmer" />
+      ) : n.status === 'cancelled' ? (
+        <XCircle size={13} />
       ) : (
         <WarningCircle size={13} />
       )}
@@ -238,7 +244,14 @@ export function DetailOverlay({
             <button
               type="button"
               className="sc-icon-btn"
-              onClick={() => void api.keep(node.id, !node.kept).then(onChanged)}
+              onClick={() =>
+                void api
+                  .keep(node.id, !node.kept)
+                  .then(onChanged)
+                  .catch((e) =>
+                    push({ kind: 'error', title: 'Could not update keeper status', detail: String(e.message ?? e) }),
+                  )
+              }
               aria-label={node.kept ? 'Remove from keepers' : 'Keep'}
               title={node.kept ? 'Keeper' : 'Keep'}
               style={node.kept ? { color: 'var(--sc-star)' } : undefined}
@@ -275,6 +288,7 @@ export function DetailOverlay({
           node={node}
           imageIndex={imageIndex}
           onRetry={() => onRetry(node)}
+          onCancel={() => onCancel(node)}
           layers={layers}
           selectedLayerId={selectedLayerId}
           onSelectLayer={onSelectLayer}

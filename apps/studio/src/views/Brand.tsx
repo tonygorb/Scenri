@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertDialog, Button, Flex } from '@radix-ui/themes';
+import { AlertDialog, Button, Flex, Spinner } from '@radix-ui/themes';
 import { ImageSquare, Star, TrashSimple } from '@phosphor-icons/react';
 import { api, assetUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks, toggleFavoriteLook } from '../favorites.js';
+import { useToasts } from '../toasts.js';
 
 const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
 
@@ -15,7 +16,9 @@ export function BrandView() {
   const { looks: templates, loaded: looksLoaded, refresh } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
+  const { push } = useToasts();
   const [favs, setFavs] = useState<string[]>(() => favoriteLooks(brand.id));
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setFavs(favoriteLooks(brand.id));
@@ -158,14 +161,24 @@ export function BrandView() {
                   <AlertDialog.Action>
                     <Button
                       color="red"
-                      onClick={() =>
+                      disabled={deleting}
+                      onClick={() => {
+                        setDeleting(true);
                         void api
                           .deleteBrand(brand.id)
                           .then(refresh)
                           .then(() => navigate('/', { replace: true }))
-                      }
+                          .catch((e) => {
+                            setDeleting(false);
+                            push({
+                              kind: 'error',
+                              title: 'Could not delete this brand',
+                              detail: String(e.message ?? e),
+                            });
+                          });
+                      }}
                     >
-                      Delete brand
+                      {deleting ? <Spinner size="1" /> : 'Delete brand'}
                     </Button>
                   </AlertDialog.Action>
                 </Flex>

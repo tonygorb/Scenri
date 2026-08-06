@@ -486,6 +486,7 @@ export const Composer = forwardRef<
       }
     } catch (e: any) {
       setErr(String(e.message ?? e));
+      push({ kind: 'error', title: 'Could not attach that image', detail: String(e.message ?? e) });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';

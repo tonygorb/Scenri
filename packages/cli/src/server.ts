@@ -60,6 +60,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // are still running, not just recorded cost_events, or N parallel requests
   // all pass the cap check against the same stale spend.
   const reserved = new Map<string, number>();
+  // In-flight generations by node id, mirroring catalogImport.ts's own running
+  // map: a node only ever leaves 'running' via the promise this map tracks, so
+  // cancelling it is looking the controller up and aborting it.
+  const runningGenerations = new Map<string, AbortController>();
   const { looks } = loadLooks(opts.templatesDir);
   // resolves a look by its id or by any id it used to answer to
   const resolveLook = lookResolver(looks);
@@ -426,18 +430,25 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     nodeId: string,
     engine: EngineAdapter,
     estimate: number,
-    work: () => Promise<{ images: string[]; costUsd: number }>,
+    work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number }>,
   ) {
     const engineId = engine.capabilities().id;
     reserved.set(engineId, (reserved.get(engineId) ?? 0) + estimate);
+    const ctrl = new AbortController();
+    runningGenerations.set(nodeId, ctrl);
     try {
-      const result = await work();
+      const result = await work(ctrl.signal);
       result.images = await normalizePngs(result.images);
       core.store.completeNode(nodeId, result);
       core.ledger.recordCost(engineId, nodeId, result.costUsd);
     } catch (err: any) {
-      core.store.failNode(nodeId, String(err?.message ?? err));
+      // the signal is the source of truth for "was this a cancel", not the
+      // error shape, which differs across engines (fetch's AbortError, a
+      // killed child process, a stopped poll loop)
+      if (ctrl.signal.aborted) core.store.cancelNode(nodeId);
+      else core.store.failNode(nodeId, String(err?.message ?? err));
     } finally {
+      runningGenerations.delete(nodeId);
       const left = (reserved.get(engineId) ?? 0) - estimate;
       if (left > 1e-9) reserved.set(engineId, left);
       else reserved.delete(engineId);
@@ -517,7 +528,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
 
     let estimate: number;
-    let work: () => Promise<{ images: string[]; costUsd: number }>;
+    let work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number }>;
 
     if (compiled) {
       finalPrompt = compiled.prompt;
@@ -537,7 +548,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ...(referenceImages && cap > 0 ? { referenceImages: referenceImages.slice(0, cap) } : {}),
       };
       estimate = await engine.costEstimate(genReq);
-      work = () => engine.generate(genReq);
+      work = (signal) => engine.generate(genReq, signal);
     } else {
       const parent = core.store.getNode(resolvedParentId);
       const srcHash = (req.body as any).sourceImage ?? parent?.images[0];
@@ -553,7 +564,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ...(referenceImages && cap > 0 ? { referenceImages: referenceImages.slice(0, cap) } : {}),
       };
       estimate = await engine.costEstimate(editReq);
-      work = () => engine.edit(editReq);
+      work = (signal) => engine.edit(editReq, signal);
     }
 
     // throws 402 via handler; include estimates of everything still in flight
@@ -571,6 +582,16 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // even that failed — log it, but never let it reach the process unhandled.
     void runNode(node.id, engine, estimate, work).catch((err) => app.log.error({ err }, 'node run failed'));
     return reply.status(202).send(node);
+  });
+
+  app.post('/api/nodes/:id/cancel', async (req, reply) => {
+    const id = (req.params as any).id;
+    const n = core.store.getNode(id);
+    if (!n) return reply.status(404).send({ error: 'node not found' });
+    const ctrl = runningGenerations.get(id);
+    if (!ctrl) return reply.status(400).send({ error: 'not running' });
+    ctrl.abort();
+    return { ok: true };
   });
 
   app.get('/api/nodes/:id', async (req, reply) => {

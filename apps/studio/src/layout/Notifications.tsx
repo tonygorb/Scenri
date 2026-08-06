@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router';
 import { Popover } from '@radix-ui/themes';
-import { Bell, ImageSquare, Storefront, WarningCircle } from '@phosphor-icons/react';
-import { imgUrl } from '../api.js';
+import { Bell, ImageSquare, Storefront, WarningCircle, XCircle } from '@phosphor-icons/react';
+import { api, imgUrl } from '../api.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
-import { agoLabel, elapsedLabel, type NotificationItem, type Task } from '../tasks.js';
+import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../tasks.js';
+import { useToasts } from '../toasts.js';
 
 /**
  * The bell, and the two lists behind it.
@@ -110,10 +111,22 @@ function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
 function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
   const { tasks, feed, unread, clearFeed } = useTaskCenter();
   const navigate = useNavigate();
+  const { push } = useToasts();
   const [tab, setTab] = useState<TabKey>('tasks');
   const tabsRef = useRef<HTMLDivElement>(null);
   // seconds tick on their own; the poll is slower than the clock
   const now = useNow(1000);
+
+  // a node task's id is `node:<uuid>`; the next poll tick (TaskCenter's own
+  // 1.5s interval while anything is running) picks up the resulting status
+  // change on its own, so this has nothing else to do once the call lands
+  const cancelTask = (taskId: string) => {
+    const nodeId = taskId.startsWith('node:') ? taskId.slice(5) : null;
+    if (!nodeId) return;
+    void api
+      .cancelNode(nodeId)
+      .catch((e) => push({ kind: 'error', title: 'Could not cancel this shot', detail: String(e.message ?? e) }));
+  };
 
   // opening on Tasks must not silently clear the badge: the mark belongs to the
   // list you actually looked at
@@ -165,7 +178,7 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
           tasks.length === 0 ? (
             <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
           ) : (
-            tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onOpen={open} />)
+            tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onOpen={open} onCancel={cancelTask} />)
           )
         ) : feed.length === 0 ? (
           <p className="sc-notif-empty">You have no notifications yet.</p>
@@ -220,37 +233,67 @@ function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'
   if (task.thumb) return <img src={imgUrl(task.thumb)} alt="" />;
   if (task.state === 'running') return <span className="sc-shimmer" />;
   if (task.state === 'error') return <WarningCircle size={17} weight="fill" />;
+  if (task.state === 'cancelled') return <XCircle size={17} color="var(--sc-fg3)" />;
   if (task.kind === 'catalog') return <Storefront size={17} />;
   return <ImageSquare size={17} />;
 }
 
-function TaskRow({ task, now, onOpen }: { task: Task; now: number; onOpen: (href: string) => void }) {
+function TaskRow({
+  task,
+  now,
+  onOpen,
+  onCancel,
+}: {
+  task: Task;
+  now: number;
+  onOpen: (href: string) => void;
+  onCancel: (taskId: string) => void;
+}) {
   const running = task.state === 'running';
+  const nodeTask = task.id.startsWith('node:');
+  // past 60s, the cancel control is the one thing on this row worth making
+  // louder than the rest, since it is the only way out of a stuck run
+  const urgent = running && elapsedSec(task.startedAt, now) >= 60;
   return (
-    <button
-      type="button"
-      className="sc-notif-row"
-      data-state={task.state}
-      data-running={running || undefined}
-      disabled={!task.href}
-      onClick={() => task.href && onOpen(task.href)}
-    >
-      <span className="sc-notif-thumb">
-        <Thumb task={task} />
-      </span>
-      <span className="sc-notif-txt">
-        <b dir="auto">{task.title}</b>
-        <small dir="auto">{task.subtitle}</small>
-        {running && task.percent !== null ? (
-          <span className="sc-notif-meter">
-            <div style={{ width: `${task.percent}%` }} />
-          </span>
-        ) : null}
-      </span>
-      <span className="sc-notif-time">
-        {running ? elapsedLabel(task.startedAt, now) : agoLabel(task.startedAt, now)}
-      </span>
-    </button>
+    <div className="sc-notif-row-wrap">
+      <button
+        type="button"
+        className="sc-notif-row"
+        data-state={task.state}
+        data-running={running || undefined}
+        disabled={!task.href}
+        onClick={() => task.href && onOpen(task.href)}
+      >
+        <span className="sc-notif-thumb">
+          <Thumb task={task} />
+        </span>
+        <span className="sc-notif-txt">
+          <b dir="auto">{task.title}</b>
+          <small dir="auto">{task.subtitle}</small>
+          {running && task.percent !== null ? (
+            <span className="sc-notif-meter">
+              <div style={{ width: `${task.percent}%` }} />
+            </span>
+          ) : null}
+        </span>
+        <span className="sc-notif-time">
+          {running ? elapsedLabel(task.startedAt, now) : agoLabel(task.startedAt, now)}
+        </span>
+      </button>
+      {running && nodeTask && (
+        <button
+          type="button"
+          className="sc-notif-row-cancel"
+          data-urgent={urgent || undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCancel(task.id);
+          }}
+        >
+          Cancel
+        </button>
+      )}
+    </div>
   );
 }
 

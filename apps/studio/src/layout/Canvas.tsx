@@ -1,7 +1,8 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { Check, GitBranch, Stack, Star, WarningCircle } from '@phosphor-icons/react';
-import { imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
-import { elapsedSec } from '../tasks.js';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { Check, GitBranch, Stack, Star, WarningCircle, XCircle } from '@phosphor-icons/react';
+import { hasNoShots, imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
+import { dismissedIds, dismissNode } from '../dismissed.js';
+import { elapsedSec, runningPhrase } from '../tasks.js';
 
 /**
  * The feed: every shot the current lens admits, as a masonry tile.
@@ -13,6 +14,8 @@ export function Canvas({
   selectedId,
   onOpen,
   onRetry,
+  onCancel,
+  brandId,
   setsFor,
   picked,
   onPick,
@@ -31,6 +34,8 @@ export function Canvas({
   /** The variant index is how a stacked run opens on the one you clicked. */
   onOpen: (id: string, imageIndex?: number) => void;
   onRetry: (node: TreeNode) => void;
+  onCancel?: (node: TreeNode) => void;
+  brandId: string;
   /** The sets a shot is in, for the tile's own label. */
   setsFor?: (id: string) => ShotSet[];
   picked?: Set<string>;
@@ -61,7 +66,9 @@ export function Canvas({
   /** Target column width in px, from the grid-size slider. */
   tile: number;
 }) {
-  const shots = nodes.filter((n) => n.kind !== 'root');
+  const [dismissTick, setDismissTick] = useState(0);
+  const dismissed = useMemo(() => new Set(dismissedIds(brandId)), [brandId, dismissTick]);
+  const shots = nodes.filter((n) => n.kind !== 'root' && !dismissed.has(n.id));
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const picking = !!onPick;
   // a callback ref rather than useRef: the feed is not in the tree at all while
@@ -88,23 +95,81 @@ export function Canvas({
       if (n.status === 'running') {
         return [
           <div key={n.id} className="sc-cell" data-running="true">
-            <span className="sc-shimmer" />
-            <RunningTag since={n.createdAt} />
+            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
+              <span className="sc-shimmer" />
+              <RunningTag since={n.createdAt} />
+              {onCancel && (
+                <button
+                  type="button"
+                  className="sc-cell-retry"
+                  data-urgent={elapsedSec(n.createdAt) >= 60 || undefined}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCancel(n);
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </button>
+          </div>,
+        ];
+      }
+      if (n.status === 'cancelled') {
+        return [
+          <div key={n.id} className="sc-cell" data-cancelled="true" data-selected={n.id === selectedId}>
+            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
+              <span className="sc-cell-failed">
+                <XCircle size={16} />
+                <span>Cancelled</span>
+                <button
+                  type="button"
+                  className="sc-cell-retry"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissNode(brandId, n.id);
+                    setDismissTick((t) => t + 1);
+                  }}
+                >
+                  Dismiss
+                </button>
+              </span>
+            </button>
           </div>,
         ];
       }
       if (n.status === 'error' || n.images.length === 0) {
         return [
           <div key={n.id} className="sc-cell" data-failed="true" data-selected={n.id === selectedId}>
-            <span className="sc-cell-failed">
-              <WarningCircle size={16} />
-              <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {n.error?.slice(0, 40) || 'Failed'}
+            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
+              <span className="sc-cell-failed">
+                <WarningCircle size={16} />
+                <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {n.error?.slice(0, 40) || 'Failed'}
+                </span>
+                <button
+                  type="button"
+                  className="sc-cell-retry"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRetry(n);
+                  }}
+                >
+                  Try again
+                </button>
+                <button
+                  type="button"
+                  className="sc-cell-retry"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissNode(brandId, n.id);
+                    setDismissTick((t) => t + 1);
+                  }}
+                >
+                  Dismiss
+                </button>
               </span>
-              <button type="button" className="sc-cell-retry" onClick={() => onRetry(n)}>
-                Try again
-              </button>
-            </span>
+            </button>
           </div>,
         ];
       }
@@ -247,8 +312,10 @@ export function Canvas({
   ];
 
   // a first shot on a brand new brand has to have somewhere to appear, so the
-  // stand-in outranks the empty state rather than waiting behind it
-  if (tiles.length === 0) return <>{empty ?? <p className="sc-feed-empty">Nothing here yet.</p>}</>;
+  // stand-in outranks the empty state rather than waiting behind it. `shots`
+  // rather than `nodes`: dismissing every visible failed/cancelled shot must
+  // still land on the empty state, not a blank column with nothing in it.
+  if (hasNoShots(shots) && !sending) return <>{empty ?? <p className="sc-feed-empty">Nothing here yet.</p>}</>;
 
   /**
    * Never more columns than there are tiles to put in them, or the row ends in
@@ -324,5 +391,9 @@ function RunningTag({ since }: { since: string }) {
   }, []);
   // new Date() read SQLite's zone-less UTC as local time, so this counter used
   // to start at the timezone offset instead of at zero
-  return <span className="sc-cell-tag">generating · {elapsedSec(since, now)}s</span>;
+  return (
+    <span className="sc-cell-tag">
+      {runningPhrase(since, now)} · {elapsedSec(since, now)}s
+    </span>
+  );
 }

@@ -161,6 +161,54 @@ CREATE INDEX IF NOT EXISTS idx_import_jobs_brand ON import_jobs(brand_id);
 `;
 
 /**
+ * Sqlite has no ALTER TABLE for a CHECK constraint, so a rebuild is the only
+ * way to let 'cancelled' sit alongside the original three statuses. Guarded by
+ * reading the table back from sqlite_master rather than a version flag, so a
+ * database already rebuilt (or created fresh, past this point) does nothing.
+ *
+ * foreign_keys must be off for the swap: sqlite enforces FKs against DDL too,
+ * and set_nodes.node_id still points at the table being dropped mid-rebuild.
+ * That pragma cannot change inside a transaction, so it brackets one instead
+ * of living inside it.
+ */
+function widenNodeStatusCheck(db: DB): void {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='nodes'").get() as
+    | { sql: string }
+    | undefined;
+  if (!row || row.sql.includes("'cancelled'")) return;
+
+  db.pragma('foreign_keys = OFF');
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE nodes_new (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        parent_id TEXT REFERENCES nodes_new(id),
+        kind TEXT NOT NULL CHECK (kind IN ('root','generation','edit')),
+        prompt TEXT NOT NULL DEFAULT '',
+        engine_id TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','error','cancelled')),
+        images TEXT NOT NULL DEFAULT '[]',
+        cost_usd REAL NOT NULL DEFAULT 0,
+        kept INTEGER NOT NULL DEFAULT 0,
+        error TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        overlays TEXT NOT NULL DEFAULT '{}',
+        brief TEXT
+      );
+      INSERT INTO nodes_new
+        SELECT id, project_id, parent_id, kind, prompt, engine_id, status, images, cost_usd, kept, error,
+               created_at, overlays, brief
+        FROM nodes;
+      DROP TABLE nodes;
+      ALTER TABLE nodes_new RENAME TO nodes;
+      CREATE INDEX IF NOT EXISTS idx_nodes_project ON nodes(project_id);
+    `);
+  })();
+  db.pragma('foreign_keys = ON');
+}
+
+/**
  * Slugs are the address bar now, so every row needs one and no two rows in the
  * same scope may share it — otherwise a link opens the wrong project.
  *
@@ -301,6 +349,7 @@ export function openDb(homeDir: string): DB {
   if (!projectCols.includes('slug')) {
     db.exec('ALTER TABLE projects ADD COLUMN slug TEXT');
   }
+  widenNodeStatusCheck(db);
   backfillSlugs(db);
   // after the backfill, so a set can inherit the slug its project already has
   collapseProjects(db);

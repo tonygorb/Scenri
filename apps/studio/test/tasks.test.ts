@@ -10,6 +10,7 @@ import {
   mergeFeed,
   orderTasks,
   parseTime,
+  runningPhrase,
   saveFeed,
   saveSeen,
   settled,
@@ -109,6 +110,23 @@ describe('time', () => {
   });
 });
 
+describe('runningPhrase', () => {
+  const t0 = Date.UTC(2026, 7, 4, 12, 0, 0);
+  const at = '2026-08-04T12:00:00Z';
+  it('is plain "generating" under 20s', () => {
+    expect(runningPhrase(at, t0)).toBe('generating');
+    expect(runningPhrase(at, t0 + 19_000)).toBe('generating');
+  });
+  it('becomes "still generating" from 20s up to 60s', () => {
+    expect(runningPhrase(at, t0 + 20_000)).toBe('still generating');
+    expect(runningPhrase(at, t0 + 59_000)).toBe('still generating');
+  });
+  it('becomes "taking longer than usual" at 60s and beyond', () => {
+    expect(runningPhrase(at, t0 + 60_000)).toBe('taking longer than usual');
+    expect(runningPhrase(at, t0 + 5 * 60_000)).toBe('taking longer than usual');
+  });
+});
+
 describe('taskFromNode', () => {
   it('never invents a percent for a generation', () => {
     expect(taskFromNode(node(), '/b/b1').percent).toBeNull();
@@ -133,7 +151,8 @@ describe('taskFromNode', () => {
   it('says only what happened when the shot is in no set', () => {
     // the ordinary case now: no container to name, so no container is named
     expect(taskFromNode(node({ setNames: [], status: 'done', images: ['h1'] }), '/b/b1').subtitle).toBe('1 image');
-    expect(taskFromNode(node({ setNames: [] }), '/b/b1').subtitle).toBe('generating');
+    // the fixture's createdAt is long in the past, so the honest staged copy is this, not "generating"
+    expect(taskFromNode(node({ setNames: [] }), '/b/b1').subtitle).toBe('taking longer than usual');
   });
   it('names every set a shot belongs to', () => {
     expect(
@@ -142,7 +161,16 @@ describe('taskFromNode', () => {
   });
   it('leaves the elapsed count to the time column', () => {
     // the row already carries the seconds on the right; twice is noise
-    expect(taskFromNode(node({ status: 'running' }), '/b/b1').subtitle).toBe('Spring · generating');
+    expect(taskFromNode(node({ status: 'running' }), '/b/b1').subtitle).toBe('Spring · taking longer than usual');
+  });
+  it('names a cancelled shot instead of reporting an image count of zero', () => {
+    expect(taskFromNode(node({ setNames: [], status: 'cancelled' }), '/b/b1').subtitle).toBe('cancelled');
+  });
+  it('stages the running phrase by elapsed time', () => {
+    const now = Date.parse('2026-08-04T12:00:10Z');
+    expect(taskFromNode(node({ setNames: [], status: 'running' }), '/b/b1', now).subtitle).toBe('generating');
+    const now30 = Date.parse('2026-08-04T12:00:30Z');
+    expect(taskFromNode(node({ setNames: [], status: 'running' }), '/b/b1', now30).subtitle).toBe('still generating');
   });
 });
 

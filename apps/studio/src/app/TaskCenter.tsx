@@ -132,6 +132,8 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
     for (const n of arrivals) {
       if (announcedRef.current.has(n.id)) continue;
       announcedRef.current.add(n.id);
+      // you already know: you are the one who cancelled it
+      if (n.state === 'cancelled') continue;
       const href = n.href;
       pushRef.current(
         n.state === 'error'

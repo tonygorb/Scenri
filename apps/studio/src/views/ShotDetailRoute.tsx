@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { Spinner } from '@radix-ui/themes';
 import { useOutletContext, useParams } from 'react-router';
 import { DetailOverlay } from '../layout/DetailOverlay.js';
+import { useToasts } from '../toasts.js';
 import type { ShotContext } from './Create.js';
 
 /**
@@ -11,14 +13,28 @@ import type { ShotContext } from './Create.js';
 export function ShotDetailRoute() {
   const { nodeId } = useParams();
   const ctx = useOutletContext<ShotContext>();
+  const { push } = useToasts();
   const node = ctx.nodes.find((n) => n.id === nodeId) ?? null;
-  const missing = ctx.nodes.length > 0 && (!node || node.kind === 'root');
+  const missing = ctx.loaded && (!node || node.kind === 'root');
 
   // a link to a shot that has since been deleted, or to the project root:
-  // fall back to the canvas rather than holding an empty overlay open
+  // fall back to the canvas rather than holding an empty overlay open, and
+  // say so, rather than letting the close read as an unexplained bounce
   useEffect(() => {
-    if (missing) ctx.close();
-  }, [missing, ctx.close]);
+    if (!missing) return;
+    push({ kind: 'error', title: 'That shot is no longer available', detail: 'Back to the feed.' });
+    ctx.close();
+  }, [missing, ctx.close, push]);
+
+  // the tree has not arrived yet: a blank flash here would read as the shot
+  // itself being empty, when it is only the fetch that has not landed
+  if (!ctx.loaded) {
+    return (
+      <div className="sc-ovl" style={{ display: 'grid', placeItems: 'center' }} role="status" aria-label="Loading">
+        <Spinner size="3" />
+      </div>
+    );
+  }
 
   if (!node || node.kind === 'root') return null;
 
@@ -34,6 +50,7 @@ export function ShotDetailRoute() {
       onClose={ctx.close}
       onSelect={ctx.select}
       onRetry={ctx.retry}
+      onCancel={ctx.cancel}
       onChanged={ctx.reload}
       onRemix={ctx.remix}
       onBranch={ctx.branch}

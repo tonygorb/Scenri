@@ -31,6 +31,7 @@ export function CompareDialog({
 }) {
   const [diff, setDiff] = useState<{ score: number; heatmapHash: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -48,7 +49,7 @@ export function CompareDialog({
     return () => {
       alive = false;
     };
-  }, [open, imageA, imageB]);
+  }, [open, imageA, imageB, retryTick]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -65,7 +66,12 @@ export function CompareDialog({
           </figure>
           <figure className="sc-cmp-side">
             {err ? (
-              <div className="sc-cmp-err">{err}</div>
+              <div className="sc-cmp-err">
+                {err}
+                <button type="button" className="sc-cell-retry" onClick={() => setRetryTick((t) => t + 1)}>
+                  Try again
+                </button>
+              </div>
             ) : diff ? (
               <img src={imgUrl(diff.heatmapHash)} alt="Heatmap of the pixels that differ" />
             ) : (

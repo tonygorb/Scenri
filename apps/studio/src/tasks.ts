@@ -14,7 +14,7 @@ import { type ActivityNode, type CatalogImportJob, nodeLabel } from './api.js';
  */
 
 export type TaskKind = 'generation' | 'edit' | 'catalog';
-export type TaskState = 'running' | 'done' | 'error' | 'partial';
+export type TaskState = 'running' | 'done' | 'error' | 'cancelled' | 'partial';
 
 export interface Task {
   /** `node:<uuid>` or `catalog:<uuid>`. Stable across polls. */
@@ -57,6 +57,19 @@ export function elapsedSec(createdAt: string, now = Date.now()): number {
   return Number.isNaN(t) ? 0 : Math.max(0, Math.round((now - t) / 1000));
 }
 
+/**
+ * Never a fabricated percent — this is the honest substitute: what to call a
+ * run that is still going changes with how long it has actually taken, the
+ * number next to it never lies. Shared so the feed tile and the stage say the
+ * same thing at the same moment instead of drifting apart.
+ */
+export function runningPhrase(createdAt: string, now = Date.now()): string {
+  const s = elapsedSec(createdAt, now);
+  if (s < 20) return 'generating';
+  if (s < 60) return 'still generating';
+  return 'taking longer than usual';
+}
+
 /** How long this has been going: "42s", "4m", "1h 2m". */
 export function elapsedLabel(startedAt: string, now = Date.now()): string {
   const s = elapsedSec(startedAt, now);
@@ -96,7 +109,7 @@ export function catalogPercent(j: CatalogImportJob | null): number {
 }
 
 /** `base` is the brand's path prefix, `/b/<slug>` — see app/brandPath.ts. */
-export function taskFromNode(n: ActivityNode, base: string): Task {
+export function taskFromNode(n: ActivityNode, base: string, now = Date.now()): Task {
   // A shot in no set is the ordinary case now, so the row says what happened
   // and stops. Naming the container was worth a column back when every shot had
   // one; saying "Workspace" on all of them would be furniture, not information.
@@ -105,10 +118,12 @@ export function taskFromNode(n: ActivityNode, base: string): Task {
   // the kind of thing that reads as detail and lands as noise
   const subtitle =
     n.status === 'running'
-      ? `${where}generating`
+      ? `${where}${runningPhrase(n.createdAt, now)}`
       : n.status === 'error'
         ? `${where}${n.error ?? 'failed'}`
-        : `${where}${n.images.length} image${n.images.length === 1 ? '' : 's'}`;
+        : n.status === 'cancelled'
+          ? `${where}cancelled`
+          : `${where}${n.images.length} image${n.images.length === 1 ? '' : 's'}`;
   return {
     id: `node:${n.id}`,
     kind: n.kind === 'edit' ? 'edit' : 'generation',

@@ -613,6 +613,11 @@ select {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.sc-btn-ghost[data-urgent] {
+  border-color: var(--sc-gold);
+  color: var(--sc-gold);
+  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
+}
 .sc-btn-danger {
   background: none;
   color: var(--sc-red);
@@ -1009,6 +1014,33 @@ select {
 .sc-notif-row:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: -2px;
+}
+.sc-notif-row-wrap {
+  position: relative;
+}
+.sc-notif-row-cancel {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid var(--sc-line);
+  background: var(--sc-panel);
+  border-radius: var(--sc-radius-full);
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--sc-fg);
+  cursor: pointer;
+}
+.sc-notif-row-cancel:hover {
+  background: var(--sc-hover);
+}
+.sc-notif-row-cancel[data-urgent] {
+  border-color: var(--sc-gold);
+  color: var(--sc-gold);
+  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
+}
+.sc-notif-row[data-running] {
+  padding-right: 76px;
 }
 .sc-notif-row[data-unread]::before {
   content: "";
@@ -2215,14 +2247,23 @@ select {
 .sc-cmp-wait,
 .sc-cmp-err {
   aspect-ratio: 1;
-  display: grid;
-  place-items: center;
   border-radius: var(--sc-radius-lg);
   border: 1px dashed var(--sc-line);
   color: var(--sc-fg3);
   font-size: 12px;
   padding: 12px;
   text-align: center;
+}
+.sc-cmp-wait {
+  display: grid;
+  place-items: center;
+}
+.sc-cmp-err {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .sc-cmp-note {
   margin: 14px 0 0;
@@ -2357,6 +2398,11 @@ select {
 .sc-cell[data-failed] {
   aspect-ratio: 4 / 5;
   border-style: dashed;
+  background: none;
+}
+.sc-cell[data-cancelled] {
+  aspect-ratio: 4 / 5;
+  border-color: var(--sc-line);
   background: none;
 }
 .sc-cell-failed {
@@ -2556,6 +2602,11 @@ select {
 }
 .sc-cell-retry:hover {
   background: var(--sc-hover);
+}
+.sc-cell-retry[data-urgent] {
+  border-color: var(--sc-gold);
+  color: var(--sc-gold);
+  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
 }
 
 .sc-assets {
@@ -3533,6 +3584,11 @@ select {
   place-items: center;
   color: var(--sc-fg3);
 }
+.sc-fr[data-cancelled="true"] {
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+}
 
 /* compact composer inside the overlay */
 .sc-ovl-edit .sc-prompt-row {
@@ -4172,6 +4228,9 @@ select {
 
 /* failed tiles stay small and quiet: they are a record, not content */
 .sc-cell[data-failed] {
+  aspect-ratio: 3 / 2;
+}
+.sc-cell[data-cancelled] {
   aspect-ratio: 3 / 2;
 }
 .sc-cell-failed {

@@ -20,7 +20,7 @@ export interface TreeNode {
   kind: 'root' | 'generation' | 'edit';
   prompt: string;
   engineId: string;
-  status: 'running' | 'done' | 'error';
+  status: 'running' | 'done' | 'error' | 'cancelled';
   images: string[];
   costUsd: number;
   kept: boolean;
@@ -153,6 +153,7 @@ export const api = {
     templateFields?: Record<string, string>;
     productId?: string;
   }) => req<TreeNode>('POST', '/api/nodes', p),
+  cancelNode: (nodeId: string) => req<{ ok: true }>('POST', `/api/nodes/${nodeId}/cancel`),
   looks: () => req<{ looks: Look[]; collections: string[]; verticals: string[] }>('GET', '/api/looks'),
   exportPresets: () => req<ExportPreset[]>('GET', '/api/export/presets'),
   previewBrief: (brief: unknown, engineId: string, brandId: string) =>
@@ -349,6 +350,11 @@ export async function downloadExport(imageHash: string, presets: string[], baseN
   a.download = `${baseName || 'scenri-export'}.zip`;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+/** True when a brand has made nothing at all yet — any status, not just done-and-imaged. Every caller pairs this with `loaded`: check `loaded` first so a cold fetch isn't mistaken for a genuinely empty brand. */
+export function hasNoShots(nodes: TreeNode[]): boolean {
+  return nodes.every((n) => n.kind === 'root');
 }
 
 /** Human title for a node: template name, lift shorthand, or first words of the prompt. */

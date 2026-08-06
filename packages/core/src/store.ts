@@ -18,7 +18,7 @@ export interface ProjectRow {
   createdAt: string;
 }
 export type NodeKind = 'root' | 'generation' | 'edit';
-export type NodeStatus = 'running' | 'done' | 'error';
+export type NodeStatus = 'running' | 'done' | 'error' | 'cancelled';
 export interface TreeNode {
   id: string;
   projectId: string;
@@ -312,6 +312,9 @@ export function createStore(db: DB) {
     },
     failNode(id: string, error: string): void {
       db.prepare("UPDATE nodes SET status='error', error=? WHERE id=?").run(error, id);
+    },
+    cancelNode(id: string): void {
+      db.prepare("UPDATE nodes SET status='cancelled' WHERE id=?").run(id);
     },
     getNode(id: string): TreeNode | null {
       const r = db.prepare('SELECT * FROM nodes WHERE id=?').get(id) as any;

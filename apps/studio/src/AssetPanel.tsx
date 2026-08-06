@@ -54,8 +54,8 @@ export function ProductsPanel({
     try {
       const r = await api.productsLibrary(brand.id);
       setLibrary(r.products);
-    } catch {
-      /* ignore */
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
     }
   };
 
@@ -126,13 +126,17 @@ export function ProductsPanel({
   };
 
   const remove = async (p: Product) => {
-    if (p.origin === 'catalog' || p.id.startsWith('cat-')) {
-      await api.deleteCatalogProduct(brand.id, p.id);
-    } else {
-      await deleteAsset(brand.id, spec.key, p.id);
+    try {
+      if (p.origin === 'catalog' || p.id.startsWith('cat-')) {
+        await api.deleteCatalogProduct(brand.id, p.id);
+      } else {
+        await deleteAsset(brand.id, spec.key, p.id);
+      }
+      await loadLibrary();
+      onChanged();
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
     }
-    await loadLibrary();
-    onChanged();
   };
 
   return (

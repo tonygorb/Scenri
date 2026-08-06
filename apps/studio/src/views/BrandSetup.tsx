@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Callout, Spinner } from '@radix-ui/themes';
+import { AlertDialog, Button, Callout, Flex, Spinner } from '@radix-ui/themes';
 import { ArrowRight, CaretLeft, Check, Circle, ImageSquare } from '@phosphor-icons/react';
 import { api, assetUrl, type Brand, type Product } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -256,7 +256,7 @@ export function BrandSetup() {
         {step === 2 && brand && (
           <>
             <div className="sc-wiz-head">
-              {back(() => void discard())}
+              {back(() => {}, false)}
               {dots}
               <span />
             </div>
@@ -299,9 +299,32 @@ export function BrandSetup() {
                   )}
                 </button>
                 <div>
-                  <button type="button" className="sc-wiz-skip" onClick={() => void discard()}>
-                    Discard this brand
-                  </button>
+                  <AlertDialog.Root>
+                    <AlertDialog.Trigger>
+                      <button type="button" className="sc-wiz-skip">
+                        Discard this brand
+                      </button>
+                    </AlertDialog.Trigger>
+                    <AlertDialog.Content maxWidth="380px">
+                      <AlertDialog.Title>Discard this brand?</AlertDialog.Title>
+                      <AlertDialog.Description size="2">
+                        The brand record and anything reviewed or added so far in this setup go with it. This cannot be
+                        undone.
+                      </AlertDialog.Description>
+                      <Flex gap="3" mt="4" justify="end">
+                        <AlertDialog.Cancel>
+                          <Button variant="soft" color="gray">
+                            Keep it
+                          </Button>
+                        </AlertDialog.Cancel>
+                        <AlertDialog.Action>
+                          <Button color="red" onClick={() => void discard()}>
+                            Discard this brand
+                          </Button>
+                        </AlertDialog.Action>
+                      </Flex>
+                    </AlertDialog.Content>
+                  </AlertDialog.Root>
                 </div>
               </div>
               {err && (

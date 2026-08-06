@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { api, imgUrl, type Brand, type TextLayer, type TreeNode } from '../api.js';
 import { EDITOR_FONTS, fontById } from '../editor/fonts.js';
+import { useToasts } from '../toasts.js';
 
 export type InspectorTab = 'text' | 'info';
 
@@ -371,6 +372,7 @@ function InfoTab({
     parent.images.length > 0;
   const [diff, setDiff] = useState<{ score: number; heatmapHash: string } | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
+  const { push } = useToasts();
   useEffect(() => {
     setDiff(null);
   }, [node.id]);
@@ -471,7 +473,14 @@ function InfoTab({
         type="button"
         className="sc-btn sc-btn-ghost"
         style={{ width: '100%' }}
-        onClick={() => void api.keep(node.id, !node.kept).then(onChanged)}
+        onClick={() =>
+          void api
+            .keep(node.id, !node.kept)
+            .then(onChanged)
+            .catch((e) =>
+              push({ kind: 'error', title: 'Could not update keeper status', detail: String(e.message ?? e) }),
+            )
+        }
       >
         {node.kept ? 'Remove from keepers' : 'Mark as keeper'}
       </button>
