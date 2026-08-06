@@ -4,6 +4,7 @@ import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
 import { useApplyLook } from '../app/useApplyLook.js';
+import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
 
 /**
  * The looks library. A look is a photographic setup, so the browsing surface
@@ -53,7 +54,11 @@ export function LooksView() {
           ))}
         </div>
 
-        {!loaded && <div className="sc-tplrow" aria-hidden />}
+        {!loaded && (
+          <div className="sc-masonry" aria-hidden>
+            <LookCardSkeleton size="grid" count={8} />
+          </div>
+        )}
 
         {loaded &&
           collections.map((c) => {
@@ -71,33 +76,7 @@ export function LooksView() {
                 </div>
                 <div className="sc-masonry">
                   {inCollection.map((l) => (
-                    <button
-                      type="button"
-                      key={l.id}
-                      className="sc-lookcard"
-                      onClick={() => openLook(l.id)}
-                      title={`${l.name} — ${l.lighting}`}
-                    >
-                      {l.previewUrl ? (
-                        <img src={l.previewUrl} alt={l.name} loading="lazy" />
-                      ) : (
-                        <span className="sc-lookcard-blank" />
-                      )}
-                      <span className="sc-lookveil" />
-                      <span
-                        className="sc-lookuse"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void applyLook(l.id);
-                        }}
-                      >
-                        Use this look
-                      </span>
-                      <span className="sc-lookcap">
-                        <b>{l.name}</b>
-                        <span>{l.lighting}</span>
-                      </span>
-                    </button>
+                    <LookCard key={l.id} look={l} variant="use" size="grid" onOpen={openLook} onUse={applyLook} />
                   ))}
                 </div>
               </section>

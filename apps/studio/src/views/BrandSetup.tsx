@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { AlertDialog, Button, Callout, Flex, Spinner } from '@radix-ui/themes';
-import { ArrowRight, CaretLeft, Check, Circle, ImageSquare } from '@phosphor-icons/react';
+import { ArrowRight, CaretLeft, ImageSquare } from '@phosphor-icons/react';
 import { api, assetUrl, type Brand, type Product } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { brandPath } from '../app/brandPath.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { saveFavoriteLooks } from '../favorites.js';
+import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -20,8 +21,10 @@ export function BrandSetup() {
   const navigate = useNavigate();
   /** Back from step 1 has nowhere to go on a true first run. */
   const canCancel = brands.length > 0;
+  const [params, setParams] = useSearchParams();
   const [step, setStep] = useState<Step>(1);
   const [brand, setBrand] = useState<Brand | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [url, setUrl] = useState('');
   const [scratchName, setScratchName] = useState('');
@@ -43,6 +46,41 @@ export function BrandSetup() {
       /* ignore */
     }
   };
+
+  /**
+   * A refresh mid-wizard used to strand the brand the server already saved:
+   * step reset to 1, the id only ever lived in local state. The wizard would
+   * quietly start a second brand while the first sat unreviewed, later
+   * surfaced unannounced via RootRedirect once `brands.length > 0`. Rehydrate
+   * once from `?step=&brand=`, using the brand list AppShell already loaded
+   * before this route could mount — no extra fetch needed.
+   */
+  useEffect(() => {
+    const brandId = params.get('brand');
+    const stepParam = Math.trunc(Number(params.get('step')));
+    if (brandId) {
+      const found = brands.find((b) => b.id === brandId);
+      if (found) {
+        setBrand(found);
+        setName(found.json?.meta?.name ?? '');
+        setTagline(found.json?.meta?.tagline ?? '');
+        setStep(stepParam >= 2 && stepParam <= 4 ? (stepParam as Step) : 2);
+        void refreshLibrary(found.id);
+      }
+      // a stale/deleted id: fall through to a clean step 1 rather than error
+    }
+    setHydrated(true);
+    // one-shot: runs once against the URL/brand list this route mounted with
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!brand) {
+      setParams({}, { replace: true });
+      return;
+    }
+    setParams({ step: String(step), brand: brand.id }, { replace: true });
+  }, [hydrated, step, brand, setParams]);
 
   const buildFromUrl = async () => {
     setBusy(true);
@@ -384,33 +422,24 @@ export function BrandSetup() {
             <p className="sc-wiz-sub">
               Pick a few directions you like. They lead the template shelf whenever you start a shoot.
             </p>
-            {!looksLoaded && <div className="sc-wiz-looks" aria-hidden />}
+            {!looksLoaded && (
+              <div className="sc-wiz-looks" aria-hidden>
+                <LookCardSkeleton size="wizard" count={9} />
+              </div>
+            )}
             {looksLoaded && (
               <div className="sc-wiz-looks">
                 {templates.slice(0, 9).map((t) => {
                   const on = picked.includes(t.id);
                   return (
-                    <button
-                      type="button"
+                    <LookCard
                       key={t.id}
-                      className="sc-wiz-look"
-                      data-on={on}
-                      onClick={() => setPicked((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))}
-                    >
-                      {(t as any).previewUrl ? (
-                        <img src={(t as any).previewUrl} alt={t.name} />
-                      ) : (
-                        <span
-                          style={{ display: 'grid', placeItems: 'center', aspectRatio: '4/3', color: 'var(--sc-fg3)' }}
-                        >
-                          <ImageSquare size={18} />
-                        </span>
-                      )}
-                      <span className="sc-wiz-lookname">{t.name}</span>
-                      <span className="sc-wiz-tick">
-                        <Check size={11} weight="bold" />
-                      </span>
-                    </button>
+                      look={t}
+                      variant="select"
+                      size="wizard"
+                      selected={on}
+                      onToggle={(id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))}
+                    />
                   );
                 })}
               </div>
@@ -440,17 +469,12 @@ export function BrandSetup() {
           <div className="sc-wiz-body">
             {step === 1 &&
               (busy ? (
-                <>
-                  <div className="sc-scrape-row" data-done="true">
-                    <Check size={13} /> Fetching the page
-                  </div>
-                  <div className="sc-scrape-row">
-                    <Spinner size="1" /> Extracting name, logo and palette
-                  </div>
-                  <div className="sc-scrape-row" style={{ color: 'var(--sc-fg3)' }}>
-                    <Circle size={13} /> Voice and tone
-                  </div>
-                </>
+                // one honest indeterminate spinner, not staged rows claiming
+                // granular progress the backend's single fetch-and-parse call
+                // never actually reports
+                <div className="sc-scrape-row">
+                  <Spinner size="1" /> Reading the site and building the kit
+                </div>
               ) : (
                 <p style={{ color: 'var(--sc-fg3)', fontSize: 12.5, margin: 0 }}>
                   The kit appears here as it is found.

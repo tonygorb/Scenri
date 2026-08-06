@@ -1764,60 +1764,6 @@ select {
 .sc-tplrow::-webkit-scrollbar {
   display: none;
 }
-.sc-tpl {
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  overflow: hidden;
-  background: var(--sc-panel);
-  color: var(--sc-fg);
-  text-align: left;
-  padding: 0;
-  cursor: pointer;
-  transition: border-color 120ms ease;
-}
-.sc-tpl:hover {
-  border-color: var(--sc-line-strong);
-}
-.sc-tpl:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
-}
-.sc-tpl img,
-.sc-tpl .sc-tpl-ph {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  display: block;
-  background: var(--sc-raised);
-}
-.sc-tpl .sc-tpl-ph {
-  display: grid;
-  place-items: center;
-  color: var(--sc-fg3);
-}
-.sc-tpl-m {
-  padding: 8px 12px 12px;
-  display: block;
-  min-width: 0;
-}
-.sc-tpl-m b {
-  display: block;
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sc-tpl-m small {
-  display: block;
-  margin-top: 2px;
-  color: var(--sc-fg3);
-  font-size: 11.5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* Real columns, not CSS multicol.
    Multicol balances column *height*, so a few tall tiles packed two columns and
    left the third empty. Canvas.tsx counts the columns that fit and deals tiles
@@ -3093,39 +3039,6 @@ select {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-.sc-look {
-  position: relative;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  overflow: hidden;
-  background: var(--sc-panel);
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-  color: var(--sc-fg);
-}
-.sc-look:hover {
-  border-color: var(--sc-line-strong);
-}
-.sc-look img {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  display: block;
-}
-.sc-look .sc-lookname {
-  display: block;
-  padding: 9px 11px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.sc-look .sc-lookfav {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  color: var(--sc-star);
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-}
 .sc-danger {
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-lg);
@@ -3157,8 +3070,12 @@ select {
   .sc-wiz {
     grid-template-columns: 1fr;
   }
+  /* the wizard is a real supported phone path (README); a hidden preview left
+     mobile with no kit/products/looks confirmation at all. Reordered ahead of
+     the form instead of dropped below it, since "what did this capture" reads
+     as the first thing to check, not a footnote after the buttons. */
   .sc-wiz-preview {
-    display: none;
+    order: -1;
   }
 }
 .sc-wiz-form {
@@ -3327,9 +3244,6 @@ select {
   color: var(--sc-fg2);
   padding: 5px 0;
 }
-.sc-scrape-row[data-done="true"] {
-  color: var(--sc-fg);
-}
 .sc-wiz-looks {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -3337,52 +3251,6 @@ select {
   max-width: 460px;
   width: 100%;
 }
-.sc-wiz-look {
-  position: relative;
-  border: 1px solid var(--sc-line);
-  border-radius: 12px;
-  overflow: hidden;
-  padding: 0;
-  background: var(--sc-raised);
-  cursor: pointer;
-}
-.sc-wiz-look img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  display: block;
-}
-.sc-wiz-look[data-on="true"] {
-  outline: 2.5px solid var(--sc-fg);
-  outline-offset: -2.5px;
-}
-.sc-wiz-look .sc-wiz-tick {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  width: 21px;
-  height: 21px;
-  border-radius: 50%;
-  background: var(--sc-fg);
-  color: var(--sc-bg);
-  display: none;
-  place-items: center;
-}
-.sc-wiz-look[data-on="true"] .sc-wiz-tick {
-  display: grid;
-}
-.sc-wiz-look .sc-wiz-lookname {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 16px 8px 6px;
-  font-size: 10.5px;
-  color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
-  text-align: left;
-}
-
 /* ---------- attach panel: opens above the composer, full width ---------- */
 .sc-composer {
   position: relative;
@@ -3962,10 +3830,14 @@ select {
   }
 }
 
-/* wizard preview alignment + mobile */
-.sc-wiz-preview {
-  place-items: start center;
-  padding-top: 76px;
+/* wizard preview alignment: desktop only — the 76px offset lines the card up
+   against the form column's header; mobile stacks it above the form instead
+   (see the order: -1 rule above), where that offset is just wasted space. */
+@media (min-width: 1024px) {
+  .sc-wiz-preview {
+    place-items: start center;
+    padding-top: 76px;
+  }
 }
 @media (max-width: 767px) {
   .sc-wiz {
@@ -4664,43 +4536,71 @@ select {
   grid-template-columns: repeat(auto-fill, minmax(var(--sc-tile), 1fr));
   gap: 14px;
 }
+/* ---- LookCard (docs/product/patterns/look-card.md) ----
+   Single card class family, replacing the six independently-drifted
+   renderings (.sc-tpl, the old .sc-lookcard, .sc-wiz-look, .sc-look). */
 .sc-lookcard {
   position: relative;
-  width: 100%;
-  display: block;
-  padding: 0;
   border: none;
-  cursor: pointer;
+  padding: 0;
   border-radius: var(--sc-radius-lg);
   overflow: hidden;
   background: var(--sc-raised);
-  line-height: 0;
-}
-.sc-lookcard img {
-  width: 100%;
   display: block;
-  object-fit: cover;
+  width: 100%;
+  cursor: pointer;
+}
+.sc-lookcard[data-on] {
+  outline: 2.5px solid var(--sc-fg);
+  outline-offset: -2.5px;
+}
+.sc-lookcard img,
+.sc-lookcard-blank {
+  width: 100%;
   aspect-ratio: 4 / 5;
+  object-fit: cover;
+  display: block;
   transition: transform 0.45s cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+.sc-lookcard-blank {
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+  background: var(--sc-raised);
 }
 .sc-lookcard:hover img {
   transform: scale(1.03);
 }
-.sc-lookcard-blank {
+.sc-lookcard-open,
+.sc-lookcard-use {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.sc-lookcard-open {
+  position: relative;
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 5;
+  text-align: left;
 }
-.sc-lookveil {
+.sc-lookcard-open:focus-visible,
+.sc-lookcard-use:focus-visible,
+.sc-lookcard[data-variant="select"]:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-lookcard-veil {
   position: absolute;
   inset: 0;
   opacity: 0;
   transition: opacity 0.16s ease;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.74) 0%, rgba(0, 0, 0, 0.26) 36%, rgba(0, 0, 0, 0) 64%);
+  pointer-events: none;
 }
-/* The hover pill and caption sit on a photo, never on a themed surface, so
-   they are deliberately theme-independent: white on the scrim in both modes. */
-.sc-lookuse {
+.sc-lookcard-use {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -4716,7 +4616,7 @@ select {
   padding: 8px 16px;
   font: 600 12px / 1 var(--sc-font);
 }
-.sc-lookcap {
+.sc-lookcard-cap {
   position: absolute;
   left: 13px;
   right: 13px;
@@ -4728,35 +4628,79 @@ select {
     transform 0.16s ease;
   line-height: 1.35;
   text-align: left;
+  pointer-events: none;
 }
-.sc-lookcap b {
+.sc-lookcard-cap b {
   display: block;
   color: #fff;
   font: 600 13px var(--sc-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.sc-lookcap span {
+.sc-lookcard-cap span {
   display: block;
   font: 11.5px var(--sc-font);
   color: rgba(255, 255, 255, 0.68);
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.sc-lookcard:hover .sc-lookveil,
-.sc-lookcard:focus-visible .sc-lookveil {
+.sc-lookcard-tick {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  display: none;
+  place-items: center;
+}
+.sc-lookcard[data-on] .sc-lookcard-tick {
+  display: grid;
+}
+/* grid/slider (default): caption, veil and the use-button reveal on hover/focus */
+.sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-veil,
+.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
+.sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-veil,
+.sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
+.sc-lookcard[data-variant="select"]:hover .sc-lookcard-veil,
+.sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-veil {
   opacity: 1;
 }
-.sc-lookcard:hover .sc-lookuse,
-.sc-lookcard:focus-visible .sc-lookuse {
-  opacity: 1;
-  transform: translate(-50%, -50%);
-}
-.sc-lookcard:hover .sc-lookcap,
-.sc-lookcard:focus-visible .sc-lookcap {
+.sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-cap,
+.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-cap,
+.sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-cap,
+.sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-cap,
+.sc-lookcard[data-variant="select"]:hover .sc-lookcard-cap,
+.sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-cap {
   opacity: 1;
   transform: none;
 }
-.sc-lookcard-plain:hover .sc-lookveil {
-  opacity: 0;
+.sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-use,
+.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-use,
+.sc-lookcard-use:hover,
+.sc-lookcard-use:focus-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%);
 }
+/* shelf/wizard: no hover to reveal with (dense, always-relevant tiles) — caption and veil stay visible */
+.sc-lookcard[data-size="shelf"] .sc-lookcard-veil,
+.sc-lookcard[data-size="wizard"] .sc-lookcard-veil,
+.sc-lookcard[data-size="shelf"] .sc-lookcard-cap,
+.sc-lookcard[data-size="wizard"] .sc-lookcard-cap {
+  opacity: 1;
+  transform: none;
+}
+/* loading skeleton: one shape, every list */
+.sc-lookcard[data-variant="skeleton"] {
+  background: var(--sc-raised);
+  aspect-ratio: 4 / 5;
+}
+
 .sc-looks-empty {
   color: var(--sc-fg3);
   padding: 30px 0;

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { AlertDialog, Button, Flex, Spinner } from '@radix-ui/themes';
-import { ImageSquare, Star, TrashSimple } from '@phosphor-icons/react';
+import { ImageSquare, TrashSimple } from '@phosphor-icons/react';
 import { api, assetUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks, toggleFavoriteLook } from '../favorites.js';
+import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
 import { useToasts } from '../toasts.js';
 
 const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
@@ -92,7 +93,11 @@ export function BrandView() {
           <ProductsPanel brand={brand} onChanged={refresh} kind="characters" />
         </div>
 
-        {!looksLoaded && <div className="sc-lookgrid" aria-hidden />}
+        {!looksLoaded && (
+          <div className="sc-lookgrid" aria-hidden>
+            <LookCardSkeleton size="grid" count={8} />
+          </div>
+        )}
 
         {looksLoaded && sorted.length > 0 && (
           <div className="sc-kit-sec">
@@ -101,34 +106,16 @@ export function BrandView() {
               <span style={{ fontSize: 12, color: 'var(--sc-fg3)' }}>Starred looks lead the template shelf</span>
             </div>
             <div className="sc-lookgrid">
-              {sorted.slice(0, 8).map((t) => {
-                const fav = favs.includes(t.id);
-                return (
-                  <button
-                    type="button"
-                    key={t.id}
-                    className="sc-look"
-                    onClick={() => setFavs(toggleFavoriteLook(brand.id, t.id))}
-                    title={fav ? 'Remove from favorites' : 'Add to favorites'}
-                  >
-                    {(t as any).previewUrl ? (
-                      <img src={(t as any).previewUrl} alt={t.name} />
-                    ) : (
-                      <span
-                        style={{ display: 'grid', placeItems: 'center', aspectRatio: '16/10', color: 'var(--sc-fg3)' }}
-                      >
-                        <ImageSquare size={18} />
-                      </span>
-                    )}
-                    {fav && (
-                      <span className="sc-lookfav">
-                        <Star size={13} weight="fill" />
-                      </span>
-                    )}
-                    <span className="sc-lookname">{t.name}</span>
-                  </button>
-                );
-              })}
+              {sorted.slice(0, 8).map((t) => (
+                <LookCard
+                  key={t.id}
+                  look={t}
+                  variant="select"
+                  size="grid"
+                  selected={favs.includes(t.id)}
+                  onToggle={(id) => setFavs(toggleFavoriteLook(brand.id, id))}
+                />
+              ))}
             </div>
           </div>
         )}

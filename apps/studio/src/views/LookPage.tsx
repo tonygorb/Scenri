@@ -7,6 +7,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
 import { useApplyLook } from '../app/useApplyLook.js';
 import { favoriteLooks } from '../favorites.js';
+import { LookCard } from '../layout/LookCard.js';
 
 /**
  * One look. The reference frames say what the light is; they are ours and are
@@ -132,19 +133,7 @@ export function LookPage() {
           {recovery.length > 0 && (
             <Slider label="You might like">
               {recovery.map((l) => (
-                <figure key={l.id}>
-                  <button type="button" className="sc-lookcard sc-lookcard-plain" onClick={() => openLook(l.id)}>
-                    {l.previewUrl ? (
-                      <img src={l.previewUrl} alt={l.name} loading="lazy" />
-                    ) : (
-                      <span className="sc-lookcard-blank" />
-                    )}
-                  </button>
-                  <figcaption>
-                    <b>{l.name}</b>
-                    <span>{l.lighting}</span>
-                  </figcaption>
-                </figure>
+                <LookCard key={l.id} look={l} variant="navigate" size="slider" onOpen={openLook} />
               ))}
             </Slider>
           )}
@@ -209,19 +198,7 @@ export function LookPage() {
         {near.length > 0 && (
           <Slider label="Other looks, similar light">
             {near.map((l) => (
-              <figure key={l.id}>
-                <button type="button" className="sc-lookcard sc-lookcard-plain" onClick={() => openLook(l.id)}>
-                  {l.previewUrl ? (
-                    <img src={l.previewUrl} alt={l.name} loading="lazy" />
-                  ) : (
-                    <span className="sc-lookcard-blank" />
-                  )}
-                </button>
-                <figcaption>
-                  <b>{l.name}</b>
-                  <span>{l.lighting}</span>
-                </figcaption>
-              </figure>
+              <LookCard key={l.id} look={l} variant="navigate" size="slider" onOpen={openLook} />
             ))}
           </Slider>
         )}

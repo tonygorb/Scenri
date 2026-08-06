@@ -8,6 +8,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
+import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
 
 /**
  * The launcher.
@@ -83,7 +84,11 @@ export function HomeView() {
           </button>
         </div>
 
-        {!looksLoaded && <div className="sc-tplrow" aria-hidden />}
+        {!looksLoaded && (
+          <div className="sc-tplrow" aria-hidden>
+            <LookCardSkeleton size="shelf" />
+          </div>
+        )}
 
         {looksLoaded && templates.length > 0 && (
           <>
@@ -100,25 +105,13 @@ export function HomeView() {
                   return Number(favs.includes(b.id)) - Number(favs.includes(a.id));
                 })
                 .map((t) => (
-                  <button
-                    type="button"
+                  <LookCard
                     key={t.id}
-                    className="sc-tpl"
-                    onClick={() => toCreate({ look: t.id, compose: '1' })}
-                    title={t.description}
-                  >
-                    {(t as any).previewUrl ? (
-                      <img src={(t as any).previewUrl} alt="" />
-                    ) : (
-                      <span className="sc-tpl-ph">
-                        <ImageSquare size={20} />
-                      </span>
-                    )}
-                    <span className="sc-tpl-m">
-                      <b>{t.name}</b>
-                      <small>{t.lighting}</small>
-                    </span>
-                  </button>
+                    look={t}
+                    variant="navigate"
+                    size="shelf"
+                    onOpen={(id) => toCreate({ look: id, compose: '1' })}
+                  />
                 ))}
             </div>
           </>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
 import { Callout, DropdownMenu } from '@radix-ui/themes';
-import { CaretDown, FolderSimple, ImageSquare, Plus, SquaresFour } from '@phosphor-icons/react';
+import { CaretDown, FolderSimple, Plus, SquaresFour } from '@phosphor-icons/react';
 import {
   api,
   hasNoShots,
@@ -27,6 +27,7 @@ import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import type { InspectorTab } from '../layout/Inspector.js';
+import { LookCard } from '../layout/LookCard.js';
 
 /**
  * What the shot overlay needs from the canvas behind it. The overlay is a child
@@ -890,19 +891,7 @@ function FirstRun({ looks, brandId, onLook }: { looks: Look[]; brandId: string; 
       {ordered.length > 0 && (
         <div className="sc-tplrow sc-empty-looks">
           {ordered.map((t) => (
-            <button type="button" key={t.id} className="sc-tpl" onClick={() => onLook(t.id)} title={t.description}>
-              {t.previewUrl ? (
-                <img src={t.previewUrl} alt="" />
-              ) : (
-                <span className="sc-tpl-ph">
-                  <ImageSquare size={20} />
-                </span>
-              )}
-              <span className="sc-tpl-m">
-                <b>{t.name}</b>
-                <small>{t.lighting}</small>
-              </span>
-            </button>
+            <LookCard key={t.id} look={t} variant="use" size="shelf" onUse={onLook} />
           ))}
         </div>
       )}
