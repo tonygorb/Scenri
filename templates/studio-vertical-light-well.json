@@ -1,12 +1,12 @@
 {
   "id": "studio-vertical-light-well",
-  "name": "Clean Vertical Light Well",
-  "description": "A tall product held upright in a narrow column of even light, the ground falling away into seamless white above and below. Built for anything that reads better stretched than centered.",
-  "lighting": "Even soft vertical wash",
+  "name": "Frozen Vapor Chamber",
+  "description": "The subject stands suspended inside a cold-fog chamber, dry-ice vapor pooling and curling at its base under a cool blue-white glow. Tall, sculptural, faintly otherworldly.",
+  "lighting": "Cold blue-white glow, drifting vapor",
   "subject": "product",
   "collections": ["Studio"],
   "verticals": ["Beauty", "Fragrance", "Food & drink"],
-  "prompt": "standing upright inside a narrow vertical column of even soft light against a seamless white ground, coverage held smooth from top to base with nothing spiking into a bright point, a soft mirrored reflection beneath, tall open space above and below the silhouette, crisp e-commerce-grade clarity",
+  "prompt": "standing upright inside a narrow chamber of drifting cold vapor, dry-ice fog pooling and curling low around the base, a cool blue-white glow falling straight down from above, tall dramatic negative space rising into haze, crisp e-commerce-grade clarity through the mist",
   "width": 1024,
   "height": 1280
 }

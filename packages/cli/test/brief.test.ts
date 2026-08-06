@@ -204,9 +204,9 @@ describe('compileBrief', () => {
       },
       ctx({ template }),
     );
-    expect(r.prompt).toContain('[Polished Pedestal Studio]');
+    expect(r.prompt).toContain('[Marble Quarry Plinth]');
     expect(r.prompt).toContain('House Blend');
-    expect(r.prompt).toContain('tack-sharp studio-catalogue finish');
+    expect(r.prompt).toContain('monumental scale dwarfing the subject');
     expect(r.prompt).toContain('Art direction: keep it airy');
     expect([r.width, r.height]).toEqual([template.width, template.height]);
   });
@@ -348,7 +348,7 @@ describe('brief through the API', () => {
       ctx,
     );
     // same words, different order: the recipe moves with the chip
-    expect(first.prompt.startsWith('[Polished Pedestal Studio]') || first.prompt.length > 40).toBe(true);
+    expect(first.prompt.startsWith('[Marble Quarry Plinth]') || first.prompt.length > 40).toBe(true);
     expect(first.prompt.endsWith('shot at dusk')).toBe(true);
     expect(last.prompt.startsWith('shot at dusk')).toBe(true);
     expect(first.prompt).not.toBe(last.prompt);
@@ -362,7 +362,7 @@ describe('brief through the API', () => {
       { tokens: [{ t: 'text', v: 'warm light' }], templateId: 'studio-polished-pedestal' },
       { ...ctx, template: byId.get('studio-polished-pedestal') },
     );
-    expect(direct.prompt.startsWith('[Polished Pedestal Studio]')).toBe(true);
+    expect(direct.prompt.startsWith('[Marble Quarry Plinth]')).toBe(true);
     expect(direct.prompt).toContain('Art direction: warm light');
   });
 
@@ -382,7 +382,7 @@ describe('brief through the API', () => {
       mkCtx(),
     );
     expect(out.warnings.join(' ')).toContain('was ignored');
-    expect(out.warnings.join(' ')).toContain('Polished Pedestal Studio came first');
+    expect(out.warnings.join(' ')).toContain('Marble Quarry Plinth came first');
     // the second recipe never reaches the prompt
     expect(out.prompt.toLowerCase()).not.toContain('graphic-design');
   });

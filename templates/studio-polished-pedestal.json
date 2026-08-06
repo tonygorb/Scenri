@@ -1,12 +1,12 @@
 {
   "id": "studio-polished-pedestal",
-  "name": "Polished Pedestal Studio",
-  "description": "A single object raised on a low pedestal at the center of a seamless pale ground, lit by one broad overhead wash with nothing to distract from the form. Clean, quiet, unmistakably neutral.",
-  "lighting": "Broad soft overhead wash",
+  "name": "Marble Quarry Plinth",
+  "description": "The subject rests on a raw-cut marble slab inside a real stone quarry, a hard shaft of daylight cutting through drifting dust. Monumental scale, nothing about it reads as a studio.",
+  "lighting": "Hard daylight shaft, dust-lit",
   "subject": "product",
   "collections": ["Studio"],
   "verticals": ["Home", "Beauty", "Electronics", "Accessories"],
-  "prompt": "on a low pedestal centered on a seamless pale grey backdrop, one broad soft overhead wash spread evenly with nothing punching through, a whisper of reflection on the surface below, generous untouched space on every side, tack-sharp studio-catalogue finish",
+  "prompt": "on a raw-cut marble slab inside a vast stone quarry interior, a hard shaft of daylight cutting down through drifting dust motes, rough-hewn rock walls receding into shadow on every side, monumental scale dwarfing the subject, tack-sharp editorial-grade finish",
   "width": 1024,
   "height": 1024
 }

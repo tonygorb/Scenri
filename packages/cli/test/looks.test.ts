@@ -216,10 +216,10 @@ describe('cast + look generation via API', () => {
       },
     });
     expect(res.statusCode).toBe(202);
-    expect(res.json().prompt).toContain('[Polished Pedestal Studio]');
+    expect(res.json().prompt).toContain('[Marble Quarry Plinth]');
     await new Promise((r) => setTimeout(r, 50));
     expect(lastGen!.prompt).toContain('House Blend');
-    expect(lastGen!.prompt).toContain('tack-sharp studio-catalogue finish');
+    expect(lastGen!.prompt).toContain('monumental scale dwarfing the subject');
     expect(lastGen!.prompt).toContain('Art direction: keep it airy');
     expect(lastGen!.width).toBe(1024);
     expect(lastGen!.referenceImages).toHaveLength(1);
@@ -255,7 +255,7 @@ describe('cast + look generation via API', () => {
     expect(withSet.frames.length).toBeGreaterThan(0);
     expect(withSet.frames[0]).toMatch(/^\/api\/look-previews\/morning-tabletop\/ref-\d\d\.jpg$/);
 
-    const without = await app.inject({ method: 'GET', url: '/api/look-previews/studio-polished-pedestal' });
+    const without = await app.inject({ method: 'GET', url: '/api/look-previews/no-such-look' });
     expect(without.statusCode).toBe(200);
     expect(without.json().frames).toEqual([]);
 
