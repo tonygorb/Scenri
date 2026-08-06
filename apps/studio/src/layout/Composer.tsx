@@ -473,10 +473,17 @@ export const Composer = forwardRef<
   };
   const pickFiles = async (files: FileList | null) => {
     if (!files?.length) return;
+    // the file <input> already filters to accept="image/*"; a drop has no such
+    // OS-level filter, so this is the one place both paths get one
+    const images = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (!images.length) {
+      push({ kind: 'error', title: 'Only images can be attached here' });
+      return;
+    }
     setUploading(true);
     setErr(null);
     try {
-      for (const f of Array.from(files).slice(0, 4)) {
+      for (const f of images.slice(0, 4)) {
         const hash = await uploadImage(f);
         // the same caret-aware insert every other pick uses: appending through
         // state repainted the line while focus was on the file dialog, which
@@ -672,6 +679,7 @@ export const Composer = forwardRef<
           }
           placeholderSm={template || mode === 'edit' ? undefined : 'What should we shoot? (use / @ #)'}
           onSubmit={() => void go()}
+          onDropFiles={(files) => void pickFiles(files)}
         />
 
         <div className="sc-prompt-row">

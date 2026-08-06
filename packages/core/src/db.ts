@@ -194,11 +194,12 @@ function widenNodeStatusCheck(db: DB): void {
         error TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         overlays TEXT NOT NULL DEFAULT '{}',
-        brief TEXT
+        brief TEXT,
+        archived INTEGER NOT NULL DEFAULT 0
       );
       INSERT INTO nodes_new
         SELECT id, project_id, parent_id, kind, prompt, engine_id, status, images, cost_usd, kept, error,
-               created_at, overlays, brief
+               created_at, overlays, brief, archived
         FROM nodes;
       DROP TABLE nodes;
       ALTER TABLE nodes_new RENAME TO nodes;
@@ -357,6 +358,9 @@ export function openDb(homeDir: string): DB {
   }
   if (!nodeCols.includes('brief')) {
     db.exec('ALTER TABLE nodes ADD COLUMN brief TEXT');
+  }
+  if (!nodeCols.includes('archived')) {
+    db.exec('ALTER TABLE nodes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
   }
   const projectCols = (db.pragma('table_info(projects)') as { name: string }[]).map((c) => c.name);
   if (!projectCols.includes('slug')) {

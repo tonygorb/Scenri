@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
+  Archive,
+  ArrowCounterClockwise,
   ArrowsClockwise,
   GitBranch,
   ArrowsLeftRight,
@@ -12,11 +14,12 @@ import {
   PencilSimple,
   Plus,
   Star,
+  TrashSimple,
   WarningCircle,
   X,
   XCircle,
 } from '@phosphor-icons/react';
-import { Spinner } from '@radix-ui/themes';
+import { AlertDialog, Button, Flex, Spinner } from '@radix-ui/themes';
 import {
   api,
   assetUrl,
@@ -57,6 +60,9 @@ export function DetailOverlay({
   onChanged,
   onRemix,
   onBranch,
+  onArchive,
+  onUnarchive,
+  onDelete,
   layers,
   selectedLayerId,
   onSelectLayer,
@@ -82,6 +88,9 @@ export function DetailOverlay({
   onRemix: (n: TreeNode) => void;
   /** Point the brief at this shot and stand back so you can see it. */
   onBranch: (n: TreeNode) => void;
+  onArchive: (n: TreeNode) => void;
+  onUnarchive: (n: TreeNode) => void;
+  onDelete: (n: TreeNode) => void;
   layers: TextLayer[];
   selectedLayerId: string | null;
   onSelectLayer: (id: string | null) => void;
@@ -115,6 +124,7 @@ export function DetailOverlay({
   const [working, setWorking] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const hash = node.images[imageIndex] ?? node.images[0];
   const baseName =
     node.prompt
@@ -262,6 +272,46 @@ export function DetailOverlay({
               >
                 <Star size={14} weight={node.kept ? 'fill' : 'regular'} />
               </button>
+              <button
+                type="button"
+                className="sc-icon-btn"
+                onClick={() => (node.archived ? onUnarchive(node) : onArchive(node))}
+                aria-label={node.archived ? 'Restore this shot' : 'Archive this shot'}
+                title={node.archived ? 'Restore' : 'Archive'}
+              >
+                {node.archived ? <ArrowCounterClockwise size={14} /> : <Archive size={14} />}
+              </button>
+              {node.archived && (
+                <AlertDialog.Root open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                  <AlertDialog.Trigger>
+                    <button
+                      type="button"
+                      className="sc-icon-btn"
+                      aria-label="Delete this shot permanently"
+                      title="Delete permanently"
+                      style={{ color: 'var(--sc-red)' }}
+                    >
+                      <TrashSimple size={14} />
+                    </button>
+                  </AlertDialog.Trigger>
+                  <AlertDialog.Content maxWidth="420px">
+                    <AlertDialog.Title>Delete this shot permanently?</AlertDialog.Title>
+                    <AlertDialog.Description size="2">This cannot be undone.</AlertDialog.Description>
+                    <Flex gap="3" mt="4" justify="end">
+                      <AlertDialog.Cancel>
+                        <Button variant="soft" color="gray">
+                          Cancel
+                        </Button>
+                      </AlertDialog.Cancel>
+                      <AlertDialog.Action>
+                        <Button color="red" onClick={() => onDelete(node)}>
+                          Delete permanently
+                        </Button>
+                      </AlertDialog.Action>
+                    </Flex>
+                  </AlertDialog.Content>
+                </AlertDialog.Root>
+              )}
               {parentShot?.images[0] && (
                 // Compare used to mean "switch to a tab called Info and scroll",
                 // which is why nobody found the one feature that answers what the
@@ -391,6 +441,9 @@ export function DetailOverlay({
               onTabChange={onTabChange}
               onExport={() => setExportOpen(true)}
               onCompare={parentShot?.images[0] ? () => setCompareOpen(true) : undefined}
+              onArchive={() => onArchive(node)}
+              onUnarchive={() => onUnarchive(node)}
+              onDelete={() => onDelete(node)}
             />
           </div>
 

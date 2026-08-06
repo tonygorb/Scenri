@@ -90,6 +90,10 @@ export const BriefInput = forwardRef<
      * so this takes over instead and opens where one gets attached. */
     onProductWarningClick?: () => void;
     onSubmit: () => void;
+    /** A dropped file goes straight to the same place a picked one does — this
+     * only hands the raw FileList off, upload + insert stays wherever it
+     * already lived. */
+    onDropFiles?: (files: FileList) => void;
   }
 >(function BriefInput(
   {
@@ -104,6 +108,7 @@ export const BriefInput = forwardRef<
     flag,
     onProductWarningClick,
     onSubmit,
+    onDropFiles,
   },
   ref,
 ) {
@@ -122,6 +127,11 @@ export const BriefInput = forwardRef<
   } | null>(null);
   const [query, setQuery] = useState('');
   const uidSeq = useRef(0);
+  const [dragOver, setDragOver] = useState(false);
+  // a counter, not a boolean: chips are non-editable child elements inside
+  // rootRef, so a plain enter/leave toggle flickers every time the pointer
+  // crosses one on the way across the line
+  const dragDepth = useRef(0);
 
   const library = useProductLibrary(brand.id);
   const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
@@ -506,6 +516,24 @@ export const BriefInput = forwardRef<
     [templates, products, cast],
   );
 
+  const onDragEnter = (e: React.DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault();
+    dragDepth.current++;
+    setDragOver(true);
+  };
+  const onDragOver = (e: React.DragEvent) => e.preventDefault(); // required to permit a drop
+  const onDragLeave = () => {
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragOver(false);
+    if (e.dataTransfer.files.length) onDropFiles?.(e.dataTransfer.files);
+  };
+
   const onPaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const parts = parseBriefHtml(e.clipboardData.getData('text/html'));
@@ -554,7 +582,7 @@ export const BriefInput = forwardRef<
   };
 
   return (
-    <div className="sc-brief">
+    <div className="sc-brief" data-drag-over={dragOver || undefined}>
       <div
         ref={rootRef}
         className="sc-brief-line"
@@ -571,6 +599,10 @@ export const BriefInput = forwardRef<
         onCopy={onCopy}
         onCut={onCut}
         onPaste={onPaste}
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
         onBlur={emit}
       />
 

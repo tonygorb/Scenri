@@ -124,6 +124,81 @@ describe('version tree', () => {
     expect(core.store.getNode(c.id)!.error).toBe('boom');
     expect(core.store.getNode(g.id)!.parentId).toBe(a.id);
     expect(core.store.getNode(g.id)!.kept).toBe(true);
+    expect(core.store.getNode(g.id)!.archived).toBe(false);
+  });
+
+  it('archives and restores a node without deleting it, independent of kept', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    const n = core.store.addNode({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'x',
+      engineId: 'demo',
+    });
+    core.store.completeNode(n.id, { images: ['a'.repeat(32)], costUsd: 0 });
+    core.store.setKept(n.id, true);
+
+    core.store.setArchived(n.id, true);
+    let after = core.store.getNode(n.id)!;
+    expect(after.archived).toBe(true);
+    // archiving is a put-away, not a delete: the row, its status and its
+    // keeper flag are all untouched
+    expect(after.status).toBe('done');
+    expect(after.kept).toBe(true);
+    expect(core.store.treeFor(project.id).map((row) => row.id)).toContain(n.id);
+
+    core.store.setArchived(n.id, false);
+    after = core.store.getNode(n.id)!;
+    expect(after.archived).toBe(false);
+    expect(after.kept).toBe(true);
+  });
+
+  it('deleteNode permanently removes a leaf node', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    const n = core.store.addNode({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'x',
+      engineId: 'demo',
+    });
+    core.store.setArchived(n.id, true);
+
+    core.store.deleteNode(n.id);
+
+    expect(core.store.getNode(n.id)).toBeNull();
+    expect(core.store.treeFor(project.id).map((row) => row.id)).not.toContain(n.id);
+  });
+
+  it('deleteNode orphans children instead of blocking or cascading', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    const parent = core.store.addNode({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'parent shot',
+      engineId: 'demo',
+    });
+    core.store.completeNode(parent.id, { images: ['a'.repeat(32)], costUsd: 0 });
+    const child = core.store.addNode({
+      projectId: project.id,
+      parentId: parent.id,
+      kind: 'edit',
+      prompt: 'edit of parent',
+      engineId: 'demo',
+    });
+    core.store.setArchived(parent.id, true);
+
+    core.store.deleteNode(parent.id);
+
+    expect(core.store.getNode(parent.id)).toBeNull();
+    const survivingChild = core.store.getNode(child.id);
+    expect(survivingChild).not.toBeNull();
+    expect(survivingChild!.parentId).toBeNull();
   });
 
   it('rejects parent from another project', () => {

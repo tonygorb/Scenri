@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertDialog, Button, Dialog, Flex, Spinner } from '@radix-ui/themes';
+import { Dialog, Flex, Spinner } from '@radix-ui/themes';
 import {
   Broom,
   Circle,
@@ -16,6 +16,7 @@ import {
 } from '@phosphor-icons/react';
 import { api, type EngineInfo, type TreeNode } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
+import { Confirm } from '../Confirm.js';
 import { useThemeMode, type ThemeChoice } from '../theme.js';
 
 export type Pane = 'engines' | 'budget' | 'usage' | 'library' | 'appearance' | 'about' | 'danger';
@@ -553,45 +554,5 @@ function Danger({ onDone }: { onDone: () => void }) {
         />
       </div>
     </Group>
-  );
-}
-
-function Confirm({
-  label,
-  title,
-  body,
-  busy,
-  onConfirm,
-}: {
-  label: string;
-  title: string;
-  body: string;
-  busy: boolean;
-  onConfirm: () => void;
-}) {
-  return (
-    <AlertDialog.Root>
-      <AlertDialog.Trigger>
-        <button type="button" className="sc-btn sc-btn-ghost sc-btn-red" disabled={busy}>
-          {label}
-        </button>
-      </AlertDialog.Trigger>
-      <AlertDialog.Content maxWidth="420px">
-        <AlertDialog.Title>{title}</AlertDialog.Title>
-        <AlertDialog.Description size="2">{body}</AlertDialog.Description>
-        <Flex gap="3" mt="4" justify="end">
-          <AlertDialog.Cancel>
-            <Button variant="soft" color="gray">
-              Cancel
-            </Button>
-          </AlertDialog.Cancel>
-          <AlertDialog.Action>
-            <Button color="red" onClick={onConfirm}>
-              {label}
-            </Button>
-          </AlertDialog.Action>
-        </Flex>
-      </AlertDialog.Content>
-    </AlertDialog.Root>
   );
 }

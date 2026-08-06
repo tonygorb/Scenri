@@ -49,6 +49,8 @@ export function ProductsPanel({
   const [job, setJob] = useState<CatalogImportJob | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const autoStarted = useRef(false);
+  const [dragOver, setDragOver] = useState(false);
+  const dragDepth = useRef(0);
 
   const loadLibrary = async (): Promise<Product[]> => {
     if (kind !== 'products') return [];
@@ -167,7 +169,33 @@ export function ProductsPanel({
           </button>
         </Flex>
       )}
-      <Flex gap="2">
+      <Flex
+        gap="2"
+        className="sc-upload-dz"
+        data-drag-over={dragOver || undefined}
+        onDragEnter={(e) => {
+          if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+          e.preventDefault();
+          dragDepth.current++;
+          setDragOver(true);
+        }}
+        onDragOver={(e) => e.preventDefault()}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDragOver(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          dragDepth.current = 0;
+          setDragOver(false);
+          const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'));
+          if (!file) {
+            setErr('Drop an image file.');
+            return;
+          }
+          void upload(file);
+        }}
+      >
         <TextField.Root
           style={{ flex: 1 }}
           placeholder={spec.placeholder}

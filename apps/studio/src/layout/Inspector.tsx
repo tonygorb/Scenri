@@ -9,6 +9,7 @@ import {
   TrashSimple,
 } from '@phosphor-icons/react';
 import { api, imgUrl, type Brand, type TextLayer, type TreeNode } from '../api.js';
+import { Confirm } from '../Confirm.js';
 import { EDITOR_FONTS, fontById } from '../editor/fonts.js';
 import { useToasts } from '../toasts.js';
 
@@ -33,6 +34,9 @@ export function Inspector(props: {
   onExport: () => void;
   /** Omitted rather than disabled: there's nothing to diff against without a parent shot. */
   onCompare?: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
+  onDelete: () => void;
 }) {
   const { node, tab, onTabChange } = props;
   return (
@@ -359,11 +363,17 @@ function InfoTab({
   onChanged,
   onExport,
   onCompare,
+  onArchive,
+  onUnarchive,
+  onDelete,
 }: {
   node: TreeNode;
   onChanged: () => void;
   onExport: () => void;
   onCompare?: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
+  onDelete: () => void;
 }) {
   const { push } = useToasts();
 
@@ -424,6 +434,26 @@ function InfoTab({
       >
         {node.kept ? 'Remove from keepers' : 'Mark as keeper'}
       </button>
+      <button
+        type="button"
+        className="sc-btn sc-btn-ghost"
+        style={{ width: '100%', marginTop: 6 }}
+        onClick={() => (node.archived ? onUnarchive() : onArchive())}
+      >
+        {node.archived ? 'Restore this shot' : 'Archive this shot'}
+      </button>
+      {node.archived && (
+        <div style={{ marginTop: 6 }}>
+          <Confirm
+            label="Delete this shot permanently"
+            title="Delete this shot permanently?"
+            body="This cannot be undone."
+            busy={false}
+            onConfirm={onDelete}
+            fullWidth
+          />
+        </div>
+      )}
     </>
   );
 }

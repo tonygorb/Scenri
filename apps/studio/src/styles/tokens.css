@@ -1459,6 +1459,12 @@ select {
 .sc-brief {
   padding: 0;
 }
+.sc-brief[data-drag-over] {
+  outline: 2px dashed var(--sc-focus);
+  outline-offset: 2px;
+  background: var(--sc-hover);
+  border-radius: var(--sc-radius);
+}
 .sc-brief-line {
   padding: 13px 16px 4px;
 }
@@ -1878,6 +1884,46 @@ select {
   cursor: pointer;
   line-height: 0;
   transition: transform 120ms ease;
+}
+
+/* Same corner as the kept star, revealed on hover like Branch; steps aside to
+   34px when the star is also present (a kept tile) so neither one is covered. */
+.sc-cell-archive {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-glass);
+  color: var(--sc-fg2);
+  cursor: pointer;
+  opacity: 0;
+  backdrop-filter: blur(4px);
+  transition:
+    opacity 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+.sc-cell:hover .sc-cell-archive,
+.sc-cell-archive:focus-visible {
+  opacity: 1;
+}
+.sc-cell-archive:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-cell-archive:has(~ .sc-cell-star) {
+  right: 34px;
+}
+@media (pointer: coarse) {
+  .sc-cell-archive {
+    opacity: 1;
+  }
 }
 .sc-cell-star:hover {
   transform: scale(1.12);
@@ -3523,6 +3569,12 @@ select {
 }
 .sc-ap-add {
   border-style: dashed;
+}
+.sc-upload-dz[data-drag-over] {
+  outline: 2px dashed var(--sc-focus);
+  outline-offset: 2px;
+  background: var(--sc-hover);
+  border-radius: var(--sc-radius);
 }
 .sc-ap-thumb {
   display: block;

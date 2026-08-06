@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { Check, GitBranch, Stack, Star, WarningCircle, XCircle } from '@phosphor-icons/react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { AlertDialog, Button, ContextMenu, Flex } from '@radix-ui/themes';
+import {
+  Archive,
+  ArrowCounterClockwise,
+  Check,
+  GitBranch,
+  Stack,
+  Star,
+  WarningCircle,
+  XCircle,
+} from '@phosphor-icons/react';
 import { hasNoShots, imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
-import { dismissedIds, dismissNode } from '../dismissed.js';
 import { elapsedSec, runningPhrase } from '../tasks.js';
 
 /**
@@ -16,7 +25,8 @@ export function Canvas({
   onRetry,
   onCancel,
   onToggleKeep,
-  brandId,
+  onArchive,
+  onDeletePermanently,
   setsFor,
   picked,
   onPick,
@@ -39,7 +49,13 @@ export function Canvas({
   /** The star badge looked like a toggle and wasn't one — `k` and the overlay
    * were the only real controls. This is the tile-level path to match. */
   onToggleKeep?: (node: TreeNode) => void;
-  brandId: string;
+  /** Put a shot away — or, on an already-archived one, bring it back. Absent
+   * where a tile can't be put away at all (there is none today, but the
+   * fallback in the running/cancelled tiles keeps this optional rather than
+   * a silent crash if that ever changes). */
+  onArchive?: (node: TreeNode) => void;
+  /** Permanent. Only ever offered (in the context menu) on an already-archived tile. */
+  onDeletePermanently?: (node: TreeNode) => void;
   /** The sets a shot is in, for the tile's own label. */
   setsFor?: (id: string) => ShotSet[];
   picked?: Set<string>;
@@ -70,11 +86,12 @@ export function Canvas({
   /** Target column width in px, from the grid-size slider. */
   tile: number;
 }) {
-  const [dismissTick, setDismissTick] = useState(0);
-  const dismissed = useMemo(() => new Set(dismissedIds(brandId)), [brandId, dismissTick]);
-  const shots = nodes.filter((n) => n.kind !== 'root' && !dismissed.has(n.id));
+  const shots = nodes.filter((n) => n.kind !== 'root');
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const picking = !!onPick;
+  // one confirm dialog for the whole grid, not one per tile — the context
+  // menu item just says which node it's for
+  const [deleteTarget, setDeleteTarget] = useState<TreeNode | null>(null);
   // a callback ref rather than useRef: the feed is not in the tree at all while
   // the brand is empty, so an effect keyed on a ref object would never see it
   // arrive and would measure nothing for the rest of the session
@@ -127,16 +144,11 @@ export function Canvas({
             <span className="sc-cell-failed">
               <XCircle size={16} />
               <span>Cancelled</span>
-              <button
-                type="button"
-                className="sc-cell-retry"
-                onClick={() => {
-                  dismissNode(brandId, n.id);
-                  setDismissTick((t) => t + 1);
-                }}
-              >
-                Dismiss
-              </button>
+              {onArchive && (
+                <button type="button" className="sc-cell-retry" onClick={() => onArchive(n)}>
+                  Dismiss
+                </button>
+              )}
             </span>
           </div>,
         ];
@@ -153,16 +165,11 @@ export function Canvas({
               <button type="button" className="sc-cell-retry" onClick={() => onRetry(n)}>
                 Try again
               </button>
-              <button
-                type="button"
-                className="sc-cell-retry"
-                onClick={() => {
-                  dismissNode(brandId, n.id);
-                  setDismissTick((t) => t + 1);
-                }}
-              >
-                Dismiss
-              </button>
+              {onArchive && (
+                <button type="button" className="sc-cell-retry" onClick={() => onArchive(n)}>
+                  Dismiss
+                </button>
+              )}
             </span>
           </div>,
         ];
@@ -220,6 +227,17 @@ export function Canvas({
               {versions} version{versions === 1 ? '' : 's'}
             </button>
           )}
+          {onArchive && (
+            <button
+              type="button"
+              className="sc-cell-archive"
+              onClick={() => onArchive(n)}
+              aria-label={n.archived ? 'Restore this shot' : 'Archive this shot'}
+              title={n.archived ? 'Restore' : 'Archive'}
+            >
+              {n.archived ? <ArrowCounterClockwise size={12} /> : <Archive size={12} />}
+            </button>
+          )}
         </>
       );
 
@@ -269,44 +287,84 @@ export function Canvas({
       }
 
       return [
-        <div key={n.id} className="sc-cell" data-selected={n.id === selectedId} data-picked={chosen || undefined}>
-          <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
-            <img src={imgUrl(n.images[0])} alt="" loading="lazy" />
-          </button>
-          {n.images.length > 1 && (
-            <button
-              type="button"
-              className="sc-cell-stack"
-              onClick={() => onToggleExpand?.(n.id)}
-              aria-expanded="false"
-              aria-label={`Show all ${n.images.length} variants`}
-            >
-              <Stack size={12} />
-              {n.images.length} variants
-            </button>
-          )}
-          {runControls}
-          {parentShot?.images[0] && (
-            <span className="sc-prov">
-              <img src={imgUrl(parentShot.images[0])} alt="" />
-              edit of
-            </span>
-          )}
-          {n.kept && (
-            <button
-              type="button"
-              className="sc-cell-star"
-              onClick={() => onToggleKeep?.(n)}
-              aria-pressed="true"
-              aria-label="Remove from keepers"
-            >
-              <Star size={14} weight="fill" />
-            </button>
-          )}
-          {/* the variant count moved onto the stack control, which is the
-                thing that now acts on it rather than merely reporting it */}
-          {inSets.length > 0 && <span className="sc-cell-meta">{inSets.map((s) => s.name).join(', ')}</span>}
-        </div>,
+        <ContextMenu.Root key={n.id}>
+          <ContextMenu.Trigger>
+            <div className="sc-cell" data-selected={n.id === selectedId} data-picked={chosen || undefined}>
+              <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
+                <img src={imgUrl(n.images[0])} alt="" loading="lazy" />
+              </button>
+              {n.images.length > 1 && (
+                <button
+                  type="button"
+                  className="sc-cell-stack"
+                  onClick={() => onToggleExpand?.(n.id)}
+                  aria-expanded="false"
+                  aria-label={`Show all ${n.images.length} variants`}
+                >
+                  <Stack size={12} />
+                  {n.images.length} variants
+                </button>
+              )}
+              {runControls}
+              {parentShot?.images[0] && (
+                <span className="sc-prov">
+                  <img src={imgUrl(parentShot.images[0])} alt="" />
+                  edit of
+                </span>
+              )}
+              {n.kept && (
+                <button
+                  type="button"
+                  className="sc-cell-star"
+                  onClick={() => onToggleKeep?.(n)}
+                  aria-pressed="true"
+                  aria-label="Remove from keepers"
+                >
+                  <Star size={14} weight="fill" />
+                </button>
+              )}
+              {/* the variant count moved onto the stack control, which is the
+                    thing that now acts on it rather than merely reporting it */}
+              {inSets.length > 0 && <span className="sc-cell-meta">{inSets.map((s) => s.name).join(', ')}</span>}
+            </div>
+          </ContextMenu.Trigger>
+          <ContextMenu.Content>
+            <ContextMenu.Item onSelect={() => onOpen(n.id)}>Open</ContextMenu.Item>
+            {onBranch && <ContextMenu.Item onSelect={() => onBranch(n.id)}>Branch from this</ContextMenu.Item>}
+            {onPick && (
+              <ContextMenu.Item onSelect={() => onPick(n.id)}>
+                {chosen ? 'Deselect' : 'Select for set'}
+              </ContextMenu.Item>
+            )}
+            {versions > 0 && onVersions && (
+              <ContextMenu.Item onSelect={() => onVersions(n.id)}>
+                {versions} version{versions === 1 ? '' : 's'}
+              </ContextMenu.Item>
+            )}
+            {n.images.length > 1 && onToggleExpand && (
+              <ContextMenu.Item onSelect={() => onToggleExpand(n.id)}>Show all variants</ContextMenu.Item>
+            )}
+            {onToggleKeep && (
+              <ContextMenu.Item onSelect={() => onToggleKeep(n)}>
+                {n.kept ? 'Remove from keepers' : 'Keep'}
+              </ContextMenu.Item>
+            )}
+            {onArchive && (
+              <>
+                <ContextMenu.Separator />
+                <ContextMenu.Item onSelect={() => onArchive(n)}>{n.archived ? 'Restore' : 'Archive'}</ContextMenu.Item>
+              </>
+            )}
+            {onDeletePermanently && n.archived && (
+              <>
+                <ContextMenu.Separator />
+                <ContextMenu.Item color="red" onSelect={() => setDeleteTarget(n)}>
+                  Delete permanently
+                </ContextMenu.Item>
+              </>
+            )}
+          </ContextMenu.Content>
+        </ContextMenu.Root>,
       ];
     }),
   ];
@@ -324,23 +382,49 @@ export function Canvas({
   const cols = Math.max(1, Math.min(fitting, tiles.length));
 
   return (
-    <div
-      className="sc-feed"
-      ref={setFeedEl}
-      data-picking={picking && (picked?.size ?? 0) > 0 ? '' : undefined}
-      style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}
-    >
-      {Array.from({ length: cols }, (_, c) => (
-        // Dealt round-robin, so the first row reads left to right in the order
-        // the feed is sorted. Packing by shortest-column would look tidier and
-        // would put the second-newest shot anywhere at all.
-        //
-        // biome-ignore lint/suspicious/noArrayIndexKey: the index is the identity here. These are positions, not records: column 2 of 4 is column 2 of 4, and the count is in the key so a resize remounts them rather than reshuffling tiles between surviving columns.
-        <div className="sc-feed-col" key={`col-${cols}-${c}`}>
-          {tiles.filter((_, i) => i % cols === c)}
-        </div>
-      ))}
-    </div>
+    <>
+      <div
+        className="sc-feed"
+        ref={setFeedEl}
+        data-picking={picking && (picked?.size ?? 0) > 0 ? '' : undefined}
+        style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}
+      >
+        {Array.from({ length: cols }, (_, c) => (
+          // Dealt round-robin, so the first row reads left to right in the order
+          // the feed is sorted. Packing by shortest-column would look tidier and
+          // would put the second-newest shot anywhere at all.
+          //
+          // biome-ignore lint/suspicious/noArrayIndexKey: the index is the identity here. These are positions, not records: column 2 of 4 is column 2 of 4, and the count is in the key so a resize remounts them rather than reshuffling tiles between surviving columns.
+          <div className="sc-feed-col" key={`col-${cols}-${c}`}>
+            {tiles.filter((_, i) => i % cols === c)}
+          </div>
+        ))}
+      </div>
+      <AlertDialog.Root open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialog.Content maxWidth="420px">
+          <AlertDialog.Title>Delete this shot permanently?</AlertDialog.Title>
+          <AlertDialog.Description size="2">This cannot be undone.</AlertDialog.Description>
+          <Flex gap="3" mt="4" justify="end">
+            <AlertDialog.Cancel>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action>
+              <Button
+                color="red"
+                onClick={() => {
+                  if (deleteTarget) onDeletePermanently?.(deleteTarget);
+                  setDeleteTarget(null);
+                }}
+              >
+                Delete permanently
+              </Button>
+            </AlertDialog.Action>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
+    </>
   );
 }
 

@@ -36,6 +36,9 @@ export interface TreeNode {
   overlays: Record<string, unknown[]>;
   /** Structured brief this shot came from; null for legacy nodes. */
   brief: unknown | null;
+  /** Put away, not gone: an archived node is excluded from the default feed
+   * but always restorable, never deleted. */
+  archived: boolean;
 }
 
 /** A node carrying the sets it has been put in, for lists that span the brand. */
@@ -119,6 +122,7 @@ function rowToNode(r: any): TreeNode {
     createdAt: r.created_at,
     overlays: JSON.parse(r.overlays ?? '{}'),
     brief: r.brief ? JSON.parse(r.brief) : null,
+    archived: !!r.archived,
   };
 }
 
@@ -363,6 +367,15 @@ export function createStore(db: DB) {
     },
     setKept(id: string, kept: boolean): void {
       db.prepare('UPDATE nodes SET kept=? WHERE id=?').run(kept ? 1 : 0, id);
+    },
+    setArchived(id: string, archived: boolean): void {
+      db.prepare('UPDATE nodes SET archived=? WHERE id=?').run(archived ? 1 : 0, id);
+    },
+    /** Permanent. Orphans any children rather than blocking or cascading —
+     * same technique collapseProjects already uses for a surplus root. */
+    deleteNode(id: string): void {
+      db.prepare('UPDATE nodes SET parent_id=NULL WHERE parent_id=?').run(id);
+      db.prepare('DELETE FROM nodes WHERE id=?').run(id);
     },
     setBrief(id: string, brief: unknown): void {
       db.prepare('UPDATE nodes SET brief=? WHERE id=?').run(JSON.stringify(brief), id);

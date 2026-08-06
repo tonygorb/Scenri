@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ContextMenu } from '@radix-ui/themes';
 import { Check, ImageSquare } from '@phosphor-icons/react';
 import type { Look } from '../api.js';
 
@@ -79,7 +80,7 @@ export function LookCard({
   }
 
   const showUseButton = variant === 'use' && !!onOpen && !!onUse;
-  return (
+  const card = (
     <div className="sc-lookcard" data-variant={variant} data-size={size}>
       <button
         type="button"
@@ -97,6 +98,16 @@ export function LookCard({
         </button>
       )}
     </div>
+  );
+  if (!onOpen && !onUse) return card;
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger>{card}</ContextMenu.Trigger>
+      <ContextMenu.Content>
+        {onOpen && <ContextMenu.Item onSelect={() => onOpen(look.id)}>Open</ContextMenu.Item>}
+        {showUseButton && <ContextMenu.Item onSelect={() => onUse?.(look.id)}>Use this look</ContextMenu.Item>}
+      </ContextMenu.Content>
+    </ContextMenu.Root>
   );
 }
 

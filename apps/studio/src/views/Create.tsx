@@ -19,6 +19,7 @@ import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { brandPath } from '../app/brandPath.js';
 import { briefTokens } from '../composer/BriefInput.js';
+import { Confirm } from '../Confirm.js';
 import { saveDraft } from '../draft.js';
 import { favoriteLooks } from '../favorites.js';
 import { PREF, useLocalPref } from '../prefs.js';
@@ -30,6 +31,8 @@ import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import type { InspectorTab } from '../layout/Inspector.js';
 import { LookCard } from '../layout/LookCard.js';
+import { useArchiveNode } from '../useArchiveNode.js';
+import { useDeleteNode } from '../useDeleteNode.js';
 
 /**
  * What the shot overlay needs from the canvas behind it. The overlay is a child
@@ -50,6 +53,9 @@ export interface ShotContext {
   reload: () => Promise<void>;
   remix: (node: TreeNode) => void;
   branch: (node: TreeNode) => void;
+  archive: (node: TreeNode) => void;
+  unarchive: (node: TreeNode) => void;
+  delete: (node: TreeNode) => void;
   layers: TextLayer[];
   selectedLayerId: string | null;
   setSelectedLayerId: (id: string | null) => void;
@@ -62,7 +68,7 @@ export interface ShotContext {
 }
 
 /** The lenses that are not places. A set is a place and lives in the path. */
-type Lens = 'all' | 'keepers' | 'ungrouped';
+type Lens = 'all' | 'keepers' | 'ungrouped' | 'archived';
 
 /**
  * Grid size, as a target column width. The feed fits as many of these as it can
@@ -164,7 +170,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     navigate(`${base}${q ? `?${q}` : ''}`, { replace: true });
   }, [base, navigate, params]);
 
-  const lens: Lens = lensParam === 'keepers' || lensParam === 'ungrouped' ? lensParam : 'all';
+  const lens: Lens =
+    lensParam === 'keepers' || lensParam === 'ungrouped' || lensParam === 'archived' ? lensParam : 'all';
 
   // announcing a finish is TaskCenter's job: it is mounted above the router and
   // so can still speak once you have walked away
@@ -176,6 +183,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       setErr(String(e.message ?? e));
     }
   }, [refresh]);
+
+  // one implementation for every surface that can put a shot away or bring it
+  // back — the feed tile, its context menu, the overlay toolbar, the Info tab
+  const { archive, unarchive, unarchiveBatch } = useArchiveNode(reload);
+  // permanent — only ever reachable once a shot is already archived
+  const { remove, removeBatch } = useDeleteNode(reload);
 
   // a cold load of /n/:nodeId has to select the node the URL names, once the
   // shots it belongs to actually arrive
@@ -216,9 +229,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     void reload();
   }, [shotActivity, reload]);
 
-  /** Every shot in the brand, newest first — the feed before any lens. */
+  /** Every non-archived shot in the brand, newest first — the feed before any
+   * other lens. Archived shots are put away on purpose: they stay out of
+   * lineage walks and version counts here, reachable only via the Archived
+   * lens itself or a direct link (DetailOverlay reads from `allNodes`, not
+   * this). */
   const shots = useMemo(
-    () => [...allNodes].filter((n) => n.kind !== 'root').sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    () =>
+      [...allNodes]
+        .filter((n) => n.kind !== 'root' && !n.archived)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [allNodes],
   );
 
@@ -275,6 +295,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   }, [lineageId, loaded, lineage, setLineageId, push]);
 
   const shown = useMemo(() => {
+    // archived shots are excluded from `shots` itself, so this lens reads
+    // straight from allNodes rather than layering on top of the others
+    if (lens === 'archived') {
+      return [...allNodes]
+        .filter((n) => n.kind !== 'root' && n.archived)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
     if (lineage) return shots.filter((n) => lineage.ids.has(n.id));
     if (set) {
       const inSet = new Set(membership[set.id] ?? []);
@@ -283,7 +310,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     if (lens === 'keepers') return shots.filter((n) => n.kept);
     if (lens === 'ungrouped') return shots.filter((n) => !setsByNode.has(n.id));
     return shots;
-  }, [shots, set, membership, lens, setsByNode, lineage]);
+  }, [shots, set, membership, lens, setsByNode, lineage, allNodes]);
 
   const byParent = useMemo(() => {
     const m = new Map<string | null, TreeNode[]>();
@@ -623,7 +650,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       return next;
     });
 
-  const pickedNodes = useMemo(() => shots.filter((n) => picked.has(n.id)), [shots, picked]);
+  // allNodes, not shots: shots excludes archived nodes, but a selection can be
+  // made from the Archived lens too — sourcing from the un-filtered tree is
+  // what makes Keep/Compare/batch-delete work for that selection at all
+  const pickedNodes = useMemo(() => allNodes.filter((n) => picked.has(n.id)), [allNodes, picked]);
 
   /**
    * Compare answers a question about exactly two things, so it is offered for
@@ -670,7 +700,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * The brand being empty outranks the lens: "star a shot to make it a keeper"
    * is useless advice when there is no shot to star.
    */
-  const emptyState = hasNoShots(shots) ? (
+  const emptyState = hasNoShots(allNodes) ? (
     <FirstRun looks={templates} brandId={brand.id} onLook={(id) => compose({ look: id })} />
   ) : set ? (
     <LensEmpty text="Nothing in this set yet. Pick shots on All, then add them here." />
@@ -678,6 +708,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     <LensEmpty text="No keepers yet. Star a shot and it lands here." onAll={() => setLens(null)} />
   ) : lens === 'ungrouped' ? (
     <LensEmpty text="Every shot is already in a set." onAll={() => setLens(null)} />
+  ) : lens === 'archived' ? (
+    <LensEmpty text="Nothing archived." onAll={() => setLens(null)} />
   ) : null;
 
   const shotContext: ShotContext = {
@@ -709,6 +741,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       branchFrom(n.id);
       closeShot();
     },
+    // leaving the overlay makes sense here: the shot just left whatever feed
+    // it was being viewed from
+    archive: (n) => void archive(n).then(() => closeShot()),
+    unarchive: (n) => void unarchive(n),
+    delete: (n) => void remove(n).then(() => closeShot()),
     layers: draftLayers,
     selectedLayerId,
     setSelectedLayerId,
@@ -760,7 +797,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           onRetry={(n) => void retry(n)}
           onCancel={(n) => void cancel(n)}
           onToggleKeep={(n) => void api.keep(n.id, !n.kept).then(() => void reload())}
-          brandId={brand.id}
+          // Canvas shows one button/menu item whose label already flips on
+          // n.archived (Archive vs Restore) — this is the toggle its single
+          // onClick needs to actually do the right one of the two
+          onArchive={(n) => (n.archived ? unarchive(n) : archive(n))}
+          onDeletePermanently={remove}
           setsFor={(id) => setsByNode.get(id) ?? []}
           picked={picked}
           onPick={togglePick}
@@ -826,6 +867,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             allKept={pickedNodes.length > 0 && pickedNodes.every((n) => n.kept)}
             comparable={comparable}
             onCompare={() => setCompareOpen(true)}
+            // Keep/Compare/Add-to-set are curation actions for active work —
+            // an archived selection only makes sense as "bring it back" or
+            // "get rid of it for good," so the whole bar swaps to that pair.
+            archivedLens={lens === 'archived'}
+            pickedIds={[...picked]}
+            onRestoreBatch={(ids) => void unarchiveBatch(ids).then(() => setPicked(new Set()))}
+            onDeleteBatch={(ids) => void removeBatch(ids).then(() => setPicked(new Set()))}
           />
         )}
         <Composer
@@ -942,6 +990,7 @@ const LENSES: { id: Lens; label: string; query: string }[] = [
   { id: 'all', label: 'All', query: '' },
   { id: 'keepers', label: 'Keepers', query: '?tab=keepers' },
   { id: 'ungrouped', label: 'Ungrouped', query: '?tab=ungrouped' },
+  { id: 'archived', label: 'Archived', query: '?tab=archived' },
 ];
 
 /**
@@ -1074,6 +1123,10 @@ function PickedBar({
   allKept,
   comparable,
   onCompare,
+  archivedLens,
+  pickedIds,
+  onRestoreBatch,
+  onDeleteBatch,
 }: {
   count: number;
   sets: ShotSet[];
@@ -1084,50 +1137,73 @@ function PickedBar({
   allKept: boolean;
   comparable: readonly [TreeNode, TreeNode] | null;
   onCompare: () => void;
+  /** Keep/Compare/Add-to-set are curation for active work — an archived
+   * selection only has two sensible actions, so the bar swaps entirely. */
+  archivedLens: boolean;
+  pickedIds: string[];
+  onRestoreBatch: (ids: string[]) => void;
+  onDeleteBatch: (ids: string[]) => void;
 }) {
   return (
     <div className="sc-picked" role="status">
       <span className="sc-picked-n">{count} selected</span>
-      <button type="button" className="sc-btn" onClick={onKeep}>
-        {allKept ? 'Remove from keepers' : 'Keep'}
-      </button>
-      {/* shown at two, so the bar does not carry a control that spends most of
-          its life disabled and unexplained */}
-      {count === 2 && (
-        <button
-          type="button"
-          className="sc-btn"
-          // aria-disabled: keeps the button tab-reachable so its title —
-          // the only explanation for why Compare is inert — stays
-          // discoverable to keyboard/screen-reader users, not just mouse hover
-          aria-disabled={!comparable || undefined}
-          onClick={() => {
-            if (comparable) onCompare();
-          }}
-          title={comparable ? 'Show the drift between these two' : 'Both shots need to have finished'}
-        >
-          Compare
+      {archivedLens ? (
+        <button type="button" className="sc-btn" onClick={() => onRestoreBatch(pickedIds)}>
+          Restore
         </button>
-      )}
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
-          <button type="button" className="sc-btn sc-btn-primary">
-            Add to set
+      ) : (
+        <>
+          <button type="button" className="sc-btn" onClick={onKeep}>
+            {allKept ? 'Remove from keepers' : 'Keep'}
           </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          {sets.map((s) => (
-            <DropdownMenu.Item key={s.id} onSelect={() => onAdd(s)}>
-              {s.name}
-            </DropdownMenu.Item>
-          ))}
-          {sets.length > 0 && <DropdownMenu.Separator />}
-          <DropdownMenu.Item onSelect={onNew}>New set…</DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+          {/* shown at two, so the bar does not carry a control that spends most of
+              its life disabled and unexplained */}
+          {count === 2 && (
+            <button
+              type="button"
+              className="sc-btn"
+              // aria-disabled: keeps the button tab-reachable so its title —
+              // the only explanation for why Compare is inert — stays
+              // discoverable to keyboard/screen-reader users, not just mouse hover
+              aria-disabled={!comparable || undefined}
+              onClick={() => {
+                if (comparable) onCompare();
+              }}
+              title={comparable ? 'Show the drift between these two' : 'Both shots need to have finished'}
+            >
+              Compare
+            </button>
+          )}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <button type="button" className="sc-btn sc-btn-primary">
+                Add to set
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              {sets.map((s) => (
+                <DropdownMenu.Item key={s.id} onSelect={() => onAdd(s)}>
+                  {s.name}
+                </DropdownMenu.Item>
+              ))}
+              {sets.length > 0 && <DropdownMenu.Separator />}
+              <DropdownMenu.Item onSelect={onNew}>New set…</DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </>
+      )}
       <button type="button" className="sc-btn" onClick={onClear}>
         Clear
       </button>
+      {archivedLens && (
+        <Confirm
+          label={`Delete ${count} permanently`}
+          title={`Delete ${count} shot${count === 1 ? '' : 's'} permanently?`}
+          body="This cannot be undone."
+          busy={false}
+          onConfirm={() => onDeleteBatch(pickedIds)}
+        />
+      )}
     </div>
   );
 }

@@ -54,6 +54,9 @@ export function ShotDetailRoute() {
       onChanged={ctx.reload}
       onRemix={ctx.remix}
       onBranch={ctx.branch}
+      onArchive={() => ctx.archive(node)}
+      onUnarchive={() => ctx.unarchive(node)}
+      onDelete={() => ctx.delete(node)}
       layers={ctx.layers}
       selectedLayerId={ctx.selectedLayerId}
       onSelectLayer={ctx.setSelectedLayerId}

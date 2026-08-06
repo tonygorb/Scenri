@@ -618,6 +618,34 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     core.store.setKept(n.id, Boolean((req.body as any)?.kept ?? true));
     return core.store.getNode(n.id);
   });
+  app.post('/api/nodes/:id/archive', async (req, reply) => {
+    const n = core.store.getNode((req.params as any).id);
+    if (!n) return reply.status(404).send({ error: 'node not found' });
+    core.store.setArchived(n.id, Boolean((req.body as any)?.archived ?? true));
+    return core.store.getNode(n.id);
+  });
+  // permanent — the client already restricts this to the Archived lens, but
+  // the archived-only rule is enforced here too, not just in the UI
+  app.delete('/api/nodes/:id', async (req, reply) => {
+    const n = core.store.getNode((req.params as any).id);
+    if (!n) return reply.status(404).send({ error: 'node not found' });
+    if (!n.archived) return reply.status(400).send({ error: 'archive this shot before deleting it' });
+    core.store.deleteNode(n.id);
+    return { ok: true };
+  });
+  app.post('/api/nodes/delete-batch', async (req, reply) => {
+    const ids = (req.body as any)?.nodeIds;
+    if (!Array.isArray(ids) || ids.length === 0) return reply.status(400).send({ error: 'nodeIds required' });
+    let deleted = 0;
+    for (const id of ids) {
+      const n = core.store.getNode(id);
+      if (n?.archived) {
+        core.store.deleteNode(id);
+        deleted++;
+      }
+    }
+    return { ok: true, deleted };
+  });
 
   // ---- images / diff / export
   app.get('/api/images/:hash', async (req, reply) => {

@@ -28,6 +28,7 @@ export interface TreeNode {
   createdAt: string;
   overlays: Record<string, TextLayer[]>;
   brief: { tokens: any[]; templateId?: string; templateFields?: Record<string, string> } | null;
+  archived: boolean;
 }
 
 /** A node carrying the sets it has been put in, for lists that span the brand. */
@@ -161,6 +162,11 @@ export const api = {
   saveOverlays: (nodeId: string, overlays: Record<string, TextLayer[]>) =>
     req<TreeNode>('PUT', `/api/nodes/${nodeId}/overlays`, { overlays }),
   keep: (nodeId: string, kept: boolean) => req<TreeNode>('POST', `/api/nodes/${nodeId}/keep`, { kept }),
+  archiveNode: (nodeId: string, archived: boolean) =>
+    req<TreeNode>('POST', `/api/nodes/${nodeId}/archive`, { archived }),
+  deleteNode: (nodeId: string) => req<{ ok: true }>('DELETE', `/api/nodes/${nodeId}`),
+  deleteNodesBatch: (nodeIds: string[]) =>
+    req<{ ok: true; deleted: number }>('POST', '/api/nodes/delete-batch', { nodeIds }),
   diff: (imageA: string, imageB: string) =>
     req<{ score: number; heatmapHash: string }>('POST', '/api/diff', { imageA, imageB }),
   settings: () => req<Record<string, boolean>>('GET', '/api/settings'),
