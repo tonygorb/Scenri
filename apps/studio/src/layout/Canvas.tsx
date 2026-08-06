@@ -15,6 +15,7 @@ export function Canvas({
   onOpen,
   onRetry,
   onCancel,
+  onToggleKeep,
   brandId,
   setsFor,
   picked,
@@ -35,6 +36,9 @@ export function Canvas({
   onOpen: (id: string, imageIndex?: number) => void;
   onRetry: (node: TreeNode) => void;
   onCancel?: (node: TreeNode) => void;
+  /** The star badge looked like a toggle and wasn't one — `k` and the overlay
+   * were the only real controls. This is the tile-level path to match. */
+  onToggleKeep?: (node: TreeNode) => void;
   brandId: string;
   /** The sets a shot is in, for the tile's own label. */
   setsFor?: (id: string) => ShotSet[];
@@ -75,7 +79,7 @@ export function Canvas({
   // the brand is empty, so an effect keyed on a ref object would never see it
   // arrive and would measure nothing for the rest of the session
   const [feedEl, setFeedEl] = useState<HTMLDivElement | null>(null);
-  const { tile: colWidth, cols: fitting } = layout(useWidth(feedEl), tile);
+  const { tile: colWidth, cols: fitting } = layout(useWidth(feedEl), tile, useViewportWidth() < PHONE);
 
   const tiles: ReactNode[] = [
     ...(sending
@@ -299,9 +303,15 @@ export function Canvas({
             </span>
           )}
           {n.kept && (
-            <span className="sc-cell-star">
+            <button
+              type="button"
+              className="sc-cell-star"
+              onClick={() => onToggleKeep?.(n)}
+              aria-pressed="true"
+              aria-label="Remove from keepers"
+            >
               <Star size={14} weight="fill" />
-            </span>
+            </button>
           )}
           {/* the variant count moved onto the stack control, which is the
                 thing that now acts on it rather than merely reporting it */}
@@ -346,8 +356,13 @@ export function Canvas({
 
 /** The gutter between tiles, matching `.sc-cell`'s own bottom margin. */
 const GAP = 14;
-/** Below this the grid-size slider is hidden, so the count is decided here. */
-const PHONE = 560;
+/** Below this the grid-size slider is hidden (`.sc-density`'s own `max-width:
+ * 767px` in tokens.css — matched here exactly against the viewport, the same
+ * thing the CSS media query keys off). This used to stop at 560, leaving a
+ * 561-767px dead band: no slider to drag, but also no forced 2-column
+ * fallback, so a tablet-portrait or resized-desktop width was stuck with
+ * whatever tile size a wider session had left behind. */
+const PHONE = 768;
 
 /** The feed's own width, watched, because the column maths needs the real one. */
 function useWidth(el: HTMLElement | null): number {
@@ -363,6 +378,22 @@ function useWidth(el: HTMLElement | null): number {
   return w;
 }
 
+/** The window's own width, for the phone-mode decision specifically — the
+ * feed's own content width (`useWidth` above) isn't it, since the assets
+ * panel's fixed width shrinks the feed independently of the viewport. A wide
+ * window with the panel open could measure a narrow feed while the CSS
+ * media query (which keys off the viewport) still shows a slider that would
+ * then silently do nothing, stuck in the forced-2-column branch below. */
+function useViewportWidth(): number {
+  const [w, setW] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return w;
+}
+
 /**
  * How wide a tile actually is, and how many fit.
  *
@@ -372,12 +403,15 @@ function useWidth(el: HTMLElement | null): number {
  * width rather than stretched, the grid-size slider changes the picture on
  * every step instead of only when the column count happens to tick over.
  */
-function layout(width: number, tile: number): { tile: number; cols: number } {
+function layout(width: number, tile: number, phoneMode: boolean): { tile: number; cols: number } {
   if (width <= 0) return { tile, cols: 1 };
   // A phone has no slider — there is no room to drag one — so it must not
   // inherit whatever size a desktop session left behind, and a fixed column
-  // width from that session would simply overflow the screen.
-  if (width < PHONE) {
+  // width from that session would simply overflow the screen. `phoneMode` is
+  // the viewport's call, not this element's own width: the assets panel
+  // narrows the feed on its own, and a slider the CSS still shows has to
+  // still work, not silently stop doing anything.
+  if (phoneMode) {
     return { tile: Math.floor((width - GAP) / 2), cols: 2 };
   }
   return { tile, cols: Math.max(1, Math.floor((width + GAP) / (tile + GAP))) };

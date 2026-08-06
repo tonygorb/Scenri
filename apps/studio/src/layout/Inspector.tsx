@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Callout, Flex, ScrollArea, Spinner, Text } from '@radix-ui/themes';
 import {
-  ArrowsLeftRight,
   MagicWand,
   Plus,
   TextAlignCenter,
@@ -352,40 +350,8 @@ function TextTab({
   );
 }
 
-function InfoTab({
-  node,
-  nodes,
-  onChanged,
-  onExport,
-}: {
-  node: TreeNode;
-  nodes: TreeNode[];
-  onChanged: () => void;
-  onExport: () => void;
-}) {
-  const parent = nodes.find((n) => n.id === node.parentId);
-  const canDiff =
-    node.status === 'done' &&
-    node.images.length > 0 &&
-    !!parent &&
-    parent.status === 'done' &&
-    parent.images.length > 0;
-  const [diff, setDiff] = useState<{ score: number; heatmapHash: string } | null>(null);
-  const [loadingDiff, setLoadingDiff] = useState(false);
+function InfoTab({ node, onChanged, onExport }: { node: TreeNode; onChanged: () => void; onExport: () => void }) {
   const { push } = useToasts();
-  useEffect(() => {
-    setDiff(null);
-  }, [node.id]);
-
-  const runDiff = async () => {
-    if (!parent) return;
-    setLoadingDiff(true);
-    try {
-      setDiff(await api.diff(parent.images[0], node.images[0]));
-    } finally {
-      setLoadingDiff(false);
-    }
-  };
 
   return (
     <>
@@ -411,55 +377,6 @@ function InfoTab({
           <button type="button" className="sc-btn sc-btn-ghost" style={{ width: '100%' }} onClick={onExport}>
             Choose sizes
           </button>
-        </>
-      )}
-
-      {canDiff && (
-        <>
-          <SectionLabel>Compare with source</SectionLabel>
-          {!diff ? (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              style={{ width: '100%' }}
-              disabled={loadingDiff}
-              onClick={() => void runDiff()}
-            >
-              {loadingDiff ? (
-                <Spinner size="1" />
-              ) : (
-                <>
-                  <ArrowsLeftRight size={13} /> Show what changed
-                </>
-              )}
-            </button>
-          ) : (
-            <>
-              <div
-                style={{
-                  position: 'relative',
-                  borderRadius: 8,
-                  overflow: 'hidden',
-                  border: '1px solid var(--sc-line)',
-                }}
-              >
-                <img src={imgUrl(node.images[0])} alt="" style={{ width: '100%', display: 'block' }} />
-                <img
-                  src={imgUrl(diff.heatmapHash)}
-                  alt=""
-                  style={{ position: 'absolute', inset: 0, width: '100%', opacity: 0.55, pointerEvents: 'none' }}
-                />
-              </div>
-              <Text size="1" style={{ display: 'block', marginTop: 8, color: 'var(--sc-fg2)' }}>
-                {(diff.score * 100).toFixed(1)}% of pixels changed.{' '}
-                {diff.score > 0.35
-                  ? 'Check the product survived.'
-                  : diff.score > 0.12
-                    ? 'Moderate change.'
-                    : 'Tight edit.'}
-              </Text>
-            </>
-          )}
         </>
       )}
 

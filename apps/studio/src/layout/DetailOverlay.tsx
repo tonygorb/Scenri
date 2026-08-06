@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
   ArrowsClockwise,
   GitBranch,
@@ -173,252 +174,256 @@ export function DetailOverlay({
   );
 
   return createPortal(
-    <div className="sc-ovl" role="dialog" aria-modal="true" aria-label={nodeLabel(node)}>
-      <div className="sc-ovl-winbar">
-        <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
-          <X size={13} />
-        </button>
-        {/* These step siblings, which are whole runs off the same parent, so
+    <FocusScope trapped asChild>
+      <div className="sc-ovl" role="dialog" aria-modal="true" aria-label={nodeLabel(node)}>
+        <div className="sc-ovl-winbar">
+          <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
+            <X size={13} />
+          </button>
+          {/* These step siblings, which are whole runs off the same parent, so
             they are versions. Variants are the images inside one run and are
             stepped on the stage with [ and ]. */}
-        <button
-          type="button"
-          className="sc-icon-btn"
-          disabled={sibIndex <= 0}
-          style={sibIndex <= 0 ? { opacity: 0.4 } : undefined}
-          onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
-          aria-label="Previous version"
-          title="Previous version"
-        >
-          <CaretLeft size={13} />
-        </button>
-        <button
-          type="button"
-          className="sc-icon-btn"
-          disabled={sibIndex >= siblings.length - 1}
-          style={sibIndex >= siblings.length - 1 ? { opacity: 0.4 } : undefined}
-          onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
-          aria-label="Next version"
-          title="Next version"
-        >
-          <CaretRight size={13} />
-        </button>
-      </div>
+          <button
+            type="button"
+            className="sc-icon-btn"
+            disabled={sibIndex <= 0}
+            style={sibIndex <= 0 ? { opacity: 0.4 } : undefined}
+            onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
+            aria-label="Previous version"
+            title="Previous version"
+          >
+            <CaretLeft size={13} />
+          </button>
+          <button
+            type="button"
+            className="sc-icon-btn"
+            disabled={sibIndex >= siblings.length - 1}
+            style={sibIndex >= siblings.length - 1 ? { opacity: 0.4 } : undefined}
+            onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
+            aria-label="Next version"
+            title="Next version"
+          >
+            <CaretRight size={13} />
+          </button>
+        </div>
 
-      <div className="sc-ovl-strip">
-        <span className="sc-eyebrow">Lineage</span>
-        {ancestors.map((a) => (
-          <span key={a.id} style={{ display: 'contents' }}>
-            {frame(a)}
-            <span className="sc-wire" />
-          </span>
-        ))}
-        {frame(node, true)}
-        {children.length > 0 && (
-          <>
-            <span className="sc-wire" />
-            <span className="sc-sib-row">{children.slice(0, 4).map((c) => frame(c))}</span>
-          </>
-        )}
-      </div>
-
-      <div className="sc-ovl-stage">
-        {node.status === 'done' && node.images.length > 0 && (
-          <div className="sc-ovl-tools">
-            <span
-              className="sc-ovl-cost"
-              title={node.costUsd > 0 ? `$${node.costUsd.toFixed(3)} of your API budget` : 'Generated on a free engine'}
-            >
-              <Coin size={13} />
-              {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
+        <div className="sc-ovl-strip">
+          <span className="sc-eyebrow">Lineage</span>
+          {ancestors.map((a) => (
+            <span key={a.id} style={{ display: 'contents' }}>
+              {frame(a)}
+              <span className="sc-wire" />
             </span>
-            <button
-              type="button"
-              className="sc-icon-btn"
-              onClick={() => setExportOpen(true)}
-              aria-label="Export"
-              title="Export"
-            >
-              {working ? <Spinner size="1" /> : <DownloadSimple size={14} />}
-            </button>
-            <button
-              type="button"
-              className="sc-icon-btn"
-              onClick={() =>
-                void api
-                  .keep(node.id, !node.kept)
-                  .then(onChanged)
-                  .catch((e) =>
-                    push({ kind: 'error', title: 'Could not update keeper status', detail: String(e.message ?? e) }),
-                  )
-              }
-              aria-label={node.kept ? 'Remove from keepers' : 'Keep'}
-              title={node.kept ? 'Keeper' : 'Keep'}
-              style={node.kept ? { color: 'var(--sc-star)' } : undefined}
-            >
-              <Star size={14} weight={node.kept ? 'fill' : 'regular'} />
-            </button>
-            {parentShot?.images[0] && (
-              // Compare used to mean "switch to a tab called Info and scroll",
-              // which is why nobody found the one feature that answers what the
-              // model changed without being asked. It is an action, so it is a
-              // button, next to the shot it is about.
+          ))}
+          {frame(node, true)}
+          {children.length > 0 && (
+            <>
+              <span className="sc-wire" />
+              <span className="sc-sib-row">{children.slice(0, 4).map((c) => frame(c))}</span>
+            </>
+          )}
+        </div>
+
+        <div className="sc-ovl-stage">
+          {node.status === 'done' && node.images.length > 0 && (
+            <div className="sc-ovl-tools">
+              <span
+                className="sc-ovl-cost"
+                title={
+                  node.costUsd > 0 ? `$${node.costUsd.toFixed(3)} of your API budget` : 'Generated on a free engine'
+                }
+              >
+                <Coin size={13} />
+                {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
+              </span>
               <button
                 type="button"
                 className="sc-icon-btn"
-                onClick={() => setCompareOpen(true)}
-                aria-label="Compare with the shot this came from"
-                title="Compare with source"
+                onClick={() => setExportOpen(true)}
+                aria-label="Export"
+                title="Export"
               >
-                <ArrowsLeftRight size={14} />
+                {working ? <Spinner size="1" /> : <DownloadSimple size={14} />}
               </button>
-            )}
-            <button
-              type="button"
-              className="sc-icon-btn"
-              onClick={() => void copyImage()}
-              aria-label="Copy image"
-              title="Copy image"
-            >
-              <CopySimple size={14} />
-            </button>
-          </div>
-        )}
-        <StageFrame
-          node={node}
-          imageIndex={imageIndex}
-          onRetry={() => onRetry(node)}
-          onCancel={() => onCancel(node)}
-          layers={layers}
-          selectedLayerId={selectedLayerId}
-          onSelectLayer={onSelectLayer}
-          onLayersChange={onLayersChange}
-        />
-        {node.status === 'done' && node.images.length > 1 && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            {node.images.map((h, i) => (
               <button
                 type="button"
-                key={h}
-                onClick={() => onImageIndex(i)}
-                aria-label={`Image ${i + 1}`}
-                style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', lineHeight: 0 }}
+                className="sc-icon-btn"
+                onClick={() =>
+                  void api
+                    .keep(node.id, !node.kept)
+                    .then(onChanged)
+                    .catch((e) =>
+                      push({ kind: 'error', title: 'Could not update keeper status', detail: String(e.message ?? e) }),
+                    )
+                }
+                aria-label={node.kept ? 'Remove from keepers' : 'Keep'}
+                title={node.kept ? 'Keeper' : 'Keep'}
+                style={node.kept ? { color: 'var(--sc-star)' } : undefined}
               >
-                <img
-                  src={imgUrl(h)}
-                  alt=""
-                  className="sc-thumb"
-                  data-active={i === imageIndex}
-                  width={52}
-                  height={52}
-                />
+                <Star size={14} weight={node.kept ? 'fill' : 'regular'} />
               </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <aside className="sc-ovl-meta">
-        <div className="sc-ovl-head">
-          <b>{node.kind === 'edit' ? 'Refine' : 'Generation'}</b>
-          <small>
-            {node.images.length > 1 ? `${imageIndex + 1} of ${node.images.length} variants` : nodeLabel(node)}
-          </small>
-        </div>
-        <div className="sc-ovl-who">
-          {node.engineId} · {node.costUsd > 0 ? `$${node.costUsd.toFixed(3)}` : 'free'}
-        </div>
-
-        <Ingredients brief={node.brief} brand={brand} />
-
-        {parentShot && (
-          <div className="sc-ctx">
-            <button
-              type="button"
-              className="sc-ctx-chip"
-              onClick={() => onSelect(parentShot.id)}
-              title="Open the shot this came from"
-            >
-              {parentShot.images[0] && <img src={imgUrl(parentShot.images[0])} alt="" />}
-              edited from <b style={{ color: 'var(--sc-fg)', fontWeight: 500 }}>{nodeLabel(parentShot)}</b>
-            </button>
-          </div>
-        )}
-
-        {/* What to do next, offered rather than hunted for. Every one of these
-            already existed; they were just buried in tabs and menus. */}
-        {node.status === 'done' && node.images.length > 0 && (
-          <div className="sc-sugg">
-            <button type="button" className="sc-s sc-s-primary" onClick={onLift} disabled={lifting}>
-              {lifting ? <Spinner size="1" /> : <PencilSimple size={12} />} Make text editable
-            </button>
-            <button type="button" className="sc-s" onClick={onAddLayer}>
-              <Plus size={12} /> Add text
-            </button>
-            <button type="button" className="sc-s" onClick={() => onBranch(node)}>
-              <GitBranch size={12} /> Branch from this
-            </button>
-            {node.brief && (
-              <button type="button" className="sc-s" onClick={() => onRemix(node)}>
-                <ArrowsClockwise size={12} /> Remix this brief
+              {parentShot?.images[0] && (
+                // Compare used to mean "switch to a tab called Info and scroll",
+                // which is why nobody found the one feature that answers what the
+                // model changed without being asked. It is an action, so it is a
+                // button, next to the shot it is about.
+                <button
+                  type="button"
+                  className="sc-icon-btn"
+                  onClick={() => setCompareOpen(true)}
+                  aria-label="Compare with the shot this came from"
+                  title="Compare with source"
+                >
+                  <ArrowsLeftRight size={14} />
+                </button>
+              )}
+              <button
+                type="button"
+                className="sc-icon-btn"
+                onClick={() => void copyImage()}
+                aria-label="Copy image"
+                title="Copy image"
+              >
+                <CopySimple size={14} />
               </button>
-            )}
-            <button type="button" className="sc-s" onClick={() => setExportOpen(true)}>
-              <DownloadSimple size={12} /> Export
-            </button>
-          </div>
-        )}
-
-        <div className="sc-ovl-body">
-          <Inspector
-            node={node.kind !== 'root' ? node : null}
-            nodes={nodes}
+            </div>
+          )}
+          <StageFrame
+            node={node}
             imageIndex={imageIndex}
-            onChanged={onChanged}
-            brand={brand}
+            onRetry={() => onRetry(node)}
+            onCancel={() => onCancel(node)}
             layers={layers}
             selectedLayerId={selectedLayerId}
             onSelectLayer={onSelectLayer}
             onLayersChange={onLayersChange}
-            onAddLayer={onAddLayer}
-            onLift={onLift}
-            lifting={lifting}
-            tab={tab}
-            onTabChange={onTabChange}
-            onExport={() => setExportOpen(true)}
           />
+          {node.status === 'done' && node.images.length > 1 && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              {node.images.map((h, i) => (
+                <button
+                  type="button"
+                  key={h}
+                  onClick={() => onImageIndex(i)}
+                  aria-label={`Image ${i + 1}`}
+                  style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', lineHeight: 0 }}
+                >
+                  <img
+                    src={imgUrl(h)}
+                    alt=""
+                    className="sc-thumb"
+                    data-active={i === imageIndex}
+                    width={52}
+                    height={52}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="sc-ovl-edit">
-          {/* In here the target is the whole screen, so it is stated rather
+        <aside className="sc-ovl-meta">
+          <div className="sc-ovl-head">
+            <b>{node.kind === 'edit' ? 'Refine' : 'Generation'}</b>
+            <small>
+              {node.images.length > 1 ? `${imageIndex + 1} of ${node.images.length} variants` : nodeLabel(node)}
+            </small>
+          </div>
+          <div className="sc-ovl-who">
+            {node.engineId} · {node.costUsd > 0 ? `$${node.costUsd.toFixed(3)}` : 'free'}
+          </div>
+
+          <Ingredients brief={node.brief} brand={brand} />
+
+          {parentShot && (
+            <div className="sc-ctx">
+              <button
+                type="button"
+                className="sc-ctx-chip"
+                onClick={() => onSelect(parentShot.id)}
+                title="Open the shot this came from"
+              >
+                {parentShot.images[0] && <img src={imgUrl(parentShot.images[0])} alt="" />}
+                edited from <b style={{ color: 'var(--sc-fg)', fontWeight: 500 }}>{nodeLabel(parentShot)}</b>
+              </button>
+            </div>
+          )}
+
+          {/* What to do next, offered rather than hunted for. Every one of these
+            already existed; they were just buried in tabs and menus. */}
+          {node.status === 'done' && node.images.length > 0 && (
+            <div className="sc-sugg">
+              <button type="button" className="sc-s sc-s-primary" onClick={onLift} disabled={lifting}>
+                {lifting ? <Spinner size="1" /> : <PencilSimple size={12} />} Make text editable
+              </button>
+              <button type="button" className="sc-s" onClick={onAddLayer}>
+                <Plus size={12} /> Add text
+              </button>
+              <button type="button" className="sc-s" onClick={() => onBranch(node)}>
+                <GitBranch size={12} /> Branch from this
+              </button>
+              {node.brief && (
+                <button type="button" className="sc-s" onClick={() => onRemix(node)}>
+                  <ArrowsClockwise size={12} /> Remix this brief
+                </button>
+              )}
+              <button type="button" className="sc-s" onClick={() => setExportOpen(true)}>
+                <DownloadSimple size={12} /> Export
+              </button>
+            </div>
+          )}
+
+          <div className="sc-ovl-body">
+            <Inspector
+              node={node.kind !== 'root' ? node : null}
+              nodes={nodes}
+              imageIndex={imageIndex}
+              onChanged={onChanged}
+              brand={brand}
+              layers={layers}
+              selectedLayerId={selectedLayerId}
+              onSelectLayer={onSelectLayer}
+              onLayersChange={onLayersChange}
+              onAddLayer={onAddLayer}
+              onLift={onLift}
+              lifting={lifting}
+              tab={tab}
+              onTabChange={onTabChange}
+              onExport={() => setExportOpen(true)}
+            />
+          </div>
+
+          <div className="sc-ovl-edit">
+            {/* In here the target is the whole screen, so it is stated rather
               than chosen: `target` is this shot and there is no chip, because
               there is nothing else this composer could be talking about. The
               root is the fallback for the cases that cannot branch, so a look
               or a non-editing engine still makes a new shot rather than filing
               one under a shot it never used. */}
-          <Composer
-            projectId={projectId}
-            brand={brand}
-            engines={engines}
-            parent={root}
-            target={node}
-            shots={nodes}
-            onQueued={onChanged}
+            <Composer
+              projectId={projectId}
+              brand={brand}
+              engines={engines}
+              parent={root}
+              target={node}
+              shots={nodes}
+              onQueued={onChanged}
+            />
+          </div>
+        </aside>
+        <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} layers={layers} />
+        {parentShot?.images[0] && (
+          <CompareDialog
+            open={compareOpen}
+            onOpenChange={setCompareOpen}
+            a={parentShot}
+            b={node}
+            imageA={parentShot.images[0]}
+            imageB={hash}
           />
-        </div>
-      </aside>
-      <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} layers={layers} />
-      {parentShot?.images[0] && (
-        <CompareDialog
-          open={compareOpen}
-          onOpenChange={setCompareOpen}
-          a={parentShot}
-          b={node}
-          imageA={parentShot.images[0]}
-          imageB={hash}
-        />
-      )}
-    </div>,
+        )}
+      </div>
+    </FocusScope>,
     document.body,
   );
 }

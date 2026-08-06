@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Dialog, Spinner } from '@radix-ui/themes';
+import { X } from '@phosphor-icons/react';
 import { api, downloadExport, imgUrl, type ExportPreset, type TextLayer } from '../api.js';
 import { flattenToBlob } from '../editor/flatten.js';
 
@@ -85,6 +86,11 @@ export function ExportDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content maxWidth="360px" aria-describedby={undefined}>
+        <Dialog.Close>
+          <button type="button" className="sc-set-close sc-dlg-close" aria-label="Close">
+            <X size={16} />
+          </button>
+        </Dialog.Close>
         <Dialog.Title>Export this shot</Dialog.Title>
         <p className="sc-dlg-sub">
           {layers.length > 0

@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { Badge, Dialog } from '@radix-ui/themes';
+import { Badge } from '@radix-ui/themes';
 import { ImageSquare, Package, Sparkle, Star, UsersThree } from '@phosphor-icons/react';
-import { hasNoShots, imgUrl, type Brand } from '../api.js';
+import { hasNoShots, imgUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../app/brandPath.js';
-import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
 import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
 
@@ -24,7 +23,7 @@ import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
 const RECENT = 12;
 
 export function HomeView() {
-  const { looks: templates, loaded: looksLoaded, refresh } = useAppData();
+  const { looks: templates, loaded: looksLoaded } = useAppData();
   const { brand, nodes, loaded } = useBrand();
   const navigate = useNavigate();
 
@@ -46,6 +45,15 @@ export function HomeView() {
 
   const products = (brand.json?.products ?? []) as any[];
 
+  /** A real pre-fill, not "Start from scratch" with a different label: pick
+   * the look for you (favorite first, else whatever's first) and go straight
+   * to adding the product it's for — the two things every shoot needs. */
+  const startPhotoshoot = () => {
+    const favs = favoriteLooks(brand.id);
+    const lookId = templates.find((t) => favs.includes(t.id))?.id ?? templates[0]?.id;
+    toCreate(lookId ? { look: lookId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
+  };
+
   return (
     <div className="sc-home">
       <main className="sc-main" id="main">
@@ -54,7 +62,7 @@ export function HomeView() {
         </h1>
 
         <div className="sc-create-grid">
-          <button type="button" className="sc-create-card" onClick={() => toCreate({ attach: 'looks', compose: '1' })}>
+          <button type="button" className="sc-create-card" onClick={startPhotoshoot}>
             <span className="sc-glyph">
               <Sparkle size={16} />
             </span>
@@ -72,7 +80,26 @@ export function HomeView() {
               <small>Describe any visual</small>
             </span>
           </button>
-          <ProductsCard brand={brand} onChanged={refresh} count={products.length} />
+          <button
+            type="button"
+            className="sc-create-card"
+            onClick={() => toCreate({ attach: 'products', compose: '1' })}
+          >
+            <span className="sc-glyph">
+              <Package size={16} />
+            </span>
+            <span>
+              <b>
+                Add a product{' '}
+                {products.length > 0 && (
+                  <Badge variant="soft" radius="full" size="1">
+                    {products.length}
+                  </Badge>
+                )}
+              </b>
+              <small>Locked shots keep it exact</small>
+            </span>
+          </button>
           <button type="button" className="sc-create-card" onClick={() => navigate('/setup')}>
             <span className="sc-glyph">
               <UsersThree size={16} />
@@ -129,7 +156,12 @@ export function HomeView() {
         {/* loaded, so an empty brand is told it is empty rather than left blank */}
         {!loaded && <div className="sc-tplrow" aria-hidden />}
         {loaded && hasNoShots(nodes) && (
-          <p className="sc-feed-empty">Nothing yet. Start from scratch above, or pick a look.</p>
+          <div className="sc-feed-empty">
+            <p>Nothing yet.</p>
+            <button type="button" className="sc-btn" onClick={() => toCreate({ compose: '1' })}>
+              Start from scratch
+            </button>
+          </div>
         )}
         {loaded && !hasNoShots(nodes) && recent.length === 0 && (
           <p className="sc-feed-empty">Still working on your first shots. Check back in a moment.</p>
@@ -156,34 +188,5 @@ export function HomeView() {
         )}
       </main>
     </div>
-  );
-}
-
-function ProductsCard({ brand, onChanged, count }: { brand: Brand; onChanged: () => void; count: number }) {
-  return (
-    <Dialog.Root>
-      <Dialog.Trigger>
-        <button type="button" className="sc-create-card">
-          <span className="sc-glyph">
-            <Package size={16} />
-          </span>
-          <span>
-            <b>
-              Add a product{' '}
-              {count > 0 && (
-                <Badge variant="soft" radius="full" size="1">
-                  {count}
-                </Badge>
-              )}
-            </b>
-            <small>Locked shots keep it exact</small>
-          </span>
-        </button>
-      </Dialog.Trigger>
-      <Dialog.Content maxWidth="560px">
-        <Dialog.Title>Products: {brand.json?.meta?.name}</Dialog.Title>
-        <ProductsPanel brand={brand} onChanged={onChanged} />
-      </Dialog.Content>
-    </Dialog.Root>
   );
 }

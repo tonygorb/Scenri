@@ -1832,8 +1832,22 @@ select {
   position: absolute;
   top: 8px;
   right: 8px;
+  border: none;
+  padding: 0;
+  background: none;
   color: var(--sc-star);
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  cursor: pointer;
+  line-height: 0;
+  transition: transform 120ms ease;
+}
+.sc-cell-star:hover {
+  transform: scale(1.12);
+}
+.sc-cell-star:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: 50%;
 }
 
 /* The tile is a div now, so opening it is its own button filling the frame. */
@@ -2161,6 +2175,15 @@ select {
    stacked one had, so the eye can see where the run begins. */
 .sc-cell[data-variant][data-first] {
   box-shadow: inset 3px 0 0 0 var(--sc-line-strong);
+}
+
+/* CompareDialog/ExportDialog relied on Escape/backdrop alone — reusing
+   .sc-set-close's button (SettingsDialog) for the visual, this just places it
+   since neither dialog has that dialog's own header row to sit inside. */
+.sc-dlg-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
 }
 
 /* Two shots and the drift between them, on one row. */

@@ -749,6 +749,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           onOpen={openShot}
           onRetry={(n) => void retry(n)}
           onCancel={(n) => void cancel(n)}
+          onToggleKeep={(n) => void api.keep(n.id, !n.kept).then(() => void reload())}
           brandId={brand.id}
           setsFor={(id) => setsByNode.get(id) ?? []}
           picked={picked}
@@ -826,7 +827,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           shots={allNodes}
           initialBrief={remixBrief}
           startTemplate={params.get('look') ?? undefined}
-          openAttachTab={params.get('attach') === 'looks' ? 'Looks' : undefined}
+          openAttachTab={
+            params.get('attach') === 'looks' ? 'Looks' : params.get('attach') === 'products' ? 'Products' : undefined
+          }
           target={target}
           onClearTarget={() => setBranchId(null)}
           onRestoreBranchId={setBranchId}

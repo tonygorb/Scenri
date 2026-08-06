@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Dialog, Spinner } from '@radix-ui/themes';
+import { X } from '@phosphor-icons/react';
 import { api, imgUrl, nodeLabel, type TreeNode } from '../api.js';
 
 /**
@@ -54,6 +55,11 @@ export function CompareDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content maxWidth="860px" aria-describedby={undefined}>
+        <Dialog.Close>
+          <button type="button" className="sc-set-close sc-dlg-close" aria-label="Close">
+            <X size={16} />
+          </button>
+        </Dialog.Close>
         <Dialog.Title>Compare</Dialog.Title>
         <div className="sc-cmp">
           <figure className="sc-cmp-side">
