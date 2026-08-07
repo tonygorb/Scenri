@@ -370,21 +370,55 @@ function Group<T>({
   const bodyRef = useRef<HTMLDivElement>(null);
   const mode: 'idle' | 'open' | 'collapsed' =
     searching || openGroup === null ? 'idle' : openGroup === name ? 'open' : 'collapsed';
+
+  // The open card grid and the compact preview row are different DOM shapes
+  // (labeled cards vs plain thumbnails), not just a size change — swapping them
+  // the instant `mode` flips reads as a pop, worst right as the box is also
+  // resizing. So the shape shown (`displayShape`) lags `mode` by one fade: it
+  // only follows once content has faded to invisible, then swaps and fades back
+  // in. Idle and collapsed share the same compact shape, so this only ever
+  // triggers on an actual open <-> compact change, never on idle <-> collapsed.
+  const contentShape: 'compact' | 'open' = mode === 'open' ? 'open' : 'compact';
+  const [displayShape, setDisplayShape] = useState<'compact' | 'open'>(contentShape);
+  const [fading, setFading] = useState(false);
+  useEffect(() => {
+    if (contentShape === displayShape) return;
+    // Reduced motion strips the opacity transition in CSS (see tokens.css), so
+    // waiting out the fade here would just hold an invisible, unexplained gap
+    // instead of hiding a swap — skip straight to the new shape.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayShape(contentShape);
+      return;
+    }
+    setFading(true);
+    const t = setTimeout(() => {
+      setDisplayShape(contentShape);
+      setFading(false);
+    }, 130);
+    return () => {
+      clearTimeout(t);
+      setFading(false);
+    };
+  }, [contentShape, displayShape]);
+
   // Idle is a fixed one-row teaser — no pagination. Searching always shows every
   // match, regardless of mode. The open pane starts at PREVIEW and grows itself
   // as the user scrolls (see the sentinel effect below) — never a manual button,
   // never all 576 mounted at once. Collapsed groups stay mounted now (see the
   // transition comment below) but still cap to the teaser count — nobody
-  // needs 576 hidden buttons in the DOM for a group they can't see.
-  const shown = mode === 'open' ? items.slice(0, visibleCount) : searching ? items : items.slice(0, IDLE_PREVIEW);
-  const hidden = mode === 'open' ? items.length - shown.length : 0;
+  // needs 576 hidden buttons in the DOM for a group they can't see. All of this
+  // keys off `displayShape`, not `mode`, so the item list swaps in lockstep with
+  // the faded-out moment above rather than a beat earlier.
+  const shown =
+    displayShape === 'open' ? items.slice(0, visibleCount) : searching ? items : items.slice(0, IDLE_PREVIEW);
+  const hidden = displayShape === 'open' ? items.length - shown.length : 0;
 
   // Infinite scroll: growing the DOM in one 564-item jump on a button click was
   // the exact cost the PREVIEW cap exists to avoid — a sentinel a bit before the
   // bottom of the open group's own scroll area (not the whole panel) grows the
   // list a batch at a time instead, so it never has to happen all at once.
   useEffect(() => {
-    if (mode !== 'open' || hidden === 0) return;
+    if (displayShape !== 'open' || hidden === 0) return;
     const root = bodyRef.current;
     const target = sentinelRef.current;
     if (!root || !target) return;
@@ -398,7 +432,7 @@ function Group<T>({
     );
     observer.observe(target);
     return () => observer.disconnect();
-  }, [mode, hidden, items.length]);
+  }, [displayShape, hidden, items.length]);
 
   return (
     <div className="sc-agroup" data-mode={mode}>
@@ -417,15 +451,13 @@ function Group<T>({
       </div>
 
       <div className="sc-agroup-body" ref={bodyRef}>
-        <div className="sc-agroup-content">
+        <div className="sc-agroup-content" data-fading={fading || undefined}>
           {items.length === 0 && empty ? (
             <p className="sc-anote">{empty}</p>
           ) : (
             <>
-              <div className={mode === 'open' ? 'sc-acard-grid' : 'sc-arow'}>
-                {render(shown, mode === 'open' ? 'open' : 'compact')}
-              </div>
-              {mode === 'open' && hidden > 0 && (
+              <div className={displayShape === 'open' ? 'sc-acard-grid' : 'sc-arow'}>{render(shown, displayShape)}</div>
+              {displayShape === 'open' && hidden > 0 && (
                 <div ref={sentinelRef} className="sc-agroup-sentinel" aria-hidden="true" />
               )}
               {note && <p className="sc-anote">{note}</p>}

@@ -2836,6 +2836,14 @@ select {
     opacity 120ms ease,
     visibility 0s linear 120ms;
 }
+/* The compact preview row and the open card grid are different DOM shapes,
+   not just a size change — swapping one for the other outright reads as a
+   pop, worst of all while the row is also resizing. This is a plain
+   cross-fade: content fades to 0 first, the shape swaps underneath while
+   invisible (see the displayShape state in Group), then fades back in. */
+.sc-agroup-content[data-fading="true"] {
+  opacity: 0;
+}
 /* The open group doesn't use the grid-row collapse at all — its body fills
    whatever space .sc-agroup's own flex-grow gives it and scrolls internally,
    a different sizing model than "collapse to an intrinsic content height". */
