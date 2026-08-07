@@ -159,6 +159,8 @@ export const api = {
   presenters: () => req<{ presenters: Presenter[]; categories: string[]; styles: string[] }>('GET', '/api/presenters'),
   /** The reference frames a presenter has on disk, if any. */
   presenterFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/presenter-previews/${id}`),
+  demoProducts: () => req<{ demoProducts: DemoProduct[]; categories: string[] }>('GET', '/api/demo-products'),
+  showcase: () => req<{ showcase: ShowcaseEntry[]; categories: string[] }>('GET', '/api/showcase'),
   exportPresets: () => req<ExportPreset[]>('GET', '/api/export/presets'),
   previewBrief: (brief: unknown, engineId: string, brandId: string) =>
     req<BriefPreview>('POST', '/api/brief/preview', { brief, engineId, brandId }),
@@ -260,6 +262,37 @@ export interface Presenter {
   suitableStyles: string[];
   identityNotes: string;
   negativeConstraints: string[];
+  width: number;
+  height: number;
+  previewUrl?: string | null;
+}
+
+/**
+ * A curated, fictional-but-premium product from the global catalog — attaches
+ * straight into a brief the same way a Presenter does, standing in for a real
+ * uploaded product until the user swaps it for their own.
+ */
+export interface DemoProduct {
+  id: string;
+  name: string;
+  /** Lowercase key from productCategories.ts's PRODUCT_CATEGORIES. */
+  category: string;
+  description: string;
+  width: number;
+  height: number;
+  previewUrl?: string | null;
+}
+
+/**
+ * One curated homepage example: a real generated shot's exact recipe (same
+ * shape as `TreeNode.brief`), so opening it reproduces the identical chips
+ * that made the image, ready to remix.
+ */
+export interface ShowcaseEntry {
+  id: string;
+  title: string;
+  category: string;
+  brief: { tokens: any[]; templateFields?: Record<string, string> };
   width: number;
   height: number;
   previewUrl?: string | null;

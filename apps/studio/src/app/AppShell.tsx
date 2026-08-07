@@ -1,14 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Callout, Flex, Spinner } from '@radix-ui/themes';
-import { api, type Brand, type EngineInfo, type Presenter } from '../api.js';
+import { api, type Brand, type EngineInfo, type Presenter, type DemoProduct, type ShowcaseEntry } from '../api.js';
 import { useScenes, type UseScenesResult } from '../useScenes.js';
 import { usePresenters } from '../usePresenters.js';
+import { useDemoProducts } from '../useDemoProducts.js';
+import { useShowcase } from '../useShowcase.js';
 
 // usePresenters and useScenes both expose `loaded`/`error`/`refetch` — spreading
 // both into one context would let whichever lands second silently win for
 // existing Scenes consumers. Namespaced instead, so both stay independently
-// readable.
+// readable. demoProducts and showcase follow the same namespaced convention.
 interface AppData extends UseScenesResult {
   brands: Brand[];
   engines: EngineInfo[];
@@ -18,6 +20,15 @@ interface AppData extends UseScenesResult {
   presentersLoaded: boolean;
   presentersError: boolean;
   refetchPresenters: () => void;
+  demoProducts: DemoProduct[];
+  demoProductCategories: string[];
+  demoProductsLoaded: boolean;
+  demoProductsError: boolean;
+  showcase: ShowcaseEntry[];
+  showcaseCategories: string[];
+  showcaseLoaded: boolean;
+  showcaseError: boolean;
+  refetchShowcase: () => void;
   /** Re-read brands and engines: brand edits and key changes both land here. */
   refresh: () => Promise<void>;
 }
@@ -41,6 +52,8 @@ export function AppShell() {
   const [error, setError] = useState<string | null>(null);
   const scenes = useScenes();
   const presenters = usePresenters();
+  const demoProducts = useDemoProducts();
+  const showcase = useShowcase();
 
   const refresh = useCallback(async () => {
     try {
@@ -85,6 +98,15 @@ export function AppShell() {
         presentersLoaded: presenters.loaded,
         presentersError: presenters.error,
         refetchPresenters: presenters.refetch,
+        demoProducts: demoProducts.demoProducts,
+        demoProductCategories: demoProducts.categories,
+        demoProductsLoaded: demoProducts.loaded,
+        demoProductsError: demoProducts.error,
+        showcase: showcase.showcase,
+        showcaseCategories: showcase.categories,
+        showcaseLoaded: showcase.loaded,
+        showcaseError: showcase.error,
+        refetchShowcase: showcase.refetch,
         refresh,
       }}
     >

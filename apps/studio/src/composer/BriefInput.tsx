@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type TreeNode } from '../api.js';
+import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import {
@@ -79,6 +79,7 @@ export const BriefInput = forwardRef<
     shots: TreeNode[];
     templates: Scene[];
     presenters: Presenter[];
+    demoProducts: DemoProduct[];
     /** A Scene picked from the `#`/`/` menu goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
     onTemplatePick: (id: string) => void;
     placeholder: string;
@@ -104,6 +105,7 @@ export const BriefInput = forwardRef<
     shots,
     templates,
     presenters,
+    demoProducts,
     onTemplatePick,
     placeholder,
     placeholderSm,
@@ -167,8 +169,9 @@ export const BriefInput = forwardRef<
         }
       } else if (token.t === 'product') {
         const p = products.find((x) => x.id === token.id);
-        label = p?.name ?? 'missing product';
-        thumb = p ? assetUrl(p.shots?.[0]?.file) : null;
+        const d = p ? null : demoProducts.find((x) => x.id === token.id);
+        label = p?.name ?? d?.name ?? 'missing product';
+        thumb = p ? assetUrl(p.shots?.[0]?.file) : (d?.previewUrl ?? null);
       } else if (token.t === 'character') {
         const c = cast.find((x) => x.id === token.id);
         const p = c ? null : presenters.find((x) => x.id === token.id);
@@ -210,7 +213,7 @@ export const BriefInput = forwardRef<
       el.appendChild(x);
       return el;
     },
-    [templates, products, cast, presenters, flag],
+    [templates, products, cast, presenters, demoProducts, flag],
   );
 
   const emit = useCallback(() => {
@@ -512,11 +515,11 @@ export const BriefInput = forwardRef<
   const known = useCallback(
     (t: SentenceToken): boolean => {
       if (t.t === 'template') return templates.some((x) => x.id === t.id);
-      if (t.t === 'product') return products.some((x) => x.id === t.id);
+      if (t.t === 'product') return products.some((x) => x.id === t.id) || demoProducts.some((x) => x.id === t.id);
       if (t.t === 'character') return cast.some((x) => x.id === t.id) || presenters.some((x) => x.id === t.id);
       return true;
     },
-    [templates, products, cast, presenters],
+    [templates, products, cast, presenters, demoProducts],
   );
 
   const onDragEnter = (e: React.DragEvent) => {

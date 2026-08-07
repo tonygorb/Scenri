@@ -1,0 +1,239 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import sharp from 'sharp';
+import { createCore, type Core, type EngineAdapter } from '@scenri/core';
+import {
+  loadDemoProducts,
+  demoProductResolver,
+  demoProductFacetsOf,
+  resolveDemoProductImages,
+  type DemoProduct,
+} from '../src/demoProducts.js';
+import { buildServer } from '../src/server.js';
+import type { FastifyInstance } from 'fastify';
+
+const base: DemoProduct = {
+  id: 'ok',
+  name: 'Ok',
+  category: 'beauty',
+  description: 'd',
+  width: 10,
+  height: 10,
+};
+
+describe('demo product loader', () => {
+  it('loads valid demo products and skips bad files with a warning', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sc-demoproduct-'));
+    writeFileSync(join(dir, 'ok.json'), JSON.stringify(base));
+    writeFileSync(join(dir, 'bad.json'), '{nope');
+    writeFileSync(join(dir, 'incomplete.json'), JSON.stringify({ id: 'x' }));
+    writeFileSync(join(dir, 'nocategory.json'), JSON.stringify({ ...base, id: 'nocategory', category: '' }));
+    const { demoProducts, warnings } = loadDemoProducts(dir);
+    expect(demoProducts.map((p) => p.id)).toEqual(['ok']);
+    expect(warnings).toHaveLength(3);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('resolves by id, and answers undefined for an unknown one', () => {
+    const resolve = demoProductResolver([base]);
+    expect(resolve('ok')?.name).toBe('Ok');
+    expect(resolve('never-existed')).toBeUndefined();
+  });
+
+  it('reports the categories actually in use, sorted', () => {
+    const { categories } = demoProductFacetsOf([base, { ...base, id: 'two', category: 'apparel' }]);
+    expect(categories).toEqual(['apparel', 'beauty']);
+  });
+});
+
+describe('resolveDemoProductImages', () => {
+  let templatesDir: string;
+  let home: string;
+  let core: Core;
+
+  beforeEach(async () => {
+    templatesDir = mkdtempSync(join(tmpdir(), 'sc-demoproduct-templates-'));
+    const refDir = join(templatesDir, 'previews', 'demo-products', 'ok');
+    mkdirSync(refDir, { recursive: true });
+    const jpg = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#a1b2c3' } })
+      .jpeg()
+      .toBuffer();
+    writeFileSync(join(refDir, 'hero.jpg'), jpg);
+    home = mkdtempSync(join(tmpdir(), 'sc-demoproduct-home-'));
+    core = createCore(home);
+  });
+
+  afterEach(() => {
+    core.close();
+    rmSync(home, { recursive: true, force: true });
+    rmSync(templatesDir, { recursive: true, force: true });
+  });
+
+  it('hashes the hero photo into the image store on first use, idempotently', async () => {
+    const first = await resolveDemoProductImages(core, templatesDir, base);
+    expect(first?.shots).toHaveLength(1);
+    expect(first?.shots[0].file).toMatch(/^asset:[a-f0-9]{32}$/);
+    const second = await resolveDemoProductImages(core, templatesDir, base);
+    expect(second?.shots[0].file).toBe(first?.shots[0].file);
+  });
+
+  it('answers null when the hero photo is missing', async () => {
+    const resolved = await resolveDemoProductImages(core, templatesDir, { ...base, id: 'no-photo' });
+    expect(resolved).toBeNull();
+  });
+});
+
+describe('demo product catalog + brief resolution', () => {
+  let templatesDir: string;
+  let home: string;
+  let core: Core;
+  let app: FastifyInstance;
+
+  const spy: EngineAdapter = {
+    capabilities: () => ({
+      id: 'spy',
+      displayName: 'Spy',
+      localOnly: false,
+      supportsEdit: true,
+      supportsMask: false,
+      maxReferenceImages: 2,
+    }),
+    isAvailable: async () => ({ ok: true }),
+    costEstimate: async () => 0,
+    generate: async () => ({ images: [], costUsd: 0 }),
+    edit: async () => ({ images: [], costUsd: 0 }),
+  };
+
+  beforeEach(async () => {
+    templatesDir = mkdtempSync(join(tmpdir(), 'sc-demoproduct-api-templates-'));
+    mkdirSync(join(templatesDir, 'demo-products'), { recursive: true });
+    writeFileSync(
+      join(templatesDir, 'demo-products', 'aurelia.json'),
+      JSON.stringify({ ...base, id: 'aurelia', name: 'Aurelia Serum' }),
+    );
+    const refDir = join(templatesDir, 'previews', 'demo-products', 'aurelia');
+    mkdirSync(refDir, { recursive: true });
+    const jpg = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#ddccbb' } })
+      .jpeg()
+      .toBuffer();
+    writeFileSync(join(refDir, 'hero.jpg'), jpg);
+
+    home = mkdtempSync(join(tmpdir(), 'sc-demoproduct-api-home-'));
+    core = createCore(home);
+    app = buildServer({
+      core,
+      engines: { all: () => [spy], get: (id) => (id === 'spy' ? spy : null) },
+      templatesDir,
+    });
+  });
+
+  afterEach(async () => {
+    await app.close();
+    core.close();
+    rmSync(home, { recursive: true, force: true });
+    rmSync(templatesDir, { recursive: true, force: true });
+  });
+
+  const newBrand = async () =>
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json();
+
+  it('lists the catalog with facets and a thumbnail url', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/demo-products' });
+    const body = res.json();
+    expect(body.demoProducts).toHaveLength(1);
+    expect(body.demoProducts[0].name).toBe('Aurelia Serum');
+    expect(body.demoProducts[0].previewUrl).toMatch(/^\/api\/demo-product-thumbnails\/aurelia\.jpg\?v=\d+$/);
+    expect(body.categories).toContain('beauty');
+  });
+
+  it('serves the thumbnail and 404s an unknown one', async () => {
+    const ok = await app.inject({ method: 'GET', url: '/api/demo-product-thumbnails/aurelia.jpg' });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.headers['content-type']).toBe('image/jpeg');
+    const missing = await app.inject({ method: 'GET', url: '/api/demo-product-thumbnails/nope.jpg' });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('a brief can name a curated demo product directly, with no upload step first', async () => {
+    const brand = await newBrand();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: {
+        brandId: brand.id,
+        engineId: 'spy',
+        brief: {
+          tokens: [
+            { t: 'product', id: 'aurelia' },
+            { t: 'text', v: 'on a marble counter' },
+          ],
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.prompt).toContain('Aurelia Serum');
+    expect(body.referenceCount).toBeGreaterThan(0);
+
+    // resolving the demo product is a read-through cache, not a catalog write —
+    // the brand's own products[] stays exactly as it started
+    const brands = await app.inject({ method: 'GET', url: '/api/brands' });
+    const brandNow = brands.json().find((b: any) => b.id === brand.id);
+    expect(brandNow.json.products ?? []).toHaveLength(0);
+  });
+
+  it('a brief naming an unknown demo product warns instead of failing', async () => {
+    const brand = await newBrand();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: {
+        brandId: brand.id,
+        engineId: 'spy',
+        brief: { tokens: [{ t: 'product', id: 'nope' }] },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().warnings).toContain('A product in this brief is no longer in the brand kit.');
+  });
+
+  it('a real per-brand product with the same id takes priority over the demo catalog', async () => {
+    const brand = await newBrand();
+    const upload = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      headers: { 'content-type': `multipart/form-data; boundary=----b` },
+      payload: Buffer.concat([
+        Buffer.from(`------b\r\ncontent-disposition: form-data; name="name"\r\n\r\nReal Aurelia\r\n`),
+        Buffer.from(
+          `------b\r\ncontent-disposition: form-data; name="file"; filename="shot.png"\r\ncontent-type: image/png\r\n\r\n`,
+        ),
+        await sharp({ create: { width: 8, height: 8, channels: 3, background: '#112233' } })
+          .png()
+          .toBuffer(),
+        Buffer.from(`\r\n------b--\r\n`),
+      ]),
+    });
+    expect(upload.statusCode).toBe(200);
+    const productId = upload.json().json.products[0].id;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: {
+        brandId: brand.id,
+        engineId: 'spy',
+        brief: { tokens: [{ t: 'product', id: productId }] },
+      },
+    });
+    expect(res.json().prompt).toContain('Real Aurelia');
+  });
+});

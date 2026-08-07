@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   categoryLabel,
   categoryOf,
+  effectiveCategory,
   OTHER_CATEGORY,
   PRODUCT_CATEGORIES,
   suggestCategory,
@@ -90,10 +91,40 @@ describe('suggestCategory', () => {
       suggestCategory('headphones', []),
       suggestCategory('wallet', []),
       suggestCategory('soda', []),
+      suggestCategory('necklace', []),
+      suggestCategory('snack', []),
     ];
     for (const s of samples) {
       expect(s).toBeDefined();
       expect(keys.has(s!)).toBe(true);
     }
+  });
+
+  it('matches jewelry before accessories, since accessories no longer claims the "jewelry" keyword', () => {
+    expect(suggestCategory('Sterling Silver Ring', [])).toBe('jewelry');
+    expect(suggestCategory(null, ['jewelry', 'gift'])).toBe('jewelry');
+  });
+
+  it('matches food distinctly from beverage', () => {
+    expect(suggestCategory('Trail Mix Snack', [])).toBe('food');
+    expect(suggestCategory('Cold Brew Coffee', [])).toBe('beverage');
+  });
+});
+
+describe('effectiveCategory', () => {
+  it('uses the stored category when it is a real key', () => {
+    expect(effectiveCategory({ category: 'footwear', productType: 'Perfume' })).toBe('footwear');
+  });
+
+  it('falls through to a suggestion when the stored category is stale/unrecognized, not a dead bucket', () => {
+    expect(effectiveCategory({ category: 'sneakers-legacy', productType: 'Running Shoe' })).toBe('footwear');
+  });
+
+  it('falls through to a suggestion when nothing is stored', () => {
+    expect(effectiveCategory({ category: null, productType: 'Eau de Parfum' })).toBe('fragrance');
+  });
+
+  it('is null when there is no stored category and nothing to suggest from', () => {
+    expect(effectiveCategory({ category: null, productType: null, tags: [] })).toBeNull();
   });
 });

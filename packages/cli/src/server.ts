@@ -11,6 +11,13 @@ import {
   presenterRefPath,
   type Presenter,
 } from './presenters.js';
+import {
+  brandJsonWithResolvedDemoProducts,
+  loadDemoProducts,
+  demoProductFacetsOf,
+  type DemoProduct,
+} from './demoProducts.js';
+import { loadShowcase, showcaseFacetsOf, type ShowcaseEntry } from './showcase.js';
 import { compileBrief, sceneGuardDirectives, FORMATS, type Brief } from './brief.js';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -374,6 +381,49 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return serveJpeg(req, reply, path);
   });
 
+  // ---- demo products (curated, fictional-but-premium product catalog). A
+  // demo product attaches straight into a brief like a Presenter does — see
+  // brandJsonWithResolvedDemoProducts below. Never touches a real brand's
+  // own products[].
+  const { demoProducts } = loadDemoProducts(join(templatesRoot, 'demo-products'));
+  const demoProductThumbPath = (id: string) => join(templatesRoot, 'previews', 'demo-products', id, 'hero.jpg');
+  const decorateDemoProduct = (p: DemoProduct) => ({
+    ...p,
+    previewUrl: existsSync(demoProductThumbPath(p.id))
+      ? `/api/demo-product-thumbnails/${p.id}.jpg${mtimeQS(demoProductThumbPath(p.id))}`
+      : null,
+  });
+  app.get('/api/demo-products', async () => ({
+    demoProducts: demoProducts.map(decorateDemoProduct),
+    ...demoProductFacetsOf(demoProducts),
+  }));
+  app.get('/api/demo-product-thumbnails/:file', async (req, reply) => {
+    const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
+    if (!m || !existsSync(demoProductThumbPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
+    return serveJpeg(req, reply, demoProductThumbPath(m[1]));
+  });
+
+  // ---- showcase (curated homepage gallery). Each entry is a real recipe —
+  // the exact brief.tokens that produced its hero image — so opening one
+  // reproduces the identical chips, ready to remix.
+  const { showcase } = loadShowcase(join(templatesRoot, 'showcase'));
+  const showcaseHeroPath = (id: string) => join(templatesRoot, 'previews', 'showcase', `${id}.jpg`);
+  const decorateShowcase = (s: ShowcaseEntry) => ({
+    ...s,
+    previewUrl: existsSync(showcaseHeroPath(s.id))
+      ? `/api/showcase-previews/${s.id}.jpg${mtimeQS(showcaseHeroPath(s.id))}`
+      : null,
+  });
+  app.get('/api/showcase', async () => ({
+    showcase: showcase.map(decorateShowcase),
+    ...showcaseFacetsOf(showcase),
+  }));
+  app.get('/api/showcase-previews/:file', async (req, reply) => {
+    const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
+    if (!m || !existsSync(showcaseHeroPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
+    return serveJpeg(req, reply, showcaseHeroPath(m[1]));
+  });
+
   // ---- brief compiler: the composer previews exactly what will run
   app.get('/api/formats', async () => FORMATS);
   app.post('/api/brief/preview', async (req, reply) => {
@@ -388,7 +438,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       core,
       templatesRoot,
       presenters,
-      brandJsonWithCatalogProducts(core, brand.id),
+      await brandJsonWithResolvedDemoProducts(
+        core,
+        templatesRoot,
+        demoProducts,
+        brandJsonWithCatalogProducts(core, brand.id),
+        brief.tokens,
+      ),
       brief.tokens,
     );
     const compiled = compileBrief(brief as Brief, {
@@ -623,7 +679,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         core,
         templatesRoot,
         presenters,
-        brandJsonWithCatalogProducts(core, project.brandId),
+        await brandJsonWithResolvedDemoProducts(
+          core,
+          templatesRoot,
+          demoProducts,
+          brandJsonWithCatalogProducts(core, project.brandId),
+          brief.tokens,
+        ),
         brief.tokens,
       );
       compiled = compileBrief(brief as Brief, {

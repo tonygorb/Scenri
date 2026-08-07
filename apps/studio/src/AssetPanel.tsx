@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Box, Button, Callout, Card, Flex, Spinner, Text, TextField } from '@radix-ui/themes';
 import { api, assetUrl, deleteAsset, uploadAsset, type Brand, type CatalogImportJob, type Product } from './api.js';
 import { MagnifyingGlass } from '@phosphor-icons/react';
@@ -16,23 +16,37 @@ const SPEC = {
   empty: 'No products yet.',
 };
 
-export function ProductsPanel({
-  brand,
-  onChanged,
-  autoImportUrl,
-}: {
-  brand: Brand;
-  /** The id of a product just added, when a single manual upload just landed one — omitted for a bulk import or a removal, which have nothing single to insert. */
-  onChanged: (newProductId?: string) => void;
-  /** Auto-start a catalog import for this URL. */
-  autoImportUrl?: string | null;
-}) {
+/** Imperative handle so a dialog wrapping this panel can drive focus from its own `onOpenAutoFocus` — the moment Radix actually settles focus, not a `useEffect` racing it. */
+export interface ProductsPanelHandle {
+  focusInitial: (which: 'upload' | 'import') => void;
+}
+
+export const ProductsPanel = forwardRef<
+  ProductsPanelHandle,
+  {
+    brand: Brand;
+    /** The id of a product just added, when a single manual upload just landed one — omitted for a bulk import or a removal, which have nothing single to insert. */
+    onChanged: (newProductId?: string) => void;
+    /** Auto-start a catalog import for this URL. */
+    autoImportUrl?: string | null;
+  }
+>(function ProductsPanel({ brand, onChanged, autoImportUrl }, ref) {
   const spec = SPEC;
   const [name, setName] = useState('');
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const importFieldRef = useRef<HTMLInputElement>(null);
+  const nameFieldRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusInitial: (which) => (which === 'import' ? importFieldRef : nameFieldRef).current?.focus(),
+    }),
+    [],
+  );
   const [library, setLibrary] = useState<Product[]>([]);
   const [importUrl, setImportUrl] = useState(autoImportUrl ?? brand.json?.meta?.website ?? '');
   const [job, setJob] = useState<CatalogImportJob | null>(null);
@@ -138,6 +152,7 @@ export function ProductsPanel({
     <Flex direction="column" gap="2">
       <Flex gap="2" align="center">
         <TextField.Root
+          ref={importFieldRef}
           style={{ flex: 1 }}
           placeholder="Store URL (shopify, woo, webflow…)"
           value={importUrl}
@@ -182,6 +197,7 @@ export function ProductsPanel({
         }}
       >
         <TextField.Root
+          ref={nameFieldRef}
           style={{ flex: 1 }}
           placeholder={spec.placeholder}
           value={name}
@@ -283,4 +299,4 @@ export function ProductsPanel({
       />
     </Flex>
   );
-}
+});

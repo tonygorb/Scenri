@@ -1,0 +1,29 @@
+{
+  "id": "voss-rowe-chrome-bubble-warp",
+  "title": "Trail Runner in Chrome Bubble Warp",
+  "category": "footwear",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "voss-rowe-trail-runner"
+      },
+      {
+        "t": "template",
+        "id": "chrome-bubble-warp"
+      },
+      {
+        "t": "text",
+        "v": " dynamic motion energy, sharp graphic edge, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

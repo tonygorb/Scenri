@@ -93,7 +93,7 @@ const TILE_DEFAULT = 240;
  * `set` of null is not an empty state but the ordinary one.
  */
 export function CreateView({ set }: { set: ShotSet | null }) {
-  const { engines, scenes: templates, presenters } = useAppData();
+  const { engines, scenes: templates, presenters, showcase, showcaseLoaded } = useAppData();
   const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh } = useBrand();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -560,6 +560,34 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     );
   }, [params, compose, setParams]);
 
+  // A homepage gallery tile carries `?showcase=<id>` instead of the lighter
+  // `?scene=`/`?presenter=`/`?product=` seeds: it's a full recipe, so it
+  // replaces the brief wholesale through the same remixBrief channel manual
+  // "Remix this brief" already uses, rather than appending chip by chip.
+  // Known synchronously (see suppressDraftRestoreForShowcase below) so the
+  // composer never starts a draft-restore it's about to overwrite anyway.
+  const showcaseIdParam = params.get('showcase');
+  const appliedShowcase = useRef<string | null>(null);
+  useEffect(() => {
+    if (!showcaseIdParam || !showcaseLoaded || appliedShowcase.current === showcaseIdParam) return;
+    appliedShowcase.current = showcaseIdParam;
+    const entry = showcase.find((s) => s.id === showcaseIdParam);
+    if (entry) {
+      setRemixBrief({ ...entry.brief, _at: Date.now() });
+      push({ kind: 'success', title: `Starting from "${entry.title}"` });
+    } else {
+      push({ kind: 'error', title: 'That example is no longer available', detail: 'Starting from scratch instead.' });
+    }
+    setParams(
+      (cur) => {
+        const p = new URLSearchParams(cur);
+        p.delete('showcase');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [showcaseIdParam, showcaseLoaded, showcase, setParams, push]);
+
   // keyboard: arrows walk the tree, [ ] step images, esc closes the overlay,
   // enter opens the selected shot, k keeps it, . toggles the assets panel,
   // ? lists the lot. Shortcuts.tsx documents exactly what is bound here.
@@ -885,6 +913,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           parent={root}
           shots={allNodes}
           initialBrief={remixBrief}
+          suppressDraftRestore={showcaseIdParam !== null}
           startScene={params.get('scene') ?? undefined}
           startPresenter={params.get('presenter') ?? undefined}
           startProduct={params.get('product') ?? undefined}

@@ -7,7 +7,7 @@ import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath, productsPath, shotPath } from '../routes.js';
 import { ProductCard } from '../layout/ProductCard.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider, UploadRefFrame } from '../layout/ReferenceGallery.js';
-import { categoryOf, PRODUCT_CATEGORIES, suggestCategory } from '../productCategories.js';
+import { categoryOf, effectiveCategory, PRODUCT_CATEGORIES } from '../productCategories.js';
 
 /**
  * One product — the source of truth for what it actually looks like before
@@ -40,7 +40,7 @@ export function ProductPage() {
     // overwritten by the next 4s library poll landing mid-keystroke
   }, [product?.id]);
 
-  const categoryKey = product?.category || suggestCategory(product?.productType, product?.tags) || null;
+  const categoryKey = product ? effectiveCategory(product) : null;
   const category = categoryOf(categoryKey);
 
   const patchManual = (patch: Partial<Pick<Product, 'name' | 'category' | 'variant' | 'material' | 'dimensions'>>) => {

@@ -56,6 +56,15 @@ export const Composer = forwardRef<
     parent: TreeNode | null;
     shots: TreeNode[];
     initialBrief?: { tokens: BriefToken[]; templateId?: string; templateFields?: Record<string, string> } | null;
+    /**
+     * A showcase recipe is on its way in via `initialBrief`, but hasn't landed
+     * on this render yet (it arrives a commit later, from Create's own
+     * effect) — known synchronously from the raw URL param, so the
+     * draft-restore branch below never fires for content that's about to be
+     * overwritten anyway, which would otherwise flash a stale "picked up
+     * where you left off" banner for a draft the user never actually sees.
+     */
+    suppressDraftRestore?: boolean;
     /** Scene chosen before this project existed: seed it into the brief. */
     startScene?: string;
     /** A presenter picked from its own page, seeded the same way as a scene. */
@@ -93,6 +102,7 @@ export const Composer = forwardRef<
     parent,
     shots,
     initialBrief,
+    suppressDraftRestore,
     startScene,
     startPresenter,
     startProduct,
@@ -107,7 +117,7 @@ export const Composer = forwardRef<
   handleRef,
 ) {
   const { products: libraryProducts } = useBrand();
-  const { scenes: templates, presenters, loaded } = useAppData();
+  const { scenes: templates, presenters, demoProducts, loaded } = useAppData();
   const openSettings = useOpenSettings();
   const { push } = useToasts();
   const usable = engines.filter((e) => e.available);
@@ -210,7 +220,7 @@ export const Composer = forwardRef<
     const prior = draftBrandIdRef.current;
     if (prior && prior !== brand.id) flushDraft(prior);
 
-    const hasExplicitSeed = !!initialBrief;
+    const hasExplicitSeed = !!initialBrief || !!suppressDraftRestore;
     let tokens: SentenceToken[] | null = null;
     let tplFieldsToApply: Record<string, string> | null = null;
     let branchIdToApply: string | null = null;
@@ -711,6 +721,7 @@ export const Composer = forwardRef<
           shots={shots}
           templates={templates}
           presenters={presenters}
+          demoProducts={demoProducts}
           onTemplatePick={applyScene}
           flag={flagToken}
           onProductWarningClick={() => openAttach('Products')}

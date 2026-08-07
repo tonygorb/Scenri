@@ -4,12 +4,13 @@ import { Badge, Dialog } from '@radix-ui/themes';
 import { ImageSquare, Package, Sparkle, Star, UsersThree, WarningCircle, X, XCircle } from '@phosphor-icons/react';
 import { hasNoShots, imgUrl, type Brand } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
-import { useApplyScene } from '../app/useApplyScene.js';
+import { useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { hubPath, presenterPath, presentersPath, shotPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
-import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
+import { categoryLabel } from '../productCategories.js';
+import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from '../layout/masonry.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 
@@ -34,19 +35,21 @@ const HOME_TILE = 240;
 export function HomeView() {
   const {
     scenes: templates,
-    loaded: scenesLoaded,
-    error: scenesError,
-    refetch: refetchScenes,
-    verticals,
     presenters,
     presentersLoaded,
+    demoProducts,
+    showcase,
+    showcaseCategories,
+    showcaseLoaded,
+    showcaseError,
+    refetchShowcase,
     refresh,
   } = useAppData();
   const { brand, nodes, loaded, products: library } = useBrand();
   const navigate = useNavigate();
-  const applyScene = useApplyScene();
-  const [verticalParam, setVertical] = useFilterParam('vertical');
-  const vertical = verticalParam || null;
+  const applyShowcase = useApplyShowcase();
+  const [categoryParam, setCategory] = useFilterParam('category');
+  const category = categoryParam || null;
   // a callback ref rather than useRef: the feed isn't in the tree at all
   // until `loaded` and `recent.length > 0`, and an effect keyed on a ref
   // object would never see it arrive — same reasoning as Canvas's own feed.
@@ -81,19 +84,33 @@ export function HomeView() {
   // every other consumer of BrandLayout's product library already uses)
   const products = library.length ? library : ((brand.json?.products ?? []) as any[]);
 
-  /** The feed for the selected vertical, favorites-first — same ordering rule
-   * as ScenePage's recovery strip and Create's FirstRun. Hoisted out of the
-   * sort so the localStorage read happens once per render, not once per
-   * pairwise comparison. */
-  const shownTemplates = useMemo(() => {
-    const base = vertical ? templates.filter((t) => t.verticals.includes(vertical)) : templates;
-    const favs = favoriteScenes(brand.id);
-    return [...base].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id)));
-  }, [templates, vertical, brand.id]);
+  /** The gallery for the selected category — same ordering the catalog
+   * already ships in (curated order, not favorites-sorted: every entry here
+   * is already hand-picked, unlike the raw scene catalog). */
+  const shownShowcase = useMemo(
+    () => (category ? showcase.filter((s) => s.category === category) : showcase),
+    [showcase, category],
+  );
 
-  /** Counts against the full catalog, not the filtered view — a tab always
-   * states how many scenes it holds, not how many are currently shown. */
-  const countFor = (v: string) => templates.filter((t) => t.verticals.includes(v)).length;
+  /** Counts against the full gallery, not the filtered view — a tab always
+   * states how many examples it holds, not how many are currently shown. */
+  const countFor = (c: string) => showcase.filter((s) => s.category === c).length;
+
+  /** A showcase entry's tokens only carry ids — resolve the names the card
+   * actually shows (the product/presenter/scene chips this recipe was built
+   * from) against the same catalogs Composer resolves them against. */
+  const recipeOf = (entry: (typeof showcase)[number]) => {
+    const productId = entry.brief.tokens.find((t: any) => t.t === 'product')?.id;
+    const presenterId = entry.brief.tokens.find((t: any) => t.t === 'character')?.id;
+    const sceneId = entry.brief.tokens.find((t: any) => t.t === 'template')?.id;
+    const presenter = presenterId ? presenters.find((p) => p.id === presenterId) : undefined;
+    return {
+      productName: productId ? demoProducts.find((p) => p.id === productId)?.name : null,
+      presenterName: presenter?.name ?? null,
+      presenterPreviewUrl: presenter?.previewUrl ?? null,
+      sceneName: sceneId ? templates.find((t) => t.id === sceneId)?.name : null,
+    };
+  };
 
   /** A real pre-fill, not "Start from scratch" with a different label: pick
    * the scene for you (favorite first, else whatever's first) and go straight
@@ -144,56 +161,56 @@ export function HomeView() {
           <UsersThree size={13} /> Set up a brand
         </button>
 
-        {!scenesLoaded && (
+        {!showcaseLoaded && (
           <div className="sc-masonry" aria-hidden>
-            <SceneCardSkeleton size="grid" count={8} />
+            <ShowcaseCardSkeleton size="grid" count={8} />
           </div>
         )}
 
-        {scenesLoaded && scenesError && (
+        {showcaseLoaded && showcaseError && (
           <p className="sc-feed-empty">
-            Couldn't load the scene catalog.{' '}
-            <button type="button" className="sc-sec-more" onClick={() => refetchScenes()}>
+            Couldn't load the showcase gallery.{' '}
+            <button type="button" className="sc-sec-more" onClick={() => refetchShowcase()}>
               Retry
             </button>
           </p>
         )}
 
-        {scenesLoaded && !scenesError && templates.length > 0 && (
+        {showcaseLoaded && !showcaseError && showcase.length > 0 && (
           <>
-            <div className="sc-verticals" role="tablist" aria-label="Verticals">
+            <div className="sc-verticals" role="tablist" aria-label="Categories">
               <button
                 type="button"
                 role="tab"
-                aria-selected={!vertical}
-                data-on={!vertical ? '' : undefined}
-                onClick={() => setVertical(null)}
+                aria-selected={!category}
+                data-on={!category ? '' : undefined}
+                onClick={() => setCategory(null)}
               >
-                Every scene <span className="sc-vcount">{templates.length}</span>
+                Every example <span className="sc-vcount">{showcase.length}</span>
               </button>
-              {verticals.map((v) => (
+              {showcaseCategories.map((c) => (
                 <button
                   type="button"
-                  key={v}
+                  key={c}
                   role="tab"
-                  aria-selected={vertical === v}
-                  data-on={vertical === v ? '' : undefined}
-                  onClick={() => setVertical(v)}
+                  aria-selected={category === c}
+                  data-on={category === c ? '' : undefined}
+                  onClick={() => setCategory(c)}
                 >
-                  {v} <span className="sc-vcount">{countFor(v)}</span>
+                  {categoryLabel(c) ?? c} <span className="sc-vcount">{countFor(c)}</span>
                 </button>
               ))}
             </div>
 
-            {shownTemplates.length > 0 && (
+            {shownShowcase.length > 0 && (
               <div className="sc-masonry">
-                {shownTemplates.map((t) => (
-                  <SceneCard key={t.id} scene={t} variant="navigate" size="grid" onOpen={applyScene} />
+                {shownShowcase.map((s) => (
+                  <ShowcaseCard key={s.id} entry={s} size="grid" onOpen={applyShowcase} {...recipeOf(s)} />
                 ))}
               </div>
             )}
 
-            {shownTemplates.length === 0 && <p className="sc-looks-empty">No scene carries that vertical yet.</p>}
+            {shownShowcase.length === 0 && <p className="sc-looks-empty">No example carries that category yet.</p>}
           </>
         )}
 

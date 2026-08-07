@@ -22,6 +22,18 @@ describe('isRecommendedScene', () => {
   it('a category with no vertical alias (none currently unmapped, but the guard itself) never false-positives', () => {
     expect(isRecommendedScene({ verticals: [] }, 'fragrance')).toBe(false);
   });
+
+  it('a beverage product matches a scene spelled "Food & drink" — real scene data never says "Beverages"', () => {
+    expect(isRecommendedScene({ verticals: ['Food & drink'] }, 'beverage')).toBe(true);
+  });
+
+  it('a food product also matches "Food & drink"', () => {
+    expect(isRecommendedScene({ verticals: ['Food & drink'] }, 'food')).toBe(true);
+  });
+
+  it('a jewelry product matches a "Jewelry" scene', () => {
+    expect(isRecommendedScene({ verticals: ['Jewelry'] }, 'jewelry')).toBe(true);
+  });
 });
 
 describe('isRecommendedPresenter', () => {
@@ -39,5 +51,17 @@ describe('isRecommendedPresenter', () => {
 
   it('"other" never matches', () => {
     expect(isRecommendedPresenter({ suitableCategories: ['Beauty', 'Footwear'] }, 'other')).toBe(false);
+  });
+
+  it('an electronics product matches a presenter suitable for "Technology" — real presenter data never says "Electronics"', () => {
+    expect(isRecommendedPresenter({ suitableCategories: ['Technology'] }, 'electronics')).toBe(true);
+  });
+
+  it('a footwear product also matches an "Apparel"-suitable presenter', () => {
+    expect(isRecommendedPresenter({ suitableCategories: ['Apparel'] }, 'footwear')).toBe(true);
+  });
+
+  it('a beverage product matches a presenter suitable for "Food & drink"', () => {
+    expect(isRecommendedPresenter({ suitableCategories: ['Food & drink'] }, 'beverage')).toBe(true);
   });
 });

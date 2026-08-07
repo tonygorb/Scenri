@@ -168,6 +168,12 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 ### Section Headers (`.sc-sec-head`)
 - Flex row, title (15px/600) at the leading edge, an optional right-aligned action (ghost button, "+ Add X" pattern) at the trailing edge. **This is strictly a 2-slot contract** — title-group and trailing-action. A subtitle, when present, belongs inside the title group (its own inline flex with an explicit gap), never as a third top-level flex child — that's what produces the glued-text bug this pass is fixing.
 
+### Library Pages (`docs/product/patterns/creative-library.md`)
+The shared shell behind every curated-asset browsing surface (Products, Scenes, Presenters — "what / who / where"): one sticky row (`.sc-filterbar`) — a facet's inline tabs at the leading edge, a result summary + Clear only while a filter/search is active, search, and a primary action, pinned right. No separate title/description band above it: the nav bar already names the active page, and a second header repeating it was tried and reverted the same session — it reintroduced the two-thin-rows dead-space problem this pattern exists to solve.
+- **The facet control is always real, inline tabs — never a popover.** One rule (`facetMode` in `libraryRules.ts`) decides only whether there's anything to select between (`<2` values → hidden); 2+ always renders as tabs, regardless of count — a long list scrolls horizontally rather than hiding behind a click. One consistent visible pattern across every page beats a "smarter" per-page treatment that looks different page to page.
+- **Search shows once a library clears ~8 items**, and may match more than the card displays (a Presenter card shows name + descriptor; its search also reads hair, skin, build, age) — the search system is allowed to be smarter than the visible card.
+- **A primary CTA slot may be visible before it's wired.** Products' CTA is real today (Upload/Import); Scenes/Presenters show "Create scene"/"Create presenter" as visible ghost buttons ahead of the backend route existing, at explicit product direction — the button's presence signals intent even before it does something.
+
 ## 6. Do's and Don'ts
 
 ### Do:
@@ -184,3 +190,5 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **Don't** apply gold to a UI-chrome default state (active tab, focus ring, link color, button fill) — that's the rationing rule breaking.
 - **Don't** give a resting card, panel, or section header a shadow "for depth" — flat + hairline is the rest state; shadow means floating.
 - **Don't** stack a subtitle, a header title, and a trailing action as three siblings in `.sc-sec-head` with no gap — this is the exact bug this pass fixes; wrap title+subtitle together instead.
+- **Don't** put a "Create new" tile as the first item in a catalog/library grid. It disrupts a visual-comparison surface, shifts scan position on every return visit, and duplicates the header's own primary CTA — evaluated and rejected for the Creative Library pattern, not merely unconsidered.
+- **Don't** style an unwired CTA as primary (inverse-fill). Ghost is the tell that it's not the real, working action yet — Scenes'/Presenters' "Create" buttons are visible ahead of their backend route, deliberately never styled as loud as Products' real "Add product."

@@ -1,0 +1,29 @@
+{
+  "id": "aurelia-serum-mirror-salt-flat",
+  "title": "Amber Serum on the Mirror Salt Flat",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aurelia-amber-serum"
+      },
+      {
+        "t": "template",
+        "id": "studio-soft-horizon"
+      },
+      {
+        "t": "text",
+        "v": " warm golden-hour glow, quiet editorial luxury, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

@@ -1,38 +1,36 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Presenter } from './api.js';
+import { api, type ShowcaseEntry } from './api.js';
 
-export interface PresentersData {
-  presenters: Presenter[];
+export interface ShowcaseData {
+  showcase: ShowcaseEntry[];
   categories: string[];
-  styles: string[];
   /** True once the fetch has settled, success or failure. False also while a refetch is in flight. */
   loaded: boolean;
   /** True only if the fetch settled by failing. */
   error: boolean;
 }
 
-export interface UsePresentersResult extends PresentersData {
+export interface UseShowcaseResult extends ShowcaseData {
   refetch: () => void;
 }
 
-const EMPTY: PresentersData = { presenters: [], categories: [], styles: [], loaded: false, error: false };
+const EMPTY: ShowcaseData = { showcase: [], categories: [], loaded: false, error: false };
 
 /**
- * The presenter catalog, asked for once for the whole app — same shape as
- * `useScenes`, for the same reason: several surfaces want it and it does not
- * change while the server runs.
+ * The curated homepage showcase, asked for once for the whole app — same
+ * shape as `useScenes`/`usePresenters`. Home renders it as the gallery grid;
+ * Create resolves a clicked entry's exact recipe from it via `?showcase=`.
  */
-export function usePresenters(): UsePresentersResult {
-  const [data, setData] = useState<PresentersData>(EMPTY);
+export function useShowcase(): UseShowcaseResult {
+  const [data, setData] = useState<ShowcaseData>(EMPTY);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
     void api
-      .presenters()
+      .showcase()
       .then((r) => {
-        if (alive)
-          setData({ presenters: r.presenters, categories: r.categories, styles: r.styles, loaded: true, error: false });
+        if (alive) setData({ showcase: r.showcase, categories: r.categories, loaded: true, error: false });
       })
       .catch(() => {
         if (alive) setData((d) => ({ ...d, loaded: true, error: true }));

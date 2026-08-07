@@ -4922,6 +4922,48 @@ select {
   min-width: 0;
 }
 
+/* ---------- Creative Library shell (Products, Scenes, Presenters) ----------
+   One row: filter, search, action — see LibraryToolbar.tsx. No visible
+   title/description; the nav bar already names the page. */
+.sc-lib-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+  white-space: nowrap;
+}
+.sc-lib-clear {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+}
+.sc-lib-clear:hover {
+  color: var(--sc-fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sc-lib-zero {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--sc-fg3);
+  padding: 30px 0;
+}
+.sc-lib-more {
+  display: flex;
+  justify-content: center;
+  margin: 34px 0 0;
+}
+@media (max-width: 767px) {
+  .sc-filterbar {
+    flex-wrap: wrap;
+  }
+}
+
 .sc-coll {
   margin-bottom: 46px;
 }
@@ -5121,6 +5163,36 @@ select {
 .sc-lookcard[data-variant="skeleton"] {
   background: var(--sc-raised);
   aspect-ratio: 4 / 5;
+}
+
+/* ---- showcase tile: a positioning wrapper around CatalogCard so the
+   presenter badge can sit on top without CatalogCard knowing showcase
+   entries exist. Always visible, unlike the card's own hover-only caption —
+   a cast credit, not a detail that waits for a hover. */
+.sc-showcase-tile {
+  position: relative;
+}
+.sc-showcase-badge {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--sc-radius-full);
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font: 600 11.5px var(--sc-font);
+  pointer-events: none;
+}
+.sc-showcase-badge img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
 }
 
 .sc-looks-empty {

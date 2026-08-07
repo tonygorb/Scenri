@@ -13,34 +13,56 @@ import type { Scene, Presenter } from './api.js';
  * the other rather than comparing keys directly. `other` and any category
  * with no real-world equivalent among the existing verticals never match —
  * a false "recommended" is worse than none at all.
+ *
+ * Scenes and Presenters use two genuinely different vocabularies (a Scene's
+ * `verticals` is a fixed 10-word set; a Presenter's `suitableCategories` is
+ * its own 16-word set, e.g. "Technology" and "Streetwear" have no scene
+ * equivalent), so each gets its own alias list rather than sharing one map —
+ * a single map previously left `beverage` matching no real scene (mapped to
+ * "Beverages", but every scene spells it "Food & drink") and `electronics`
+ * matching no real presenter (mapped to "Electronics", but presenters use
+ * "Technology"). A category may alias to more than one word on either side.
  */
-const CATEGORY_TO_VERTICAL: Record<string, string> = {
-  fragrance: 'Fragrance',
-  footwear: 'Footwear',
-  apparel: 'Apparel',
-  furniture: 'Home',
-  beauty: 'Beauty',
-  electronics: 'Electronics',
-  accessories: 'Accessories',
-  beverage: 'Beverages',
+const CATEGORY_TO_SCENE_VERTICAL: Record<string, string[]> = {
+  fragrance: ['Fragrance'],
+  footwear: ['Footwear'],
+  apparel: ['Apparel'],
+  furniture: ['Home'],
+  beauty: ['Beauty'],
+  electronics: ['Electronics'],
+  accessories: ['Accessories'],
+  beverage: ['Food & drink'],
+  jewelry: ['Jewelry'],
+  food: ['Food & drink'],
 };
 
-function vertical(productCategory: string | null | undefined): string | null {
-  return (productCategory && CATEGORY_TO_VERTICAL[productCategory]) || null;
-}
+const CATEGORY_TO_PRESENTER_CATEGORY: Record<string, string[]> = {
+  fragrance: ['Fragrance'],
+  footwear: ['Footwear', 'Apparel'],
+  apparel: ['Apparel', 'Fashion', 'Streetwear'],
+  furniture: ['Home'],
+  beauty: ['Beauty', 'Wellness'],
+  electronics: ['Electronics', 'Technology'],
+  accessories: ['Accessories'],
+  beverage: ['Beverages', 'Food & drink'],
+  jewelry: ['Jewelry'],
+  food: ['Beverages', 'Food & drink'],
+};
 
 export function isRecommendedScene(
   scene: Pick<Scene, 'verticals'>,
   productCategory: string | null | undefined,
 ): boolean {
-  const v = vertical(productCategory);
-  return !!v && scene.verticals.includes(v);
+  if (!productCategory) return false;
+  const aliases = CATEGORY_TO_SCENE_VERTICAL[productCategory];
+  return !!aliases && aliases.some((v) => scene.verticals.includes(v));
 }
 
 export function isRecommendedPresenter(
   presenter: Pick<Presenter, 'suitableCategories'>,
   productCategory: string | null | undefined,
 ): boolean {
-  const v = vertical(productCategory);
-  return !!v && presenter.suitableCategories.includes(v);
+  if (!productCategory) return false;
+  const aliases = CATEGORY_TO_PRESENTER_CATEGORY[productCategory];
+  return !!aliases && aliases.some((c) => presenter.suitableCategories.includes(c));
 }

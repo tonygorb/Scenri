@@ -1,0 +1,29 @@
+{
+  "id": "halcyon-speaker-wood-table",
+  "title": "Aura Speaker on the Wood Table Flat-Lay",
+  "category": "electronics",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "halcyon-aura-speaker"
+      },
+      {
+        "t": "template",
+        "id": "interiors-wood-table-flatlay"
+      },
+      {
+        "t": "text",
+        "v": " cozy weekend morning mood, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

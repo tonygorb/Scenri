@@ -58,7 +58,7 @@ export function CatalogCard({
   const caption = (
     <span className="sc-lookcard-cap">
       <b dir="auto">{primary}</b>
-      <span>{secondary}</span>
+      {secondary && <span>{secondary}</span>}
     </span>
   );
 
