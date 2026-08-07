@@ -154,6 +154,25 @@
   background: var(--sc-sb-hover);
   background-clip: content-box;
 }
+
+/* Reserve scrollbar track space up front on every pane whose content height
+   varies, so a scrollbar appearing/disappearing never reflows the content
+   next to it. Panes that hide their scrollbar outright (carousels, tab
+   strips) never reserve space and don't need this. */
+.sc-home,
+.sc-notif-scroll,
+.sc-cmd,
+.sc-canvas,
+.sc-assets,
+.sc-ovl-strip,
+.sc-ovl-meta,
+.sc-ap-body,
+.sc-brief,
+.sc-set-rail,
+.sc-set-scroll,
+.sc-shotsheet {
+  scrollbar-gutter: stable;
+}
 html,
 body {
   background: var(--sc-bg);
@@ -2827,6 +2846,7 @@ select {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
 }
 /* Invisible trip-wire the infinite-scroll observer watches; not a spacer, so
    zero height rather than faking gap the grid's own `gap` already provides. */
