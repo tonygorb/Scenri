@@ -6,6 +6,8 @@ import {
   kitPath,
   lookPath,
   looksPath,
+  presenterPath,
+  presentersPath,
   rewriteLegacyPath,
   setPath,
   shotPath,
@@ -23,6 +25,8 @@ describe('path builders', () => {
     expect(kitPath(brand)).toBe('/nalla/kit');
     expect(looksPath(brand)).toBe('/nalla/looks');
     expect(lookPath(brand, 'soft-daylight')).toBe('/nalla/looks/soft-daylight');
+    expect(presentersPath(brand)).toBe('/nalla/presenters');
+    expect(presenterPath(brand, 'sana')).toBe('/nalla/presenters/sana');
     expect(hubPath(brand)).toBe('/nalla/create');
     expect(setPath(brand, set)).toBe('/nalla/sets/spring-campaign');
   });

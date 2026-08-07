@@ -1,0 +1,12 @@
+{
+  "id": "social-fashion-campaign-billboard",
+  "name": "Fashion Campaign Billboard",
+  "description": "Bold outdoor-campaign energy: one hard directional key strikes the same identity-locked model off-center against a fixed crimson color-block backdrop, with a genuinely clean negative-space zone reserved for headline text — the register of a real fashion-brand billboard or paid-social launch ad, not a lifestyle snapshot.",
+  "lighting": "Hard directional key, campaign-poster contrast",
+  "subject": "person",
+  "collections": ["Social"],
+  "verticals": ["Apparel", "Footwear", "Accessories"],
+  "prompt": "positioned off-center wearing a cropped matte black technical shell jacket with a fixed silver-tone zipper and structured stand collar, one hard directional key light striking the jacket from one side with genuine hard-edge shadow behavior across the body, real fabric texture and movement catching the light, composed against a fixed solid color block of deep crimson red on a wide urban concrete backdrop, a full clean negative-space zone reserved on the opposite side of the frame with no stray texture or gradient banding, the rest of the scene desaturated to muted concrete grey so the color block and negative-space zone stay the visual anchor, shallow depth of field keeping the jacket tack-sharp against a clean color field, campaign-poster contrast, no rendered text or lettering anywhere in the image, no second model in frame",
+  "width": 1600,
+  "height": 900
+}

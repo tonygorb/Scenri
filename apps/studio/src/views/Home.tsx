@@ -9,7 +9,6 @@ import { hubPath, looksPath, shotPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks } from '../favorites.js';
 import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
-import { useProductLibrary } from '../useProductLibrary.js';
 
 /**
  * The launcher.
@@ -26,7 +25,7 @@ const RECENT = 12;
 
 export function HomeView() {
   const { looks: templates, loaded: looksLoaded, refresh } = useAppData();
-  const { brand, nodes, loaded } = useBrand();
+  const { brand, nodes, loaded, products: library } = useBrand();
   const navigate = useNavigate();
 
   /** Newest first. The strip is a glance at the work, not the work itself. */
@@ -45,12 +44,19 @@ export function HomeView() {
     navigate(`${hubPath(brand)}${q ? `?${q}` : ''}`);
   };
 
-  // the hook starts at [] and only fills in after its first poll resolves —
-  // brand.json is already loaded by the time this mounts, so it covers that
-  // gap instead of flashing the badge hidden (same fallback every other
-  // consumer of this hook already uses)
-  const library = useProductLibrary(brand.id);
+  // the brand-level poll starts at [] and only fills in after its first poll
+  // resolves — brand.json is already loaded by the time this mounts, so it
+  // covers that gap instead of flashing the badge hidden (same fallback
+  // every other consumer of BrandLayout's product library already uses)
   const products = library.length ? library : ((brand.json?.products ?? []) as any[]);
+
+  /** Favorites-first, same ordering rule as LookPage's recovery strip and
+   * Create's FirstRun. Hoisted out of the sort so the localStorage read
+   * happens once per render, not once per pairwise comparison. */
+  const sortedTemplates = useMemo(() => {
+    const favs = favoriteLooks(brand.id);
+    return [...templates].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id)));
+  }, [templates, brand.id]);
 
   /** A real pre-fill, not "Start from scratch" with a different label: pick
    * the look for you (favorite first, else whatever's first) and go straight
@@ -112,20 +118,15 @@ export function HomeView() {
               </button>
             </div>
             <div className="sc-tplrow">
-              {[...templates]
-                .sort((a, b) => {
-                  const favs = favoriteLooks(brand.id);
-                  return Number(favs.includes(b.id)) - Number(favs.includes(a.id));
-                })
-                .map((t) => (
-                  <LookCard
-                    key={t.id}
-                    look={t}
-                    variant="navigate"
-                    size="shelf"
-                    onOpen={(id) => toCreate({ look: id, compose: '1' })}
-                  />
-                ))}
+              {sortedTemplates.map((t) => (
+                <LookCard
+                  key={t.id}
+                  look={t}
+                  variant="navigate"
+                  size="shelf"
+                  onOpen={(id) => toCreate({ look: id, compose: '1' })}
+                />
+              ))}
             </div>
           </>
         )}

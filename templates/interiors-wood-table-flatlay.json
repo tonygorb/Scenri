@@ -1,0 +1,12 @@
+{
+  "id": "interiors-wood-table-flatlay",
+  "name": "Wood Table Flat-Lay",
+  "description": "A leather-wrapped notebook resting on a real oak table in warm, raking side-window light — long soft shadows and true wood grain give it the editorial flat-lay energy of an actual desk someone works at, not a studio backdrop.",
+  "lighting": "Warm raking side-window light, long soft shadows",
+  "subject": "product",
+  "collections": ["Interiors"],
+  "verticals": ["Accessories", "Fragrance", "Beauty", "Home"],
+  "prompt": "A leather-wrapped notebook with a brass corner stamped 'Norr & Vale — Field Notebook' staged on a real oak table at a natural 45 to 60 degree flat-lay angle, warm raking side-window light spilling low across the surface in long soft shadows, a leather coaster and a pen resting near the edge of frame, visible wood grain under the raking light with genuine specular highlights and true leather and brass material response, small natural imperfections like a faint water ring nearby, shallow to moderate depth of field keeping the near grain sharp while the far edge of the table softens out of focus, a real lived-in room someone actually works or eats at, no other people, no visible face, no more than two or three supporting objects, no brand text beyond the notebook's own hardware",
+  "width": 1024,
+  "height": 1024
+}

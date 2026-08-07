@@ -1,0 +1,18 @@
+{
+  "id": "tallulah",
+  "name": "Tallulah",
+  "presentation": "woman",
+  "descriptor": "Bold high-energy · natural afro · striking presence",
+  "ageRange": "early 20s",
+  "facial": "striking face, strong brow, wide-set dark eyes, high defined cheekbones",
+  "skin": "deep ebony, even tone, natural texture",
+  "hair": "tight natural afro, medium volume",
+  "build": "average height, lean athletic build",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Streetwear", "Beverages", "Accessories"],
+  "suitableStyles": ["Editorial", "Lifestyle"],
+  "identityNotes": "the natural afro texture and volume must survive every generation — do not straighten, loosen, or shrink the hair",
+  "negativeConstraints": ["no straightened or loosened hair", "no skin lightening", "no theatrical expression"],
+  "width": 1024,
+  "height": 1280
+}

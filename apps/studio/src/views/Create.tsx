@@ -761,7 +761,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     <div className="sc-work" data-assets={assetsOpen}>
       <main className="sc-canvas" id="main">
         {err && (
-          <Callout.Root color="red" mb="3">
+          <Callout.Root className="sc-canvas-alert" color="red" mb="3">
             <Callout.Text>{err}</Callout.Text>
           </Callout.Root>
         )}
@@ -850,7 +850,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         onClose={() => setAssetsOpen(false)}
       />
 
-      <div className="sc-dock-fade" aria-hidden />
+      <div className="sc-dock-fade" data-full={!assetsOpen} aria-hidden />
       <div className="sc-canvas-dock" data-full={!assetsOpen}>
         {/* Inside the dock, not floating above it at a guessed offset: the
             composer grows with a banner, a target chip or an open attach panel,

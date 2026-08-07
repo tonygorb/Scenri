@@ -7,7 +7,7 @@ import { CatalogImportDialog } from './layout/CatalogImportDialog.js';
 /** Cards drawn at once. Past this, the search box above is the way through. */
 const PANEL_CAP = 60;
 
-/** Inline uploader and grid. One panel, two collections: products and cast. */
+/** Inline uploader and grid. One panel, two collections: products and presenters. */
 const KINDS = {
   products: {
     key: 'products' as const,
@@ -21,7 +21,7 @@ const KINDS = {
     placeholder: 'Who is this? (e.g. Marco)',
     upload: '+ Upload photo',
     help: 'A named person you can put in a brief with @. We attach their photo as a reference, so they stay recognisably the same person. We do not train a model of them.',
-    empty: 'Nobody in the cast yet.',
+    empty: 'Nobody in your roster yet.',
   },
 };
 

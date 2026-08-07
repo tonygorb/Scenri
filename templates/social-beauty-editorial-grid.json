@@ -1,0 +1,12 @@
+{
+  "id": "social-beauty-editorial-grid",
+  "name": "Beauty Editorial Grid",
+  "description": "A gold-cap lipstick glows against a saturated crimson-red color-block backdrop, tight controlled specular lighting carving one precise highlight across gold and glass — the macro-level, feed-stopping polish of a real cosmetics launch ad, with a clean zone reserved for headline text.",
+  "lighting": "Tight controlled specular, saturated color block",
+  "subject": "product",
+  "collections": ["Social"],
+  "verticals": ["Beauty", "Fragrance"],
+  "prompt": "a lipstick with a polished brass-gold cap and a glossy jet-black bullet body, no visible text or logo, standing upright and centered-but-offset against a saturated crimson-red color-block backdrop, tight controlled specular glamour lighting tracing one precise highlight across the gold cap rather than a broad even wash, a clean genuinely empty zone reserved to one side for headline text, no rendered text or logos anywhere in the frame, no second product, no cluttered negative-space zone, no soft diffused light, genuine controlled-specular highlight behavior, true gold and glass material response, real lipstick bullet texture, glossy high-premium beauty-advertising register",
+  "width": 1024,
+  "height": 1024
+}

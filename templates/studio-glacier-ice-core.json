@@ -1,0 +1,12 @@
+{
+  "id": "studio-glacier-ice-core",
+  "name": "Glacier Ice Core",
+  "description": "The subject rests within a hollowed pocket carved into a wall of real glacial ice, cool blue daylight refracting through the frozen mass with the ice itself acting as a natural diffuser. Ancient, clinical, and quietly pristine, with a fine cold mist drifting at its base.",
+  "lighting": "Natural daylight refracted through the ice, no softbox",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": ["Beauty", "Fragrance", "Electronics"],
+  "prompt": "resting within a hollowed pocket carved into a wall of real glacial ice, cool blue daylight refracting deep through the frozen mass with the ice itself acting as the only diffuser, shallow depth of field with genuine crystalline ice texture soft-blurred behind the sharp in-focus product, fine cold mist drifting low and dissipating around the base, natural cool daylight color temperature, real ice refraction and specular highlights rather than a smooth CGI block, no fantasy glow or magic light, no visible ice-cave machinery, no props beyond the ice itself, pristine e-commerce-grade clarity",
+  "width": 1024,
+  "height": 1024
+}

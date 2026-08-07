@@ -1,0 +1,12 @@
+{
+  "id": "social-product-drop-hype",
+  "name": "Product Drop Hype",
+  "description": "A single hero product staged center-offset and floating against a near-black backdrop, one hard rim light tracing its exact silhouette in a dramatic countdown-ready reveal. High-hype, single-source drama built for a paid-social product-drop campaign, with a genuinely empty zone reserved for the launch headline.",
+  "lighting": "Hard rim/edge light, near-black saturated ground",
+  "subject": "product",
+  "collections": ["Social"],
+  "verticals": ["Footwear", "Electronics", "Accessories"],
+  "prompt": "staged center-offset as if floating, hard rim light tracing the product's silhouette against a fixed near-black charcoal backdrop, a fixed electric-cyan as the rim-light color with genuine light-wrap along the contour rather than a decorative outline, true material texture holding up under high-contrast falloff into clean darkness, shallow depth of field keeping the product razor-sharp while the backdrop falls into clean black falloff, a clean genuinely empty zone reserved to one side for headline text, completely uncluttered with nothing else placed in it, no rendered text or lettering anywhere in the image, no resemblance to any existing real brand's product design, no soft diffused light anywhere in the frame, dramatic reveal-lighting hype-drop advertising energy",
+  "width": 1024,
+  "height": 1280
+}

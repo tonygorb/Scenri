@@ -1,12 +1,12 @@
 {
   "id": "studio-spotlit-vertical-stage",
   "name": "Copper Forge Glow",
-  "description": "The subject stands on a raw steel workbench lit by the warm ember-glow of a forge just out of frame, sparks drifting upward into the dark. Industrial, luxury, alive.",
-  "lighting": "Ember-glow key, drifting sparks",
+  "description": "The subject rests on a raw steel workbench lit by the warm ember-glow of a forge just out of frame, with fine sparks drifting upward through the dark and a sharp cool highlight tracing one edge for contrast. Industrial, luxurious, and quietly alive with heat.",
+  "lighting": "Ember-glow key, sharp cool edge highlight",
   "subject": "product",
   "collections": ["Studio"],
-  "verticals": ["Apparel", "Sport", "Jewelry"],
-  "prompt": "standing on a raw steel workbench inside a dim forge interior, warm ember-glow washing up from a forge just out of frame, fine sparks drifting upward through the dark, a sharp highlight catching one edge of the form, tall dramatic negative space above, cinematic luxury-campaign realism",
+  "verticals": ["Jewelry", "Accessories", "Fragrance"],
+  "prompt": "resting on a raw steel workbench inside a dim forge interior, warm ember-glow washing up from a forge just out of frame as the sole light source, a sharp cool highlight tracing one edge of the form for contrast, fine sparse physically plausible sparks drifting upward through the dark and catching real light as they rise, no open flame visible and no props beyond the bare tool-marked workbench surface, genuine ember-color heat glow rather than a lava-like or fantasy tint, brushed-steel texture with authentic tool-marked wear, mid-shot framing with tall dramatic negative space above, cinematic luxury-campaign realism",
   "width": 1024,
   "height": 1280
 }

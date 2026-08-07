@@ -510,7 +510,9 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
     }
     if (t?.t === 'character') {
       const c = cast.find((x) => x.id === t.id);
-      return [{ key: `h${t.id}`, kind: 'cast', label: c?.name ?? 'someone', thumb: assetUrl(c?.shots?.[0]?.file) }];
+      return [
+        { key: `h${t.id}`, kind: 'presenter', label: c?.name ?? 'someone', thumb: assetUrl(c?.shots?.[0]?.file) },
+      ];
     }
     if (t?.t === 'template') {
       const l = looks.find((x) => x.id === t.id);

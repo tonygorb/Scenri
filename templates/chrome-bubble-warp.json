@@ -1,0 +1,12 @@
+{
+  "id": "chrome-bubble-warp",
+  "name": "Chrome Bubble Warp",
+  "description": "The subject rests beside a giant mirror-polished chrome sphere, its own form warped and duplicated in true specular reflection across the sphere's curved surface. Futuristic and hypnotic, built on genuine curved-mirror optics rather than a painted rainbow effect.",
+  "lighting": "Accurate specular chrome reflection",
+  "subject": "product",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Electronics", "Jewelry", "Accessories"],
+  "prompt": "resting beside a giant mirror-polished chrome sphere, shallow depth of field holding the subject and its reflected double equally crisp, the subject's form warped and duplicated in true curved-mirror distortion across the sphere's surface, genuine specular hotspots and a plausible reflected environment glowing in the chrome rather than a flat painted rainbow, a fixed saturated gradient backdrop blending hot magenta into electric cyan and violet bleeding into the reflection, no second product or props beyond the sphere, futuristic commercial-render gloss",
+  "width": 1024,
+  "height": 1024
+}

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@radix-ui/themes';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
 import { assetUrl, imgUrl, type Brand, type Look, type TreeNode } from '../api.js';
+import { useBrand } from '../app/BrandLayout.js';
 import { ProductsPanel } from '../AssetPanel.js';
-import { useProductLibrary } from '../useProductLibrary.js';
 import type { SentenceToken } from './BriefInput.js';
 import { keepCaret } from './line.js';
 
@@ -12,7 +12,7 @@ const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Ne
 const ALL_TAB_PREVIEW = 8;
 /** On a single tab, enough to browse; past this, searching beats scrolling. */
 const TAB_CAP = 60;
-const TABS = ['All', 'Products', 'Cast', 'Looks', 'Colors', 'Shots'] as const;
+const TABS = ['All', 'Products', 'Presenters', 'Looks', 'Colors', 'Shots'] as const;
 export type AttachTab = (typeof TABS)[number];
 type Tab = AttachTab;
 
@@ -56,7 +56,7 @@ export function AttachPanel({
   }, [initialTab]);
   const [q, setQ] = useState('');
   const [addProductOpen, setAddProductOpen] = useState(false);
-  const library = useProductLibrary(brand.id);
+  const { products: library } = useBrand();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -118,7 +118,7 @@ export function AttachPanel({
       ...cast.map(
         (c): Card => ({
           key: `h:${c.id}`,
-          tab: 'Cast',
+          tab: 'Presenters',
           label: c.name ?? 'Someone',
           sub: 'same person each time',
           thumb: assetUrl(c.shots?.[0]?.file),
@@ -162,10 +162,16 @@ export function AttachPanel({
   const match = (c: Card) => !query || `${c.label} ${c.sub ?? ''}`.toLowerCase().includes(query);
   const inTab = (c: Card) => tab === 'All' || c.tab === tab;
   const shown = cards.filter((c) => inTab(c) && match(c));
-  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Cast', 'Looks', 'Colors', 'Shots'];
+  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Looks', 'Colors', 'Shots'];
 
   const card = (c: Card) => (
-    <button type="button" key={c.key} className="sc-ap-card" title={c.label} onClick={c.run}>
+    <button
+      type="button"
+      key={c.key}
+      className="sc-ap-card"
+      title={c.sub ? `${c.label} — ${c.sub}` : c.label}
+      onClick={c.run}
+    >
       {c.swatch ? (
         <span className="sc-ap-thumb" style={{ background: c.swatch }} />
       ) : c.thumb ? (
@@ -176,7 +182,6 @@ export function AttachPanel({
         </span>
       )}
       <b dir="auto">{c.label}</b>
-      {c.sub && <small>{c.sub}</small>}
     </button>
   );
 
@@ -224,7 +229,7 @@ export function AttachPanel({
             /**
              * All is a summary, not an inventory. A brand with a catalog import
              * has hundreds of products, and drawing every one of them here
-             * pushed Cast, Looks and Colours off the bottom of a panel whose
+             * pushed Presenters, Looks and Colours off the bottom of a panel whose
              * whole job is to show you what there is.
              */
             const preview = items.slice(0, ALL_TAB_PREVIEW);

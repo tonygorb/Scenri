@@ -18,6 +18,8 @@ import { BrandView } from './views/Brand.js';
 import { HomeView } from './views/Home.js';
 import { LooksView } from './views/Looks.js';
 import { LookPage } from './views/LookPage.js';
+import { PresentersView } from './views/Presenters.js';
+import { PresenterPage } from './views/PresenterPage.js';
 import { CreateView } from './views/Create.js';
 import { ShotDetailRoute } from './views/ShotDetailRoute.js';
 
@@ -105,6 +107,11 @@ function LookRoute() {
   return <LookPage key={lookId} />;
 }
 
+function PresenterRoute() {
+  const { presenterId } = useParams();
+  return <PresenterPage key={presenterId} />;
+}
+
 export const router = createBrowserRouter([
   {
     element: <AppShell />,
@@ -136,6 +143,8 @@ export const router = createBrowserRouter([
           { path: P.kit, element: <BrandView /> },
           { path: P.looks, element: <LooksView /> },
           { path: P.look, element: <LookRoute /> },
+          { path: P.presenters, element: <PresentersView /> },
+          { path: P.presenter, element: <PresenterRoute /> },
         ],
       },
       { path: P.notFound, element: <Navigate to={P.root} replace /> },

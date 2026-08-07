@@ -1,12 +1,12 @@
 {
   "id": "studio-sharp-shadow-stage",
   "name": "Molten Glass Stage",
-  "description": "The subject is staged among glowing, still-cooling molten glass forms, amber heat-glow washing up from below and a hard rim of light catching one edge. Foundry heat, luxury cool.",
+  "description": "The subject is staged among glowing, still-cooling molten glass forms on a dark foundry floor, warm amber heat-glow the sole light source washing up from below and a hard rim catching one edge. Foundry heat meets luxury cool — dramatic, and quietly expensive.",
   "lighting": "Amber heat-glow, hard rim",
   "subject": "product",
   "collections": ["Studio"],
-  "verticals": ["Electronics", "Fragrance", "Jewelry"],
-  "prompt": "staged among glowing still-cooling molten glass forms on a dark foundry floor, warm amber heat-glow washing up from below, a hard rim of key light catching one edge of the form, faint heat-shimmer softening the background, everything beyond the glow falling to near black, moody luxury-campaign realism",
+  "verticals": ["Electronics", "Fragrance", "Jewelry", "Accessories"],
+  "prompt": "staged mid-shot beside a glowing, still-cooling molten glass form on a dark foundry floor, warm amber heat-glow washing up from below and beside as the only motivated light source, a hard rim of light catching one edge of the form, faint heat-shimmer softening the air behind it, everything beyond the glow falling to true near-black, real molten-glass amber-to-orange color behavior rather than fantasy lava, no visible open flame, no other people or props in frame, shallow depth of field, moody luxury-campaign realism",
   "width": 1024,
   "height": 1024
 }

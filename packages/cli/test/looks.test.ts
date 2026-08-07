@@ -22,9 +22,9 @@ const base = {
 };
 
 describe('look loader + composer', () => {
-  it('loads the 20 shipped looks, all valid, none naming a product', () => {
+  it('loads the 33 shipped looks, all valid, none naming a product', () => {
     const { looks, warnings } = loadLooks(defaultLooksDir());
-    expect(looks).toHaveLength(20);
+    expect(looks).toHaveLength(33);
     expect(warnings).toEqual([]);
     for (const l of looks) {
       expect(l.prompt).not.toContain('{product_name}');
@@ -69,9 +69,9 @@ describe('look loader + composer', () => {
 
   it('reports the facets actually in use', () => {
     const { collections, verticals } = facetsOf(loadLooks(defaultLooksDir()).looks);
-    expect(collections).toContain('Lived-in');
+    expect(collections).toContain('Interiors');
     expect(collections).toContain('Social');
-    expect(collections).toContain('Cast');
+    expect(collections).toContain('Portrait');
     expect(verticals).toContain('Beauty');
     expect(collections).toEqual([...collections].sort());
   });
@@ -186,13 +186,13 @@ describe('cast + look generation via API', () => {
   it('GET /api/looks carries the facets; the deprecated alias still returns a bare list', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/looks' });
     const body = res.json();
-    expect(body.looks).toHaveLength(20);
-    expect(body.collections).toContain('Lived-in');
+    expect(body.looks).toHaveLength(33);
+    expect(body.collections).toContain('Interiors');
     expect(body.verticals).toContain('Beauty');
 
     const legacy = (await app.inject({ method: 'GET', url: '/api/templates' })).json();
     expect(Array.isArray(legacy)).toBe(true);
-    expect(legacy).toHaveLength(20);
+    expect(legacy).toHaveLength(33);
   });
 
   it('a look id resolves through the generate route', async () => {
@@ -219,7 +219,7 @@ describe('cast + look generation via API', () => {
     expect(res.json().prompt).toContain('[Marble Quarry Plinth]');
     await new Promise((r) => setTimeout(r, 50));
     expect(lastGen!.prompt).toContain('House Blend');
-    expect(lastGen!.prompt).toContain('monumental scale dwarfing the subject');
+    expect(lastGen!.prompt).toContain('monumental quarry scale dwarfing the subject');
     expect(lastGen!.prompt).toContain('Art direction: keep it airy');
     expect(lastGen!.width).toBe(1024);
     expect(lastGen!.referenceImages).toHaveLength(1);
@@ -253,7 +253,7 @@ describe('cast + look generation via API', () => {
   it("lists a look's reference frames, and answers empty rather than 404 when there is no set", async () => {
     const withSet = (await app.inject({ method: 'GET', url: '/api/look-previews/morning-tabletop' })).json();
     expect(withSet.frames.length).toBeGreaterThan(0);
-    expect(withSet.frames[0]).toMatch(/^\/api\/look-previews\/morning-tabletop\/ref-\d\d\.jpg$/);
+    expect(withSet.frames[0]).toMatch(/^\/api\/look-previews\/morning-tabletop\/ref-\d\d\.jpg\?v=\d+$/);
 
     const without = await app.inject({ method: 'GET', url: '/api/look-previews/no-such-look' });
     expect(without.statusCode).toBe(200);

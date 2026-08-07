@@ -156,6 +156,12 @@ export const api = {
   }) => req<TreeNode>('POST', '/api/nodes', p),
   cancelNode: (nodeId: string) => req<{ ok: true }>('POST', `/api/nodes/${nodeId}/cancel`),
   looks: () => req<{ looks: Look[]; collections: string[]; verticals: string[] }>('GET', '/api/looks'),
+  presenters: () => req<{ presenters: Presenter[]; categories: string[]; styles: string[] }>('GET', '/api/presenters'),
+  /** The reference frames a presenter has on disk, if any. */
+  presenterFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/presenter-previews/${id}`),
+  /** Adopt a catalog presenter into this brand's own roster. Idempotent. */
+  castPresenter: (brandId: string, presenterId: string) =>
+    req<Brand>('POST', `/api/brands/${brandId}/presenters/${presenterId}/cast`),
   exportPresets: () => req<ExportPreset[]>('GET', '/api/export/presets'),
   previewBrief: (brief: unknown, engineId: string, brandId: string) =>
     req<BriefPreview>('POST', '/api/brief/preview', { brief, engineId, brandId }),
@@ -226,11 +232,37 @@ export interface Look {
     weightHint?: number;
   }[];
 }
+/**
+ * A curated presenter: a fixed identity from the global catalog, browsable
+ * like a Look. Adopting one into a brand's own roster (`api.castPresenter`)
+ * copies it into `characters[]`, which is the shape briefs actually run on.
+ */
+export interface Presenter {
+  id: string;
+  name: string;
+  presentation: 'woman' | 'man';
+  /** The casting-sheet caption, e.g. "Warm editorial · dark waves · confident, understated". */
+  descriptor: string;
+  ageRange: string;
+  facial: string;
+  skin: string;
+  hair: string;
+  build: string;
+  wardrobeDefault: string;
+  suitableCategories: string[];
+  suitableStyles: string[];
+  identityNotes: string;
+  negativeConstraints: string[];
+  width: number;
+  height: number;
+  previewUrl?: string | null;
+}
+
 /** Products and cast are the same shape: a named thing with locked photos. */
 export interface Product {
   id: string;
   name: string;
-  shots?: { file: string; locked?: boolean; alt?: string | null }[];
+  shots?: { file: string; angle?: string; locked?: boolean; alt?: string | null }[];
   origin?: 'manual' | 'catalog';
   url?: string | null;
   price?: number | null;
@@ -238,6 +270,8 @@ export interface Product {
   currency?: string | null;
   vendor?: string | null;
   status?: string;
+  /** Character only: set when adopted from the curated Presenter catalog. */
+  presenterId?: string;
 }
 export type Character = Product;
 

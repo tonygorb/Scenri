@@ -25,8 +25,8 @@ import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import { QUALITIES, ShotSettings, type QualityId } from '../composer/ShotSettings.js';
 import { useOpenSettings } from '../views/SettingsDialog.js';
 import { useAppData } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
 import { PREF, useLocalPref } from '../prefs.js';
-import { useProductLibrary } from '../useProductLibrary.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
 import { resolveLookSwitch } from '../composer/applyLook.js';
@@ -100,7 +100,7 @@ export const Composer = forwardRef<
   },
   handleRef,
 ) {
-  const libraryProducts = useProductLibrary(brand.id);
+  const { products: libraryProducts } = useBrand();
   const { looks: templates, loaded } = useAppData();
   const openSettings = useOpenSettings();
   const { push } = useToasts();

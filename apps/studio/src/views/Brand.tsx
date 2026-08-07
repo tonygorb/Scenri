@@ -5,6 +5,7 @@ import { ImageSquare, Plus, TrashSimple } from '@phosphor-icons/react';
 import { api, assetUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { presentersPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteLooks, toggleFavoriteLook } from '../favorites.js';
 import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
@@ -181,10 +182,13 @@ export function BrandView() {
 
         <div className="sc-kit-sec">
           <div className="sc-sec-head">
-            <span className="sc-sec-title">Cast</span>
+            <span className="sc-sec-title">Presenters</span>
             <span style={{ fontSize: 12, color: 'var(--sc-fg3)' }}>
               Name someone with @ and the same face comes back
             </span>
+            <button type="button" className="sc-sec-more" onClick={() => navigate(presentersPath(brand))}>
+              Browse the library
+            </button>
           </div>
           <ProductsPanel brand={brand} onChanged={refresh} kind="characters" />
         </div>

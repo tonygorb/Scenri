@@ -1,0 +1,18 @@
+{
+  "id": "astrid",
+  "name": "Astrid",
+  "presentation": "woman",
+  "descriptor": "Cool minimal · white-blonde pixie · composed stillness",
+  "ageRange": "mid-40s",
+  "facial": "angular jaw, high forehead, pale blue eyes, fine linear features",
+  "skin": "very fair Nordic skin, faint natural lines, minimal retouch",
+  "hair": "white-blonde cropped pixie cut",
+  "build": "tall, slim structured build",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Technology", "Home", "Accessories"],
+  "suitableStyles": ["Editorial", "Lifestyle"],
+  "identityNotes": "the white-blonde pixie crop and angular jaw must survive every generation — do not lengthen the hair or de-age the face",
+  "negativeConstraints": ["no youth-smoothing that erases the natural fine lines", "no hair grown past the crop length", "no warm or golden blonde tone"],
+  "width": 1024,
+  "height": 1280
+}

@@ -105,7 +105,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
       case 'character': {
         const c = characters.find((x) => x.id === tok.id);
         if (!c) {
-          warnings.push('Someone in this brief is no longer in the cast.');
+          warnings.push('A presenter in this brief is no longer in your roster.');
           break;
         }
         hasPerson = true;
@@ -202,7 +202,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   if (look?.subject === 'product' && !productId) {
     warnings.push(`${look.name} is built around a product. Add one to this brief.`);
   } else if (look?.subject === 'person' && !hasPerson) {
-    warnings.push(`${look.name} is built around a person. Add someone from the cast.`);
+    warnings.push(`${look.name} is built around a person. Add a presenter.`);
   }
 
   if (directives.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${dedupe(directives).join(' ')}`;

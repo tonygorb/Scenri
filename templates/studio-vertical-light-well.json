@@ -1,12 +1,12 @@
 {
   "id": "studio-vertical-light-well",
   "name": "Frozen Vapor Chamber",
-  "description": "The subject stands suspended inside a cold-fog chamber, dry-ice vapor pooling and curling at its base under a cool blue-white glow. Tall, sculptural, faintly otherworldly.",
-  "lighting": "Cold blue-white glow, drifting vapor",
+  "description": "The subject stands suspended inside a chamber of drifting cold vapor, dry-ice fog pooling and curling at its base while a single downlight falls straight through the mist. Tall, clinical, and quietly dramatic — the vapor itself is the room, with no walls or floor in sight.",
+  "lighting": "Single cool downlight, vapor-scattered, no fill",
   "subject": "product",
   "collections": ["Studio"],
   "verticals": ["Beauty", "Fragrance", "Food & drink"],
-  "prompt": "standing upright inside a narrow chamber of drifting cold vapor, dry-ice fog pooling and curling low around the base, a cool blue-white glow falling straight down from above, tall dramatic negative space rising into haze, crisp e-commerce-grade clarity through the mist",
+  "prompt": "suspended inside a chamber of drifting cold vapor, dry-ice fog pooling and curling low at the base while a single cool downlight falls straight down through the mist, the vapor itself diffusing and scattering the light with no separate fill source, tall vertical negative space rising into near-black haze beyond the light's throw with no visible floor, walls, or machinery, the fog drifting and dissipating unevenly as it catches the light rather than sitting as a uniform CGI mist, true cool blue-white color temperature with no fantasy color grade, natural shallow depth of field from the vapor itself, crisp e-commerce-grade clarity through the mist, no ice crystals, no props beyond the drifting vapor",
   "width": 1024,
   "height": 1280
 }

@@ -4,6 +4,7 @@ import fastifyMultipart from '@fastify/multipart';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { loadLooks, lookResolver, facetsOf, composePrompt, defaultLooksDir, type Look } from './looks.js';
+import { loadPresenters, presenterFacetsOf, type Presenter } from './presenters.js';
 import { compileBrief, FORMATS, type Brief } from './brief.js';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -145,6 +146,47 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   app.post('/api/brands/:id/characters', addAsset('characters'));
   app.delete('/api/brands/:id/characters/:assetId', removeAsset('characters'));
 
+  // ---- adopt a catalog presenter into this brand's own roster (characters[])
+  // One click copies the presenter's name and all 6 reference shots in as a
+  // locked, provenance-tagged character — everything downstream (@mention,
+  // the attach panel, the identity-lock directive) already runs on
+  // characters[] and needs no further change to pick it up.
+  app.post('/api/brands/:id/presenters/:presenterId/cast', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const presenterId = /^[a-z0-9-]+$/.exec(String((req.params as any).presenterId))?.[0];
+    const presenter = presenterId ? presenters.find((p) => p.id === presenterId) : undefined;
+    if (!presenter) return reply.status(404).send({ error: 'presenter not found' });
+
+    const json = { ...(brand.json as any) };
+    const existing = (json.characters ?? []).find((c: any) => c.presenterId === presenter.id);
+    if (existing) return brand; // already cast: idempotent, not an error
+
+    const shots: { file: string; angle: string; locked: boolean }[] = [];
+    for (const [slot, angle] of PRESENTER_ANGLES) {
+      const path = presenterRefPath(presenter.id, slot);
+      if (!existsSync(path)) continue;
+      const png = await sharp(readFileSync(path)).png().toBuffer();
+      const hash = core.images.save(png);
+      shots.push({ file: `asset:${hash}`, angle, locked: true });
+    }
+    if (!shots.length) return reply.status(400).send({ error: 'presenter has no reference images yet' });
+
+    json.characters = [
+      ...(json.characters ?? []),
+      {
+        id: `c-${randomUUID().slice(0, 8)}`,
+        name: presenter.name,
+        presenterId: presenter.id,
+        shots,
+        notes: presenter.descriptor,
+      },
+    ];
+    const v = validateBrand(json);
+    if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
+    return core.store.updateBrand(brand.id, json);
+  });
+
   // ---- catalog import (store URL → full product library)
   app.get('/api/brands/:id/products-library', async (req, reply) => {
     const brand = core.store.getBrand((req.params as any).id);
@@ -212,7 +254,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   };
   const decorate = async (l: Look) => ({
     ...l,
-    previewUrl: existsSync(previewPath(l.id)) ? `/api/template-previews/${l.id}.jpg` : null,
+    previewUrl: existsSync(previewPath(l.id))
+      ? `/api/template-previews/${l.id}.jpg${mtimeQS(previewPath(l.id))}`
+      : null,
     previewColor: await previewColor(l.id),
   });
   app.get('/api/looks', async () => ({
@@ -222,12 +266,22 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   /** @deprecated kept one release so stored briefs and outside callers keep resolving. */
   app.get('/api/templates', async () => Promise.all(looks.map(decorate)));
   // A generated look's own jpg can be regenerated at the same filename (a
-  // rejected preview, redone), so a long max-age alone would leave a stale
-  // copy in every browser cache for up to a day. An mtime-based ETag lets
-  // the cache stay long while still revalidating the moment the file changes.
+  // rejected preview, redone). `max-age=0, must-revalidate` (an earlier fix)
+  // still left every already-open tab showing pre-regeneration bytes
+  // indefinitely — a browser that cached the URL under an old, longer-lived
+  // policy has no reason to ever re-ask, hard reload included in at least
+  // one observed browser/OS combination, and there is no way to reach into
+  // a user's disk cache from the server to evict the old entry. The actual
+  // fix is to stop reusing the same URL for different content: `mtimeQS`
+  // appends the file's own mtime as a query string everywhere a preview/
+  // reference-frame URL is built, so a regenerated file is a genuinely new
+  // URL the browser has never cached anything under. That makes it safe to
+  // cache aggressively again — correctness now comes from the URL changing,
+  // not from asking the server to re-check.
+  const mtimeQS = (path: string) => (existsSync(path) ? `?v=${Math.round(statSync(path).mtimeMs)}` : '');
   const serveJpeg = (req: FastifyRequest, reply: FastifyReply, path: string) => {
     const etag = `"${statSync(path).mtimeMs}"`;
-    reply.header('cache-control', 'public, max-age=86400, must-revalidate').header('etag', etag);
+    reply.header('cache-control', 'public, max-age=31536000, immutable').header('etag', etag);
     if (req.headers['if-none-match'] === etag) return reply.status(304).send();
     return reply.header('content-type', 'image/jpeg').send(readFileSync(path));
   };
@@ -248,7 +302,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const frames = readdirSync(dir)
       .filter((f) => /^ref-[0-9]{2}\.jpg$/.test(f))
       .sort()
-      .map((f) => `/api/look-previews/${id}/${f}`);
+      .map((f) => `/api/look-previews/${id}/${f}${mtimeQS(join(dir, f))}`);
     return { frames };
   });
   app.get('/api/look-previews/:id/:file', async (req, reply) => {
@@ -257,6 +311,56 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const slot = /^(ref-[0-9]{2})\.jpg$/.exec(String(p.file))?.[1];
     if (!id || !slot || !existsSync(refPath(id, slot))) return reply.status(404).send({ error: 'no frame' });
     return serveJpeg(req, reply, refPath(id, slot));
+  });
+
+  // ---- presenters (curated identity catalog). Browsing only: adopting one
+  // into a brand's own roster is the /cast route above, next to characters.
+  const presentersDir = join(templatesRoot, 'presenters');
+  const { presenters } = loadPresenters(presentersDir);
+  /** Which reference slot is which angle — the fixed 4-shot identity plan every presenter follows: full-length front, left profile, right profile, back, all standing in the same pose. */
+  const PRESENTER_ANGLES: [string, string][] = [
+    ['ref-01', 'front'],
+    ['ref-02', 'left-profile'],
+    ['ref-03', 'right-profile'],
+    ['ref-04', 'back'],
+  ];
+  const presenterThumbPath = (id: string) => join(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
+  const decoratePresenter = (p: Presenter) => ({
+    ...p,
+    previewUrl: existsSync(presenterThumbPath(p.id))
+      ? `/api/presenter-thumbnails/${p.id}.jpg${mtimeQS(presenterThumbPath(p.id))}`
+      : null,
+  });
+  app.get('/api/presenters', async () => ({
+    presenters: presenters.map(decoratePresenter),
+    ...presenterFacetsOf(presenters),
+  }));
+  app.get('/api/presenter-thumbnails/:file', async (req, reply) => {
+    const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
+    if (!m || !existsSync(presenterThumbPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
+    return serveJpeg(req, reply, presenterThumbPath(m[1]));
+  });
+  // A presenter's reference set: the same 6-angle identity plan every time.
+  // Both segments are pattern-guarded, so nothing outside previews/ is reachable.
+  const presenterRefPath = (id: string, slot: string) =>
+    join(templatesRoot, 'previews', 'presenters', id, `${slot}.jpg`);
+  app.get('/api/presenter-previews/:id', async (req, reply) => {
+    const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
+    if (!id) return reply.status(400).send({ error: 'bad presenter id' });
+    const dir = join(templatesRoot, 'previews', 'presenters', id);
+    if (!existsSync(dir)) return { frames: [] };
+    const frames = readdirSync(dir)
+      .filter((f) => /^ref-[0-9]{2}\.jpg$/.test(f))
+      .sort()
+      .map((f) => `/api/presenter-previews/${id}/${f}${mtimeQS(join(dir, f))}`);
+    return { frames };
+  });
+  app.get('/api/presenter-previews/:id/:file', async (req, reply) => {
+    const p = req.params as any;
+    const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
+    const slot = /^(ref-[0-9]{2})\.jpg$/.exec(String(p.file))?.[1];
+    if (!id || !slot || !existsSync(presenterRefPath(id, slot))) return reply.status(404).send({ error: 'no frame' });
+    return serveJpeg(req, reply, presenterRefPath(id, slot));
   });
 
   // ---- brief compiler: the composer previews exactly what will run

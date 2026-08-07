@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { assetUrl, imgUrl, type Brand, type Look, type TreeNode } from '../api.js';
-import { useProductLibrary } from '../useProductLibrary.js';
+import { useBrand } from '../app/BrandLayout.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import {
   CHIP,
@@ -133,7 +133,7 @@ export const BriefInput = forwardRef<
   // crosses one on the way across the line
   const dragDepth = useRef(0);
 
-  const library = useProductLibrary(brand.id);
+  const { products: library } = useBrand();
   const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
   const cast: any[] = (brand.json?.characters ?? []) as any[];
   const palette = usePalette(brand);
@@ -345,7 +345,7 @@ export const BriefInput = forwardRef<
       })),
       ...cast.map((c) => ({
         key: `h:${c.id}`,
-        group: 'Cast',
+        group: 'Presenters',
         label: c.name,
         hint: 'same person each time',
         thumb: assetUrl(c.shots?.[0]?.file) ?? undefined,

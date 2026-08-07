@@ -1,12 +1,12 @@
 {
   "id": "studio-soft-horizon",
   "name": "Mirror Salt Flat",
-  "description": "The subject sits at the centre of an endless mirror-still salt flat, perfectly reflected beneath an open sky. Nothing on the horizon but light.",
-  "lighting": "Open sky glow, mirror reflection",
+  "description": "The subject rests at the centre of an endless mirror-still salt flat, its form softly doubled in reflection beneath a wide open sky. Vast, still, and quietly luminous, with nothing on the horizon but light.",
+  "lighting": "Even open-sky glow, soft mirror reflection",
   "subject": "product",
   "collections": ["Studio"],
-  "verticals": ["Home", "Sport", "Accessories"],
-  "prompt": "resting at the centre of an endless mirror-still salt flat stretching to the horizon, a perfect reflection doubling the subject below, a wide open sky glowing evenly overhead, vast uninterrupted negative space on every side, clean commercial-catalogue realism",
+  "verticals": ["Home", "Sport", "Accessories", "Footwear"],
+  "prompt": "resting centered at eye level at the centre of an endless mirror-still salt flat stretching to the horizon, the wet salt crust holding a soft-focus reflection of the subject beneath rather than a mirror-sharp symmetrical duplicate, a wide open sky glowing evenly overhead in a soft blue-grey gradient with no hard shadow, deep depth of field keeping the vast flat and open sky in focus, vast uninterrupted negative space on every side, true open-sky color grading, no CGI-clean horizon line, no props, no second product, clean commercial-catalogue realism",
   "width": 1024,
   "height": 1024
 }

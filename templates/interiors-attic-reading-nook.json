@@ -1,0 +1,12 @@
+{
+  "id": "interiors-attic-reading-nook",
+  "name": "Attic Reading Nook",
+  "description": "A wax-sealed soy candle catches low, slanted late-afternoon light on the windowsill of a real attic reading nook, a worn wool throw and a stack of books softening at the edge of frame — quiet human-scale intimacy, a considered still life rather than a styled catalog shot.",
+  "lighting": "Low, slanted late-afternoon window light with long warm shadows",
+  "subject": "product",
+  "collections": ["Interiors"],
+  "verticals": ["Accessories", "Fragrance", "Home", "Beauty"],
+  "prompt": "a wax-sealed soy candle in a matte cream ceramic vessel, labeled 'Wilder & Finch — No. 4 Cedar Smoke' with a kraft-paper label and a burgundy wax seal disc, staged on a low windowsill in a real attic reading nook, low slanted late-afternoon window light streaming in and casting long warm shadows across a sloped wood-beamed ceiling, a worn wool throw in muted oatmeal tones and a small stack of real hardcover books softly framing the edge of the frame, shallow depth of field with the wool throw and book stack falling into soft warm bokeh around the sharp candle, wool and linen textures in a real lived-in room, genuine low-angle raking light behavior with true wool, linen and wax material response, no visible face, no other people in frame, clean editorial product-photography finish",
+  "width": 1024,
+  "height": 1280
+}

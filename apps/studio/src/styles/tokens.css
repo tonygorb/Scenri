@@ -14,7 +14,7 @@
   --sc-gutter: 24px; /* one page edge: top bar and content agree at every width */
   --sc-prompt-w: clamp(640px, 50vw, 1000px); /* the dock owns this; the card fills it */
   --sc-topbar-h: 60px;
-  --sc-assets-w: 264px;
+  --sc-assets-w: 320px;
   --sc-tabbar-h: 0px;
   /* How much of the viewport the software keyboard is sitting on. iOS leaves
      the layout viewport alone and only shrinks the visual one, so a fixed dock
@@ -222,6 +222,13 @@ select {
     scroll-behavior: auto !important;
   }
   .sc-assets {
+    transition: none;
+  }
+  .sc-agroup {
+    transition: none;
+  }
+  .sc-agroup-body,
+  .sc-agroup-content {
     transition: none;
   }
 }
@@ -2062,11 +2069,16 @@ select {
   align-items: center;
   gap: 8px;
   /* sticky so the lenses stay reachable down a long feed; the canvas is the
-     scroller, so this pins to its top edge */
+     scroller, so this pins to its top edge. The breathing room above the row
+     lives in this padding-top, not .sc-canvas's: a sticky child stuck at
+     top:0 can't get closer to the scroller's edge than the scroller's own
+     padding, so if that space were canvas padding instead, the row would
+     visibly close a gap over the first ~18px of every scroll — flush from
+     frame one instead, so nothing shifts. */
   position: sticky;
   top: 0;
   z-index: 5;
-  padding: 4px 0 12px;
+  padding: 18px 0 12px;
   margin-bottom: 4px;
   background: var(--sc-bg);
 }
@@ -2594,7 +2606,14 @@ select {
   grid-area: canvas;
   min-width: 0;
   overflow-y: auto;
-  padding: 18px 20px 170px;
+  /* No top padding: .sc-toolbar (the first child) carries that spacing
+     itself, so its sticky top:0 has nothing to close a gap over. */
+  padding: 0 20px 170px;
+}
+/* Stands in for the top padding .sc-canvas no longer has, for the one
+   element that can render above .sc-toolbar instead of after it. */
+.sc-canvas-alert {
+  margin-top: 18px;
 }
 .sc-canvas-empty {
   padding: 80px 0;
@@ -2688,10 +2707,20 @@ select {
   grid-area: assets;
   border-left: 1px solid var(--sc-line-chrome);
   background: var(--sc-panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 16px 170px;
 }
+/* An open group already fills the remaining height itself; the idle-state
+   170px reserve would otherwise leave a dead gap under the collapsed headers
+   it pushes to the bottom. */
+.sc-assets[data-open-group] {
+  padding-bottom: 16px;
+}
 .sc-assets-search {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2716,8 +2745,17 @@ select {
   color: var(--sc-fg3);
   flex-shrink: 0;
 }
+/* flex-grow is split out of the shorthand so it alone can transition — the
+   natural, no-JS way to make a flex item smoothly claim the space its
+   siblings give up, rather than snapping to its new size in one frame. */
 .sc-agroup {
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: auto;
   margin-bottom: 18px;
+  transition:
+    flex-grow 220ms cubic-bezier(0.3, 0, 0.2, 1),
+    margin-bottom 220ms cubic-bezier(0.3, 0, 0.2, 1);
 }
 .sc-agroup-h {
   display: flex;
@@ -2725,10 +2763,75 @@ select {
   gap: 6px;
   margin-bottom: 8px;
 }
-/* A folded group keeps its header and gives its space back to the ones below,
-   which is the whole point when a catalog import has landed 500 products. */
-.sc-agroup[data-closed] {
+/* A collapsed group keeps its header and gives its space back to the ones
+   below, which is the whole point when a catalog import has landed 500
+   products. */
+.sc-agroup[data-mode="collapsed"] {
   margin-bottom: 8px;
+}
+/* The open group takes over whatever height is left, pushing every collapsed
+   group below it down to sit flush at the bottom — pure flexbox, no JS
+   height math. */
+.sc-agroup[data-mode="open"] {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+.sc-agroup[data-mode="open"] > .sc-agroup-h {
+  flex: none;
+}
+/* Collapsing used to unmount this content outright — instant, so the
+   container's own smooth flex-grow/margin transition had nothing matching
+   it, which is exactly what read as "jumpy." It now stays mounted always and
+   collapses via grid-template-rows 1fr→0fr, the standard no-JS way to
+   animate to/from an intrinsic ("auto") height — a plain height transition
+   can't do that since "auto" isn't an animatable value. .sc-agroup-content
+   is the single grid row; overflow:hidden on it is what clips the row's
+   content away as the row itself shrinks toward zero. */
+.sc-agroup-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  min-height: 0;
+  transition: grid-template-rows 220ms cubic-bezier(0.3, 0, 0.2, 1);
+}
+.sc-agroup-content {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 1;
+  transition: opacity 120ms ease;
+}
+/* A collapsed group's content fades out quickly and its row shrinks to
+   nothing — visibility is delayed until the fade finishes on the way out
+   (so it doesn't vanish before it's finished fading) but drops instantly on
+   the way back in, so newly-revealed content is interactive right away. */
+.sc-agroup[data-mode="collapsed"] .sc-agroup-body {
+  grid-template-rows: 0fr;
+}
+.sc-agroup[data-mode="collapsed"] .sc-agroup-content {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 120ms ease,
+    visibility 0s linear 120ms;
+}
+/* The open group doesn't use the grid-row collapse at all — its body fills
+   whatever space .sc-agroup's own flex-grow gives it and scrolls internally,
+   a different sizing model than "collapse to an intrinsic content height". */
+.sc-agroup[data-mode="open"] .sc-agroup-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+/* Invisible trip-wire the infinite-scroll observer watches; not a spacer, so
+   zero height rather than faking gap the grid's own `gap` already provides. */
+.sc-agroup-sentinel {
+  height: 1px;
 }
 .sc-agroup-t {
   display: flex;
@@ -2743,18 +2846,28 @@ select {
   color: inherit;
   text-align: left;
 }
-.sc-agroup-t b {
-  font-size: 12px;
-  font-weight: 600;
-}
 .sc-agroup-caret {
   color: var(--sc-fg3);
-  transition: transform 120ms ease;
+  transition:
+    transform 120ms ease,
+    opacity 120ms ease;
   transform: rotate(90deg);
   flex: none;
 }
-.sc-agroup[data-closed] .sc-agroup-caret {
+.sc-agroup[data-mode="collapsed"] .sc-agroup-caret {
   transform: rotate(0deg);
+}
+/* Hover-hide only where hover is a real pointer model; under 1280px this
+   panel becomes a fixed touch drawer (see .sc-assets below) with no hover,
+   so the caret stays put there as the only static disclosure cue. */
+@media (hover: hover) and (pointer: fine) {
+  .sc-agroup-caret {
+    opacity: 0;
+  }
+  .sc-agroup-t:hover .sc-agroup-caret,
+  .sc-agroup-t:focus-visible .sc-agroup-caret {
+    opacity: 1;
+  }
 }
 /* How many there are, so a folded group still says whether it is worth opening. */
 .sc-agroup-n {
@@ -2808,7 +2921,12 @@ select {
   grid-template-columns: repeat(4, 1fr);
   gap: 7px;
 }
-.sc-arow button {
+/* Plain image/swatch tiles — shared by the compact 4-col preview grid and any
+   group (Brand colors, Recent shots) that skips the labeled AssetCard even
+   when open. Scoped by the tile's own markup, not by which grid it happens
+   to sit in, so it doesn't silently go unstyled if the wrapper class changes. */
+.sc-arow button,
+.sc-acard-grid > button:not(.sc-acard) {
   border: 1px solid var(--sc-line);
   border-radius: 8px;
   overflow: hidden;
@@ -2817,23 +2935,88 @@ select {
   aspect-ratio: 1;
   cursor: pointer;
 }
-.sc-arow button:hover {
+.sc-arow button:hover,
+.sc-acard-grid > button:not(.sc-acard):hover {
   border-color: var(--sc-line-strong);
 }
-.sc-arow button:focus-visible {
+.sc-arow button:focus-visible,
+.sc-acard-grid > button:not(.sc-acard):focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 1px;
 }
-.sc-arow img {
+.sc-arow img,
+.sc-acard-grid > button:not(.sc-acard) img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-.sc-arow .sc-aswatch {
+.sc-arow .sc-aswatch,
+.sc-acard-grid > button:not(.sc-acard) .sc-aswatch {
   display: block;
   width: 100%;
   height: 100%;
+}
+/* The open group's grid: fewer, bigger cards with room for a name label
+   underneath and an optional badge over the thumbnail. */
+.sc-acard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.sc-acard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+.sc-acard-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  overflow: hidden;
+  background: var(--sc-raised);
+}
+.sc-acard:hover .sc-acard-thumb {
+  border-color: var(--sc-line-strong);
+}
+.sc-acard:focus-visible .sc-acard-thumb {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-acard-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sc-acard-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-family: var(--sc-font-mono);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--sc-fg);
+  background: var(--sc-panel);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  padding: 3px 7px;
+}
+.sc-acard-label {
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sc-anote {
   font-size: 11px;
@@ -3454,7 +3637,7 @@ select {
   left: 0;
   right: 0;
   bottom: calc(100% + 8px);
-  height: min(380px, 50vh);
+  height: min(480px, 55vh);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--sc-line-strong);
@@ -3541,34 +3724,32 @@ select {
 .sc-ap-group .sc-eyebrow {
   margin-bottom: 8px;
 }
+.sc-ap-group .sc-amore {
+  padding-top: 18px;
+}
 .sc-ap-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(5, 1fr);
+  column-gap: 10px;
+  row-gap: 18px;
 }
 .sc-ap-card {
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius);
+  border: none;
   background: none;
-  padding: 0 0 7px;
+  padding: 0;
   cursor: pointer;
   text-align: left;
   color: var(--sc-fg);
   overflow: hidden;
-  transition:
-    border-color 120ms ease,
-    background 120ms ease;
-}
-.sc-ap-card:hover {
-  border-color: var(--sc-line-strong);
-  background: var(--sc-hover);
 }
 .sc-ap-card:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 1px;
+  border-radius: var(--sc-radius);
 }
 .sc-ap-add {
-  border-style: dashed;
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--sc-radius);
 }
 .sc-upload-dz[data-drag-over] {
   outline: 2px dashed var(--sc-focus);
@@ -3579,11 +3760,15 @@ select {
 .sc-ap-thumb {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   background: var(--sc-raised);
-  border-bottom: 1px solid var(--sc-line);
-  margin-bottom: 6px;
+  border-radius: var(--sc-radius);
+  margin-bottom: 8px;
+  transition: opacity 120ms ease;
+}
+.sc-ap-card:hover .sc-ap-thumb {
+  opacity: 0.85;
 }
 .sc-ap-thumb-empty {
   display: grid;
@@ -3593,17 +3778,7 @@ select {
 .sc-ap-card b {
   display: block;
   font-size: 11.5px;
-  font-weight: 600;
-  padding: 0 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sc-ap-card small {
-  display: block;
-  font-size: 10px;
-  color: var(--sc-fg3);
-  padding: 1px 8px 0;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3955,7 +4130,13 @@ select {
     left: 50%;
   }
   .sc-canvas {
-    padding: 12px 12px 150px;
+    padding: 0 12px 150px;
+  }
+  .sc-toolbar {
+    padding-top: 12px;
+  }
+  .sc-canvas-alert {
+    margin-top: 12px;
   }
   .sc-brandpage {
     padding: 20px 14px 80px;
@@ -4175,9 +4356,6 @@ select {
 .sc-ap-body {
   padding: 12px;
 }
-.sc-ap-grid {
-  gap: 10px;
-}
 .sc-ap-group + .sc-ap-group {
   margin-top: 4px;
 }
@@ -4198,6 +4376,14 @@ select {
     color-mix(in srgb, var(--sc-bg) 86%, transparent) 68%,
     var(--sc-bg) 92%
   );
+}
+@media (min-width: 1280px) {
+  .sc-dock-fade {
+    right: var(--sc-assets-w);
+  }
+  .sc-dock-fade[data-full="true"] {
+    right: 0;
+  }
 }
 
 /* ---------- template is the frame for the brief, not a word in it ---------- */
@@ -4299,7 +4485,7 @@ select {
   margin-bottom: 14px;
 }
 .sc-canvas {
-  padding: 18px 20px 200px;
+  padding: 0 20px 200px;
 }
 
 /* failed tiles stay small and quiet: they are a record, not content */
@@ -6090,6 +6276,9 @@ select {
   /* the panel shares this screen with a keyboard */
   .sc-attachpanel {
     height: min(340px, 44vh);
+  }
+  .sc-ap-grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   }
 }
 

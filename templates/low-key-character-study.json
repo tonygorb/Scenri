@@ -1,12 +1,12 @@
 {
   "id": "low-key-character-study",
   "name": "Low-Key Character Study",
-  "description": "Same seamless studio stage as the rest of the Cast set, standing three-quarter under one hard low-angle key that falls to near-total darkness beyond the beam. A single practical highlight, feature-film restraint.",
-  "lighting": "Hard key light, deep falloff into black",
+  "description": "One hard key light strikes the face from a low angle and falls to true black beyond its throw — the same identity-locked person and dark wool overcoat carry through all six frames as one continuous, feature-film-restrained campaign.",
+  "lighting": "Hard low-angle key, deep falloff into black",
   "subject": "person",
-  "collections": ["Cast"],
+  "collections": ["Portrait"],
   "verticals": ["Apparel", "Jewelry", "Fragrance"],
-  "prompt": "standing in a three-quarter turn on the same seamless studio ground as the rest of the Cast set, chest-up to waist-up crop centered in frame, one hard key light striking the face from a low angle while the ground falls to near-total darkness beyond the beam, a single practical highlight catching the eyes, wardrobe reading as rich dark tone, feature-film restraint",
+  "prompt": "standing in a three-quarter turn on the same seamless studio ground as the rest of the Cast set, camera positioned low and looking slightly upward, chest-up crop with the coat collar drawn up, one hard key light striking the face from a low side angle while everything beyond its throw falls to true black rather than dim grey, a single sharp practical highlight catching the eyes, natural skin texture visible only within the lit portion of the face, heavy dark wool overcoat texture at the collar, feature-film restraint",
   "width": 1024,
   "height": 1280
 }

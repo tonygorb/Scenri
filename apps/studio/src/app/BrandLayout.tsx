@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Navigate, Outlet, useLocation, useMatch, useParams } from 'react-router';
-import { api, type Brand, type Project, type ShotSet, type TreeNode } from '../api.js';
+import { api, type Brand, type Product, type Project, type ShotSet, type TreeNode } from '../api.js';
 import { P, brandPath } from '../routes.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
 import { TabBar } from '../layout/TabBar.js';
 import { TopBar } from '../layout/TopBar.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
+import { useProductLibrary } from '../useProductLibrary.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
 import { useAppData } from './AppShell.js';
 import { pickBrand } from './RootRedirect.js';
@@ -23,6 +24,13 @@ interface BrandData {
   sets: ShotSet[];
   /** Which shots are in which set, keyed by set id. */
   membership: Record<string, string[]>;
+  /**
+   * The unified product library (manual + catalog import), polled here once
+   * for the whole brand — five surfaces (Home, AssetsPanel, Composer,
+   * AttachPanel, BriefInput) each ran their own independent 4s poll of the
+   * same endpoint before this moved up.
+   */
+  products: Product[];
   /** False until the first answer lands, so /s/:slug knows it cannot resolve yet. */
   loaded: boolean;
   refresh: () => Promise<void>;
@@ -100,6 +108,7 @@ export function BrandLayout() {
   useKeyboardInset();
 
   const brand = brands.find((b) => b.slug === brandSlug) ?? brands.find((b) => b.id === brandSlug) ?? null;
+  const products = useProductLibrary(brand?.id);
 
   /**
    * One ask for the whole brand: its shots, its sets, and who is in what.
@@ -152,7 +161,18 @@ export function BrandLayout() {
 
   return (
     <Ctx.Provider
-      value={{ brand, workspace, nodes, sets, membership, loaded, refresh: refreshWorkspace, applySet, dropSet }}
+      value={{
+        brand,
+        workspace,
+        nodes,
+        sets,
+        membership,
+        products,
+        loaded,
+        refresh: refreshWorkspace,
+        applySet,
+        dropSet,
+      }}
     >
       <SettingsDialog engines={engines} shots={nodes} onSaved={refresh} />
       <TaskCenterProvider brand={brand}>

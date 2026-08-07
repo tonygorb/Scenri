@@ -18,8 +18,8 @@ export const PREF = {
   count: 'scenri:count',
   format: 'scenri:format',
   assetsOpen: 'scenri:assets-open',
-  /** Which asset groups you have folded away, by group name. */
-  assetsClosed: 'scenri:assets-closed',
+  /** Which single asset group is expanded into the accordion's open pane, if any. */
+  assetsOpenGroup: 'scenri:assets-open-group',
   /** Target column width for the feed, in px, from the grid-size slider. */
   tileSize: 'scenri:tile-size',
 } as const;

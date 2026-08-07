@@ -82,7 +82,7 @@ export const groupOf = (t: SentenceToken): string | null =>
     : t.t === 'product'
       ? 'Products'
       : t.t === 'character'
-        ? 'Cast'
+        ? 'Presenters'
         : t.t === 'color'
           ? 'Brand colors'
           : t.t === 'ref'

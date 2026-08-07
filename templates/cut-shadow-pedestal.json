@@ -1,12 +1,12 @@
 {
   "id": "cut-shadow-pedestal",
   "name": "Cut-Shadow Pedestal",
-  "description": "The subject rests on a low plinth inside a single-color infinity cove, a hard gobo-cut spotlight throwing sharp graphic shadow shapes across the floor and back wall. A gallery-installation feeling hero shot, wide enough for the shadow graphics to breathe.",
-  "lighting": "Gobo-cut spot, saturated cove",
+  "description": "The subject rests on a low plinth inside a deep, single-hue saturated color cove, where a hard gobo-cut spotlight throws sharp, hard-edged graphic shadow bars and cut shapes across the floor and back wall behind it. A gallery-installation mood with zero fill light — the shadow pattern reads as boldly as the product itself.",
+  "lighting": "Single hard gobo-cut spotlight, no fill light",
   "subject": "product",
   "collections": ["Colored backgrounds"],
-  "verticals": ["Electronics", "Home", "Beauty", "Fragrance"],
-  "prompt": "set on a low plinth inside a deep saturated color cove, a hard gobo-cut spotlight throwing sharp graphic shadow bars and cut-out shapes across the ground and background, high-contrast color blocking either side of the subject, wide stage-like negative space, gallery-installation product realism",
-  "width": 1600,
-  "height": 900
+  "verticals": ["Electronics", "Beauty", "Fragrance", "Jewelry"],
+  "prompt": "set on a low plinth centered inside a deep saturated single-hue color cove with no gradient, one dominant saturated color only, a hard gobo-cut spotlight throwing sharp, hard-edged graphic shadow bars and cut-out shapes across the floor and back wall directly behind it, shadow edges staying crisp and true rather than soft-fading, zero fill light to soften them, high-contrast color blocking to either side of the subject, shallow depth of field isolating the subject against wide stage-like negative space, gallery-installation product realism, no props beyond the plinth, no second product in frame",
+  "width": 1024,
+  "height": 1024
 }

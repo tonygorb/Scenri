@@ -1,0 +1,12 @@
+{
+  "id": "beauty-dish-glow-portrait",
+  "name": "Beauty Dish Glow Portrait",
+  "description": "One soft circular beauty-dish key light, held close and centered, wraps the same identity-locked model in a round catchlight and glossy, luminous skin against a seamless neutral-grey studio ground. Glamour-magazine polish carries through every frame of the Cast set.",
+  "lighting": "Close beauty-dish key, round catchlight glow",
+  "subject": "person",
+  "collections": ["Portrait"],
+  "verticals": ["Beauty", "Fragrance", "Jewelry"],
+  "prompt": "a close chest-up crop of a solo, poised model against a seamless neutral-grey studio ground, lit by one soft circular beauty-dish key light held close and centered that casts a round, soft-edged catchlight in the eyes, skin rendered glossy and luminous with genuine specular sheen rather than a waxy or plastic finish and falling off softly toward the shadow side with no hard shadow edge, shallow depth of field with soft background falloff, glamour-magazine polish, no other people in frame",
+  "width": 1024,
+  "height": 1280
+}

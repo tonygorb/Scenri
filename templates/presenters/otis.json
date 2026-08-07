@@ -1,0 +1,18 @@
+{
+  "id": "otis",
+  "name": "Otis",
+  "presentation": "man",
+  "descriptor": "Warm rugged · ginger beard · stocky and grounded",
+  "ageRange": "mid-30s",
+  "facial": "strong-jawed face, full ginger beard, warm brown eyes",
+  "skin": "ruddy fair, sun-weathered texture, visible freckling",
+  "hair": "curly red hair, medium length, matching full beard",
+  "build": "tall, athletic broad-shouldered build",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Outdoor", "Craft", "Apparel"],
+  "suitableStyles": ["Lifestyle", "Editorial"],
+  "identityNotes": "the ginger beard and curly red hair must survive every generation — do not shave, trim short, or shift the hair or beard color",
+  "negativeConstraints": ["no clean-shaven face", "no hair color other than red", "no slimmed-down build"],
+  "width": 1024,
+  "height": 1280
+}

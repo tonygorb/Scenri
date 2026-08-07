@@ -1,0 +1,12 @@
+{
+  "id": "split-tone-color-gel-portrait",
+  "name": "Split-Tone Color Gel Portrait",
+  "description": "Two contrasting colored gel lights split the same identity-locked model's face and body into saturated color halves, meeting at a hard, clean line that never softens into a blend. Bold and graphic, styled around Kinetic's Volt Jacket for one coherent campaign across every frame.",
+  "lighting": "Dual hard-edge gel split, teal/orange",
+  "subject": "person",
+  "collections": ["Portrait"],
+  "verticals": ["Apparel", "Sport", "Accessories"],
+  "prompt": "standing straight-on and centered against a seamless neutral-grey studio ground, chest-up crop, wearing a matte black technical zip jacket with reflective teal-and-orange trim tape down the zip line, from the fictional label Kinetic — the Volt Jacket, lit by two contrasting colored gel lights, a saturated teal gel on one side and a molten orange gel on the other, splitting the face and jacket into two distinct color halves down the exact center of the frame, a hard clean line where the colors meet with no blended gradient and no third color, correct gel color temperature and real light falloff at the boundary rather than a digital overlay effect, shallow depth of field keeping both gel colors sharp on the subject while the grey background falls softly out of focus, bold modern graphic campaign finish",
+  "width": 1024,
+  "height": 1280
+}

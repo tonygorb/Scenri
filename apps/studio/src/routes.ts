@@ -28,6 +28,8 @@ export const P = {
   kit: '/:brandSlug/kit',
   looks: '/:brandSlug/looks',
   look: '/:brandSlug/looks/:lookId',
+  presenters: '/:brandSlug/presenters',
+  presenter: '/:brandSlug/presenters/:presenterId',
   hub: '/:brandSlug/create',
   hubShot: '/:brandSlug/create/shots/:shotId',
   set: '/:brandSlug/sets/:setSlug',
@@ -51,6 +53,9 @@ export const brandPath = (b: BrandLike): string => generatePath(P.brand, { brand
 export const kitPath = (b: BrandLike): string => generatePath(P.kit, { brandSlug: b.slug });
 export const looksPath = (b: BrandLike): string => generatePath(P.looks, { brandSlug: b.slug });
 export const lookPath = (b: BrandLike, lookId: string): string => generatePath(P.look, { brandSlug: b.slug, lookId });
+export const presentersPath = (b: BrandLike): string => generatePath(P.presenters, { brandSlug: b.slug });
+export const presenterPath = (b: BrandLike, presenterId: string): string =>
+  generatePath(P.presenter, { brandSlug: b.slug, presenterId });
 export const hubPath = (b: BrandLike): string => generatePath(P.hub, { brandSlug: b.slug });
 export const setPath = (b: BrandLike, s: SetLike): string =>
   generatePath(P.set, { brandSlug: b.slug, setSlug: s.slug });

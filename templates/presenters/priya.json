@@ -1,0 +1,18 @@
+{
+  "id": "priya",
+  "name": "Priya",
+  "presentation": "woman",
+  "descriptor": "Poised editorial · low bun · sharp angular calm",
+  "ageRange": "early 30s",
+  "facial": "sharp angular face, defined cheekbones, straight nose, dark almond eyes",
+  "skin": "rich warm brown, even tone, natural texture",
+  "hair": "black hair pulled into a low sleek bun",
+  "build": "tall, lean elegant build",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Jewelry", "Fashion", "Accessories"],
+  "suitableStyles": ["Editorial"],
+  "identityNotes": "the sharp cheekbones and sleek low bun must survive every generation — do not loosen the hair or soften the jawline",
+  "negativeConstraints": ["no loose or flowing hair", "no soft romantic styling", "no heavy contouring"],
+  "width": 1024,
+  "height": 1280
+}

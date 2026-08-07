@@ -1,12 +1,23 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Callout, Flex, Spinner } from '@radix-ui/themes';
-import { api, type Brand, type EngineInfo } from '../api.js';
+import { api, type Brand, type EngineInfo, type Presenter } from '../api.js';
 import { useLooks, type UseLooksResult } from '../useLooks.js';
+import { usePresenters } from '../usePresenters.js';
 
+// usePresenters and useLooks both expose `loaded`/`error`/`refetch` — spreading
+// both into one context would let whichever lands second silently win for
+// existing Looks consumers. Namespaced instead, so both stay independently
+// readable.
 interface AppData extends UseLooksResult {
   brands: Brand[];
   engines: EngineInfo[];
+  presenters: Presenter[];
+  presenterCategories: string[];
+  presenterStyles: string[];
+  presentersLoaded: boolean;
+  presentersError: boolean;
+  refetchPresenters: () => void;
   /** Re-read brands and engines: brand edits and key changes both land here. */
   refresh: () => Promise<void>;
 }
@@ -29,6 +40,7 @@ export function AppShell() {
   const [engines, setEngines] = useState<EngineInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const looks = useLooks();
+  const presenters = usePresenters();
 
   const refresh = useCallback(async () => {
     try {
@@ -62,7 +74,20 @@ export function AppShell() {
   }
 
   return (
-    <Ctx.Provider value={{ brands, engines, ...looks, refresh }}>
+    <Ctx.Provider
+      value={{
+        brands,
+        engines,
+        ...looks,
+        presenters: presenters.presenters,
+        presenterCategories: presenters.categories,
+        presenterStyles: presenters.styles,
+        presentersLoaded: presenters.loaded,
+        presentersError: presenters.error,
+        refetchPresenters: presenters.refetch,
+        refresh,
+      }}
+    >
       <ScrollRestoration />
       <Outlet />
     </Ctx.Provider>

@@ -71,7 +71,7 @@ describe('compileBrief', () => {
 
   it('a missing cast member warns instead of vanishing silently', () => {
     const r = compileBrief({ tokens: [{ t: 'character', id: 'ghost' }] }, ctx());
-    expect(r.warnings.join(' ')).toContain('no longer in the cast');
+    expect(r.warnings.join(' ')).toContain('no longer in your roster');
     expect(r.attachments).toHaveLength(0);
   });
 
@@ -81,18 +81,18 @@ describe('compileBrief', () => {
         tokens: [
           { t: 'product', id: 'p1' },
           { t: 'text', v: ' ' },
-          { t: 'template', id: 'lived-in-sunlit-linen-corner' },
+          { t: 'template', id: 'interiors-marble-kitchen-counter' },
         ],
       },
       mkCtx(),
     );
     expect(r.prompt.match(/House Blend/g)).toHaveLength(1);
-    expect(r.prompt).toContain('warm diffused daylight with soft falloff');
+    expect(r.prompt).toContain('warm low morning window light');
   });
 
   it('a person-only look without anyone in the cast says so', () => {
     const personLook = {
-      ...allLooks.find((l) => l.id === 'lived-in-sunlit-linen-corner')!,
+      ...allLooks.find((l) => l.id === 'interiors-marble-kitchen-counter')!,
       subject: 'person' as const,
       name: 'Test Portrait',
     };
@@ -206,7 +206,7 @@ describe('compileBrief', () => {
     );
     expect(r.prompt).toContain('[Marble Quarry Plinth]');
     expect(r.prompt).toContain('House Blend');
-    expect(r.prompt).toContain('monumental scale dwarfing the subject');
+    expect(r.prompt).toContain('monumental quarry scale dwarfing the subject');
     expect(r.prompt).toContain('Art direction: keep it airy');
     expect([r.width, r.height]).toEqual([template.width, template.height]);
   });

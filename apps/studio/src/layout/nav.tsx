@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import { useLocation, useMatch, useNavigate } from 'react-router';
-import { House, PlusCircle, Stack, UsersThree } from '@phosphor-icons/react';
+import { House, IdentificationBadge, PlusCircle, Stack, UsersThree } from '@phosphor-icons/react';
 import { assetUrl, type Brand, type EngineInfo } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { P, brandPath, hubPath, kitPath, looksPath } from '../routes.js';
+import { P, brandPath, hubPath, kitPath, looksPath, presentersPath } from '../routes.js';
 
 /**
- * The four destinations, and the credit maths, shared by the bar and the sheet.
+ * The five destinations, and the credit maths, shared by the bar and the sheet.
  * They live here rather than in TopBar so the two navs cannot drift: a label or
  * an active rule fixed in one is fixed in both.
  */
@@ -45,6 +45,7 @@ export function useMainNav(iconSize: number): NavItem[] {
   const inSet = !!useMatch({ path: P.set, end: false });
   const create = onHub || inSet;
   const looks = !!useMatch({ path: P.looks, end: false });
+  const presenters = !!useMatch({ path: P.presenters, end: false });
   const brandPage = !!useMatch(P.kit);
 
   // the glyph fills where you are: a real Phosphor weight, not a stroked icon
@@ -73,6 +74,13 @@ export function useMainNav(iconSize: number): NavItem[] {
       icon: <Stack size={iconSize} weight={w(looks)} />,
       active: looks,
       go: () => navigate(looksPath(brand)),
+    },
+    {
+      key: 'presenters',
+      label: 'Presenters',
+      icon: <IdentificationBadge size={iconSize} weight={w(presenters)} />,
+      active: presenters,
+      go: () => navigate(presentersPath(brand)),
     },
     {
       key: 'kit',

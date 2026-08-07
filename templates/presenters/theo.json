@@ -1,0 +1,18 @@
+{
+  "id": "theo",
+  "name": "Theo",
+  "presentation": "man",
+  "descriptor": "Playful approachable · sandy curls · soft boyish",
+  "ageRange": "mid-20s",
+  "facial": "soft round face, light freckling, bright open eyes",
+  "skin": "pale, natural texture, light freckling",
+  "hair": "curly sandy-brown hair, medium length",
+  "build": "average height, slim build",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Apparel", "Lifestyle", "Beverages"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the curly sandy-brown hair and soft boyish face must survive every generation — do not mature the features or straighten the hair",
+  "negativeConstraints": ["no straightened hair", "no aged or mature features", "no theatrical expression"],
+  "width": 1024,
+  "height": 1280
+}

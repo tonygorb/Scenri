@@ -1,12 +1,12 @@
 {
   "id": "studio-polished-pedestal",
   "name": "Marble Quarry Plinth",
-  "description": "The subject rests on a raw-cut marble slab inside a real stone quarry, a hard shaft of daylight cutting through drifting dust. Monumental scale, nothing about it reads as a studio.",
+  "description": "The subject rests on a raw-cut marble slab inside a real stone quarry, one hard shaft of daylight cutting through genuinely drifting dust. Monumental scale, true mineral texture — nothing about it reads as a studio.",
   "lighting": "Hard daylight shaft, dust-lit",
   "subject": "product",
   "collections": ["Studio"],
-  "verticals": ["Home", "Beauty", "Electronics", "Accessories"],
-  "prompt": "on a raw-cut marble slab inside a vast stone quarry interior, a hard shaft of daylight cutting down through drifting dust motes, rough-hewn rock walls receding into shadow on every side, monumental scale dwarfing the subject, tack-sharp editorial-grade finish",
+  "verticals": ["Home", "Beauty", "Electronics", "Accessories", "Jewelry"],
+  "prompt": "resting on a raw-cut slab of pale marble inside a real stone quarry interior, one hard shaft of daylight cutting downward through genuinely drifting dust motes, rough-hewn rock walls receding into deep shadow, visible mineral veining and tool-marks in the stone underfoot, true specular highlight where daylight grazes the marble's polished cut face, monumental quarry scale dwarfing the subject, natural imperfection and dust texture throughout, believable large-format commercial photography, no digital gloss",
   "width": 1024,
   "height": 1024
 }

@@ -1,0 +1,18 @@
+{
+  "id": "dax",
+  "name": "Dax",
+  "presentation": "man",
+  "descriptor": "Intense grounded · shaved head · quiet strength",
+  "ageRange": "early 40s",
+  "facial": "heavy brow, strong squared jaw, deep-set dark eyes",
+  "skin": "olive-tan, weathered texture",
+  "hair": "fully shaved head",
+  "build": "muscular, broad build",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Fragrance", "Fitness", "Accessories"],
+  "suitableStyles": ["Editorial"],
+  "identityNotes": "the shaved head and heavy brow must survive every generation — do not add hair or soften the jawline",
+  "negativeConstraints": ["no hair regrowth", "no slimmed-down build", "no soft or gentle expression"],
+  "width": 1024,
+  "height": 1280
+}

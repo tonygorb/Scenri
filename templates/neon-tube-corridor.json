@@ -1,0 +1,12 @@
+{
+  "id": "neon-tube-corridor",
+  "name": "Neon Tube Corridor",
+  "description": "The subject stands low in a narrow corridor lined with glowing magenta and cyan neon tubes, their light streaking and doubling across a wet floor as the tubes recede toward a vanishing point. Electric, high-contrast, nocturnal energy.",
+  "lighting": "Neon-tube glow only, no separate key light",
+  "subject": "either",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Electronics", "Apparel", "Sport"],
+  "prompt": "shot from a low angle in a narrow corridor lined with glowing colored neon tubes lining both walls and receding to a vanishing point, a fixed palette of saturated magenta and cyan neon as the sole source of light with no separate key light, the glow reflected and streaking across a wet floor directly beneath, genuine falloff in brightness with distance and a fine haze softening the farthest tubes rather than a flat colored gradient standing in for the glow, shallow depth of field keeping the subject sharp while the corridor's depth dissolves into soft neon bokeh, no visible brand logos or wordmarks anywhere in frame, no second person fully in frame, no props beyond the bare corridor structure, high-contrast nocturnal commercial energy",
+  "width": 1080,
+  "height": 1920
+}

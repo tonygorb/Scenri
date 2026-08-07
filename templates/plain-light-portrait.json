@@ -1,12 +1,12 @@
 {
   "id": "plain-light-portrait",
   "name": "Plain Light Portrait",
-  "description": "Same seamless studio stage as the rest of the Cast set, standing three-quarter under flat, unmodified light with no shaping and no gloss. The plainest, least art-directed register in the family.",
+  "description": "Flat, unmodified frontal light with no fill or shaping — the plainest, most honest register in the Cast family, shot against a seamless neutral-grey studio ground with true-to-life color and no retouching gloss.",
   "lighting": "Flat frontal light, no fill",
   "subject": "person",
-  "collections": ["Cast"],
+  "collections": ["Portrait"],
   "verticals": ["Apparel", "Sport", "Accessories"],
-  "prompt": "standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, flat unmodified frontal light with no added fill or shaping, unposed and true-to-life color, no retouch-grade polish, documentary reportage grain",
+  "prompt": "a person wearing a heavyweight cotton t-shirt with a small woven neck label reading \"Fieldstock — Heavyweight Tee,\" the fabric in its own true color, standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, unposed and natural body language, flat unmodified frontal light with no added fill or shaping, true-to-life daylight-equivalent color rendering, natural skin texture with no retouch-grade gloss, no dramatic shadow or contrast, no other people or props in frame, documentary-plain register",
   "width": 1024,
   "height": 1280
 }

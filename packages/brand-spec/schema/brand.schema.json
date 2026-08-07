@@ -220,6 +220,10 @@
           "name": {
             "type": "string"
           },
+          "presenterId": {
+            "type": "string",
+            "description": "Set when this character was adopted from the curated Presenter catalog; traces back to templates/presenters/<id>.json."
+          },
           "shots": {
             "type": "array",
             "items": {

@@ -1,0 +1,190 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { api } from '../api.js';
+import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
+import { presenterPath, presentersPath, shotPath } from '../routes.js';
+import { useApplyPresenter } from '../app/useApplyPresenter.js';
+import { PresenterCard } from '../layout/PresenterCard.js';
+import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+
+/** Every presenter ships exactly 4 frames (front/left/right/back), so this never triggers "See the whole set" — kept as a cap rather than a magic 4 in the slice call below in case a future presenter ships more. */
+const FRONT_ANGLES = 4;
+
+/**
+ * One presenter. The reference set says who they are — face, profile, hair,
+ * build — from the same controlled setup every time; it is ours and is
+ * deliberately not clickable. Everything below is yours: what you have made
+ * with them so far, once they are in your roster.
+ */
+export function PresenterPage() {
+  const { presenterId = '' } = useParams();
+  const { presenters, presentersLoaded, presentersError, refetchPresenters } = useAppData();
+  const { brand, nodes: shots } = useBrand();
+  const navigate = useNavigate();
+  const { cast, goToBrief } = useApplyPresenter();
+  const [busy, setBusy] = useState(false);
+  const [refs, setRefs] = useState<string[]>([]);
+  const [allParam, setOpenAll] = useFilterParam('all');
+  const openAll = allParam === '1';
+
+  const presenter = presenters.find((p) => p.id === presenterId);
+  const roster: any[] = (brand.json?.characters ?? []) as any[];
+  const inRoster = roster.find((c) => c.presenterId === presenterId);
+
+  useEffect(() => {
+    let alive = true;
+    setRefs([]);
+    void api
+      .presenterFrames(presenterId)
+      .then((r) => {
+        if (alive) setRefs(r.frames);
+      })
+      .catch(() => {
+        if (alive) setRefs([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [presenterId]);
+
+  /** Shots whose brief attached the roster entry this presenter was cast into. */
+  const made = useMemo(
+    () =>
+      inRoster
+        ? shots
+            .filter(
+              (s) =>
+                s.status === 'done' &&
+                s.images.length > 0 &&
+                (s.brief?.tokens ?? []).some((t: any) => t?.t === 'character' && t.id === inRoster.id),
+            )
+            .slice(-12)
+            .reverse()
+        : [],
+    [shots, inRoster],
+  );
+
+  const onPrimary = async () => {
+    if (inRoster) {
+      goToBrief();
+      return;
+    }
+    setBusy(true);
+    try {
+      await cast(presenterId);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!presentersLoaded) {
+    return (
+      <div className="sc-home">
+        <main className="sc-lookpage" id="main">
+          <div className="sc-tplrow" aria-hidden />
+        </main>
+      </div>
+    );
+  }
+
+  if (presentersError) {
+    return (
+      <div className="sc-home">
+        <main className="sc-lookpage" id="main">
+          <h1>Couldn't load this presenter</h1>
+          <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
+          <div className="sc-lookpage-acts">
+            <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetchPresenters()}>
+              Retry
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!presenter) {
+    return (
+      <div className="sc-home">
+        <main className="sc-lookpage" id="main">
+          <h1>This presenter isn't here anymore</h1>
+          <p className="sc-lookpage-lede">They may have been removed from the catalog, or the link is out of date.</p>
+          <div className="sc-lookpage-acts">
+            <button type="button" className="sc-btn sc-btn-primary" onClick={() => navigate(presentersPath(brand))}>
+              Browse presenters
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const visibleRefs = openAll ? refs : refs.slice(0, FRONT_ANGLES);
+  const frames = refs.length ? visibleRefs : presenter.previewUrl ? [presenter.previewUrl] : [];
+  const others = presenters.filter((p) => p.id !== presenter.id).slice(0, 8);
+
+  return (
+    <div className="sc-home">
+      <main className="sc-lookpage sc-presenterpage" id="main">
+        <div className="sc-lookpage-crumb">
+          <button type="button" onClick={() => navigate(presentersPath(brand))}>
+            Presenters
+          </button>
+          <span>/</span>
+          <span>{presenter.suitableStyles[0] ?? presenter.presentation}</span>
+        </div>
+
+        <h1>{presenter.name}</h1>
+        <p className="sc-lookpage-lede">{presenter.descriptor}</p>
+        <p className="sc-lookpage-facts">
+          {presenter.ageRange} · {presenter.hair} · {presenter.suitableCategories.join(', ')}
+        </p>
+        <div className="sc-lookpage-acts">
+          <button type="button" className="sc-btn sc-btn-primary" disabled={busy} onClick={() => void onPrimary()}>
+            {inRoster ? 'Use in a brief' : busy ? 'Adding…' : 'Add to your roster'}
+          </button>
+        </div>
+
+        {frames.length > 0 ? (
+          <>
+            <div className="sc-lookpage-refs">
+              {frames.map((src) => (
+                <RefFrame key={src} src={src} />
+              ))}
+            </div>
+            {refs.length > FRONT_ANGLES && (
+              <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
+                {openAll ? 'Enough, close it' : 'See the whole set'}
+              </button>
+            )}
+          </>
+        ) : (
+          <EmptyRefFrame />
+        )}
+
+        {made.length > 0 && (
+          <Slider label={`Shots featuring ${presenter.name}`}>
+            {made.map((s) => (
+              <ShotThumb key={s.id} node={s} onClick={() => navigate(shotPath(brand, null, s.id))} />
+            ))}
+          </Slider>
+        )}
+
+        {others.length > 0 && (
+          <Slider label="Other presenters">
+            {others.map((p) => (
+              <PresenterCard
+                key={p.id}
+                presenter={p}
+                variant="navigate"
+                size="slider"
+                onOpen={(id) => navigate(presenterPath(brand, id))}
+              />
+            ))}
+          </Slider>
+        )}
+      </main>
+    </div>
+  );
+}
