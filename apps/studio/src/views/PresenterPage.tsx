@@ -15,22 +15,19 @@ const FRONT_ANGLES = 4;
  * One presenter. The reference set says who they are — face, profile, hair,
  * build — from the same controlled setup every time; it is ours and is
  * deliberately not clickable. Everything below is yours: what you have made
- * with them so far, once they are in your roster.
+ * with them so far.
  */
 export function PresenterPage() {
   const { presenterId = '' } = useParams();
   const { presenters, presentersLoaded, presentersError, refetchPresenters } = useAppData();
   const { brand, nodes: shots } = useBrand();
   const navigate = useNavigate();
-  const { cast, goToBrief } = useApplyPresenter();
-  const [busy, setBusy] = useState(false);
+  const applyPresenter = useApplyPresenter();
   const [refs, setRefs] = useState<string[]>([]);
   const [allParam, setOpenAll] = useFilterParam('all');
   const openAll = allParam === '1';
 
   const presenter = presenters.find((p) => p.id === presenterId);
-  const roster: any[] = (brand.json?.characters ?? []) as any[];
-  const inRoster = roster.find((c) => c.presenterId === presenterId);
 
   useEffect(() => {
     let alive = true;
@@ -48,35 +45,28 @@ export function PresenterPage() {
     };
   }, [presenterId]);
 
-  /** Shots whose brief attached the roster entry this presenter was cast into. */
+  // Older brands may still have a roster copy from before presenters attached
+  // straight from the catalog — its shots used the copy's own id, not the
+  // presenter's, so both are matched here to keep that history visible.
+  const roster: any[] = (brand.json?.characters ?? []) as any[];
+  const inRoster = roster.find((c) => c.presenterId === presenterId);
+
+  /** Shots whose brief attached this presenter, directly or via an old roster copy. */
   const made = useMemo(
     () =>
-      inRoster
-        ? shots
-            .filter(
-              (s) =>
-                s.status === 'done' &&
-                s.images.length > 0 &&
-                (s.brief?.tokens ?? []).some((t: any) => t?.t === 'character' && t.id === inRoster.id),
-            )
-            .slice(-12)
-            .reverse()
-        : [],
-    [shots, inRoster],
+      shots
+        .filter(
+          (s) =>
+            s.status === 'done' &&
+            s.images.length > 0 &&
+            (s.brief?.tokens ?? []).some(
+              (t: any) => t?.t === 'character' && (t.id === presenterId || t.id === inRoster?.id),
+            ),
+        )
+        .slice(-12)
+        .reverse(),
+    [shots, presenterId, inRoster],
   );
-
-  const onPrimary = async () => {
-    if (inRoster) {
-      goToBrief();
-      return;
-    }
-    setBusy(true);
-    try {
-      await cast(presenterId);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   if (!presentersLoaded) {
     return (
@@ -141,8 +131,8 @@ export function PresenterPage() {
           {presenter.ageRange} · {presenter.hair} · {presenter.suitableCategories.join(', ')}
         </p>
         <div className="sc-lookpage-acts">
-          <button type="button" className="sc-btn sc-btn-primary" disabled={busy} onClick={() => void onPrimary()}>
-            {inRoster ? 'Use in a brief' : busy ? 'Adding…' : 'Add to your roster'}
+          <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyPresenter(presenterId)}>
+            Use in a brief
           </button>
         </div>
 

@@ -6,18 +6,18 @@ import { api, assetUrl, type Brand, type Product } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { brandPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
-import { saveFavoriteLooks } from '../favorites.js';
-import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
+import { saveFavoriteScenes } from '../favorites.js';
+import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 
 type Step = 1 | 2 | 3 | 4;
 
 /**
  * Full-screen brand setup: URL or scratch, review the scraped kit, add
- * products, pick favorite looks. Replaces the AddBrand and BrandReview
+ * products, pick favorite scenes. Replaces the AddBrand and BrandReview
  * dialogs; also serves as the first-run screen.
  */
 export function BrandSetup() {
-  const { brands, looks: templates, loaded: looksLoaded, refresh } = useAppData();
+  const { brands, scenes: templates, loaded: scenesLoaded, refresh } = useAppData();
   const navigate = useNavigate();
   /** Back from step 1 has nowhere to go on a true first run. */
   const canCancel = brands.length > 0;
@@ -161,7 +161,7 @@ export function BrandSetup() {
 
   const finish = () => {
     if (!brand) return;
-    saveFavoriteLooks(brand.id, picked);
+    saveFavoriteScenes(brand.id, picked);
     void refresh().then(() => navigate(brandPath(brand), { replace: true }));
   };
 
@@ -419,24 +419,24 @@ export function BrandSetup() {
               <span />
             </div>
             <h1>
-              Which <em>looks</em> fit?
+              Which <em>scenes</em> fit?
             </h1>
             <p className="sc-wiz-sub">
               Pick a few directions you like. They lead the template shelf whenever you start a shoot.
             </p>
-            {!looksLoaded && (
+            {!scenesLoaded && (
               <div className="sc-wiz-looks" aria-hidden>
-                <LookCardSkeleton size="wizard" count={9} />
+                <SceneCardSkeleton size="wizard" count={9} />
               </div>
             )}
-            {looksLoaded && (
+            {scenesLoaded && (
               <div className="sc-wiz-looks">
                 {templates.slice(0, 9).map((t) => {
                   const on = picked.includes(t.id);
                   return (
-                    <LookCard
+                    <SceneCard
                       key={t.id}
-                      look={t}
+                      scene={t}
                       variant="select"
                       size="wizard"
                       selected={on}
@@ -466,7 +466,7 @@ export function BrandSetup() {
             {step === 1 && (busy ? `Reading ${url || 'the site'}` : 'Live kit preview')}
             {step === 2 && 'Live kit preview'}
             {step === 3 && `${products.length} product${products.length === 1 ? '' : 's'}`}
-            {step === 4 && `${picked.length} look${picked.length === 1 ? '' : 's'} picked`}
+            {step === 4 && `${picked.length} scene${picked.length === 1 ? '' : 's'} picked`}
           </div>
           <div className="sc-wiz-body">
             {step === 1 &&

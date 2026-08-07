@@ -3,9 +3,15 @@ import fastifyStatic from '@fastify/static';
 import fastifyMultipart from '@fastify/multipart';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
-import { loadLooks, lookResolver, facetsOf, composePrompt, defaultLooksDir, type Look } from './looks.js';
-import { loadPresenters, presenterFacetsOf, type Presenter } from './presenters.js';
-import { compileBrief, FORMATS, type Brief } from './brief.js';
+import { loadScenes, sceneResolver, facetsOf, composePrompt, defaultScenesDir, type Scene } from './scenes.js';
+import {
+  brandJsonWithResolvedPresenters,
+  loadPresenters,
+  presenterFacetsOf,
+  presenterRefPath,
+  type Presenter,
+} from './presenters.js';
+import { compileBrief, sceneGuardDirectives, FORMATS, type Brief } from './brief.js';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import JSZip from 'jszip';
@@ -65,9 +71,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // map: a node only ever leaves 'running' via the promise this map tracks, so
   // cancelling it is looking the controller up and aborting it.
   const runningGenerations = new Map<string, AbortController>();
-  const { looks } = loadLooks(opts.templatesDir);
-  // resolves a look by its id or by any id it used to answer to
-  const resolveLook = lookResolver(looks);
+  const { scenes } = loadScenes(opts.templatesDir);
+  // resolves a scene by its id or by any id it used to answer to
+  const resolveScene = sceneResolver(scenes);
   app.register(fastifyMultipart, { limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
 
   app.setErrorHandler((err: unknown, _req, reply) => {
@@ -106,12 +112,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return { ok: true };
   });
 
-  // ---- products (photos inside the brand kit)
-  // Products and cast are the same shape: a named thing with a locked photo.
-  // One pair of handlers, two collections, so they cannot drift apart.
+  // ---- products (manual uploads to a brand's product library)
+  // Characters/presenters no longer get a manual-add route: a presenter is
+  // either in the curated catalog (see below) or, for older brands, already
+  // sitting in `characters[]` from a cast made before that catalog existed.
   const ASSETS = {
     products: { key: 'products', prefix: 'p', fallback: 'Product' },
-    characters: { key: 'characters', prefix: 'c', fallback: 'Someone' },
   } as const;
   const addAsset = (kind: keyof typeof ASSETS) => async (req: any, reply: any) => {
     const spec = ASSETS[kind];
@@ -143,45 +149,47 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   };
   app.post('/api/brands/:id/products', addAsset('products'));
   app.delete('/api/brands/:id/products/:assetId', removeAsset('products'));
-  app.post('/api/brands/:id/characters', addAsset('characters'));
-  app.delete('/api/brands/:id/characters/:assetId', removeAsset('characters'));
-
-  // ---- adopt a catalog presenter into this brand's own roster (characters[])
-  // One click copies the presenter's name and all 6 reference shots in as a
-  // locked, provenance-tagged character — everything downstream (@mention,
-  // the attach panel, the identity-lock directive) already runs on
-  // characters[] and needs no further change to pick it up.
-  app.post('/api/brands/:id/presenters/:presenterId/cast', async (req, reply) => {
+  // Manual products only: category/variant/material/dimensions, set from the
+  // product's own page. Name lives here too, so renaming doesn't need a
+  // second endpoint.
+  app.patch('/api/brands/:id/products/:productId', async (req, reply) => {
     const brand = core.store.getBrand((req.params as any).id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
-    const presenterId = /^[a-z0-9-]+$/.exec(String((req.params as any).presenterId))?.[0];
-    const presenter = presenterId ? presenters.find((p) => p.id === presenterId) : undefined;
-    if (!presenter) return reply.status(404).send({ error: 'presenter not found' });
-
+    const productId = String((req.params as any).productId);
+    const body = (req.body ?? {}) as Record<string, unknown>;
     const json = { ...(brand.json as any) };
-    const existing = (json.characters ?? []).find((c: any) => c.presenterId === presenter.id);
-    if (existing) return brand; // already cast: idempotent, not an error
-
-    const shots: { file: string; angle: string; locked: boolean }[] = [];
-    for (const [slot, angle] of PRESENTER_ANGLES) {
-      const path = presenterRefPath(presenter.id, slot);
-      if (!existsSync(path)) continue;
-      const png = await sharp(readFileSync(path)).png().toBuffer();
-      const hash = core.images.save(png);
-      shots.push({ file: `asset:${hash}`, angle, locked: true });
-    }
-    if (!shots.length) return reply.status(400).send({ error: 'presenter has no reference images yet' });
-
-    json.characters = [
-      ...(json.characters ?? []),
-      {
-        id: `c-${randomUUID().slice(0, 8)}`,
-        name: presenter.name,
-        presenterId: presenter.id,
-        shots,
-        notes: presenter.descriptor,
-      },
-    ];
+    const products: any[] = json.products ?? [];
+    const idx = products.findIndex((p) => p.id === productId);
+    if (idx === -1) return reply.status(404).send({ error: 'product not found' });
+    const FIELDS = ['name', 'category', 'variant', 'material', 'dimensions'] as const;
+    const patch: Record<string, unknown> = {};
+    for (const f of FIELDS) if (f in body) patch[f] = body[f] == null ? undefined : String(body[f]).slice(0, 500);
+    json.products = products.map((p, i) => (i === idx ? { ...p, ...patch } : p));
+    const v = validateBrand(json);
+    if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
+    return core.store.updateBrand(brand.id, json);
+  });
+  // Manual products only: add one more reference angle to a product that
+  // already exists, rather than creating a new one — what the Product page's
+  // per-category reference checklist uploads into.
+  app.post('/api/brands/:id/products/:productId/shots', async (req: any, reply: any) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const productId = String((req.params as any).productId);
+    const json = { ...(brand.json as any) };
+    const products: any[] = json.products ?? [];
+    const idx = products.findIndex((p) => p.id === productId);
+    if (idx === -1) return reply.status(404).send({ error: 'product not found' });
+    const part = await req.file();
+    if (!part) return reply.status(400).send({ error: 'multipart file field required' });
+    const buf: Buffer = await part.toBuffer();
+    if (buf.length === 0) return reply.status(400).send({ error: 'empty file' });
+    const png = await sharp(buf).png().toBuffer();
+    const hash = core.images.save(png);
+    const angle = part.fields?.angle?.value ? String(part.fields.angle.value).slice(0, 60) : undefined;
+    const shot: any = { file: `asset:${hash}`, locked: true };
+    if (angle) shot.angle = angle;
+    json.products = products.map((p, i) => (i === idx ? { ...p, shots: [...(p.shots ?? []), shot] } : p));
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     return core.store.updateBrand(brand.id, json);
@@ -239,9 +247,22 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     core.catalog.deleteCatalogProduct(pid);
     return { ok: true };
   });
+  // Catalog products only: a category override. Everything else about an
+  // imported product (name, price, variants...) comes from the store, so
+  // only the field this app itself invents is editable here.
+  app.patch('/api/brands/:id/catalog/products/:productId', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const pid = String((req.params as any).productId).replace(/^cat-/, '');
+    const row = core.catalog.getProduct(pid);
+    if (!row || row.brandId !== brand.id) return reply.status(404).send({ error: 'product not found' });
+    const body = (req.body ?? {}) as { category?: string | null };
+    const updated = core.catalog.updateProduct(pid, { category: body.category ?? null });
+    return { product: updated };
+  });
 
-  // ---- looks (+ their preview imagery when generated)
-  const templatesRoot = opts.templatesDir ?? defaultLooksDir();
+  // ---- scenes (+ their preview imagery when generated)
+  const templatesRoot = opts.templatesDir ?? defaultScenesDir();
   const previewPath = (id: string) => join(templatesRoot, 'previews', `${id}.jpg`);
   // chips tint from their template's own preview; extracted once per process
   const previewColors = new Map<string, string | null>();
@@ -252,19 +273,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     previewColors.set(id, hex);
     return hex;
   };
-  const decorate = async (l: Look) => ({
-    ...l,
-    previewUrl: existsSync(previewPath(l.id))
-      ? `/api/template-previews/${l.id}.jpg${mtimeQS(previewPath(l.id))}`
-      : null,
-    previewColor: await previewColor(l.id),
+  const decorate = async (s: Scene) => ({
+    ...s,
+    previewUrl: existsSync(previewPath(s.id)) ? `/api/scene-thumbnails/${s.id}.jpg${mtimeQS(previewPath(s.id))}` : null,
+    previewColor: await previewColor(s.id),
   });
-  app.get('/api/looks', async () => ({
-    looks: await Promise.all(looks.map(decorate)),
-    ...facetsOf(looks),
+  app.get('/api/scenes', async () => ({
+    scenes: await Promise.all(scenes.map(decorate)),
+    ...facetsOf(scenes),
   }));
   /** @deprecated kept one release so stored briefs and outside callers keep resolving. */
-  app.get('/api/templates', async () => Promise.all(looks.map(decorate)));
+  app.get('/api/templates', async () => Promise.all(scenes.map(decorate)));
   // A generated look's own jpg can be regenerated at the same filename (a
   // rejected preview, redone). `max-age=0, must-revalidate` (an earlier fix)
   // still left every already-open tab showing pre-regeneration bytes
@@ -285,27 +304,27 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (req.headers['if-none-match'] === etag) return reply.status(304).send();
     return reply.header('content-type', 'image/jpeg').send(readFileSync(path));
   };
-  app.get('/api/template-previews/:file', async (req, reply) => {
+  app.get('/api/scene-thumbnails/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
     if (!m || !existsSync(previewPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
     return serveJpeg(req, reply, previewPath(m[1]));
   });
-  // A look's reference set: several frames sharing one light, one per subject.
+  // A scene's reference set: several frames sharing one light, one per subject.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.
   const refPath = (id: string, slot: string) => join(templatesRoot, 'previews', id, `${slot}.jpg`);
-  /** Which reference frames a look actually has. One ask, instead of probing. */
-  app.get('/api/look-previews/:id', async (req, reply) => {
+  /** Which reference frames a scene actually has. One ask, instead of probing. */
+  app.get('/api/scene-previews/:id', async (req, reply) => {
     const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
-    if (!id) return reply.status(400).send({ error: 'bad look id' });
+    if (!id) return reply.status(400).send({ error: 'bad scene id' });
     const dir = join(templatesRoot, 'previews', id);
     if (!existsSync(dir)) return { frames: [] };
     const frames = readdirSync(dir)
       .filter((f) => /^ref-[0-9]{2}\.jpg$/.test(f))
       .sort()
-      .map((f) => `/api/look-previews/${id}/${f}${mtimeQS(join(dir, f))}`);
+      .map((f) => `/api/scene-previews/${id}/${f}${mtimeQS(join(dir, f))}`);
     return { frames };
   });
-  app.get('/api/look-previews/:id/:file', async (req, reply) => {
+  app.get('/api/scene-previews/:id/:file', async (req, reply) => {
     const p = req.params as any;
     const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
     const slot = /^(ref-[0-9]{2})\.jpg$/.exec(String(p.file))?.[1];
@@ -313,17 +332,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return serveJpeg(req, reply, refPath(id, slot));
   });
 
-  // ---- presenters (curated identity catalog). Browsing only: adopting one
-  // into a brand's own roster is the /cast route above, next to characters.
+  // ---- presenters (curated identity catalog). A presenter attaches straight
+  // into a brief like a Scene does — see brandJsonWithResolvedPresenters below.
   const presentersDir = join(templatesRoot, 'presenters');
   const { presenters } = loadPresenters(presentersDir);
-  /** Which reference slot is which angle — the fixed 4-shot identity plan every presenter follows: full-length front, left profile, right profile, back, all standing in the same pose. */
-  const PRESENTER_ANGLES: [string, string][] = [
-    ['ref-01', 'front'],
-    ['ref-02', 'left-profile'],
-    ['ref-03', 'right-profile'],
-    ['ref-04', 'back'],
-  ];
   const presenterThumbPath = (id: string) => join(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
   const decoratePresenter = (p: Presenter) => ({
     ...p,
@@ -340,10 +352,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!m || !existsSync(presenterThumbPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
     return serveJpeg(req, reply, presenterThumbPath(m[1]));
   });
-  // A presenter's reference set: the same 6-angle identity plan every time.
+  // A presenter's reference set: the same 4-angle identity plan every time.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.
-  const presenterRefPath = (id: string, slot: string) =>
-    join(templatesRoot, 'previews', 'presenters', id, `${slot}.jpg`);
   app.get('/api/presenter-previews/:id', async (req, reply) => {
     const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
     if (!id) return reply.status(400).send({ error: 'bad presenter id' });
@@ -359,8 +369,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const p = req.params as any;
     const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
     const slot = /^(ref-[0-9]{2})\.jpg$/.exec(String(p.file))?.[1];
-    if (!id || !slot || !existsSync(presenterRefPath(id, slot))) return reply.status(404).send({ error: 'no frame' });
-    return serveJpeg(req, reply, presenterRefPath(id, slot));
+    const path = id && slot ? presenterRefPath(templatesRoot, id, slot) : null;
+    if (!path || !existsSync(path)) return reply.status(404).send({ error: 'no frame' });
+    return serveJpeg(req, reply, path);
   });
 
   // ---- brief compiler: the composer previews exactly what will run
@@ -373,12 +384,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!engine) return reply.status(400).send({ error: 'unknown engine' });
     if (!brief || !Array.isArray(brief.tokens))
       return reply.status(400).send({ error: 'brief.tokens must be an array' });
+    const brandJson = await brandJsonWithResolvedPresenters(
+      core,
+      templatesRoot,
+      presenters,
+      brandJsonWithCatalogProducts(core, brand.id),
+      brief.tokens,
+    );
     const compiled = compileBrief(brief as Brief, {
-      brand: brandJsonWithCatalogProducts(core, brand.id),
+      brand: brandJson,
       images: core.images,
       engineCaps: engine.capabilities(),
-      template: brief.templateId ? resolveLook(String(brief.templateId)) : undefined,
-      templateById: (id: string) => resolveLook(id),
+      template: brief.templateId ? resolveScene(String(brief.templateId)) : undefined,
+      templateById: (id: string) => resolveScene(id),
     });
     // paths are server-side detail; the UI works in hashes
     const { referenceImages, ...rest } = compiled;
@@ -601,12 +619,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // Structured brief path: one compiler decides prompt, attachments and size.
     let compiled: ReturnType<typeof compileBrief> | null = null;
     if (brief && Array.isArray(brief.tokens)) {
+      const brandJson = await brandJsonWithResolvedPresenters(
+        core,
+        templatesRoot,
+        presenters,
+        brandJsonWithCatalogProducts(core, project.brandId),
+        brief.tokens,
+      );
       compiled = compileBrief(brief as Brief, {
-        brand: brandJsonWithCatalogProducts(core, project.brandId),
+        brand: brandJson,
         images: core.images,
         engineCaps: engine.capabilities(),
-        template: brief.templateId ? resolveLook(String(brief.templateId)) : undefined,
-        templateById: (id: string) => resolveLook(id),
+        template: brief.templateId ? resolveScene(String(brief.templateId)) : undefined,
+        templateById: (id: string) => resolveScene(id),
       });
       if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
     }
@@ -625,16 +650,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (!referenceImages || referenceImages.length === 0)
         return reply.status(400).send({ error: 'product has no usable shots' });
     }
-    let template: Look | undefined;
+    let template: Scene | undefined;
     if (templateId) {
-      template = resolveLook(String(templateId));
+      template = resolveScene(String(templateId));
       if (!template) return reply.status(400).send({ error: `unknown template ${templateId}` });
       if (template.subject === 'product' && !product)
         return reply
           .status(400)
-          .send({ error: `look "${template.name}" needs a product — add one via Products and select it` });
+          .send({ error: `scene "${template.name}" needs a product — add one via Products and select it` });
       const subject = product?.name ? `${product.name} ` : '';
-      finalPrompt = `[${template.name}] ${subject}${composePrompt(template, { fields: templateFields ?? {}, notes: String(prompt ?? '') })}`;
+      const guard = sceneGuardDirectives({ hasProduct: !!product, hasPerson: false });
+      finalPrompt = `[${template.name}] ${subject}${composePrompt(template, { fields: templateFields ?? {}, notes: String(prompt ?? '') })}${guard.length ? ` ${guard.join(' ')}` : ''}`;
       width = template.width;
       height = template.height;
     }
@@ -861,7 +887,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   /**
-   * The danger zone. `shots` keeps brands, cast and looks and only drops what
+   * The danger zone. `shots` keeps brands, cast and scenes and only drops what
    * was generated; `all` empties the home directory. Scoped to SCENRI_HOME,
    * never a path from the request.
    */

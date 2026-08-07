@@ -9,7 +9,7 @@ const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Generate', keys: ['cmd', 'enter'] },
   { label: 'Insert menu', keys: ['/'] },
   { label: 'Ingredient menu', keys: ['@'] },
-  { label: 'Look menu', keys: ['#'] },
+  { label: 'Scene menu', keys: ['#'] },
   // siblings are whole runs off one parent, so they are versions; the images
   // inside a single run are its variants. Two words, two rows, one meaning each.
   { label: 'Walk versions', keys: ['←', '→'] },

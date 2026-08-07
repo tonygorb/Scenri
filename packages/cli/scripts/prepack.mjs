@@ -6,9 +6,9 @@
  * before publishing, because `files` cannot reach above the package root:
  *
  *   apps/studio/dist  ->  studio-dist   the built SPA the server serves
- *   templates         ->  templates     the ten look presets and their previews
+ *   templates         ->  templates     the scene presets and their previews
  *
- * Both destinations match the "published" branch that `defaultLooksDir()` and
+ * Both destinations match the "published" branch that `defaultScenesDir()` and
  * the studio path resolver already look for, so nothing at runtime changes.
  */
 import { cpSync, existsSync, rmSync, mkdirSync, chmodSync, statSync } from 'node:fs';
@@ -43,14 +43,14 @@ rmSync(studioDest, { recursive: true, force: true });
 cpSync(studioSrc, studioDest, { recursive: true });
 console.log('prepack: copied the studio bundle');
 
-// 3. the looks
-const looksSrc = join(repo, 'templates');
-if (!existsSync(looksSrc)) fail('templates/ is missing');
-const looksDest = join(pkg, 'templates');
-rmSync(looksDest, { recursive: true, force: true });
-mkdirSync(looksDest, { recursive: true });
-cpSync(looksSrc, looksDest, { recursive: true });
-console.log('prepack: copied the looks');
+// 3. the scenes
+const scenesSrc = join(repo, 'templates');
+if (!existsSync(scenesSrc)) fail('templates/ is missing');
+const scenesDest = join(pkg, 'templates');
+rmSync(scenesDest, { recursive: true, force: true });
+mkdirSync(scenesDest, { recursive: true });
+cpSync(scenesSrc, scenesDest, { recursive: true });
+console.log('prepack: copied the scenes');
 
 // 4. legal files, which `files` also cannot reach above the package root for
 for (const f of ['LICENSE', 'NOTICE', 'README.md']) {
@@ -60,5 +60,5 @@ for (const f of ['LICENSE', 'NOTICE', 'README.md']) {
 
 const mb = (p) => (execFileSync('du', ['-sk', p]).toString().trim().split(/\s+/)[0] / 1024).toFixed(1);
 console.log(
-  `prepack: ready. dist ${statSync(entry).size} bytes, studio-dist ${mb(studioDest)} MB, templates ${mb(looksDest)} MB`,
+  `prepack: ready. dist ${statSync(entry).size} bytes, studio-dist ${mb(studioDest)} MB, templates ${mb(scenesDest)} MB`,
 );

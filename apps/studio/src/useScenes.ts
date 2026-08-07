@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Look } from './api.js';
+import { api, type Scene } from './api.js';
 
-export interface LooksData {
-  looks: Look[];
+export interface ScenesData {
+  scenes: Scene[];
   collections: string[];
   verticals: string[];
   /** True once the fetch has settled, success or failure. False also while a refetch is in flight. */
@@ -11,28 +11,34 @@ export interface LooksData {
   error: boolean;
 }
 
-export interface UseLooksResult extends LooksData {
+export interface UseScenesResult extends ScenesData {
   refetch: () => void;
 }
 
-const EMPTY: LooksData = { looks: [], collections: [], verticals: [], loaded: false, error: false };
+const EMPTY: ScenesData = { scenes: [], collections: [], verticals: [], loaded: false, error: false };
 
 /**
- * The look catalog, asked for once for the whole app. Eight surfaces want it
+ * The scene catalog, asked for once for the whole app. Eight surfaces want it
  * and it does not change while the server runs, so one ask in the shell beats
  * eight that refire on every navigation.
  */
-export function useLooks(): UseLooksResult {
-  const [data, setData] = useState<LooksData>(EMPTY);
+export function useScenes(): UseScenesResult {
+  const [data, setData] = useState<ScenesData>(EMPTY);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
     void api
-      .looks()
+      .scenes()
       .then((r) => {
         if (alive)
-          setData({ looks: r.looks, collections: r.collections, verticals: r.verticals, loaded: true, error: false });
+          setData({
+            scenes: r.scenes,
+            collections: r.collections,
+            verticals: r.verticals,
+            loaded: true,
+            error: false,
+          });
       })
       .catch(() => {
         // a failed fetch is not the same as a still-loading one, and must not

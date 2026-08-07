@@ -202,6 +202,20 @@
           },
           "notes": {
             "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "description": "One of productCategories.ts's keys — drives the reference-angle checklist a product's page shows."
+          },
+          "variant": {
+            "type": "string",
+            "description": "Color/size/etc, e.g. 'Midnight Black, 42mm'."
+          },
+          "material": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "string"
           }
         }
       }

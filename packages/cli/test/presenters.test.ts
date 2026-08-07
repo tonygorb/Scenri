@@ -59,7 +59,7 @@ describe('presenter loader', () => {
   });
 });
 
-describe('presenter catalog + cast-to-roster API', () => {
+describe('presenter catalog + direct-attach API', () => {
   let templatesDir: string;
   let home: string;
   let core: Core;
@@ -150,32 +150,46 @@ describe('presenter catalog + cast-to-roster API', () => {
     expect(without.json().frames).toEqual([]);
   });
 
-  it('adds a presenter to a brand roster with angle-labeled locked shots, and casting twice is idempotent', async () => {
+  it('a brief can name a curated presenter directly, with no cast/roster step first', async () => {
     const brand = await newBrand();
-    const res = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/presenters/sana/cast` });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: {
+        brandId: brand.id,
+        engineId: 'spy',
+        brief: {
+          tokens: [
+            { t: 'character', id: 'sana' },
+            { t: 'text', v: 'in a studio' },
+          ],
+        },
+      },
+    });
     expect(res.statusCode).toBe(200);
-    const chars = res.json().json.characters;
-    expect(chars).toHaveLength(1);
-    expect(chars[0].name).toBe('Sana');
-    expect(chars[0].presenterId).toBe('sana');
-    expect(chars[0].shots).toEqual([
-      { file: expect.stringMatching(/^asset:[a-f0-9]{32}$/), angle: 'front', locked: true },
-      { file: expect.stringMatching(/^asset:[a-f0-9]{32}$/), angle: 'left-profile', locked: true },
-    ]);
+    const body = res.json();
+    expect(body.prompt).toContain('Sana');
+    expect(body.referenceCount).toBeGreaterThan(0);
 
-    const again = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/presenters/sana/cast` });
-    expect(again.json().json.characters).toHaveLength(1);
+    // resolving the presenter is a read-through cache, not a roster write —
+    // the brand's own characters[] stays exactly as it started
+    const brands = await app.inject({ method: 'GET', url: '/api/brands' });
+    const brandNow = brands.json().find((b: any) => b.id === brand.id);
+    expect(brandNow.json.characters ?? []).toHaveLength(0);
   });
 
-  it('refuses an unknown presenter or brand', async () => {
+  it('a brief naming an unknown character warns instead of failing', async () => {
     const brand = await newBrand();
-    const unknownPresenter = await app.inject({
+    const res = await app.inject({
       method: 'POST',
-      url: `/api/brands/${brand.id}/presenters/nope/cast`,
+      url: '/api/brief/preview',
+      payload: {
+        brandId: brand.id,
+        engineId: 'spy',
+        brief: { tokens: [{ t: 'character', id: 'nope' }] },
+      },
     });
-    expect(unknownPresenter.statusCode).toBe(404);
-
-    const unknownBrand = await app.inject({ method: 'POST', url: '/api/brands/nope/presenters/sana/cast' });
-    expect(unknownBrand.statusCode).toBe(404);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().warnings).toContain('A presenter in this brief is no longer in your roster.');
   });
 });

@@ -6,7 +6,7 @@
   "subject": "person",
   "collections": ["Portrait"],
   "verticals": ["Apparel", "Sport", "Accessories"],
-  "prompt": "a person wearing a heavyweight cotton t-shirt with a small woven neck label reading \"Fieldstock — Heavyweight Tee,\" the fabric in its own true color, standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, unposed and natural body language, flat unmodified frontal light with no added fill or shaping, true-to-life daylight-equivalent color rendering, natural skin texture with no retouch-grade gloss, no dramatic shadow or contrast, no other people or props in frame, documentary-plain register",
+  "prompt": "a person wearing a heavyweight cotton t-shirt with a small woven, blank neck label, the fabric in its own true color, standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, unposed and natural body language, flat unmodified frontal light with no added fill or shaping, true-to-life daylight-equivalent color rendering, natural skin texture with no retouch-grade gloss, no dramatic shadow or contrast, no other people or props in frame, documentary-plain register",
   "width": 1024,
   "height": 1280
 }

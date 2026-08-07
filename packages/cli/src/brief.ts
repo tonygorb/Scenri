@@ -1,5 +1,5 @@
 import type { EngineCapabilities, Core } from '@scenri/core';
-import { composePrompt, type Look } from './looks.js';
+import { composePrompt, type Scene } from './scenes.js';
 
 /**
  * A brief is the request as the user wrote it: prose interleaved with typed
@@ -50,10 +50,10 @@ interface CompileContext {
   brand: any;
   images: Core['images'];
   engineCaps: EngineCapabilities;
-  /** Legacy single look (brief.templateId). Frames the whole prompt. */
-  template?: Look;
-  /** Lookup for inline look tokens, which compile where they sit. */
-  templateById?: (id: string) => Look | undefined;
+  /** Legacy single scene (brief.templateId). Frames the whole prompt. */
+  template?: Scene;
+  /** Lookup for inline scene tokens, which compile where they sit. */
+  templateById?: (id: string) => Scene | undefined;
 }
 
 const assetHash = (ref: unknown): string | null => {
@@ -61,18 +61,41 @@ const assetHash = (ref: unknown): string | null => {
   return s.startsWith('asset:') ? s.slice(6) : null;
 };
 
+/**
+ * A scene only ever contributes text, never an image, but its prose can
+ * still name a product or wardrobe brand of its own (for demo purposes). When
+ * a real product or presenter is attached alongside it, these directives are
+ * appended last so they outrank whatever the scene's own text described.
+ */
+export function sceneGuardDirectives(opts: { hasProduct: boolean; hasPerson: boolean }): string[] {
+  const out: string[] = [];
+  if (opts.hasProduct) {
+    out.push(
+      'Disregard any product, bottle, package, or brand name described in the scene direction above — the only product in this image is the one shown in the attached product photo; do not substitute, redesign, invent, or merge it with anything named in the scene text.',
+    );
+  }
+  if (opts.hasPerson) {
+    out.push(
+      'Disregard any wardrobe, accessory, or garment brand named in the scene direction above — dress the attached person reference only in the generic material and color terms described; do not print, stitch, or render any brand name or wordmark from the scene text onto them.',
+    );
+  }
+  return out;
+}
+
 /** Deterministic: same brief + same context always yields the same request. */
 export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const warnings: string[] = [];
   const attachments: Attachment[] = [];
-  const directives: string[] = [];
+  const productDirectives: string[] = [];
+  const personDirectives: string[] = [];
+  const otherDirectives: string[] = [];
   let width = 1024;
   let height = 1024;
   let productId: string | null = null;
 
   const products: any[] = ctx.brand?.products ?? [];
   const characters: any[] = ctx.brand?.characters ?? [];
-  const inlineTemplates: Look[] = [];
+  const inlineTemplates: Scene[] = [];
   let hasPerson = false;
   let sentence = '';
 
@@ -93,7 +116,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         const hash = assetHash(p.shots?.[0]?.file);
         if (hash && ctx.images.has(hash)) {
           attachments.push({ role: 'product', label: p.name, hash });
-          directives.push(
+          productDirectives.push(
             'The attached product image is the exact product: preserve its label, shape and colors faithfully, do not redesign it.',
           );
         } else {
@@ -113,7 +136,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         const chash = assetHash(c.shots?.[0]?.file);
         if (chash && ctx.images.has(chash)) {
           attachments.push({ role: 'character', label: c.name, hash: chash });
-          directives.push(
+          personDirectives.push(
             'The attached person reference is the same person every time: hold their face, hair and build, and do not restyle them.',
           );
         } else {
@@ -125,7 +148,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
       case 'color': {
         const hex = tok.hex.toUpperCase();
         sentence += tok.name ? `${tok.name} (${hex})` : hex;
-        directives.push(`Use ${hex} as a defining color in the composition.`);
+        otherDirectives.push(`Use ${hex} as a defining color in the composition.`);
         break;
       }
 
@@ -135,7 +158,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         attachments.push({ role: 'reference', label: 'Reference shot', hash: tok.imageHash });
-        directives.push('Match the composition, lighting and treatment of the attached reference.');
+        otherDirectives.push('Match the composition, lighting and treatment of the attached reference.');
         break;
       }
 
@@ -198,14 +221,19 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     prompt = sentence;
   }
 
-  const look = inlineTemplates[0] ?? (inlineTemplates.length ? undefined : ctx.template);
-  if (look?.subject === 'product' && !productId) {
-    warnings.push(`${look.name} is built around a product. Add one to this brief.`);
-  } else if (look?.subject === 'person' && !hasPerson) {
-    warnings.push(`${look.name} is built around a person. Add a presenter.`);
+  const scene = inlineTemplates[0] ?? (inlineTemplates.length ? undefined : ctx.template);
+  if (scene?.subject === 'product' && !productId) {
+    warnings.push(`${scene.name} is built around a product. Add one to this brief.`);
+  } else if (scene?.subject === 'person' && !hasPerson) {
+    warnings.push(`${scene.name} is built around a person. Add a presenter.`);
   }
 
-  if (directives.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${dedupe(directives).join(' ')}`;
+  // The scene's own prose may name a demo product or wardrobe brand of its
+  // own; when a real product/presenter is attached, the guard directives
+  // outrank it precisely because they're appended after it, last.
+  const guard = scene ? sceneGuardDirectives({ hasProduct: !!productId, hasPerson }) : [];
+  const allDirectives = [...productDirectives, ...personDirectives, ...otherDirectives, ...guard];
+  if (allDirectives.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${dedupe(allDirectives).join(' ')}`;
 
   // Attachments are useless past what the engine will actually read.
   const max = ctx.engineCaps.maxReferenceImages;

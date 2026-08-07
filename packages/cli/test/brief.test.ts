@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
 import { compileBrief, briefLabel, type Brief } from '../src/brief.js';
-import { loadLooks, lookResolver, defaultLooksDir } from '../src/looks.js';
+import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 import { waitDone } from './helpers.js';
 
 let home: string;
@@ -38,11 +38,11 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-const allLooks = loadLooks(defaultLooksDir()).looks;
-const resolveLook = lookResolver(allLooks);
-const byId = { get: resolveLook };
-/** Context with the real look library wired for inline look tokens. */
-const mkCtx = () => ctx({ templateById: resolveLook });
+const allScenes = loadScenes(defaultScenesDir()).scenes;
+const resolveScene = sceneResolver(allScenes);
+const byId = { get: resolveScene };
+/** Context with the real scene library wired for inline scene tokens. */
+const mkCtx = () => ctx({ templateById: resolveScene });
 
 const ctx = (over: Partial<Parameters<typeof compileBrief>[1]> = {}) => ({
   brand: brandWith(productHash),
@@ -75,7 +75,7 @@ describe('compileBrief', () => {
     expect(r.attachments).toHaveLength(0);
   });
 
-  it('a look plus a product names the product exactly once', () => {
+  it('a scene plus a product names the product exactly once', () => {
     const r = compileBrief(
       {
         tokens: [
@@ -88,15 +88,21 @@ describe('compileBrief', () => {
     );
     expect(r.prompt.match(/House Blend/g)).toHaveLength(1);
     expect(r.prompt).toContain('warm low morning window light');
+    // regression: this scene used to bake a fictional demo product ("Hearth &
+    // Grain — Toasted Oat Granola") straight into its prompt, which could
+    // outshout the real attached product; the guard directive now covers it
+    // even if a future scene reintroduces the pattern.
+    expect(r.prompt).not.toMatch(/Hearth & Grain|Toasted Oat Granola/);
+    expect(r.prompt).toContain('Disregard any product, bottle, package, or brand name');
   });
 
-  it('a person-only look without anyone in the cast says so', () => {
-    const personLook = {
-      ...allLooks.find((l) => l.id === 'interiors-marble-kitchen-counter')!,
+  it('a person-only scene without anyone in the cast says so', () => {
+    const personScene = {
+      ...allScenes.find((s) => s.id === 'interiors-marble-kitchen-counter')!,
       subject: 'person' as const,
       name: 'Test Portrait',
     };
-    const r = compileBrief({ tokens: [{ t: 'text', v: 'x' }] }, ctx({ template: personLook }));
+    const r = compileBrief({ tokens: [{ t: 'text', v: 'x' }] }, ctx({ template: personScene }));
     expect(r.warnings.join(' ')).toContain('built around a person');
   });
 
@@ -191,7 +197,7 @@ describe('compileBrief', () => {
   });
 
   it('a template writes the brief and free text becomes art direction', () => {
-    const { looks: templates } = loadLooks(defaultLooksDir());
+    const { scenes: templates } = loadScenes(defaultScenesDir());
     const template = templates.find((t) => t.id === 'studio-polished-pedestal')!;
     const r = compileBrief(
       {
@@ -212,7 +218,7 @@ describe('compileBrief', () => {
   });
 
   it('warns when a product-hungry template has no product, and when assets vanish', () => {
-    const { looks: templates } = loadLooks(defaultLooksDir());
+    const { scenes: templates } = loadScenes(defaultScenesDir());
     const template = templates.find((t) => t.id === 'studio-polished-pedestal')!;
     const noProduct = compileBrief({ tokens: [], templateId: template.id }, ctx({ template }));
     expect(noProduct.warnings.join(' ')).toContain('is built around a product');

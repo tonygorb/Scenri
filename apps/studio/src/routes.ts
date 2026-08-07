@@ -26,8 +26,10 @@ export const P = {
   setup: '/setup',
   brand: '/:brandSlug',
   kit: '/:brandSlug/kit',
-  looks: '/:brandSlug/looks',
-  look: '/:brandSlug/looks/:lookId',
+  products: '/:brandSlug/products',
+  product: '/:brandSlug/products/:productId',
+  scenes: '/:brandSlug/scenes',
+  scene: '/:brandSlug/scenes/:sceneId',
   presenters: '/:brandSlug/presenters',
   presenter: '/:brandSlug/presenters/:presenterId',
   hub: '/:brandSlug/create',
@@ -51,8 +53,12 @@ type SetLike = Pick<ShotSet, 'slug'>;
  */
 export const brandPath = (b: BrandLike): string => generatePath(P.brand, { brandSlug: b.slug });
 export const kitPath = (b: BrandLike): string => generatePath(P.kit, { brandSlug: b.slug });
-export const looksPath = (b: BrandLike): string => generatePath(P.looks, { brandSlug: b.slug });
-export const lookPath = (b: BrandLike, lookId: string): string => generatePath(P.look, { brandSlug: b.slug, lookId });
+export const productsPath = (b: BrandLike): string => generatePath(P.products, { brandSlug: b.slug });
+export const productPath = (b: BrandLike, productId: string): string =>
+  generatePath(P.product, { brandSlug: b.slug, productId });
+export const scenesPath = (b: BrandLike): string => generatePath(P.scenes, { brandSlug: b.slug });
+export const scenePath = (b: BrandLike, sceneId: string): string =>
+  generatePath(P.scene, { brandSlug: b.slug, sceneId });
 export const presentersPath = (b: BrandLike): string => generatePath(P.presenters, { brandSlug: b.slug });
 export const presenterPath = (b: BrandLike, presenterId: string): string =>
   generatePath(P.presenter, { brandSlug: b.slug, presenterId });
@@ -106,7 +112,8 @@ function legacyTail(rest: string[]): string {
   if (head === 'p') return '/create';
   // a shot that predates the overlay moving under the hub
   if (head === 'n' && a) return `/create/shots/${a}`;
-  // looks were always spelled out, and anything unrecognised is left alone so a
-  // future segment does not have to be taught to this function to survive it
+  // scenes (formerly looks) were always spelled out, and anything unrecognised
+  // is left alone so a future segment does not have to be taught to this
+  // function to survive it
   return rest.length ? `/${rest.join('/')}` : '';
 }

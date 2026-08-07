@@ -2041,45 +2041,6 @@ select {
   white-space: nowrap;
 }
 
-/*
- * Home's glance at the work. A scrolling strip rather than the full masonry:
- * Home is the way in, and a second copy of the hub on it was what made the two
- * screens indistinguishable in the first place.
- */
-.sc-recentrow {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  scrollbar-width: thin;
-}
-.sc-recent {
-  position: relative;
-  flex: 0 0 auto;
-  width: 150px;
-  aspect-ratio: 1;
-  padding: 0;
-  border-radius: var(--sc-radius);
-  overflow: hidden;
-  border: 1px solid var(--sc-line);
-  background: var(--sc-raised);
-  cursor: pointer;
-  transition: border-color 120ms ease;
-}
-.sc-recent img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.sc-recent:hover {
-  border-color: var(--sc-line-strong);
-}
-.sc-recent:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: -2px;
-}
-
 /* ---------- the feed toolbar ----------
    Each kind of thing in its own shape: a segmented control filters, a menu
    navigates, an icon acts. The old row made all three look identical. */
@@ -2528,16 +2489,6 @@ select {
   font-size: 13px;
 }
 
-/* floating dock on home */
-.sc-home-dock {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(var(--sc-tabbar-h) + 18px);
-  z-index: 60;
-  width: min(680px, calc(100vw - 40px));
-}
-
 /* ---------- toasts ---------- */
 .sc-toasts {
   position: fixed;
@@ -2885,12 +2836,14 @@ select {
 .sc-agroup[data-mode="collapsed"] .sc-agroup-caret {
   transform: rotate(0deg);
 }
-/* Hover-hide only where hover is a real pointer model; under 1280px this
-   panel becomes a fixed touch drawer (see .sc-assets below) with no hover,
-   so the caret stays put there as the only static disclosure cue. */
+/* Dimmed until hover only where hover is a real pointer model, so a
+   collapsed-but-nonempty group still reads as expandable without
+   requiring a hover to discover it; under 1280px this panel becomes a
+   fixed touch drawer (see .sc-assets below) with no hover, so the caret
+   stays at full opacity there as the only static disclosure cue. */
 @media (hover: hover) and (pointer: fine) {
   .sc-agroup-caret {
-    opacity: 0;
+    opacity: 0.4;
   }
   .sc-agroup-t:hover .sc-agroup-caret,
   .sc-agroup-t:focus-visible .sc-agroup-caret {
@@ -3811,6 +3764,13 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.sc-ap-rec {
+  display: inline-block;
+  font: 600 9.5px var(--sc-font);
+  letter-spacing: 0.02em;
+  color: var(--sc-accent, var(--sc-fg2));
+  margin-bottom: 3px;
+}
 .sc-ap-empty {
   padding: 30px 0;
   text-align: center;
@@ -4151,7 +4111,6 @@ select {
   .sc-greet em {
     font-size: 24px;
   }
-  .sc-home-dock,
   .sc-canvas-dock,
   .sc-canvas-dock[data-full="true"] {
     width: calc(100vw - 24px);
@@ -4501,10 +4460,6 @@ select {
 }
 .sc-tplrow {
   margin-bottom: 32px;
-}
-.sc-home .sc-tabs {
-  padding: 0;
-  gap: 18px;
 }
 .sc-feed {
   padding-top: 18px;
@@ -4912,10 +4867,59 @@ select {
   text-underline-offset: 6px;
   text-decoration-thickness: 1.5px;
 }
+.sc-verticals button:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 4px;
+  border-radius: var(--sc-radius-xs);
+}
 .sc-vcount {
   font-size: 11.5px;
   opacity: 0.55;
   margin-left: 4px;
+}
+
+/* One sticky toolbar for title + tabs + search + primary action together.
+   A page title alone on one full-width row, then a filter row alone on the
+   next, reads as two mostly-empty rows with a gap between them — accurate
+   per-element spacing, but the composition itself is thin. One row holds
+   together at any content density: title-only, title+search, or
+   title+tabs+search+action all read as one deliberate toolbar instead of a
+   stack of near-empty bands.
+   .sc-verticals keeps its own sticky/border/padding when used alone
+   (e.g. Presenters, which has no search); nested here, the wrapper takes
+   over those properties so everything shares one background, one border,
+   one sticky plane. */
+.sc-filterbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  margin-bottom: 32px;
+  background: var(--sc-bg);
+  border-bottom: 1px solid var(--sc-line);
+}
+.sc-filterbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.sc-filterbar-actions .sc-sec-more {
+  margin-left: 0;
+}
+.sc-filterbar .sc-verticals {
+  position: static;
+  z-index: auto;
+  padding: 0;
+  margin-bottom: 0;
+  background: none;
+  border-bottom: none;
+  flex: 1;
+  min-width: 0;
 }
 
 .sc-coll {
@@ -5181,6 +5185,9 @@ select {
   gap: 12px;
   margin-bottom: 16px;
 }
+.sc-presenterpage .sc-lookpage-refs {
+  grid-template-columns: repeat(2, 1fr);
+}
 .sc-lookpage-ref {
   border-radius: var(--sc-radius-lg);
   overflow: hidden;
@@ -5199,6 +5206,37 @@ select {
   place-items: center;
   color: var(--sc-fg3);
   background: var(--sc-raised);
+}
+.sc-lookpage-ref-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 1px dashed var(--sc-line);
+  transition: border-color 0.15s ease;
+}
+.sc-lookpage-ref-upload:hover {
+  border-color: var(--sc-fg3);
+}
+.sc-lookpage-ref-upload[data-busy] {
+  cursor: default;
+}
+.sc-lookpage-ref-upload .sc-lookpage-ref-blank {
+  background: none;
+}
+.sc-lookpage-ref-upload-label {
+  font: 500 11px var(--sc-font);
+  color: var(--sc-fg3);
+  text-align: center;
+  padding: 0 6px 8px;
+}
+.sc-lookpage-note {
+  text-align: center;
+  font: 12px var(--sc-font);
+  color: var(--sc-fg3);
+  margin: 0 0 16px;
 }
 .sc-lookpage-expand {
   display: block;
@@ -5376,8 +5414,8 @@ select {
   flex: none;
   margin-left: 4px;
 }
-/* a look is the one ingredient we supply, so it carries a hairline */
-.sc-ingredient[data-kind="look"] {
+/* a scene is the one ingredient we supply, so it carries a hairline */
+.sc-ingredient[data-kind="scene"] {
   box-shadow: inset 0 0 0 1px var(--sc-line-strong);
 }
 
@@ -6104,28 +6142,11 @@ select {
   margin-bottom: 14px;
 }
 
-/* Ten tabs in a nowrap flex row with no overflow compressed and wrapped their
-   own labels. The assets and looks strips already scroll; this one now matches. */
-.sc-home .sc-tabs {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.sc-home .sc-tabs::-webkit-scrollbar {
-  display: none;
-}
-.sc-home .sc-tab {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
 /* ---------- 6.0 the composer is a bigger island ----------
    The dock owns the width, the card fills it. Every min() self-clamps, so the
    narrow-viewport dock rules earlier in this file still land without edits. */
 .sc-composer {
   width: 100%;
-}
-.sc-home-dock {
-  width: min(var(--sc-prompt-w), calc(100vw - 40px));
 }
 .sc-canvas-dock {
   width: min(var(--sc-prompt-w), calc(100vw - 40px));
@@ -6333,7 +6354,6 @@ select {
 
 /* The docks are fixed, and iOS shrinks only the visual viewport, so without
    this the keyboard covers the thing you are typing into. */
-.sc-home-dock,
 .sc-canvas-dock,
 .sc-canvas-dock[data-full="true"] {
   bottom: calc(var(--sc-kb) + var(--sc-tabbar-h) + 18px);

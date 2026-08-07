@@ -530,12 +530,12 @@ function Danger({ onDone }: { onDone: () => void }) {
       <div className="sc-set-row">
         <span className="txt">
           <b>Delete generated shots</b>
-          <small>Keeps brands, cast and looks. Removes every project and its tree.</small>
+          <small>Keeps brands, cast and scenes. Removes every project and its tree.</small>
         </span>
         <Confirm
           label="Delete shots"
           title="Delete every generated shot?"
-          body="Brands, cast and looks stay. Every project and everything generated inside it goes."
+          body="Brands, cast and scenes stay. Every project and everything generated inside it goes."
           busy={busy}
           onConfirm={() => void run('shots')}
         />

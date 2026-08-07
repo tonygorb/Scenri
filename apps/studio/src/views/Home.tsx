@@ -1,14 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { Badge, Dialog } from '@radix-ui/themes';
-import { ImageSquare, Package, Sparkle, Star, UsersThree, X } from '@phosphor-icons/react';
+import { ImageSquare, Package, Sparkle, Star, UsersThree, WarningCircle, X, XCircle } from '@phosphor-icons/react';
 import { hasNoShots, imgUrl, type Brand } from '../api.js';
-import { useAppData } from '../app/AppShell.js';
+import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { useApplyScene } from '../app/useApplyScene.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { hubPath, looksPath, shotPath } from '../routes.js';
+import { hubPath, presenterPath, presentersPath, shotPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
-import { favoriteLooks } from '../favorites.js';
-import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
+import { favoriteScenes } from '../favorites.js';
+import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
+import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from '../layout/masonry.js';
+import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 
 /**
  * The launcher.
@@ -23,16 +26,44 @@ import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
  */
 const RECENT = 12;
 
+/** Same fixed column width Create's own grid-size slider starts at
+ * (`TILE_DEFAULT` in Create.tsx) — Home has no slider to drag, but the two
+ * feeds should still read as the same kind of grid. */
+const HOME_TILE = 240;
+
 export function HomeView() {
-  const { looks: templates, loaded: looksLoaded, refresh } = useAppData();
+  const {
+    scenes: templates,
+    loaded: scenesLoaded,
+    error: scenesError,
+    refetch: refetchScenes,
+    verticals,
+    presenters,
+    presentersLoaded,
+    refresh,
+  } = useAppData();
   const { brand, nodes, loaded, products: library } = useBrand();
   const navigate = useNavigate();
+  const applyScene = useApplyScene();
+  const [verticalParam, setVertical] = useFilterParam('vertical');
+  const vertical = verticalParam || null;
+  // a callback ref rather than useRef: the feed isn't in the tree at all
+  // until `loaded` and `recent.length > 0`, and an effect keyed on a ref
+  // object would never see it arrive — same reasoning as Canvas's own feed.
+  const [feedEl, setFeedEl] = useState<HTMLDivElement | null>(null);
+  const { tile: colWidth, cols: fitting } = masonryLayout(
+    useElementWidth(feedEl),
+    HOME_TILE,
+    useViewportWidth() < PHONE,
+  );
 
-  /** Newest first. The strip is a glance at the work, not the work itself. */
+  /** Newest first. The strip is a glance at the work, not the work itself —
+   * including work still running or that failed, so leaving mid-generation
+   * or coming back to a failure doesn't read as "nothing happened". */
   const recent = useMemo(
     () =>
       [...nodes]
-        .filter((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0)
+        .filter((n) => n.kind !== 'root' && (n.status !== 'done' || n.images.length > 0))
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, RECENT),
     [nodes],
@@ -50,22 +81,32 @@ export function HomeView() {
   // every other consumer of BrandLayout's product library already uses)
   const products = library.length ? library : ((brand.json?.products ?? []) as any[]);
 
-  /** Favorites-first, same ordering rule as LookPage's recovery strip and
-   * Create's FirstRun. Hoisted out of the sort so the localStorage read
-   * happens once per render, not once per pairwise comparison. */
-  const sortedTemplates = useMemo(() => {
-    const favs = favoriteLooks(brand.id);
-    return [...templates].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id)));
-  }, [templates, brand.id]);
+  /** The feed for the selected vertical, favorites-first — same ordering rule
+   * as ScenePage's recovery strip and Create's FirstRun. Hoisted out of the
+   * sort so the localStorage read happens once per render, not once per
+   * pairwise comparison. */
+  const shownTemplates = useMemo(() => {
+    const base = vertical ? templates.filter((t) => t.verticals.includes(vertical)) : templates;
+    const favs = favoriteScenes(brand.id);
+    return [...base].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id)));
+  }, [templates, vertical, brand.id]);
+
+  /** Counts against the full catalog, not the filtered view — a tab always
+   * states how many scenes it holds, not how many are currently shown. */
+  const countFor = (v: string) => templates.filter((t) => t.verticals.includes(v)).length;
 
   /** A real pre-fill, not "Start from scratch" with a different label: pick
-   * the look for you (favorite first, else whatever's first) and go straight
+   * the scene for you (favorite first, else whatever's first) and go straight
    * to adding the product it's for — the two things every shoot needs. */
   const startPhotoshoot = () => {
-    const favs = favoriteLooks(brand.id);
-    const lookId = templates.find((t) => favs.includes(t.id))?.id ?? templates[0]?.id;
-    toCreate(lookId ? { look: lookId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
+    const favs = favoriteScenes(brand.id);
+    const sceneId = templates.find((t) => favs.includes(t.id))?.id ?? templates[0]?.id;
+    toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
+
+  /** Never more columns than there are tiles to put in them, or the row ends
+   * in empty columns — same guard as Canvas's own feed. */
+  const recentCols = Math.max(1, Math.min(fitting, recent.length));
 
   return (
     <div className="sc-home">
@@ -103,28 +144,81 @@ export function HomeView() {
           <UsersThree size={13} /> Set up a brand
         </button>
 
-        {!looksLoaded && (
-          <div className="sc-tplrow" aria-hidden>
-            <LookCardSkeleton size="shelf" />
+        {!scenesLoaded && (
+          <div className="sc-masonry" aria-hidden>
+            <SceneCardSkeleton size="grid" count={8} />
           </div>
         )}
 
-        {looksLoaded && templates.length > 0 && (
+        {scenesLoaded && scenesError && (
+          <p className="sc-feed-empty">
+            Couldn't load the scene catalog.{' '}
+            <button type="button" className="sc-sec-more" onClick={() => refetchScenes()}>
+              Retry
+            </button>
+          </p>
+        )}
+
+        {scenesLoaded && !scenesError && templates.length > 0 && (
+          <>
+            <div className="sc-verticals" role="tablist" aria-label="Verticals">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!vertical}
+                data-on={!vertical ? '' : undefined}
+                onClick={() => setVertical(null)}
+              >
+                Every scene <span className="sc-vcount">{templates.length}</span>
+              </button>
+              {verticals.map((v) => (
+                <button
+                  type="button"
+                  key={v}
+                  role="tab"
+                  aria-selected={vertical === v}
+                  data-on={vertical === v ? '' : undefined}
+                  onClick={() => setVertical(v)}
+                >
+                  {v} <span className="sc-vcount">{countFor(v)}</span>
+                </button>
+              ))}
+            </div>
+
+            {shownTemplates.length > 0 && (
+              <div className="sc-masonry">
+                {shownTemplates.map((t) => (
+                  <SceneCard key={t.id} scene={t} variant="navigate" size="grid" onOpen={applyScene} />
+                ))}
+              </div>
+            )}
+
+            {shownTemplates.length === 0 && <p className="sc-looks-empty">No scene carries that vertical yet.</p>}
+          </>
+        )}
+
+        {!presentersLoaded && (
+          <div className="sc-tplrow" aria-hidden>
+            <PresenterCardSkeleton size="grid" count={4} />
+          </div>
+        )}
+
+        {presentersLoaded && presenters.length > 0 && (
           <>
             <div className="sc-sec-head">
-              <span className="sc-sec-title">Looks</span>
-              <button type="button" className="sc-sec-more" onClick={() => navigate(looksPath(brand))}>
-                All looks
+              <span className="sc-sec-title">Presenters</span>
+              <button type="button" className="sc-sec-more" onClick={() => navigate(presentersPath(brand))}>
+                Browse presenters
               </button>
             </div>
             <div className="sc-tplrow">
-              {sortedTemplates.map((t) => (
-                <LookCard
-                  key={t.id}
-                  look={t}
+              {presenters.slice(0, 8).map((p) => (
+                <PresenterCard
+                  key={p.id}
+                  presenter={p}
                   variant="navigate"
-                  size="shelf"
-                  onOpen={(id) => toCreate({ look: id, compose: '1' })}
+                  size="grid"
+                  onOpen={(id) => navigate(presenterPath(brand, id))}
                 />
               ))}
             </div>
@@ -154,22 +248,62 @@ export function HomeView() {
           <p className="sc-feed-empty">Still working on your first shots. Check back in a moment.</p>
         )}
         {loaded && recent.length > 0 && (
-          <div className="sc-recentrow">
-            {recent.map((n) => (
-              <button
-                type="button"
-                key={n.id}
-                className="sc-recent"
-                onClick={() => navigate(shotPath(brand, null, n.id))}
-                title={n.prompt}
-              >
-                <img src={imgUrl(n.images[0])} alt="" loading="lazy" />
-                {n.kept && (
-                  <span className="sc-cell-star">
-                    <Star size={13} weight="fill" />
-                  </span>
-                )}
-              </button>
+          <div className="sc-feed" ref={setFeedEl} style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}>
+            {Array.from({ length: recentCols }, (_, c) => (
+              // Dealt round-robin like Canvas's own feed, for the same reason:
+              // the first row then reads left to right in sorted order, and a
+              // resize remounts columns rather than reshuffling tiles between
+              // surviving ones.
+              // biome-ignore lint/suspicious/noArrayIndexKey: position, not identity — see Canvas.tsx's own feed for the identical pattern.
+              <div className="sc-feed-col" key={`col-${recentCols}-${c}`}>
+                {recent
+                  .filter((_, i) => i % recentCols === c)
+                  .map((n) => (
+                    <button
+                      type="button"
+                      key={n.id}
+                      className="sc-cell"
+                      data-running={n.status === 'running' || undefined}
+                      data-failed={n.status === 'error' || undefined}
+                      data-cancelled={n.status === 'cancelled' || undefined}
+                      onClick={() => navigate(shotPath(brand, null, n.id))}
+                      title={
+                        n.status === 'running'
+                          ? 'Generating…'
+                          : n.status === 'error'
+                            ? n.error?.slice(0, 60) || 'Failed'
+                            : n.status === 'cancelled'
+                              ? 'Cancelled'
+                              : n.prompt
+                      }
+                    >
+                      {n.status === 'done' && n.images[0] && <img src={imgUrl(n.images[0])} alt="" loading="lazy" />}
+                      {n.status === 'running' && (
+                        <>
+                          <span className="sc-shimmer" />
+                          <span className="sc-cell-tag">Generating…</span>
+                        </>
+                      )}
+                      {n.status === 'error' && (
+                        <span className="sc-cell-failed">
+                          <WarningCircle size={16} />
+                          <span>{n.error?.slice(0, 40) || 'Failed'}</span>
+                        </span>
+                      )}
+                      {n.status === 'cancelled' && (
+                        <span className="sc-cell-failed">
+                          <XCircle size={16} />
+                          <span>Cancelled</span>
+                        </span>
+                      )}
+                      {n.status === 'done' && n.kept && (
+                        <span className="sc-cell-star">
+                          <Star size={13} weight="fill" />
+                        </span>
+                      )}
+                    </button>
+                  ))}
+              </div>
             ))}
           </div>
         )}

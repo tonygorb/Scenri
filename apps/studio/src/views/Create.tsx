@@ -9,7 +9,7 @@ import {
   saveOverlaysOnUnload,
   type Brand,
   type EngineInfo,
-  type Look,
+  type Scene,
   type ShotSet,
   type TextLayer,
   type TreeNode,
@@ -21,7 +21,7 @@ import { P, hubPath, setPath } from '../routes.js';
 import { briefTokens } from '../composer/BriefInput.js';
 import { Confirm } from '../Confirm.js';
 import { saveDraft } from '../draft.js';
-import { favoriteLooks } from '../favorites.js';
+import { favoriteScenes } from '../favorites.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
@@ -30,7 +30,7 @@ import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import type { InspectorTab } from '../layout/Inspector.js';
-import { LookCard } from '../layout/LookCard.js';
+import { SceneCard } from '../layout/SceneCard.js';
 import { useArchiveNode } from '../useArchiveNode.js';
 import { useDeleteNode } from '../useDeleteNode.js';
 
@@ -93,7 +93,7 @@ const TILE_DEFAULT = 240;
  * `set` of null is not an empty state but the ordinary one.
  */
 export function CreateView({ set }: { set: ShotSet | null }) {
-  const { engines, looks: templates } = useAppData();
+  const { engines, scenes: templates, presenters } = useAppData();
   const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh } = useBrand();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -539,9 +539,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   };
 
   /** Focus the brief. What the Create button and the two create cards do now. */
-  const compose = useCallback((opts?: { look?: string; looksPanel?: boolean }) => {
-    if (opts?.look) composerRef.current?.applyTemplate(opts.look);
-    if (opts?.looksPanel) composerRef.current?.openAttach('Looks');
+  const compose = useCallback((opts?: { scene?: string; scenesPanel?: boolean }) => {
+    if (opts?.scene) composerRef.current?.applyScene(opts.scene);
+    if (opts?.scenesPanel) composerRef.current?.openAttach('Scenes');
     composerRef.current?.focus();
   }, []);
 
@@ -701,7 +701,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * is useless advice when there is no shot to star.
    */
   const emptyState = hasNoShots(allNodes) ? (
-    <FirstRun looks={templates} brandId={brand.id} onLook={(id) => compose({ look: id })} />
+    <FirstRun scenes={templates} brandId={brand.id} onScene={(id) => compose({ scene: id })} />
   ) : set ? (
     <LensEmpty text="Nothing in this set yet. Pick shots on All, then add them here." />
   ) : lens === 'keepers' ? (
@@ -840,12 +840,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       <AssetsPanel
         brand={brand}
         templates={templates}
+        presenters={presenters}
         shots={allNodes}
         onProduct={(id) => composerRef.current?.insertToken({ t: 'product', id })}
         onCharacter={(id) => composerRef.current?.insertToken({ t: 'character', id })}
         onColor={(hex, name) => composerRef.current?.insertToken({ t: 'color', hex, name })}
         onRef={(imageHash) => composerRef.current?.insertToken({ t: 'ref', imageHash })}
-        onTemplate={(id) => composerRef.current?.applyTemplate(id)}
+        onTemplate={(id) => composerRef.current?.applyScene(id)}
         onBrandChanged={() => void reload()}
         onClose={() => setAssetsOpen(false)}
       />
@@ -884,9 +885,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           parent={root}
           shots={allNodes}
           initialBrief={remixBrief}
-          startTemplate={params.get('look') ?? undefined}
+          startScene={params.get('scene') ?? undefined}
+          startPresenter={params.get('presenter') ?? undefined}
+          startProduct={params.get('product') ?? undefined}
           openAttachTab={
-            params.get('attach') === 'looks' ? 'Looks' : params.get('attach') === 'products' ? 'Products' : undefined
+            params.get('attach') === 'scenes' ? 'Scenes' : params.get('attach') === 'products' ? 'Products' : undefined
           }
           target={target}
           onClearTarget={() => setBranchId(null)}
@@ -899,7 +902,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             setParams(
               (cur) => {
                 const p = new URLSearchParams(cur);
-                p.delete('look');
+                p.delete('scene');
                 p.delete('attach');
                 return p;
               },
@@ -929,16 +932,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
  * The brand has never made anything. The only empty state that has to teach,
  * so it is the only one that offers a way to start rather than a way back.
  *
- * A look is the shortest route to a first shot worth keeping, which is why the
+ * A scene is the shortest route to a first shot worth keeping, which is why the
  * row is here and not a second sentence: the brief accepts prose, but prose is
  * the harder opening move for someone who has never used this.
  */
-function FirstRun({ looks, brandId, onLook }: { looks: Look[]; brandId: string; onLook: (id: string) => void }) {
+function FirstRun({ scenes, brandId, onScene }: { scenes: Scene[]; brandId: string; onScene: (id: string) => void }) {
   // favourites first, the same ordering Home uses, so the two agree
   const ordered = useMemo(() => {
-    const favs = favoriteLooks(brandId);
-    return [...looks].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id))).slice(0, 8);
-  }, [looks, brandId]);
+    const favs = favoriteScenes(brandId);
+    return [...scenes].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id))).slice(0, 8);
+  }, [scenes, brandId]);
 
   return (
     <div className="sc-canvas-empty">
@@ -948,11 +951,11 @@ function FirstRun({ looks, brandId, onLook }: { looks: Look[]; brandId: string; 
       {/* No "start writing" button: the caret is already in the brief below.
           A button whose only job is to focus something already focused is one
           more thing to read on the emptiest screen in the app. */}
-      <p>Describe what you want in the brief below, or start from a look.</p>
+      <p>Describe what you want in the brief below, or start from a scene.</p>
       {ordered.length > 0 && (
         <div className="sc-tplrow sc-empty-looks">
           {ordered.map((t) => (
-            <LookCard key={t.id} look={t} variant="use" size="shelf" onUse={onLook} />
+            <SceneCard key={t.id} scene={t} variant="use" size="shelf" onUse={onScene} />
           ))}
         </div>
       )}

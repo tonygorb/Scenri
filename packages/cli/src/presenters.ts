@@ -1,12 +1,16 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
+import type { Core } from '@scenri/core';
 
 /**
  * A presenter is a curated, identity-locked person: a name, a fixed
- * appearance, and a 6-shot reference set. Presenters live in the global
- * catalog (this file); a brand adopts one into its own `characters[]` roster
- * to actually use them in a brief — see server.ts's cast-to-roster route.
+ * appearance, and a 4-shot reference set. Presenters attach straight from
+ * this catalog into a brief, the same way a Scene does — no per-brand roster
+ * copy. `brandJsonWithResolvedPresenters` below is the read-through resolver
+ * that makes that work; `characters[]` on a brand only holds whatever older
+ * casts left behind before this catalog existed.
  */
 export type PresenterPresentation = 'woman' | 'man';
 
@@ -22,9 +26,9 @@ export interface Presenter {
   hair: string;
   build: string;
   wardrobeDefault: string;
-  /** Industry filters, mirrors Look's `verticals`. */
+  /** Industry filters, mirrors Scene's `verticals`. */
   suitableCategories: string[];
-  /** Style/mood tags, mirrors Look's `collections`. */
+  /** Style/mood tags, mirrors Scene's `collections`. */
   suitableStyles: string[];
   identityNotes: string;
   negativeConstraints: string[];
@@ -95,6 +99,71 @@ export function presenterFacetsOf(presenters: Presenter[]): { categories: string
     for (const s of p.suitableStyles) styles.add(s);
   }
   return { categories: [...categories].sort(), styles: [...styles].sort() };
+}
+
+/** Which reference slot is which angle — the fixed 4-shot identity plan every presenter follows: full-length front, left profile, right profile, back, all standing in the same pose. */
+export const PRESENTER_ANGLES: [string, string][] = [
+  ['ref-01', 'front'],
+  ['ref-02', 'left-profile'],
+  ['ref-03', 'right-profile'],
+  ['ref-04', 'back'],
+];
+
+export function presenterRefPath(templatesRoot: string, id: string, slot: string): string {
+  return join(templatesRoot, 'previews', 'presenters', id, `${slot}.jpg`);
+}
+
+/**
+ * Loads one curated presenter's reference angles into the image store,
+ * hashing each on first use. A read-through cache, not a write to any
+ * brand's data — nothing here touches `characters[]`.
+ */
+export async function resolvePresenterImages(
+  core: Core,
+  templatesRoot: string,
+  presenter: Presenter,
+): Promise<{ id: string; name: string; shots: { file: string; angle: string; locked: boolean }[] } | null> {
+  const shots: { file: string; angle: string; locked: boolean }[] = [];
+  for (const [slot, angle] of PRESENTER_ANGLES) {
+    const path = presenterRefPath(templatesRoot, presenter.id, slot);
+    if (!existsSync(path)) continue;
+    const png = await sharp(readFileSync(path)).png().toBuffer();
+    const hash = core.images.save(png);
+    shots.push({ file: `asset:${hash}`, angle, locked: true });
+  }
+  return shots.length ? { id: presenter.id, name: presenter.name, shots } : null;
+}
+
+/**
+ * A brief's `character` tokens may name a curated presenter directly rather
+ * than a `characters[]` roster entry. This resolves only the ones actually
+ * referenced (never the whole catalog) and folds them into a throwaway copy
+ * of the brand json for `compileBrief` to read — existing `characters[]`
+ * entries (older casts) are left exactly as they are and take priority, so
+ * nothing already generated changes meaning.
+ */
+export async function brandJsonWithResolvedPresenters(
+  core: Core,
+  templatesRoot: string,
+  presenters: Presenter[],
+  brandJson: any,
+  tokens: { t: string; id?: string }[],
+): Promise<any> {
+  const existing: any[] = brandJson?.characters ?? [];
+  const neededIds = new Set(
+    tokens.filter((t) => t.t === 'character' && typeof t.id === 'string').map((t) => t.id as string),
+  );
+  const missingIds = [...neededIds].filter((id) => !existing.some((c) => c.id === id));
+  if (!missingIds.length) return brandJson;
+
+  const extra: any[] = [];
+  for (const id of missingIds) {
+    const presenter = presenters.find((p) => p.id === id);
+    if (!presenter) continue;
+    const resolved = await resolvePresenterImages(core, templatesRoot, presenter);
+    if (resolved) extra.push(resolved);
+  }
+  return extra.length ? { ...brandJson, characters: [...existing, ...extra] } : brandJson;
 }
 
 export function defaultPresentersDir(): string {

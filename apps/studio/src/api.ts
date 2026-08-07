@@ -155,13 +155,10 @@ export const api = {
     productId?: string;
   }) => req<TreeNode>('POST', '/api/nodes', p),
   cancelNode: (nodeId: string) => req<{ ok: true }>('POST', `/api/nodes/${nodeId}/cancel`),
-  looks: () => req<{ looks: Look[]; collections: string[]; verticals: string[] }>('GET', '/api/looks'),
+  scenes: () => req<{ scenes: Scene[]; collections: string[]; verticals: string[] }>('GET', '/api/scenes'),
   presenters: () => req<{ presenters: Presenter[]; categories: string[]; styles: string[] }>('GET', '/api/presenters'),
   /** The reference frames a presenter has on disk, if any. */
   presenterFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/presenter-previews/${id}`),
-  /** Adopt a catalog presenter into this brand's own roster. Idempotent. */
-  castPresenter: (brandId: string, presenterId: string) =>
-    req<Brand>('POST', `/api/brands/${brandId}/presenters/${presenterId}/cast`),
   exportPresets: () => req<ExportPreset[]>('GET', '/api/export/presets'),
   previewBrief: (brief: unknown, engineId: string, brandId: string) =>
     req<BriefPreview>('POST', '/api/brief/preview', { brief, engineId, brandId }),
@@ -181,8 +178,8 @@ export const api = {
   /** Where the library lives on this machine, and how big it has grown. */
   home: () => req<{ dir: string; dbPath: string; images: number; bytes: number }>('GET', '/api/home'),
   reveal: () => req<{ ok: true }>('POST', '/api/system/reveal'),
-  /** The reference frames a look has on disk, if any. */
-  lookFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/look-previews/${id}`),
+  /** The reference frames a scene has on disk, if any. */
+  sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),
   productsLibrary: (brandId: string) =>
     req<{ products: Product[]; source: CatalogSource | null }>('GET', `/api/brands/${brandId}/products-library`),
@@ -195,22 +192,31 @@ export const api = {
     req<{ ok: true }>('POST', `/api/brands/${brandId}/catalog/jobs/${jobId}/cancel`),
   deleteCatalogProduct: (brandId: string, productId: string) =>
     req<{ ok: true }>('DELETE', `/api/brands/${brandId}/catalog/products/${productId}`),
+  /** Manual products only — name/category/variant/material/dimensions. */
+  updateProduct: (
+    brandId: string,
+    productId: string,
+    patch: Partial<Pick<Product, 'name' | 'category' | 'variant' | 'material' | 'dimensions'>>,
+  ) => req<Brand>('PATCH', `/api/brands/${brandId}/products/${productId}`, patch),
+  /** Catalog products only — a category override, the one field this app invents. */
+  updateCatalogProductCategory: (brandId: string, productId: string, category: string | null) =>
+    req<{ product: unknown }>('PATCH', `/api/brands/${brandId}/catalog/products/${productId}`, { category }),
 };
 
-export interface LookField {
+export interface SceneField {
   key: string;
   label: string;
   placeholder?: string;
 }
 /**
- * A look is the photographic setup: light, ground, mood. It never names a
+ * A scene is the photographic setup: light, ground, mood. It never names a
  * product — that arrives as its own ingredient and brings its own photo.
  */
-export interface Look {
+export interface Scene {
   id: string;
   name: string;
   description: string;
-  /** Short phrase naming the light. Looks relate to each other by this. */
+  /** Short phrase naming the light. Scenes relate to each other by this. */
   lighting: string;
   subject: 'product' | 'person' | 'either';
   collections: string[];
@@ -218,7 +224,7 @@ export interface Look {
   /** Vibrant colour pulled from the preview, for tinting the chip. */
   previewUrl?: string | null;
   previewColor?: string | null;
-  fields?: LookField[];
+  fields?: SceneField[];
   prompt: string;
   width: number;
   height: number;
@@ -234,8 +240,9 @@ export interface Look {
 }
 /**
  * A curated presenter: a fixed identity from the global catalog, browsable
- * like a Look. Adopting one into a brand's own roster (`api.castPresenter`)
- * copies it into `characters[]`, which is the shape briefs actually run on.
+ * and attachable straight into a brief the same way a Scene is — no per-brand
+ * roster copy. `Product.presenterId`/`characters[]` still exist for brands
+ * with entries from before this catalog existed.
  */
 export interface Presenter {
   id: string;
@@ -272,6 +279,26 @@ export interface Product {
   status?: string;
   /** Character only: set when adopted from the curated Presenter catalog. */
   presenterId?: string;
+  /** One of PRODUCT_CATEGORIES's keys (see productCategories.ts) — drives the reference-angle checklist. Manually set, or suggested from a catalog import's productType/tags. */
+  category?: string | null;
+  /** Color/size/etc — free text, e.g. "Midnight Black, 42mm". */
+  variant?: string | null;
+  material?: string | null;
+  dimensions?: string | null;
+  /** Catalog-origin only, straight from the store's own taxonomy (see packages/core's catalogStore). */
+  productType?: string | null;
+  tags?: string[];
+  descriptionHtml?: string | null;
+  variants?: {
+    id: string;
+    title: string;
+    sku?: string | null;
+    price?: number | null;
+    compareAtPrice?: number | null;
+    currency?: string | null;
+    available?: boolean | null;
+    options?: Record<string, string>;
+  }[];
 }
 export type Character = Product;
 
@@ -313,13 +340,8 @@ export interface CatalogSource {
   lastImportAt: string | null;
 }
 
-/** Products and cast upload through one path; only the collection differs. */
-export async function uploadAsset(
-  brandId: string,
-  kind: 'products' | 'characters',
-  file: File,
-  name: string,
-): Promise<Brand> {
+/** Manual upload into a brand's product library. */
+export async function uploadAsset(brandId: string, kind: 'products', file: File, name: string): Promise<Brand> {
   const fd = new FormData();
   fd.append('name', name);
   fd.append('file', file);
@@ -329,11 +351,19 @@ export async function uploadAsset(
 }
 export const uploadProduct = (brandId: string, file: File, name: string) =>
   uploadAsset(brandId, 'products', file, name);
-export const uploadCharacter = (brandId: string, file: File, name: string) =>
-  uploadAsset(brandId, 'characters', file, name);
-export const deleteAsset = (brandId: string, kind: 'products' | 'characters', assetId: string) =>
+export const deleteAsset = (brandId: string, kind: 'products', assetId: string) =>
   req<Brand>('DELETE', `/api/brands/${brandId}/${kind}/${assetId}`);
 export const deleteProduct = (brandId: string, productId: string) => deleteAsset(brandId, 'products', productId);
+
+/** One more reference angle onto an existing manual product (not a new product). */
+export async function addProductShot(brandId: string, productId: string, file: File, angle?: string): Promise<Brand> {
+  const fd = new FormData();
+  if (angle) fd.append('angle', angle);
+  fd.append('file', file);
+  const res = await fetch(`/api/brands/${brandId}/products/${productId}/shots`, { method: 'POST', body: fd });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as any).error ?? `HTTP ${res.status}`);
+  return res.json();
+}
 
 /** Put any image in the content store and get its hash back (reference uploads). */
 export async function uploadImage(file: File): Promise<string> {

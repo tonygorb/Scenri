@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { assetUrl, imgUrl, type Brand, type Look, type TreeNode } from '../api.js';
+import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import {
@@ -77,8 +77,9 @@ export const BriefInput = forwardRef<
     onChange: (t: SentenceToken[]) => void;
     brand: Brand;
     shots: TreeNode[];
-    templates: Look[];
-    /** A Look picked from the `#`/`/` menu goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
+    templates: Scene[];
+    presenters: Presenter[];
+    /** A Scene picked from the `#`/`/` menu goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
     onTemplatePick: (id: string) => void;
     placeholder: string;
     /** Shorter line for narrow viewports; falls back to placeholder. */
@@ -102,6 +103,7 @@ export const BriefInput = forwardRef<
     brand,
     shots,
     templates,
+    presenters,
     onTemplatePick,
     placeholder,
     placeholderSm,
@@ -169,8 +171,9 @@ export const BriefInput = forwardRef<
         thumb = p ? assetUrl(p.shots?.[0]?.file) : null;
       } else if (token.t === 'character') {
         const c = cast.find((x) => x.id === token.id);
-        label = c?.name ?? 'missing person';
-        thumb = c ? assetUrl(c.shots?.[0]?.file) : null;
+        const p = c ? null : presenters.find((x) => x.id === token.id);
+        label = c?.name ?? p?.name ?? 'missing person';
+        thumb = c ? assetUrl(c.shots?.[0]?.file) : (p?.previewUrl ?? null);
       } else if (token.t === 'color') {
         label = token.name ?? token.hex;
         swatch = token.hex;
@@ -207,7 +210,7 @@ export const BriefInput = forwardRef<
       el.appendChild(x);
       return el;
     },
-    [templates, products, cast, flag],
+    [templates, products, cast, presenters, flag],
   );
 
   const emit = useCallback(() => {
@@ -330,7 +333,7 @@ export const BriefInput = forwardRef<
     () => [
       ...templates.map((t) => ({
         key: `t:${t.id}`,
-        group: 'Looks',
+        group: 'Scenes',
         label: t.name,
         hint: t.lighting,
         thumb: t.previewUrl ?? undefined,
@@ -343,13 +346,13 @@ export const BriefInput = forwardRef<
         thumb: assetUrl(p.shots?.[0]?.file) ?? undefined,
         run: () => placeRef.current({ t: 'product', id: p.id }),
       })),
-      ...cast.map((c) => ({
-        key: `h:${c.id}`,
+      ...presenters.map((p) => ({
+        key: `h:${p.id}`,
         group: 'Presenters',
-        label: c.name,
-        hint: 'same person each time',
-        thumb: assetUrl(c.shots?.[0]?.file) ?? undefined,
-        run: () => placeRef.current({ t: 'character', id: c.id }),
+        label: p.name,
+        hint: p.descriptor,
+        thumb: p.previewUrl ?? undefined,
+        run: () => placeRef.current({ t: 'character', id: p.id }),
       })),
       ...palette.map((c) => ({
         key: `c:${c.hex}|${c.name}`,
@@ -368,19 +371,19 @@ export const BriefInput = forwardRef<
         run: () => placeRef.current({ t: 'ref', imageHash: s.images[0] }),
       })),
     ],
-    [templates, products, cast, palette, recent, onTemplatePick],
+    [templates, products, presenters, palette, recent, onTemplatePick],
   );
 
   const openTok = openChip
     ? decode(rootRef.current?.querySelector<HTMLElement>(`[data-uid="${openChip}"]`)?.dataset.tok ?? '')
     : null;
   const menuGroup = openTok ? groupOf(openTok) : null;
-  // / = everything, @ = ingredients (not looks), # = looks only
+  // / = everything, @ = ingredients (not scenes), # = scenes only
   const bySigil =
     menu?.sigil === '#'
-      ? options.filter((o) => o.group === 'Looks')
+      ? options.filter((o) => o.group === 'Scenes')
       : menu?.sigil === '@'
-        ? options.filter((o) => o.group !== 'Looks')
+        ? options.filter((o) => o.group !== 'Scenes')
         : options;
   const shownOptions = menuGroup ? options.filter((o) => o.group === menuGroup) : bySigil;
   const selectedKey = openTok ? encode(openTok) || undefined : undefined;
@@ -447,7 +450,7 @@ export const BriefInput = forwardRef<
       return;
     }
     if (menu) return;
-    // '/' inserts anything, '@' an ingredient, '#' a look. Which one you typed
+    // '/' inserts anything, '@' an ingredient, '#' a scene. Which one you typed
     // is the filter, so the menu opens already narrowed instead of everything.
     if (e.key === '/' || e.key === '@' || e.key === '#') {
       const root = rootRef.current;
@@ -510,10 +513,10 @@ export const BriefInput = forwardRef<
     (t: SentenceToken): boolean => {
       if (t.t === 'template') return templates.some((x) => x.id === t.id);
       if (t.t === 'product') return products.some((x) => x.id === t.id);
-      if (t.t === 'character') return cast.some((x) => x.id === t.id);
+      if (t.t === 'character') return cast.some((x) => x.id === t.id) || presenters.some((x) => x.id === t.id);
       return true;
     },
-    [templates, products, cast],
+    [templates, products, cast, presenters],
   );
 
   const onDragEnter = (e: React.DragEvent) => {
@@ -633,7 +636,7 @@ function caretUnitsOf(root: HTMLElement, node: Node): number {
   return n + (node.nodeType === Node.TEXT_NODE ? (node.textContent ?? '').length : 1);
 }
 
-function labelFallback(t: SentenceToken, templates: Look[], products: any[]): string {
+function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): string {
   if (t.t === 'template') return templates.find((x) => x.id === t.id)?.name ?? 'template';
   if (t.t === 'product') return products.find((x) => x.id === t.id)?.name ?? 'product';
   if (t.t === 'character') return 'someone';

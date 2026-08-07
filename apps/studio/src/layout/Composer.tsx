@@ -29,13 +29,13 @@ import { useBrand } from '../app/BrandLayout.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
-import { resolveLookSwitch } from '../composer/applyLook.js';
+import { resolveSceneSwitch } from '../composer/applyScene.js';
 
 export interface ComposerHandle {
   /** Append a token to the brief (assets panel click path). */
   insertToken: (t: SentenceToken) => void;
-  /** Attach a look by id (assets panel click path). */
-  applyTemplate: (id: string) => void;
+  /** Attach a scene by id (assets panel click path). */
+  applyScene: (id: string) => void;
   /** Open the attach panel on a tab, the way "New photoshoot" does. */
   openAttach: (tab: AttachTab) => void;
   focus: () => void;
@@ -56,8 +56,12 @@ export const Composer = forwardRef<
     parent: TreeNode | null;
     shots: TreeNode[];
     initialBrief?: { tokens: BriefToken[]; templateId?: string; templateFields?: Record<string, string> } | null;
-    /** Template chosen before this project existed: seed it into the brief. */
-    startTemplate?: string;
+    /** Scene chosen before this project existed: seed it into the brief. */
+    startScene?: string;
+    /** A presenter picked from its own page, seeded the same way as a scene. */
+    startPresenter?: string;
+    /** A product picked from its own page, seeded the same way as a scene. */
+    startProduct?: string;
     /** Open the attach panel on this tab as soon as the composer mounts. */
     openAttachTab?: AttachTab;
     /** The shot that was queued, so a caller filtered to a set can claim it. */
@@ -89,7 +93,9 @@ export const Composer = forwardRef<
     parent,
     shots,
     initialBrief,
-    startTemplate,
+    startScene,
+    startPresenter,
+    startProduct,
     openAttachTab,
     onQueued,
     onSending,
@@ -101,7 +107,7 @@ export const Composer = forwardRef<
   handleRef,
 ) {
   const { products: libraryProducts } = useBrand();
-  const { looks: templates, loaded } = useAppData();
+  const { scenes: templates, presenters, loaded } = useAppData();
   const openSettings = useOpenSettings();
   const { push } = useToasts();
   const usable = engines.filter((e) => e.available);
@@ -146,9 +152,13 @@ export const Composer = forwardRef<
   contentRef.current = { tokens: sentence, tplFields, branchId: target?.id ?? null };
   const draftBrandIdRef = useRef<string | null>(null);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Which `?look=` value has already been applied, so a re-render with the
+  /** Which `?scene=` value has already been applied, so a re-render with the
    * same value doesn't reapply it, but a genuinely new one still does. */
-  const lastAppliedStartTemplate = useRef<string | undefined>(undefined);
+  const lastAppliedStartScene = useRef<string | undefined>(undefined);
+  /** Same idea as above, for `?presenter=` and `?product=` — these just append
+   * rather than swap, since a brief can carry more than one of either. */
+  const lastAppliedStartPresenter = useRef<string | undefined>(undefined);
+  const lastAppliedStartProduct = useRef<string | undefined>(undefined);
 
   const flushDraft = useCallback(
     (brandId: string) => {
@@ -190,11 +200,11 @@ export const Composer = forwardRef<
    * unless a Remix is already claiming this mount, which is a genuine
    * full-brief replacement and should win over a silently restored one.
    *
-   * A `?look=` seed is deliberately NOT in that same "wins over restore"
+   * A `?scene=` seed is deliberately NOT in that same "wins over restore"
    * bucket: it is folded into whatever this pass resolves as the base state
-   * (restored or empty) and merged through the same `resolveLookSwitch`
-   * policy every other look-attach entry point uses, so "Use this look" from
-   * the Looks page reads as attaching a look to your draft, not replacing it.
+   * (restored or empty) and merged through the same `resolveSceneSwitch`
+   * policy every other scene-attach entry point uses, so "Use this scene" from
+   * the Scenes page reads as attaching a scene to your draft, not replacing it.
    */
   useEffect(() => {
     const prior = draftBrandIdRef.current;
@@ -216,23 +226,23 @@ export const Composer = forwardRef<
       }
     }
 
-    if (startTemplate && startTemplate !== lastAppliedStartTemplate.current) {
-      lastAppliedStartTemplate.current = startTemplate;
+    if (startScene && startScene !== lastAppliedStartScene.current) {
+      lastAppliedStartScene.current = startScene;
       const base = tokens ?? emptySentence();
       const existingTok = base.find((t) => t.t === 'template') as Extract<SentenceToken, { t: 'template' }> | undefined;
-      const existingLookId = existingTok?.id ?? null;
+      const existingSceneId = existingTok?.id ?? null;
       const priorBranchId = branchIdToApply;
-      const lookName = templates.find((t) => t.id === startTemplate)?.name ?? 'this look';
+      const sceneName = templates.find((t) => t.id === startScene)?.name ?? 'this scene';
       const branchNode = priorBranchId ? shots.find((s) => s.id === priorBranchId) : null;
-      const result = resolveLookSwitch(
-        existingLookId,
-        startTemplate,
-        lookName,
+      const result = resolveSceneSwitch(
+        existingSceneId,
+        startScene,
+        sceneName,
         priorBranchId,
         branchNode ? nodeLabel(branchNode) : null,
       );
       if (result.changed) {
-        tokens = [{ t: 'template', id: startTemplate }, ...base.filter((t) => t.t !== 'template')];
+        tokens = [{ t: 'template', id: startScene }, ...base.filter((t) => t.t !== 'template')];
         if (result.toast?.branchWasCleared) branchIdToApply = null;
         if (result.toast) {
           const toast = result.toast;
@@ -242,7 +252,7 @@ export const Composer = forwardRef<
             action: {
               label: 'Undo',
               onClick: () => {
-                if (toast.prevLookId) briefRef.current?.insert({ t: 'template', id: toast.prevLookId });
+                if (toast.prevSceneId) briefRef.current?.insert({ t: 'template', id: toast.prevSceneId });
                 else briefRef.current?.removeTemplate();
                 if (toast.branchWasCleared && priorBranchId) onRestoreBranchId?.(priorBranchId);
               },
@@ -252,6 +262,26 @@ export const Composer = forwardRef<
       }
     }
 
+    // Presenter and product seeds just append — unlike a scene there is no
+    // single slot to swap, so no resolveSceneSwitch-style policy is needed.
+    // Each still checks the base it is appending onto for its own id first:
+    // a fresh mount resets `lastApplied*` to undefined, so arriving back at
+    // the same `?presenter=`/`?product=` URL (a remount via back/forward, or
+    // clicking "Use" again) must not re-add something the restored draft
+    // already carries.
+    if (startPresenter && startPresenter !== lastAppliedStartPresenter.current) {
+      lastAppliedStartPresenter.current = startPresenter;
+      const base = tokens ?? emptySentence();
+      const already = base.some((t) => t.t === 'character' && t.id === startPresenter);
+      if (!already) tokens = [...base, { t: 'character', id: startPresenter }];
+    }
+    if (startProduct && startProduct !== lastAppliedStartProduct.current) {
+      lastAppliedStartProduct.current = startProduct;
+      const base = tokens ?? emptySentence();
+      const already = base.some((t) => t.t === 'product' && t.id === startProduct);
+      if (!already) tokens = [...base, { t: 'product', id: startProduct }];
+    }
+
     if (tokens) {
       setSeedTokens(tokens);
       setTplFields(tplFieldsToApply ?? {});
@@ -259,9 +289,9 @@ export const Composer = forwardRef<
       if (draftWasRestored) setRestored(true);
     }
     draftBrandIdRef.current = brand.id;
-    // deliberately keyed on brand.id + startTemplate only: this must run once
-    // per brand, and again whenever a genuinely new `?look=` value arrives
-  }, [brand.id, startTemplate]);
+    // deliberately keyed on brand.id + the three seed props: this must run
+    // once per brand, and again whenever any of them takes on a new value
+  }, [brand.id, startScene, startPresenter, startProduct]);
 
   useEffect(() => {
     if (!seedTokens) return;
@@ -298,19 +328,25 @@ export const Composer = forwardRef<
   }, [sentence]);
 
   /**
-   * The one shared policy behind every live look-attach entry point (the
-   * Assets rail, the AttachPanel's Looks tab, and the sigil menu) — decides
-   * through `resolveLookSwitch`, applies through the same `insert`/
+   * The one shared policy behind every live scene-attach entry point (the
+   * Assets rail, the AttachPanel's Scenes tab, and the sigil menu) — decides
+   * through `resolveSceneSwitch`, applies through the same `insert`/
    * `removeTemplate` mechanics `place()` already uses for everything else.
    */
-  const applyLook = useCallback(
-    (lookId: string) => {
-      const existingLookId = template?.id ?? null;
+  const applyScene = useCallback(
+    (sceneId: string) => {
+      const existingSceneId = template?.id ?? null;
       const branchId = target?.id ?? null;
-      const lookName = templates.find((t) => t.id === lookId)?.name ?? 'this look';
-      const result = resolveLookSwitch(existingLookId, lookId, lookName, branchId, target ? nodeLabel(target) : null);
+      const sceneName = templates.find((t) => t.id === sceneId)?.name ?? 'this scene';
+      const result = resolveSceneSwitch(
+        existingSceneId,
+        sceneId,
+        sceneName,
+        branchId,
+        target ? nodeLabel(target) : null,
+      );
       if (!result.changed) return;
-      briefRef.current?.insert({ t: 'template', id: lookId });
+      briefRef.current?.insert({ t: 'template', id: sceneId });
       if (result.toast) {
         const toast = result.toast;
         push({
@@ -319,7 +355,7 @@ export const Composer = forwardRef<
           action: {
             label: 'Undo',
             onClick: () => {
-              if (toast.prevLookId) briefRef.current?.insert({ t: 'template', id: toast.prevLookId });
+              if (toast.prevSceneId) briefRef.current?.insert({ t: 'template', id: toast.prevSceneId });
               else briefRef.current?.removeTemplate();
               if (toast.branchWasCleared && branchId) onRestoreBranchId?.(branchId);
             },
@@ -332,7 +368,7 @@ export const Composer = forwardRef<
 
   useImperativeHandle(handleRef, () => ({
     insertToken: (t) => briefRef.current?.insert(t),
-    applyTemplate: (id) => applyLook(id),
+    applyScene: (id) => applyScene(id),
     openAttach: (tab) => openAttach(tab),
     focus: () => briefRef.current?.focus(),
     submit: () => {
@@ -340,13 +376,13 @@ export const Composer = forwardRef<
     },
   }));
 
-  // a `?look=` id (or a restored draft) that no longer resolves must not sit as
+  // a `?scene=` id (or a restored draft) that no longer resolves must not sit as
   // a silent, still-submittable chip — mirrors Create.tsx's stale-branch-target
   // toast for the same class of problem
   useEffect(() => {
     if (!loaded || !templateTokenId || template) return;
     briefRef.current?.removeTemplate();
-    push({ kind: 'error', title: 'That look is no longer available.', detail: 'Starting from scratch.' });
+    push({ kind: 'error', title: 'That scene is no longer available.', detail: 'Starting from scratch.' });
   }, [loaded, templateTokenId, template, push]);
 
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -402,7 +438,7 @@ export const Composer = forwardRef<
    * Two things overrule a target, and both say so on screen rather than
    * silently doing the other thing:
    *  - an engine that cannot edit has nothing to branch with
-   *  - a look is a fresh setup, so it starts a new shot by definition
+   *  - a scene is a fresh setup, so it starts a new shot by definition
    */
   const branchable = target && target.kind !== 'root' && target.status === 'done' && target.images.length > 0;
   const engineCanEdit = !!engine?.supportsEdit;
@@ -411,9 +447,9 @@ export const Composer = forwardRef<
     branchable && !engineCanEdit ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.` : null;
 
   /**
-   * A look is a fresh setup, so it cannot also be an edit of an existing shot.
+   * A scene is a fresh setup, so it cannot also be an edit of an existing shot.
    * Rather than explain that in a sentence nobody asked for, the branch simply
-   * lets go: the look chip appears and the branch chip disappears, which is the
+   * lets go: the scene chip appears and the branch chip disappears, which is the
    * same fact told in the place you are already looking.
    */
   useEffect(() => {
@@ -585,6 +621,11 @@ export const Composer = forwardRef<
     }
   };
 
+  const activeProductId = sentence.find((t) => t.t === 'product')?.id;
+  const activeProductCategory = activeProductId
+    ? (libraryProducts.find((p) => p.id === activeProductId)?.category ?? null)
+    : null;
+
   return (
     <div className="sc-composer">
       <input
@@ -600,11 +641,13 @@ export const Composer = forwardRef<
         <AttachPanel
           brand={brand}
           templates={templates}
+          presenters={presenters}
+          activeProductCategory={activeProductCategory}
           shots={shots}
           initialTab={attachTab}
           onUpload={() => fileRef.current?.click()}
           onToken={(t) => briefRef.current?.insert(t)}
-          onTemplate={(id) => applyLook(id)}
+          onTemplate={(id) => applyScene(id)}
           onClose={() => setAttachOpen(false)}
         />
       )}
@@ -667,7 +710,8 @@ export const Composer = forwardRef<
           brand={brand}
           shots={shots}
           templates={templates}
-          onTemplatePick={applyLook}
+          presenters={presenters}
+          onTemplatePick={applyScene}
           flag={flagToken}
           onProductWarningClick={() => openAttach('Products')}
           placeholder={
@@ -675,7 +719,7 @@ export const Composer = forwardRef<
               ? 'Add art direction, or run it as written'
               : mode === 'edit'
                 ? 'Refine this shot, or describe a new one'
-                : 'What should we shoot? (use / to insert, @ for a product, # for a look)'
+                : 'What should we shoot? (use / to insert, @ for a product, # for a scene)'
           }
           placeholderSm={template || mode === 'edit' ? undefined : 'What should we shoot? (use / @ #)'}
           onSubmit={() => void go()}
@@ -698,7 +742,7 @@ export const Composer = forwardRef<
               className="sc-icon-btn sc-attach-toggle"
               aria-expanded={attachOpen}
               aria-label="Attach"
-              title="Attach a product, a look, a colour or an image"
+              title="Attach a product, a scene, a colour or an image"
               onClick={() => (attachOpen ? setAttachOpen(false) : openAttach('All'))}
             >
               {uploading ? <Spinner size="1" /> : <Plus size={16} />}

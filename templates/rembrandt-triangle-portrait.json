@@ -1,12 +1,12 @@
 {
   "id": "rembrandt-triangle-portrait",
   "name": "Rembrandt Triangle Portrait",
-  "description": "Classic Rembrandt-position key light holds a small, precisely shaped triangle on the shadowed cheek with soft painterly falloff — the same identity-locked person and Aldern & Co Signet Collar necklace carry through all six frames as one continuous, classical portrait campaign.",
+  "description": "Classic Rembrandt-position key light holds a small, precisely shaped triangle on the shadowed cheek with soft painterly falloff — the same identity-locked person and statement necklace carry through all six frames as one continuous, classical portrait campaign.",
   "lighting": "Classic Rembrandt triangle key, shadowed cheek",
   "subject": "person",
   "collections": ["Portrait"],
   "verticals": ["Jewelry", "Beauty", "Apparel"],
-  "prompt": "a person wearing the Aldern & Co — Signet Collar, a statement necklace whose polished metal and faceted stone catch the key light with a distinct, genuine specular gleam against the softer sheen of skin, standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame with the necklace catching light at the collar, one classic Rembrandt-position key light held high and to one side casting a small, anatomically correct triangle of light on the shadowed cheek, soft painterly falloff carrying across the rest of the face into a shallow, gently blurred depth of field behind the subject, warm neutral skin tone, low-contrast classical palette with the necklace's metal as the one reflective highlight in the frame, no hard graphic shadow edge, no second person or additional props in frame, tack-sharp editorial retouch",
+  "prompt": "a person wearing a statement necklace whose polished metal and faceted stone catch the key light with a distinct, genuine specular gleam against the softer sheen of skin, standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame with the necklace catching light at the collar, one classic Rembrandt-position key light held high and to one side casting a small, anatomically correct triangle of light on the shadowed cheek, soft painterly falloff carrying across the rest of the face into a shallow, gently blurred depth of field behind the subject, warm neutral skin tone, low-contrast classical palette with the necklace's metal as the one reflective highlight in the frame, no hard graphic shadow edge, no second person or additional props in frame, tack-sharp editorial retouch",
   "width": 1024,
   "height": 1280
 }

@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { hasNoShots, imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
 import { elapsedSec, runningPhrase } from '../tasks.js';
+import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 
 /**
  * The feed: every shot the current lens admits, as a masonry tile.
@@ -96,7 +97,7 @@ export function Canvas({
   // the brand is empty, so an effect keyed on a ref object would never see it
   // arrive and would measure nothing for the rest of the session
   const [feedEl, setFeedEl] = useState<HTMLDivElement | null>(null);
-  const { tile: colWidth, cols: fitting } = layout(useWidth(feedEl), tile, useViewportWidth() < PHONE);
+  const { tile: colWidth, cols: fitting } = masonryLayout(useElementWidth(feedEl), tile, useViewportWidth() < PHONE);
 
   const tiles: ReactNode[] = [
     ...(sending
@@ -117,7 +118,7 @@ export function Canvas({
         return [
           // Cancel used to be a <button> inside .sc-cell-open — invalid HTML
           // (React warned on it), and the same nested-interactive mistake this
-          // pass already fixed for LookCard and the kept-star badge. A sibling
+          // pass already fixed for SceneCard and the kept-star badge. A sibling
           // now, matching that pattern.
           <div key={n.id} className="sc-cell" data-running="true">
             <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
@@ -426,69 +427,6 @@ export function Canvas({
       </AlertDialog.Root>
     </>
   );
-}
-
-/** The gutter between tiles, matching `.sc-cell`'s own bottom margin. */
-const GAP = 14;
-/** Below this the grid-size slider is hidden (`.sc-density`'s own `max-width:
- * 767px` in tokens.css — matched here exactly against the viewport, the same
- * thing the CSS media query keys off). This used to stop at 560, leaving a
- * 561-767px dead band: no slider to drag, but also no forced 2-column
- * fallback, so a tablet-portrait or resized-desktop width was stuck with
- * whatever tile size a wider session had left behind. */
-const PHONE = 768;
-
-/** The feed's own width, watched, because the column maths needs the real one. */
-function useWidth(el: HTMLElement | null): number {
-  const [w, setW] = useState(0);
-  useEffect(() => {
-    if (!el) return;
-    const measure = () => setW(el.clientWidth);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [el]);
-  return w;
-}
-
-/** The window's own width, for the phone-mode decision specifically — the
- * feed's own content width (`useWidth` above) isn't it, since the assets
- * panel's fixed width shrinks the feed independently of the viewport. A wide
- * window with the panel open could measure a narrow feed while the CSS
- * media query (which keys off the viewport) still shows a slider that would
- * then silently do nothing, stuck in the forced-2-column branch below. */
-function useViewportWidth(): number {
-  const [w, setW] = useState(() => window.innerWidth);
-  useEffect(() => {
-    const onResize = () => setW(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return w;
-}
-
-/**
- * How wide a tile actually is, and how many fit.
- *
- * `columns: auto <width>` balanced column *height*, so a few tall tiles packed
- * two columns and left the third empty — 380px of dead feed on a 1440 screen.
- * Counting here instead fills the row, and because the columns are then a fixed
- * width rather than stretched, the grid-size slider changes the picture on
- * every step instead of only when the column count happens to tick over.
- */
-function layout(width: number, tile: number, phoneMode: boolean): { tile: number; cols: number } {
-  if (width <= 0) return { tile, cols: 1 };
-  // A phone has no slider — there is no room to drag one — so it must not
-  // inherit whatever size a desktop session left behind, and a fixed column
-  // width from that session would simply overflow the screen. `phoneMode` is
-  // the viewport's call, not this element's own width: the assets panel
-  // narrows the feed on its own, and a slider the CSS still shows has to
-  // still work, not silently stop doing anything.
-  if (phoneMode) {
-    return { tile: Math.floor((width - GAP) / 2), cols: 2 };
-  }
-  return { tile, cols: Math.max(1, Math.floor((width + GAP) / (tile + GAP))) };
 }
 
 function RunningTag({ since }: { since: string }) {

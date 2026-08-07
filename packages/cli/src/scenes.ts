@@ -3,17 +3,17 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * A look is a photographic setup: light, ground, mood. It never names a
+ * A scene is a photographic setup: light, ground, mood. It never names a
  * product, because in a brief the product arrives as its own ingredient and
- * brings its own locked photo. Swap the subject and the look still holds.
+ * brings its own locked photo. Swap the subject and the scene still holds.
  */
-export interface LookField {
+export interface SceneField {
   key: string;
   label: string;
   placeholder?: string;
 }
 export interface TextZone {
-  /** Look field whose value seeds this editable layer. */
+  /** Scene field whose value seeds this editable layer. */
   fieldKey: string;
   x: number;
   y: number;
@@ -22,34 +22,34 @@ export interface TextZone {
   align: 'left' | 'center' | 'right';
   weightHint?: number;
 }
-export type LookSubject = 'product' | 'person' | 'either';
+export type SceneSubject = 'product' | 'person' | 'either';
 
-export interface Look {
+export interface Scene {
   id: string;
   name: string;
-  /** Short phrase naming the light. Looks relate to each other by this. */
+  /** Short phrase naming the light. Scenes relate to each other by this. */
   lighting: string;
   description: string;
-  subject: LookSubject;
+  subject: SceneSubject;
   /** Themed groupings, e.g. "Studio", "Lived-in". */
   collections: string[];
   /** Industry filters, e.g. "Beauty", "Home". */
   verticals: string[];
-  /** The set only. A look carrying {product_name} is rejected at load. */
+  /** The set only. A scene carrying {product_name} is rejected at load. */
   prompt: string;
   width: number;
   height: number;
-  /** Ids this look used to be called, so stored briefs keep resolving. */
+  /** Ids this scene used to be called, so stored briefs keep resolving. */
   aliases?: string[];
-  fields?: LookField[];
+  fields?: SceneField[];
   /** Zones the model leaves empty; text lands as editable overlay layers instead of baked pixels. */
   textZones?: TextZone[];
 }
 
-const SUBJECTS = new Set<LookSubject>(['product', 'person', 'either']);
+const SUBJECTS = new Set<SceneSubject>(['product', 'person', 'either']);
 const ID = /^[a-z0-9-]+$/;
 
-function isLook(x: any): x is Look {
+function isScene(x: any): x is Scene {
   return (
     x &&
     typeof x.id === 'string' &&
@@ -86,45 +86,45 @@ function isLook(x: any): x is Look {
   );
 }
 
-/** Load look files; a bad file is skipped with a warning, never fatal. */
-export function loadLooks(dir = defaultLooksDir()): { looks: Look[]; warnings: string[] } {
+/** Load scene files; a bad file is skipped with a warning, never fatal. */
+export function loadScenes(dir = defaultScenesDir()): { scenes: Scene[]; warnings: string[] } {
   const warnings: string[] = [];
-  if (!dir || !existsSync(dir)) return { looks: [], warnings: [`looks dir not found: ${dir}`] };
-  const looks: Look[] = [];
+  if (!dir || !existsSync(dir)) return { scenes: [], warnings: [`scenes dir not found: ${dir}`] };
+  const scenes: Scene[] = [];
   for (const f of readdirSync(dir)
     .filter((n) => n.endsWith('.json'))
     .sort()) {
     try {
       const parsed = JSON.parse(readFileSync(join(dir, f), 'utf8'));
-      if (isLook(parsed)) looks.push(parsed);
-      else warnings.push(`invalid look skipped: ${f}`);
+      if (isScene(parsed)) scenes.push(parsed);
+      else warnings.push(`invalid scene skipped: ${f}`);
     } catch {
-      warnings.push(`unparseable look skipped: ${f}`);
+      warnings.push(`unparseable scene skipped: ${f}`);
     }
   }
-  return { looks, warnings };
+  return { scenes, warnings };
 }
 
-/** Resolve by current id first, then by any id a look used to answer to. */
-export function lookResolver(looks: Look[]): (id: string) => Look | undefined {
-  const byId = new Map<string, Look>();
-  for (const l of looks) byId.set(l.id, l);
-  for (const l of looks) for (const a of l.aliases ?? []) if (!byId.has(a)) byId.set(a, l);
+/** Resolve by current id first, then by any id a scene used to answer to. */
+export function sceneResolver(scenes: Scene[]): (id: string) => Scene | undefined {
+  const byId = new Map<string, Scene>();
+  for (const s of scenes) byId.set(s.id, s);
+  for (const s of scenes) for (const a of s.aliases ?? []) if (!byId.has(a)) byId.set(a, s);
   return (id: string) => byId.get(id);
 }
 
 /** Every collection and vertical actually in use, for the library filters. */
-export function facetsOf(looks: Look[]): { collections: string[]; verticals: string[] } {
+export function facetsOf(scenes: Scene[]): { collections: string[]; verticals: string[] } {
   const collections = new Set<string>();
   const verticals = new Set<string>();
-  for (const l of looks) {
-    for (const c of l.collections) collections.add(c);
-    for (const v of l.verticals) verticals.add(v);
+  for (const s of scenes) {
+    for (const c of s.collections) collections.add(c);
+    for (const v of s.verticals) verticals.add(v);
   }
   return { collections: [...collections].sort(), verticals: [...verticals].sort() };
 }
 
-export function defaultLooksDir(): string {
+export function defaultScenesDir(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   // dev: monorepo root /templates; published: bundled next to package
   for (const p of [join(here, '..', '..', '..', 'templates'), join(here, '..', 'templates')]) {
@@ -134,12 +134,12 @@ export function defaultLooksDir(): string {
 }
 
 /**
- * Fill the few slots a look still has. Only copy looks keep fields, so most
- * looks pass through untouched; the product is never interpolated here.
+ * Fill the few slots a scene still has. Only copy scenes keep fields, so most
+ * scenes pass through untouched; the product is never interpolated here.
  */
-export function composePrompt(look: Look, input: { fields?: Record<string, string>; notes?: string }): string {
-  let out = look.prompt;
-  for (const f of look.fields ?? []) {
+export function composePrompt(scene: Scene, input: { fields?: Record<string, string>; notes?: string }): string {
+  let out = scene.prompt;
+  for (const f of scene.fields ?? []) {
     const v = (input.fields?.[f.key] ?? '').trim();
     out = out.replaceAll(`{${f.key}}`, v || f.placeholder?.split('/')[0]?.trim() || '');
   }

@@ -495,7 +495,7 @@ export function DetailOverlay({
  * ingredients are a read of the record rather than a guess from the pixels.
  */
 function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand | null }) {
-  const { looks } = useAppData();
+  const { scenes, presenters } = useAppData();
 
   const tokens = brief?.tokens ?? [];
   if (!tokens.length) return null;
@@ -510,18 +510,24 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
     }
     if (t?.t === 'character') {
       const c = cast.find((x) => x.id === t.id);
+      const pr = c ? null : presenters.find((x) => x.id === t.id);
       return [
-        { key: `h${t.id}`, kind: 'presenter', label: c?.name ?? 'someone', thumb: assetUrl(c?.shots?.[0]?.file) },
+        {
+          key: `h${t.id}`,
+          kind: 'presenter',
+          label: c?.name ?? pr?.name ?? 'someone',
+          thumb: c ? assetUrl(c?.shots?.[0]?.file) : (pr?.previewUrl ?? null),
+        },
       ];
     }
     if (t?.t === 'template') {
-      const l = looks.find((x) => x.id === t.id);
+      const s = scenes.find((x) => x.id === t.id);
       return [
         {
           key: `t${t.id}`,
-          kind: 'look',
-          label: l?.name ?? 'a look no longer in the catalog',
-          thumb: l?.previewUrl ?? null,
+          kind: 'scene',
+          label: s?.name ?? 'a scene no longer in the catalog',
+          thumb: s?.previewUrl ?? null,
         },
       ];
     }

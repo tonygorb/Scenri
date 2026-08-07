@@ -6,11 +6,11 @@ export type CatalogCardVariant = 'navigate' | 'use' | 'select' | 'plain';
 export type CatalogCardSize = 'shelf' | 'grid' | 'slider' | 'wizard';
 
 /**
- * The shared card shell behind `LookCard` and `PresenterCard`
+ * The shared card shell behind `SceneCard` and `PresenterCard`
  * (docs/product/patterns/look-card.md) — same accessibility contract
  * (sibling buttons, never nested; `aria-pressed` on `select`), same visual
  * language, for both catalogs. Domain-specific wrappers map their own type
- * onto these plain string/callback props so this file never imports `Look`
+ * onto these plain string/callback props so this file never imports `Scene`
  * or `Presenter`.
  */
 export function CatalogCard({

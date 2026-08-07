@@ -2,14 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Callout, Flex, Spinner } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo, type Presenter } from '../api.js';
-import { useLooks, type UseLooksResult } from '../useLooks.js';
+import { useScenes, type UseScenesResult } from '../useScenes.js';
 import { usePresenters } from '../usePresenters.js';
 
-// usePresenters and useLooks both expose `loaded`/`error`/`refetch` — spreading
+// usePresenters and useScenes both expose `loaded`/`error`/`refetch` — spreading
 // both into one context would let whichever lands second silently win for
-// existing Looks consumers. Namespaced instead, so both stay independently
+// existing Scenes consumers. Namespaced instead, so both stay independently
 // readable.
-interface AppData extends UseLooksResult {
+interface AppData extends UseScenesResult {
   brands: Brand[];
   engines: EngineInfo[];
   presenters: Presenter[];
@@ -32,14 +32,14 @@ export function useAppData(): AppData {
 
 /**
  * The one thing mounted under every URL. It owns what the whole app needs to
- * exist at all: brands, engines and the look catalog. The dialogs sit a level
+ * exist at all: brands, engines and the scene catalog. The dialogs sit a level
  * down in BrandLayout, since both of them are about a brand's projects.
  */
 export function AppShell() {
   const [brands, setBrands] = useState<Brand[] | null>(null);
   const [engines, setEngines] = useState<EngineInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const looks = useLooks();
+  const scenes = useScenes();
   const presenters = usePresenters();
 
   const refresh = useCallback(async () => {
@@ -78,7 +78,7 @@ export function AppShell() {
       value={{
         brands,
         engines,
-        ...looks,
+        ...scenes,
         presenters: presenters.presenters,
         presenterCategories: presenters.categories,
         presenterStyles: presenters.styles,

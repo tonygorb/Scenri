@@ -1,41 +1,25 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import { api } from '../api.js';
-import { useAppData } from './AppShell.js';
 import { useBrand } from './BrandLayout.js';
 import { hubPath } from '../routes.js';
 
 /**
- * "Add to your roster" from the Presenters index or a presenter page.
+ * "Use in a brief" from the Presenters index or a presenter page.
  *
- * Unlike useApplyLook, this is a real write before it is a navigation: the
- * presenter's reference shots get copied into this brand's own characters[]
- * server-side, so the composer's @mention and attach panel can find them by
- * the same id every time after. `useAppData().refresh()` (not
- * `useBrand().refresh`, which only re-reads the workspace) is what makes the
- * new roster entry show up without a full reload — see Brand.tsx's own
- * ProductsPanel wiring for the same pattern.
+ * A presenter attaches straight from the curated catalog, the same way
+ * `useApplyScene` attaches a scene — no roster/cast copy step first. The
+ * composer resolves the presenter's reference images itself once the id
+ * shows up in a `character` token.
  */
-export function useApplyPresenter(): {
-  cast: (presenterId: string) => Promise<void>;
-  goToBrief: () => void;
-} {
+export function useApplyPresenter(): (presenterId: string) => void {
   const { brand } = useBrand();
-  const { refresh } = useAppData();
   const navigate = useNavigate();
   const hub = hubPath(brand);
 
-  const cast = useCallback(
-    async (presenterId: string) => {
-      await api.castPresenter(brand.id, presenterId);
-      await refresh();
+  return useCallback(
+    (presenterId: string) => {
+      navigate(`${hub}?presenter=${encodeURIComponent(presenterId)}&compose=1`);
     },
-    [brand.id, refresh],
+    [hub, navigate],
   );
-
-  const goToBrief = useCallback(() => {
-    navigate(`${hub}?compose=1`);
-  }, [hub, navigate]);
-
-  return { cast, goToBrief };
 }

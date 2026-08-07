@@ -5,25 +5,23 @@ import { ImageSquare, Plus, TrashSimple } from '@phosphor-icons/react';
 import { api, assetUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { presentersPath } from '../routes.js';
-import { ProductsPanel } from '../AssetPanel.js';
-import { favoriteLooks, toggleFavoriteLook } from '../favorites.js';
-import { LookCard, LookCardSkeleton } from '../layout/LookCard.js';
+import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
+import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { useToasts } from '../toasts.js';
 
 const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
 
-/** The kit page: everything generation starts from, first class. */
+/** The brand page: identity only — logo, palette, favorite scenes. Products and Presenters live in their own areas now. */
 export function BrandView() {
-  const { looks: templates, loaded: looksLoaded, refresh } = useAppData();
+  const { scenes: templates, loaded: scenesLoaded, refresh } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const { push } = useToasts();
-  const [favs, setFavs] = useState<string[]>(() => favoriteLooks(brand.id));
+  const [favs, setFavs] = useState<string[]>(() => favoriteScenes(brand.id));
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    setFavs(favoriteLooks(brand.id));
+    setFavs(favoriteScenes(brand.id));
   }, [brand.id]);
 
   const json = brand.json ?? {};
@@ -118,10 +116,10 @@ export function BrandView() {
           </span>
           <div>
             <h1>
-              <span dir="auto">The {name}</span> <em>kit</em>
+              <span dir="auto">The {name}</span> <em>brand</em>
             </h1>
             {json.meta?.tagline && <p dir="auto">{json.meta.tagline}</p>}
-            <p>Everything generated in this brand starts from what is on this page.</p>
+            <p>The identity every generation stays true to — logo, palette and rules.</p>
           </div>
         </div>
 
@@ -173,47 +171,29 @@ export function BrandView() {
           )}
         </div>
 
-        <div className="sc-kit-sec">
-          <div className="sc-sec-head">
-            <span className="sc-sec-title">Products</span>
-          </div>
-          <ProductsPanel brand={brand} onChanged={refresh} />
-        </div>
-
-        <div className="sc-kit-sec">
-          <div className="sc-sec-head">
-            <span className="sc-sec-title">Presenters</span>
-            <span style={{ fontSize: 12, color: 'var(--sc-fg3)' }}>
-              Name someone with @ and the same face comes back
-            </span>
-            <button type="button" className="sc-sec-more" onClick={() => navigate(presentersPath(brand))}>
-              Browse the library
-            </button>
-          </div>
-          <ProductsPanel brand={brand} onChanged={refresh} kind="characters" />
-        </div>
-
-        {!looksLoaded && (
+        {!scenesLoaded && (
           <div className="sc-lookgrid" aria-hidden>
-            <LookCardSkeleton size="grid" count={8} />
+            <SceneCardSkeleton size="grid" count={8} />
           </div>
         )}
 
-        {looksLoaded && sorted.length > 0 && (
+        {scenesLoaded && sorted.length > 0 && (
           <div className="sc-kit-sec">
             <div className="sc-sec-head">
-              <span className="sc-sec-title">Favorite looks</span>
-              <span style={{ fontSize: 12, color: 'var(--sc-fg3)' }}>Starred looks lead the template shelf</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span className="sc-sec-title">Favorite scenes</span>
+                <span style={{ fontSize: 12, color: 'var(--sc-fg3)' }}>Starred scenes lead the template shelf</span>
+              </div>
             </div>
             <div className="sc-lookgrid">
               {sorted.slice(0, 8).map((t) => (
-                <LookCard
+                <SceneCard
                   key={t.id}
-                  look={t}
+                  scene={t}
                   variant="select"
                   size="grid"
                   selected={favs.includes(t.id)}
-                  onToggle={(id) => setFavs(toggleFavoriteLook(brand.id, id))}
+                  onToggle={(id) => setFavs(toggleFavoriteScene(brand.id, id))}
                 />
               ))}
             </div>

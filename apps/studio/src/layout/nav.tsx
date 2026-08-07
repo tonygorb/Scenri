@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { useLocation, useMatch, useNavigate } from 'react-router';
-import { House, IdentificationBadge, PlusCircle, Stack, UsersThree } from '@phosphor-icons/react';
+import { FilmSlate, House, IdentificationBadge, Package, PlusCircle, UsersThree } from '@phosphor-icons/react';
 import { assetUrl, type Brand, type EngineInfo } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { P, brandPath, hubPath, kitPath, looksPath, presentersPath } from '../routes.js';
+import { P, brandPath, hubPath, kitPath, scenesPath, presentersPath, productsPath } from '../routes.js';
 
 /**
  * The five destinations, and the credit maths, shared by the bar and the sheet.
@@ -44,7 +44,8 @@ export function useMainNav(iconSize: number): NavItem[] {
   const onHub = !!useMatch({ path: P.hub, end: false });
   const inSet = !!useMatch({ path: P.set, end: false });
   const create = onHub || inSet;
-  const looks = !!useMatch({ path: P.looks, end: false });
+  const products = !!useMatch({ path: P.products, end: false });
+  const scenes = !!useMatch({ path: P.scenes, end: false });
   const presenters = !!useMatch({ path: P.presenters, end: false });
   const brandPage = !!useMatch(P.kit);
 
@@ -69,11 +70,11 @@ export function useMainNav(iconSize: number): NavItem[] {
       go: () => navigate(create ? `${pathname}?compose=1` : `${hubPath(brand)}?compose=1`),
     },
     {
-      key: 'looks',
-      label: 'Looks',
-      icon: <Stack size={iconSize} weight={w(looks)} />,
-      active: looks,
-      go: () => navigate(looksPath(brand)),
+      key: 'products',
+      label: 'Products',
+      icon: <Package size={iconSize} weight={w(products)} />,
+      active: products,
+      go: () => navigate(productsPath(brand)),
     },
     {
       key: 'presenters',
@@ -83,8 +84,15 @@ export function useMainNav(iconSize: number): NavItem[] {
       go: () => navigate(presentersPath(brand)),
     },
     {
+      key: 'scenes',
+      label: 'Scenes',
+      icon: <FilmSlate size={iconSize} weight={w(scenes)} />,
+      active: scenes,
+      go: () => navigate(scenesPath(brand)),
+    },
+    {
       key: 'kit',
-      label: 'Kit',
+      label: 'Brand',
       icon: <UsersThree size={iconSize} weight={w(brandPage)} />,
       active: brandPage,
       go: () => navigate(kitPath(brand)),

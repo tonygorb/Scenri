@@ -1,11 +1,11 @@
-import type { Look } from '../api.js';
+import type { Scene } from '../api.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
 
-export type LookCardVariant = CatalogCardVariant;
-export type LookCardSize = CatalogCardSize;
+export type SceneCardVariant = CatalogCardVariant;
+export type SceneCardSize = CatalogCardSize;
 
 /**
- * The one Look card, replacing six independently-drifted renderings
+ * The one Scene card, replacing six independently-drifted renderings
  * (docs/product/patterns/look-card.md). `variant` is the product decision
  * (what a click does, if anything besides opening); `size` is only density.
  * A thin adapter over `CatalogCard` — see CatalogCard.tsx for the shared
@@ -13,11 +13,11 @@ export type LookCardSize = CatalogCardSize;
  *
  * `navigate`/`use`/`plain` share one shape: an open-button wrapping the
  * preview, and — `use` only, and only when there is somewhere to open —
- * a sibling "Use this look" button. Never nested: the old `<span onClick>`
+ * a sibling "Use this scene" button. Never nested: the old `<span onClick>`
  * inside a `<button>` was the accessibility bug this replaces.
  */
-export function LookCard({
-  look,
+export function SceneCard({
+  scene,
   variant,
   onOpen,
   onUse,
@@ -25,8 +25,8 @@ export function LookCard({
   onToggle,
   size = 'grid',
 }: {
-  look: Look;
-  variant: LookCardVariant;
+  scene: Scene;
+  variant: SceneCardVariant;
   /** navigate/use/plain: card body click. Omit for `use` when there is nowhere
    * left to navigate (e.g. Create's FirstRun, already on /create) — the whole
    * card becomes the `onUse` trigger instead, and no sibling button renders. */
@@ -36,16 +36,16 @@ export function LookCard({
   /** `select` only. */
   selected?: boolean;
   onToggle?: (id: string) => void;
-  size?: LookCardSize;
+  size?: SceneCardSize;
 }) {
   return (
     <CatalogCard
-      id={look.id}
-      previewUrl={look.previewUrl}
-      title={look.description || look.name}
-      primary={look.name}
-      secondary={look.lighting}
-      useLabel="Use this look"
+      id={scene.id}
+      previewUrl={scene.previewUrl}
+      title={scene.description || scene.name}
+      primary={scene.name}
+      secondary={scene.lighting}
+      useLabel="Use this scene"
       variant={variant}
       onOpen={onOpen}
       onUse={onUse}
@@ -56,7 +56,7 @@ export function LookCard({
   );
 }
 
-/** One skeleton shape, every list that hasn't resolved a Look catalog yet. */
-export function LookCardSkeleton(props: { size?: LookCardSize; count?: number }) {
+/** One skeleton shape, every list that hasn't resolved a Scene catalog yet. */
+export function SceneCardSkeleton(props: { size?: SceneCardSize; count?: number }) {
   return <CatalogCardSkeleton {...props} />;
 }

@@ -7,38 +7,27 @@ import { CatalogImportDialog } from './layout/CatalogImportDialog.js';
 /** Cards drawn at once. Past this, the search box above is the way through. */
 const PANEL_CAP = 60;
 
-/** Inline uploader and grid. One panel, two collections: products and presenters. */
-const KINDS = {
-  products: {
-    key: 'products' as const,
-    placeholder: 'Product name (e.g. House Blend 250g)',
-    upload: '+ Upload shot',
-    help: 'Import a store catalog, or upload clean packshots. Locked shots keep the product exact in every brief.',
-    empty: 'No products yet.',
-  },
-  characters: {
-    key: 'characters' as const,
-    placeholder: 'Who is this? (e.g. Marco)',
-    upload: '+ Upload photo',
-    help: 'A named person you can put in a brief with @. We attach their photo as a reference, so they stay recognisably the same person. We do not train a model of them.',
-    empty: 'Nobody in your roster yet.',
-  },
+/** Inline uploader and grid for a brand's product library. */
+const SPEC = {
+  key: 'products' as const,
+  placeholder: 'Product name (e.g. House Blend 250g)',
+  upload: '+ Upload shot',
+  help: 'Import a store catalog, or upload clean packshots. Locked shots keep the product exact in every brief.',
+  empty: 'No products yet.',
 };
 
 export function ProductsPanel({
   brand,
   onChanged,
-  kind = 'products',
   autoImportUrl,
 }: {
   brand: Brand;
   /** The id of a product just added, when a single manual upload just landed one — omitted for a bulk import or a removal, which have nothing single to insert. */
   onChanged: (newProductId?: string) => void;
-  kind?: keyof typeof KINDS;
-  /** When set (products only), auto-start a catalog import for this URL. */
+  /** Auto-start a catalog import for this URL. */
   autoImportUrl?: string | null;
 }) {
-  const spec = KINDS[kind];
+  const spec = SPEC;
   const [name, setName] = useState('');
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
@@ -53,7 +42,6 @@ export function ProductsPanel({
   const dragDepth = useRef(0);
 
   const loadLibrary = async (): Promise<Product[]> => {
-    if (kind !== 'products') return [];
     try {
       const r = await api.productsLibrary(brand.id);
       setLibrary(r.products);
@@ -65,14 +53,14 @@ export function ProductsPanel({
   };
 
   useEffect(() => {
-    if (kind === 'products') void loadLibrary();
-  }, [brand.id, brand.updatedAt, kind]);
+    void loadLibrary();
+  }, [brand.id, brand.updatedAt]);
 
   useEffect(() => {
-    if (kind !== 'products' || !autoImportUrl || autoStarted.current) return;
+    if (!autoImportUrl || autoStarted.current) return;
     autoStarted.current = true;
     void startImport(autoImportUrl);
-  }, [autoImportUrl, kind]);
+  }, [autoImportUrl]);
 
   useEffect(() => {
     if (!job || !dialogOpen) return;
@@ -103,8 +91,7 @@ export function ProductsPanel({
     }
   };
 
-  const manualProducts: Product[] = ((brand.json as any)?.[spec.key] ?? []) as Product[];
-  const products: Product[] = kind === 'products' ? library : manualProducts;
+  const products: Product[] = library;
   /**
    * A catalog import can land hundreds, and this dialog drew all of them as
    * 120px cards with no way to find one. Filter first, then cap what is drawn,
@@ -149,26 +136,24 @@ export function ProductsPanel({
 
   return (
     <Flex direction="column" gap="2">
-      {kind === 'products' && (
-        <Flex gap="2" align="center">
-          <TextField.Root
-            style={{ flex: 1 }}
-            placeholder="Store URL (shopify, woo, webflow…)"
-            value={importUrl}
-            onChange={(e) => setImportUrl(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && importUrl.trim() && void startImport(importUrl.trim())}
-          />
-          <button
-            type="button"
-            className="sc-btn sc-btn-ghost"
-            style={{ height: 32, flexShrink: 0 }}
-            disabled={!importUrl.trim()}
-            onClick={() => void startImport(importUrl.trim())}
-          >
-            {job && !job.finishedAt ? 'Importing…' : 'Import catalog'}
-          </button>
-        </Flex>
-      )}
+      <Flex gap="2" align="center">
+        <TextField.Root
+          style={{ flex: 1 }}
+          placeholder="Store URL (shopify, woo, webflow…)"
+          value={importUrl}
+          onChange={(e) => setImportUrl(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && importUrl.trim() && void startImport(importUrl.trim())}
+        />
+        <button
+          type="button"
+          className="sc-btn sc-btn-ghost"
+          style={{ height: 32, flexShrink: 0 }}
+          disabled={!importUrl.trim()}
+          onClick={() => void startImport(importUrl.trim())}
+        >
+          {job && !job.finishedAt ? 'Importing…' : 'Import catalog'}
+        </button>
+      </Flex>
       <Flex
         gap="2"
         className="sc-upload-dz"
@@ -230,7 +215,7 @@ export function ProductsPanel({
       {products.length > 12 && (
         <TextField.Root
           size="2"
-          placeholder={`Search ${products.length} ${kind === 'products' ? 'products' : 'people'}`}
+          placeholder={`Search ${products.length} products`}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
@@ -288,16 +273,14 @@ export function ProductsPanel({
         </Text>
       )}
 
-      {kind === 'products' && (
-        <CatalogImportDialog
-          open={dialogOpen}
-          job={job}
-          productCount={library.length}
-          onClose={() => setDialogOpen(false)}
-          onContinue={() => setDialogOpen(false)}
-          continueLabel="Done"
-        />
-      )}
+      <CatalogImportDialog
+        open={dialogOpen}
+        job={job}
+        productCount={library.length}
+        onClose={() => setDialogOpen(false)}
+        onContinue={() => setDialogOpen(false)}
+        continueLabel="Done"
+      />
     </Flex>
   );
 }

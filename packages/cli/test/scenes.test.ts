@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
-import { loadLooks, lookResolver, facetsOf, composePrompt, defaultLooksDir, type Look } from '../src/looks.js';
+import { loadScenes, sceneResolver, facetsOf, composePrompt, defaultScenesDir, type Scene } from '../src/scenes.js';
 import { buildServer } from '../src/server.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -21,54 +21,70 @@ const base = {
   height: 10,
 };
 
-describe('look loader + composer', () => {
-  it('loads the 33 shipped looks, all valid, none naming a product', () => {
-    const { looks, warnings } = loadLooks(defaultLooksDir());
-    expect(looks).toHaveLength(33);
+describe('scene loader + composer', () => {
+  it('loads the 33 shipped scenes, all valid, none naming a product', () => {
+    const { scenes, warnings } = loadScenes(defaultScenesDir());
+    expect(scenes).toHaveLength(33);
     expect(warnings).toEqual([]);
-    for (const l of looks) {
-      expect(l.prompt).not.toContain('{product_name}');
-      expect(l.collections.length).toBeGreaterThan(0);
-      expect(l.verticals.length).toBeGreaterThan(0);
-      expect(l.lighting).toBeTruthy();
+    for (const s of scenes) {
+      expect(s.prompt).not.toContain('{product_name}');
+      expect(s.collections.length).toBeGreaterThan(0);
+      expect(s.verticals.length).toBeGreaterThan(0);
+      expect(s.lighting).toBeTruthy();
     }
   });
 
-  it('rejects a look whose prompt still names the product', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'sc-look-'));
+  it('no scene prompt bakes in an invented brand or product name', () => {
+    const { scenes } = loadScenes(defaultScenesDir());
+    // "Capitalized Phrase — Capitalized Phrase": the shape of every leaked
+    // demo-brand string found in the 2026-08-08 audit (quoted or bare, with
+    // or without "&"/"Co."), e.g. "Belle Fête — Sparkling Rosé".
+    const BRAND_DASH = /[A-Z][\w'.&]*(?:\s+(?:&|[A-Z][\w'.&]*)){0,3}\s+—\s+[A-Z][\w' .]+/;
+    // a trigger word immediately followed by a quoted string is a named
+    // label/wordmark; the same word used generically ("no wordmarks anywhere
+    // in frame", "a small woven, blank neck label") is fine and must not trip
+    // this — that's the false-positive case a naive keyword grep hits.
+    const LABEL_QUOTE =
+      /\b(labeled|label reading|wordmark|etched|embossed|stamped|engraved|stitched|neck label|fictional label)\b[^.]{0,15}["']/i;
+    const offenders = scenes.filter((s) => BRAND_DASH.test(s.prompt) || LABEL_QUOTE.test(s.prompt));
+    expect(offenders.map((s) => s.id)).toEqual([]);
+  });
+
+  it('rejects a scene whose prompt still names the product', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sc-scene-'));
     writeFileSync(
       join(dir, 'coupled.json'),
       JSON.stringify({ ...base, id: 'coupled', prompt: 'shot of {product_name} on a sweep' }),
     );
     writeFileSync(join(dir, 'ok.json'), JSON.stringify(base));
-    const { looks, warnings } = loadLooks(dir);
-    expect(looks.map((l) => l.id)).toEqual(['ok']);
-    expect(warnings).toEqual(['invalid look skipped: coupled.json']);
+    const { scenes, warnings } = loadScenes(dir);
+    expect(scenes.map((s) => s.id)).toEqual(['ok']);
+    expect(warnings).toEqual(['invalid scene skipped: coupled.json']);
     rmSync(dir, { recursive: true, force: true });
   });
 
   it('skips broken files and bad subjects with warnings', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'sc-look-'));
+    const dir = mkdtempSync(join(tmpdir(), 'sc-scene-'));
     writeFileSync(join(dir, 'bad.json'), '{nope');
     writeFileSync(join(dir, 'incomplete.json'), JSON.stringify({ id: 'x' }));
     writeFileSync(join(dir, 'subject.json'), JSON.stringify({ ...base, id: 'subject', subject: 'vibes' }));
     writeFileSync(join(dir, 'ok.json'), JSON.stringify(base));
-    const { looks, warnings } = loadLooks(dir);
-    expect(looks.map((l) => l.id)).toEqual(['ok']);
+    const { scenes, warnings } = loadScenes(dir);
+    expect(scenes.map((s) => s.id)).toEqual(['ok']);
     expect(warnings).toHaveLength(3);
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('resolves a look by a former id, so stored briefs keep working', () => {
-    const looks: Look[] = [{ ...base, id: 'new-id', aliases: ['old-id'] }];
-    const resolve = lookResolver(looks);
+  it('resolves a scene by a former id, so stored briefs keep working', () => {
+    const scenes: Scene[] = [{ ...base, id: 'new-id', aliases: ['old-id'] }];
+    const resolve = sceneResolver(scenes);
     expect(resolve('old-id')?.id).toBe('new-id');
     expect(resolve('new-id')?.id).toBe('new-id');
     expect(resolve('never-existed')).toBeUndefined();
   });
 
   it('reports the facets actually in use', () => {
-    const { collections, verticals } = facetsOf(loadLooks(defaultLooksDir()).looks);
+    const { collections, verticals } = facetsOf(loadScenes(defaultScenesDir()).scenes);
     expect(collections).toContain('Interiors');
     expect(collections).toContain('Social');
     expect(collections).toContain('Portrait');
@@ -77,20 +93,20 @@ describe('look loader + composer', () => {
   });
 
   it('composePrompt fills only the copy slots and appends notes', () => {
-    const l: Look = {
+    const s: Scene = {
       ...base,
       fields: [{ key: 'headline', label: 'H', placeholder: 'Built to move / New season' }],
       prompt: 'square frame reading {headline} in the empty third',
     };
-    expect(composePrompt(l, { fields: { headline: 'Run further' } })).toBe(
+    expect(composePrompt(s, { fields: { headline: 'Run further' } })).toBe(
       'square frame reading Run further in the empty third',
     );
-    expect(composePrompt(l, {})).toBe('square frame reading Built to move in the empty third');
-    expect(composePrompt(l, { notes: 'moody light' })).toMatch(/Art direction: moody light$/);
+    expect(composePrompt(s, {})).toBe('square frame reading Built to move in the empty third');
+    expect(composePrompt(s, { notes: 'moody light' })).toMatch(/Art direction: moody light$/);
   });
 });
 
-describe('cast + look generation via API', () => {
+describe('product uploads + scene generation via API', () => {
   let home: string;
   let core: Core;
   let app: FastifyInstance;
@@ -115,7 +131,7 @@ describe('cast + look generation via API', () => {
   };
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'sc-look-api-'));
+    home = mkdtempSync(join(tmpdir(), 'sc-scene-api-'));
     core = createCore(home);
     lastGen = null;
     app = buildServer({ core, engines: { all: () => [spy], get: (id) => (id === 'spy' ? spy : null) } });
@@ -169,24 +185,16 @@ describe('cast + look generation via API', () => {
     expect(del.json().json.products).toHaveLength(0);
   });
 
-  it('the cast uses the same shape as products, and deletes the same way', async () => {
+  it('has no manual-add route for characters — presenters attach straight from the catalog instead', async () => {
     const brand = await newBrand();
     const res = await upload(brand.id, 'characters', 'Marco');
-    expect(res.statusCode).toBe(200);
-    const cast = res.json().json.characters;
-    expect(cast).toHaveLength(1);
-    expect(cast[0].id).toMatch(/^c-/);
-    expect(cast[0].name).toBe('Marco');
-    expect(cast[0].shots[0].locked).toBe(true);
-
-    const del = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/characters/${cast[0].id}` });
-    expect(del.json().json.characters).toHaveLength(0);
+    expect(res.statusCode).toBe(404);
   });
 
-  it('GET /api/looks carries the facets; the deprecated alias still returns a bare list', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/looks' });
+  it('GET /api/scenes carries the facets; the deprecated alias still returns a bare list', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/scenes' });
     const body = res.json();
-    expect(body.looks).toHaveLength(33);
+    expect(body.scenes).toHaveLength(33);
     expect(body.collections).toContain('Interiors');
     expect(body.verticals).toContain('Beauty');
 
@@ -195,7 +203,7 @@ describe('cast + look generation via API', () => {
     expect(legacy).toHaveLength(33);
   });
 
-  it('a look id resolves through the generate route', async () => {
+  it('a scene id resolves through the generate route', async () => {
     const brand = await newBrand();
     const withProduct = (await upload(brand.id, 'products', 'House Blend')).json();
     const productId = withProduct.json.products[0].id;
@@ -225,7 +233,7 @@ describe('cast + look generation via API', () => {
     expect(lastGen!.referenceImages).toHaveLength(1);
   });
 
-  it('a product-only look without a product is refused; an unknown look is refused', async () => {
+  it('a product-only scene without a product is refused; an unknown scene is refused', async () => {
     const brand = await newBrand();
     const proj = (
       await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
@@ -250,19 +258,19 @@ describe('cast + look generation via API', () => {
     expect(unknown.statusCode).toBe(400);
   });
 
-  it("lists a look's reference frames, and answers empty rather than 404 when there is no set", async () => {
-    const withSet = (await app.inject({ method: 'GET', url: '/api/look-previews/morning-tabletop' })).json();
+  it("lists a scene's reference frames, and answers empty rather than 404 when there is no set", async () => {
+    const withSet = (await app.inject({ method: 'GET', url: '/api/scene-previews/morning-tabletop' })).json();
     expect(withSet.frames.length).toBeGreaterThan(0);
-    expect(withSet.frames[0]).toMatch(/^\/api\/look-previews\/morning-tabletop\/ref-\d\d\.jpg\?v=\d+$/);
+    expect(withSet.frames[0]).toMatch(/^\/api\/scene-previews\/morning-tabletop\/ref-\d\d\.jpg\?v=\d+$/);
 
-    const without = await app.inject({ method: 'GET', url: '/api/look-previews/no-such-look' });
+    const without = await app.inject({ method: 'GET', url: '/api/scene-previews/no-such-scene' });
     expect(without.statusCode).toBe(200);
     expect(without.json().frames).toEqual([]);
 
     // an id outside the pattern never reaches the filesystem; a traversal is
     // refused earlier still, by the router itself
-    expect((await app.inject({ method: 'GET', url: '/api/look-previews/Not_An_Id' })).statusCode).toBe(400);
-    expect((await app.inject({ method: 'GET', url: '/api/look-previews/../../etc' })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/api/scene-previews/Not_An_Id' })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'GET', url: '/api/scene-previews/../../etc' })).statusCode).toBe(404);
   });
 
   it('reports where the library lives and how big it is', async () => {

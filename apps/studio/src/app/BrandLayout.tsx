@@ -142,13 +142,13 @@ export function BrandLayout() {
   }, [refreshWorkspace, brand?.updatedAt]);
 
   // The tail comes off the raw pathname rather than out of a param, so whatever
-  // follows — /looks/<id>, /sets/<slug>/shots/<id> — survives a swap of the
+  // follows — /scenes/<id>, /sets/<slug>/shots/<id> — survives a swap of the
   // brand segment exactly as it arrived, and no part of this has to know how
   // deep the path goes.
   const tail = here ? pathname.slice(here.pathnameBase.length) : '';
 
   // a deleted brand, or a link to one this machine has never seen. The page
-  // asked for is still a real page, so it comes along: landing on /looks of a
+  // asked for is still a real page, so it comes along: landing on /scenes of a
   // brand you do have beats being dropped at a home you did not ask for.
   if (!brand) {
     const fallback = pickBrand(brands);

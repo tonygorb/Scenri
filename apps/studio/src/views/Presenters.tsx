@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -7,7 +7,7 @@ import { presenterPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 
 /**
- * The presenter library: one casting board, not a Look-style set of
+ * The presenter library: one casting board, not a Scene-style set of
  * collection sections. Eight people don't need Studio/Social-style grouping,
  * and splitting into gendered sections by default would read as a checkbox
  * diversity grid rather than a curated roster — a light category filter is
@@ -17,21 +17,11 @@ export function PresentersView() {
   const { presenters, presenterCategories, presentersLoaded, presentersError, refetchPresenters } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
-  const { cast, goToBrief } = useApplyPresenter();
-  const [busy, setBusy] = useState<string | null>(null);
+  const applyPresenter = useApplyPresenter();
   const [categoryParam, setCategory] = useFilterParam('category');
   const category = categoryParam || null;
 
   const openPresenter = (id: string) => navigate(presenterPath(brand, id));
-  const onUse = async (id: string) => {
-    setBusy(id);
-    try {
-      await cast(id);
-      goToBrief();
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const shown = useMemo(
     () => (category ? presenters.filter((p) => p.suitableCategories.includes(category)) : presenters),
@@ -92,7 +82,7 @@ export function PresentersView() {
                 variant="use"
                 size="grid"
                 onOpen={openPresenter}
-                onUse={busy ? undefined : onUse}
+                onUse={applyPresenter}
               />
             ))}
           </div>

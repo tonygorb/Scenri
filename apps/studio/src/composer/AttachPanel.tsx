@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@radix-ui/themes';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
-import { assetUrl, imgUrl, type Brand, type Look, type TreeNode } from '../api.js';
+import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { ProductsPanel } from '../AssetPanel.js';
+import { isRecommendedScene, isRecommendedPresenter } from '../compat.js';
 import type { SentenceToken } from './BriefInput.js';
 import { keepCaret } from './line.js';
 
@@ -12,7 +13,7 @@ const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Ne
 const ALL_TAB_PREVIEW = 8;
 /** On a single tab, enough to browse; past this, searching beats scrolling. */
 const TAB_CAP = 60;
-const TABS = ['All', 'Products', 'Presenters', 'Looks', 'Colors', 'Shots'] as const;
+const TABS = ['All', 'Products', 'Presenters', 'Scenes', 'Colors', 'Shots'] as const;
 export type AttachTab = (typeof TABS)[number];
 type Tab = AttachTab;
 
@@ -23,6 +24,8 @@ interface Card {
   sub?: string;
   thumb?: string | null;
   swatch?: string;
+  /** A hint, not a filter — see compat.ts. Only ever set for Scenes/Presenters. */
+  recommended?: boolean;
   run: () => void;
 }
 
@@ -34,17 +37,22 @@ interface Card {
 export function AttachPanel({
   brand,
   templates,
+  presenters,
   shots,
   initialTab = 'All',
+  activeProductCategory,
   onToken,
   onTemplate,
   onUpload,
   onClose,
 }: {
   brand: Brand;
-  templates: Look[];
+  templates: Scene[];
+  presenters: Presenter[];
   shots: TreeNode[];
   initialTab?: AttachTab;
+  /** The category of whichever product is already in the brief, if any — see compat.ts. */
+  activeProductCategory?: string | null;
   onToken: (t: SentenceToken) => void;
   onTemplate: (id: string) => void;
   onUpload: () => void;
@@ -89,7 +97,6 @@ export function AttachPanel({
 
   const cards = useMemo<Card[]>(() => {
     const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
-    const cast: any[] = (brand.json?.characters ?? []) as any[];
     const p = brand.json?.palette;
     const raw: { hex: string; name?: string }[] = [];
     const add = (c: any) => {
@@ -115,23 +122,25 @@ export function AttachPanel({
           run: () => onToken({ t: 'product', id: pr.id }),
         }),
       ),
-      ...cast.map(
-        (c): Card => ({
-          key: `h:${c.id}`,
+      ...presenters.map(
+        (pr): Card => ({
+          key: `h:${pr.id}`,
           tab: 'Presenters',
-          label: c.name ?? 'Someone',
-          sub: 'same person each time',
-          thumb: assetUrl(c.shots?.[0]?.file),
-          run: () => onToken({ t: 'character', id: c.id }),
+          label: pr.name,
+          sub: pr.descriptor,
+          thumb: pr.previewUrl ?? null,
+          recommended: isRecommendedPresenter(pr, activeProductCategory),
+          run: () => onToken({ t: 'character', id: pr.id }),
         }),
       ),
       ...templates.map(
         (t): Card => ({
           key: `t:${t.id}`,
-          tab: 'Looks',
+          tab: 'Scenes',
           label: t.name,
           sub: t.lighting,
           thumb: (t as any).previewUrl ?? null,
+          recommended: isRecommendedScene(t, activeProductCategory),
           run: () => onTemplate(t.id),
         }),
       ),
@@ -156,13 +165,13 @@ export function AttachPanel({
         }),
       ),
     ];
-  }, [brand, library, templates, shots, onToken, onTemplate]);
+  }, [brand, library, templates, presenters, shots, activeProductCategory, onToken, onTemplate]);
 
   const query = q.trim().toLowerCase();
   const match = (c: Card) => !query || `${c.label} ${c.sub ?? ''}`.toLowerCase().includes(query);
   const inTab = (c: Card) => tab === 'All' || c.tab === tab;
   const shown = cards.filter((c) => inTab(c) && match(c));
-  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Looks', 'Colors', 'Shots'];
+  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Colors', 'Shots'];
 
   const card = (c: Card) => (
     <button
@@ -181,6 +190,7 @@ export function AttachPanel({
           <ImageSquare size={16} />
         </span>
       )}
+      {c.recommended && <span className="sc-ap-rec">Recommended</span>}
       <b dir="auto">{c.label}</b>
     </button>
   );
@@ -229,7 +239,7 @@ export function AttachPanel({
             /**
              * All is a summary, not an inventory. A brand with a catalog import
              * has hundreds of products, and drawing every one of them here
-             * pushed Presenters, Looks and Colours off the bottom of a panel whose
+             * pushed Presenters, Scenes and Colours off the bottom of a panel whose
              * whole job is to show you what there is.
              */
             const preview = items.slice(0, ALL_TAB_PREVIEW);

@@ -16,10 +16,12 @@ import { RootRedirect } from './app/RootRedirect.js';
 import { BrandSetup } from './views/BrandSetup.js';
 import { BrandView } from './views/Brand.js';
 import { HomeView } from './views/Home.js';
-import { LooksView } from './views/Looks.js';
-import { LookPage } from './views/LookPage.js';
+import { ScenesView } from './views/Scenes.js';
+import { ScenePage } from './views/ScenePage.js';
 import { PresentersView } from './views/Presenters.js';
 import { PresenterPage } from './views/PresenterPage.js';
+import { ProductsView } from './views/Products.js';
+import { ProductPage } from './views/ProductPage.js';
 import { CreateView } from './views/Create.js';
 import { ShotDetailRoute } from './views/ShotDetailRoute.js';
 
@@ -102,14 +104,19 @@ function LegacyRedirect() {
   return <Navigate to={rewriteLegacyPath(pathname, search)} replace />;
 }
 
-function LookRoute() {
-  const { lookId } = useParams();
-  return <LookPage key={lookId} />;
+function SceneRoute() {
+  const { sceneId } = useParams();
+  return <ScenePage key={sceneId} />;
 }
 
 function PresenterRoute() {
   const { presenterId } = useParams();
   return <PresenterPage key={presenterId} />;
+}
+
+function ProductRoute() {
+  const { productId } = useParams();
+  return <ProductPage key={productId} />;
 }
 
 export const router = createBrowserRouter([
@@ -141,8 +148,10 @@ export const router = createBrowserRouter([
             children: [{ path: P.setShot, element: <ShotDetailRoute /> }],
           },
           { path: P.kit, element: <BrandView /> },
-          { path: P.looks, element: <LooksView /> },
-          { path: P.look, element: <LookRoute /> },
+          { path: P.products, element: <ProductsView /> },
+          { path: P.product, element: <ProductRoute /> },
+          { path: P.scenes, element: <ScenesView /> },
+          { path: P.scene, element: <SceneRoute /> },
           { path: P.presenters, element: <PresentersView /> },
           { path: P.presenter, element: <PresenterRoute /> },
         ],

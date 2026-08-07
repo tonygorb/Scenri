@@ -78,7 +78,7 @@ export const decode = (s: string): SentenceToken | null => {
 
 export const groupOf = (t: SentenceToken): string | null =>
   t.t === 'template'
-    ? 'Looks'
+    ? 'Scenes'
     : t.t === 'product'
       ? 'Products'
       : t.t === 'character'
@@ -410,7 +410,7 @@ export function insertToken(root: HTMLElement | null, chip: HTMLElement, opts: I
   normalizeLine(root);
 }
 
-/** `/` inserts anything; `@` ingredients; `#` a look. */
+/** `/` inserts anything; `@` ingredients; `#` a scene. */
 export const SIGILS = ['/', '@', '#'] as const;
 export type Sigil = (typeof SIGILS)[number];
 const isSigil = (c: string): c is Sigil => (SIGILS as readonly string[]).includes(c);

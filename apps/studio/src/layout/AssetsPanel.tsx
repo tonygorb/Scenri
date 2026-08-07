@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Dialog } from '@radix-ui/themes';
 import { CaretRight, ImageSquare, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
-import { assetUrl, imgUrl, type Brand, type Look, type TreeNode } from '../api.js';
+import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { PREF, useLocalPref } from '../prefs.js';
@@ -31,6 +31,7 @@ const LOAD_BATCH = 24;
 export function AssetsPanel({
   brand,
   templates,
+  presenters,
   shots,
   onProduct,
   onCharacter,
@@ -41,7 +42,8 @@ export function AssetsPanel({
   onClose,
 }: {
   brand: Brand;
-  templates: Look[];
+  templates: Scene[];
+  presenters: Presenter[];
   shots: TreeNode[];
   onProduct: (id: string) => void;
   onCharacter: (id: string) => void;
@@ -78,8 +80,7 @@ export function AssetsPanel({
   const searching = !!q.trim();
   const match = (label: string) => !searching || label.toLowerCase().includes(q.trim().toLowerCase());
   const fProducts = products.filter((p) => match(p.name ?? ''));
-  const cast: any[] = (brand.json?.characters ?? []) as any[];
-  const fCast = cast.filter((c) => match(c.name ?? ''));
+  const fPresenters = presenters.filter((p) => match(p.name));
   const fTemplates = templates.filter((t) => match(t.name));
   const fPalette = palette.filter((c) => match(c.name) || match(c.hex));
 
@@ -134,42 +135,28 @@ export function AssetsPanel({
     <Group
       key="Presenters"
       name="Presenters"
-      count={fCast.length}
+      count={fPresenters.length}
       searching={searching}
       openGroup={openGroup}
       onToggle={toggleGroup}
       action={
-        <>
-          <button
-            type="button"
-            className="sc-aadd"
-            title="Browse the presenter library"
-            aria-label="Browse the presenter library"
-            onClick={() => navigate(presentersPath(brand))}
-          >
-            <CaretRight size={10} />
-          </button>
-          <Dialog.Root>
-            <Dialog.Trigger>
-              <button type="button" className="sc-aadd" title="Add someone" aria-label="Add someone">
-                <Plus size={10} />
-              </button>
-            </Dialog.Trigger>
-            <Dialog.Content maxWidth="560px">
-              <Dialog.Title>Presenters: {brand.json?.meta?.name}</Dialog.Title>
-              <ProductsPanel brand={brand} onChanged={onBrandChanged} kind="characters" />
-            </Dialog.Content>
-          </Dialog.Root>
-        </>
+        <button
+          type="button"
+          className="sc-aadd"
+          title="Browse the presenter library"
+          aria-label="Browse the presenter library"
+          onClick={() => navigate(presentersPath(brand))}
+        >
+          <CaretRight size={10} />
+        </button>
       }
-      empty={q ? 'Nobody matches.' : 'No presenters yet. Browse the library or add your own.'}
-      note="Name someone once and they come back the same."
-      items={fCast}
+      empty={q ? 'Nobody matches.' : 'No presenters yet. Browse the library to attach one.'}
+      note="Click to attach. Same person every time."
+      items={fPresenters}
       render={(shown, mode) =>
-        shown.map((c: any) => {
-          const shot = assetUrl(c.shots?.[0]?.file);
-          const thumb = shot ? (
-            <img src={shot} alt={c.name} loading="lazy" />
+        shown.map((p: Presenter) => {
+          const thumb = p.previewUrl ? (
+            <img src={p.previewUrl} alt={p.name} loading="lazy" />
           ) : (
             <span className="sc-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
               <ImageSquare size={14} />
@@ -177,11 +164,11 @@ export function AssetsPanel({
           );
           if (mode === 'open') {
             return (
-              <AssetCard key={c.id} title={c.name} onClick={() => onCharacter(c.id)} thumb={thumb} label={c.name} />
+              <AssetCard key={p.id} title={p.name} onClick={() => onCharacter(p.id)} thumb={thumb} label={p.name} />
             );
           }
           return (
-            <button type="button" key={c.id} title={c.name} onClick={() => onCharacter(c.id)}>
+            <button type="button" key={p.id} title={p.name} onClick={() => onCharacter(p.id)}>
               {thumb}
             </button>
           );
@@ -190,18 +177,18 @@ export function AssetsPanel({
     />
   );
 
-  const looksGroup =
+  const scenesGroup =
     fTemplates.length > 0 ? (
       <Group
-        key="Looks"
-        name="Looks"
+        key="Scenes"
+        name="Scenes"
         count={fTemplates.length}
         searching={searching}
         openGroup={openGroup}
         onToggle={toggleGroup}
         items={fTemplates}
         render={(shown, mode) =>
-          shown.map((t: Look) => {
+          shown.map((t: Scene) => {
             const thumb = t.previewUrl ? (
               <img src={t.previewUrl} alt={t.name} loading="lazy" />
             ) : (
@@ -286,7 +273,7 @@ export function AssetsPanel({
 
       {productsGroup}
       {presentersGroup}
-      {looksGroup}
+      {scenesGroup}
       {brandColorsGroup}
       {recentShotsGroup}
     </aside>

@@ -1,12 +1,12 @@
 {
   "id": "social-vertical-story-motion",
   "name": "Vertical Story Motion",
-  "description": "A full-height model caught mid-step in hard directional light against a bold saturated vertical color field, styled with the kinetic energy of a genuine Stories/Reels paid-social ad rather than a static feed post cropped tall. Built around Kinetic's Volt Jacket on the same identity-locked model across every frame, with a clean reserved zone for headline text.",
+  "description": "A full-height model caught mid-step in hard directional light against a bold saturated vertical color field, styled with the kinetic energy of a genuine Stories/Reels paid-social ad rather than a static feed post cropped tall. The same technical zip jacket and identity-locked model carry through every frame, with a clean reserved zone for headline text.",
   "lighting": "Hard directional light, motion-freeze contrast",
   "subject": "person",
   "collections": ["Social"],
   "verticals": ["Apparel", "Accessories", "Food & drink"],
-  "prompt": "a person wearing a matte black technical zip jacket with reflective teal-and-orange trim tape down the zip line, from the fictional label Kinetic — the Volt Jacket, full-height vertical 9:16 composition, hard directional light, genuine kinetic motion caught mid-step with real fabric movement and crisp hard-edged motion-freeze shadows, set against a fixed saturated vertical color field of deep magenta falling into clean falloff toward the edges, shallow depth of field keeping the model sharp, real specular highlights catching the jacket's technical fabric, a clean, genuinely empty zone reserved in the upper third for headline text, no rendered text, no logos, no watermarks, no second model anywhere in the frame, genuine paid-social story-ad advertising finish",
+  "prompt": "a person wearing a matte black technical zip jacket with reflective teal-and-orange trim tape down the zip line, full-height vertical 9:16 composition, hard directional light, genuine kinetic motion caught mid-step with real fabric movement and crisp hard-edged motion-freeze shadows, set against a fixed saturated vertical color field of deep magenta falling into clean falloff toward the edges, shallow depth of field keeping the model sharp, real specular highlights catching the jacket's technical fabric, a clean, genuinely empty zone reserved in the upper third for headline text, no rendered text, no logos, no watermarks, no second model anywhere in the frame, genuine paid-social story-ad advertising finish",
   "width": 1080,
   "height": 1920
 }

@@ -107,6 +107,10 @@ export interface LibraryProduct {
   vendor?: string | null;
   productType?: string | null;
   tags?: string[];
+  category?: string | null;
+  variant?: string | null;
+  material?: string | null;
+  dimensions?: string | null;
   price?: number | null;
   compareAtPrice?: number | null;
   currency?: string | null;
@@ -556,12 +560,27 @@ export function createCatalogStore(db: DB) {
       db.prepare('DELETE FROM catalog_products WHERE id=?').run(id);
     },
 
+    /** Manual edits on top of an imported product — today just the category override. */
+    updateProduct(id: string, patch: { category?: string | null }): CatalogProductRow | null {
+      if ('category' in patch) {
+        db.prepare("UPDATE catalog_products SET category=?, updated_at=datetime('now') WHERE id=?").run(
+          patch.category ?? null,
+          id,
+        );
+      }
+      return this.getProduct(id);
+    },
+
     /** Merge manual kit products + catalog into one library list. */
     listLibraryProducts(brandId: string, brandJson: any): LibraryProduct[] {
       const manual: LibraryProduct[] = ((brandJson?.products ?? []) as any[]).map((p) => ({
         id: p.id,
         name: p.name,
         origin: 'manual' as const,
+        category: p.category ?? null,
+        variant: p.variant ?? null,
+        material: p.material ?? null,
+        dimensions: p.dimensions ?? null,
         shots: (p.shots ?? []).map((s: any) => ({ file: s.file, locked: s.locked ?? true, alt: s.angle ?? null })),
       }));
 
@@ -577,6 +596,7 @@ export function createCatalogStore(db: DB) {
           vendor: p.vendor,
           productType: p.productType,
           tags: p.tags,
+          category: p.category,
           price: p.price,
           compareAtPrice: p.compareAtPrice,
           currency: p.currency,

@@ -4,8 +4,8 @@ import {
   brandPath,
   hubPath,
   kitPath,
-  lookPath,
-  looksPath,
+  scenePath,
+  scenesPath,
   presenterPath,
   presentersPath,
   rewriteLegacyPath,
@@ -23,8 +23,8 @@ describe('path builders', () => {
 
   it('spells every section as a word', () => {
     expect(kitPath(brand)).toBe('/nalla/kit');
-    expect(looksPath(brand)).toBe('/nalla/looks');
-    expect(lookPath(brand, 'soft-daylight')).toBe('/nalla/looks/soft-daylight');
+    expect(scenesPath(brand)).toBe('/nalla/scenes');
+    expect(scenePath(brand, 'soft-daylight')).toBe('/nalla/scenes/soft-daylight');
     expect(presentersPath(brand)).toBe('/nalla/presenters');
     expect(presenterPath(brand, 'sana')).toBe('/nalla/presenters/sana');
     expect(hubPath(brand)).toBe('/nalla/create');
@@ -40,8 +40,8 @@ describe('path builders', () => {
     const paths = [
       brandPath(brand),
       kitPath(brand),
-      looksPath(brand),
-      lookPath(brand, 'soft-daylight'),
+      scenesPath(brand),
+      scenePath(brand, 'soft-daylight'),
       hubPath(brand),
       setPath(brand, set),
       shotPath(brand, null, 'n1'),

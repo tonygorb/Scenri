@@ -247,7 +247,7 @@ describe('inserting a chip', () => {
     expect(text()).toBe('shoot P:p1 ');
   });
 
-  it('eats a look query the same way', () => {
+  it('eats a scene query the same way', () => {
     renderLine(root, [{ t: 'text', v: 'shot #morn' }], chipFor);
     caret(10);
     insertToken(root, chipFor({ t: 'template', id: 'morning-tabletop' }), { eatQuery: true });
@@ -649,7 +649,7 @@ describe('sigilAtCaret: which menu the caret is asking for', () => {
     expect(sigilAtCaret(caretAfter('a shot of @mar'))).toEqual({ sigil: '@', query: 'mar' });
   });
 
-  it('reads a look query after # at a word start', () => {
+  it('reads a scene query after # at a word start', () => {
     expect(sigilAtCaret(caretAfter('in #morn'))).toEqual({ sigil: '#', query: 'morn' });
   });
 
@@ -657,7 +657,7 @@ describe('sigilAtCaret: which menu the caret is asking for', () => {
     expect(sigilAtCaret(caretAfter('@ma'))).toEqual({ sigil: '@', query: 'ma' });
   });
 
-  it('leaves a hex colour alone: #F5C518 is not a look query', () => {
+  it('leaves a hex colour alone: #F5C518 is not a scene query', () => {
     expect(sigilAtCaret(caretAfter('keep the cap in brand#F5C518'))).toBeNull();
   });
 
