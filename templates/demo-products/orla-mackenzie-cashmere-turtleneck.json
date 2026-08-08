@@ -1,0 +1,13 @@
+{
+  "id": "orla-mackenzie-cashmere-turtleneck",
+  "name": "Ribbed Cashmere Turtleneck",
+  "category": "apparel",
+  "description": "A ribbed cashmere turtleneck sweater in a warm oatmeal-cream, with a fine vertical rib knit, a folded mock collar, and a relaxed close-fitting silhouette.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "ribbed cashmere turtleneck sweater",
+  "materials": "100% ribbed cashmere knit",
+  "primaryColors": "Warm oatmeal-cream",
+  "negativeConstraints": "Never render any text, logo, embroidery, or printed marking anywhere on the sweater; never change the rib gauge, add cable patterns, or alter the collar height; never shift the oatmeal-cream color toward white, beige, or grey.",
+  "preservationNotes": "Keep the fine vertical rib knit, warm oatmeal-cream tone, and turtleneck collar height identical and consistent across every angle; knit gauge, fiber texture, and color must match exactly from front to back to detail to on-form."
+}

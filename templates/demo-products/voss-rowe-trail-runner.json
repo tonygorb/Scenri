@@ -1,8 +1,13 @@
 {
   "id": "voss-rowe-trail-runner",
-  "name": "Voss & Rowe — Trail Runner",
+  "name": "Lugged-Sole Trail Running Shoe",
   "category": "footwear",
-  "description": "A low-profile trail running shoe in matte clay-orange and charcoal mesh, with a chunky lugged outsole.",
+  "description": "A low-profile trail running shoe with a matte-coated clay-orange and charcoal-grey ripstop mesh upper, synthetic overlays, and a chunky lugged rubber outsole built for off-road traction.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "subcategory": "trail running shoe",
+  "materials": "matte-coated ripstop mesh upper, synthetic overlays, chunky lugged rubber outsole",
+  "primaryColors": "clay-orange, charcoal-grey, off-white sole",
+  "negativeConstraints": "never render any text, logo, wordmark, tag, patch, or embroidered/printed/embossed lettering anywhere on the shoe; never render the outsole lugs as smooth or the mesh as glossy leather",
+  "preservationNotes": "keep the outsole lug pattern chunky and off-white (never bright white or grey) and keep the mesh and overlay construction consistent across every angle, entirely free of any marks or lettering"
 }

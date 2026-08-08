@@ -1,0 +1,29 @@
+{
+  "id": "basalt-bloom-liquid-marble",
+  "title": "Mineral Water Bottle in the Liquid Marble Pour",
+  "category": "beverage",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "basalt-bloom-sparkling-mineral-water"
+      },
+      {
+        "t": "template",
+        "id": "liquid-marble-pour"
+      },
+      {
+        "t": "text",
+        "v": " vivid collision of color, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,13 @@
+{
+  "id": "rowan-ash-leather-tote",
+  "name": "Structured Full-Grain Leather Tote",
+  "category": "accessories",
+  "description": "A boxy, structured tote bag in vegetable-tanned tan full-grain leather with solid brass hardware and reinforced stitched handles.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "Structured Tote Bag",
+  "materials": "Vegetable-tanned tan full-grain leather, solid brass hardware and feet, reinforced stitched handles",
+  "primaryColors": "Warm tan leather; warm brass-gold hardware",
+  "negativeConstraints": "Never render any text, logo, wordmark, stamped emblem, or embossed lettering anywhere on the leather, hardware, or a strap keeper; if any tag or label shape is implied, show it strictly blank and unprinted; no props, no hands, except the forearm required for the worn-scale angle.",
+  "preservationNotes": "Keep the boxy silhouette, tan leather tone and grain, brass hardware placement (corner feet, top hardware), and saddle-stitch pattern identical across all four angles."
+}

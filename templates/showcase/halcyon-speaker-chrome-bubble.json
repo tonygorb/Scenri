@@ -1,0 +1,29 @@
+{
+  "id": "halcyon-speaker-chrome-bubble",
+  "title": "Speaker in the Chrome Bubble Warp",
+  "category": "electronics",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "halcyon-aura-speaker"
+      },
+      {
+        "t": "template",
+        "id": "chrome-bubble-warp"
+      },
+      {
+        "t": "text",
+        "v": " playful graphic distortion, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

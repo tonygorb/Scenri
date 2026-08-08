@@ -1,0 +1,30 @@
+{
+  "id": "solenne-cream-macro-texture",
+  "title": "Cream Jar, Macro Texture Detail",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "solenne-mineral-pressed-cream",
+        "angle": "front"
+      },
+      {
+        "t": "template",
+        "id": "macro-texture-detail"
+      },
+      {
+        "t": "text",
+        "v": " frosted glass catching soft light, tactile material focus"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

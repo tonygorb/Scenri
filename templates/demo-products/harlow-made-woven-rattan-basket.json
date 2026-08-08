@@ -1,0 +1,13 @@
+{
+  "id": "harlow-made-woven-rattan-basket",
+  "name": "Woven Rattan Storage Basket",
+  "category": "furniture",
+  "description": "A hand-woven rattan storage basket with tapered sides, a reinforced rolled rim, and two woven loop handles.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "storage basket",
+  "materials": "Natural rattan cane, hand-woven construction with a reinforced rolled rim and woven loop handles.",
+  "primaryColors": "Natural tan rattan",
+  "negativeConstraints": "Never render any text, tag, label, or brand mark on the basket; keep the weave pattern natural and non-repeating; never add dyed color or painted rattan.",
+  "preservationNotes": "Keep the same tapered round basket silhouette, diagonal hand-woven pattern, rolled rim, and two symmetrical loop handles consistent across all five angles."
+}

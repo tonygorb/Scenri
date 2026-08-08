@@ -1,0 +1,33 @@
+{
+  "id": "verity-earrings-tallulah-close-interaction",
+  "title": "Hoop Earrings with Tallulah, Close Interaction",
+  "category": "jewelry",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-gold-hoop-earrings"
+      },
+      {
+        "t": "character",
+        "id": "tallulah"
+      },
+      {
+        "t": "template",
+        "id": "closeup-face-product-interaction"
+      },
+      {
+        "t": "text",
+        "v": " bold striking presence, earring catching the light near the jaw"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

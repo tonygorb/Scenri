@@ -1,0 +1,13 @@
+{
+  "id": "birchwood-page-leather-derby",
+  "name": "Full-Grain Leather Derby Shoe",
+  "category": "footwear",
+  "description": "A minimalist leather derby shoe in deep chestnut-brown with open lacing, a clean stitched welt, and a slim vulcanized rubber sole.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "leather derby shoe",
+  "materials": "smooth full-grain leather upper, stitched leather welt, slim vulcanized rubber sole",
+  "primaryColors": "deep chestnut-brown",
+  "negativeConstraints": "never render any text, logo, wordmark, emblem, or embossed/printed lettering anywhere on the shoe, including the inner sole edge; never add broguing or perforation; never render the leather as matte or heavily textured, it keeps a subtle genuine sheen",
+  "preservationNotes": "keep the open derby lacing (quarters stitched on top of the vamp) and the slim low-profile rubber sole exactly as established across every angle; never thicken the sole into a chunky wedge; keep all leather surfaces entirely plain and unmarked"
+}

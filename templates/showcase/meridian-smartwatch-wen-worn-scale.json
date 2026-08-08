@@ -1,20 +1,24 @@
 {
-  "id": "halcyon-speaker-wood-table",
-  "title": "Aura Speaker on the Wood Table Flat-Lay",
+  "id": "meridian-smartwatch-wen-worn-scale",
+  "title": "Smartwatch with Wen, Worn Cropped",
   "category": "electronics",
   "brief": {
     "tokens": [
       {
         "t": "product",
-        "id": "halcyon-aura-speaker"
+        "id": "meridian-pulse-smartwatch"
+      },
+      {
+        "t": "character",
+        "id": "wen"
       },
       {
         "t": "template",
-        "id": "interiors-wood-table-flatlay"
+        "id": "worn-scale-cropped-gesture"
       },
       {
         "t": "text",
-        "v": " cozy weekend morning mood, tall vertical campaign composition"
+        "v": " quiet minimal precision, natural relaxed wrist position"
       },
       {
         "t": "format",

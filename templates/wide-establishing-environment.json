@@ -1,0 +1,12 @@
+{
+  "id": "wide-establishing-environment",
+  "name": "Wide Establishing",
+  "description": "A wide, cinematic establishing shot where the subject sits small against a dramatic real environment — scale and atmosphere over close detail, the opening frame of a campaign film rather than a packshot.",
+  "lighting": "Natural environmental light, true atmosphere",
+  "subject": "either",
+  "collections": ["Editorial"],
+  "verticals": ["Apparel", "Footwear", "Sport", "Home"],
+  "prompt": "a wide cinematic establishing shot with the subject positioned small within the frame against a dramatic, real outdoor or architectural environment — a wide plaza, an open coastline, a mountain trailhead — genuine environmental atmosphere doing most of the visual work: true weather, natural light behavior, and authentic scale relationships between the subject and its surroundings, deep focus holding both the subject and the environment credibly sharp, a restrained color palette led by the environment's own natural tones, no artificial studio lighting rig visible anywhere, no second subject, no visible brand signage in the environment, the register of a campaign film's opening establishing frame rather than a product packshot",
+  "width": 1600,
+  "height": 900
+}

@@ -1,0 +1,29 @@
+{
+  "id": "ashwell-kin-lamp-tablescape",
+  "title": "Table Lamp, Incidental Tablescape",
+  "category": "furniture",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ashwell-kin-ribbed-table-lamp"
+      },
+      {
+        "t": "template",
+        "id": "lifestyle-incidental-tablescape"
+      },
+      {
+        "t": "text",
+        "v": " quiet real-room evening warmth, genuinely lived-in setting"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

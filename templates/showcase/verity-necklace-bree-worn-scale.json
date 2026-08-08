@@ -1,0 +1,33 @@
+{
+  "id": "verity-necklace-bree-worn-scale",
+  "title": "Pearl Necklace with Bree, Worn Cropped",
+  "category": "jewelry",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-pearl-drop-necklace"
+      },
+      {
+        "t": "character",
+        "id": "bree"
+      },
+      {
+        "t": "template",
+        "id": "worn-scale-cropped-gesture"
+      },
+      {
+        "t": "text",
+        "v": " warm approachable elegance, necklace resting naturally at the collarbone"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

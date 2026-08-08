@@ -652,6 +652,7 @@ export const Composer = forwardRef<
           brand={brand}
           templates={templates}
           presenters={presenters}
+          demoProducts={demoProducts}
           activeProductCategory={activeProductCategory}
           shots={shots}
           initialTab={attachTab}

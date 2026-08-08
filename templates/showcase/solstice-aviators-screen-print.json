@@ -1,0 +1,29 @@
+{
+  "id": "solstice-aviators-screen-print",
+  "title": "Aviators in Screen-Print Duotone",
+  "category": "accessories",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "solstice-titanium-aviators"
+      },
+      {
+        "t": "template",
+        "id": "screen-print-duotone"
+      },
+      {
+        "t": "text",
+        "v": " bold graphic duotone energy, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

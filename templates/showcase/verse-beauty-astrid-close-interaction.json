@@ -1,0 +1,33 @@
+{
+  "id": "verse-beauty-astrid-close-interaction",
+  "title": "Lipstick with Astrid, Close Interaction",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verse-beauty-sheer-bloom"
+      },
+      {
+        "t": "character",
+        "id": "astrid"
+      },
+      {
+        "t": "template",
+        "id": "closeup-face-product-interaction"
+      },
+      {
+        "t": "text",
+        "v": " cool composed elegance, color held near the cheek"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

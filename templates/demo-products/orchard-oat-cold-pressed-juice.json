@@ -1,0 +1,13 @@
+{
+  "id": "orchard-oat-cold-pressed-juice",
+  "name": "Kraft-Paper Fold-Top Juice Carton",
+  "category": "beverage",
+  "description": "An uncoated kraft-brown paper carton with a rectangular base and a gable fold-top closure, typical of a cold-pressed juice package.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "kraft-paper fold-top juice carton",
+  "materials": "Uncoated kraft-paper carton stock.",
+  "primaryColors": "Kraft brown.",
+  "negativeConstraints": "Never render any text, logo, wordmark, printing, or embossed lettering anywhere on the carton; never add a label or emblem; no props, hands, or presenter in frame; background stays a clean white or very light neutral studio backdrop with soft even lighting only.",
+  "preservationNotes": "Keep the carton's rectangular body proportions, kraft-brown uncoated paper color and fiber texture, and gable fold-top crease geometry identical and consistent across all four angles."
+}

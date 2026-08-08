@@ -1,0 +1,13 @@
+{
+  "id": "aldergate-frost-field-watch",
+  "name": "Stainless Steel Field Watch",
+  "category": "accessories",
+  "description": "A mechanical field watch with a matte bead-blasted stainless steel case, a cream dial with painted indices, and a woven olive canvas strap.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "Mechanical Field Watch",
+  "materials": "Matte bead-blasted stainless steel case, mineral crystal, cream dial with painted indices, woven olive canvas strap with a matte steel buckle",
+  "primaryColors": "Muted gunmetal steel; cream dial face; olive-drab canvas strap",
+  "negativeConstraints": "Never render any text, logo, wordmark, or printed/engraved lettering on the dial, case back, crown, or strap keeper beyond plain unmarked painted hour indices; no props, no hands, except the wrist required for the worn-scale angle.",
+  "preservationNotes": "Keep the case shape and size, cream dial layout with matching indices, olive canvas strap weave and color, and matte steel buckle style identical across all four angles."
+}

@@ -1,0 +1,33 @@
+{
+  "id": "aldergate-watch-dax-worn-scale",
+  "title": "Field Watch with Dax, Worn Cropped",
+  "category": "accessories",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aldergate-frost-field-watch"
+      },
+      {
+        "t": "character",
+        "id": "dax"
+      },
+      {
+        "t": "template",
+        "id": "worn-scale-cropped-gesture"
+      },
+      {
+        "t": "text",
+        "v": " grounded quiet strength, natural relaxed wrist position"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

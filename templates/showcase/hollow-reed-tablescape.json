@@ -1,0 +1,29 @@
+{
+  "id": "hollow-reed-tablescape",
+  "title": "Honey Jar, Incidental Tablescape",
+  "category": "food",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "hollow-reed-wildflower-honey"
+      },
+      {
+        "t": "template",
+        "id": "lifestyle-incidental-tablescape"
+      },
+      {
+        "t": "text",
+        "v": " quiet real-kitchen warmth, genuinely lived-in setting"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

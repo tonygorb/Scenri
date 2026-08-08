@@ -1,0 +1,13 @@
+{
+  "id": "tanner-fielding-single-origin-bar",
+  "name": "Kraft-Wrapped Dark Chocolate Bar",
+  "category": "food",
+  "description": "A rectangular dark chocolate bar wrapped in matte uncoated kraft paper, folded and creased into a simple parcel-style seam at the ends.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "wrapped chocolate bar",
+  "materials": "matte uncoated kraft paper wrapper with a fibrous, slightly toothy surface; solid dark chocolate bar beneath, its top ridged into even segmented squares",
+  "primaryColors": "kraft brown (wrapper), dark chocolate brown (chocolate)",
+  "negativeConstraints": "Never render any text, logo, wordmark, printing, or embossed lettering anywhere on the kraft paper wrapper; keep the wrapper fully blank and unprinted at every angle.",
+  "preservationNotes": "Keep the same rectangular bar silhouette and proportions, the same matte kraft paper color and fold/seam pattern, and the same dark chocolate brown tone consistent across all four angles."
+}

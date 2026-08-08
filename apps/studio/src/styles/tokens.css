@@ -5200,6 +5200,16 @@ select {
   padding: 30px 0;
 }
 
+/* ---- Products empty state: the Scenri Library preview grid sits below the
+   cold-start CTA, clearly separated, never implying these are the brand's
+   own products. */
+.sc-products-starter {
+  margin-top: 36px;
+}
+.sc-products-starter .sc-eyebrow {
+  margin-bottom: 12px;
+}
+
 /* ---- one look: centred column, the pictures do the talking ---- */
 .sc-lookpage {
   max-width: 980px;

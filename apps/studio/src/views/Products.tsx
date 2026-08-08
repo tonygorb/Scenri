@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router';
 import { Dialog, DropdownMenu, TextField } from '@radix-ui/themes';
 import { CaretDown, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { useBrand } from '../app/BrandLayout.js';
+import { useAppData } from '../app/AppShell.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath } from '../routes.js';
 import { ProductCard, ProductCardSkeleton } from '../layout/ProductCard.js';
+import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { ProductsPanel, type ProductsPanelHandle } from '../AssetPanel.js';
 import { PRODUCT_CATEGORIES, categoryLabel, effectiveCategory } from '../productCategories.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
@@ -30,6 +32,7 @@ const SEARCH_MIN = 8;
  */
 export function ProductsView() {
   const { brand, products, loaded, refresh } = useBrand();
+  const { demoProducts } = useAppData();
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
   const { q, setQ, facets, setFacet, active, clear } = useLibraryQuery(['category']);
@@ -153,20 +156,32 @@ export function ProductsView() {
         )}
 
         {loaded && products.length === 0 && (
-          <LibraryEmpty
-            shape="cold"
-            title={
-              <>
-                Your first <em>product</em>
-              </>
-            }
-            body="Upload a packshot or import your store catalog — every campaign starts from one."
-            action={
-              <button type="button" className="sc-btn sc-btn-primary" onClick={() => openAdd('upload')}>
-                <Plus size={12} /> Add product
-              </button>
-            }
-          />
+          <>
+            <LibraryEmpty
+              shape="cold"
+              title={
+                <>
+                  Your first <em>product</em>
+                </>
+              }
+              body="Upload a packshot or import your store catalog — every campaign starts from one."
+              action={
+                <button type="button" className="sc-btn sc-btn-primary" onClick={() => openAdd('upload')}>
+                  <Plus size={12} /> Add product
+                </button>
+              }
+            />
+            {demoProducts.length > 0 && (
+              <div className="sc-products-starter">
+                <div className="sc-eyebrow">Or start from our Scenri Library</div>
+                <div className="sc-masonry">
+                  {demoProducts.map((p) => (
+                    <DemoProductCard key={p.id} product={p} variant="use" onUse={applyProduct} size="grid" />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {loaded && products.length > 0 && visible.length === 0 && (

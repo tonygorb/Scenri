@@ -8,7 +8,7 @@ import { composePrompt, type Scene } from './scenes.js';
  */
 export type BriefToken =
   | { t: 'text'; v: string }
-  | { t: 'product'; id: string }
+  | { t: 'product'; id: string; angle?: string }
   | { t: 'character'; id: string }
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string }
@@ -98,11 +98,18 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const inlineTemplates: Scene[] = [];
   let hasPerson = false;
   let sentence = '';
+  // Tokens compile independently and never know what text preceded them, so
+  // every append goes through here to guarantee a separating space — raw
+  // concatenation (e.g. a product name directly followed by scene prose)
+  // otherwise fuses into one run-on word.
+  const append = (s: string) => {
+    sentence += (sentence && !sentence.endsWith(' ') ? ' ' : '') + s;
+  };
 
   for (const tok of brief.tokens) {
     switch (tok.t) {
       case 'text':
-        sentence += tok.v;
+        append(tok.v);
         break;
 
       case 'product': {
@@ -112,13 +119,19 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         productId = p.id;
-        sentence += p.name;
-        const hash = assetHash(p.shots?.[0]?.file);
+        append(p.name);
+        // A specific angle (e.g. "detail" for a macro shot, "worn-scale" for
+        // an on-body shot) beats the default first shot when the recipe asks
+        // for one; falls back silently if that angle isn't available.
+        const shot = (tok.angle && p.shots?.find((s: any) => s.angle === tok.angle)) || p.shots?.[0];
+        const hash = assetHash(shot?.file);
         if (hash && ctx.images.has(hash)) {
           attachments.push({ role: 'product', label: p.name, hash });
           productDirectives.push(
             'The attached product image is the exact product: preserve its label, shape and colors faithfully, do not redesign it.',
           );
+          if (p.preservationNotes) productDirectives.push(String(p.preservationNotes));
+          if (p.negativeConstraints) productDirectives.push(`Avoid: ${p.negativeConstraints}`);
         } else {
           warnings.push(`${p.name} has no usable photo, so it is named but not attached.`);
         }
@@ -132,10 +145,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         hasPerson = true;
-        sentence += c.name;
-        const chash = assetHash(c.shots?.[0]?.file);
-        if (chash && ctx.images.has(chash)) {
-          attachments.push({ role: 'character', label: c.name, hash: chash });
+        append(c.name);
+        // Up to 2 angles per person (front + one more, if available): a face
+        // benefits from multiple views for identity lock, unlike a labeled
+        // product, which a single well-matched reference fully specifies.
+        const chashes = (c.shots ?? [])
+          .slice(0, 2)
+          .map((s: any) => assetHash(s?.file))
+          .filter((h: string | null): h is string => !!h && ctx.images.has(h));
+        if (chashes.length) {
+          for (const chash of chashes) attachments.push({ role: 'character', label: c.name, hash: chash });
           personDirectives.push(
             'The attached person reference is the same person every time: hold their face, hair and build, and do not restyle them.',
           );
@@ -147,7 +166,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
 
       case 'color': {
         const hex = tok.hex.toUpperCase();
-        sentence += tok.name ? `${tok.name} (${hex})` : hex;
+        append(tok.name ? `${tok.name} (${hex})` : hex);
         otherDirectives.push(`Use ${hex} as a defining color in the composition.`);
         break;
       }
@@ -175,7 +194,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         }
         inlineTemplates.push(t);
         // the surrounding sentence is the art direction, so notes stay empty here
-        sentence += composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' });
+        append(composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' }));
         break;
       }
 

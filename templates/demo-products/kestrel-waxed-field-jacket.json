@@ -1,8 +1,13 @@
 {
   "id": "kestrel-waxed-field-jacket",
-  "name": "Kestrel Supply Co. — Waxed Field Jacket",
+  "name": "Waxed Cotton Field Jacket",
   "category": "apparel",
-  "description": "A rugged waxed-cotton field jacket in deep olive with brass snap buttons and a corduroy collar.",
+  "description": "A rugged waxed-cotton canvas field jacket with a soft corduroy collar, brass snap-front placket, and bellows pockets, built for changeable outdoor weather.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "subcategory": "waxed-cotton field jacket",
+  "materials": "Waxed cotton canvas shell, corduroy collar, brass snap hardware, cotton-twill lining",
+  "primaryColors": "Deep olive-green, brass, tan corduroy",
+  "negativeConstraints": "Never render any text, logo, wordmark, or printed/embossed marking anywhere on the jacket; never add extra pockets, zippers, or hardware beyond the described brass-snap placket and bellows pockets; never change the brass hardware to another metal finish; keep any interior label completely blank and unprinted.",
+  "preservationNotes": "Keep the exact silhouette, deep olive-green wax finish, tan corduroy collar, and brass snap placket identical and consistent across every angle; fabric texture, color saturation, and hardware finish must match exactly from front to back to detail to on-form."
 }

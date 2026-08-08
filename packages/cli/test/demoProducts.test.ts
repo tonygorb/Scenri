@@ -60,7 +60,7 @@ describe('resolveDemoProductImages', () => {
     const jpg = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#a1b2c3' } })
       .jpeg()
       .toBuffer();
-    writeFileSync(join(refDir, 'hero.jpg'), jpg);
+    writeFileSync(join(refDir, 'front.jpg'), jpg);
     home = mkdtempSync(join(tmpdir(), 'sc-demoproduct-home-'));
     core = createCore(home);
   });
@@ -118,7 +118,9 @@ describe('demo product catalog + brief resolution', () => {
     const jpg = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#ddccbb' } })
       .jpeg()
       .toBuffer();
-    writeFileSync(join(refDir, 'hero.jpg'), jpg);
+    // 'aurelia' inherits category 'beauty' from `base`, whose primary
+    // (thumbnail) angle is 'three-quarter' — see primaryAngleFor().
+    writeFileSync(join(refDir, 'three-quarter.jpg'), jpg);
 
     home = mkdtempSync(join(tmpdir(), 'sc-demoproduct-api-home-'));
     core = createCore(home);

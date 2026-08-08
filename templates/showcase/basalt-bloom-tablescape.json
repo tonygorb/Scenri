@@ -1,20 +1,20 @@
 {
-  "id": "aurelia-serum-mirror-salt-flat",
-  "title": "Amber Serum on the Mirror Salt Flat",
-  "category": "beauty",
+  "id": "basalt-bloom-tablescape",
+  "title": "Mineral Water Bottle, Incidental Tablescape",
+  "category": "beverage",
   "brief": {
     "tokens": [
       {
         "t": "product",
-        "id": "aurelia-amber-serum"
+        "id": "basalt-bloom-sparkling-mineral-water"
       },
       {
         "t": "template",
-        "id": "studio-soft-horizon"
+        "id": "lifestyle-incidental-tablescape"
       },
       {
         "t": "text",
-        "v": " warm golden-hour glow, quiet editorial luxury, tall vertical campaign composition"
+        "v": " quiet real-kitchen morning mood, genuinely lived-in setting"
       },
       {
         "t": "format",

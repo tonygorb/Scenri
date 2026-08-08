@@ -1,0 +1,30 @@
+{
+  "id": "meridian-smartwatch-macro-texture",
+  "title": "Smartwatch, Macro Texture Detail",
+  "category": "electronics",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "meridian-pulse-smartwatch",
+        "angle": "front"
+      },
+      {
+        "t": "template",
+        "id": "macro-texture-detail"
+      },
+      {
+        "t": "text",
+        "v": " woven-nylon strap texture, tactile material focus"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

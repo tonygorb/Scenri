@@ -1,0 +1,12 @@
+{
+  "id": "action-motion-freeze",
+  "name": "Action Freeze",
+  "description": "The product caught mid-use — mid-pour, mid-stride, mid-unboxing — genuine motion frozen at its most physically real instant, not a static arrangement.",
+  "lighting": "Hard freeze-flash key, crisp motion-stop",
+  "subject": "either",
+  "collections": ["Social"],
+  "verticals": ["Beverage", "Food & drink", "Sport", "Footwear"],
+  "prompt": "the product caught at the precise instant of genuine physical use — a liquid mid-pour, a lid mid-unbox, a foot mid-stride — real motion frozen with authentic freeze-flash physics: droplets, fabric, or motion-blur trails behaving like true captured motion rather than a static object posed to imply movement, one hard fast key light stopping the action crisply with real specular catch on any moving surface, a clean solid-color or softly blurred neutral backdrop keeping full attention on the action itself, dynamic off-center framing with genuine energy in the composition, no second product, no visible face required, launch-day commercial-energy register",
+  "width": 1080,
+  "height": 1920
+}

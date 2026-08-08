@@ -1,0 +1,12 @@
+{
+  "id": "closeup-face-product-interaction",
+  "name": "Close Interaction",
+  "description": "A tight crop combining part of a face with the product genuinely in use against it — a serum near a cheek, a fragrance near a collarbone, headphones over an ear — closer and more intimate than a standard headshot portrait.",
+  "lighting": "Soft close beauty light, true skin luminosity",
+  "subject": "person",
+  "collections": ["Detail"],
+  "verticals": ["Beauty", "Fragrance", "Electronics"],
+  "prompt": "an extreme close crop combining part of a face — cheek, jaw, collarbone, or ear depending on how the product is actually used — with the product held or worn genuinely against the skin in natural real-world use, soft close beauty-style lighting giving true luminous skin rendering with a real soft catchlight, shallow depth of field with the point of contact between skin and product tack-sharp while the rest of the face and background dissolve into soft blur, natural unposed micro-expression rather than a full smiling portrait, no full face visible, no other people, intimate high-end beauty-campaign register with genuine skin texture, never waxy or over-retouched",
+  "width": 1024,
+  "height": 1280
+}

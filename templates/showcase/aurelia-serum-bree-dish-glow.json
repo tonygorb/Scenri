@@ -1,0 +1,33 @@
+{
+  "id": "aurelia-serum-bree-dish-glow",
+  "title": "Amber Dropper Bottle with Bree, Beauty Dish Glow",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aurelia-amber-serum"
+      },
+      {
+        "t": "character",
+        "id": "bree"
+      },
+      {
+        "t": "template",
+        "id": "beauty-dish-glow-portrait"
+      },
+      {
+        "t": "text",
+        "v": " warm approachable skincare ritual, soft glowing light, the bottle held naturally in one hand at chest height with fingers visibly wrapped around the glass, genuine physical contact, not floating or composited"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

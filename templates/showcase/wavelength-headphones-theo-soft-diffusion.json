@@ -1,0 +1,33 @@
+{
+  "id": "wavelength-headphones-theo-soft-diffusion",
+  "title": "Headphones with Theo, Soft Diffusion Portrait",
+  "category": "electronics",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "wavelength-studio-headphones"
+      },
+      {
+        "t": "character",
+        "id": "theo"
+      },
+      {
+        "t": "template",
+        "id": "soft-diffusion-portrait"
+      },
+      {
+        "t": "text",
+        "v": " calm unguarded listening moment, natural soft light"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

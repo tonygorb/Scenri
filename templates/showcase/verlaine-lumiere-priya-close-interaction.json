@@ -1,0 +1,33 @@
+{
+  "id": "verlaine-lumiere-priya-close-interaction",
+  "title": "Crystal Bottle with Priya, Close Interaction",
+  "category": "fragrance",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-lumiere"
+      },
+      {
+        "t": "character",
+        "id": "priya"
+      },
+      {
+        "t": "template",
+        "id": "closeup-face-product-interaction"
+      },
+      {
+        "t": "text",
+        "v": " poised nocturnal elegance, fragrance held near the collarbone"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

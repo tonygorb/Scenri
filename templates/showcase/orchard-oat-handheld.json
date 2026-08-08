@@ -1,20 +1,20 @@
 {
-  "id": "ferro-sons-beverage-launch-splash",
-  "title": "Yuzu Soda in the Beverage Launch Splash",
+  "id": "orchard-oat-handheld",
+  "title": "Juice Carton, Handheld Offer",
   "category": "beverage",
   "brief": {
     "tokens": [
       {
         "t": "product",
-        "id": "ferro-sons-yuzu-soda"
+        "id": "orchard-oat-cold-pressed-juice"
       },
       {
         "t": "template",
-        "id": "social-beverage-launch-splash"
+        "id": "handheld-offer-crop"
       },
       {
         "t": "text",
-        "v": " high-energy summer refresh, can centered in the full frame, tall vertical campaign composition"
+        "v": " fresh everyday morning ritual, carton offered toward camera"
       },
       {
         "t": "format",

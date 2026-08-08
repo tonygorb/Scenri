@@ -15,6 +15,9 @@ import {
   brandJsonWithResolvedDemoProducts,
   loadDemoProducts,
   demoProductFacetsOf,
+  demoProductResolver,
+  demoProductRefPath,
+  primaryAngleFor,
   type DemoProduct,
 } from './demoProducts.js';
 import { loadShowcase, showcaseFacetsOf, type ShowcaseEntry } from './showcase.js';
@@ -386,21 +389,31 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // brandJsonWithResolvedDemoProducts below. Never touches a real brand's
   // own products[].
   const { demoProducts } = loadDemoProducts(join(templatesRoot, 'demo-products'));
-  const demoProductThumbPath = (id: string) => join(templatesRoot, 'previews', 'demo-products', id, 'hero.jpg');
-  const decorateDemoProduct = (p: DemoProduct) => ({
-    ...p,
-    previewUrl: existsSync(demoProductThumbPath(p.id))
-      ? `/api/demo-product-thumbnails/${p.id}.jpg${mtimeQS(demoProductThumbPath(p.id))}`
-      : null,
-  });
+  const demoProductById = demoProductResolver(demoProducts);
+  // Thumbnail is always the category's "primary" angle (three-quarter where
+  // the category has one, else front) — a slightly dimensional hero shot,
+  // never a creative-campaign image. See primaryAngleFor/demoProductRefPath.
+  const demoProductThumbPath = (id: string) => {
+    const p = demoProductById(id);
+    if (!p) return null;
+    return demoProductRefPath(templatesRoot, id, primaryAngleFor(p.category));
+  };
+  const decorateDemoProduct = (p: DemoProduct) => {
+    const path = demoProductThumbPath(p.id);
+    return {
+      ...p,
+      previewUrl: path && existsSync(path) ? `/api/demo-product-thumbnails/${p.id}.jpg${mtimeQS(path)}` : null,
+    };
+  };
   app.get('/api/demo-products', async () => ({
     demoProducts: demoProducts.map(decorateDemoProduct),
     ...demoProductFacetsOf(demoProducts),
   }));
   app.get('/api/demo-product-thumbnails/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
-    if (!m || !existsSync(demoProductThumbPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
-    return serveJpeg(req, reply, demoProductThumbPath(m[1]));
+    const path = m ? demoProductThumbPath(m[1]) : null;
+    if (!path || !existsSync(path)) return reply.status(404).send({ error: 'no preview' });
+    return serveJpeg(req, reply, path);
   });
 
   // ---- showcase (curated homepage gallery). Each entry is a real recipe —
@@ -701,6 +714,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // template + product resolution
     let finalPrompt = String(prompt ?? '');
     let referenceImages: string[] | undefined;
+    let referenceRoles: ('product' | 'character' | 'reference')[] | undefined;
     let product: any = null;
     if (productId) {
       product = resolveLibraryProduct(core, project.brandId, String(productId));
@@ -711,6 +725,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         .map((f: string) => core.images.pathFor(f.slice(6)));
       if (!referenceImages || referenceImages.length === 0)
         return reply.status(400).send({ error: 'product has no usable shots' });
+      referenceRoles = referenceImages.map(() => 'product' as const);
     }
     let template: Scene | undefined;
     if (templateId) {
@@ -733,6 +748,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (compiled) {
       finalPrompt = compiled.prompt;
       referenceImages = compiled.referenceImages;
+      referenceRoles = compiled.attachments.map((a) => a.role);
       width = compiled.width;
       height = compiled.height;
     }
@@ -746,6 +762,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         height: Number(height),
         count: Math.min(Math.max(1, Number(count)), 8),
         ...(referenceImages && cap > 0 ? { referenceImages: referenceImages.slice(0, cap) } : {}),
+        ...(referenceRoles && cap > 0 ? { referenceRoles: referenceRoles.slice(0, cap) } : {}),
       };
       estimate = await engine.costEstimate(genReq);
       work = (signal) => engine.generate(genReq, signal);

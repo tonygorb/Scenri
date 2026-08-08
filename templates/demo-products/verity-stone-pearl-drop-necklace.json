@@ -1,0 +1,13 @@
+{
+  "id": "verity-stone-pearl-drop-necklace",
+  "name": "Freshwater Pearl Drop Necklace",
+  "category": "jewelry",
+  "description": "A delicate gold-tone cable chain necklace suspending a single lustrous freshwater pearl drop pendant.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "pendant necklace",
+  "materials": "Fine gold-vermeil-look cable chain, genuine-look freshwater pearl drop",
+  "primaryColors": "Warm gold with soft ivory pearl",
+  "negativeConstraints": "Never render a second pearl, charm, gemstone, tag, or any text/engraving anywhere on the chain or clasp; never let the chain read as thick or chunky, it must stay fine and delicate at every angle.",
+  "preservationNotes": "Keep the pearl's teardrop shape, size, and soft ivory sheen identical across every angle; keep the clasp hardware plain, blank, unmarked metal in every shot, no tag or stamping."
+}

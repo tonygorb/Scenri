@@ -1,0 +1,12 @@
+{
+  "id": "full-length-mirror-ootd",
+  "name": "Mirror OOTD",
+  "description": "A full-length candid mirror shot in a real, plainly-furnished bedroom — the outfit-of-the-day register a real customer would actually post, distinct from a posed studio campaign shot.",
+  "lighting": "Soft natural room light, true mirror reflection",
+  "subject": "person",
+  "collections": ["Editorial"],
+  "verticals": ["Apparel", "Footwear", "Accessories"],
+  "prompt": "a full-length candid mirror reflection in a real, plainly-furnished bedroom with a floor-length mirror, soft natural window light falling across the room with true ambient color temperature, the figure standing in a natural relaxed stance holding a phone loosely at chest height (the phone itself and any screen content left ambiguous and unreadable, never a rendered logo or interface), genuine true-to-life mirror reflection with authentic minor reflection softness rather than a mirror-sharp duplicate, a plain uncluttered room in the background with ordinary furniture kept softly out of focus, full outfit visible head to shoe, unposed everyday-real energy rather than an editorial pose, no visible face required if angled away, no second person, documentary-plain personal-style register",
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,13 @@
+{
+  "id": "basalt-bloom-sparkling-mineral-water",
+  "name": "Crown-Capped Glass Mineral Water Bottle",
+  "category": "beverage",
+  "description": "A pressed clear-glass bottle with a rounded shoulder and narrow neck, holding a faintly tinted, lightly carbonated liquid and sealed with a plain silver tin-plated steel crown cap.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "glass sparkling-water bottle with crown cap",
+  "materials": "Pressed clear glass bottle body; tin-plated steel crown cap.",
+  "primaryColors": "Clear glass with a natural faint water tint; silver metal cap.",
+  "negativeConstraints": "Never render any text, logo, wordmark, printing, or embossed lettering anywhere on the glass or cap; never add a label or emblem; no props, hands, or presenter in frame; background stays a clean white or very light neutral studio backdrop with soft even lighting only.",
+  "preservationNotes": "Keep the bottle's pressed-glass silhouette, shoulder taper, neck length, faint natural water tint, and plain silver crown-cap shape identical across all four angles; do not simplify the glass's subtle panel facets or the cap's fluted crimp pattern."
+}

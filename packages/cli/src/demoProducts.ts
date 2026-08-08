@@ -5,12 +5,12 @@ import sharp from 'sharp';
 import type { Core } from '@scenri/core';
 
 /**
- * A demo product is a fictional-but-premium product with one locked
- * reference photo, curated so a showcase recipe can attach a real, visually
- * credible product without needing a real customer's own upload. Resolves
- * into a brief exactly the way a Presenter resolves into a `character`
- * token — a read-through catalog, never copied into a real brand's own
- * `products[]`.
+ * A demo product is a fictional-but-premium product with a full multi-angle
+ * reference set (see PRODUCT_ANGLES_BY_CATEGORY below), curated so a
+ * showcase recipe — or a real user with no products of their own yet — can
+ * attach a visually credible product without any upload. Resolves into a
+ * brief exactly the way a Presenter resolves into a `character` token — a
+ * read-through catalog, never copied into a real brand's own `products[]`.
  */
 export interface DemoProduct {
   id: string;
@@ -20,6 +20,45 @@ export interface DemoProduct {
   description: string;
   width: number;
   height: number;
+  /** Fictional brand/house name, distinct from the (sometimes brand-inclusive) `name`. */
+  brand?: string;
+  /** Physical format within the category, e.g. "rollerball" vs "spray bottle". */
+  subcategory?: string;
+  materials?: string;
+  primaryColors?: string;
+  /** Scene collection/vertical tags this product photographs well against. */
+  suitableScenes?: string[];
+  /** Things the model should never do to this product (extra guardrail text). */
+  negativeConstraints?: string;
+  /** Extra fidelity directive appended alongside the standard "preserve faithfully" line. */
+  preservationNotes?: string;
+}
+
+/**
+ * Category-specific multi-angle reference plan, mirroring
+ * apps/studio/src/productCategories.ts's `angles` field exactly (kept as a
+ * self-contained constant here rather than imported cross-package, same
+ * precedent as presenters.ts's own PRESENTER_ANGLES). Every demo product
+ * gets one photo per angle key in its category's list.
+ */
+export const PRODUCT_ANGLES_BY_CATEGORY: Record<string, string[]> = {
+  fragrance: ['front', 'three-quarter', 'side', 'rear-label', 'cap-detail', 'material-closeup'],
+  footwear: ['lateral-side', 'medial-side', 'top', 'rear', 'three-quarter', 'sole-detail'],
+  apparel: ['front', 'back', 'detail-fabric', 'on-form'],
+  furniture: ['front', 'three-quarter', 'side', 'detail-material', 'in-scale'],
+  beauty: ['front', 'three-quarter', 'applicator-detail', 'label'],
+  electronics: ['front', 'three-quarter', 'side', 'ports-detail'],
+  jewelry: ['front', 'three-quarter', 'clasp-detail', 'worn-scale'],
+  accessories: ['front', 'three-quarter', 'detail', 'worn-scale'],
+  beverage: ['front', 'three-quarter', 'label', 'cap-closure'],
+  food: ['front', 'three-quarter', 'ingredient-detail', 'packaging-label'],
+  other: ['front', 'three-quarter', 'side', 'detail'],
+};
+
+/** The "slightly dimensional, not flat" angle used as the card/chip thumbnail — three-quarter where the category has one, else front. */
+export function primaryAngleFor(category: string): string {
+  const angles = PRODUCT_ANGLES_BY_CATEGORY[category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
+  return angles.includes('three-quarter') ? 'three-quarter' : (angles[0] ?? 'front');
 }
 
 const ID = /^[a-z0-9-]+$/;
@@ -70,25 +109,44 @@ export function demoProductFacetsOf(demoProducts: DemoProduct[]): { categories: 
   return { categories: [...categories].sort() };
 }
 
-export function demoProductRefPath(templatesRoot: string, id: string): string {
-  return join(templatesRoot, 'previews', 'demo-products', id, 'hero.jpg');
+export function demoProductRefPath(templatesRoot: string, id: string, angle: string): string {
+  return join(templatesRoot, 'previews', 'demo-products', id, `${angle}.jpg`);
 }
 
 /**
- * Loads one curated demo product's hero photo into the image store, hashing
- * it on first use. A read-through cache, not a write to any brand's data —
- * nothing here touches `products[]`.
+ * Loads one curated demo product's full multi-angle reference set into the
+ * image store, hashing each on first use — mirrors resolvePresenterImages
+ * exactly. A read-through cache, not a write to any brand's data — nothing
+ * here touches `products[]`.
  */
 export async function resolveDemoProductImages(
   core: Core,
   templatesRoot: string,
   product: DemoProduct,
-): Promise<{ id: string; name: string; shots: { file: string; angle: string; locked: boolean }[] } | null> {
-  const path = demoProductRefPath(templatesRoot, product.id);
-  if (!existsSync(path)) return null;
-  const png = await sharp(readFileSync(path)).png().toBuffer();
-  const hash = core.images.save(png);
-  return { id: product.id, name: product.name, shots: [{ file: `asset:${hash}`, angle: 'hero', locked: true }] };
+): Promise<{
+  id: string;
+  name: string;
+  shots: { file: string; angle: string; locked: boolean }[];
+  preservationNotes?: string;
+  negativeConstraints?: string;
+} | null> {
+  const angles = PRODUCT_ANGLES_BY_CATEGORY[product.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
+  const shots: { file: string; angle: string; locked: boolean }[] = [];
+  for (const angle of angles) {
+    const path = demoProductRefPath(templatesRoot, product.id, angle);
+    if (!existsSync(path)) continue;
+    const png = await sharp(readFileSync(path)).png().toBuffer();
+    const hash = core.images.save(png);
+    shots.push({ file: `asset:${hash}`, angle, locked: true });
+  }
+  if (!shots.length) return null;
+  return {
+    id: product.id,
+    name: product.name,
+    shots,
+    ...(product.preservationNotes ? { preservationNotes: product.preservationNotes } : {}),
+    ...(product.negativeConstraints ? { negativeConstraints: product.negativeConstraints } : {}),
+  };
 }
 
 /**

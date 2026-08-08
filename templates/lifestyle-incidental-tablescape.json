@@ -1,0 +1,12 @@
+{
+  "id": "lifestyle-incidental-tablescape",
+  "name": "Incidental Tablescape",
+  "description": "The product sits small and incidental inside a wide, real, lived-in room — not hero-centered, not the obvious focal point, exactly the way it would actually turn up in someone's real life.",
+  "lighting": "Ambient real-room daylight, no studio key",
+  "subject": "product",
+  "collections": ["Interiors"],
+  "verticals": ["Home", "Beauty", "Fragrance", "Food & drink"],
+  "prompt": "a wide shot of a real, plainly lived-in room — a corner of a kitchen, a reading nook, a bathroom counter — with the product placed small and genuinely incidental within the scene rather than centered or spotlighted, ordinary ambient daylight from a real window with no added studio key light, authentic everyday clutter kept minimal and believable (a book, a mug, a folded throw) never staged into a symmetrical composition, natural depth of field with the whole room readably in focus rather than an artificial product-only sharpness, true-to-life color temperature and material response throughout the room, no visible face, no other people, no exotic or styled props, the product identifiable but not the obvious hero of the frame, documentary real-life register",
+  "width": 1024,
+  "height": 1024
+}

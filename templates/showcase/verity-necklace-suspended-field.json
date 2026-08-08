@@ -1,0 +1,29 @@
+{
+  "id": "verity-necklace-suspended-field",
+  "title": "Pearl Necklace in the Suspended Color Field",
+  "category": "jewelry",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-pearl-drop-necklace"
+      },
+      {
+        "t": "template",
+        "id": "suspended-color-field"
+      },
+      {
+        "t": "text",
+        "v": " weightless graphic minimalism, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

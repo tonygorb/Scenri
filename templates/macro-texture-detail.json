@@ -1,0 +1,12 @@
+{
+  "id": "macro-texture-detail",
+  "name": "Macro Texture Detail",
+  "description": "An extreme close-up on the product's own surface — no full silhouette, no context, just genuine material texture and craftsmanship filling the frame. The register of a luxury-house detail shot, not a full packshot.",
+  "lighting": "Single soft raking light, real specular grain",
+  "subject": "product",
+  "collections": ["Detail"],
+  "verticals": ["Beauty", "Fragrance", "Jewelry", "Accessories", "Electronics"],
+  "prompt": "an extreme macro close-up filling the entire frame with the product's own surface — a fragment of label edge, a stitched seam, a brushed-metal grain, or a glass facet, whichever the material actually offers — genuine texture responding to a single soft raking light from one side so real grain, weave, or brushed-metal striations catch true specular highlights rather than a smoothed digital sheen, razor-shallow depth of field with only a thin plane in true focus, the rest dissolving into soft creamy blur, no full product silhouette visible, no background beyond soft out-of-focus neutral tone, no props, no hands, no second object in frame, immaculate close-range commercial clarity",
+  "width": 1024,
+  "height": 1024
+}

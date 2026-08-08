@@ -1,0 +1,12 @@
+{
+  "id": "handheld-offer-crop",
+  "name": "Handheld Offer",
+  "description": "A hand extends the product toward camera, offering it directly to the viewer — the intimate, human register of a real person sharing something they love, not a stand-alone hero shot.",
+  "lighting": "Soft window-adjacent light, natural falloff",
+  "subject": "either",
+  "collections": ["Detail"],
+  "verticals": ["Beauty", "Fragrance", "Beverage", "Food & drink", "Accessories"],
+  "prompt": "a hand and forearm extending the product toward the camera at a natural offering angle, the hand and wrist in soft focus at the edge of frame while the product itself stays tack-sharp and centered, soft window-adjacent light falling naturally across the skin and product with true warm falloff and no artificial studio rig visible, a softly blurred neutral indoor background with no discernible props or furniture, genuine skin texture on the hand with no over-smoothing, no face in frame, no second person, natural unposed finger placement that doesn't obscure the product's label or branding, intimate hand-to-camera commercial warmth",
+  "width": 1024,
+  "height": 1280
+}

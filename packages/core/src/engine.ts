@@ -21,6 +21,8 @@ export interface GenerateRequest {
   prompt: string;
   brand: BrandContext;
   referenceImages?: string[];
+  /** Role of each entry in `referenceImages`, same order/length when present. */
+  referenceRoles?: ('product' | 'character' | 'reference')[];
   width: number;
   height: number;
   count: number;

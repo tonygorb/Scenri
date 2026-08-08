@@ -1,0 +1,29 @@
+{
+  "id": "birchwood-derby-cut-paper-stage",
+  "title": "Leather Derby on the Cut-Paper Stage",
+  "category": "footwear",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birchwood-page-leather-derby"
+      },
+      {
+        "t": "template",
+        "id": "cut-paper-stage"
+      },
+      {
+        "t": "text",
+        "v": " bold graphic editorial finish, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

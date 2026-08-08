@@ -131,7 +131,12 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         localOnly: true, // OSS-local only — ToS boundary, see docs/STRATEGY.md §13
         supportsEdit: true,
         supportsMask: false,
-        maxReferenceImages: 1,
+        // Raised from 1: the underlying `codex` binary's --image flag is
+        // genuinely variadic (confirmed via `codex exec --help`), so this was
+        // a self-imposed cap, not a real constraint. A presenter+product
+        // brief can now send both a face reference and a product reference
+        // instead of being forced to sacrifice one for the other.
+        maxReferenceImages: 3,
       };
     },
 
@@ -167,17 +172,19 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // batch regularly blew the per-run timeout, and parallel runs make the
       // timeout apply per image instead of per batch.
       const count = Math.max(1, req.count);
-      const ref = req.referenceImages?.[0];
+      const refs = req.referenceImages ?? [];
+      const roles = req.referenceRoles ?? refs.map(() => 'reference' as const);
       const jobs = Array.from(
         { length: count },
         (_, i) => async () =>
           withWorkDir(async (dir) => {
-            const args = execArgs(dir, buildPrompt(req, i, Boolean(ref)));
-            if (ref) {
-              await copyFile(ref, join(dir, 'product.png'));
+            const args = execArgs(dir, buildPrompt(req, i, roles));
+            for (const [idx, ref] of refs.entries()) {
+              const dest = join(dir, `ref-${idx}.png`);
+              await copyFile(ref, dest);
               // --image is variadic; the = form binds exactly one value so the
               // positional prompt isn't swallowed as a second image path.
-              args.splice(args.length - 1, 0, `--image=${join(dir, 'product.png')}`);
+              args.splice(args.length - 1, 0, `--image=${dest}`);
             }
             await runCodex(args, signal);
             return collectImages(dir);
@@ -232,13 +239,23 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
 
   // Wording matters: codex's imagegen skill needs shell access (cp/sips) to
   // place the file — forbid browsing/exploration, but NOT running commands.
-  function buildPrompt(req: GenerateRequest, index: number, hasProductRef = false): string {
+  function buildPrompt(req: GenerateRequest, index: number, roles: ('product' | 'character' | 'reference')[]): string {
+    const roleDirective: Record<'product' | 'character' | 'reference', string> = {
+      product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
+      character: 'the exact person — preserve their face, hair and build faithfully; do not restyle them',
+      reference: 'a reference to match in composition, lighting and treatment',
+    };
+    const refDirectives = roles
+      .map((role, i) =>
+        roles.length > 1
+          ? `Attached image ${i + 1} is ${roleDirective[role]}.`
+          : `The attached image is ${roleDirective[role]}.`,
+      )
+      .join(' ');
     return (
       `Generate one flawless, professional-grade image immediately using your image generation tool, ` +
       `${req.width}x${req.height}: ${req.prompt}.` +
-      (hasProductRef
-        ? ` The attached image is the exact product — preserve its label, shape, colors and design faithfully; do not redesign it.`
-        : '') +
+      (refDirectives ? ` ${refDirectives}` : '') +
       `${brandBlock(req)}` +
       ` Do not browse the web or explore files. Save the image in the current directory as out-1.png ` +
       `(you may run the commands needed to save and resize it). Nothing else.` +

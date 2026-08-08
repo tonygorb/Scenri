@@ -1,0 +1,13 @@
+{
+  "id": "verity-stone-gold-hoop-earrings",
+  "name": "Hammered Gold Hoop Earrings",
+  "category": "jewelry",
+  "description": "A matched pair of polished gold-tone hoop earrings with a subtle hammered texture and a hinge-snap post closure.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "hoop earrings",
+  "materials": "Hammered gold-tone metal hoops with a polished post and hinge-snap closure",
+  "primaryColors": "Warm polished gold",
+  "negativeConstraints": "Never render more than two hoops or a mismatched pair, the two earrings must always be identical in size and diameter; never let the hammered texture read as deep, rough, or random; never add gemstones, dangling charms, or any text/engraving near the post or on the hoop.",
+  "preservationNotes": "Keep the hoop diameter, wire gauge, and hammered-texture pattern identical between both earrings of the pair across every angle; keep the post and hinge closure plain, blank, unmarked metal in every shot."
+}

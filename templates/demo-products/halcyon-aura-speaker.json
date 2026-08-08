@@ -1,8 +1,13 @@
 {
   "id": "halcyon-aura-speaker",
-  "name": "Halcyon — Aura Speaker",
+  "name": "Fabric-Grille Cylindrical Speaker",
   "category": "electronics",
-  "description": "A compact cylindrical wireless speaker in brushed warm-silver aluminum with a soft fabric grille band.",
+  "description": "A compact cylindrical wireless speaker with a brushed warm-silver aluminum shell, a soft woven charcoal fabric grille band around its middle, and a single matte amber-lit control button on the flat top.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "subcategory": "cylindrical wireless speaker",
+  "materials": "brushed warm-silver aluminum shell, soft woven charcoal fabric grille band, matte amber-lit top button, rubberized base ring",
+  "primaryColors": "warm silver, charcoal grey, amber accent",
+  "negativeConstraints": "never render any text, logo, wordmark, engraving, or printing anywhere on the speaker body, rim, button, or base; never render a second button, a visible cable, or any label; never let the fabric grille read as printed texture rather than genuine woven fabric",
+  "preservationNotes": "the brushed-aluminum finish, single amber top button, charcoal fabric grille band, rubberized base ring, and completely plain unmarked surfaces must read identically in every angle, same proportions throughout"
 }

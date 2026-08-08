@@ -1,18 +1,18 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { Badge, Dialog } from '@radix-ui/themes';
-import { ImageSquare, Package, Sparkle, Star, UsersThree, WarningCircle, X, XCircle } from '@phosphor-icons/react';
-import { hasNoShots, imgUrl, type Brand } from '../api.js';
+import { ImageSquare, Package, Sparkle, UsersThree, X } from '@phosphor-icons/react';
+import type { Brand } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { hubPath, presenterPath, presentersPath, shotPath } from '../routes.js';
+import { hubPath, presenterPath, presentersPath, scenePath, scenesPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
 import { categoryLabel } from '../productCategories.js';
 import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
-import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from '../layout/masonry.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
+import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 
 /**
  * The launcher.
@@ -25,16 +25,10 @@ import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js
  * So there is no assets panel, no lens row and no selection here. Every control
  * on this page ends in a navigation to Create, carrying whatever it chose.
  */
-const RECENT = 12;
-
-/** Same fixed column width Create's own grid-size slider starts at
- * (`TILE_DEFAULT` in Create.tsx) — Home has no slider to drag, but the two
- * feeds should still read as the same kind of grid. */
-const HOME_TILE = 240;
-
 export function HomeView() {
   const {
     scenes: templates,
+    loaded: scenesLoaded,
     presenters,
     presentersLoaded,
     demoProducts,
@@ -45,32 +39,11 @@ export function HomeView() {
     refetchShowcase,
     refresh,
   } = useAppData();
-  const { brand, nodes, loaded, products: library } = useBrand();
+  const { brand, products: library } = useBrand();
   const navigate = useNavigate();
   const applyShowcase = useApplyShowcase();
   const [categoryParam, setCategory] = useFilterParam('category');
   const category = categoryParam || null;
-  // a callback ref rather than useRef: the feed isn't in the tree at all
-  // until `loaded` and `recent.length > 0`, and an effect keyed on a ref
-  // object would never see it arrive — same reasoning as Canvas's own feed.
-  const [feedEl, setFeedEl] = useState<HTMLDivElement | null>(null);
-  const { tile: colWidth, cols: fitting } = masonryLayout(
-    useElementWidth(feedEl),
-    HOME_TILE,
-    useViewportWidth() < PHONE,
-  );
-
-  /** Newest first. The strip is a glance at the work, not the work itself —
-   * including work still running or that failed, so leaving mid-generation
-   * or coming back to a failure doesn't read as "nothing happened". */
-  const recent = useMemo(
-    () =>
-      [...nodes]
-        .filter((n) => n.kind !== 'root' && (n.status !== 'done' || n.images.length > 0))
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, RECENT),
-    [nodes],
-  );
 
   /** Every way in lands on the same hub, differing only in what it carries. */
   const toCreate = (qs?: Record<string, string>) => {
@@ -120,10 +93,6 @@ export function HomeView() {
     const sceneId = templates.find((t) => favs.includes(t.id))?.id ?? templates[0]?.id;
     toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
-
-  /** Never more columns than there are tiles to put in them, or the row ends
-   * in empty columns — same guard as Canvas's own feed. */
-  const recentCols = Math.max(1, Math.min(fitting, recent.length));
 
   return (
     <div className="sc-home">
@@ -215,8 +184,8 @@ export function HomeView() {
         )}
 
         {!presentersLoaded && (
-          <div className="sc-tplrow" aria-hidden>
-            <PresenterCardSkeleton size="grid" count={4} />
+          <div className="sc-masonry" aria-hidden>
+            <PresenterCardSkeleton size="grid" count={8} />
           </div>
         )}
 
@@ -228,7 +197,7 @@ export function HomeView() {
                 Browse presenters
               </button>
             </div>
-            <div className="sc-tplrow">
+            <div className="sc-masonry">
               {presenters.slice(0, 8).map((p) => (
                 <PresenterCard
                   key={p.id}
@@ -242,87 +211,32 @@ export function HomeView() {
           </>
         )}
 
-        <div className="sc-sec-head">
-          <span className="sc-sec-title">Recent work</span>
-          {recent.length > 0 && (
-            <button type="button" className="sc-sec-more" onClick={() => toCreate()}>
-              Open Create
-            </button>
-          )}
-        </div>
+        {!scenesLoaded && (
+          <div className="sc-masonry" aria-hidden>
+            <SceneCardSkeleton size="grid" count={8} />
+          </div>
+        )}
 
-        {/* loaded, so an empty brand is told it is empty rather than left blank */}
-        {!loaded && <div className="sc-tplrow" aria-hidden />}
-        {loaded && hasNoShots(nodes) && (
-          <div className="sc-feed-empty">
-            <p>Nothing yet.</p>
-            <button type="button" className="sc-btn" onClick={() => toCreate({ compose: '1' })}>
-              Start from scratch
-            </button>
-          </div>
-        )}
-        {loaded && !hasNoShots(nodes) && recent.length === 0 && (
-          <p className="sc-feed-empty">Still working on your first shots. Check back in a moment.</p>
-        )}
-        {loaded && recent.length > 0 && (
-          <div className="sc-feed" ref={setFeedEl} style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}>
-            {Array.from({ length: recentCols }, (_, c) => (
-              // Dealt round-robin like Canvas's own feed, for the same reason:
-              // the first row then reads left to right in sorted order, and a
-              // resize remounts columns rather than reshuffling tiles between
-              // surviving ones.
-              // biome-ignore lint/suspicious/noArrayIndexKey: position, not identity — see Canvas.tsx's own feed for the identical pattern.
-              <div className="sc-feed-col" key={`col-${recentCols}-${c}`}>
-                {recent
-                  .filter((_, i) => i % recentCols === c)
-                  .map((n) => (
-                    <button
-                      type="button"
-                      key={n.id}
-                      className="sc-cell"
-                      data-running={n.status === 'running' || undefined}
-                      data-failed={n.status === 'error' || undefined}
-                      data-cancelled={n.status === 'cancelled' || undefined}
-                      onClick={() => navigate(shotPath(brand, null, n.id))}
-                      title={
-                        n.status === 'running'
-                          ? 'Generating…'
-                          : n.status === 'error'
-                            ? n.error?.slice(0, 60) || 'Failed'
-                            : n.status === 'cancelled'
-                              ? 'Cancelled'
-                              : n.prompt
-                      }
-                    >
-                      {n.status === 'done' && n.images[0] && <img src={imgUrl(n.images[0])} alt="" loading="lazy" />}
-                      {n.status === 'running' && (
-                        <>
-                          <span className="sc-shimmer" />
-                          <span className="sc-cell-tag">Generating…</span>
-                        </>
-                      )}
-                      {n.status === 'error' && (
-                        <span className="sc-cell-failed">
-                          <WarningCircle size={16} />
-                          <span>{n.error?.slice(0, 40) || 'Failed'}</span>
-                        </span>
-                      )}
-                      {n.status === 'cancelled' && (
-                        <span className="sc-cell-failed">
-                          <XCircle size={16} />
-                          <span>Cancelled</span>
-                        </span>
-                      )}
-                      {n.status === 'done' && n.kept && (
-                        <span className="sc-cell-star">
-                          <Star size={13} weight="fill" />
-                        </span>
-                      )}
-                    </button>
-                  ))}
-              </div>
-            ))}
-          </div>
+        {scenesLoaded && templates.length > 0 && (
+          <>
+            <div className="sc-sec-head">
+              <span className="sc-sec-title">Scenes</span>
+              <button type="button" className="sc-sec-more" onClick={() => navigate(scenesPath(brand))}>
+                Browse scenes
+              </button>
+            </div>
+            <div className="sc-masonry">
+              {templates.slice(0, 8).map((s) => (
+                <SceneCard
+                  key={s.id}
+                  scene={s}
+                  variant="navigate"
+                  size="grid"
+                  onOpen={(id) => navigate(scenePath(brand, id))}
+                />
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>

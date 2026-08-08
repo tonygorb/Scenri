@@ -1,8 +1,13 @@
 {
   "id": "ferro-sons-yuzu-soda",
-  "name": "Ferro & Sons — Sparkling Yuzu Soda",
+  "name": "Matte-Finish Aluminum Soda Can",
   "category": "beverage",
-  "description": "A slim aluminum can in a matte pale-yellow finish with a thin citrus-green stripe, condensation beading on the surface.",
+  "description": "A slim, standard-format aluminum beverage can with a smooth matte powder-coat finish in pale yellow, accented by a narrow matte citrus-green stripe wrapping the mid-body, sealed with a standard brushed-aluminum pull-tab lid.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "subcategory": "aluminum beverage can",
+  "materials": "Matte-finish powder-coated aluminum can body; bare brushed aluminum lid, rivet, and pull-tab.",
+  "primaryColors": "Matte pale yellow body with a matte citrus-green horizontal stripe; bare silver aluminum lid.",
+  "negativeConstraints": "Never render any text, logo, wordmark, printing, or embossed lettering anywhere on the can; never add a label or emblem; no props, hands, or presenter in frame; background stays a clean white or very light neutral studio backdrop with soft even lighting only.",
+  "preservationNotes": "Keep the can's slim cylindrical proportions, matte pale-yellow body color, and the citrus-green stripe's width and vertical position identical and consistent across all four angles; lid geometry (rim, dome, rivet, pull-tab) must match exactly between the front/three-quarter views and the cap-closure macro."
 }

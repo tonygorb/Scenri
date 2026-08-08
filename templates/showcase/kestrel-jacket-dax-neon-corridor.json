@@ -1,0 +1,33 @@
+{
+  "id": "kestrel-jacket-dax-neon-corridor",
+  "title": "Field Jacket with Dax, Neon Tube Corridor",
+  "category": "apparel",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "kestrel-waxed-field-jacket"
+      },
+      {
+        "t": "character",
+        "id": "dax"
+      },
+      {
+        "t": "template",
+        "id": "neon-tube-corridor"
+      },
+      {
+        "t": "text",
+        "v": " worn open over a plain charcoal crewneck tee, dark straight-leg denim, and clean brown leather boots, fully dressed head to toe, no bare feet, gritty after-dark confidence"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

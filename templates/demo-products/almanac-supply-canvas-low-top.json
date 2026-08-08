@@ -1,0 +1,13 @@
+{
+  "id": "almanac-supply-canvas-low-top",
+  "name": "Canvas Low-Top Sneaker",
+  "category": "footwear",
+  "description": "A minimalist canvas low-top sneaker in heathered off-white cotton canvas with a natural gum rubber sole and toe cap, cotton laces, and brass eyelets.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "canvas low-top sneaker",
+  "materials": "heathered cotton canvas upper, natural gum rubber sole and toe cap, cotton laces, brass eyelets",
+  "primaryColors": "heathered off-white, natural gum-tan sole",
+  "negativeConstraints": "never render any text, logo, wordmark, tab, patch, or printed/woven lettering anywhere on the shoe; never add lugged tread to the sole, it stays smooth ribbed vulcanized gum rubber; never flatten the canvas into a solid uniform color, it must keep its heathered fleck",
+  "preservationNotes": "keep the gum rubber sole translucent honey-tan, never painted solid white or grey, and keep the canvas weave's heathered two-tone flecking visible up close across every angle; keep all surfaces entirely plain and unmarked"
+}

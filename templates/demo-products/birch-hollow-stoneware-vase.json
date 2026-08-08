@@ -1,0 +1,13 @@
+{
+  "id": "birch-hollow-stoneware-vase",
+  "name": "Hand-Thrown Speckled Stoneware Vase",
+  "category": "furniture",
+  "description": "A hand-thrown stoneware vase with a rounded, gently asymmetric body that tapers into a short cylindrical neck, finished in a matte speckled glaze.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "vase",
+  "materials": "Hand-thrown stoneware clay body with a matte, flecked speckled glaze finish; unglazed footring.",
+  "primaryColors": "Warm grey base with dense oatmeal speckle throughout",
+  "negativeConstraints": "Never render any text, maker's mark, stamp, or logo on the vase; never add a printed or painted pattern; keep the glaze speckling random and non-repeating.",
+  "preservationNotes": "Keep the same asymmetric rounded-body-to-cylindrical-neck silhouette, roughly 32cm proportions, warm-grey matte glaze with oatmeal speckle density, and unglazed footring consistent across all five angles."
+}

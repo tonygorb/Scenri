@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@radix-ui/themes';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
-import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type TreeNode } from '../api.js';
+import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { isRecommendedScene, isRecommendedPresenter } from '../compat.js';
+import { categoryLabel } from '../productCategories.js';
 import type { SentenceToken } from './BriefInput.js';
 import { keepCaret } from './line.js';
 
@@ -13,7 +14,7 @@ const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Ne
 const ALL_TAB_PREVIEW = 8;
 /** On a single tab, enough to browse; past this, searching beats scrolling. */
 const TAB_CAP = 60;
-const TABS = ['All', 'Products', 'Presenters', 'Scenes', 'Colors', 'Shots'] as const;
+const TABS = ['All', 'Products', 'Library', 'Presenters', 'Scenes', 'Colors', 'Shots'] as const;
 export type AttachTab = (typeof TABS)[number];
 type Tab = AttachTab;
 
@@ -38,6 +39,7 @@ export function AttachPanel({
   brand,
   templates,
   presenters,
+  demoProducts,
   shots,
   initialTab = 'All',
   activeProductCategory,
@@ -49,6 +51,7 @@ export function AttachPanel({
   brand: Brand;
   templates: Scene[];
   presenters: Presenter[];
+  demoProducts: DemoProduct[];
   shots: TreeNode[];
   initialTab?: AttachTab;
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
@@ -122,6 +125,21 @@ export function AttachPanel({
           run: () => onToken({ t: 'product', id: pr.id }),
         }),
       ),
+      // Scenri's own curated, always-available starter products — a
+      // separate tab (not mixed into "Products"), mirroring exactly how
+      // Presenters is already a global catalog independent of the brand's
+      // own data. Never written into the brand's own products[]; selecting
+      // one just drops the same {t:'product'} token a real product would.
+      ...demoProducts.map(
+        (pr): Card => ({
+          key: `dp:${pr.id}`,
+          tab: 'Library',
+          label: pr.name,
+          sub: categoryLabel(pr.category) ?? pr.category,
+          thumb: pr.previewUrl ?? null,
+          run: () => onToken({ t: 'product', id: pr.id }),
+        }),
+      ),
       ...presenters.map(
         (pr): Card => ({
           key: `h:${pr.id}`,
@@ -165,13 +183,13 @@ export function AttachPanel({
         }),
       ),
     ];
-  }, [brand, library, templates, presenters, shots, activeProductCategory, onToken, onTemplate]);
+  }, [brand, library, templates, presenters, demoProducts, shots, activeProductCategory, onToken, onTemplate]);
 
   const query = q.trim().toLowerCase();
   const match = (c: Card) => !query || `${c.label} ${c.sub ?? ''}`.toLowerCase().includes(query);
   const inTab = (c: Card) => tab === 'All' || c.tab === tab;
   const shown = cards.filter((c) => inTab(c) && match(c));
-  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Colors', 'Shots'];
+  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Library', 'Presenters', 'Scenes', 'Colors', 'Shots'];
 
   const card = (c: Card) => (
     <button
@@ -246,7 +264,15 @@ export function AttachPanel({
             const rest = items.length - preview.length;
             return (
               <div key={g} className="sc-ap-group">
-                <div className="sc-eyebrow">{g === 'Shots' ? 'Recent shots' : g === 'Colors' ? 'Brand colors' : g}</div>
+                <div className="sc-eyebrow">
+                  {g === 'Shots'
+                    ? 'Recent shots'
+                    : g === 'Colors'
+                      ? 'Brand colors'
+                      : g === 'Library'
+                        ? 'Scenri Library'
+                        : g}
+                </div>
                 <div className="sc-ap-grid">{preview.map(card)}</div>
                 {rest > 0 && (
                   <button type="button" className="sc-amore" onClick={() => setTab(g)}>

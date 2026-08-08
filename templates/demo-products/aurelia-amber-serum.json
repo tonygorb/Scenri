@@ -1,8 +1,13 @@
 {
   "id": "aurelia-amber-serum",
-  "name": "Aurelia — Amber Renewal Serum",
+  "name": "Amber Glass Dropper Bottle",
   "category": "beauty",
-  "description": "A minimalist amber-glass dropper bottle with a brushed matte-gold collar, holding a warm-toned facial serum.",
+  "description": "A slender amber-glass dropper bottle with a brushed matte-gold metal collar and dropper cap, wrapped with a plain matte cream-colored paper band, sized for a facial serum or treatment oil.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "subcategory": "amber glass dropper bottle",
+  "materials": "Amber (dark honey-brown) glass bottle, brushed matte-gold metal collar and dropper cap, matte-coated cream-colored paper band left blank and unprinted",
+  "primaryColors": "Warm amber/honey-brown glass, matte gold hardware, cream band",
+  "negativeConstraints": "Never render any text, wordmark, logo, printing, embossing, or engraving anywhere on the glass, cap, collar, or band; never add a second cap or bottle; never shift the glass color away from amber/honey-brown; no props, hands, or presenter in frame.",
+  "preservationNotes": "Keep the bottle's slender cylindrical silhouette, the collar and cap's matte (never shiny/polished) gold finish, and the band's plain cream paper tone and blank surface identical in shape, proportion, and material across every angle."
 }

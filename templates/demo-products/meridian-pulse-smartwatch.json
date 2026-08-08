@@ -1,0 +1,13 @@
+{
+  "id": "meridian-pulse-smartwatch",
+  "name": "Titanium-Case Rounded-Square Smartwatch",
+  "category": "electronics",
+  "description": "A minimalist rounded-square smartwatch with a matte titanium-grey aluminum case, a sapphire-coated black display glass, a woven stone-grey nylon strap, and a polished stainless-steel side crown.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "rounded-square smartwatch",
+  "materials": "matte titanium-grey aluminum case, sapphire-coated black display glass, woven stone-grey nylon strap, polished stainless-steel side crown",
+  "primaryColors": "titanium grey, stone-grey nylon, black display glass",
+  "negativeConstraints": "never render any text, logo, wordmark, engraving, or printing anywhere on the case, case back, crown, or strap; never render a second crown or button, or a visible pixel grid on the display glass; never swap the nylon strap for a metal bracelet or leather band",
+  "preservationNotes": "the matte titanium case finish, stone-grey nylon strap weave, single side crown, sapphire display glass, and completely plain unmarked case back must read identically in every angle, same case proportions and crown position throughout"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "almanac-canvas-product-drop",
+  "title": "Canvas Low-Top in the Product Drop Hype",
+  "category": "footwear",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "almanac-supply-canvas-low-top"
+      },
+      {
+        "t": "template",
+        "id": "social-product-drop-hype"
+      },
+      {
+        "t": "text",
+        "v": " high-energy launch-moment framing, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

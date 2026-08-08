@@ -281,6 +281,8 @@ export interface DemoProduct {
   width: number;
   height: number;
   previewUrl?: string | null;
+  brand?: string;
+  subcategory?: string;
 }
 
 /**

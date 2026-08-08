@@ -1,0 +1,13 @@
+{
+  "id": "lumen-co-signet-ring",
+  "name": "Brushed Gold Signet Ring",
+  "category": "jewelry",
+  "description": "A solid signet ring in brushed gold metal with a wide, smooth, high-polish flat face and a plain unmarked band.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "signet ring",
+  "materials": "Solid brushed-gold metal band with a smooth, high-polish flat face",
+  "primaryColors": "Warm brushed gold",
+  "negativeConstraints": "Never render any text, engraving, stamp, hallmark, monogram, or maker's mark anywhere on the ring, inside or outside the band; never add a stone or applied ornament to the flat face; never let the brushed texture read as scratched, pitted, or damaged.",
+  "preservationNotes": "Keep the flat outer face perfectly smooth and completely blank in every angle; keep the brushed-vs-polished texture contrast between band and face identical and consistent across all four shots."
+}

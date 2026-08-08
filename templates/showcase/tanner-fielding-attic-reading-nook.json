@@ -1,0 +1,29 @@
+{
+  "id": "tanner-fielding-attic-reading-nook",
+  "title": "Chocolate Bar in the Attic Reading Nook",
+  "category": "food",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tanner-fielding-single-origin-bar"
+      },
+      {
+        "t": "template",
+        "id": "interiors-attic-reading-nook"
+      },
+      {
+        "t": "text",
+        "v": " cozy unhurried afternoon mood, soft window light"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

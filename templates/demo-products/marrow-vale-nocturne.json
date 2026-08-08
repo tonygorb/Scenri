@@ -1,8 +1,13 @@
 {
   "id": "marrow-vale-nocturne",
-  "name": "Marrow & Vale — Nocturne Eau de Parfum",
+  "name": "Faceted Smoked-Glass Fragrance Bottle",
   "category": "fragrance",
-  "description": "A tall square-shouldered smoked-glass fragrance bottle with a matte black cap, no visible label.",
+  "description": "A square-shouldered eau de parfum bottle in smoked dark-grey faceted glass, topped with a matte black cap, with clean geometric facets catching light along its edges.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "subcategory": "square-shouldered faceted glass EDP bottle",
+  "materials": "smoked dark-grey faceted glass, matte black cap",
+  "primaryColors": "smoked charcoal grey, matte black, silver",
+  "negativeConstraints": "Never render any text, logo, wordmark, label, or embossed lettering anywhere on the bottle or cap; never add a printed or foil label to the glass; never tint the glass clear or any color other than smoked charcoal grey; never render a second cap.",
+  "preservationNotes": "Keep the smoked charcoal-grey glass tone and exact faceting pattern (number, angle, and placement of facets) identical across every angle; keep the matte black cap's flat-topped cylindrical shape and matte, non-glossy finish consistent in every shot; the glass must remain completely unmarked, no text or emblem on any face."
 }

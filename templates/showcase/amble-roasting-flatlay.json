@@ -1,0 +1,29 @@
+{
+  "id": "amble-roasting-flatlay",
+  "title": "Coffee Pouch, Overhead Styled Grid",
+  "category": "food",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "amble-roasting-co-ethiopia-light-roast"
+      },
+      {
+        "t": "template",
+        "id": "overhead-styled-flatlay-grid"
+      },
+      {
+        "t": "text",
+        "v": " considered morning-ritual coffee styling, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}

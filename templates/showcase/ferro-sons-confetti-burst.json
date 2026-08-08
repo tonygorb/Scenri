@@ -1,0 +1,29 @@
+{
+  "id": "ferro-sons-confetti-burst",
+  "title": "Soda Can in the Confetti Burst Freeze",
+  "category": "beverage",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ferro-sons-yuzu-soda"
+      },
+      {
+        "t": "template",
+        "id": "confetti-burst-freeze"
+      },
+      {
+        "t": "text",
+        "v": " celebratory frozen-motion energy, tall vertical campaign composition"
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "width": 1024,
+  "height": 1280
+}
