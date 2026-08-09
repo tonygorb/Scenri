@@ -1,0 +1,12 @@
+{
+  "id": "stitched-construction-detail",
+  "name": "Stitched Construction Detail",
+  "description": "Extreme macro on a product's genuine hand-stitched construction seam — the welt where a boot's leather upper meets its sole — raking light revealing real thread, leather, and layered structure as proof of craftsmanship.",
+  "lighting": "Single raking light, genuine stitch shadow",
+  "subject": "product",
+  "collections": ["Detail"],
+  "verticals": ["Footwear", "Accessories"],
+  "prompt": "extreme macro on the welted sole seam of a leather boot, genuine hand-stitched thread crossing the welt with real leather grain and layered construction visible, a single raking light held low across the seam so every stitch casts a genuine tiny shadow, razor-shallow depth of field, a plain neutral surface behind that never competes with the construction detail, no CGI-smooth surfaces, no props beyond the boot, immaculate commercial-render clarity",
+  "width": 1024,
+  "height": 1280
+}

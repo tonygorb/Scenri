@@ -1,12 +1,12 @@
 {
   "id": "studio-submerged-bloom-drift",
-  "name": "Submerged Bloom Drift",
-  "description": "The product genuinely submerged underwater among real drifting flowers, authentic light refraction and rising air bubbles, a soft turquoise-to-white gradient toward the sunlit surface above.",
-  "lighting": "Refracted sunlight, underwater caustics",
+  "name": "Snell's Window Bloom",
+  "description": "The product suspended in clear aquamarine water above a bone-white limestone shelf, ringed by blush-coral blooms, beneath a mercury-silver mirrored water ceiling broken by a single oval of white daylight — the real optical phenomenon a diver sees looking up. Hard sun overhead throws genuine caustic nets across the stone.",
+  "lighting": "Hard overhead sun, true caustics, Snell's window",
   "subject": "product",
   "collections": ["Studio"],
   "verticals": ["Fragrance", "Beauty", "Food & drink"],
-  "prompt": "a faceted glass perfume bottle, suspended mid-water among real pink blooms drifting around it, genuine underwater light refraction and rising air bubbles of varying size, natural sunlight refracted through the water's surface from above with true caustic ripple patterns playing across the bottle and flowers, a soft turquoise-to-white gradient toward the sunlit surface, natural visibility falloff into blue haze at distance, shallow depth of field keeping the bottle and nearest blooms crisp, no fish or marine life, no visible pool or tank edge, no second product, immaculate commercial-render clarity",
+  "prompt": "the product suspended in a pocket of clear aquamarine-turquoise water above a bone-white oolitic limestone shelf, ringed at a distance by blush-coral ranunculus and chalk-white anemones drifting as genuinely submerged organic matter, beneath a mercury-silver mirrored underside of the water's surface broken by one bright oval window of white daylight directly overhead — the real Snell's-window phenomenon, its rim wobbling with the surface swell, a single hard sun overhead firing down through the moving surface to throw hard-edged caustic nets across the limestone and defined shafts through the drifting motes, the bone-white floor acting as a giant bounce card returning soft warm-ivory uplight into the product's underside so it reads dimensional rather than flatly front-lit, a field of adhering micro-bubbles clinging to the product's upper surfaces, a caustic band crossing it, speculars appearing only where the surface is genuinely wet, a soft contact shadow ringed by a brighter caustic halo where light refracts around the form, natural visibility falloff into blue haze at distance, the frame filled completely edge to edge by the underwater scene with no inset border or letterbox bars of any kind, no fish or marine life, no visible pool wall or tank edge, immaculate high-end commercial clarity",
   "width": 1024,
   "height": 1280
 }

@@ -1,12 +1,12 @@
 {
   "id": "social-beverage-launch-splash",
-  "name": "Beverage Launch Splash",
-  "description": "A chilled can mid-splash against a single controlled obsidian-to-emerald gradient backdrop, condensation and droplets caught sparkling in one cool platinum rim light — genuine launch-day paid-social energy, elegant and restrained rather than a clashing color-block split, with a clean reserved zone for headline text.",
-  "lighting": "Cool platinum rim/backlight, controlled gradient",
+  "name": "Blood Orange Crown Break",
+  "description": "A traditional 330ml can stands in a shallow granite tank of blood-orange juice where a halved fruit struck 18 milliseconds ago, throwing a genuine asymmetric Worthington crown. The backdrop is a second tank of the same juice lit from behind, so the whole set glows through real liquid with suspended pulp rather than a painted gradient.",
+  "lighting": "Backlit juice wall, hard grid sparkle, flash-frozen",
   "subject": "product",
   "collections": ["Social"],
   "verticals": ["Food & drink"],
-  "prompt": "mid-splash against a single vertical gradient backdrop from deep obsidian black into a rich deep-emerald undertone at the base, the can's own design a minimal single-tone brushed-metal finish with no legible text or logo, one cool platinum-white rim/backlight catching genuine condensation beads and droplets so they sparkle, dynamic energetic composition, a clean genuinely empty zone in the lower third reserved for headline text, no text, no logos, no watermarks anywhere in the frame, true liquid-splash physics, real brushed-aluminum specular highlights responding to the single rim light, restrained premium launch-day advertising energy",
+  "prompt": "a traditional 330ml can, 66mm across and 115mm tall with a necked-in shoulder and a bare mill-finish aluminum seam at top and base, standing in a honed black-granite tank holding a 90mm bed of blood-orange juice, crimson in mass and glowing orange where thin, a halved blood orange having struck the surface 18 milliseconds earlier and thrown a genuinely asymmetric crown — a torn liquid sheet necking into ligaments then into unequal droplets, never a symmetric radial burst, the impact cavity not yet collapsed, backlit through a second tank of the same juice standing 2.4 metres behind with visible suspended pulp specks and slow-rising bubbles inside it so the field glows white-hot orange at its core through scarlet to oxblood at the corners, eight warm practical bulbs spaced on a bar 1.2 metres behind the can rendering as soft orbs that clip to cat's-eyes toward the frame corners, a gridded strip softbox camera-right raking a broad graded sheen down the can and a second strip behind it drawing one bright edge line, a hard gridded head above throwing real caustics onto the granite, hand-cut clear ice with internal feather fractures and melt-rounded corners, condensation run-tracks, the honed stone returning only soft foreshortened reflections offset from each contact point and at least three stops darker, never a mirrored copy, the hard reflection living on the juice surface instead, no rendered text or logos anywhere, professional flash-frozen beverage-campaign realism",
   "width": 1024,
   "height": 1280
 }

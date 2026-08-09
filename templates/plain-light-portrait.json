@@ -1,12 +1,12 @@
 {
   "id": "plain-light-portrait",
   "name": "Plain Light Portrait",
-  "description": "Soft true daylight from a single large window in a real minimalist room — unmodified, no studio rig, no added fill — the plainest, most honest register in the Portrait family, worn by a raw waxed-canvas chore jacket whose material honesty matches the light's own lack of artifice.",
+  "description": "Soft true daylight from a single large window in a real minimalist room — unmodified, no studio rig, no added fill — the plainest, most honest register in the Portrait family, worn by a raw waxed-canvas chore jacket, with a relaxed and quietly warm presence rather than a stern documentary stare.",
   "lighting": "Soft window daylight, no studio rig",
   "subject": "person",
   "collections": ["Portrait"],
   "verticals": ["Apparel", "Sport", "Accessories"],
-  "prompt": "a person wearing a waxed-canvas chore jacket with a small woven, blank neck label, real waxed-canvas texture with its own natural sheen and creasing, standing in a three-quarter turn inside a real minimalist room lit by a single large window just out of frame, a plain painted wall filling the background and extending fully to all four edges of the frame with no visible seam, corner, vignette, or edge of a backdrop anywhere, chest-up to waist-up crop centered in frame, unposed and natural body language, soft true daylight falling across the subject with no added studio fill or shaping and no artificial rig of any kind, true-to-life daylight color rendering, natural skin texture with no retouch-grade gloss, no dramatic shadow or contrast, no other people or props in frame, quiet documentary-honest register that still reads as genuinely photographed rather than a flat studio backdrop shot",
+  "prompt": "a person wearing a waxed-canvas chore jacket with a small woven, blank neck label, real waxed-canvas texture with its own natural sheen and creasing, standing in a three-quarter turn inside a real minimalist room lit by a single large window just out of frame, a plain painted wall filling the background and extending fully to all four edges of the frame with no visible seam, corner, vignette, or edge of a backdrop anywhere, chest-up to waist-up crop centered in frame, unposed and natural body language, a relaxed, open, quietly warm expression with a soft natural half-smile in the eyes — approachable and at ease, never stern, tense, frowning or unsmiling, soft true daylight falling across the subject with no added studio fill or shaping and no artificial rig of any kind, true-to-life daylight color rendering, natural skin texture with no retouch-grade gloss, no dramatic shadow or contrast, no other people or props in frame, quiet documentary-honest register that still reads as genuinely photographed rather than a flat studio backdrop shot",
   "width": 1024,
   "height": 1280
 }

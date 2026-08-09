@@ -1,12 +1,12 @@
 {
   "id": "social-cobalt-hand-reveal",
-  "name": "Cobalt Hand Reveal",
-  "description": "A hand presenting the product toward camera, dramatic cool rim light carving the hand and product's silhouette against a saturated cobalt-blue field.",
-  "lighting": "Hard cool rim light, saturated cobalt field",
+  "name": "Persimmon Plaster Reveal",
+  "description": "A bare hand presents the product against a hand-troweled burnt-persimmon lime-plaster wall — a saturated orange-red field with real trowel relief, not printed paper. One hard daylight-white rim carves the knuckles and the product's edge; a brass bounce returns warm copper into the shadow side.",
+  "lighting": "Hard daylight rim, brass bounce, troweled plaster",
   "subject": "product",
   "collections": ["Social"],
   "verticals": ["Footwear", "Beauty", "Accessories"],
-  "prompt": "a hand presenting a low-top sneaker toward camera, dramatic cool rim light carving the hand and sneaker's silhouette against a fixed saturated cobalt-blue color field with no gradient banding, one hard rim/edge light wrapping the actual geometry of the hand and shoe with correct light-bend behavior around curved surfaces, minimal fill keeping the shadow side deep, shallow depth of field, no face in frame, no second person, no logo or wordmark beyond the shoe's own, immaculate commercial-render clarity",
+  "prompt": "a bare hand presenting a product toward camera against a hand-troweled burnt-persimmon lime-plaster wall with real trowel relief, faint sweep marks and a slightly uneven sheen catching the light, never flat printed paper, one hard daylight-white fresnel placed camera-right and 30 degrees behind the hand at hand height throwing a crisp cool rim that wraps the actual curvature of each knuckle and the wrist bone and the product's silhouette edge, a brushed-brass bounce card camera-left returning a soft warm copper wash into the shadow side of the skin, the cool rim against the hot orange-red field carrying the whole frame, the product tilted several degrees out of level because its own weight rotates it in the hand, fingertips visibly compressing the surface they grip and tendons lifted on the back of the hand under real load, genuine skin texture with visible knuckle creases and nail structure, foam compresses and leather absorbs and glass refracts and brushed steel returns a hard specular streak, shallow depth of field with the plaster relief softening behind, no face in frame, no second person, immaculate tactile commercial finish",
   "width": 1024,
   "height": 1280
 }
