@@ -1,0 +1,13 @@
+{
+  "id": "thornebury-pedestal-dining-table",
+  "name": "Round Solid Oak Pedestal Dining Table",
+  "category": "furniture",
+  "description": "A round dining table in solid white oak with a chamfered-underside top carried on a single turned column pedestal that flares into a four-toe cruciform foot.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "round dining table",
+  "materials": "Solid white oak throughout, top with a forty-five degree chamfered underside edge and grain running across the face, a single turned column pedestal, a four-toe cruciform foot with softened arrises, hardwax-oil finish.",
+  "primaryColors": "Warm pale white oak",
+  "negativeConstraints": "Never render any text, logo, inlay, veneer seam or decorative carving; never add a glass top, an extension leaf or a metal base; never add chairs, tableware or props except where an angle explicitly calls for scale context.",
+  "preservationNotes": "Keep the same round chamfered-edge top diameter relative to the pedestal, the single turned column, and the four-toe cruciform foot consistent across all five angles."
+}

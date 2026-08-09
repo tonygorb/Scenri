@@ -1,0 +1,12 @@
+{
+  "id": "furniture-long-shadow-gallery",
+  "name": "Long Shadow Gallery",
+  "description": "A bare lime-plaster gallery room where one high skylight throws a single long, precise shadow across pale terrazzo. The shadow is the composition and the piece is the only object in it.",
+  "lighting": "Single high skylight, one long hard shadow, plaster bounce fill",
+  "subject": "product",
+  "collections": ["Furniture"],
+  "verticals": ["Furniture", "Home", "Accessories"],
+  "prompt": "a single furniture piece standing alone in a bare gallery room with chalk-white lime-plaster walls carrying visible trowel texture, a pale grey terrazzo floor with fine aggregate and a plain shadow-gap skirting, one high north skylight slot acting as the only light source and casting one long geometrically precise shadow that runs diagonally across the terrazzo and climbs the far wall, fill coming only from the plaster's own bounce so the shadow stays deep but never clips to black, shot on a 50mm lens from a low camera so the floor plane and the shadow's full length both read, deep focus with the shadow edge as sharp as the piece itself, enormous negative space with the piece occupying roughly a third of the frame, every foot of the piece in full contact with the terrazzo with its own contact shadow directly beneath it, the floor plane and wall meeting in one consistent vanishing point, the shadow direction and length physically consistent with the single skylight visible in the ceiling and its penumbra softening correctly with distance, the piece at true human scale against the skirting and ceiling height, no part of it intersecting or embedded in a wall, no props of any kind, no plants, no wall art, no rugs, no people, no second light source, no contradictory or multiple shadows, no vignette, clean sculptural editorial photography finish",
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,12 @@
+{
+  "id": "furniture-travertine-atrium",
+  "name": "Travertine Atrium",
+  "description": "A double-height atrium clad in warm cream travertine, one hard clerestory sun-patch crossing the pale screed floor. Architecture as co-star, built so a large piece reads at true scale and silhouette.",
+  "lighting": "Hard clerestory sun-patch with deep travertine bounce fill",
+  "subject": "either",
+  "collections": ["Furniture"],
+  "verticals": ["Furniture", "Home", "Accessories"],
+  "prompt": "a single furniture piece staged in a double-height residential atrium clad in warm cream travertine with visible vein and open-pore texture, blackened-steel clerestory glazing high above throwing one hard geometrically precise sun-patch across a pale polished screed floor and up the far wall, large soft ambient bounce off the travertine filling the shadows so the piece never goes black, shot on a 24mm architectural lens with verticals fully corrected and no barrel or fisheye distortion, camera at standing height and slightly lowered so the floor plane reads, deep focus with the sun-patch edge and the far wall both sharp, every foot of the piece in full contact with the floor with its own soft contact shadow directly beneath it, the floor plane and wall meeting in one consistent vanishing point, the piece at true human scale against a full-height door and a white oak stair run at the edge of frame, no part of it intersecting or embedded in a wall, realistic clearance around it, no rugs, no plants, no wall art, no second furniture piece, no lens flare, clean architectural interior photography finish",
+  "width": 1024,
+  "height": 1280
+}

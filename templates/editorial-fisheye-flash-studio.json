@@ -5,7 +5,7 @@
   "lighting": "Direct on-camera flash, circular vignette",
   "subject": "person",
   "collections": ["Editorial"],
-  "verticals": ["Apparel", "Footwear", "Accessories", "Furniture/Home"],
+  "verticals": ["Apparel", "Footwear", "Accessories", "Furniture"],
   "prompt": "a person wearing a shearling-collar trucker jacket, shot straight-on through a genuine fisheye lens with real barrel distortion bowing straight lines outward, most pronounced toward the frame edges, direct on-camera flash creating hard immediate light with a dramatic circular vignette darkening the corners, genuine fabric texture under the hard flash, cool-toned high-contrast palette with deep blacks from the flash falloff, deep focus throughout, no second person, no rendered text, distortion staying within what a real fisheye lens physically produces",
   "width": 1024,
   "height": 1280

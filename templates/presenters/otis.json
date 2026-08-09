@@ -9,7 +9,7 @@
   "hair": "curly red hair, medium length, matching full beard",
   "build": "tall, athletic broad-shouldered build",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Outdoor", "Craft", "Apparel"],
+  "suitableCategories": ["Outdoor", "Craft", "Furniture", "Apparel"],
   "suitableStyles": ["Lifestyle", "Editorial"],
   "identityNotes": "the ginger beard and curly red hair must survive every generation — do not shave, trim short, or shift the hair or beard color",
   "negativeConstraints": ["no clean-shaven face", "no hair color other than red", "no slimmed-down build"],

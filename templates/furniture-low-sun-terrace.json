@@ -1,0 +1,12 @@
+{
+  "id": "furniture-low-sun-terrace",
+  "name": "Low-Sun Terrace",
+  "description": "A walled Mediterranean terrace at harvest-gold late afternoon, low sun raking almost horizontally across worn stone paving and throwing long hard shadows from fig and olive foliage.",
+  "lighting": "Low raking harvest-gold sun with cool open sky fill",
+  "subject": "product",
+  "collections": ["Furniture"],
+  "verticals": ["Furniture", "Home", "Accessories"],
+  "prompt": "a single furniture piece standing on the worn irregular stone paving of a walled Mediterranean terrace in harvest-gold late afternoon, a lime-washed garden wall in warm bone behind it, a fig tree and an olive branch entering the frame and throwing genuine dappled shadow across the wall, a terracotta pot and a low parapet with open sky beyond, low sun roughly fifteen degrees above the horizon raking almost horizontally across the paving and casting long hard-edged shadows with correct penumbra growth over distance, cool open sky fill keeping the shadows blue-ish and readable rather than black, one consistent sun direction across every shadow in the frame, shot on a 35mm lens from a low camera so the paving foreground and the long shadows both run into frame, deep enough focus that the wall texture and stone wear hold, every foot of the piece in full contact with the paving with its own contact shadow directly beneath it, the paving plane and wall meeting in one consistent vanishing point, the piece at true human scale against the parapet and the wall height, no part of it intersecting or embedded in a wall, realistic clearance around it, no people, no food or tableware, no styled cushion sets, no string lights, no swimming pool, no over-saturated grade, no contradictory shadow directions, no lens flare stars, warm outdoor lifestyle photography finish",
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,12 @@
+{
+  "id": "furniture-joiners-workshop",
+  "name": "Joiner's Workshop",
+  "description": "A working cabinetmaker's shop under a cool north sawtooth roof light, scarred benches and curled shavings underfoot. Craft provenance for a finished piece, never a workshop-in-progress snapshot.",
+  "lighting": "Cool north sawtooth roof light, broad and even from above",
+  "subject": "product",
+  "collections": ["Furniture"],
+  "verticals": ["Furniture", "Home"],
+  "prompt": "a single furniture piece standing on the plank floor of a working cabinetmaker's workshop, a scarred beech workbench with a tail vise and dog holes behind it, wooden hand planes and chisels on a wall rack, curled wood shavings scattered across the floor and sawn timber stacked in stickers along the far wall, lit by a north-facing sawtooth roof light that is high, cool, broad and even from above with gentle directional falloff and real airborne dust visible in the light, shot on a 35mm lens from a low camera at workbench height, deep focus so the whole shop reads as a genuine place of work, every foot of the piece in full contact with the plank floor with its own soft contact shadow directly beneath it, the floor plane and wall meeting in one consistent vanishing point, the piece at true human scale against the workbench height and the roof structure above, no part of it intersecting or embedded in a wall, realistic clearance around it, the piece fully finished rather than in progress, no visible face, no modern power tools, no branded tool labels, no glossy showroom finish, no unrealistically piled sawdust, no plants, no warm practical lights, honest documentary craft photography finish",
+  "width": 1024,
+  "height": 1280
+}

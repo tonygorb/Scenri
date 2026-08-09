@@ -1,0 +1,12 @@
+{
+  "id": "furniture-snowlight-room",
+  "name": "Snowlight Room",
+  "description": "A pale Nordic room on the first snow morning, lit only by snow-bounced daylight through a tall window. No direct sun and no shadow direction, so colour, wood tone and fabric read exactly as they really are.",
+  "lighting": "Snow-bounced overcast daylight, open directionless shadows",
+  "subject": "product",
+  "collections": ["Furniture"],
+  "verticals": ["Furniture", "Home", "Accessories"],
+  "prompt": "a single furniture piece staged in a pale Nordic room with lime-washed off-white plaster walls and wide unfinished pine floorboards, a tall multi-pane window with thin white-painted glazing bars filling one side and a first-snow morning beyond it blown to a soft white field, a plain linen curtain half-drawn, lit purely by snow-bounced daylight with no direct sun at all, open directionless shadows, low contrast and light wrapping fully around the piece so its colour and material read honestly, shot on a 50mm lens at eye level, moderate depth of field keeping the whole piece sharp front to back while only the window field and far wall soften, every foot of the piece in full contact with the floorboards with its own soft contact shadow directly beneath it, the floor plane and wall meeting in one consistent vanishing point, the piece at true human scale against the window sill, skirting board and ceiling line in frame, no part of it intersecting or embedded in a wall, no direct sunlight, no hard shadows, no warm colour grade, no rugs, no plants, no clutter, no other furniture, no visible face, clean honest product-photography finish",
+  "width": 1024,
+  "height": 1280
+}

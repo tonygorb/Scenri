@@ -1,0 +1,13 @@
+{
+  "id": "fenwick-slade-open-shelving",
+  "name": "Open Oak and Blackened-Steel Shelving Unit",
+  "category": "furniture",
+  "description": "A freestanding open shelving unit carrying five solid oak shelves on a blackened-steel angle frame, open on all sides with no back panel and every shelf empty.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "open shelving unit",
+  "materials": "Five solid white oak shelves with visible grain and a square-cut front edge, a blackened-steel angle frame with a fine matte powder texture and visible welded corners, small adjustable levelling feet.",
+  "primaryColors": "Pale white oak shelves, matte blackened steel frame",
+  "negativeConstraints": "Never render any text, logo or label on the frame or shelves; never add a back panel, doors, drawers, books or objects; never change the shelf count or spacing; keep every shelf completely empty.",
+  "preservationNotes": "Keep the same five-shelf count, even shelf spacing, square-cut oak shelf edges, open no-back construction and blackened-steel angle frame with welded corners consistent across all five angles."
+}

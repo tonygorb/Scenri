@@ -1,0 +1,12 @@
+{
+  "id": "furniture-lamplight-hours",
+  "name": "Lamplight Hours",
+  "description": "A real room after dark lit only by its own practicals. One warm lamp pools light while cold dusk bleeds through the window, and everything else falls away into deep shadow.",
+  "lighting": "Single warm practical lamp with cold dusk window fill",
+  "subject": "either",
+  "collections": ["Furniture"],
+  "verticals": ["Furniture", "Home", "Accessories", "Electronics"],
+  "prompt": "a single furniture piece in a real room after dark lit only by its own practicals, one warm 2700K lamp pooling light beside it as the sole key with physically correct inverse-square falloff so the room drops away to near-black within a few metres, a window at the far side carrying the last cold blue of dusk and a hint of distant city glow as a low cool fill that leaves a blue rim along the shadow edges, a deep warm grey plastered wall, a heavy linen curtain half-drawn and a wide oak board floor, shot on a 35mm lens at seated camera height at the wide aperture the low light genuinely requires, high dynamic range holding highlight detail inside the lamp's shade and shadow detail through the falloff, clear colour separation between the warm lamp and the cold window with no single warm grade laid over both, the lit side of the piece describing true material and colour even where the shadow side goes abstract, every foot of the piece in full contact with the floor with its own contact shadow directly beneath it, the floor plane and wall meeting in one consistent vanishing point, the piece at true human scale against the window sill and skirting in frame, no part of it intersecting or embedded in a wall, no overhead ceiling light, no light without a visible source, no unmotivated pools of light, no candles, no fireplace, no television glow, no plants, no clutter, no lens flare stars, cinematic low-light interior photography finish",
+  "width": 1024,
+  "height": 1280
+}
