@@ -1,12 +1,12 @@
 {
   "id": "split-tone-color-gel-portrait",
-  "name": "Split-Tone Color Gel Portrait",
-  "description": "Two contrasting colored gel lights split the same identity-locked model's face and body into saturated color halves, meeting at a hard, clean line that never softens into a blend. Bold and graphic, the same technical zip jacket carrying through one coherent campaign across every frame.",
-  "lighting": "Dual hard-edge gel split, magenta/cyan",
+  "name": "Contre-Jour Rim Portrait",
+  "description": "One hard gridded strobe hidden directly behind the model's head fires forward into camera, so a single source produces two opposite material responses: thin flesh transmits it — the ear helix and lobe glowing translucent coral-red — while brushed metal reflects it as one elongated streak. The backdrop sits unlit and four stops down.",
+  "lighting": "Hidden contre-jour rim, single hard gridded source",
   "subject": "person",
   "collections": ["Portrait"],
-  "verticals": ["Apparel", "Sport", "Accessories"],
-  "prompt": "standing straight-on and centered against a seamless neutral-grey studio ground, chest-up crop, wearing a matte black technical zip jacket with reflective trim tape down the zip line, lit by two contrasting colored gel lights, a saturated magenta gel on one side and an electric cyan gel on the other, splitting the face and jacket into two distinct color halves down the exact center of the frame, a hard clean line where the colors meet with no blended gradient and no third color, correct gel color temperature and real light falloff at the boundary rather than a digital overlay effect, shallow depth of field keeping both gel colors sharp on the subject while the grey background falls softly out of focus, bold modern graphic campaign finish",
+  "verticals": ["Jewelry", "Beauty", "Apparel", "Accessories"],
+  "prompt": "a person in a sheer white cotton-poplin shirt over an oatmeal ribbed tank, lit by one hard gridded strobe hidden directly behind the head firing forward into camera, the head physically eclipsing the source so no flare enters the frame, thin flesh transmitting the light so only the ear helix, ear lobe and nostril wings glow translucent coral-red while the rest of the face stays its own warm olive tone, backlit hair resolving into separate flyaway filaments with dark gaps between them and never a solid glowing outline, a white polystyrene bounce camera-left returning soft directional fill so the face reads two and a half stops under the rim, an unlit warm putty-grey seamless paper sweep sitting four and a half stops down so the rim separates hard against it, genuine skin texture with visible pore structure and natural asymmetry, matte skin with narrow satin only where facial oil sits, never plastic or waxy, no second person, no visible rig, the frame filled edge to edge with no border or letterbox",
   "width": 1024,
   "height": 1280
 }
