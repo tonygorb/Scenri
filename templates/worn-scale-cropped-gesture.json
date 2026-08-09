@@ -1,12 +1,12 @@
 {
   "id": "worn-scale-cropped-gesture",
-  "name": "Worn, Cropped",
-  "description": "A tight crop on a single body part — a wrist, hand, neck, or ear — wearing or holding the product, so its true real-world scale reads instantly. No full face, no full body, just the product in genuine natural use.",
-  "lighting": "Soft directional light, true skin tone",
+  "name": "Candid Detail Crop",
+  "description": "A tight, deliberate editorial crop on the product mid-stride in a real environment — a wrist, hand, or ankle caught in genuine motion with real foreground/background depth — the register of a street-style photographer's candid detail shot, not a studio product macro. The crop is art-directed, never accidental.",
+  "lighting": "Natural outdoor light, real environmental depth",
   "subject": "either",
   "collections": ["Detail"],
-  "verticals": ["Jewelry", "Accessories", "Electronics"],
-  "prompt": "a tight crop isolating a single body part relevant to how the product is actually worn or held — a wrist, a hand, the side of a neck, or an ear — with the product shown in genuine natural use at true-to-life scale, soft single-direction light giving real skin-tone rendering and authentic soft shadow falloff, shallow depth of field keeping the product and the immediately adjacent skin tack-sharp while the frame edges soften gently, a plain softly blurred neutral background with no discernible location or props, no face in frame, no second body part competing for attention, natural relaxed positioning rather than a stiff studio pose, genuine editorial product-in-use intimacy",
+  "verticals": ["Jewelry", "Accessories", "Footwear"],
+  "prompt": "an extreme close editorial crop isolating a single point of contact between a person and the product — a wrist, a hand, an ankle — caught mid-stride in a real outdoor environment, genuine environmental depth with a softly blurred foreground element crossing part of the frame and a real cityscape or streetscape dissolving into soft bokeh behind, natural outdoor daylight with true photographic falloff, shallow depth of field keeping the product and the immediately adjacent skin tack-sharp while everything else falls into genuine optical blur, authentic motion in the limb or fabric implying real walking energy rather than a static studio pose, the crop boundary reading as a deliberate photographer's choice — tight, confident, intentional — never an accidental or awkward cutoff, no face in frame, no second person, premium editorial street-campaign register",
   "width": 1024,
   "height": 1280
 }
