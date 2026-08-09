@@ -22,9 +22,9 @@ const base = {
 };
 
 describe('scene loader + composer', () => {
-  it('loads the 43 shipped scenes, all valid, none naming a product', () => {
+  it('loads the 52 shipped scenes, all valid, none naming a product', () => {
     const { scenes, warnings } = loadScenes(defaultScenesDir());
-    expect(scenes).toHaveLength(43);
+    expect(scenes).toHaveLength(52);
     expect(warnings).toEqual([]);
     for (const s of scenes) {
       expect(s.prompt).not.toContain('{product_name}');
@@ -194,13 +194,13 @@ describe('product uploads + scene generation via API', () => {
   it('GET /api/scenes carries the facets; the deprecated alias still returns a bare list', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/scenes' });
     const body = res.json();
-    expect(body.scenes).toHaveLength(43);
+    expect(body.scenes).toHaveLength(52);
     expect(body.collections).toContain('Interiors');
     expect(body.verticals).toContain('Beauty');
 
     const legacy = (await app.inject({ method: 'GET', url: '/api/templates' })).json();
     expect(Array.isArray(legacy)).toBe(true);
-    expect(legacy).toHaveLength(43);
+    expect(legacy).toHaveLength(52);
   });
 
   it('a scene id resolves through the generate route', async () => {

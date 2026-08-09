@@ -1,0 +1,12 @@
+{
+  "id": "social-amber-flare-motion",
+  "name": "Amber Flare Motion",
+  "description": "The product caught within dramatic warm light streaks radiating from an off-frame source, genuine lens-flare bloom, deep shadow falloff, tech-forward electric energy.",
+  "lighting": "Directional flare streaks, deep shadow falloff",
+  "subject": "product",
+  "collections": ["Social"],
+  "verticals": ["Fragrance", "Beauty", "Electronics"],
+  "prompt": "a faceted glass perfume bottle, caught within dramatic warm light streaks radiating from a single motivated off-frame source, genuine lens-flare bloom with correct optical falloff on the bottle's glass and cap, deep shadow falloff away from the streaks, warm amber-gold palette against deep shadow, shallow depth of field keeping the bottle crisp, no rendered text or logos, no second product, streak density that never obscures the product's silhouette, immaculate commercial-render clarity",
+  "width": 1024,
+  "height": 1280
+}

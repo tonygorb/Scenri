@@ -1,0 +1,12 @@
+{
+  "id": "social-cobalt-hand-reveal",
+  "name": "Cobalt Hand Reveal",
+  "description": "A hand presenting the product toward camera, dramatic cool rim light carving the hand and product's silhouette against a saturated cobalt-blue field.",
+  "lighting": "Hard cool rim light, saturated cobalt field",
+  "subject": "product",
+  "collections": ["Social"],
+  "verticals": ["Footwear", "Beauty", "Accessories"],
+  "prompt": "a hand presenting a low-top sneaker toward camera, dramatic cool rim light carving the hand and sneaker's silhouette against a fixed saturated cobalt-blue color field with no gradient banding, one hard rim/edge light wrapping the actual geometry of the hand and shoe with correct light-bend behavior around curved surfaces, minimal fill keeping the shadow side deep, shallow depth of field, no face in frame, no second person, no logo or wordmark beyond the shoe's own, immaculate commercial-render clarity",
+  "width": 1024,
+  "height": 1280
+}

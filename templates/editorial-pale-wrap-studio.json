@@ -1,0 +1,12 @@
+{
+  "id": "editorial-pale-wrap-studio",
+  "name": "Pale Wrap Studio",
+  "description": "The identity-locked model in a full-figure fashion editorial shot against a pale neutral studio backdrop, soft even wrap-around light with no hard shadow edge, minimalist and serene.",
+  "lighting": "Soft even wrap-around light, no hard shadow",
+  "subject": "person",
+  "collections": ["Editorial"],
+  "verticals": ["Apparel", "Footwear", "Accessories", "Jewelry"],
+  "prompt": "a person wearing an asymmetric wrap dress, full-length pose against a pale neutral bone-toned seamless studio backdrop extending fully to all four edges of the frame with no visible seam or border, soft even wrap-around key light with no hard shadow edge anywhere, real fabric drape on the dress, deep focus holding the figure sharp against the pale backdrop, no second person, no visible backdrop seam or edge, quiet minimalist serene register",
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,12 @@
+{
+  "id": "studio-submerged-bloom-drift",
+  "name": "Submerged Bloom Drift",
+  "description": "The product genuinely submerged underwater among real drifting flowers, authentic light refraction and rising air bubbles, a soft turquoise-to-white gradient toward the sunlit surface above.",
+  "lighting": "Refracted sunlight, underwater caustics",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": ["Fragrance", "Beauty", "Food & drink"],
+  "prompt": "a faceted glass perfume bottle, suspended mid-water among real pink blooms drifting around it, genuine underwater light refraction and rising air bubbles of varying size, natural sunlight refracted through the water's surface from above with true caustic ripple patterns playing across the bottle and flowers, a soft turquoise-to-white gradient toward the sunlit surface, natural visibility falloff into blue haze at distance, shallow depth of field keeping the bottle and nearest blooms crisp, no fish or marine life, no visible pool or tank edge, no second product, immaculate commercial-render clarity",
+  "width": 1024,
+  "height": 1280
+}

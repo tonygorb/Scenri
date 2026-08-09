@@ -1,0 +1,12 @@
+{
+  "id": "heliconia-bloom-field",
+  "name": "Heliconia Bloom Field",
+  "description": "The product nested among bold tropical red heliconia-style blooms against a rich saturated crimson-to-blush gradient field, its own metallic surface contrasting the organic petals.",
+  "lighting": "Soft diffused overhead-adjacent light",
+  "subject": "product",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Beauty", "Fragrance", "Accessories"],
+  "prompt": "a brushed-metal hand-balm tube, nested among genuine tropical red heliconia-style blooms with real petal texture and translucency, a rich saturated crimson-to-blush gradient field behind, soft diffused overhead-adjacent light with gentle even glow and no harsh shadow, a soft highlight tracing the tube's brushed-metal finish, shallow depth of field keeping the tube and nearest blooms crisp, no vase or floral-foam mechanics visible, no second product, immaculate commercial-render clarity",
+  "width": 1024,
+  "height": 1280
+}
