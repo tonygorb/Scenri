@@ -1,12 +1,12 @@
 {
   "id": "plain-light-portrait",
   "name": "Plain Light Portrait",
-  "description": "Flat, unmodified frontal light with no fill or shaping — the plainest, most honest register in the Cast family, shot against a seamless neutral-grey studio ground with true-to-life color and no retouching gloss.",
+  "description": "Flat, unmodified frontal light with no fill or shaping — the plainest, most honest register in the Portrait family — worn by a raw waxed-canvas chore jacket whose material honesty matches the light's own lack of artifice.",
   "lighting": "Flat frontal light, no fill",
   "subject": "person",
   "collections": ["Portrait"],
   "verticals": ["Apparel", "Sport", "Accessories"],
-  "prompt": "a person wearing a heavyweight cotton t-shirt with a small woven, blank neck label, the fabric in its own true color, standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, unposed and natural body language, flat unmodified frontal light with no added fill or shaping, true-to-life daylight-equivalent color rendering, natural skin texture with no retouch-grade gloss, no dramatic shadow or contrast, no other people or props in frame, documentary-plain register",
+  "prompt": "a person wearing a waxed-canvas chore jacket with a small woven, blank neck label, real waxed-canvas texture with its own natural sheen and creasing, standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame, unposed and natural body language, flat unmodified frontal light with no added fill or shaping, true-to-life daylight-equivalent color rendering, natural skin texture with no retouch-grade gloss, no dramatic shadow or contrast, no other people or props in frame, documentary-plain register",
   "width": 1024,
   "height": 1280
 }

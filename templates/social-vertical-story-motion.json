@@ -6,7 +6,7 @@
   "subject": "person",
   "collections": ["Social"],
   "verticals": ["Apparel", "Accessories", "Food & drink"],
-  "prompt": "a person wearing a matte black technical zip jacket with reflective teal-and-orange trim tape down the zip line, full-height vertical 9:16 composition, hard directional light, genuine kinetic motion caught mid-step with real fabric movement and crisp hard-edged motion-freeze shadows, set against a fixed saturated vertical color field of deep magenta falling into clean falloff toward the edges, shallow depth of field keeping the model sharp, real specular highlights catching the jacket's technical fabric, a clean, genuinely empty zone reserved in the upper third for headline text, no rendered text, no logos, no watermarks, no second model anywhere in the frame, genuine paid-social story-ad advertising finish",
-  "width": 1080,
-  "height": 1920
+  "prompt": "a person wearing a matte black technical zip jacket with reflective teal-and-orange trim tape down the zip line, full-height vertical composition, hard directional light, genuine kinetic motion caught mid-step with real fabric movement and crisp hard-edged motion-freeze shadows, set against a fixed saturated vertical color field of deep magenta falling into clean falloff toward the edges, shallow depth of field keeping the model sharp, real specular highlights catching the jacket's technical fabric, a clean, genuinely empty zone reserved in the upper third for headline text, no rendered text, no logos, no watermarks, no second model anywhere in the frame, genuine paid-social advertising finish",
+  "width": 1024,
+  "height": 1280
 }

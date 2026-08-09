@@ -1,12 +1,12 @@
 {
   "id": "suspended-color-field",
-  "name": "Suspended Color Field",
-  "description": "The product hangs weightless at the centre of a saturated two-tone color field, rim-lit from both sides in two clearly distinct colors with a fine drift of glowing particulate selling the hover. Its contact shadow dissolves softly into the gradient far below rather than resting on any visible surface, so nothing ever touches or supports it.",
-  "lighting": "Dual-color rim wrap, one light per field tone",
+  "name": "Iridescent Film Membrane",
+  "description": "The product suspended just in front of a large, gently curved, taut membrane showing genuine soap-film iridescence — thin-film interference color-shift rippling across its surface as angle and curvature change, never a fixed two-tone gradient.",
+  "lighting": "Soft key, thin-film interference shimmer",
   "subject": "either",
   "collections": ["Colored backgrounds"],
   "verticals": ["Electronics", "Beauty", "Fragrance", "Accessories", "Jewelry"],
-  "prompt": "A matte pearl-white ceramic-finish charging case for a pair of wireless earbuds, lid closed and left clean and unmarked, hovering weightless and centered in generous negative space at the heart of a saturated two-tone color field blending from deep violet on one side into molten amber-gold on the other, wrapped in a dual-color rim light with a cool violet glow along one edge and a warm amber-gold glow along the other, the light visibly bending around the case's curved form rather than sitting as a flat colored outline, a fine sparse drift of glowing dust catching both rim colors as it drifts past in shallow focus, a soft contact shadow dissolving gradually into the gradient far below with no wire, strut, or surface ever touching the case, only these two colors appearing anywhere in the field, no second product or prop in frame, immaculate commercial-render clarity.",
+  "prompt": "a matte pearl-white ceramic-finish charging case for a pair of wireless earbuds, lid closed and left clean and unmarked, suspended just in front of a large, gently curved, taut membrane showing genuine soap-film iridescence, thin-film interference color-shift rippling softly across its surface in a low-saturation full-spectrum shimmer, one soft key light catching the membrane's interference pattern authentically with a matching soft highlight on the case's own material, no visible seam or support holding the membrane, shallow depth of field with the membrane's far curvature falling into soft blur at the edges of frame, the case's own material color the one solid non-iridescent anchor in the frame, no second product or prop, immaculate commercial-render clarity",
   "width": 1024,
-  "height": 1024
+  "height": 1280
 }

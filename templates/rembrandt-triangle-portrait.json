@@ -1,12 +1,12 @@
 {
   "id": "rembrandt-triangle-portrait",
   "name": "Rembrandt Triangle Portrait",
-  "description": "Classic Rembrandt-position key light holds a small, precisely shaped triangle on the shadowed cheek with soft painterly falloff — the same identity-locked person and statement necklace carry through all six frames as one continuous, classical portrait campaign.",
-  "lighting": "Classic Rembrandt triangle key, shadowed cheek",
+  "description": "Classic Rembrandt-position key light holds a small, precisely shaped triangle on the shadowed cheek with soft painterly falloff, shot against a warm deep-umber studio ground instead of neutral grey so the whole frame reads closer to an old-master painting register.",
+  "lighting": "Classic Rembrandt triangle key, warm umber ground",
   "subject": "person",
   "collections": ["Portrait"],
   "verticals": ["Jewelry", "Beauty", "Apparel"],
-  "prompt": "a person wearing a statement necklace whose polished metal and faceted stone catch the key light with a distinct, genuine specular gleam against the softer sheen of skin, standing in a three-quarter turn against a seamless neutral-grey studio ground, chest-up to waist-up crop centered in frame with the necklace catching light at the collar, one classic Rembrandt-position key light held high and to one side casting a small, anatomically correct triangle of light on the shadowed cheek, soft painterly falloff carrying across the rest of the face into a shallow, gently blurred depth of field behind the subject, warm neutral skin tone, low-contrast classical palette with the necklace's metal as the one reflective highlight in the frame, no hard graphic shadow edge, no second person or additional props in frame, tack-sharp editorial retouch",
+  "prompt": "a person wearing a sculptural polished-gold cuff that catches the key light with a distinct, genuine specular gleam against the softer sheen of skin, standing in a three-quarter turn against a warm deep-umber seamless studio ground, chest-up to waist-up crop centered in frame with the cuff catching light at the wrist, one classic Rembrandt-position key light held high and to one side casting a small, anatomically correct triangle of light on the shadowed cheek, soft painterly falloff carrying across the rest of the face into a shallow, gently blurred depth of field behind the subject, warm neutral skin tone, low-contrast classical palette of warm umber and burnt-sienna tones with the cuff's metal as the one bright reflective highlight in the frame, no hard graphic shadow edge, no second person or additional props in frame, tack-sharp editorial retouch",
   "width": 1024,
   "height": 1280
 }

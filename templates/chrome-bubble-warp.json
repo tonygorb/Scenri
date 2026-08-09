@@ -1,12 +1,12 @@
 {
   "id": "chrome-bubble-warp",
-  "name": "Chrome Bubble Warp",
-  "description": "The subject rests beside a giant mirror-polished chrome sphere, its own form warped and duplicated in true specular reflection across the sphere's curved surface. Futuristic and hypnotic, built on genuine curved-mirror optics rather than a painted rainbow effect.",
-  "lighting": "Accurate specular chrome reflection",
+  "name": "Liquid Mercury Pool",
+  "description": "The subject rests at the edge of a shallow pool of liquid mercury, its reflection visible in the surface and gently distorted by the liquid's own micro-ripple. Genuine fluid-metal optics, not a static mirror object.",
+  "lighting": "Fluid-metal specular, true ripple physics",
   "subject": "product",
   "collections": ["Colored backgrounds"],
   "verticals": ["Electronics", "Jewelry", "Accessories"],
-  "prompt": "resting beside a giant mirror-polished chrome sphere, shallow depth of field holding the subject and its reflected double equally crisp, the subject's form warped and duplicated in true curved-mirror distortion across the sphere's surface, genuine specular hotspots and a plausible reflected environment glowing in the chrome rather than a flat painted rainbow, a fixed saturated gradient backdrop blending hot magenta into electric cyan and violet bleeding into the reflection, no second product or props beyond the sphere, futuristic commercial-render gloss",
+  "prompt": "a chain bracelet in polished silver-tone metal, resting at the edge of an irregular, ragged-edged puddle of liquid mercury spilled directly on a plain surface — never a circular tray, dish, plate, or vessel with a defined rim, the puddle's outer edge asymmetric the way a real spilled liquid pools rather than a perfect circle — its reflection visible in the surface and gently distorted by the liquid's own micro-ripple, one overhead-side key light producing a sharp specular highlight on both the bracelet and the mercury surface, the surface's subtle ripple visibly distorting the reflected highlight, a real surface-tension meniscus where the bracelet contacts the liquid, shallow depth of field keeping the bracelet and its reflection crisp while the wider pool softens toward the edges of frame, monochrome silver palette throughout, no second product, no props beyond the pool, immaculate commercial-render clarity",
   "width": 1024,
-  "height": 1024
+  "height": 1280
 }

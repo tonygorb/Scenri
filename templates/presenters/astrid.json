@@ -12,7 +12,11 @@
   "suitableCategories": ["Technology", "Home", "Accessories"],
   "suitableStyles": ["Editorial", "Lifestyle"],
   "identityNotes": "the white-blonde pixie crop and angular jaw must survive every generation — do not lengthen the hair or de-age the face",
-  "negativeConstraints": ["no youth-smoothing that erases the natural fine lines", "no hair grown past the crop length", "no warm or golden blonde tone"],
+  "negativeConstraints": [
+    "no youth-smoothing that erases the natural fine lines",
+    "no hair grown past the crop length",
+    "no warm or golden blonde tone"
+  ],
   "width": 1024,
   "height": 1280
 }

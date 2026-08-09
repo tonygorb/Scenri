@@ -1,12 +1,12 @@
 {
   "id": "confetti-burst-freeze",
-  "name": "Confetti Burst Freeze",
-  "description": "The product hangs frozen mid-air at the centre of an exploding burst of colorful paper confetti, every piece caught sharp and distinct by a bright high-key flash. Joyful, celebratory, campaign-ready energy against a pure white background.",
-  "lighting": "Bright high-key flash, frozen mid-explosion",
+  "name": "Cracked Clay Bloom",
+  "description": "The product nested within the widest fissure of a sun-dried terracotta clay surface, a deep radiating crack network spreading outward from it as if the product had bloomed straight out of the earth. Warm, tactile, and raking golden-hour light emphasizing real crack depth and texture.",
+  "lighting": "Raking low-angle golden-hour light, real crack texture",
   "subject": "product",
   "collections": ["Colored backgrounds"],
-  "verticals": ["Beauty", "Accessories", "Food & drink"],
-  "prompt": "a small bottle, caught mid-air at the centre of a frozen burst of colorful paper confetti exploding outward in every direction, held dead-center in a symmetrical center-weighted composition with confetti radiating outward evenly on all sides, confetti in four to six saturated colors plus metallic gold and silver foil pieces, each piece individually distinct and physically plausible in shape — squares, circles, foil flecks — never covering more than about 15 percent of the bottle's silhouette, deep focus holding every confetti piece tack-sharp, bright high-key flash freezing the whole explosion with genuine studio-strobe color rendering, pure white background, joyful commercial-campaign energy, no other products or props in frame, clean professional product-photography finish",
+  "verticals": ["Beauty", "Fragrance", "Accessories"],
+  "prompt": "a squat ceramic-lidded jar in matte stoneware with a rounded domed lid, nested within the widest fissure of a sun-dried terracotta clay surface, a deep radiating crack network spreading outward from it, a single raking low-angle directional light emphasizing the crack network's real depth and texture, warm golden-hour color temperature, fine dry clay dust settled naturally at the fissure's edge, shallow depth of field keeping the jar and immediate crack texture crisp while the wider field softens toward the edges of frame, warm terracotta and burnt-sienna palette throughout, no second product, no props beyond the clay, immaculate commercial-render clarity",
   "width": 1024,
-  "height": 1024
+  "height": 1280
 }

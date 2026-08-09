@@ -1,12 +1,12 @@
 {
   "id": "social-fashion-campaign-billboard",
   "name": "Fashion Campaign Billboard",
-  "description": "Bold outdoor-campaign energy: one hard directional key strikes the same identity-locked model off-center against a fixed crimson color-block backdrop, with a genuinely clean negative-space zone reserved for headline text — the register of a real fashion-brand billboard or paid-social launch ad, not a lifestyle snapshot.",
-  "lighting": "Hard directional key, campaign-poster contrast",
+  "description": "The identity-locked model shot directly against a real weathered outdoor paste-up poster wall — layered torn-paper edges, peeling texture, hard late-day directional light raking across the surface — with one genuinely blank, freshly-pasted rectangular poster panel reserved in frame for the headline. The register of an actual location shoot pinned to a real urban wall, not a flat studio color block.",
+  "lighting": "Hard late-day directional key, weathered wall texture",
   "subject": "person",
   "collections": ["Social"],
   "verticals": ["Apparel", "Footwear", "Accessories"],
-  "prompt": "positioned off-center wearing a cropped matte black technical shell jacket with a fixed silver-tone zipper and structured stand collar, one hard directional key light striking the jacket from one side with genuine hard-edge shadow behavior across the body, real fabric texture and movement catching the light, composed against a fixed solid color block of deep crimson red on a wide urban concrete backdrop, a full clean negative-space zone reserved on the opposite side of the frame with no stray texture or gradient banding, the rest of the scene desaturated to muted concrete grey so the color block and negative-space zone stay the visual anchor, shallow depth of field keeping the jacket tack-sharp against a clean color field, campaign-poster contrast, no rendered text or lettering anywhere in the image, no second model in frame",
-  "width": 1600,
-  "height": 900
+  "prompt": "positioned off-center wearing a cropped technical jacket with a fixed zip line, one hard late-day directional key light raking across a real layered paste-up poster wall behind, torn edges and peeling paper texture with faint ghost-texture of previous posters showing through, weathered concrete beneath, a hint of pavement grounding the real location, a genuinely blank freshly-pasted rectangular poster panel physically part of the wall reserved in frame on the opposite side, clean and unweathered so it reads as legitimately available for a headline, real fabric texture and movement catching the light, shallow to moderate depth of field keeping the model sharp against the legible wall texture, no rendered text or lettering anywhere in the image including on the wall's other poster fragments, no second model in frame",
+  "width": 1024,
+  "height": 1280
 }

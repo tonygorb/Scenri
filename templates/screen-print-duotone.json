@@ -7,6 +7,6 @@
   "collections": ["Colored backgrounds"],
   "verticals": ["Apparel", "Sport", "Accessories", "Beauty"],
   "prompt": "A heavyweight cream and kraft-toned hoodie screen-printed with a bold graphic wordmark in exactly two inks — deep ink-black and saturated safety-orange — rendered as a true two-ink screen-print poster, shown front-on with the full print visible in a flat, frontal, poster-like composition, reduced to bold, sharply defined halftone dot patterns standing in for all tonal gradation, a deliberate two-ink registration offset visible along the print's high-contrast edges, coarse poster-paper grain texture across the surface, flat frontal screened-flash lighting with no dimensional shading beyond what the halftone dots imply, no props in frame beyond the garment itself, genuine halftone dot geometry and authentic two-ink flatness rather than a blur filter or photographic gradient.",
-  "width": 1080,
-  "height": 1920
+  "width": 1024,
+  "height": 1280
 }

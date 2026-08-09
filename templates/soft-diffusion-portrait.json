@@ -1,12 +1,12 @@
 {
   "id": "soft-diffusion-portrait",
   "name": "Soft Diffusion Portrait",
-  "description": "One broad soft frontal light wraps the same identity-locked person's face with no hard shadow edge in any frame — a coherent skincare campaign, not six different models. Calm, bare, and unhurried rather than glossy, built around a quiet Linden Restore Cream ritual.",
-  "lighting": "Soft frontal wrap light, no hard shadow edge",
+  "description": "One broad soft frontal light wraps the same identity-locked person's face with no hard shadow edge, shot against a soft warm ivory studio ground instead of neutral grey so the whole frame reinforces the light's own \"glow\" rather than fighting it. Calm, bare, and unhurried.",
+  "lighting": "Soft frontal wrap light, warm ivory ground",
   "subject": "person",
   "collections": ["Portrait"],
   "verticals": ["Beauty", "Fragrance"],
-  "prompt": "standing in a three-quarter turn against a seamless neutral-grey studio ground, close chest-up crop centered in frame, pale simple unbranded wardrobe, one broad soft frontal light wrapping the face evenly with no hard shadow edge anywhere on the skin, true warm-neutral skin tone rendered with natural, unsmoothed texture — never waxy or over-retouched, calm unguarded expression, shallow depth of field with soft falloff behind the subject, no glossy glamour retouching, wellness-editorial finish with natural film grain",
+  "prompt": "standing in a three-quarter turn against a soft warm ivory seamless studio ground, close chest-up crop centered in frame, pale simple unbranded wardrobe, one broad soft frontal light wrapping the face evenly with no hard shadow edge anywhere on the skin, true warm-neutral skin tone rendered with natural, unsmoothed texture — never waxy or over-retouched, calm unguarded expression, shallow depth of field with soft warm falloff behind the subject, no glossy glamour retouching, wellness-editorial finish with natural film grain",
   "width": 1024,
   "height": 1280
 }

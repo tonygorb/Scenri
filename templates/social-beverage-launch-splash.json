@@ -1,12 +1,12 @@
 {
   "id": "social-beverage-launch-splash",
   "name": "Beverage Launch Splash",
-  "description": "A chilled can mid-splash against a bold saturated color-block backdrop, condensation and droplets caught sparkling in hard rim light — genuine launch-day paid-social energy, with a clean reserved zone for headline text.",
-  "lighting": "Hard rim/backlight, saturated color block",
+  "description": "A chilled can mid-splash against a single controlled obsidian-to-emerald gradient backdrop, condensation and droplets caught sparkling in one cool platinum rim light — genuine launch-day paid-social energy, elegant and restrained rather than a clashing color-block split, with a clean reserved zone for headline text.",
+  "lighting": "Cool platinum rim/backlight, controlled gradient",
   "subject": "product",
   "collections": ["Social"],
   "verticals": ["Food & drink"],
-  "prompt": "mid-splash against a fixed two-tone color-block backdrop of cobalt blue and burnt orange, the can's own design a fixed diagonal two-tone graphic of deep teal and burnt coral with no legible text or logo, one hard rim/backlight catching genuine condensation beads and droplets so they sparkle, dynamic energetic composition, a clean genuinely empty zone in the lower third reserved for headline text, no text, no logos, no watermarks anywhere in the frame, true liquid-splash physics, real aluminum specular highlights, launch-day advertising energy",
+  "prompt": "mid-splash against a single vertical gradient backdrop from deep obsidian black into a rich deep-emerald undertone at the base, the can's own design a minimal single-tone brushed-metal finish with no legible text or logo, one cool platinum-white rim/backlight catching genuine condensation beads and droplets so they sparkle, dynamic energetic composition, a clean genuinely empty zone in the lower third reserved for headline text, no text, no logos, no watermarks anywhere in the frame, true liquid-splash physics, real brushed-aluminum specular highlights responding to the single rim light, restrained premium launch-day advertising energy",
   "width": 1024,
-  "height": 1024
+  "height": 1280
 }

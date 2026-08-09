@@ -7,6 +7,6 @@
   "collections": ["Editorial"],
   "verticals": ["Apparel", "Footwear", "Accessories"],
   "prompt": "a full-length figure caught mid-stride walking down a real city street lined with plain architecture, natural soft overcast daylight from one side with genuine outdoor color temperature and true ambient bounce, real fabric and hair movement frozen mid-step with authentic motion-freeze physics rather than a static standing pose, the product worn or carried exactly as it would be in real life, shallow depth of field keeping the figure sharp while the street recedes into soft bokeh behind them, candid unposed editorial energy with the gaze off-camera down the street rather than at the lens, full-height vertical framing with the entire figure and their footwear visible in frame, no second person, no visible brand signage on the street, genuine paid-editorial fashion-story register",
-  "width": 1080,
-  "height": 1920
+  "width": 1024,
+  "height": 1280
 }

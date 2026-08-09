@@ -1,12 +1,12 @@
 {
   "id": "wide-establishing-environment",
-  "name": "Wide Establishing",
-  "description": "A wide, cinematic establishing shot where the subject sits small against a dramatic real environment — scale and atmosphere over close detail, the opening frame of a campaign film rather than a packshot.",
-  "lighting": "Natural environmental light, true atmosphere",
-  "subject": "either",
+  "name": "Alpine Ridge Trail",
+  "description": "A wide, cinematic establishing shot of a lone figure small within the frame on a high alpine ridge trail above the cloud line — thin cold light, wind-scoured grass, real atmospheric scale between figure and landscape. The opening frame of a campaign film rather than a packshot.",
+  "lighting": "Thin high-altitude daylight, low sun angle",
+  "subject": "person",
   "collections": ["Editorial"],
-  "verticals": ["Apparel", "Footwear", "Sport", "Home"],
-  "prompt": "a wide cinematic establishing shot with the subject positioned small within the frame against a dramatic, real outdoor or architectural environment — a wide plaza, an open coastline, a mountain trailhead — genuine environmental atmosphere doing most of the visual work: true weather, natural light behavior, and authentic scale relationships between the subject and its surroundings, deep focus holding both the subject and the environment credibly sharp, a restrained color palette led by the environment's own natural tones, no artificial studio lighting rig visible anywhere, no second subject, no visible brand signage in the environment, the register of a campaign film's opening establishing frame rather than a product packshot",
-  "width": 1600,
-  "height": 900
+  "verticals": ["Apparel", "Footwear", "Sport"],
+  "prompt": "a figure small within the frame on a high alpine ridge trail above the cloud line, wind-scoured grass and lichen-covered rock underfoot, a distant cloud layer visible below the ridge line, thin high-altitude daylight with minimal atmospheric warmth, genuine long-shadow behavior from a low sun angle, deep focus holding both the figure and the landscape credibly sharp, cool muted alpine tones throughout, genuine atmospheric haze softening the distance, no artificial studio lighting rig visible anywhere, no second person, no visible brand signage in the environment, the register of a campaign film's opening establishing frame rather than a product packshot",
+  "width": 1024,
+  "height": 1280
 }
