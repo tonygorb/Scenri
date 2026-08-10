@@ -1,0 +1,32 @@
+{
+  "id": "orchard-oat-orchard-burst",
+  "title": "Harvest crush, mid-air",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orchard-oat-cold-pressed-juice"
+      },
+      {
+        "t": "template",
+        "id": "social-beverage-launch-splash"
+      },
+      {
+        "t": "text",
+        "v": " A SINGLE carton only, alone in frame — disregard any instruction below about multiple containers. It stands firm on weathered orchard wood while halved green apples and oat stalks tumble around it mid-air, one apple half striking the boards and throwing a low crown of juice and pulp, fine mist hanging where it burst. 100mm at f/4, camera at carton height, hard backlight rimming every airborne droplet against a deep orchard-green field, the kraft board's fibre texture sharp. ORCHARD OAT reads letterpressed in large clean capitals; a blurred apple leaf crosses the top-left corner, cut by it."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 30
+}

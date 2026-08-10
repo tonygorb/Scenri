@@ -1,0 +1,28 @@
+{
+  "id": "birchwood-derby-night-train",
+  "title": "Sleeper train, lights passing",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birchwood-page-leather-derby"
+      },
+      {
+        "t": "text",
+        "v": " The pair sits on the polished brass luggage rack of a sleeper-train compartment, toes toward the window, laces swaying with the carriage while the world outside streaks into long amber and teal light trails. 50mm at f/1.8 level with the rack, the window filling the frame behind, a warm cabin lamp on mahogany panelling below, a folded wool coat blurring in the lower-right corner cut by both edges. Leather grain and welt stitching sharp in the lamp light; a shallow unlettered maker's deboss in the sole sidewall catches the passing lights."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 28
+}

@@ -1,0 +1,28 @@
+{
+  "id": "ferro-beach-cooler",
+  "title": "Sideline cooler, hard sun",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ferro-sons-yuzu-soda"
+      },
+      {
+        "t": "text",
+        "v": " A hand pulls the can straight up out of a steel cooler packed with crushed ice at a beach volleyball sideline, ice water sheeting off the matte body and beads flying where the wrist snaps, hard noon sun putting one clean specular down the pale-yellow flank. 85mm at f/2.8 at cooler height, the net and a diving player dissolved to bokeh far behind, a striped towel and a second dripping can blurred in the near foreground, cut by the bottom edge. FERRO & SONS sits small in the green stripe, condensation standing proud over the ink."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 2
+}

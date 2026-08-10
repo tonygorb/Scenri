@@ -1,0 +1,28 @@
+{
+  "id": "calder-snow-loft",
+  "title": "First snow through the loft glass",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "calder-vane-boucle-two-seater"
+      },
+      {
+        "t": "text",
+        "v": " The boucle two-seater sits angled in a raw concrete loft while the season's first snow falls thick past the floor-to-ceiling glass behind it, flakes streaking soft with a slow shutter as the room holds still. Low winter sun breaks through for a moment and rakes across the looped ivory wool, raising every loop's shadow, a mohair throw creased over one arm where someone just left. 35mm at f/2.8 at seat height, a steaming mug on the concrete floor catching the light, the plinth's shadow running out the bottom edge; a structural column blurs along the left edge, cut top to bottom."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 12
+}

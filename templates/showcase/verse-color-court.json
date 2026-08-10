@@ -1,0 +1,28 @@
+{
+  "id": "verse-color-court",
+  "title": "Noon on the color court",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verse-beauty-sheer-bloom"
+      },
+      {
+        "t": "text",
+        "v": " The open lipstick stands like a player on a hand-built miniature handball court: color-blocked ground in dusty rose, persimmon and bone, painted lines running under hard noon sun so every element throws one crisp black shadow. 50mm at f/8 from just above court level, the bullet's dusty-rose tip aligned with the rose block. A miniature white bench and a tiny painted rope wall sit out of focus at the back line; the court's painted edge cuts the bottom-left corner. VERSE sits laser-etched on the metal collar, large and clean, catching the sun along its strokes."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 13
+}

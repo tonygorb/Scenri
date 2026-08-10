@@ -1,0 +1,28 @@
+{
+  "id": "amble-fire-tower",
+  "title": "First pour above the fog",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "amble-roasting-co-ethiopia-light-roast"
+      },
+      {
+        "t": "text",
+        "v": " The kraft pouch stands on the rail of a fire-lookout tower at sunrise beside an enamel pot mid-pour into a tin mug, steam whipping sideways in the cold while a sea of valley fog glows amber far below. 35mm at f/4 at rail height, the pour's ribbon sharp, the pouch's roll-top creased down and AMBLE reading in large clean capitals on the wrapped kraft label. The tower's weathered handrail runs out both side edges; a folded wool blanket blurs in the near-left corner, cut by the edge, and the fog sea dissolves to the horizon out the top of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 44
+}

@@ -5185,22 +5185,47 @@ select {
    on top of the product/scene line. Top-right is taken by the select tick. */
 .sc-showcase-badge {
   position: absolute;
-  left: 10px;
-  top: 10px;
+  left: 9px;
+  top: 9px;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px 4px 4px;
+  padding: 2.5px 10px 2.5px 2.5px;
   border-radius: var(--sc-radius-full);
-  background: rgba(10, 10, 10, 0.6);
-  backdrop-filter: blur(6px);
-  color: #fff;
-  font: 600 11.5px var(--sc-font);
+  /* Authentic glass: let the blur do the work and keep the fill nearly
+     transparent so the chip takes its colour from the photograph beneath.
+     An inset highlight and a bright border were what made this read as
+     frosted plastic — a real lens over an image has neither. */
+  background: rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  font: 500 11px var(--sc-font);
+  letter-spacing: 0.005em;
+  /* A plain credit is inert; the linked variant below opts back in. */
   pointer-events: none;
+  text-align: left;
+}
+/* Linked cast credit: clickable through to the presenter page, and it takes
+   its own clicks rather than letting them fall through to the card, which
+   would start a generation recipe instead. Hover only deepens the tint — the
+   chip never moves or scales over the photography it sits on. */
+.sc-showcase-badge[data-link] {
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.sc-showcase-badge[data-link]:hover {
+  background: rgba(0, 0, 0, 0.38);
+}
+.sc-showcase-badge[data-link]:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
 }
 .sc-showcase-badge img {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   border-radius: 50%;
   object-fit: cover;
   flex: none;

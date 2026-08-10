@@ -1,0 +1,28 @@
+{
+  "id": "halcyon-drive-in",
+  "title": "Last feature at the drive-in",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "halcyon-aura-speaker"
+      },
+      {
+        "t": "text",
+        "v": " The speaker stands on the hood of a vintage coupe at an open-air drive-in at dusk, the giant screen's pale glow washing the brushed shell from the front while the sunset burns out low behind the lot, rows of parked silhouettes falling away into haze. 50mm at f/2 from bumper height, the woven grille and one specular arc razor sharp, HALCYON woven tone-on-tone catching the screen light along its letters. A windshield edge and its reflection blur across the bottom-right corner, cut by both edges; power cables cross the sky out the top corners."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 7
+}

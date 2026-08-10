@@ -1,0 +1,29 @@
+{
+  "id": "aldergate-ice-core",
+  "title": "Frost-proof, literally",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aldergate-frost-field-watch",
+        "angle": "three-quarter"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO — the frame filled by the watch head and strap emerging from clear glacier ice. The case sits half-embedded, the olive canvas strap frozen mid-curve into the depth, air bubbles strung like beads through the blue around it. 100mm macro at f/4, framed 1:1 life-size, level with the crown; meltwater films the crystal and one drop swells at the case's lower lug. ALDERGATE reads in small clean painted capitals under the twelve. A fractured ice edge crosses the top-right corner out of focus, refracting the cold daylight into prisms."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 23
+}

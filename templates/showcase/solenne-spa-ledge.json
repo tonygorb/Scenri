@@ -1,0 +1,28 @@
+{
+  "id": "solenne-spa-ledge",
+  "title": "Morning at the spa ledge",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "solenne-mineral-pressed-cream"
+      },
+      {
+        "t": "text",
+        "v": " The jar sits at the edge of a travertine spa ledge beside a stack of folded ivory linen towels, steam drifting slowly off thermal water just behind, morning sun entering low and raking the stone so its pores throw grain-level shadows. 85mm at f/2.5 level with the lid, the brushed-brass catching one soft window of light, the frosted glass going luminous where the steam crosses behind it. SOLENNE reads screen-printed matte white on the band, clean and legible. A wet stone lip blurs across the bottom-left corner, cut by both edges; the pool's turquoise falls out of focus above."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 3
+}

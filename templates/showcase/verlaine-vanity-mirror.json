@@ -1,0 +1,28 @@
+{
+  "id": "verlaine-vanity-mirror",
+  "title": "Before the party",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-lumiere"
+      },
+      {
+        "t": "text",
+        "v": " The crystal flacon stands on a deco dressing table between lit vanity bulbs, its cut facets throwing small warm stars across the walnut while the mirror behind holds a doubled, softer version of the scene. 85mm at f/2 at tabletop height: the near facets and gold dome razor sharp, elbow-length silk gloves dropped in a heap beside it, a lipstick-marked glass and an invitation card blurred at the frame's edge, cut by the right. VERLAINE surfaces acid-etched on the shoulder facet only where the bulb light rakes it. One bulb flares softly in the top-left corner; the table's edge runs out the bottom."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 36
+}

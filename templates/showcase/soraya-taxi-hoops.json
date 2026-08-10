@@ -1,0 +1,32 @@
+{
+  "id": "soraya-taxi-hoops",
+  "title": "Fastening the second hoop",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-gold-hoop-earrings"
+      },
+      {
+        "t": "character",
+        "id": "soraya"
+      },
+      {
+        "t": "text",
+        "v": " Inside a taxi at night: she leans toward the window fastening the second hoop, chin tilted, the hammered gold catching a passing storefront's light as one bright arc against her jaw while the city smears into bokeh ribbons behind the glass. 85mm at f/1.8 from the seat beside her, her hands and the near hoop razor sharp, rain beads on the window doubling the neon. A black silk slip dress and a wool coat over her shoulders, fully dressed for the evening. Her far shoulder and the seat leather fall into deep shadow, cut by the right edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 6
+}

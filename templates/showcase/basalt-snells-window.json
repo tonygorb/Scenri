@@ -1,0 +1,33 @@
+{
+  "id": "basalt-snells-window",
+  "title": "Under the surface, looking up",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "basalt-bloom-sparkling-mineral-water",
+        "angle": "three-quarter"
+      },
+      {
+        "t": "template",
+        "id": "studio-submerged-bloom-drift"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge. The bottle stands submerged on pale sand, shot from below its shoulder looking up so Snell's window opens above it — the sky compressed into a bright circle rimmed by mirrored blue, a caustic net raking down the glass and dancing on the sand. 35mm at f/5.6 underwater, fine bubbles streaming off the crown cap toward the surface with a faint upward smear, the water column glowing turquoise to deep blue at the edges. BASALT BLOOM reads lithographed on the cap where a caustic band crosses it; a drifting seagrass blade blurs through the bottom-right corner, cut by the edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 27
+}

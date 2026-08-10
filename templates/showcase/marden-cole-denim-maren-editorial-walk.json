@@ -1,0 +1,36 @@
+{
+  "id": "marden-cole-denim-maren-editorial-walk",
+  "title": "Selvedge denim, mid-stride",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marden-cole-selvedge-denim-jacket"
+      },
+      {
+        "t": "character",
+        "id": "maren"
+      },
+      {
+        "t": "template",
+        "id": "editorial-walk-fashion-strip"
+      },
+      {
+        "t": "text",
+        "v": " Catch her at full stride toward the lens, jacket worn open over a plain white ribbed tank, both front panels swung back with the step, copper shank buttons catching in a line. 50mm at f/2 from chest height, tracking with her; her trailing hand and the swinging hem carry the only blur. Charcoal wide-leg trousers, white leather sneakers, fully dressed. A blurred pedestrian shoulder crosses the near-left edge; the shopfront behind dissolves to soft verticals. Her stride is long and mid-motion, the leading knee driving forward, hem and trailing hand carrying real blur. A small unlettered woven selvedge flag sits at the inner collar seam, flipped out by the wind."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 1
+}

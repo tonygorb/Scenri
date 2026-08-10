@@ -8,6 +8,6 @@
   "subcategory": "cylindrical wireless speaker",
   "materials": "brushed warm-silver aluminum shell, soft woven charcoal fabric grille band, matte amber-lit top button, rubberized base ring",
   "primaryColors": "warm silver, charcoal grey, amber accent",
-  "negativeConstraints": "never render any text, logo, wordmark, engraving, or printing anywhere on the speaker body, rim, button, or base; never render a second button, a visible cable, or any label; never let the fabric grille read as printed texture rather than genuine woven fabric",
-  "preservationNotes": "the brushed-aluminum finish, single amber top button, charcoal fabric grille band, rubberized base ring, and completely plain unmarked surfaces must read identically in every angle, same proportions throughout"
+  "negativeConstraints": "never render any text, logo, wordmark, engraving, or printing anywhere on the speaker body, rim, button, or base; never render a second button, a visible cable, or any label; never let the fabric grille read as printed texture rather than genuine woven fabric Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "the brushed-aluminum finish, single amber top button, charcoal fabric grille band, rubberized base ring, and completely plain unmarked surfaces must read identically in every angle, same proportions throughout When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
 }

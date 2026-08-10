@@ -8,6 +8,6 @@
   "subcategory": "hoop earrings",
   "materials": "Hammered gold-tone metal hoops with a polished post and hinge-snap closure",
   "primaryColors": "Warm polished gold",
-  "negativeConstraints": "Never render more than two hoops or a mismatched pair, the two earrings must always be identical in size and diameter; never let the hammered texture read as deep, rough, or random; never add gemstones, dangling charms, or any text/engraving near the post or on the hoop.",
-  "preservationNotes": "Keep the hoop diameter, wire gauge, and hammered-texture pattern identical between both earrings of the pair across every angle; keep the post and hinge closure plain, blank, unmarked metal in every shot."
+  "negativeConstraints": "Never render more than two hoops or a mismatched pair, the two earrings must always be identical in size and diameter; never let the hammered texture read as deep, rough, or random; never add gemstones, dangling charms, or any text/engraving near the post or on the hoop. Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "Keep the hoop diameter, wire gauge, and hammered-texture pattern identical between both earrings of the pair across every angle; keep the post and hinge closure plain, blank, unmarked metal in every shot. When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
 }

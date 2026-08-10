@@ -1,0 +1,28 @@
+{
+  "id": "basalt-hot-spring",
+  "title": "Cold glass, hot spring",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "basalt-bloom-sparkling-mineral-water"
+      },
+      {
+        "t": "text",
+        "v": " The bottle stands in two centimetres of steaming mineral water on a white geothermal terrace at dawn, crusted travertine rims stepping away behind it into rising steam, the first pink light flaring through the vapor. 85mm at f/2.8 just above the waterline, condensation streaming down the glass while hot mist curls around it, cold bottle against hot spring, both textures sharp at the neck. The crown cap is plain brushed aluminium, its crimped skirt catching the dawn light, carrying an unlettered pressed dome. Mineral crust blurs across the extreme foreground, cut by the bottom corners; a distant bather's silhouette dissolves in the steam out the top-left."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 18
+}

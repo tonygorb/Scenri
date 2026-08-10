@@ -1,0 +1,30 @@
+{
+  "id": "elin",
+  "name": "Elin",
+  "presentation": "woman",
+  "descriptor": "Quiet luxury · honey-blonde bun · warm assurance",
+  "ageRange": "mid 30s",
+  "facial": "soft oval face, gentle cheekbones, light-blue eyes, faint natural smile lines",
+  "skin": "fair warm-toned with realistic fine lines around the eyes, natural texture",
+  "hair": "honey-blonde hair in a soft low bun with a few loose strands",
+  "build": "average height, soft athletic build",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": [
+    "Lifestyle",
+    "Home",
+    "Furniture",
+    "Wellness"
+  ],
+  "suitableStyles": [
+    "Lifestyle",
+    "Editorial"
+  ],
+  "identityNotes": "the honey-blonde low bun, light-blue eyes and the faint smile lines must survive every generation — do not de-age her into her 20s or erase the fine lines",
+  "negativeConstraints": [
+    "no airbrushed line-free skin",
+    "no loose flowing hair",
+    "no glamour-heavy makeup"
+  ],
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,28 @@
+{
+  "id": "verity-travel-case",
+  "title": "Packing the good ones",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-pearl-drop-necklace"
+      },
+      {
+        "t": "text",
+        "v": " The necklace spills from a small open leather travel case onto washed linen in low morning window light, the chain drawing one loose S-curve across the cloth and the pearl resting at its end, nacre taking a single soft highlight. 100mm macro at f/3.5 from just above the linen, the case's velvet tray and a folded silk scarf falling out of focus behind, a passport corner cut by the top-right edge. The gold peg above the pearl fires one point of light; the clasp sits open mid-frame, plain and unmarked. Linen weave reads sharp under the pearl and dissolves toward every edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 34
+}

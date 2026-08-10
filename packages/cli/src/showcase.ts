@@ -30,6 +30,14 @@ export interface ShowcaseEntry {
    */
   variants?: number;
   quality?: 'draft' | 'standard' | 'high';
+  /**
+   * Curated homepage position (ascending). The generator writes the spec
+   * file's array index here so the wall renders in the sequence it was
+   * art-directed in — without it, load order is filename-alphabetical, which
+   * clusters same-product neighbours side by side. Entries without an order
+   * sort after every ordered one, then by id.
+   */
+  order?: number;
 }
 
 const ID = /^[a-z0-9-]+$/;
@@ -49,7 +57,8 @@ function isShowcaseEntry(x: any): x is ShowcaseEntry {
     Number.isFinite(x.width) &&
     Number.isFinite(x.height) &&
     (x.variants === undefined || (Number.isInteger(x.variants) && x.variants >= 1 && x.variants <= 4)) &&
-    (x.quality === undefined || ['draft', 'standard', 'high'].includes(x.quality))
+    (x.quality === undefined || ['draft', 'standard', 'high'].includes(x.quality)) &&
+    (x.order === undefined || Number.isFinite(x.order))
   );
 }
 
@@ -69,6 +78,11 @@ export function loadShowcase(dir = defaultShowcaseDir()): { showcase: ShowcaseEn
       warnings.push(`unparseable showcase entry skipped: ${f}`);
     }
   }
+  // Curated wall order, not filename order: readdir is alphabetical, which
+  // parks same-product ids next to each other. Unordered entries sort last.
+  showcase.sort(
+    (a, b) => (a.order ?? Number.POSITIVE_INFINITY) - (b.order ?? Number.POSITIVE_INFINITY) || a.id.localeCompare(b.id),
+  );
   return { showcase, warnings };
 }
 

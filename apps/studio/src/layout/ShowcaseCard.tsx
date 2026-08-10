@@ -18,15 +18,20 @@ export type ShowcaseCardSize = CatalogCardSize;
  * hovering tells you what's actually in the shot before you click through.
  * A presenter-led shot also gets a small always-visible avatar badge, the
  * same way a cast credit reads on a real campaign board. It rides top-left,
- * clear of the hover caption that fills the bottom edge.
+ * clear of the hover caption that fills the bottom edge. The badge is a real
+ * button when `onOpenPresenter` is supplied — a cast credit you can follow
+ * to that presenter's page — and it stops the click from reaching the card
+ * beneath, which would otherwise start a whole generation recipe instead.
  */
 export function ShowcaseCard({
   entry,
   productName,
   presenterName,
   presenterPreviewUrl,
+  presenterId,
   sceneName,
   onOpen,
+  onOpenPresenter,
   size = 'grid',
 }: {
   entry: ShowcaseEntry;
@@ -34,8 +39,12 @@ export function ShowcaseCard({
   productName?: string | null;
   presenterName?: string | null;
   presenterPreviewUrl?: string | null;
+  /** Present only when the entry names a presenter; drives the badge's link. */
+  presenterId?: string | null;
   sceneName?: string | null;
   onOpen?: (id: string) => void;
+  /** Opens the presenter's own page. Omit to keep the badge a plain credit. */
+  onOpenPresenter?: (presenterId: string) => void;
   size?: ShowcaseCardSize;
 }) {
   const recipe = [productName, presenterName, sceneName].filter(Boolean).join(' · ');
@@ -53,12 +62,30 @@ export function ShowcaseCard({
         onUse={onOpen}
         size={size}
       />
-      {presenterName && (
-        <span className="sc-showcase-badge" aria-hidden>
-          {presenterPreviewUrl ? <img src={presenterPreviewUrl} alt="" /> : null}
-          {presenterName}
-        </span>
-      )}
+      {presenterName &&
+        (onOpenPresenter && presenterId ? (
+          <button
+            type="button"
+            className="sc-showcase-badge"
+            data-link
+            title={`See ${presenterName}`}
+            onClick={(e) => {
+              // The badge sits on top of the card's own open handler; without
+              // this the click would start a recipe instead of opening the page.
+              e.stopPropagation();
+              e.preventDefault();
+              onOpenPresenter(presenterId);
+            }}
+          >
+            {presenterPreviewUrl ? <img src={presenterPreviewUrl} alt="" /> : null}
+            {presenterName}
+          </button>
+        ) : (
+          <span className="sc-showcase-badge" aria-hidden>
+            {presenterPreviewUrl ? <img src={presenterPreviewUrl} alt="" /> : null}
+            {presenterName}
+          </span>
+        ))}
     </div>
   );
 }

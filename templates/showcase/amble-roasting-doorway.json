@@ -1,0 +1,32 @@
+{
+  "id": "amble-roasting-doorway",
+  "title": "Morning coffee through the doorway",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "amble-roasting-co-ethiopia-light-roast"
+      },
+      {
+        "t": "template",
+        "id": "lifestyle-incidental-tablescape"
+      },
+      {
+        "t": "text",
+        "v": " Shoot from the hallway through the open kitchen doorway: the dark doorframe cuts the left third and the top edge, the kitchen beyond held in a bright rectangle of window light. Stand the pouch close to the lens on the near counter so it owns the lower-right third, roll-top creased down, its wrapped matte kraft label carrying AMBLE in large clean capitals, ink sunk into the uncoated stock, one seam corner lifted. 28mm at f/8 at eye height, everything from doorframe to far tiles readably sharp. Steam ribbons off a just-boiled stovetop kettle and drifts across the light."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 42
+}

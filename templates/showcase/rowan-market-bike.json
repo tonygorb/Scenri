@@ -1,0 +1,28 @@
+{
+  "id": "rowan-market-bike",
+  "title": "Market run, nine a.m.",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "rowan-ash-leather-tote"
+      },
+      {
+        "t": "text",
+        "v": " The tote rides in the wicker basket of a parked city bike on a cobbled market street, ranunculus stems and a paper-wrapped baguette leaning out of it, morning sun skimming the tan leather so the grain and the brass feet catch. 50mm at f/2 at basket height, the handlebar and bell blurring through the top-left corner, a striped market awning and moving shoppers dissolved behind. ROWAN ASH sits blind-debossed beneath the handle root, shadow pooling in the impression. A crate of lemons burns yellow out of focus in the near-right, cut by the edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 31
+}

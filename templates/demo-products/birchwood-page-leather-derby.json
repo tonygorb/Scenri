@@ -8,6 +8,6 @@
   "subcategory": "leather derby shoe",
   "materials": "smooth full-grain leather upper, stitched leather welt, slim vulcanized rubber sole",
   "primaryColors": "deep chestnut-brown",
-  "negativeConstraints": "never render any text, logo, wordmark, emblem, or embossed/printed lettering anywhere on the shoe, including the inner sole edge; never add broguing or perforation; never render the leather as matte or heavily textured, it keeps a subtle genuine sheen",
-  "preservationNotes": "keep the open derby lacing (quarters stitched on top of the vamp) and the slim low-profile rubber sole exactly as established across every angle; never thicken the sole into a chunky wedge; keep all leather surfaces entirely plain and unmarked"
+  "negativeConstraints": "never render any text, logo, wordmark, emblem, or embossed/printed lettering anywhere on the shoe, including the inner sole edge; never add broguing or perforation; never render the leather as matte or heavily textured, it keeps a subtle genuine sheen Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "keep the open derby lacing (quarters stitched on top of the vamp) and the slim low-profile rubber sole exactly as established across every angle; never thicken the sole into a chunky wedge; keep all leather surfaces entirely plain and unmarked When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
 }

@@ -1,0 +1,36 @@
+{
+  "id": "kestrel-otis-alpine-ridge",
+  "title": "Cresting the ridge above the cloud sea",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "kestrel-waxed-field-jacket"
+      },
+      {
+        "t": "character",
+        "id": "otis"
+      },
+      {
+        "t": "template",
+        "id": "wide-establishing-environment"
+      },
+      {
+        "t": "text",
+        "v": " Catch him mid-stride cresting the ridge, small in the lower third, the cloud sea and thin blue taking the rest of the height — jacket worn open, both front panels and the hem snapping downwind, grass laid flat in a travelling wave, hair pushed off his forehead. 35mm at f/8 from thirty metres out, below the trail line so he breaks the skyline. A lichen-crusted boulder blurs the near-right foreground, cut by the right and bottom edges. Dress him fully: charcoal ribbed merino crew, olive canvas trousers cuffed over brown lace-up leather hiking boots. Let the garment read unmarked."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 35
+}

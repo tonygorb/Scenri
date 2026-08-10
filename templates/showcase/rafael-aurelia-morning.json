@@ -1,0 +1,36 @@
+{
+  "id": "rafael-aurelia-morning",
+  "title": "Two drops, morning routine",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aurelia-amber-serum"
+      },
+      {
+        "t": "character",
+        "id": "rafael"
+      },
+      {
+        "t": "template",
+        "id": "handheld-offer-crop"
+      },
+      {
+        "t": "text",
+        "v": " His hand brings the amber bottle toward the lens mid-reach, the gold pipette already lifted in his other hand with one drop necked off and falling, caught mid-air between dropper tip and the back of his wrist. 50mm at f/2.2 at chest height, warm side-window light: the bottle and the falling drop sharp, his groomed beard and easy smile softening one plane back, the short dark curls holding the top edge. A pushed-up waffle-knit sleeve in warm grey blurs across the bottom-left corner, cut by it. AURELIA reads letterpress-debossed across the cream band, large and clean, shadow pooling in the impression."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 21
+}

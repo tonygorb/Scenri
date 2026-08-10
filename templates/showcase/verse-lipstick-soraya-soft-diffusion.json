@@ -1,0 +1,36 @@
+{
+  "id": "verse-lipstick-soraya-soft-diffusion",
+  "title": "First touch of dusty rose",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verse-beauty-sheer-bloom"
+      },
+      {
+        "t": "character",
+        "id": "soraya"
+      },
+      {
+        "t": "template",
+        "id": "soft-diffusion-portrait"
+      },
+      {
+        "t": "text",
+        "v": " Her hand holds the polished case upright, thumb and forefinger closed round the barrel, and the bullet has just lifted from her lower lip — its tip bevelled flat where it pressed, one hairline thread of pigment still bridging the gap, the first uneven wash of dusty rose reading over her lip's true texture. 105mm at f/2.5 at eye level, slightly to her right: bullet tip and lip line sharp, her far ear dissolving, the low sleek knot holding her profile clean. VERSE runs engraved around the base collar, catching one highlight. A pale oatmeal fine-knit crewneck holds the lower edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 43
+}

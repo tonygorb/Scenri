@@ -1,0 +1,28 @@
+{
+  "id": "lumen-hotel-bar",
+  "title": "Nightcap, signet on marble",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "lumen-co-signet-ring"
+      },
+      {
+        "t": "text",
+        "v": " The signet rests face-up on deep-green marble at a hotel bar in golden lamplight, beside a half-poured coupe and a folded linen napkin, the bar's brass rail running a warm line out of focus behind. 100mm macro at f/2.8 level with the band, the brushed gold holding one soft window of light and the polished face mirroring the pendant lamps as a single stretched highlight. A hand reaches in from the right, blurred mid-motion about to take it, cut by the right edge. Inside the band the LUMEN & CO. hallmark catches a point of lamplight. The marble's veining runs sharp under the ring and melts into bokeh within a hand's width."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 24
+}

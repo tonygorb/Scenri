@@ -1,0 +1,36 @@
+{
+  "id": "almanac-canvas-theo-billboard",
+  "title": "Gum soles ignite at golden hour",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "almanac-supply-canvas-low-top"
+      },
+      {
+        "t": "character",
+        "id": "theo"
+      },
+      {
+        "t": "template",
+        "id": "social-fashion-campaign-billboard"
+      },
+      {
+        "t": "text",
+        "v": " Put him small in the lower third, mid-step out of deep blue shade into a hard-edged wedge of late sun, so the gum sole and toe cap ignite first while his torso sits two stops down, the torn-poster wall towering out through the top edge. 35mm at f/5.6 from pavement level, tilted up. A lifted sheet of poster paper flares out of focus in the near-right foreground, cut by the right edge. Cropped technical jacket zipped to the sternum over a white tee, wide black trousers cropped at the ankle, the low-tops fully laced. The blank poster panel holds clean above him."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 32
+}

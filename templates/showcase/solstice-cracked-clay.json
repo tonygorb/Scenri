@@ -1,0 +1,32 @@
+{
+  "id": "solstice-cracked-clay",
+  "title": "Titanium on fired earth",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "solstice-titanium-aviators"
+      },
+      {
+        "t": "template",
+        "id": "confetti-burst-freeze"
+      },
+      {
+        "t": "text",
+        "v": " The aviators rest half-open on a plate of sun-cracked clay, one temple arm dropped into a fissure so the frame sits at a casual tilt, hard afternoon light driving the crack network's shadows into sharp relief. 85mm at f/4 from just above the clay plane, the amber gradient lenses throwing two warm pools of light into the fissures beneath, the brushed titanium rims firing one clean specular each. Curled clay flakes stand along the cracks through the near foreground, cut by the bottom edge; the plate's fractured horizon dissolves out of focus at the top."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 16
+}

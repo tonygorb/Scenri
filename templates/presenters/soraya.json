@@ -1,0 +1,28 @@
+{
+  "id": "soraya",
+  "name": "Soraya",
+  "presentation": "woman",
+  "descriptor": "Luxe radiance · deep glowing skin · elegant lines",
+  "ageRange": "late 20s",
+  "facial": "oval face, high rounded cheekbones, dark almond eyes, softly arched brows, long elegant neck",
+  "skin": "deep brown with a natural radiant glow, true texture, minimal retouch",
+  "hair": "sleek straightened jet-black hair pulled into a low knot, clean hairline",
+  "build": "graceful slender build with poised upright posture, fine long-fingered hands",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": [
+    "Jewelry",
+    "Beauty",
+    "Fragrance"
+  ],
+  "suitableStyles": [
+    "Editorial"
+  ],
+  "identityNotes": "the deep radiant skin tone, low sleek knot and long neck line must survive every generation — do not lighten the skin, loosen the hair, or shorten the neck",
+  "negativeConstraints": [
+    "no lightened or greyed skin tone",
+    "no loose or curly hair",
+    "no chunky or short-fingered hands in close-ups"
+  ],
+  "width": 1024,
+  "height": 1280
+}

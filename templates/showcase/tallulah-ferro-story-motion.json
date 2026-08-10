@@ -1,0 +1,36 @@
+{
+  "id": "tallulah-ferro-story-motion",
+  "title": "Yuzu can, mid-spin",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ferro-sons-yuzu-soda"
+      },
+      {
+        "t": "character",
+        "id": "tallulah"
+      },
+      {
+        "t": "template",
+        "id": "social-vertical-story-motion"
+      },
+      {
+        "t": "text",
+        "v": " Catch her mid-pivot with the can held high and loose, condensation flicking off it in an arc of droplets that carries the motion while she and the can stay sharp. 35mm at f/4 from waist height, tilted up so she breaks the top edge, hard light cutting her shadow long across the ground through the bottom-left corner. Boxy cream tee tucked into straight indigo denim, white leather sneakers, fully dressed. The pale-yellow body and green stripe read clean against the saturated field; FERRO & SONS sits small in the stripe, specular breaking across it. Her trailing hand blurs through the right edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 25
+}

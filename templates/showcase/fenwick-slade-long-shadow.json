@@ -1,0 +1,32 @@
+{
+  "id": "fenwick-slade-long-shadow",
+  "title": "Oak shelving, one long shadow",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenwick-slade-open-shelving"
+      },
+      {
+        "t": "template",
+        "id": "furniture-long-shadow-gallery"
+      },
+      {
+        "t": "text",
+        "v": " Stand it tall in the right third and let the skylight's single beam launch its shadow off the feet, across the terrazzo and up through the left edge, the beam's edge readable in fine drifting dust. 35mm at f/8, camera 40cm off the floor, square to the shadow's run, the frame's top rail running out the top edge. Each oak shelf edge takes one specular line while the far corner sinks toward black. A chalk-plaster wall return stands dark in the immediate foreground, its arris cutting the left edge and bottom corner. Let the piece stand unmarked."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 45
+}

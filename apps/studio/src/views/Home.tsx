@@ -57,9 +57,9 @@ export function HomeView() {
   // every other consumer of BrandLayout's product library already uses)
   const products = library.length ? library : ((brand.json?.products ?? []) as any[]);
 
-  /** The gallery for the selected category — same ordering the catalog
-   * already ships in (curated order, not favorites-sorted: every entry here
-   * is already hand-picked, unlike the raw scene catalog). */
+  /** The gallery for the selected category — the API ships entries sorted by
+   * their curated `order` field (the art-directed wall sequence), so no
+   * client-side sorting: filtering must preserve that order. */
   const shownShowcase = useMemo(
     () => (category ? showcase.filter((s) => s.category === category) : showcase),
     [showcase, category],
@@ -81,6 +81,7 @@ export function HomeView() {
       productName: productId ? demoProducts.find((p) => p.id === productId)?.name : null,
       presenterName: presenter?.name ?? null,
       presenterPreviewUrl: presenter?.previewUrl ?? null,
+      presenterId: presenter?.id ?? null,
       sceneName: sceneId ? templates.find((t) => t.id === sceneId)?.name : null,
     };
   };
@@ -174,7 +175,14 @@ export function HomeView() {
             {shownShowcase.length > 0 && (
               <div className="sc-masonry">
                 {shownShowcase.map((s) => (
-                  <ShowcaseCard key={s.id} entry={s} size="grid" onOpen={applyShowcase} {...recipeOf(s)} />
+                  <ShowcaseCard
+                    key={s.id}
+                    entry={s}
+                    size="grid"
+                    onOpen={applyShowcase}
+                    onOpenPresenter={(id) => navigate(presenterPath(brand, id))}
+                    {...recipeOf(s)}
+                  />
                 ))}
               </div>
             )}

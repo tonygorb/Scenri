@@ -1,0 +1,28 @@
+{
+  "id": "fernweg-cracked-clay-shadow",
+  "title": "Dry season, long light",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fernweg-wanderlust-oil"
+      },
+      {
+        "t": "text",
+        "v": " The steel vial stands upright in a fissure of sun-cracked earth at the very end of day, the low sun dragging its shadow a full metre across the clay plates while the kraft band glows amber along its lit edge. 50mm at f/4 at ground level shooting along the shadow's run, crack network converging toward a heat-hazed horizon, one dry grass stem leaning into the near-left corner out of focus, cut by the edge. FERNWEG reads hand-stamped small and clean into the kraft; the rollerball tip fires the frame's single brightest point."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 39
+}

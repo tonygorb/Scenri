@@ -1,0 +1,36 @@
+{
+  "id": "kestrel-jacket-julien-low-key",
+  "title": "Waxed cotton, low-key study",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "kestrel-waxed-field-jacket"
+      },
+      {
+        "t": "character",
+        "id": "julien"
+      },
+      {
+        "t": "template",
+        "id": "low-key-character-study"
+      },
+      {
+        "t": "text",
+        "v": " Three-quarter turn into the single source, collar up, his hand mid-pull on the storm placket so the wax breaks into cracked highlights along the fold lines. 85mm at f/2 at chest height: the brass snap under his thumb razor sharp, his jaw and stubble catching the last of the key, the far shoulder gone to black. Charcoal merino crew beneath, dark wool trousers. Rain still beads on the shoulder yoke and one bead tracks down the sleeve. The tan corduroy collar edge cuts the top-right corner; his knuckles blur through the bottom-left, cut by both edges."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 9
+}

@@ -1,0 +1,32 @@
+{
+  "id": "wen-meridian-trailhead",
+  "title": "Pace check at the trailhead",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "meridian-pulse-smartwatch"
+      },
+      {
+        "t": "character",
+        "id": "wen"
+      },
+      {
+        "t": "text",
+        "v": " His wrist turns up mid-stretch at a foggy trailhead gate, the titanium case and stone-grey strap sharp against a charcoal running shell sleeve, breath fogging in the cold while pines dissolve into mist behind. 105mm at f/2.2 at chest height a stride away, the case flank catching one cold specular, MERIDIAN laser-etched crisp and legible along it. His other hand grips the wooden gate post out of focus in the near-left, cut by the edge; a trail marker's red blaze floats soft in the background. Full running kit: charcoal shell, black tights, trail shoes."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 15
+}

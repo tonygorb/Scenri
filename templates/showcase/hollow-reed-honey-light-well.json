@@ -1,0 +1,32 @@
+{
+  "id": "hollow-reed-honey-light-well",
+  "title": "Honey coil in the light well",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "hollow-reed-wildflower-honey"
+      },
+      {
+        "t": "template",
+        "id": "studio-vertical-light-well"
+      },
+      {
+        "t": "text",
+        "v": " Stand the open jar at the base of the well so the single overhead beam drops straight down its axis, and catch a thread of honey descending from a lifted dipper — the falling thread igniting inside the beam like drawn glass, coiling on itself at the surface, the coil sharp. 100mm macro at f/4, framed 1:1 life-size on the rim and the amber pool, everything past the beam's edge falling to warm black. A letterpressed uncoated paper label is glued to the outside of the front facet, reading HOLLOW REED in large clean type, one corner lifting. The dipper's handle blurs out the top edge; the near facet cuts the bottom-left corner."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 10
+}

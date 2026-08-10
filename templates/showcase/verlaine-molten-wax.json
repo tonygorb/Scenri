@@ -1,0 +1,32 @@
+{
+  "id": "verlaine-molten-wax",
+  "title": "Crystal in set wax",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-lumiere"
+      },
+      {
+        "t": "template",
+        "id": "liquid-marble-pour"
+      },
+      {
+        "t": "text",
+        "v": " The crystal flacon stands where a slow cascade of bone-white wax has just set around its base, the last live drip still glossy and necking at the leading edge while everything behind has gone matte. One raking key crosses the scene so the wax ridges throw long shadows and every cut facet splits the light into small hard stars across the pale field. 100mm macro at f/4, framed 1:1 life-size, camera level with the shoulder; the gold dome takes a single hot specular. VERLAINE surfaces acid-etched on the shoulder facet only where the rake crosses it. A cooled wax ribbon blurs across the bottom-left corner, cut by both edges."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 20
+}

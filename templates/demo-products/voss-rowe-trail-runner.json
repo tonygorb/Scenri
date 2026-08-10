@@ -8,6 +8,6 @@
   "subcategory": "trail running shoe",
   "materials": "matte-coated ripstop mesh upper, synthetic overlays, chunky lugged rubber outsole",
   "primaryColors": "clay-orange, charcoal-grey, off-white sole",
-  "negativeConstraints": "never render any text, logo, wordmark, tag, patch, or embroidered/printed/embossed lettering anywhere on the shoe; never render the outsole lugs as smooth or the mesh as glossy leather",
-  "preservationNotes": "keep the outsole lug pattern chunky and off-white (never bright white or grey) and keep the mesh and overlay construction consistent across every angle, entirely free of any marks or lettering"
+  "negativeConstraints": "never render any text, logo, wordmark, tag, patch, or embroidered/printed/embossed lettering anywhere on the shoe; never render the outsole lugs as smooth or the mesh as glossy leather Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "keep the outsole lug pattern chunky and off-white (never bright white or grey) and keep the mesh and overlay construction consistent across every angle, entirely free of any marks or lettering When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
 }

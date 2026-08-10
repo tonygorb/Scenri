@@ -1,0 +1,36 @@
+{
+  "id": "julien-almanac-fisheye",
+  "title": "Flash, fisheye, curb height",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "almanac-supply-canvas-low-top"
+      },
+      {
+        "t": "character",
+        "id": "julien"
+      },
+      {
+        "t": "template",
+        "id": "editorial-fisheye-flash-studio"
+      },
+      {
+        "t": "text",
+        "v": " Shot from curb height on a fisheye, hard on-camera flash: he jumps the frame's center, knees pulled up mid-air, both low-tops driving toward the lens so the gum soles read huge against the curved seamless behind. 15mm fisheye at f/8, flash freezing her sharp with one hard shadow ring on the floor, the studio's edges bowing away. Boxy white tee, cuffed straight indigo denim, white crew socks, the canvas low-tops fully laced and dominating the near field. His trailing hand blurs slightly at the frame's bowed edge, cut by the top-right corner."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 37
+}

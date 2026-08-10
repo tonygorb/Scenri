@@ -27,5 +27,6 @@
   "variants": 2,
   "quality": "high",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "order": 0
 }

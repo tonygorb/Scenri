@@ -1,7 +1,7 @@
 {
   "id": "voss-rowe-runner-volcanic-ash",
-  "title": "Trail runner on the ash field",
-  "category": "cinematic",
+  "title": "Trail runner biting volcanic ash",
+  "category": "campaign",
   "brief": {
     "tokens": [
       {
@@ -14,18 +14,19 @@
       },
       {
         "t": "text",
-        "v": " Plant the outsole into loose ash mid-stride, lugs biting a shallow crater and throwing a fan of grey grit up behind the heel — grains still airborne, a faint smear on the drifting ash alone while the shoe holds razor sharp; disregard the slim display stand that follows. 35mm at f/8 from ash level, camera a hand's width off the ground. A ridge of ash blurs across the extreme foreground and runs out both side edges. VOSS ROWE sits heat-welded in matte TPU across the heel counter, a millimetre proud of the ripstop, ash settling along its lower edge. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+        "v": " Plant the outsole into loose ash mid-stride, lugs biting a shallow crater and throwing a fan of grey grit up behind the heel, grains still airborne, a faint smear on the drifting ash alone while the shoe holds razor sharp; disregard the slim display stand that follows. 50mm at f/5.6 from ash level, the smoldering horizon glow banding low through the frame, the dark sky taking the upper third. A ridge of ash blurs across the extreme foreground and runs out both side edges. VOSS ROWE sits heat-welded in matte TPU across the heel counter, a millimetre proud of the ripstop, ash settling along its lower edge."
       },
       {
         "t": "format",
-        "id": "landscape",
-        "w": 1600,
-        "h": 900
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
       }
     ]
   },
   "variants": 2,
   "quality": "high",
-  "width": 1600,
-  "height": 900
+  "width": 1024,
+  "height": 1280,
+  "order": 41
 }

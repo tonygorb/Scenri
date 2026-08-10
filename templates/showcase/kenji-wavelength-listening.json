@@ -1,0 +1,36 @@
+{
+  "id": "kenji-wavelength-listening",
+  "title": "First listen, eyes closed",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "wavelength-studio-headphones"
+      },
+      {
+        "t": "character",
+        "id": "kenji"
+      },
+      {
+        "t": "template",
+        "id": "closeup-face-product-interaction"
+      },
+      {
+        "t": "text",
+        "v": " Crop to his jaw, ear and the near cup worn in place, eyes closed out of frame above, chin dropped a degree as if the first note just landed. 100mm at f/2.8 level with the ear cup: the copper hinge fires one clean specular, the leather pad compresses softly against his jaw, the precise low side part holding its line above. His collarbone and a charcoal crew neckline fade through the bottom edge; the headband arc runs out the top-right corner. Skin keeps true texture through the falloff; an unlettered blind-debossed maker's mark in the leather pad pools shadow in its impression."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 4
+}

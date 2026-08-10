@@ -1,0 +1,32 @@
+{
+  "id": "verity-pearls-suspended-silk",
+  "title": "Pearls through ivory silk",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-pearl-drop-necklace"
+      },
+      {
+        "t": "template",
+        "id": "chrome-bubble-warp"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO, the frame filled by a hand's width of ivory silk mid-billow; disregard the chrome-sphere and wider-set framing that follows. The necklace hangs through a fold, the chain drawing a fine gold line down the fabric's wave and the pearl resting where the silk troughs, its weight dimpling the surface. 150mm macro at f/4, framed 1:1 life-size, camera level with the trough: filaments legible along the lit crest, the fold behind collapsing into soft shadow, the pearl's nacre holding one window of light. A blurred crest crosses the top-right corner, cut by both edges; the chain runs out the top of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 14
+}

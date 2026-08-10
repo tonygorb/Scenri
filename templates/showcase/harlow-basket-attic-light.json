@@ -1,0 +1,32 @@
+{
+  "id": "harlow-basket-attic-light",
+  "title": "Rattan lattice in the sun bar",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "harlow-made-woven-rattan-basket"
+      },
+      {
+        "t": "template",
+        "id": "interiors-attic-reading-nook"
+      },
+      {
+        "t": "text",
+        "v": " Set it on bare boards square in the late bar of sun and let the open weave shred the light into a lattice running toward the lens and out the bottom edge; the dormer and rafters climb out through the top. 28mm at f/4, camera flat on the boards at rim height. Cold blue skylight from the far gable washes the shadowed half of the boards so the warm bar reads against it. A small dark leather tab riveted to the rolled rim carries a blind-debossed unlettered maker's mark, shadow pooling in the impression. The out-of-focus corner of a folded wool throw crosses the bottom-right corner, cut by the right edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 38
+}

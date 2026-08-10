@@ -8,6 +8,6 @@
   "subcategory": "hexagonal glass jar",
   "materials": "faceted hexagonal glass jar with clear, flat-sided walls; turned solid wood lid with a smooth domed profile; thick raw honey filling",
   "primaryColors": "amber gold (honey), natural wood tan (lid), clear glass",
-  "negativeConstraints": "Never render any text, label, sticker, engraving, or emblem on the glass or the wood lid; keep both surfaces entirely blank and unmarked at every angle.",
+  "negativeConstraints": "Never render any text, label, sticker, engraving, or emblem on the glass or the wood lid; keep both surfaces entirely blank and unmarked at every angle. Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
   "preservationNotes": "Keep the same hexagonal facet count and jar proportions, the same amber honey color and viscosity, and the same turned wood lid shape and grain tone consistent across all four angles."
 }

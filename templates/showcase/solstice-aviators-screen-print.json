@@ -1,6 +1,6 @@
 {
   "id": "solstice-aviators-screen-print",
-  "title": "Aviators, duotone poster",
+  "title": "Halftone aviators, off-register orange",
   "category": "social",
   "brief": {
     "tokens": [
@@ -14,18 +14,19 @@
       },
       {
         "t": "text",
-        "v": " Disregard the hoodie and its printed wordmark - the subject is the eyewear. Blow it to poster scale: crop to the double bridge and near lens until each halftone dot stands a centimetre across, temple arm running out through the right edge. Safety-orange sits a dot off register along the lens rim, ink proud on the paper tooth, fibre nap lifting through it. SOLSTICE reverses out of the black at the lens corner, its letters standing large and clean at this poster magnification, same slip. 50mm at f/8 square to the sheet; a lifted corner curls soft into the near field, cut by the bottom-right. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+        "v": " Disregard the hoodie and its printed wordmark — the subject is the eyewear. Blow it to poster scale: crop to the double bridge and near lens until each halftone dot stands a centimetre across, the temple arm running out through the right edge, the gradient lens dissolving into dot-field below. Safety-orange sits a dot off register along the lens rim, ink proud on the paper tooth, fibre nap lifting through it. SOLSTICE reverses out of the black at the lens corner, letters standing large and clean at this poster magnification, same slip. 50mm at f/8 square to the sheet; a lifted paper corner curls soft through the bottom-right, cut by it."
       },
       {
         "t": "format",
-        "id": "story",
-        "w": 1080,
-        "h": 1920
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
       }
     ]
   },
-  "variants": 2,
+  "variants": 3,
   "quality": "standard",
-  "width": 1080,
-  "height": 1920
+  "width": 1024,
+  "height": 1280,
+  "order": 40
 }

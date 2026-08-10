@@ -1,0 +1,32 @@
+{
+  "id": "orla-priya-fjord-ferry",
+  "title": "Crossing, wind off the water",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orla-mackenzie-cashmere-turtleneck"
+      },
+      {
+        "t": "character",
+        "id": "priya"
+      },
+      {
+        "t": "text",
+        "v": " She leans on the ferry railing mid-crossing, the oatmeal turtleneck's collar folded high against the wind, loose strands pulling free of her low bun and streaking across the frame while the fjord's basalt walls slide past in soft grey-green behind. 85mm at f/2 at railing height, the rib knit sharp enough to count at the collar and cuff, her far shoulder softening into the sea haze. Dark high-waisted wool trousers, fully dressed against the cold. The white railing runs out both side edges; spray mist beads on the metal in the near foreground, cut by the bottom edge. The woven ORLA MACKENZIE label curls at the collar's inner turn."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 17
+}

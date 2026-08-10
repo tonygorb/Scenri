@@ -1,0 +1,36 @@
+{
+  "id": "ashwell-kin-lamp-elin-lamplight",
+  "title": "Lamplight hour, someone home",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ashwell-kin-ribbed-table-lamp"
+      },
+      {
+        "t": "character",
+        "id": "elin"
+      },
+      {
+        "t": "template",
+        "id": "furniture-lamplight-hours"
+      },
+      {
+        "t": "text",
+        "v": " She sits curled in the wingback just past the lamp, a book folded over her knee, face turned into the warm pool so the ribbed ceramic base and her profile share the same light while the window behind holds its last cold blue. 50mm at f/1.8 at seated eye height, the lamp in the near third razor sharp, her softened one plane back. Cream wool socks, soft grey knit trousers, an oat cardigan — fully dressed for a cold evening. A draught pushes the half-drawn curtain into the room, hem smeared with movement. A cooling mug and two face-down books catch the light's edge on the floor; the chair arm blurs across the bottom-right corner."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 19
+}

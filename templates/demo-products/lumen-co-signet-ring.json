@@ -8,6 +8,6 @@
   "subcategory": "signet ring",
   "materials": "Solid brushed-gold metal band with a smooth, high-polish flat face",
   "primaryColors": "Warm brushed gold",
-  "negativeConstraints": "Never render any text, engraving, stamp, hallmark, monogram, or maker's mark anywhere on the ring, inside or outside the band; never add a stone or applied ornament to the flat face; never let the brushed texture read as scratched, pitted, or damaged.",
-  "preservationNotes": "Keep the flat outer face perfectly smooth and completely blank in every angle; keep the brushed-vs-polished texture contrast between band and face identical and consistent across all four shots."
+  "negativeConstraints": "Never render any text, engraving, stamp, hallmark, monogram, or maker's mark anywhere on the ring, inside or outside the band; never add a stone or applied ornament to the flat face; never let the brushed texture read as scratched, pitted, or damaged. Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "Keep the flat outer face perfectly smooth and completely blank in every angle; keep the brushed-vs-polished texture contrast between band and face identical and consistent across all four shots. When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
 }

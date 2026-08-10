@@ -298,6 +298,8 @@ export interface ShowcaseEntry {
   /** Settings the example was shot with, applied on "Recreate this". */
   variants?: number;
   quality?: 'draft' | 'standard' | 'high';
+  /** Curated homepage position; the server already returns entries sorted by it. */
+  order?: number;
   width: number;
   height: number;
   previewUrl?: string | null;

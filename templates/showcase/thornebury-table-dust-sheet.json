@@ -1,0 +1,32 @@
+{
+  "id": "thornebury-table-dust-sheet",
+  "title": "The reveal in the joiner's shop",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "thornebury-pedestal-dining-table"
+      },
+      {
+        "t": "template",
+        "id": "furniture-joiners-workshop"
+      },
+      {
+        "t": "text",
+        "v": " Pull the linen dust sheet off it and catch that instant — the sheet mid-slide down the far side, one corner still airborne, a column of shop dust blooming up into the roof light with only the linen carrying blur. 35mm at f/5.6, camera low on the plank floor and close, the pedestal base sharp in the near third, the sawtooth trusses running out through the top edge. Curled shavings smear across the bottom edge, cut left and right; a workbench edge and its vise blur along the right edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 22
+}

@@ -1,0 +1,32 @@
+{
+  "id": "birchwood-salt-flat",
+  "title": "Standing on the sky",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birchwood-page-leather-derby"
+      },
+      {
+        "t": "template",
+        "id": "studio-soft-horizon"
+      },
+      {
+        "t": "text",
+        "v": " The pair stands on a millimetre of still water over white salt flat at dusk, a perfect mirror doubling them against a sky running peach to violet, the horizon line dissolving so shoes and reflection float in one continuous gradient. 85mm at f/5.6 from ankle height thirty steps back, both derbies razor sharp, their mirrored twins barely softer, concentric ripple rings spreading from the toe of the near shoe where a drop just fell. Salt crust texture reads through the shallows in the near foreground, cut by the bottom corners; the gradient runs out every other edge unbroken."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 33
+}

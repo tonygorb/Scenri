@@ -8,6 +8,6 @@
   "subcategory": "wrapped chocolate bar",
   "materials": "matte uncoated kraft paper wrapper with a fibrous, slightly toothy surface; solid dark chocolate bar beneath, its top ridged into even segmented squares",
   "primaryColors": "kraft brown (wrapper), dark chocolate brown (chocolate)",
-  "negativeConstraints": "Never render any text, logo, wordmark, printing, or embossed lettering anywhere on the kraft paper wrapper; keep the wrapper fully blank and unprinted at every angle.",
+  "negativeConstraints": "Never render any text, logo, wordmark, printing, or embossed lettering anywhere on the kraft paper wrapper; keep the wrapper fully blank and unprinted at every angle. Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
   "preservationNotes": "Keep the same rectangular bar silhouette and proportions, the same matte kraft paper color and fold/seam pattern, and the same dark chocolate brown tone consistent across all four angles."
 }
