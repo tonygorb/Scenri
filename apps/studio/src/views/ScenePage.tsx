@@ -8,6 +8,7 @@ import { useApplyScene } from '../app/useApplyScene.js';
 import { favoriteScenes } from '../favorites.js';
 import { SceneCard } from '../layout/SceneCard.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+import { ScrollPane } from '../layout/ScrollPane.js';
 
 /**
  * One scene. The reference frames say what the light is; they are ours and are
@@ -87,17 +88,17 @@ export function ScenePage() {
 
   if (!loaded) {
     return (
-      <div className="sc-home">
+      <ScrollPane>
         <main className="sc-lookpage" id="main">
           <div className="sc-tplrow" aria-hidden />
         </main>
-      </div>
+      </ScrollPane>
     );
   }
 
   if (error) {
     return (
-      <div className="sc-home">
+      <ScrollPane>
         <main className="sc-lookpage" id="main">
           <h1>Couldn't load this scene</h1>
           <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
@@ -107,13 +108,13 @@ export function ScenePage() {
             </button>
           </div>
         </main>
-      </div>
+      </ScrollPane>
     );
   }
 
   if (!scene) {
     return (
-      <div className="sc-home">
+      <ScrollPane>
         <main className="sc-lookpage" id="main">
           <h1>This scene isn't here anymore</h1>
           <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
@@ -137,7 +138,7 @@ export function ScenePage() {
             </Slider>
           )}
         </main>
-      </div>
+      </ScrollPane>
     );
   }
 
@@ -150,7 +151,7 @@ export function ScenePage() {
   const showDemoProductNote = scene.subject !== 'person' && frames.length > 0;
 
   return (
-    <div className="sc-home">
+    <ScrollPane>
       <main className="sc-lookpage" id="main">
         <div className="sc-lookpage-crumb">
           <button type="button" onClick={() => navigate(scenesPath(brand))}>
@@ -211,6 +212,6 @@ export function ScenePage() {
           </Slider>
         )}
       </main>
-    </div>
+    </ScrollPane>
   );
 }

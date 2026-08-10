@@ -7,6 +7,7 @@ import { presenterPath, presentersPath, shotPath } from '../routes.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { PresenterCard } from '../layout/PresenterCard.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+import { ScrollPane } from '../layout/ScrollPane.js';
 
 /** Every presenter ships exactly 4 frames (front/left/right/back), so this never triggers "See the whole set" — kept as a cap rather than a magic 4 in the slice call below in case a future presenter ships more. */
 const FRONT_ANGLES = 4;
@@ -70,17 +71,17 @@ export function PresenterPage() {
 
   if (!presentersLoaded) {
     return (
-      <div className="sc-home">
+      <ScrollPane>
         <main className="sc-lookpage" id="main">
           <div className="sc-tplrow" aria-hidden />
         </main>
-      </div>
+      </ScrollPane>
     );
   }
 
   if (presentersError) {
     return (
-      <div className="sc-home">
+      <ScrollPane>
         <main className="sc-lookpage" id="main">
           <h1>Couldn't load this presenter</h1>
           <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
@@ -90,13 +91,13 @@ export function PresenterPage() {
             </button>
           </div>
         </main>
-      </div>
+      </ScrollPane>
     );
   }
 
   if (!presenter) {
     return (
-      <div className="sc-home">
+      <ScrollPane>
         <main className="sc-lookpage" id="main">
           <h1>This presenter isn't here anymore</h1>
           <p className="sc-lookpage-lede">They may have been removed from the catalog, or the link is out of date.</p>
@@ -106,7 +107,7 @@ export function PresenterPage() {
             </button>
           </div>
         </main>
-      </div>
+      </ScrollPane>
     );
   }
 
@@ -115,7 +116,7 @@ export function PresenterPage() {
   const others = presenters.filter((p) => p.id !== presenter.id).slice(0, 8);
 
   return (
-    <div className="sc-home">
+    <ScrollPane>
       <main className="sc-lookpage sc-presenterpage" id="main">
         <div className="sc-lookpage-crumb">
           <button type="button" onClick={() => navigate(presentersPath(brand))}>
@@ -175,6 +176,6 @@ export function PresenterPage() {
           </Slider>
         )}
       </main>
-    </div>
+    </ScrollPane>
   );
 }

@@ -7,6 +7,7 @@ import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath, productsPath, shotPath } from '../routes.js';
 import { ProductCard } from '../layout/ProductCard.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider, UploadRefFrame } from '../layout/ReferenceGallery.js';
+import { ScrollPane } from '../layout/ScrollPane.js';
 import { categoryOf, effectiveCategory, PRODUCT_CATEGORIES } from '../productCategories.js';
 
 /**
@@ -97,7 +98,7 @@ export function ProductPage() {
 
   if (!product) {
     return (
-      <div className="sc-home">
+      <ScrollPane>
         <main className="sc-lookpage" id="main">
           <h1>This product isn't here anymore</h1>
           <p className="sc-lookpage-lede">It may have been removed, or the link is out of date.</p>
@@ -107,14 +108,14 @@ export function ProductPage() {
             </button>
           </div>
         </main>
-      </div>
+      </ScrollPane>
     );
   }
 
   const extraShots = (product.shots ?? []).filter((s) => !s.angle || !category.angles.some((a) => a.key === s.angle));
 
   return (
-    <div className="sc-home">
+    <ScrollPane>
       <main className="sc-lookpage sc-productpage" id="main">
         <div className="sc-lookpage-crumb">
           <button type="button" onClick={() => navigate(productsPath(brand))}>
@@ -280,6 +281,6 @@ export function ProductPage() {
           </Slider>
         )}
       </main>
-    </div>
+    </ScrollPane>
   );
 }

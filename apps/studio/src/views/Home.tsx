@@ -13,6 +13,7 @@ import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCatego
 import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
+import { ScrollPane } from '../layout/ScrollPane.js';
 
 /**
  * The launcher.
@@ -96,7 +97,7 @@ export function HomeView() {
   };
 
   return (
-    <div className="sc-home">
+    <ScrollPane>
       <main className="sc-main" id="main">
         <h1 className="sc-greet">
           Make something <em>on brand</em>
@@ -247,7 +248,7 @@ export function HomeView() {
           </>
         )}
       </main>
-    </div>
+    </ScrollPane>
   );
 }
 

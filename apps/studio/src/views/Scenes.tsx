@@ -13,6 +13,7 @@ import { LibraryEmpty } from '../layout/library/LibraryEmpty.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
+import { ScrollPane } from '../layout/ScrollPane.js';
 
 /** Below this, a search box has nothing worth narrowing — the whole set is one screenful. */
 const SEARCH_MIN = 8;
@@ -68,7 +69,7 @@ export function ScenesView() {
   };
 
   return (
-    <div className="sc-home">
+    <ScrollPane>
       <main className="sc-looks" id="main">
         <LibraryToolbar
           title="Scenes"
@@ -166,6 +167,6 @@ export function ScenesView() {
           </div>
         )}
       </main>
-    </div>
+    </ScrollPane>
   );
 }

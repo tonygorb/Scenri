@@ -16,6 +16,7 @@ import { LibraryEmpty } from '../layout/library/LibraryEmpty.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
+import { ScrollPane } from '../layout/ScrollPane.js';
 
 /** Below this, a search box has nothing worth narrowing — the whole set is one screenful. */
 const SEARCH_MIN = 8;
@@ -93,7 +94,7 @@ export function ProductsView() {
   };
 
   return (
-    <div className="sc-home">
+    <ScrollPane>
       <main className="sc-looks sc-products" id="main">
         <Dialog.Root open={addOpen} onOpenChange={setAddOpen}>
           <Dialog.Content
@@ -212,6 +213,6 @@ export function ProductsView() {
           </div>
         )}
       </main>
-    </div>
+    </ScrollPane>
   );
 }
