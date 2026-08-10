@@ -32,5 +32,6 @@
   "quality": "high",
   "width": 1024,
   "height": 1280,
-  "order": 29
+  "order": 29,
+  "family": "human"
 }

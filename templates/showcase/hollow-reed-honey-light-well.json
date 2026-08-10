@@ -28,5 +28,6 @@
   "quality": "high",
   "width": 1024,
   "height": 1280,
-  "order": 10
+  "order": 10,
+  "family": "material"
 }

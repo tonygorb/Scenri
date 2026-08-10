@@ -208,6 +208,59 @@ describe('shipped showcase entries resolve against the real catalog', () => {
    * Mapping duplicated from apps/studio/src/compat.ts (the studio keeps its
    * own copy for the picker hint; this one gates shipped examples).
    */
+  /**
+   * Curation rules that were prose-only until 2026-08-11 and had quietly rotted:
+   * nothing stopped a product taking over the wall or two near-identical tiles
+   * landing side by side. They live here because a second machine cloning this
+   * repo gets the tests but not the doctrine.
+   */
+  it('no product appears in more than two tiles', () => {
+    const count = new Map<string, number>();
+    for (const e of entries) {
+      const productId = (tokensOf(e, 'product')[0] as any)?.id as string | undefined;
+      if (productId) count.set(productId, (count.get(productId) ?? 0) + 1);
+    }
+    const over = [...count.entries()].filter(([, n]) => n > 2).map(([id, n]) => `${id}=${n}`);
+    expect(over).toEqual([]);
+  });
+
+  it('every entry carries a creative family, and none dominates the wall', () => {
+    const FAMILIES = new Set(['botanical', 'geological', 'fluid', 'optical', 'material', 'human', 'place', 'studio']);
+    const bad = entries
+      .filter((e) => !e.family || !FAMILIES.has(e.family))
+      .map((e) => `${e.id}: ${e.family ?? 'none'}`);
+    expect(bad).toEqual([]);
+    const count = new Map<string, number>();
+    for (const e of entries) count.set(e.family as string, (count.get(e.family as string) ?? 0) + 1);
+    const dominant = [...count.entries()]
+      .filter(([, n]) => n / entries.length > 0.35)
+      .map(([f, n]) => `${f}=${Math.round((n / entries.length) * 100)}%`);
+    expect(dominant).toEqual([]);
+  });
+
+  /**
+   * The wall reads as curated only if neighbours differ. `loadShowcase` already
+   * returns entries in curated `order`, so consecutive pairs here are exactly
+   * the pairs a visitor sees adjacent in the grid.
+   */
+  it('no two consecutive tiles share a category, product, family or presenter', () => {
+    const idOf = (e: (typeof entries)[number], kind: string) =>
+      ((tokensOf(e, kind)[0] as any)?.id as string | undefined) ?? null;
+    const clashes: string[] = [];
+    for (let i = 1; i < entries.length; i++) {
+      const prev = entries[i - 1];
+      const cur = entries[i];
+      const pair = `${prev.id} / ${cur.id}`;
+      if (prev.category === cur.category) clashes.push(`category @${i}: ${pair}`);
+      if (idOf(prev, 'product') && idOf(prev, 'product') === idOf(cur, 'product'))
+        clashes.push(`product @${i}: ${pair}`);
+      if (prev.family && prev.family === cur.family) clashes.push(`family @${i}: ${pair}`);
+      const presenter = idOf(cur, 'character');
+      if (presenter && idOf(prev, 'character') === presenter) clashes.push(`presenter @${i}: ${pair}`);
+    }
+    expect(clashes).toEqual([]);
+  });
+
   it('every person tile casts a presenter suited to the product category', () => {
     const CATEGORY_TO_PRESENTER_CATEGORY: Record<string, string[]> = {
       fragrance: ['Fragrance'],

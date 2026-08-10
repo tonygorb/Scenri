@@ -24,5 +24,6 @@
   "quality": "standard",
   "width": 1024,
   "height": 1280,
-  "order": 13
+  "order": 13,
+  "family": "studio"
 }

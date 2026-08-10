@@ -38,6 +38,14 @@ export interface ShowcaseEntry {
    * sort after every ordered one, then by id.
    */
   order?: number;
+  /**
+   * Creative-family key — the underlying visual mechanism this campaign draws
+   * on (`botanical`, `geological`, `fluid`, `optical`, `material`, `human`,
+   * `place`, `studio`). Not a category: two tiles may share a family while
+   * sitting in different categories, and the wall deliberately never places
+   * two of the same family side by side. See .claude/skills/creative-system.
+   */
+  family?: string;
 }
 
 const ID = /^[a-z0-9-]+$/;
@@ -58,7 +66,8 @@ function isShowcaseEntry(x: any): x is ShowcaseEntry {
     Number.isFinite(x.height) &&
     (x.variants === undefined || (Number.isInteger(x.variants) && x.variants >= 1 && x.variants <= 4)) &&
     (x.quality === undefined || ['draft', 'standard', 'high'].includes(x.quality)) &&
-    (x.order === undefined || Number.isFinite(x.order))
+    (x.order === undefined || Number.isFinite(x.order)) &&
+    (x.family === undefined || (typeof x.family === 'string' && x.family.length > 0))
   );
 }
 

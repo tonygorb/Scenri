@@ -29,5 +29,6 @@
   "quality": "high",
   "width": 1024,
   "height": 1280,
-  "order": 27
+  "order": 27,
+  "family": "optical"
 }

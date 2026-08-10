@@ -28,5 +28,6 @@
   "quality": "standard",
   "width": 1024,
   "height": 1280,
-  "order": 30
+  "order": 30,
+  "family": "fluid"
 }

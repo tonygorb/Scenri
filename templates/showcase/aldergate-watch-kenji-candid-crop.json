@@ -19,7 +19,7 @@
       },
       {
         "t": "text",
-        "v": " Catch his wrist at the bottom of the arm swing in fine rain, fingertips trailing a whisper of blur while the dial and soaked canvas strap stay locked sharp. Put him in a charcoal merino crew with the cuff pushed to mid-forearm, a black waxed-cotton raincoat sleeve above it, refined hands. 105mm at f/2.8, camera at hip height a stride behind, looking up the forearm. Rain beads stand on the crystal; ALDERGATE reads in small clean painted capitals under the twelve, sharply formed, half-veiled by a sliding sky reflection. A wet railing blurs across the bottom-left corner, cut by it."
+        "v": " Catch his wrist at the bottom of the arm swing in fine rain, fingertips trailing a whisper of blur while the dial and soaked canvas strap stay locked sharp. Put him in a charcoal merino crew with the cuff pushed to mid-forearm, a black waxed-cotton raincoat sleeve above it, refined hands. 105mm at f/2.8, camera at hip height a stride behind, looking up the forearm. Rain beads stand on the crystal; The dial stays clean and unlettered, its painted indices and needle hands crisp, half-veiled by a sliding sky reflection across the crystal. A wet railing blurs across the bottom-left corner, cut by it."
       },
       {
         "t": "format",
@@ -33,5 +33,6 @@
   "quality": "high",
   "width": 1024,
   "height": 1280,
-  "order": 11
+  "order": 11,
+  "family": "human"
 }
