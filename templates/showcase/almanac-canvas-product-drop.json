@@ -1,7 +1,7 @@
 {
   "id": "almanac-canvas-product-drop",
-  "title": "Canvas Low-Top in the Product Drop Hype",
-  "category": "footwear",
+  "title": "Canvas low-top, drop announcement",
+  "category": "social",
   "brief": {
     "tokens": [
       {
@@ -14,16 +14,18 @@
       },
       {
         "t": "text",
-        "v": " high-energy launch-moment framing, tall vertical campaign composition"
+        "v": " Catch it at the top of a real toss, tumbling nose-down at a three-quarter tilt with the gum tread swinging toward the lens, both laces whipped into an arc and smeared while the weave stays razor sharp. A fine veil of dry chalk dust punches off the outsole and curls through the rim, every mote catching it before the falloff swallows them. 85mm at f/3.5, camera just below it and looking up; a lace tip crosses the bottom-left corner soft and is cut by it."
       },
       {
         "t": "format",
-        "id": "portrait",
-        "w": 1024,
-        "h": 1280
+        "id": "story",
+        "w": 1080,
+        "h": 1920
       }
     ]
   },
-  "width": 1024,
-  "height": 1280
+  "variants": 3,
+  "quality": "high",
+  "width": 1080,
+  "height": 1920
 }

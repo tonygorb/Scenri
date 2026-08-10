@@ -295,6 +295,9 @@ export interface ShowcaseEntry {
   title: string;
   category: string;
   brief: { tokens: any[]; templateFields?: Record<string, string> };
+  /** Settings the example was shot with, applied on "Recreate this". */
+  variants?: number;
+  quality?: 'draft' | 'standard' | 'high';
   width: number;
   height: number;
   previewUrl?: string | null;
@@ -476,7 +479,15 @@ export interface BriefPreview {
   prompt: string;
   width: number;
   height: number;
-  attachments: { role: 'product' | 'reference'; label: string; hash: string }[];
+  // Mirrors the server's Attachment (packages/cli/src/brief.ts). 'character'
+  // was missing here, so the client could not reason about presenter
+  // references at all — including noticing when one had been dropped.
+  attachments: {
+    role: 'product' | 'character' | 'reference';
+    label: string;
+    hash: string;
+    essential?: boolean;
+  }[];
   warnings: string[];
   productId: string | null;
   referenceCount: number;

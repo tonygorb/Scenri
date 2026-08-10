@@ -91,7 +91,7 @@ describe('capabilities', () => {
       localOnly: false,
       supportsEdit: true,
       supportsMask: false,
-      maxReferenceImages: 1,
+      maxReferenceImages: 0,
     });
   });
 });
@@ -182,6 +182,17 @@ describe('generate', () => {
     const { engine } = makeEngine({ fetchImpl: impl });
     await engine.generate(genReq({ width, height }));
     expect(JSON.parse(String(calls[0].init?.body)).input.aspect_ratio).toBe(expected);
+  });
+
+  it('refuses a 4:5 portrait rather than silently returning a square', async () => {
+    // The provider's ratio menu has no portrait entry, so 1024x1280 (0.8) lands
+    // nearer 1:1 than 9:16 and used to come back squared with no warning. That
+    // is the exact shape the Look catalog is built on, so it fails loudly.
+    const { impl } = recordingFetch(() => mockRes({ json: { status: 'succeeded', output: 'x' } }));
+    const { engine } = makeEngine({ fetchImpl: impl });
+    await expect(engine.generate(genReq({ width: 1024, height: 1280 }))).rejects.toThrow(
+      /supports only .* silently returned as 1:1/s,
+    );
   });
 
   it('saves each output image and returns hashes and cost', async () => {

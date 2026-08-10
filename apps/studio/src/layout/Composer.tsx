@@ -55,7 +55,14 @@ export const Composer = forwardRef<
     engines: EngineInfo[];
     parent: TreeNode | null;
     shots: TreeNode[];
-    initialBrief?: { tokens: BriefToken[]; templateId?: string; templateFields?: Record<string, string> } | null;
+    initialBrief?: {
+      tokens: BriefToken[];
+      templateId?: string;
+      templateFields?: Record<string, string>;
+      /** A curated example's own settings; absent on an ordinary remix. */
+      variants?: number;
+      quality?: QualityId;
+    } | null;
     /**
      * A showcase recipe is on its way in via `initialBrief`, but hasn't landed
      * on this render yet (it arrives a commit later, from Create's own
@@ -121,21 +128,20 @@ export const Composer = forwardRef<
   const openSettings = useOpenSettings();
   const { push } = useToasts();
   const usable = engines.filter((e) => e.available);
-  const [engineId, setEngineId] = useLocalPref(PREF.engine, 'demo');
+  const [engineId, setEngineId] = useLocalPref(PREF.engine, 'codex-cli');
   useEffect(() => {
-    if (!usable.some((e) => e.id === engineId)) setEngineId(usable[0]?.id ?? 'demo');
+    if (!usable.some((e) => e.id === engineId)) setEngineId(usable[0]?.id ?? 'codex-cli');
   }, [usable, engineId]);
 
-  // Never invent a reason: the engine reports its own, or we say what Demo means.
+  // Never invent a reason: the engine reports its own. There is no placeholder
+  // fallback any more — an engine that cannot carry a Product or a Presenter
+  // was never a real option, it just looked like one.
   const selected = engines.find((e) => e.id === engineId);
   const engineNote =
     selected && !selected.available
       ? { title: `${selected.displayName} is not ready`, detail: selected.reason ?? 'Connect it in Settings.' }
-      : usable.length === 1 && usable[0]?.id === 'demo'
-        ? {
-            title: 'No engine connected',
-            detail: 'Falling back to Demo. Generations are placeholders until an engine is connected.',
-          }
+      : usable.length === 0
+        ? { title: 'No engine connected', detail: 'Connect one in Settings to generate.' }
         : null;
 
   const [sentence, setSentence] = useState<SentenceToken[]>(emptySentence());
@@ -199,6 +205,11 @@ export const Composer = forwardRef<
       | Extract<BriefToken, { t: 'format' }>
       | undefined;
     if (carriedFormat) setFormatId(carriedFormat.id);
+    // A curated example was shot at a chosen variant count and quality. Left
+    // to the visitor's own prefs, a 4-variant catalog example could open as a
+    // single draft frame and stop matching the tile it came from.
+    if (initialBrief.variants) setCount(initialBrief.variants);
+    if (initialBrief.quality) setQuality(initialBrief.quality);
     setSeedTokens(briefTokens(initialBrief));
     setTplFields(initialBrief.templateFields ?? {});
   }, [initialBrief]);
@@ -494,13 +505,19 @@ export const Composer = forwardRef<
     setCount(n);
     briefRef.current?.focus();
   };
+  /**
+   * The ratio label reads from the chosen FORMAT, never from the pixels we are
+   * about to send. Those are scaled to the quality edge and quantised to a
+   * multiple of 8 for the model's grid, which leaves 4:5 arriving as 816x1024
+   * on standard and 1232x1536 on high — reduced honestly, that printed "51:64"
+   * and "77:96". The shape the user picked has not changed; only its rounding.
+   */
   const ratio = useMemo(() => {
-    const w = format.w ?? preview?.width ?? 1024;
-    const h = format.h ?? preview?.height ?? 1024;
+    const f = FORMATS.find((x) => x.id === formatId) ?? FORMATS[0];
     const g = (a: number, b: number): number => (b ? g(b, a % b) : a);
-    const d = g(w, h) || 1;
-    return `${w / d}:${h / d}`;
-  }, [format, preview]);
+    const d = g(f.w, f.h) || 1;
+    return `${f.w / d}:${f.h / d}`;
+  }, [formatId]);
 
   /**
    * A Radix menu returns focus to its trigger on close, so picking an aspect or
@@ -554,10 +571,22 @@ export const Composer = forwardRef<
       return `${engine?.displayName ?? 'This engine'} cannot read this reference, so it is left out.`;
     }
     if (t.t === 'product') {
+      // Demo products live in their own list, so a chip naming one resolved to
+      // nothing here and silently skipped the check — exactly the products the
+      // homepage examples are built from.
       const products = libraryProducts.length ? libraryProducts : (brand.json?.products ?? []);
-      const p = products.find((x: any) => x.id === t.id);
+      const p = products.find((x: any) => x.id === t.id) ?? demoProducts.find((x) => x.id === t.id);
       if (p && !preview.attachments.some((a) => a.role === 'product' && a.label === p.name)) {
         return `${engine?.displayName ?? 'This engine'} cannot read the product image, so ${p.name} rides as text only.`;
+      }
+    }
+    // A presenter is an identity too. Without this, a face the engine could not
+    // carry was dropped with no mark on the chip that asked for it — the same
+    // silence the product case above already fixed.
+    if (t.t === 'character') {
+      const c = presenters.find((x) => x.id === t.id);
+      if (c && !preview.attachments.some((a) => a.role === 'character' && a.label === c.name)) {
+        return `${engine?.displayName ?? 'This engine'} cannot read the person reference, so ${c.name} rides as text only.`;
       }
     }
     return null;
@@ -771,7 +800,6 @@ export const Composer = forwardRef<
                     {e.displayName}
                   </Select.Item>
                 ))}
-                {usable.length === 0 && <Select.Item value="demo">Demo</Select.Item>}
               </Select.Content>
             </Select.Root>
           </div>

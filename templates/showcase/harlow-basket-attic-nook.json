@@ -1,0 +1,31 @@
+{
+  "id": "harlow-basket-attic-nook",
+  "title": "Rattan basket in the attic nook",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "harlow-made-woven-rattan-basket"
+      },
+      {
+        "t": "template",
+        "id": "interiors-attic-reading-nook"
+      },
+      {
+        "t": "text",
+        "v": " Set it on bare boards square in the light bar and let the open weave shred the sun into a lattice running three metres across the floor to the far wall; override the windowsill staging and the ceramic vessel, kraft wrap and burgundy wax seal described elsewhere in this brief. 24mm at f/4, camera flat on the boards at rim height. A small dark leather tab riveted to the rolled rim carries a blind-debossed unlettered maker's mark, shadow pooling in the impression. Let cold blue skylight from the far gable wash the shadowed half of the boards so the warm sun bar reads against it. The out-of-focus corner of a folded wool throw crosses the bottom-right and is cut by the right edge. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "landscape",
+        "w": 1600,
+        "h": 900
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "standard",
+  "width": 1600,
+  "height": 900
+}

@@ -4614,6 +4614,14 @@ select {
   outline-offset: 1px;
 }
 
+/* A chip whose reference the chosen engine cannot carry. The tooltip already
+   said so, but a tooltip you have to hover to find is not far from silence —
+   and an identity that quietly became text is the failure this whole path
+   exists to prevent. Amber underline, not red: the generation still runs. */
+.sc-token[data-warn] {
+  box-shadow: inset 0 -2px 0 var(--sc-warn, #d99a2b);
+}
+
 /* a template chip wears the mood of its own preview image */
 .sc-token[data-tinted] {
   background: color-mix(in srgb, var(--tint) 16%, var(--sc-panel));
@@ -5172,10 +5180,13 @@ select {
 .sc-showcase-tile {
   position: relative;
 }
+/* Top-left, not bottom-left: the hover caption fills the bottom edge
+   (.sc-lookcard-cap, bottom 12px, left/right 13px) and the badge sat straight
+   on top of the product/scene line. Top-right is taken by the select tick. */
 .sc-showcase-badge {
   position: absolute;
   left: 10px;
-  bottom: 10px;
+  top: 10px;
   display: flex;
   align-items: center;
   gap: 6px;

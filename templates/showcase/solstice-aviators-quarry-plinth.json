@@ -1,0 +1,31 @@
+{
+  "id": "solstice-aviators-quarry-plinth",
+  "title": "Aviators on the quarry plinth",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "solstice-titanium-aviators"
+      },
+      {
+        "t": "template",
+        "id": "studio-polished-pedestal"
+      },
+      {
+        "t": "text",
+        "v": " Set them small and low in the frame on the slab and pull the camera far back, quarry wall towering above them. Let the shaft's edge fall hard across the slab so everything past it drops to near-black, and let the amber lenses catch the column and throw two warm ellipses onto the marble. Fine stone dust sifts down from a ledge above in thin vertical streaks. 35mm at f/5.6, camera eight metres out and dropped to slab height. A spalled block edge crosses the bottom-left corner blurred, cut by the bottom and left edges."
+      },
+      {
+        "t": "format",
+        "id": "square",
+        "w": 1024,
+        "h": 1024
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1024
+}

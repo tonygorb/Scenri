@@ -1,0 +1,31 @@
+{
+  "id": "fernweg-oil-heliconia-field",
+  "title": "Rollerball vial in the bloom field",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fernweg-wanderlust-oil"
+      },
+      {
+        "t": "template",
+        "id": "heliconia-bloom-field"
+      },
+      {
+        "t": "text",
+        "v": " Stand it upright in the crook where two bracts cross, then let the upper bract tip and dump the rain it has collected — a rope of water sheeting down its side, beads flung off the waxy red edges. The kraft band darkens and goes translucent where the water took it, one seam corner lifted and curling, the pressed FERNWEG ink sunk deep into the wet uncoated stock. 35mm at f/2.8 from ground level looking up so the bracts tower over it. A rain-loaded leaf blurs across the bottom-left, cut by the left and bottom edges. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

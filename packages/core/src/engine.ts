@@ -36,8 +36,15 @@ export interface EditRequest {
   mask?: string;
   /** Paths of pixel-locked assets that must survive the edit (drift-diff inputs). */
   lockedAssets?: string[];
-  /** Product fidelity references, e.g. restore label/design during text removal. */
+  /** Identity/style references, e.g. restore label/design during text removal. */
   referenceImages?: string[];
+  /**
+   * Role of each entry in `referenceImages`, same order/length when present.
+   * Without this an adapter has to guess, and the codex edit path used to
+   * assume every reference was a product — so a presenter's face arriving at
+   * an edit was described to the model as "the exact product".
+   */
+  referenceRoles?: ('product' | 'character' | 'reference')[];
 }
 
 export interface EngineResult {
@@ -46,6 +53,23 @@ export interface EngineResult {
   raw?: unknown; // provider response for debugging
 }
 
+/**
+ * How far a delivered aspect ratio may sit from the requested one before it
+ * counts as a failed generation rather than provider rounding.
+ *
+ * Anchored on real cases rather than picked for roundness. Providers that take
+ * a fixed ratio menu instead of pixel dimensions must snap: 900x1000 -> 1:1 and
+ * 1600x1000 -> 16:9 are each ~11% off and are the intended, harmless behaviour.
+ * A whole bucket substitution is not harmless: the 4:5 portrait the Look
+ * catalog is built on lands 25% away when it is silently squared, which
+ * destroys the composition the user asked for. 15% separates the two.
+ *
+ * Both the request-time refusal and the post-generation check read this, so an
+ * engine can never be allowed to snap in a way the delivered-image check would
+ * then reject.
+ */
+export const ASPECT_TOLERANCE = 0.15;
+
 export interface EngineCapabilities {
   id: string; // "codex-cli" | "openrouter" | ...
   displayName: string;
@@ -53,6 +77,13 @@ export interface EngineCapabilities {
   supportsEdit: boolean;
   supportsMask: boolean;
   maxReferenceImages: number;
+  /**
+   * True for stub engines that draw placeholder art instead of calling a
+   * model (the offline demo engine). Fidelity guarantees do not apply — the
+   * output is obviously not a real photograph — so identity guards that would
+   * refuse a real engine must skip these.
+   */
+  placeholder?: boolean;
 }
 
 export interface EngineAdapter {

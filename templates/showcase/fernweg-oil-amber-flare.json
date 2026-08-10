@@ -1,0 +1,31 @@
+{
+  "id": "fernweg-oil-amber-flare",
+  "title": "Rollerball vial in amber flare",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fernweg-wanderlust-oil"
+      },
+      {
+        "t": "template",
+        "id": "social-amber-flare-motion"
+      },
+      {
+        "t": "text",
+        "v": " The subject is an opaque brushed-steel cylinder - disregard the faceted-glass-bottle, glass-refraction and lettering-ban clauses. Stand it on wet blue-black slate, roller uncapped, a viscous amber bead necking off the steel tip into a filament that has just kissed the pool below, the pool throwing one hard elongated caustic across the stone. FERNWEG sits hand-stamped small in the kraft band, ink sunk into the fibre, the band dark, translucent where oil wicked up its lower edge. 100mm at f/4 at slab height; a soft ridge of slate crosses the bottom edge. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "story",
+        "w": 1080,
+        "h": 1920
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1080,
+  "height": 1920
+}

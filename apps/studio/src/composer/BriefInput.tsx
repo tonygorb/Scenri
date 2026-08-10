@@ -201,7 +201,7 @@ export const BriefInput = forwardRef<
       const warning = flag?.(token) ?? null;
       if (warning) {
         el.title = warning;
-        if (token.t === 'template') el.dataset.warn = '1';
+        el.dataset.warn = '1';
       }
 
       const x = document.createElement('button');
@@ -249,7 +249,7 @@ export const BriefInput = forwardRef<
       const warning = flag?.(token) ?? null;
       if (warning) {
         chip.title = warning;
-        if (token.t === 'template') chip.dataset.warn = '1';
+        chip.dataset.warn = '1';
       } else {
         chip.removeAttribute('title');
         delete chip.dataset.warn;

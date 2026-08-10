@@ -3,7 +3,7 @@ import fastifyStatic from '@fastify/static';
 import fastifyMultipart from '@fastify/multipart';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
-import { loadScenes, sceneResolver, facetsOf, composePrompt, defaultScenesDir, type Scene } from './scenes.js';
+import { loadScenes, sceneResolver, facetsOf, defaultScenesDir, type Scene } from './scenes.js';
 import {
   brandJsonWithResolvedPresenters,
   loadPresenters,
@@ -21,13 +21,13 @@ import {
   type DemoProduct,
 } from './demoProducts.js';
 import { loadShowcase, showcaseFacetsOf, type ShowcaseEntry } from './showcase.js';
-import { compileBrief, sceneGuardDirectives, FORMATS, type Brief } from './brief.js';
+import { compileBrief, validateBrief, FORMATS, type Brief, type BriefToken } from './brief.js';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import JSZip from 'jszip';
 import { basename, join } from 'node:path';
 import type { Core, EngineAdapter, GenerateRequest, EditRequest, BrandContext } from '@scenri/core';
-import { SpendCapError } from '@scenri/core';
+import { SpendCapError, ASPECT_TOLERANCE } from '@scenri/core';
 import { validateBrand, buildFromUrl } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
 import { driftDiff } from './diff.js';
@@ -52,6 +52,13 @@ export interface ServerOptions {
 
 /** Settings keys exposed via the API. Secrets are write-only: reads return booleans. */
 const SECRET_KEYS = ['openrouter_api_key', 'replicate_api_token', 'fal_key'];
+
+/** Human-readable "A", "A and B", "A, B and C" for error copy. */
+function joinNames(labels: string[]): string {
+  const uniq = [...new Set(labels)];
+  if (uniq.length <= 1) return uniq[0] ?? '';
+  return `${uniq.slice(0, -1).join(', ')} and ${uniq[uniq.length - 1]}`;
+}
 
 function brandContext(core: Core, brandId: string): BrandContext {
   const brand = core.store.getBrand(brandId);
@@ -447,6 +454,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!engine) return reply.status(400).send({ error: 'unknown engine' });
     if (!brief || !Array.isArray(brief.tokens))
       return reply.status(400).send({ error: 'brief.tokens must be an array' });
+    const briefErrors = validateBrief(brief);
+    if (briefErrors.length) return reply.status(400).send({ error: `invalid brief: ${briefErrors.join('; ')}` });
     const brandJson = await brandJsonWithResolvedPresenters(
       core,
       templatesRoot,
@@ -625,11 +634,37 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return out;
   }
 
+  /**
+   * A returned image whose shape does not match the requested shape is a
+   * failed generation, not a successful one with a caveat: a 4:5 portrait
+   * silently answered with a square has lost the composition the user asked
+   * for. Some providers quantize to a fixed ratio menu and never say so
+   * (replicate's `aspect_ratio` has no portrait option at all), so the only
+   * reliable detector is measuring what actually came back.
+   *
+   * Shares ASPECT_TOLERANCE with the engines' own request-time refusal, so an
+   * engine can never snap in a way this check would then reject.
+   */
+  async function assertAspect(images: string[], expect: { width: number; height: number }) {
+    const want = expect.width / expect.height;
+    for (const h of images) {
+      const meta = await sharp(core.images.read(h)).metadata();
+      if (!meta.width || !meta.height) continue;
+      const got = meta.width / meta.height;
+      if (Math.abs(got - want) / want > ASPECT_TOLERANCE)
+        throw new Error(
+          `engine returned ${meta.width}x${meta.height} for a ${expect.width}x${expect.height} request — ` +
+            'this engine cannot produce the requested aspect ratio',
+        );
+    }
+  }
+
   async function runNode(
     nodeId: string,
     engine: EngineAdapter,
     estimate: number,
     work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number }>,
+    expect?: { width: number; height: number },
   ) {
     const engineId = engine.capabilities().id;
     reserved.set(engineId, (reserved.get(engineId) ?? 0) + estimate);
@@ -638,6 +673,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     try {
       const result = await work(ctrl.signal);
       result.images = await normalizePngs(result.images);
+      if (expect) await assertAspect(result.images, expect);
       core.store.completeNode(nodeId, result);
       core.ledger.recordCost(engineId, nodeId, result.costUsd);
     } catch (err: any) {
@@ -688,6 +724,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // Structured brief path: one compiler decides prompt, attachments and size.
     let compiled: ReturnType<typeof compileBrief> | null = null;
     if (brief && Array.isArray(brief.tokens)) {
+      const briefErrors = validateBrief(brief);
+      if (briefErrors.length) return reply.status(400).send({ error: `invalid brief: ${briefErrors.join('; ')}` });
       const brandJson = await brandJsonWithResolvedPresenters(
         core,
         templatesRoot,
@@ -711,39 +749,59 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
     }
 
-    // template + product resolution
+    // Legacy callers send loose prompt/templateId/productId instead of a
+    // brief. There used to be a second, hand-written implementation of scene
+    // framing and reference collection here, and it disagreed with the
+    // compiler in ways that mattered: it attached EVERY product shot where
+    // compileBrief attaches a bounded, role-tagged set, and it re-assembled
+    // the scene prompt by hand. Two code paths meant two behaviours drifting
+    // apart. Now the legacy shape is translated into tokens and run through
+    // the one compiler, so there is exactly one definition of what a brief
+    // means anywhere in the product.
     let finalPrompt = String(prompt ?? '');
     let referenceImages: string[] | undefined;
     let referenceRoles: ('product' | 'character' | 'reference')[] | undefined;
-    let product: any = null;
-    if (productId) {
-      product = resolveLibraryProduct(core, project.brandId, String(productId));
-      if (!product) return reply.status(400).send({ error: 'product not found in brand' });
-      referenceImages = (product.shots ?? [])
-        .map((s: any) => String(s.file ?? ''))
-        .filter((f: string) => f.startsWith('asset:') && core.images.has(f.slice(6)))
-        .map((f: string) => core.images.pathFor(f.slice(6)));
-      if (!referenceImages || referenceImages.length === 0)
+    if (!compiled && (productId || templateId)) {
+      if (templateId && !resolveScene(String(templateId)))
+        return reply.status(400).send({ error: `unknown template ${templateId}` });
+      if (productId && !resolveLibraryProduct(core, project.brandId, String(productId)))
+        return reply.status(400).send({ error: 'product not found in brand' });
+
+      const legacyTokens: BriefToken[] = [
+        ...(productId ? [{ t: 'product' as const, id: String(productId) }] : []),
+        ...(templateId ? [{ t: 'template' as const, id: String(templateId) }] : []),
+        ...(prompt ? [{ t: 'text' as const, v: String(prompt) }] : []),
+      ];
+      const legacyBrief: Brief = { tokens: legacyTokens, templateFields: templateFields ?? {} };
+      const brandJson = await brandJsonWithResolvedPresenters(
+        core,
+        templatesRoot,
+        presenters,
+        await brandJsonWithResolvedDemoProducts(
+          core,
+          templatesRoot,
+          demoProducts,
+          brandJsonWithCatalogProducts(core, project.brandId),
+          legacyTokens,
+        ),
+        legacyTokens,
+      );
+      compiled = compileBrief(legacyBrief, {
+        brand: brandJson,
+        images: core.images,
+        engineCaps: engine.capabilities(),
+        templateById: (id: string) => resolveScene(id),
+      });
+      if (productId && !compiled.attachments.some((a) => a.role === 'product'))
         return reply.status(400).send({ error: 'product has no usable shots' });
-      referenceRoles = referenceImages.map(() => 'product' as const);
-    }
-    let template: Scene | undefined;
-    if (templateId) {
-      template = resolveScene(String(templateId));
-      if (!template) return reply.status(400).send({ error: `unknown template ${templateId}` });
-      if (template.subject === 'product' && !product)
-        return reply
-          .status(400)
-          .send({ error: `scene "${template.name}" needs a product — add one via Products and select it` });
-      const subject = product?.name ? `${product.name} ` : '';
-      const guard = sceneGuardDirectives({ hasProduct: !!product, hasPerson: false });
-      finalPrompt = `[${template.name}] ${subject}${composePrompt(template, { fields: templateFields ?? {}, notes: String(prompt ?? '') })}${guard.length ? ` ${guard.join(' ')}` : ''}`;
-      width = template.width;
-      height = template.height;
+      if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
     }
 
     let estimate: number;
     let work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number }>;
+    // Only generations declare a target shape. An edit inherits the source
+    // image's dimensions, so there is nothing to check it against.
+    let expectShape: { width: number; height: number } | undefined;
 
     if (compiled) {
       finalPrompt = compiled.prompt;
@@ -755,6 +813,21 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
     if (kind === 'generation') {
       const cap = engine.capabilities().maxReferenceImages;
+      // An identity reference that cannot be transmitted is not a degraded
+      // generation, it is a wrong one: the model invents a product or a face
+      // and returns it with full confidence. Refuse instead. Style references
+      // are different — losing one costs fidelity of mood, not of subject —
+      // so only product/character losses are fatal here.
+      const lostIdentity = engine.capabilities().placeholder
+        ? []
+        : (compiled?.dropped ?? []).filter((d) => d.essential);
+      if (lostIdentity.length) {
+        const names = joinNames(lostIdentity.map((d) => d.label));
+        const kindWord = lostIdentity[0].role === 'product' ? 'product' : 'presenter';
+        return reply.code(400).send({
+          error: `${engine.capabilities().displayName} cannot carry enough reference images, so ${names} would be named in the prompt but never shown — the result would not be your ${kindWord}. Choose an engine that supports reference images, or remove ${names} from the brief.`,
+        });
+      }
       const genReq: GenerateRequest = {
         prompt: finalPrompt,
         brand: ctx,
@@ -766,6 +839,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       };
       estimate = await engine.costEstimate(genReq);
       work = (signal) => engine.generate(genReq, signal);
+      expectShape = { width, height };
     } else {
       const parent = core.store.getNode(resolvedParentId);
       const srcHash = (req.body as any).sourceImage ?? parent?.images[0];
@@ -779,6 +853,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         sourceImage: core.images.pathFor(String(srcHash)),
         brand: ctx,
         ...(referenceImages && cap > 0 ? { referenceImages: referenceImages.slice(0, cap) } : {}),
+        ...(referenceRoles && cap > 0 ? { referenceRoles: referenceRoles.slice(0, cap) } : {}),
       };
       estimate = await engine.costEstimate(editReq);
       work = (signal) => engine.edit(editReq, signal);
@@ -797,8 +872,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // Fire and forget: the 202 is the answer and the node's own status carries
     // the outcome. runNode records failures itself, so a rejection here means
     // even that failed — log it, but never let it reach the process unhandled.
-    void runNode(node.id, engine, estimate, work).catch((err) => app.log.error({ err }, 'node run failed'));
-    return reply.status(202).send(node);
+    void runNode(node.id, engine, estimate, work, expectShape).catch((err) =>
+      app.log.error({ err }, 'node run failed'),
+    );
+    // Surface the compiler's warnings on the accepted node. These name real
+    // fidelity risks — a scene built around a product with none attached, an
+    // asset that vanished, a reference the engine could not carry — and were
+    // previously computed and then dropped, visible only in the preview call.
+    // A caller that skipped preview had no way to learn its brief was degraded.
+    return reply.status(202).send(compiled?.warnings?.length ? { ...node, warnings: compiled.warnings } : node);
   });
 
   app.post('/api/nodes/:id/cancel', async (req, reply) => {

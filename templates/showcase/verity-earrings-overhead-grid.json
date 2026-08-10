@@ -1,0 +1,32 @@
+{
+  "id": "verity-earrings-overhead-grid",
+  "title": "Gold hoops, overhead grid",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-gold-hoop-earrings",
+        "angle": "clasp-detail"
+      },
+      {
+        "t": "template",
+        "id": "overhead-styled-flatlay-grid"
+      },
+      {
+        "t": "text",
+        "v": " Lay a split slab of pale raw granite across the sweep and set the pair at its fracture lip: one hoop flat on the broken face, the other hooked over the edge so its lower arc hangs into the shadowed gap and reads half-dark. 100mm at f/8 from high overhead, framed wide enough that the pair sits small in the lower-left third while bare sweep runs out to the right. A shallow unlettered maker's punch is struck inside the near hoop's arc, catching a single highlight in the dimple. The slab's near corner rises and blurs across the bottom edge. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "square",
+        "w": 1024,
+        "h": 1024
+      }
+    ]
+  },
+  "variants": 4,
+  "quality": "high",
+  "width": 1024,
+  "height": 1024
+}

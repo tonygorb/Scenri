@@ -1,0 +1,31 @@
+{
+  "id": "meridian-smartwatch-glacier-core",
+  "title": "Smartwatch in the ice core",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "meridian-pulse-smartwatch"
+      },
+      {
+        "t": "template",
+        "id": "studio-glacier-ice-core"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO — fill the frame with three centimetres of case flank and crown locked into the ice; override every whole-product, full-object and e-commerce-clarity framing instruction elsewhere in this brief. 100mm macro at f/4, framed 1:1 life-size, camera level with the crown, a hand's width out. Meltwater beads the polished steel and one drop hangs swelling at its underside. At this magnification the laser etch reading MERIDIAN sits crisp and fully legible across the polished flank, its strokes clean-edged, brightening where the light rakes the polish. An ice shard crosses the top-left corner out of focus, cut by it. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

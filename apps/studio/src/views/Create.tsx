@@ -497,13 +497,21 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const liftText = async (node: TreeNode) => {
     if (lifting) return;
     const engine =
-      ['codex-cli', 'openrouter', 'demo']
+      ['codex-cli', 'openrouter']
         .map((id) => engines.find((e) => e.id === id && e.available && e.supportsEdit))
         .find(Boolean) ?? engines.find((e) => e.available && e.supportsEdit);
     if (!engine) return;
     setLifting(true);
     try {
-      const productId = (brand.json?.products ?? [])[0]?.id as string | undefined;
+      // Use the product that actually generated THIS image, read off the
+      // node's own stored brief. This used to blindly take the brand's first
+      // product, so on any brand with more than one product the text-removal
+      // edit was handed the wrong product as its fidelity reference — and the
+      // model was told to preserve a label belonging to something that was
+      // never in the picture.
+      const productId = (node.brief?.tokens ?? []).find((t: { t: string; id?: string }) => t.t === 'product')?.id as
+        | string
+        | undefined;
       const child = await api.addNode({
         projectId,
         parentId: node.id,
@@ -573,7 +581,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     appliedShowcase.current = showcaseIdParam;
     const entry = showcase.find((s) => s.id === showcaseIdParam);
     if (entry) {
-      setRemixBrief({ ...entry.brief, _at: Date.now() });
+      setRemixBrief({
+        ...entry.brief,
+        ...(entry.variants ? { variants: entry.variants } : {}),
+        ...(entry.quality ? { quality: entry.quality } : {}),
+        _at: Date.now(),
+      });
       push({ kind: 'success', title: `Starting from "${entry.title}"` });
     } else {
       push({ kind: 'error', title: 'That example is no longer available', detail: 'Starting from scratch instead.' });

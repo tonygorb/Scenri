@@ -1,0 +1,31 @@
+{
+  "id": "basalt-bloom-water-terracotta-ledge",
+  "title": "Mineral water on the terracotta ledge",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "basalt-bloom-sparkling-mineral-water"
+      },
+      {
+        "t": "template",
+        "id": "terracotta-ledge-glow"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO — three centimetres of neck, crown cap and the condensation field beneath fill the frame; disregard every mid-shot, whole-bottle and ledge-corner framing instruction in this brief. 100mm macro at f/5.6, framed 1:1 life-size, lens level with the cap's crimped skirt. One bead has just let go and is running, cutting a clear lane through the fog of smaller beads. Unfocused terracotta grit crosses the bottom edge, cut left and right. BASALT BLOOM is lithographed small around the cap's pressed dome, a crimp flute pinching one letter, a bead magnifying another. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

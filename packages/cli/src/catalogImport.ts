@@ -250,6 +250,13 @@ export function brandJsonWithCatalogProducts(core: Core, brandId: string): any {
     name: p.name,
     shots: p.shots,
     notes: p.url ?? undefined,
+    // Forwarded so the compiler can state real-world material and size. These
+    // were dropped here, which is part of why a watch could render plate-sized:
+    // nothing downstream ever knew how big the object actually is.
+    ...(p.category ? { category: p.category } : {}),
+    ...(p.variant ? { variant: p.variant } : {}),
+    ...(p.material ? { material: p.material } : {}),
+    ...(p.dimensions ? { dimensions: p.dimensions } : {}),
   }));
   return json;
 }

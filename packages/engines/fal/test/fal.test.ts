@@ -84,7 +84,7 @@ describe('capabilities', () => {
       localOnly: false,
       supportsEdit: true,
       supportsMask: false,
-      maxReferenceImages: 1,
+      maxReferenceImages: 0,
     });
   });
 });

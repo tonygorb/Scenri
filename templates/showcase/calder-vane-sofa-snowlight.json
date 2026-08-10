@@ -1,0 +1,31 @@
+{
+  "id": "calder-vane-sofa-snowlight",
+  "title": "Bouclé sofa in the winter room",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "calder-vane-boucle-two-seater"
+      },
+      {
+        "t": "template",
+        "id": "furniture-snowlight-room"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO — the frame filled by four centimetres of looped ivory wool. Disregard every 50mm, eye-level, whole-piece, true-scale and full-room framing instruction in this brief. 100mm macro at f/4, framed 1:1 life-size, camera an inch above the cushion, tilted along the seat seam. Snow has blown in through the open pane and settled into the pile: two crystals still hold their six arms, a third has collapsed to a dark damp coin where the wool drank it. The plinth chamfer runs soft across the bottom edge, cut left and right."
+      },
+      {
+        "t": "format",
+        "id": "landscape",
+        "w": 1600,
+        "h": 900
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1600,
+  "height": 900
+}

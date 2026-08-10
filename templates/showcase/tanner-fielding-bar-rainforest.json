@@ -1,0 +1,31 @@
+{
+  "id": "tanner-fielding-bar-rainforest",
+  "title": "Chocolate bar in the canopy understory",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tanner-fielding-single-origin-bar"
+      },
+      {
+        "t": "template",
+        "id": "studio-rainforest-canopy"
+      },
+      {
+        "t": "text",
+        "v": " WIDE — set it small on the mossed root in the lower third, buttress roots and hanging vine rising past the top edge; disregard every mid-shot, subject-filling-frame and glass-jar-of-body-butter instruction elsewhere in this brief, since the object on the root is the referenced product itself. 28mm at f/2.8, camera low on the forest floor, mist banding through the depth behind. A drip has just left a leaf tip and struck the wrapper, darkening one patch of fibre. A wet fern frond crosses the near foreground out of focus, cut by the bottom-left edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

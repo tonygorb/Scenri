@@ -133,8 +133,13 @@ describe('generate request shape', () => {
       const { engine, fetchImpl } = makeEngine();
       await engine.generate(genReq({ referenceImages: [refPath] }));
       const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
+      // Each attached image is now bound to what it is. Sending N images with
+      // no binding left the model to guess which one was the product.
       expect(body.messages[0].content).toEqual([
-        { type: 'text', text: 'a red bird' },
+        {
+          type: 'text',
+          text: 'a red bird The attached image is a reference to match in composition, lighting and treatment.',
+        },
         { type: 'image_url', image_url: { url: `data:image/png;base64,${PNG_B64}` } },
       ]);
     } finally {

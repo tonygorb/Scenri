@@ -17,7 +17,7 @@
 
 export type SentenceToken =
   | { t: 'text'; v: string }
-  | { t: 'product'; id: string }
+  | { t: 'product'; id: string; angle?: string }
   | { t: 'character'; id: string }
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string }
@@ -53,7 +53,11 @@ export const encode = (t: SentenceToken): string =>
   t.t === 'template'
     ? `t:${t.id}`
     : t.t === 'product'
-      ? `p:${t.id}`
+      ? // `angle` is the slot a recipe asked for (e.g. a macro example
+        // pinning "material-closeup"). It used to be omitted here, so every
+        // round-trip through the DOM silently reset the product to its default
+        // angle and "Recreate this" could not reproduce its own tile.
+        `p:${t.id}${t.angle ? `|${t.angle}` : ''}`
       : t.t === 'character'
         ? `h:${t.id}`
         : t.t === 'color'
@@ -66,7 +70,10 @@ export const decode = (s: string): SentenceToken | null => {
   const kind = s.slice(0, 1);
   const rest = s.slice(2);
   if (kind === 't') return rest ? { t: 'template', id: rest } : null;
-  if (kind === 'p') return rest ? { t: 'product', id: rest } : null;
+  if (kind === 'p') {
+    const [id, angle] = rest.split('|');
+    return id ? { t: 'product', id, ...(angle ? { angle } : {}) } : null;
+  }
   if (kind === 'h') return rest ? { t: 'character', id: rest } : null;
   if (kind === 'r') return rest ? { t: 'ref', imageHash: rest } : null;
   if (kind === 'c') {

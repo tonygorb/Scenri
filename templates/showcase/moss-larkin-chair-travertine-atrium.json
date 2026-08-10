@@ -1,0 +1,31 @@
+{
+  "id": "moss-larkin-chair-travertine-atrium",
+  "title": "Sling chair in the travertine atrium",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "moss-larkin-sling-lounge-chair"
+      },
+      {
+        "t": "template",
+        "id": "furniture-travertine-atrium"
+      },
+      {
+        "t": "text",
+        "v": " Set it inside the sun-patch so the hard edge of the light crosses the sling on a diagonal — half the saddle leather blown to warm amber with its grain raised, half sunk into travertine bounce, one brass pin firing a specular. Chalk dust drifts through the shaft above it. 24mm at f/8 from standing height, the walnut frame doubled in a wet-looking reflection down the polished screed. A travertine pier stands just off the lens, its vertical edge dark and soft, cropping the near-left and running out the top and bottom edges. Let the piece stand unmarked."
+      },
+      {
+        "t": "format",
+        "id": "landscape",
+        "w": 1600,
+        "h": 900
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1600,
+  "height": 900
+}

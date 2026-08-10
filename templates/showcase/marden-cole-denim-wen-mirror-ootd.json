@@ -1,0 +1,35 @@
+{
+  "id": "marden-cole-denim-wen-mirror-ootd",
+  "title": "Denim jacket, mirror check",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marden-cole-selvedge-denim-jacket"
+      },
+      {
+        "t": "character",
+        "id": "wen"
+      },
+      {
+        "t": "template",
+        "id": "full-length-mirror-ootd"
+      },
+      {
+        "t": "text",
+        "v": " Catch her one beat after shrugging it on — free hand mid-flip of the collar, the yoke still settling, hair swinging a half-beat behind, phone loose in the other hand; blur living only in the hair and that collar. 35mm at f/2.8 from the far doorway, camera at hip height, the painted jamb laying a dark column down the near-left foreground, cut by the left edge, her reflection held small under high ceiling. MARDEN COLE struck fine around one copper shank button's rim, raised letters worn bright. Black ribbed tank, ecru trousers, white leather sneakers. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "story",
+        "w": 1080,
+        "h": 1920
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1080,
+  "height": 1920
+}

@@ -1,7 +1,7 @@
 {
   "id": "solstice-aviators-screen-print",
-  "title": "Aviators in Screen-Print Duotone",
-  "category": "accessories",
+  "title": "Aviators, duotone poster",
+  "category": "social",
   "brief": {
     "tokens": [
       {
@@ -14,16 +14,18 @@
       },
       {
         "t": "text",
-        "v": " bold graphic duotone energy, tall vertical campaign composition"
+        "v": " Disregard the hoodie and its printed wordmark - the subject is the eyewear. Blow it to poster scale: crop to the double bridge and near lens until each halftone dot stands a centimetre across, temple arm running out through the right edge. Safety-orange sits a dot off register along the lens rim, ink proud on the paper tooth, fibre nap lifting through it. SOLSTICE reverses out of the black at the lens corner, its letters standing large and clean at this poster magnification, same slip. 50mm at f/8 square to the sheet; a lifted corner curls soft into the near field, cut by the bottom-right. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
       },
       {
         "t": "format",
-        "id": "portrait",
-        "w": 1024,
-        "h": 1280
+        "id": "story",
+        "w": 1080,
+        "h": 1920
       }
     ]
   },
-  "width": 1024,
-  "height": 1280
+  "variants": 2,
+  "quality": "standard",
+  "width": 1080,
+  "height": 1920
 }

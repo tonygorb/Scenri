@@ -1,0 +1,31 @@
+{
+  "id": "meridian-smartwatch-cut-paper",
+  "title": "Smartwatch on the cut-paper stage",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "meridian-pulse-smartwatch"
+      },
+      {
+        "t": "template",
+        "id": "cut-paper-stage"
+      },
+      {
+        "t": "text",
+        "v": " Pull back until all four planes run out to the frame edges and it reads small at the seam where they converge. 50mm at f/5.6, camera high on the three-quarter, tilted down the fold. Catch it a half-second after the strap was released: the free tail still lifting a centimetre off the yellow plane, blur along that tail alone, its cast shadow separated from it by exactly that centimetre. A cobalt paper edge crosses the near bottom-left corner out of focus and is cut by the bottom edge."
+      },
+      {
+        "t": "format",
+        "id": "square",
+        "w": 1024,
+        "h": 1024
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1024
+}

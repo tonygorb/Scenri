@@ -1,0 +1,31 @@
+{
+  "id": "birchwood-page-derby-sea-stack",
+  "title": "Derby on a tidal sea stack",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birchwood-page-leather-derby"
+      },
+      {
+        "t": "template",
+        "id": "studio-sea-stack-horizon"
+      },
+      {
+        "t": "text",
+        "v": " Wedge it toe-up in the rock cleft the instant a swell detonates against the stack behind — a curtain of spray thrown across the gap, frozen at 1/2000, single droplets hanging, a last sheet of seawater draining off the welt stitching. 100mm at f/4, camera dropped to rock level a forearm away so leather grain and welt fill two-thirds of the frame. A barnacled rock shoulder blurs across the near-left foreground, cut by the left and bottom edges. A shallow unlettered maker's deboss runs into the rubber sole sidewall, seawater standing in the impression."
+      },
+      {
+        "t": "format",
+        "id": "landscape",
+        "w": 1600,
+        "h": 900
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1600,
+  "height": 900
+}

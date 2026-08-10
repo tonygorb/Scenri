@@ -223,17 +223,23 @@ describe('product uploads + scene generation via API', () => {
         prompt: 'keep it airy',
       },
     });
+    // Legacy prompt/templateId/productId requests now compile through the same
+    // compileBrief every brief uses, instead of a second hand-written framing
+    // that produced a "[Scene Name] … Art direction: …" shape nothing else in
+    // the product emitted. The scene, the product and the free text all still
+    // reach the model — via one code path now, not two that could drift.
     expect(res.statusCode).toBe(202);
-    expect(res.json().prompt).toContain('[Marble Quarry Plinth]');
     await new Promise((r) => setTimeout(r, 50));
     expect(lastGen!.prompt).toContain('House Blend');
     expect(lastGen!.prompt).toContain('monumental quarry scale dwarfing the subject');
-    expect(lastGen!.prompt).toContain('Art direction: keep it airy');
+    expect(lastGen!.prompt).toContain('keep it airy');
+    expect(lastGen!.prompt).toContain('preserve its label, shape and colors');
     expect(lastGen!.width).toBe(1024);
     expect(lastGen!.referenceImages).toHaveLength(1);
+    expect(lastGen!.referenceRoles).toEqual(['product']);
   });
 
-  it('a product-only scene without a product is refused; an unknown scene is refused', async () => {
+  it('a product scene without a product warns but still runs; an unknown scene is refused', async () => {
     const brand = await newBrand();
     const proj = (
       await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
@@ -248,8 +254,15 @@ describe('product uploads + scene generation via API', () => {
         templateId: 'studio-polished-pedestal',
       },
     });
-    expect(noProd.statusCode).toBe(400);
-    expect(noProd.json().error).toMatch(/needs a product/);
+    // Scene-only is a legitimate state: the user may want the environment on
+    // its own. The legacy path hard-refused this while the compiler only
+    // warned — the two disagreed. Unified on the compiler's behaviour, which
+    // keeps every chip optional rather than making the system depend on all
+    // of them being populated.
+    expect(noProd.statusCode).toBe(202);
+    expect(noProd.json().warnings ?? []).toEqual(
+      expect.arrayContaining([expect.stringMatching(/built around a product/i)]),
+    );
     const unknown = await app.inject({
       method: 'POST',
       url: '/api/nodes',

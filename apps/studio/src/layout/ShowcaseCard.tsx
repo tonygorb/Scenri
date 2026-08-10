@@ -17,7 +17,8 @@ export type ShowcaseCardSize = CatalogCardSize;
  * recipe (product, presenter if any, scene) rather than a category, so
  * hovering tells you what's actually in the shot before you click through.
  * A presenter-led shot also gets a small always-visible avatar badge, the
- * same way a cast credit reads on a real campaign board.
+ * same way a cast credit reads on a real campaign board. It rides top-left,
+ * clear of the hover caption that fills the bottom edge.
  */
 export function ShowcaseCard({
   entry,

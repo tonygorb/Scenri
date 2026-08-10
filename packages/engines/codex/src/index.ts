@@ -25,6 +25,21 @@ export interface CodexEngineOptions {
 const NOT_AVAILABLE_REASON = 'Codex CLI not found or not signed in (run: codex login)';
 const DEFAULT_TIMEOUT_MS = 300_000;
 
+// One source of truth for what each reference role means, shared by the
+// generate and edit paths so they can never drift apart. Module scope, not
+// factory scope: the helpers that use these live after the adapter's `return`,
+// where a `const` would never initialize.
+const ROLE_DIRECTIVE: Record<'product' | 'character' | 'reference', string> = {
+  product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
+  character: 'the exact person — preserve their face, hair and build faithfully; do not restyle them',
+  reference: 'a reference to match in composition, lighting and treatment',
+};
+const EDIT_ROLE_DIRECTIVE: Record<'product' | 'character' | 'reference', string> = {
+  product: 'the exact product: keep or restore its label, shape and design faithfully',
+  character: 'the exact person: keep their face, hair and build faithfully',
+  reference: 'a reference for composition, lighting and treatment only',
+};
+
 export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   const { saveImage } = opts;
   const spawnImpl = opts.spawnImpl ?? nodeSpawn;
@@ -131,12 +146,14 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         localOnly: true, // OSS-local only — ToS boundary, see docs/STRATEGY.md §13
         supportsEdit: true,
         supportsMask: false,
-        // Raised from 1: the underlying `codex` binary's --image flag is
-        // genuinely variadic (confirmed via `codex exec --help`), so this was
-        // a self-imposed cap, not a real constraint. A presenter+product
-        // brief can now send both a face reference and a product reference
-        // instead of being forced to sacrifice one for the other.
-        maxReferenceImages: 3,
+        // The underlying `codex` binary's --image flag is genuinely variadic
+        // ("-i, --image <FILE>...", re-confirmed via `codex exec --help`), so
+        // this number is a product decision, not a binary constraint. It is
+        // sized to hold a full identity payload without eviction:
+        // PRODUCT_REF_MAX (3 angles) + CHARACTER_REF_MAX (2 views) + one
+        // style reference = 6. Below this, compileBrief's role-priority clamp
+        // starts dropping real identity information.
+        maxReferenceImages: 6,
       };
     },
 
@@ -205,13 +222,22 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     async edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult> {
       return withWorkDir(async (dir) => {
         await copyFile(req.sourceImage, join(dir, 'input.png'));
-        const ref = req.referenceImages?.[0];
-        if (ref) await copyFile(ref, join(dir, 'product.png'));
+        // Name each reference for what it actually is. Previously every
+        // reference was copied to product.png and described as the product,
+        // so an edit carrying a presenter's face told the model that face was
+        // a product to preserve the "label, shape and design" of.
+        const editRefs = req.referenceImages ?? [];
+        const editRoles = req.referenceRoles ?? [];
+        const refLines: string[] = [];
+        for (let i = 0; i < editRefs.length; i++) {
+          const role = editRoles[i] ?? 'product';
+          const name = `${role}-${i + 1}.png`;
+          await copyFile(editRefs[i], join(dir, name));
+          refLines.push(`${name} shows ${EDIT_ROLE_DIRECTIVE[role]}`);
+        }
         const promptText =
           `Edit input.png using your image generation/editing tool: ${req.instruction}.` +
-          (req.referenceImages?.[0]
-            ? ` product.png shows the exact product: keep or restore its label, shape and design faithfully.`
-            : '') +
+          (refLines.length ? ` ${refLines.join('. ')}.` : '') +
           `${brandBlock(req)}` +
           ` Do not browse the web or explore files. Save the result in the current directory as out-1.png ` +
           `(you may run the commands needed to save and resize it). Nothing else.`;
@@ -240,11 +266,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   // Wording matters: codex's imagegen skill needs shell access (cp/sips) to
   // place the file — forbid browsing/exploration, but NOT running commands.
   function buildPrompt(req: GenerateRequest, index: number, roles: ('product' | 'character' | 'reference')[]): string {
-    const roleDirective: Record<'product' | 'character' | 'reference', string> = {
-      product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
-      character: 'the exact person — preserve their face, hair and build faithfully; do not restyle them',
-      reference: 'a reference to match in composition, lighting and treatment',
-    };
+    const roleDirective = ROLE_DIRECTIVE;
     const refDirectives = roles
       .map((role, i) =>
         roles.length > 1

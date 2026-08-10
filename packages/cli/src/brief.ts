@@ -23,15 +23,41 @@ export interface Brief {
   templateFields?: Record<string, string>;
 }
 
+/**
+ * Per-role reference budgets, independent of the engine cap.
+ *
+ * These stop one token starving another: without them a product with six
+ * catalogued angles would consume the entire engine budget and evict the
+ * presenter's face. The engine cap is applied afterwards, in role-priority
+ * order, so what survives a tight cap is always identity before inspiration.
+ */
+export const PRODUCT_REF_MAX = 3;
+export const CHARACTER_REF_MAX = 2;
+
 export interface Attachment {
   role: 'product' | 'character' | 'reference';
   label: string;
   hash: string;
+  /**
+   * True for the FIRST reference of each product/presenter — the one that
+   * actually carries the identity. Extra angles are corroboration: valuable,
+   * but droppable under a tight engine cap. Losing an essential attachment
+   * means the generation can no longer show the right subject at all, and the
+   * caller should refuse rather than produce a confident wrong answer.
+   */
+  essential?: boolean;
 }
 
 export interface CompiledBrief {
   prompt: string;
   referenceImages: string[];
+  /**
+   * Attachments the engine cap forced out, in role-priority order. Callers
+   * must inspect this: a dropped `reference` is a cosmetic loss, but a dropped
+   * `product` or `character` means the generation can no longer be faithful to
+   * the identity the user selected, and should be refused rather than run.
+   */
+  dropped: Attachment[];
   width: number;
   height: number;
   attachments: Attachment[];
@@ -82,6 +108,59 @@ export function sceneGuardDirectives(opts: { hasProduct: boolean; hasPerson: boo
   return out;
 }
 
+/**
+ * Structural validation at the API boundary.
+ *
+ * `compileBrief` is deliberately forgiving — it warns and carries on so one
+ * bad chip never costs the user the whole sentence. That is right for
+ * recoverable trouble, but a malformed payload is not recoverable: it means
+ * the caller is broken, and returning a plausible image for a brief we could
+ * not read is exactly the "confidently wrong" failure this system exists to
+ * prevent. So the boundary rejects, and the compiler forgives.
+ */
+export function validateBrief(brief: unknown): string[] {
+  const errors: string[] = [];
+  const b = brief as { tokens?: unknown } | null;
+  if (!b || typeof b !== 'object') return ['brief must be an object'];
+  if (!Array.isArray(b.tokens)) return ['brief.tokens must be an array'];
+
+  const str = (v: unknown) => typeof v === 'string' && v.length > 0;
+  b.tokens.forEach((raw, i) => {
+    const at = `tokens[${i}]`;
+    if (!raw || typeof raw !== 'object') {
+      errors.push(`${at} must be an object`);
+      return;
+    }
+    const t = raw as Record<string, unknown>;
+    switch (t.t) {
+      case 'text':
+        if (typeof t.v !== 'string') errors.push(`${at}.v must be a string`);
+        break;
+      case 'product':
+        if (!str(t.id)) errors.push(`${at}.id must be a non-empty string`);
+        if (t.angle !== undefined && !str(t.angle)) errors.push(`${at}.angle must be a non-empty string`);
+        break;
+      case 'character':
+      case 'template':
+        if (!str(t.id)) errors.push(`${at}.id must be a non-empty string`);
+        break;
+      case 'color':
+        if (!str(t.hex) || !/^#[0-9a-fA-F]{6}$/.test(String(t.hex))) errors.push(`${at}.hex must be a #RRGGBB color`);
+        break;
+      case 'ref':
+        if (!str(t.imageHash)) errors.push(`${at}.imageHash must be a non-empty string`);
+        break;
+      case 'format':
+        if (!Number.isFinite(t.w) || !Number.isFinite(t.h) || Number(t.w) <= 0 || Number(t.h) <= 0)
+          errors.push(`${at} must carry positive numeric w and h`);
+        break;
+      default:
+        errors.push(`${at}.t "${String(t.t)}" is not a supported token kind`);
+    }
+  });
+  return errors;
+}
+
 /** Deterministic: same brief + same context always yields the same request. */
 export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const warnings: string[] = [];
@@ -123,15 +202,44 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         // A specific angle (e.g. "detail" for a macro shot, "worn-scale" for
         // an on-body shot) beats the default first shot when the recipe asks
         // for one; falls back silently if that angle isn't available.
-        const shot = (tok.angle && p.shots?.find((s: any) => s.angle === tok.angle)) || p.shots?.[0];
-        const hash = assetHash(shot?.file);
-        if (hash && ctx.images.has(hash)) {
-          attachments.push({ role: 'product', label: p.name, hash });
+        const primary = (tok.angle && p.shots?.find((s: any) => s.angle === tok.angle)) || p.shots?.[0];
+        // Geometry, proportions and label placement need more than one view —
+        // a single frontal shot leaves the model guessing at depth and at any
+        // face of the product it cannot see. Send the requested angle first
+        // (it is the one the recipe cares about), then up to PRODUCT_REF_MAX-1
+        // further distinct angles for corroboration.
+        const orderedShots = [primary, ...(p.shots ?? []).filter((s: any) => s && s !== primary)];
+        const phashes: string[] = [];
+        for (const s of orderedShots) {
+          if (phashes.length >= PRODUCT_REF_MAX) break;
+          const h = assetHash(s?.file);
+          if (h && ctx.images.has(h) && !phashes.includes(h)) phashes.push(h);
+        }
+        if (phashes.length) {
+          phashes.forEach((h, i) => {
+            attachments.push({ role: 'product', label: p.name, hash: h, essential: i === 0 });
+          });
           productDirectives.push(
-            'The attached product image is the exact product: preserve its label, shape and colors faithfully, do not redesign it.',
+            phashes.length > 1
+              ? 'The attached product images all show the exact same product from different angles: preserve its label, shape and colors faithfully, do not redesign it, and do not treat the extra angles as additional products.'
+              : 'The attached product image is the exact product: preserve its label, shape and colors faithfully, do not redesign it.',
           );
           if (p.preservationNotes) productDirectives.push(String(p.preservationNotes));
           if (p.negativeConstraints) productDirectives.push(`Avoid: ${p.negativeConstraints}`);
+          // Real-world scale and material, when the product record knows them.
+          // A model given no size cue will happily render a watch the size of
+          // a dinner plate in a wide shot; stating the physical facts is the
+          // cheapest correction available.
+          // Two spellings reach here: demo products ship `materials` /
+          // `primaryColors` as descriptive prose, catalog imports supply a
+          // singular `material`. Read both rather than silently honouring one.
+          const materials = p.materials ?? p.material;
+          if (materials) productDirectives.push(`Its materials and finish: ${materials}.`);
+          if (p.primaryColors) productDirectives.push(`Its actual colors: ${p.primaryColors}.`);
+          if (p.dimensions)
+            productDirectives.push(
+              `Its real-world size is ${p.dimensions} — keep it at true scale relative to everything else in frame.`,
+            );
         } else {
           warnings.push(`${p.name} has no usable photo, so it is named but not attached.`);
         }
@@ -150,14 +258,23 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         // benefits from multiple views for identity lock, unlike a labeled
         // product, which a single well-matched reference fully specifies.
         const chashes = (c.shots ?? [])
-          .slice(0, 2)
+          .slice(0, CHARACTER_REF_MAX)
           .map((s: any) => assetHash(s?.file))
           .filter((h: string | null): h is string => !!h && ctx.images.has(h));
         if (chashes.length) {
-          for (const chash of chashes) attachments.push({ role: 'character', label: c.name, hash: chash });
+          chashes.forEach((chash: string, i: number) => {
+            attachments.push({ role: 'character', label: c.name, hash: chash, essential: i === 0 });
+          });
           personDirectives.push(
             'The attached person reference is the same person every time: hold their face, hair and build, and do not restyle them.',
           );
+          // Presenters carry the same kind of identity metadata products do
+          // (identityNotes / negativeConstraints). It used to be dropped on
+          // the floor, so a presenter's own "never change this about them"
+          // instructions never reached the model while a product's did.
+          if (c.identityNotes) personDirectives.push(String(c.identityNotes));
+          if (c.negativeConstraints?.length)
+            personDirectives.push(`Avoid: ${[].concat(c.negativeConstraints).join(', ')}`);
         } else {
           warnings.push(`${c.name} has no usable photo, so they are named but not attached.`);
         }
@@ -201,6 +318,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
       case 'format': {
         width = tok.w;
         height = tok.h;
+        break;
+      }
+
+      default: {
+        // A token kind we do not understand used to fall straight through
+        // this switch and vanish. Silence is the wrong default here: the user
+        // put something in the sentence and got an image that ignored it.
+        warnings.push(`Unsupported brief token "${String((tok as { t?: unknown }).t)}" was ignored.`);
         break;
       }
     }
@@ -255,20 +380,44 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   if (allDirectives.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${dedupe(allDirectives).join(' ')}`;
 
   // Attachments are useless past what the engine will actually read.
+  //
+  // Order matters: the clamp below slices by position, and position used to be
+  // whatever order the user happened to drop chips into the sentence. That
+  // meant a "[presenter] [product]" brief on a low-cap engine kept two face
+  // shots and threw the PRODUCT away — silently generating the wrong object.
+  // Identity beats inspiration, always: product first, then character, then
+  // plain style references, which are the only ones safe to lose.
+  const ROLE_PRIORITY: Record<Attachment['role'], number> = { product: 0, character: 1, reference: 2 };
+  const ordered = attachments
+    .map((a, i) => ({ a, i }))
+    .sort(
+      (x, y) =>
+        // Essential identity first, so a tight cap sheds extra product angles
+        // and style references before it sheds a subject entirely.
+        Number(!!y.a.essential) - Number(!!x.a.essential) ||
+        ROLE_PRIORITY[x.a.role] - ROLE_PRIORITY[y.a.role] ||
+        x.i - y.i,
+    )
+    .map((x) => x.a);
   const max = ctx.engineCaps.maxReferenceImages;
-  const kept = attachments.slice(0, Math.max(0, max));
-  const dropped = attachments.slice(kept.length);
+  const kept = ordered.slice(0, Math.max(0, max));
+  const dropped = ordered.slice(kept.length);
   if (dropped.length) {
+    // By label, not by attachment: a product contributes several angles, and
+    // naming it once per dropped angle reads as three different products
+    // having been lost.
+    const names = [...new Set(dropped.map((d) => d.label))];
     warnings.push(
-      `${ctx.engineCaps.displayName} reads ${max} reference image${max === 1 ? '' : 's'}, so ${dropped
-        .map((d) => d.label)
-        .join(' and ')} ${dropped.length === 1 ? 'was' : 'were'} left out.`,
+      `${ctx.engineCaps.displayName} reads ${max} reference image${max === 1 ? '' : 's'}, so ${names.join(
+        ' and ',
+      )} ${names.length === 1 ? 'was' : 'were'} left out.`,
     );
   }
 
   return {
     prompt: prompt.trim(),
     referenceImages: kept.map((a) => ctx.images.pathFor(a.hash)),
+    dropped,
     width,
     height,
     attachments: kept,

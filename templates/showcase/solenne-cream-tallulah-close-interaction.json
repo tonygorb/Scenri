@@ -1,0 +1,35 @@
+{
+  "id": "solenne-cream-tallulah-close-interaction",
+  "title": "Pressed cream at the cheek",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "solenne-mineral-pressed-cream"
+      },
+      {
+        "t": "character",
+        "id": "tallulah"
+      },
+      {
+        "t": "template",
+        "id": "closeup-face-product-interaction"
+      },
+      {
+        "t": "text",
+        "v": " Catch two fingertips just lifting off the surface of the dense cream, a soft peak drawn up and already slumping under its own weight, a first sheer smear warming across the top of her cheekbone as the jar's cold rim rests a centimetre from that skin. 100mm macro at f/3.5, camera level with the cheekbone: the drag mark in the cream and the pore texture beside it sharp in one plane, the brass lid a warm blur behind. Her lower lashline cuts the top edge, the jar's shoulder cuts the right, and a soft lock of hair crosses the bottom edge out of focus."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

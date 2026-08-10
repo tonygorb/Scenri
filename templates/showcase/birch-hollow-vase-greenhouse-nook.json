@@ -1,0 +1,31 @@
+{
+  "id": "birch-hollow-vase-greenhouse-nook",
+  "title": "Stoneware vase in the potting nook",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birch-hollow-stoneware-vase"
+      },
+      {
+        "t": "template",
+        "id": "interiors-greenhouse-potting-nook"
+      },
+      {
+        "t": "text",
+        "v": " Overfilled a moment ago: water still sheeting over the rim and running the full curve of the body, the matte glaze turning dark and slick below the waterline while it stays chalk-dry above, one bead hanging at the lowest point about to fall. A galvanised watering can stands behind, its rose still dripping onto the soaked bench. 90mm at f/2.8, camera at bench height, tight on the body from just off-centre. A fern frond crosses the top-left well out of focus and is cut by the top edge; grit and dark water spots pit the bench through the near foreground."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

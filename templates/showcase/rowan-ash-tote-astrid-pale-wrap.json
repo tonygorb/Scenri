@@ -1,0 +1,35 @@
+{
+  "id": "rowan-ash-tote-astrid-pale-wrap",
+  "title": "Leather tote, pale wrap studio",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "rowan-ash-leather-tote"
+      },
+      {
+        "t": "character",
+        "id": "astrid"
+      },
+      {
+        "t": "template",
+        "id": "editorial-pale-wrap-studio"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO — the frame filled by four centimetres where fingers close on the rolled handle; disregard every full-length-pose, deep-focus and asymmetric-wrap-dress instruction that follows. 100mm macro at f/4, framed 1:1 life-size, lens level with the handle root, angled five degrees down: pore-deep grain, one stitch standing proud under thread tension, a brass foot holding a single soft bloom. Knuckles and a pushed-back ecru cuff blur in the near foreground, cut by the bottom edge. ROWAN ASH blind-debossed beneath the handle root, shadow pooling in the bare impression. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

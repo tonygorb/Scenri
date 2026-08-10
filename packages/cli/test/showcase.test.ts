@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter } from '@scenri/core';
-import { loadShowcase, showcaseFacetsOf, type ShowcaseEntry } from '../src/showcase.js';
+import { loadShowcase, showcaseFacetsOf, defaultShowcaseDir, type ShowcaseEntry } from '../src/showcase.js';
+import { loadScenes, defaultScenesDir } from '../src/scenes.js';
+import { loadDemoProducts, defaultDemoProductsDir } from '../src/demoProducts.js';
+import { loadPresenters, defaultPresentersDir } from '../src/presenters.js';
 import { buildServer } from '../src/server.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -104,5 +107,73 @@ describe('showcase catalog API', () => {
     expect(ok.headers['content-type']).toBe('image/jpeg');
     const missing = await app.inject({ method: 'GET', url: '/api/showcase-previews/nope.jpg' });
     expect(missing.statusCode).toBe(404);
+  });
+});
+
+/**
+ * Referential integrity for the shipped homepage examples.
+ *
+ * These were the missing guardrails: nothing checked that a showcase entry's
+ * scene / product / presenter ids still resolve, so scenes could be renamed
+ * or replaced underneath the examples and CI stayed green while the homepage
+ * advertised things that no longer existed.
+ */
+describe('shipped showcase entries resolve against the real catalog', () => {
+  const entries = loadShowcase(defaultShowcaseDir()).showcase;
+  const sceneIds = new Set(loadScenes(defaultScenesDir()).scenes.map((s) => s.id));
+  const productIds = new Set(loadDemoProducts(defaultDemoProductsDir()).demoProducts.map((p) => p.id));
+  const presenterIds = new Set(loadPresenters(defaultPresentersDir()).presenters.map((p) => p.id));
+
+  const tokensOf = (e: (typeof entries)[number], kind: string) =>
+    (e.brief?.tokens ?? []).filter((t: any) => t.t === kind);
+
+  it('every entry references a scene that still exists', () => {
+    const broken = entries.flatMap((e) =>
+      tokensOf(e, 'template')
+        .filter((t: any) => !sceneIds.has(String(t.id)))
+        .map((t: any) => `${e.id} -> ${t.id}`),
+    );
+    expect(broken).toEqual([]);
+  });
+
+  it('every entry references a real, selectable demo product', () => {
+    const broken = entries.flatMap((e) =>
+      tokensOf(e, 'product')
+        .filter((t: any) => !productIds.has(String(t.id)))
+        .map((t: any) => `${e.id} -> ${t.id}`),
+    );
+    expect(broken).toEqual([]);
+  });
+
+  it('every entry that names a presenter names one on the roster', () => {
+    const broken = entries.flatMap((e) =>
+      tokensOf(e, 'character')
+        .filter((t: any) => !presenterIds.has(String(t.id)))
+        .map((t: any) => `${e.id} -> ${t.id}`),
+    );
+    expect(broken).toEqual([]);
+  });
+
+  it('every entry has a preview image on disk', () => {
+    const missing = entries
+      .filter((e) => !existsSync(join(defaultShowcaseDir(), '..', 'previews', 'showcase', `${e.id}.jpg`)))
+      .map((e) => e.id);
+    expect(missing).toEqual([]);
+  });
+
+  /**
+   * The other half of the pairing. An orphan jpg is worse than a cosmetic
+   * mismatch: generate-showcase-set.mjs skips any recipe whose jpg already
+   * exists, so a hero left behind without its entry permanently blocks its own
+   * tile from being rebuilt, and ships repo weight the gallery never serves.
+   */
+  it('every preview image on disk belongs to an entry', () => {
+    const ids = new Set(entries.map((e) => e.id));
+    const previewDir = join(defaultShowcaseDir(), '..', 'previews', 'showcase');
+    const orphans = (existsSync(previewDir) ? readdirSync(previewDir) : [])
+      .filter((f) => f.endsWith('.jpg'))
+      .map((f) => f.replace(/\.jpg$/, ''))
+      .filter((id) => !ids.has(id));
+    expect(orphans).toEqual([]);
   });
 });

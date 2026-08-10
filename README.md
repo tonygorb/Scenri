@@ -39,7 +39,7 @@ It runs as a local server on `127.0.0.1`. Your brands, your images, and your key
 npx scenri
 ```
 
-That is the whole install. It opens `http://127.0.0.1:4747`, and the built-in **Demo** engine works with **zero keys**, so the entire loop is testable before you spend anything.
+That is the whole install. It opens `http://127.0.0.1:4747`. If you already have the **Codex CLI** on your PATH, generation works on your existing session with **no API key and no per-image cost**.
 
 Requires **Node 20 or newer**. Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once.
 
@@ -60,7 +60,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 
 1. **Paste a website URL.** scenri reads the public page and drafts the kit: name, palette, logo, tone.
 2. **Describe a shot.** `@` pulls in a product or a person, `#` picks a look. The composer compiles a brief you can inspect before it runs.
-3. **Generate on Demo.** No key, no cost, real loop.
+3. **Generate on Codex CLI.** Runs on your existing session — no key, no per-image cost.
 4. **Branch an edit** from any shot, then hit compare. The heatmap shows what moved.
 5. **Add a real engine** in Settings when you want output you can ship.
 
@@ -76,7 +76,6 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 
 | Engine | Cost | Needs |
 |---|---|---|
-| **Demo** | free | nothing, built in |
 | **Codex CLI** | free on your existing session | `codex` on your PATH |
 | OpenRouter | about $0.04 a generation | API key |
 | Replicate | about $0.003 a generation | API token |

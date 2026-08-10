@@ -12,11 +12,24 @@ import type { BriefToken } from './brief.js';
 export interface ShowcaseEntry {
   id: string;
   title: string;
-  /** Lowercase key from apps/studio/src/productCategories.ts's PRODUCT_CATEGORIES. */
+  /**
+   * Use-case key from apps/studio/src/showcaseCategories.ts — `campaign`,
+   * `lifestyle`, `editorial`, … — not a product category. The homepage groups
+   * by the job the shot does, so it reads as outcomes rather than as a second
+   * copy of the Scenes catalog.
+   */
   category: string;
   brief: { tokens: BriefToken[]; templateFields?: Record<string, string> };
   width: number;
   height: number;
+  /**
+   * The settings the example was actually shot with. Without these, opening a
+   * tile restores its chips but inherits whatever the visitor last used, so a
+   * curated 4-variant catalog example could arrive as a single draft frame.
+   * Optional: an entry that omits them leaves the composer's own prefs alone.
+   */
+  variants?: number;
+  quality?: 'draft' | 'standard' | 'high';
 }
 
 const ID = /^[a-z0-9-]+$/;
@@ -34,7 +47,9 @@ function isShowcaseEntry(x: any): x is ShowcaseEntry {
     Array.isArray(x.brief.tokens) &&
     x.brief.tokens.every((t: any) => t && typeof t.t === 'string' && TOKEN_KINDS.has(t.t)) &&
     Number.isFinite(x.width) &&
-    Number.isFinite(x.height)
+    Number.isFinite(x.height) &&
+    (x.variants === undefined || (Number.isInteger(x.variants) && x.variants >= 1 && x.variants <= 4)) &&
+    (x.quality === undefined || ['draft', 'standard', 'high'].includes(x.quality))
   );
 }
 

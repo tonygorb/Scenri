@@ -97,6 +97,11 @@ describe('tokens and the line', () => {
     const all: SentenceToken[] = [
       { t: 'template', id: 'studio-packshot' },
       { t: 'product', id: 'p1' },
+      // A product pinned to a specific angle must survive too. This case was
+      // missing, which is why the DOM round-trip could drop `angle` for years
+      // while this test still claimed "every token kind survives".
+      { t: 'product', id: 'p1', angle: 'material-closeup' },
+      { t: 'character', id: 'priya' },
       { t: 'color', hex: '#FFAA00', name: 'Primary' },
       { t: 'color', hex: '#FFAA00' },
       { t: 'ref', imageHash: 'abc123' },

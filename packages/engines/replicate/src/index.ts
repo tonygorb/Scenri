@@ -7,6 +7,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { ASPECT_TOLERANCE } from '@scenri/core';
 import type { EditRequest, EngineAdapter, EngineCapabilities, EngineResult, GenerateRequest } from '@scenri/core';
 
 const API_BASE = 'https://api.replicate.com/v1';
@@ -37,6 +38,12 @@ interface Prediction {
   [key: string]: unknown;
 }
 
+/**
+ * The provider takes a fixed ratio menu, not pixel dimensions, and it has no
+ * portrait entry: 4:5 (0.8) lands nearer 1:1 than 9:16, so every portrait
+ * request used to come back silently squared. Snapping within a bucket is
+ * fine; substituting a different bucket is a failed generation, so it says so.
+ */
 function nearestAspectRatio(width: number, height: number): AspectRatio {
   const candidates: Array<[AspectRatio, number]> = [
     ['1:1', 1],
@@ -50,6 +57,11 @@ function nearestAspectRatio(width: number, height: number): AspectRatio {
       best = candidate;
     }
   }
+  if (Math.abs(best[1] - ratio) / ratio > ASPECT_TOLERANCE)
+    throw new Error(
+      `replicate supports only ${candidates.map((c) => c[0]).join(', ')} — ` +
+        `a ${width}x${height} request would be silently returned as ${best[0]}`,
+    );
   return best[0];
 }
 
@@ -203,7 +215,10 @@ export function createReplicateEngine(opts: ReplicateEngineOptions): EngineAdapt
         localOnly: false,
         supportsEdit: true,
         supportsMask: false,
-        maxReferenceImages: 1,
+        // 0, deliberately — see the same note in the fal adapter. generate()
+        // sends only prompt/num_outputs/aspect_ratio, so a declared capacity
+        // of 1 was a promise this adapter never kept.
+        maxReferenceImages: 0,
       };
     },
 

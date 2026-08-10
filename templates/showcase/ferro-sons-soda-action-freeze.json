@@ -1,0 +1,31 @@
+{
+  "id": "ferro-sons-soda-action-freeze",
+  "title": "Soda can, caught mid-pour",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ferro-sons-yuzu-soda"
+      },
+      {
+        "t": "template",
+        "id": "action-motion-freeze"
+      },
+      {
+        "t": "text",
+        "v": " Tilt it hard at the top of frame so the pour has already left the lip as one twisting ribbon of cloudy pale-yellow yuzu soda, carbonation threading it with fine bubbles and a citrus haze in the liquid, landing in crushed ice and throwing a crown of droplets. 100mm at f/4, camera low and off-axis, the arc running corner to corner. Take the backdrop to a saturated cobalt so the flash rim cuts the matte body cold. Out-of-focus ice shards cross the bottom edge, cut by the left edge. FERRO & SONS sits small inside the green stripe, the specular breaking across its middle letters, condensation standing proud over the ink. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "story",
+        "w": 1080,
+        "h": 1920
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1080,
+  "height": 1920
+}

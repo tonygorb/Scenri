@@ -1,0 +1,31 @@
+{
+  "id": "verlaine-lumiere-silk-drape",
+  "title": "Crystal bottle in the silk fold",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-lumiere"
+      },
+      {
+        "t": "template",
+        "id": "chrome-bubble-warp"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO, the frame filled by four centimetres of cut crystal and silk; disregard the wider-drape and edge-softening framing that follows. 150mm macro at f/5.6, framed 1:1 life-size, camera level with the fabric, a hand's width out, the cut shoulder running diagonally across frame, filaments legible where the weave presses the glass and the fold behind collapsing to unlit green. Loose emerald fibre lies blurred across the near foreground, cut by the bottom and left edges. VERLAINE is acid-etched into the shoulder, frosted and ink-free, running off the right edge. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

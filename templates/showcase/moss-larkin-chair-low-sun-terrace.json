@@ -1,0 +1,31 @@
+{
+  "id": "moss-larkin-chair-low-sun-terrace",
+  "title": "Sling chair on the low-sun terrace",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "moss-larkin-sling-lounge-chair"
+      },
+      {
+        "t": "template",
+        "id": "furniture-low-sun-terrace"
+      },
+      {
+        "t": "text",
+        "v": " Turn it three-quarters into the low sun on paving still wet from a hose-down, so a sheet of gold specular runs off the stone and up under the sling and the whole frame repeats in the water film as a soft second image. The brass pins burn to two white points. 50mm at f/2.8, camera a foot and a half off the paving, shooting into the light. Blind-debossed MOSS LARKIN sits small beside one pin, shadow pooled in the impression, readable only because the sun grazes it. A terracotta pot rim blurs across the near right, cut by the right edge. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "landscape",
+        "w": 1600,
+        "h": 900
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1600,
+  "height": 900
+}

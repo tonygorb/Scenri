@@ -1,6 +1,6 @@
 {
   "id": "aurelia-serum-bree-dish-glow",
-  "title": "Amber Dropper Bottle with Bree, Beauty Dish Glow",
+  "title": "Serum in hand, morning light",
   "category": "beauty",
   "brief": {
     "tokens": [
@@ -18,7 +18,7 @@
       },
       {
         "t": "text",
-        "v": " warm approachable skincare ritual, soft glowing light, the bottle held naturally in one hand at chest height with fingers visibly wrapped around the glass, genuine physical contact, not floating or composited"
+        "v": " Bring her hand up into the crop from below, the pipette squeezed so one amber drop has just necked off the glass tip and hangs elongated mid-fall above her waiting fingertips, a second bead sheeting warm across the back of her hand. 85mm at f/2.8, camera at collarbone height angled up: the pipette tip and wet skin tack-sharp, her far cheek soft. A loose strand of hair blurs across the left edge, cut by it. AURELIA sits letterpress-debossed into the matte cream band, ink pressed into uncoated fibre, shadow pooling in the impression as the band curves away. Fine-gauge charcoal ribbed tank. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
       },
       {
         "t": "format",
@@ -28,6 +28,8 @@
       }
     ]
   },
+  "variants": 2,
+  "quality": "high",
   "width": 1024,
   "height": 1280
 }

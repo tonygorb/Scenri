@@ -106,9 +106,28 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
 
     async generate(req: GenerateRequest, signal?: AbortSignal): Promise<EngineResult> {
       const key = requireKey();
+      // Bind each image to its role positionally. Without this the model gets
+      // N undifferentiated images plus prose mentioning a product and a
+      // person, and has to guess which is which — which is exactly how a
+      // presenter's face ends up rendered as the product.
+      const roles = req.referenceRoles ?? [];
+      const refs = req.referenceImages ?? [];
+      const roleDirective: Record<'product' | 'character' | 'reference', string> = {
+        product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
+        character: 'the exact person — preserve their face, hair and build faithfully; do not restyle them',
+        reference: 'a reference to match in composition, lighting and treatment',
+      };
+      const refDirectives = refs
+        .map((_, i) => {
+          const role = roles[i] ?? 'reference';
+          return refs.length > 1
+            ? `Attached image ${i + 1} is ${roleDirective[role]}.`
+            : `The attached image is ${roleDirective[role]}.`;
+        })
+        .join(' ');
       const content: unknown[] = [
-        { type: 'text', text: req.prompt },
-        ...(req.referenceImages ?? []).map((p) => ({
+        { type: 'text', text: refDirectives ? `${req.prompt} ${refDirectives}` : req.prompt },
+        ...refs.map((p) => ({
           type: 'image_url',
           image_url: { url: dataUrl(p) },
         })),

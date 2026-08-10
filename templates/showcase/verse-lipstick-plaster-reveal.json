@@ -1,0 +1,31 @@
+{
+  "id": "verse-lipstick-plaster-reveal",
+  "title": "Lipstick reveal on plaster",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verse-beauty-sheer-bloom"
+      },
+      {
+        "t": "template",
+        "id": "social-cobalt-hand-reveal"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO, the frame filled by five centimetres of wall - disregard every presenting-toward-camera, whole-hand and soft-background instruction. The chiselled tip drags a thick dusty-rose stroke across the trowel ridges, pigment skipping the crests and packing the hollows, a crumb of cream curling at the tail. VERSE sits laser-etched into the metal collar, large and cleanly legible at this magnification, taking one hard highlight along its strokes. 100mm macro at f/4, framed 1:1 life-size, lens square to the wall at stroke height; an out-of-focus knuckle crosses the bottom-left corner and is cut by it. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "story",
+        "w": 1080,
+        "h": 1920
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1080,
+  "height": 1920
+}

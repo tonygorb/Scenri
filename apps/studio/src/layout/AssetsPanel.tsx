@@ -4,6 +4,7 @@ import { Dialog } from '@radix-ui/themes';
 import { CaretRight, ImageSquare, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useAppData } from '../app/AppShell.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { presentersPath } from '../routes.js';
@@ -59,6 +60,7 @@ export function AssetsPanel({
   const toggleGroup = (name: string) => setOpenGroup((g) => (g === name ? null : name));
   const navigate = useNavigate();
   const { products: library } = useBrand();
+  const { demoProducts } = useAppData();
   const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
   const palette = useMemo(() => {
     const p = brand.json?.palette;
@@ -80,6 +82,7 @@ export function AssetsPanel({
   const searching = !!q.trim();
   const match = (label: string) => !searching || label.toLowerCase().includes(q.trim().toLowerCase());
   const fProducts = products.filter((p) => match(p.name ?? ''));
+  const fSamples = demoProducts.filter((p) => match(p.name));
   const fPresenters = presenters.filter((p) => match(p.name));
   const fTemplates = templates.filter((t) => match(t.name));
   const fPalette = palette.filter((c) => match(c.name) || match(c.hex));
@@ -128,6 +131,49 @@ export function AssetsPanel({
         })
       }
       items={fProducts}
+    />
+  );
+
+  /**
+   * The sample products ship with scenri and every homepage example is built
+   * from one. They used to disappear the moment a brand had a catalog of its
+   * own (`library.length ? library : ...`), which left "Recreate this" pasting
+   * a product chip the panel could not show, find or swap.
+   *
+   * So they get their own group rather than competing for the Products list:
+   * the brand's own products still lead and are still what you reach for, and
+   * the label makes it impossible to ship one into client work by accident.
+   */
+  const samplesGroup = (
+    <Group
+      key="Sample products"
+      name="Sample products"
+      count={fSamples.length}
+      searching={searching}
+      openGroup={openGroup}
+      onToggle={toggleGroup}
+      empty="No sample matches."
+      note="Ships with scenri. Used by the homepage examples."
+      render={(shown, mode) =>
+        shown.map((p: any) => {
+          const thumb = p.previewUrl ? (
+            <img src={p.previewUrl} alt={p.name} loading="lazy" />
+          ) : (
+            <span className="sc-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
+              <ImageSquare size={14} />
+            </span>
+          );
+          if (mode === 'open') {
+            return <AssetCard key={p.id} title={p.name} onClick={() => onProduct(p.id)} thumb={thumb} label={p.name} />;
+          }
+          return (
+            <button type="button" key={p.id} title={p.name} onClick={() => onProduct(p.id)}>
+              {thumb}
+            </button>
+          );
+        })
+      }
+      items={fSamples}
     />
   );
 
@@ -272,6 +318,7 @@ export function AssetsPanel({
       </div>
 
       {productsGroup}
+      {samplesGroup}
       {presentersGroup}
       {scenesGroup}
       {brandColorsGroup}

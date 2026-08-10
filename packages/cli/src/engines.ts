@@ -1,5 +1,4 @@
 import type { Core, EngineAdapter } from '@scenri/core';
-import { createDemoEngine } from '@scenri/engine-demo';
 import { createOpenRouterEngine } from '@scenri/engine-openrouter';
 import { createReplicateEngine } from '@scenri/engine-replicate';
 import { createFalEngine } from '@scenri/engine-fal';
@@ -17,8 +16,11 @@ function keyGetter(core: Core, settingKey: string, envVar: string): () => string
 
 export function createEngineRegistry(core: Core, extra: EngineAdapter[] = []): EngineRegistry {
   const saveImage = (buf: Buffer) => core.images.save(buf);
+  // No demo engine here on purpose. It draws a placeholder gradient and reads
+  // zero reference images, so it can neither honour a Product nor a Presenter —
+  // it made the picker look like a working option while proving nothing. Tests
+  // that want a deterministic stub inject it through `extra`.
   const adapters: EngineAdapter[] = [
-    createDemoEngine(saveImage),
     createOpenRouterEngine({ getKey: keyGetter(core, 'openrouter_api_key', 'OPENROUTER_API_KEY'), saveImage }),
     createReplicateEngine({ getKey: keyGetter(core, 'replicate_api_token', 'REPLICATE_API_TOKEN'), saveImage }),
     createFalEngine({ getKey: keyGetter(core, 'fal_key', 'FAL_KEY'), saveImage }),

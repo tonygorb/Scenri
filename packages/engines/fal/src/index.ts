@@ -138,7 +138,14 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
         localOnly: false,
         supportsEdit: true,
         supportsMask: false,
-        maxReferenceImages: 1,
+        // 0, deliberately. This adapter's generate() sends only prompt/size/
+        // count — it has never forwarded a reference image to the model. It
+        // previously advertised 1, so compileBrief would resolve a product
+        // photo, role-tag it, and hand it over to be dropped on the floor:
+        // the user got a confident image of the wrong object with no warning.
+        // Declaring 0 makes the compiler warn honestly, and the generate
+        // route refuses outright when identity references are in play.
+        maxReferenceImages: 0,
       };
     },
 

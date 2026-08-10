@@ -1,0 +1,31 @@
+{
+  "id": "wavelength-headphones-neon-corridor",
+  "title": "Headphones in the neon corridor",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "wavelength-studio-headphones"
+      },
+      {
+        "t": "template",
+        "id": "neon-tube-corridor"
+      },
+      {
+        "t": "text",
+        "v": " Set them down on the wet floor a third of the way in, one cup resting in standing water so a clean inverted double runs beneath. Go wide — 24mm at f/2.8, lens fifteen centimetres off the floor — and let them read small against the tubes stacking away to the vanishing point. Magenta takes the copper as one hard specular line, cyan rims the far cup. Time it to a drip landing beside them, a single ring spreading across the water and blurred at its leading edge. A near tube crosses the top-right corner out of focus, cut by it."
+      },
+      {
+        "t": "format",
+        "id": "landscape",
+        "w": 1600,
+        "h": 900
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1600,
+  "height": 900
+}

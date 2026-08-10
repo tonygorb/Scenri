@@ -40,6 +40,7 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string): EngineAdap
         supportsEdit: true,
         supportsMask: false,
         maxReferenceImages: 0,
+        placeholder: true,
       };
     },
     async isAvailable() {

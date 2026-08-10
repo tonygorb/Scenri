@@ -129,6 +129,8 @@ export async function resolveDemoProductImages(
   shots: { file: string; angle: string; locked: boolean }[];
   preservationNotes?: string;
   negativeConstraints?: string;
+  materials?: string;
+  primaryColors?: string;
 } | null> {
   const angles = PRODUCT_ANGLES_BY_CATEGORY[product.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
   const shots: { file: string; angle: string; locked: boolean }[] = [];
@@ -146,6 +148,11 @@ export async function resolveDemoProductImages(
     shots,
     ...(product.preservationNotes ? { preservationNotes: product.preservationNotes } : {}),
     ...(product.negativeConstraints ? { negativeConstraints: product.negativeConstraints } : {}),
+    // Material and colour are identity, not decoration: they are what makes a
+    // brushed steel case read as steel rather than plastic. They were being
+    // dropped here, so the compiler never saw them.
+    ...(product.materials ? { materials: product.materials } : {}),
+    ...(product.primaryColors ? { primaryColors: product.primaryColors } : {}),
   };
 }
 

@@ -1,0 +1,31 @@
+{
+  "id": "marrow-vale-flacon-boulder-gap",
+  "title": "Fragrance flacon wedged in granite",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marrow-vale-nocturne"
+      },
+      {
+        "t": "template",
+        "id": "studio-boulder-gap"
+      },
+      {
+        "t": "text",
+        "v": " Shoot the minute after a downpour. A rivulet of runoff spills over the upper boulder's lip and breaks across its shoulder; two drops shed off the cap rim as short vertical streaks while the stone holds still. Water beads tight on the facets and blackens the moss to deep green. 100mm at f/3.2, camera at crevice height, tilted up so granite crowds both sides. Soaked sphagnum sits blurred in the near foreground, cut by the bottom and right edges. MARROW VALE is laser-etched in small clean capitals across the cap's shoulder, large enough to read clearly, the grooves flooding glossy with rain. The mark named above is deliberate art direction: disregard the later Avoid clause forbidding text, labels, stickers or engraving on this product."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280
+}

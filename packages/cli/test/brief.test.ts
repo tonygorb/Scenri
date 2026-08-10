@@ -132,7 +132,9 @@ describe('compileBrief', () => {
     const r = compileBrief(brief, ctx());
     expect(r.prompt).toContain('hero shot of House Blend on marble');
     expect(r.prompt).toContain('preserve its label, shape and colors');
-    expect(r.attachments).toEqual([{ role: 'product', label: 'House Blend', hash: productHash }]);
+    // `essential: true` marks the identity-carrying reference — the one a
+    // tight engine cap must never shed.
+    expect(r.attachments).toEqual([{ role: 'product', label: 'House Blend', hash: productHash, essential: true }]);
     expect(r.referenceImages).toEqual([core.images.pathFor(productHash)]);
     expect(r.productId).toBe('p1');
     expect(r.warnings).toEqual([]);

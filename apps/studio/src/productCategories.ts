@@ -18,125 +18,125 @@ export interface ProductCategory {
 
 export const PRODUCT_CATEGORIES: ProductCategory[] = [
   {
-    key: 'fragrance',
-    label: 'Fragrance',
+    key: "fragrance",
+    label: "Fragrance",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'side', label: 'Side' },
-      { key: 'rear-label', label: 'Rear / label' },
-      { key: 'cap-detail', label: 'Cap detail' },
-      { key: 'material-closeup', label: 'Material close-up' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "side", label: "Side" },
+      { key: "rear-label", label: "Rear / label" },
+      { key: "cap-detail", label: "Cap detail" },
+      { key: "material-closeup", label: "Material close-up" },
     ],
   },
   {
-    key: 'footwear',
-    label: 'Footwear',
+    key: "footwear",
+    label: "Footwear",
     angles: [
-      { key: 'lateral-side', label: 'Lateral side' },
-      { key: 'medial-side', label: 'Medial side' },
-      { key: 'top', label: 'Top' },
-      { key: 'rear', label: 'Rear' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'sole-detail', label: 'Sole / detail' },
+      { key: "lateral-side", label: "Lateral side" },
+      { key: "medial-side", label: "Medial side" },
+      { key: "top", label: "Top" },
+      { key: "rear", label: "Rear" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "sole-detail", label: "Sole / detail" },
     ],
   },
   {
-    key: 'apparel',
-    label: 'Apparel',
+    key: "apparel",
+    label: "Apparel",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'back', label: 'Back' },
-      { key: 'detail-fabric', label: 'Detail / fabric' },
-      { key: 'on-form', label: 'On a form or flat lay' },
+      { key: "front", label: "Front" },
+      { key: "back", label: "Back" },
+      { key: "detail-fabric", label: "Detail / fabric" },
+      { key: "on-form", label: "On a form or flat lay" },
     ],
   },
   {
-    key: 'furniture',
-    label: 'Furniture',
+    key: "furniture",
+    label: "Furniture",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'side', label: 'Side' },
-      { key: 'detail-material', label: 'Detail / material' },
-      { key: 'in-scale', label: 'In a room, for scale' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "side", label: "Side" },
+      { key: "detail-material", label: "Detail / material" },
+      { key: "in-scale", label: "In a room, for scale" },
     ],
   },
   {
-    key: 'beauty',
-    label: 'Beauty / skincare',
+    key: "beauty",
+    label: "Beauty / skincare",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'applicator-detail', label: 'Cap / applicator detail' },
-      { key: 'label', label: 'Label' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "applicator-detail", label: "Cap / applicator detail" },
+      { key: "label", label: "Label" },
     ],
   },
   {
-    key: 'electronics',
-    label: 'Electronics',
+    key: "electronics",
+    label: "Electronics",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'side', label: 'Side' },
-      { key: 'ports-detail', label: 'Ports / detail' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "side", label: "Side" },
+      { key: "ports-detail", label: "Ports / detail" },
     ],
   },
   {
-    key: 'jewelry',
-    label: 'Jewelry',
+    key: "jewelry",
+    label: "Jewelry",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'clasp-detail', label: 'Clasp / setting detail' },
-      { key: 'worn-scale', label: 'Worn, for scale' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "clasp-detail", label: "Clasp / setting detail" },
+      { key: "worn-scale", label: "Worn, for scale" },
     ],
   },
   {
-    key: 'accessories',
-    label: 'Accessories',
+    key: "accessories",
+    label: "Accessories",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'detail', label: 'Detail' },
-      { key: 'worn-scale', label: 'Worn, for scale' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "detail", label: "Detail" },
+      { key: "worn-scale", label: "Worn, for scale" },
     ],
   },
   {
-    key: 'beverage',
-    label: 'Beverage',
+    key: "beverage",
+    label: "Beverage",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'label', label: 'Label' },
-      { key: 'cap-closure', label: 'Cap / closure detail' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "label", label: "Label" },
+      { key: "cap-closure", label: "Cap / closure detail" },
     ],
   },
   {
-    key: 'food',
-    label: 'Food',
+    key: "food",
+    label: "Food",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'ingredient-detail', label: 'Ingredient / texture detail' },
-      { key: 'packaging-label', label: 'Packaging / label' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "ingredient-detail", label: "Ingredient / texture detail" },
+      { key: "packaging-label", label: "Packaging / label" },
     ],
   },
   {
-    key: 'other',
-    label: 'Other',
+    key: "other",
+    label: "Other",
     angles: [
-      { key: 'front', label: 'Front' },
-      { key: 'three-quarter', label: 'Three-quarter' },
-      { key: 'side', label: 'Side' },
-      { key: 'detail', label: 'Detail' },
+      { key: "front", label: "Front" },
+      { key: "three-quarter", label: "Three-quarter" },
+      { key: "side", label: "Side" },
+      { key: "detail", label: "Detail" },
     ],
   },
 ];
 
 const BY_KEY = new Map(PRODUCT_CATEGORIES.map((c) => [c.key, c]));
 
-export const OTHER_CATEGORY: ProductCategory = BY_KEY.get('other')!;
+export const OTHER_CATEGORY: ProductCategory = BY_KEY.get("other")!;
 
 export function categoryOf(key: string | null | undefined): ProductCategory {
   return (key && BY_KEY.get(key)) || OTHER_CATEGORY;
@@ -153,20 +153,38 @@ export function categoryLabel(key: string | null | undefined): string | null {
  * `jewelry` is checked before `accessories` since a watch/necklace/ring would
  * otherwise match accessories' own `jewelry`/`watch` keywords first.
  */
-export function suggestCategory(productType?: string | null, tags?: string[] | null): string | undefined {
-  const haystack = [productType ?? '', ...(tags ?? [])].join(' ').toLowerCase();
+export function suggestCategory(
+  productType?: string | null,
+  tags?: string[] | null,
+): string | undefined {
+  const haystack = [productType ?? "", ...(tags ?? [])].join(" ").toLowerCase();
   if (!haystack.trim()) return undefined;
   const KEYWORDS: [string, string[]][] = [
-    ['fragrance', ['fragrance', 'perfume', 'eau de', 'cologne']],
-    ['footwear', ['shoe', 'sneaker', 'boot', 'sandal', 'footwear']],
-    ['apparel', ['shirt', 'dress', 'jacket', 'pant', 'apparel', 'clothing', 'hoodie']],
-    ['furniture', ['chair', 'table', 'sofa', 'furniture', 'shelf', 'desk']],
-    ['beauty', ['skincare', 'serum', 'cream', 'lotion', 'cosmetic', 'makeup', 'beauty']],
-    ['electronics', ['electronic', 'headphone', 'speaker', 'charger', 'device', 'gadget']],
-    ['jewelry', ['jewelry', 'jewellery', 'necklace', 'bracelet', 'earring', 'ring']],
-    ['accessories', ['bag', 'handbag', 'wallet', 'watch', 'accessory', 'accessories']],
-    ['beverage', ['drink', 'beverage', 'soda', 'juice', 'coffee', 'tea']],
-    ['food', ['food', 'snack', 'grocery', 'sauce', 'spice', 'pantry']],
+    ["fragrance", ["fragrance", "perfume", "eau de", "cologne"]],
+    ["footwear", ["shoe", "sneaker", "boot", "sandal", "footwear"]],
+    [
+      "apparel",
+      ["shirt", "dress", "jacket", "pant", "apparel", "clothing", "hoodie"],
+    ],
+    ["furniture", ["chair", "table", "sofa", "furniture", "shelf", "desk"]],
+    [
+      "beauty",
+      ["skincare", "serum", "cream", "lotion", "cosmetic", "makeup", "beauty"],
+    ],
+    [
+      "electronics",
+      ["electronic", "headphone", "speaker", "charger", "device", "gadget"],
+    ],
+    [
+      "jewelry",
+      ["jewelry", "jewellery", "necklace", "bracelet", "earring", "ring"],
+    ],
+    [
+      "accessories",
+      ["bag", "handbag", "wallet", "watch", "accessory", "accessories"],
+    ],
+    ["beverage", ["drink", "beverage", "soda", "juice", "coffee", "tea"]],
+    ["food", ["food", "snack", "grocery", "sauce", "spice", "pantry"]],
   ];
   for (const [key, words] of KEYWORDS) {
     if (words.some((w) => haystack.includes(w))) return key;

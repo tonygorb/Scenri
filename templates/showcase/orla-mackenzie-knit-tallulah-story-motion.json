@@ -1,0 +1,35 @@
+{
+  "id": "orla-mackenzie-knit-tallulah-story-motion",
+  "title": "Cashmere knit, story motion",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orla-mackenzie-cashmere-turtleneck"
+      },
+      {
+        "t": "character",
+        "id": "tallulah"
+      },
+      {
+        "t": "template",
+        "id": "social-vertical-story-motion"
+      },
+      {
+        "t": "text",
+        "v": " She wears only the reference knit on top - disregard the matte-black technical zip jacket and its reflective trim tape - over straight-leg charcoal wool trousers and black leather ankle boots. Catch her mid-pivot: ribbed hem and one sleeve swinging wide, hair lifted clear of the jaw, the rear boot sole off the ground. 28mm at f/4 from floor level, tilted up so she stands small under the towering field, upper third clear; the leading boot swings closest, soft, clipped by the bottom edge, her shadow raking out through the bottom-left corner."
+      },
+      {
+        "t": "format",
+        "id": "story",
+        "w": 1080,
+        "h": 1920
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1080,
+  "height": 1920
+}

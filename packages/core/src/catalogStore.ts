@@ -116,7 +116,14 @@ export interface LibraryProduct {
   currency?: string | null;
   available?: boolean | null;
   status?: string;
-  shots: { file: string; locked?: boolean; alt?: string | null }[];
+  /**
+   * `angle` is the structured slot key (e.g. "three-quarter", "sole-detail")
+   * that a brief can target; `alt` is free descriptive text. These used to be
+   * collapsed into `alt`, which silently destroyed `angle` for every
+   * user-uploaded product: the ProductPage checklist could never match a slot,
+   * and compileBrief's angle selection could never fire outside demo products.
+   */
+  shots: { file: string; locked?: boolean; angle?: string | null; alt?: string | null }[];
   variants?: CatalogVariantRow[];
 }
 
@@ -581,12 +588,19 @@ export function createCatalogStore(db: DB) {
         variant: p.variant ?? null,
         material: p.material ?? null,
         dimensions: p.dimensions ?? null,
-        shots: (p.shots ?? []).map((s: any) => ({ file: s.file, locked: s.locked ?? true, alt: s.angle ?? null })),
+        shots: (p.shots ?? []).map((s: any) => ({
+          file: s.file,
+          locked: s.locked ?? true,
+          angle: s.angle ?? null,
+          alt: s.alt ?? s.angle ?? null,
+        })),
       }));
 
       const catalog = this.listProducts(brandId).map((p): LibraryProduct => {
         const images = this.listImages(p.id);
-        const shots = images.filter((i) => i.assetRef).map((i) => ({ file: i.assetRef!, locked: true, alt: i.alt }));
+        const shots = images
+          .filter((i) => i.assetRef)
+          .map((i) => ({ file: i.assetRef!, locked: true, angle: null, alt: i.alt }));
         return {
           id: `cat-${p.id}`,
           name: p.title,

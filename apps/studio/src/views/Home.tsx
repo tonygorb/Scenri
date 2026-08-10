@@ -9,7 +9,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { hubPath, presenterPath, presentersPath, scenePath, scenesPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
-import { categoryLabel } from '../productCategories.js';
+import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
 import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
@@ -157,7 +157,7 @@ export function HomeView() {
               >
                 Every example <span className="sc-vcount">{showcase.length}</span>
               </button>
-              {showcaseCategories.map((c) => (
+              {sortShowcaseCategories(showcaseCategories).map((c) => (
                 <button
                   type="button"
                   key={c}
@@ -166,7 +166,7 @@ export function HomeView() {
                   data-on={category === c ? '' : undefined}
                   onClick={() => setCategory(c)}
                 >
-                  {categoryLabel(c) ?? c} <span className="sc-vcount">{countFor(c)}</span>
+                  {showcaseCategoryLabel(c) ?? c} <span className="sc-vcount">{countFor(c)}</span>
                 </button>
               ))}
             </div>

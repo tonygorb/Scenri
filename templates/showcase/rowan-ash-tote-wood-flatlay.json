@@ -1,0 +1,32 @@
+{
+  "id": "rowan-ash-tote-wood-flatlay",
+  "title": "Leather tote, wood flat-lay",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "rowan-ash-leather-tote",
+        "angle": "detail"
+      },
+      {
+        "t": "template",
+        "id": "interiors-wood-table-flatlay"
+      },
+      {
+        "t": "text",
+        "v": " Set it down close to the near edge of the oak, one handle collapsed into a slack arc, a brass foot biting the plane. Come in to a forearm's length at the low end of the inherited angle, 50mm at f/2.8, tight enough that hide pore and tool marks in the brass both read while the far end of the table goes to warm mush. Stand a heavy cut-glass tumbler of water just out of focus at the left edge so it bends one bright ribbon of caustic across the tan flank. The pen's blurred barrel crosses the bottom edge. Let the leather and plain brass carry the frame alone."
+      },
+      {
+        "t": "format",
+        "id": "square",
+        "w": 1024,
+        "h": 1024
+      }
+    ]
+  },
+  "variants": 4,
+  "quality": "high",
+  "width": 1024,
+  "height": 1024
+}

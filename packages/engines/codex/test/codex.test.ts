@@ -68,7 +68,7 @@ describe('capabilities / costEstimate', () => {
       localOnly: true,
       supportsEdit: true,
       supportsMask: false,
-      maxReferenceImages: 1,
+      maxReferenceImages: 6,
     });
   });
 
@@ -186,12 +186,37 @@ describe('generate', () => {
       child.emit('exit', 0, null);
     });
     const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
-    await engine.generate({ ...genReq, count: 1, referenceImages: [refPath] });
+    await engine.generate({
+      ...genReq,
+      count: 1,
+      referenceImages: [refPath],
+      referenceRoles: ['product'],
+    });
     const args = calls[0].args;
-    expect(args).toContain(`--image=${join(dirFromArgs(args), 'product.png')}`);
+    // References are copied under a neutral, positional name: the generate
+    // prompt binds them by order ("Attached image 1 is ..."), not by filename,
+    // and they are no longer all products.
+    expect(args).toContain(`--image=${join(dirFromArgs(args), 'ref-0.png')}`);
     expect(args[args.length - 1]).not.toContain('--image'); // prompt stays the positional tail
     const promptText = args[args.length - 1];
     expect(promptText).toContain('preserve its label, shape, colors and design faithfully');
+  });
+
+  it('describes a role-less reference neutrally rather than claiming it is the product', async () => {
+    const srcDir = mkdtempSync(join(tmpdir(), 'codex-ref-'));
+    const refPath = join(srcDir, 'ref.png');
+    writeFileSync(refPath, PNG_1);
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    // No roles supplied. Guessing "product" here is how a presenter's face ends
+    // up described as a product to preserve the label and design of.
+    await engine.generate({ ...genReq, count: 1, referenceImages: [refPath] });
+    const promptText = calls[0].args[calls[0].args.length - 1];
+    expect(promptText).toContain('a reference to match in composition, lighting and treatment');
+    expect(promptText).not.toContain('the exact product');
   });
 
   it('rejects the whole batch when one parallel run fails', async () => {

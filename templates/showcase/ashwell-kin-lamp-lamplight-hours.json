@@ -1,0 +1,31 @@
+{
+  "id": "ashwell-kin-lamp-lamplight-hours",
+  "title": "Table lamp at blue hour",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ashwell-kin-ribbed-table-lamp"
+      },
+      {
+        "t": "template",
+        "id": "furniture-lamplight-hours"
+      },
+      {
+        "t": "text",
+        "v": " Pull back and set the lamp small in the left third on a low oak side table, giving two thirds of the frame to unlit floor and the cold slab of window holding the right edge. 35mm at f/1.8, camera at seated eye height, level with the shade's lower rim so the brass collar reads as one hot line against the dark plaster. A draught pushes the half-drawn curtain well into the room, its hem alone smeared with movement. Fill the dark floor with lived-in evidence catching the lamp's edge: a stack of read books face-down, a cooling mug, a rucked wool rug, a cable running to the skirting. The out-of-focus back of a wingback chair crosses the near-left foreground, cut by the left edge and the bottom."
+      },
+      {
+        "t": "format",
+        "id": "landscape",
+        "w": 1600,
+        "h": 900
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1600,
+  "height": 900
+}
