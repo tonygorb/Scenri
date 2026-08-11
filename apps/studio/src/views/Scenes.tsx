@@ -140,7 +140,7 @@ export function ScenesView() {
           })}
 
         {loaded && !error && searching && visible.length > 0 && (
-          <div className="sc-masonry">
+          <div className="sc-masonry" data-wall>
             {visible.map((s) => (
               <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
             ))}

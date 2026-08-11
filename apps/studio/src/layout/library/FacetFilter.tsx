@@ -1,3 +1,5 @@
+import { VerticalsTabs } from '../VerticalsTabs.js';
+import { runTabTransition } from '../tabTransition.js';
 import type { FacetMode } from './libraryRules.js';
 
 export interface FacetOption {
@@ -26,16 +28,21 @@ export interface FacetGroup {
 export function FacetFilter({ mode, group }: { mode: FacetMode; group?: FacetGroup }) {
   if (mode === 'none' || !group) return null;
 
+  const select = (value: string | null) => {
+    if (value === group.selected) return;
+    runTabTransition(() => group.onSelect(value));
+  };
+
   return (
-    <div className="sc-verticals" role="tablist" aria-label={group.label}>
+    <VerticalsTabs aria-label={group.label} activeKey={group.selected}>
       <button
         type="button"
         role="tab"
         aria-selected={!group.selected}
         data-on={!group.selected ? '' : undefined}
-        onClick={() => group.onSelect(null)}
+        onClick={() => select(null)}
       >
-        {group.everyLabel} <span className="sc-vcount">{group.everyCount}</span>
+        <span className="sc-vlabel">{group.everyLabel}</span> <span className="sc-vcount">{group.everyCount}</span>
       </button>
       {group.options.map((o) => (
         <button
@@ -44,11 +51,11 @@ export function FacetFilter({ mode, group }: { mode: FacetMode; group?: FacetGro
           role="tab"
           aria-selected={group.selected === o.value}
           data-on={group.selected === o.value ? '' : undefined}
-          onClick={() => group.onSelect(o.value)}
+          onClick={() => select(o.value)}
         >
-          {o.label} <span className="sc-vcount">{o.count}</span>
+          <span className="sc-vlabel">{o.label}</span> <span className="sc-vcount">{o.count}</span>
         </button>
       ))}
-    </div>
+    </VerticalsTabs>
   );
 }

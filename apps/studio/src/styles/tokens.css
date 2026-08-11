@@ -47,9 +47,9 @@
   --sc-radius-xl: 18px;
   --sc-radius-full: 999px;
 
-  /* the one accent */
-  --sc-gold: #f5c518;
-  --sc-gold-ink: #191300;
+  /* the one accent — warm brass, not candy yellow */
+  --sc-gold: #c9a52e;
+  --sc-gold-ink: #1a1400;
 }
 
 [data-theme="light"] {
@@ -71,9 +71,9 @@
   --sc-focus: #0a0a0a;
   --sc-red: #d93025;
   --sc-green: #188038;
-  --sc-star: #c9980f;
+  --sc-star: #b8921a;
   /* the same gold, dark enough to state a fact rather than decorate one */
-  --sc-star-ink: #a37908;
+  --sc-star-ink: #8f7110;
   --sc-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.07);
   --sc-shadow-2: 0 10px 30px rgba(0, 0, 0, 0.12);
   --sc-shadow-3: 0 18px 50px rgba(0, 0, 0, 0.18);
@@ -105,8 +105,8 @@
   --sc-focus: #f5f5f5;
   --sc-red: #ff6b62;
   --sc-green: #4ade80;
-  --sc-star: #f5c518;
-  --sc-star-ink: #f5c518;
+  --sc-star: #c9a52e;
+  --sc-star-ink: #c9a52e;
   --sc-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
   --sc-shadow-2: 0 10px 30px rgba(0, 0, 0, 0.28);
   --sc-shadow-3: 0 18px 50px rgba(0, 0, 0, 0.34);
@@ -1617,13 +1617,18 @@ select {
 
 .sc-create-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
   margin-bottom: 34px;
+  overflow: visible;
 }
-@media (max-width: 767px) {
+/* Dialog.Root (or any wrapper) must not steal a grid track — the card is the cell. */
+.sc-create-grid > *:has(> .sc-create-card) {
+  display: contents;
+}
+@media (max-width: 899px) {
   .sc-create-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 599px) {
@@ -1631,61 +1636,147 @@ select {
     grid-template-columns: 1fr;
   }
 }
-/* "Set up a brand" demoted out of the grid: already one click away via
-   BrandMenu at every viewport, so it reads as a footnote, not a fourth peer
-   of the three things this screen is actually for. */
-.sc-create-more {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 34px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 12.5px;
-  color: var(--sc-fg3);
-}
-.sc-create-more:hover {
-  color: var(--sc-fg);
-}
-.sc-create-more:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
+/* One-line action chips: tinted photo well + label. Compose leads softly —
+   same raised surface, warmer wash + heavier type (no inverted fill). */
 .sc-create-card {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 12px;
-  padding: 15px 16px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-panel);
+  gap: 14px;
+  min-width: 0;
+  height: 60px;
+  box-sizing: border-box;
+  padding: 7px 14px 7px 7px;
+  border: none;
+  border-radius: 14px;
+  background: var(--sc-raised);
   color: var(--sc-fg);
   cursor: pointer;
   text-align: left;
-  transition:
-    border-color 120ms ease,
-    background 120ms ease;
+  overflow: visible;
+  transition: filter 140ms ease;
   width: 100%;
-}
-.sc-create-card:hover {
-  border-color: var(--sc-line-strong);
-  background: var(--sc-hover);
 }
 .sc-create-card:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 2px;
 }
-.sc-create-card b {
-  display: block;
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.sc-create-card[data-main] {
+  background: color-mix(in srgb, var(--sc-gold) 11%, var(--sc-raised));
 }
-.sc-create-card small {
-  color: var(--sc-fg2);
-  font-size: 12px;
+.sc-create-card[data-soon] {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+.sc-create-card b {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+.sc-create-card[data-main] b {
+  font-weight: 600;
+}
+.sc-create-card .sc-glyph {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  /* Nested: card 14 − pad 7 ≈ 7. */
+  border-radius: 8px;
+  background: var(--sc-chip);
+  color: var(--sc-fg);
+  overflow: visible;
+  transition: filter 140ms ease;
+}
+.sc-create-card .sc-glyph[data-photo] {
+  background: #0a0a0a;
+}
+.sc-create-card .sc-glyph-shot {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+.sc-create-card .sc-glyph-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  /* Nudge past studio white margins on identity refs. */
+  transform: scale(1.14);
+}
+/* Presenter refs are 4:5 full-length — pin top so the head stays in the 1:1 well. */
+.sc-create-card[data-tone="presenter"] .sc-glyph-shot img {
+  object-position: top center;
+  transform-origin: top center;
+  transform: scale(1.08);
+}
+.sc-create-card:hover:not([data-soon]) .sc-glyph {
+  filter: brightness(1.22);
+}
+.sc-create-card:focus-visible:not([data-soon]) .sc-glyph {
+  filter: brightness(1.22);
+}
+.sc-create-soon {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-fg3);
+}
+/* Filled wells: life in the glyph, cards stay quiet. Compose well a touch warmer. */
+.sc-create-card[data-tone="compose"] .sc-glyph {
+  background: #6e5810;
+  color: var(--sc-gold);
+}
+.sc-create-card[data-tone="product"] .sc-glyph {
+  background: #3a2418;
+  color: #e0a078;
+}
+.sc-create-card[data-tone="scene"] .sc-glyph {
+  background: #163028;
+  color: #7ebfad;
+}
+.sc-create-card[data-tone="presenter"] .sc-glyph {
+  background: #321c20;
+  color: #d4a0a0;
+}
+[data-theme="light"] .sc-create-card[data-tone="compose"] .sc-glyph {
+  background: color-mix(in srgb, var(--sc-gold) 36%, #fff4d0);
+  color: var(--sc-star-ink);
+}
+[data-theme="light"] .sc-create-card[data-main] {
+  background: color-mix(in srgb, var(--sc-gold) 14%, var(--sc-raised));
+}
+[data-theme="light"] .sc-create-card[data-tone="product"] .sc-glyph {
+  background: #f3e4d8;
+  color: #9a5a32;
+}
+[data-theme="light"] .sc-create-card[data-tone="scene"] .sc-glyph {
+  background: #d8ebe4;
+  color: #2f6b5c;
+}
+[data-theme="light"] .sc-create-card[data-tone="presenter"] .sc-glyph {
+  background: #f0e0e2;
+  color: #8a4a52;
+}
+.sc-create-card[data-tone] .sc-glyph[data-photo] {
+  background: #0a0a0a;
+}
+[data-theme="light"] .sc-create-card[data-tone] .sc-glyph[data-photo] {
+  background: #e8e8e8;
 }
 .sc-glyph {
   width: 34px;
@@ -4358,7 +4449,7 @@ select {
   padding: 26px 24px 190px;
 }
 .sc-create-grid {
-  margin-bottom: 10px;
+  margin-bottom: 34px;
 }
 .sc-tplrow {
   margin-bottom: 32px;
@@ -4740,17 +4831,19 @@ select {
   padding: 8px 24px 96px;
 }
 
-/* the vertical rail rides with you down the page. The bar is a shell row above
-   this scrollport now, so the offset is the scrollport's own top, not 60px. */
+/* Category rail — underlined text tabs (Home + library FacetFilter).
+   One baseline only: quiet hairline across, active mark sits on it (not a
+   second underline above it). Air lives between the label and that line. */
 .sc-verticals {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
-  gap: 24px;
+  align-items: flex-end;
+  gap: 22px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 16px 0;
+  padding: 10px 0 0;
   margin-bottom: 32px;
   background: var(--sc-bg);
   border-bottom: 1px solid var(--sc-line);
@@ -4759,33 +4852,70 @@ select {
   display: none;
 }
 .sc-verticals button {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
   border: none;
   background: none;
-  padding: 0;
+  padding: 4px 0 12px;
+  margin-bottom: -1px;
   white-space: nowrap;
-  font: 400 19px var(--sc-font);
-  letter-spacing: -0.01em;
+  font: 400 17px var(--sc-font);
+  letter-spacing: -0.022em;
   color: var(--sc-fg3);
   cursor: pointer;
+  transition: color 150ms ease;
 }
 .sc-verticals button:hover {
   color: var(--sc-fg2);
 }
 .sc-verticals button[data-on] {
   color: var(--sc-fg);
-  text-decoration: underline;
-  text-underline-offset: 6px;
-  text-decoration-thickness: 1.5px;
+}
+/* Sliding ink — one mark that glides between tabs (driven by VerticalsTabs). */
+.sc-verticals-ink {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 1.5px;
+  width: var(--sc-ink-w, 0px);
+  background: var(--sc-fg);
+  pointer-events: none;
+  z-index: 1;
+  transform: translate3d(var(--sc-ink-x, 0px), 0, 0);
+  will-change: transform, width;
+}
+.sc-verticals[data-ink-ready] .sc-verticals-ink {
+  transition:
+    transform 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 320ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 .sc-verticals button:focus-visible {
   outline: 2px solid var(--sc-focus);
-  outline-offset: 4px;
+  outline-offset: 3px;
   border-radius: var(--sc-radius-xs);
 }
+.sc-vlabel {
+  display: inline;
+}
 .sc-vcount {
-  font-size: 11.5px;
-  opacity: 0.55;
   margin-left: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  opacity: 0.45;
+  transform: translateY(-0.55em);
+}
+.sc-verticals button[data-on] .sc-vcount {
+  opacity: 0.4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-verticals button,
+  .sc-verticals[data-ink-ready] .sc-verticals-ink {
+    transition: none;
+  }
 }
 
 /* One sticky toolbar for title + tabs + search + primary action together.
@@ -4804,9 +4934,9 @@ select {
   top: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 16px;
-  padding: 16px 0;
+  padding: 10px 0 0;
   margin-bottom: 32px;
   background: var(--sc-bg);
   border-bottom: 1px solid var(--sc-line);
@@ -4817,6 +4947,8 @@ select {
   gap: 12px;
   flex-shrink: 0;
   margin-left: auto;
+  /* Sit with the tab labels, not the underline slot under them. */
+  padding-bottom: 12px;
 }
 .sc-filterbar-actions .sc-sec-more {
   margin-left: 0;
@@ -4832,7 +4964,7 @@ select {
   min-width: 0;
 }
 
-/* ---------- Creative Library shell (Products, Scenes, Presenters) ----------
+/* ---------- Creative Library shell (Products, Presenters, Scenes) ----------
    One row: filter, search, action — see LibraryToolbar.tsx. No visible
    title/description; the nav bar already names the page. */
 .sc-lib-count {
@@ -4909,6 +5041,46 @@ select {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--sc-tile), 1fr));
   gap: 14px;
+}
+/* Tab/filter wall: named view-transition target. Root VT is silenced so only
+   the grid crossfades — tabs and chrome stay put. */
+.sc-masonry[data-wall] {
+  view-transition-name: sc-wall;
+}
+@supports (view-transition-name: none) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+  ::view-transition-group(sc-wall) {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  ::view-transition-old(sc-wall) {
+    animation: sc-wall-out 180ms ease-out both;
+  }
+  ::view-transition-new(sc-wall) {
+    animation: sc-wall-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+@keyframes sc-wall-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sc-wall-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-masonry[data-wall] {
+    view-transition-name: none;
+  }
+  ::view-transition-old(sc-wall),
+  ::view-transition-new(sc-wall) {
+    animation: none !important;
+  }
 }
 /* ---- LookCard (docs/product/patterns/look-card.md) ----
    Single card class family, replacing the six independently-drifted
@@ -5378,7 +5550,7 @@ select {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
   .sc-verticals button {
-    font-size: 16px;
+    font-size: 15px;
   }
   .sc-lookpage h1 {
     font-size: 30px;

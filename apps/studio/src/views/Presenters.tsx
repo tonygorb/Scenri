@@ -118,7 +118,7 @@ export function PresentersView() {
         )}
 
         {presentersLoaded && !presentersError && visible.length > 0 && (
-          <div className="sc-masonry">
+          <div className="sc-masonry" data-wall>
             {visible.map((p) => (
               <PresenterCard
                 key={p.id}

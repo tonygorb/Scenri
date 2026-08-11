@@ -334,14 +334,6 @@ export const BriefInput = forwardRef<
 
   const options: MenuOption[] = useMemo(
     () => [
-      ...templates.map((t) => ({
-        key: `t:${t.id}`,
-        group: 'Scenes',
-        label: t.name,
-        hint: t.lighting,
-        thumb: t.previewUrl ?? undefined,
-        run: () => onTemplatePick(t.id),
-      })),
       ...products.map((p) => ({
         key: `p:${p.id}`,
         group: 'Products',
@@ -356,6 +348,14 @@ export const BriefInput = forwardRef<
         hint: p.descriptor,
         thumb: p.previewUrl ?? undefined,
         run: () => placeRef.current({ t: 'character', id: p.id }),
+      })),
+      ...templates.map((t) => ({
+        key: `t:${t.id}`,
+        group: 'Scenes',
+        label: t.name,
+        hint: t.lighting,
+        thumb: t.previewUrl ?? undefined,
+        run: () => onTemplatePick(t.id),
       })),
       ...palette.map((c) => ({
         key: `c:${c.hex}|${c.name}`,

@@ -205,7 +205,7 @@ export function ProductsView() {
         )}
 
         {loaded && visible.length > 0 && (
-          <div className="sc-masonry">
+          <div className="sc-masonry" data-wall>
             {visible.map((p) => (
               <ProductCard key={p.id} product={p} variant="use" size="grid" onOpen={openProduct} onUse={applyProduct} />
             ))}

@@ -1,12 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Badge, Dialog } from '@radix-ui/themes';
-import { ImageSquare, Package, Sparkle, UsersThree, X } from '@phosphor-icons/react';
-import type { Brand } from '../api.js';
+import { Aperture, Mountains, Package, User, X } from '@phosphor-icons/react';
+import { assetUrl, type Brand } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { useApplyPresenter } from '../app/useApplyPresenter.js';
+import { useApplyScene } from '../app/useApplyScene.js';
 import { useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { hubPath, presenterPath, presentersPath, scenePath, scenesPath } from '../routes.js';
+import { hubPath, presenterPath, presentersPath, scenesPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
 import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
@@ -14,6 +16,8 @@ import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { VerticalsTabs } from '../layout/VerticalsTabs.js';
+import { runTabTransition } from '../layout/tabTransition.js';
 
 /**
  * The launcher.
@@ -43,8 +47,14 @@ export function HomeView() {
   const { brand, products: library } = useBrand();
   const navigate = useNavigate();
   const applyShowcase = useApplyShowcase();
+  const applyPresenter = useApplyPresenter();
+  const applyScene = useApplyScene();
   const [categoryParam, setCategory] = useFilterParam('category');
   const category = categoryParam || null;
+  const selectCategory = (next: string | null) => {
+    if (next === category) return;
+    runTabTransition(() => setCategory(next));
+  };
 
   /** Every way in lands on the same hub, differing only in what it carries. */
   const toCreate = (qs?: Record<string, string>) => {
@@ -87,50 +97,121 @@ export function HomeView() {
     };
   };
 
-  /** A real pre-fill, not "Start from scratch" with a different label: pick
-   * the scene for you (favorite first, else whatever's first) and go straight
-   * to adding the product it's for — the two things every shoot needs. */
-  const startPhotoshoot = () => {
+  /** Seed a scene (favorite first, else first in catalog) and open the products
+   * attach — product, presenter, and scene chain in Create from there. */
+  const startCompose = () => {
     const favs = favoriteScenes(brand.id);
     const sceneId = templates.find((t) => favs.includes(t.id))?.id ?? templates[0]?.id;
     toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
 
+  /** Curated create-strip heroes — preferred showcase/scene ids in quality
+   * order. Claimed uniquely so the row never repeats a still. */
+  const createThumbs = useMemo(() => {
+    const used = new Set<string>();
+    const claim = (url: string | null | undefined) => {
+      if (!url || used.has(url)) return null;
+      used.add(url);
+      return url;
+    };
+    const fromShowcaseIds = (ids: string[]) => {
+      for (const id of ids) {
+        const hit = showcase.find((s) => s.id === id && s.previewUrl);
+        const url = claim(hit?.previewUrl);
+        if (url) return url;
+      }
+      return null;
+    };
+    const fromSceneIds = (ids: string[]) => {
+      for (const id of ids) {
+        const hit = templates.find((t) => t.id === id && t.previewUrl);
+        const url = claim(hit?.previewUrl);
+        if (url) return url;
+      }
+      return null;
+    };
+    const anyShowcase = (kind?: 'product' | 'character' | 'template') => {
+      for (const s of showcase) {
+        if (!s.previewUrl || used.has(s.previewUrl)) continue;
+        if (kind && !s.brief.tokens.some((t: any) => t.t === kind)) continue;
+        return claim(s.previewUrl);
+      }
+      return null;
+    };
+
+    const libraryShot = products.find((p: any) => assetUrl(p?.shots?.[0]?.file));
+
+    return {
+      // Was the product card hero — serum still reads as “make a shot”
+      compose:
+        claim(libraryShot ? assetUrl(libraryShot.shots?.[0]?.file) : null) ??
+        fromShowcaseIds([
+          'aurelia-serum-succulent-dew',
+          'verity-pearls-suspended-silk',
+          'solstice-aviators-screen-print',
+        ]) ??
+        claim(demoProducts.find((p) => p.id === 'aurelia-amber-serum')?.previewUrl) ??
+        claim(demoProducts.find((p) => p.previewUrl)?.previewUrl) ??
+        anyShowcase('product'),
+      // Product in a moment — the volcanic runner we liked earlier
+      product:
+        fromShowcaseIds([
+          'voss-rowe-runner-volcanic-ash',
+          'birchwood-salt-flat',
+          'voss-rowe-dune-slip-face',
+        ]) ??
+        claim(demoProducts.find((p) => p.id === 'voss-rowe-trail-runner')?.previewUrl) ??
+        anyShowcase('product'),
+      // Identity ref — Maren's 4:5 front, cropped top in the 1:1 glyph
+      presenter:
+        claim(presenters.find((p) => p.id === 'maren')?.previewUrl) ??
+        claim(presenters.find((p) => p.previewUrl)?.previewUrl) ??
+        anyShowcase('character'),
+      // Place / light — scene catalog first, then environment-led showcase
+      scene:
+        fromSceneIds([
+          'furniture-travertine-atrium',
+          'wide-establishing-environment',
+          'studio-soft-horizon',
+          'studio-volcanic-ash-field',
+          'furniture-lamplight-hours',
+        ]) ??
+        fromShowcaseIds(['moss-larkin-chair-travertine-atrium', 'calder-snow-loft', 'basalt-snells-window']) ??
+        anyShowcase('template'),
+    };
+  }, [templates, presenters, products, demoProducts, showcase]);
+
   return (
     <ScrollPane>
       <main className="sc-main" id="main">
         <h1 className="sc-greet">
-          Make something <em>on brand</em>
+          Compose a shot <em>on brand</em>
         </h1>
 
         <div className="sc-create-grid">
-          <button type="button" className="sc-create-card" onClick={startPhotoshoot}>
-            <span className="sc-glyph">
-              <Sparkle size={16} />
-            </span>
-            <span>
-              <b>New photoshoot</b>
-              <small>Template plus your product</small>
-            </span>
+          <button type="button" className="sc-create-card" data-tone="compose" data-main="" onClick={startCompose}>
+            <CreateGlyph thumbUrl={createThumbs.compose} fallback={<Aperture size={22} weight="fill" />} />
+            <b>Create an image</b>
           </button>
-          <button type="button" className="sc-create-card" onClick={() => toCreate({ compose: '1' })}>
-            <span className="sc-glyph">
-              <ImageSquare size={16} />
-            </span>
-            <span>
-              <b>Start from scratch</b>
-              <small>Describe any visual</small>
-            </span>
-          </button>
-          <ProductsCard brand={brand} onChanged={refresh} count={products.length} />
+          <ProductsCard
+            brand={brand}
+            onChanged={refresh}
+            count={products.length}
+            thumbUrl={createThumbs.product}
+          />
+          <ComingSoonCard
+            tone="presenter"
+            title="Create a presenter"
+            thumbUrl={createThumbs.presenter}
+            fallback={<User size={22} weight="fill" />}
+          />
+          <ComingSoonCard
+            tone="scene"
+            title="Create a scene"
+            thumbUrl={createThumbs.scene}
+            fallback={<Mountains size={22} weight="fill" />}
+          />
         </div>
-
-        {/* Already one click away from BrandMenu at every viewport — this is
-            a convenience for a first-time visitor, not the only way in, so it
-            doesn't compete with the three things this screen is actually for. */}
-        <button type="button" className="sc-create-more" onClick={() => navigate('/setup')}>
-          <UsersThree size={13} /> Set up a brand
-        </button>
 
         {!showcaseLoaded && (
           <div className="sc-masonry" aria-hidden>
@@ -149,15 +230,15 @@ export function HomeView() {
 
         {showcaseLoaded && !showcaseError && showcase.length > 0 && (
           <>
-            <div className="sc-verticals" role="tablist" aria-label="Categories">
+            <VerticalsTabs aria-label="Categories" activeKey={category}>
               <button
                 type="button"
                 role="tab"
                 aria-selected={!category}
                 data-on={!category ? '' : undefined}
-                onClick={() => setCategory(null)}
+                onClick={() => selectCategory(null)}
               >
-                Every example <span className="sc-vcount">{showcase.length}</span>
+                <span className="sc-vlabel">All examples</span> <span className="sc-vcount">{showcase.length}</span>
               </button>
               {sortShowcaseCategories(showcaseCategories).map((c) => (
                 <button
@@ -166,15 +247,16 @@ export function HomeView() {
                   role="tab"
                   aria-selected={category === c}
                   data-on={category === c ? '' : undefined}
-                  onClick={() => setCategory(c)}
+                  onClick={() => selectCategory(c)}
                 >
-                  {showcaseCategoryLabel(c) ?? c} <span className="sc-vcount">{countFor(c)}</span>
+                  <span className="sc-vlabel">{showcaseCategoryLabel(c) ?? c}</span>{' '}
+                  <span className="sc-vcount">{countFor(c)}</span>
                 </button>
               ))}
-            </div>
+            </VerticalsTabs>
 
             {shownShowcase.length > 0 && (
-              <div className="sc-masonry">
+              <div className="sc-masonry" data-wall>
                 {shownShowcase.map((s) => (
                   <ShowcaseCard
                     key={s.id}
@@ -208,13 +290,7 @@ export function HomeView() {
             </div>
             <div className="sc-masonry">
               {presenters.slice(0, 8).map((p) => (
-                <PresenterCard
-                  key={p.id}
-                  presenter={p}
-                  variant="navigate"
-                  size="grid"
-                  onOpen={(id) => navigate(presenterPath(brand, id))}
-                />
+                <PresenterCard key={p.id} presenter={p} variant="navigate" size="grid" onOpen={applyPresenter} />
               ))}
             </div>
           </>
@@ -236,13 +312,7 @@ export function HomeView() {
             </div>
             <div className="sc-masonry">
               {templates.slice(0, 8).map((s) => (
-                <SceneCard
-                  key={s.id}
-                  scene={s}
-                  variant="navigate"
-                  size="grid"
-                  onOpen={(id) => navigate(scenePath(brand, id))}
-                />
+                <SceneCard key={s.id} scene={s} variant="navigate" size="grid" onOpen={applyScene} />
               ))}
             </div>
           </>
@@ -252,25 +322,30 @@ export function HomeView() {
   );
 }
 
-function ProductsCard({ brand, onChanged, count }: { brand: Brand; onChanged: () => void; count: number }) {
+function ProductsCard({
+  brand,
+  onChanged,
+  count,
+  thumbUrl,
+}: {
+  brand: Brand;
+  onChanged: () => void;
+  count: number;
+  thumbUrl?: string | null;
+}) {
   return (
     <Dialog.Root>
-      <Dialog.Trigger>
-        <button type="button" className="sc-create-card">
-          <span className="sc-glyph">
-            <Package size={16} />
-          </span>
-          <span>
-            <b>
-              Add a product{' '}
-              {count > 0 && (
-                <Badge variant="soft" radius="full" size="1">
-                  {count}
-                </Badge>
-              )}
-            </b>
-            <small>Locked shots keep it exact</small>
-          </span>
+      <Dialog.Trigger asChild>
+        <button type="button" className="sc-create-card" data-tone="product">
+          <CreateGlyph thumbUrl={thumbUrl} fallback={<Package size={22} weight="fill" />} />
+          <b>
+            Add your product
+            {count > 0 && (
+              <Badge variant="soft" radius="full" size="1">
+                {count}
+              </Badge>
+            )}
+          </b>
         </button>
       </Dialog.Trigger>
       <Dialog.Content maxWidth="560px">
@@ -283,5 +358,51 @@ function ProductsCard({ brand, onChanged, count }: { brand: Brand; onChanged: ()
         <ProductsPanel brand={brand} onChanged={onChanged} />
       </Dialog.Content>
     </Dialog.Root>
+  );
+}
+
+/** Ingredient slot that is not buildable yet — keeps the composition story
+ * visible without a dead click into a missing flow. */
+function ComingSoonCard({
+  tone,
+  title,
+  thumbUrl,
+  fallback,
+}: {
+  tone: 'scene' | 'presenter';
+  title: string;
+  thumbUrl?: string | null;
+  fallback: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="sc-create-card"
+      data-tone={tone}
+      data-soon=""
+      disabled
+      aria-disabled="true"
+      aria-label={`${title} (coming soon)`}
+      title="Coming soon"
+    >
+      <CreateGlyph thumbUrl={thumbUrl} fallback={fallback} />
+      <b>{title}</b>
+      <span className="sc-create-soon">Soon</span>
+    </button>
+  );
+}
+
+/** Photo well when we have a catalog frame; tinted icon only as fallback. */
+function CreateGlyph({ thumbUrl, fallback }: { thumbUrl?: string | null; fallback?: ReactNode }) {
+  return (
+    <span className="sc-glyph" data-photo={thumbUrl ? '' : undefined} aria-hidden>
+      {thumbUrl ? (
+        <span className="sc-glyph-shot">
+          <img src={thumbUrl} alt="" loading="lazy" />
+        </span>
+      ) : (
+        fallback
+      )}
+    </span>
   );
 }
