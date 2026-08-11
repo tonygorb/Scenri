@@ -79,6 +79,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
       { key: 'front', label: 'Front' },
       { key: 'three-quarter', label: 'Three-quarter' },
       { key: 'side', label: 'Side' },
+      { key: 'back', label: 'Back' },
       { key: 'ports-detail', label: 'Ports / detail' },
       { key: 'screen-on', label: 'Display / powered on' },
     ],

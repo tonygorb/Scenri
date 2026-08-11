@@ -1,6 +1,6 @@
 {
   "id": "halcyon-drive-in",
-  "title": "Last feature at the drive-in",
+  "title": "Looking up from the hood at dusk",
   "category": "launch",
   "brief": {
     "tokens": [
@@ -10,7 +10,7 @@
       },
       {
         "t": "text",
-        "v": " The speaker stands on the hood of a vintage coupe at an open-air drive-in at dusk, the giant screen's pale glow washing the brushed shell from the front while the sunset burns out low behind the lot, rows of parked silhouettes falling away into haze. 50mm at f/2 from bumper height, the woven grille and one specular arc razor sharp, HALCYON woven tone-on-tone catching the screen light along its letters. A windshield edge and its reflection blur across the bottom-right corner, cut by both edges; power cables cross the sky out the top corners."
+        "v": " Full-bleed photograph, edge to edge, no border, frame or letterbox band. The speaker stands on the hood of a vintage coupe at an open-air drive-in, last light gone amber behind the lot. Camera dropped onto the hood itself, lens axis level with the bottom of the woven grille band and tilted up 8 degrees so the cylinder towers, shot at 85mm from three metres back so its sides stay parallel with no keystoning, the machine holding half the frame height. The giant screen's pale wash comes from the front and rakes the brushed warm-silver shell into one long anisotropic streak, never a mirror; the charcoal fabric grille resolves thread by thread with HALCYON woven tone-on-tone catching that wash along its letters; the single matte amber top button burns as one warm point on the far rim above. The rubberised base ring meets the paint with a hard contact shadow and a tight reflection under it, no gap. A windshield edge blurs across the bottom-right corner, cut by both edges; power cables cross the sky out the top corners."
       },
       {
         "t": "format",
@@ -24,6 +24,6 @@
   "quality": "high",
   "width": 1024,
   "height": 1280,
-  "order": 21,
+  "order": 32,
   "family": "place"
 }

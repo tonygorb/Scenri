@@ -47,7 +47,7 @@ export const PRODUCT_ANGLES_BY_CATEGORY: Record<string, string[]> = {
   apparel: ['front', 'back', 'detail-fabric', 'on-form'],
   furniture: ['front', 'three-quarter', 'side', 'detail-material', 'in-scale'],
   beauty: ['front', 'three-quarter', 'applicator-detail', 'label'],
-  electronics: ['front', 'three-quarter', 'side', 'ports-detail', 'screen-on'],
+  electronics: ['front', 'three-quarter', 'side', 'back', 'ports-detail', 'screen-on'],
   jewelry: ['front', 'three-quarter', 'clasp-detail', 'worn-scale'],
   accessories: ['front', 'three-quarter', 'detail', 'worn-scale'],
   beverage: ['front', 'three-quarter', 'label', 'cap-closure'],

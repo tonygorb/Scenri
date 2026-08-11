@@ -17,6 +17,7 @@ import {
   demoProductFacetsOf,
   demoProductResolver,
   demoProductRefPath,
+  PRODUCT_ANGLES_BY_CATEGORY,
   primaryAngleFor,
   type DemoProduct,
 } from './demoProducts.js';
@@ -403,7 +404,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const demoProductThumbPath = (id: string) => {
     const p = demoProductById(id);
     if (!p) return null;
-    return demoProductRefPath(templatesRoot, id, primaryAngleFor(p.category));
+    const preferred = demoProductRefPath(templatesRoot, id, primaryAngleFor(p.category));
+    if (existsSync(preferred)) return preferred;
+    // A product may ship a partial angle set — hand-supplied reference photos
+    // rarely cover all six. Fall back to the first angle actually on disk so
+    // the catalog card renders instead of 404-ing on a missing primary angle.
+    const angles = PRODUCT_ANGLES_BY_CATEGORY[p.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
+    for (const angle of angles) {
+      const candidate = demoProductRefPath(templatesRoot, id, angle);
+      if (existsSync(candidate)) return candidate;
+    }
+    return preferred;
   };
   const decorateDemoProduct = (p: DemoProduct) => {
     const path = demoProductThumbPath(p.id);

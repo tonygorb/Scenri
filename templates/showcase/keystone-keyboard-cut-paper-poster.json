@@ -14,7 +14,7 @@
       },
       {
         "t": "text",
-        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the scene's four cut-paper planes — cobalt blue, cherry red, golden yellow, emerald green — as exactly two instead: cobalt and golden yellow only, meeting on one straight diagonal seam, no red or green paper. The board lies across that seam, angled twenty degrees off the frame edge so its long axis runs corner to corner, arrow cluster nearest camera, the case reading three-quarters of the frame width. 40mm at f/9 from the elevated three-quarter, one hard poster key from camera-left at 10am: every blank cap throws the same short shadow rightward onto its neighbour and the case lays one clean black bar down the cobalt, nothing on its other three sides. KEYSTONE, one word, is lasered into the top deck's open strip above the function row at its LEFT end, half the case width, on one baseline parallel to the long edge, ending well clear of the knurled knob at top-right, never on the bevel or a keycap. The bottom edge crops empty cobalt, the top edge golden yellow."
+        "v": " Full-bleed photograph, edge to edge, no border, frame or letterbox band. Read the scene's four cut-paper planes — cobalt blue, cherry red, golden yellow, emerald green — as exactly two instead: cobalt and golden yellow only, meeting on one straight diagonal seam, no red or green paper. The board lies across that seam angled twenty degrees off the frame edge, arrows nearest camera. Read the scene's elevated three-quarter as a low elevated three-quarter: camera only thirty degrees above the paper, level with the tops of the caps, 55mm at f/9 from a metre out, so the near anodised case flank opens into a continuous band across the lower third. KEYSTONE, one word, is lasered into that flank at nearly half its length on one baseline parallel to the long edge, large and easily read, never on a keycap or the top deck. One hard poster key from camera-left at 10am: every blank low-profile cap throws the same short shadow onto its neighbour, and the case lays one clean black bar down the cobalt with a hard contact shadow under its front lip, no gap. Case three-quarters of the frame width. PHYSICAL TRUTH: this is a photograph of a real object in a real place, not a composite and not a render. Wherever the device touches a surface it makes hard contact — a dark contact shadow directly under the contact line with no floating gap, and the surface reads as bearing its weight. Its display and glass reflect what is actually around it in this frame, at the correct angle, never a generic studio softbox. The light on the device matches the scene's own key in direction, colour temperature and hardness. Depth falls off continuously the way a real lens falls off, never a uniform blur behind a cut-out subject. The device sits at true hand scale against everything else in frame."
       },
       {
         "t": "format",
@@ -28,6 +28,6 @@
   "quality": "standard",
   "width": 1024,
   "height": 1280,
-  "order": 102,
+  "order": 96,
   "family": "studio"
 }
