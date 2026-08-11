@@ -1,0 +1,12 @@
+{
+  "id": "studio-salt-crystal-cavern",
+  "name": "Salt Crystal Cavern",
+  "description": "The product on a halite ledge inside a salt cavern, cubic and hopper-faced crystals crusting the walls in stepped translucent blocks, one warm low practical raking hard across them so each cube edge takes a bright line and the clear blocks light from within. Jewel-box geology, underground and completely dry.",
+  "lighting": "Single low warm practical, raking crystal refraction",
+  "subject": "product",
+  "collections": ["Studio"],
+  "verticals": ["Jewelry", "Fragrance", "Beauty"],
+  "prompt": "a wide brushed-gold cuff with a single pale cabochon, the product is the hero of the frame and occupies roughly 55 percent of the frame height, tack-sharp and clearly lit, resting on a flat halite ledge inside a salt cavern, the walls crusted in genuine cubic halite crystals growing in clusters — stepped cubes and hopper-faced blocks, some glass-clear, some milky, some tinted rose and umber by mineral inclusion — with fine dry salt grain collected in the ledges, a hairline fracture pattern through the larger faces and older crust surfaces gone matte and floury, a single warm practical lamp low and out of frame at camera-right raking hard across the crystal faces so every cube edge catches a bright line and the translucent blocks light up from within where the beam passes through them, a cooler rose secondary bounce returning off the far wall as the only fill, deep unfilled shadow gathering between the clusters, colour running from hot amber and honey through dusty rose to grey-violet in shadow with the product's metal taking the warm key only on its top surfaces, the cavern treated as supporting texture cropped tight at ledge scale rather than shown as a wide cave interior, real crystalline refraction and internal scatter through the salt rather than a smooth glassy block, true anisotropic sheen on the brushed metal showing a directional streak rather than a mirror, completely dry with no dripping water, no stalactites or limestone flowstone, no daylight shaft, no mining equipment or rail track, no lamp fixture visible in frame, no second product, immaculate jewellery-grade commercial clarity",
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,29 @@
+{
+  "id": "cypress-row-oil-olive-limb",
+  "title": "Noon, the grove going silver",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "cypress-row-olive-oil"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Bleached noon in an old grove. The bottle stands at the root flare of an olive trunk in the one narrow blade of shade it throws at that hour, filling the lower centre third of the frame. The trunk's fissured grey bark takes the left third of the picture, razor sharp, cutting the frame top to bottom while the grove beyond blazes white. A gust is in the canopy and the exposure runs long enough that the silver-backed mass overhead smears to one bright horizontal blur while the bottle stays locked. 35mm at f/8 from ground level tilted a few degrees up, dry grass crisp around the base, the glass left dry, the oil dense golden-green at the shoulder. CYPRESS ROW is hand-stamped in large clean capitals across the oat-white paper band, glued to the OUTSIDE of the front facet and clearly sitting on the exterior glass, ink sunk into the uncoated stock, its lower corner lifted and curling in the heat. The near foreground is bare sunlit ground, empty to the bottom edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 106,
+  "family": "botanical"
+}

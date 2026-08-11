@@ -1,0 +1,33 @@
+{
+  "id": "kiva-phone-malik-flash-crossing",
+  "title": "Tangerine phone turned back at the lens",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "kiva-compact-color-phone"
+      },
+      {
+        "t": "character",
+        "id": "malik"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Catch him mid-crossing on wet black asphalt, one arm thrown out toward the lens with the compact tangerine phone turned back at camera so the moulded pill housing and its two stacked lenses sit dead centre and huge in the near field, the shell owning close to a third of the frame width, the screen facing away. 28mm at f/8 from kerb height, hard on-camera flash at ten at night freezing him against the dark, brake lights smearing red far behind. Charcoal zip-through track jacket over a white tee, wide black nylon trousers, white leather trainers, fully dressed. Nothing stands between lens and phone: the nearest painted crossing stripe runs sharp and flash-white to the bottom edge and black sky takes the top. KIVA is moulded into the back panel as a shallow tonal relief in the same single tangerine, spanning most of the panel's width and easily read, the flash raking one side of every letter so it lifts off the shell."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 14,
+  "family": "human"
+}

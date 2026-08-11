@@ -1,0 +1,13 @@
+{
+  "id": "northward-vacuum-flask",
+  "name": "Powder-Coated Stainless Vacuum Flask",
+  "category": "accessories",
+  "description": "A tall, gently tapered double-wall stainless vacuum flask finished in a matte deep cobalt-blue powder coat, closed with a bare brushed-stainless knurled screw cap and ringed by a narrow bare stainless band at the base.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "stainless vacuum flask",
+  "materials": "Double-wall stainless steel body under a matte deep-cobalt powder coat, bare brushed stainless knurled screw cap, narrow bare stainless base band, hidden silicone cap gasket",
+  "primaryColors": "Matte deep cobalt blue body; bare brushed stainless silver cap and base band",
+  "negativeConstraints": "Never render any text, logo, wordmark, stamped emblem, or embossed lettering anywhere on the powder-coated body, the knurled cap, or the base band; if any tag or badge shape is implied, show it strictly blank and unprinted; never add a handle, carabiner loop, carry strap, straw, or sip-through lid; never make the powder coat glossy or the body straight-sided rather than gently tapered; no props, no hands, except the hand required for the worn-scale angle. Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "Keep the flask's tall gently tapered silhouette, the matte deep-cobalt powder-coat tone and its faintly grainy texture, the knurl pitch and height of the bare brushed-stainless screw cap, and the width and vertical position of the narrow bare stainless base band identical across all four angles. When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
+}

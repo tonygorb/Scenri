@@ -1,0 +1,29 @@
+{
+  "id": "verity-hoops-pigment-lift",
+  "title": "Hoops lifting out of pressed pigment",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-gold-hoop-earrings"
+      },
+      {
+        "t": "text",
+        "v": " A shallow pan of loose ultramarine pigment has been pressed flat and then cracked, a fine craquelure running across the packed surface with one plate tipped and crumbling back into fresh powder. Both hoops sat half-sunk in that bed; one has just been lifted clear on the tip of a fine steel tweezer and trails a hanging veil of pigment dust that has not yet fallen, individual grains resolving where the light catches them, a soft blue collar left in the pan where it was seated. 100mm macro at f/4, framed 1:1 life-size, just above bed level, one hard raking key from the right so every crack wall takes a bright line and the dust lights against unfilled shadow - deep ultramarine against warm polished gold and nothing else in the palette; the lifted hoop stands about a third of the frame across. The VERITY STONE punch on the hinge post reads as a single struck dot, unlettered at this scale, taking one point of the key. Loose pigment blurs across the bottom edge, cut by both corners."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 88,
+  "family": "material"
+}

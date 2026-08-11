@@ -1,0 +1,23 @@
+{
+  "id": "itai",
+  "name": "Itai",
+  "presentation": "man",
+  "descriptor": "Mediterranean ease · close-trimmed beard · steady warmth",
+  "ageRange": "early 30s",
+  "facial": "square face, broad forehead, deep-set dark-brown eyes, heavy straight brows, close-trimmed dark beard following a clean jaw",
+  "skin": "warm olive in an even mid tone, true pore texture, minimal retouch",
+  "hair": "short dark-brown hair with a loose natural curl, cropped close at the sides and left a little longer on top",
+  "build": "average-tall, lean squarely-built frame with broad flat shoulders",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Apparel", "Fashion", "Technology", "Accessories"],
+  "suitableStyles": ["Editorial", "Lifestyle"],
+  "identityNotes": "the close-trimmed dark beard, the heavy straight brows and the warm olive skin tone must survive every generation — do not shave him clean, grow the beard out, or lighten the skin grade",
+  "negativeConstraints": [
+    "no clean-shaven face",
+    "no full or long beard",
+    "no lightened or cool-grey skin grade",
+    "no slicked-down or high-sheen styling"
+  ],
+  "width": 1024,
+  "height": 1280
+}

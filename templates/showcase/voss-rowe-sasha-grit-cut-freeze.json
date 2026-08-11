@@ -1,0 +1,37 @@
+{
+  "id": "voss-rowe-sasha-grit-cut-freeze",
+  "title": "Heel driving down into the collar",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "voss-rowe-trail-runner"
+      },
+      {
+        "t": "character",
+        "id": "sasha"
+      },
+      {
+        "t": "template",
+        "id": "action-motion-freeze"
+      },
+      {
+        "t": "text",
+        "v": " The scene's mid-pour and mid-unbox are not this shot — read every motion cue as the foot mid-stride instead: her weight rolls onto the shoe's outside edge as she cuts hard left, lugs biting and firing a fan of grit and dust back across the frame. Her foot is laced in and driving off it, black compression tights hemmed at the ankle bone above the collar, no sock anywhere. Clay-orange nubuck overlays over charcoal-grey ripstop mesh, clay-orange laces taut through charcoal eyelets, a clay-orange heel pull tab proud at the collar, chunky off-white lugs — no grey laces or tab, no lettering. 85mm at f/5.6 from floor height a stride away, the shoe off-centre right and owning half the frame. One hard fast key from camera-right at noon stops it clean, a specular running the upper's length, every lug picked out against flat chalk-grey; everything but the shoe — grit, dust, a lace end — streaks while it holds razor sharp. Cobalt running shorts over the tights, cropped at mid-thigh: no face, no hands, trailing leg cut by the top edge, only this shoe in frame; the floor runs empty to the bottom."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 31,
+  "family": "human"
+}

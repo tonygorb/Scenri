@@ -1,0 +1,33 @@
+{
+  "id": "holloway-rings-indigo-fold-trough",
+  "title": "One window, three answers",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "holloway-stacked-band-set"
+      },
+      {
+        "t": "template",
+        "id": "indigo-fold"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the squat apothecary bottle and its black lacquer cap that follow as the three gold bands instead, and none of the layered botanicals: no thistle head, no halved artichoke, no eucalyptus sprig. Gold is the one saturation that breaks the indigo. The linen is pinched into one standing ridge held by its own crease memory, and the three bands are stacked onto it in fixed order as they would sit on a finger: cloth doing the work of a hand. Nothing is pressed or lifted and the cloth carries no trace of them. One light, asked the same question three times: the cool north window rakes low from camera-left, polished yellow throws it back as one hard mirrored bar, brushed rose smears it into a long soft sheen, hammered white shatters it into two dozen small suns. 100mm macro at f/5.6, framed 1:1 life-size, dead level with the ridge, no hand in frame, the bands spanning the middle third over black fold shadow. Nothing crosses the near field. The bands stay unmarked."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 68,
+  "family": "material"
+}

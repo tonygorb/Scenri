@@ -1,0 +1,33 @@
+{
+  "id": "fieldnote-camera-precision-bench",
+  "title": "The bench takes a measurement",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fieldnote-rangefinder-camera"
+      },
+      {
+        "t": "template",
+        "id": "precision-bench-anodised"
+      },
+      {
+        "t": "text",
+        "v": " Read the matte-black anodised device with the milled edges, machined side vent and knurled control that follows as this silver-top-plate rangefinder camera instead, and let the bench work on it: the dial indicator's chrome stand has been walked in until its plunger sits down on the top plate just behind the empty hot shoe, the needle swung a third off zero on a plain unnumbered face turned into frame, and that contact is the only place in the picture where two objects touch. 80mm at f/11 from sixty degrees above the granite, twenty-five centimetres out and square to the grid, so the whole top plate and both knurled dials open up and the body fills about two-thirds of the frame width, the fixed prime pointing camera-left with one bright line along its milled aperture ring. FIELDNOTE is engraved and paint-filled in clean capitals across the top plate, large and easily read at this magnification. The wrung gauge-block stack stands in the immediate foreground at frame-left, held tack sharp with the camera behind it, its corner cutting the bottom edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 72,
+  "family": "studio"
+}

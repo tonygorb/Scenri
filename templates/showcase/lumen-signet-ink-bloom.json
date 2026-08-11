@@ -1,0 +1,29 @@
+{
+  "id": "lumen-signet-ink-bloom",
+  "title": "Signet blacked in candle smoke",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "lumen-co-signet-ring"
+      },
+      {
+        "t": "text",
+        "v": " The signet was smoked over a beeswax candle until its flat face carried a coat of lamp-black. The soot is uneven and granular, heavier at the rim, thinning to the centre, bare gold showing through in pinholes. One fingertip dragged through it in a single pass: the leading edge soft and feathered, soot piled in a low ridge where the finger pushed it, a fingerprint whorl in the gold it exposed. What is exposed is the ring's own plain high-polish gold - nothing inlaid, no enamel, no stone - carbon dust on metal, not a two-tone face. It rests tipped thirty degrees on a ridge of spilled beeswax, still cream and unburnt, on scorched brass shim; the candle sits just off the left edge, its flame the only source in a dark room after midnight, the swept face turned toward it. 100mm macro at f/4, framed 1:1 life-size, camera just above the ring axis, the ring at a third of the frame. The inner band shows the LUMEN & CO. mark struck unlettered, a plain sunken square taking one point of candlelight. Smoke crosses between lens and ring; brass runs out of the bottom edge, the sides into darkness."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 48,
+  "family": "material"
+}

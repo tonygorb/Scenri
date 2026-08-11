@@ -1,0 +1,29 @@
+{
+  "id": "orla-turtleneck-fennel-dawn",
+  "title": "Cashmere on the line, first light",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orla-mackenzie-cashmere-turtleneck"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Dawn in an overgrown walled kitchen garden, nobody in frame, no body or hands anywhere. The turtleneck hangs by its shoulders from a line between two hazel bean-poles above the run-to-seed fennel, filling the upper two thirds of the frame, and a gust has just taken it: the body swings sideways, the sleeves smearing at the cuffs while shoulder and collar stay locked sharp. The knit is bone dry; the wet is all in the air, mist standing waist-deep in the beds and dew loading every fennel umbel and the spider silk slung between them. First sun comes low from the left through the fibre, so the shoulder line burns with a halo of loose cashmere and the rib reads column by column. 65mm at f/2.8 from just below the line, tilted up, the wall dissolving to grey-green behind, poles running out both sides and the line out the top. Nothing crosses the near field but mist. At the collar's inner turn a plain oatmeal woven satin tab flicks out, tonal and carrying no letterforms."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 99,
+  "family": "botanical"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "tidewater-seltzer-basalt-columns",
+  "title": "Coral can on the basalt pavement",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tidewater-grapefruit-seltzer"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The can stands dead upright on the flat top of one hexagonal basalt column in a wet causeway pavement, the honeycomb stepping away behind it toward a swell breaking white on the shelf edge, late gold light coming in low and sideways across the stone. 100mm at f/4 from column height with the can holding seventy percent of the frame height, condensation crawling the matte coral, a fine mist of blown spray already speckling the chalk-white band. Two spray-wet hexagon tops blur across the near foreground, cut by the bottom corners; a gull dissolves out of the top-left. TIDEWATER is printed full-wrap in tall coral capitals across the chalk-white band, spanning most of its width, the low sun breaking one hard specular clean across the middle of the wordmark and the ink darkening to wet coral wherever spray has landed on it."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 27,
+  "family": "geological"
+}

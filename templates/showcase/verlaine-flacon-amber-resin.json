@@ -1,0 +1,29 @@
+{
+  "id": "verlaine-flacon-amber-resin",
+  "title": "Every facet holds an upside-down window",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-lumiere"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The flacon is squat and square in section: four corner edges, flat faces, a coarse lattice of large triangular cuts about six across each face, one plain polished gold dome on one short thin collar. It stands centred on a black glass shelf against a steel-framed window in the first hour after sunrise, backlit low and hard, each cut behaving as a tiny lens: the window's mullion cross appears small and upside-down inside it and the sun disc repeats inverted in every facet's lower half, sharpest at the bottle's centre. The gold dome takes one hot specular and is the only thing in frame right way up. 100mm at f/8, camera level with the bottle's waist, flacon at sixty percent of frame height; the black glass returns a mirror image of it plus one caustic knot in front. Studio haze makes the beams read as solid bars crossing the near field between lens and flacon. Window head cuts the top, shelf runs out both sides, mirrored base out the bottom. Crystal and cap unmarked."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 52,
+  "family": "optical"
+}

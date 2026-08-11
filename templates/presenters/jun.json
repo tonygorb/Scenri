@@ -1,0 +1,23 @@
+{
+  "id": "jun",
+  "name": "Jun",
+  "presentation": "woman",
+  "descriptor": "Precise minimal · blunt black bob · quiet focus",
+  "ageRange": "early 30s",
+  "facial": "smooth heart-shaped face, calm dark-brown eyes with soft low lids, low straight brows, small straight nose and a neat mouth",
+  "skin": "light warm-neutral tone with a fine even texture and a natural satin finish, minimal retouch",
+  "hair": "glossy blue-black hair in a blunt chin-length bob with a straight fringe",
+  "build": "petite and finely proportioned, straight posture, small precise hands",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Technology", "Electronics", "Home", "Accessories"],
+  "suitableStyles": ["Editorial", "Lifestyle"],
+  "identityNotes": "the blunt chin-length bob with its straight fringe, the calm dark-brown eyes and the small precise hands must survive every generation — do not lengthen the hair, wave it, or bulk up the frame",
+  "negativeConstraints": [
+    "no long or layered hair",
+    "no coloured or highlighted hair",
+    "no heavy or graphic makeup",
+    "no exaggerated or stylised facial features"
+  ],
+  "width": 1024,
+  "height": 1280
+}

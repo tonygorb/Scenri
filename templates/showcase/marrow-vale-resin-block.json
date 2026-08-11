@@ -1,0 +1,33 @@
+{
+  "id": "marrow-vale-resin-block",
+  "title": "Flacon set in poured amber",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marrow-vale-nocturne"
+      },
+      {
+        "t": "template",
+        "id": "studio-amber-resin-suspension"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the slim gold ring that follows as this faceted smoked-glass flacon instead, stood upright inside a shoebox-sized block of amber resin still curing on the bench and holding about half the frame height. The backlight fires through so the facets cut the transmitted honey into hard wedges and throw one caustic patch onto the scarred wood in front, and the bottle's square shoulders read visibly stepped where the resin's thickness bends them. 80mm at f/8, camera dead level with the cap, the bubble column standing frozen up the block's left side with one fat bubble pinned flat against the glass. The block's meniscus blurs across the top edge, cut by both corners. The bottle carries no mark: smoked charcoal drowning in glowing honey is the whole idea."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 63,
+  "family": "optical"
+}

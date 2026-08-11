@@ -1,0 +1,13 @@
+{
+  "id": "fieldnote-rangefinder-camera",
+  "name": "Compact Rangefinder-Style Mirrorless Camera",
+  "category": "electronics",
+  "description": "A compact rangefinder-style mirrorless camera with a machined silver aluminium top plate and base, a black pebbled-texture grip wrap around the body, two knurled silver dials on the top plate flanking an empty hot-shoe slot, a small round optical viewfinder window at the front upper-left, and a fixed black prime lens with knurled focus and aperture rings.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "compact rangefinder-style mirrorless camera",
+  "materials": "machined silver aluminium top plate and base plate, black pebbled-texture grip wrap, knurled silver machined dials, black anodised fixed prime lens barrel with knurled focus and milled aperture rings",
+  "primaryColors": "machined silver, black textured grip wrap, black lens barrel",
+  "negativeConstraints": "never render any text, logo, wordmark, engraved numerals, aperture or shutter scales, index numbers, or printing anywhere on the top plate, dials, lens barrel, grip wrap, or base, and never render readable interface text, icons, or a recognisable menu on the rear screen; never render a third top-plate dial, a second shutter button, a pentaprism hump, an interchangeable-lens mount ring, a detached or zooming lens, or a second viewfinder window; never swap the machined silver top plate for black, the pebbled grip wrap for smooth plastic, or the fixed prime for a long zoom Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "the flat machined silver aluminium top plate and matching base, the black pebbled-texture grip wrap covering the body's mid-band and front, exactly two knurled silver dials on the top plate with plain milled faces carrying only fine index notches and no numerals, one shutter button with a concentric silver collar switch at the right dial's base, one empty hot-shoe slot centred between the dials, one small round optical viewfinder window at the front upper-left, one fixed black prime lens with a knurled focus ring and a milled aperture ring, and one small round status lamp at the upper right of the back must read identically in every angle, same body proportions, dial diameter and lens projection throughout When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "helm-featherframe-laptop",
+  "name": "Machined-Aluminium Thin-and-Light 13-Inch Laptop",
+  "category": "electronics",
+  "description": "A thin-and-light 13-inch laptop with a machined pale-silver anodised aluminium unibody, a single slim hinge bar spanning the full width of the rear, a matte display in even dark bezels, an edge-lit island keyboard in dark-grey keycaps, and one large centred glass trackpad.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "thin-and-light 13-inch laptop",
+  "materials": "machined pale-silver anodised aluminium unibody, slim anodised hinge bar, matte 13-inch display glass, edge-lit dark-grey keycaps, centred glass trackpad",
+  "primaryColors": "pale silver aluminium, dark grey keycaps, black display glass",
+  "negativeConstraints": "never render any text, logo, wordmark, engraving, or printing anywhere on the lid, palm rest, hinge bar, base, or bezels, never render legends, letters, numerals, or symbols on the keycaps, and never render readable interface text, icons, a menu bar, a dock, or any recognisable operating system on the display; never render a numeric keypad, a second trackpad, a touch strip, a camera notch, a thick two-part hinge, or a visible pixel grid on the display glass; never swap the machined pale-silver aluminium for plastic, black anodising, or a glossy chrome finish, and never thicken the wedge beyond a thin-and-light profile Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "the machined pale-silver anodised aluminium unibody and its fine directional grain, the single slim full-width hinge bar, the 13-inch matte display with even dark bezels, the edge-lit island keyboard of blank dark-grey keycaps with one row of half-height function keys, the single large centred glass trackpad, exactly two USB-C ports on the left edge and one headphone jack on the right, and the completely plain unmarked lid must read identically in every angle, same body thickness, keyboard proportions and hinge position throughout When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
+}

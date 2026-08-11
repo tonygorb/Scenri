@@ -1,0 +1,33 @@
+{
+  "id": "nordhavn-headphones-jun-light-bar",
+  "title": "Cork compressing, a bar of sun arriving",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "nordhavn-canvas-over-ear-headphones"
+      },
+      {
+        "t": "character",
+        "id": "jun"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. One beat in a bare plaster room: cups worn in place, head tipping a degree into the sound, her right hand just leaving the headband, two fingertips still bearing down on the cork band. The cork is the product claim here, not the canvas: the band is loaded where it crosses her crown, its granulation squeezed shut into dense packed grain under the load and opening into loose pits either side, the turn's edge rolled and burnished from a year of handling. The bar of afternoon sun is arriving, not parked: a shutter cranked open off-frame drives its edge up the wall behind her onto her near shoulder, that leading edge soft with lifted dust. 85mm at f/2.8 at chest height, waist-up. Charcoal wool vest over a white poplin shirt, wide slate trousers, black leather loafers, fully dressed, the blunt bob holding its line. Plaster runs out the top and both sides, her waist out the bottom, nothing between lens and her. An unlettered woven tab is stitched flat into the cork turn."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 89,
+  "family": "human"
+}

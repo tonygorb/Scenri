@@ -1,0 +1,23 @@
+{
+  "id": "mateo",
+  "name": "Mateo",
+  "presentation": "man",
+  "descriptor": "Warm lifestyle · waved black hair · easy confidence",
+  "ageRange": "mid 30s",
+  "facial": "broad open face, wide cheekbones, warm dark-brown eyes, thick brows, faint smile lines at the eye corners, light stubble across a strong jaw, small mole beside the left eye",
+  "skin": "warm tan-brown with a golden undertone, sun-worked texture, minimal retouch",
+  "hair": "thick black hair with a natural wave, worn medium-short and pushed back from the forehead",
+  "build": "average-tall, solid athletic build with a broad chest and an easy relaxed stance",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Footwear", "Lifestyle", "Beverages", "Apparel"],
+  "suitableStyles": ["Lifestyle", "Editorial"],
+  "identityNotes": "the thick waved black hair pushed back, the light stubble and the faint smile lines at the eyes must survive every generation — do not clean-shave him, straighten or slick the hair, or erase the lines",
+  "negativeConstraints": [
+    "no clean-shaven face",
+    "no full or long beard",
+    "no straightened or slicked-flat hair",
+    "no smoothed line-free skin"
+  ],
+  "width": 1024,
+  "height": 1280
+}

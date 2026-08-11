@@ -1,0 +1,33 @@
+{
+  "id": "tidewater-coral-can-melt-channel",
+  "title": "Coral can in the melt channel",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tidewater-grapefruit-seltzer"
+      },
+      {
+        "t": "template",
+        "id": "studio-blue-ice-melt-channel"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the ribbed clear glass bottle and its crown cap that follow as this coral aluminium seltzer can instead. Set the can dead in the throat of the channel where the meltwater necks and accelerates, so the glassy laminar tongue parts around its base into two clean seams and stacks a small standing wave against the coral flank, breaking white where it drops over the lip just downstream. 50mm at f/5.6 from water level a hand's width upstream, the near riffle smeared to a soft blur while the can and the wave shoulder stay tack-sharp — warm coral against saturated cobalt ice. TIDEWATER is printed in large clean capitals across the chalk-white band, matte ink with meltwater beading in its tooth and one letter running wet under a live seam."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 41,
+  "family": "fluid"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "axiom-monolith-phone",
+  "name": "Flat-Edge Titanium Flagship Smartphone",
+  "category": "electronics",
+  "description": "A minimalist flagship smartphone with a flat-edge brushed graphite titanium frame, a large flat display glass held in uniformly thin black bezels, a matte frosted charcoal glass back, and a machined horizontal camera plateau carrying three lens rings and a single flash on the upper back.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "flat-edge flagship smartphone",
+  "materials": "brushed graphite titanium flat-edge frame, matte frosted charcoal glass back panel, flat black display glass, machined titanium camera plateau with three lens rings",
+  "primaryColors": "graphite titanium, charcoal frosted glass, black display glass",
+  "negativeConstraints": "never render any text, logo, wordmark, engraving, or printing anywhere on the frame, glass back, camera plateau, or bezels, and never render readable interface text, icons, a status bar, a clock, an app grid, or any recognisable operating system on the display; never render a fourth camera lens, a second flash, a vertical or square camera housing, a curved waterfall display edge, a notch cutout, or a visible pixel grid on the display glass; never swap the brushed titanium frame for polished chrome or plastic, or the matte frosted back for glossy glass Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "the brushed graphite titanium flat-edge frame, matte frosted charcoal glass back, exactly three lens rings and one flash in a single horizontal plateau, one power button and one two-position volume rocker on the right edge only, and the completely plain unmarked back panel must read identically in every angle, same body proportions, bezel evenness and plateau position throughout When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
+}

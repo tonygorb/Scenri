@@ -1,0 +1,29 @@
+{
+  "id": "lumen-signet-clay-impression",
+  "title": "Signet and the disc it just pressed",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "lumen-co-signet-ring"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The impression pressed into the clay is exactly the diameter of the ring's polished face and no larger, the two set side by side a thumb's width apart to be read one against the other. Its floor is dead flat, burnished where that face compressed it, its wall vertical, not dished, one fine burr standing proud around its rim, no thicker than a fingernail. The signet lies on its side beside it, sunk a millimetre into the wet grey stoneware, a crescent of displaced clay pushed up along its lower edge and a dark wet contact line beneath it, no gap. Broad wavy ridges a centimetre apart rake the fresh-cut slab. 100mm macro at f/8, framed 1:1 life-size so the frame spans barely four fingers of clay, camera thirty degrees above, one large soft source from the left at mid-morning raking a hairline shadow off that burr. Ring and impression fill the frame: the cut lip crops at the top, clay runs out both sides, a thumb's depth of trough below. Face and impression both blank."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 81,
+  "family": "material"
+}

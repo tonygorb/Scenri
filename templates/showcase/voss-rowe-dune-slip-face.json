@@ -1,0 +1,33 @@
+{
+  "id": "voss-rowe-dune-slip-face",
+  "title": "Trail runner on the slip face",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "voss-rowe-trail-runner"
+      },
+      {
+        "t": "template",
+        "id": "studio-dune-slip-face"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the sand-toned suede-and-mesh shoe named first as this trail runner, panel by panel: matte-coated clay-orange ripstop mesh is the whole field of the upper, with charcoal overlays on the toe bumper, the diagonal midfoot straps and the heel counter, and below them a chunky off-white outsole whose blocky lugs stand clearly proud with deep channels, on a charcoal midsole band - never a smooth cream midsole wrap, never gum rubber, never suede nap. It sits at a hard diagonal across the ripple bars, holding half the frame width, a small avalanche slumped from the heel, grains lodged in the lug channels. 135mm at f/8 from high on the crest straight down the slope, low sun raking from camera-right at the last hour; inside the cast shadow the ripple ridges and grains stay legible, only darker and cool lavender-grey, its outline reading as the shoe's silhouette. Backlit wind smoke crosses the top edge; combed grain runs unbroken out of the bottom and both sides. Unmarked."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 82,
+  "family": "geological"
+}

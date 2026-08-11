@@ -1,0 +1,33 @@
+{
+  "id": "birch-hollow-vase-blossom-counter",
+  "title": "Blossom branches, morning counter",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birch-hollow-stoneware-vase"
+      },
+      {
+        "t": "template",
+        "id": "interiors-marble-kitchen-counter"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the glass jar that follows as this speckled stoneware vase instead: there is no glass jar here. The garden has just come in, so read the counter as a spring cutting bench and the branches as ordinary kitchen work, not styling props. The vase fills the middle third of the frame height, crammed with quince and apple blossom that reaches far wider and runs out through the top-left and right edges, one branch still swinging so its blossom carries a whisper of blur while the vase sits dead still. Petals have dropped on the honed marble, one lying flat in a spreading water ring. 50mm at f/2.5 at counter height and close in, the speckled glaze and wet unglazed footring sharp, the nearest blossom crisp, the far branches and room behind dissolving. Low morning window light rakes from the left, the matte glaze soft and grainy against the marble's hard specular. Nothing crosses the near foreground; bare marble runs empty to the bottom edge. The piece stays unmarked."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 91,
+  "family": "place"
+}

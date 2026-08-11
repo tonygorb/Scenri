@@ -1,0 +1,29 @@
+{
+  "id": "kiva-phone-tram-rail-golden-hour",
+  "title": "Lifting it off the tram rail into the sun",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "kiva-compact-color-phone"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Exactly one phone in frame: one continuous tangerine polycarbonate unibody, no case, no second device, no notch or cutout, two stacked lenses and one flash in a single moulded tangerine pill. Its back is square to camera; the display face is turned away and not visible anywhere. A hand lifts it off the varnished timber rail of an old hillside tram as a bar of low sun crosses the rail, thumb and index finger pinching the lower-left corner, the rest of the hand curled out of frame below, the shell tipping out of the rail's shadow so the glossy tangerine ignites against dark wood. 50mm at f/2 at rail height from the seat opposite in the last hour before sunset, phone low right at a third of the frame, sun straight through the open window from camera-left, cane seat backs dissolving away. Only that hand and a forearm in a pushed-up ecru sleeve enter frame; the right edge cuts the sleeve, the rail runs out the bottom, the upper sash cuts the top. The shell is unmarked."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 61,
+  "family": "place"
+}

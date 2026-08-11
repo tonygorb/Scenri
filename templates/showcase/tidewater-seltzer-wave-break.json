@@ -1,0 +1,29 @@
+{
+  "id": "tidewater-seltzer-wave-break",
+  "title": "Seltzer can entering the water",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tidewater-grapefruit-seltzer"
+      },
+      {
+        "t": "text",
+        "v": " Caught a quarter-second after the can hit the water: it is still travelling down through a tall glass tank of chilled, clear, colourless water, tilted a few degrees off vertical and dragging a clean conical cavity of air behind it, the cavity wall smooth and mirror-silvered where it turns, its rim ruffling into a long tail of unevenly sized bubbles climbing back toward a surface still domed and un-collapsed. Shot square through the tank's front pane — that glass is the only thing between lens and can, held dead sharp with one straight highlight down its inner edge and nothing blurred in the near field. 85mm at f/8 from just below the waterline, one hard fast key from camera-left stopping every bubble dead against a cobalt-black falloff so the matte coral flank and chalk-white band burn against it; the can holds about half the frame height. The domed surface and its ring wave close the top edge, the bubble tail runs out the bottom. TIDEWATER is printed in tall coral capitals across the chalk-white band, spanning most of its width, one bubble caught against a letter's stroke."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 58,
+  "family": "fluid"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "cypress-row-oil-frosted-rosemary",
+  "title": "New oil, first hard frost",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "cypress-row-olive-oil"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The morning after the first hard frost. The bottle stands sunk to its shoulders in a rosemary hedge gone white, owning the middle third of the frame height, every needle furred with hoarfrost, the low pink sun just clearing the wall behind so the frost lights up and lets go. Meltwater has run the green glass in two clean tracks. 100mm at f/2.5 from hedge height looking along the run of the hedge, the flip lid and nearest needles sharp, the hedge softening to a cold blue-white bank that runs out both side edges under the wall's coping. Nothing crosses the near field: the foreground is empty but for a drift of cold vapour lifting off the thawing hedge between lens and glass. CYPRESS ROW is hand-stamped in large clean capitals across the oat-white paper band, glued to the OUTSIDE of the front facet and clearly sitting on the exterior glass, the stamp's upper half still crisp while its lower edge has bruised and feathered where meltwater wicked into the uncoated stock."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 87,
+  "family": "botanical"
+}

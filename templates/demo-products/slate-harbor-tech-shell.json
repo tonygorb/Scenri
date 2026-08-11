@@ -1,0 +1,13 @@
+{
+  "id": "slate-harbor-tech-shell",
+  "name": "Taped-Seam Technical Hardshell Jacket",
+  "category": "apparel",
+  "description": "A three-layer technical hardshell jacket in matte storm-slate grey with a chalk-white shoulder yoke sweeping across the chest and sleeve tops, fully taped seams, a stiffened-brim storm hood, and a gunmetal two-way front zip hidden under a storm flap.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "technical hardshell jacket",
+  "materials": "Matte three-layer waterproof ripstop face fabric, welded interior seam tape, gunmetal two-way front zip and single zipped chest pocket, hook-and-loop cuff tabs, elasticated hem drawcord",
+  "primaryColors": "Matte storm-slate grey shell with a chalk-white shoulder yoke; gunmetal hardware",
+  "negativeConstraints": "Never render any text, logo, wordmark, printed graphic, or embossed marking anywhere on the shell, hood, or hardware; never add pockets, zips, vents, or hardware beyond the described two-way front zip, single zipped chest pocket, hood adjusters, cuff tabs, and hem drawcord; never change the hardware finish from gunmetal; never turn the hardshell into a fleecy, quilted, puffer, or glossy rubberized fabric; never move or resoften the hard edge of the chalk-white yoke seam; keep any interior label completely blank and unprinted. Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "Keep the exact silhouette, the matte storm-slate grey shell tone, the chalk-white shoulder yoke's shape and the seam line where it crosses the chest and the tops of both sleeves, the stiffened-brim storm hood, and the gunmetal two-way zip under its storm flap identical and consistent across every angle; face-fabric sheen, seam-tape width, and color saturation must match exactly from front to back to detail to on-form. When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
+}

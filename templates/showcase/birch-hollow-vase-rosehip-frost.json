@@ -1,0 +1,29 @@
+{
+  "id": "birch-hollow-vase-rosehip-frost",
+  "title": "Rosehip, from inside the hedge",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "birch-hollow-stoneware-vase"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Late October, an hour after rain, flat overcast, no sun at all. The camera is pushed into a hedgerow, shooting out through wet dog-rose and hawthorn, so every thorn and wet stem in the near field, the heavy branch top-left and the low bottom-left diagonal included, is held hard in focus. A metre back, dead centre at a third of the frame height, the vase stands in the cleared hollow at the hedge foot: a smooth warm-grey matte glaze with fine dense oatmeal speckle, never a rough or crawling crust, its short straight cylindrical neck standing clear of the rounded shoulder over an unglazed tan footring. The glaze is visibly wet, darkened a shade by the rain, beads standing on the smooth surface, sitting in the speckle, one dark track to the foot. Packed with cut rosehip, hawthorn and old-man's-beard, hips wet scarlet against olive and grey, a drop gathering at one hip. 35mm at f/5.6 at ground level. Stems cut every edge; leaf litter fills the bottom corners."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 45,
+  "family": "botanical"
+}

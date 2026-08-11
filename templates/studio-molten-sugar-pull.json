@@ -1,0 +1,12 @@
+{
+  "id": "studio-molten-sugar-pull",
+  "name": "Molten Sugar Pull",
+  "description": "The product framed by ribbons of caramelised sugar pulled mid-stretch — molten amber going glassy, thinning until light passes straight through it, sagging under its own heat before it can set. Confectionery physics caught at working temperature.",
+  "lighting": "Hard low backlight through the sugar, cool front fill",
+  "subject": "product",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Food & drink", "Beauty", "Fragrance"],
+  "prompt": "a squat amber glass jar with a broad shoulder and a brushed metal lid, the product is the hero of the frame and occupies roughly 55 percent of the frame height, tack-sharp and clearly lit, standing on a warm steel bench top with ribbons of molten caramelised sugar pulled into glassy amber sheets arcing around and behind it, caught mid-stretch — each ribbon thick and dark at its root and thinning as it is drawn until light passes straight through it as a bright transparent membrane, with genuine tension edges and a beaded rim where the pull has begun to neck, one lower ribbon sagging under its own heat into a slow catenary with a heavy drip forming at its lowest point and a single hair-fine sugar thread tapering off it, the surface of every ribbon holding a true wet glass gloss with sharp specular streaks and a faint heat haze immediately above the bench, a hard backlight low and behind the sugar firing through it so the thin sections glow orange-gold and the thick sections go near-mahogany, a small cool front fill so the product's own form reads and does not silhouette, colour running from pale honey through burnt amber to dark treacle against a deep warm-brown ground with the differences reading as thickness rather than pigment, the sugar treated as supporting material cropped tight around the product rather than shown as a whole confectionery workbench, real molten-sugar viscosity and thermal sag rather than solid plastic-looking ribbons, no flame, no spun-sugar nests, lattice cages or decorative sugar sculpture, no thermometer, pan, gas ring or piping bag in frame, no smoke, no second product, immaculate appetite-grade commercial clarity",
+  "width": 1024,
+  "height": 1280
+}

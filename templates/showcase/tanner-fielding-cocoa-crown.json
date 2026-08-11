@@ -1,0 +1,33 @@
+{
+  "id": "tanner-fielding-cocoa-crown",
+  "title": "The snap, a millisecond old",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tanner-fielding-single-origin-bar"
+      },
+      {
+        "t": "template",
+        "id": "interiors-marble-kitchen-counter"
+      },
+      {
+        "t": "text",
+        "v": " Read the glass jar that follows as this kraft-wrapped chocolate bar and the scene's standing three-quarter counter view as this macro: framed 1:1 life-size, square to the break, the fracture face the subject in focus at half the frame width. The bar has just been snapped over the wood board, halves hinged two millimetres apart on the kraft bridging their undersides, faces turned up into the window: tempered cocoa butter reads as fine dry matte grain with one glassy conchoidal step. The board is clean, every particle of cocoa airborne and stopped. One hand only, index and middle fingertips on the left half, pushed-up ecru linen cuff, no torso or other body part in frame. 90mm at f/4 at board height, warm low morning window from camera-left doubled by a bare flash on that axis to stop the crumb, marble soft behind. TANNER & FIELDING is hand-stamped exactly once, large capitals on the left half only, running partly off toward the break, struck hard enough to crush the fibre. Board out both sides, marble out the top, the bar's near edge out the bottom."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 65,
+  "family": "fluid"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "atherton-slate-tablet",
+  "name": "11-Inch Slate-Grey Aluminium Tablet with Magnetic Stylus",
+  "category": "electronics",
+  "description": "An 11-inch tablet with a thin flat-edge slate-grey anodised aluminium frame and back, a flat display glass held in uniformly thin black bezels on all four sides, one rear camera in a small square plateau at the upper-left of the back, and a single cylindrical stylus with one flat facet magnetically attached along its long right edge.",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "11-inch tablet with magnetic stylus",
+  "materials": "thin flat-edge slate-grey anodised aluminium frame and back panel, flat black display glass, matching slate-grey anodised stylus with a single flat facet",
+  "primaryColors": "slate grey anodised aluminium, black display glass",
+  "negativeConstraints": "never render any text, logo, wordmark, engraving, or printing anywhere on the aluminium back, frame, camera plateau, bezels, or stylus, and never render readable interface text, icons, a status bar, a clock, an app grid, or any recognisable operating system on the display; never render a second stylus, a second rear camera, a detached or floating stylus, a keyboard folio, a case, a stand, curved rounded side edges, or a visible pixel grid on the display glass; never swap the slate-grey anodised aluminium for white plastic, glass, or a bright colourway, and never let the stylus finish differ from the tablet body Exception: a mark, wordmark, or label that the brief's art direction explicitly names is deliberate and must be rendered exactly as directed — the text bans above apply only to invented marks the art direction never asked for.",
+  "preservationNotes": "the thin flat-edge slate-grey anodised aluminium frame and back, the 11-inch flat display with uniformly thin even black bezels on all four sides, exactly one rear camera in a single small square plateau at the upper-left of the back, one cylindrical stylus with a single flat facet and a matching anodised finish held magnetically at the middle of the long right edge, one USB-C port centred on the bottom edge between two rows of speaker slots, and the completely plain unmarked back panel must read identically in every angle, same body proportions, bezel evenness and stylus position throughout When the art direction explicitly names a mark on this product, that named mark is part of the product's identity for that shot and overrides the blank-surface requirement."
+}

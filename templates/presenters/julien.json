@@ -9,20 +9,10 @@
   "hair": "tousled medium-length dark-brown hair pushed back off the forehead",
   "build": "tall lean athletic build",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": [
-    "Fashion",
-    "Apparel",
-    "Fragrance"
-  ],
-  "suitableStyles": [
-    "Editorial"
-  ],
+  "suitableCategories": ["Fashion", "Apparel", "Fragrance"],
+  "suitableStyles": ["Editorial"],
   "identityNotes": "the light even stubble, tousled pushed-back hair and green-hazel eyes must survive every generation — never clean-shaven, never a full beard, never cropped short hair",
-  "negativeConstraints": [
-    "no full beard or clean shave",
-    "no short cropped haircut",
-    "no bulked-up gym physique"
-  ],
+  "negativeConstraints": ["no full beard or clean shave", "no short cropped haircut", "no bulked-up gym physique"],
   "width": 1024,
   "height": 1280
 }

@@ -1,0 +1,23 @@
+{
+  "id": "ines",
+  "name": "Ines",
+  "presentation": "woman",
+  "descriptor": "Mature restraint · cropped silver hair · composed warmth",
+  "ageRange": "mid 50s",
+  "facial": "fine-boned oval face, clear grey-green eyes, softened cheekbones, genuine lines at the eyes and mouth, an unfilled natural brow",
+  "skin": "fair neutral-toned mature skin with real fine lines, visible crepe at the eyes and natural texture, minimal retouch",
+  "hair": "short undyed silver-grey hair in a cropped pixie brushed back off the face",
+  "build": "slim upright build, long neck, relaxed shoulders, fine hands with visible veins and short unpolished nails",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Furniture", "Home", "Lifestyle", "Wellness"],
+  "suitableStyles": ["Lifestyle", "Editorial"],
+  "identityNotes": "the cropped undyed silver hair, the real lines at the eyes and mouth and the upright slim carriage must survive every generation — she is a woman in her mid 50s and must never be de-aged or smoothed",
+  "negativeConstraints": [
+    "no de-ageing into her 30s or 40s",
+    "no smoothed or line-free skin",
+    "no dyed or non-silver hair",
+    "no long or styled-out hair"
+  ],
+  "width": 1024,
+  "height": 1280
+}

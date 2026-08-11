@@ -1,0 +1,33 @@
+{
+  "id": "marden-cole-denim-mateo-car-window",
+  "title": "Leaning into the driver's window",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marden-cole-selvedge-denim-jacket"
+      },
+      {
+        "t": "character",
+        "id": "mateo"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Shoot from the passenger seat of a parked estate car: he leans into the open driver's window on both forearms, jacket worn open and owning most of the frame height, laughing at whoever is inside, the door frame boxing him and the dashboard vinyl blurring hard across the whole near foreground, cut by the bottom edge. 35mm at f/2.8 from seated height, low morning sun coming over his shoulder so the raw indigo goes hot along the collar ridge, the twill grain reads diagonally and the copper buttons throw small warm points down the placket. Thick waved black hair pushed back, light stubble, smile lines held. Faded brick-red tee, straight cream canvas trousers, brown suede desert boots, fully dressed. Gravel car park and a flat grey sea haze out behind him; the door frame cuts the right edge, the roof line cuts the top, and a wing mirror flares white at the left. Leave the denim unmarked in this frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 18,
+  "family": "human"
+}

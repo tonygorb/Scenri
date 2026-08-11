@@ -1,0 +1,29 @@
+{
+  "id": "slate-harbor-yoke-on-wet-slate",
+  "title": "Taped seam on cleaved slate",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "slate-harbor-tech-shell"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO — the frame filled by a hand's width of the jacket's shoulder laid over a freshly cleaved slate face after a late-autumn downpour; no body anywhere in frame, so no wardrobe reads at this crop. The hard seam where the chalk-white yoke meets storm-slate runs a diagonal corner to corner, welded tape reading proud under the face fabric, rain runnels crossing the slate's fracture steps beneath it. 100mm macro at f/5.6, framed 1:1 life-size, camera square to the shoulder plane: the ripstop grid legible, beads standing tall and round on the treated face, one pinned in the channel of the seam, the slate's mica firing cold points at the edges. A wet slate flake crosses the top-left corner out of focus. SLATE HARBOR is a bonded reflective transfer on the white yoke just above the seam, a hair proud of the fabric and dead flat grey in the ambient — a small hard source sitting right beside the lens goes near-axis on it and the letters burn pure white while the storm-slate around them stays matte and unlit, beads sliding off the sealed film to gather along its lower edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 71,
+  "family": "geological"
+}

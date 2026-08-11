@@ -1,0 +1,33 @@
+{
+  "id": "keystone-keyboard-cut-paper-poster",
+  "title": "Keyboard on cut paper",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "keystone-works-low-profile-keyboard"
+      },
+      {
+        "t": "template",
+        "id": "cut-paper-stage"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the scene's four cut-paper planes — cobalt blue, cherry red, golden yellow, emerald green — as exactly two instead: cobalt and golden yellow only, meeting on one straight diagonal seam, no red or green paper. The board lies across that seam, angled twenty degrees off the frame edge so its long axis runs corner to corner, arrow cluster nearest camera, the case reading three-quarters of the frame width. 40mm at f/9 from the elevated three-quarter, one hard poster key from camera-left at 10am: every blank cap throws the same short shadow rightward onto its neighbour and the case lays one clean black bar down the cobalt, nothing on its other three sides. KEYSTONE, one word, is lasered into the top deck's open strip above the function row at its LEFT end, half the case width, on one baseline parallel to the long edge, ending well clear of the knurled knob at top-right, never on the bevel or a keycap. The bottom edge crops empty cobalt, the top edge golden yellow."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 102,
+  "family": "studio"
+}

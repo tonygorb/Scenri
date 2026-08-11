@@ -214,14 +214,63 @@ describe('shipped showcase entries resolve against the real catalog', () => {
    * landing side by side. They live here because a second machine cloning this
    * repo gets the tests but not the doctrine.
    */
-  it('no product appears in more than two tiles', () => {
+  /**
+   * Raised from 2 to 3 when the wall went from 47 tiles to ~107: at a cap of 2,
+   * 60 new tiles needed 20+ new products just to have somewhere to live, which
+   * is a worse catalog, not a better wall. A raw count was never what stopped a
+   * repeat from *reading* as a repeat anyway — the two guards below are, and
+   * they are what actually replaces the lost strictness.
+   */
+  it('no product appears in more than three tiles', () => {
     const count = new Map<string, number>();
     for (const e of entries) {
       const productId = (tokensOf(e, 'product')[0] as any)?.id as string | undefined;
       if (productId) count.set(productId, (count.get(productId) ?? 0) + 1);
     }
-    const over = [...count.entries()].filter(([, n]) => n > 2).map(([id, n]) => `${id}=${n}`);
+    const over = [...count.entries()].filter(([, n]) => n > 3).map(([id, n]) => `${id}=${n}`);
     expect(over).toEqual([]);
+  });
+
+  /**
+   * `entries` is already in curated wall order, so an index gap is literally how
+   * far apart a visitor sees the two tiles. Eight is roughly a scroll: close
+   * enough to catch a lazy re-use, far enough not to over-constrain curation.
+   */
+  it('a repeated product is at least eight tiles from its last appearance', () => {
+    const lastSeen = new Map<string, number>();
+    const tooClose: string[] = [];
+    for (const [i, e] of entries.entries()) {
+      const productId = (tokensOf(e, 'product')[0] as any)?.id as string | undefined;
+      if (!productId) continue;
+      const prev = lastSeen.get(productId);
+      if (prev !== undefined && i - prev < 8) tooClose.push(`${productId} @${prev}->@${i} (gap ${i - prev})`);
+      lastSeen.set(productId, i);
+    }
+    expect(tooClose).toEqual([]);
+  });
+
+  /**
+   * The real anti-repetition rule, and the one that earns the raise to 3. A
+   * family is the visual *mechanism* a tile runs on, so three tiles of one
+   * product all running the same mechanism is the same shot three times however
+   * far apart they sit. Deliberately scoped to the third appearance: a pair on
+   * one mechanism was legal for the whole life of the cap-of-2 wall and several
+   * shipped tiles are exactly that, so condemning them retroactively would be a
+   * rule inventing history. Three is the new freedom, so three is what pays for
+   * itself.
+   */
+  it('a product used three times spans at least two creative families', () => {
+    const byProduct = new Map<string, string[]>();
+    for (const e of entries) {
+      const productId = (tokensOf(e, 'product')[0] as any)?.id as string | undefined;
+      const family = e.family as string | undefined;
+      if (!productId || !family) continue;
+      byProduct.set(productId, [...(byProduct.get(productId) ?? []), family]);
+    }
+    const monotonous = [...byProduct.entries()]
+      .filter(([, families]) => families.length >= 3 && new Set(families).size < 2)
+      .map(([id, families]) => `${id} runs ${families[0]} x${families.length}`);
+    expect(monotonous).toEqual([]);
   });
 
   it('every entry carries a creative family, and none dominates the wall', () => {

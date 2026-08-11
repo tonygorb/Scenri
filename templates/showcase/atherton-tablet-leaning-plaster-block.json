@@ -1,0 +1,29 @@
+{
+  "id": "atherton-tablet-leaning-plaster-block",
+  "title": "The thinnest thing, the longest shadow",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "atherton-slate-tablet"
+      },
+      {
+        "t": "text",
+        "v": " Shoot it dead top-down on a deep ochre painted ground: the tablet lies back-up and squared to the frame across the upper two-thirds, the stylus held magnetically along its long right edge, the machine reading about two-thirds of the frame width. One hard source rakes in almost flat from the top of frame so the thinnest thing in the picture throws the longest shape in it — the flat 6mm edge laying a black bar many times its own depth down the ochre and running out through the bottom edge, the camera plateau throwing its own short crisp shadow inside that larger one. 50mm at f/8, camera directly above and level, the anodised grain running visible across the back panel and the paint's roller nap sharp beside it. ATHERTON is laser-etched in wide capitals low on the slate-grey back, large and easily read, its grooves taking that rake as one bright line. Nothing crosses the near field and nothing stands between lens and product: the painted ground runs clean and empty to all four edges."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 57,
+  "family": "studio"
+}

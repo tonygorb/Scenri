@@ -1,0 +1,29 @@
+{
+  "id": "verity-hoops-charred-cedar",
+  "title": "Hoops walking on a struck soundboard",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-gold-hoop-earrings"
+      },
+      {
+        "t": "text",
+        "v": " Both hoops lie half over the rosette, the inner arc of each falling across the black sound-hole cavity so it reads as a bright gold crescent on black while the outer arc sits on warm cedar. Each hoop is a thick round tube carrying broad dimpled hammer facets over its whole outer surface, not a fine chatter at the rim; the pair is identical in diameter and gauge, posts and hinge closures plain unmarked metal. Each tube touches the soundboard along its lower arc with a hard contact shadow directly beneath the touch point and no gap between metal and wood. Each hoop reads two-fifths of the frame across; bridge, saddle and fretboard are entirely out of frame. 100mm macro at f/5.6 from twenty-five degrees above, sighted along the string run, one warm bench lamp low and hard at camera-left at dusk raking the tubes so the hammering fires facet by facet and the growth rings lift. The left edge crops the cavity mid-black, the top edge the rosette's inlay rings, the bottom and right edges plain lacquered cedar. Two steel strings cross the near corner, occluding the near hoop's lower arc."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 97,
+  "family": "material"
+}

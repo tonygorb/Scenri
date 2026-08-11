@@ -9,14 +9,8 @@
   "hair": "sleek straightened jet-black hair pulled into a low knot, clean hairline",
   "build": "graceful slender build with poised upright posture, fine long-fingered hands",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": [
-    "Jewelry",
-    "Beauty",
-    "Fragrance"
-  ],
-  "suitableStyles": [
-    "Editorial"
-  ],
+  "suitableCategories": ["Jewelry", "Beauty", "Fragrance"],
+  "suitableStyles": ["Editorial"],
   "identityNotes": "the deep radiant skin tone, low sleek knot and long neck line must survive every generation — do not lighten the skin, loosen the hair, or shorten the neck",
   "negativeConstraints": [
     "no lightened or greyed skin tone",

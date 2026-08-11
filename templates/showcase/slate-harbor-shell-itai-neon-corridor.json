@@ -1,0 +1,37 @@
+{
+  "id": "slate-harbor-shell-itai-neon-corridor",
+  "title": "Hardshell walking the neon corridor",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "slate-harbor-tech-shell"
+      },
+      {
+        "t": "character",
+        "id": "itai"
+      },
+      {
+        "t": "template",
+        "id": "neon-tube-corridor"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed, edge to edge, no border or letterbox. The corridor tubes are the only light — no fill, no studio key: cyan skims the chalk-white yoke from the left, magenta wraps the storm-slate shell from the right, his front two stops down. Past midnight he walks at the lens down the corridor, hood up, brim over the heavy brows, zip run to the chin under its storm flap, collar standing at the jaw. His left hand is buried in a trouser pocket to the wrist, his right at the hood brim, two fingers and thumb on the stiffened edge — no hand hangs free. 35mm at f/2.8 from just above the wet floor, axis tilted up twenty degrees so the floor streaks run at the viewer and his silhouette breaks the vanishing point; the jacket owns half the frame, side edges cut the tube walls, sneakers clear the bottom. A crisp three-layer hardshell — flat matte ripstop, hard seams, no loft, hard yoke seam. Black technical trousers, black trail sneakers. The corridor's no-wordmarks clause holds — one unlettered bonded reflective transfer at the left chest, flat grey until a tube swings near-axis and burns white."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 36,
+  "family": "human"
+}

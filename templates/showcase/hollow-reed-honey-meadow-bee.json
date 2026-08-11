@@ -1,0 +1,29 @@
+{
+  "id": "hollow-reed-honey-meadow-bee",
+  "title": "Hex jar down at flower height",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "hollow-reed-wildflower-honey"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Down at flower height in a late-July hay meadow: the jar stands in the tangle where red clover, yarrow and knapweed grow through one another, lid seated, owning the middle third of the frame height. A honeybee works a clover head a hand's width in front of the glass, and that head is held every bit as sharp as the jar, floret by floret, the bee's wings the only smeared thing in the picture. Seven a.m. sun comes from behind and low, firing the honey amber inside the facets and dropping a warm patch of that colour on the stems in front. 90mm at f/2.8 with the camera lying in the grass, stems crossing at every angle and burning out to a green-gold haze behind, pollen hanging in the beam, grass running out both sides and over the top. A letterpressed uncoated paper label is glued to the OUTSIDE of the front facet, clearly on the exterior glass surface, HOLLOW REED reading in large clean capitals with one corner lifting and a grass seed caught under it."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 78,
+  "family": "botanical"
+}

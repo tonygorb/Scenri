@@ -1,0 +1,29 @@
+{
+  "id": "holloway-rings-gilders-cushion",
+  "title": "Stacking rings on the gilder's cushion",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "holloway-stacked-band-set"
+      },
+      {
+        "t": "text",
+        "v": " The three bands lie in the suede nap of a gilder's cushion beside a torn book of loose gold leaf; one leaf has lifted on a draught and buckles mid-air into a bright crumpled ribbon, its edge already tearing, throwing a moving warm bounce across the brushed rose-gold band. Red bole shows through where earlier leaf was skived, and an agate burnisher lies across the corner with the hammered white-gold band propped on end against it so its interior wall faces the lens. 100mm macro at f/4, framed 1:1 life-size, camera level with the cushion under one soft north window from camera-left at mid-morning, the lifted leaf the only thing in the frame that is moving. Inside that propped band the HOLLOWAY maker's punch is struck unlettered - a single pressed dome, no letterforms - pooling one bead of shadow; the three bands together fill roughly half the frame width. Torn leaf fragments blur across the bottom-left corner, cut by both edges."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 59,
+  "family": "material"
+}

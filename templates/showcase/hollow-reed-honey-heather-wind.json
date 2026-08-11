@@ -1,0 +1,29 @@
+{
+  "id": "hollow-reed-honey-heather-wind",
+  "title": "Rain squall on the heather moor",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "hollow-reed-wildflower-honey"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed, edge to edge, no border or letterbox band. A squall on a high moor in late August: no sun, flat silver light from the whole sky and nothing behind the jar, so the honey sits two stops under the sky — a near-opaque dark brown-amber mass, its only bright lines the meniscus at the shoulder and facet corners catching silver. The lid is turned solid oak: a tall straight-sided cylinder as deep as it is wide, softly rounded on top, no wider than the jar's shoulder, its fine parallel grain readable through the water film — wood, never cork, no porous mottle, clean glass below its skirt. The jar sits on a soaked granite slab, base flat to the stone with a hard dark contact line beneath it and no gap, owning half the frame. Bell heather is knocked flat all round, stems horizontal, all pointing downwind. One shutter throughout: rain reads as short bright streaks everywhere, including off the lid — no frozen droplets, no splash crown. 65mm at f/4 from just above slab height, the hill lost in rain-haze within twenty metres; heather runs out both side edges, the slab out the bottom."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 37,
+  "family": "botanical"
+}

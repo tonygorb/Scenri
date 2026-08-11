@@ -1,0 +1,29 @@
+{
+  "id": "northward-flask-melt-channel",
+  "title": "First light down in the pothole",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "northward-vacuum-flask"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The flask lies on its side in the dry bowl of a granite pothole scoured out of a river bed left high by late summer, the whole silhouette reading across the bowl, knurled cap, taper and base band, at about half the frame height. 45mm at f/5.6 from the pothole's near rim, tilted forty degrees down into the bowl so the far wall climbs the upper third and the concentric grinding rings sweep round the flask in stacked ellipses, a collar of rounded pebbles resting against its shoulder and the gorge wall dissolving above. The sun has just cleared that wall: a hard knife of first light lies diagonally across the bowl, firing the stainless cap and the near rim while the flask's lower half stays in cold blue shade, the two halves meeting on the powder coat with no gradient between them. The near rim runs bare and sharp out of the bottom of the frame, nothing standing on it. The only mark is one unlettered ring laser-cut through the coat to bare steel at the base band."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 54,
+  "family": "geological"
+}

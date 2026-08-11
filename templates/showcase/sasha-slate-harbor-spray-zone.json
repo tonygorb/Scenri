@@ -1,0 +1,33 @@
+{
+  "id": "sasha-slate-harbor-spray-zone",
+  "title": "Cinching the hood in the spray",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "slate-harbor-tech-shell"
+      },
+      {
+        "t": "character",
+        "id": "sasha"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Her hood is UP, stiffened brim holding shape against the drift, both hands behind her crown at the rear volume adjuster. The chalk-white yoke is a hard straight-seamed panel crossing the chest and running out over the tops of both sleeves, one clean unbroken seam; the storm-slate shell holds one even matte tone beaded with discrete drops, the two-way front zip hidden under its storm flap. Water runs the sleeves only, roping off the forearms. 85mm at f/2.8 from mid-chest height looking slightly up, framed mid-thigh to crown, top edge clearing the hood brim, right edge a wet fractured gneiss rib occluding her trailing shoulder, left edge the canyon wall. A low 7am sun break at camera-right backlights the spray; one hard on-axis flash fills the near curtain. Hardshell over matte black softshell trousers and grey-and-black approach shoes, nothing else at cuff, hem or collar. Mid-20s, sprinter-shouldered, ponytail high, sleek and soaked flat, jaw set, not smiling."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 92,
+  "family": "geological"
+}

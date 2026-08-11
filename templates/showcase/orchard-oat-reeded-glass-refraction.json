@@ -1,0 +1,29 @@
+{
+  "id": "orchard-oat-reeded-glass-refraction",
+  "title": "Juice carton behind reeded glass",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orchard-oat-cold-pressed-juice"
+      },
+      {
+        "t": "text",
+        "v": " The carton stands close, its wide front face and whole gable top square to camera, razor-sharp across the right sixty percent of the frame and filling nearly its full height. A pane of vertically fluted reeded glass, cold rain on its face, covers only the left forty percent: every flute carries the kraft body at full strength right up to the flute where the carton's left edge falls, then cuts to bare white in one flute, no gradual fade, the flute pitch identical across the whole pane. The crimped gable ridge smears into one wide amber-brown ribbon inside those flutes while the un-refracted gable stays crisply creased. 85mm at f/5.6, camera at mid-carton height dead square to the pane, cool 9am north light from behind camera-left so each flute carries its own caustic seam and the runnels drag travelling streaks across the bars. ORCHARD OAT reads letterpressed in large clean capitals across the upper front face, a crooked hand-inked date beneath, ink on the board's fibre tooth. The bottom edge crops the carton's base, the top edge clears the gable, the right edge holds pale ground."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 93,
+  "family": "optical"
+}

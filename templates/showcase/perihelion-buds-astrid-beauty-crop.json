@@ -1,0 +1,33 @@
+{
+  "id": "perihelion-buds-astrid-beauty-crop",
+  "title": "Seating the bud, case held in the same frame",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "perihelion-pebble-earbuds"
+      },
+      {
+        "t": "character",
+        "id": "astrid"
+      },
+      {
+        "t": "text",
+        "v": " Crop to the back quarter of her head, ear and jaw. Astrid is mid-40s: white-blonde cropped pixie, angular jaw, faint natural lines only, no crepe, no sun spots. The bud is already seated, its glossy charcoal touch disc flush in the ear; one hand only is in frame — her right, holding the open pebble case beside her jaw, thumb flat on the front shell, index and middle fingers curled under the base, the other two folded away, the whole hand inside the frame, one clean knuckle line. 85mm at f/4 from behind and below her shoulder; one hard bare source high at camera-left, eleven-o'clock sun, lays a bright edge along the helix and another down the case's parting line, the shadow side falling to cool graphite. Two gold-tone contacts sit on the inner shelf of each well, four in all, none on the outer sealing lip; the second bud rests in its well, lid tipped back, case a fifth of the frame wide. Bottom edge cuts hard at the collarbone — nothing below it, a black ribbed tank strap the only wardrobe; top and left edges crop the pixie mid-strand, the right holds empty backdrop."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 20,
+  "family": "human"
+}

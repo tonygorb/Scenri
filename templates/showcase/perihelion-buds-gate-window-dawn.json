@@ -1,0 +1,29 @@
+{
+  "id": "perihelion-buds-gate-window-dawn",
+  "title": "Pebble case open on a 6am gate ledge",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "perihelion-pebble-earbuds"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border, frame or letterbox band. Six in the morning at a departure gate: the pebble case sits open on a pale terrazzo window ledge, lid tipped back, both buds seated in their wells, the front status light steady green, pooling faint colour on the shell. 100mm macro at f/2.8, framed 1:1 life-size and level with the parting line, the case owning roughly half the frame height so the lid, the thumb notch and the two gold contacts on the inner shelf of each well read clean at any size. First cold blue comes through the glass from the left while sodium apron lamps burn amber out of focus and a jet bridge dissolves across the upper third. A run of condensation beads stands on the pane between lens and case, cut by the left edge; the terrazzo's aggregate reads sharp beneath the case then melts within a hand's width, and the ledge runs out the bottom. The lid is one unbroken sweep of matte pale-stone soft-touch polymer, interrupted only by the single fine parting line where it meets the body — no deboss, emblem, contour, scratch or scuff on it."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 33,
+  "family": "place"
+}

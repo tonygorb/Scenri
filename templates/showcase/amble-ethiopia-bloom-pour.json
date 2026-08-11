@@ -1,0 +1,29 @@
+{
+  "id": "amble-ethiopia-bloom-pour",
+  "title": "The bloom, first pour",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "amble-roasting-co-ethiopia-light-roast"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The pouch stands roll-top creased down at the near left, owning the left third of the frame, while the bed of fresh grounds blooms in a glass brewer just past it: a gooseneck's laminar silver thread enters from the top-left edge, cut by it, and strikes the centre of the bed so the crust domes and splits into pale tan fissures, gas lifting it visibly while crema-coloured foam crawls up the glass wall and a dark ring of liquor climbs behind it. 85mm at f/2.8 at counter height, the thread and the near crust razor-sharp, steam whipping through the raking window light and smearing at its top. AMBLE reads in large clean capitals on the wrapped matte kraft label with a hand-stamped roast date crooked beneath it, one seam corner lifted."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 98,
+  "family": "fluid"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "orchard-oat-overhead-fold-pour",
+  "title": "Everything that settled out overnight",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orchard-oat-cold-pressed-juice"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Nothing pours: the glass was filled a minute ago. In a tall tumbler beside the carton on wet zinc the lower two-thirds is a smooth opaque warm-tan liquid with no particles, lumps or sediment, the top third clear amber-straw; between them a soft two-centimetre gradient, not a line, one pale plume drifting up through it. The juice reads fresh and appetising, still and uncarbonated, no head and no bead. The carton stands on the glass's own plane, not behind it, gable ridge creased shut, at half the frame height; nothing comes between lens and product. 65mm at f/4 just above counter level, thirty degrees off square so front and side panels read, a hard low mid-morning window at camera-right firing through the clear amber-straw and grazing off the tan below. ORCHARD OAT is letterpressed across the front panel in large clean capitals, a pressing date hand-inked beneath, struck a few degrees off level. The zinc runs out of the bottom edge; the sides crop empty counter."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 44,
+  "family": "fluid"
+}

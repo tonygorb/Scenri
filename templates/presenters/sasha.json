@@ -1,0 +1,23 @@
+{
+  "id": "sasha",
+  "name": "Sasha",
+  "presentation": "woman",
+  "descriptor": "Sport streetwear · high sleek ponytail · coiled energy",
+  "ageRange": "mid 20s",
+  "facial": "open round-cheeked face, bright hazel eyes, straight brows, a wide expressive mouth and a strong straight nose",
+  "skin": "light tan with a warm sun-touched flush at the cheeks, true texture, minimal retouch",
+  "hair": "dark chestnut-brown hair pulled into a high sleek ponytail with a few loose baby hairs at the temples",
+  "build": "compact athletic build with strong defined shoulders, visible quadriceps and a sprinter's proportions",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Footwear", "Apparel", "Streetwear", "Beverages"],
+  "suitableStyles": ["Lifestyle", "Editorial"],
+  "identityNotes": "the high sleek ponytail, the bright hazel eyes and the visibly athletic sprinter's build must survive every generation — do not slim her into a runway frame, loosen the ponytail, or flatten the muscle definition",
+  "negativeConstraints": [
+    "no thin runway build",
+    "no loose or flowing hair",
+    "no bodybuilder exaggeration",
+    "no slack or lifeless posture"
+  ],
+  "width": 1024,
+  "height": 1280
+}

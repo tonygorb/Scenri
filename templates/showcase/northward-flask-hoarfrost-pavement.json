@@ -1,0 +1,29 @@
+{
+  "id": "northward-flask-hoarfrost-pavement",
+  "title": "Rime growing into the wind",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "northward-vacuum-flask"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Nothing melts here: minus six in freezing fog, the ice still building. The flask stands wedged into the top course of a summit cairn and hard rime has grown out of it horizontally into the wind, long combed white feathers standing clear off the windward flank, cap and shoulder stacked in plates, every feather pointing the same way and all on one side, while the lee flank is scoured bare cobalt. The wind's direction is written on the product and on nothing else. 85mm at f/5.6 from just below cap height, three-quarters on so both flanks read, the flask at two-thirds of the frame height, granite crisp at its base, the fog blowing out to flat white within four metres. Cobalt, bone white and wet granite, nothing warm. Nothing crosses the near field. NORTHWARD is laser-etched through the powder coat to bare steel across the scoured lee flank, capitals large enough to read at a glance, taking the one flat cold highlight here; the windward half carries only rime."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 79,
+  "family": "geological"
+}

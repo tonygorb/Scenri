@@ -1,0 +1,29 @@
+{
+  "id": "cypress-row-oil-running-glass",
+  "title": "Olive oil running the glass",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "cypress-row-olive-oil"
+      },
+      {
+        "t": "text",
+        "v": " EXTREME MACRO on the bottle's brushed-steel spout, neck and square shoulder, framed 1:1 life-size; no hands, forearms or body anywhere in frame. A heavy bead of golden-green oil has run over the spout's lip and is descending the forest-green glass, necked at its waist and slow enough to leave a bright wet trail, a second thread still hanging off the steel about to release. 150mm macro at f/5.6, camera level with the shoulder, hard backlight low behind the bottle so the oil glows chartreuse where the film thins, the steel taking exactly one cold specular along the flip lid's hinge. The oat-white paper band, glued to the OUTSIDE of the front facet and clearly sitting on the exterior glass surface, enters the bottom of the frame carrying CYPRESS ROW hand-stamped in large clean capitals, ink sunk into the uncoated fibre and bloomed where oil has wicked in."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 95,
+  "family": "fluid"
+}

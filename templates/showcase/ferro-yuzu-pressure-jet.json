@@ -1,0 +1,29 @@
+{
+  "id": "ferro-yuzu-pressure-jet",
+  "title": "Yuzu soda under pressure",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ferro-sons-yuzu-soda"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The brushed-aluminium lid stays whole — seamed rim, domed centre, rivet and ring pull-tab in place — only the narrow scored slot beside the tab cracked open. The jet leaves through that slot alone, a column of cloudy pale-yellow yuzu soda threaded with fine carbonation, clean for two hand-widths then fanning, every droplet on one arc off the slot, sizes falling away along it. The citrus-green stripe stays one unbroken horizontal band where the water track crosses it; condensation reads as discrete separated beads with bare matte coat between them. 85mm at f/11 at can height on a saturated citrus-green seamless, hard flash from camera-left freezing the fan, no daylight in the room, a white bounce at camera-right holding the flank to its reference pale cream-yellow, not the ground's green. The rolled base sits flat with a hard contact shadow directly beneath it, no gap; the can holds half the frame height, green runs unbroken to the bottom edge, spray cuts the top."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "standard",
+  "width": 1024,
+  "height": 1280,
+  "order": 67,
+  "family": "fluid"
+}

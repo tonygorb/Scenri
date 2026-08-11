@@ -1,0 +1,33 @@
+{
+  "id": "holloway-rings-loupe-surface-plate",
+  "title": "Stacking set under the loupe",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "holloway-stacked-band-set"
+      },
+      {
+        "t": "template",
+        "id": "precision-bench-anodised"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the matte-black anodised device named first as three gold bands, and the scene's blue sine bar and red clamp as bare steel and black anodising: every fixture here is steel, black anodising or charcoal granite, the golds the only chroma. Exactly three bands, no fourth: the polished yellow flat band and brushed rose half-round lie on the lapped granite, each tipped on a visible steel shim; the hammered white-gold band lies at the row's end under a steel loupe on its barrel, seen only through the 10x element it fills edge to edge. Magnified, the hammering reads as shallow round dimples the interior wall carrying one unlettered strike - a struck depression holding pooled shadow, no specular crown. 100mm macro at f/11, framed 1:1 life-size so the frame spans barely a hand's width of granite, camera thirty degrees above, flat overhead calibration light, focus stacked. Bands and loupe fill the lower two-thirds; granite runs out both sides, the chamfer crops the base."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 90,
+  "family": "optical"
+}

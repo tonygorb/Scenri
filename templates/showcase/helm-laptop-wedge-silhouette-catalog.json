@@ -1,0 +1,29 @@
+{
+  "id": "helm-laptop-wedge-silhouette-catalog",
+  "title": "Caught a breath from shut",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "helm-featherframe-laptop"
+      },
+      {
+        "t": "text",
+        "v": " A narrow hard strip rakes along the hinge line from camera-left so the gap between lid and deck fills with one bright wedge of trapped light, brightest at the left end and dying to the right, the lid's leading edge a black blade cutting across it. That wedge is the subject. The lid was caught fifteen degrees off the base, still falling. 50mm at f/5.6, camera axis twelve degrees above a graphite seamless and level with the closing lid, three-quarters on from the front-left so the base's wedge taper and the slim full-width hinge bar keep their mass; a windowless studio after dark, that strip the only source, one soft bounce camera-right. Machined pale-silver aluminium, blank dark-grey keycaps, one large centred glass trackpad as a single unbroken pane in one seam, and a palm-rest front edge that is one clean chamfer carrying no tab, step or second panel. Hold the machine to two-thirds of the frame width. The base sits flat to the sweep, a hard contact shadow directly beneath it and no gap; the sweep runs out of the bottom edge and the side edges crop empty graphite."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 38,
+  "family": "studio"
+}

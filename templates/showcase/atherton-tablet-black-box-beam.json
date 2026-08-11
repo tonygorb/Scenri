@@ -1,0 +1,29 @@
+{
+  "id": "atherton-tablet-black-box-beam",
+  "title": "One beam, black box",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "atherton-slate-tablet"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Black-box stage after dark, haze in the air, the field behind lifted half a stop off black so the slate-grey body separates. The tablet lies back-panel-up and flat on a brushed steel turntable, long axis lower-left to upper-right, three-quarters of the frame wide, the slate-grey anodised back filling the picture, its one small square camera plateau at the upper-left corner. One hard beam cuts in from camera-right at twelve degrees above the turntable, raking the anodised grain into one long sheen, throwing a hard shadow off the plateau and running the flat right side edge and the stylus into two bright continuous lines. The stylus lies clamped flat in magnetic contact along the middle of the long right edge, touching down its whole length, no gap. 85mm at f/2.8, camera thirty degrees above it; the tablet sits flat to the steel, a hard contact shadow directly beneath it. The brushed lip runs one bright arc out of the bottom edge, the sides cropping into haze."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 49,
+  "family": "studio"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "fernweg-vial-soap-loaf",
+  "title": "Rollerball vial in a cut soap loaf",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fernweg-wanderlust-oil"
+      },
+      {
+        "t": "text",
+        "v": " A cold-process soap loaf has just been cut, the halves parted a finger's width, the cut still glossy, an ochre-and-clay swirl through the body. The vial stands upright in the gap, collar level with the cut, holding a third of the frame width. 100mm macro at f/4, framed 1:1 life-size, camera level with the cut face, both faces parallel to the sensor in one focal plane; a low soft source from camera-left in the last hour of afternoon passes through the soap's edge until it glows translucent, the steel taking one long cool streak. FERNWEG runs horizontally around the kraft band in one line of upright capitals, every letterform complete and unbroken, only the faintest tooth-skip at the edges; the wrap seam falls between two letters so one stem rides the lap. The rollerball is one polished ball in a single plain stepped collar with one narrow threaded ring, nothing stacked above it. The near half crosses the bottom third sharp, occluding the vial's base; the far half runs out the top edge and the sides crop into soap. One bead of oil stands proud at the rollerball, not yet falling."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 39,
+  "family": "material"
+}

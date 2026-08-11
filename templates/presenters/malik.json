@@ -1,0 +1,23 @@
+{
+  "id": "malik",
+  "name": "Malik",
+  "presentation": "man",
+  "descriptor": "Clean tech · sharp taper fade · calm precision",
+  "ageRange": "late 20s",
+  "facial": "narrow oval face, high cheekbones, warm dark-brown eyes, straight even brows, close-shaved beard tight to a clean jaw",
+  "skin": "rich deep brown with an even matte finish, true pore texture, minimal retouch",
+  "hair": "short black hair in a sharp taper fade with a crisp lined-up hairline",
+  "build": "tall, lean swimmer's frame with square shoulders and long steady hands",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Technology", "Electronics", "Accessories", "Apparel"],
+  "suitableStyles": ["Editorial", "Lifestyle"],
+  "identityNotes": "the sharp lined-up taper fade, the rich even deep-brown skin tone and the close-shaved jaw beard must survive every generation — do not lighten the skin, grow the beard out, or soften the hairline",
+  "negativeConstraints": [
+    "no lightened or grey-graded skin",
+    "no full or long beard",
+    "no grown-out or loose hair",
+    "no oiled or glossy skin sheen"
+  ],
+  "width": 1024,
+  "height": 1280
+}

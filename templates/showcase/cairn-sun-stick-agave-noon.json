@@ -1,0 +1,29 @@
+{
+  "id": "cairn-sun-stick-agave-noon",
+  "title": "Down the throat of the agave",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "cairn-mineral-sun-stick"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Hard noon over a coastal agave, shot straight down from a metre above the rosette so the plant reads as a flat blue-grey spiral, blade over blade over blade, each still carrying the pale bud-print stripes its neighbour pressed into it before it opened. The capped stick lies in the tightest turn of that spiral, dead centre and following the curve, taking about a fifth of the frame width. 135mm at f/8, the rosette flattened into a single plane so the spiral holds sharp corner to corner and the ground never appears. Sun high and a little to camera-left, laying one blade's hard shadow bar across the tube's waist where it stops dead at the bone-white cap. Dried salt has bloomed white along every keel and dusts the matte anodising. Palette held to blue-green, bone and slate, nothing warm anywhere. Nothing stands between lens and plant, the near field is empty air, and the outermost spines run out all four corners. Let the tube read unmarked."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 11,
+  "family": "botanical"
+}

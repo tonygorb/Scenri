@@ -1,0 +1,33 @@
+{
+  "id": "cairn-sun-stick-aloe-flesh",
+  "title": "Sun stick in cut aloe",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "cairn-mineral-sun-stick"
+      },
+      {
+        "t": "template",
+        "id": "studio-aloe-flesh-macro"
+      },
+      {
+        "t": "text",
+        "v": " Read the translucent pale-green glass jar and its matte screw cap that follow as this flat-oval anodised sun-stick tube instead: there is no jar and no screw cap here. Cap off and out of shot, the tube stands broad-face to the lens in the trough between two freshly sliced leaves and owns about half the frame height, the chalk-white balm dome proud of the crisp oval rim. A thick string of mucilage has necked off the upper cut face and sags across the tube's shoulder, about to part. 100mm macro at f/3.5, framed 1:1 life-size, camera level with the rim so the dome and the nearest gel core sit in one plane and everything behind gives up focus; no hands or body in frame. Condensation greys the slate-graphite anodising and beads stand in the knurled base dial. CAIRN is struck up out of the aluminium as inkless embossed relief across the broad face, capitals large enough to read at a glance, the low backlight catching their top edges and pooling shadow beneath. Nothing stands between lens and tube; the trough runs empty to the bottom edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 56,
+  "family": "botanical"
+}

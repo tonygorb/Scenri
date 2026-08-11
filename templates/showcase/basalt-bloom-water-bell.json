@@ -1,0 +1,29 @@
+{
+  "id": "basalt-bloom-water-bell",
+  "title": "Water bell off the shoulder",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "basalt-bloom-sparkling-mineral-water"
+      },
+      {
+        "t": "text",
+        "v": " A column of clear, colourless spring water with a fine bead threading it falls from out of frame and strikes the bottle's glass shoulder off-centre, blowing outward into a thin circular sheet — a true water bell — that flares silver around the neck and tears at its rim into a ring of unevenly sized beads, every one frozen. 100mm at f/8 from just above cap height, the bottle standing on a wet black basalt slab and holding about half the frame height, one hard rim key from behind so the bell's membrane glows against black while the very pale green-tinted mineral water inside stays quiet and readable, slow carbonation threading up through it in fine strings. At this framing the crown cap is far too small to resolve lettering, so it carries none: a single struck concentric ring pressed into the cap's face, unlettered, flaring bright where the water film thins over it. Spent water races off the slab's near edge, cut by the bottom of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 75,
+  "family": "fluid"
+}

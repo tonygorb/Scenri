@@ -1,0 +1,23 @@
+{
+  "id": "noa",
+  "name": "Noa",
+  "presentation": "woman",
+  "descriptor": "Mediterranean editorial · strong natural brow · unhurried poise",
+  "ageRange": "late 20s",
+  "facial": "oval face, straight nose bridge, wide-set dark hazel eyes, strong full natural brows, defined jaw, full mouth",
+  "skin": "warm olive with a golden undertone, true visible texture, minimal retouch",
+  "hair": "thick dark-brown hair with a natural loose wave, centre-parted and pushed back off the face",
+  "build": "average height, slim balanced build with a long neck and relaxed square shoulders",
+  "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
+  "suitableCategories": ["Beauty", "Jewelry", "Fashion", "Accessories"],
+  "suitableStyles": ["Editorial", "Lifestyle"],
+  "identityNotes": "the strong full natural brow, the warm olive skin tone and the thick centre-parted dark waves must survive every generation — do not thin or arch the brow, cool the skin grade, or straighten the hair",
+  "negativeConstraints": [
+    "no thinned or highly arched brows",
+    "no straightened or lightened hair",
+    "no pale or cool-grey skin grade",
+    "no heavy contour or glamour makeup"
+  ],
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,33 @@
+{
+  "id": "tanner-fielding-bar-sugar-pull",
+  "title": "Chocolate bar inside the sugar pull",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tanner-fielding-single-origin-bar"
+      },
+      {
+        "t": "template",
+        "id": "studio-molten-sugar-pull"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the squat amber glass jar and its brushed metal lid that follow as this wrapped single-origin chocolate bar instead. Stand the bar upright on its long edge with one kraft corner peeled back so three tempered squares catch the cool front fill, and set it inside the pull: one drawn ribbon arcs behind its head thin enough to fire orange-gold, the sagging catenary crosses low in front with its drip fully necked and a single hair-thread still attached. 100mm at f/4 from just below bar height so the ribbons read against the backlight, framed so the catenary's thinnest section passes over the wrapper. TANNER & FIELDING is hand-stamped in large clean capitals across the kraft, ink sunk into the uncoated stock, one letter blotted where a bead of syrup has wicked into the fibre."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 3,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 83,
+  "family": "fluid"
+}

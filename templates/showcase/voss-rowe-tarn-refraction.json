@@ -1,0 +1,29 @@
+{
+  "id": "voss-rowe-tarn-refraction",
+  "title": "Canvas low-top, half in the tarn",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "almanac-supply-canvas-low-top"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The still surface crosses the low-top at the gum foxing's top edge and breaks it in two: everything below is displaced sideways by a third of the sole's height and magnified, so the outsole's edge line steps visibly out of true at the surface, a bright meniscus climbing the canvas along the line. Below it the canvas goes two shades darker and saturated, a live caustic net rakes the submerged gum toe cap, and the shoe's hard sun shadow lies on the submerged pebbles beside it. Above, the vamp stays dry and matte with its fleck legible, eyelets and laces clear of the water. It stands in three centimetres of gin-clear meltwater on granite gravel at an alpine tarn's lip, hard noon sun overhead, at two-thirds of the frame width. 100mm at f/11, camera a hand's height above the surface, angled thirty degrees down, near bed and far gravel as sharp as the shoe. Far shore dissolves out the top, water out both sides, bed out the bottom. Nothing on the shoe carries a mark."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 73,
+  "family": "optical"
+}

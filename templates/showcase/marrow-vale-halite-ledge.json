@@ -1,0 +1,33 @@
+{
+  "id": "marrow-vale-halite-ledge",
+  "title": "Flacon on a halite ledge",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marrow-vale-nocturne"
+      },
+      {
+        "t": "template",
+        "id": "studio-salt-crystal-cavern"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. Read the brushed-gold cuff and its cabochon that follow as this faceted smoked-glass flacon instead. Stand it square on the halite ledge with one hopper-faced cube shouldering in from the left, the low practical raking so hard that every facet edge takes its own bright line while the matte black cap kills all of them dead. 100mm at f/5.6, camera at ledge height and a touch below the shoulder, the bottle holding a little over half the frame height, dry salt grain crisp around its base, the crystal wall behind dropping away into rose-violet. Two loose halite cubes stand blurred across the near foreground, cut by the bottom edge. MARROW VALE is acid-etched in tall clean capitals across the bottle's front facet, spanning most of that facet's width, the frost reading as nothing at all until the raking beam crosses it and lights the letters from inside."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 8,
+  "family": "geological"
+}

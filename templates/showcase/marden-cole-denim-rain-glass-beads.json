@@ -1,0 +1,29 @@
+{
+  "id": "marden-cole-denim-rain-glass-beads",
+  "title": "Pool light writing across raw indigo",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marden-cole-selvedge-denim-jacket"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. The trucker jacket hangs from a single brass peg by the hang loop behind its collar - the loop pulled taut over the peg, the collar puckered and pinched around that one point, the whole 14oz weight swinging off it: left shoulder dropping lower than the right, sleeves slack and unequal, hem off plumb and lifting away from the plaster. Noon sun strikes a pool below the frame and throws its caustic net up the chalk-white wall and over the denim, so the jacket casts its own shadow upward and outward onto the wall, never down. That net is light on unwashed indigo, never bleach: troughs deepen to blue-black, lit ropes brighten but stay saturated indigo, no white, chalk or grey enters the twill anywhere. 85mm at f/5.6 at chest height, square to the wall, weave, selvedge placket seam and each copper button countable. Plaster runs out the top and both sides; the hem swings clear of the bottom. An unlettered woven flag tab sits in the left chest-pocket seam."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 77,
+  "family": "optical"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "marrow-vale-reeded-colour-bands",
+  "title": "Cobalt flask and the shadow of its own knurl",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "northward-vacuum-flask"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. One bare fresnel head sits low and close at camera-left and the flask's own machining does the art direction: the knurled cap throws its teeth onto a raw lime-plaster wall behind as a two-metre sawtooth band, every tooth crisp and repeating, while the polished base band curves that same source back onto the plaster as a bright caustic arc above it and the body drops one long shadow out of the bottom-right corner. The matte cobalt coat refuses to shine, so cap and base band are the only specular in the frame and both fire hard. 85mm at f/11 from just below cap height, deep focus from flask to trowel marks, the flask left of centre at roughly sixty-five percent of the frame height. NORTHWARD is laser-etched through the coat to bare steel across the upper body in capitals large enough to read at a glance, taking exactly one highlight. Nothing sits between lens and flask: the near floor is swept empty and falls to black at the bottom edge."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 105,
+  "family": "optical"
+}

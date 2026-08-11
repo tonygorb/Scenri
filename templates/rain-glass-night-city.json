@@ -1,0 +1,12 @@
+{
+  "id": "rain-glass-night-city",
+  "name": "Rain Glass Night",
+  "description": "The product seen through a sheet of rain-beaded cold plate glass, a city night thrown far out of focus behind it into a field of cyan and sodium-amber bokeh. Every larger bead works as its own lens, holding a sharp inverted scrap of the street inside it.",
+  "lighting": "City bokeh field, cyan rim and sodium-amber fill",
+  "subject": "product",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Electronics", "Accessories", "Apparel"],
+  "prompt": "a matte-graphite anodised metal case with a soft-radius edge and a machined hinge line, the product is the hero of the frame and occupies roughly 55 percent of the frame height, tack-sharp and clearly lit, standing directly behind a vertical sheet of cold plate glass beaded with fresh rain, the beads sitting in a genuine range of sizes from a fine mist of pinheads to fat pendant drops that have begun to run and left clean tapering trails through the mist, each larger bead behaving as a real lens with a sharp inverted miniature of the lights behind it held inside it while the glass around it stays soft, a thin condensation haze in the coldest corners of the pane, a night city thrown far out of focus beyond into a deep field of round bokeh discs — cyan and pale blue from signage and headlamps, sodium-amber and warm orange from street lamps, a few red brake-light discs low in the frame — with real cat's-eye stretching in the corner discs the way a fast lens actually renders them, the wet glass rimming the product's near edges with a cool cyan spill while a warmer amber lifts the opposite flank, colour held to cyan, sodium amber and wet black with the product reading neutral graphite between them, the pane occupying the near plane so the product is genuinely seen through it rather than standing in front of a printed backdrop, continuous focus falloff with no hard sharp-to-soft boundary, no legible signage, shopfront lettering or readable text anywhere in the bokeh, no figures or faces in the background, no rain drawn as straight white streaks, no lens-flare stars, no second product, immaculate night-commercial clarity",
+  "width": 1024,
+  "height": 1280
+}
