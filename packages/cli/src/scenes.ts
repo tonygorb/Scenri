@@ -37,6 +37,19 @@ export interface Scene {
   verticals: string[];
   /** The set only. A scene carrying {product_name} is rejected at load. */
   prompt: string;
+  /**
+   * The scene's camera *tendency* — lens, distance, height, depth of field —
+   * and nothing else. Optional and, deliberately, only a default: the compiler
+   * emits it solely when the shot direction says nothing about camera, so a
+   * recipe asking for an 85mm macro is never argued down by a scene that
+   * happens to mention 50mm.
+   *
+   * Camera belongs to the shot. A scene owns the world: environment, materials,
+   * light character. This field exists so a scene can still express what is
+   * characteristic of it without locking every generation into one composition.
+   * Absent on every scene today, so behaviour is unchanged until scenes migrate.
+   */
+  camera?: string;
   width: number;
   height: number;
   /** Ids this scene used to be called, so stored briefs keep resolving. */
@@ -67,6 +80,7 @@ function isScene(x: any): x is Scene {
     !x.prompt.includes('{product_name}') &&
     Number.isFinite(x.width) &&
     Number.isFinite(x.height) &&
+    (x.camera === undefined || typeof x.camera === 'string') &&
     (x.aliases === undefined ||
       (Array.isArray(x.aliases) && x.aliases.every((a: any) => typeof a === 'string' && ID.test(a)))) &&
     (x.fields === undefined ||

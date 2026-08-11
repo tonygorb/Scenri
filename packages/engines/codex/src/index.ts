@@ -14,7 +14,14 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { copyFile, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { EditRequest, EngineAdapter, EngineCapabilities, EngineResult, GenerateRequest } from '@scenri/core';
+import type {
+  EditRequest,
+  EngineAdapter,
+  EngineCapabilities,
+  EngineResult,
+  GenerateRequest,
+  ReferenceRole,
+} from '@scenri/core';
 
 export interface CodexEngineOptions {
   saveImage: (buf: Buffer) => string;
@@ -29,14 +36,24 @@ const DEFAULT_TIMEOUT_MS = 300_000;
 // generate and edit paths so they can never drift apart. Module scope, not
 // factory scope: the helpers that use these live after the adapter's `return`,
 // where a `const` would never initialize.
-const ROLE_DIRECTIVE: Record<'product' | 'character' | 'reference', string> = {
+const ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
   character: 'the exact person — preserve their face, hair and build faithfully; do not restyle them',
+  brand:
+    'a brand reference for palette, type and mark treatment only — take no geometry, subject or composition from it',
+  scene: 'a reference for the environment and light only — take no subject, product or person from it',
+  composition:
+    'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
+  style: 'a reference for overall treatment and mood only — take no composition, subject or product detail from it',
   reference: 'a reference to match in composition, lighting and treatment',
 };
-const EDIT_ROLE_DIRECTIVE: Record<'product' | 'character' | 'reference', string> = {
+const EDIT_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   product: 'the exact product: keep or restore its label, shape and design faithfully',
   character: 'the exact person: keep their face, hair and build faithfully',
+  brand: 'a brand reference for palette and mark treatment only',
+  scene: 'a reference for environment and light only',
+  composition: 'a reference for framing and pose only',
+  style: 'a reference for treatment and mood only',
   reference: 'a reference for composition, lighting and treatment only',
 };
 
@@ -265,7 +282,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
 
   // Wording matters: codex's imagegen skill needs shell access (cp/sips) to
   // place the file — forbid browsing/exploration, but NOT running commands.
-  function buildPrompt(req: GenerateRequest, index: number, roles: ('product' | 'character' | 'reference')[]): string {
+  function buildPrompt(req: GenerateRequest, index: number, roles: ReferenceRole[]): string {
     const roleDirective = ROLE_DIRECTIVE;
     const refDirectives = roles
       .map((role, i) =>

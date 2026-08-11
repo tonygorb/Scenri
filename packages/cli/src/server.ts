@@ -27,7 +27,7 @@ import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs
 import { spawn } from 'node:child_process';
 import JSZip from 'jszip';
 import { basename, join } from 'node:path';
-import type { Core, EngineAdapter, GenerateRequest, EditRequest, BrandContext } from '@scenri/core';
+import type { Core, EngineAdapter, GenerateRequest, EditRequest, BrandContext, ReferenceRole } from '@scenri/core';
 import { SpendCapError, ASPECT_TOLERANCE } from '@scenri/core';
 import { validateBrand, buildFromUrl } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
@@ -434,6 +434,32 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return serveJpeg(req, reply, path);
   });
 
+  // A demo product's full reference set. The thumbnail route above exposes one
+  // angle; this exposes all of them, which is what a detail page needs. Angles
+  // are returned with their key so the client can label each frame — a product's
+  // angles are semantic ("sole-detail", "worn-scale"), unlike a presenter's
+  // positional ref-0N slots. Both segments are pattern-guarded.
+  app.get('/api/demo-product-previews/:id', async (req, reply) => {
+    const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
+    if (!id) return reply.status(400).send({ error: 'bad product id' });
+    const product = demoProductById(id);
+    if (!product) return { frames: [] };
+    const angles = PRODUCT_ANGLES_BY_CATEGORY[product.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
+    const frames = angles
+      .map((angle) => ({ angle, path: demoProductRefPath(templatesRoot, id, angle) }))
+      .filter((f) => existsSync(f.path))
+      .map((f) => ({ angle: f.angle, url: `/api/demo-product-previews/${id}/${f.angle}.jpg${mtimeQS(f.path)}` }));
+    return { frames };
+  });
+  app.get('/api/demo-product-previews/:id/:file', async (req, reply) => {
+    const p = req.params as any;
+    const id = /^[a-z0-9-]+$/.exec(String(p.id))?.[0];
+    const angle = /^([a-z0-9-]+)\.jpg$/.exec(String(p.file))?.[1];
+    const path = id && angle ? demoProductRefPath(templatesRoot, id, angle) : null;
+    if (!path || !existsSync(path)) return reply.status(404).send({ error: 'no frame' });
+    return serveJpeg(req, reply, path);
+  });
+
   // ---- showcase (curated homepage gallery). Each entry is a real recipe —
   // the exact brief.tokens that produced its hero image — so opening one
   // reproduces the identical chips, ready to remix.
@@ -771,7 +797,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // means anywhere in the product.
     let finalPrompt = String(prompt ?? '');
     let referenceImages: string[] | undefined;
-    let referenceRoles: ('product' | 'character' | 'reference')[] | undefined;
+    let referenceRoles: ReferenceRole[] | undefined;
     if (!compiled && (productId || templateId)) {
       if (templateId && !resolveScene(String(templateId)))
         return reply.status(400).send({ error: `unknown template ${templateId}` });
@@ -1093,7 +1119,16 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     app.register(fastifyStatic, { root: dist });
     app.setNotFoundHandler((req, reply) => {
       if (req.raw.url?.startsWith('/api/')) return reply.status(404).send({ error: 'not found' });
-      reply.header('content-type', 'text/html').send(readFileSync(`${dist}/index.html`, 'utf8'));
+      // index.html names content-hashed asset files, so a browser that caches
+      // it is pinned to whichever bundle it first saw — a rebuild then never
+      // reaches that tab, silently. Without an explicit header browsers apply
+      // heuristic caching to a 200 with no cache-control, which is exactly that
+      // failure. The hashed assets under /assets stay immutable; only this
+      // pointer has to revalidate.
+      reply
+        .header('content-type', 'text/html')
+        .header('cache-control', 'no-cache, must-revalidate')
+        .send(readFileSync(`${dist}/index.html`, 'utf8'));
     });
   }
 

@@ -31,11 +31,72 @@ export interface Brief {
  * presenter's face. The engine cap is applied afterwards, in role-priority
  * order, so what survives a tight cap is always identity before inspiration.
  */
+/**
+ * What the model is told about the product, keyed on how much of the object it
+ * can actually see.
+ *
+ * The single-reference case is the common one, not the edge case: a merchant
+ * importing from Shopify or WooCommerce usually has one clean packshot. Telling
+ * that model only to "preserve label, shape and colors" leaves it free to invent
+ * the faces it cannot see — a confidently wrong back panel on a bag, hardware on
+ * a sole it never saw. So the one-reference tier does two things nothing else
+ * does: it forbids invented geometry on unseen faces, and it biases the
+ * composition toward the view we actually have.
+ *
+ * `attached` is what reaches the engine (clamped by PRODUCT_REF_MAX and the
+ * engine cap); `available` is how many views the product record holds. The
+ * uncertainty claim keys on `attached`, because that is what the model can see —
+ * but a product with full coverage gets told so, which licenses a freer angle.
+ */
+export function productFidelityDirective(attached: number, available: number): string {
+  if (attached <= 1) {
+    return (
+      'The attached product image is the exact product: preserve its label, shape, colors and proportions faithfully, ' +
+      'and do not redesign it. It is also the only view of this product that exists. Any face, side or detail not ' +
+      'visible in it is unknown — keep those plain and consistent with the visible materials and color, and do not ' +
+      'invent hardware, text, seams, closures, ornament or branding on them. Prefer a composition that shows the ' +
+      'product from the view the reference gives.'
+    );
+  }
+  const base =
+    'The attached product images all show the exact same product from different angles: preserve its label, shape ' +
+    'and colors faithfully, do not redesign it, and do not treat the extra angles as additional products.';
+  return available >= 4
+    ? `${base} Together they cover the object from every side, so no face of it has to be guessed at.`
+    : `${base} Any face not visible in them is unknown — keep it plain and consistent with the visible materials, and do not invent detail on it.`;
+}
+
+/**
+ * Does the shot direction already decide the camera?
+ *
+ * Camera belongs to the shot; a Scene may only express a tendency. Rather than
+ * emit both and let them argue in prose — which is how a scene that mentions
+ * 50mm ends up beating a recipe asking for an 85mm macro — the compiler emits
+ * exactly one. If the direction speaks about lens, distance, height, framing or
+ * depth, the scene's tendency is dropped entirely and there is no conflict to
+ * resolve.
+ *
+ * Deliberately generous: a false positive costs only the scene's default, while
+ * a false negative would put two cameras in one prompt.
+ */
+export function shotSpecifiesCamera(text: string): boolean {
+  return /\b\d{2,3}\s?mm\b|\bf\/\d|\blens\b|\bcamera\b|\bshot from\b|\beye[- ]level\b|\blow angle\b|\bhigh angle\b|\boverhead\b|\btop[- ]down\b|\bbird'?s[- ]eye\b|\bclose[- ]up\b|\bmacro\b|\bwide shot\b|\bcrop(?:ped)?\b|\bframing\b|\bdepth of field\b|\bbokeh\b|\bshallow (?:focus|depth)\b|\bdeep focus\b/i.test(
+    text,
+  );
+}
+
 export const PRODUCT_REF_MAX = 3;
 export const CHARACTER_REF_MAX = 2;
 
 export interface Attachment {
-  role: 'product' | 'character' | 'reference';
+  /**
+   * Why this image is attached. The engine turns each role into a directive, so
+   * a role is the only thing stopping an image influencing a dimension it was
+   * never meant to: a colour-inspiration shot must not drive composition, and a
+   * composition reference must not recolour the product. `reference` is kept as
+   * the untyped legacy role for briefs authored before roles were split.
+   */
+  role: 'product' | 'character' | 'brand' | 'scene' | 'composition' | 'style' | 'reference';
   label: string;
   hash: string;
   /**
@@ -219,11 +280,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           phashes.forEach((h, i) => {
             attachments.push({ role: 'product', label: p.name, hash: h, essential: i === 0 });
           });
-          productDirectives.push(
-            phashes.length > 1
-              ? 'The attached product images all show the exact same product from different angles: preserve its label, shape and colors faithfully, do not redesign it, and do not treat the extra angles as additional products.'
-              : 'The attached product image is the exact product: preserve its label, shape and colors faithfully, do not redesign it.',
-          );
+          productDirectives.push(productFidelityDirective(phashes.length, (p.shots ?? []).length));
           if (p.preservationNotes) productDirectives.push(String(p.preservationNotes));
           if (p.negativeConstraints) productDirectives.push(`Avoid: ${p.negativeConstraints}`);
           // Real-world scale and material, when the product record knows them.
@@ -375,8 +432,15 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // The scene's own prose may name a demo product or wardrobe brand of its
   // own; when a real product/presenter is attached, the guard directives
   // outrank it precisely because they're appended after it, last.
+  // A scene's camera tendency is a default, not a lock: it is emitted only when
+  // the shot direction has not already chosen a camera, so the two can never
+  // compete. See shotSpecifiesCamera.
+  const sceneCamera = inlineTemplates[0]?.camera?.trim() || ctx.template?.camera?.trim() || '';
+  const cameraDirectives =
+    sceneCamera && !shotSpecifiesCamera(sentence) ? [`Camera for this shot: ${sceneCamera}`] : [];
+
   const guard = scene ? sceneGuardDirectives({ hasProduct: !!productId, hasPerson }) : [];
-  const allDirectives = [...productDirectives, ...personDirectives, ...otherDirectives, ...guard];
+  const allDirectives = [...productDirectives, ...personDirectives, ...otherDirectives, ...cameraDirectives, ...guard];
   if (allDirectives.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${dedupe(allDirectives).join(' ')}`;
 
   // Attachments are useless past what the engine will actually read.
@@ -387,7 +451,18 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // shots and threw the PRODUCT away — silently generating the wrong object.
   // Identity beats inspiration, always: product first, then character, then
   // plain style references, which are the only ones safe to lose.
-  const ROLE_PRIORITY: Record<Attachment['role'], number> = { product: 0, character: 1, reference: 2 };
+  // Identity before context before direction before taste. Under a tight engine
+  // cap what survives is what the image would be *wrong* without: the product,
+  // then the person. A style reference is the first thing worth losing.
+  const ROLE_PRIORITY: Record<Attachment['role'], number> = {
+    product: 0,
+    character: 1,
+    brand: 2,
+    scene: 3,
+    composition: 4,
+    reference: 5,
+    style: 6,
+  };
   const ordered = attachments
     .map((a, i) => ({ a, i }))
     .sort(

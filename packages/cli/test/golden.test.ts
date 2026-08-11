@@ -313,3 +313,93 @@ describe('golden: every aspect ratio selection compiles to its declared shape', 
     expect([r.width, r.height]).toEqual([w, h]);
   });
 });
+
+/**
+ * The responsibility contract: which layer owns which dimension.
+ *
+ * Product and Presenter own identity and can never be overridden. The shot owns
+ * camera; a Scene may only express a tendency, and only when the shot is silent.
+ * A reference image influences exactly the dimension its role names.
+ */
+describe('golden: responsibility contract', () => {
+  it('a one-reference product is told its unseen faces are unknown, and to favour the known view', () => {
+    const r = compile([{ t: 'product', id: 'p2' }]);
+    expect(r.attachments).toHaveLength(1);
+    expect(r.prompt).toContain('the only view of this product that exists');
+    expect(r.prompt).toMatch(/do not invent hardware, text, seams, closures, ornament or branding/i);
+    expect(r.prompt).toMatch(/composition that shows the product from the view the reference gives/i);
+    // the multi-angle wording would be a lie with one image
+    expect(r.prompt).not.toContain('from different angles');
+  });
+
+  it('a multi-reference product gets the multi-angle directive instead', () => {
+    const r = compile([{ t: 'product', id: 'p1' }]);
+    expect(r.prompt).toContain('all show the exact same product from different angles');
+    expect(r.prompt).not.toContain('the only view of this product that exists');
+    // three stored views is not full coverage, so it still guards the unseen face
+    expect(r.prompt).toMatch(/Any face not visible in them is unknown/i);
+  });
+
+  it('a fully covered product is told there is no face to guess at', () => {
+    const b = brand();
+    b.products[0].shots.push({ file: `asset:${inspoHash}`, angle: 'back', locked: true });
+    const r = compileBrief(
+      { tokens: [{ t: 'product', id: 'p1' }] },
+      { brand: b, images: core.images, engineCaps: caps(6), templateById: resolveScene },
+    );
+    expect(r.prompt).toMatch(/cover the object from every side, so no face of it has to be guessed at/i);
+  });
+
+  it('identity survives every engine clamp — the product reference is the last thing dropped', () => {
+    const tokens: Brief['tokens'] = [
+      { t: 'product', id: 'p1' },
+      { t: 'character', id: 'c1' },
+    ];
+    for (const cap of [6, 4, 2, 1]) {
+      const r = compile(tokens, cap);
+      expect(r.attachments.length).toBeLessThanOrEqual(cap);
+      expect(r.attachments[0]?.role).toBe('product');
+      expect(r.attachments[0]?.essential).toBe(true);
+    }
+  });
+
+  it('a scene camera tendency applies only when the shot says nothing about camera', () => {
+    const scene = { ...resolveScene(PRODUCT_SCENE)!, camera: '90mm at eye level, medium depth' };
+    const withTendency = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+          { t: 'text', v: ' on a cold morning' },
+        ],
+      },
+      { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene },
+    );
+    expect(withTendency.prompt).toContain('Camera for this shot: 90mm at eye level, medium depth');
+  });
+
+  it('the shot wins: a stated camera drops the scene tendency entirely, so the two never compete', () => {
+    const scene = { ...resolveScene(PRODUCT_SCENE)!, camera: '90mm at eye level, medium depth' };
+    const shotDecides = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+          { t: 'text', v: ' 24mm from floor level, extremely shallow depth of field' },
+        ],
+      },
+      { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene },
+    );
+    expect(shotDecides.prompt).not.toContain('Camera for this shot:');
+    expect(shotDecides.prompt).not.toContain('90mm');
+    expect(shotDecides.prompt).toContain('24mm from floor level');
+  });
+
+  it('a scene without a camera tendency behaves exactly as before', () => {
+    const r = compile([
+      { t: 'product', id: 'p1' },
+      { t: 'template', id: PRODUCT_SCENE },
+    ]);
+    expect(r.prompt).not.toContain('Camera for this shot:');
+  });
+});

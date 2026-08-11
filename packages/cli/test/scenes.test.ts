@@ -233,7 +233,7 @@ describe('product uploads + scene generation via API', () => {
     expect(lastGen!.prompt).toContain('House Blend');
     expect(lastGen!.prompt).toContain('monumental quarry scale dwarfing the subject');
     expect(lastGen!.prompt).toContain('keep it airy');
-    expect(lastGen!.prompt).toContain('preserve its label, shape and colors');
+    expect(lastGen!.prompt).toMatch(/preserve its label, shape[^.]*colors/i);
     expect(lastGen!.width).toBe(1024);
     expect(lastGen!.referenceImages).toHaveLength(1);
     expect(lastGen!.referenceRoles).toEqual(['product']);

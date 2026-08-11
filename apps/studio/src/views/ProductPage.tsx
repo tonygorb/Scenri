@@ -2,13 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Callout, Flex, Select, Text, TextField } from '@radix-ui/themes';
 import { api, assetUrl, addProductShot, type Product } from '../api.js';
+
+/** Mirrors PRODUCT_REF_MAX in packages/cli/src/brief.ts — the number of product images a brief actually attaches. */
+const PRODUCT_REF_MAX = 3;
+import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath, productsPath, shotPath } from '../routes.js';
+import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { ProductCard } from '../layout/ProductCard.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider, UploadRefFrame } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
-import { categoryOf, effectiveCategory, PRODUCT_CATEGORIES } from '../productCategories.js';
+import { categoryLabel, categoryOf, effectiveCategory, PRODUCT_CATEGORIES } from '../productCategories.js';
 
 /**
  * One product — the source of truth for what it actually looks like before
@@ -27,6 +32,40 @@ export function ProductPage() {
 
   const product = products.find((p) => p.id === productId);
   const isManual = (product?.origin ?? 'manual') === 'manual';
+
+  // A demo product is a global catalog object, like a presenter — it has no
+  // brand and nothing about it is editable. It still deserves a page: the whole
+  // homepage wall is built from these, and without one every reference to a
+  // demo product is a dead end.
+  const { demoProducts, demoProductsLoaded } = useAppData();
+  const demoProduct = useMemo(
+    () => (product ? undefined : demoProducts.find((d) => d.id === productId)),
+    [product, demoProducts, productId],
+  );
+  const [demoFrames, setDemoFrames] = useState<{ angle: string; url: string }[]>([]);
+  // Component state, not a URL param: this is a per-product view toggle, and a
+  // URL-backed one survives back/forward, so a product opened later could show
+  // its whole set with no obvious reason why. ProductRoute keys on productId,
+  // so this resets to collapsed on every product.
+  const [openAll, setOpenAll] = useState(false);
+  useEffect(() => {
+    if (!demoProduct) {
+      setDemoFrames([]);
+      return;
+    }
+    let alive = true;
+    api
+      .demoProductFrames(demoProduct.id)
+      .then((r) => {
+        if (alive) setDemoFrames(r.frames);
+      })
+      .catch(() => {
+        if (alive) setDemoFrames([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [demoProduct?.id]);
 
   const [name, setName] = useState(product?.name ?? '');
   const [variant, setVariant] = useState(product?.variant ?? '');
@@ -96,6 +135,90 @@ export function ProductPage() {
 
   const others = products.filter((p) => p.id !== productId).slice(0, 8);
 
+  if (!product && demoProduct) {
+    const label = categoryLabel(demoProduct.category);
+    const others = demoProducts.filter((d) => d.id !== demoProduct.id).slice(0, 8);
+    return (
+      <ScrollPane>
+        <main className="sc-lookpage sc-productpage" id="main">
+          <div className="sc-lookpage-crumb">
+            <button type="button" onClick={() => navigate(productsPath(brand))}>
+              Products
+            </button>
+            <span>/</span>
+            <span>{label}</span>
+          </div>
+
+          <h1 dir="auto">{demoProduct.name}</h1>
+          <p className="sc-lookpage-lede">{demoProduct.description}</p>
+          <p className="sc-lookpage-facts">
+            {label}
+            {demoProduct.subcategory ? ` · ${demoProduct.subcategory}` : ''} · from the Scenri Library
+          </p>
+          <div className="sc-lookpage-acts">
+            <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(demoProduct.id)}>
+              Use in creation
+            </button>
+          </div>
+
+          {demoFrames.length > 0 ? (
+            <>
+              <div className="sc-lookpage-refs">
+                {(openAll ? demoFrames : demoFrames.slice(0, PRODUCT_REF_MAX)).map((f) => (
+                  <RefFrame key={f.angle} src={f.url} />
+                ))}
+              </div>
+              <p className="sc-lookpage-note">
+                A reference set we shot. The first {PRODUCT_REF_MAX} are what a shot is built from — yours replaces
+                them.
+              </p>
+              {demoFrames.length > PRODUCT_REF_MAX && (
+                <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(!openAll)}>
+                  {openAll ? 'Enough, close it' : `See all ${demoFrames.length} angles`}
+                </button>
+              )}
+            </>
+          ) : (
+            <EmptyRefFrame />
+          )}
+
+          {made.length > 0 && (
+            <Slider label={`Shots featuring ${demoProduct.name}`}>
+              {made.map((s) => (
+                <ShotThumb key={s.id} node={s} onClick={() => navigate(shotPath(brand, null, s.id))} />
+              ))}
+            </Slider>
+          )}
+
+          {others.length > 0 && (
+            <Slider label="Other products in the library">
+              {others.map((d) => (
+                <DemoProductCard
+                  key={d.id}
+                  product={d}
+                  variant="navigate"
+                  size="slider"
+                  onOpen={(id) => navigate(productPath(brand, id))}
+                />
+              ))}
+            </Slider>
+          )}
+        </main>
+      </ScrollPane>
+    );
+  }
+
+  // The library poll can land after the first paint; don't flash "gone".
+  if (!product && !demoProductsLoaded) {
+    return (
+      <ScrollPane>
+        <main className="sc-lookpage" id="main">
+          <div className="sc-tplrow" aria-hidden />
+        </main>
+      </ScrollPane>
+    );
+  }
+
   if (!product) {
     return (
       <ScrollPane>
@@ -113,6 +236,28 @@ export function ProductPage() {
   }
 
   const extraShots = (product.shots ?? []).filter((s) => !s.angle || !category.angles.some((a) => a.key === s.angle));
+
+  /**
+   * What the generator will actually send, stated plainly.
+   *
+   * compileBrief attaches up to PRODUCT_REF_MAX images and switches directive
+   * on the count: with more than one it says "the attached product images all
+   * show the exact same product from different angles ... do not redesign it";
+   * with one it falls back to a markedly weaker line. So the number of images
+   * a product has is not cosmetic, and the page should not imply otherwise.
+   * A catalog product cannot be topped up here — the shots route only accepts
+   * products that live in the brand's own products[] — so its advice points at
+   * the store instead of at an upload button that would 404.
+   */
+  const usable = (product.shots ?? []).length;
+  const refNote =
+    usable >= PRODUCT_REF_MAX
+      ? `The first ${PRODUCT_REF_MAX} are what a shot is built from.`
+      : usable > 1
+        ? `Both are used when building a shot. A third angle would pin its shape more tightly.`
+        : isManual
+          ? 'Only one reference, so a shot has to guess at every face it cannot see. Add a second angle below.'
+          : 'Only one image came from your store, so a shot has to guess at every face it cannot see. Add more images to this product in your store, then re-import.';
 
   return (
     <ScrollPane>
@@ -249,12 +394,20 @@ export function ProductPage() {
             })}
           </div>
         ) : (product.shots ?? []).length > 0 ? (
-          <div className="sc-lookpage-refs">
-            {(product.shots ?? []).map((s) => {
-              const url = assetUrl(s.file);
-              return url ? <RefFrame key={s.file} src={url} /> : null;
-            })}
-          </div>
+          <>
+            <div className="sc-lookpage-refs">
+              {(openAll ? (product.shots ?? []) : (product.shots ?? []).slice(0, PRODUCT_REF_MAX)).map((s) => {
+                const url = assetUrl(s.file);
+                return url ? <RefFrame key={s.file} src={url} /> : null;
+              })}
+            </div>
+            <p className="sc-lookpage-note">{refNote}</p>
+            {(product.shots ?? []).length > PRODUCT_REF_MAX && (
+              <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(!openAll)}>
+                {openAll ? 'Enough, close it' : `See all ${(product.shots ?? []).length} images`}
+              </button>
+            )}
+          </>
         ) : (
           <EmptyRefFrame />
         )}

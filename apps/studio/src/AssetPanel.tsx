@@ -1,6 +1,15 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Box, Button, Callout, Card, Flex, Spinner, Text, TextField } from '@radix-ui/themes';
-import { api, assetUrl, deleteAsset, uploadAsset, type Brand, type CatalogImportJob, type Product } from './api.js';
+import {
+  addProductShot,
+  api,
+  assetUrl,
+  deleteAsset,
+  uploadAsset,
+  type Brand,
+  type CatalogImportJob,
+  type Product,
+} from './api.js';
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { CatalogImportDialog } from './layout/CatalogImportDialog.js';
 
@@ -115,17 +124,35 @@ export const ProductsPanel = forwardRef<
   const matching = needle ? products.filter((p) => (p.name ?? '').toLowerCase().includes(needle)) : products;
   const visible = matching.slice(0, PANEL_CAP);
 
-  const upload = async (file: File) => {
+  /**
+   * Create one product from a set of images.
+   *
+   * The first file creates the product; the rest are appended as extra shots.
+   * This used to take a single file and silently discard anything else dropped,
+   * which meant every uploaded product started life single-image — while
+   * compileBrief wants up to PRODUCT_REF_MAX (3) angles and falls back to a
+   * weaker single-image directive without them.
+   */
+  const upload = async (files: File[]) => {
+    const [first, ...rest] = files;
+    if (!first) return;
     setBusy(true);
     setErr(null);
     // uploadAsset returns the whole updated Brand, not the one new product in
     // productsLibrary's own shape — diff the library instead of trusting order
     const before = new Set(library.map((p) => p.id));
     try {
-      await uploadAsset(brand.id, spec.key, file, name.trim() || file.name.replace(/\.[a-z]+$/i, ''));
+      await uploadAsset(brand.id, spec.key, first, name.trim() || first.name.replace(/\.[a-z]+$/i, ''));
       setName('');
-      const fresh = await loadLibrary();
-      onChanged(fresh.find((p) => !before.has(p.id))?.id);
+      let fresh = await loadLibrary();
+      const createdId = fresh.find((p) => !before.has(p.id))?.id;
+      if (createdId && rest.length) {
+        // Sequential on purpose: each append rewrites the brand JSON, so
+        // parallel writes would race and drop shots.
+        for (const f of rest) await addProductShot(brand.id, createdId, f);
+        fresh = await loadLibrary();
+      }
+      onChanged(createdId);
     } catch (e: any) {
       setErr(String(e.message ?? e));
     } finally {
@@ -188,12 +215,12 @@ export const ProductsPanel = forwardRef<
           e.preventDefault();
           dragDepth.current = 0;
           setDragOver(false);
-          const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'));
-          if (!file) {
+          const images = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
+          if (!images.length) {
             setErr('Drop an image file.');
             return;
           }
-          void upload(file);
+          void upload(images);
         }}
       >
         <TextField.Root
@@ -207,8 +234,12 @@ export const ProductsPanel = forwardRef<
           ref={fileRef}
           type="file"
           accept="image/*"
+          multiple
           hidden
-          onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])}
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            if (files.length) void upload(files);
+          }}
         />
         <button
           type="button"

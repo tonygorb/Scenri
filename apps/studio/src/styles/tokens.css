@@ -825,106 +825,10 @@ select {
   outline-offset: 2px;
 }
 
-/* ---------- credits ----------------------------------------------------------
-   A solid gold slab shouted the least-used control in the bar. At rest this is
-   now just the coin and a number in muted ink; the gold fill is held back for
-   the one state that has to interrupt you, which is running out. */
-.sc-credits-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12.5px;
-  font-weight: 600;
-  border: none;
-  border-radius: var(--sc-radius-full);
-  height: 30px;
-  padding: 0 12px;
-  background: var(--sc-gold);
-  color: var(--sc-gold-ink);
-  cursor: pointer;
-  transition: filter 120ms ease;
-}
-.sc-credits-pill:hover {
-  filter: brightness(1.06);
-}
-.sc-credits-pill[data-low="true"] {
-  background: var(--sc-gold);
-  border-color: transparent;
-  color: var(--sc-gold-ink);
-  font-weight: 600;
-}
-.sc-credits-pill[data-low="true"]:hover {
-  background: var(--sc-gold);
-  filter: brightness(1.06);
-}
-.sc-credits-pill:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
-}
-.sc-credits-pop {
-  width: min(268px, calc(100vw - 24px));
-  padding: 6px;
-}
-.sc-credits-row {
-  padding: 9px 10px;
-  border-radius: var(--sc-radius-sm);
-}
-.sc-credits-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.sc-credits-name {
-  font-size: 12.5px;
-  font-weight: 500;
-  flex: 1;
-  min-width: 0;
-}
-.sc-credits-free {
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border: 1px solid color-mix(in srgb, var(--sc-gold) 45%, transparent);
-  color: var(--sc-star);
-  padding: 1px 8px;
-  border-radius: var(--sc-radius-full);
-  white-space: nowrap;
-}
-.sc-credits-none {
-  font-size: 12px;
-  color: var(--sc-fg2);
-}
-.sc-credits-num {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sc-fg2);
-}
-.sc-credits-meter {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--sc-line);
-  overflow: hidden;
-  margin-top: 6px;
-}
-.sc-credits-meter > div {
-  height: 100%;
-  background: var(--sc-gold);
-}
-.sc-credits-note {
-  font-size: 11.5px;
-  color: var(--sc-fg2);
-  padding: 8px 10px 2px;
-  border-top: 1px solid var(--sc-line);
-  margin: 4px 0 0;
-  line-height: 1.5;
-}
-
 /* ---------- notifications: one place for work in flight --------------------
    Two lists behind one bell. Tasks is what is happening now and what just
    happened; Notifications is the record you can come back to. A row is a
-   thumbnail, a title and one line of fact — the same grammar as the credits
-   rows above, at list scale.
+   thumbnail, a title and one line of fact — list-scale grammar. */
 
    The badge never adds running work to unread history: they are different
    questions and a single number would answer neither. A count means there is
@@ -4183,7 +4087,6 @@ select {
   /* A finger needs 44px; the bar does not. The graphic keeps its size and the
      reach comes from an invisible box centred on it, so nothing grows chunky. */
   .sc-topbar .sc-icon-btn::after,
-  .sc-topbar .sc-credits-pill::after,
   .sc-topbar .sc-avatar-btn::after,
   .sc-topbar .sc-crumb-btn::after {
     content: "";
@@ -4195,7 +4098,6 @@ select {
     height: var(--sc-tap);
     min-width: var(--sc-tap);
   }
-  .sc-topbar .sc-credits-pill,
   .sc-topbar .sc-crumb-btn {
     position: relative;
   }

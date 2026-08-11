@@ -495,7 +495,7 @@ export function DetailOverlay({
  * ingredients are a read of the record rather than a guess from the pixels.
  */
 function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand | null }) {
-  const { scenes, presenters } = useAppData();
+  const { scenes, presenters, demoProducts } = useAppData();
 
   const tokens = brief?.tokens ?? [];
   if (!tokens.length) return null;
@@ -506,7 +506,18 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
   const chips: Chip[] = tokens.flatMap((t: any): Chip[] => {
     if (t?.t === 'product') {
       const p = products.find((x) => x.id === t.id);
-      return [{ key: `p${t.id}`, kind: 'product', label: p?.name ?? 'product', thumb: assetUrl(p?.shots?.[0]?.file) }];
+      // A demo product is not in the brand's own products[] — it is resolved at
+      // generation time — so without this fallback every Scenri Library product
+      // credited itself as the bare word "product".
+      const demo = p ? null : demoProducts.find((x) => x.id === t.id);
+      return [
+        {
+          key: `p${t.id}`,
+          kind: 'product',
+          label: p?.name ?? demo?.name ?? 'product',
+          thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
+        },
+      ];
     }
     if (t?.t === 'character') {
       const c = cast.find((x) => x.id === t.id);

@@ -10,6 +10,9 @@
  *   subscription session (see docs/STRATEGY.md §13).
  */
 
+/** Why a reference image is attached — the compiler's only defence against one image bleeding into a dimension it does not own. */
+export type ReferenceRole = 'product' | 'character' | 'brand' | 'scene' | 'composition' | 'style' | 'reference';
+
 export interface BrandContext {
   /** Parsed brand.json (see @scenri/brand). Injected into generation. */
   brand: unknown;
@@ -22,7 +25,13 @@ export interface GenerateRequest {
   brand: BrandContext;
   referenceImages?: string[];
   /** Role of each entry in `referenceImages`, same order/length when present. */
-  referenceRoles?: ('product' | 'character' | 'reference')[];
+  /**
+   * Parallel to referenceImages: why each image is attached. An adapter turns a
+   * role into a directive, which is what keeps a style reference from steering
+   * composition or a composition reference from recolouring the product.
+   * `reference` is the untyped legacy role.
+   */
+  referenceRoles?: ReferenceRole[];
   width: number;
   height: number;
   count: number;
@@ -44,7 +53,13 @@ export interface EditRequest {
    * assume every reference was a product — so a presenter's face arriving at
    * an edit was described to the model as "the exact product".
    */
-  referenceRoles?: ('product' | 'character' | 'reference')[];
+  /**
+   * Parallel to referenceImages: why each image is attached. An adapter turns a
+   * role into a directive, which is what keeps a style reference from steering
+   * composition or a composition reference from recolouring the product.
+   * `reference` is the untyped legacy role.
+   */
+  referenceRoles?: ReferenceRole[];
 }
 
 export interface EngineResult {

@@ -160,6 +160,10 @@ export const api = {
   /** The reference frames a presenter has on disk, if any. */
   presenterFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/presenter-previews/${id}`),
   demoProducts: () => req<{ demoProducts: DemoProduct[]; categories: string[] }>('GET', '/api/demo-products'),
+  /** A demo product's full angle set. Unlike a presenter's positional ref-0N slots,
+   *  a product's angles are semantic, so each frame carries its key for labelling. */
+  demoProductFrames: (id: string) =>
+    req<{ frames: { angle: string; url: string }[] }>('GET', `/api/demo-product-previews/${id}`),
   showcase: () => req<{ showcase: ShowcaseEntry[]; categories: string[] }>('GET', '/api/showcase'),
   exportPresets: () => req<ExportPreset[]>('GET', '/api/export/presets'),
   previewBrief: (brief: unknown, engineId: string, brandId: string) =>

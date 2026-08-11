@@ -35,24 +35,24 @@ export interface DemoProduct {
 }
 
 /**
- * Category-specific multi-angle reference plan, mirroring
+ * The three identity views every demo product ships, mirroring
  * apps/studio/src/productCategories.ts's `angles` field exactly (kept as a
  * self-contained constant here rather than imported cross-package, same
  * precedent as presenters.ts's own PRESENTER_ANGLES). Every demo product
  * gets one photo per angle key in its category's list.
  */
 export const PRODUCT_ANGLES_BY_CATEGORY: Record<string, string[]> = {
-  fragrance: ['front', 'three-quarter', 'side', 'rear-label', 'cap-detail', 'material-closeup'],
-  footwear: ['lateral-side', 'medial-side', 'top', 'rear', 'three-quarter', 'sole-detail'],
-  apparel: ['front', 'back', 'detail-fabric', 'on-form'],
-  furniture: ['front', 'three-quarter', 'side', 'detail-material', 'in-scale'],
-  beauty: ['front', 'three-quarter', 'applicator-detail', 'label'],
-  electronics: ['front', 'three-quarter', 'side', 'back', 'ports-detail', 'screen-on'],
-  jewelry: ['front', 'three-quarter', 'clasp-detail', 'worn-scale'],
-  accessories: ['front', 'three-quarter', 'detail', 'worn-scale'],
-  beverage: ['front', 'three-quarter', 'label', 'cap-closure'],
-  food: ['front', 'three-quarter', 'ingredient-detail', 'packaging-label'],
-  other: ['front', 'three-quarter', 'side', 'detail'],
+  fragrance: ['three-quarter', 'front', 'side'],
+  footwear: ['three-quarter', 'lateral-side', 'medial-side'],
+  apparel: ['front', 'back', 'detail-fabric'],
+  furniture: ['three-quarter', 'front', 'side'],
+  beauty: ['three-quarter', 'front', 'label'],
+  electronics: ['three-quarter', 'front', 'back'],
+  jewelry: ['three-quarter', 'front', 'clasp-detail'],
+  accessories: ['three-quarter', 'front', 'detail'],
+  beverage: ['three-quarter', 'front', 'label'],
+  food: ['three-quarter', 'front', 'packaging-label'],
+  other: ['three-quarter', 'front', 'side'],
 };
 
 /** The "slightly dimensional, not flat" angle used as the card/chip thumbnail — three-quarter where the category has one, else front. */

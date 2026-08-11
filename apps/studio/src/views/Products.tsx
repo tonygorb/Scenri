@@ -177,7 +177,14 @@ export function ProductsView() {
                 <div className="sc-eyebrow">Or start from our Scenri Library</div>
                 <div className="sc-masonry">
                   {demoProducts.map((p) => (
-                    <DemoProductCard key={p.id} product={p} variant="use" onUse={applyProduct} size="grid" />
+                    <DemoProductCard
+                      key={p.id}
+                      product={p}
+                      variant="use"
+                      onUse={applyProduct}
+                      onOpen={(id) => navigate(productPath(brand, id))}
+                      size="grid"
+                    />
                   ))}
                 </div>
               </div>

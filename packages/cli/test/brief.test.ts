@@ -131,7 +131,10 @@ describe('compileBrief', () => {
     };
     const r = compileBrief(brief, ctx());
     expect(r.prompt).toContain('hero shot of House Blend on marble');
-    expect(r.prompt).toContain('preserve its label, shape and colors');
+    // Phrasing varies by confidence tier (see productFidelityDirective); assert the
+    // contract — the product is named as exact and must not be redesigned.
+    expect(r.prompt).toMatch(/preserve its label, shape[^.]*colors/i);
+    expect(r.prompt).toMatch(/do not redesign it/i);
     // `essential: true` marks the identity-carrying reference — the one a
     // tight engine cap must never shed.
     expect(r.attachments).toEqual([{ role: 'product', label: 'House Blend', hash: productHash, essential: true }]);

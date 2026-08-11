@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react';
 import { useLocation, useMatch, useNavigate } from 'react-router';
 import { FilmSlate, House, IdentificationBadge, Package, PlusCircle, UsersThree } from '@phosphor-icons/react';
-import { assetUrl, type Brand, type EngineInfo } from '../api.js';
+import { assetUrl, type Brand } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { P, brandPath, hubPath, kitPath, scenesPath, presentersPath, productsPath } from '../routes.js';
 
 /**
- * The five destinations, and the credit maths, shared by the bar and the sheet.
- * They live here rather than in TopBar so the two navs cannot drift: a label or
- * an active rule fixed in one is fixed in both.
+ * The five destinations, shared by the bar and the sheet. They live here rather
+ * than in TopBar so the two navs cannot drift: a label or an active rule fixed
+ * in one is fixed in both.
  */
 export interface NavItem {
   key: string;
@@ -98,27 +98,6 @@ export function useMainNav(iconSize: number): NavItem[] {
       go: () => navigate(kitPath(brand)),
     },
   ];
-}
-
-export interface CreditsSummary {
-  left: number;
-  total: number;
-  low: boolean;
-  freeOnly: boolean;
-  label: string;
-}
-
-/**
- * Credits, not dollars: chrome speaks in generations remaining. Free engines
- * never count, so a machine running only free engines reads as abundance.
- */
-export function summarizeCredits(engines: EngineInfo[]): CreditsSummary {
-  const metered = engines.filter((e) => !e.free && e.generationsLeft !== null);
-  const left = metered.reduce((s, e) => s + (e.generationsLeft ?? 0), 0);
-  const total = metered.reduce((s, e) => s + (e.generationsTotal ?? 0), 0);
-  const pct = total > 0 ? Math.max(0, Math.min(1, left / total)) : 1;
-  const freeOnly = metered.length === 0;
-  return { left, total, low: total > 0 && pct < 0.15, freeOnly, label: freeOnly ? 'Unlimited' : `${left} left` };
 }
 
 export const brandName = (b: Brand): string => b.json?.meta?.name ?? b.slug;
