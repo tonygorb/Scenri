@@ -20,8 +20,10 @@ export const PREF = {
   assetsOpen: 'scenri:assets-open',
   /** Which single asset group is expanded into the accordion's open pane, if any. */
   assetsOpenGroup: 'scenri:assets-open-group',
-  /** Target column width for the feed, in px, from the grid-size slider. */
+  /** Create feed tile width in px (continuous slider). */
   tileSize: 'scenri:tile-size',
+  /** Catalog wall density: compact (7) | large (5). */
+  wallDensity: 'scenri:wall-density',
 } as const;
 
 function read<T>(key: string, fallback: T): T {

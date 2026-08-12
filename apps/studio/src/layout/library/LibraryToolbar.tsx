@@ -14,6 +14,7 @@ export function LibraryToolbar({
   active,
   summary,
   onClear,
+  density,
   search,
   action,
 }: {
@@ -22,6 +23,8 @@ export function LibraryToolbar({
   active?: boolean;
   summary?: ReactNode;
   onClear?: () => void;
+  /** Shared grid density — Compact / Comfortable / Large. */
+  density?: ReactNode;
   search?: ReactNode;
   action?: ReactNode;
 }) {
@@ -32,6 +35,7 @@ export function LibraryToolbar({
       {filters}
 
       <div className="sc-filterbar-actions">
+        {density}
         {active && (
           <span className="sc-lib-count">
             {summary}

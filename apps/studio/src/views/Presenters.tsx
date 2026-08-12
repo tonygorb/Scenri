@@ -7,6 +7,8 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { presenterPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
+import { DensityControl, densityWallStyle } from '../layout/DensityControl.js';
+import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
 import { LibraryEmpty } from '../layout/library/LibraryEmpty.js';
@@ -14,6 +16,7 @@ import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { PREF, useLocalPref } from '../prefs.js';
 
 /** Below this, a search box has nothing worth narrowing — the whole set is one screenful. */
 const SEARCH_MIN = 8;
@@ -34,6 +37,10 @@ export function PresentersView() {
   const applyPresenter = useApplyPresenter();
   const { q, setQ, facets, setFacet, active, clear } = useLibraryQuery(['category']);
   const category = facets.category;
+  const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
+  const density = normalizeDensity(tile);
+  const setDensity = (cols: DensityCols) => setTile(cols);
+  const wallStyle = densityWallStyle(density);
 
   const openPresenter = (id: string) => navigate(presenterPath(brand, id));
 
@@ -80,6 +87,7 @@ export function PresentersView() {
           active={active}
           summary={`Showing ${filtered.length} of ${presenters.length}`}
           onClear={clear}
+          density={<DensityControl value={density} onChange={setDensity} />}
           search={
             presenters.length >= SEARCH_MIN && (
               <TextField.Root
@@ -103,7 +111,7 @@ export function PresentersView() {
         />
 
         {!presentersLoaded && (
-          <div className="sc-masonry" aria-hidden>
+          <div className="sc-masonry" data-density style={wallStyle} aria-hidden>
             <PresenterCardSkeleton size="grid" count={8} />
           </div>
         )}
@@ -118,7 +126,7 @@ export function PresentersView() {
         )}
 
         {presentersLoaded && !presentersError && visible.length > 0 && (
-          <div className="sc-masonry" data-wall>
+          <div className="sc-masonry" data-wall data-density style={wallStyle}>
             {visible.map((p) => (
               <PresenterCard
                 key={p.id}

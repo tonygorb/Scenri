@@ -12,7 +12,10 @@ import { useBrand } from '../app/BrandLayout.js';
 import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
+import { PREF, useLocalPref } from '../prefs.js';
 import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
+import { DensityControl, densityWallStyle } from '../layout/DensityControl.js';
+import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
@@ -51,6 +54,11 @@ export function HomeView() {
   const applyScene = useApplyScene();
   const [categoryParam, setCategory] = useFilterParam('category');
   const category = categoryParam || null;
+  /** Shared wall density (compact | large) — separate from Create’s tile slider. */
+  const [densityRaw, setDensityRaw] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
+  const density = normalizeDensity(densityRaw);
+  const setDensity = (cols: DensityCols) => setDensityRaw(cols);
+  const wallStyle = densityWallStyle(density);
 
   /** Every way in lands on the same hub, differing only in what it carries. */
   const toCreate = (qs?: Record<string, string>) => {
@@ -221,7 +229,7 @@ export function HomeView() {
         </div>
 
         {!showcaseLoaded && (
-          <div className="sc-masonry" aria-hidden>
+          <div className="sc-masonry" data-density style={wallStyle} aria-hidden>
             <ShowcaseCardSkeleton size="grid" count={8} />
           </div>
         )}
@@ -237,10 +245,15 @@ export function HomeView() {
 
         {showcaseLoaded && !showcaseError && showcase.length > 0 && (
           <>
-            <VerticalsTabs aria-label="Categories" activeKey={category} items={categoryTabs} onSelect={setCategory} />
+            <div className="sc-filterbar">
+              <VerticalsTabs aria-label="Categories" activeKey={category} items={categoryTabs} onSelect={setCategory} />
+              <div className="sc-filterbar-actions">
+                <DensityControl value={density} onChange={setDensity} />
+              </div>
+            </div>
 
             {shownShowcase.length > 0 && (
-              <div className="sc-masonry" data-wall>
+              <div className="sc-masonry" data-wall data-density style={wallStyle}>
                 {shownShowcase.map((s) => (
                   <ShowcaseCard
                     key={s.id}

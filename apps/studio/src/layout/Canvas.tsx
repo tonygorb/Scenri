@@ -84,7 +84,7 @@ export function Canvas({
   versionsOf?: (id: string) => number;
   /** Look at just this shot and what came from it. */
   onVersions?: (id: string) => void;
-  /** Target column width in px, from the grid-size slider. */
+  /** Target column width in px, from Create’s grid-size slider. */
   tile: number;
 }) {
   const shots = nodes.filter((n) => n.kind !== 'root');

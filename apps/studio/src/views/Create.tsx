@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
 import { Callout, DropdownMenu } from '@radix-ui/themes';
-import { ArrowUpRight, CaretDown, FolderSimple, Plus, SquaresFour } from '@phosphor-icons/react';
+import { ArrowUpRight, CaretDown, FolderSimple, Plus } from '@phosphor-icons/react';
 import {
   api,
   hasNoShots,
@@ -31,6 +31,8 @@ import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import type { InspectorTab } from '../layout/Inspector.js';
 import { SceneCard } from '../layout/SceneCard.js';
+import { FeedDensitySlider } from '../layout/DensityControl.js';
+import { TILE_DEFAULT } from '../layout/masonry.js';
 import { useArchiveNode } from '../useArchiveNode.js';
 import { useDeleteNode } from '../useDeleteNode.js';
 
@@ -69,16 +71,6 @@ export interface ShotContext {
 
 /** The lenses that are not places. A set is a place and lives in the path. */
 type Lens = 'all' | 'keepers' | 'ungrouped' | 'archived';
-
-/**
- * Grid size, as a target column width. The feed fits as many of these as it can
- * and shares out the remainder, so this is a floor rather than an exact size.
- * The default lands four columns on a 1440 screen; the old fixed value managed
- * two and left a third of the width empty.
- */
-const TILE_MIN = 160;
-const TILE_MAX = 420;
-const TILE_DEFAULT = 240;
 
 /**
  * The hub: everything this brand has made, and the brief that makes more.
@@ -127,7 +119,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [lineageId, setLineageId] = useFilterParam('lineage', '');
   /** Runs opened out into their variants. Not in the URL: it is a glance. */
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  /** How big the tiles are. A preference, not a location, so it lives on the machine. */
+  /** How big the feed tiles are (px). Create-only preference. */
   const [tile, setTile] = useLocalPref(PREF.tileSize, TILE_DEFAULT);
   const [compareOpen, setCompareOpen] = useState(false);
   const [iParam, setIParam] = useFilterParam('i', '0');
@@ -1137,22 +1129,7 @@ function FeedToolbar({
         {count} shot{count === 1 ? '' : 's'}
       </span>
 
-      {/* A real range input: keyboard operable for free, and the only control
-          here that a phone has no room to drag, so CSS hides it there. */}
-      <label className="sc-density">
-        <SquaresFour size={13} />
-        <input
-          type="range"
-          min={TILE_MIN}
-          max={TILE_MAX}
-          step={20}
-          value={tile}
-          aria-label="Grid size"
-          // right is bigger, which is the way every zoom control works. No
-          // inversion: the value on the input is the tile width, full stop.
-          onChange={(e) => onTile(Number(e.target.value))}
-        />
-      </label>
+      <FeedDensitySlider value={tile} onChange={onTile} />
     </div>
   );
 }

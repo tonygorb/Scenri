@@ -8,6 +8,8 @@ import { useBrand } from '../app/BrandLayout.js';
 import { scenePath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
+import { DensityControl, densityWallStyle } from '../layout/DensityControl.js';
+import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
 import { LibraryEmpty } from '../layout/library/LibraryEmpty.js';
@@ -15,6 +17,7 @@ import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { PREF, useLocalPref } from '../prefs.js';
 
 /** Below this, a search box has nothing worth narrowing — the whole set is one screenful. */
 const SEARCH_MIN = 8;
@@ -38,6 +41,10 @@ export function ScenesView() {
   const { q, setQ, facets, setFacet, active, clear } = useLibraryQuery(['vertical']);
   const vertical = facets.vertical;
   const searching = q.trim().length > 0;
+  const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
+  const density = normalizeDensity(tile);
+  const setDensity = (cols: DensityCols) => setTile(cols);
+  const wallStyle = densityWallStyle(density);
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
@@ -80,6 +87,7 @@ export function ScenesView() {
           active={active}
           summary={`Showing ${filtered.length} of ${scenes.length}`}
           onClear={clear}
+          density={<DensityControl value={density} onChange={setDensity} />}
           search={
             scenes.length >= SEARCH_MIN && (
               <TextField.Root
@@ -103,7 +111,7 @@ export function ScenesView() {
         />
 
         {!loaded && (
-          <div className="sc-masonry" aria-hidden>
+          <div className="sc-masonry" data-density style={wallStyle} aria-hidden>
             <SceneCardSkeleton size="grid" count={8} />
           </div>
         )}
@@ -133,7 +141,7 @@ export function ScenesView() {
                     </button>
                   ))}
                 </div>
-                <div className="sc-masonry">
+                <div className="sc-masonry" data-density style={wallStyle}>
                   {inCollection.map((s) => (
                     <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
                   ))}
@@ -143,7 +151,7 @@ export function ScenesView() {
           })}
 
         {loaded && !error && searching && visible.length > 0 && (
-          <div className="sc-masonry" data-wall>
+          <div className="sc-masonry" data-wall data-density style={wallStyle}>
             {visible.map((s) => (
               <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
             ))}

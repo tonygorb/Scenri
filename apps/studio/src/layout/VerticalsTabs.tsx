@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
-import { runTabTransition } from "./tabTransition.js";
 
 export interface VerticalsTabItem {
   /** `null` is the "all / every" clear option. */
@@ -14,7 +13,8 @@ function isSelected(activeKey: string | null, value: string | null): boolean {
 
 /**
  * Category / facet rail — one scrollport, pinned edge fades, sliding ink.
- * Kept lean for touch: no scroll-snap, no per-frame ink work, no VT on mobile.
+ * Kept lean for touch: no scroll-snap, no per-frame ink work.
+ * Grid updates instantly (no view-transition) so filtered images don't blink.
  */
 export function VerticalsTabs({
   "aria-label": ariaLabel,
@@ -154,7 +154,7 @@ export function VerticalsTabs({
 
   const select = (value: string | null) => {
     if (isSelected(activeKey, value)) return;
-    runTabTransition(() => onSelect(value));
+    onSelect(value);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {

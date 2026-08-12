@@ -2147,20 +2147,85 @@ select {
   flex: none;
 }
 
-/* Grid size. Hidden on a phone, where there is no room to drag anything and
-   the column count is not really a choice. */
-.sc-density {
+/* Create feed — continuous tile-width slider (original). Hidden on phone. */
+.sc-feed-density {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   color: var(--sc-fg3);
 }
-.sc-density input {
+.sc-feed-density input {
   width: 96px;
   accent-color: var(--sc-fg);
   cursor: pointer;
 }
+
+/* Catalog walls — two-view icon toggle (compact ↔ large). Sliding pill + VT. */
+.sc-density {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--sc-well);
+  border: 1px solid var(--sc-line);
+}
+.sc-density-ink {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: var(--sc-density-w, 0px);
+  border-radius: 7px;
+  background: var(--sc-raised);
+  box-shadow: 0 0 0 1px var(--sc-line);
+  pointer-events: none;
+  z-index: 0;
+  transform: translate3d(var(--sc-density-x, 0px), 0, 0);
+}
+.sc-density[data-ink-ready] .sc-density-ink {
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sc-density-opt {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.sc-density-opt:hover {
+  color: var(--sc-fg2);
+}
+.sc-density-opt[data-on] {
+  color: var(--sc-fg);
+}
+.sc-density-opt:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-density-icon {
+  display: block;
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-density[data-ink-ready] .sc-density-ink,
+  .sc-density-opt {
+    transition: none;
+  }
+}
 @media (max-width: 767px) {
+  .sc-feed-density,
   .sc-density {
     display: none;
   }
@@ -5130,44 +5195,13 @@ select {
   grid-template-columns: repeat(auto-fill, minmax(var(--sc-tile), 1fr));
   gap: 14px;
 }
-/* Tab/filter wall: named view-transition target. Root VT is silenced so only
-   the grid crossfades — tabs and chrome stay put. */
-.sc-masonry[data-wall] {
-  view-transition-name: sc-wall;
-}
-@supports (view-transition-name: none) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation: none;
-  }
-  ::view-transition-group(sc-wall) {
-    animation-duration: 280ms;
-    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
-  }
-  ::view-transition-old(sc-wall) {
-    animation: sc-wall-out 180ms ease-out both;
-  }
-  ::view-transition-new(sc-wall) {
-    animation: sc-wall-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-}
-@keyframes sc-wall-out {
-  to {
-    opacity: 0;
-  }
-}
-@keyframes sc-wall-in {
-  from {
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sc-masonry[data-wall] {
-    view-transition-name: none;
-  }
-  ::view-transition-old(sc-wall),
-  ::view-transition-new(sc-wall) {
-    animation: none !important;
+/* Prefer ≤N columns from --sc-wall-cols (DensityControl). Mobile rules below 761px. */
+@media (min-width: 761px) {
+  .sc-masonry[data-density] {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))), 1fr)
+    );
   }
 }
 /* ---- LookCard (docs/product/patterns/look-card.md) ----

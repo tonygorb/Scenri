@@ -11,6 +11,8 @@ import { ProductCard, ProductCardSkeleton } from '../layout/ProductCard.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { ProductsPanel, type ProductsPanelHandle } from '../AssetPanel.js';
 import { PRODUCT_CATEGORIES, categoryLabel, effectiveCategory } from '../productCategories.js';
+import { DensityControl, densityWallStyle } from '../layout/DensityControl.js';
+import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
 import { LibraryEmpty } from '../layout/library/LibraryEmpty.js';
@@ -18,6 +20,7 @@ import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { PREF, useLocalPref } from '../prefs.js';
 
 /** Below this, a search box has nothing worth narrowing — the whole set is one screenful. */
 const SEARCH_MIN = 8;
@@ -42,6 +45,10 @@ export function ProductsView() {
   const [addOpen, setAddOpen] = useState(false);
   const [addInitial, setAddInitial] = useState<'upload' | 'import'>('upload');
   const panelRef = useRef<ProductsPanelHandle>(null);
+  const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
+  const density = normalizeDensity(tile);
+  const setDensity = (cols: DensityCols) => setTile(cols);
+  const wallStyle = densityWallStyle(density);
 
   const withCategory = useMemo(() => products.map((p) => ({ product: p, category: effectiveCategory(p) })), [products]);
 
@@ -135,6 +142,7 @@ export function ProductsView() {
             active={active}
             summary={`Showing ${filtered.length} of ${products.length}`}
             onClear={clear}
+            density={<DensityControl value={density} onChange={setDensity} />}
             search={
               products.length >= SEARCH_MIN && (
                 <TextField.Root
@@ -157,7 +165,7 @@ export function ProductsView() {
         )}
 
         {!loaded && (
-          <div className="sc-masonry" aria-hidden>
+          <div className="sc-masonry" data-density style={wallStyle} aria-hidden>
             <ProductCardSkeleton size="grid" count={8} />
           </div>
         )}
@@ -207,7 +215,7 @@ export function ProductsView() {
         )}
 
         {loaded && visible.length > 0 && (
-          <div className="sc-masonry" data-wall>
+          <div className="sc-masonry" data-wall data-density style={wallStyle}>
             {visible.map((p) => (
               <ProductCard key={p.id} product={p} variant="use" size="grid" onOpen={openProduct} onUse={applyProduct} />
             ))}

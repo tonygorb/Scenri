@@ -3,11 +3,32 @@ import { useEffect, useState } from 'react';
 /** The gutter between tiles, matching `.sc-cell`'s own bottom margin. */
 export const GAP = 14;
 
-/** Below this a masonry feed has no room for a grid-size slider (Create's own
- * `.sc-density` disappears at this width in tokens.css) and falls back to a
+/** Below this a masonry feed has no room for a grid-size control (Create's own
+ * `.sc-feed-density` disappears at this width in tokens.css) and falls back to a
  * forced 2-column layout instead of inheriting a fixed tile width no phone
  * screen could fit. */
 export const PHONE = 768;
+
+/** Create feed only — continuous tile-width slider (px). */
+export const TILE_MIN = 160;
+export const TILE_MAX = 420;
+export const TILE_DEFAULT = 240;
+
+/**
+ * Catalog walls only (Home / Products / Presenters / Scenes).
+ * Two views: compact (~7 across) and large (~5 across).
+ */
+export const DENSITY_STAGES = [7, 5] as const;
+export type DensityCols = (typeof DENSITY_STAGES)[number];
+export const DENSITY_DEFAULT: DensityCols = 5;
+
+/** Map a stored wall-density pref onto compact | large. */
+export function normalizeDensity(raw: unknown): DensityCols {
+  const n = typeof raw === 'number' ? raw : DENSITY_DEFAULT;
+  if (n === 7 || n === 5) return n;
+  if (n === 6) return 5;
+  return DENSITY_DEFAULT;
+}
 
 /** An element's own content width, watched — the column maths needs the real
  * one, not the viewport's, since a sidebar or panel can narrow it independent
@@ -40,19 +61,13 @@ export function useViewportWidth(): number {
 }
 
 /**
- * How wide a tile actually is, and how many fit.
+ * Create feed layout from a preferred tile width in px.
  *
- * `columns: auto <width>` balances column *height*, so a few tall tiles can
- * pack two columns and leave a third empty. Counting here instead fills the
- * row, with a fixed column width rather than a stretched one, matched by
- * every feed that shares this (Create's Canvas, Home's recent work) so a
- * masonry grid looks and behaves the same wherever it appears.
+ * Fits as many columns as will hold that width; on phone forces two columns
+ * so a desktop slider value never overflows a small screen.
  */
 export function masonryLayout(width: number, tile: number, phoneMode: boolean): { tile: number; cols: number } {
   if (width <= 0) return { tile, cols: 1 };
-  // A phone has no slider — there is no room to drag one — so it must not
-  // inherit whatever size a desktop session left behind, and a fixed column
-  // width from that session would simply overflow the screen.
   if (phoneMode) {
     return { tile: Math.floor((width - GAP) / 2), cols: 2 };
   }
