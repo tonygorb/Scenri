@@ -8,6 +8,7 @@ import {
   brandJsonWithResolvedPresenters,
   loadPresenters,
   presenterFacetsOf,
+  presenterAvatarPath,
   presenterRefPath,
   type Presenter,
 } from './presenters.js';
@@ -355,11 +356,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const presentersDir = join(templatesRoot, 'presenters');
   const { presenters } = loadPresenters(presentersDir);
   const presenterThumbPath = (id: string) => join(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
+  const avatarPath = (id: string) => presenterAvatarPath(templatesRoot, id);
   const decoratePresenter = (p: Presenter) => ({
     ...p,
     previewUrl: existsSync(presenterThumbPath(p.id))
       ? `/api/presenter-thumbnails/${p.id}.jpg${mtimeQS(presenterThumbPath(p.id))}`
       : null,
+    // Square portrait for small/square surfaces. Null when absent so every
+    // consumer can fall back to previewUrl and nothing breaks without one.
+    avatarUrl: existsSync(avatarPath(p.id)) ? `/api/presenter-avatars/${p.id}.jpg${mtimeQS(avatarPath(p.id))}` : null,
   });
   app.get('/api/presenters', async () => ({
     presenters: presenters.map(decoratePresenter),
@@ -369,6 +374,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
     if (!m || !existsSync(presenterThumbPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
     return serveJpeg(req, reply, presenterThumbPath(m[1]));
+  });
+  app.get('/api/presenter-avatars/:file', async (req, reply) => {
+    const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
+    if (!m || !existsSync(avatarPath(m[1]))) return reply.status(404).send({ error: 'no avatar' });
+    return serveJpeg(req, reply, avatarPath(m[1]));
   });
   // A presenter's reference set: the same 4-angle identity plan every time.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.

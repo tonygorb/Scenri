@@ -527,7 +527,7 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
           key: `h${t.id}`,
           kind: 'presenter',
           label: c?.name ?? pr?.name ?? 'someone',
-          thumb: c ? assetUrl(c?.shots?.[0]?.file) : (pr?.previewUrl ?? null),
+          thumb: c ? assetUrl(c?.shots?.[0]?.file) : (pr?.avatarUrl ?? pr?.previewUrl ?? null),
         },
       ];
     }

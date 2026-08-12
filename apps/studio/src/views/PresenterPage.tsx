@@ -114,7 +114,9 @@ export function PresenterPage() {
   const visibleRefs = openAll ? refs : refs.slice(0, FRONT_ANGLES);
   const frames = refs.length ? visibleRefs : presenter.previewUrl ? [presenter.previewUrl] : [];
   const others = presenters.filter((p) => p.id !== presenter.id).slice(0, 8);
-  const avatarSrc = presenter.previewUrl ?? refs[0] ?? null;
+  // A real square portrait needs no cropping trickery; the 4:5 fallback still does.
+  const hasAvatar = Boolean(presenter.avatarUrl);
+  const avatarSrc = presenter.avatarUrl ?? presenter.previewUrl ?? refs[0] ?? null;
 
   return (
     <ScrollPane>
@@ -128,7 +130,7 @@ export function PresenterPage() {
         </div>
 
         {avatarSrc ? (
-          <div className="sc-presenterpage-avatar" aria-hidden>
+          <div className="sc-presenterpage-avatar" data-avatar={hasAvatar || undefined} aria-hidden>
             <img src={avatarSrc} alt="" />
           </div>
         ) : null}

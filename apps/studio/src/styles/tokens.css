@@ -5444,55 +5444,206 @@ select {
   }
 }
 
-/* ---- showcase tile: a positioning wrapper around CatalogCard so the
-   presenter badge can sit on top without CatalogCard knowing showcase
-   entries exist. Always visible, unlike the card's own hover-only caption —
-   a cast credit, not a detail that waits for a hover. */
+/* ---- showcase tile: presenter glass pill + bare recipe thumbs.
+   Credits sit *outside* .sc-lookcard. While the pointer (or chip focus) is
+   anywhere on the tile, keep the card fully hot: image zoom + veil +
+   caption + use — lookcard:hover alone is not enough. */
 .sc-showcase-tile {
   position: relative;
 }
-/* Top-left on the thumbnail: on desktop the hover caption fills the bottom
-   edge; on touch the caption is a footer below, so the badge stays clear
-   either way. Top-right is taken by the select tick. */
-.sc-showcase-badge {
+.sc-showcase-tile:has(.sc-credit-tip[data-open]) {
+  z-index: 5;
+}
+@media (hover: hover) {
+  .sc-showcase-tile:hover .sc-lookcard img,
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard img {
+    transform: scale(1.03);
+  }
+  .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-veil,
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-veil {
+    opacity: 1;
+  }
+  .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-cap,
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-cap {
+    opacity: 1;
+    transform: none;
+  }
+  .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-use,
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-use {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+  }
+}
+.sc-showcase-chips {
   position: absolute;
   left: 9px;
   top: 9px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.sc-showcase-chips > .sc-showcase-badge,
+.sc-showcase-chips > .sc-credit-tip {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  flex: none;
+}
+/* Sit to the right of the presenter (or at the origin when there's no presenter). */
+.sc-showcase-recipe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+}
+.sc-showcase-chips:has(> .sc-credit-tip) .sc-showcase-recipe {
+  left: calc(100% + 3px);
+  top: 50%;
+  translate: 0 -50%;
+}
+.sc-showcase-recipe .sc-credit-tip {
+  pointer-events: none;
+}
+.sc-showcase-tile:hover .sc-showcase-recipe .sc-credit-tip,
+.sc-showcase-recipe:focus-within .sc-credit-tip,
+.sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-credit-tip {
+  pointer-events: auto;
+}
+.sc-showcase-recipe .sc-showcase-chip {
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  transform: translate3d(-6px, 0, 0);
+  pointer-events: none;
+  transition:
+    opacity 0.22s ease,
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* Closing: scene first, then product. */
+.sc-showcase-recipe .sc-showcase-chip[data-step='1'] {
+  transition-delay: 0.04s;
+}
+.sc-showcase-recipe .sc-showcase-chip[data-step='2'] {
+  transition-delay: 0s;
+}
+.sc-showcase-recipe:focus-within .sc-showcase-chip {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+@media (hover: hover) {
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    pointer-events: auto;
+  }
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip[data-step='1'] {
+    transition-delay: 0.02s;
+  }
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip[data-step='2'] {
+    transition-delay: 0.08s;
+  }
+}
+@media (hover: none) {
+  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-showcase-chip {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-showcase-recipe .sc-showcase-chip {
+    transform: none;
+    transition: opacity 0.15s ease;
+  }
+}
+
+/* Credit hover preview — portaled fixed glass.
+   Glass lives on the fixed pop itself (body child): no opacity animation,
+   no transform/translate — those prevent backdrop-filter from sampling. */
+.sc-credit-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.sc-credit-tip-pop {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 88px;
+  padding: 5px;
+  border-radius: 12px;
+  pointer-events: none;
+  /* Same live glass as .sc-showcase-badge */
+  background: rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  /* Dual hairline until data-ring lands — same smart edge as .sc-showcase-chip */
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.38),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 0 0 1px rgba(0, 0, 0, 0.22);
+  transition: box-shadow 0.25s ease;
+}
+.sc-credit-tip-pop[data-ring='light'] {
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.38),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.48);
+}
+.sc-credit-tip-pop[data-ring='dark'] {
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.38),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
+    0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.sc-credit-tip-card {
+  display: contents;
+}
+.sc-credit-tip-card img {
+  width: 78px;
+  height: 78px;
+  object-fit: cover;
+  display: block;
+  border-radius: 8px;
+}
+.sc-credit-tip-role {
+  display: block;
+  padding: 0 1px 1px;
+  color: rgba(255, 255, 255, 0.92);
+  font: 500 10px/1.2 var(--sc-font);
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+/* Presenter — live glass (always on-screen). */
+.sc-showcase-badge {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 2.5px 10px 2.5px 2.5px;
+  border: none;
+  box-shadow: none;
   border-radius: var(--sc-radius-full);
-  /* Authentic glass: let the blur do the work and keep the fill nearly
-     transparent so the chip takes its colour from the photograph beneath.
-     An inset highlight and a bright border were what made this read as
-     frosted plastic — a real lens over an image has neither. */
   background: rgba(0, 0, 0, 0.22);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.92);
   font: 500 11px var(--sc-font);
   letter-spacing: 0.005em;
-  /* A plain credit is inert; the linked variant below opts back in. */
-  pointer-events: none;
   text-align: left;
-}
-/* Linked cast credit: clickable through to the presenter page, and it takes
-   its own clicks rather than letting them fall through to the card, which
-   would start a generation recipe instead. Hover only deepens the tint — the
-   chip never moves or scales over the photography it sits on. */
-.sc-showcase-badge[data-link] {
-  pointer-events: auto;
-  cursor: pointer;
   transition: background 0.18s ease;
-}
-.sc-showcase-badge[data-link]:hover {
-  background: rgba(0, 0, 0, 0.38);
-}
-.sc-showcase-badge[data-link]:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.85);
-  outline-offset: 2px;
 }
 .sc-showcase-badge img {
   width: 19px;
@@ -5500,6 +5651,54 @@ select {
   border-radius: 50%;
   object-fit: cover;
   flex: none;
+}
+/* Product / scene — bare circular thumbs. Ring contrasts the hero under the
+   credits: sampled luminance sets data-ring on the tile; until then a dual
+   hairline so the edge always reads on any photo. */
+.sc-showcase-chip {
+  display: block;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  overflow: hidden;
+  background: transparent;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 0 0 1px rgba(0, 0, 0, 0.22);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transition: box-shadow 0.25s ease;
+}
+.sc-showcase-tile[data-ring='light'] .sc-showcase-chip {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.48);
+}
+.sc-showcase-tile[data-ring='dark'] .sc-showcase-chip {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.sc-showcase-chip img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.sc-showcase-badge[data-link],
+.sc-showcase-chip[data-link] {
+  cursor: pointer;
+}
+.sc-showcase-badge[data-link]:hover {
+  background: rgba(0, 0, 0, 0.38);
+}
+.sc-showcase-chip[data-link]:hover {
+  filter: brightness(0.92);
+}
+.sc-showcase-badge[data-link]:focus-visible,
+.sc-showcase-chip[data-link]:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
 }
 
 .sc-looks-empty {
@@ -5611,11 +5810,16 @@ select {
   height: 100%;
   display: block;
   object-fit: cover;
-  /* Library thumbs are waist-up 4:5 — zoom hard into the head so the
-     circle reads as a face portrait, not a tiny torso. */
+  /* Fallback only: a waist-up 4:5 library thumb has to be zoomed hard into the
+     head or the circle reads as a tiny torso. */
   object-position: 50% 0%;
   transform: scale(3.2);
   transform-origin: 50% 16%;
+}
+.sc-presenterpage-avatar[data-avatar] img {
+  /* A square head-and-shoulders portrait already fills the circle. */
+  object-position: 50% 50%;
+  transform: none;
 }
 .sc-lookpage h1 {
   font: 600 42px / 1.14 var(--sc-font);

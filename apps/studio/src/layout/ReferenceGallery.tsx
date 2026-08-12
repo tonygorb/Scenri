@@ -84,7 +84,6 @@ export function ShotThumb({ node, onClick }: { node: TreeNode; onClick: () => vo
     <button
       type="button"
       className="sc-lookcard"
-      title={node.prompt}
       aria-label={`Open ${nodeLabel(node)}`}
       onClick={onClick}
     >

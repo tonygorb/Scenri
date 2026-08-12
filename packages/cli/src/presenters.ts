@@ -114,6 +114,16 @@ export function presenterRefPath(templatesRoot: string, id: string, slot: string
 }
 
 /**
+ * The square head-and-shoulders portrait, for UI surfaces that render a presenter
+ * small or square. Deliberately outside PRESENTER_ANGLES: it is a display asset,
+ * not part of the identity plan sent to the engine, so `resolvePresenterImages`
+ * never picks it up and no brief's output changes because it exists.
+ */
+export function presenterAvatarPath(templatesRoot: string, id: string): string {
+  return join(templatesRoot, 'previews', 'presenters', id, 'avatar.jpg');
+}
+
+/**
  * Loads one curated presenter's reference angles into the image store,
  * hashing each on first use. A read-through cache, not a write to any
  * brand's data — nothing here touches `characters[]`.

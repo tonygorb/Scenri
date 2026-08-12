@@ -8,7 +8,7 @@ import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { hubPath, presenterPath, presentersPath, scenesPath } from '../routes.js';
+import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
 import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
@@ -89,16 +89,23 @@ export function HomeView() {
    * actually shows (the product/presenter/scene chips this recipe was built
    * from) against the same catalogs Composer resolves them against. */
   const recipeOf = (entry: (typeof showcase)[number]) => {
-    const productId = entry.brief.tokens.find((t: any) => t.t === 'product')?.id;
+    const productId = entry.brief.tokens.find((t: any) => t.t === 'product')?.id as string | undefined;
     const presenterId = entry.brief.tokens.find((t: any) => t.t === 'character')?.id;
-    const sceneId = entry.brief.tokens.find((t: any) => t.t === 'template')?.id;
+    const sceneId = entry.brief.tokens.find((t: any) => t.t === 'template')?.id as string | undefined;
+    const product = productId ? demoProducts.find((p) => p.id === productId) : undefined;
     const presenter = presenterId ? presenters.find((p) => p.id === presenterId) : undefined;
+    const scene = sceneId ? templates.find((t) => t.id === sceneId) : undefined;
     return {
-      productName: productId ? demoProducts.find((p) => p.id === productId)?.name : null,
+      productName: product?.name ?? null,
+      productPreviewUrl: product?.previewUrl ?? null,
+      productId: product?.id ?? null,
       presenterName: presenter?.name ?? null,
-      presenterPreviewUrl: presenter?.previewUrl ?? null,
+      // .sc-showcase-chip img is a circle — the square portrait fills it cleanly.
+      presenterPreviewUrl: presenter?.avatarUrl ?? presenter?.previewUrl ?? null,
       presenterId: presenter?.id ?? null,
-      sceneName: sceneId ? templates.find((t) => t.id === sceneId)?.name : null,
+      sceneName: scene?.name ?? null,
+      scenePreviewUrl: scene?.previewUrl ?? null,
+      sceneId: scene?.id ?? null,
     };
   };
 
@@ -160,16 +167,13 @@ export function HomeView() {
         anyShowcase('product'),
       // Product in a moment — the volcanic runner we liked earlier
       product:
-        fromShowcaseIds([
-          'voss-rowe-runner-volcanic-ash',
-          'birchwood-salt-flat',
-          'voss-rowe-dune-slip-face',
-        ]) ??
+        fromShowcaseIds(['voss-rowe-runner-volcanic-ash', 'birchwood-salt-flat', 'voss-rowe-dune-slip-face']) ??
         claim(demoProducts.find((p) => p.id === 'voss-rowe-trail-runner')?.previewUrl) ??
         anyShowcase('product'),
-      // Identity ref — Maren's 4:5 front, cropped top in the 1:1 glyph
+      // Identity ref — Maren's square portrait, which fills the 1:1 glyph exactly
       presenter:
-        claim(presenters.find((p) => p.id === 'maren')?.previewUrl) ??
+        claim(presenters.find((p) => p.id === 'maren')?.avatarUrl) ??
+        claim(presenters.find((p) => p.avatarUrl)?.avatarUrl) ??
         claim(presenters.find((p) => p.previewUrl)?.previewUrl) ??
         anyShowcase('character'),
       // Place / light — scene catalog first, then environment-led showcase
@@ -198,12 +202,7 @@ export function HomeView() {
             <CreateGlyph thumbUrl={createThumbs.compose} fallback={<Aperture size={22} weight="fill" />} />
             <b>Create an image</b>
           </button>
-          <ProductsCard
-            brand={brand}
-            onChanged={refresh}
-            count={products.length}
-            thumbUrl={createThumbs.product}
-          />
+          <ProductsCard brand={brand} onChanged={refresh} count={products.length} thumbUrl={createThumbs.product} />
           <ComingSoonCard
             tone="presenter"
             title="Create a presenter"
@@ -235,12 +234,7 @@ export function HomeView() {
 
         {showcaseLoaded && !showcaseError && showcase.length > 0 && (
           <>
-            <VerticalsTabs
-              aria-label="Categories"
-              activeKey={category}
-              items={categoryTabs}
-              onSelect={setCategory}
-            />
+            <VerticalsTabs aria-label="Categories" activeKey={category} items={categoryTabs} onSelect={setCategory} />
 
             {shownShowcase.length > 0 && (
               <div className="sc-masonry" data-wall>
@@ -250,7 +244,9 @@ export function HomeView() {
                     entry={s}
                     size="grid"
                     onOpen={applyShowcase}
+                    onOpenProduct={(id) => navigate(productPath(brand, id))}
                     onOpenPresenter={(id) => navigate(presenterPath(brand, id))}
+                    onOpenScene={(id) => navigate(scenePath(brand, id))}
                     {...recipeOf(s)}
                   />
                 ))}

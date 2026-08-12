@@ -176,7 +176,7 @@ export const BriefInput = forwardRef<
         const c = cast.find((x) => x.id === token.id);
         const p = c ? null : presenters.find((x) => x.id === token.id);
         label = c?.name ?? p?.name ?? 'missing person';
-        thumb = c ? assetUrl(c.shots?.[0]?.file) : (p?.previewUrl ?? null);
+        thumb = c ? assetUrl(c.shots?.[0]?.file) : (p?.avatarUrl ?? p?.previewUrl ?? null);
       } else if (token.t === 'color') {
         label = token.name ?? token.hex;
         swatch = token.hex;
@@ -346,7 +346,7 @@ export const BriefInput = forwardRef<
         group: 'Presenters',
         label: p.name,
         hint: p.descriptor,
-        thumb: p.previewUrl ?? undefined,
+        thumb: p.avatarUrl ?? p.previewUrl ?? undefined,
         run: () => placeRef.current({ t: 'character', id: p.id }),
       })),
       ...templates.map((t) => ({

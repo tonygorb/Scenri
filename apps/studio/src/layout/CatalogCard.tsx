@@ -137,7 +137,7 @@ export function CatalogCard({
       data-armed={armed || undefined}
     >
       <div className="sc-lookcard-media">
-        <button type="button" className="sc-lookcard-open" onClick={handleOpen} title={title}>
+        <button type="button" className="sc-lookcard-open" onClick={handleOpen} aria-label={title}>
           {preview}
           <span className="sc-lookcard-veil" aria-hidden />
         </button>

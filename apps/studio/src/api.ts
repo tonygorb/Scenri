@@ -268,7 +268,14 @@ export interface Presenter {
   negativeConstraints: string[];
   width: number;
   height: number;
+  /** The 4:5 waist-up casting thumbnail. Used by the /presenters grid cards. */
   previewUrl?: string | null;
+  /**
+   * Square head-and-shoulders portrait. Preferred wherever a presenter renders
+   * small or square, because a 1:1 box crops the head off the 4:5 thumbnail.
+   * Null when the presenter has no avatar yet — always fall back to previewUrl.
+   */
+  avatarUrl?: string | null;
 }
 
 /**

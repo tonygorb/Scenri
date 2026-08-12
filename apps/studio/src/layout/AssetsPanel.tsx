@@ -201,8 +201,11 @@ export function AssetsPanel({
       items={fPresenters}
       render={(shown, mode) =>
         shown.map((p: Presenter) => {
-          const thumb = p.previewUrl ? (
-            <img src={p.previewUrl} alt={p.name} loading="lazy" />
+          // .sc-acard-thumb is aspect-ratio: 1 with object-fit: cover, which
+          // crops ~70px off the top of the 4:5 thumbnail — exactly the head.
+          const src = p.avatarUrl ?? p.previewUrl;
+          const thumb = src ? (
+            <img src={src} alt={p.name} loading="lazy" />
           ) : (
             <span className="sc-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
               <ImageSquare size={14} />
@@ -342,7 +345,7 @@ function AssetCard({
   badge?: ReactNode;
 }) {
   return (
-    <button type="button" className="sc-acard" title={title} onClick={onClick}>
+    <button type="button" className="sc-acard" aria-label={title} onClick={onClick}>
       <span className="sc-acard-thumb">
         {thumb}
         {badge && <span className="sc-acard-badge">{badge}</span>}

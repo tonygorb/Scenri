@@ -146,7 +146,7 @@ export function AttachPanel({
           tab: 'Presenters',
           label: pr.name,
           sub: pr.descriptor,
-          thumb: pr.previewUrl ?? null,
+          thumb: pr.avatarUrl ?? pr.previewUrl ?? null,
           recommended: isRecommendedPresenter(pr, activeProductCategory),
           run: () => onToken({ t: 'character', id: pr.id }),
         }),

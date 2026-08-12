@@ -92,6 +92,7 @@ describe('presenter catalog + direct-attach API', () => {
       .toBuffer();
     writeFileSync(join(refDir, 'ref-01.jpg'), jpg);
     writeFileSync(join(refDir, 'ref-02.jpg'), jpg);
+    writeFileSync(join(refDir, 'avatar.jpg'), jpg);
     writeFileSync(join(templatesDir, 'previews', 'presenters', 'sana.jpg'), jpg);
 
     home = mkdtempSync(join(tmpdir(), 'sc-presenter-home-'));
@@ -127,6 +128,23 @@ describe('presenter catalog + direct-attach API', () => {
     expect(body.presenters[0].previewUrl).toMatch(/^\/api\/presenter-thumbnails\/sana\.jpg\?v=\d+$/);
     expect(body.categories).toContain('Beauty');
     expect(body.styles).toContain('Editorial');
+  });
+
+  it('exposes the square avatar without letting it become a reference frame', async () => {
+    const body = (await app.inject({ method: 'GET', url: '/api/presenters' })).json();
+    expect(body.presenters[0].avatarUrl).toMatch(/^\/api\/presenter-avatars\/sana\.jpg\?v=\d+$/);
+
+    const ok = await app.inject({ method: 'GET', url: '/api/presenter-avatars/sana.jpg' });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.headers['content-type']).toBe('image/jpeg');
+    const missing = await app.inject({ method: 'GET', url: '/api/presenter-avatars/nope.jpg' });
+    expect(missing.statusCode).toBe(404);
+
+    // The avatar sits in the same directory as the reference frames but is a UI
+    // asset, not part of the identity plan: it must never show up as a 3rd frame.
+    const frames = (await app.inject({ method: 'GET', url: '/api/presenter-previews/sana' })).json().frames;
+    expect(frames).toHaveLength(2);
+    expect(frames.join(' ')).not.toContain('avatar');
   });
 
   it('serves the thumbnail and 404s an unknown one', async () => {
