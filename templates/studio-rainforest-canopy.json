@@ -1,6 +1,9 @@
 {
   "id": "studio-rainforest-canopy",
-  "name": "Rainforest Canopy Understory",
+  "name": "Rainforest",
+  "promptName": "Rainforest Canopy Understory",
+  "legacyNames": ["Rainforest Canopy Understory"],
+  "keywords": ["rainforest", "jungle", "moss", "canopy", "green", "dappled", "tropical", "botanical", "humid"],
   "description": "The subject rests on a moss-covered root deep in a real rainforest understory, dappled green canopy light breaking through dense overhead foliage in uneven pools while fine humid mist drifts low across the forest floor. Lush, alive, and quietly humid — real jungle, not a green backdrop.",
   "lighting": "Dappled canopy daylight, soft and uneven",
   "subject": "product",

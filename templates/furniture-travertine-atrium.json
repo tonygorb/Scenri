@@ -1,6 +1,8 @@
 {
   "id": "furniture-travertine-atrium",
   "name": "Travertine Atrium",
+  "promptName": "Travertine Atrium",
+  "keywords": ["travertine", "stone", "atrium", "architecture", "cream", "sun patch", "minimal", "luxury"],
   "description": "A double-height atrium clad in warm cream travertine, one hard clerestory sun-patch crossing the pale screed floor. Architecture as co-star, built so a large piece reads at true scale and silhouette.",
   "lighting": "Hard clerestory sun-patch with deep travertine bounce fill",
   "subject": "either",

@@ -1,6 +1,9 @@
 {
   "id": "studio-molten-sugar-pull",
-  "name": "Molten Sugar Pull",
+  "name": "Sugar Pull",
+  "promptName": "Molten Sugar Pull",
+  "legacyNames": ["Molten Sugar Pull"],
+  "keywords": ["sugar", "caramel", "molten", "amber", "glassy", "confectionery", "stretch", "sweet", "food"],
   "description": "The product framed by ribbons of caramelised sugar pulled mid-stretch — molten amber going glassy, thinning until light passes straight through it, sagging under its own heat before it can set. Confectionery physics caught at working temperature.",
   "lighting": "Hard low backlight through the sugar, cool front fill",
   "subject": "product",

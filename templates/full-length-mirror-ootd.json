@@ -1,6 +1,8 @@
 {
   "id": "full-length-mirror-ootd",
   "name": "Mirror OOTD",
+  "promptName": "Mirror OOTD",
+  "keywords": ["mirror", "selfie", "ootd", "bedroom", "outfit", "candid", "full length", "social"],
   "description": "A full-length candid mirror shot in a real, plainly-furnished bedroom — the outfit-of-the-day register a real customer would actually post, distinct from a posed studio campaign shot.",
   "lighting": "Soft natural room light, true mirror reflection",
   "subject": "person",

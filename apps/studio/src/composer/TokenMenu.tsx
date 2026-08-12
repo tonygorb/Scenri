@@ -11,6 +11,12 @@ export interface MenuOption {
   group: string;
   label: string;
   hint?: string;
+  /**
+   * Extra text this row should match on but never show — keywords, the brand,
+   * the name it went by before a rename. Without it a short display name would
+   * make the menu harder to search than the long one it replaced.
+   */
+  search?: string;
   thumb?: string;
   swatch?: string;
   /** What choosing this row does. One menu, several kinds of outcome. */
@@ -55,7 +61,7 @@ export function TokenMenu({
   const all = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
-    return options.filter((o) => `${o.label} ${o.group} ${o.hint ?? ''}`.toLowerCase().includes(q));
+    return options.filter((o) => `${o.label} ${o.group} ${o.hint ?? ''} ${o.search ?? ''}`.toLowerCase().includes(q));
   }, [options, query]);
   const filtered = useMemo(() => all.slice(0, MENU_CAP), [all]);
 

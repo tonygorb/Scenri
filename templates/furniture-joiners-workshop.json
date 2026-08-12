@@ -1,6 +1,8 @@
 {
   "id": "furniture-joiners-workshop",
   "name": "Joiner's Workshop",
+  "promptName": "Joiner's Workshop",
+  "keywords": ["workshop", "woodwork", "cabinetmaker", "bench", "shavings", "craft", "sawtooth", "joinery"],
   "description": "A working cabinetmaker's shop under a cool north sawtooth roof light, scarred benches and curled shavings underfoot. Craft provenance for a finished piece, never a workshop-in-progress snapshot.",
   "lighting": "Cool north sawtooth roof light, broad and even from above",
   "subject": "product",

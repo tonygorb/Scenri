@@ -1,6 +1,9 @@
 {
   "id": "studio-salt-crystal-cavern",
-  "name": "Salt Crystal Cavern",
+  "name": "Salt Cavern",
+  "promptName": "Salt Crystal Cavern",
+  "legacyNames": ["Salt Crystal Cavern"],
+  "keywords": ["salt", "halite", "crystal", "cavern", "cave", "mineral", "refraction", "geological"],
   "description": "The product on a halite ledge inside a salt cavern, cubic and hopper-faced crystals crusting the walls in stepped translucent blocks, one warm low practical raking hard across them so each cube edge takes a bright line and the clear blocks light from within. Jewel-box geology, underground and completely dry.",
   "lighting": "Single low warm practical, raking crystal refraction",
   "subject": "product",

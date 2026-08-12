@@ -1,6 +1,9 @@
 {
   "id": "social-product-drop-hype",
-  "name": "Product Drop Hype",
+  "name": "Drop Hype",
+  "promptName": "Product Drop Hype",
+  "legacyNames": ["Product Drop Hype"],
+  "keywords": ["hype", "drop", "hero", "rim light", "black", "sneaker", "launch", "dramatic", "streetwear"],
   "description": "A single hero product staged center-offset and floating against a near-black backdrop, one hard rim light tracing its exact silhouette in a dramatic countdown-ready reveal. High-hype, single-source drama built for a paid-social product-drop campaign, with a genuinely empty zone reserved for the launch headline.",
   "lighting": "Hard rim/edge light, near-black saturated ground",
   "subject": "product",

@@ -22,7 +22,7 @@ const base = {
 };
 
 describe('scene loader + composer', () => {
-  it('loads the 62 shipped scenes, all valid, none naming a product', () => {
+  it('loads the 72 shipped scenes, all valid, none naming a product', () => {
     const { scenes, warnings } = loadScenes(defaultScenesDir());
     expect(scenes).toHaveLength(72);
     expect(warnings).toEqual([]);
@@ -31,6 +31,38 @@ describe('scene loader + composer', () => {
       expect(s.collections.length).toBeGreaterThan(0);
       expect(s.verticals.length).toBeGreaterThan(0);
       expect(s.lighting).toBeTruthy();
+    }
+  });
+
+  // The naming migration's invariants. A display name is free to change; the
+  // identity behind it, and the text the engine is sent, are not.
+  it('every scene carries a frozen promptName and a unique display name', () => {
+    const { scenes } = loadScenes(defaultScenesDir());
+    for (const s of scenes) {
+      expect(s.promptName, `${s.id} has no promptName`).toBeTruthy();
+    }
+    const names = scenes.map((s) => s.name);
+    expect(new Set(names).size, `duplicate scene names: ${names.filter((n, i) => names.indexOf(n) !== i)}`).toBe(
+      names.length,
+    );
+  });
+
+  it('a renamed scene records the name it used to answer to', () => {
+    const { scenes } = loadScenes(defaultScenesDir());
+    for (const s of scenes) {
+      // promptName is the pre-migration display name. Wherever that no longer
+      // equals `name`, the old string must survive in legacyNames or a user
+      // searching for the name they remember finds nothing.
+      if (s.promptName && s.promptName !== s.name) {
+        expect(s.legacyNames ?? [], `${s.id} renamed without a legacy alias`).toContain(s.promptName);
+      }
+    }
+  });
+
+  it('every scene has search keywords, so a short name costs no discoverability', () => {
+    const { scenes } = loadScenes(defaultScenesDir());
+    for (const s of scenes) {
+      expect((s.keywords ?? []).length, `${s.id} has no keywords`).toBeGreaterThanOrEqual(5);
     }
   });
 

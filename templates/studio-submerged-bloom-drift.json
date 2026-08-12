@@ -1,6 +1,9 @@
 {
   "id": "studio-submerged-bloom-drift",
-  "name": "Snell's Window Bloom",
+  "name": "Snell's Window",
+  "promptName": "Snell's Window Bloom",
+  "legacyNames": ["Snell's Window Bloom"],
+  "keywords": ["underwater", "submerged", "snells window", "aquamarine", "coral", "caustics", "water", "dive"],
   "description": "The product suspended in clear aquamarine water above a bone-white limestone shelf, ringed by blush-coral blooms, beneath a mercury-silver mirrored water ceiling broken by a single oval of white daylight — the real optical phenomenon a diver sees looking up. Hard sun overhead throws genuine caustic nets across the stone.",
   "lighting": "Hard overhead sun, true caustics, Snell's window",
   "subject": "product",

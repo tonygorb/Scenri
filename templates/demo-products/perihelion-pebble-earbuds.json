@@ -1,6 +1,11 @@
 {
   "id": "perihelion-pebble-earbuds",
-  "name": "Pebble-Form Wireless Earbuds and Charging Case",
+  "name": "Pebble Earbuds",
+  "promptName": "Pebble-Form Wireless Earbuds and Charging Case",
+  "brand": "Perihelion",
+  "format": "Earbuds + case",
+  "legacyNames": ["Pebble-Form Wireless Earbuds and Charging Case"],
+  "keywords": ["earbuds", "earphones", "wireless", "audio", "electronics", "charging case", "in-ear", "bluetooth"],
   "category": "electronics",
   "description": "A pair of stemless bean-shaped wireless earbuds in matte pale-stone grey, each carrying one small glossy charcoal touch disc set flush into its outer face inside a hairline machined ring, a pair of precisely drilled microphone pinholes at its base, and a pale silicone ear tip over a fine steel mesh nozzle, seated in a pebble-form charging case moulded in the same matte pale-stone soft-touch polymer: a flattened river pebble about 60 millimetres wide by 45 deep by 26 tall, its surfaces continuously curved with no flat spots or tangent breaks, split by one hairline parting line of perfectly even width where the lid meets the body, a bright polished micro-bevel catching light along the lid's outer lip, and a shallow thumb notch centred at the front edge.",
   "width": 1024,

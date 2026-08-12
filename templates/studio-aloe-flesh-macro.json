@@ -1,6 +1,9 @@
 {
   "id": "studio-aloe-flesh-macro",
-  "name": "Aloe Flesh Macro",
+  "name": "Aloe Flesh",
+  "promptName": "Aloe Flesh Macro",
+  "legacyNames": ["Aloe Flesh Macro"],
+  "keywords": ["aloe", "succulent", "gel", "translucent", "green", "botanical", "macro", "skincare", "fresh"],
   "description": "The product set among freshly cut aloe leaves laid face to camera, their gel-filled flesh reading genuinely translucent against a low backlight, real mucilage drawing viscous strings between the cut faces. Botanical and clinical at once — the plant's interior, not its silhouette.",
   "lighting": "Cool diffused key, low backlight through the flesh",
   "subject": "product",

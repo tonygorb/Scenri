@@ -1,6 +1,8 @@
 {
   "id": "studio-sea-stack-horizon",
   "name": "Sea-Stack Horizon",
+  "promptName": "Sea-Stack Horizon",
+  "keywords": ["sea stack", "coast", "ocean", "golden hour", "sunset", "rock", "cliff", "seascape"],
   "description": "The product wedged in a natural gap between two wind-and-wave-carved sea-stack rocks, a vivid golden-hour sunset gradient sky filling the background. Real coastal erosion rock, warm rim light tracing every weathered edge.",
   "lighting": "Golden-hour sunset, warm rim light on rock",
   "subject": "product",

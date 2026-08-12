@@ -1,6 +1,9 @@
 {
   "id": "studio-basalt-crust-glow",
-  "name": "Basalt Crust Glow",
+  "name": "Basalt Crust",
+  "promptName": "Basalt Crust Glow",
+  "legacyNames": ["Basalt Crust Glow"],
+  "keywords": ["lava", "basalt", "volcanic", "ember", "molten", "dusk", "geological", "heat", "orange"],
   "description": "The product standing on the cooling crust of a pahoehoe lava flow at dusk, incandescent orange fissures breaking open close beside it and lighting it from below while cool blue ambient falls from above. Heat shimmer distorts the air over the hottest cracks — the danger is a hand-span away, not on the horizon.",
   "lighting": "Incandescent fissure underlight, cool dusk ambient",
   "subject": "product",

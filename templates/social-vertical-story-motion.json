@@ -1,6 +1,9 @@
 {
   "id": "social-vertical-story-motion",
-  "name": "Vertical Story Motion",
+  "name": "Story Motion",
+  "promptName": "Vertical Story Motion",
+  "legacyNames": ["Vertical Story Motion"],
+  "keywords": ["story", "vertical", "motion", "mid-step", "saturated", "social", "reels", "bold"],
   "description": "A full-height model caught mid-step in hard directional light against a bold saturated vertical color field, styled with the kinetic energy of a genuine Stories/Reels paid-social ad rather than a static feed post cropped tall. The same technical zip jacket and identity-locked model carry through every frame, with a clean reserved zone for headline text.",
   "lighting": "Hard directional light, motion-freeze contrast",
   "subject": "person",

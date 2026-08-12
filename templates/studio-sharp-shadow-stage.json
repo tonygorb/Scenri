@@ -1,6 +1,9 @@
 {
   "id": "studio-sharp-shadow-stage",
-  "name": "Molten Glass Stage",
+  "name": "Molten Glass",
+  "promptName": "Molten Glass Stage",
+  "legacyNames": ["Molten Glass Stage"],
+  "keywords": ["molten glass", "foundry", "furnace", "amber", "heat", "glassblowing", "glow", "industrial"],
   "description": "The subject is staged among glowing, still-cooling molten glass forms on a dark foundry floor, warm amber heat-glow the sole light source washing up from below and a hard rim catching one edge. Foundry heat meets luxury cool — dramatic, and quietly expensive.",
   "lighting": "Amber heat-glow, hard rim",
   "subject": "product",

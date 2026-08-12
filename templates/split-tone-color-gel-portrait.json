@@ -1,6 +1,9 @@
 {
   "id": "split-tone-color-gel-portrait",
-  "name": "Contre-Jour Rim Portrait",
+  "name": "Contre-Jour",
+  "promptName": "Contre-Jour Rim Portrait",
+  "legacyNames": ["Contre-Jour Rim Portrait"],
+  "keywords": ["contre-jour", "backlight", "rim", "silhouette", "halo", "dramatic", "portrait", "gridded"],
   "description": "One hard gridded strobe hidden directly behind the model's head fires forward into camera, so a single source produces two opposite material responses: thin flesh transmits it — the ear helix and lobe glowing translucent coral-red — while brushed metal reflects it as one elongated streak. The backdrop sits unlit and four stops down.",
   "lighting": "Hidden contre-jour rim, single hard gridded source",
   "subject": "person",

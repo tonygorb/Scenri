@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { productSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Dialog, DropdownMenu, TextField } from '@radix-ui/themes';
 import { CaretDown, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
@@ -63,10 +64,7 @@ export function ProductsView() {
       withCategory
         .filter(({ category: c }) => !category || c === category)
         .filter(({ product: p, category: c }) =>
-          matchesQuery(
-            [p.name, p.vendor, p.variant, p.productType, ...(p.tags ?? []), categoryLabel(c)].filter(Boolean).join(' '),
-            q,
-          ),
+          matchesQuery([productSearchText(p), categoryLabel(c)].filter(Boolean).join(' '), q),
         )
         .map(({ product }) => product),
     [withCategory, category, q],

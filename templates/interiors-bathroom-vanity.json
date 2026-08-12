@@ -1,6 +1,9 @@
 {
   "id": "interiors-bathroom-vanity",
-  "name": "Bathroom Vanity Mirror",
+  "name": "Vanity Mirror",
+  "promptName": "Bathroom Vanity Mirror",
+  "legacyNames": ["Bathroom Vanity Mirror"],
+  "keywords": ["bathroom", "vanity", "mirror", "tile", "tungsten", "warm", "grooming", "interior"],
   "description": "A frosted-glass body-wash bottle catches warm, faintly golden vanity-bulb light on a real honed-tile bathroom counter, brass fixtures softening out of focus behind it — human-scale, lived-in intimacy rather than a spa-brochure fantasy.",
   "lighting": "Warm tungsten-equivalent vanity-bulb light, soft and golden",
   "subject": "product",

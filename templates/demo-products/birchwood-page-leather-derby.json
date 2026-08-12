@@ -1,6 +1,11 @@
 {
   "id": "birchwood-page-leather-derby",
-  "name": "Full-Grain Leather Derby Shoe",
+  "name": "Leather Derby",
+  "promptName": "Full-Grain Leather Derby Shoe",
+  "brand": "Birchwood Page",
+  "format": "Derby shoe",
+  "legacyNames": ["Full-Grain Leather Derby Shoe"],
+  "keywords": ["shoe", "derby", "dress shoe", "leather", "full-grain", "footwear", "formal", "brogue"],
   "category": "footwear",
   "description": "A minimalist leather derby shoe in deep chestnut-brown with open lacing, a clean stitched welt, and a slim vulcanized rubber sole.",
   "width": 1024,

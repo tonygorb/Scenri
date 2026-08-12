@@ -1,6 +1,9 @@
 {
   "id": "interiors-wood-table-flatlay",
-  "name": "Wood Table Flat-Lay",
+  "name": "Wood Flat-Lay",
+  "promptName": "Wood Table Flat-Lay",
+  "legacyNames": ["Wood Table Flat-Lay"],
+  "keywords": ["wood", "oak", "table", "flat-lay", "raking light", "warm", "desk", "overhead"],
   "description": "A leather-wrapped notebook resting on a real oak table in warm, raking side-window light — long soft shadows and true wood grain give it the editorial flat-lay energy of an actual desk someone works at, not a studio backdrop.",
   "lighting": "Warm raking side-window light, long soft shadows",
   "subject": "product",

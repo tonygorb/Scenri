@@ -1,6 +1,8 @@
 {
   "id": "cut-paper-stage",
   "name": "Cut-Paper Stage",
+  "promptName": "Cut-Paper Stage",
+  "keywords": ["paper", "cut paper", "graphic", "poster", "colored", "geometric", "craft", "flat", "design"],
   "description": "The subject rests exactly where four sharply-angled sheets of matte colored paper converge into a graphic-design-built stage, each plane a hard-edged saturated hue with crisp shadows and zero blending between them. Lit with a flat poster-style key so every shadow reads as a clean graphic shape, not a photographic gradient.",
   "lighting": "Flat poster key, hard graphic shadows",
   "subject": "product",

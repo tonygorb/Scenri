@@ -1,6 +1,9 @@
 {
   "id": "social-amber-flare-motion",
-  "name": "Amber Flare Motion",
+  "name": "Amber Flare",
+  "promptName": "Amber Flare Motion",
+  "legacyNames": ["Amber Flare Motion"],
+  "keywords": ["flare", "amber", "warm", "light streaks", "lens flare", "dramatic", "glow", "cinematic"],
   "description": "The product caught within dramatic warm light streaks radiating from an off-frame source, genuine lens-flare bloom, deep shadow falloff, tech-forward electric energy.",
   "lighting": "Directional flare streaks, deep shadow falloff",
   "subject": "product",

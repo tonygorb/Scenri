@@ -1,6 +1,8 @@
 {
   "id": "studio-dune-slip-face",
   "name": "Dune Slip Face",
+  "promptName": "Dune Slip Face",
+  "keywords": ["dune", "sand", "desert", "ripples", "low sun", "arid", "golden", "wind", "landscape"],
   "description": "The subject on the steep slip face of a dune at low sun, wind-carried grains streaming off the crest as a bright backlit smoke and ripple shadows raking across the frame in hard parallel bars. Graphic, dry and moving — the wind is visible rather than implied.",
   "lighting": "Low raking sun, long hard ripple shadows",
   "subject": "either",

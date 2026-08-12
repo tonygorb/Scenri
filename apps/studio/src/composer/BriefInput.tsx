@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { productLabel, productSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
@@ -160,7 +161,7 @@ export const BriefInput = forwardRef<
       let swatch: string | null = null;
       if (token.t === 'template') {
         const t = templates.find((x) => x.id === token.id);
-        label = t?.name ?? 'missing template';
+        label = t ? sceneLabel(t, 'chip') : 'missing template';
         thumb = t?.previewUrl ?? null;
         const tint = normalizeTint(t?.previewColor);
         if (tint) {
@@ -170,7 +171,10 @@ export const BriefInput = forwardRef<
       } else if (token.t === 'product') {
         const p = products.find((x) => x.id === token.id);
         const d = p ? null : demoProducts.find((x) => x.id === token.id);
-        label = p?.name ?? d?.name ?? 'missing product';
+        // A chip sits inside the user's own sentence, so it gets the bare
+        // product name — the brand is context the sentence already carries.
+        const attached = p ?? d;
+        label = attached ? productLabel(attached, 'chip') : 'missing product';
         thumb = p ? assetUrl(p.shots?.[0]?.file) : (d?.previewUrl ?? null);
       } else if (token.t === 'character') {
         const c = cast.find((x) => x.id === token.id);
@@ -337,7 +341,9 @@ export const BriefInput = forwardRef<
       ...products.map((p) => ({
         key: `p:${p.id}`,
         group: 'Products',
-        label: p.name,
+        label: productLabel(p, 'card'),
+        hint: p.variant ?? undefined,
+        search: productSearchText(p),
         thumb: assetUrl(p.shots?.[0]?.file) ?? undefined,
         run: () => placeRef.current({ t: 'product', id: p.id }),
       })),
@@ -352,8 +358,9 @@ export const BriefInput = forwardRef<
       ...templates.map((t) => ({
         key: `t:${t.id}`,
         group: 'Scenes',
-        label: t.name,
+        label: sceneLabel(t, 'card'),
         hint: t.lighting,
+        search: sceneSearchText(t),
         thumb: t.previewUrl ?? undefined,
         run: () => onTemplatePick(t.id),
       })),
@@ -396,7 +403,9 @@ export const BriefInput = forwardRef<
   useEffect(() => {
     if (!menu || menu.replaceUid || !query) return;
     const q = query.toLowerCase();
-    const hit = shownOptions.some((o) => `${o.label} ${o.group} ${o.hint ?? ''}`.toLowerCase().includes(q));
+    const hit = shownOptions.some((o) =>
+      `${o.label} ${o.group} ${o.hint ?? ''} ${o.search ?? ''}`.toLowerCase().includes(q),
+    );
     if (!hit) {
       setMenu(null);
       setQuery('');

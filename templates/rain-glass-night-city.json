@@ -1,6 +1,9 @@
 {
   "id": "rain-glass-night-city",
-  "name": "Rain Glass Night",
+  "name": "Rain Glass",
+  "promptName": "Rain Glass Night",
+  "legacyNames": ["Rain Glass Night"],
+  "keywords": ["rain", "glass", "night", "city", "bokeh", "neon", "wet", "moody", "urban"],
   "description": "The product seen through a sheet of rain-beaded cold plate glass, a city night thrown far out of focus behind it into a field of cyan and sodium-amber bokeh. Every larger bead works as its own lens, holding a sharp inverted scrap of the street inside it.",
   "lighting": "City bokeh field, cyan rim and sodium-amber fill",
   "subject": "product",

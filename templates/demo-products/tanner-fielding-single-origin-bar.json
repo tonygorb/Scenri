@@ -1,6 +1,11 @@
 {
   "id": "tanner-fielding-single-origin-bar",
-  "name": "Kraft-Wrapped Dark Chocolate Bar",
+  "name": "Single-Origin Bar",
+  "promptName": "Kraft-Wrapped Dark Chocolate Bar",
+  "brand": "Tanner Fielding",
+  "format": "Wrapped bar",
+  "legacyNames": ["Kraft-Wrapped Dark Chocolate Bar"],
+  "keywords": ["chocolate", "bar", "cocoa", "dark chocolate", "food", "confectionery", "kraft", "single origin"],
   "category": "food",
   "description": "A rectangular dark chocolate bar wrapped in matte uncoated kraft paper, folded and creased into a simple parcel-style seam at the ends.",
   "width": 1024,

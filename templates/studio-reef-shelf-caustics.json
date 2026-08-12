@@ -1,6 +1,9 @@
 {
   "id": "studio-reef-shelf-caustics",
-  "name": "Reef Shelf Caustics",
+  "name": "Reef Caustics",
+  "promptName": "Reef Shelf Caustics",
+  "legacyNames": ["Reef Shelf Caustics"],
+  "keywords": ["reef", "caustics", "underwater", "sand", "turquoise", "ocean", "tropical", "water", "light net"],
   "description": "The product settled into the rippled white sand of a shallow reef shelf, a live caustic net sliding across the sand and up over its curvature, suspended particulate hanging through the water column. Real submersion and real refraction — the surface stays above the frame.",
   "lighting": "Hard sun through surface chop, moving caustic net",
   "subject": "product",

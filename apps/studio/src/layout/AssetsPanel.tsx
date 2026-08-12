@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { productLabel, productSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Dialog } from '@radix-ui/themes';
 import { CaretRight, ImageSquare, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
@@ -81,10 +82,13 @@ export function AssetsPanel({
 
   const searching = !!q.trim();
   const match = (label: string) => !searching || label.toLowerCase().includes(q.trim().toLowerCase());
-  const fProducts = products.filter((p) => match(p.name ?? ''));
-  const fSamples = demoProducts.filter((p) => match(p.name));
-  const fPresenters = presenters.filter((p) => match(p.name));
-  const fTemplates = templates.filter((t) => match(t.name));
+  // Search the structured metadata, not just the label. These lists used to
+  // match on `name` alone, which is exactly the case a short display name
+  // would have made worse.
+  const fProducts = products.filter((p) => match(productSearchText(p)));
+  const fSamples = demoProducts.filter((p) => match(productSearchText(p)));
+  const fPresenters = presenters.filter((p) => match(`${p.name} ${p.descriptor ?? ''}`));
+  const fTemplates = templates.filter((t) => match(sceneSearchText(t)));
   const fPalette = palette.filter((c) => match(c.name) || match(c.hex));
 
   const productsGroup = (
@@ -121,10 +125,18 @@ export function AssetsPanel({
             </span>
           );
           if (mode === 'open') {
-            return <AssetCard key={p.id} title={p.name} onClick={() => onProduct(p.id)} thumb={thumb} label={p.name} />;
+            return (
+              <AssetCard
+                key={p.id}
+                title={productLabel(p, 'tooltip')}
+                onClick={() => onProduct(p.id)}
+                thumb={thumb}
+                label={productLabel(p, 'card')}
+              />
+            );
           }
           return (
-            <button type="button" key={p.id} title={p.name} onClick={() => onProduct(p.id)}>
+            <button type="button" key={p.id} title={productLabel(p, 'tooltip')} onClick={() => onProduct(p.id)}>
               {thumb}
             </button>
           );
@@ -164,10 +176,18 @@ export function AssetsPanel({
             </span>
           );
           if (mode === 'open') {
-            return <AssetCard key={p.id} title={p.name} onClick={() => onProduct(p.id)} thumb={thumb} label={p.name} />;
+            return (
+              <AssetCard
+                key={p.id}
+                title={productLabel(p, 'tooltip')}
+                onClick={() => onProduct(p.id)}
+                thumb={thumb}
+                label={productLabel(p, 'card')}
+              />
+            );
           }
           return (
-            <button type="button" key={p.id} title={p.name} onClick={() => onProduct(p.id)}>
+            <button type="button" key={p.id} title={productLabel(p, 'tooltip')} onClick={() => onProduct(p.id)}>
               {thumb}
             </button>
           );
@@ -247,11 +267,17 @@ export function AssetsPanel({
             );
             if (mode === 'open') {
               return (
-                <AssetCard key={t.id} title={t.name} onClick={() => onTemplate(t.id)} thumb={thumb} label={t.name} />
+                <AssetCard
+                  key={t.id}
+                  title={sceneLabel(t, 'tooltip')}
+                  onClick={() => onTemplate(t.id)}
+                  thumb={thumb}
+                  label={sceneLabel(t, 'card')}
+                />
               );
             }
             return (
-              <button type="button" key={t.id} title={t.name} onClick={() => onTemplate(t.id)}>
+              <button type="button" key={t.id} title={sceneLabel(t, 'tooltip')} onClick={() => onTemplate(t.id)}>
                 {thumb}
               </button>
             );

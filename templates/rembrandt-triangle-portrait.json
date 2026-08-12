@@ -1,6 +1,9 @@
 {
   "id": "rembrandt-triangle-portrait",
-  "name": "Rembrandt Triangle Portrait",
+  "name": "Rembrandt Key",
+  "promptName": "Rembrandt Triangle Portrait",
+  "legacyNames": ["Rembrandt Triangle Portrait"],
+  "keywords": ["rembrandt", "portrait", "classic", "umber", "painterly", "triangle", "warm", "fine art"],
   "description": "Classic Rembrandt-position key light holds a small, precisely shaped triangle on the shadowed cheek with soft painterly falloff, shot against a warm deep-umber studio ground instead of neutral grey so the whole frame reads closer to an old-master painting register.",
   "lighting": "Classic Rembrandt triangle key, warm umber ground",
   "subject": "person",

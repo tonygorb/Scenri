@@ -1,6 +1,11 @@
 {
   "id": "marrow-vale-nocturne",
-  "name": "Faceted Smoked-Glass Fragrance Bottle",
+  "name": "Nocturne",
+  "promptName": "Faceted Smoked-Glass Fragrance Bottle",
+  "brand": "Marrow Vale",
+  "format": "Faceted EDP bottle",
+  "legacyNames": ["Faceted Smoked-Glass Fragrance Bottle"],
+  "keywords": ["fragrance", "perfume", "eau de parfum", "edp", "flacon", "smoked glass", "faceted", "scent"],
   "category": "fragrance",
   "description": "A square-shouldered eau de parfum bottle in smoked dark-grey faceted glass, topped with a matte black cap, with clean geometric facets catching light along its edges.",
   "width": 1024,

@@ -1,6 +1,9 @@
 {
   "id": "low-key-character-study",
-  "name": "Low-Key Character Study",
+  "name": "Low-Key Study",
+  "promptName": "Low-Key Character Study",
+  "legacyNames": ["Low-Key Character Study"],
+  "keywords": ["low key", "dark", "moody", "dramatic", "portrait", "black", "chiaroscuro", "cinematic"],
   "description": "One hard key light strikes the face from a low angle and falls to true black beyond its throw — the same identity-locked person and cashmere-blend funnel-collar overcoat carry through all six frames as one continuous, feature-film-restrained campaign.",
   "lighting": "Hard low-angle key, deep falloff into black",
   "subject": "person",

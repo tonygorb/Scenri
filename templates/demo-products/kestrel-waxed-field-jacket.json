@@ -1,6 +1,11 @@
 {
   "id": "kestrel-waxed-field-jacket",
-  "name": "Waxed Cotton Field Jacket",
+  "name": "Waxed Field Jacket",
+  "promptName": "Waxed Cotton Field Jacket",
+  "brand": "Kestrel",
+  "format": "Field jacket",
+  "legacyNames": ["Waxed Cotton Field Jacket"],
+  "keywords": ["jacket", "coat", "waxed cotton", "field jacket", "outerwear", "apparel", "waxed canvas"],
   "category": "apparel",
   "description": "A rugged waxed-cotton canvas field jacket with a soft corduroy collar, brass snap-front placket, and bellows pockets, built for changeable outdoor weather.",
   "width": 1024,

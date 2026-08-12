@@ -1,6 +1,11 @@
 {
   "id": "nordhavn-canvas-over-ear-headphones",
-  "name": "Canvas-Wrapped Over-Ear Headphones",
+  "name": "Canvas Headphones",
+  "promptName": "Canvas-Wrapped Over-Ear Headphones",
+  "brand": "Nordhavn",
+  "format": "Over-ear headphones",
+  "legacyNames": ["Canvas-Wrapped Over-Ear Headphones"],
+  "keywords": ["headphones", "over-ear", "audio", "canvas", "electronics", "cans", "wired"],
   "category": "electronics",
   "description": "A pair of over-ear headphones with circular ear cups about 95 millimetres across wrapped in oatmeal-beige cotton canvas, each cup encircled by one fine top-stitched seam and finished at its outer edge with a slim matte ecru aluminium rim ring separated from the canvas by an even hairline gap, a headband whose outer face carries the same canvas and whose underside is lined with a band of natural cork, matte ecru-painted aluminium yoke arms and slider rails with fine evenly spaced detent notches and a concentric machined pivot at each yoke, and memory-foam earpads covered in warm oatmeal woven textile with an even stitched welt.",
   "width": 1024,

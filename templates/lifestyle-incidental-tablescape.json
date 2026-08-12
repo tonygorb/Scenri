@@ -1,6 +1,9 @@
 {
   "id": "lifestyle-incidental-tablescape",
-  "name": "Incidental Tablescape",
+  "name": "Tablescape",
+  "promptName": "Incidental Tablescape",
+  "legacyNames": ["Incidental Tablescape"],
+  "keywords": ["lifestyle", "room", "incidental", "ambient", "candid", "lived-in", "wide", "natural"],
   "description": "The product sits small and incidental inside a wide, real, lived-in room — not hero-centered, not the obvious focal point, exactly the way it would actually turn up in someone's real life.",
   "lighting": "Ambient real-room daylight, no studio key",
   "subject": "product",

@@ -1,6 +1,11 @@
 {
   "id": "calder-vane-boucle-two-seater",
-  "name": "Two-Seat Bouclé Sofa on Oak Plinth",
+  "name": "Bouclé Two-Seater",
+  "promptName": "Two-Seat Bouclé Sofa on Oak Plinth",
+  "brand": "Calder Vane",
+  "format": "Two-seat sofa",
+  "legacyNames": ["Two-Seat Bouclé Sofa on Oak Plinth"],
+  "keywords": ["sofa", "couch", "loveseat", "boucle", "two-seater", "furniture", "oak", "upholstery"],
   "category": "furniture",
   "description": "A compact two-seat sofa with a low, softly rounded silhouette upholstered in ivory bouclé, with two loose seat cushions and two back cushions, resting on a recessed solid oak plinth base.",
   "width": 1024,

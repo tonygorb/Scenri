@@ -1,6 +1,9 @@
 {
   "id": "wide-establishing-environment",
-  "name": "Alpine Ridge Trail",
+  "name": "Alpine Ridge",
+  "promptName": "Alpine Ridge Trail",
+  "legacyNames": ["Alpine Ridge Trail"],
+  "keywords": ["alpine", "mountain", "ridge", "trail", "cinematic", "wide", "hiking", "altitude", "landscape"],
   "description": "A wide, cinematic establishing shot of a lone figure small within the frame on a high alpine ridge trail above the cloud line — thin cold light, wind-scoured grass, real atmospheric scale between figure and landscape. The opening frame of a campaign film rather than a packshot.",
   "lighting": "Thin high-altitude daylight, low sun angle",
   "subject": "person",

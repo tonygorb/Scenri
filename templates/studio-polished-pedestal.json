@@ -1,6 +1,9 @@
 {
   "id": "studio-polished-pedestal",
-  "name": "Marble Quarry Plinth",
+  "name": "Quarry Plinth",
+  "promptName": "Marble Quarry Plinth",
+  "legacyNames": ["Marble Quarry Plinth"],
+  "keywords": ["marble", "quarry", "stone", "plinth", "dust", "shaft of light", "monumental", "raw"],
   "description": "The subject rests on a raw-cut marble slab inside a real stone quarry, one hard shaft of daylight cutting through genuinely drifting dust. Monumental scale, true mineral texture — nothing about it reads as a studio.",
   "lighting": "Hard daylight shaft, dust-lit",
   "subject": "product",

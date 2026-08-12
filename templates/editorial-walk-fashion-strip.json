@@ -1,6 +1,8 @@
 {
   "id": "editorial-walk-fashion-strip",
   "name": "Editorial Walk",
+  "promptName": "Editorial Walk",
+  "keywords": ["street", "walking", "candid", "city", "overcast", "fashion", "full body", "outdoor"],
   "description": "A full-body presenter caught mid-stride on a real outdoor city street, the product worn or carried naturally — genuine fashion-editorial walking energy, not a static studio pose.",
   "lighting": "Natural overcast daylight, soft directional",
   "subject": "person",

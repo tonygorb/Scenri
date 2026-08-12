@@ -1,6 +1,8 @@
 {
   "id": "precision-bench-anodised",
   "name": "Precision Bench",
+  "promptName": "Precision Bench",
+  "keywords": ["precision", "engineering", "granite", "anodised", "tools", "technical", "calibration", "industrial"],
   "description": "The product on a lapped black granite surface plate, ringed by anodised aluminium and tool-steel measuring gear squared to it on a strict orthogonal grid, under calibration-grade even light. Engineering precision used as art direction — the alignment is the composition.",
   "lighting": "Calibration-grade even light, one specular per chamfer",
   "subject": "product",

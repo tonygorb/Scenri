@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { productLabel } from '../displayName.js';
 import { useNavigate, useParams } from 'react-router';
 import { Callout, Flex, Select, Text, TextField } from '@radix-ui/themes';
 import { api, assetUrl, addProductShot, type Product } from '../api.js';
@@ -149,7 +150,7 @@ export function ProductPage() {
             <span>{label}</span>
           </div>
 
-          <h1 dir="auto">{demoProduct.name}</h1>
+          <h1 dir="auto">{productLabel(demoProduct, 'heading')}</h1>
           <p className="sc-lookpage-lede">{demoProduct.description}</p>
           <p className="sc-lookpage-facts">
             {label}
@@ -270,7 +271,7 @@ export function ProductPage() {
           <span>{category.label}</span>
         </div>
 
-        <h1 dir="auto">{product.name}</h1>
+        <h1 dir="auto">{productLabel(product, 'heading')}</h1>
         <p className="sc-lookpage-facts">
           {category.label}
           {product.variant ? ` · ${product.variant}` : ''}

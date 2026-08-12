@@ -1,6 +1,11 @@
 {
   "id": "amble-roasting-co-ethiopia-light-roast",
-  "name": "Stand-Up Kraft Coffee Pouch with Degassing Valve",
+  "name": "Ethiopia Roast",
+  "promptName": "Stand-Up Kraft Coffee Pouch with Degassing Valve",
+  "brand": "Amble Roasting Co.",
+  "format": "Stand-up pouch",
+  "legacyNames": ["Stand-Up Kraft Coffee Pouch with Degassing Valve"],
+  "keywords": ["coffee", "beans", "roast", "ethiopia", "pouch", "kraft", "food", "packaging", "degassing valve"],
   "category": "food",
   "description": "A stand-up matte kraft-paper laminate coffee pouch with a foil-lined zip closure and a round plastic one-way degassing valve, filled with whole roasted coffee beans.",
   "width": 1024,

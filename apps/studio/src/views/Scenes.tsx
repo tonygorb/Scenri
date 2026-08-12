@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { sceneSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { TextField } from '@radix-ui/themes';
 import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
@@ -48,7 +49,9 @@ export function ScenesView() {
   const filtered = useMemo(
     () =>
       byVertical.filter((s) =>
-        matchesQuery([s.name, s.description, s.lighting, s.subject, ...s.collections, ...s.verticals].join(' '), q),
+        // sceneSearchText folds in keywords and pre-rename names, so a short
+        // display name never costs a scene its findability.
+        matchesQuery(sceneSearchText(s), q),
       ),
     [byVertical, q],
   );

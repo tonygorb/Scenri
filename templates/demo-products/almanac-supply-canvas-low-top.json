@@ -1,6 +1,11 @@
 {
   "id": "almanac-supply-canvas-low-top",
-  "name": "Canvas Low-Top Sneaker",
+  "name": "Canvas Low-Top",
+  "promptName": "Canvas Low-Top Sneaker",
+  "brand": "Almanac Supply",
+  "format": "Low-top sneaker",
+  "legacyNames": ["Canvas Low-Top Sneaker"],
+  "keywords": ["sneaker", "trainer", "shoe", "canvas", "low-top", "footwear", "casual", "rubber sole"],
   "category": "footwear",
   "description": "A minimalist canvas low-top sneaker in heathered off-white cotton canvas with a natural gum rubber sole and toe cap, cotton laces, and brass eyelets.",
   "width": 1024,

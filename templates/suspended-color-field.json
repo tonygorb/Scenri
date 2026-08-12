@@ -1,6 +1,9 @@
 {
   "id": "suspended-color-field",
-  "name": "Reeded Glass Stagger",
+  "name": "Reeded Glass",
+  "promptName": "Reeded Glass Stagger",
+  "legacyNames": ["Reeded Glass Stagger"],
+  "keywords": ["reeded glass", "fluted", "ribbed", "refraction", "distortion", "panels", "pastel", "architectural"],
   "description": "The product stands in front of a sheet of real reeded cast glass, and the two flat painted panels behind it are chopped by the flutes into hard vertical color bands whose straight seam staggers in discrete offset steps — because every half-cylinder flute is a genuine cylindrical lens, not a filter.",
   "lighting": "Grazing crest speculars, unlit backdrop panels",
   "subject": "product",

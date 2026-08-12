@@ -23,6 +23,44 @@ const base: DemoProduct = {
   height: 10,
 };
 
+describe('shipped demo product catalog', () => {
+  // The naming migration's invariants for products. `name` is a short display
+  // label; `promptName` is the descriptive noun phrase the engine is sent and
+  // is the single most load-bearing string in the whole compile.
+  it('every shipped product carries a frozen promptName', () => {
+    const { demoProducts, warnings } = loadDemoProducts();
+    expect(warnings).toEqual([]);
+    expect(demoProducts).toHaveLength(44);
+    for (const p of demoProducts) {
+      expect(p.promptName, `${p.id} has no promptName`).toBeTruthy();
+    }
+  });
+
+  it('display names are short, unique, and separate from the brand', () => {
+    const { demoProducts } = loadDemoProducts();
+    const names = demoProducts.map((p) => p.name);
+    expect(new Set(names).size, `duplicate product names: ${names.filter((n, i) => names.indexOf(n) !== i)}`).toBe(
+      names.length,
+    );
+    for (const p of demoProducts) {
+      expect(p.brand, `${p.id} has no brand`).toBeTruthy();
+      // The point of the split: a chip-sized label. The old catalog reached 55
+      // characters because the name was doing the prompt's job as well.
+      expect(p.name.length, `${p.id} name is too long for a chip: "${p.name}"`).toBeLessThanOrEqual(24);
+    }
+  });
+
+  it('a renamed product records the name it used to answer to, and keeps keywords', () => {
+    const { demoProducts } = loadDemoProducts();
+    for (const p of demoProducts) {
+      if (p.promptName && p.promptName !== p.name) {
+        expect(p.legacyNames ?? [], `${p.id} renamed without a legacy alias`).toContain(p.promptName);
+      }
+      expect((p.keywords ?? []).length, `${p.id} has no keywords`).toBeGreaterThanOrEqual(5);
+    }
+  });
+});
+
 describe('demo product loader', () => {
   it('loads valid demo products and skips bad files with a warning', () => {
     const dir = mkdtempSync(join(tmpdir(), 'sc-demoproduct-'));

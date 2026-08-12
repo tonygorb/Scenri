@@ -1,6 +1,11 @@
 {
   "id": "fenwick-slade-open-shelving",
-  "name": "Open Oak and Blackened-Steel Shelving Unit",
+  "name": "Open Shelving",
+  "promptName": "Open Oak and Blackened-Steel Shelving Unit",
+  "brand": "Fenwick Slade",
+  "format": "Shelving unit",
+  "legacyNames": ["Open Oak and Blackened-Steel Shelving Unit"],
+  "keywords": ["shelving", "shelf", "bookcase", "storage", "oak", "blackened steel", "furniture"],
   "category": "furniture",
   "description": "A freestanding open shelving unit carrying five solid oak shelves on a blackened-steel angle frame, open on all sides with no back panel and every shelf empty.",
   "width": 1024,

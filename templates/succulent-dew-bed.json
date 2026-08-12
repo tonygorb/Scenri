@@ -1,6 +1,9 @@
 {
   "id": "succulent-dew-bed",
-  "name": "Succulent Dew Bed",
+  "name": "Dew Bed",
+  "promptName": "Succulent Dew Bed",
+  "legacyNames": ["Succulent Dew Bed"],
+  "keywords": ["succulent", "dew", "droplets", "water beads", "green", "emerald", "fresh", "botanical", "hydration"],
   "description": "The product resting among broad succulent/aloe leaves beaded with genuine water droplets, a cool sage-to-emerald gradient field behind, real humid tactile realism throughout.",
   "lighting": "Soft cool diffused wrap light",
   "subject": "product",

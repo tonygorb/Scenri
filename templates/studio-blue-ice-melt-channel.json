@@ -1,6 +1,9 @@
 {
   "id": "studio-blue-ice-melt-channel",
-  "name": "Blue Ice Melt Channel",
+  "name": "Melt Channel",
+  "promptName": "Blue Ice Melt Channel",
+  "legacyNames": ["Blue Ice Melt Channel"],
+  "keywords": ["glacier", "ice", "meltwater", "blue", "cold", "frozen", "water", "arctic", "cobalt"],
   "description": "The product standing in a meltwater channel carved into the flank of a deep blue glacier, live water running past it in a glassy tongue that breaks white at the lip, ancient trapped air standing in ranks in the ice wall behind. Everything here is wet and moving — the ice is working plumbing, not a display case.",
   "lighting": "Cobalt transmitted daylight, wet specular",
   "subject": "product",

@@ -1,6 +1,9 @@
 {
   "id": "soft-diffusion-portrait",
-  "name": "Soft Diffusion Portrait",
+  "name": "Soft Diffusion",
+  "promptName": "Soft Diffusion Portrait",
+  "legacyNames": ["Soft Diffusion Portrait"],
+  "keywords": ["soft", "diffused", "portrait", "ivory", "gentle", "beauty", "flattering", "wrap light"],
   "description": "One broad soft frontal light wraps the same identity-locked person's face with no hard shadow edge, shot against a soft warm ivory studio ground instead of neutral grey so the whole frame reinforces the light's own \"glow\" rather than fighting it. Calm, bare, and unhurried.",
   "lighting": "Soft frontal wrap light, warm ivory ground",
   "subject": "person",

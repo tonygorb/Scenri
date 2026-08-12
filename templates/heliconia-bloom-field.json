@@ -1,6 +1,9 @@
 {
   "id": "heliconia-bloom-field",
-  "name": "Heliconia Bloom Field",
+  "name": "Heliconia Field",
+  "promptName": "Heliconia Bloom Field",
+  "legacyNames": ["Heliconia Bloom Field"],
+  "keywords": ["tropical", "flowers", "heliconia", "crimson", "botanical", "bloom", "red", "jungle", "exotic"],
   "description": "The product nested among bold tropical red heliconia-style blooms against a rich saturated crimson-to-blush gradient field, its own metallic surface contrasting the organic petals.",
   "lighting": "Soft diffused overhead-adjacent light",
   "subject": "product",

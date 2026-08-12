@@ -1,6 +1,9 @@
 {
   "id": "studio-amber-resin-suspension",
-  "name": "Amber Resin Suspension",
+  "name": "Amber Resin",
+  "promptName": "Amber Resin Suspension",
+  "legacyNames": ["Amber Resin Suspension"],
+  "keywords": ["resin", "amber", "suspended", "bubbles", "cast", "translucent", "glow", "preserved"],
   "description": "The product suspended inside a block of amber casting resin still setting, a slow train of trapped bubbles standing around it and the whole block backlit so the resin transmits and glows. A real caster's block on a bench, with pour artefacts — meniscus, sink mark, schlieren — not fossil fantasy.",
   "lighting": "Hard backlight through the block, transmitted glow",
   "subject": "product",

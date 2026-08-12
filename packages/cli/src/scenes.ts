@@ -26,7 +26,16 @@ export type SceneSubject = 'product' | 'person' | 'either';
 
 export interface Scene {
   id: string;
+  /** What humans read. Free to change: nothing resolves by it. */
   name: string;
+  /**
+   * What the model reads, when the scene's name reaches the prompt at all
+   * (the legacy `templateId` path brackets it at the head of the prompt).
+   * Frozen at the naming migration to whatever `name` was then, so shortening
+   * a display name can never alter a generated image. Falls back to `name`
+   * for scenes authored since.
+   */
+  promptName?: string;
   /** Short phrase naming the light. Scenes relate to each other by this. */
   lighting: string;
   description: string;
@@ -54,6 +63,18 @@ export interface Scene {
   height: number;
   /** Ids this scene used to be called, so stored briefs keep resolving. */
   aliases?: string[];
+  /**
+   * Display names this scene used to carry. Two jobs: search still finds it by
+   * the name someone remembers, and shot titles baked before a rename can be
+   * translated forward. Distinct from `aliases`, which are *ids* — these are
+   * human strings and are never used to resolve anything.
+   */
+  legacyNames?: string[];
+  /**
+   * Search vocabulary. Never rendered. This is what buys the right to a short
+   * name: "Ice Core" stays findable by glacier, frozen, crystalline, skincare.
+   */
+  keywords?: string[];
   fields?: SceneField[];
   /** Zones the model leaves empty; text lands as editable overlay layers instead of baked pixels. */
   textZones?: TextZone[];
@@ -81,6 +102,11 @@ function isScene(x: any): x is Scene {
     Number.isFinite(x.width) &&
     Number.isFinite(x.height) &&
     (x.camera === undefined || typeof x.camera === 'string') &&
+    (x.promptName === undefined || (typeof x.promptName === 'string' && !!x.promptName)) &&
+    (x.legacyNames === undefined ||
+      (Array.isArray(x.legacyNames) && x.legacyNames.every((n: any) => typeof n === 'string' && !!n))) &&
+    (x.keywords === undefined ||
+      (Array.isArray(x.keywords) && x.keywords.every((k: any) => typeof k === 'string' && !!k))) &&
     (x.aliases === undefined ||
       (Array.isArray(x.aliases) && x.aliases.every((a: any) => typeof a === 'string' && ID.test(a)))) &&
     (x.fields === undefined ||

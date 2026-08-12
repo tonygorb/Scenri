@@ -1,6 +1,9 @@
 {
   "id": "furniture-long-shadow-gallery",
-  "name": "Long Shadow Gallery",
+  "name": "Long Shadow",
+  "promptName": "Long Shadow Gallery",
+  "legacyNames": ["Long Shadow Gallery"],
+  "keywords": ["gallery", "plaster", "skylight", "long shadow", "minimal", "terracotta floor", "architectural"],
   "description": "A bare lime-plaster gallery room where one high skylight throws a single long, precise shadow across pale terrazzo. The shadow is the composition and the piece is the only object in it.",
   "lighting": "Single high skylight, one long hard shadow, plaster bounce fill",
   "subject": "product",

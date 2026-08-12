@@ -1,6 +1,9 @@
 {
   "id": "editorial-fisheye-flash-studio",
-  "name": "Fisheye Flash Studio",
+  "name": "Fisheye Flash",
+  "promptName": "Fisheye Flash Studio",
+  "legacyNames": ["Fisheye Flash Studio"],
+  "keywords": ["fisheye", "flash", "distortion", "wide angle", "editorial", "streetwear", "party", "vignette"],
   "description": "The identity-locked model shot through a genuine fisheye lens with real barrel distortion, direct on-camera flash, and a dramatic circular vignette darkening the frame edges — raw, immediate, high-contrast editorial energy.",
   "lighting": "Direct on-camera flash, circular vignette",
   "subject": "person",

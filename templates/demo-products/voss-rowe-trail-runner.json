@@ -1,6 +1,11 @@
 {
   "id": "voss-rowe-trail-runner",
-  "name": "Lugged-Sole Trail Running Shoe",
+  "name": "Trail Runner",
+  "promptName": "Lugged-Sole Trail Running Shoe",
+  "brand": "Voss Rowe",
+  "format": "Running shoe",
+  "legacyNames": ["Lugged-Sole Trail Running Shoe"],
+  "keywords": ["shoe", "sneaker", "trail", "running", "footwear", "lugged sole", "outdoor", "athletic"],
   "category": "footwear",
   "description": "A low-profile trail running shoe with a matte-coated clay-orange and charcoal-grey ripstop mesh upper, synthetic overlays, and a chunky lugged rubber outsole built for off-road traction.",
   "width": 1024,

@@ -198,9 +198,7 @@ export function ShowcaseCard({
         onUse={onOpen}
         size={size}
       />
-      {(presenter || product || scene) && (
-        <CreditRow presenter={presenter} product={product} scene={scene} />
-      )}
+      {(presenter || product || scene) && <CreditRow presenter={presenter} product={product} scene={scene} />}
     </div>
   );
 }
@@ -287,8 +285,8 @@ function CreditTip({
       if (!el) return;
       const r = el.getBoundingClientRect();
       const pop = popRef.current;
-      const pw = pop?.offsetWidth || 98;
-      const ph = pop?.offsetHeight || 112;
+      const pw = pop?.offsetWidth || 118;
+      const ph = pop?.offsetHeight || 142;
       const gap = 8;
       const above = r.top >= ph + gap + 12;
       setPos({
@@ -331,6 +329,11 @@ function CreditTip({
           >
             <span className="sc-credit-tip-card">
               <img src={credit.previewUrl} alt="" />
+              {/* The name was reaching only the aria-label, so a sighted user
+                  got a picture and the word "Product" and no way to learn what
+                  it was called. This is the surface with the most room on the
+                  whole tile — it should carry the name the card had to clip. */}
+              <span className="sc-credit-tip-name">{credit.name}</span>
               <span className="sc-credit-tip-role">{role}</span>
             </span>
           </span>,

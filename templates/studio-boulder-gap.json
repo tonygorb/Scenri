@@ -1,6 +1,8 @@
 {
   "id": "studio-boulder-gap",
   "name": "Boulder Gap",
+  "promptName": "Boulder Gap",
+  "keywords": ["granite", "boulder", "rock", "lichen", "overcast", "geological", "stone", "natural", "outdoor"],
   "description": "The product nested off-centre in the natural saddle where two weathered granite boulders lean together, real lichen crusts and moss packed into the crevice, cool overcast directional light. Raw inland geology at intimate scale, never a symmetrical pairing.",
   "lighting": "Cool overcast directional, lichen bounce",
   "subject": "product",

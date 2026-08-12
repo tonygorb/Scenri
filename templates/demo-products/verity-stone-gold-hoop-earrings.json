@@ -1,6 +1,11 @@
 {
   "id": "verity-stone-gold-hoop-earrings",
-  "name": "Hammered Gold Hoop Earrings",
+  "name": "Gold Hoops",
+  "promptName": "Hammered Gold Hoop Earrings",
+  "brand": "Verity Stone",
+  "format": "Hoop earrings",
+  "legacyNames": ["Hammered Gold Hoop Earrings"],
+  "keywords": ["earrings", "hoops", "jewelry", "gold", "hammered", "accessories"],
   "category": "jewelry",
   "description": "A matched pair of polished gold-tone hoop earrings with a subtle hammered texture and a hinge-snap post closure.",
   "width": 1024,

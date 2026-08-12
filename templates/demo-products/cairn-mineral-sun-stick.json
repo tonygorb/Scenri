@@ -1,6 +1,11 @@
 {
   "id": "cairn-mineral-sun-stick",
-  "name": "Twist-Up Aluminum Mineral Sun Stick",
+  "name": "Sun Stick",
+  "promptName": "Twist-Up Aluminum Mineral Sun Stick",
+  "brand": "Cairn",
+  "format": "Twist-up stick",
+  "legacyNames": ["Twist-Up Aluminum Mineral Sun Stick"],
+  "keywords": ["sunscreen", "spf", "sun stick", "mineral", "balm", "beauty", "skincare", "aluminium", "twist-up"],
   "category": "beauty",
   "description": "A short, stout sun stick with a flat-oval cross-section, built from matte slate-graphite recycled aluminum, closed with a matte bone-white pull-off cap, turned by a bare knurled aluminum dial at the base, and loaded with a chalk-white mineral balm that rises as a flat dome above the tube's opening.",
   "width": 1024,

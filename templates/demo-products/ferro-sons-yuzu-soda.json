@@ -1,6 +1,11 @@
 {
   "id": "ferro-sons-yuzu-soda",
-  "name": "Matte-Finish Aluminum Soda Can",
+  "name": "Yuzu Soda",
+  "promptName": "Matte-Finish Aluminum Soda Can",
+  "brand": "Ferro & Sons",
+  "format": "Aluminum can",
+  "legacyNames": ["Matte-Finish Aluminum Soda Can"],
+  "keywords": ["soda", "yuzu", "citrus", "beverage", "can", "aluminum", "soft drink", "fizzy"],
   "category": "beverage",
   "description": "A slim, standard-format aluminum beverage can with a smooth matte powder-coat finish in pale yellow, accented by a narrow matte citrus-green stripe wrapping the mid-body, sealed with a standard brushed-aluminum pull-tab lid.",
   "width": 1024,

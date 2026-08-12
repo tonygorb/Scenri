@@ -1,6 +1,9 @@
 {
   "id": "liquid-marble-pour",
-  "name": "Molten Wax Cascade",
+  "name": "Wax Cascade",
+  "promptName": "Molten Wax Cascade",
+  "legacyNames": ["Molten Wax Cascade"],
+  "keywords": ["wax", "molten", "pour", "cascade", "jewel tone", "gloss", "liquid", "drip"],
   "description": "The product resting where a vertical cascade of deep jewel-toned molten wax has pooled and begun to set, glossy drips frozen mid-fall around it at varying stages of cooling. Sculptural and vertical, with genuine gloss-to-matte contrast as the wax sets.",
   "lighting": "Raking key light, wax gloss-to-matte contrast",
   "subject": "product",

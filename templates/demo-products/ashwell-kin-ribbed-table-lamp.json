@@ -1,6 +1,11 @@
 {
   "id": "ashwell-kin-ribbed-table-lamp",
-  "name": "Ribbed Ceramic Table Lamp with Linen Drum Shade",
+  "name": "Ribbed Lamp",
+  "promptName": "Ribbed Ceramic Table Lamp with Linen Drum Shade",
+  "brand": "Ashwell Kin",
+  "format": "Table lamp",
+  "legacyNames": ["Ribbed Ceramic Table Lamp with Linen Drum Shade"],
+  "keywords": ["lamp", "lighting", "table lamp", "ceramic", "ribbed", "linen shade", "furniture", "home"],
   "category": "furniture",
   "description": "A table lamp with a fluted, vertically ribbed ceramic base in warm cream glaze, brass-toned hardware, and a plain natural linen drum shade.",
   "width": 1024,

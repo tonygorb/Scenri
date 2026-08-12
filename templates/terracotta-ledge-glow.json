@@ -1,6 +1,9 @@
 {
   "id": "terracotta-ledge-glow",
-  "name": "Terracotta Ledge Glow",
+  "name": "Terracotta Ledge",
+  "promptName": "Terracotta Ledge Glow",
+  "legacyNames": ["Terracotta Ledge Glow"],
+  "keywords": ["terracotta", "ledge", "taupe", "shadowless", "geometric", "warm", "minimal", "gradient"],
   "description": "The product resting on the corner of a minimalist geometric wood-and-terracotta ledge, a warm taupe gradient field behind, soft diffused light with genuinely shadowless transitions.",
   "lighting": "Soft diffused, genuinely shadowless",
   "subject": "product",

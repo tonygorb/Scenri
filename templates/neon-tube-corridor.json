@@ -1,6 +1,9 @@
 {
   "id": "neon-tube-corridor",
-  "name": "Neon Tube Corridor",
+  "name": "Neon Corridor",
+  "promptName": "Neon Tube Corridor",
+  "legacyNames": ["Neon Tube Corridor"],
+  "keywords": ["neon", "corridor", "magenta", "cyan", "night", "cyberpunk", "glow", "tech", "futuristic"],
   "description": "The subject stands low in a narrow corridor lined with glowing magenta and cyan neon tubes, their light streaking and doubling across a wet floor as the tubes recede toward a vanishing point. Electric, high-contrast, nocturnal energy.",
   "lighting": "Neon-tube glow only, no separate key light",
   "subject": "either",

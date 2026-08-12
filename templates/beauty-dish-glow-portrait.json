@@ -1,6 +1,9 @@
 {
   "id": "beauty-dish-glow-portrait",
-  "name": "Beauty Dish Glow Portrait",
+  "name": "Beauty Dish",
+  "promptName": "Beauty Dish Glow Portrait",
+  "legacyNames": ["Beauty Dish Glow Portrait"],
+  "keywords": ["beauty dish", "portrait", "glow", "catchlight", "overhead", "skin", "makeup", "clean"],
   "description": "One soft circular beauty-dish key light held close and centered above the model, producing a real round catchlight, a genuine butterfly shadow under the nose, and true matte-to-satin skin — the register of an actual high-end beauty shoot, not a glossed digital render.",
   "lighting": "Close overhead beauty dish, real butterfly shadow",
   "subject": "person",

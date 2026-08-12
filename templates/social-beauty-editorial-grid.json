@@ -1,6 +1,9 @@
 {
   "id": "social-beauty-editorial-grid",
-  "name": "Beauty Editorial Grid",
+  "name": "Editorial Grid",
+  "promptName": "Beauty Editorial Grid",
+  "legacyNames": ["Beauty Editorial Grid"],
+  "keywords": ["beauty", "crimson", "color block", "specular", "saturated", "cosmetics", "editorial", "bold"],
   "description": "A gold-cap lipstick glows against a saturated crimson-red color-block backdrop, tight controlled specular lighting carving one precise highlight across gold and glass — the macro-level, feed-stopping polish of a real cosmetics launch ad, with a clean zone reserved for headline text.",
   "lighting": "Tight controlled specular, saturated color block",
   "subject": "product",

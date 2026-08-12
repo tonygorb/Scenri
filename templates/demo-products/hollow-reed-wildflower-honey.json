@@ -1,6 +1,11 @@
 {
   "id": "hollow-reed-wildflower-honey",
-  "name": "Hexagonal Glass Honey Jar with Wood Lid",
+  "name": "Wildflower Honey",
+  "promptName": "Hexagonal Glass Honey Jar with Wood Lid",
+  "brand": "Hollow Reed",
+  "format": "Hexagonal jar",
+  "legacyNames": ["Hexagonal Glass Honey Jar with Wood Lid"],
+  "keywords": ["honey", "wildflower", "jar", "food", "glass", "hexagonal", "wood lid", "preserve"],
   "category": "food",
   "description": "A hexagonal faceted glass jar filled with thick raw amber honey and sealed with a turned solid wood lid.",
   "width": 1024,

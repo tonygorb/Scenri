@@ -1,6 +1,11 @@
 {
   "id": "harlow-made-woven-rattan-basket",
-  "name": "Woven Rattan Storage Basket",
+  "name": "Rattan Basket",
+  "promptName": "Woven Rattan Storage Basket",
+  "brand": "Harlow Made",
+  "format": "Storage basket",
+  "legacyNames": ["Woven Rattan Storage Basket"],
+  "keywords": ["basket", "rattan", "woven", "storage", "wicker", "home", "natural fibre", "decor"],
   "category": "furniture",
   "description": "A hand-woven rattan storage basket with tapered sides, a reinforced rolled rim, and two woven loop handles.",
   "width": 1024,

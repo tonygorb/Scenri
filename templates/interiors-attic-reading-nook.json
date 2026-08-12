@@ -1,6 +1,9 @@
 {
   "id": "interiors-attic-reading-nook",
-  "name": "Attic Reading Nook",
+  "name": "Attic Nook",
+  "promptName": "Attic Reading Nook",
+  "legacyNames": ["Attic Reading Nook"],
+  "keywords": ["attic", "reading nook", "candle", "windowsill", "afternoon", "cozy", "home", "interior"],
   "description": "A wax-sealed soy candle catches low, slanted late-afternoon light on the windowsill of a real attic reading nook, a worn wool throw and a stack of books softening at the edge of frame — quiet human-scale intimacy, a considered still life rather than a styled catalog shot.",
   "lighting": "Low, slanted late-afternoon window light with long warm shadows",
   "subject": "product",

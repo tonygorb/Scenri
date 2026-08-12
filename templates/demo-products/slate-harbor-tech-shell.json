@@ -1,6 +1,11 @@
 {
   "id": "slate-harbor-tech-shell",
-  "name": "Taped-Seam Technical Hardshell Jacket",
+  "name": "Tech Shell",
+  "promptName": "Taped-Seam Technical Hardshell Jacket",
+  "brand": "Slate Harbor",
+  "format": "Hardshell jacket",
+  "legacyNames": ["Taped-Seam Technical Hardshell Jacket"],
+  "keywords": ["jacket", "shell", "hardshell", "technical", "waterproof", "outerwear", "apparel", "taped seam", "outdoor"],
   "category": "apparel",
   "description": "A three-layer technical hardshell jacket in matte storm-slate grey with a chalk-white shoulder yoke sweeping across the chest and sleeve tops, fully taped seams, a stiffened-brim storm hood, and a gunmetal two-way front zip hidden under a storm flap.",
   "width": 1024,

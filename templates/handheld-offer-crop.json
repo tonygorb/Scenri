@@ -1,6 +1,8 @@
 {
   "id": "handheld-offer-crop",
   "name": "Handheld Offer",
+  "promptName": "Handheld Offer",
+  "keywords": ["hand", "holding", "offering", "human", "window light", "intimate", "ugc", "gesture"],
   "description": "A hand extends the product toward camera, offering it directly to the viewer — the intimate, human register of a real person sharing something they love, not a stand-alone hero shot.",
   "lighting": "Soft window-adjacent light, natural falloff",
   "subject": "either",

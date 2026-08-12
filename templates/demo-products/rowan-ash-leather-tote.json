@@ -1,6 +1,11 @@
 {
   "id": "rowan-ash-leather-tote",
-  "name": "Structured Full-Grain Leather Tote",
+  "name": "Leather Tote",
+  "promptName": "Structured Full-Grain Leather Tote",
+  "brand": "Rowan Ash",
+  "format": "Tote bag",
+  "legacyNames": ["Structured Full-Grain Leather Tote"],
+  "keywords": ["tote", "bag", "handbag", "leather", "full-grain", "accessories", "carryall", "structured"],
   "category": "accessories",
   "description": "A boxy, structured tote bag in vegetable-tanned tan full-grain leather with solid brass hardware and reinforced stitched handles.",
   "width": 1024,

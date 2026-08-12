@@ -1,6 +1,11 @@
 {
   "id": "moss-larkin-sling-lounge-chair",
-  "name": "Leather Sling Lounge Chair with Walnut Frame",
+  "name": "Sling Chair",
+  "promptName": "Leather Sling Lounge Chair with Walnut Frame",
+  "brand": "Moss Larkin",
+  "format": "Lounge chair",
+  "legacyNames": ["Leather Sling Lounge Chair with Walnut Frame"],
+  "keywords": ["chair", "lounge chair", "sling", "leather", "walnut", "furniture", "seating", "mid-century"],
   "category": "furniture",
   "description": "A low lounge chair on a solid walnut frame, with a single suspended saddle-leather sling forming the seat and back in one continuous unbroken curve, secured by brass pins at the frame ends.",
   "width": 1024,

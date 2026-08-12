@@ -1,6 +1,11 @@
 {
   "id": "cypress-row-olive-oil",
-  "name": "Dark Green Glass Olive Oil Bottle with Steel Pour Spout",
+  "name": "Olive Oil",
+  "promptName": "Dark Green Glass Olive Oil Bottle with Steel Pour Spout",
+  "brand": "Cypress Row",
+  "format": "Glass bottle",
+  "legacyNames": ["Dark Green Glass Olive Oil Bottle with Steel Pour Spout"],
+  "keywords": ["olive oil", "oil", "cooking", "food", "green glass", "bottle", "pour spout", "pantry"],
   "category": "food",
   "description": "A tall, slender, square-shouldered bottle in deep forest-green glass filled with golden-green olive oil, fitted at the neck with a bare brushed-stainless free-flow pour spout, and wrapped at the mid-body with a wide band of uncoated oat-white paper.",
   "width": 1024,

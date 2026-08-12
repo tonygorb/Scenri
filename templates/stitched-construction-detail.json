@@ -1,6 +1,9 @@
 {
   "id": "stitched-construction-detail",
-  "name": "Stitched Construction Detail",
+  "name": "Stitch Line",
+  "promptName": "Stitched Construction Detail",
+  "legacyNames": ["Stitched Construction Detail"],
+  "keywords": ["stitch", "seam", "construction", "macro", "leather", "welt", "craft", "detail", "thread"],
   "description": "Extreme macro on a product's genuine hand-stitched construction seam — the welt where a boot's leather upper meets its sole — raking light revealing real thread, leather, and layered structure as proof of craftsmanship.",
   "lighting": "Single raking light, genuine stitch shadow",
   "subject": "product",

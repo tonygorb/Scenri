@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
+import { productLabel, sceneLabel } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Badge, Dialog } from '@radix-ui/themes';
 import { Aperture, Mountains, Package, User, X } from '@phosphor-icons/react';
@@ -96,14 +97,16 @@ export function HomeView() {
     const presenter = presenterId ? presenters.find((p) => p.id === presenterId) : undefined;
     const scene = sceneId ? templates.find((t) => t.id === sceneId) : undefined;
     return {
-      productName: product?.name ?? null,
+      // Three names share one ellipsis-capped line here, so each gets its
+      // tightest form. The full label lives in the credit tooltip.
+      productName: product ? productLabel(product, 'chip') : null,
       productPreviewUrl: product?.previewUrl ?? null,
       productId: product?.id ?? null,
       presenterName: presenter?.name ?? null,
       // .sc-showcase-chip img is a circle — the square portrait fills it cleanly.
       presenterPreviewUrl: presenter?.avatarUrl ?? presenter?.previewUrl ?? null,
       presenterId: presenter?.id ?? null,
-      sceneName: scene?.name ?? null,
+      sceneName: scene ? sceneLabel(scene, 'chip') : null,
       scenePreviewUrl: scene?.previewUrl ?? null,
       sceneId: scene?.id ?? null,
     };

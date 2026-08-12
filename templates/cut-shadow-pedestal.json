@@ -1,6 +1,9 @@
 {
   "id": "cut-shadow-pedestal",
-  "name": "Cut-Shadow Pedestal",
+  "name": "Cut Shadow",
+  "promptName": "Cut-Shadow Pedestal",
+  "legacyNames": ["Cut-Shadow Pedestal"],
+  "keywords": ["gobo", "spotlight", "hard shadow", "plinth", "pedestal", "color cove", "saturated", "dramatic"],
   "description": "The subject rests on a low plinth inside a deep, single-hue saturated color cove, where a hard gobo-cut spotlight throws sharp, hard-edged graphic shadow bars and cut shapes across the floor and back wall behind it. A gallery-installation mood with zero fill light — the shadow pattern reads as boldly as the product itself.",
   "lighting": "Single hard gobo-cut spotlight, no fill light",
   "subject": "product",

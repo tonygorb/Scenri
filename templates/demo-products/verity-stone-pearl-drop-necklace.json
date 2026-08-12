@@ -1,6 +1,11 @@
 {
   "id": "verity-stone-pearl-drop-necklace",
-  "name": "Freshwater Pearl Drop Necklace",
+  "name": "Pearl Drop",
+  "promptName": "Freshwater Pearl Drop Necklace",
+  "brand": "Verity Stone",
+  "format": "Pendant necklace",
+  "legacyNames": ["Freshwater Pearl Drop Necklace"],
+  "keywords": ["necklace", "pendant", "pearl", "freshwater", "jewelry", "drop", "chain"],
   "category": "jewelry",
   "description": "A delicate gold-tone cable chain necklace suspending a single lustrous freshwater pearl drop pendant.",
   "width": 1024,

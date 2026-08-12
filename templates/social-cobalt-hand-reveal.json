@@ -1,6 +1,9 @@
 {
   "id": "social-cobalt-hand-reveal",
-  "name": "Persimmon Plaster Reveal",
+  "name": "Plaster Reveal",
+  "promptName": "Persimmon Plaster Reveal",
+  "legacyNames": ["Persimmon Plaster Reveal"],
+  "keywords": ["plaster", "persimmon", "hand", "reveal", "orange", "troweled", "wall", "tactile"],
   "description": "A bare hand presents the product against a hand-troweled burnt-persimmon lime-plaster wall — a saturated orange-red field with real trowel relief, not printed paper. One hard daylight-white rim carves the knuckles and the product's edge; a brass bounce returns warm copper into the shadow side.",
   "lighting": "Hard daylight rim, brass bounce, troweled plaster",
   "subject": "product",

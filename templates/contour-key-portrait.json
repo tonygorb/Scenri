@@ -1,6 +1,9 @@
 {
   "id": "contour-key-portrait",
-  "name": "Contour Key Portrait",
+  "name": "Contour Key",
+  "promptName": "Contour Key Portrait",
+  "legacyNames": ["Contour Key Portrait"],
+  "keywords": ["hard light", "contour", "shadow", "graphic", "portrait", "dramatic", "black", "sculpted"],
   "description": "One hard side key cuts a graphic line across the face and body of the same identity-locked model in every frame, shot against a deep charcoal-black studio cyc rather than a flat mid-grey ground — a coherent campaign, not six different people, with a sharper graphic contrast than a mid-grey ground allows.",
   "lighting": "Hard side key, graphic shadow edge on near-black",
   "subject": "person",

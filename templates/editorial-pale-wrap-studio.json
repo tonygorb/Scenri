@@ -1,6 +1,9 @@
 {
   "id": "editorial-pale-wrap-studio",
-  "name": "Pale Wrap Studio",
+  "name": "Pale Wrap",
+  "promptName": "Pale Wrap Studio",
+  "legacyNames": ["Pale Wrap Studio"],
+  "keywords": ["studio", "pale", "neutral", "soft light", "fashion", "backdrop", "full figure", "clean"],
   "description": "The identity-locked model in a full-figure fashion editorial shot against a pale neutral studio backdrop, soft even wrap-around light with no hard shadow edge, minimalist and serene.",
   "lighting": "Soft even wrap-around light, no hard shadow",
   "subject": "person",

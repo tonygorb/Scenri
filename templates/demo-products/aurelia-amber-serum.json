@@ -1,6 +1,11 @@
 {
   "id": "aurelia-amber-serum",
-  "name": "Amber Glass Dropper Bottle",
+  "name": "Amber Serum",
+  "promptName": "Amber Glass Dropper Bottle",
+  "brand": "Aurelia",
+  "format": "Dropper bottle",
+  "legacyNames": ["Amber Glass Dropper Bottle"],
+  "keywords": ["serum", "skincare", "dropper", "amber glass", "beauty", "face oil", "cosmetics"],
   "category": "beauty",
   "description": "A slender amber-glass dropper bottle with a brushed matte-gold metal collar and dropper cap, wrapped with a plain matte cream-colored paper band, sized for a facial serum or treatment oil.",
   "width": 1024,

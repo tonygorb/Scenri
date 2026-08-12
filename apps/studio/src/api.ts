@@ -220,7 +220,13 @@ export interface SceneField {
  */
 export interface Scene {
   id: string;
+  /** What humans read. Free to change: nothing resolves by it. */
   name: string;
+  /**
+   * The frozen descriptive phrase the compiler sends the engine. Server-side
+   * concern — never render this; it is deliberately longer than `name`.
+   */
+  promptName?: string;
   description: string;
   /** Short phrase naming the light. Scenes relate to each other by this. */
   lighting: string;
@@ -230,6 +236,10 @@ export interface Scene {
   /** Vibrant colour pulled from the preview, for tinting the chip. */
   previewUrl?: string | null;
   previewColor?: string | null;
+  /** Display names this scene used to carry. Searchable; never rendered. */
+  legacyNames?: string[];
+  /** Search vocabulary. Never rendered — this is what pays for a short `name`. */
+  keywords?: string[];
   fields?: SceneField[];
   prompt: string;
   width: number;
@@ -285,15 +295,30 @@ export interface Presenter {
  */
 export interface DemoProduct {
   id: string;
+  /** What humans read. Free to change: nothing resolves by it. */
   name: string;
+  /**
+   * The frozen descriptive noun phrase the compiler sends the engine.
+   * Server-side concern — never render this; it is deliberately longer than
+   * `name` and exists so `name` can shrink without moving a generation.
+   */
+  promptName?: string;
   /** Lowercase key from productCategories.ts's PRODUCT_CATEGORIES. */
   category: string;
   description: string;
   width: number;
   height: number;
   previewUrl?: string | null;
+  /** Fictional house name. Shown alongside `name` on cards and tooltips, not in chips. */
   brand?: string;
+  /** Long descriptive form of the physical format. */
   subcategory?: string;
+  /** Short physical format for tooltips, e.g. "330ml can". */
+  format?: string;
+  /** Display names this product used to carry. Searchable; never rendered. */
+  legacyNames?: string[];
+  /** Search vocabulary. Never rendered. */
+  keywords?: string[];
 }
 
 /**
@@ -480,10 +505,34 @@ export function hasNoShots(nodes: TreeNode[]): boolean {
   return nodes.every((n) => n.kind === 'root');
 }
 
-/** Human title for a node: template name, lift shorthand, or first words of the prompt. */
+/**
+ * Legacy scene display names mapped to the name that scene answers to now.
+ *
+ * A node's prompt is written once and never rewritten, so a shot made before a
+ * scene was renamed carries the old name inside its `[Scene Name]` bracket
+ * forever. That is right as a record of the text actually sent to the engine,
+ * and wrong as a title in today's UI. `nodeLabel` consults this to show the
+ * current name without rewriting a single stored prompt.
+ *
+ * A registry rather than a parameter on purpose: all thirteen `nodeLabel` call
+ * sites want the same answer, most are deep in leaf components, and none of
+ * them owns the scene catalog. Populated once from `useScenes`.
+ */
+let sceneNameAliases: ReadonlyMap<string, string> = new Map();
+
+/** Rebuild the legacy-name map from the scene catalog. Called by `useScenes`. */
+export function registerSceneNameAliases(scenes: Pick<Scene, 'name' | 'legacyNames'>[]): void {
+  const m = new Map<string, string>();
+  for (const s of scenes) {
+    for (const legacy of s.legacyNames ?? []) if (legacy !== s.name) m.set(legacy, s.name);
+  }
+  sceneNameAliases = m;
+}
+
+/** Human title for a node: scene name, lift shorthand, or first words of the prompt. */
 export function nodeLabel(n: TreeNode): string {
   const tag = /^\[([^\]]+)\]/.exec(n.prompt)?.[1];
-  if (tag) return tag;
+  if (tag) return sceneNameAliases.get(tag) ?? tag;
   if (n.prompt.startsWith('Remove all overlaid marketing text') || n.prompt.startsWith('Remove ALL text'))
     return 'Text lift';
   const words = n.prompt.trim().split(/\s+/).slice(0, 6).join(' ');
@@ -499,6 +548,8 @@ export interface BriefPreview {
   // references at all — including noticing when one had been dropped.
   attachments: {
     role: 'product' | 'character' | 'reference';
+    /** Catalog id of the product/presenter this came from. Correlate on this, not `label`. */
+    id?: string;
     label: string;
     hash: string;
     essential?: boolean;

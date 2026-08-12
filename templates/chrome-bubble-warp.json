@@ -1,6 +1,9 @@
 {
   "id": "chrome-bubble-warp",
-  "name": "Suspended Silk Drape",
+  "name": "Silk Drape",
+  "promptName": "Suspended Silk Drape",
+  "legacyNames": ["Suspended Silk Drape"],
+  "keywords": ["silk", "fabric", "drape", "folds", "satin", "textile", "luxury", "saturated", "sheen"],
   "description": "The subject rests in the sculptural folds of a length of richly saturated silk fabric, professionally lit to reveal real fold shadows and fabric sheen. Genuine physical set design — the kind of flowing-fabric backdrop real fragrance and jewelry campaigns actually shoot, not a digital effect.",
   "lighting": "Soft raking key, real fabric sheen and fold shadow",
   "subject": "product",

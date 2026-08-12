@@ -1,6 +1,9 @@
 {
   "id": "interiors-greenhouse-potting-nook",
-  "name": "Greenhouse Potting Nook",
+  "name": "Potting Nook",
+  "promptName": "Greenhouse Potting Nook",
+  "legacyNames": ["Greenhouse Potting Nook"],
+  "keywords": ["greenhouse", "potting bench", "plants", "dappled", "garden", "terracotta", "botanical", "glass"],
   "description": "A terracotta reed diffuser rests on a weathered potting bench inside a real backyard greenhouse, dappled sunlight scattering through glass and real foliage in a soft, ever-shifting pattern across the terracotta and soil. Human-scale and lived-in — a genuine working potting nook, not an epic decorative jungle set.",
   "lighting": "Dappled, filtered sunlight through greenhouse glass and leaf cover",
   "subject": "product",

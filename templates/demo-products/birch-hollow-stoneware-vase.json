@@ -1,6 +1,11 @@
 {
   "id": "birch-hollow-stoneware-vase",
-  "name": "Hand-Thrown Speckled Stoneware Vase",
+  "name": "Stoneware Vase",
+  "promptName": "Hand-Thrown Speckled Stoneware Vase",
+  "brand": "Birch Hollow",
+  "format": "Vase",
+  "legacyNames": ["Hand-Thrown Speckled Stoneware Vase"],
+  "keywords": ["vase", "ceramic", "stoneware", "pottery", "speckled", "hand-thrown", "home", "decor"],
   "category": "furniture",
   "description": "A hand-thrown stoneware vase with a rounded, gently asymmetric body that tapers into a short cylindrical neck, finished in a matte speckled glaze.",
   "width": 1024,

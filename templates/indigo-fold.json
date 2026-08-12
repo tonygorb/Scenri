@@ -1,6 +1,8 @@
 {
   "id": "indigo-fold",
   "name": "Indigo Fold",
+  "promptName": "Indigo Fold",
+  "keywords": ["indigo", "linen", "fabric", "folds", "blue", "botanical", "textile", "dyed", "moody"],
   "description": "The product half-nested in the deep folds of heavyweight indigo-dyed linen, structural botanicals layered across it rather than beside it. Cool north-window light rakes the weave and dies into unfilled shadow — a dark, tactile still life.",
   "lighting": "Low cool north window, unfilled shadow",
   "subject": "product",

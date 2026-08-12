@@ -1,6 +1,8 @@
 {
   "id": "furniture-low-sun-terrace",
   "name": "Low-Sun Terrace",
+  "promptName": "Low-Sun Terrace",
+  "keywords": ["terrace", "mediterranean", "golden hour", "low sun", "outdoor", "stone", "warm", "patio"],
   "description": "A walled Mediterranean terrace at harvest-gold late afternoon, low sun raking almost horizontally across worn stone paving and throwing long hard shadows from fig and olive foliage.",
   "lighting": "Low raking harvest-gold sun with cool open sky fill",
   "subject": "product",

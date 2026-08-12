@@ -1,6 +1,9 @@
 {
   "id": "social-fashion-campaign-billboard",
-  "name": "Fashion Campaign Billboard",
+  "name": "Billboard",
+  "promptName": "Fashion Campaign Billboard",
+  "legacyNames": ["Fashion Campaign Billboard"],
+  "keywords": ["billboard", "paste-up", "poster wall", "street", "campaign", "weathered", "urban", "fashion"],
   "description": "The identity-locked model shot directly against a real weathered outdoor paste-up poster wall — layered torn-paper edges, peeling texture, hard late-day directional light raking across the surface — with one genuinely blank, freshly-pasted rectangular poster panel reserved in frame for the headline. The register of an actual location shoot pinned to a real urban wall, not a flat studio color block.",
   "lighting": "Hard late-day directional key, weathered wall texture",
   "subject": "person",

@@ -1,6 +1,9 @@
 {
   "id": "plain-light-portrait",
-  "name": "Plain Light Portrait",
+  "name": "Plain Light",
+  "promptName": "Plain Light Portrait",
+  "legacyNames": ["Plain Light Portrait"],
+  "keywords": ["natural light", "window", "portrait", "minimal", "daylight", "plain", "simple", "honest"],
   "description": "Soft true daylight from a single large window in a real minimalist room — unmodified, no studio rig, no added fill — the plainest, most honest register in the Portrait family, worn by a raw waxed-canvas chore jacket, with a relaxed and quietly warm presence rather than a stern documentary stare.",
   "lighting": "Soft window daylight, no studio rig",
   "subject": "person",

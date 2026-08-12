@@ -1,6 +1,9 @@
 {
   "id": "screen-print-duotone",
-  "name": "Screen-Print Duotone",
+  "name": "Duotone Print",
+  "promptName": "Screen-Print Duotone",
+  "legacyNames": ["Screen-Print Duotone"],
+  "keywords": ["duotone", "screen print", "halftone", "graphic", "poster", "two ink", "risograph", "retro"],
   "description": "The subject reduced to a true two-ink duotone screen-print, with bold halftone dot patterns standing in for tonal gradation and a deliberate registration offset at the edges. Flat, frontal, and printed on coarse poster paper rather than photographed, with unmistakable ink-to-paper contrast that reads as a genuine print, not a filtered photo.",
   "lighting": "Flat frontal screened flash, halftone-only shading",
   "subject": "either",

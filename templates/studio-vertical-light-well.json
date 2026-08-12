@@ -1,6 +1,9 @@
 {
   "id": "studio-vertical-light-well",
-  "name": "Frozen Vapor Chamber",
+  "name": "Vapor Chamber",
+  "promptName": "Frozen Vapor Chamber",
+  "legacyNames": ["Frozen Vapor Chamber"],
+  "keywords": ["vapor", "fog", "dry ice", "mist", "cold", "chamber", "atmospheric", "smoke", "frozen"],
   "description": "The subject stands suspended inside a chamber of drifting cold vapor, dry-ice fog pooling and curling at its base while a single downlight falls straight through the mist. Tall, clinical, and quietly dramatic — the vapor itself is the room, with no walls or floor in sight.",
   "lighting": "Single cool downlight, vapor-scattered, no fill",
   "subject": "product",

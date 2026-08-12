@@ -1,6 +1,9 @@
 {
   "id": "macro-texture-detail",
-  "name": "Macro Texture Detail",
+  "name": "Macro Texture",
+  "promptName": "Macro Texture Detail",
+  "legacyNames": ["Macro Texture Detail"],
+  "keywords": ["macro", "texture", "detail", "surface", "material", "extreme closeup", "grain", "tactile"],
   "description": "An extreme close-up on the product's own surface — no full silhouette, no context, just genuine material texture and craftsmanship filling the frame. The register of a luxury-house detail shot, not a full packshot.",
   "lighting": "Single soft raking light, real specular grain",
   "subject": "product",

@@ -1,6 +1,11 @@
 {
   "id": "orchard-oat-cold-pressed-juice",
-  "name": "Kraft-Paper Fold-Top Juice Carton",
+  "name": "Cold-Pressed Juice",
+  "promptName": "Kraft-Paper Fold-Top Juice Carton",
+  "brand": "Orchard Oat",
+  "format": "Fold-top carton",
+  "legacyNames": ["Kraft-Paper Fold-Top Juice Carton"],
+  "keywords": ["juice", "cold-pressed", "carton", "beverage", "kraft", "apple", "oat", "drink"],
   "category": "beverage",
   "description": "An uncoated kraft-brown paper carton with a rectangular base and a gable fold-top closure, typical of a cold-pressed juice package.",
   "width": 1024,

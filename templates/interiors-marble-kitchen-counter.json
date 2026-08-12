@@ -1,6 +1,9 @@
 {
   "id": "interiors-marble-kitchen-counter",
-  "name": "Marble Kitchen Counter",
+  "name": "Marble Counter",
+  "promptName": "Marble Kitchen Counter",
+  "legacyNames": ["Marble Kitchen Counter"],
+  "keywords": ["kitchen", "marble", "counter", "morning", "home", "lived-in", "food", "interior"],
   "description": "A honed white-veined marble counter in a real, lived-in kitchen, caught in low warm morning window light — the intimate human scale of an actual home rather than an epic studio set.",
   "lighting": "Low warm morning window light, soft directional shadows",
   "subject": "product",

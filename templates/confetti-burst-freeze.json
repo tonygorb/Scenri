@@ -1,6 +1,9 @@
 {
   "id": "confetti-burst-freeze",
-  "name": "Cracked Clay Bloom",
+  "name": "Cracked Clay",
+  "promptName": "Cracked Clay Bloom",
+  "legacyNames": ["Cracked Clay Bloom"],
+  "keywords": ["clay", "terracotta", "cracked", "dry", "earth", "fissure", "desert", "golden hour", "arid"],
   "description": "The product nested within the widest fissure of a sun-dried terracotta clay surface, a deep radiating crack network spreading outward from it as if the product had bloomed straight out of the earth. Warm, tactile, and raking golden-hour light emphasizing real crack depth and texture.",
   "lighting": "Raking low-angle golden-hour light, real crack texture",
   "subject": "product",

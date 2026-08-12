@@ -1,6 +1,11 @@
 {
   "id": "northward-vacuum-flask",
-  "name": "Powder-Coated Stainless Vacuum Flask",
+  "name": "Vacuum Flask",
+  "promptName": "Powder-Coated Stainless Vacuum Flask",
+  "brand": "Northward",
+  "format": "Vacuum flask",
+  "legacyNames": ["Powder-Coated Stainless Vacuum Flask"],
+  "keywords": ["flask", "thermos", "bottle", "vacuum", "insulated", "stainless", "accessories", "outdoor"],
   "category": "accessories",
   "description": "A tall, gently tapered double-wall stainless vacuum flask finished in a matte deep cobalt-blue powder coat, closed with a bare brushed-stainless knurled screw cap and ringed by a narrow bare stainless band at the base.",
   "width": 1024,

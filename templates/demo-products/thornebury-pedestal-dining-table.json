@@ -1,6 +1,11 @@
 {
   "id": "thornebury-pedestal-dining-table",
-  "name": "Round Solid Oak Pedestal Dining Table",
+  "name": "Pedestal Table",
+  "promptName": "Round Solid Oak Pedestal Dining Table",
+  "brand": "Thornebury",
+  "format": "Dining table",
+  "legacyNames": ["Round Solid Oak Pedestal Dining Table"],
+  "keywords": ["table", "dining table", "pedestal", "oak", "furniture", "round", "solid wood"],
   "category": "furniture",
   "description": "A round dining table in solid white oak with a chamfered-underside top carried on a single turned column pedestal that flares into a four-toe cruciform foot.",
   "width": 1024,

@@ -1,6 +1,11 @@
 {
   "id": "holloway-stacked-band-set",
-  "name": "Three-Band Stacking Ring Set in Mixed Gold Finishes",
+  "name": "Stacking Rings",
+  "promptName": "Three-Band Stacking Ring Set in Mixed Gold Finishes",
+  "brand": "Holloway",
+  "format": "Ring set",
+  "legacyNames": ["Three-Band Stacking Ring Set in Mixed Gold Finishes"],
+  "keywords": ["ring", "rings", "stacking", "jewelry", "gold", "band", "set", "mixed metals"],
   "category": "jewelry",
   "description": "A set of exactly three slim stacking rings sharing one band width and one inner diameter, always kept in the same fixed order: a high-polish yellow-gold flat band, then a matte brushed rose-gold half-round band, then a hand-hammered white-gold band.",
   "width": 1024,

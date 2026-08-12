@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { productLabel, productSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
 import { Dialog } from '@radix-ui/themes';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
@@ -23,6 +24,8 @@ interface Card {
   tab: Exclude<Tab, 'All'>;
   label: string;
   sub?: string;
+  /** Matched on but never shown: keywords, brand, names from before a rename. */
+  search?: string;
   thumb?: string | null;
   swatch?: string;
   /** A hint, not a filter — see compat.ts. Only ever set for Scenes/Presenters. */
@@ -119,8 +122,9 @@ export function AttachPanel({
         (pr): Card => ({
           key: `p:${pr.id}`,
           tab: 'Products',
-          label: pr.name ?? 'Product',
+          label: productLabel(pr, 'card'),
           sub: 'stays exact',
+          search: productSearchText(pr),
           thumb: assetUrl(pr.shots?.[0]?.file),
           run: () => onToken({ t: 'product', id: pr.id }),
         }),
@@ -134,8 +138,9 @@ export function AttachPanel({
         (pr): Card => ({
           key: `dp:${pr.id}`,
           tab: 'Library',
-          label: pr.name,
+          label: productLabel(pr, 'card'),
           sub: categoryLabel(pr.category) ?? pr.category,
+          search: productSearchText(pr),
           thumb: pr.previewUrl ?? null,
           run: () => onToken({ t: 'product', id: pr.id }),
         }),
@@ -155,8 +160,9 @@ export function AttachPanel({
         (t): Card => ({
           key: `t:${t.id}`,
           tab: 'Scenes',
-          label: t.name,
+          label: sceneLabel(t, 'card'),
           sub: t.lighting,
+          search: sceneSearchText(t),
           thumb: (t as any).previewUrl ?? null,
           recommended: isRecommendedScene(t, activeProductCategory),
           run: () => onTemplate(t.id),
@@ -186,7 +192,7 @@ export function AttachPanel({
   }, [brand, library, templates, presenters, demoProducts, shots, activeProductCategory, onToken, onTemplate]);
 
   const query = q.trim().toLowerCase();
-  const match = (c: Card) => !query || `${c.label} ${c.sub ?? ''}`.toLowerCase().includes(query);
+  const match = (c: Card) => !query || `${c.label} ${c.sub ?? ''} ${c.search ?? ''}`.toLowerCase().includes(query);
   const inTab = (c: Card) => tab === 'All' || c.tab === tab;
   const shown = cards.filter((c) => inTab(c) && match(c));
   const groups: Exclude<Tab, 'All'>[] = ['Products', 'Library', 'Presenters', 'Scenes', 'Colors', 'Shots'];

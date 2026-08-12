@@ -1,6 +1,9 @@
 {
   "id": "overhead-styled-flatlay-grid",
-  "name": "Overhead Styled Grid",
+  "name": "Overhead Grid",
+  "promptName": "Overhead Styled Grid",
+  "legacyNames": ["Overhead Styled Grid"],
+  "keywords": ["flat-lay", "overhead", "grid", "birds eye", "styled", "seamless", "graphic", "layout"],
   "description": "A true bird's-eye flat-lay on a styled seamless surface, the product placed with graphic-design precision inside a loose grid of complementary props — a different overhead register from the single wood-table flat-lay, styled for a broader range of verticals.",
   "lighting": "Flat even overhead light, soft true shadows",
   "subject": "product",

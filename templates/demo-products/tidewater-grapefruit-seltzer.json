@@ -1,6 +1,11 @@
 {
   "id": "tidewater-grapefruit-seltzer",
-  "name": "Matte Coral Slim Aluminum Seltzer Can",
+  "name": "Grapefruit Seltzer",
+  "promptName": "Matte Coral Slim Aluminum Seltzer Can",
+  "brand": "Tidewater",
+  "format": "Slim can",
+  "legacyNames": ["Matte Coral Slim Aluminum Seltzer Can"],
+  "keywords": ["seltzer", "sparkling", "grapefruit", "beverage", "slim can", "aluminum", "drink", "citrus"],
   "category": "beverage",
   "description": "A tall, slim aluminum hard-seltzer can with a smooth matte powder-coat finish in deep coral, wrapped by a wide chalk-white band around the lower third with a hard, clean split edge, sealed with a bare brushed-aluminum pull-tab lid.",
   "width": 1024,

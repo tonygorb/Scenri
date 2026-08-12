@@ -1,6 +1,11 @@
 {
   "id": "basalt-bloom-sparkling-mineral-water",
-  "name": "Crown-Capped Glass Mineral Water Bottle",
+  "name": "Sparkling Water",
+  "promptName": "Crown-Capped Glass Mineral Water Bottle",
+  "brand": "Basalt Bloom",
+  "format": "Glass bottle",
+  "legacyNames": ["Crown-Capped Glass Mineral Water Bottle"],
+  "keywords": ["water", "sparkling", "mineral water", "beverage", "glass bottle", "crown cap", "drink"],
   "category": "beverage",
   "description": "A pressed clear-glass bottle with a rounded shoulder and narrow neck, holding a faintly tinted, lightly carbonated liquid and sealed with a plain silver tin-plated steel crown cap.",
   "width": 1024,

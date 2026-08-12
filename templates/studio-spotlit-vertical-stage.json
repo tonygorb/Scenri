@@ -1,6 +1,9 @@
 {
   "id": "studio-spotlit-vertical-stage",
-  "name": "Copper Forge Glow",
+  "name": "Copper Forge",
+  "promptName": "Copper Forge Glow",
+  "legacyNames": ["Copper Forge Glow"],
+  "keywords": ["forge", "ember", "copper", "metal", "warm", "blacksmith", "workbench", "glow", "craft"],
   "description": "The subject rests on a raw steel workbench lit by the warm ember-glow of a forge just out of frame, with fine sparks drifting upward through the dark and a sharp cool highlight tracing one edge for contrast. Industrial, luxurious, and quietly alive with heat.",
   "lighting": "Ember-glow key, sharp cool edge highlight",
   "subject": "product",

@@ -576,7 +576,10 @@ export const Composer = forwardRef<
       // homepage examples are built from.
       const products = libraryProducts.length ? libraryProducts : (brand.json?.products ?? []);
       const p = products.find((x: any) => x.id === t.id) ?? demoProducts.find((x) => x.id === t.id);
-      if (p && !preview.attachments.some((a) => a.role === 'product' && a.label === p.name)) {
+      // Match on id, never on label: a display name is free to differ from the
+      // descriptive phrase the compiler labels the attachment with, and two
+      // products may legitimately share a name.
+      if (p && !preview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
         return `${engine?.displayName ?? 'This engine'} cannot read the product image, so ${p.name} rides as text only.`;
       }
     }
@@ -585,7 +588,7 @@ export const Composer = forwardRef<
     // silence the product case above already fixed.
     if (t.t === 'character') {
       const c = presenters.find((x) => x.id === t.id);
-      if (c && !preview.attachments.some((a) => a.role === 'character' && a.label === c.name)) {
+      if (c && !preview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
         return `${engine?.displayName ?? 'This engine'} cannot read the person reference, so ${c.name} rides as text only.`;
       }
     }

@@ -1,6 +1,8 @@
 {
   "id": "furniture-lamplight-hours",
   "name": "Lamplight Hours",
+  "promptName": "Lamplight Hours",
+  "keywords": ["lamp", "evening", "warm", "practical light", "dusk", "cozy", "interior", "night", "home"],
   "description": "A real room after dark lit only by its own practicals. One warm lamp pools light while cold dusk bleeds through the window, and everything else falls away into deep shadow.",
   "lighting": "Single warm practical lamp with cold dusk window fill",
   "subject": "either",

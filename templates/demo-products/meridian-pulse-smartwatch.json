@@ -1,6 +1,11 @@
 {
   "id": "meridian-pulse-smartwatch",
-  "name": "Titanium-Case Rounded-Square Smartwatch",
+  "name": "Pulse Smartwatch",
+  "promptName": "Titanium-Case Rounded-Square Smartwatch",
+  "brand": "Meridian",
+  "format": "Smartwatch",
+  "legacyNames": ["Titanium-Case Rounded-Square Smartwatch"],
+  "keywords": ["smartwatch", "watch", "wearable", "electronics", "titanium", "fitness", "display"],
   "category": "electronics",
   "description": "A minimalist rounded-square smartwatch with a matte titanium-grey aluminum case, a sapphire-coated black display glass, a woven stone-grey nylon strap, and a polished stainless-steel side crown.",
   "width": 1024,

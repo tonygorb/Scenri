@@ -1,6 +1,11 @@
 {
   "id": "fieldnote-rangefinder-camera",
-  "name": "Compact Rangefinder-Style Mirrorless Camera",
+  "name": "Rangefinder",
+  "promptName": "Compact Rangefinder-Style Mirrorless Camera",
+  "brand": "Fieldnote",
+  "format": "Mirrorless camera",
+  "legacyNames": ["Compact Rangefinder-Style Mirrorless Camera"],
+  "keywords": ["camera", "mirrorless", "rangefinder", "photography", "electronics", "lens", "retro"],
   "category": "electronics",
   "description": "A compact rangefinder-style mirrorless camera with a flat-topped body about 128 millimetres wide by 74 tall by 36 deep and a fixed prime lens projecting a further 32 millimetres, its machined silver aluminium top plate and matching base plate each carrying a bright polished chamfer along their outer edge, a black pebbled-texture wrap covering the body's mid-band and trimmed to a crisp even line against both plates, two knurled silver dials with chamfered rims flanking an empty machined hot-shoe slot, a small round optical viewfinder window at the front upper-left, a flush rear display under a single sheet of glass with hairline bezels equal on all four sides and a screen corner radius concentric with the body's, and a black anodised prime lens with a knurled focus ring, a milled aperture ring and a slightly domed front element carrying a faint blue-violet coating flare.",
   "width": 1024,

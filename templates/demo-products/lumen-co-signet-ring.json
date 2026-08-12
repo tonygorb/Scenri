@@ -1,6 +1,11 @@
 {
   "id": "lumen-co-signet-ring",
-  "name": "Brushed Gold Signet Ring",
+  "name": "Signet Ring",
+  "promptName": "Brushed Gold Signet Ring",
+  "brand": "Lumen Co.",
+  "format": "Signet ring",
+  "legacyNames": ["Brushed Gold Signet Ring"],
+  "keywords": ["ring", "signet", "jewelry", "gold", "brushed", "band", "seal"],
   "category": "jewelry",
   "description": "A solid signet ring in brushed gold metal with a wide, smooth, high-polish flat face and a plain unmarked band.",
   "width": 1024,

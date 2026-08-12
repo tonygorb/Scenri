@@ -1,6 +1,11 @@
 {
   "id": "verlaine-lumiere",
-  "name": "Faceted Crystal Fragrance Bottle",
+  "name": "Lumière",
+  "promptName": "Faceted Crystal Fragrance Bottle",
+  "brand": "Verlaine",
+  "format": "Crystal EDP bottle",
+  "legacyNames": ["Faceted Crystal Fragrance Bottle"],
+  "keywords": ["fragrance", "perfume", "eau de parfum", "edp", "crystal", "faceted", "flacon", "scent"],
   "category": "fragrance",
   "description": "A squat eau de parfum bottle cut from clear crystal glass with a dense diamond-cut facet pattern, capped with a smooth polished gold-tone dome.",
   "width": 1024,

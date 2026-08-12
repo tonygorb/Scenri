@@ -1,6 +1,9 @@
 {
   "id": "cold-table-clinic",
-  "name": "Cold Table Clinic",
+  "name": "Cold Table",
+  "promptName": "Cold Table Clinic",
+  "legacyNames": ["Cold Table Clinic"],
+  "keywords": ["clinical", "laboratory", "stainless steel", "botanical", "cool", "science", "sterile", "dermatology"],
   "description": "The product on brushed stainless steel under cool low-contrast light, precise botanical cross-sections laid out at specimen spacing, a faint cold-condensation bloom on the metal. Surgical restraint with one organic accent.",
   "lighting": "Cool low-contrast directional, short soft shadow",
   "subject": "product",

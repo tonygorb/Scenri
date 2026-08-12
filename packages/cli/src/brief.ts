@@ -97,6 +97,15 @@ export interface Attachment {
    * the untyped legacy role for briefs authored before roles were split.
    */
   role: 'product' | 'character' | 'brand' | 'scene' | 'composition' | 'style' | 'reference';
+  /**
+   * The id of the product or presenter this image came from, when it came from
+   * one. Callers correlate a compiled attachment back to the chip that asked
+   * for it; without this the only handle was `label`, i.e. a display string —
+   * which mis-matched whenever two entries shared a name, and breaks outright
+   * once a label is free to differ from the name the compiler wrote.
+   * Absent for `ref`/`brand` attachments, which have no catalog entry.
+   */
+  id?: string;
   label: string;
   hash: string;
   /**
@@ -259,7 +268,10 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         productId = p.id;
-        append(p.name);
+        // `promptName` is the frozen descriptive noun phrase; `name` is the
+        // short label the UI shows. The model needs the former — it is the
+        // only text in the whole prompt saying what the object is.
+        append(p.promptName ?? p.name);
         // A specific angle (e.g. "detail" for a macro shot, "worn-scale" for
         // an on-body shot) beats the default first shot when the recipe asks
         // for one; falls back silently if that angle isn't available.
@@ -278,7 +290,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         }
         if (phashes.length) {
           phashes.forEach((h, i) => {
-            attachments.push({ role: 'product', label: p.name, hash: h, essential: i === 0 });
+            attachments.push({ role: 'product', id: p.id, label: p.name, hash: h, essential: i === 0 });
           });
           productDirectives.push(productFidelityDirective(phashes.length, (p.shots ?? []).length));
           if (p.preservationNotes) productDirectives.push(String(p.preservationNotes));
@@ -320,7 +332,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           .filter((h: string | null): h is string => !!h && ctx.images.has(h));
         if (chashes.length) {
           chashes.forEach((chash: string, i: number) => {
-            attachments.push({ role: 'character', label: c.name, hash: chash, essential: i === 0 });
+            attachments.push({ role: 'character', id: c.id, label: c.name, hash: chash, essential: i === 0 });
           });
           personDirectives.push(
             'The attached person reference is the same person every time: hold their face, hair and build, and do not restyle them.',
@@ -407,7 +419,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // Inline template tokens instead compile exactly where the chip sits.
   let prompt: string;
   if (ctx.template && !inlineTemplates.length) {
-    prompt = `[${ctx.template.name}] ${composePrompt(ctx.template, {
+    prompt = `[${ctx.template.promptName ?? ctx.template.name}] ${composePrompt(ctx.template, {
       fields: brief.templateFields ?? {},
       notes: sentence,
     })}`;

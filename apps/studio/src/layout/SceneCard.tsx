@@ -1,4 +1,5 @@
 import type { Scene } from '../api.js';
+import { sceneLabel } from '../displayName.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
 
 export type SceneCardVariant = CatalogCardVariant;
@@ -42,8 +43,8 @@ export function SceneCard({
     <CatalogCard
       id={scene.id}
       previewUrl={scene.previewUrl}
-      title={scene.description || scene.name}
-      primary={scene.name}
+      title={scene.description || sceneLabel(scene, 'tooltip')}
+      primary={sceneLabel(scene, 'card')}
       secondary={scene.lighting}
       useLabel="Use this scene"
       variant={variant}

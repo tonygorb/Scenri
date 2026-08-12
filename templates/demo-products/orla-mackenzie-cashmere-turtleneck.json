@@ -1,6 +1,11 @@
 {
   "id": "orla-mackenzie-cashmere-turtleneck",
-  "name": "Ribbed Cashmere Turtleneck",
+  "name": "Cashmere Turtleneck",
+  "promptName": "Ribbed Cashmere Turtleneck",
+  "brand": "Orla Mackenzie",
+  "format": "Turtleneck sweater",
+  "legacyNames": ["Ribbed Cashmere Turtleneck"],
+  "keywords": ["sweater", "knitwear", "cashmere", "turtleneck", "jumper", "apparel", "ribbed", "wool"],
   "category": "apparel",
   "description": "A ribbed cashmere turtleneck sweater in a warm oatmeal-cream, with a fine vertical rib knit, a folded mock collar, and a relaxed close-fitting silhouette.",
   "width": 1024,

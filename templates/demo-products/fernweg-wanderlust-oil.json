@@ -1,6 +1,11 @@
 {
   "id": "fernweg-wanderlust-oil",
-  "name": "Kraft-Wrapped Steel Rollerball Perfume Vial",
+  "name": "Wanderlust Oil",
+  "promptName": "Kraft-Wrapped Steel Rollerball Perfume Vial",
+  "brand": "Fernweg",
+  "format": "Rollerball vial",
+  "legacyNames": ["Kraft-Wrapped Steel Rollerball Perfume Vial"],
+  "keywords": ["perfume", "fragrance", "rollerball", "oil", "vial", "travel size", "scent", "kraft"],
   "category": "fragrance",
   "description": "A compact cylindrical rollerball perfume oil vial with a brushed stainless steel body wrapped in a plain natural kraft-paper band, fitted with a stainless steel rollerball tip and collar for direct application.",
   "width": 1024,

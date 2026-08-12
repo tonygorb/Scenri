@@ -1,6 +1,9 @@
 {
   "id": "social-beverage-launch-splash",
-  "name": "Citrus Burst Launch",
+  "name": "Citrus Burst",
+  "promptName": "Citrus Burst Launch",
+  "legacyNames": ["Citrus Burst Launch"],
+  "keywords": ["splash", "citrus", "can", "launch", "beverage", "dynamic", "vivid", "refreshing", "drink"],
   "description": "Two chilled 330ml cans tumble through the air in a dynamic diagonal against a vivid saturated color field with a bright radial glow behind them, real citrus slices and water crowns flying alongside, condensation beaded across every surface. Bright, appetizing, high-energy launch-day advertising.",
   "lighting": "Bright radial backglow, crisp flash-frozen highlights",
   "subject": "product",

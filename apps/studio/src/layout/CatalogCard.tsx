@@ -80,8 +80,11 @@ export function CatalogCard({
       </span>
     );
 
+  // `title` was reaching the DOM only as an aria-label, so a sighted user had
+  // no way to read a name the caption had ellipsised. The caption is what
+  // clips, so the caption is what carries the full text.
   const caption = (
-    <span className="sc-lookcard-cap">
+    <span className="sc-lookcard-cap" title={title}>
       <b dir="auto">{primary}</b>
       {secondary && <span>{secondary}</span>}
     </span>
@@ -96,6 +99,7 @@ export function CatalogCard({
         data-size={size}
         data-on={selected || undefined}
         aria-pressed={!!selected}
+        aria-label={title}
         onClick={() => onToggle?.(id)}
       >
         <span className="sc-lookcard-media">
@@ -129,13 +133,7 @@ export function CatalogCard({
   };
 
   const card = (
-    <div
-      ref={cardRef}
-      className="sc-lookcard"
-      data-variant={variant}
-      data-size={size}
-      data-armed={armed || undefined}
-    >
+    <div ref={cardRef} className="sc-lookcard" data-variant={variant} data-size={size} data-armed={armed || undefined}>
       <div className="sc-lookcard-media">
         <button type="button" className="sc-lookcard-open" onClick={handleOpen} aria-label={title}>
           {preview}

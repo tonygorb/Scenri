@@ -1,6 +1,11 @@
 {
   "id": "verse-beauty-sheer-bloom",
-  "name": "Rose-Gold Lipstick, Cap Removed",
+  "name": "Sheer Bloom",
+  "promptName": "Rose-Gold Lipstick, Cap Removed",
+  "brand": "Verse Beauty",
+  "format": "Lipstick bullet",
+  "legacyNames": ["Rose-Gold Lipstick, Cap Removed"],
+  "keywords": ["lipstick", "lip", "makeup", "beauty", "cosmetics", "rose gold", "bullet", "colour"],
   "category": "beauty",
   "description": "A matte lipstick bullet in a soft sheer dusty-rose shade, twisted up roughly two-thirds from a slim polished rose-gold cylindrical case, with its cap removed and set upright beside the open tube.",
   "width": 1024,

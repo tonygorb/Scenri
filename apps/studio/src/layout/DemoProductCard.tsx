@@ -1,4 +1,5 @@
 import type { DemoProduct } from '../api.js';
+import { productLabel } from '../displayName.js';
 import { categoryLabel } from '../productCategories.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
 
@@ -31,8 +32,8 @@ export function DemoProductCard({
     <CatalogCard
       id={product.id}
       previewUrl={product.previewUrl}
-      title={`${product.name} — ${category}`}
-      primary={product.name}
+      title={`${productLabel(product, 'tooltip')} — ${category}`}
+      primary={productLabel(product, 'card')}
       secondary={category}
       useLabel="Use in a brief"
       variant={variant}

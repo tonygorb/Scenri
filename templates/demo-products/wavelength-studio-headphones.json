@@ -1,6 +1,11 @@
 {
   "id": "wavelength-studio-headphones",
-  "name": "Brushed-Copper Over-Ear Headphones",
+  "name": "Studio Headphones",
+  "promptName": "Brushed-Copper Over-Ear Headphones",
+  "brand": "Wavelength",
+  "format": "Over-ear headphones",
+  "legacyNames": ["Brushed-Copper Over-Ear Headphones"],
+  "keywords": ["headphones", "over-ear", "studio", "audio", "electronics", "copper", "monitoring"],
   "category": "electronics",
   "description": "A pair of over-ear headphones with matte charcoal-grey composite ear cups, a brushed-copper metal headband and hinges, and protein-leather cushioned earpads.",
   "width": 1024,

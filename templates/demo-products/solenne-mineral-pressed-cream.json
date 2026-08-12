@@ -1,6 +1,11 @@
 {
   "id": "solenne-mineral-pressed-cream",
-  "name": "Frosted Glass Cream Jar with Brass Lid",
+  "name": "Pressed Cream",
+  "promptName": "Frosted Glass Cream Jar with Brass Lid",
+  "brand": "Solenne",
+  "format": "Cream jar",
+  "legacyNames": ["Frosted Glass Cream Jar with Brass Lid"],
+  "keywords": ["cream", "moisturiser", "skincare", "jar", "frosted glass", "beauty", "brass", "cosmetics"],
   "category": "beauty",
   "description": "A squat, wide frosted-glass jar with straight vertical walls, closed with a flat brushed-brass lid and wrapped with a plain matte stone-grey paper band, sized for a dense pressed face cream.",
   "width": 1024,

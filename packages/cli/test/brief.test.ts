@@ -137,7 +137,9 @@ describe('compileBrief', () => {
     expect(r.prompt).toMatch(/do not redesign it/i);
     // `essential: true` marks the identity-carrying reference — the one a
     // tight engine cap must never shed.
-    expect(r.attachments).toEqual([{ role: 'product', label: 'House Blend', hash: productHash, essential: true }]);
+    expect(r.attachments).toEqual([
+      { role: 'product', id: 'p1', label: 'House Blend', hash: productHash, essential: true },
+    ]);
     expect(r.referenceImages).toEqual([core.images.pathFor(productHash)]);
     expect(r.productId).toBe('p1');
     expect(r.warnings).toEqual([]);
@@ -393,7 +395,11 @@ describe('brief through the API', () => {
       mkCtx(),
     );
     expect(out.warnings.join(' ')).toContain('was ignored');
-    expect(out.warnings.join(' ')).toContain('Marble Quarry Plinth came first');
+    // The warning is user-facing copy, so it names the scene the way the UI
+    // does — the short display `name`. The prompt above still brackets the
+    // frozen `promptName` ("Marble Quarry Plinth"). That split is deliberate:
+    // labels follow the rename, the text sent to the engine never does.
+    expect(out.warnings.join(' ')).toContain('Quarry Plinth came first');
     // the second recipe never reaches the prompt
     expect(out.prompt.toLowerCase()).not.toContain('graphic-design');
   });

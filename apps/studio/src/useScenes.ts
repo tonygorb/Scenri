@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Scene } from './api.js';
+import { api, registerSceneNameAliases, type Scene } from './api.js';
 
 export interface ScenesData {
   scenes: Scene[];
@@ -31,6 +31,10 @@ export function useScenes(): UseScenesResult {
     void api
       .scenes()
       .then((r) => {
+        // Shot titles for pre-rename nodes read a scene name straight out of
+        // their stored prompt; this is the only place the catalog that can
+        // translate an old name to the current one is loaded.
+        registerSceneNameAliases(r.scenes);
         if (alive)
           setData({
             scenes: r.scenes,

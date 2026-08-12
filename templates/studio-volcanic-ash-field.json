@@ -1,6 +1,9 @@
 {
   "id": "studio-volcanic-ash-field",
-  "name": "Volcanic Ash Field",
+  "name": "Ash Field",
+  "promptName": "Volcanic Ash Field",
+  "legacyNames": ["Volcanic Ash Field"],
+  "keywords": ["volcanic", "ash", "black rock", "dusk", "smoldering", "geological", "grey", "dramatic"],
   "description": "A garment posed on cooled black volcanic rock beneath a smoldering orange horizon, fine grey ash drifting through the cool dusk air. Raw, elemental, and quietly dangerous — no flame in sight, just the horizon's afterglow.",
   "lighting": "Smoldering horizon glow, cool dusk shadow",
   "subject": "product",

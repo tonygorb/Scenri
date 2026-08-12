@@ -1,6 +1,8 @@
 {
   "id": "closeup-face-product-interaction",
   "name": "Close Interaction",
+  "promptName": "Close Interaction",
+  "keywords": ["closeup", "face", "in use", "skin", "application", "macro", "intimate", "hands"],
   "description": "A tight crop combining part of a face with the product genuinely in use against it — a serum near a cheek, a fragrance near a collarbone, headphones over an ear — closer and more intimate than a standard headshot portrait. Each of the 6 frames uses a genuinely different body zone, crop and angle, not six near-identical close-ups.",
   "lighting": "Soft close beauty light, true skin luminosity",
   "subject": "person",

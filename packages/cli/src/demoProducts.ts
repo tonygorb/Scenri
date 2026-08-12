@@ -14,7 +14,16 @@ import type { Core } from '@scenri/core';
  */
 export interface DemoProduct {
   id: string;
+  /** What humans read. Free to change: nothing resolves by it. */
   name: string;
+  /**
+   * What the model reads. `compileBrief` appends this as the product's noun
+   * phrase — the only text telling the engine what the object actually is —
+   * so it is frozen at the naming migration to whatever `name` was then.
+   * That is what lets `name` shrink to a chip-sized label without changing a
+   * single generated pixel. Falls back to `name` for products authored since.
+   */
+  promptName?: string;
   /** Lowercase key from apps/studio/src/productCategories.ts's PRODUCT_CATEGORIES. */
   category: string;
   description: string;
@@ -24,6 +33,22 @@ export interface DemoProduct {
   brand?: string;
   /** Physical format within the category, e.g. "rollerball" vs "spray bottle". */
   subcategory?: string;
+  /**
+   * Short physical format for the tooltip's third element, e.g. "330ml can",
+   * "75% keyboard". `subcategory` is the long descriptive form and is often a
+   * whole clause; this is the part that fits next to a name.
+   */
+  format?: string;
+  /**
+   * Display names this product used to carry, so search still finds it by the
+   * long descriptive string it shipped with before the naming migration.
+   */
+  legacyNames?: string[];
+  /**
+   * Search vocabulary. Never rendered. What lets "Arc Keyboard" stay findable
+   * by mechanical, electronics, aluminium, compact.
+   */
+  keywords?: string[];
   materials?: string;
   primaryColors?: string;
   /** Scene collection/vertical tags this product photographs well against. */
@@ -69,6 +94,13 @@ function isDemoProduct(x: any): x is DemoProduct {
     typeof x.id === 'string' &&
     ID.test(x.id) &&
     typeof x.name === 'string' &&
+    (x.promptName === undefined || (typeof x.promptName === 'string' && !!x.promptName)) &&
+    (x.brand === undefined || (typeof x.brand === 'string' && !!x.brand)) &&
+    (x.format === undefined || (typeof x.format === 'string' && !!x.format)) &&
+    (x.legacyNames === undefined ||
+      (Array.isArray(x.legacyNames) && x.legacyNames.every((n: any) => typeof n === 'string' && !!n))) &&
+    (x.keywords === undefined ||
+      (Array.isArray(x.keywords) && x.keywords.every((k: any) => typeof k === 'string' && !!k))) &&
     typeof x.category === 'string' &&
     x.category &&
     typeof x.description === 'string' &&
@@ -126,6 +158,7 @@ export async function resolveDemoProductImages(
 ): Promise<{
   id: string;
   name: string;
+  promptName?: string;
   shots: { file: string; angle: string; locked: boolean }[];
   preservationNotes?: string;
   negativeConstraints?: string;
@@ -145,6 +178,10 @@ export async function resolveDemoProductImages(
   return {
     id: product.id,
     name: product.name,
+    // The compiler reads `promptName` for the prompt's noun phrase and `name`
+    // only for labels, so both have to survive the read-through. Dropping this
+    // would silently fall the prompt back to the short display name.
+    ...(product.promptName ? { promptName: product.promptName } : {}),
     shots,
     ...(product.preservationNotes ? { preservationNotes: product.preservationNotes } : {}),
     ...(product.negativeConstraints ? { negativeConstraints: product.negativeConstraints } : {}),

@@ -1,6 +1,8 @@
 {
   "id": "studio-soft-horizon",
   "name": "Mirror Salt Flat",
+  "promptName": "Mirror Salt Flat",
+  "keywords": ["salt flat", "mirror", "reflection", "horizon", "minimal", "sky", "surreal", "endless", "water"],
   "description": "The subject rests at the centre of an endless mirror-still salt flat, its form softly doubled in reflection beneath a wide open sky. Vast, still, and quietly luminous, with nothing on the horizon but light.",
   "lighting": "Even open-sky glow, soft mirror reflection",
   "subject": "product",

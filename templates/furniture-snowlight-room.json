@@ -1,6 +1,8 @@
 {
   "id": "furniture-snowlight-room",
   "name": "Snowlight Room",
+  "promptName": "Snowlight Room",
+  "keywords": ["snow", "nordic", "winter", "pale", "overcast", "soft", "scandinavian", "white", "cold"],
   "description": "A pale Nordic room on the first snow morning, lit only by snow-bounced daylight through a tall window. No direct sun and no shadow direction, so colour, wood tone and fabric read exactly as they really are.",
   "lighting": "Snow-bounced overcast daylight, open directionless shadows",
   "subject": "product",

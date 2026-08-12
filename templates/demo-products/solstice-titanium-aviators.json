@@ -1,6 +1,11 @@
 {
   "id": "solstice-titanium-aviators",
-  "name": "Titanium-Frame Aviator Sunglasses",
+  "name": "Titanium Aviators",
+  "promptName": "Titanium-Frame Aviator Sunglasses",
+  "brand": "Solstice",
+  "format": "Sunglasses",
+  "legacyNames": ["Titanium-Frame Aviator Sunglasses"],
+  "keywords": ["sunglasses", "shades", "aviators", "eyewear", "titanium", "accessories", "gradient lens"],
   "category": "accessories",
   "description": "A pair of double-bridge aviator sunglasses with a brushed titanium frame and temple arms and gradient amber-to-clear mineral-glass lenses.",
   "width": 1024,
