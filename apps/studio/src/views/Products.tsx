@@ -11,7 +11,7 @@ import { ProductCard, ProductCardSkeleton } from '../layout/ProductCard.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { ProductsPanel, type ProductsPanelHandle } from '../AssetPanel.js';
 import { PRODUCT_CATEGORIES, categoryLabel, effectiveCategory } from '../productCategories.js';
-import { DensityControl, densityWallStyle } from '../layout/DensityControl.js';
+import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
@@ -49,6 +49,7 @@ export function ProductsView() {
   const density = normalizeDensity(tile);
   const setDensity = (cols: DensityCols) => setTile(cols);
   const wallStyle = densityWallStyle(density);
+  const densityAttr = densitySize(density);
 
   const withCategory = useMemo(() => products.map((p) => ({ product: p, category: effectiveCategory(p) })), [products]);
 
@@ -165,7 +166,7 @@ export function ProductsView() {
         )}
 
         {!loaded && (
-          <div className="sc-masonry" data-density style={wallStyle} aria-hidden>
+          <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
             <ProductCardSkeleton size="grid" count={8} />
           </div>
         )}
@@ -215,7 +216,7 @@ export function ProductsView() {
         )}
 
         {loaded && visible.length > 0 && (
-          <div className="sc-masonry" data-wall data-density style={wallStyle}>
+          <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
             {visible.map((p) => (
               <ProductCard key={p.id} product={p} variant="use" size="grid" onOpen={openProduct} onUse={applyProduct} />
             ))}

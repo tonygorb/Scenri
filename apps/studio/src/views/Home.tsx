@@ -14,7 +14,7 @@ import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
-import { DensityControl, densityWallStyle } from '../layout/DensityControl.js';
+import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
@@ -59,6 +59,7 @@ export function HomeView() {
   const density = normalizeDensity(densityRaw);
   const setDensity = (cols: DensityCols) => setDensityRaw(cols);
   const wallStyle = densityWallStyle(density);
+  const densityAttr = densitySize(density);
 
   /** Every way in lands on the same hub, differing only in what it carries. */
   const toCreate = (qs?: Record<string, string>) => {
@@ -229,7 +230,7 @@ export function HomeView() {
         </div>
 
         {!showcaseLoaded && (
-          <div className="sc-masonry" data-density style={wallStyle} aria-hidden>
+          <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
             <ShowcaseCardSkeleton size="grid" count={8} />
           </div>
         )}
@@ -253,7 +254,7 @@ export function HomeView() {
             </div>
 
             {shownShowcase.length > 0 && (
-              <div className="sc-masonry" data-wall data-density style={wallStyle}>
+              <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
                 {shownShowcase.map((s) => (
                   <ShowcaseCard
                     key={s.id}

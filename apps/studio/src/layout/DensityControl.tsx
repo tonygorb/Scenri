@@ -1,6 +1,27 @@
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { SquaresFour } from '@phosphor-icons/react';
-import { DENSITY_STAGES, TILE_MAX, TILE_MIN, type DensityCols, normalizeDensity } from './masonry.js';
+import { PREF, useLocalPref } from '../prefs.js';
+import {
+  DENSITY_DEFAULT,
+  DENSITY_STAGES,
+  TILE_MAX,
+  TILE_MIN,
+  type DensityCols,
+  normalizeDensity,
+} from './masonry.js';
+
+export type DensitySize = 'compact' | 'large';
+
+/** Compact (~7 cols) vs large (~5). Credits share hierarchy; compact is a step smaller. */
+export function densitySize(cols: number): DensitySize {
+  return normalizeDensity(cols) === 5 ? 'large' : 'compact';
+}
+
+/** Same pref the wall toggle writes — for portaled tips outside the masonry. */
+export function useWallDensitySize(): DensitySize {
+  const [raw] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
+  return densitySize(raw);
+}
 
 /**
  * Catalog wall density — two-view icon toggle (compact ↔ large).

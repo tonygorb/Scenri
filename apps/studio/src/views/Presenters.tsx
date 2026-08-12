@@ -7,7 +7,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { presenterPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
-import { DensityControl, densityWallStyle } from '../layout/DensityControl.js';
+import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
@@ -41,6 +41,7 @@ export function PresentersView() {
   const density = normalizeDensity(tile);
   const setDensity = (cols: DensityCols) => setTile(cols);
   const wallStyle = densityWallStyle(density);
+  const densityAttr = densitySize(density);
 
   const openPresenter = (id: string) => navigate(presenterPath(brand, id));
 
@@ -111,7 +112,7 @@ export function PresentersView() {
         />
 
         {!presentersLoaded && (
-          <div className="sc-masonry" data-density style={wallStyle} aria-hidden>
+          <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
             <PresenterCardSkeleton size="grid" count={8} />
           </div>
         )}
@@ -126,7 +127,7 @@ export function PresentersView() {
         )}
 
         {presentersLoaded && !presentersError && visible.length > 0 && (
-          <div className="sc-masonry" data-wall data-density style={wallStyle}>
+          <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
             {visible.map((p) => (
               <PresenterCard
                 key={p.id}

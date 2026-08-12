@@ -8,7 +8,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { scenePath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
-import { DensityControl, densityWallStyle } from '../layout/DensityControl.js';
+import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
@@ -45,6 +45,7 @@ export function ScenesView() {
   const density = normalizeDensity(tile);
   const setDensity = (cols: DensityCols) => setTile(cols);
   const wallStyle = densityWallStyle(density);
+  const densityAttr = densitySize(density);
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
@@ -111,7 +112,7 @@ export function ScenesView() {
         />
 
         {!loaded && (
-          <div className="sc-masonry" data-density style={wallStyle} aria-hidden>
+          <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
             <SceneCardSkeleton size="grid" count={8} />
           </div>
         )}
@@ -141,7 +142,7 @@ export function ScenesView() {
                     </button>
                   ))}
                 </div>
-                <div className="sc-masonry" data-density style={wallStyle}>
+                <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
                   {inCollection.map((s) => (
                     <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
                   ))}
@@ -151,7 +152,7 @@ export function ScenesView() {
           })}
 
         {loaded && !error && searching && visible.length > 0 && (
-          <div className="sc-masonry" data-wall data-density style={wallStyle}>
+          <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
             {visible.map((s) => (
               <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
             ))}

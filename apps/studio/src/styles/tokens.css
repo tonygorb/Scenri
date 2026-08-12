@@ -5523,14 +5523,21 @@ select {
 }
 .sc-showcase-chips {
   position: absolute;
-  left: 9px;
-  top: 9px;
+  left: 10px;
+  top: 10px;
   z-index: 2;
   display: flex;
   align-items: center;
-  /* Deliberately NOT bounded here. `.sc-showcase-recipe` hangs off this box at
-     `left: calc(100% + 3px)`, so any width cap on this element moves the
-     recipe chips with it. The presenter pill caps itself instead. */
+  /* Compact is a step under large — same hierarchy, slightly smaller. */
+  --sc-credit-fill: rgba(0, 0, 0, 0.22);
+  --sc-credit-fill-hover: rgba(0, 0, 0, 0.38);
+  --sc-credit-ink: rgba(255, 255, 255, 0.92);
+  --sc-credit-lip: 2.5px;
+  /* Monotonic settle — the old linear() spring overshot past 1, and opacity /
+     max-width clamp there, so the motion sat still then kicked again. */
+  --sc-credit-motion: 0.48s;
+  --sc-credit-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --sc-credit-stagger: 0.04s;
   pointer-events: none;
 }
 .sc-showcase-chips > .sc-showcase-badge,
@@ -5540,28 +5547,18 @@ select {
   pointer-events: auto;
   flex: none;
 }
-/* Sit to the right of the presenter (or at the origin when there's no presenter). */
 .sc-showcase-recipe {
-  position: absolute;
-  left: 0;
-  top: 0;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
   display: flex;
   align-items: center;
-  gap: 2px;
+  flex: none;
+  gap: 0;
   pointer-events: none;
-}
-.sc-showcase-chips:has(> .sc-credit-tip) .sc-showcase-recipe {
-  left: calc(100% + 3px);
-  top: 50%;
-  translate: 0 -50%;
 }
 .sc-showcase-recipe .sc-credit-tip {
   pointer-events: none;
-}
-.sc-showcase-tile:hover .sc-showcase-recipe .sc-credit-tip,
-.sc-showcase-recipe:focus-within .sc-credit-tip,
-.sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-credit-tip {
-  pointer-events: auto;
 }
 .sc-showcase-recipe .sc-showcase-chip,
 .sc-showcase-recipe .sc-showcase-join {
@@ -5569,90 +5566,104 @@ select {
   transform: translate3d(-6px, 0, 0);
   pointer-events: none;
   transition:
-    opacity 0.22s ease,
-    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity var(--sc-credit-motion) var(--sc-credit-spring),
+    transform var(--sc-credit-motion) var(--sc-credit-spring);
+  /* Close: last in the chain tucks first. --i / --n are set in CreditRow. */
+  transition-delay: calc((var(--n, 1) - 1 - var(--i, 0)) * var(--sc-credit-stagger));
 }
 .sc-showcase-recipe .sc-showcase-chip {
-  width: 22px;
-  height: 22px;
+  position: relative;
+  z-index: 0;
+  width: 26px;
+  height: 26px;
 }
-/* Quiet recipe connectors — color contrasts the hero under the credits. */
 .sc-showcase-recipe .sc-showcase-join {
+  position: relative;
+  z-index: 2;
   flex: none;
-  width: 0.65em;
-  color: rgba(255, 255, 255, 0.55);
-  font: 500 11px/1 var(--sc-font);
-  text-align: center;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  width: 11px;
+  height: 11px;
+  margin-inline: -5px;
+  color: var(--sc-credit-ink);
+  background: var(--sc-credit-fill);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border-radius: 50%;
   user-select: none;
 }
-.sc-showcase-tile[data-ring='light'] .sc-showcase-join {
-  color: rgba(255, 255, 255, 0.68);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+.sc-showcase-recipe .sc-showcase-join::before,
+.sc-showcase-recipe .sc-showcase-join::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
 }
-.sc-showcase-tile[data-ring='dark'] .sc-showcase-join {
-  color: rgba(0, 0, 0, 0.52);
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+.sc-showcase-recipe .sc-showcase-join::before {
+  width: 5.5px;
+  height: 1.25px;
 }
-/* Closing: scene → mid join → product → lead join. */
-.sc-showcase-recipe .sc-showcase-chip[data-step='1'] {
-  transition-delay: 0.06s;
+.sc-showcase-recipe .sc-showcase-join::after {
+  width: 1.25px;
+  height: 5.5px;
 }
-.sc-showcase-recipe .sc-showcase-join[data-step='0'] {
-  transition-delay: 0.04s;
-}
-.sc-showcase-recipe .sc-showcase-join[data-step='1'] {
-  transition-delay: 0.02s;
-}
-.sc-showcase-recipe .sc-showcase-chip[data-step='2'] {
-  transition-delay: 0s;
-}
-.sc-showcase-recipe:focus-within .sc-showcase-chip,
-.sc-showcase-recipe:focus-within .sc-showcase-join {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-  transition-delay: 0s;
-}
-.sc-showcase-recipe:focus-within .sc-showcase-chip {
-  pointer-events: auto;
-}
+
+/* Expanded chain: pill tucks into a round chip, thumbs slide+fade in.
+   Same rules for 1 / 2 / 3 items — stagger is --i from CreditRow. */
 @media (hover: hover) {
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip,
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-join {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
+    transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
   }
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-credit-tip {
     pointer-events: auto;
   }
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-join[data-step='0'] {
-    transition-delay: 0.02s;
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge {
+    gap: 0;
+    padding: var(--sc-credit-lip);
+    max-width: none;
   }
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip[data-step='1'] {
-    transition-delay: 0.04s;
-  }
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-join[data-step='1'] {
-    transition-delay: 0.06s;
-  }
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip[data-step='2'] {
-    transition-delay: 0.08s;
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge-name {
+    max-width: 0;
+    opacity: 0;
   }
 }
 @media (hover: none) {
-  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-showcase-chip,
-  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-showcase-join {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
-    transition-delay: 0s;
+    transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
   }
-  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-showcase-chip {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-credit-tip {
     pointer-events: auto;
+  }
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge {
+    gap: 0;
+    padding: var(--sc-credit-lip);
+    max-width: none;
+  }
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge-name {
+    max-width: 0;
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-showcase-recipe .sc-showcase-chip,
   .sc-showcase-recipe .sc-showcase-join {
     transform: none;
+    transition: opacity 0.15s ease;
+  }
+  .sc-showcase-badge {
+    transition: background 0.15s ease;
+  }
+  .sc-showcase-badge-name {
     transition: opacity 0.15s ease;
   }
 }
@@ -5675,7 +5686,6 @@ select {
 }
 .sc-credit-tip:has(.sc-showcase-badge) {
   flex: 0 1 auto;
-  overflow: hidden;
 }
 .sc-credit-tip-pop {
   position: fixed;
@@ -5688,12 +5698,10 @@ select {
      amounts — the name needs air under the image, the role belongs tight
      under the name it captions. */
   gap: 0;
-  /* Measured, not guessed: at 10.5px the widest catalog name in the library
-     ("Cashmere Turtleneck") renders 101px, so 118px clears every name on one
-     line once padding is taken off. Names never wrap here. */
-  width: 118px;
-  padding: 5px;
-  border-radius: 12px;
+  /* Compact preview — sized to a ~7-col tile, not the large-card pop. */
+  width: 88px;
+  padding: 4px;
+  border-radius: 10px;
   pointer-events: none;
   /* Soft grey glass fill — a bit more opaque than the presenter pill so the
      floating preview reads as a muted panel, not a near-black frame. */
@@ -5715,7 +5723,7 @@ select {
   height: auto;
   object-fit: cover;
   display: block;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 .sc-credit-tip-name {
   /* One line, always. Wrapping made the pop lurch taller for some credits and
@@ -5726,9 +5734,9 @@ select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 6px 2px 0;
+  padding: 5px 2px 0;
   color: #fff;
-  font: 600 10.5px/1.35 var(--sc-font);
+  font: 600 9.5px/1.3 var(--sc-font);
   letter-spacing: -0.005em;
   text-align: center;
 }
@@ -5738,11 +5746,12 @@ select {
   /* Demoted: the name is the headline now, the role is the caption, and it
      sits tight under it rather than floating between the two. */
   color: rgba(255, 255, 255, 0.55);
-  font: 500 9.5px/1.2 var(--sc-font);
+  font: 500 8.5px/1.2 var(--sc-font);
   letter-spacing: 0.01em;
   text-align: center;
 }
-/* Presenter — live glass (always on-screen). */
+/* Presenter — live glass pill. When the recipe thumbs appear, the name
+   tucks away and this becomes the same round chip as product/scene. */
 .sc-showcase-badge {
   display: flex;
   align-items: center;
@@ -5751,51 +5760,59 @@ select {
   border: none;
   box-shadow: none;
   border-radius: var(--sc-radius-full);
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--sc-credit-fill);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   backdrop-filter: blur(20px) saturate(140%);
-  color: rgba(255, 255, 255, 0.92);
-  font: 500 11px var(--sc-font);
+  color: var(--sc-credit-ink);
+  font: 500 11.5px var(--sc-font);
   letter-spacing: 0.005em;
   text-align: left;
-  /* The one name render in the app with no overflow rule of any kind.
-     Capped in `ch` rather than `%`: the recipe chips are anchored to this
-     pill's right edge, so letting it grow to the full row width would push
-     them off the tile instead. Presenters are first names — 14ch is roughly
-     double the longest we cast ("Tallulah") and still leaves the chips put. */
   min-width: 0;
   max-width: 14ch;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background 0.18s ease;
+  transition:
+    background 0.18s ease,
+    padding var(--sc-credit-motion) var(--sc-credit-spring),
+    gap var(--sc-credit-motion) var(--sc-credit-spring);
+}
+.sc-showcase-badge-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 1;
+  transition:
+    max-width var(--sc-credit-motion) var(--sc-credit-spring),
+    opacity var(--sc-credit-motion) var(--sc-credit-spring);
 }
 
 /* The avatar must never be the thing that gets squeezed — shrink the text. */
 .sc-showcase-badge img {
-  flex: none;
-}
-.sc-showcase-badge img {
-  width: 19px;
-  height: 19px;
+  width: 21px;
+  height: 21px;
   border-radius: 50%;
   object-fit: cover;
   flex: none;
 }
-/* Product / scene — bare circular thumbs with a soft dual micro-edge. */
+/* Product / scene — same glass and same inset as the presenter avatar. */
 .sc-showcase-chip {
   display: block;
   flex: none;
-  padding: 0;
+  padding: var(--sc-credit-lip);
   border: none;
   border-radius: 50%;
   overflow: hidden;
-  background: transparent;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 0 0 1px rgba(0, 0, 0, 0.28);
+  background: var(--sc-credit-fill);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: none;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+  transition: background 0.18s ease;
 }
 .sc-showcase-chip img {
   width: 100%;
@@ -5811,15 +5828,72 @@ select {
   cursor: pointer;
 }
 .sc-showcase-badge[data-link]:hover {
-  background: rgba(0, 0, 0, 0.38);
+  background: var(--sc-credit-fill-hover);
 }
 .sc-showcase-chip[data-link]:hover {
-  filter: brightness(0.92);
+  background: var(--sc-credit-fill-hover);
 }
 .sc-showcase-badge[data-link]:focus-visible,
 .sc-showcase-chip[data-link]:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.85);
   outline-offset: 2px;
+}
+
+/* Large wall: same credit hierarchy, one step up. Tips follow data-size. */
+.sc-masonry[data-density-size='large'] .sc-lookcard {
+  border-radius: 18px;
+}
+.sc-masonry[data-density-size='large'] .sc-showcase-chips {
+  left: 12px;
+  top: 12px;
+  --sc-credit-lip: 3px;
+}
+.sc-masonry[data-density-size='large'] .sc-showcase-badge {
+  gap: 7px;
+  padding: 3px 12px 3px 3px;
+  font-size: 12.5px;
+  max-width: 16ch;
+}
+.sc-masonry[data-density-size='large'] .sc-showcase-badge img {
+  width: 24px;
+  height: 24px;
+}
+.sc-masonry[data-density-size='large'] .sc-showcase-recipe .sc-showcase-chip {
+  width: 30px;
+  height: 30px;
+}
+.sc-masonry[data-density-size='large'] .sc-showcase-recipe .sc-showcase-join {
+  width: 12px;
+  height: 12px;
+  margin-inline: -6px;
+}
+.sc-masonry[data-density-size='large'] .sc-showcase-recipe .sc-showcase-join::before {
+  width: 6px;
+  height: 1.5px;
+}
+.sc-masonry[data-density-size='large'] .sc-showcase-recipe .sc-showcase-join::after {
+  width: 1.5px;
+  height: 6px;
+}
+.sc-credit-tip-pop[data-size='large'] {
+  width: 144px;
+  padding: 8px;
+  border-radius: 16px;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.38),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1.5px rgba(255, 255, 255, 0.16),
+    0 0 0 1.5px rgba(0, 0, 0, 0.28);
+}
+.sc-credit-tip-pop[data-size='large'] .sc-credit-tip-card img {
+  border-radius: 10px;
+}
+.sc-credit-tip-pop[data-size='large'] .sc-credit-tip-name {
+  padding: 8px 2px 0;
+  font-size: 12px;
+}
+.sc-credit-tip-pop[data-size='large'] .sc-credit-tip-role {
+  font-size: 10.5px;
 }
 
 .sc-looks-empty {
