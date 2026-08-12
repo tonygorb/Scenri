@@ -10,6 +10,9 @@ import { SceneCard } from '../layout/SceneCard.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 
+/** Matches `.sc-lookpage-refs` switching to 2 columns in tokens.css. */
+const LOOKPAGE_PHONE = '(max-width: 760px)';
+
 /**
  * One scene. The reference frames say what the light is; they are ours and are
  * deliberately not clickable. Everything below is yours: what you made with it,
@@ -27,6 +30,10 @@ export function ScenePage() {
   const [refs, setRefs] = useState<string[]>([]);
   const [allParam, setOpenAll] = useFilterParam('all');
   const openAll = allParam === '1';
+  // Cap tracks column count per breakpoint so collapsed rows stay full:
+  // desktop 3-col → 3 cards; phone 2-col → 4 cards (2×2).
+  const phone = useMediaQuery(LOOKPAGE_PHONE);
+  const collapsedCap = phone ? 4 : 3;
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
@@ -142,7 +149,7 @@ export function ScenePage() {
     );
   }
 
-  const visibleRefs = openAll ? refs : refs.slice(0, 3);
+  const visibleRefs = openAll ? refs : refs.slice(0, collapsedCap);
   const frames = refs.length ? visibleRefs : scene.previewUrl ? [scene.previewUrl] : [];
   // Product/either scenes ship their reference gallery shot with a demo
   // product standing in for the art direction — the caption says so, so
@@ -183,7 +190,7 @@ export function ScenePage() {
             {showDemoProductNote && (
               <p className="sc-lookpage-note">Shown with a demo product for reference — yours replaces it.</p>
             )}
-            {refs.length > 3 && (
+            {refs.length > collapsedCap && (
               <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
                 {openAll ? 'Enough, close it' : 'See the whole set'}
               </button>
@@ -214,4 +221,17 @@ export function ScenePage() {
       </main>
     </ScrollPane>
   );
+}
+
+/** Which layout the collapsed gallery should fill. Watched, not sampled. */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatches(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [query]);
+  return matches;
 }

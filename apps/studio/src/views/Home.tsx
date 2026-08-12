@@ -17,7 +17,6 @@ import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { VerticalsTabs } from '../layout/VerticalsTabs.js';
-import { runTabTransition } from '../layout/tabTransition.js';
 
 /**
  * The launcher.
@@ -51,10 +50,6 @@ export function HomeView() {
   const applyScene = useApplyScene();
   const [categoryParam, setCategory] = useFilterParam('category');
   const category = categoryParam || null;
-  const selectCategory = (next: string | null) => {
-    if (next === category) return;
-    runTabTransition(() => setCategory(next));
-  };
 
   /** Every way in lands on the same hub, differing only in what it carries. */
   const toCreate = (qs?: Record<string, string>) => {
@@ -78,7 +73,17 @@ export function HomeView() {
 
   /** Counts against the full gallery, not the filtered view — a tab always
    * states how many examples it holds, not how many are currently shown. */
-  const countFor = (c: string) => showcase.filter((s) => s.category === c).length;
+  const categoryTabs = useMemo(() => {
+    const cats = sortShowcaseCategories(showcaseCategories);
+    return [
+      { value: null, label: 'All examples', count: showcase.length },
+      ...cats.map((c) => ({
+        value: c,
+        label: showcaseCategoryLabel(c) ?? c,
+        count: showcase.filter((s) => s.category === c).length,
+      })),
+    ];
+  }, [showcase, showcaseCategories]);
 
   /** A showcase entry's tokens only carry ids — resolve the names the card
    * actually shows (the product/presenter/scene chips this recipe was built
@@ -230,30 +235,12 @@ export function HomeView() {
 
         {showcaseLoaded && !showcaseError && showcase.length > 0 && (
           <>
-            <VerticalsTabs aria-label="Categories" activeKey={category}>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!category}
-                data-on={!category ? '' : undefined}
-                onClick={() => selectCategory(null)}
-              >
-                <span className="sc-vlabel">All examples</span> <span className="sc-vcount">{showcase.length}</span>
-              </button>
-              {sortShowcaseCategories(showcaseCategories).map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  role="tab"
-                  aria-selected={category === c}
-                  data-on={category === c ? '' : undefined}
-                  onClick={() => selectCategory(c)}
-                >
-                  <span className="sc-vlabel">{showcaseCategoryLabel(c) ?? c}</span>{' '}
-                  <span className="sc-vcount">{countFor(c)}</span>
-                </button>
-              ))}
-            </VerticalsTabs>
+            <VerticalsTabs
+              aria-label="Categories"
+              activeKey={category}
+              items={categoryTabs}
+              onSelect={setCategory}
+            />
 
             {shownShowcase.length > 0 && (
               <div className="sc-masonry" data-wall>

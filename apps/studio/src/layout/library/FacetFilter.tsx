@@ -1,5 +1,4 @@
-import { VerticalsTabs } from '../VerticalsTabs.js';
-import { runTabTransition } from '../tabTransition.js';
+import { VerticalsTabs, type VerticalsTabItem } from '../VerticalsTabs.js';
 import type { FacetMode } from './libraryRules.js';
 
 export interface FacetOption {
@@ -20,42 +19,23 @@ export interface FacetGroup {
 }
 
 /**
- * One facet, rendered as real inline tabs — the same `.sc-verticals` pattern
- * every library page uses, never hidden behind a "Filters" button. `.sc-verticals`
- * already scrolls horizontally, so a long value list (a roster's category
- * list, say) stays usable without collapsing into a menu.
+ * One facet, rendered as real inline tabs — the shared VerticalsTabs rail
+ * every library page uses, never hidden behind a "Filters" button.
  */
 export function FacetFilter({ mode, group }: { mode: FacetMode; group?: FacetGroup }) {
   if (mode === 'none' || !group) return null;
 
-  const select = (value: string | null) => {
-    if (value === group.selected) return;
-    runTabTransition(() => group.onSelect(value));
-  };
+  const items: VerticalsTabItem[] = [
+    { value: null, label: group.everyLabel, count: group.everyCount },
+    ...group.options.map((o) => ({ value: o.value, label: o.label, count: o.count })),
+  ];
 
   return (
-    <VerticalsTabs aria-label={group.label} activeKey={group.selected}>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={!group.selected}
-        data-on={!group.selected ? '' : undefined}
-        onClick={() => select(null)}
-      >
-        <span className="sc-vlabel">{group.everyLabel}</span> <span className="sc-vcount">{group.everyCount}</span>
-      </button>
-      {group.options.map((o) => (
-        <button
-          type="button"
-          key={o.value}
-          role="tab"
-          aria-selected={group.selected === o.value}
-          data-on={group.selected === o.value ? '' : undefined}
-          onClick={() => select(o.value)}
-        >
-          <span className="sc-vlabel">{o.label}</span> <span className="sc-vcount">{o.count}</span>
-        </button>
-      ))}
-    </VerticalsTabs>
+    <VerticalsTabs
+      aria-label={group.label}
+      activeKey={group.selected}
+      items={items}
+      onSelect={group.onSelect}
+    />
   );
 }

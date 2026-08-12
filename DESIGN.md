@@ -129,6 +129,8 @@ Near-monochrome dark ground with a single rationed accent; imagery supplies the 
 ### Named Rules
 **The One-Serif-Phrase Rule.** Playfair Display italic appears at most once per screen, on a heading. It is a punctuation mark, not a voice the interface speaks in.
 
+**The Measure & Wrap Rule.** Display copy uses three shared measure tokens — `--sc-measure-title` (22ch), `--sc-measure-lede` (48ch), `--sc-measure-prose` (62ch) — wired through surface selectors in `tokens.css`. Titles (`greet`, lookpage h1, empty h3, bandhead) get `text-wrap: balance`; ledes, empty body, lookpage notes/facts, and settings blurbs get `text-wrap: pretty`. Never apply balance/pretty or measure caps to chips, tabs, buttons, filter labels, truncated one-liners, or composer prose. Utility classes `.sc-text-title` / `.sc-text-lede` / `.sc-text-prose` exist for one-off display copy without a dedicated surface class. On narrow viewports, title measure softens to ~26ch; lede/prose stay in `ch`.
+
 ## 4. Elevation
 
 Flat by default. Surfaces sit at the same visual plane with a 1px hairline border doing all the separation work at rest — no ambient shadow on cards, panels, or section chrome. Shadows exist as a strict three-step scale and are reserved for things that are genuinely above the page: dialogs, overlays, the floating composer dock. Shadow presence itself is the signal "this floats," so using it decoratively on a resting card would blunt that signal everywhere else.

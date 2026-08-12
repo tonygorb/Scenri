@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ContextMenu } from '@radix-ui/themes';
 import { Check, ImageSquare } from '@phosphor-icons/react';
 
@@ -6,12 +6,18 @@ export type CatalogCardVariant = 'navigate' | 'use' | 'select' | 'plain';
 export type CatalogCardSize = 'shelf' | 'grid' | 'slider' | 'wizard';
 
 /**
- * The shared card shell behind `SceneCard` and `PresenterCard`
- * (docs/product/patterns/look-card.md) — same accessibility contract
- * (sibling buttons, never nested; `aria-pressed` on `select`), same visual
- * language, for both catalogs. Domain-specific wrappers map their own type
- * onto these plain string/callback props so this file never imports `Scene`
- * or `Presenter`.
+ * Shared card shell for Scene / Presenter / Showcase / etc.
+ *
+ * Structure:
+ *   .sc-lookcard
+ *     .sc-lookcard-media   ← image plane; use-pill centers here
+ *       .sc-lookcard-open  ← click/tap → detail (or arm on touch)
+ *       .sc-lookcard-use   ← hover / first-tap → create
+ *     .sc-lookcard-cap     ← overlay on desktop, footer on touch
+ *
+ * Desktop: hover reveals veil + caption + centered use. Touch: title
+ * footer under the image; first tap arms (shows use like hover); pill →
+ * create; second tap on image → detail. Context menu is desktop-only.
  */
 export function CatalogCard({
   id,
@@ -29,13 +35,9 @@ export function CatalogCard({
 }: {
   id: string;
   previewUrl?: string | null;
-  /** Hover title on the open-button. */
   title: string;
-  /** Caption's bold first line. */
   primary: string;
-  /** Caption's second line. */
   secondary: string;
-  /** `use` only: the fast-path button's label. */
   useLabel: string;
   variant: CatalogCardVariant;
   onOpen?: (id: string) => void;
@@ -44,9 +46,31 @@ export function CatalogCard({
   onToggle?: (id: string) => void;
   size?: CatalogCardSize;
 }) {
-  // a broken url is the same "nothing to show" as no url at all — the blank
-  // placeholder is one fallback shape for both, not two separate states
   const [broken, setBroken] = useState(false);
+  const [armed, setArmed] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [touchUi, setTouchUi] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(hover: none)');
+    const sync = () => setTouchUi(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  const showUseButton = variant === 'use' && !!onOpen && !!onUse;
+
+  useEffect(() => {
+    if (!armed) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (cardRef.current?.contains(e.target as Node)) return;
+      setArmed(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [armed]);
+
   const preview =
     previewUrl && !broken ? (
       <img src={previewUrl} alt="" loading="lazy" onError={() => setBroken(true)} />
@@ -55,6 +79,7 @@ export function CatalogCard({
         <ImageSquare size={20} />
       </span>
     );
+
   const caption = (
     <span className="sc-lookcard-cap">
       <b dir="auto">{primary}</b>
@@ -73,37 +98,61 @@ export function CatalogCard({
         aria-pressed={!!selected}
         onClick={() => onToggle?.(id)}
       >
-        {preview}
-        <span className="sc-lookcard-veil" aria-hidden />
-        <span className="sc-lookcard-tick" aria-hidden>
-          <Check size={11} weight="bold" />
+        <span className="sc-lookcard-media">
+          {preview}
+          <span className="sc-lookcard-veil" aria-hidden />
+          <span className="sc-lookcard-tick" aria-hidden>
+            <Check size={11} weight="bold" />
+          </span>
         </span>
         {caption}
       </button>
     );
   }
 
-  const showUseButton = variant === 'use' && !!onOpen && !!onUse;
+  const handleOpen = () => {
+    // Touch: first tap ≈ hover (reveal Use); second tap opens detail.
+    if (showUseButton && touchUi) {
+      if (!armed) {
+        setArmed(true);
+        return;
+      }
+      setArmed(false);
+    }
+    if (onOpen) onOpen(id);
+    else onUse?.(id);
+  };
+
+  const handleUse = () => {
+    setArmed(false);
+    onUse?.(id);
+  };
+
   const card = (
-    <div className="sc-lookcard" data-variant={variant} data-size={size}>
-      <button
-        type="button"
-        className="sc-lookcard-open"
-        onClick={() => (onOpen ? onOpen(id) : onUse?.(id))}
-        title={title}
-      >
-        {preview}
-        <span className="sc-lookcard-veil" aria-hidden />
-        {caption}
-      </button>
-      {showUseButton && (
-        <button type="button" className="sc-lookcard-use" onClick={() => onUse?.(id)}>
-          {useLabel}
+    <div
+      ref={cardRef}
+      className="sc-lookcard"
+      data-variant={variant}
+      data-size={size}
+      data-armed={armed || undefined}
+    >
+      <div className="sc-lookcard-media">
+        <button type="button" className="sc-lookcard-open" onClick={handleOpen} title={title}>
+          {preview}
+          <span className="sc-lookcard-veil" aria-hidden />
         </button>
-      )}
+        {showUseButton && (
+          <button type="button" className="sc-lookcard-use" onClick={handleUse}>
+            {useLabel}
+          </button>
+        )}
+      </div>
+      {caption}
     </div>
   );
+
   if (!onOpen && !onUse) return card;
+  if (touchUi) return card;
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger>{card}</ContextMenu.Trigger>
@@ -115,7 +164,6 @@ export function CatalogCard({
   );
 }
 
-/** One skeleton shape, every list that hasn't resolved a catalog yet. */
 export function CatalogCardSkeleton({ size = 'grid', count = 4 }: { size?: CatalogCardSize; count?: number }) {
   return (
     <>

@@ -10,6 +10,12 @@
   --sc-font-accent: "Playfair Display", serif;
   --sc-font-mono: ui-monospace, "SF Mono", monospace;
 
+  /* Measure: line-length roles for display copy. Never on chips/tabs/buttons
+     or truncated one-liners — those stay unconstrained or ellipsis-capped. */
+  --sc-measure-title: 22ch; /* display titles, 1–2 lines */
+  --sc-measure-lede: 48ch; /* supporting sentences */
+  --sc-measure-prose: 62ch; /* settings / longer blurbs */
+
   /* layout */
   --sc-gutter: 24px; /* one page edge: top bar and content agree at every width */
   --sc-prompt-w: clamp(640px, 50vw, 1000px); /* the dock owns this; the card fills it */
@@ -207,6 +213,21 @@ select {
   color: var(--sc-fg3);
 }
 
+/* Measure & wrap utilities — prefer wiring via surface selectors; these
+   exist for one-off display copy that has no dedicated class yet.
+   balance = titles; pretty = ledes/prose. Never on dense chrome. */
+.sc-text-title {
+  text-wrap: balance;
+}
+.sc-text-lede {
+  text-wrap: pretty;
+  max-width: var(--sc-measure-lede);
+}
+.sc-text-prose {
+  text-wrap: pretty;
+  max-width: var(--sc-measure-prose);
+}
+
 /* ---------- shells ---------- */
 /* The bar is a grid row above the screen, not a child of it. dvh rather than
    100%: the Radix Themes wrapper between #root and here is auto-height, so a
@@ -222,7 +243,8 @@ select {
 }
 .sc-home {
   height: 100%;
-  overflow: auto;
+  overflow-x: hidden; /* never page-pan sideways — carousels own their own x-scroll */
+  overflow-y: auto;
   background: var(--sc-bg);
 }
 
@@ -1606,6 +1628,8 @@ select {
   letter-spacing: -0.02em;
   line-height: 1.15;
   margin: 12px 0 22px;
+  max-width: var(--sc-measure-title);
+  text-wrap: balance;
 }
 .sc-greet em {
   font-family: var(--sc-font-accent);
@@ -2589,7 +2613,9 @@ select {
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.015em;
-  margin: 0 0 6px;
+  margin: 0 auto 6px;
+  max-width: var(--sc-measure-title);
+  text-wrap: balance;
 }
 .sc-canvas-empty h3 em {
   font-family: var(--sc-font-accent);
@@ -2600,8 +2626,9 @@ select {
 .sc-canvas-empty p {
   color: var(--sc-fg2);
   font-size: 12.5px;
-  max-width: 320px;
+  max-width: var(--sc-measure-lede);
   margin: 0 auto;
+  text-wrap: pretty;
 }
 /* The look row is the second offer, so it sits under the first and reads as a
    shelf rather than as the point of the screen. It is a column grid, so it
@@ -4102,6 +4129,7 @@ select {
   .sc-greet {
     font-size: 22px;
     margin: 6px 0 16px;
+    max-width: 26ch;
   }
   .sc-greet em {
     font-size: 24px;
@@ -4832,29 +4860,68 @@ select {
 }
 
 /* Category rail — underlined text tabs (Home + library FacetFilter).
-   One baseline only: quiet hairline across, active mark sits on it (not a
-   second underline above it). Air lives between the label and that line. */
-.sc-verticals {
+   Shell owns sticky chrome + edge fades (pinned). Inner .sc-verticals pans.
+   Do NOT use touch-action:pan-x — it traps vertical page scroll when a finger
+   starts on the rail. */
+.sc-verticals-shell {
   position: sticky;
   top: 0;
   z-index: 20;
-  display: flex;
-  align-items: flex-end;
-  gap: 22px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 10px 0 0;
   margin-bottom: 32px;
   background: var(--sc-bg);
   border-bottom: 1px solid var(--sc-line);
 }
+.sc-verticals {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 22px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 10px 0 0;
+}
 .sc-verticals::-webkit-scrollbar {
   display: none;
+}
+/* Edge fades live on the shell so they stay put while tabs swipe underneath. */
+.sc-verticals-shell::before,
+.sc-verticals-shell::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 36px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.sc-verticals-shell::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 18%, transparent);
+}
+.sc-verticals-shell::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 18%, transparent);
+}
+.sc-verticals-shell[data-overflow-left]::before,
+.sc-verticals-shell[data-overflow-right]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-verticals-shell::before,
+  .sc-verticals-shell::after {
+    transition: none;
+  }
 }
 .sc-verticals button {
   position: relative;
   display: inline-flex;
   align-items: baseline;
+  flex: 0 0 auto;
   border: none;
   background: none;
   padding: 4px 0 12px;
@@ -4864,7 +4931,7 @@ select {
   letter-spacing: -0.022em;
   color: var(--sc-fg3);
   cursor: pointer;
-  transition: color 150ms ease;
+  transition: color 120ms ease;
 }
 .sc-verticals button:hover {
   color: var(--sc-fg2);
@@ -4872,7 +4939,7 @@ select {
 .sc-verticals button[data-on] {
   color: var(--sc-fg);
 }
-/* Sliding ink — one mark that glides between tabs (driven by VerticalsTabs). */
+/* Sliding ink — placed on select/resize only (scrolls with the rail naturally). */
 .sc-verticals-ink {
   position: absolute;
   left: 0;
@@ -4883,12 +4950,11 @@ select {
   pointer-events: none;
   z-index: 1;
   transform: translate3d(var(--sc-ink-x, 0px), 0, 0);
-  will-change: transform, width;
 }
 .sc-verticals[data-ink-ready] .sc-verticals-ink {
   transition:
-    transform 320ms cubic-bezier(0.32, 0.72, 0, 1),
-    width 320ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 .sc-verticals button:focus-visible {
   outline: 2px solid var(--sc-focus);
@@ -4925,7 +4991,7 @@ select {
    together at any content density: title-only, title+search, or
    title+tabs+search+action all read as one deliberate toolbar instead of a
    stack of near-empty bands.
-   .sc-verticals keeps its own sticky/border/padding when used alone
+   .sc-verticals-shell keeps sticky/border/padding when used alone
    (e.g. Presenters, which has no search); nested here, the wrapper takes
    over those properties so everything shares one background, one border,
    one sticky plane. */
@@ -4953,15 +5019,17 @@ select {
 .sc-filterbar-actions .sc-sec-more {
   margin-left: 0;
 }
-.sc-filterbar .sc-verticals {
+.sc-filterbar .sc-verticals-shell {
   position: static;
   z-index: auto;
-  padding: 0;
   margin-bottom: 0;
   background: none;
   border-bottom: none;
   flex: 1;
   min-width: 0;
+}
+.sc-filterbar .sc-verticals {
+  padding: 0;
 }
 
 /* ---------- Creative Library shell (Products, Presenters, Scenes) ----------
@@ -4994,6 +5062,7 @@ select {
   gap: 10px;
   color: var(--sc-fg3);
   padding: 30px 0;
+  text-wrap: pretty;
 }
 .sc-lib-more {
   display: flex;
@@ -5003,6 +5072,13 @@ select {
 @media (max-width: 767px) {
   .sc-filterbar {
     flex-wrap: wrap;
+  }
+  /* Full-width rail on wrap so horizontal pan has a clear track. */
+  .sc-filterbar .sc-verticals-shell {
+    flex: 1 1 100%;
+  }
+  .sc-verticals {
+    gap: 18px;
   }
 }
 
@@ -5083,8 +5159,11 @@ select {
   }
 }
 /* ---- LookCard (docs/product/patterns/look-card.md) ----
-   Single card class family, replacing the six independently-drifted
-   renderings (.sc-tpl, the old .sc-lookcard, .sc-wiz-look, .sc-look). */
+   .sc-lookcard
+     .sc-lookcard-media  — 4:5 image plane; use-pill is centered in THIS box
+       .sc-lookcard-open / preview / veil
+       .sc-lookcard-use  — hover (desktop) or data-armed first-tap (touch)
+     .sc-lookcard-cap    — overlay on desktop; static footer on touch */
 .sc-lookcard {
   position: relative;
   border: none;
@@ -5099,6 +5178,13 @@ select {
 .sc-lookcard[data-on] {
   outline: 2.5px solid var(--sc-fg);
   outline-offset: -2.5px;
+}
+.sc-lookcard-media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--sc-raised);
 }
 .sc-lookcard img,
 .sc-lookcard-blank {
@@ -5146,6 +5232,7 @@ select {
   background: linear-gradient(to top, rgba(0, 0, 0, 0.74) 0%, rgba(0, 0, 0, 0.26) 36%, rgba(0, 0, 0, 0) 64%);
   pointer-events: none;
 }
+/* Dead-center of the media frame — not the whole card (footer must not shift it). */
 .sc-lookcard-use {
   position: absolute;
   top: 50%;
@@ -5153,6 +5240,8 @@ select {
   transform: translate(-50%, -46%);
   opacity: 0;
   white-space: nowrap;
+  z-index: 2;
+  pointer-events: none;
   transition:
     opacity 0.16s ease,
     transform 0.16s ease;
@@ -5175,6 +5264,7 @@ select {
   line-height: 1.35;
   text-align: left;
   pointer-events: none;
+  z-index: 1;
 }
 .sc-lookcard-cap b {
   display: block;
@@ -5204,36 +5294,48 @@ select {
   color: var(--sc-bg);
   display: none;
   place-items: center;
+  z-index: 1;
 }
 .sc-lookcard[data-on] .sc-lookcard-tick {
   display: grid;
 }
-/* grid/slider (default): caption, veil and the use-button reveal on hover/focus */
-.sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-veil,
+@media (hover: hover) {
+  .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-veil,
+  .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-veil,
+  .sc-lookcard[data-variant="select"]:hover .sc-lookcard-veil {
+    opacity: 1;
+  }
+  .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-cap,
+  .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-cap,
+  .sc-lookcard[data-variant="select"]:hover .sc-lookcard-cap {
+    opacity: 1;
+    transform: none;
+  }
+  .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-use,
+  .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-use,
+  .sc-lookcard-use:hover {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+  }
+}
 .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
-.sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-veil,
 .sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
-.sc-lookcard[data-variant="select"]:hover .sc-lookcard-veil,
 .sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-veil {
   opacity: 1;
 }
-.sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-cap,
 .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-cap,
-.sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-cap,
 .sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-cap,
-.sc-lookcard[data-variant="select"]:hover .sc-lookcard-cap,
 .sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-cap {
   opacity: 1;
   transform: none;
 }
-.sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-use,
 .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-use,
-.sc-lookcard-use:hover,
 .sc-lookcard-use:focus-visible {
   opacity: 1;
   transform: translate(-50%, -50%);
+  pointer-events: auto;
 }
-/* shelf/wizard: no hover to reveal with (dense, always-relevant tiles) — caption and veil stay visible */
 .sc-lookcard[data-size="shelf"] .sc-lookcard-veil,
 .sc-lookcard[data-size="wizard"] .sc-lookcard-veil,
 .sc-lookcard[data-size="shelf"] .sc-lookcard-cap,
@@ -5241,10 +5343,105 @@ select {
   opacity: 1;
   transform: none;
 }
-/* loading skeleton: one shape, every list */
 .sc-lookcard[data-variant="skeleton"] {
   background: var(--sc-raised);
   aspect-ratio: 4 / 5;
+}
+
+/* Touch: title footer under image; Use appears on first tap (hover substitute).
+   Pill → create; second tap on image → detail. */
+@media (hover: none) {
+  .sc-masonry,
+  .sc-lookgrid,
+  .sc-wiz-looks {
+    row-gap: 22px;
+    column-gap: 12px;
+  }
+  .sc-lookcard:has(.sc-lookcard-media) {
+    overflow: visible;
+    background: transparent;
+    border-radius: 0;
+  }
+  .sc-lookcard:has(.sc-lookcard-media) .sc-lookcard-media {
+    border-radius: var(--sc-radius-lg);
+  }
+  .sc-lookcard:has(.sc-lookcard-media)[data-on] {
+    outline: none;
+  }
+  .sc-lookcard:has(.sc-lookcard-media)[data-on] .sc-lookcard-media {
+    outline: 2.5px solid var(--sc-fg);
+    outline-offset: -2.5px;
+  }
+  .sc-lookcard:hover img {
+    transform: none;
+  }
+  .sc-lookcard-cap {
+    position: static;
+    display: block;
+    opacity: 1;
+    transform: none;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    padding: 8px 4px 0;
+    min-height: 1.35em;
+    transition: none;
+  }
+  .sc-lookcard-cap b {
+    color: var(--sc-fg);
+    font-size: 12.5px;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sc-lookcard-cap span {
+    display: none;
+  }
+  .sc-lookcard-veil,
+  .sc-lookcard[data-size="shelf"] .sc-lookcard-veil,
+  .sc-lookcard[data-size="wizard"] .sc-lookcard-veil,
+  .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
+  .sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
+  .sc-lookcard[data-variant="select"] .sc-lookcard-veil {
+    opacity: 0;
+  }
+  .sc-lookcard-use {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sc-lookcard[data-armed] .sc-lookcard-veil {
+    opacity: 1;
+  }
+  .sc-lookcard[data-armed] .sc-lookcard-use {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+  }
+  .sc-lookcard[data-variant="skeleton"] {
+    aspect-ratio: auto;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    border-radius: 0;
+  }
+  .sc-lookcard[data-variant="skeleton"]::before {
+    content: "";
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    border-radius: var(--sc-radius-lg);
+    background: var(--sc-raised);
+  }
+  .sc-lookcard[data-variant="skeleton"]::after {
+    content: "";
+    display: block;
+    height: 1.35em;
+    margin-top: 8px;
+  }
 }
 
 /* ---- showcase tile: a positioning wrapper around CatalogCard so the
@@ -5254,9 +5451,9 @@ select {
 .sc-showcase-tile {
   position: relative;
 }
-/* Top-left, not bottom-left: the hover caption fills the bottom edge
-   (.sc-lookcard-cap, bottom 12px, left/right 13px) and the badge sat straight
-   on top of the product/scene line. Top-right is taken by the select tick. */
+/* Top-left on the thumbnail: on desktop the hover caption fills the bottom
+   edge; on touch the caption is a footer below, so the badge stays clear
+   either way. Top-right is taken by the select tick. */
 .sc-showcase-badge {
   position: absolute;
   left: 9px;
@@ -5310,21 +5507,72 @@ select {
   padding: 30px 0;
 }
 
-/* ---- Products empty state: the Scenri Library preview grid sits below the
-   cold-start CTA, clearly separated, never implying these are the brand's
-   own products. */
-.sc-products-starter {
-  margin-top: 36px;
+/* ---- Products empty state: cold CTA + Scenri Library shelf.
+   Scoped under .sc-products so Create's .sc-canvas-empty stays untouched.
+   Larger type + section gaps so the hero reads above the secondary shelf. */
+.sc-products .sc-canvas-empty {
+  padding: 64px 0 36px;
 }
-.sc-products-starter .sc-eyebrow {
+.sc-products .sc-canvas-empty h3 {
+  font-size: 28px;
+  letter-spacing: -0.025em;
   margin-bottom: 12px;
 }
+.sc-products .sc-canvas-empty h3 em {
+  font-size: 32px;
+}
+.sc-products .sc-canvas-empty p {
+  font-size: 14px;
+  line-height: 1.45;
+  margin-bottom: 0;
+}
+.sc-products .sc-canvas-empty .sc-lookpage-acts {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+.sc-products-starter {
+  margin-top: 72px;
+  text-align: left;
+}
+.sc-products-starter .sc-eyebrow {
+  margin-bottom: 18px;
+}
+@media (max-width: 900px) {
+  .sc-products .sc-canvas-empty {
+    padding: 48px 0 28px;
+  }
+  .sc-products .sc-canvas-empty h3 {
+    font-size: 24px;
+  }
+  .sc-products .sc-canvas-empty h3 em {
+    font-size: 28px;
+  }
+}
+@media (max-width: 600px) {
+  .sc-products .sc-canvas-empty {
+    padding: 36px 0 24px;
+  }
+  .sc-products .sc-canvas-empty h3 {
+    font-size: 22px;
+  }
+  .sc-products .sc-canvas-empty h3 em {
+    font-size: 26px;
+  }
+  .sc-products-starter {
+    margin-top: 48px;
+  }
+}
 
-/* ---- one look: centred column, the pictures do the talking ---- */
+/* ---- one look: centred column, the pictures do the talking.
+   Hierarchy with air: title → copy → CTA, then a clear beat into gallery,
+   then a larger beat into secondary shelves. ---- */
 .sc-lookpage {
-  max-width: 980px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 24px 24px 128px;
+  padding-top: 40px;
+  padding-bottom: 120px;
+  padding-left: max(32px, env(safe-area-inset-left));
+  padding-right: max(32px, env(safe-area-inset-right));
   text-align: center;
 }
 .sc-lookpage-crumb {
@@ -5334,7 +5582,7 @@ select {
   gap: 8px;
   color: var(--sc-fg3);
   font-size: 11.5px;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 .sc-lookpage-crumb button {
   border: none;
@@ -5347,35 +5595,62 @@ select {
 .sc-lookpage-crumb button:hover {
   color: var(--sc-fg);
 }
+/* Presenter lookpage: face crop above the name (full-length thumbs, top-pinned). */
+.sc-presenterpage-avatar {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-raised);
+  flex: none;
+}
+.sc-presenterpage-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  /* Library thumbs are waist-up 4:5 — zoom hard into the head so the
+     circle reads as a face portrait, not a tiny torso. */
+  object-position: 50% 0%;
+  transform: scale(3.2);
+  transform-origin: 50% 16%;
+}
 .sc-lookpage h1 {
-  font: 600 40px / 1.1 var(--sc-font);
-  letter-spacing: -0.03em;
-  margin-bottom: 14px;
+  font: 600 42px / 1.14 var(--sc-font);
+  letter-spacing: -0.035em;
+  margin: 0 auto 16px;
+  max-width: var(--sc-measure-title);
+  text-wrap: balance;
 }
 .sc-lookpage-lede {
   color: var(--sc-fg2);
   font-size: 15px;
-  line-height: 1.6;
-  max-width: 50ch;
-  margin: 0 auto 24px;
+  line-height: 1.55;
+  max-width: var(--sc-measure-lede);
+  margin: 0 auto 10px;
+  text-wrap: pretty;
 }
 .sc-lookpage-facts {
-  font: 12px var(--sc-font);
+  font: 12.5px var(--sc-font);
   color: var(--sc-fg3);
-  margin-bottom: 28px;
+  margin: 0 auto 24px;
+  max-width: var(--sc-measure-lede);
+  text-wrap: pretty;
 }
 .sc-lookpage-acts {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 40px;
+  margin-bottom: 36px;
 }
 
 .sc-lookpage-refs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 18px;
+  margin-bottom: 14px;
 }
 .sc-presenterpage .sc-lookpage-refs {
   grid-template-columns: repeat(2, 1fr);
@@ -5426,13 +5701,15 @@ select {
 }
 .sc-lookpage-note {
   text-align: center;
-  font: 12px var(--sc-font);
+  font: 12.5px / 1.5 var(--sc-font);
   color: var(--sc-fg3);
-  margin: 0 0 16px;
+  margin: 0 auto;
+  max-width: var(--sc-measure-lede);
+  text-wrap: pretty;
 }
 .sc-lookpage-expand {
   display: block;
-  margin: 0 auto 74px;
+  margin: 14px auto 0;
   border: 1px solid var(--sc-line);
   background: none;
   border-radius: var(--sc-radius-full);
@@ -5448,24 +5725,32 @@ select {
   border-color: var(--sc-line-strong);
 }
 
+/* Section handoff lives on the band so it stays even with/without expand. */
 .sc-lookpage-band {
-  margin-bottom: 64px;
+  margin-top: 56px;
+  margin-bottom: 56px;
 }
 .sc-bandhead {
-  font: 400 19px var(--sc-font);
-  letter-spacing: -0.01em;
+  font: 600 20px / 1.25 var(--sc-font);
+  letter-spacing: -0.02em;
   color: var(--sc-fg);
-  margin-bottom: 18px;
+  margin: 0 0 18px;
   text-align: left;
+  text-wrap: balance;
 }
 
-/* a row that keeps going, edges dissolving instead of cutting */
+/* a row that keeps going. Edge fades match .sc-verticals-shell: soft,
+   scroll-aware — only when that side is clipped. Arrows sit in the gutter
+   just outside the first/last card edges (not on the photos). */
 .sc-slider {
+  --sc-slider-gap: 16px;
+  --sc-slider-card: calc((100% - 48px) / 3.35);
   position: relative;
+  overflow: visible;
 }
 .sc-slider-track {
   display: flex;
-  gap: 12px;
+  gap: var(--sc-slider-gap);
   overflow-x: auto;
   scrollbar-width: none;
   padding: 0;
@@ -5474,7 +5759,7 @@ select {
   display: none;
 }
 .sc-slider-track > * {
-  flex: 0 0 calc((100% - 36px) / 3.35);
+  flex: 0 0 var(--sc-slider-card);
 }
 .sc-slider-track figure {
   margin: 0;
@@ -5501,22 +5786,33 @@ select {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 64px;
+  width: 96px;
   z-index: 2;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
 }
 .sc-slider::before {
-  left: -1px;
-  background: linear-gradient(to right, var(--sc-bg) 12%, transparent 100%);
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 0%, transparent 100%);
 }
 .sc-slider::after {
-  right: -1px;
-  background: linear-gradient(to left, var(--sc-bg) 12%, transparent 100%);
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 0%, transparent 100%);
+}
+.sc-slider[data-overflow-left]::before,
+.sc-slider[data-overflow-right]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-slider::before,
+  .sc-slider::after {
+    transition: none;
+  }
 }
 .sc-slider-arrow {
   position: absolute;
-  top: calc(50% - 18px);
-  transform: translateY(-50%);
+  top: 50%;
   z-index: 3;
   width: 34px;
   height: 34px;
@@ -5538,28 +5834,169 @@ select {
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
 }
+/* Center of the button sits on the outer card edge — half in the gutter. */
 .sc-slider-arrow.prev {
-  left: -6px;
+  left: 0;
+  transform: translate(-50%, -50%);
 }
 .sc-slider-arrow.next {
-  right: -6px;
+  right: 0;
+  transform: translate(50%, -50%);
 }
 
-@media (max-width: 760px) {
-  .sc-masonry {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+/* Phones + tablets: swipe the track — arrows only fight the layout. */
+@media (max-width: 1024px) {
+  .sc-slider-arrow {
+    display: none;
   }
+}
+
+/* Tablet: 2-col refs (same as before), open gutters, dial type down.
+   Do NOT touch .sc-masonry here — Presenters/Scenes/Products walls own that. */
+@media (max-width: 900px) {
   .sc-verticals button {
     font-size: 15px;
   }
+  .sc-lookpage {
+    padding: 32px 28px 104px;
+  }
+  .sc-lookpage-crumb {
+    margin-bottom: 16px;
+  }
+  .sc-presenterpage-avatar {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 18px;
+  }
   .sc-lookpage h1 {
-    font-size: 30px;
+    font-size: 34px;
+    line-height: 1.16;
+    max-width: none;
+    margin-bottom: 14px;
+  }
+  .sc-lookpage-lede {
+    margin-bottom: 10px;
+  }
+  .sc-lookpage-facts {
+    margin-bottom: 22px;
+  }
+  .sc-lookpage-acts {
+    margin-bottom: 32px;
   }
   .sc-lookpage-refs {
     grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
   }
-  .sc-slider-track > * {
-    flex: 0 0 calc((100% - 12px) / 2.2);
+  .sc-presenterpage .sc-lookpage-refs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sc-lookpage-band {
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+  .sc-bandhead {
+    font-size: 19px;
+    margin-bottom: 16px;
+  }
+  .sc-slider {
+    --sc-slider-card: calc((100% - 32px) / 2.6);
+    --sc-slider-gap: 16px;
+  }
+  .sc-slider::before,
+  .sc-slider::after {
+    width: 56px;
+  }
+}
+
+/* Phone: keep 2-col refs, clearer vertical beats. */
+@media (max-width: 640px) {
+  .sc-lookpage {
+    padding: 24px 20px 96px;
+  }
+  .sc-lookpage-crumb {
+    font-size: 11px;
+    margin-bottom: 14px;
+  }
+  .sc-presenterpage-avatar {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 16px;
+  }
+  .sc-lookpage h1 {
+    font-size: 28px;
+    letter-spacing: -0.03em;
+    line-height: 1.18;
+    margin-bottom: 12px;
+  }
+  .sc-lookpage-lede {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .sc-lookpage-facts {
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+  .sc-lookpage-acts {
+    margin-bottom: 28px;
+  }
+  .sc-lookpage-refs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .sc-lookpage-note {
+    font-size: 12px;
+    padding: 0 4px;
+  }
+  .sc-lookpage-expand {
+    margin-top: 12px;
+  }
+  .sc-lookpage-band {
+    margin-top: 40px;
+    margin-bottom: 40px;
+  }
+  .sc-bandhead {
+    font-size: 17px;
+    margin-bottom: 14px;
+  }
+  .sc-slider {
+    --sc-slider-card: calc((100% - 12px) / 1.85);
+    --sc-slider-gap: 12px;
+  }
+  .sc-slider::before,
+  .sc-slider::after {
+    width: 40px;
+  }
+}
+
+@media (max-width: 400px) {
+  .sc-lookpage {
+    padding: 20px 16px 88px;
+  }
+  .sc-lookpage h1 {
+    font-size: 24px;
+  }
+  .sc-lookpage-acts {
+    margin-bottom: 24px;
+  }
+  .sc-lookpage-refs {
+    gap: 6px;
+  }
+  .sc-lookpage-band {
+    margin-top: 36px;
+    margin-bottom: 36px;
+  }
+  .sc-bandhead {
+    font-size: 16px;
+  }
+}
+
+/* Library walls (Presenters / Scenes / Products) — original breakpoints. */
+@media (max-width: 760px) {
+  .sc-masonry {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 }
 @media (max-width: 460px) {
@@ -5739,7 +6176,8 @@ select {
   color: var(--sc-fg3);
   font-size: 12.5px;
   margin-top: 3px;
-  max-width: 62ch;
+  max-width: var(--sc-measure-prose);
+  text-wrap: pretty;
 }
 .sc-set-card {
   border: 1px solid var(--sc-line);

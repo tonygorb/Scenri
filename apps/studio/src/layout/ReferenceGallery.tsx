@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Spinner } from '@radix-ui/themes';
 import { CaretLeft, CaretRight, ImageSquare, Plus } from '@phosphor-icons/react';
 import { imgUrl, nodeLabel, type TreeNode } from '../api.js';
@@ -99,15 +99,58 @@ export function ShotThumb({ node, onClick }: { node: TreeNode; onClick: () => vo
   );
 }
 
-/** A row that keeps going: the run is cloned once and the seam is invisible. */
+/** A row that keeps going: the run is cloned once and the seam is invisible.
+ * Edge fades match VerticalsTabs — soft, scroll-aware, only when clipped. */
 export function Slider({ label, children }: { label: string; children: React.ReactNode }) {
+  const shell = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
+  const placeFadesRef = useRef<() => void>(() => {});
+
+  useLayoutEffect(() => {
+    const s = shell.current;
+    const t = track.current;
+    if (!s || !t) return;
+
+    let fadeRaf = 0;
+    const placeFades = () => {
+      const max = t.scrollWidth - t.clientWidth;
+      if (max <= 1) {
+        delete s.dataset.overflowLeft;
+        delete s.dataset.overflowRight;
+        return;
+      }
+      if (t.scrollLeft > 2) s.dataset.overflowLeft = '';
+      else delete s.dataset.overflowLeft;
+      if (t.scrollLeft < max - 2) s.dataset.overflowRight = '';
+      else delete s.dataset.overflowRight;
+    };
+    placeFadesRef.current = placeFades;
+    placeFades();
+
+    const onScroll = () => {
+      if (fadeRaf) return;
+      fadeRaf = requestAnimationFrame(() => {
+        fadeRaf = 0;
+        placeFades();
+      });
+    };
+
+    const ro = new ResizeObserver(() => placeFades());
+    ro.observe(t);
+    t.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      if (fadeRaf) cancelAnimationFrame(fadeRaf);
+      placeFadesRef.current = () => {};
+      ro.disconnect();
+      t.removeEventListener('scroll', onScroll);
+    };
+  }, []);
 
   const slide = (dir: 1 | -1) => {
     const t = track.current;
-    if (!t?.firstElementChild) return;
-    const step = (t.firstElementChild as HTMLElement).getBoundingClientRect().width + 12;
+    if (!t?.firstElementChild || busy.current) return;
+    const step = (t.firstElementChild as HTMLElement).getBoundingClientRect().width + 16;
     const run = t.scrollWidth / 2;
     if (dir < 0 && t.scrollLeft < step) t.scrollLeft += run; // hop into the clone first
     const from = t.scrollLeft,
@@ -117,10 +160,12 @@ export function Slider({ label, children }: { label: string; children: React.Rea
     const frame = (now: number) => {
       const p = Math.min(1, (now - start) / 420);
       t.scrollLeft = from + delta * (1 - (1 - p) ** 3);
+      placeFadesRef.current();
       if (p < 1) requestAnimationFrame(frame);
       else {
         busy.current = false;
         if (t.scrollLeft >= run) t.scrollLeft -= run;
+        placeFadesRef.current();
       }
     };
     requestAnimationFrame(frame);
@@ -129,7 +174,7 @@ export function Slider({ label, children }: { label: string; children: React.Rea
   return (
     <section className="sc-lookpage-band">
       <p className="sc-bandhead">{label}</p>
-      <div className="sc-slider">
+      <div className="sc-slider" ref={shell}>
         <button type="button" className="sc-slider-arrow prev" aria-label="Previous" onClick={() => slide(-1)}>
           <CaretLeft size={13} weight="bold" />
         </button>

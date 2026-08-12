@@ -114,6 +114,7 @@ export function PresenterPage() {
   const visibleRefs = openAll ? refs : refs.slice(0, FRONT_ANGLES);
   const frames = refs.length ? visibleRefs : presenter.previewUrl ? [presenter.previewUrl] : [];
   const others = presenters.filter((p) => p.id !== presenter.id).slice(0, 8);
+  const avatarSrc = presenter.previewUrl ?? refs[0] ?? null;
 
   return (
     <ScrollPane>
@@ -125,6 +126,12 @@ export function PresenterPage() {
           <span>/</span>
           <span>{presenter.suitableStyles[0] ?? presenter.presentation}</span>
         </div>
+
+        {avatarSrc ? (
+          <div className="sc-presenterpage-avatar" aria-hidden>
+            <img src={avatarSrc} alt="" />
+          </div>
+        ) : null}
 
         <h1>{presenter.name}</h1>
         <p className="sc-lookpage-lede">{presenter.descriptor}</p>

@@ -1,16 +1,18 @@
 import { flushSync } from 'react-dom';
 
 /**
- * Run a tab/filter DOM update inside a view transition when the browser
- * supports it, so the wall can crossfade instead of hard-cutting. Falls
- * back to a plain update elsewhere. `flushSync` keeps React 18's paint
- * inside the transition callback.
+ * Crossfade the filter wall when the browser can do it cheaply.
+ * Skip on coarse pointers / reduced motion — VT + flushSync feels laggy there.
  */
 export function runTabTransition(update: () => void): void {
   const doc = document as Document & {
     startViewTransition?: (cb: () => void) => unknown;
   };
-  if (typeof doc.startViewTransition !== 'function') {
+  const skip =
+    typeof doc.startViewTransition !== 'function' ||
+    window.matchMedia('(pointer: coarse)').matches ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (skip) {
     update();
     return;
   }

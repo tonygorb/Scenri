@@ -93,6 +93,22 @@ export function ProductsView() {
     setAddOpen(true);
   };
 
+  const addMenu = (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        <button type="button" className="sc-btn sc-btn-primary">
+          <Plus size={12} /> Add product <CaretDown size={11} weight="bold" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end">
+        <DropdownMenu.Item onSelect={() => openAdd('upload')}>Upload a product</DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => openAdd('import')}>Import from your store</DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  );
+
+  const hasProducts = loaded && products.length > 0;
+
   return (
     <ScrollPane>
       <main className="sc-looks sc-products" id="main">
@@ -114,41 +130,33 @@ export function ProductsView() {
           </Dialog.Content>
         </Dialog.Root>
 
-        <LibraryToolbar
-          title="Products"
-          filters={<FacetFilter mode={mode} group={facetGroup} />}
-          active={active}
-          summary={`Showing ${filtered.length} of ${products.length}`}
-          onClear={clear}
-          search={
-            products.length >= SEARCH_MIN && (
-              <TextField.Root
-                size="2"
-                style={{ width: 220 }}
-                placeholder={`Search ${products.length} products`}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              >
-                <TextField.Slot>
-                  <MagnifyingGlass size={14} />
-                </TextField.Slot>
-              </TextField.Root>
-            )
-          }
-          action={
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                <button type="button" className="sc-btn sc-btn-primary">
-                  <Plus size={12} /> Add product <CaretDown size={11} weight="bold" />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content align="end">
-                <DropdownMenu.Item onSelect={() => openAdd('upload')}>Upload a product</DropdownMenu.Item>
-                <DropdownMenu.Item onSelect={() => openAdd('import')}>Import from your store</DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          }
-        />
+        {hasProducts ? (
+          <LibraryToolbar
+            title="Products"
+            filters={<FacetFilter mode={mode} group={facetGroup} />}
+            active={active}
+            summary={`Showing ${filtered.length} of ${products.length}`}
+            onClear={clear}
+            search={
+              products.length >= SEARCH_MIN && (
+                <TextField.Root
+                  size="2"
+                  style={{ width: 220 }}
+                  placeholder={`Search ${products.length} products`}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                >
+                  <TextField.Slot>
+                    <MagnifyingGlass size={14} />
+                  </TextField.Slot>
+                </TextField.Root>
+              )
+            }
+            action={addMenu}
+          />
+        ) : (
+          <h1 className="sc-vh">Products</h1>
+        )}
 
         {!loaded && (
           <div className="sc-masonry" aria-hidden>
@@ -166,11 +174,7 @@ export function ProductsView() {
                 </>
               }
               body="Upload a packshot or import your store catalog — every campaign starts from one."
-              action={
-                <button type="button" className="sc-btn sc-btn-primary" onClick={() => openAdd('upload')}>
-                  <Plus size={12} /> Add product
-                </button>
-              }
+              action={addMenu}
             />
             {demoProducts.length > 0 && (
               <div className="sc-products-starter">
