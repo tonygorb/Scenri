@@ -5498,7 +5498,7 @@ select {
   top: 0;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   pointer-events: none;
 }
 .sc-showcase-chips:has(> .sc-credit-tip) .sc-showcase-recipe {
@@ -5514,9 +5514,8 @@ select {
 .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-credit-tip {
   pointer-events: auto;
 }
-.sc-showcase-recipe .sc-showcase-chip {
-  width: 22px;
-  height: 22px;
+.sc-showcase-recipe .sc-showcase-chip,
+.sc-showcase-recipe .sc-showcase-join {
   opacity: 0;
   transform: translate3d(-6px, 0, 0);
   pointer-events: none;
@@ -5524,42 +5523,86 @@ select {
     opacity 0.22s ease,
     transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
-/* Closing: scene first, then product. */
+.sc-showcase-recipe .sc-showcase-chip {
+  width: 22px;
+  height: 22px;
+}
+/* Quiet recipe connectors — color contrasts the hero under the credits. */
+.sc-showcase-recipe .sc-showcase-join {
+  flex: none;
+  width: 0.65em;
+  color: rgba(255, 255, 255, 0.55);
+  font: 500 11px/1 var(--sc-font);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  user-select: none;
+}
+.sc-showcase-tile[data-ring='light'] .sc-showcase-join {
+  color: rgba(255, 255, 255, 0.68);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.sc-showcase-tile[data-ring='dark'] .sc-showcase-join {
+  color: rgba(0, 0, 0, 0.52);
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+/* Closing: scene → mid join → product → lead join. */
 .sc-showcase-recipe .sc-showcase-chip[data-step='1'] {
+  transition-delay: 0.06s;
+}
+.sc-showcase-recipe .sc-showcase-join[data-step='0'] {
   transition-delay: 0.04s;
+}
+.sc-showcase-recipe .sc-showcase-join[data-step='1'] {
+  transition-delay: 0.02s;
 }
 .sc-showcase-recipe .sc-showcase-chip[data-step='2'] {
   transition-delay: 0s;
 }
-.sc-showcase-recipe:focus-within .sc-showcase-chip {
+.sc-showcase-recipe:focus-within .sc-showcase-chip,
+.sc-showcase-recipe:focus-within .sc-showcase-join {
   opacity: 1;
   transform: translate3d(0, 0, 0);
-  pointer-events: auto;
   transition-delay: 0s;
 }
+.sc-showcase-recipe:focus-within .sc-showcase-chip {
+  pointer-events: auto;
+}
 @media (hover: hover) {
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip {
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
+  }
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip {
     pointer-events: auto;
   }
-  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip[data-step='1'] {
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-join[data-step='0'] {
     transition-delay: 0.02s;
+  }
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip[data-step='1'] {
+    transition-delay: 0.04s;
+  }
+  .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-join[data-step='1'] {
+    transition-delay: 0.06s;
   }
   .sc-showcase-tile:hover .sc-showcase-recipe .sc-showcase-chip[data-step='2'] {
     transition-delay: 0.08s;
   }
 }
 @media (hover: none) {
-  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-showcase-chip {
+  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
-    pointer-events: auto;
     transition-delay: 0s;
+  }
+  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-showcase-recipe .sc-showcase-chip {
+    pointer-events: auto;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sc-showcase-recipe .sc-showcase-chip {
+  .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-recipe .sc-showcase-join {
     transform: none;
     transition: opacity 0.15s ease;
   }
@@ -5585,29 +5628,16 @@ select {
   padding: 5px;
   border-radius: 12px;
   pointer-events: none;
-  /* Same live glass as .sc-showcase-badge */
-  background: rgba(0, 0, 0, 0.22);
+  /* Soft grey glass fill — a bit more opaque than the presenter pill so the
+     floating preview reads as a muted panel, not a near-black frame. */
+  background: rgba(52, 52, 56, 0.58);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   backdrop-filter: blur(20px) saturate(140%);
-  /* Dual hairline until data-ring lands — same smart edge as .sc-showcase-chip */
   box-shadow:
     0 12px 32px rgba(0, 0, 0, 0.38),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
-    0 0 0 1px rgba(255, 255, 255, 0.4),
-    0 0 0 1px rgba(0, 0, 0, 0.22);
-  transition: box-shadow 0.25s ease;
-}
-.sc-credit-tip-pop[data-ring='light'] {
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.38),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
-    0 0 0 1px rgba(255, 255, 255, 0.48);
-}
-.sc-credit-tip-pop[data-ring='dark'] {
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.38),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.16),
-    0 0 0 1px rgba(0, 0, 0, 0.4);
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.28);
 }
 .sc-credit-tip-card {
   display: contents;
@@ -5652,9 +5682,7 @@ select {
   object-fit: cover;
   flex: none;
 }
-/* Product / scene — bare circular thumbs. Ring contrasts the hero under the
-   credits: sampled luminance sets data-ring on the tile; until then a dual
-   hairline so the edge always reads on any photo. */
+/* Product / scene — bare circular thumbs with a soft dual micro-edge. */
 .sc-showcase-chip {
   display: block;
   flex: none;
@@ -5664,17 +5692,10 @@ select {
   overflow: hidden;
   background: transparent;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.4),
-    0 0 0 1px rgba(0, 0, 0, 0.22);
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.28);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  transition: box-shadow 0.25s ease;
-}
-.sc-showcase-tile[data-ring='light'] .sc-showcase-chip {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.48);
-}
-.sc-showcase-tile[data-ring='dark'] .sc-showcase-chip {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 .sc-showcase-chip img {
   width: 100%;

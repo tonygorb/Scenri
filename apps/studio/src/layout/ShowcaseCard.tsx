@@ -1,16 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ShowcaseEntry } from '../api.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize } from './CatalogCard.js';
 
 export type ShowcaseCardSize = CatalogCardSize;
 
-/** Soft ring that contrasts the card photo under the chips. Cached per URL. */
+/** Soft join color that contrasts the hero under the credits. Cached per URL. */
 const ringToneCache = new Map<string, 'light' | 'dark'>();
 
 /**
- * Sample the top-left of the hero (where credits sit). Dark photo → light ring,
- * light photo → dark ring. Same-origin previews only; fails soft to null.
+ * Sample the top-left of the hero (where credits sit). Dark photo → light +,
+ * light photo → dark +. Same-origin previews only; fails soft to null.
  */
 function cornerRingTone(url: string): Promise<'light' | 'dark' | null> {
   const hit = ringToneCache.get(url);
@@ -36,7 +36,6 @@ function cornerRingTone(url: string): Promise<'light' | 'dark' | null> {
           resolve(null);
           return;
         }
-        // Credits hug the top-left of the framed still.
         ctx.drawImage(img, 0, 0, sw * 0.28, sh * 0.16, 0, 0, size, size);
         const { data } = ctx.getImageData(0, 0, size, size);
         let sum = 0;
@@ -87,9 +86,9 @@ type Credit = {
  * recipe (product, presenter if any, scene) rather than a category, so
  * hovering tells you what's actually in the shot before you click through.
  *
- * Top-left credits: presenter glass pill + product/scene thumbs. Hovering any
- * credit portals an 80×80 glass-framed still with a role label (Presenter /
- * Product / Scene). Rings sample the hero.
+ * Top-left credits: presenter glass pill + product/scene thumbs, joined with
+ * soft + marks whose color contrasts the hero. Hovering any credit portals an
+ * 80×80 glass-framed still with a role label.
  */
 export function ShowcaseCard({
   entry,
@@ -200,7 +199,7 @@ export function ShowcaseCard({
         size={size}
       />
       {(presenter || product || scene) && (
-        <CreditRow presenter={presenter} product={product} scene={scene} ring={ring} />
+        <CreditRow presenter={presenter} product={product} scene={scene} />
       )}
     </div>
   );
@@ -216,12 +215,10 @@ function CreditRow({
   presenter,
   product,
   scene,
-  ring,
 }: {
   presenter: Credit | null;
   product: Credit | null;
   scene: Credit | null;
-  ring: 'light' | 'dark' | null;
 }) {
   const [tip, setTip] = useState<CreditKey | null>(null);
   const thumbs = [product, scene].filter(Boolean) as Credit[];
@@ -229,30 +226,31 @@ function CreditRow({
   return (
     <div className="sc-showcase-chips" onMouseLeave={() => setTip(null)}>
       {presenter && (
-        <CreditTip
-          credit={presenter}
-          open={tip === 'presenter'}
-          onEnter={() => setTip('presenter')}
-          ring={ring}
-        >
+        <CreditTip credit={presenter} open={tip === 'presenter'} onEnter={() => setTip('presenter')}>
           {presenterPill(presenter)}
         </CreditTip>
       )}
       {thumbs.length > 0 && (
         <div className="sc-showcase-recipe">
-          {thumbs.map((t) => (
-            <CreditTip
-              key={t.key}
-              credit={t}
-              open={tip === t.key}
-              onEnter={() => setTip(t.key)}
-              ring={ring}
-            >
-              {roundChip({
-                credit: t,
-                step: t.key === 'product' ? 1 : 2,
-              })}
-            </CreditTip>
+          {presenter && (
+            <span className="sc-showcase-join" data-step="0" aria-hidden>
+              +
+            </span>
+          )}
+          {thumbs.map((t, i) => (
+            <Fragment key={t.key}>
+              {i > 0 && (
+                <span className="sc-showcase-join" data-step="1" aria-hidden>
+                  +
+                </span>
+              )}
+              <CreditTip credit={t} open={tip === t.key} onEnter={() => setTip(t.key)}>
+                {roundChip({
+                  credit: t,
+                  step: t.key === 'product' ? 1 : 2,
+                })}
+              </CreditTip>
+            </Fragment>
           ))}
         </div>
       )}
@@ -268,13 +266,11 @@ function CreditTip({
   credit,
   open,
   onEnter,
-  ring,
   children,
 }: {
   credit: Credit;
   open: boolean;
   onEnter: () => void;
-  ring: 'light' | 'dark' | null;
   children: ReactNode;
 }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -329,7 +325,6 @@ function CreditTip({
           <span
             ref={popRef}
             className="sc-credit-tip-pop"
-            data-ring={ring || undefined}
             style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }}
             role="tooltip"
             aria-label={`${role}: ${credit.name}`}
