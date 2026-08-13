@@ -114,14 +114,13 @@ export function inkOn(hex: string): string {
  * own logo when it has one, and otherwise its initial on its own primary, which
  * is what every workspace switcher worth copying does.
  */
-export function BrandAvatar({ brand, size = 20, round }: { brand: Brand; size?: number; round?: boolean }) {
+export function BrandAvatar({ brand, size = 20 }: { brand: Brand; size?: number }) {
   const logo = assetUrl(brand.json?.logos?.[0]?.file);
   const hex: string = brand.json?.palette?.primary?.hex ?? '#6b6b6b';
   return (
     <span
       className="sc-brand-av"
       data-logo={logo ? '' : undefined}
-      data-round={round ? '' : undefined}
       style={{
         width: size,
         height: size,

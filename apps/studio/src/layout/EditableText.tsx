@@ -20,6 +20,7 @@ export function EditableText({
   variant = 'body',
   multiline,
   maxLength,
+  className,
 }: {
   value: string;
   onCommit: (next: string) => void;
@@ -29,6 +30,7 @@ export function EditableText({
   variant?: 'name' | 'lede' | 'body' | 'quote';
   multiline?: boolean;
   maxLength?: number;
+  className?: string;
 }) {
   const [draft, setDraft] = useState(value);
   const [editing, setEditing] = useState(false);
@@ -39,7 +41,7 @@ export function EditableText({
   }, [value, editing]);
 
   const shared = {
-    className: 'sc-edit',
+    className: ['sc-edit', className].filter(Boolean).join(' '),
     'data-variant': variant,
     'data-empty': draft ? undefined : ('' as const),
     value: draft,

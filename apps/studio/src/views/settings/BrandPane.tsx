@@ -73,51 +73,53 @@ export function BrandPane() {
 
   return (
     <>
-      <Group title="Identity" sub="What this brand is called, and the mark that stands for it.">
+      <Group title="Identity" sub="The name and the mark.">
         <BrandIdentity brand={brand} doc={doc} />
       </Group>
 
-      <Group title="Palette" sub="Your colors, ready to drop into any shot from the composer.">
+      <Group title="Palette" sub="Favoured on a shot that asks for the kit.">
         <div className="sc-set-block">
           <BrandPalette doc={doc} suggestions={suggestions} />
         </div>
       </Group>
 
-      <Group title="We never" sub="What this brand does not show. Applied to every shot you generate in this brand.">
+      <Group title="We never" sub="Held on every shot, whether the kit is asked for or not.">
         <div className="sc-set-block">
           <BrandNever doc={doc} />
         </div>
       </Group>
 
       <Group title="Portable" sub="The kit is a file, not a lock-in.">
-        <div className="sc-set-row">
+        <div className="sc-set-row" data-stack="">
           <span className="txt">
             <b>Website</b>
             <small>
               Reads colours and marks from the site again. Edits are kept; new colours are offered, not applied.
             </small>
           </span>
-          <input
-            className="sc-in sc-set-in"
-            value={site}
-            type="url"
-            inputMode="url"
-            placeholder="acme.coffee"
-            aria-label="Brand website"
-            onChange={(e) => setSite(e.target.value)}
-            onBlur={commitSite}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-            }}
-          />
-          <button
-            type="button"
-            className="sc-btn sc-btn-ghost"
-            disabled={!website || refreshing}
-            onClick={() => void refreshFromUrl()}
-          >
-            {refreshing ? <Spinner size="1" /> : <ArrowClockwise size={13} />} Refresh
-          </button>
+          <div className="sc-set-controls">
+            <input
+              className="sc-in"
+              value={site}
+              type="url"
+              inputMode="url"
+              placeholder="acme.coffee"
+              aria-label="Brand website"
+              onChange={(e) => setSite(e.target.value)}
+              onBlur={commitSite}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+              }}
+            />
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              disabled={!website || refreshing}
+              onClick={() => void refreshFromUrl()}
+            >
+              {refreshing ? <Spinner size="1" /> : <ArrowClockwise size={13} />} Refresh
+            </button>
+          </div>
         </div>
         <div className="sc-set-row">
           <span className="txt">

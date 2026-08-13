@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
 import { Callout, DropdownMenu } from '@radix-ui/themes';
-import { ArrowUpRight, CaretDown, FolderSimple, Plus } from '@phosphor-icons/react';
+import { ArrowsDownUp, CaretDown, FolderSimple, Plus } from '@phosphor-icons/react';
 import {
   api,
   hasNoShots,
@@ -17,21 +17,37 @@ import {
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
+import { showcaseBrief } from '../app/useApplyShowcase.js';
 import { P, hubPath, setPath } from '../routes.js';
 import { briefTokens } from '../composer/BriefInput.js';
 import { Confirm } from '../Confirm.js';
+import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
 import { favoriteScenes } from '../favorites.js';
+import {
+  FEED_SORTS,
+  byNewest,
+  filterFeed,
+  isFeedSort,
+  shotSearchText,
+  sortFeed,
+  type FeedSort,
+  type TokenNames,
+} from '../feedRules.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
+import { LibrarySearch } from '../layout/library/LibrarySearch.js';
+import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { Canvas } from '../layout/Canvas.js';
 import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
+import { ComposerDock } from '../layout/ComposerDock.js';
 import type { InspectorTab } from '../layout/Inspector.js';
 import { SceneCard } from '../layout/SceneCard.js';
 import { FeedDensitySlider } from '../layout/DensityControl.js';
+import { VerticalsTabs, type VerticalsTabItem } from '../layout/VerticalsTabs.js';
 import { TILE_DEFAULT } from '../layout/masonry.js';
 import { useArchiveNode } from '../useArchiveNode.js';
 import { useDeleteNode } from '../useDeleteNode.js';
@@ -85,8 +101,8 @@ type Lens = 'all' | 'keepers' | 'ungrouped' | 'archived';
  * `set` of null is not an empty state but the ordinary one.
  */
 export function CreateView({ set }: { set: ShotSet | null }) {
-  const { engines, scenes: templates, presenters, showcase, showcaseLoaded } = useAppData();
-  const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh } = useBrand();
+  const { engines, scenes: templates, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
+  const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh, products } = useBrand();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const nodeId = useNodeId();
@@ -121,6 +137,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   /** How big the feed tiles are (px). Create-only preference. */
   const [tile, setTile] = useLocalPref(PREF.tileSize, TILE_DEFAULT);
+  /**
+   * Free-text search over the feed. URL-backed (`?q=`) for the same reason the
+   * lens is: the set route remounts on every switch, and a query you typed is
+   * not something a change of view should quietly forget.
+   */
+  const { q, setQ, clearSearch } = useLibraryQuery([]);
+  /** Feed ordering. A machine preference, not a location, so it lives in prefs. */
+  const [sortPref, setSortPref] = useLocalPref<FeedSort>(PREF.feedSort, 'newest');
+  const sort: FeedSort = isFeedSort(sortPref) ? sortPref : 'newest';
   const [compareOpen, setCompareOpen] = useState(false);
   const [iParam, setIParam] = useFilterParam('i', '0');
   const [panel, setPanel] = useFilterParam('panel', 'text');
@@ -226,13 +251,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * lineage walks and version counts here, reachable only via the Archived
    * lens itself or a direct link (DetailOverlay reads from `allNodes`, not
    * this). */
-  const shots = useMemo(
-    () =>
-      [...allNodes]
-        .filter((n) => n.kind !== 'root' && !n.archived)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [allNodes],
-  );
+  const shots = useMemo(() => [...allNodes].filter((n) => n.kind !== 'root' && !n.archived).sort(byNewest), [allNodes]);
 
   /** Which sets each shot is in, so a cell can say so without another request. */
   const setsByNode = useMemo(() => {
@@ -290,9 +309,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     // archived shots are excluded from `shots` itself, so this lens reads
     // straight from allNodes rather than layering on top of the others
     if (lens === 'archived') {
-      return [...allNodes]
-        .filter((n) => n.kind !== 'root' && n.archived)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return [...allNodes].filter((n) => n.kind !== 'root' && n.archived).sort(byNewest);
     }
     if (lineage) return shots.filter((n) => lineage.ids.has(n.id));
     if (set) {
@@ -303,6 +320,53 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     if (lens === 'ungrouped') return shots.filter((n) => !setsByNode.has(n.id));
     return shots;
   }, [shots, set, membership, lens, setsByNode, lineage, allNodes]);
+
+  /** Brand-level — what a lens click actually opens, including when it leaves a set. */
+  const lensCounts = useMemo(
+    () => ({
+      all: shots.length,
+      keepers: shots.filter((n) => n.kept).length,
+      ungrouped: shots.filter((n) => !setsByNode.has(n.id)).length,
+      archived: allNodes.filter((n) => n.kind !== 'root' && n.archived).length,
+    }),
+    [shots, setsByNode, allNodes],
+  );
+
+  /**
+   * Brief tokens carry ids; searching wants the names behind them. Every
+   * catalog needed is already on the client — the same lookups BriefInput
+   * makes to label its chips.
+   */
+  const tokenNames = useMemo<TokenNames>(() => {
+    const library: any[] = products.length ? products : ((brand.json?.products ?? []) as any[]);
+    const cast: any[] = (brand.json?.characters ?? []) as any[];
+    return {
+      product: (id) => {
+        const p = library.find((x) => x.id === id) ?? demoProducts.find((x) => x.id === id);
+        return p ? productLabel(p, 'tooltip') : null;
+      },
+      person: (id) => cast.find((x) => x.id === id)?.name ?? presenters.find((x) => x.id === id)?.name ?? null,
+      scene: (id) => {
+        const t = templates.find((x) => x.id === id);
+        return t ? sceneLabel(t, 'tooltip') : null;
+      },
+    };
+  }, [products, demoProducts, brand, presenters, templates]);
+
+  /** Haystack per shot, cached by id: prompt and brief never change once made. */
+  const searchTextFor = useMemo(() => {
+    const cache = new Map<string, string>();
+    return (n: TreeNode) => {
+      const hit = cache.get(n.id);
+      if (hit !== undefined) return hit;
+      const text = shotSearchText(n, tokenNames, engines.find((e) => e.id === n.engineId)?.displayName);
+      cache.set(n.id, text);
+      return text;
+    };
+  }, [tokenNames, engines]);
+
+  /** What the canvas actually renders: the lensed feed, searched, then ordered. */
+  const feed = useMemo(() => sortFeed(filterFeed(shown, q, searchTextFor), sort), [shown, q, searchTextFor, sort]);
 
   const byParent = useMemo(() => {
     const m = new Map<string | null, TreeNode[]>();
@@ -318,9 +382,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     const byId = allNodes.find((n) => n.id === selectedId);
     if (byId) return byId;
     // never land on a failure: prefer the newest usable shot
-    const usable = shown.filter((n) => n.status !== 'error');
-    return usable[0] ?? shown[0] ?? root;
-  }, [allNodes, selectedId, shown, root]);
+    const usable = feed.filter((n) => n.status !== 'error');
+    return usable[0] ?? feed[0] ?? root;
+  }, [allNodes, selectedId, feed, root]);
 
   /**
    * The branch target, resolved against what actually exists. A URL can name a
@@ -573,12 +637,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     appliedShowcase.current = showcaseIdParam;
     const entry = showcase.find((s) => s.id === showcaseIdParam);
     if (entry) {
-      setRemixBrief({
-        ...entry.brief,
-        ...(entry.variants ? { variants: entry.variants } : {}),
-        ...(entry.quality ? { quality: entry.quality } : {}),
-        _at: Date.now(),
-      });
+      setRemixBrief(showcaseBrief(entry));
       push({ kind: 'success', title: `Starting from "${entry.title}"` });
     } else {
       push({ kind: 'error', title: 'That example is no longer available', detail: 'Starting from scratch instead.' });
@@ -735,6 +794,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   const emptyState = hasNoShots(allNodes) ? (
     <FirstRun scenes={templates} brandId={brand.id} onScene={(id) => compose({ scene: id })} />
+  ) : q.trim() ? (
+    // outranks the lens branches: a search that filtered a lens to nothing
+    // must not read as "No keepers yet" when the keepers are merely hidden
+    <LensEmpty text={`No shots match “${q.trim()}”.`} onAll={clearSearch} actionLabel="Clear search" />
   ) : set ? (
     <LensEmpty text="Nothing in this set yet. Pick shots on All, then add them here." />
   ) : lens === 'keepers' ? (
@@ -804,9 +867,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           sets={sets}
           active={set}
           lens={lens}
+          lensCounts={lensCounts}
           onLens={(l) => setLens(l === 'all' ? null : l)}
           onNewSet={() => void newSetWith([])}
-          count={shown.length}
+          count={feed.length}
+          q={q}
+          onQ={setQ}
+          searchTotal={shown.length}
+          sort={sort}
+          onSort={setSortPref}
           tile={tile}
           onTile={setTile}
         />
@@ -824,7 +893,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         )}
 
         <Canvas
-          nodes={shown}
+          nodes={feed}
           selectedId={selected?.id ?? null}
           onOpen={openShot}
           onRetry={(n) => void retry(n)}
@@ -884,8 +953,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         onClose={() => setAssetsOpen(false)}
       />
 
-      <div className="sc-dock-fade" data-full={!assetsOpen} aria-hidden />
-      <div className="sc-canvas-dock" data-full={!assetsOpen}>
+      <ComposerDock full={!assetsOpen}>
         {/* Inside the dock, not floating above it at a guessed offset: the
             composer grows with a banner, a target chip or an open attach panel,
             and any fixed distance from the bottom was a bet that it would not.
@@ -955,7 +1023,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             else void reload().finally(landed);
           }}
         />
-      </div>
+      </ComposerDock>
 
       <Outlet context={shotContext} />
     </div>
@@ -1002,13 +1070,21 @@ function FirstRun({ scenes, brandId, onScene }: { scenes: Scene[]; brandId: stri
  * offer the way out of it, because the alternative reads as the shots having
  * been thrown away.
  */
-function LensEmpty({ text, onAll }: { text: string; onAll?: () => void }) {
+function LensEmpty({
+  text,
+  onAll,
+  actionLabel = 'Show all shots',
+}: {
+  text: string;
+  onAll?: () => void;
+  actionLabel?: string;
+}) {
   return (
     <div className="sc-feed-empty">
       <p>{text}</p>
       {onAll && (
         <button type="button" className="sc-btn" onClick={onAll}>
-          Show all shots
+          {actionLabel}
         </button>
       )}
     </div>
@@ -1040,7 +1116,7 @@ const LENSES: { id: Lens; label: string; query: string }[] = [
  * behaved completely differently. Ten sets also squashed the row, because it
  * was a nowrap flex line with nothing to stop it.
  *
- * Now: a segmented control for the lenses, a menu for the sets (which holds
+ * Now: the library tab rail for the lenses, a menu for the sets (which holds
  * fifty as happily as two), an icon for the action, and the view controls
  * pushed to the far end.
  */
@@ -1049,9 +1125,15 @@ function FeedToolbar({
   sets,
   active,
   lens,
+  lensCounts,
   onLens,
   onNewSet,
   count,
+  q,
+  onQ,
+  searchTotal,
+  sort,
+  onSort,
   tile,
   onTile,
 }: {
@@ -1059,77 +1141,102 @@ function FeedToolbar({
   sets: ShotSet[];
   active: ShotSet | null;
   lens: Lens;
+  lensCounts: Record<Lens, number>;
   onLens: (l: Lens) => void;
   onNewSet: () => void;
   count: number;
+  q: string;
+  onQ: (q: string) => void;
+  /** How many shots the search is over (pre-search), for the placeholder. */
+  searchTotal: number;
+  sort: FeedSort;
+  onSort: (s: FeedSort) => void;
   tile: number;
   onTile: (px: number) => void;
 }) {
   const navigate = useNavigate();
   const toHub = (q = '') => navigate(hubPath(brand) + q);
+  const leave = active ? `Leaves ${active.name}, back to the whole brand` : undefined;
+  const lensItems: VerticalsTabItem[] = LENSES.map((l) => ({
+    value: l.id === 'all' ? null : l.id,
+    label: l.label,
+    count: lensCounts[l.id],
+  }));
 
   return (
     <div className="sc-toolbar">
-      <div className="sc-seg sc-toolbar-lenses" data-leaves-set={!!active || undefined}>
-        {LENSES.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            className="sc-seg-o"
-            // standing in a set means no lens is active: a set is somewhere you
-            // are, and leaving it is a navigation rather than a filter change —
-            // the icon is what says so, since the click itself looks identical
-            data-on={(!active && lens === l.id) || undefined}
-            aria-pressed={!active && lens === l.id}
-            // title alone is a mouse-hover-only signal — the same fact belongs
-            // in the accessible name too, or a keyboard/screen-reader user gets
-            // none of what the icon and color are telling everyone else
-            title={active ? `Leaves ${active.name}, back to the whole brand` : undefined}
-            aria-label={active ? `${l.label}, leaves ${active.name}` : undefined}
-            onClick={() => (active ? toHub(l.query) : onLens(l.id))}
-          >
-            {active && <ArrowUpRight size={11} />}
-            {l.label}
-          </button>
-        ))}
+      <div className="sc-toolbar-lenses" title={leave} data-leaves-set={!!active || undefined}>
+        <VerticalsTabs
+          aria-label={active ? `Shot lenses, leaves ${active.name}` : 'Shot lenses'}
+          activeKey={active ? '__set__' : lens === 'all' ? null : lens}
+          items={lensItems}
+          onSelect={(value) => {
+            const next = (value ?? 'all') as Lens;
+            if (active) toHub(LENSES.find((l) => l.id === next)?.query ?? '');
+            else onLens(next);
+          }}
+        />
       </div>
 
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
-          <button type="button" className="sc-setsbtn" data-on={!!active || undefined}>
-            <FolderSimple size={13} />
-            <span className="sc-setsbtn-t">{active ? active.name : 'Sets'}</span>
-            {!active && sets.length > 0 && <span className="sc-setsbtn-n">{sets.length}</span>}
-            <CaretDown size={10} />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="start">
-          {sets.length === 0 && <DropdownMenu.Item disabled>No sets yet</DropdownMenu.Item>}
-          {sets.map((s) => (
-            <DropdownMenu.Item key={s.id} onSelect={() => navigate(setPath(brand, s))}>
-              {s.name}
-            </DropdownMenu.Item>
-          ))}
-          {active && (
-            <>
-              <DropdownMenu.Separator />
-              <DropdownMenu.Item onSelect={() => toHub()}>Leave this set</DropdownMenu.Item>
-            </>
-          )}
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+      <div className="sc-toolbar-places">
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            <button type="button" className="sc-setsbtn" data-on={!!active || undefined}>
+              <FolderSimple size={13} />
+              <span className="sc-setsbtn-t">{active ? active.name : 'Sets'}</span>
+              {!active && sets.length > 0 && <span className="sc-setsbtn-n">{sets.length}</span>}
+              <CaretDown size={10} />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="start">
+            {sets.length === 0 && <DropdownMenu.Item disabled>No sets yet</DropdownMenu.Item>}
+            {sets.map((s) => (
+              <DropdownMenu.Item key={s.id} onSelect={() => navigate(setPath(brand, s))}>
+                {s.name}
+              </DropdownMenu.Item>
+            ))}
+            {active && (
+              <>
+                <DropdownMenu.Separator />
+                <DropdownMenu.Item onSelect={() => toHub()}>Leave this set</DropdownMenu.Item>
+              </>
+            )}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
 
-      <button type="button" className="sc-icon-btn sc-newset" onClick={onNewSet} title="New set" aria-label="New set">
-        <Plus size={14} />
-      </button>
+        <button type="button" className="sc-icon-btn sc-newset" onClick={onNewSet} title="New set" aria-label="New set">
+          <Plus size={14} />
+        </button>
+      </div>
 
-      <span className="sc-toolbar-gap" />
+      <div className="sc-toolbar-actions">
+        <LibrarySearch value={q} onChange={onQ} noun="shots" total={searchTotal} />
 
-      <span className="sc-toolbar-count">
-        {count} shot{count === 1 ? '' : 's'}
-      </span>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            <button type="button" className="sc-setsbtn sc-sortbtn" aria-label="Sort shots">
+              <ArrowsDownUp size={13} />
+              <span className="sc-setsbtn-t">{FEED_SORTS.find((s) => s.id === sort)?.label}</span>
+              <CaretDown size={10} />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="end">
+            <DropdownMenu.RadioGroup value={sort} onValueChange={(v) => onSort(v as FeedSort)}>
+              {FEED_SORTS.map((s) => (
+                <DropdownMenu.RadioItem key={s.id} value={s.id}>
+                  {s.label}
+                </DropdownMenu.RadioItem>
+              ))}
+            </DropdownMenu.RadioGroup>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
 
-      <FeedDensitySlider value={tile} onChange={onTile} />
+        <span className="sc-toolbar-count">
+          {count} shot{count === 1 ? '' : 's'}
+        </span>
+
+        <FeedDensitySlider value={tile} onChange={onTile} />
+      </div>
     </div>
   );
 }

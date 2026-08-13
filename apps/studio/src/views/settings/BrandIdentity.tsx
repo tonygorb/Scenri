@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, TrashSimple, UploadSimple } from '@phosphor-icons/react';
 import { api, imgUrl, uploadLogo, type Brand } from '../../api.js';
 import { MARK_BACKGROUNDS, MARK_ROLES, MARK_ROLE_LABEL, marksOf, type Mark } from '../../brand/marks.js';
-import { EditableText } from '../../layout/EditableText.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { useToasts } from '../../toasts.js';
 import type { BrandDoc } from './useBrandDoc.js';
@@ -10,13 +9,15 @@ import type { BrandDoc } from './useBrandDoc.js';
 /**
  * Who this brand is: mark, name, tagline.
  *
- * An ordinary Settings row — same 32px well, same `b`/`small` text block as the
- * engine rows next door. Two earlier versions painted this in the brand's own
- * primary; both read as a foreign object dropped into the dialog, and the
- * palette immediately below already states those colours anyway.
+ * Same Settings rows as Engines and Budget — a label, a control. An earlier
+ * version sat a well beside two ghost fields and read as a different product
+ * dropped into the dialog. Variants used the well as the row label, so a phone
+ * got a 56px square next to two selects instead of a stacked pair.
  *
- * Name and tagline are edited in place. The row is a drop target, because "drag
- * your logo onto your brand" needs no instructions.
+ * The card is a drop target, because "drag your logo onto your brand" needs no
+ * instructions. Mark actions sit in the open: hover-only chrome is unreachable
+ * on a phone. A filled well is the mark, not a second upload — uploadLogo
+ * appends, so tapping it would quietly add a variant.
  */
 export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
   const { push } = useToasts();
@@ -64,60 +65,88 @@ export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
   return (
     <div className="sc-ident" {...dropProps}>
       <div className="sc-set-row">
-        <MarkWell
-          mark={primary}
-          name={name}
-          busy={busy}
-          onUpload={upload}
-          onBackground={(background) =>
-            void run('Could not update that mark', () => api.updateLogo(brand.id, primary?.hash ?? '', { background }))
-          }
-          onRemove={() => void run('Could not remove that mark', () => api.deleteLogo(brand.id, primary?.hash ?? ''))}
-        />
         <span className="txt">
-          <EditableText
-            label="Brand name"
-            variant="name"
-            value={meta.name ?? ''}
-            placeholder={brand.slug}
-            maxLength={120}
-            onCommit={(next) => writeMeta({ name: next })}
-          />
-          <EditableText
-            label="Tagline"
-            variant="lede"
-            /* Wraps rather than scrolls: a scraped tagline is often a whole
-               sentence, and a single-line field shows the middle of it. */
-            multiline
-            value={meta.tagline ?? ''}
-            placeholder="Add a tagline"
-            maxLength={200}
-            onCommit={(next) => writeMeta({ tagline: next })}
-          />
+          <b>Logo</b>
+          <small>Drop an image, or tap to add.</small>
         </span>
+        <div className="sc-set-controls">
+          <MarkWell mark={primary} name={name} busy={busy} onUpload={upload} />
+          {primary?.attachable && (
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              disabled={busy}
+              onClick={() => void run('Could not remove that mark', () => api.deleteLogo(brand.id, primary.hash ?? ''))}
+            >
+              Remove
+            </button>
+          )}
+        </div>
       </div>
 
-      {primary && rest.length > 0 && (
-        <div className="sc-marks">
-          {/* Only the alternates: the primary is the well above, and showing it
-              here as well read as the same logo twice. */}
-          {rest.map((m) => (
-            <MarkChip
-              key={m.hash ?? m.file}
-              mark={m}
-              busy={busy}
-              onRole={(role) =>
-                void run('Could not retag that mark', () => api.updateLogo(brand.id, m.hash ?? '', { role }))
-              }
-              onBackground={(background) =>
-                void run('Could not update that mark', () => api.updateLogo(brand.id, m.hash ?? '', { background }))
-              }
-              onRemove={() => void run('Could not remove that mark', () => api.deleteLogo(brand.id, m.hash ?? ''))}
-            />
-          ))}
-          <label className="sc-marks-add">
+      {primary && (
+        <div className="sc-set-row">
+          <span className="txt">
+            <b>Sits on</b>
+            <small>So a dark mark is not shown on a dark ground.</small>
+          </span>
+          <select
+            className="sc-in"
+            value={primary.background}
+            disabled={busy || !primary.attachable}
+            onChange={(e) =>
+              void run('Could not update that mark', () =>
+                api.updateLogo(brand.id, primary.hash ?? '', { background: e.target.value }),
+              )
+            }
+            aria-label="Sits on"
+          >
+            {MARK_BACKGROUNDS.map((b) => (
+              <option value={b} key={b}>
+                {b === 'any' ? 'Any background' : `On ${b}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <KitField
+        label="Name"
+        value={meta.name ?? ''}
+        placeholder={brand.slug}
+        maxLength={120}
+        onCommit={(next) => writeMeta({ name: next })}
+      />
+      <KitField
+        label="Tagline"
+        value={meta.tagline ?? ''}
+        placeholder="Add a tagline"
+        maxLength={200}
+        onCommit={(next) => writeMeta({ tagline: next })}
+      />
+
+      {rest.map((m) => (
+        <MarkChip
+          key={m.hash ?? m.file}
+          mark={m}
+          busy={busy}
+          onRole={(role) => void run('Could not retag that mark', () => api.updateLogo(brand.id, m.hash ?? '', { role }))}
+          onBackground={(background) =>
+            void run('Could not update that mark', () => api.updateLogo(brand.id, m.hash ?? '', { background }))
+          }
+          onRemove={() => void run('Could not remove that mark', () => api.deleteLogo(brand.id, m.hash ?? ''))}
+        />
+      ))}
+
+      {primary && (
+        <div className="sc-set-row">
+          <span className="txt">
+            <b>Variant</b>
+            <small>A second mark for dark or light grounds.</small>
+          </span>
+          <label className="sc-btn sc-btn-ghost">
             <Plus size={12} />
-            <span>Variant</span>
+            Add
             <input
               type="file"
               accept="image/*"
@@ -136,52 +165,72 @@ export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
   );
 }
 
+function KitField({
+  label,
+  value,
+  placeholder,
+  maxLength,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  maxLength?: number;
+  onCommit: (next: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <div className="sc-set-row">
+      <span className="txt">
+        <b>{label}</b>
+      </span>
+      <input
+        className="sc-in"
+        value={draft}
+        placeholder={placeholder}
+        aria-label={label}
+        maxLength={maxLength}
+        dir="auto"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const next = draft.trim();
+          if (next !== value) onCommit(next);
+          setDraft(next);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') {
+            setDraft(value);
+            e.currentTarget.blur();
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 function MarkWell({
   mark,
   name,
   busy,
   onUpload,
-  onBackground,
-  onRemove,
 }: {
   mark?: Mark;
   name: string;
   busy: boolean;
   onUpload: (files: File[]) => void;
-  onBackground: (background: string) => void;
-  onRemove: () => void;
 }) {
   if (mark) {
     const src = mark.hash ? imgUrl(mark.hash) : mark.file;
     return (
-      <span className="sc-well-wrap">
-        <span className="sc-well" data-bg={mark.background}>
-          <img src={src} alt={`${name} logo`} />
-        </span>
-        {mark.attachable && (
-          <span className="sc-well-acts">
-            <select
-              value={mark.background}
-              disabled={busy}
-              onChange={(e) => onBackground(e.target.value)}
-              aria-label="Sits on"
-            >
-              {MARK_BACKGROUNDS.map((b) => (
-                <option value={b} key={b}>
-                  {b === 'any' ? 'Any background' : `On ${b}`}
-                </option>
-              ))}
-            </select>
-            <button type="button" disabled={busy} onClick={onRemove} aria-label="Remove logo">
-              <TrashSimple size={11} />
-            </button>
-          </span>
-        )}
+      <span className="sc-well" data-bg={mark.background}>
+        <img src={src} alt={`${name} logo`} />
       </span>
     );
   }
   return (
-    <label className="sc-well" data-empty="" title="Add your logo">
+    <label className="sc-well" data-empty="" aria-label="Add logo">
       <UploadSimple size={16} />
       <input
         type="file"
@@ -213,10 +262,16 @@ function MarkChip({
 }) {
   const src = mark.hash ? imgUrl(mark.hash) : mark.file;
   return (
-    <span className="sc-mark" data-bg={mark.background} title={MARK_ROLE_LABEL[mark.role]}>
-      <img src={src} alt={MARK_ROLE_LABEL[mark.role]} />
-      <span className="sc-mark-edit">
+    <div className="sc-set-row">
+      <span className="txt">
+        <b>{MARK_ROLE_LABEL[mark.role]}</b>
+      </span>
+      <div className="sc-set-controls">
+        <span className="sc-well" data-bg={mark.background}>
+          <img src={src} alt={MARK_ROLE_LABEL[mark.role]} />
+        </span>
         <select
+          className="sc-in"
           value={mark.role}
           disabled={busy || !mark.attachable}
           onChange={(e) => onRole(e.target.value)}
@@ -229,6 +284,7 @@ function MarkChip({
           ))}
         </select>
         <select
+          className="sc-in"
           value={mark.background}
           disabled={busy || !mark.attachable}
           onChange={(e) => onBackground(e.target.value)}
@@ -242,10 +298,10 @@ function MarkChip({
         </select>
         {mark.attachable && (
           <button type="button" disabled={busy} onClick={onRemove} aria-label={`Remove ${MARK_ROLE_LABEL[mark.role]}`}>
-            <TrashSimple size={11} />
+            <TrashSimple size={13} />
           </button>
         )}
-      </span>
-    </span>
+      </div>
+    </div>
   );
 }

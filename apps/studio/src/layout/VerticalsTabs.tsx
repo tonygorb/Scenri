@@ -166,11 +166,13 @@ export function VerticalsTabs({
     btn?.focus();
   };
 
+  const selectedIndex = items.findIndex((item) => isSelected(activeKey, item.value));
+
   return (
     <div ref={shellRef} className="sc-verticals-shell">
       <div ref={railRef} className="sc-verticals" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
         <span className="sc-verticals-ink" aria-hidden />
-        {items.map((item) => {
+        {items.map((item, i) => {
           const on = isSelected(activeKey, item.value);
           return (
             <button
@@ -179,7 +181,7 @@ export function VerticalsTabs({
               role="tab"
               aria-selected={on}
               data-on={on ? '' : undefined}
-              tabIndex={on ? 0 : -1}
+              tabIndex={on || (selectedIndex < 0 && i === 0) ? 0 : -1}
               onClick={() => select(item.value)}
             >
               <span className="sc-vlabel">{item.label}</span>

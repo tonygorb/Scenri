@@ -5,7 +5,9 @@ import {
   sceneSearchText,
   productSearchText,
   presenterSearchText,
+  showcaseSearchText,
 } from '../src/displayName.js';
+import { matchesQuery } from '../src/layout/library/libraryRules.js';
 
 const kova: any = {
   id: 'kova-peach-soda',
@@ -138,5 +140,32 @@ describe('search text', () => {
 
   it('leaves a presenter identityNotes out of search — engine guardrail, not a casting term', () => {
     expect(presenterSearchText(nadia)).not.toContain('ZZZUNIQUEZZZ');
+  });
+});
+
+describe('showcaseSearchText', () => {
+  const tile = { title: 'Harvest crush, mid-air', category: 'food-drink' };
+
+  it('folds in the whole recipe: a tile answers to its product keywords and its scene legacy name', () => {
+    const t = showcaseSearchText(tile, { product: kova, scene: iceCore }, 'Food & drink');
+    expect(matchesQuery(t, 'fizzy')).toBe(true);
+    expect(matchesQuery(t, 'glacier ice core')).toBe(true);
+    expect(matchesQuery(t, 'harvest')).toBe(true);
+  });
+
+  it('answers to the category label a visitor reads, not only the raw key', () => {
+    const t = showcaseSearchText(tile, {}, 'Food & drink');
+    expect(matchesQuery(t, 'drink')).toBe(true);
+  });
+
+  it('answers to casting detail of the presenter in frame', () => {
+    const t = showcaseSearchText(tile, { presenter: nadia });
+    expect(matchesQuery(t, 'pixie')).toBe(true);
+  });
+
+  it('survives a recipe with nothing resolved — title still finds it', () => {
+    const t = showcaseSearchText(tile, {});
+    expect(matchesQuery(t, 'mid-air')).toBe(true);
+    expect(matchesQuery(t, 'fizzy')).toBe(false);
   });
 });

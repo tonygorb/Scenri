@@ -399,36 +399,69 @@ select {
   }
 }
 
-/* The identity control: the avatar and nothing else. The name is not lost, it
-   opens the menu's header, which is where a trigger this small has to put it. */
-.sc-avatar-btn {
-  position: relative;
-  display: grid;
-  place-items: center;
-  flex: none;
-  margin-left: 4px;
-  padding: 3px;
-  border: none;
-  border-radius: 50%;
-  background: none;
-  cursor: pointer;
-  transition: box-shadow 120ms ease;
-}
-.sc-avatar-btn:hover {
-  box-shadow: 0 0 0 2px var(--sc-line-strong);
-}
-.sc-avatar-btn[data-state="open"] {
-  box-shadow: 0 0 0 2px var(--sc-fg3);
-}
-.sc-avatar-btn:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
-}
-
 .sc-caret {
   color: var(--sc-fg3);
   flex: none;
 }
+
+/* The identity control: mark, name, caret. A circle alone in this corner is the
+   universal sign for "your account", which is the one thing this is not, and it
+   left the brand you are working in unnamed until the menu opened. Nothing is
+   drawn at rest — the hover and open fills are the crumb's, so both dropdown
+   triggers in the bar behave the same. Below 1024px it collapses back to the
+   mark alone; see the narrow block below it. */
+.sc-org-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-width: 0;
+  max-width: 210px;
+  margin-left: 2px;
+  padding: 4px 8px 4px 5px;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  transition: background 120ms ease;
+}
+.sc-org-btn:hover {
+  background: var(--sc-hover);
+}
+.sc-org-btn[data-state="open"] {
+  background: var(--sc-chip);
+}
+.sc-org-btn:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-org-name {
+  font-size: 13px;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  color: var(--sc-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Below 1024px it goes back to being a mark. The 768-1023 band needs it because
+   the nav is still centred in the bar and the end track can be carrying the
+   assets toggle and a portalled page action too; the phone keeps the same shape
+   because a 375px row holds one name and the set crumb is the one you navigated
+   to. The menu header takes the naming back at both widths. */
+@media (max-width: 1023px) {
+  .sc-org-name,
+  .sc-org-btn .sc-caret {
+    display: none;
+  }
+  .sc-org-btn {
+    padding: 4px;
+    max-width: none;
+  }
+}
+
 /* The kit's own face. Logos arrive at any aspect and often transparent, so they
    sit contained on a neutral tile rather than cropped; a brand with no logo gets
    its initial on its own primary, which is still the brand and not a swatch. */
@@ -452,9 +485,6 @@ select {
   background: #ffffff;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.16) inset;
 }
-.sc-brand-av[data-round] {
-  border-radius: 50%;
-}
 .sc-brand-av img {
   width: 100%;
   height: 100%;
@@ -472,13 +502,25 @@ select {
   width: 268px;
   padding: 6px;
 }
-/* the trigger is an avatar, so the menu opens by saying whose it is */
+/* Off above 1024px, where the chip already carries the name and repeating it
+   8px below the thing you just clicked is the exact furniture the switcher list
+   avoids by listing only the other brands. Below that the trigger is a bare
+   mark, and this is the answer to "which one am I in". */
 .sc-menu-head {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 11px;
   padding: 8px 10px 10px;
   min-width: 0;
+}
+@media (max-width: 1023px) {
+  .sc-menu-head {
+    display: flex;
+    /* the hairline the removed Brand kit row used to put here: without it the
+       brand you are in and the brands you could switch to read as one list */
+    border-bottom: 1px solid var(--sc-line);
+    margin-bottom: 5px;
+  }
 }
 .sc-menu-head-txt {
   display: flex;
@@ -850,7 +892,7 @@ select {
 /* ---------- notifications: one place for work in flight --------------------
    Two lists behind one bell. Tasks is what is happening now and what just
    happened; Notifications is the record you can come back to. A row is a
-   thumbnail, a title and one line of fact — list-scale grammar. */
+   thumbnail, a title and one line of fact — list-scale grammar.
 
    The badge never adds running work to unread history: they are different
    questions and a single number would answer neither. A count means there is
@@ -2081,12 +2123,12 @@ select {
 }
 
 /* ---------- the feed toolbar ----------
-   Each kind of thing in its own shape: a segmented control filters, a menu
+   Each kind of thing in its own shape: the library tab rail filters, a menu
    navigates, an icon acts. The old row made all three look identical. */
 .sc-toolbar {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 16px;
   /* sticky so the lenses stay reachable down a long feed; the canvas is the
      scroller, so this pins to its top edge. The breathing room above the row
      lives in this padding-top, not .sc-canvas's: a sticky child stuck at
@@ -2101,13 +2143,34 @@ select {
   margin-bottom: 4px;
   background: var(--sc-bg);
 }
-/* The row shares the page's left edge with the tiles below it. It used to sit
-   14px further in, from a padding meant for a different container. */
+/* Nested the same way .sc-filterbar nests the rail: the shell's own sticky
+   and 24px margin would fight this row. Shrink when the four tabs overflow;
+   do not grow past the labels, so Sets sits next to Archived. */
 .sc-toolbar-lenses {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
-.sc-toolbar-gap {
-  flex: 1;
+.sc-toolbar .sc-verticals-shell {
+  position: relative;
+  z-index: auto;
+  margin-bottom: 0;
+  background: none;
+  min-width: 0;
+}
+.sc-toolbar .sc-verticals {
+  padding: 0 0 1px;
+}
+/* Sit with the tab labels, not the ink slot under them. */
+.sc-toolbar-places,
+.sc-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-bottom: 8px;
+}
+.sc-toolbar-actions {
+  margin-left: auto;
 }
 .sc-toolbar-count {
   font-family: var(--sc-font-mono);
@@ -2152,6 +2215,33 @@ select {
   color: var(--sc-fg3);
 }
 .sc-newset {
+  flex: none;
+}
+
+/* The library search pill, sized down to the 30px controls beside it. The
+   field grows out of its own right edge, over the gap rather than into the
+   row, so opening it moves nothing. The sub-1280px filterbar rules turn the
+   open pill into a flex-grown row with a static field — right for a rail it
+   replaces, wrong here where sort and count sit beside it — so every property
+   they touch is pinned back at this scope. */
+.sc-toolbar .sc-libsearch,
+.sc-toolbar .sc-libsearch-field {
+  width: 30px;
+  height: 30px;
+}
+.sc-toolbar .sc-libsearch[data-open] {
+  flex: none;
+  width: 30px;
+}
+.sc-toolbar .sc-libsearch[data-open] .sc-libsearch-field {
+  position: absolute;
+  width: min(280px, calc(100vw - 28px));
+  box-shadow: var(--sc-shadow-2);
+}
+
+/* Sort borrows the sets button's shape; picking an order is the same size of
+   act as picking a place to look. */
+.sc-sortbtn {
   flex: none;
 }
 
@@ -2238,6 +2328,18 @@ select {
     display: none;
   }
   .sc-toolbar-count {
+    display: none;
+  }
+  /* The row may wrap on a phone; search and sort stay right-anchored on
+     their line so the field, which grows leftward, always has the room. */
+  .sc-toolbar {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .sc-toolbar-actions {
+    margin-left: auto;
+  }
+  .sc-sortbtn .sc-setsbtn-t {
     display: none;
   }
 }
@@ -3357,7 +3459,9 @@ select {
   background: none;
   border: 1px solid transparent;
   border-radius: var(--sc-radius);
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 .sc-chips:hover {
   background: var(--sc-hover);
@@ -3393,7 +3497,9 @@ select {
   border: 0;
   border-radius: var(--sc-radius-full);
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
 }
 .sc-chips-item button:hover {
   color: var(--sc-fg);
@@ -3429,7 +3535,10 @@ select {
   border: 1px dashed var(--sc-line);
   border-radius: var(--sc-radius-lg);
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
 }
 .sc-dropzone:hover:not(:disabled) {
   color: var(--sc-fg);
@@ -3465,7 +3574,6 @@ select {
 
 /* ---------- brand kit leftovers still used elsewhere ---------- */
 
-
 .sc-kit-logo {
   width: 64px;
   height: 64px;
@@ -3485,29 +3593,9 @@ select {
   display: block;
 }
 
-
-
 .sc-kit-sec {
   margin-bottom: 28px;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /* ---------- colour picker (react-colorful in our own popover) ---------- */
 /*
@@ -3586,7 +3674,9 @@ select {
   cursor: pointer;
 }
 .sc-cp-presets button[data-on] {
-  box-shadow: 0 0 0 2px var(--sc-bg), 0 0 0 3px var(--sc-fg);
+  box-shadow:
+    0 0 0 2px var(--sc-bg),
+    0 0 0 3px var(--sc-fg);
 }
 /* Default trigger for callers that do not supply their own. */
 .sc-cp-trigger {
@@ -3615,12 +3705,6 @@ select {
 .sc-set-block {
   padding: 14px 16px;
 }
-.sc-set-in {
-  width: 190px;
-  flex: none;
-  height: 34px;
-  margin-bottom: 0;
-}
 .sc-tag[data-state="error"] {
   color: var(--sc-red);
 }
@@ -3645,7 +3729,9 @@ select {
   background: none;
   border: 1px solid transparent;
   border-radius: var(--sc-radius-sm);
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 @supports not (field-sizing: content) {
   .sc-edit {
@@ -3653,7 +3739,7 @@ select {
   }
 }
 .sc-edit::placeholder {
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
   opacity: 1;
 }
 /* One tint for every field. Mixing against `currentColor` gave the name a white
@@ -3674,7 +3760,7 @@ select {
 .sc-edit[data-variant="lede"] {
   font-size: 12px;
   line-height: 1.45;
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
 }
 textarea.sc-edit {
   resize: none;
@@ -3690,22 +3776,45 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-ident {
   transition: box-shadow 120ms ease;
 }
-.sc-ident[data-drag-over] {
+.sc-ident[data-drag-over],
+.sc-set-card:has(.sc-ident[data-drag-over]) {
   box-shadow: inset 0 0 0 2px var(--sc-focus);
-  border-radius: var(--sc-radius-lg);
 }
-.sc-well-wrap {
-  position: relative;
+.sc-ident > .sc-set-row > .sc-in {
+  flex: 1;
+  min-width: 0;
+  max-width: 22rem;
+}
+.sc-ident .sc-set-controls .sc-well {
   flex: none;
 }
-/* Same footprint as `.sc-eng-ic` in the engines pane next door. */
+.sc-ident .sc-set-controls .sc-in {
+  flex: 1 1 8rem;
+  max-width: 11rem;
+}
+.sc-ident .sc-set-controls button:not(.sc-btn) {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  color: var(--sc-fg2);
+  background: none;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  cursor: pointer;
+}
+.sc-ident .sc-set-controls button:not(.sc-btn):hover {
+  color: var(--sc-red);
+  border-color: var(--sc-red);
+}
 .sc-well {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 56px;
+  height: 56px;
   flex: none;
-  padding: 4px;
+  padding: 8px;
   overflow: hidden;
   /* A mark is usually transparent art, so the well states what it sits on —
      a dark wordmark on a dark panel is an empty box. */
@@ -3717,11 +3826,12 @@ textarea.sc-edit[data-variant="lede"] {
   background: #111111;
 }
 .sc-well[data-empty] {
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
   background: var(--sc-raised);
-  border-style: dashed;
   cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
 }
 .sc-well[data-empty]:hover {
   color: var(--sc-fg);
@@ -3732,97 +3842,6 @@ textarea.sc-edit[data-variant="lede"] {
   max-height: 100%;
   object-fit: contain;
 }
-.sc-well-acts,
-.sc-mark-edit {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 3;
-  display: none;
-  gap: 4px;
-  padding: 6px;
-  background: var(--sc-panel);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius);
-  box-shadow: var(--sc-shadow-2);
-}
-.sc-well-wrap:hover .sc-well-acts,
-.sc-well-wrap:focus-within .sc-well-acts,
-.sc-mark:hover .sc-mark-edit,
-.sc-mark:focus-within .sc-mark-edit {
-  display: flex;
-}
-.sc-well-acts select,
-.sc-mark-edit select {
-  height: 24px;
-  font: inherit;
-  font-size: 11px;
-  color: var(--sc-fg2);
-  background: var(--sc-well);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  cursor: pointer;
-}
-.sc-well-acts button,
-.sc-mark-edit button {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  color: var(--sc-fg3);
-  background: none;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  cursor: pointer;
-}
-.sc-well-acts button:hover,
-.sc-mark-edit button:hover {
-  color: var(--sc-red);
-}
-
-/* alternate marks */
-.sc-marks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 16px 12px 62px;
-}
-.sc-mark {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 34px;
-  padding: 5px;
-  background: #ffffff;
-  border-radius: var(--sc-radius-sm);
-}
-.sc-mark[data-bg="dark"] {
-  background: #111111;
-}
-.sc-mark img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.sc-marks-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 34px;
-  padding: 0 11px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--sc-fg3);
-  border: 1px dashed var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-.sc-marks-add:hover {
-  color: var(--sc-fg);
-  border-color: var(--sc-line-strong);
-}
 
 /* ---- palette ---- */
 .sc-pal {
@@ -3831,31 +3850,29 @@ textarea.sc-edit[data-variant="lede"] {
 }
 .sc-pal-empty {
   margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--sc-fg3);
+  font-size: 13px;
+  color: var(--sc-fg2);
 }
 .sc-pal-row {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 84px 26px;
+  grid-template-columns: 28px minmax(0, 1fr) 7.2rem 44px;
   align-items: center;
-  gap: 10px;
-  padding: 3px 0;
+  gap: 8px;
+  padding: 4px 0;
 }
 /* Grounds and surfaces, below the colours a shot is told to favour. */
 .sc-pal-group {
   margin: 12px 0 2px;
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sc-fg3);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sc-fg2);
 }
 .sc-pal-chip {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
-  border-radius: var(--sc-radius-sm);
+  border-radius: var(--sc-radius);
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
   cursor: pointer;
 }
@@ -3863,40 +3880,21 @@ textarea.sc-edit[data-variant="lede"] {
   outline: 2px solid var(--sc-focus);
   outline-offset: 2px;
 }
-.sc-pal-name,
+.sc-pal-name {
+  min-width: 0;
+  font: 500 13px var(--sc-font);
+  color: var(--sc-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sc-pal-hex {
   min-width: 0;
-  height: 28px;
-  padding: 0 7px;
-  font: inherit;
-  color: var(--sc-fg);
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--sc-radius-sm);
-  transition: background 120ms ease, border-color 120ms ease;
-}
-.sc-pal-name {
-  font-size: 13px;
-  font-weight: 500;
-}
-.sc-pal-hex {
+  width: 100%;
   font-family: var(--sc-font-mono);
-  font-size: 11.5px;
-  color: var(--sc-fg3);
+  font-size: 12px;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-}
-.sc-pal-name::placeholder {
-  color: var(--sc-fg3);
-}
-.sc-pal-name:hover,
-.sc-pal-hex:hover {
-  background: var(--sc-hover);
-}
-.sc-pal-name:focus,
-.sc-pal-hex:focus {
-  outline: none;
-  background: var(--sc-well);
-  border-color: var(--sc-focus);
 }
 /*
  * Always visible, never behind a hover or a menu. Hiding it tidied the row and
@@ -3906,14 +3904,16 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-pal-act {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  color: var(--sc-fg3);
+  width: 44px;
+  height: 44px;
+  color: var(--sc-fg2);
   background: none;
   border: 0;
-  border-radius: var(--sc-radius-sm);
+  border-radius: var(--sc-radius);
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
 }
 .sc-pal-act:hover:not(:disabled) {
   color: var(--sc-fg);
@@ -3931,36 +3931,16 @@ textarea.sc-edit[data-variant="lede"] {
   padding-top: 10px;
   border-top: 1px solid var(--sc-line);
 }
-.sc-pal-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 11px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--sc-fg2);
-  background: none;
-  border: 1px dashed var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-.sc-pal-add:hover {
-  color: var(--sc-fg);
-  border-color: var(--sc-line-strong);
-}
 .sc-pal-sugg {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
-  color: var(--sc-fg3);
+  font-size: 12px;
+  color: var(--sc-fg2);
 }
 .sc-pal-sugg-chip {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
@@ -3970,30 +3950,45 @@ textarea.sc-edit[data-variant="lede"] {
 /* ---- we never ---- */
 .sc-nv {
   display: grid;
-  gap: 6px;
-}
-.sc-nv-hint {
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--sc-fg3);
+  gap: 10px;
 }
 /* The rules read as prohibitions, so they carry the warning colour the rest of
    the app already uses for one. */
 .sc-nv .sc-chips-item {
   background: color-mix(in srgb, var(--sc-red) 14%, transparent);
 }
-/* Suggestions: the same filter pill used everywhere else, so "one tap adds
-   this" needs no explaining. */
+.sc-set .sc-chips {
+  margin: 0;
+  min-height: 34px;
+  padding: 4px 8px;
+  gap: 6px;
+  background: var(--sc-panel);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+}
+.sc-set .sc-chips:hover {
+  background: var(--sc-panel);
+}
+.sc-set .sc-chips:focus-within {
+  background: var(--sc-panel);
+  border-color: var(--sc-focus);
+}
+.sc-set .sc-chips-in {
+  height: 24px;
+  font: 13px var(--sc-font);
+}
+.sc-set .sc-chips-in::placeholder {
+  color: var(--sc-fg2);
+}
+/* Offers, not drafts: the same solid chip as everywhere else. A dashed border
+   made them look unfinished; a plus made a ban look like an add. */
 .sc-chips-sugg {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
 }
 .sc-chips-sugg .sc-chip {
-  gap: 5px;
-  color: var(--sc-fg3);
-  border-style: dashed;
+  color: var(--sc-fg2);
 }
 .sc-chips-sugg .sc-chip:hover {
   color: var(--sc-fg);
@@ -4003,41 +3998,9 @@ textarea.sc-edit[data-variant="lede"] {
   .sc-edit,
   .sc-ident,
   .sc-well[data-empty],
-  .sc-marks-add,
   .sc-pal-name,
-  .sc-pal-hex,
-  .sc-pal-x,
-  .sc-pal-add {
-    transition: none;
-  }
-}
-
-@media (max-width: 767px) {
-  .sc-set-in {
-    width: 130px;
-  }
-  /* The hex drops under the name rather than squeezing it to nothing. */
-  .sc-pal-row {
-    grid-template-columns: 26px minmax(0, 1fr) 26px;
-    grid-template-areas: "chip name act" ". hex .";
-    row-gap: 2px;
-  }
-  .sc-pal-chip {
-    grid-area: chip;
-  }
-  .sc-pal-name {
-    grid-area: name;
-  }
   .sc-pal-hex {
-    grid-area: hex;
-    justify-self: start;
-    width: 84px;
-  }
-  .sc-pal-act {
-    grid-area: act;
-  }
-  .sc-marks {
-    padding-left: 16px;
+    transition: none;
   }
 }
 
@@ -4138,7 +4101,7 @@ textarea.sc-edit[data-variant="lede"] {
   margin: 0 0 6px;
   color: var(--sc-fg2);
 }
-.sc-in {
+.sc-wiz .sc-in {
   width: 100%;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius);
@@ -4151,10 +4114,10 @@ textarea.sc-edit[data-variant="lede"] {
   margin-bottom: 16px;
   outline: none;
 }
-.sc-in::placeholder {
+.sc-wiz .sc-in::placeholder {
   color: var(--sc-fg3);
 }
-.sc-in:focus {
+.sc-wiz .sc-in:focus {
   border-color: var(--sc-fg);
 }
 .sc-wiz-hint {
@@ -4804,7 +4767,7 @@ textarea.sc-edit[data-variant="lede"] {
   /* A finger needs 44px; the bar does not. The graphic keeps its size and the
      reach comes from an invisible box centred on it, so nothing grows chunky. */
   .sc-topbar .sc-icon-btn::after,
-  .sc-topbar .sc-avatar-btn::after,
+  .sc-topbar .sc-org-btn::after,
   .sc-topbar .sc-crumb-btn::after {
     content: "";
     position: absolute;
@@ -4870,7 +4833,9 @@ textarea.sc-edit[data-variant="lede"] {
   border: 0;
   border-radius: var(--sc-radius-full);
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
 }
 .sc-inherit-head:hover {
   color: var(--sc-fg2);
@@ -5515,7 +5480,11 @@ textarea.sc-edit[data-variant="lede"] {
   position: relative;
   display: flex;
   align-items: flex-end;
-  gap: 24px;
+  /* 16, not 24: eleven category labels already total more than the rail is
+     wide, so every extra pixel of gap buys nothing but a shorter run before
+     the clip. The phone rule below used to drop to 16 on its own — one value
+     now, at every width. */
+  gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -5534,7 +5503,10 @@ textarea.sc-edit[data-variant="lede"] {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 36px;
+  /* 18px, not 36: the fade is a hint that the rail keeps going, and at 36 it
+     ate a whole word before the edge — the row read as a stripe of tabs
+     followed by a band of nothing, rather than as tabs running off-screen. */
+  width: 18px;
   z-index: 3;
   pointer-events: none;
   opacity: 0;
@@ -5634,7 +5606,10 @@ textarea.sc-edit[data-variant="lede"] {
   z-index: 20;
   display: flex;
   align-items: flex-end;
-  gap: 24px;
+  /* The rail is already clipped on any narrow screen, so every pixel between
+     it and the search sits at the exact spot where a label got cut. One
+     spacing value for the row, same as between the tabs themselves. */
+  gap: 16px;
   padding: 8px 0 0;
   margin-bottom: 24px;
   background: var(--sc-bg);
@@ -5677,6 +5652,20 @@ textarea.sc-edit[data-variant="lede"] {
 }
 .sc-filterbar .sc-verticals {
   padding: 0 0 1px;
+}
+/* ≥1280: the field's "grow over the gap" trick has no gap here — the rail is
+   flex-grown, so an open field floated straight across the tabs and sat there
+   for as long as it held a query. Let it take real row space instead: the
+   rail shrinks, and its own edge fade makes the cut — which is exactly what
+   a swipeable rail is for. In flow it also stops being a floater, so no
+   shadow. */
+@media (min-width: 1280px) {
+  .sc-filterbar .sc-libsearch[data-open] {
+    width: 280px;
+  }
+  .sc-filterbar .sc-libsearch[data-open] .sc-libsearch-field {
+    box-shadow: none;
+  }
 }
 
 /* ---------- Creative Library shell (Products, Presenters, Scenes) ----------
@@ -5854,11 +5843,6 @@ textarea.sc-edit[data-variant="lede"] {
     transition: none;
   }
 }
-@media (max-width: 767px) {
-  .sc-verticals {
-    gap: 16px;
-  }
-}
 
 /* ---------- Below 1280px ----------
    The primary action is portalled into the top bar (TopBar.tsx), so the row
@@ -5867,6 +5851,9 @@ textarea.sc-edit[data-variant="lede"] {
 @media (max-width: 1279px) {
   .sc-filterbar {
     flex-wrap: nowrap;
+    /* Tighter still where the rail is guaranteed to be clipped: the tabs run
+       right up to the search rather than trailing off into a void. */
+    gap: 8px;
   }
   .sc-filterbar .sc-verticals-shell {
     flex: 1 1 auto;
@@ -5908,7 +5895,6 @@ textarea.sc-edit[data-variant="lede"] {
   }
 }
 
-
 .sc-coll {
   margin-bottom: 46px;
 }
@@ -5949,9 +5935,9 @@ textarea.sc-edit[data-variant="lede"] {
 @media (min-width: 761px) {
   .sc-masonry[data-density] {
     grid-template-columns: repeat(
-      auto-fill,
-      minmax(min(100%, calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))), 1fr)
-    );
+        auto-fill,
+        minmax(min(100%, calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))), 1fr)
+      );
   }
 }
 /* ---- LookCard (docs/product/patterns/look-card.md) ----
@@ -6040,7 +6026,10 @@ textarea.sc-edit[data-variant="lede"] {
   border-radius: var(--sc-radius-full);
   opacity: 0;
   cursor: pointer;
-  transition: opacity 0.16s ease, color 0.12s ease, background 0.12s ease;
+  transition:
+    opacity 0.16s ease,
+    color 0.12s ease,
+    background 0.12s ease;
 }
 .sc-lookcard:hover .sc-lookcard-star,
 .sc-lookcard-star:focus-visible,
@@ -6440,12 +6429,16 @@ textarea.sc-edit[data-variant="lede"] {
   .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-credit-tip {
     pointer-events: auto;
   }
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge {
     gap: 0;
     padding: var(--sc-credit-lip);
     max-width: none;
   }
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge-name {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge-name {
     max-width: 0;
     opacity: 0;
   }
@@ -6532,7 +6525,7 @@ textarea.sc-edit[data-variant="lede"] {
   text-overflow: ellipsis;
   padding: 5px 2px 0;
   color: #fff;
-  font: 600 9.5px/1.3 var(--sc-font);
+  font: 600 9.5px / 1.3 var(--sc-font);
   letter-spacing: -0.005em;
   text-align: center;
 }
@@ -6542,7 +6535,7 @@ textarea.sc-edit[data-variant="lede"] {
   /* Demoted: the name is the headline now, the role is the caption, and it
      sits tight under it rather than floating between the two. */
   color: rgba(255, 255, 255, 0.55);
-  font: 500 8.5px/1.2 var(--sc-font);
+  font: 500 8.5px / 1.2 var(--sc-font);
   letter-spacing: 0.01em;
   text-align: center;
 }
@@ -6636,42 +6629,42 @@ textarea.sc-edit[data-variant="lede"] {
 }
 
 /* Large wall: same credit hierarchy, one step up. Tips follow data-size. */
-.sc-masonry[data-density-size='large'] .sc-lookcard {
+.sc-masonry[data-density-size="large"] .sc-lookcard {
   border-radius: 18px;
 }
-.sc-masonry[data-density-size='large'] .sc-showcase-chips {
+.sc-masonry[data-density-size="large"] .sc-showcase-chips {
   left: 12px;
   top: 12px;
   --sc-credit-lip: 3px;
 }
-.sc-masonry[data-density-size='large'] .sc-showcase-badge {
+.sc-masonry[data-density-size="large"] .sc-showcase-badge {
   gap: 7px;
   padding: 3px 12px 3px 3px;
   font-size: 12.5px;
   max-width: 16ch;
 }
-.sc-masonry[data-density-size='large'] .sc-showcase-badge img {
+.sc-masonry[data-density-size="large"] .sc-showcase-badge img {
   width: 24px;
   height: 24px;
 }
-.sc-masonry[data-density-size='large'] .sc-showcase-recipe .sc-showcase-chip {
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-chip {
   width: 30px;
   height: 30px;
 }
-.sc-masonry[data-density-size='large'] .sc-showcase-recipe .sc-showcase-join {
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join {
   width: 12px;
   height: 12px;
   margin-inline: -6px;
 }
-.sc-masonry[data-density-size='large'] .sc-showcase-recipe .sc-showcase-join::before {
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::before {
   width: 6px;
   height: 1.5px;
 }
-.sc-masonry[data-density-size='large'] .sc-showcase-recipe .sc-showcase-join::after {
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::after {
   width: 1.5px;
   height: 6px;
 }
-.sc-credit-tip-pop[data-size='large'] {
+.sc-credit-tip-pop[data-size="large"] {
   width: 144px;
   padding: 8px;
   border-radius: 16px;
@@ -6681,14 +6674,14 @@ textarea.sc-edit[data-variant="lede"] {
     0 0 0 1.5px rgba(255, 255, 255, 0.16),
     0 0 0 1.5px rgba(0, 0, 0, 0.28);
 }
-.sc-credit-tip-pop[data-size='large'] .sc-credit-tip-card img {
+.sc-credit-tip-pop[data-size="large"] .sc-credit-tip-card img {
   border-radius: 10px;
 }
-.sc-credit-tip-pop[data-size='large'] .sc-credit-tip-name {
+.sc-credit-tip-pop[data-size="large"] .sc-credit-tip-name {
   padding: 8px 2px 0;
   font-size: 12px;
 }
-.sc-credit-tip-pop[data-size='large'] .sc-credit-tip-role {
+.sc-credit-tip-pop[data-size="large"] .sc-credit-tip-role {
   font-size: 10.5px;
 }
 
@@ -7258,6 +7251,10 @@ textarea.sc-edit[data-variant="lede"] {
   padding: 0 !important;
   overflow: hidden;
 }
+.sc-set:focus,
+.sc-set:focus-visible {
+  outline: none;
+}
 .sc-set-grid {
   display: grid;
   grid-template-columns: 214px minmax(0, 1fr);
@@ -7301,12 +7298,17 @@ textarea.sc-edit[data-variant="lede"] {
   background: var(--sc-hover);
   color: var(--sc-fg);
 }
+.sc-set-item:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
 .sc-set-item[data-on] {
   background: var(--sc-raised);
   color: var(--sc-fg);
   font-weight: 600;
 }
-.sc-set-item[data-danger] {
+.sc-set-item[data-danger],
+.sc-set-item[data-on][data-danger] {
   color: var(--sc-red);
 }
 .sc-set-spacer {
@@ -7329,7 +7331,7 @@ textarea.sc-edit[data-variant="lede"] {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 12px 16px 12px 20px;
   border-bottom: 1px solid var(--sc-line);
 }
 .sc-set-head b {
@@ -7339,8 +7341,8 @@ textarea.sc-edit[data-variant="lede"] {
   flex: 1;
 }
 .sc-set-close {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -7352,6 +7354,32 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-set-close:hover {
   background: var(--sc-hover);
   color: var(--sc-fg);
+}
+.sc-set-close:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-set-tabs {
+  display: none;
+  flex: none;
+  gap: 6px;
+  padding: 10px 16px 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-padding-inline: 16px;
+  border-bottom: 1px solid var(--sc-line);
+}
+.sc-set-tabs::-webkit-scrollbar {
+  display: none;
+}
+.sc-set-tabs .sc-chip {
+  flex: none;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.sc-set-tabs .sc-chip[data-danger]:not([data-active="true"]) {
+  color: var(--sc-red);
 }
 .sc-set-scroll {
   flex: 1;
@@ -7371,13 +7399,13 @@ textarea.sc-edit[data-variant="lede"] {
   margin-bottom: 11px;
 }
 .sc-set-sech h3 {
-  font: 400 15px var(--sc-font);
+  font: 600 15px var(--sc-font);
 }
 .sc-set-sech p {
-  color: var(--sc-fg3);
-  font-size: 12.5px;
+  color: var(--sc-fg2);
+  font-size: 13px;
   margin-top: 3px;
-  max-width: var(--sc-measure-prose);
+  max-width: var(--sc-measure-lede);
   text-wrap: pretty;
 }
 .sc-set-card {
@@ -7387,8 +7415,8 @@ textarea.sc-edit[data-variant="lede"] {
   overflow: hidden;
 }
 .sc-set-empty {
-  color: var(--sc-fg3);
-  font-size: 12.5px;
+  color: var(--sc-fg2);
+  font-size: 13px;
   padding: 12px 16px;
 }
 
@@ -7447,11 +7475,32 @@ textarea.sc-edit[data-variant="lede"] {
 }
 .sc-set-row small {
   display: block;
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
   font-size: 12px;
   word-break: break-all;
 }
+.sc-set-row[data-stack] {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.sc-set-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sc-set-controls .sc-in {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
 
+.sc-eng {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
 .sc-eng + .sc-eng {
   border-top: 1px solid var(--sc-line);
 }
@@ -7459,7 +7508,6 @@ textarea.sc-edit[data-variant="lede"] {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
 }
 .sc-eng-ic {
   width: 32px;
@@ -7482,25 +7530,37 @@ textarea.sc-edit[data-variant="lede"] {
 }
 .sc-eng-name small {
   display: block;
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
   font-size: 12px;
 }
 .sc-eng-key {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 16px 12px 60px;
-  flex-wrap: wrap;
 }
-.sc-eng-hint {
-  padding: 0 16px 12px 60px;
-  font-size: 12px;
-  color: var(--sc-fg3);
+.sc-eng-key .sc-in {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sc-eng-key .sc-btn {
+  flex: none;
+}
+
+.sc-set .sc-in {
+  min-width: 0;
+}
+.sc-set .sc-in::placeholder {
+  color: var(--sc-fg2);
 }
 
 .sc-in {
-  flex: 1;
-  min-width: 160px;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  margin: 0;
+  min-width: 0;
+  width: auto;
   height: 34px;
   padding: 0 12px;
   outline: none;
@@ -7511,10 +7571,30 @@ textarea.sc-edit[data-variant="lede"] {
   font: 13px var(--sc-font);
 }
 .sc-in::placeholder {
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
 }
 .sc-in:focus {
-  border-color: var(--sc-fg);
+  border-color: var(--sc-focus);
+}
+.sc-in:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+select.sc-in {
+  padding-right: 28px;
+  cursor: pointer;
+  background-color: var(--sc-panel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%239a9a9a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+}
+[data-theme="light"] select.sc-in {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23666666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+}
+.sc-pal-hex.sc-in {
+  flex: none;
+  padding: 0 8px;
 }
 .sc-btn-red {
   color: var(--sc-red);
@@ -7524,50 +7604,76 @@ textarea.sc-edit[data-variant="lede"] {
 }
 
 .sc-cap {
-  padding: 12px 16px;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
 }
 .sc-cap + .sc-cap {
   border-top: 1px solid var(--sc-line);
 }
 .sc-cap-top {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 14px;
+}
+.sc-cap-top .txt {
+  min-width: 0;
+  flex: 1;
 }
 .sc-cap-top b {
+  display: block;
   font: 600 13px var(--sc-font);
 }
-.sc-cap-amount {
-  font: 600 13.5px var(--sc-font);
+.sc-cap-top small {
+  display: block;
+  color: var(--sc-fg2);
+  font-size: 12px;
 }
-.sc-cap-amount small {
-  font-weight: 400;
-  color: var(--sc-fg3);
-  margin-left: 6px;
+.sc-cap-in {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  width: 7.5rem;
+  height: 34px;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-panel);
+}
+.sc-cap-in:focus-within {
+  border-color: var(--sc-focus);
+}
+.sc-cap-in .sc-in {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  height: 100%;
+  padding-left: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.sc-cap-in .sc-in:focus {
+  border-color: transparent;
 }
 .sc-cap-dollar {
-  color: var(--sc-fg3);
+  display: grid;
+  place-items: center;
+  flex: none;
+  padding: 0 0 0 12px;
+  color: var(--sc-fg2);
   font-size: 13px;
 }
-.sc-cap-foot {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--sc-fg3);
-  margin-top: 8px;
-}
 .sc-meter {
-  height: 6px;
+  height: 4px;
   border-radius: var(--sc-radius-xs);
   background: var(--sc-raised);
   overflow: hidden;
-  margin-top: 11px;
 }
 .sc-meter i {
   display: block;
   height: 100%;
-  background: var(--sc-gold);
+  background: color-mix(in srgb, var(--sc-fg) 64%, var(--sc-raised));
   border-radius: var(--sc-radius-xs);
 }
 
@@ -7578,11 +7684,14 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-heat-h {
   margin-bottom: 11px;
   font-size: 12px;
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
 }
 .sc-heat-h b {
   font: 600 13px var(--sc-font);
   color: var(--sc-fg);
+}
+.sc-heat-range[data-weeks="13"] {
+  display: none;
 }
 .sc-heat-months {
   display: grid;
@@ -7591,7 +7700,7 @@ textarea.sc-edit[data-variant="lede"] {
   margin-bottom: 4px;
   height: 13px;
   font-size: 11px;
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
 }
 .sc-heat-grid {
   display: grid;
@@ -7599,6 +7708,10 @@ textarea.sc-edit[data-variant="lede"] {
   grid-template-rows: repeat(7, 1fr);
   grid-auto-flow: column;
   gap: 2px;
+}
+.sc-heat-range[data-weeks="13"] .sc-heat-months,
+.sc-heat-range[data-weeks="13"] .sc-heat-grid {
+  grid-template-columns: repeat(13, 1fr);
 }
 .sc-heat-grid i {
   display: block;
@@ -7672,6 +7785,10 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-tp:hover {
   border-color: var(--sc-line-strong);
 }
+.sc-tp:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
 .sc-tp[data-on] {
   border-color: var(--sc-fg);
 }
@@ -7700,32 +7817,161 @@ textarea.sc-edit[data-variant="lede"] {
   box-shadow: inset 0 0 0 2.5px var(--sc-panel);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
+  /* Identical inset on every side — near full, still a dialog over the work.
+     One number for top and bottom so a notch cannot make them unequal. */
+  .rt-BaseDialogOverlay:has(.sc-set) .rt-BaseDialogScroll {
+    overflow: hidden;
+  }
+  .rt-BaseDialogOverlay:has(.sc-set) .rt-BaseDialogScrollPadding {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    height: 100%;
+    margin: 0;
+    padding: max(12px, env(safe-area-inset-top), env(safe-area-inset-bottom));
+  }
+  .rt-BaseDialogOverlay:has(.sc-dlg-close) .rt-BaseDialogScrollPadding {
+    padding: max(12px, env(safe-area-inset-top), env(safe-area-inset-bottom));
+  }
+  .rt-BaseDialogContent:has(.sc-dlg-close) {
+    --dialog-content-padding: 16px;
+  }
+  .rt-BaseDialogContent:has(.sc-dlg-close) .rt-DialogTitle {
+    padding-right: 40px;
+  }
+  .sc-dlg-close {
+    top: 10px;
+    right: 10px;
+  }
+  .sc-set {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    border-radius: var(--sc-radius-xl) !important;
+  }
   .sc-set-grid {
     grid-template-columns: 1fr;
+    height: 100%;
+    min-height: 0;
   }
   .sc-set-rail {
-    flex-direction: row;
-    overflow-x: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--sc-line);
-    padding: 12px;
-  }
-  .sc-set-group,
-  .sc-set-spacer,
-  .sc-set-ver {
     display: none;
   }
-  .sc-set-item {
-    width: auto;
-    white-space: nowrap;
+  .sc-set-body {
+    min-height: 0;
+    height: 100%;
   }
-  .sc-eng-key,
-  .sc-eng-hint {
-    padding-left: 16px;
+  .sc-set-tabs {
+    display: flex;
+  }
+  .sc-set-scroll {
+    padding: 16px 16px 28px;
+    gap: 20px;
+  }
+  /* Stacked rows: grow was eating the 34px field. Label and control size to
+     themselves; the field is always the same 34px × full width. */
+  .sc-set-card > .sc-set-row,
+  .sc-ident > .sc-set-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sc-set-card > .sc-set-row > .txt,
+  .sc-ident > .sc-set-row > .txt {
+    flex: none;
+  }
+  .sc-set .sc-in,
+  .sc-ident > .sc-set-row > .sc-in {
+    flex: none;
+    width: 100%;
+    max-width: none;
+    height: 34px;
+  }
+  .sc-pal-hex.sc-in {
+    width: 100%;
+  }
+  .sc-set-card > .sc-set-row .sc-btn,
+  .sc-set-card > .sc-set-row a.sc-btn,
+  .sc-set-card > .sc-set-row label.sc-btn,
+  .sc-ident > .sc-set-row > .sc-btn,
+  .sc-ident > .sc-set-row > label.sc-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .sc-set-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sc-set-controls .sc-in,
+  .sc-eng-key .sc-in {
+    flex: none;
+    width: 100%;
+    max-width: none;
+  }
+  .sc-set-controls .sc-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .sc-ident .sc-set-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .sc-ident .sc-set-controls .sc-in {
+    max-width: none;
+    width: auto;
+    flex: 1 1 8rem;
+  }
+  .sc-ident .sc-set-controls .sc-btn {
+    width: auto;
+    flex: none;
+  }
+  .sc-pal-row {
+    grid-template-columns: 28px minmax(0, 1fr) 6.5rem 44px;
+  }
+  .sc-eng-key {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sc-eng-key .sc-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .sc-cap-top {
+    flex-wrap: wrap;
+  }
+  .sc-cap-in {
+    width: 100%;
+  }
+  .sc-heat-range[data-weeks="53"] {
+    display: none;
+  }
+  .sc-heat-range[data-weeks="13"] {
+    display: block;
+  }
+  .sc-bar {
+    flex-wrap: wrap;
+  }
+  .sc-bar .k {
+    width: auto;
+    flex: 1;
+  }
+  .sc-bar .t {
+    flex: 1 1 100%;
+    order: 3;
   }
   .sc-themes {
-    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+  .sc-tp .swl {
+    height: 44px;
+  }
+  .sc-tp .lbl {
+    padding: 8px;
+    font-size: 12px;
   }
 }
 
@@ -8448,4 +8694,16 @@ textarea:disabled {
 .sc-cmd-capped {
   padding: 8px 12px;
   border-bottom: 1px solid var(--sc-line);
+}
+
+/* ---------- 6.2 home without the dock ----------
+   On a phone the wall navigates into Create instead of staging into a dock,
+   so Home unmounts the composer and the 230px the unmediated .sc-main rule
+   reserves for it comes back to the scroll. Keyed on the attribute Home sets
+   when the dock is genuinely absent, not on width alone: the padding follows
+   the dock. */
+@media (max-width: 767px) {
+  .sc-main[data-no-dock] {
+    padding-bottom: 48px;
+  }
 }

@@ -36,7 +36,7 @@ export function PresentersView() {
   const { brand } = useBrand();
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
-  const { q, setQ, facets, setFacet, active, clearSearch, clear } = useLibraryQuery(['category']);
+  const { q, setQ, facets, setFacet, clearSearch, clear } = useLibraryQuery(['category']);
   const category = facets.category;
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
@@ -85,9 +85,6 @@ export function PresentersView() {
         <LibraryToolbar
           title="Presenters"
           filters={<FacetFilter mode={mode} group={facetGroup} />}
-          active={active}
-          summary={`Showing ${filtered.length} of ${presenters.length}`}
-          onClear={clear}
           density={<DensityControl value={density} onChange={setDensity} />}
           search={
             presenters.length >= SEARCH_MIN && (

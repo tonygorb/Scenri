@@ -44,12 +44,11 @@ export function BrandNever({ doc }: { doc: BrandDocLike }) {
       <ChipsInput
         label="Things this brand never shows"
         value={never}
-        placeholder="anything else you never want to see"
+        placeholder="Or type your own"
         suggestions={unusedPresets(never)}
         max={24}
         onChange={write}
       />
-      <small className="sc-nv-hint">Each one becomes an instruction the model is held to, on every shot.</small>
     </div>
   );
 }

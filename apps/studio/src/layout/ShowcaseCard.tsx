@@ -40,8 +40,9 @@ type Credit = {
  * "Recreate this" pill (always `variant="use"` with the same handler for
  * both — no separate `variant` prop, unlike the other cards) — a showcase
  * tile has no separate detail page the way a Scene or Presenter does, so
- * open and use are the same action. The caption's second line names the
- * recipe (product, presenter if any, scene) rather than a category, so
+ * open and use are the same action. On Home both land the recipe in the
+ * docked composer without leaving the wall. The caption's second line names
+ * the recipe (product, presenter if any, scene) rather than a category, so
  * hovering tells you what's actually in the shot before you click through.
  *
  * Top-left credits: one glass material for the presenter pill, product/scene

@@ -136,3 +136,31 @@ export function presenterSearchText(p: Presenter): string {
     .filter(Boolean)
     .join(' ');
 }
+
+/**
+ * A showcase tile is found the way it was assembled: by its title, its
+ * category, and the catalog entries its recipe was built from. The resolved
+ * catalog objects go in whole — each one contributes its own search text,
+ * keywords and pre-rename names included — so "sneaker" finds the Trail
+ * Runner tile even though nothing on the tile says sneaker.
+ */
+export function showcaseSearchText(
+  entry: { title: string; category: string },
+  recipe: {
+    product?: DemoProduct | Product | null;
+    presenter?: Presenter | null;
+    scene?: Scene | null;
+  },
+  categoryLabel?: string | null,
+): string {
+  return [
+    entry.title,
+    entry.category,
+    categoryLabel,
+    recipe.product ? productSearchText(recipe.product) : null,
+    recipe.presenter ? presenterSearchText(recipe.presenter) : null,
+    recipe.scene ? sceneSearchText(recipe.scene) : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}

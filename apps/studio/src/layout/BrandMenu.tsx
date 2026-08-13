@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { GearSix, Palette, Plus } from '@phosphor-icons/react';
+import { CaretDown, GearSix, Plus } from '@phosphor-icons/react';
 import { BrandAvatar, brandName } from './nav.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -8,24 +8,30 @@ import { brandPath } from '../routes.js';
 import { useOpenSettings } from '../views/SettingsDialog.js';
 
 /**
- * The one identity control, at the end of the bar. The avatar is the brand's own
+ * The one identity control, at the end of the bar. The mark is the brand's own
  * logo rather than a person, because there is no person: scenri has no accounts,
  * no session and no profile, and the only identity the server knows is a machine
  * token. It carries the whole brand block, so switching client and reaching
  * Settings are one gesture instead of two controls at opposite ends of the row.
  *
- * The trigger is the avatar alone, so the menu has to say which brand you are in
- * the moment it opens: that is the header, and it is why the list below offers
- * only the *other* brands. Naming the current one twice would be furniture.
+ * The trigger names the brand, because a lone circle in this corner reads as an
+ * account in an app that has none. Below 1024px the name and caret drop and the
+ * mark stands alone: the phone bar was better as a mark, and it is also where
+ * the set crumb needs the room. The header below is rendered at every width and
+ * hidden by CSS above 1024: it answers "which brand am I in" only where the
+ * trigger cannot. The list offers the *other* brands throughout, because naming
+ * the current one in a list of things to switch to is asking you to switch to
+ * where you already are.
  *
  * Theme is deliberately absent. Settings already owns an Appearance pane with
  * the same three choices, and a segmented picker in here outweighed everything
  * around it for a setting nobody changes twice.
  *
- * The brand kit is here rather than in the top nav for the same reason the nav
- * has five items and not six: it is filled in once and revisited rarely, and a
- * nav slot has to earn itself against work you do every session. This menu is
- * already the brand-identity control, so it is where someone looks.
+ * The brand kit has no row of its own. It is the first pane in Settings and the
+ * one Settings opens on, so a second door beside "Settings" was two names for
+ * one place. It stays out of the top nav for the same reason the nav has five
+ * items and not six: it is filled in once and revisited rarely, and a nav slot
+ * has to earn itself against work you do every session.
  */
 export function BrandMenu() {
   const { brands } = useAppData();
@@ -37,8 +43,12 @@ export function BrandMenu() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
-        <button type="button" className="sc-avatar-btn" aria-label={`${brandName(brand)} — brand and settings`}>
-          <BrandAvatar brand={brand} size={30} round />
+        <button type="button" className="sc-org-btn" aria-label={`${brandName(brand)}, brand and settings`}>
+          <BrandAvatar brand={brand} size={22} />
+          <span dir="auto" className="sc-org-name">
+            {brandName(brand)}
+          </span>
+          <CaretDown size={11} className="sc-caret" />
         </button>
       </DropdownMenu.Trigger>
 
@@ -52,13 +62,6 @@ export function BrandMenu() {
             <span className="sc-menu-sub">Current brand</span>
           </span>
         </div>
-
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings('brand')}>
-          <Palette size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">Brand kit</span>
-        </DropdownMenu.Item>
-
-        <div className="sc-menu-sep" />
 
         {others.map((b) => (
           <DropdownMenu.Item key={b.id} className="sc-menu-item" onSelect={() => navigate(brandPath(b))}>

@@ -24,6 +24,8 @@ export const PREF = {
   tileSize: 'scenri:tile-size',
   /** Catalog wall density: compact (7) | large (5). */
   wallDensity: 'scenri:wall-density',
+  /** Create feed ordering: newest | oldest | cost | keepers. */
+  feedSort: 'scenri:feed-sort',
 } as const;
 
 function read<T>(key: string, fallback: T): T {

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Dialog, Flex, Spinner } from '@radix-ui/themes';
+import { Dialog, Spinner } from '@radix-ui/themes';
 import {
   Broom,
   Circle,
@@ -57,9 +57,53 @@ const ENGINE_ICON: Record<string, React.ReactNode> = {
 const bytes = (n: number) =>
   n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n > 1e6 ? `${Math.round(n / 1e6)} MB` : `${Math.round(n / 1e3)} KB`;
 
+/** Settings lists do not need the BYOK suffix — this pane is the keys. */
+const engineTitle = (name: string) => name.replace(/\s*\(BYOK\)\s*$/i, '');
+
+const perGen = (n: number) => n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function heatLevel(runs: number) {
+  return runs === 0 ? 0 : runs < 3 ? 1 : runs < 6 ? 2 : runs < 12 ? 3 : 4;
+}
+
+/** One square per day, Sunday-aligned, sized to a number of week columns. */
+function buildHeat(perDay: Map<string, number>, weeks: number) {
+  const days = weeks * 7;
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - (days - 1) - end.getDay());
+  const cells: { key: string; level: number; title: string }[] = [];
+  const months: { key: string; label: string }[] = [];
+  let lastMonth = -1;
+  let sum = 0;
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    const runs = perDay.get(key) ?? 0;
+    sum += runs;
+    cells.push({
+      key,
+      level: heatLevel(runs),
+      title: runs
+        ? `${runs} run${runs === 1 ? '' : 's'} on ${d.getDate()} ${MONTHS[d.getMonth()]}`
+        : `nothing on ${d.getDate()} ${MONTHS[d.getMonth()]}`,
+    });
+    if (d.getDay() === 0) {
+      const opensMonth = d.getMonth() !== lastMonth && d.getDate() <= 7;
+      if (opensMonth) lastMonth = d.getMonth();
+      months.push({ key, label: opensMonth ? MONTHS[d.getMonth()] : '' });
+    }
+  }
+  return { cells, months, sum };
+}
+
 /**
  * Settings is a detour, not a destination: it opens over the work and gives it
- * back when you close. Rail on the left, one pane at a time.
+ * back when you close. Rail on the left (desktop), chip strip (phone), one pane
+ * at a time.
  */
 /**
  * Any surface can ask for Settings without a prop threaded through the tree,
@@ -67,7 +111,7 @@ const bytes = (n: number) =>
  */
 export function useOpenSettings() {
   const { open } = useDialogParam('settings');
-  return (pane: Pane = 'engines') => open(pane);
+  return (pane: Pane = 'brand') => open(pane);
 }
 
 export function SettingsDialog({
@@ -81,7 +125,9 @@ export function SettingsDialog({
 }) {
   const settings = useDialogParam('settings');
   const open = settings.value !== null;
-  const pane = (PANES.some((p) => p.id === settings.value) ? settings.value : 'engines') as Pane;
+  // Brand kit is the landing pane, because the menu that opens Settings no
+  // longer carries a separate row for it: this is the way in.
+  const pane = (PANES.some((p) => p.id === settings.value) ? settings.value : 'brand') as Pane;
   const setPane = (next: Pane) => settings.set(next);
 
   // A key mid-type lived in <Engines>'s own state, which unmounts — and
@@ -92,13 +138,34 @@ export function SettingsDialog({
   // persisted: unlike the Composer's prose draft, a secret should not outlive
   // a page reload.
   const [engineDraft, setEngineDraft] = useState<Record<string, string>>({});
+  const tabsRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const root = tabsRef.current;
+    if (!root) return;
+    const el = root.querySelector('[aria-current="page"]');
+    if (!(el instanceof HTMLElement)) return;
+    const id = requestAnimationFrame(() => {
+      const left = el.offsetLeft - (root.clientWidth - el.offsetWidth) / 2;
+      root.scrollTo({ left: Math.max(0, left) });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [pane, open]);
 
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && settings.close()}>
-      <Dialog.Content className="sc-set" maxWidth="940px" aria-describedby={undefined}>
+      <Dialog.Content
+        className="sc-set"
+        maxWidth="940px"
+        aria-describedby={undefined}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true });
+        }}
+      >
         <Dialog.Title style={{ display: 'none' }}>Settings</Dialog.Title>
         <div className="sc-set-grid">
-          <nav className="sc-set-rail">
+          <nav className="sc-set-rail" aria-label="Settings">
             <p className="sc-set-group">This brand</p>
             <RailItem p={PANES[0]} on={pane === 'brand'} pick={() => setPane('brand')} />
             <p className="sc-set-group">Generation</p>
@@ -123,6 +190,11 @@ export function SettingsDialog({
                 </button>
               </Dialog.Close>
             </div>
+            <nav className="sc-set-tabs" aria-label="Settings" ref={tabsRef}>
+              {PANES.map((p) => (
+                <TabItem key={p.id} p={p} on={pane === p.id} pick={() => setPane(p.id)} />
+              ))}
+            </nav>
             <div className="sc-set-scroll">
               {pane === 'brand' && <BrandPane />}
               {pane === 'engines' && (
@@ -149,9 +221,25 @@ function RailItem({ p, on, pick }: { p: (typeof PANES)[number]; on: boolean; pic
       className="sc-set-item"
       data-on={on ? '' : undefined}
       data-danger={p.danger ? '' : undefined}
+      aria-current={on ? 'page' : undefined}
       onClick={pick}
     >
       {p.icon}
+      {p.label}
+    </button>
+  );
+}
+
+function TabItem({ p, on, pick }: { p: (typeof PANES)[number]; on: boolean; pick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="sc-chip"
+      data-active={on ? 'true' : undefined}
+      data-danger={p.danger ? '' : undefined}
+      aria-current={on ? 'page' : undefined}
+      onClick={pick}
+    >
       {p.label}
     </button>
   );
@@ -168,6 +256,31 @@ export function Group({ title, sub, children }: { title?: string; sub?: string; 
       )}
       <div className="sc-set-card">{children}</div>
     </section>
+  );
+}
+
+function HeatRange({
+  weeks,
+  months,
+  cells,
+}: {
+  weeks: number;
+  months: { key: string; label: string }[];
+  cells: { key: string; level: number; title: string }[];
+}) {
+  return (
+    <div className="sc-heat-range" data-weeks={weeks}>
+      <div className="sc-heat-months">
+        {months.map((m) => (
+          <span key={m.key}>{m.label}</span>
+        ))}
+      </div>
+      <div className="sc-heat-grid">
+        {cells.map((c) => (
+          <i key={c.key} data-l={c.level || undefined} title={c.title} />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -210,25 +323,30 @@ function Engines({
     <Group sub="Keys are stored in your local library folder, sent only to that provider, and never shown again.">
       {engines.map((e) => {
         const spec = KEYS.find((k) => k.engineId === e.id);
+        const draftKey = spec ? (draft[spec.key] ?? '') : '';
+        const canSave = Boolean(spec && draftKey.trim());
+        const hasKey = Boolean(spec && present[spec.key]);
+        const status = e.available ? 'Ready' : spec && hasKey ? 'Key rejected' : spec ? null : (e.reason ?? null);
         return (
           <div className="sc-eng" key={e.id}>
             <div className="sc-eng-top">
               <span className="sc-eng-ic">{ENGINE_ICON[e.id] ?? <Lightning size={15} />}</span>
               <span className="sc-eng-name">
-                <b>{e.displayName}</b>
-                <small>{e.free ? 'Free per image' : `about $${e.perGeneration.toFixed(3)} a generation`}</small>
+                <b>{engineTitle(e.displayName)}</b>
+                <small>
+                  {e.free
+                    ? e.localOnly
+                      ? 'Free · this machine'
+                      : 'Free per image'
+                    : `≈ $${perGen(e.perGeneration)} / gen`}
+                </small>
               </span>
-              {e.localOnly && <span className="sc-tag sc-tag-gold">local only</span>}
-              <span className={`sc-stat ${e.available ? 'on' : 'off'}`}>
-                <span className="d" />
-                {e.available
-                  ? 'ready'
-                  : spec
-                    ? present[spec.key]
-                      ? 'key rejected'
-                      : 'no key'
-                    : (e.reason ?? 'unavailable')}
-              </span>
+              {status && (
+                <span className={`sc-stat ${e.available ? 'on' : 'off'}`}>
+                  <span className="d" />
+                  {status}
+                </span>
+              )}
             </div>
             {spec && (
               <form
@@ -241,23 +359,20 @@ function Engines({
                 <input
                   className="sc-in"
                   type="password"
-                  placeholder={present[spec.key] ? 'key saved' : spec.hint}
-                  value={draft[spec.key] ?? ''}
+                  placeholder={hasKey ? 'Key saved' : spec.hint}
+                  value={draftKey}
                   onChange={(ev) => setDraft((d) => ({ ...d, [spec.key]: ev.target.value }))}
                   autoComplete="off"
                   name={spec.key}
-                  aria-label={`${e.displayName} key`}
+                  aria-label={`${engineTitle(e.displayName)} key`}
                 />
-                <button
-                  className="sc-btn sc-btn-ghost"
-                  type="submit"
-                  disabled={busy || !(draft[spec.key] ?? '').trim()}
-                >
-                  {busy ? <Spinner size="1" /> : present[spec.key] ? 'Replace' : 'Save'}
-                </button>
+                {canSave && (
+                  <button className="sc-btn sc-btn-ghost" type="submit" disabled={busy}>
+                    {busy ? <Spinner size="1" /> : hasKey ? 'Replace' : 'Save'}
+                  </button>
+                )}
               </form>
             )}
-            {!spec && <p className="sc-eng-hint">No key needed.</p>}
           </div>
         );
       })}
@@ -294,37 +409,32 @@ function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => vo
         const left = e.generationsLeft;
         const total = e.generationsTotal;
         const pct = total && total > 0 ? Math.min(100, Math.round(((total - (left ?? 0)) / total) * 100)) : 0;
+        const spend = `$${e.monthlySpend.toFixed(2)} this month`;
         return (
           <div className="sc-cap" key={e.id}>
             <div className="sc-cap-top">
-              <b>{e.displayName}</b>
-              <span className="sc-set-sp" />
-              <span className="sc-cap-amount">
-                {total === null ? 'No cap' : `${total} generations`}
-                <small>{e.cap === null ? 'set one below' : `$${e.cap.toFixed(2)} / month`}</small>
+              <span className="txt">
+                <b>{engineTitle(e.displayName)}</b>
+                <small>{left === null ? spend : `${spend} · ${left} left`}</small>
               </span>
+              <div className="sc-cap-in">
+                <span className="sc-cap-dollar">$</span>
+                <input
+                  className="sc-in"
+                  inputMode="decimal"
+                  placeholder="None"
+                  value={caps[e.id] ?? ''}
+                  onChange={(ev) => setCaps((c) => ({ ...c, [e.id]: ev.target.value }))}
+                  onBlur={() => void commit(e.id)}
+                  aria-label={`${engineTitle(e.displayName)} monthly cap in dollars`}
+                />
+              </div>
             </div>
-            <Flex align="center" gap="2">
-              <span className="sc-cap-dollar">$</span>
-              <input
-                className="sc-in"
-                inputMode="decimal"
-                placeholder="no cap"
-                value={caps[e.id] ?? ''}
-                onChange={(ev) => setCaps((c) => ({ ...c, [e.id]: ev.target.value }))}
-                onBlur={() => void commit(e.id)}
-                aria-label={`${e.displayName} monthly cap`}
-              />
-            </Flex>
             {total !== null && (
               <div className="sc-meter">
                 <i style={{ width: `${pct}%` }} />
               </div>
             )}
-            <div className="sc-cap-foot">
-              <span>${e.monthlySpend.toFixed(2)} spent this month</span>
-              <span>{left === null ? 'uncapped' : `${left} left`}</span>
-            </div>
           </div>
         );
       })}
@@ -342,7 +452,7 @@ function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => vo
 function Usage({ shots }: { shots: TreeNode[] }) {
   const nodes = useMemo(() => shots.filter((n) => n.kind !== 'root'), [shots]);
 
-  const { cells, months, total, byKind } = useMemo(() => {
+  const { year, quarter, total, byKind } = useMemo(() => {
     const perDay = new Map<string, number>();
     const kinds = { generation: 0, edit: 0 };
     for (const n of nodes ?? []) {
@@ -351,38 +461,9 @@ function Usage({ shots }: { shots: TreeNode[] }) {
       if (n.kind === 'edit') kinds.edit++;
       else kinds.generation++;
     }
-    const WEEKS = 53,
-      DAYS = WEEKS * 7;
-    const end = new Date();
-    const start = new Date(end);
-    start.setDate(end.getDate() - (DAYS - 1) - end.getDay());
-    const NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const out: { key: string; level: number; title: string }[] = [];
-    // one entry per week column, keyed by the date the column starts on
-    const labels: { key: string; label: string }[] = [];
-    let lastMonth = -1,
-      sum = 0;
-    for (let i = 0; i < DAYS; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const key = d.toISOString().slice(0, 10);
-      const runs = perDay.get(key) ?? 0;
-      sum += runs;
-      out.push({
-        key,
-        level: runs === 0 ? 0 : runs < 3 ? 1 : runs < 6 ? 2 : runs < 12 ? 3 : 4,
-        title: runs
-          ? `${runs} run${runs === 1 ? '' : 's'} on ${d.getDate()} ${NAMES[d.getMonth()]}`
-          : `nothing on ${d.getDate()} ${NAMES[d.getMonth()]}`,
-      });
-      if (d.getDay() === 0) {
-        // label a column only on the first week a new month appears in
-        const opensMonth = d.getMonth() !== lastMonth && d.getDate() <= 7;
-        if (opensMonth) lastMonth = d.getMonth();
-        labels.push({ key, label: opensMonth ? NAMES[d.getMonth()] : '' });
-      }
-    }
-    return { cells: out, months: labels, total: sum, byKind: kinds };
+    const year = buildHeat(perDay, 53);
+    const quarter = buildHeat(perDay, 13);
+    return { year, quarter, total: year.sum, byKind: kinds };
   }, [nodes]);
 
   if (nodes === null) return <p className="sc-set-empty">Reading your library…</p>;
@@ -395,16 +476,8 @@ function Usage({ shots }: { shots: TreeNode[] }) {
           <div className="sc-heat-h">
             <b>{total.toLocaleString()} runs in the last year</b>
           </div>
-          <div className="sc-heat-months">
-            {months.map((m) => (
-              <span key={m.key}>{m.label}</span>
-            ))}
-          </div>
-          <div className="sc-heat-grid">
-            {cells.map((c) => (
-              <i key={c.key} data-l={c.level || undefined} title={c.title} />
-            ))}
-          </div>
+          <HeatRange weeks={53} months={year.months} cells={year.cells} />
+          <HeatRange weeks={13} months={quarter.months} cells={quarter.cells} />
         </div>
       </Group>
       <Group title="By activity">

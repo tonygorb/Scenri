@@ -795,19 +795,25 @@ export const Composer = forwardRef<
               {uploading ? <Spinner size="1" /> : <Plus size={16} />}
             </button>
 
-            <Select.Root value={engineId} onValueChange={setEngineId}>
-              <Select.Trigger variant="ghost" className="sc-mini-sel">
-                <Lightning size={14} />
-                <span className="sc-mini-sel-t">{engine?.displayName ?? 'Demo'}</span>
-              </Select.Trigger>
-              <Select.Content>
-                {usable.map((e) => (
-                  <Select.Item key={e.id} value={e.id}>
-                    {e.displayName}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
+            {/* A picker with one option is a question with one answer, so with
+                a single usable engine there is no picker at all — the engine's
+                name lives in Settings, and the menu returns on its own once a
+                second engine connects. */}
+            {usable.length > 1 && (
+              <Select.Root value={engineId} onValueChange={setEngineId}>
+                <Select.Trigger variant="ghost" className="sc-mini-sel">
+                  <Lightning size={14} />
+                  <span className="sc-mini-sel-t">{engine?.displayName ?? 'Demo'}</span>
+                </Select.Trigger>
+                <Select.Content>
+                  {usable.map((e) => (
+                    <Select.Item key={e.id} value={e.id}>
+                      {e.displayName}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+            )}
           </div>
 
           <div className="sc-prompt-right">

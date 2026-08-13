@@ -43,7 +43,7 @@ export function ScenesView() {
   const [favs, setFavs] = useState<string[]>(() => favoriteScenes(brand.id));
   const star = (id: string) => setFavs(toggleFavoriteScene(brand.id, id));
   const applyScene = useApplyScene();
-  const { q, setQ, facets, setFacet, active, clearSearch, clear } = useLibraryQuery(['vertical']);
+  const { q, setQ, facets, setFacet, clearSearch, clear } = useLibraryQuery(['vertical']);
   const vertical = facets.vertical;
   const searching = q.trim().length > 0;
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
@@ -90,9 +90,6 @@ export function ScenesView() {
         <LibraryToolbar
           title="Scenes"
           filters={<FacetFilter mode={mode} group={facetGroup} />}
-          active={active}
-          summary={`Showing ${filtered.length} of ${scenes.length}`}
-          onClear={clear}
           density={<DensityControl value={density} onChange={setDensity} />}
           search={
             scenes.length >= SEARCH_MIN && (

@@ -69,18 +69,19 @@ test.describe('brand kit', () => {
     await page.goto(`/${brand.slug}?settings=brand`);
     const swatches = page.locator('.sc-pal-row');
     await expect(swatches).toHaveCount(5);
-    // A colour is its swatch, its name, its hex and a way to remove it. No
-    // per-row control asking a question the kit already answers.
+    // A colour is its swatch, a role the kit already knows, its hex and a way
+    // to remove it. No per-row control asking a question the kit already answers.
     await expect(swatches.first().locator('button[role="checkbox"]')).toHaveCount(0);
     await expect(swatches.first().locator('.sc-pal-act[data-danger]')).toBeVisible();
     // Neutrals are shown as their own group rather than as a setting.
     await expect(page.locator('.sc-pal-group')).toHaveText('Neutrals');
 
-    // Rename the first neutral. Any write at all used to collapse neutrals
-    // into accents, permanently and silently.
-    const neutralName = swatches.nth(3).locator('.sc-pal-name');
-    await neutralName.fill('Ink');
-    await neutralName.blur();
+    // Edit a neutral's hex. Any write at all used to collapse neutrals into
+    // accents, permanently and silently.
+    const neutralHex = swatches.nth(3).locator('.sc-pal-hex');
+    await expect(swatches.nth(3).locator('.sc-pal-name')).toHaveText('Neutral');
+    await neutralHex.fill('#222222');
+    await neutralHex.blur();
 
     await expect
       .poll(async () => {
@@ -91,7 +92,7 @@ test.describe('brand kit', () => {
         primary: { hex: '#1F3D2B', name: 'Forest' },
         secondary: { hex: '#E8DCC8', name: 'Oat' },
         accent: [{ hex: '#D96C3B', name: 'Terracotta' }],
-        neutrals: [{ hex: '#111111', name: 'Ink' }, { hex: '#FAFAF7' }],
+        neutrals: [{ hex: '#222222' }, { hex: '#FAFAF7' }],
       });
 
     await page.reload();

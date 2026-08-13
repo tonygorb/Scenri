@@ -1,27 +1,38 @@
-import { useMemo, type ReactNode } from 'react';
-import { productLabel, sceneLabel } from '../displayName.js';
+import { useMemo, useState, type ReactNode } from 'react';
+import { productLabel, sceneLabel, showcaseSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Badge, Dialog } from '@radix-ui/themes';
 import { Aperture, Mountains, Package, User, X } from '@phosphor-icons/react';
-import { assetUrl, type Brand } from '../api.js';
-import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { assetUrl, type Brand, type ShowcaseEntry } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';
-import { useApplyShowcase } from '../app/useApplyShowcase.js';
+import { showcaseBrief, useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
 import { PREF, useLocalPref } from '../prefs.js';
+import { useToasts } from '../toasts.js';
 import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
 import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
+import { Composer } from '../layout/Composer.js';
+import { ComposerDock } from '../layout/ComposerDock.js';
 import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
+import { LibrarySearch } from '../layout/library/LibrarySearch.js';
+import { LibraryZero } from '../layout/library/LibraryEmpty.js';
+import { matchesQuery } from '../layout/library/libraryRules.js';
+import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
+import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+
+/** Same floor as every catalog page: below this, scanning beats typing. */
+const SEARCH_MIN = 8;
 
 /**
  * The launcher.
@@ -31,11 +42,17 @@ import { FacetFilter } from '../layout/library/FacetFilter.js';
  * down the side, an "empty set" where the greeting should be. Two jobs, two
  * screens: nothing here is a tool, everything is a way in.
  *
- * So there is no assets panel, no lens row and no selection here. Every control
- * on this page ends in a navigation to Create, carrying whatever it chose.
+ * So there is no assets panel, no lens row and no selection here — but the
+ * composer itself now docks at the bottom, the way Kive fuses gallery and
+ * prompt. A showcase tile lands its whole recipe in that composer, in place:
+ * chips, prose, settings, still on the wall, free to swap for another tile or
+ * edit before committing. Send is the one moment that leaves — the brief
+ * starts for real and the screen changes to Create, where results live.
+ * Results never render here; Home proposes, Create shows.
  */
 export function HomeView() {
   const {
+    engines,
     scenes: templates,
     loaded: scenesLoaded,
     presenters,
@@ -48,13 +65,20 @@ export function HomeView() {
     refetchShowcase,
     refresh,
   } = useAppData();
-  const { brand, products: library } = useBrand();
+  const { brand, workspace, nodes, products: library } = useBrand();
   const navigate = useNavigate();
-  const applyShowcase = useApplyShowcase();
+  const { push } = useToasts();
   const applyPresenter = useApplyPresenter();
   const applyScene = useApplyScene();
-  const [categoryParam, setCategory] = useFilterParam('category');
-  const category = categoryParam || null;
+  const applyShowcase = useApplyShowcase();
+  /** Phones drop the docked composer, so tiles deep-link into Create instead. */
+  const phone = useMediaQuery(PHONE);
+  // One URL-backed owner for search + category — two separate param hooks
+  // writing from the same handler clobber each other (see useLibraryQuery).
+  const { q, setQ, facets, setFacet, clearSearch, clear } = useLibraryQuery(['category']);
+  const category = facets.category;
+  const setCategory = (next: string | null) => setFacet('category', next);
+  const searching = q.trim().length > 0;
   /** Shared wall density (compact | large) — separate from Create’s tile slider. */
   const [densityRaw, setDensityRaw] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(densityRaw);
@@ -74,13 +98,36 @@ export function HomeView() {
   // every other consumer of BrandLayout's product library already uses)
   const products = library.length ? library : ((brand.json?.products ?? []) as any[]);
 
+  /** The catalog objects a tile's recipe points at — one resolution shared by
+   * the card chips and the search haystack. */
+  const resolveRecipe = (entry: ShowcaseEntry) => {
+    const productId = entry.brief.tokens.find((t: any) => t.t === 'product')?.id as string | undefined;
+    const presenterId = entry.brief.tokens.find((t: any) => t.t === 'character')?.id;
+    const sceneId = entry.brief.tokens.find((t: any) => t.t === 'template')?.id as string | undefined;
+    return {
+      product: productId ? demoProducts.find((p) => p.id === productId) : undefined,
+      presenter: presenterId ? presenters.find((p) => p.id === presenterId) : undefined,
+      scene: sceneId ? templates.find((t) => t.id === sceneId) : undefined,
+    };
+  };
+
+  /** Haystack per tile, built once per catalog change, not per keystroke. */
+  const searchText = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of showcase) {
+      const { product, presenter, scene } = resolveRecipe(s);
+      map.set(s.id, showcaseSearchText(s, { product, presenter, scene }, showcaseCategoryLabel(s.category)));
+    }
+    return map;
+  }, [showcase, demoProducts, presenters, templates]);
+
   /** The gallery for the selected category — the API ships entries sorted by
    * their curated `order` field (the art-directed wall sequence), so no
    * client-side sorting: filtering must preserve that order. */
-  const shownShowcase = useMemo(
-    () => (category ? showcase.filter((s) => s.category === category) : showcase),
-    [showcase, category],
-  );
+  const shownShowcase = useMemo(() => {
+    const byCategory = category ? showcase.filter((s) => s.category === category) : showcase;
+    return byCategory.filter((s) => matchesQuery(searchText.get(s.id) ?? s.title, q));
+  }, [showcase, category, q, searchText]);
 
   /** Counts against the full gallery, not the filtered view — a tab always
    * states how many examples it holds, not how many are currently shown. */
@@ -105,12 +152,7 @@ export function HomeView() {
    * actually shows (the product/presenter/scene chips this recipe was built
    * from) against the same catalogs Composer resolves them against. */
   const recipeOf = (entry: (typeof showcase)[number]) => {
-    const productId = entry.brief.tokens.find((t: any) => t.t === 'product')?.id as string | undefined;
-    const presenterId = entry.brief.tokens.find((t: any) => t.t === 'character')?.id;
-    const sceneId = entry.brief.tokens.find((t: any) => t.t === 'template')?.id as string | undefined;
-    const product = productId ? demoProducts.find((p) => p.id === productId) : undefined;
-    const presenter = presenterId ? presenters.find((p) => p.id === presenterId) : undefined;
-    const scene = sceneId ? templates.find((t) => t.id === sceneId) : undefined;
+    const { product, presenter, scene } = resolveRecipe(entry);
     return {
       // Three names share one ellipsis-capped line here, so each gets its
       // tightest form. The full label lives in the credit tooltip.
@@ -126,6 +168,24 @@ export function HomeView() {
       sceneId: scene?.id ?? null,
     };
   };
+
+  /**
+   * A tile's recipe, parked in the docked composer through the same
+   * replace-wholesale channel Create's `?showcase=` arrival uses.
+   */
+  const [dockBrief, setDockBrief] = useState<any>(null);
+  const stageShowcase = (id: string) => {
+    const entry = showcase.find((s) => s.id === id);
+    if (!entry) return;
+    setDockBrief(showcaseBrief(entry));
+    push({ kind: 'success', title: `Starting from "${entry.title}"` });
+  };
+  /** On a phone there is no dock to stage into — the tap carries the recipe to
+   * Create via `?showcase=`, and Create's apply fires the one toast. */
+  const openShowcase = phone ? applyShowcase : stageShowcase;
+
+  /** The brand feed root, the same parent Create hangs new shots off. */
+  const root = nodes.find((n) => n.kind === 'root') ?? null;
 
   /** Seed a scene (favorite first, else first in catalog) and open the products
    * attach — product, presenter, and scene chain in Create from there. */
@@ -210,7 +270,7 @@ export function HomeView() {
 
   return (
     <ScrollPane>
-      <main className="sc-main" id="main">
+      <main className="sc-main" id="main" data-no-dock={phone || undefined}>
         <h1 className="sc-greet">
           Compose a shot <em>on brand</em>
         </h1>
@@ -254,6 +314,11 @@ export function HomeView() {
           <>
             <LibraryToolbar
               filters={<FacetFilter mode="tabs" group={categoryFacet} />}
+              search={
+                showcase.length >= SEARCH_MIN && (
+                  <LibrarySearch value={q} onChange={setQ} noun="examples" total={showcase.length} />
+                )
+              }
               density={<DensityControl value={density} onChange={setDensity} />}
             />
 
@@ -264,7 +329,7 @@ export function HomeView() {
                     key={s.id}
                     entry={s}
                     size="grid"
-                    onOpen={applyShowcase}
+                    onOpen={openShowcase}
                     onOpenProduct={(id) => navigate(productPath(brand, id))}
                     onOpenPresenter={(id) => navigate(presenterPath(brand, id))}
                     onOpenScene={(id) => navigate(scenePath(brand, id))}
@@ -274,7 +339,18 @@ export function HomeView() {
               </div>
             )}
 
-            {shownShowcase.length === 0 && <p className="sc-looks-empty">No example carries that category yet.</p>}
+            {shownShowcase.length === 0 &&
+              (searching ? (
+                <LibraryZero
+                  noun="examples"
+                  q={q}
+                  facet={category ? showcaseCategoryLabel(category) : null}
+                  onClearSearch={clearSearch}
+                  onClearAll={clear}
+                />
+              ) : (
+                <p className="sc-looks-empty">No example carries that category yet.</p>
+              ))}
           </>
         )}
 
@@ -322,6 +398,26 @@ export function HomeView() {
           </>
         )}
       </main>
+
+      {/* The real Composer, not a stand-in: chips, attach, settings, drafts —
+          everything Create's dock has, sharing the same per-brand draft. Send
+          actually starts the brief (the workspace is brand-level, so it exists
+          here the same as there), then moves to Create to watch it land.
+          Desktop/tablet only: on a phone the dock is unmounted (the unmount
+          flushes the draft, so half-typed briefs still reach Create). */}
+      {!phone && (
+        <ComposerDock>
+          <Composer
+            projectId={workspace?.id || null}
+            brand={brand}
+            engines={engines}
+            parent={root}
+            shots={nodes}
+            initialBrief={dockBrief}
+            onQueued={() => navigate(hubPath(brand))}
+          />
+        </ComposerDock>
+      )}
     </ScrollPane>
   );
 }

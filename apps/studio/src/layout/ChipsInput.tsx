@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, X } from '@phosphor-icons/react';
+import { X } from '@phosphor-icons/react';
 
 /**
  * A list of short strings, entered one at a time.
@@ -32,7 +32,7 @@ export function ChipsInput({
   placeholder?: string;
   /** Accessible name for the text field; the visible label sits outside. */
   label: string;
-  /** Offered beneath the field, one tap to add. Already-added ones are filtered by the caller. */
+  /** Offered as a one-tap choice. Already-added ones are filtered by the caller. */
   suggestions?: string[];
   max?: number;
   maxLength?: number;
@@ -50,8 +50,20 @@ export function ChipsInput({
     onChange([...value, next]);
   };
 
+  const offer =
+    !full && suggestions && suggestions.length > 0 ? (
+      <div className="sc-chips-sugg">
+        {suggestions.map((s) => (
+          <button type="button" key={s} className="sc-chip" onClick={() => commit(s)} aria-label={`Never show ${s}`}>
+            {s}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
   return (
     <>
+      {value.length === 0 && offer}
       <div className="sc-chips">
         {value.map((v, i) => (
           <span className="sc-chips-item" key={v}>
@@ -97,15 +109,7 @@ export function ChipsInput({
           onBlur={() => commit(draft)}
         />
       </div>
-      {!full && suggestions && suggestions.length > 0 && (
-        <div className="sc-chips-sugg">
-          {suggestions.map((s) => (
-            <button type="button" key={s} className="sc-chip" onClick={() => commit(s)}>
-              <Plus size={10} weight="bold" /> {s}
-            </button>
-          ))}
-        </div>
-      )}
+      {value.length > 0 && offer}
     </>
   );
 }

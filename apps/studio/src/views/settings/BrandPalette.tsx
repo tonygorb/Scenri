@@ -3,7 +3,6 @@ import { Plus, TrashSimple } from '@phosphor-icons/react';
 import {
   flattenPalette,
   isInShots,
-  isPlaceholderName,
   normalizeHex,
   rebuildPalette,
   type Swatch,
@@ -34,9 +33,11 @@ interface BrandDocLike {
  *   knows: the scrape classifies near-white and near-black as neutrals, and the
  *   schema stores them in their own array.
  *
- * So there is no per-row control. A colour is its swatch, its name, its hex and
- * a way to remove it. Neutrals are shown as their own group, because that is
- * information, not a decision waiting to be made.
+ * So there is no per-row control. A colour is its swatch, a role the kit already
+ * knows, its hex, and a way to remove it. The role is a label, not a field —
+ * asking someone to name "Primary" was a blank that looked like homework.
+ * Neutrals are shown as their own group, because that is information, not a
+ * decision waiting to be made.
  */
 export function BrandPalette({ doc, suggestions }: { doc: BrandDocLike; suggestions?: { hex: string }[] }) {
   const stored = doc.json?.palette;
@@ -81,7 +82,6 @@ export function BrandPalette({ doc, suggestions }: { doc: BrandDocLike; suggesti
       /* Dragging the picker fires per pointer move; the document is saved on a
          pause rather than per frame. */
       onHex={(hex) => editAt(i, { hex }, 300)}
-      onName={(name) => editAt(i, { name }, 500)}
       onRemove={() => commit(colors.filter((_, idx) => idx !== i))}
     />
   );
@@ -91,7 +91,7 @@ export function BrandPalette({ doc, suggestions }: { doc: BrandDocLike; suggesti
   return (
     <div className="sc-pal">
       {colors.length === 0 && (
-        <p className="sc-pal-empty">No colors yet. Add one and it becomes a chip you can drop into any shot.</p>
+        <p className="sc-pal-empty">No colours yet. Add one and it becomes a chip you can drop into any shot.</p>
       )}
 
       {indexed.filter(([c]) => isInShots(c)).map(([c, i]) => row(c, i))}
@@ -107,9 +107,9 @@ export function BrandPalette({ doc, suggestions }: { doc: BrandDocLike; suggesti
       )}
 
       <div className="sc-pal-foot">
-        <button type="button" className="sc-pal-add" onClick={add}>
+        <button type="button" className="sc-btn sc-btn-ghost" onClick={add}>
           <Plus size={12} />
-          <span>Add color</span>
+          Add colour
         </button>
         {fresh.length > 0 && (
           <span className="sc-pal-sugg">
@@ -157,13 +157,11 @@ function SwatchRow({
   swatch,
   presets,
   onHex,
-  onName,
   onRemove,
 }: {
   swatch: Swatch;
   presets: string[];
   onHex: (hex: string) => void;
-  onName: (name: string) => void;
   onRemove: () => void;
 }) {
   const [hexDraft, setHexDraft] = useState(swatch.hex);
@@ -187,20 +185,10 @@ function SwatchRow({
         className="sc-pal-chip"
       />
 
-      <input
-        className="sc-pal-name"
-        /* A generated name is a placeholder, not a value: rendering "Accent 2"
-           as text made an unnamed colour look like a named one. */
-        value={isPlaceholderName(swatch.name) ? '' : swatch.name}
-        placeholder={swatch.name}
-        dir="auto"
-        maxLength={40}
-        onChange={(e) => onName(e.target.value)}
-        aria-label="Color name"
-      />
+      <span className="sc-pal-name">{swatch.name}</span>
 
       <input
-        className="sc-pal-hex"
+        className="sc-in sc-pal-hex"
         value={hexDraft}
         spellCheck={false}
         maxLength={7}

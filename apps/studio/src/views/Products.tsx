@@ -41,7 +41,7 @@ export function ProductsView() {
   const { demoProducts } = useAppData();
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
-  const { q, setQ, facets, setFacet, active, clearSearch, clear } = useLibraryQuery(['category']);
+  const { q, setQ, facets, setFacet, clearSearch, clear } = useLibraryQuery(['category']);
   const category = facets.category;
   const [addOpen, setAddOpen] = useState(false);
   const [addInitial, setAddInitial] = useState<'upload' | 'import'>('upload');
@@ -141,9 +141,6 @@ export function ProductsView() {
           <LibraryToolbar
             title="Products"
             filters={<FacetFilter mode={mode} group={facetGroup} />}
-            active={active}
-            summary={`Showing ${filtered.length} of ${products.length}`}
-            onClear={clear}
             density={<DensityControl value={density} onChange={setDensity} />}
             search={
               products.length >= SEARCH_MIN && (
