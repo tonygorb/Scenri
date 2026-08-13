@@ -91,7 +91,7 @@ export function BrandPalette({ doc, suggestions }: { doc: BrandDocLike; suggesti
   return (
     <div className="sc-pal">
       {colors.length === 0 && (
-        <p className="sc-pal-empty">No colors yet. A shot that asks for the kit pulls from this instead of guessing.</p>
+        <p className="sc-pal-empty">No colors yet. Add one and it becomes a chip you can drop into any shot.</p>
       )}
 
       {indexed.filter(([c]) => isInShots(c)).map(([c, i]) => row(c, i))}

@@ -13,7 +13,6 @@ export type BriefToken =
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string }
   | { t: 'mark'; imageHash: string }
-  | { t: 'brand' }
   | { t: 'template'; id: string }
   | { t: 'format'; id: FormatId; w: number; h: number };
 
@@ -181,71 +180,39 @@ export function sceneGuardDirectives(opts: { hasProduct: boolean; hasPerson: boo
 }
 
 /**
- * The brand kit, as directives.
+ * The brand's standing rules, as directives.
  *
- * Emitted only when the brief carries a `brand` token — the kit is something a
- * user reaches for, never something that reaches for them. It used to be
- * appended to every compiled brief, which meant a plain "a mug on a marble
- * table" silently acquired a palette, a mood and a set of prohibitions nobody
- * asked for, and a scene with strong art direction of its own ended up arguing
- * with a second one it never saw.
+ * Unconditional, and the only thing about a brand that is. A rule the user
+ * wrote is a boundary, not taste: it cannot override a creative request, it
+ * only stops the model doing something they already said they never want. That
+ * is why it needs no token, while everything else about a brand does.
  *
- * When it is asked for, it ranks below the shot-specific directives (a
- * product's own preservation notes must beat a brand mood) and above the scene
- * guards, which stay last because their whole job is to overrule prose that
- * came before them.
+ * What a brand contributes to a picture — its colours, its mark — arrives the
+ * same way a product or a scene does: as a chip the user placed. This used to
+ * also emit the palette, mood, keywords and things-to-avoid behind a `brand`
+ * token, which put a second, vaguer statement of the palette beside the colour
+ * chip that already said it better, and asked users for art direction nobody
+ * could write. Both are gone; `imagery.*` and `palette.usage` stay in the
+ * format and in the export, they simply no longer reach a prompt.
  *
- * Every line is prefixed "Brand ..." on purpose: `dedupe` is exact-string and
- * first-occurrence-wins, so an unprefixed "Avoid: neon" here could silently
- * collapse into a product's own "Avoid:" line and be read as being about the
- * product. The prefix makes that collision impossible.
- *
- * `meta.tagline` is deliberately not emitted. It is marketing copy, and copy in
- * an image prompt is the most reliable way to get the words themselves rendered
- * into the frame.
+ * The lines are prefixed "Brand ..." on purpose: `dedupe` is exact-string and
+ * first-occurrence-wins, so an unprefixed prohibition could silently collapse
+ * into a product's own "Avoid:" line and be read as being about the product.
  */
-export function brandDirectives(brand: any): string[] {
+export function brandRuleDirectives(brand: any): string[] {
   const out: string[] = [];
-  const list = (v: unknown, n: number) =>
-    (Array.isArray(v) ? v : [])
-      .map((x) => String(x ?? '').trim())
-      .filter(Boolean)
-      .slice(0, n);
-  // Prose fields are written by hand and rarely end in punctuation; directives
-  // are space-joined, so without this two of them fuse into one sentence.
-  const prose = (v: unknown, max: number) => {
-    const t = String(v ?? '')
-      .trim()
-      .slice(0, max);
-    return t && !/[.!?]$/.test(t) ? `${t}.` : t;
-  };
-
-  const palette = brand?.palette ?? {};
-  const swatches = [palette.primary, palette.secondary, ...(Array.isArray(palette.accent) ? palette.accent : [])]
-    .filter((c: any) => c?.hex)
-    .slice(0, 6)
-    .map((c: any) => {
-      const hex = String(c.hex).toUpperCase();
-      return c.name ? `${String(c.name).trim()} (${hex})` : hex;
-    });
-  if (swatches.length) out.push(`Brand palette: ${swatches.join(', ')} — favour these over invented colour.`);
-  if (prose(palette.usage, 400)) out.push(`Brand color usage: ${prose(palette.usage, 400)}`);
-
-  const imagery = brand?.imagery ?? {};
-  // Not "Brand art direction": `composePrompt` already writes `Art direction:`
-  // for the user's own per-shot text, and two spans under the same name in one
-  // prompt read as one author contradicting themselves.
-  if (prose(imagery.mood, 400)) out.push(`Brand look and feel: ${prose(imagery.mood, 400)}`);
-  const keywords = list(imagery.keywords, 12);
-  if (keywords.length) out.push(`Brand look: ${keywords.join(', ')}.`);
-  const avoid = list(imagery.avoid, 12);
-  if (avoid.length) out.push(`Brand look — avoid: ${avoid.join(', ')}.`);
-
   const rules = brand?.rules ?? {};
-  const never = list(rules.never, 24);
+  const never = (Array.isArray(rules.never) ? rules.never : [])
+    .map((x: unknown) => String(x ?? '').trim())
+    .filter(Boolean)
+    .slice(0, 24);
   if (never.length) out.push(`Brand rules — never: ${never.join(', ')}.`);
-  if (prose(rules.notes, 600)) out.push(`Brand rules: ${prose(rules.notes, 600)}`);
-
+  // Prose is written by hand and rarely ends in punctuation; directives are
+  // space-joined, so without this it fuses into whatever follows.
+  const notes = String(rules.notes ?? '')
+    .trim()
+    .slice(0, 600);
+  if (notes) out.push(`Brand rules: ${/[.!?]$/.test(notes) ? notes : `${notes}.`}`);
   return out;
 }
 
@@ -307,9 +274,6 @@ export function validateBrief(brief: unknown): string[] {
       case 'mark':
         if (!str(t.imageHash)) errors.push(`${at}.imageHash must be a non-empty string`);
         break;
-      case 'brand':
-        // carries nothing: asking for the kit is the whole payload
-        break;
       case 'format':
         if (!Number.isFinite(t.w) || !Number.isFinite(t.h) || Number(t.w) <= 0 || Number(t.h) <= 0)
           errors.push(`${at} must carry positive numeric w and h`);
@@ -335,8 +299,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const products: any[] = ctx.brand?.products ?? [];
   const characters: any[] = ctx.brand?.characters ?? [];
   const inlineTemplates: Scene[] = [];
-  const brandLines: string[] = [];
-  let brandAsked = false;
   let hasPerson = false;
   let sentence = '';
   // Tokens compile independently and never know what text preceded them, so
@@ -459,17 +421,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         break;
       }
 
-      case 'brand': {
-        // Directive-only, like a format token is size-only: the kit is an
-        // instruction about the picture, not a thing to name inside it.
-        if (brandAsked) break;
-        brandAsked = true;
-        const lines = brandDirectives(ctx.brand);
-        if (!lines.length) warnings.push('The brand kit is empty, so this chip added nothing.');
-        brandLines.push(...lines);
-        break;
-      }
-
       case 'mark': {
         const logos: any[] = ctx.brand?.logos ?? [];
         const logo = logos.find((l) => assetHash(l?.file) === tok.imageHash);
@@ -477,7 +428,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           warnings.push('A brand mark in this brief is no longer in the kit.');
           break;
         }
-        // otherDirectives, not brandDirectives: attaching the mark is a choice
+        // otherDirectives, not brandRuleDirectives: attaching the mark is a choice
         // made for this shot, so it ranks with the shot-specific directives
         // rather than with the kit's standing instructions.
         attachments.push({ role: 'brand', label: markLabel(ctx.brand, logo), hash: tok.imageHash });
@@ -572,9 +523,10 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     sceneCamera && !shotSpecifiesCamera(sentence) ? [`Camera for this shot: ${sceneCamera}`] : [];
 
   const guard = scene ? sceneGuardDirectives({ hasProduct: !!productId, hasPerson }) : [];
-  // The kit's instructions sit between the shot's own directives and the
-  // guards: specific beats general, and the guards stay last because they exist
-  // to overrule everything the scene prose said.
+  // The brand's rules sit between the shot's own directives and the scene
+  // guards — the right neighbourhood, since a guard is the other thing here
+  // whose whole job is to overrule what came before it.
+  const brandLines = brandRuleDirectives(ctx.brand);
   const allDirectives = [
     ...productDirectives,
     ...personDirectives,

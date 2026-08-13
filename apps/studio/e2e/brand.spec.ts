@@ -98,18 +98,18 @@ test.describe('brand kit', () => {
     await expect(page.locator('.sc-pal-row')).toHaveCount(5);
   });
 
-  test('art direction reaches the prompt only when the brief asks for it', async ({ page }) => {
+  test('rules apply on their own; nothing else about the brand does', async ({ page }) => {
     const brand = await currentBrand(page);
     await putBrand(page, brand.id, {
       ...brand.json,
+      palette: { primary: { hex: '#1F3D2B', name: 'Forest' } },
+      // Fields with no UI. They stay in the document and stay out of prompts.
       imagery: { mood: 'crafted and unhurried', avoid: ['neon'] },
       rules: { never: ['competitor logos in frame'] },
     });
 
     const { directives } = (await api(page, `/api/brands/${brand.id}/directives`)) as { directives: string[] };
-    expect(directives).toContain('Brand look and feel: crafted and unhurried.');
-    expect(directives).toContain('Brand look — avoid: neon.');
-    expect(directives).toContain('Brand rules — never: competitor logos in frame.');
+    expect(directives).toEqual(['Brand rules — never: competitor logos in frame.']);
 
     const preview = (brief: unknown) =>
       api(page, '/api/brief/preview', {
@@ -118,37 +118,38 @@ test.describe('brand kit', () => {
         body: JSON.stringify({ brandId: brand.id, engineId: 'demo', brief }),
       }) as Promise<{ prompt: string }>;
 
-    const tokens = [{ t: 'text', v: 'a mug on a table' }];
+    // A boundary the user wrote needs no chip.
+    const plain = await preview({ tokens: [{ t: 'text', v: 'a mug on a table' }] });
+    expect(plain.prompt).toContain('Brand rules — never: competitor logos in frame.');
+    // Taste never arrives uninvited, and the palette arrives only as a chip.
+    expect(plain.prompt).not.toContain('Brand palette:');
+    expect(plain.prompt).not.toContain('Brand look');
 
-    // The default is silence: a brief nobody branded gets nothing added.
-    const plain = await preview({ tokens });
-    for (const line of directives) expect(plain.prompt).not.toContain(line);
-    expect(plain.prompt).toContain('a mug on a table');
-
-    // Asking is a chip in the sentence.
-    const asked = await preview({ tokens: [...tokens, { t: 'brand' }] });
-    for (const line of directives) expect(asked.prompt).toContain(line);
+    const withColor = await preview({
+      tokens: [
+        { t: 'text', v: 'a mug' },
+        { t: 'color', hex: '#1F3D2B', name: 'Forest' },
+      ],
+    });
+    expect(withColor.prompt).toContain('Use #1F3D2B as a defining color in the composition.');
   });
 
-  test('the composer stays quiet until the kit is asked for', async ({ page }) => {
+  test('the composer says the rules apply, without any chip', async ({ page }) => {
     const brand = await currentBrand(page);
-    await putBrand(page, brand.id, { ...brand.json, imagery: { mood: 'crafted and unhurried' } });
+    await putBrand(page, brand.id, { ...brand.json, rules: { never: ['competitor logos in frame'] } });
 
     await page.goto(`/${brand.slug}/create?compose=1`);
-    // Nothing to report on a brief that has not asked for the kit.
-    await expect(page.locator('.sc-inherit-head')).toHaveCount(0);
-
-    await page.locator('.sc-brief-line').click();
-    await page.locator('.sc-attach-toggle').first().click();
-    await page.locator('.sc-ap-tabs button', { hasText: /brand/i }).click();
-    await page.locator('.sc-ap-card', { hasText: 'Brand kit' }).first().click();
-
     const inherited = page.locator('.sc-inherit-head');
-    await expect(inherited).toContainText(/Brand kit adds \d+ instruction/);
+    await expect(inherited).toHaveText('Brand rules apply to every shot');
 
     // Opening it shows the literal text the compiler appends — not a rewording.
     await inherited.click();
-    await expect(page.locator('.sc-inherit-body')).toContainText('Brand look and feel: crafted and unhurried.');
+    await expect(page.locator('.sc-inherit-body')).toContainText('Brand rules — never: competitor logos in frame.');
+
+    // The chip that used to carry all this is gone from both places it lived.
+    await page.locator('.sc-attach-toggle').first().click();
+    await page.locator('.sc-ap-tabs button', { hasText: /brand/i }).click();
+    await expect(page.locator('.sc-ap-card', { hasText: 'Brand kit' })).toHaveCount(0);
   });
 
   test('a mark can be attached to a shot, and is the first thing dropped', async ({ page }) => {

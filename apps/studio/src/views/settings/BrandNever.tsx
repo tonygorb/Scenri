@@ -21,6 +21,11 @@ interface BrandDocLike {
  *
  * What survives is the part that is concrete, that no scene supplies, and that
  * actually protects a brand in a generated image: the things it never shows.
+ *
+ * These are also the only part of a brand that applies without being asked for.
+ * A prohibition the user wrote is a boundary, not taste — it cannot override a
+ * creative request, it only stops what they already said they never want. The
+ * brand's colours and mark stay opt-in, as chips.
  */
 export function BrandNever({ doc }: { doc: BrandDocLike }) {
   const rules = doc.json?.rules ?? {};
@@ -44,9 +49,7 @@ export function BrandNever({ doc }: { doc: BrandDocLike }) {
         max={24}
         onChange={write}
       />
-      <small className="sc-nv-hint">
-        Each one becomes an instruction the model is held to, on any shot that asks for the kit.
-      </small>
+      <small className="sc-nv-hint">Each one becomes an instruction the model is held to, on every shot.</small>
     </div>
   );
 }

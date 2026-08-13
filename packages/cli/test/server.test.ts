@@ -188,10 +188,11 @@ describe('brand marks', () => {
     await srv.close();
   });
 
-  it('reports the brand directives the compiler will actually append', async () => {
+  it('reports the brand rules the compiler appends to every shot', async () => {
     const brand = await mkBrand();
+    // A palette alone reaches no prompt: colours arrive as chips the user picks.
     const empty = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/directives` });
-    expect(empty.json().directives).toEqual(['Brand palette: #1F3D2B — favour these over invented colour.']);
+    expect(empty.json().directives).toEqual([]);
 
     await app.inject({
       method: 'PUT',
@@ -205,28 +206,20 @@ describe('brand marks', () => {
       },
     });
     const res = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/directives` });
-    expect(res.json().directives).toEqual([
-      'Brand palette: #1F3D2B — favour these over invented colour.',
-      'Brand look and feel: crafted, tactile.',
-      'Brand look — avoid: neon.',
-      'Brand rules — never: competitor logos in frame.',
-    ]);
+    // Only the rules — never the palette, and never art direction a user cannot
+    // set and nobody could write.
+    expect(res.json().directives).toEqual(['Brand rules — never: competitor logos in frame.']);
 
-    // This endpoint says what the kit *would* add, so a brief that asks for it
-    // gets every line verbatim — and one that does not gets none of them.
-    const preview = (tokens: unknown[]) =>
-      app.inject({
-        method: 'POST',
-        url: '/api/brief/preview',
-        payload: { brandId: brand.id, engineId: 'demo', brief: { tokens } },
-      });
-
-    const asked = await preview([{ t: 'text', v: 'a mug on a table' }, { t: 'brand' }]);
-    expect(asked.statusCode).toBe(200);
-    for (const line of res.json().directives) expect(asked.json().prompt).toContain(line);
-
-    const plain = await preview([{ t: 'text', v: 'a mug on a table' }]);
-    expect(plain.json().prompt).not.toContain('Brand ');
+    // And they apply to a brief that asked for nothing at all.
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: { brandId: brand.id, engineId: 'demo', brief: { tokens: [{ t: 'text', v: 'a mug on a table' }] } },
+    });
+    expect(preview.statusCode).toBe(200);
+    for (const line of res.json().directives) expect(preview.json().prompt).toContain(line);
+    expect(preview.json().prompt).not.toContain('Brand palette:');
+    expect(preview.json().prompt).not.toContain('Brand look');
   });
 
   it('serves the brand as a .brand zip named after its slug', async () => {

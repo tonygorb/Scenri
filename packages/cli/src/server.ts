@@ -23,7 +23,7 @@ import {
   type DemoProduct,
 } from './demoProducts.js';
 import { loadShowcase, showcaseFacetsOf, type ShowcaseEntry } from './showcase.js';
-import { brandDirectives, compileBrief, validateBrief, FORMATS, type Brief, type BriefToken } from './brief.js';
+import { brandRuleDirectives, compileBrief, validateBrief, FORMATS, type Brief, type BriefToken } from './brief.js';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import JSZip from 'jszip';
@@ -328,17 +328,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   /**
-   * The brand as the model actually receives it.
+   * The brand rules the compiler appends to every shot in this brand.
    *
-   * The Brand page shows this verbatim. The studio cannot import compileBrief
-   * (it has no workspace dependencies), and a second hand-written copy of the
-   * wording in the UI is exactly the drift this endpoint exists to prevent:
-   * whatever ships here is the same array the compiler appends to every brief.
+   * The composer shows this verbatim, which is what keeps an always-applied
+   * rule from being an invisible one. The studio cannot import compileBrief (it
+   * has no workspace dependencies), and a second hand-written copy of the
+   * wording in the UI is exactly the drift this endpoint exists to prevent.
    */
   app.get('/api/brands/:id/directives', async (req, reply) => {
     const brand = core.store.getBrand((req.params as any).id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
-    return { directives: brandDirectives(brand.json as any) };
+    return { directives: brandRuleDirectives(brand.json as any) };
   });
 
   app.delete('/api/brands/:id/logos/:hash', async (req, reply) => {

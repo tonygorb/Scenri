@@ -162,14 +162,6 @@ export function AttachPanel({
           run: () => onTemplate(t.id),
         }),
       ),
-      {
-        key: 'b:kit',
-        tab: 'Brand',
-        label: 'Brand kit',
-        sub: 'palette, art direction and rules',
-        thumb: assetUrl(brand.json?.logos?.[0]?.file) ?? null,
-        run: () => onToken({ t: 'brand' }),
-      },
       ...marks.map(
         (m): Card => ({
           key: `m:${m.hash}`,

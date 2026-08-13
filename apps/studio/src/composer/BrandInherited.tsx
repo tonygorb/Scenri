@@ -3,25 +3,25 @@ import { CaretDown, PaintBrushBroad } from '@phosphor-icons/react';
 import { api } from '../api.js';
 
 /**
- * What the Brand kit chip is adding to this shot.
+ * The brand's standing rules, and the fact that they apply.
  *
- * Shown only while the chip is actually in the sentence — the kit is opt-in, so
- * a brief that did not ask for it has nothing to report. Opens to the exact
- * text, read from the server rather than re-worded here, so what this claims
- * and what the compiler appends can never drift.
+ * Rules are the one part of a brand that reaches a picture without being asked
+ * for — a prohibition the user wrote is a boundary, not taste. This line is
+ * what stops that being invisible: something that applies to every shot has to
+ * be visible on every shot, or it is the silent-append problem all over again.
  *
- * Silent when the kit is empty: a line reading "0 instructions" helps nobody.
+ * Opens to the exact text, read from the server rather than re-worded here, so
+ * what this claims and what the compiler appends can never drift.
+ *
+ * Silent when the brand has no rules: a line reading "0 rules" helps nobody.
  */
 export function BrandInherited({
   brandId,
   revision,
-  active,
 }: {
   brandId: string;
   /** Bumped when the brand row changes, so an edit in Settings shows up here. */
   revision: string;
-  /** True while a Brand kit chip sits in the sentence. */
-  active: boolean;
 }) {
   const [directives, setDirectives] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
@@ -29,7 +29,7 @@ export function BrandInherited({
   useEffect(() => {
     let live = true;
     api
-      .brandDirectives(brandId)
+      .brandRules(brandId)
       .then((r) => live && setDirectives(r.directives))
       .catch(() => live && setDirectives([]));
     return () => {
@@ -37,16 +37,16 @@ export function BrandInherited({
     };
   }, [brandId, revision]);
 
-  if (!active || !directives.length) return null;
-  const n = directives.length;
+  // Deliberately no count. `directives` is one line per *kind* of rule, not one
+  // per rule — "1 brand rule applies" for a brand with four of them is worse
+  // than no number at all, and the expanded body states them exactly anyway.
+  if (!directives.length) return null;
 
   return (
     <div className="sc-inherit">
       <button type="button" className="sc-inherit-head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
         <PaintBrushBroad size={12} />
-        <span>
-          Brand kit adds {n} instruction{n === 1 ? '' : 's'} to this shot
-        </span>
+        <span>Brand rules apply to every shot</span>
         <CaretDown size={10} weight="bold" />
       </button>
       {open && (

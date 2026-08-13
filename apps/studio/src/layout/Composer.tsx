@@ -771,7 +771,7 @@ export const Composer = forwardRef<
           onDropFiles={(files) => void pickFiles(files)}
         />
 
-        <BrandInherited brandId={brand.id} revision={brand.updatedAt} active={sentence.some((t) => t.t === 'brand')} />
+        <BrandInherited brandId={brand.id} revision={brand.updatedAt} />
 
         <div className="sc-prompt-row">
           <div className="sc-prompt-left">

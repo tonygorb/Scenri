@@ -77,16 +77,13 @@ export function BrandPane() {
         <BrandIdentity brand={brand} doc={doc} />
       </Group>
 
-      <Group title="Palette" sub="Colors a shot favours over invented ones, when it asks for the kit.">
+      <Group title="Palette" sub="Your colors, ready to drop into any shot from the composer.">
         <div className="sc-set-block">
           <BrandPalette doc={doc} suggestions={suggestions} />
         </div>
       </Group>
 
-      <Group
-        title="We never"
-        sub="What this brand does not show. Applied to a shot that asks for the kit — add the Brand kit chip in Create."
-      >
+      <Group title="We never" sub="What this brand does not show. Applied to every shot you generate in this brand.">
         <div className="sc-set-block">
           <BrandNever doc={doc} />
         </div>

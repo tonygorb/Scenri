@@ -193,10 +193,6 @@ export const BriefInput = forwardRef<
         const m = marks.find((x) => x.hash === token.imageHash);
         label = m ? markLabel(brand.json, m) : 'missing mark';
         thumb = imgUrl(token.imageHash);
-      } else if (token.t === 'brand') {
-        label = 'Brand kit';
-        // The brand's own mark reads faster than any glyph could.
-        thumb = assetUrl(brand.json?.logos?.[0]?.file);
       }
 
       if (thumb) {
@@ -382,14 +378,6 @@ export const BriefInput = forwardRef<
         swatch: c.hex,
         run: () => placeRef.current({ t: 'color', hex: c.hex, name: c.name }),
       })),
-      {
-        key: 'b:kit',
-        group: 'Brand',
-        label: 'Brand kit',
-        hint: 'palette, art direction and rules',
-        thumb: assetUrl(brand.json?.logos?.[0]?.file) ?? undefined,
-        run: () => placeRef.current({ t: 'brand' }),
-      },
       ...marks.map((m) => ({
         key: `m:${m.hash}`,
         group: 'Brand',
@@ -681,7 +669,6 @@ function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): s
   if (t.t === 'character') return 'someone';
   if (t.t === 'color') return t.name ?? t.hex;
   if (t.t === 'mark') return 'brand mark';
-  if (t.t === 'brand') return 'brand kit';
   return 'reference';
 }
 

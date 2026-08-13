@@ -72,6 +72,14 @@ beforeEach(() => {
 });
 
 describe('tokens and the line', () => {
+  // 'b:' was the brand-kit chip, retired when brand rules became something that
+  // applies on its own. A draft saved while it existed must decode to nothing
+  // rather than to a token no compiler understands.
+  it('decodes a retired chip to nothing', () => {
+    expect(decode('b:')).toBeNull();
+    expect(decode('z:whatever')).toBeNull();
+  });
+
   it('renders and reads back the same sentence', () => {
     const tokens: SentenceToken[] = [
       { t: 'text', v: 'hero of ' },
