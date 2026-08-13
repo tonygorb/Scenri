@@ -173,7 +173,7 @@ export function ProductsView() {
             />
             {demoProducts.length > 0 && (
               <div className="sc-products-starter">
-                <div className="sc-eyebrow">Or start from our Scenri Library</div>
+                <div className="sc-eyebrow">Or start from our Scenri library</div>
                 <div className="sc-masonry">
                   {demoProducts.map((p) => (
                     <DemoProductCard

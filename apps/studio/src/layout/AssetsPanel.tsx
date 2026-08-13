@@ -158,8 +158,8 @@ export function AssetsPanel({
    */
   const samplesGroup = (
     <Group
-      key="Sample products"
-      name="Sample products"
+      key="Scenri library"
+      name="Scenri library"
       count={fSamples.length}
       searching={searching}
       openGroup={openGroup}

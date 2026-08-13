@@ -37,11 +37,24 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
+/**
+ * One tab can hold the same pref twice: the composer is mounted in the dock
+ * and again inside an open shot. localStorage's own `storage` event only fires
+ * in *other* tabs, so without this the two copies drifted — changing quality in
+ * the overlay left the dock still showing, and sending, the old one.
+ */
+const PREF_EVENT = 'scenri:pref-changed';
+
 function write(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* private mode */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(PREF_EVENT, { detail: { key, value } }));
+  } catch {
+    /* no window: tests and the pre-render redirect */
   }
 }
 
@@ -71,7 +84,37 @@ export function useLocalPref<T>(key: string, fallback: T) {
   useEffect(() => {
     write(key, value);
   }, [key, value]);
+  useEffect(() => {
+    const onChanged = (e: Event) => {
+      const d = (e as CustomEvent<{ key: string; value: unknown }>).detail;
+      // Object.is, so the write effect this triggers sees no change and the
+      // two mounted copies settle instead of answering each other forever
+      if (d?.key === key) setValue((prev) => (Object.is(prev, d.value) ? prev : (d.value as T)));
+    };
+    window.addEventListener(PREF_EVENT, onChanged);
+    return () => window.removeEventListener(PREF_EVENT, onChanged);
+  }, [key]);
   return [value, setValue] as const;
+}
+
+/**
+ * A setting a recipe may borrow for the brief in front of you, without that
+ * borrowing becoming your new default.
+ *
+ * Opening a curated example used to write its variant count and quality
+ * straight into the machine's prefs, so looking at one four-variant example
+ * quietly changed what every later shot would cost. The recipe's value now
+ * rides on top for as long as that brief is on screen; picking a value by hand
+ * is what writes the pref, and clearing the override hands the pref back.
+ */
+export function useRecipeSetting<T>(key: string, fallback: T) {
+  const [pref, setPref] = useLocalPref<T>(key, fallback);
+  const [borrowed, setBorrowed] = useState<T | null>(null);
+  const choose = (v: T) => {
+    setBorrowed(null);
+    setPref(v);
+  };
+  return [borrowed ?? pref, choose, setBorrowed] as const;
 }
 
 /** Read outside React: the redirect at / needs this before anything renders. */

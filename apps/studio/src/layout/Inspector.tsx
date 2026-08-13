@@ -1,14 +1,6 @@
-import { Callout, Flex, ScrollArea, Spinner, Text } from '@radix-ui/themes';
-import {
-  MagicWand,
-  Plus,
-  TextAlignCenter,
-  TextAlignLeft,
-  TextAlignRight,
-  TextT,
-  TrashSimple,
-} from '@phosphor-icons/react';
-import { api, imgUrl, type Brand, type TextLayer, type TreeNode } from '../api.js';
+import { Callout, Flex, ScrollArea, Text } from '@radix-ui/themes';
+import { Plus, TextAlignCenter, TextAlignLeft, TextAlignRight, TextT, TrashSimple } from '@phosphor-icons/react';
+import { api, type Brand, type TextLayer, type TreeNode } from '../api.js';
 import { ColorPicker } from './ColorPicker.js';
 import { Confirm } from '../Confirm.js';
 import { EDITOR_FONTS, fontById } from '../editor/fonts.js';
@@ -28,8 +20,6 @@ export function Inspector(props: {
   onSelectLayer: (id: string | null) => void;
   onLayersChange: (ls: TextLayer[]) => void;
   onAddLayer: () => void;
-  onLift: () => void;
-  lifting: boolean;
   tab: InspectorTab;
   onTabChange: (t: InspectorTab) => void;
   onExport: () => void;
@@ -83,8 +73,6 @@ function TextTab({
   onSelectLayer,
   onLayersChange,
   onAddLayer,
-  onLift,
-  lifting,
 }: {
   node: TreeNode;
   brand: Brand;
@@ -93,8 +81,6 @@ function TextTab({
   onSelectLayer: (id: string | null) => void;
   onLayersChange: (ls: TextLayer[]) => void;
   onAddLayer: () => void;
-  onLift: () => void;
-  lifting: boolean;
 }) {
   if (node.status !== 'done' || node.images.length === 0) {
     return (
@@ -138,27 +124,9 @@ function TextTab({
         >
           <Plus size={13} /> Add text
         </button>
-        <button
-          type="button"
-          className="sc-btn sc-btn-ghost"
-          style={{ flex: 1, justifyContent: 'center' }}
-          aria-disabled={lifting || undefined}
-          onClick={() => {
-            if (!lifting) onLift();
-          }}
-          title="Turns text the AI painted into the image back into editable text"
-        >
-          {lifting ? (
-            <Spinner size="1" />
-          ) : (
-            <>
-              <MagicWand size={13} /> Make editable
-            </>
-          )}
-        </button>
       </div>
       <Text size="1" style={{ color: 'var(--sc-fg3)', display: 'block', margin: '10px 0 14px', lineHeight: 1.5 }}>
-        Drag text right on the image. If a shot came out with text baked in, one click turns it into editable text.
+        Drag text right on the image. Text added here sits above the picture, so it stays sharp and stays editable.
       </Text>
 
       {layers.length > 0 && (

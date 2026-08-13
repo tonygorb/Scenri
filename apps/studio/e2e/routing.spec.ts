@@ -97,20 +97,21 @@ test('every screen cold-loads from its own URL', async ({ page }) => {
   await page.goto(`/${brand.slug}`);
   await expect(activeNav(page)).toHaveText('Home');
 
+  // the kit is a settings pane now, so its own URL lands in the pane
   await page.goto(`/${brand.slug}/kit`);
-  await expect(activeNav(page)).toHaveText('Kit');
+  await page.waitForURL(/\?settings=brand/);
 
-  await page.goto(`/${brand.slug}/looks`);
-  await expect(activeNav(page)).toHaveText('Looks');
+  await page.goto(`/${brand.slug}/scenes`);
+  await expect(activeNav(page)).toHaveText('Scenes');
   await expect(page.locator('.sc-lookcard').first()).toBeVisible();
 
-  // the card's own centre is covered by the hover "Use this look" action, which
-  // is a different destination: click the collection's name list instead
+  // the card's own centre is covered by the hover use action, which is a
+  // different destination: click the collection's name list instead
   const name = page.locator('.sc-coll-names button').first();
-  const looked = (await name.innerText()).trim();
+  const scened = (await name.innerText()).trim();
   await name.click();
-  await page.waitForURL(/\/looks\/[^/]+$/);
-  await expect(page.locator('.sc-lookpage h1')).toHaveText(looked);
+  await page.waitForURL(/\/scenes\/[^/]+$/);
+  await expect(page.locator('.sc-lookpage h1')).toHaveText(scened);
 
   await page.goto(`/${brand.slug}/sets/${set.slug}`);
   await expect(page.locator('.sc-canvas')).toBeVisible();
@@ -164,30 +165,40 @@ test('a reloaded shot comes back to the same shot and the same variant', async (
   expect(await page.locator('.sc-ovl').innerText()).toContain(`${images} of ${images} variants`);
 });
 
-test('back and forward walk the trail, and escape is one step', async ({ page }) => {
+test('back closes a shot, and escape spends the same single entry', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { nodeId } = await seedShot(page, brand.id);
+  await seedShot(page, brand.id);
 
+  // opening pushes, so the browser's Back is the overlay's X
   await page.goto(`/${brand.slug}/create`);
-  await page.goto(`/${brand.slug}/create/shots/${nodeId}`);
+  await page.locator('.sc-cell').first().click();
+  await page.waitForURL(/\/shots\//);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 
+  await page.goBack();
+  await page.waitForURL((u) => !u.pathname.includes('/shots/'));
+  await expect(page.locator('.sc-ovl')).toHaveCount(0);
+
+  await page.goForward();
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+
+  // Escape closes by replacing that one entry rather than pushing another, so
+  // Back afterwards leaves the feed entirely instead of reopening the shot
   await page.keyboard.press('Escape');
   await page.waitForURL((u) => !u.pathname.includes('/shots/'));
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
 
   await page.goBack();
-  await expect(page.locator('.sc-ovl')).toBeVisible();
-
-  await page.goForward();
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
 });
 
 test('filters live in the URL and survive a reload', async ({ page }) => {
   const brand = await currentBrand(page);
 
-  await page.goto(`/${brand.slug}/looks`);
-  const vertical = page.locator('.sc-verticals button').nth(1);
+  await page.goto(`/${brand.slug}/scenes`);
+  // 0 is "Every scene" and 1 is Favorites, which rides its own ?starred= param:
+  // a real vertical starts at 2
+  const vertical = page.locator('.sc-verticals button').nth(2);
   const label = (await vertical.innerText()).split('\n')[0].trim();
   await vertical.click();
   await page.waitForURL(/[?&]vertical=/);
@@ -269,7 +280,7 @@ test('Create is never inert, wherever it is pressed from', async ({ page }) => {
 
   // it used to do nothing at all whenever a project was already open, and to
   // open a picker otherwise. It now lands the caret in the brief either way.
-  await page.goto(`/${brand.slug}/looks`);
+  await page.goto(`/${brand.slug}/scenes`);
   await page.locator('.sc-nav button', { hasText: 'Create' }).click();
   await page.waitForURL(new RegExp(`/${brand.slug}/create`));
   await expect(activeNav(page)).toHaveText('Create');
@@ -291,13 +302,13 @@ test('every shape the old /b/ scheme could spell still lands', async ({ page }) 
   await page.waitForURL(`**/${brand.slug}`);
   await expect(activeNav(page)).toHaveText('Home');
 
-  // the page whose URL used to stutter: /b/<brand>/brand
+  // the page whose URL used to stutter: /b/<brand>/brand. It lands in /kit,
+  // which is itself a redirect into the settings pane the kit lives in now.
   await page.goto(`/b/${brand.slug}/brand`);
-  await page.waitForURL(`**/${brand.slug}/kit`);
-  await expect(activeNav(page)).toHaveText('Kit');
+  await page.waitForURL(/\?settings=brand/);
 
-  await page.goto(`/b/${brand.slug}/looks`);
-  await page.waitForURL(`**/${brand.slug}/looks`);
+  await page.goto(`/b/${brand.slug}/scenes`);
+  await page.waitForURL(`**/${brand.slug}/scenes`);
 
   await page.goto(`/b/${brand.slug}/create/n/${nodeId}`);
   await page.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`);
@@ -327,9 +338,9 @@ test('the address bar spells names, not uuids', async ({ page }) => {
   expect(set.slug).not.toMatch(UUID);
 
   // an id still resolves, and rewrites itself to the readable spelling
-  await page.goto(`/${brand.id}/looks`);
-  await page.waitForURL(`**/${brand.slug}/looks`);
-  await expect(activeNav(page)).toHaveText('Looks');
+  await page.goto(`/${brand.id}/scenes`);
+  await page.waitForURL(`**/${brand.slug}/scenes`);
+  await expect(activeNav(page)).toHaveText('Scenes');
 
   // including deeper in the path, where the rest of it has to survive
   await page.goto(`/${brand.id}/sets/${set.id}/shots/${nodeId}`);
@@ -340,11 +351,11 @@ test('the address bar spells names, not uuids', async ({ page }) => {
 test('an unknown brand or path lands somewhere real', async ({ page }) => {
   const brand = await currentBrand(page);
 
-  // the brand is not one this machine holds, but /looks is still a real page —
+  // the brand is not one this machine holds, but /scenes is still a real page —
   // so the tail rides along rather than being dropped at the brand root
-  await page.goto('/does-not-exist/looks');
-  await page.waitForURL(`**/${brand.slug}/looks`);
-  await expect(activeNav(page)).toHaveText('Looks');
+  await page.goto('/does-not-exist/scenes');
+  await page.waitForURL(`**/${brand.slug}/scenes`);
+  await expect(activeNav(page)).toHaveText('Scenes');
 
   await page.goto('/total/nonsense/path');
   await page.waitForURL(`**/${brand.slug}`);

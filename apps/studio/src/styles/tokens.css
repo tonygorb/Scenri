@@ -48,10 +48,45 @@
   /* radius scale: 6 inline, 10 fields, 14 cards, 18 floating, full pills */
   --sc-radius-xs: 3px; /* sub-12px marks: heat cells, meters */
   --sc-radius-sm: 6px;
+  /* banners and the chips in the brief: bigger than an inline mark, smaller
+     than a field. Referenced since the banners were written; defining it is
+     what stopped them rendering square-cornered against a rounded card. */
+  --sc-radius-md: 8px;
   --sc-radius: 10px;
   --sc-radius-lg: 14px;
   --sc-radius-xl: 18px;
+  /* the floating family: the prompt card, the attach panel above it and the
+     shot sheet's top edge. They sit over the work rather than in it, and they
+     agree with each other rather than each carrying its own number. */
+  --sc-radius-float: 22px;
   --sc-radius-full: 999px;
+
+  /* Spacing. One rhythm for gaps, padding and margins, so a row of controls
+     lines up with the card it sits in instead of each being measured by eye. */
+  --sc-space-1: 2px;
+  --sc-space-2: 4px;
+  --sc-space-3: 6px;
+  --sc-space-4: 8px;
+  --sc-space-5: 12px;
+  --sc-space-6: 16px;
+  --sc-space-7: 20px;
+  --sc-space-8: 24px;
+
+  /* Type roles, not sizes: what a thing IS decides how big it is. */
+  --sc-text-micro: 11px; /* counts, tags, eyebrows */
+  --sc-text-caption: 11.5px; /* second lines, meta under a label */
+  --sc-text-body: 12.5px; /* the working size: labels, rows, menu items */
+  --sc-text-control: 13.5px; /* pills and buttons in the composer row */
+  --sc-text-input: 15px; /* what you type, and what you read back */
+  --sc-text-title-s: 15px; /* a panel's own name */
+  --sc-text-title: 20px; /* an empty state's heading */
+
+  /* Motion. Two speeds: one for a state changing under the cursor, one for
+     something arriving or leaving. */
+  --sc-dur-fast: 120ms;
+  --sc-dur-slow: 220ms;
+  --sc-ease: ease;
+  --sc-ease-emphasis: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* the one accent — warm brass, not candy yellow */
   --sc-gold: #c9a52e;
@@ -206,7 +241,7 @@ select {
   font-size: 1.07em;
 }
 .sc-eyebrow {
-  font-size: 11px;
+  font-size: var(--sc-text-micro);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 650;
@@ -1200,22 +1235,10 @@ select {
   width: 44px;
   height: 44px;
 }
-@keyframes sc-sheet-up {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-@keyframes sc-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+/* sc-sheet-up and sc-fade-in are defined once, further down with the shot
+   sheet. They used to be declared here too, and a later @keyframes of the same
+   name silently replaces an earlier one — so this copy animated nothing while
+   reading as though it did. */
 @media (prefers-reduced-motion: reduce) {
   .sc-bell-dot,
   .sc-notif-sheet,
@@ -1594,12 +1617,12 @@ select {
   box-shadow: var(--sc-shadow-2);
 }
 .sc-cmd-group {
-  font-size: 10px;
+  font-size: var(--sc-text-micro);
   text-transform: uppercase;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.08em;
   font-weight: 650;
   color: var(--sc-fg3);
-  padding: 8px 8px 4px;
+  padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-2);
 }
 .sc-cmd-row {
   display: flex;
@@ -2010,6 +2033,7 @@ select {
   color: var(--sc-fg2);
   cursor: pointer;
   opacity: 0;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   transition:
     opacity 120ms ease,
@@ -2072,6 +2096,7 @@ select {
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   color: #fff;
   cursor: pointer;
@@ -2111,10 +2136,12 @@ select {
   align-items: center;
   gap: 10px;
   padding: 8px 10px 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--sc-radius-full);
   border: 1px solid var(--sc-line-strong);
   background: var(--sc-raised);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+  /* the shared token, not a copy of its dark-theme value: written out, this
+     bar carried a dark-weight shadow into the light theme */
+  box-shadow: var(--sc-shadow-2);
 }
 .sc-picked-n {
   font-size: 13px;
@@ -2376,6 +2403,7 @@ select {
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-sm);
   padding: 3px 7px;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 /* Branch sits on the tile, revealed the way the pick checkbox is, because the
@@ -2402,6 +2430,7 @@ select {
   transition:
     opacity 120ms ease,
     border-color 120ms ease;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 .sc-cell:hover .sc-cell-branch,
@@ -2439,6 +2468,7 @@ select {
   border-radius: var(--sc-radius-sm);
   padding: 3px 7px;
   cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   transition:
     color 120ms ease,
@@ -2595,11 +2625,17 @@ select {
   font-size: 11.5px;
   color: var(--sc-fg2);
 }
-.sc-target-lb img {
+.sc-target-lb img,
+.sc-target-thumb {
   width: 20px;
   height: 20px;
   border-radius: var(--sc-radius-sm);
   object-fit: cover;
+}
+/* the stand-in while the version being refined is still rendering */
+.sc-target-thumb {
+  display: inline-block;
+  flex: none;
 }
 .sc-target-lb b {
   color: var(--sc-fg);
@@ -2614,6 +2650,12 @@ select {
 .sc-target-note {
   font-size: 11px;
   color: var(--sc-warn, var(--sc-fg3));
+}
+/* Inside an open shot there is no chip to sit in, so it lines up with the
+   sentence below it instead. */
+.sc-target-note-alone {
+  display: block;
+  padding: 10px 14px 0;
 }
 .sc-target-x {
   display: inline-grid;
@@ -2854,8 +2896,15 @@ select {
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
   padding: 2px 8px 2px 3px;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   pointer-events: none;
+}
+/* The pick box owns the top-left corner while the feed is selectable, so the
+   provenance badge steps aside — the same de-collision the archive button and
+   the keeper star already use. Both used to sit at 8/8 and overlap. */
+.sc-cell-pick ~ .sc-prov {
+  left: 34px;
 }
 .sc-prov img {
   width: 16px;
@@ -3287,8 +3336,7 @@ select {
   overflow-y: auto;
 }
 .sc-ovl-strip .sc-eyebrow {
-  margin-bottom: 8px;
-  font-size: 9.5px;
+  margin-bottom: var(--sc-space-4);
 }
 .sc-fr {
   width: 56px;
@@ -4353,12 +4401,16 @@ textarea.sc-edit[data-variant="lede"] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A hint on a card rather than a heading over a group, so it stays sentence
+   case — it is telling you something about this one thing, not naming a
+   section. On the type scale, and in a colour that exists: it used to ask for
+   --sc-accent, which is defined nowhere, and quietly fall back every time. */
 .sc-ap-rec {
   display: inline-block;
-  font: 600 9.5px var(--sc-font);
-  letter-spacing: 0.02em;
-  color: var(--sc-accent, var(--sc-fg2));
-  margin-bottom: 3px;
+  font: 600 var(--sc-text-micro) var(--sc-font);
+  letter-spacing: 0.01em;
+  color: var(--sc-fg2);
+  margin-bottom: var(--sc-space-1);
 }
 .sc-ap-empty {
   padding: 30px 0;
@@ -4395,6 +4447,7 @@ textarea.sc-edit[data-variant="lede"] {
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
   background: var(--sc-glass);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   font-size: 11.5px;
   font-weight: 600;
@@ -4612,13 +4665,6 @@ textarea.sc-edit[data-variant="lede"] {
   border-left: 2px solid var(--sc-bg);
   border-bottom: 2px solid var(--sc-bg);
   transform: rotate(-45deg);
-}
-
-.sc-lead-chip {
-  color: var(--sc-fg);
-}
-.sc-lead-chip svg {
-  color: var(--sc-fg2);
 }
 
 /* ---------- responsive pass (5.1) ---------- */
@@ -5000,37 +5046,6 @@ textarea.sc-edit[data-variant="lede"] {
   }
 }
 
-/* ---------- template is the frame for the brief, not a word in it ---------- */
-.sc-lead-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 9px 3px 8px;
-  margin-right: 4px;
-  border: 1px solid var(--sc-line-strong);
-  border-radius: 8px;
-  background: var(--sc-raised);
-  color: var(--sc-fg);
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.sc-lead-chip svg:first-child {
-  color: var(--sc-fg2);
-}
-.sc-lead-chip button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 0;
-  color: var(--sc-fg3);
-  display: inline-flex;
-  align-items: center;
-}
-.sc-lead-chip button:hover {
-  color: var(--sc-fg);
-}
-
 /* ---------- control row: quiet icon controls, breathing room ---------- */
 .sc-prompt-row {
   gap: 10px;
@@ -5096,6 +5111,14 @@ textarea.sc-edit[data-variant="lede"] {
 }
 .sc-canvas {
   padding: 0 20px 200px;
+}
+/* The phone's own gutter, restated here because the rule above is later in the
+   file than the media query that first set it and was quietly winning: the
+   feed kept desktop margins and 200px of dock room on a 390px screen. */
+@media (max-width: 767px) {
+  .sc-canvas {
+    padding: 0 12px 150px;
+  }
 }
 
 /* failed tiles stay small and quiet: they are a record, not content */
@@ -5377,12 +5400,17 @@ textarea.sc-edit[data-variant="lede"] {
   background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover)));
 }
 
-/* no browser-style rings anywhere in the composer; state reads as surface */
+/* Keyboard focus is a ring, here as everywhere else.
+   These controls used to cancel it and change their background instead, which
+   is the same thing hovering does — so from the keyboard there was no way to
+   tell where you were, and the composer was the only place in the app that
+   behaved that way. The surface shift stays as a second cue, not the only one. */
 .sc-var:focus-visible,
 .sc-mini-sel:focus-visible,
 .sc-attach-toggle:focus-visible,
 .sc-send:focus-visible {
-  outline: none;
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
   box-shadow: none !important;
   background: var(--sc-chip-active);
 }
@@ -8145,6 +8173,27 @@ select.sc-in {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A refusal, rather than a note about the setup: same shape, different rule. */
+.sc-banner[data-tone="error"] {
+  border-left-color: var(--sc-red);
+  /* the copy runs to several lines, and a centred icon beside a paragraph
+     reads as floating: everything hangs off the first line instead */
+  align-items: flex-start;
+}
+.sc-banner[data-tone="error"] > svg {
+  color: var(--sc-red);
+  margin-top: 1px;
+}
+.sc-banner[data-tone="error"] .sc-banner-act {
+  margin-top: -2px;
+}
+/* the server writes these in sentences and they are the whole point of the
+   banner, so they wrap rather than ellipsing away at the first comma */
+.sc-banner[data-tone="error"] small {
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.4;
+}
 .sc-banner-act {
   margin-left: auto;
   flex: none;
@@ -8250,10 +8299,10 @@ select.sc-in {
 }
 
 .sc-promptcard {
-  border-radius: 22px;
+  border-radius: var(--sc-radius-float);
 }
 .sc-attachpanel {
-  border-radius: 22px;
+  border-radius: var(--sc-radius-float);
 }
 .sc-brief-line {
   font-size: 15px;
@@ -8276,9 +8325,24 @@ select.sc-in {
   font-size: 13.5px;
   border-radius: 9px;
 }
+/* The send button says what it will do. It is a pill rather than a disc so the
+   word has somewhere to sit, and it keeps the disc's height so the row's
+   baseline does not move when the brief switches between making a new shot and
+   continuing one. */
 .sc-send {
-  width: 44px;
+  width: auto;
+  min-width: 44px;
   height: 44px;
+  padding: 0 var(--sc-space-7) 0 var(--sc-space-6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-4);
+  border-radius: var(--sc-radius-full);
+  font: 600 var(--sc-text-control) var(--sc-font);
+}
+.sc-send-lb {
+  white-space: nowrap;
 }
 /* the filled send is the loud one, so the ghost + sits a notch under it */
 .sc-prompt-row .sc-attach-toggle {
@@ -8335,13 +8399,16 @@ select.sc-in {
     padding: 0 10px;
     font-size: 12.5px;
   }
-  .sc-send {
-    width: 36px;
-    height: 36px;
+  /* the word goes, the disc comes back: on a phone the row has no room for it
+     and the placeholder above already says what this brief is. The sizes are
+     set once, in 6.1 below, where the sheet frees the room for honest touch
+     targets — this block used to set its own and be overruled by them. */
+  .sc-send-lb {
+    display: none;
   }
-  .sc-prompt-row .sc-attach-toggle {
-    width: 34px;
-    height: 34px;
+  .sc-send {
+    min-width: 0;
+    padding: 0;
   }
   .sc-mini-sel {
     height: 30px !important;
@@ -8460,7 +8527,7 @@ select.sc-in {
   padding: 0 18px max(20px, env(safe-area-inset-bottom));
   background: var(--sc-panel);
   border-top: 1px solid var(--sc-line);
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
   box-shadow: var(--sc-shadow-3);
   /* the spring back when a drag does not go far enough to dismiss */
   transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);

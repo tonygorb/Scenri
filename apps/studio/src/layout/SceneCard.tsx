@@ -14,7 +14,7 @@ export type SceneCardSize = CatalogCardSize;
  *
  * `navigate`/`use`/`plain` share one shape: an open-button wrapping the
  * preview, and — `use` only, and only when there is somewhere to open —
- * a sibling "Use this scene" button. Never nested: the old `<span onClick>`
+ * a sibling use button. Never nested: the old `<span onClick>`
  * inside a `<button>` was the accessibility bug this replaces.
  */
 export function SceneCard({
@@ -51,7 +51,7 @@ export function SceneCard({
       title={scene.description || sceneLabel(scene, 'tooltip')}
       primary={sceneLabel(scene, 'card')}
       secondary={scene.lighting}
-      useLabel="Use this scene"
+      useLabel="Use in a shot"
       variant={variant}
       onOpen={onOpen}
       onUse={onUse}

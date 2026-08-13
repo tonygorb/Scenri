@@ -7,10 +7,10 @@ export type DemoProductCardVariant = CatalogCardVariant;
 export type DemoProductCardSize = Exclude<CatalogCardSize, 'shelf'>;
 
 /**
- * One Scenri Library card — a curated starter product, not the user's own.
+ * One Scenri library card — a curated starter product, not the user's own.
  * Same shell as PresenterCard (a global, always-available catalog, not
  * brand-scoped), adapted for a product: caption is name + category, fast
- * path is "Use in a brief". Using one attaches a normal {t:'product'} token
+ * path is "Use in a shot". Using one attaches a normal {t:'product'} token
  * exactly like a real product would — it never gets written into the
  * brand's own products[].
  */
@@ -35,7 +35,7 @@ export function DemoProductCard({
       title={`${productLabel(product, 'tooltip')} — ${category}`}
       primary={productLabel(product, 'card')}
       secondary={category}
-      useLabel="Use in a brief"
+      useLabel="Use in a shot"
       variant={variant}
       onOpen={onOpen}
       onUse={onUse}

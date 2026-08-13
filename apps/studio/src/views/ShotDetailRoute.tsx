@@ -52,6 +52,7 @@ export function ShotDetailRoute() {
       onRetry={ctx.retry}
       onCancel={ctx.cancel}
       onChanged={ctx.reload}
+      onRefined={ctx.refined}
       onRemix={ctx.remix}
       onBranch={ctx.branch}
       onArchive={() => ctx.archive(node)}
@@ -62,8 +63,6 @@ export function ShotDetailRoute() {
       onSelectLayer={ctx.setSelectedLayerId}
       onLayersChange={(ls) => ctx.changeLayers(node, ls)}
       onAddLayer={() => ctx.addLayer(node)}
-      onLift={() => ctx.lift(node)}
-      lifting={ctx.lifting}
       tab={ctx.tab}
       onTabChange={ctx.setTab}
     />

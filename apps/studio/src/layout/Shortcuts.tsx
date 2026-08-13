@@ -15,10 +15,10 @@ const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Walk versions', keys: ['←', '→'] },
   { label: 'Walk lineage', keys: ['↑', '↓'] },
   { label: 'Step variants', keys: ['[', ']'] },
-  { label: 'Branch from this shot', keys: ['b'] },
+  { label: 'Refine this shot', keys: ['b'] },
   { label: 'Keep or unkeep', keys: ['k'] },
   { label: 'Open the shot', keys: ['enter'] },
-  { label: 'Close, or drop the branch', keys: ['esc'] },
+  { label: 'Close, or stop refining', keys: ['esc'] },
   { label: 'Assets panel', keys: ['.'] },
   { label: 'This list', keys: ['?'] },
 ];

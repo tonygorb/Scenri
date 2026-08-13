@@ -8,8 +8,8 @@ export type PresenterCardSize = Exclude<CatalogCardSize, 'shelf'>;
  * The one Presenter card — same variant/size split as SceneCard
  * (docs/product/patterns/look-card.md), adapted for a person rather than a
  * photographic setup: the caption is name + casting descriptor, and the fast
- * path is "Use in a brief", attaching straight from the catalog exactly like
- * a Scene's "Use this scene". A thin adapter over `CatalogCard` — see
+ * path is "Use in a shot", attaching straight from the catalog exactly like
+ * a Scene's own. A thin adapter over `CatalogCard` — see
  * CatalogCard.tsx for the shared shell this and `SceneCard` both render through.
  */
 export function PresenterCard({
@@ -39,7 +39,7 @@ export function PresenterCard({
       title={presenter.descriptor || presenter.name}
       primary={presenter.name}
       secondary={presenter.descriptor}
-      useLabel="Use in a brief"
+      useLabel="Use in a shot"
       variant={variant}
       onOpen={onOpen}
       onUse={onUse}

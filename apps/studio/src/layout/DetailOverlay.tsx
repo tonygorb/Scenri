@@ -5,13 +5,12 @@ import {
   Archive,
   ArrowCounterClockwise,
   ArrowsClockwise,
-  GitBranch,
+  PencilLine,
   ArrowsLeftRight,
   CaretLeft,
   CaretRight,
   CopySimple,
   DownloadSimple,
-  PencilSimple,
   Plus,
   Star,
   TrashSimple,
@@ -68,8 +67,7 @@ export function DetailOverlay({
   onSelectLayer,
   onLayersChange,
   onAddLayer,
-  onLift,
-  lifting,
+  onRefined,
   tab,
   onTabChange,
 }: {
@@ -96,8 +94,8 @@ export function DetailOverlay({
   onSelectLayer: (id: string | null) => void;
   onLayersChange: (ls: TextLayer[]) => void;
   onAddLayer: () => void;
-  onLift: () => void;
-  lifting: boolean;
+  /** A shot was made from in here, so the workspace can follow the same thread. */
+  onRefined?: (nodeId: string, kind?: 'generation' | 'edit') => void;
   tab: InspectorTab;
   onTabChange: (t: InspectorTab) => void;
 }) {
@@ -218,7 +216,7 @@ export function DetailOverlay({
         </div>
 
         <div className="sc-ovl-strip">
-          <span className="sc-eyebrow">Lineage</span>
+          <span className="sc-eyebrow">Versions</span>
           {ancestors.map((a) => (
             <span key={a.id} style={{ display: 'contents' }}>
               {frame(a)}
@@ -394,7 +392,7 @@ export function DetailOverlay({
                 title="Open the shot this came from"
               >
                 {parentShot.images[0] && <img src={imgUrl(parentShot.images[0])} alt="" />}
-                edited from <b style={{ color: 'var(--sc-fg)', fontWeight: 500 }}>{nodeLabel(parentShot)}</b>
+                refined from <b style={{ color: 'var(--sc-fg)', fontWeight: 500 }}>{nodeLabel(parentShot)}</b>
               </button>
             </div>
           )}
@@ -403,14 +401,11 @@ export function DetailOverlay({
             already existed; they were just buried in tabs and menus. */}
           {node.status === 'done' && node.images.length > 0 && (
             <div className="sc-sugg">
-              <button type="button" className="sc-s sc-s-primary" onClick={onLift} disabled={lifting}>
-                {lifting ? <Spinner size="1" /> : <PencilSimple size={12} />} Make text editable
-              </button>
               <button type="button" className="sc-s" onClick={onAddLayer}>
                 <Plus size={12} /> Add text
               </button>
               <button type="button" className="sc-s" onClick={() => onBranch(node)}>
-                <GitBranch size={12} /> Branch from this
+                <PencilLine size={12} /> Refine this
               </button>
               {node.brief && (
                 <button type="button" className="sc-s" onClick={() => onRemix(node)}>
@@ -435,8 +430,6 @@ export function DetailOverlay({
               onSelectLayer={onSelectLayer}
               onLayersChange={onLayersChange}
               onAddLayer={onAddLayer}
-              onLift={onLift}
-              lifting={lifting}
               tab={tab}
               onTabChange={onTabChange}
               onExport={() => setExportOpen(true)}
@@ -460,15 +453,28 @@ export function DetailOverlay({
               engines={engines}
               parent={root}
               target={node}
+              // the variant on the stage is the one a refine works from
+              sourceImage={hash}
               shots={nodes}
+              // The dock's composer is still mounted behind this one and there
+              // is one saved draft per brand: without this, merely opening a
+              // shot overwrote a half-typed brief with this composer's empty
+              // sentence, and left its own target behind to be restored later
+              // as a draft the person never wrote.
+              persistDraft={false}
               // an edit/regen submitted from inside the overlay used to only
               // reload the tree in place, leaving you looking at the shot you
               // just replaced; wait for the new node to actually exist, then
               // reuse the same in-overlay navigation the lineage filmstrip
               // and Prev/Next already use to land on it
-              onQueued={async (id) => {
+              onQueued={async (id, kind) => {
                 await onChanged();
                 if (id) onSelect(id);
+                // One thread, wherever it was pulled. Refining in here used to
+                // leave the workspace behind still pointed at nothing, so
+                // stepping back out and carrying on turned the next
+                // instruction into a brand new shot.
+                if (id) onRefined?.(id, kind);
               }}
             />
           </div>

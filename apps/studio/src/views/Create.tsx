@@ -80,8 +80,8 @@ export interface ShotContext {
   setSelectedLayerId: (id: string | null) => void;
   changeLayers: (node: TreeNode, layers: TextLayer[]) => void;
   addLayer: (node: TreeNode) => void;
-  lift: (node: TreeNode) => void;
-  lifting: boolean;
+  /** A shot was made from inside the overlay: keep one refine thread. */
+  refined: (nodeId: string, kind?: 'generation' | 'edit') => void;
   tab: InspectorTab;
   setTab: (tab: InspectorTab) => void;
 }
@@ -114,7 +114,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [err, setErr] = useState<string | null>(null);
   const [draftLayers, setDraftLayers] = useState<TextLayer[]>([]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-  const [lifting, setLifting] = useState(false);
   const [remixBrief, setRemixBrief] = useState<any>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [lensParam, setLens] = useFilterParam('tab', 'all');
@@ -394,8 +393,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   const target = useMemo(
     () =>
-      allNodes.find((n) => n.id === branchId && n.kind !== 'root' && n.status === 'done' && n.images.length > 0) ??
-      null,
+      allNodes.find(
+        (n) =>
+          n.id === branchId &&
+          n.kind !== 'root' &&
+          // A shot still rendering counts. Refining moves the chip onto the
+          // version it just made, and that version does not exist as a picture
+          // for a few seconds — dropping the chip in the meantime would read as
+          // the app forgetting what you were working on.
+          (n.status === 'running' || (n.status === 'done' && n.images.length > 0)),
+      ) ?? null,
     [allNodes, branchId],
   );
 
@@ -404,7 +411,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   useEffect(() => {
     if (!branchId || target || !loaded) return;
     setBranchId(null);
-    push({ kind: 'error', title: 'That shot is no longer available to branch from', detail: 'Making a new shot.' });
+    push({ kind: 'error', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
   }, [branchId, target, loaded, setBranchId, push]);
 
   const branchFrom = useCallback(
@@ -529,17 +536,33 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     setSelectedLayerId(layer.id);
   };
 
+  /**
+   * Run a shot's own recipe again, as a sibling of the one that failed.
+   *
+   * The count comes off the stored brief rather than off the images, because
+   * the only shots this was ever offered on had none: every retry of a
+   * four-variant run used to come back with a single frame. Shots made before
+   * briefs existed keep the old guess, which is all there is to go on.
+   *
+   * A rejection here is a spend cap or an engine that has gone away — both
+   * worth reading. This used to be fired as `void retry(n)` and rejected in
+   * silence, so the button simply appeared to do nothing.
+   */
   const retry = async (node: TreeNode) => {
-    await api.addNode({
-      projectId,
-      parentId: node.parentId,
-      kind: node.kind === 'edit' ? 'edit' : 'generation',
-      prompt: node.prompt,
-      engineId: node.engineId,
-      count: Math.max(1, node.images.length || 1),
-      brief: node.brief,
-    });
-    await reload();
+    try {
+      await api.addNode({
+        projectId,
+        parentId: node.parentId,
+        kind: node.kind === 'edit' ? 'edit' : 'generation',
+        prompt: node.prompt,
+        engineId: node.engineId,
+        count: node.brief?.variants ?? Math.max(1, node.images.length || 1),
+        brief: node.brief,
+      });
+      await reload();
+    } catch (e: any) {
+      push({ kind: 'error', title: 'Could not run this again', detail: String(e.message ?? e) });
+    }
   };
 
   const cancel = async (node: TreeNode) => {
@@ -548,58 +571,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       await reload();
     } catch (e: any) {
       push({ kind: 'error', title: 'Could not cancel this shot', detail: String(e.message ?? e) });
-    }
-  };
-
-  const liftText = async (node: TreeNode) => {
-    if (lifting) return;
-    const engine =
-      ['codex-cli', 'openrouter']
-        .map((id) => engines.find((e) => e.id === id && e.available && e.supportsEdit))
-        .find(Boolean) ?? engines.find((e) => e.available && e.supportsEdit);
-    if (!engine) return;
-    setLifting(true);
-    try {
-      // Use the product that actually generated THIS image, read off the
-      // node's own stored brief. This used to blindly take the brand's first
-      // product, so on any brand with more than one product the text-removal
-      // edit was handed the wrong product as its fidelity reference — and the
-      // model was told to preserve a label belonging to something that was
-      // never in the picture.
-      const productId = (node.brief?.tokens ?? []).find((t: { t: string; id?: string }) => t.t === 'product')?.id as
-        | string
-        | undefined;
-      const child = await api.addNode({
-        projectId,
-        parentId: node.id,
-        kind: 'edit',
-        ...(productId ? { productId } : {}),
-        prompt:
-          'Remove all overlaid marketing text, headlines, captions and slogans from this image and reconstruct the background seamlessly where they were. IMPORTANT: keep text that is part of a product’s own label or packaging exactly as it is. Keep every other element pixel-identical.',
-        engineId: engine.id,
-      });
-      const quoted = [...node.prompt.matchAll(/"([^"]{2,80})"/g)].map((m) => m[1]);
-      const words = quoted.length ? quoted : ['Your headline'];
-      const layers: TextLayer[] = words.map((w, i) => ({
-        id: `l-${Math.random().toString(36).slice(2, 8)}${i}`,
-        text: w,
-        x: 8,
-        y: 7 + i * 14,
-        width: 84,
-        size: 88,
-        fontId: 'inter-tight',
-        weight: 700,
-        color: '#FFFFFF',
-        align: 'center',
-        lineHeight: 1.08,
-        opacity: 1,
-        shadow: { x: 0, y: 2, blur: 10, color: 'rgba(0,0,0,0.45)' },
-      }));
-      await api.saveOverlays(child.id, { '0': layers });
-      await reload();
-      goToShot(child.id);
-    } finally {
-      setLifting(false);
     }
   };
 
@@ -706,7 +677,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         return;
       }
       if (e.key === 'k' && selected.kind !== 'root' && selected.status === 'done') {
-        void api.keep(selected.id, !selected.kept).then(() => void reload());
+        void keep(selected);
         e.preventDefault();
         return;
       }
@@ -760,17 +731,40 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     return [a, b] as const;
   }, [pickedNodes]);
 
+  /**
+   * Marking a shot a keeper, one or many.
+   *
+   * Every one of these used to be fired into the void, so a request that came
+   * back a failure left the star simply not changing, with nothing said.
+   */
+  const keep = async (node: TreeNode, next = !node.kept) => {
+    try {
+      await api.keep(node.id, next);
+      await reload();
+    } catch (e: any) {
+      push({ kind: 'error', title: 'Could not update keeper status', detail: String(e?.message ?? e) });
+    }
+  };
+
   /** One press sets them all; pressing again on an all-kept selection clears them. */
   const keepPicked = async () => {
     const next = !(pickedNodes.length > 0 && pickedNodes.every((n) => n.kept));
-    await Promise.all(pickedNodes.filter((n) => n.kept !== next).map((n) => api.keep(n.id, next)));
-    await reload();
+    try {
+      await Promise.all(pickedNodes.filter((n) => n.kept !== next).map((n) => api.keep(n.id, next)));
+      await reload();
+    } catch (e: any) {
+      push({ kind: 'error', title: 'Could not update keeper status', detail: String(e?.message ?? e) });
+    }
   };
 
   const addPickedTo = async (target: ShotSet) => {
-    await api.addToSet(target.id, [...picked]);
-    setPicked(new Set());
-    await reload();
+    try {
+      await api.addToSet(target.id, [...picked]);
+      setPicked(new Set());
+      await reload();
+    } catch (e: any) {
+      push({ kind: 'error', title: 'Could not add to the set', detail: String(e?.message ?? e) });
+    }
   };
 
   const newSetWith = async (nodeIds: string[]) => {
@@ -848,8 +842,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     setSelectedLayerId,
     changeLayers,
     addLayer: addTextLayer,
-    lift: (n) => void liftText(n),
-    lifting,
+    // whichever surface a refine was pulled from, the workspace follows the
+    // same thread, so stepping back out continues the conversation instead of
+    // turning the next instruction into a brand new shot
+    refined: (id, kind) => {
+      if (kind === 'edit') setBranchId(id);
+    },
     tab: inspectorTab,
     setTab: (t) => setPanel(t),
   };
@@ -899,7 +897,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           onOpen={openShot}
           onRetry={(n) => void retry(n)}
           onCancel={(n) => void cancel(n)}
-          onToggleKeep={(n) => void api.keep(n.id, !n.kept).then(() => void reload())}
+          onToggleKeep={(n) => void keep(n)}
           // Canvas shows one button/menu item whose label already flips on
           // n.archived (Archive vs Restore) — this is the toggle its single
           // onClick needs to actually do the right one of the two
@@ -999,14 +997,30 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           onRestoreBranchId={setBranchId}
           setSlug={set?.slug ?? null}
           onSending={setSending}
-          onQueued={(made) => {
+          onQueued={(made, kind) => {
             setRemixBrief(null);
-            // the seed has been spent: keep it out of the next refresh
+            /**
+             * One write, because both halves live in the query string: a
+             * separate setBranchId here was handed the same stale params this
+             * updater starts from, and whichever ran second won.
+             *
+             * The seeds have been spent — a presenter or product left in the
+             * URL was re-applied by the next remount, so going back and
+             * forward quietly re-attached what had just been sent.
+             *
+             * And a refine moves onto what it just made: the chip used to stay
+             * on the shot it started from, so "make it tighter" and then "now
+             * warmer" both ran against the original and the second instruction
+             * threw away the first. The X on the chip is still how you leave
+             * the thread and start something new.
+             */
             setParams(
               (cur) => {
                 const p = new URLSearchParams(cur);
                 p.delete('scene');
                 p.delete('attach');
+                p.delete('presenter');
+                p.delete('product');
                 return p;
               },
               { replace: true },
@@ -1018,10 +1032,21 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             // Clearing on response instead left a beat with neither, which read
             // as the brief having been swallowed.
             const landed = () => setSending(null);
-            // standing in a set is a visible filter, so a shot made here joins
-            // it — otherwise the thing you just asked for vanishes on arrival
-            if (set && made) void api.addToSet(set.id, [made]).then(reload).finally(landed);
-            else void reload().finally(landed);
+            /**
+             * Point at the new version only once it is actually in hand.
+             *
+             * Naming it any earlier hands the chip an id this screen has never
+             * heard of: the target resolves against the nodes already loaded,
+             * finds nothing, and the effect that guards against dead targets
+             * drops it and says so. In a session that read as the refine thread
+             * collapsing after one step — the next instruction quietly became a
+             * brand new shot instead of continuing the one on screen.
+             */
+            const thenPointAtIt = () => {
+              if (kind === 'edit' && made) setBranchId(made);
+            };
+            if (set && made) void api.addToSet(set.id, [made]).then(reload).then(thenPointAtIt).finally(landed);
+            else void reload().then(thenPointAtIt).finally(landed);
           }}
         />
       </ComposerDock>

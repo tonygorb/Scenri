@@ -154,11 +154,11 @@ export function ProductPage() {
           <p className="sc-lookpage-lede">{demoProduct.description}</p>
           <p className="sc-lookpage-facts">
             {label}
-            {demoProduct.subcategory ? ` · ${demoProduct.subcategory}` : ''} · from the Scenri Library
+            {demoProduct.subcategory ? ` · ${demoProduct.subcategory}` : ''} · from the Scenri library
           </p>
           <div className="sc-lookpage-acts">
             <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(demoProduct.id)}>
-              Use in creation
+              Use in a shot
             </button>
           </div>
 
@@ -279,7 +279,7 @@ export function ProductPage() {
         </p>
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(product.id)}>
-            Use in creation
+            Use in a shot
           </button>
         </div>
 

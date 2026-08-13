@@ -4,7 +4,7 @@ import { useBrand } from './BrandLayout.js';
 import { hubPath } from '../routes.js';
 
 /**
- * "Use in creation" from the Products index or a product page.
+ * "Use in a shot" from the Products index or a product page.
  *
  * Same shape as `useApplyScene`/`useApplyPresenter`: a pure navigate, the
  * product rides to the composer as a seed for the brief. Products aren't a

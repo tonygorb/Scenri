@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { sceneSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
-import { Plus } from '@phosphor-icons/react';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { scenePath } from '../routes.js';
@@ -154,11 +153,6 @@ export function ScenesView() {
             scenes.length >= SEARCH_MIN && (
               <LibrarySearch value={q} onChange={setQ} noun="scenes" total={scenes.length} />
             )
-          }
-          action={
-            <button type="button" className="sc-btn sc-btn-ghost">
-              <Plus size={12} /> Create scene
-            </button>
           }
         />
 

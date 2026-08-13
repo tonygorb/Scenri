@@ -27,7 +27,19 @@ export interface TreeNode {
   error: string | null;
   createdAt: string;
   overlays: Record<string, TextLayer[]>;
-  brief: { tokens: any[]; templateId?: string; templateFields?: Record<string, string> } | null;
+  /**
+   * The recipe, stored verbatim so the shot can be run again or reopened in
+   * the composer. `variants` and `quality` are settings rather than sentence:
+   * the compiler never reads them, and without them a re-run of a four-variant
+   * shot came back with one frame. Null on shots made before briefs existed.
+   */
+  brief: {
+    tokens: any[];
+    templateId?: string;
+    templateFields?: Record<string, string>;
+    variants?: number;
+    quality?: 'draft' | 'standard' | 'high';
+  } | null;
   archived: boolean;
 }
 
@@ -168,7 +180,13 @@ export const api = {
     templateId?: string;
     templateFields?: Record<string, string>;
     productId?: string;
-  }) => req<TreeNode>('POST', '/api/nodes', p),
+    /**
+     * The accepted shot, plus whatever the compiler wanted said about the
+     * brief that made it: a scene built around a product with none attached,
+     * an asset that has gone, a reference this engine could not carry. The
+     * server has always sent these; nothing used to read them.
+     */
+  }) => req<TreeNode & { warnings?: string[] }>('POST', '/api/nodes', p),
   cancelNode: (nodeId: string) => req<{ ok: true }>('POST', `/api/nodes/${nodeId}/cancel`),
   scenes: () => req<{ scenes: Scene[]; collections: string[]; verticals: string[] }>('GET', '/api/scenes'),
   presenters: () => req<{ presenters: Presenter[]; categories: string[]; styles: string[] }>('GET', '/api/presenters'),

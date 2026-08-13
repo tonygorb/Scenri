@@ -1,6 +1,16 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { DropdownMenu, Select, Spinner } from '@radix-ui/themes';
-import { ArrowCounterClockwise, ArrowUp, Crop, Gauge, Lightning, Plus, Stack, X } from '@phosphor-icons/react';
+import {
+  ArrowCounterClockwise,
+  ArrowUp,
+  Crop,
+  Gauge,
+  Lightning,
+  Plus,
+  Stack,
+  WarningCircle,
+  X,
+} from '@phosphor-icons/react';
 import {
   api,
   imgUrl,
@@ -27,7 +37,7 @@ import { QUALITIES, ShotSettings, type QualityId } from '../composer/ShotSetting
 import { useOpenSettings } from '../views/SettingsDialog.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { PREF, useLocalPref } from '../prefs.js';
+import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
@@ -81,8 +91,12 @@ export const Composer = forwardRef<
     startProduct?: string;
     /** Open the attach panel on this tab as soon as the composer mounts. */
     openAttachTab?: AttachTab;
-    /** The shot that was queued, so a caller filtered to a set can claim it. */
-    onQueued: (nodeId?: string) => void;
+    /**
+     * The shot that was queued, so a caller filtered to a set can claim it.
+     * The kind travels with it because only the caller can act on what it
+     * means: a refine moves the chip onto the version it just made.
+     */
+    onQueued: (nodeId?: string, kind?: 'generation' | 'edit') => void;
     /**
      * A submit is in flight, with the prose of the brief that started it, so a
      * feed can stand something in for the shot before the server has answered.
@@ -97,10 +111,24 @@ export const Composer = forwardRef<
     target?: TreeNode | null;
     /** Given only where the target can be dropped, which is where it is shown. */
     onClearTarget?: () => void;
+    /**
+     * Which image of the target to refine. The server defaults to the first,
+     * so refining while looking at variant three used to silently edit variant
+     * one — the picture on screen was not the picture being worked on.
+     */
+    sourceImage?: string;
     /** A restored draft's branch target: apply it without stealing focus. */
     onRestoreBranchId?: (id: string) => void;
     /** Which set the draft was written from, carried for information only. */
     setSlug?: string | null;
+    /**
+     * Whether this composer owns the brand's saved draft. There is one draft
+     * per brand and more than one composer on screen — the dock keeps one, and
+     * an open shot mounts another — so the second one says no: opening a shot
+     * used to overwrite a typed draft with its own empty sentence, and leave
+     * behind a branch target nobody had asked for.
+     */
+    persistDraft?: boolean;
   }
 >(function Composer(
   {
@@ -119,8 +147,10 @@ export const Composer = forwardRef<
     onSending,
     target,
     onClearTarget,
+    sourceImage,
     onRestoreBranchId,
     setSlug,
+    persistDraft = true,
   },
   handleRef,
 ) {
@@ -149,13 +179,13 @@ export const Composer = forwardRef<
   const [seedTokens, setSeedTokens] = useState<SentenceToken[] | undefined>(undefined);
   const [formatId, setFormatId] = useLocalPref(PREF.format, 'square');
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
-  const [count, setCount] = useLocalPref(PREF.count, 2);
+  const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, 2);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [preview, setPreview] = useState<BriefPreview | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTab, setAttachTab] = useState<AttachTab>('All');
-  const [quality, setQuality] = useLocalPref<QualityId>(PREF.quality, 'standard');
+  const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, 'standard');
   const [uploading, setUploading] = useState(false);
   const briefRef = useRef<BriefInputHandle>(null);
   const attachRef = useRef<HTMLButtonElement>(null);
@@ -183,11 +213,15 @@ export const Composer = forwardRef<
         clearTimeout(draftTimer.current);
         draftTimer.current = null;
       }
+      // A composer that does not own the draft must not clear it either: an
+      // open shot's empty sentence is not evidence that the dock's brief was
+      // abandoned.
+      if (!persistDraft) return;
       const c = contentRef.current;
       if (isNonTrivial(c.tokens, c.tplFields, c.branchId)) saveDraft(brandId, { ...c, setSlug });
       else clearDraft(brandId);
     },
-    [setSlug],
+    [setSlug, persistDraft],
   );
 
   // "New photoshoot" opens the attach panel; this is orthogonal to whatever
@@ -208,9 +242,11 @@ export const Composer = forwardRef<
     if (carriedFormat) setFormatId(carriedFormat.id);
     // A curated example was shot at a chosen variant count and quality. Left
     // to the visitor's own prefs, a 4-variant catalog example could open as a
-    // single draft frame and stop matching the tile it came from.
-    if (initialBrief.variants) setCount(initialBrief.variants);
-    if (initialBrief.quality) setQuality(initialBrief.quality);
+    // single draft frame and stop matching the tile it came from. Borrowed for
+    // this brief rather than written: looking at an example is not a decision
+    // about what every later shot should cost.
+    if (initialBrief.variants) borrowCount(initialBrief.variants);
+    if (initialBrief.quality) borrowQuality(initialBrief.quality);
     setSeedTokens(briefTokens(initialBrief));
     setTplFields(initialBrief.templateFields ?? {});
   }, [initialBrief]);
@@ -225,14 +261,15 @@ export const Composer = forwardRef<
    * A `?scene=` seed is deliberately NOT in that same "wins over restore"
    * bucket: it is folded into whatever this pass resolves as the base state
    * (restored or empty) and merged through the same `resolveSceneSwitch`
-   * policy every other scene-attach entry point uses, so "Use this scene" from
+   * policy every other scene-attach entry point uses, so "Use in a shot" from
    * the Scenes page reads as attaching a scene to your draft, not replacing it.
    */
   useEffect(() => {
     const prior = draftBrandIdRef.current;
     if (prior && prior !== brand.id) flushDraft(prior);
 
-    const hasExplicitSeed = !!initialBrief || !!suppressDraftRestore;
+    // a composer that does not own the draft does not restore one either
+    const hasExplicitSeed = !!initialBrief || !!suppressDraftRestore || !persistDraft;
     let tokens: SentenceToken[] | null = null;
     let tplFieldsToApply: Record<string, string> | null = null;
     let branchIdToApply: string | null = null;
@@ -337,7 +374,17 @@ export const Composer = forwardRef<
   }, [formatId, quality]);
 
   const tokens = useMemo<BriefToken[]>(() => [format, ...sentence], [format, sentence]);
-  const brief = useMemo(() => ({ tokens, templateFields: tplFields }), [tokens, tplFields]);
+  /**
+   * The settings ride along with the sentence, because a recipe that cannot
+   * reproduce its own shot is not a recipe: a retry of a four-variant run used
+   * to come back with one frame, and reusing a setup dropped to whatever the
+   * visitor's own prefs happened to say. The compiler reads `tokens` and
+   * ignores the rest, so these are stored rather than compiled.
+   */
+  const brief = useMemo(
+    () => ({ tokens, templateFields: tplFields, variants: count, quality }),
+    [tokens, tplFields, count, quality],
+  );
   const hasContent = sentence.some((t) => (t.t === 'text' ? !!t.v.trim() : true));
   /** The template now lives in the sentence, so read it back from the tokens. */
   const template = useMemo(() => {
@@ -462,11 +509,32 @@ export const Composer = forwardRef<
    *  - an engine that cannot edit has nothing to branch with
    *  - a scene is a fresh setup, so it starts a new shot by definition
    */
-  const branchable = target && target.kind !== 'root' && target.status === 'done' && target.images.length > 0;
+  /**
+   * The version this brief is pointed at is still rendering. It counts as a
+   * target — the chip stays, so the thread of what you are working on is not
+   * dropped — but it cannot be refined until there is a picture to refine.
+   */
+  const targetPending = !!target && target.kind !== 'root' && target.status === 'running';
+  const branchable =
+    (target && target.kind !== 'root' && target.status === 'done' && target.images.length > 0) || targetPending;
   const engineCanEdit = !!engine?.supportsEdit;
-  const mode: 'generation' | 'edit' = branchable && engineCanEdit ? 'edit' : 'generation';
-  const targetNote =
-    branchable && !engineCanEdit ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.` : null;
+  /**
+   * A scene is checked here and not only in the effect below, because the
+   * effect can only speak where the target can be dropped. Inside an open shot
+   * the target is the shot itself and there is no chip to let go, so attaching
+   * a scene there used to quietly run as an edit of the picture on screen —
+   * the one thing a scene is defined not to be.
+   */
+  const mode: 'generation' | 'edit' = branchable && engineCanEdit && !template ? 'edit' : 'generation';
+  const targetNote = !branchable
+    ? null
+    : template
+      ? 'A scene starts a new shot.'
+      : !engineCanEdit
+        ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
+        : targetPending
+          ? 'Still rendering. This can be refined the moment it lands.'
+          : null;
 
   /**
    * A scene is a fresh setup, so it cannot also be an edit of an existing shot.
@@ -477,17 +545,21 @@ export const Composer = forwardRef<
   useEffect(() => {
     if (template && branchable && onClearTarget) onClearTarget();
   }, [template, branchable, onClearTarget]);
-  // A template that wants a product still runs without one: it says "the
-  // product" instead. Nine of ten templates ask for one, so blocking here
-  // meant a brand with no products could never generate at all. Warn, allow.
-  // packages/cli/src/brief.ts's actual wording is "is built around a product" —
-  // this filter checked for "builds around a product" (wrong verb form) and so
-  // never matched anything, silently making this whole warning path dead code
+  // A scene that wants a product still runs without one: it says "the product"
+  // instead. Nine of ten ask for one, so refusing here meant a brand with no
+  // products could never generate at all. Warn, allow.
+  //
+  // The phrase is the compiler's, from packages/cli/src/brief.ts: change the
+  // wording there and this stops matching, with nothing to say it has.
   const blocking = preview?.warnings.filter((w) => w.includes('built around a product')) ?? [];
   // the workspace arrives a beat after the screen does, and typing is faster
   // than a round trip: without this the first brief of a cold load could be sent
-  // into nothing and come back as an error the user did nothing to cause
-  const canGo = !busy && hasContent && !!projectId;
+  // into nothing and come back as an error the user did nothing to cause.
+  //
+  // A version still rendering also holds the button: sending now would quietly
+  // make a new shot instead of continuing the one on the chip, which is the
+  // exact silent substitution this composer exists not to do.
+  const canGo = !busy && hasContent && !!projectId && !targetPending;
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -564,7 +636,16 @@ export const Composer = forwardRef<
   };
 
   // warnings live ON the affected chip, not as sentences in the card
-  const templateFlag = template && blocking.length > 0 ? 'This template builds around a product. Attach one.' : null;
+  const templateFlag = !template
+    ? null
+    : blocking.length > 0
+      ? 'This scene builds around a product. Attach one.'
+      : // The person half of the same compiler warning had no chip to sit on,
+        // so a scene needing a presenter said nothing at all until the picture
+        // came back with a stranger in it.
+        (preview?.warnings.some((w) => w.includes('built around a person')) ?? false)
+        ? 'This scene builds around a person. Attach a presenter.'
+        : null;
   const flagToken = (t: BriefToken): string | null => {
     if (t.t === 'template') return templateFlag;
     if (!preview) return null;
@@ -622,6 +703,9 @@ export const Composer = forwardRef<
         engineId,
         count,
         brief,
+        // refine works from the picture you are looking at, not from whichever
+        // one the run happens to have first
+        ...(mode === 'edit' && sourceImage ? { sourceImage } : {}),
       });
       if (template?.textZones?.length && mode === 'generation') {
         const overlays: Record<string, TextLayer[]> = {};
@@ -650,10 +734,20 @@ export const Composer = forwardRef<
         }
         await api.saveOverlays(created.id, overlays);
       }
+      // The compiler's own account of what it had to do without. These name
+      // real fidelity risks and the server has always sent them back on the
+      // accepted shot; nothing read them, so a brief could quietly go out
+      // degraded and the first sign of it was the picture.
+      const warned = created.warnings?.[0];
+      if (warned) push({ kind: 'success', title: 'Sent, with one thing to know', detail: warned });
+
       briefRef.current?.setTokens(emptySentence());
       setTplFields({});
-      clearDraft(brand.id);
-      onQueued(created.id);
+      // the borrowed settings belonged to the brief that just left the screen
+      borrowCount(null);
+      borrowQuality(null);
+      if (persistDraft) clearDraft(brand.id);
+      onQueued(created.id, mode);
     } catch (e: any) {
       setErr(String(e.message ?? e));
       // the brief is deliberately not cleared above until the shot exists, so
@@ -726,6 +820,23 @@ export const Composer = forwardRef<
           </button>
         </div>
       )}
+      {/* A refusal is written for a person to act on — which engine cannot carry
+          the product, which cap was hit — and it used to reach the screen only
+          as the send button's tooltip, where nobody looks after a click that
+          appeared to do nothing. It sits closest to the card because it is
+          about the brief still sitting in it. */}
+      {err && (
+        <div className="sc-banner" data-tone="error" role="alert">
+          <WarningCircle size={15} />
+          <span>
+            That did not send
+            <small title={err}>{err}</small>
+          </span>
+          <button type="button" className="sc-banner-act" onClick={() => setErr(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="sc-promptcard">
         {/* What this brief is about to do, stated before it does it. Only the
             hub can drop a target, so only the hub shows the chip: inside the
@@ -733,8 +844,14 @@ export const Composer = forwardRef<
         {branchable && onClearTarget && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
             <span className="sc-target-lb">
-              Branching from
-              <img src={imgUrl(target.images[0])} alt="" />
+              Refining
+              {/* a version that has just been asked for has no picture yet, and
+                  the same shimmer the feed uses says so without a second word */}
+              {target.images[0] ? (
+                <img src={imgUrl(target.images[0])} alt="" />
+              ) : (
+                <span className="sc-target-thumb sc-shimmer" />
+              )}
               <b dir="auto">{nodeLabel(target)}</b>
             </span>
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
@@ -742,6 +859,12 @@ export const Composer = forwardRef<
               <X size={12} />
             </button>
           </div>
+        )}
+        {/* Where there is no chip to carry it, the note still has to be said:
+            inside an open shot this is the only sign that what is about to
+            happen is a new shot rather than a change to the one on screen. */}
+        {branchable && !onClearTarget && targetNote && (
+          <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         <BriefInput
           ref={briefRef}
@@ -891,6 +1014,11 @@ export const Composer = forwardRef<
               title={err ?? templateFlag ?? `${mode === 'edit' ? 'Refine' : 'Generate'} (enter)`}
             >
               {busy ? <Spinner size="1" /> : <ArrowUp size={17} weight="bold" />}
+              {/* The one control whose meaning changes with the brief, and it
+                  used to say so only in a tooltip: whether this makes a new
+                  shot or continues an existing one is worth reading before
+                  pressing, not after. Hidden by CSS where the row is tight. */}
+              <span className="sc-send-lb">{mode === 'edit' ? 'Refine' : 'Generate'}</span>
             </button>
           </div>
         </div>

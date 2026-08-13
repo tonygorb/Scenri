@@ -11,7 +11,7 @@ import { test, expect, type Page } from '@playwright/test';
  */
 
 const line = (p: Page) => p.locator('.sc-brief-line').first();
-const dock = (p: Page) => p.locator('.sc-home-dock, .sc-canvas-dock').first();
+const dock = (p: Page) => p.locator('.sc-canvas-dock').first();
 const chips = (p: Page) => p.locator('.sc-brief-line .sc-token');
 
 /** What the sentence reads as, chips included. */
@@ -31,11 +31,18 @@ async function plusMenu(p: Page, tab: RegExp) {
   }
   await dock(p).locator('.sc-attach-toggle').click();
   await p.locator('.sc-ap-tabs button', { hasText: tab }).click();
-  await p.locator('.sc-ap-card').first().waitFor();
+  await attachCards(p).first().waitFor();
 }
 
+/**
+ * The attachable cards, which is not every card in the panel: the Products tab
+ * leads with "Add product", a button that opens a dialog rather than inserting
+ * a chip, so picking by raw index there attaches nothing.
+ */
+const attachCards = (p: Page) => p.locator('.sc-ap-card:not(.sc-ap-add)');
+
 async function pickCard(p: Page, index = 0) {
-  await p.locator('.sc-ap-card').nth(index).click();
+  await attachCards(p).nth(index).click();
   await expect(chips(p)).not.toHaveCount(0);
 }
 
@@ -73,10 +80,238 @@ test.beforeEach(async ({ page }) => {
   });
   await page.goto(`${new URL(page.url()).pathname}/create`);
   await line(page).waitFor();
+  // Start from a clean brief whatever the last run left behind — including a
+  // refine target, which now survives in the saved draft on purpose and would
+  // otherwise arrive as a chip nobody in this test asked for.
+  const chipX = page.locator('.sc-target-x');
+  if (await chipX.isVisible().catch(() => false)) await chipX.click();
   await line(page).click();
-  // start from a clean sentence whatever the last run left behind
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('Backspace');
+});
+
+test('a refusal is on the screen, and the brief survives it', async ({ page }) => {
+  // The server writes these to be acted on — which engine cannot carry the
+  // product, which cap was hit. They used to arrive only as the send button's
+  // tooltip, so a click looked like it had done nothing at all.
+  const refusal =
+    'Demo cannot carry enough reference images, so Cold brew can would be named in the prompt but never shown.';
+  await page.route('**/api/nodes', (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: refusal }) })
+      : route.fallback(),
+  );
+
+  await page.keyboard.type('a shot that will be refused');
+  await dock(page).locator('.sc-send').click();
+
+  const banner = page.locator('.sc-banner[data-tone="error"]');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText(refusal);
+
+  // nothing typed is thrown away by a send that never happened
+  expect(await sentence(page)).toContain('a shot that will be refused');
+
+  await banner.locator('.sc-banner-act').click();
+  await expect(banner).toHaveCount(0);
+});
+
+test('the settings ride along with the brief, so a shot can be run again as itself', async ({ page }) => {
+  // A recipe that cannot reproduce its own shot is not a recipe: retrying a
+  // four-variant run used to come back with a single frame, because the count
+  // was guessed from images a failed shot never had.
+  let body: any = null;
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    body = route.request().postDataJSON();
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
+  });
+
+  await page.keyboard.type('a shot whose recipe must survive');
+  // the pill reads "2v"; its accessible name is the one that says variants.
+  // The phone sheet carries the same control, so this asks for the row's.
+  await dock(page).locator('button.sc-var[aria-label$="variants"]').click();
+  await page
+    .locator('[role="menuitem"]')
+    .filter({ hasText: /^3 variants/ })
+    .first()
+    .click();
+  await expect(page.locator('[role="menuitem"]')).toHaveCount(0);
+  await dock(page).locator('.sc-send').click();
+  await expect(page.locator('.sc-banner[data-tone="error"]')).toBeVisible();
+
+  expect(body?.count).toBe(3);
+  expect(body?.brief?.variants).toBe(3);
+  expect(body?.brief?.quality).toBeTruthy();
+});
+
+test('opening a curated example never rewrites your own defaults', async ({ page }) => {
+  // The example's settings are borrowed for the brief on screen. They used to
+  // be written straight into the machine's prefs, so looking at one 4-variant
+  // example quietly changed what every later shot would cost.
+  const before = await page.evaluate(() => {
+    localStorage.setItem('scenri:count', '2');
+    localStorage.setItem('scenri:quality', '"standard"');
+    return localStorage.getItem('scenri:count');
+  });
+  expect(before).toBe('2');
+
+  await page.goto(`/${new URL(page.url()).pathname.split('/')[1]}`);
+  const card = page.locator('[data-wall] .sc-lookcard').first();
+  await card.waitFor();
+  // the pill surfaces on hover and then covers the card body, so hovering is
+  // part of pressing it
+  await card.hover();
+  await card.locator('.sc-lookcard-use').click();
+  await expect(page.locator('.sc-toast', { hasText: 'Starting from' })).toBeVisible();
+
+  expect(await page.evaluate(() => localStorage.getItem('scenri:count'))).toBe('2');
+  expect(await page.evaluate(() => localStorage.getItem('scenri:quality'))).toBe('"standard"');
+});
+
+test('opening a shot leaves the draft in the dock alone', async ({ page }) => {
+  // There is one saved draft per brand and two composers on screen: the dock
+  // keeps one, an open shot mounts another. Opening a shot used to overwrite
+  // a half-typed brief with that second composer's empty sentence.
+  await page.keyboard.type('a brief nobody asked to lose');
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().click();
+  await page.waitForURL(/\/shots\//);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await page.waitForURL((u) => !u.pathname.includes('/shots/'));
+  expect(await sentence(page)).toContain('a brief nobody asked to lose');
+
+  // and the draft on disk is still that brief, not the overlay's empty one
+  await page.reload();
+  await line(page).waitFor();
+  expect(await sentence(page)).toContain('a brief nobody asked to lose');
+  // no phantom "picked up where you left off" for a draft the overlay wrote
+  await expect(page.locator('.sc-target')).toHaveCount(0);
+});
+
+test('a scene inside an open shot starts a new shot rather than editing it', async ({ page }) => {
+  // A scene is a fresh setup by definition. On the hub the branch chip lets go
+  // to say so; inside a shot there is no chip to let go, so this used to run
+  // as an edit of the picture on screen — the one thing it must not be.
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().click();
+  await page.waitForURL(/\/shots\//);
+  const editor = page.locator('.sc-ovl-edit');
+  await expect(editor.locator('.sc-send')).toHaveAttribute('aria-label', 'Refine');
+
+  await editor.locator('.sc-brief-line').click();
+  await page.keyboard.type('#');
+  await page.locator('.sc-cmd-row').first().waitFor();
+  await page.locator('.sc-cmd-row').first().click();
+
+  await expect(editor.locator('.sc-send')).toHaveAttribute('aria-label', 'Generate');
+  await expect(page.locator('.sc-target-note-alone')).toHaveText('A scene starts a new shot.');
+});
+
+test('refining points at the version it just made, not the one it started from', async ({ page }) => {
+  // "make it tighter" and then "now warmer" both used to run against the
+  // original, so the second instruction quietly threw away the first.
+  //
+  // The version is fabricated rather than generated: a real one would leave a
+  // shot and a finish notification behind in a brand every other spec shares,
+  // and this case is about what the composer does with the id it is handed.
+  const REFINED = 'refined-by-spec';
+  let existingImage: string | null = null;
+
+  await page.route('**/api/brands/*/workspace', async (route) => {
+    const res = await route.fetch();
+    const ws = await res.json();
+    const donor = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length);
+    existingImage = donor?.images?.[0] ?? null;
+    if (donor && !(ws.nodes ?? []).some((n: any) => n.id === REFINED)) {
+      ws.nodes.push({ ...donor, id: REFINED, parentId: donor.id, kind: 'edit', prompt: 'made it tighter' });
+    }
+    await route.fulfill({ response: res, json: ws });
+  });
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: REFINED,
+        parentId: null,
+        kind: 'edit',
+        prompt: 'made it tighter',
+        engineId: 'demo',
+        status: 'done',
+        images: existingImage ? [existingImage] : [],
+        costUsd: 0,
+        kept: false,
+        error: null,
+        createdAt: new Date().toISOString(),
+        overlays: {},
+        brief: null,
+        archived: false,
+      }),
+    });
+  });
+
+  await page.reload();
+  await line(page).waitFor();
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().hover();
+  await page.locator('.sc-cell-branch').first().click();
+
+  const chip = page.locator('.sc-target');
+  await expect(chip).toBeVisible();
+  await expect(dock(page).locator('.sc-send')).toHaveAttribute('aria-label', 'Refine');
+  // the chip's identity is the branch param, not its label: two refines of the
+  // same wording produce two shots that read exactly alike
+  const startedFrom = new URL(page.url()).searchParams.get('branch');
+  expect(startedFrom).toBeTruthy();
+  expect(startedFrom).not.toBe(REFINED);
+
+  await line(page).click();
+  await page.keyboard.type('make it tighter');
+  await dock(page).locator('.sc-send').click();
+
+  // the chip stays, and points at the new version rather than the old shot
+  await expect.poll(() => new URL(page.url()).searchParams.get('branch'), { timeout: 10_000 }).toBe(REFINED);
+  await expect(chip).toBeVisible();
+});
+
+test('a version still rendering holds the button rather than making a new shot', async ({ page }) => {
+  // Sending while the chip points at something unfinished would silently make
+  // a new root shot — the one substitution this composer exists not to do. The
+  // workspace is rewritten so the target reads as still running, which is the
+  // state a real refine passes through too quickly to catch on the demo engine.
+  const held = await page.evaluate(async () => {
+    const slug = location.pathname.split('/')[1];
+    const brands = await (await fetch('/api/brands')).json();
+    const b = brands.find((x: any) => x.slug === slug);
+    const ws = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
+    return (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length)?.id ?? null;
+  });
+  expect(held).toBeTruthy();
+
+  // that one shot now reads as still rendering, which is the state a real
+  // refine passes through too quickly to catch on the demo engine
+  await page.route('**/api/brands/*/workspace', async (route) => {
+    const res = await route.fetch();
+    const ws = await res.json();
+    const n = (ws.nodes ?? []).find((x: any) => x.id === held);
+    if (n) {
+      n.status = 'running';
+      n.images = [];
+    }
+    await route.fulfill({ response: res, json: ws });
+  });
+
+  await page.goto(`${new URL(page.url()).pathname}?branch=${held}`);
+  await page.locator('.sc-brief-line').first().waitFor();
+  await page.locator('.sc-brief-line').first().click();
+  await page.keyboard.type('crop tighter');
+
+  await expect(page.locator('.sc-target-note')).toHaveText('Still rendering. This can be refined the moment it lands.');
+  await expect(dock(page).locator('.sc-send')).toHaveAttribute('aria-disabled', 'true');
 });
 
 test('typing after a chip added from the plus menu', async ({ page }) => {
@@ -110,13 +345,13 @@ test('@ reaches for an ingredient and typing carries on', async ({ page }) => {
   expect(text).toMatch(/on ice$/);
 });
 
-test('# reaches for a look, and offers only looks', async ({ page }) => {
+test('# reaches for a scene, and offers only scenes', async ({ page }) => {
   await page.keyboard.type('a shot ');
   await page.keyboard.type('#');
   await page.locator('.sc-cmd-row').first().waitFor();
-  // the sigil is the filter: a look menu never lists products or colors
+  // the sigil is the filter: a scene menu never lists products or colors
   const groups = await page.locator('.sc-cmd-group').allInnerTexts();
-  expect(groups.every((g) => /looks/i.test(g))).toBe(true);
+  expect(groups.every((g) => /scenes/i.test(g))).toBe(true);
   await page.locator('.sc-cmd-row').first().click();
   await page.keyboard.type('at dawn');
   const text = await sentence(page);
@@ -124,7 +359,7 @@ test('# reaches for a look, and offers only looks', async ({ page }) => {
   expect(text).toMatch(/at dawn$/);
 });
 
-test('a hex colour is text, not a look query', async ({ page }) => {
+test('a hex colour is text, not a scene query', async ({ page }) => {
   await page.keyboard.type('keep the cap #F5C518 exactly');
   // the menu must not be open, and nothing may have been eaten
   await expect(page.locator('.sc-cmd')).toHaveCount(0);
@@ -202,14 +437,14 @@ test('copy and paste rebuilds the chips', async ({ page }) => {
   expect(await sentence(page)).toContain(original.trim());
 });
 
-test('a second look swaps in place instead of stacking', async ({ page }) => {
+test('a second scene swaps in place instead of stacking', async ({ page }) => {
   await page.keyboard.type('mood: ');
-  await plusMenu(page, /look/i);
+  await plusMenu(page, /scenes/i);
   await pickCard(page, 0);
   await expect(chips(page)).toHaveCount(1);
   const first = await chips(page).first().textContent();
 
-  await plusMenu(page, /look/i);
+  await plusMenu(page, /scenes/i);
   await pickCard(page, 2);
   await expect(chips(page)).toHaveCount(1);
   expect(await chips(page).first().textContent()).not.toBe(first);

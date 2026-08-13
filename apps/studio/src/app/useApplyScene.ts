@@ -4,7 +4,7 @@ import { useBrand } from './BrandLayout.js';
 import { hubPath } from '../routes.js';
 
 /**
- * "Use this scene" from the Scenes index or a scene page.
+ * "Use in a shot" from the Scenes index or a scene page.
  *
  * It used to reach for `projects[0]`, and make an "Untitled" project when the
  * brand had none. The list it reached into is ordered oldest-first, so the

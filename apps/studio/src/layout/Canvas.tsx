@@ -4,7 +4,8 @@ import {
   Archive,
   ArrowCounterClockwise,
   Check,
-  GitBranch,
+  ClockCounterClockwise,
+  PencilLine,
   Stack,
   Star,
   WarningCircle,
@@ -145,6 +146,11 @@ export function Canvas({
             <span className="sc-cell-failed">
               <XCircle size={16} />
               <span>Cancelled</span>
+              {/* A cancel is usually a change of mind about the wait, not about
+                  the shot, so the way back to it is the same one a failure gets. */}
+              <button type="button" className="sc-cell-retry" onClick={() => onRetry(n)}>
+                Try again
+              </button>
               {onArchive && (
                 <button type="button" className="sc-cell-retry" onClick={() => onArchive(n)}>
                   Dismiss
@@ -180,7 +186,7 @@ export function Canvas({
       const versions = versionsOf?.(n.id) ?? 0;
 
       /**
-       * Branch, select and the lineage pip all act on the run rather than on
+       * Refine, select and the versions pip all act on the run rather than on
        * an image, so they are rendered once per run and stay reachable whether
        * it is stacked or opened out. Four copies of one checkbox would not be
        * four choices, and hiding them while a run is open made expanding it a
@@ -194,11 +200,11 @@ export function Canvas({
               className="sc-cell-branch"
               data-on={n.id === branchingFrom || undefined}
               onClick={() => onBranch(n.id)}
-              aria-label={`Branch from ${nodeLabel(n)}`}
-              title="Branch from this shot"
+              aria-label={`Refine ${nodeLabel(n)}`}
+              title="Continue from this shot"
             >
-              <GitBranch size={12} />
-              Branch
+              <PencilLine size={12} />
+              Refine
             </button>
           )}
           {picking && (
@@ -224,7 +230,7 @@ export function Canvas({
               onClick={() => onVersions(n.id)}
               aria-label={`Show the ${versions} version${versions === 1 ? '' : 's'} of this shot`}
             >
-              <GitBranch size={11} />
+              <ClockCounterClockwise size={11} />
               {versions} version{versions === 1 ? '' : 's'}
             </button>
           )}
@@ -310,7 +316,7 @@ export function Canvas({
               {parentShot?.images[0] && (
                 <span className="sc-prov">
                   <img src={imgUrl(parentShot.images[0])} alt="" />
-                  edit of
+                  refined from
                 </span>
               )}
               {n.kept && (
@@ -331,7 +337,7 @@ export function Canvas({
           </ContextMenu.Trigger>
           <ContextMenu.Content>
             <ContextMenu.Item onSelect={() => onOpen(n.id)}>Open</ContextMenu.Item>
-            {onBranch && <ContextMenu.Item onSelect={() => onBranch(n.id)}>Branch from this</ContextMenu.Item>}
+            {onBranch && <ContextMenu.Item onSelect={() => onBranch(n.id)}>Refine from this</ContextMenu.Item>}
             {onPick && (
               <ContextMenu.Item onSelect={() => onPick(n.id)}>
                 {chosen ? 'Deselect' : 'Select for set'}

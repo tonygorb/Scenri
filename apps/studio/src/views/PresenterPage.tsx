@@ -142,7 +142,7 @@ export function PresenterPage() {
         </p>
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyPresenter(presenterId)}>
-            Use in a brief
+            Use in a shot
           </button>
         </div>
 

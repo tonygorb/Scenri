@@ -78,7 +78,7 @@ test('the bell is in the bar on every screen', async ({ page }) => {
   for (const path of [
     `/${brand.slug}`,
     `/${brand.slug}/create`,
-    `/${brand.slug}/looks`,
+    `/${brand.slug}/scenes`,
     `/${brand.slug}/kit`,
     `/${brand.slug}/sets/${set.slug}`,
   ]) {
@@ -90,7 +90,7 @@ test('the bell is in the bar on every screen', async ({ page }) => {
 test('opens on Tasks; Notifications starts empty and is keyboard reachable', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
-  await page.goto(`/${brand.slug}/looks`);
+  await page.goto(`/${brand.slug}/scenes`);
 
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
@@ -150,8 +150,8 @@ test('the panel does not follow you to the next screen', async ({ page }) => {
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
 
-  await page.locator('.sc-nav button', { hasText: 'Looks' }).click();
-  await page.waitForURL(/\/looks$/);
+  await page.locator('.sc-nav button', { hasText: 'Scenes' }).click();
+  await page.waitForURL(/\/scenes$/);
   await expect(pop(page)).toHaveCount(0);
 });
 
@@ -182,7 +182,7 @@ test('a notification row opens the shot it is about', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
 
-  await page.goto(`/${brand.slug}/looks`);
+  await page.goto(`/${brand.slug}/scenes`);
   const { nodeId } = await fireAndWalkAway(page, brand.id);
   await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
 

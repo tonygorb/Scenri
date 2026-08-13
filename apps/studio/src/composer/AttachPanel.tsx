@@ -280,7 +280,7 @@ export function AttachPanel({
                     : g === 'Colors'
                       ? 'Brand colors'
                       : g === 'Library'
-                        ? 'Scenri Library'
+                        ? 'Scenri library'
                         : g}
                 </div>
                 <div className="sc-ap-grid">{preview.map(card)}</div>

@@ -4,7 +4,7 @@ import { useBrand } from './BrandLayout.js';
 import { hubPath } from '../routes.js';
 
 /**
- * "Use in a brief" from the Presenters index or a presenter page.
+ * "Use in a shot" from the Presenters index or a presenter page.
  *
  * A presenter attaches straight from the curated catalog, the same way
  * `useApplyScene` attaches a scene — no roster/cast copy step first. The

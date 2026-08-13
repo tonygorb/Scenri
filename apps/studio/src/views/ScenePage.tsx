@@ -183,7 +183,7 @@ export function ScenePage() {
         </p>
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
-            Use this scene
+            Use in a shot
           </button>
           {/* Starred scenes get their own shelf on /scenes, and lead the one on Home. */}
           <button

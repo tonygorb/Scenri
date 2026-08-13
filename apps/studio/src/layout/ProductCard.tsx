@@ -9,7 +9,7 @@ export type ProductCardSize = CatalogCardSize;
 /**
  * The one Product card — same variant/size split as SceneCard/PresenterCard
  * (docs/product/patterns/look-card.md): the caption is name + category (and
- * variant, when set), the fast path is "Use in creation". A thin adapter
+ * variant, when set), the fast path is "Use in a shot". A thin adapter
  * over `CatalogCard` — see CatalogCard.tsx for the shared shell.
  */
 export function ProductCard({
@@ -40,7 +40,7 @@ export function ProductCard({
       title={productLabel(product, 'tooltip')}
       primary={productLabel(product, 'card')}
       secondary={secondary}
-      useLabel="Use in creation"
+      useLabel="Use in a shot"
       variant={variant}
       onOpen={onOpen}
       onUse={onUse}
