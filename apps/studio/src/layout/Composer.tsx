@@ -22,6 +22,7 @@ import {
   type SentenceToken,
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
+import { BrandInherited } from '../composer/BrandInherited.js';
 import { QUALITIES, ShotSettings, type QualityId } from '../composer/ShotSettings.js';
 import { useOpenSettings } from '../views/SettingsDialog.js';
 import { useAppData } from '../app/AppShell.js';
@@ -769,6 +770,8 @@ export const Composer = forwardRef<
           onSubmit={() => void go()}
           onDropFiles={(files) => void pickFiles(files)}
         />
+
+        <BrandInherited brandId={brand.id} revision={brand.updatedAt} active={sentence.some((t) => t.t === 'brand')} />
 
         <div className="sc-prompt-row">
           <div className="sc-prompt-left">

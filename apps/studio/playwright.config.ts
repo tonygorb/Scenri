@@ -43,6 +43,9 @@ export default defineConfig({
       SCENRI_HOST: '127.0.0.1',
       SCENRI_PORT: String(PORT),
       SCENRI_HOME: process.env.SCENRI_E2E_HOME ?? join(tmpdir(), 'scenri-e2e'),
+      // The seed needs one finished shot. The demo engine draws a placeholder
+      // and costs nothing, and it is registered only because this says so.
+      SCENRI_DEMO_ENGINE: '1',
     },
   },
   projects: [

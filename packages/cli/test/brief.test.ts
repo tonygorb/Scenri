@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
-import { compileBrief, briefLabel, type Brief } from '../src/brief.js';
+import { compileBrief, briefLabel, brandDirectives, validateBrief, type Brief } from '../src/brief.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 import { waitDone } from './helpers.js';
 
@@ -247,6 +247,183 @@ describe('compileBrief', () => {
       brandWith(productHash),
     );
     expect(label).toBe('hero of House Blend in Terracotta');
+  });
+});
+
+describe('brandDirectives', () => {
+  const rich = () => ({
+    meta: { name: 'Acme', tagline: 'Slow mornings, fast espresso' },
+    palette: {
+      primary: { hex: '#1f3d2b', name: 'Forest' },
+      secondary: { hex: '#E8DCC8' },
+      accent: [{ hex: '#D96C3B', name: 'Terracotta' }],
+      neutrals: [{ hex: '#111111' }],
+      usage: 'Forest dominates packaging',
+    },
+    imagery: {
+      mood: 'crafted, unhurried, tactile',
+      keywords: ['warm daylight', 'natural textures'],
+      avoid: ['neon', 'corporate stock poses'],
+    },
+    rules: { never: ['competitor logos in frame'], notes: 'Packaging is always upright' },
+  });
+
+  it('is empty for a brand with nothing set, so an untouched kit costs no prompt', () => {
+    expect(brandDirectives({})).toEqual([]);
+    expect(brandDirectives(undefined)).toEqual([]);
+    expect(brandDirectives({ meta: { name: 'Acme' }, palette: {}, imagery: {}, rules: {} })).toEqual([]);
+  });
+
+  it('emits one line per source, in a fixed order', () => {
+    expect(brandDirectives(rich())).toEqual([
+      'Brand palette: Forest (#1F3D2B), #E8DCC8, Terracotta (#D96C3B) — favour these over invented colour.',
+      'Brand color usage: Forest dominates packaging.',
+      'Brand look and feel: crafted, unhurried, tactile.',
+      'Brand look: warm daylight, natural textures.',
+      'Brand look — avoid: neon, corporate stock poses.',
+      'Brand rules — never: competitor logos in frame.',
+      'Brand rules: Packaging is always upright.',
+    ]);
+  });
+
+  it('never emits the tagline: copy in an image prompt gets rendered as copy', () => {
+    expect(brandDirectives(rich()).join(' ')).not.toMatch(/Slow mornings/);
+  });
+
+  it('caps each source so one brand cannot eat the whole prompt', () => {
+    const many = (n: number, p: string) => Array.from({ length: n }, (_, i) => `${p}${i}`);
+    const out = brandDirectives({
+      palette: { accent: many(20, 'c').map((_, i) => ({ hex: `#0000${String(i).padStart(2, '0')}` })) },
+      imagery: { keywords: many(30, 'k'), avoid: many(30, 'a') },
+      rules: { never: many(40, 'n'), notes: 'x'.repeat(900) },
+    });
+    expect(out[0].split(',').length).toBe(6);
+    expect(out.find((l) => l.startsWith('Brand look:'))?.split(',').length).toBe(12);
+    expect(out.find((l) => l.startsWith('Brand rules — never:'))?.split(',').length).toBe(24);
+    expect(out.find((l) => l.startsWith('Brand rules:'))?.length).toBeLessThan(620);
+  });
+
+  it('drops blank entries rather than emitting an empty clause', () => {
+    expect(brandDirectives({ imagery: { keywords: ['  ', '', 'warm'] } })).toEqual(['Brand look: warm.']);
+  });
+
+  it('ranks after the shot directives and before the scene guards', () => {
+    const r = compileBrief(
+      {
+        tokens: [{ t: 'product', id: 'p1' }, { t: 'brand' }, { t: 'template', id: 'studio-polished-pedestal' }],
+      },
+      ctx({ brand: { ...brandWith(productHash), ...rich() }, templateById: resolveScene }),
+    );
+    const product = r.prompt.indexOf('preserve its label');
+    const brand = r.prompt.indexOf('Brand palette:');
+    const guard = r.prompt.indexOf('Disregard any product');
+    expect(product).toBeGreaterThan(-1);
+    expect(brand).toBeGreaterThan(product);
+    expect(guard).toBeGreaterThan(brand);
+  });
+
+  it('the Brand prefix keeps a brand avoid from colliding with a product avoid', () => {
+    const brand = {
+      ...rich(),
+      products: [
+        { id: 'p1', name: 'House Blend', shots: [{ file: `asset:${productHash}` }], negativeConstraints: ['neon'] },
+      ],
+    };
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }, { t: 'brand' }] }, ctx({ brand }));
+    expect(r.prompt).toContain('Avoid: neon');
+    expect(r.prompt).toContain('Brand look — avoid: neon');
+  });
+
+  // The kit is something a user reaches for. A brief that does not ask for it
+  // must come back byte-identical to one compiled for a brand with no kit at
+  // all — that is the whole guarantee this rewrite is for.
+  it('adds nothing at all unless the brief asks for it', () => {
+    const brand = { ...brandWith(productHash), ...rich() };
+    const tokens: Brief['tokens'] = [
+      { t: 'product', id: 'p1' },
+      { t: 'template', id: 'studio-polished-pedestal' },
+    ];
+    const plain = compileBrief({ tokens }, ctx({ brand, templateById: resolveScene }));
+    const asked = compileBrief({ tokens: [...tokens, { t: 'brand' }] }, ctx({ brand, templateById: resolveScene }));
+    expect(plain.prompt).not.toContain('Brand ');
+    expect(plain.prompt).toContain('preserve its label');
+    expect(plain.prompt).toContain('Disregard any product');
+    expect(asked.prompt).toContain('Brand palette:');
+    expect(asked.attachments).toEqual(plain.attachments);
+  });
+
+  it('asks once however many times it is asked', () => {
+    const brand = { ...brandWith(productHash), ...rich() };
+    const r = compileBrief({ tokens: [{ t: 'brand' }, { t: 'text', v: 'a mug' }, { t: 'brand' }] }, ctx({ brand }));
+    expect(r.prompt.match(/Brand palette:/g)).toHaveLength(1);
+  });
+
+  it('says so when the kit it was asked for is empty', () => {
+    const r = compileBrief({ tokens: [{ t: 'brand' }] }, ctx({ brand: { meta: { name: 'Bare' } } }));
+    expect(r.warnings).toEqual(['The brand kit is empty, so this chip added nothing.']);
+    expect(r.prompt).not.toContain('Brand ');
+  });
+});
+
+describe('brand mark token', () => {
+  const brandWithLogo = (hash: string) => ({
+    ...brandWith(productHash),
+    logos: [{ role: 'wordmark', file: `asset:${hash}` }],
+  });
+
+  it('attaches the mark as a brand-role reference and asks for it to be drawn exactly', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const r = compileBrief({ tokens: [{ t: 'mark', imageHash: logoHash }] }, ctx({ brand: brandWithLogo(logoHash) }));
+    expect(r.attachments).toEqual([{ role: 'brand', label: 'Acme wordmark', hash: logoHash }]);
+    expect(r.attachments[0].essential).toBeUndefined();
+    expect(r.prompt).toContain('reproduce it exactly as drawn');
+    expect(r.warnings).toEqual([]);
+  });
+
+  it('warns rather than attaching when the mark has left the kit', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const r = compileBrief({ tokens: [{ t: 'mark', imageHash: logoHash }] }, ctx({ brand: brandWith(productHash) }));
+    expect(r.attachments).toEqual([]);
+    expect(r.warnings).toEqual(['A brand mark in this brief is no longer in the kit.']);
+  });
+
+  // The mark is decoration, not identity: under a tight cap it must lose to the
+  // product it is meant to sit beside, and losing it must never refuse the shot.
+  it('is dropped before any product angle when the engine cap bites', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const a2 = core.images.save(Buffer.from('angle-2'));
+    const brand = {
+      ...brandWithLogo(logoHash),
+      products: [
+        {
+          id: 'p1',
+          name: 'House Blend',
+          shots: [{ file: `asset:${productHash}` }, { file: `asset:${a2}` }],
+        },
+      ],
+    };
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'mark', imageHash: logoHash },
+          { t: 'product', id: 'p1' },
+        ],
+      },
+      ctx({ brand, engineCaps: caps(2) }),
+    );
+    expect(r.attachments.map((a) => a.role)).toEqual(['product', 'product']);
+    expect(r.dropped.map((d) => d.role)).toEqual(['brand']);
+    expect(r.warnings.join(' ')).toContain('Acme wordmark');
+  });
+});
+
+describe('validateBrief', () => {
+  it('accepts a mark token and a brand token', () => {
+    expect(validateBrief({ tokens: [{ t: 'mark', imageHash: 'abc' }, { t: 'brand' }] })).toEqual([]);
+    expect(validateBrief({ tokens: [] })).toEqual([]);
+  });
+  it('rejects a mark with no image', () => {
+    expect(validateBrief({ tokens: [{ t: 'mark' }] })).toEqual(['tokens[0].imageHash must be a non-empty string']);
   });
 });
 

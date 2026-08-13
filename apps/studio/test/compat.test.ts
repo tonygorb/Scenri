@@ -38,7 +38,7 @@ describe('isRecommendedScene', () => {
 
 describe('isRecommendedPresenter', () => {
   it("is recommended when the product category maps to one of the presenter's suitable categories", () => {
-    expect(isRecommendedPresenter({ suitableCategories: ['Footwear', 'Fitness'] }, 'footwear')).toBe(true);
+    expect(isRecommendedPresenter({ suitableCategories: ['Footwear', 'Sport'] }, 'footwear')).toBe(true);
   });
 
   it('is not recommended when the mapped category is absent', () => {
@@ -53,8 +53,9 @@ describe('isRecommendedPresenter', () => {
     expect(isRecommendedPresenter({ suitableCategories: ['Beauty', 'Footwear'] }, 'other')).toBe(false);
   });
 
-  it('an electronics product matches a presenter suitable for "Technology" — real presenter data never says "Electronics"', () => {
-    expect(isRecommendedPresenter({ suitableCategories: ['Technology'] }, 'electronics')).toBe(true);
+  it('an electronics product matches an "Electronics" presenter — the roster no longer says "Technology"', () => {
+    expect(isRecommendedPresenter({ suitableCategories: ['Electronics'] }, 'electronics')).toBe(true);
+    expect(isRecommendedPresenter({ suitableCategories: ['Technology'] }, 'electronics')).toBe(false);
   });
 
   it('a footwear product also matches an "Apparel"-suitable presenter', () => {

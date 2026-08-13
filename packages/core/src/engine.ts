@@ -13,10 +13,47 @@
 /** Why a reference image is attached — the compiler's only defence against one image bleeding into a dimension it does not own. */
 export type ReferenceRole = 'product' | 'character' | 'brand' | 'scene' | 'composition' | 'style' | 'reference';
 
+/**
+ * What each reference role means, in the words an adapter puts in front of the
+ * model. One map, shared by every adapter: when these lived per-engine the same
+ * role meant subtly different things on codex and on openrouter, so the same
+ * brief produced differently-constrained images depending on where it ran.
+ */
+export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
+  product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
+  character: 'the exact person — preserve their face, hair and build faithfully; do not restyle them',
+  brand:
+    "the brand's own mark — if the direction calls for the mark to appear, reproduce it exactly as drawn, same colours, letterforms and proportions; otherwise take only its colour and treatment, and never its subject, geometry or composition",
+  scene: 'a reference for the environment and light only — take no subject, product or person from it',
+  composition:
+    'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
+  style: 'a reference for overall treatment and mood only — take no composition, subject or product detail from it',
+  reference: 'a reference to match in composition, lighting and treatment',
+};
+
+/** The same contract, compressed for edit prompts where the source image already carries the subject. */
+export const EDIT_REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
+  product: 'the exact product: keep or restore its label, shape and design faithfully',
+  character: 'the exact person: keep their face, hair and build faithfully',
+  brand: "the brand's own mark: reproduce it exactly as drawn wherever it appears, never redrawn or re-lettered",
+  scene: 'a reference for environment and light only',
+  composition: 'a reference for framing and pose only',
+  style: 'a reference for treatment and mood only',
+  reference: 'a reference for composition, lighting and treatment only',
+};
+
 export interface BrandContext {
   /** Parsed brand.json (see @scenri/brand). Injected into generation. */
   brand: unknown;
-  /** Absolute paths of resolved brand assets (logos, style refs, locked shots). */
+  /**
+   * Absolute paths of resolved brand assets (logos, style refs, locked shots).
+   *
+   * Informational only — no adapter reads this, and none should. An image
+   * reaches a model exactly one way: as a compiled attachment with a role, so
+   * that the composer's preview and the engine's input can never disagree about
+   * what was sent. To put a logo in front of a model, attach it as a `brand`
+   * reference (see the `mark` brief token), not from here.
+   */
   assetPaths: Record<string, string>;
 }
 

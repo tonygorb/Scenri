@@ -142,6 +142,26 @@
         }
       }
     },
+    "rules": {
+      "type": "object",
+      "description": "Brand-level generation constraints. Applied to every brief unless a shot is explicitly taken off-brand. `never` is a list of short prohibitions; `notes` is free prose injected verbatim (design rule 3).",
+      "additionalProperties": false,
+      "properties": {
+        "never": {
+          "type": "array",
+          "maxItems": 24,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
     "voice": {
       "type": "object",
       "additionalProperties": false,

@@ -9,7 +9,7 @@
   "hair": "long straight dark-brown hair, precise center part, tucked behind the ears",
   "build": "tall, lean runway build with square shoulders",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Fashion", "Apparel", "Accessories"],
+  "suitableCategories": ["Apparel", "Accessories"],
   "suitableStyles": ["Editorial"],
   "identityNotes": "the sharp cheekbones, ice-grey eyes and precise center part must survive every generation — do not soften the bone structure, warm the eye color, or wave the hair",
   "negativeConstraints": ["no smiling wide", "no wavy or tousled hair", "no warmed-up golden skin grade"],

@@ -1474,6 +1474,14 @@ select {
   border-radius: 50%;
   object-fit: cover;
 }
+/* A mark is usually dark art on transparency, which is invisible on a dark
+   chip — and it is a logo, so cropping it to a circle is worse than shrinking
+   it. Ground it in white and letterbox instead. */
+.sc-token[data-kind="mark"] img {
+  border-radius: var(--sc-radius-xs);
+  object-fit: contain;
+  background: #fff;
+}
 .sc-token button {
   border: none;
   background: none;
@@ -3335,18 +3343,129 @@ select {
   }
 }
 
-/* ---------- brand kit page ---------- */
-.sc-brandpage {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 30px 24px 90px;
-}
-.sc-kit-hero {
+/* ---------- chips input + dropzone (shared form primitives) ---------- */
+.sc-chips {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 30px;
+  gap: 6px;
+  min-height: 32px;
+  margin: 0 -7px;
+  padding: 3px 7px;
+  /* Chrome-less at rest, like every other value on the brand board: a bordered
+     box here was the last thing making the page read as a settings form. */
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--sc-radius);
+  transition: background 120ms ease, border-color 120ms ease;
 }
+.sc-chips:hover {
+  background: var(--sc-hover);
+}
+.sc-chips:focus-within {
+  background: var(--sc-well);
+  border-color: var(--sc-focus);
+}
+.sc-chips-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 4px 3px 9px;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--sc-fg);
+  background: var(--sc-chip);
+  border-radius: var(--sc-radius-full);
+}
+.sc-chips-item > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-chips-item button {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--sc-fg3);
+  background: none;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.sc-chips-item button:hover {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+.sc-chips-in {
+  flex: 1 1 90px;
+  min-width: 90px;
+  height: 22px;
+  padding: 0 2px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--sc-fg);
+  background: none;
+  border: 0;
+  outline: none;
+}
+.sc-chips-in::placeholder {
+  color: var(--sc-fg3);
+}
+
+.sc-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 96px;
+  padding: 14px 12px;
+  color: var(--sc-fg2);
+  background: var(--sc-well);
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+.sc-dropzone:hover:not(:disabled) {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
+}
+.sc-dropzone:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.sc-dropzone[data-drag-over] {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+  border-color: var(--sc-focus);
+  border-style: solid;
+}
+.sc-dropzone-label {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.sc-dropzone small {
+  font-size: 11px;
+  color: var(--sc-fg3);
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-chips,
+  .sc-chips-item button,
+  .sc-dropzone {
+    transition: none;
+  }
+}
+
+/* ---------- brand kit leftovers still used elsewhere ---------- */
+
+
 .sc-kit-logo {
   width: 64px;
   height: 64px;
@@ -3365,153 +3484,561 @@ select {
   object-fit: contain;
   display: block;
 }
-.sc-kit-hero h1 {
-  font-family: var(--sc-font-display);
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin: 0;
-}
-.sc-kit-hero h1 em {
-  font-family: var(--sc-font-accent);
-  font-style: italic;
-  font-weight: 500;
-  font-size: 28px;
-}
-.sc-kit-hero p {
-  color: var(--sc-fg2);
-  max-width: 560px;
-  font-size: 12.5px;
-  margin: 2px 0 0;
-}
+
+
+
 .sc-kit-sec {
   margin-bottom: 28px;
 }
-.sc-palette {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ---------- colour picker (react-colorful in our own popover) ---------- */
+/*
+ * The library ships its own class names and injects its own stylesheet; these
+ * rules re-dress it rather than fight it, so nothing here depends on internals
+ * beyond the two public hooks it documents (`.react-colorful__*`).
+ */
+.sc-cp {
+  padding: 10px;
+  /* Above the settings dialog it is usually opened from — see the z-index
+     ladder at the top of this file (dialog 95, toasts 100). */
+  z-index: 96;
 }
-.sc-palcol {
-  position: relative;
-  flex: 1;
-  min-width: 120px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  overflow: hidden;
-  background: var(--sc-panel);
-}
-.sc-palcol .sc-palfill {
-  position: relative;
-  height: 74px;
-  display: block;
-  cursor: pointer;
-}
-/* The swatch is the picker trigger: the native input sits over it, invisible
-   but real, so the OS color picker opens on click with no custom UI to build. */
-.sc-palcol .sc-palfill input[type="color"] {
-  position: absolute;
-  inset: 0;
+.sc-cp .react-colorful {
   width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  border: none;
-  padding: 0;
+  height: 168px;
+  gap: 8px;
 }
-.sc-palcol .sc-palmeta {
-  padding: 9px 12px;
+.sc-cp .react-colorful__saturation {
+  border-radius: var(--sc-radius);
+  border-bottom: none;
 }
-.sc-palcol b {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
+.sc-cp .react-colorful__hue {
+  height: 12px;
+  border-radius: var(--sc-radius-full);
 }
-.sc-palname {
-  display: block;
-  width: 100%;
-  border: none;
-  background: none;
-  padding: 0;
-  margin: 0 0 1px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sc-fg);
+.sc-cp .react-colorful__pointer {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
 }
-.sc-palname:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
-  border-radius: 3px;
-}
-.sc-palname::placeholder {
-  color: var(--sc-fg3);
-  font-weight: 500;
-}
-.sc-palcol small {
-  color: var(--sc-fg3);
-  font-size: 11px;
-  font-family: var(--sc-font-mono);
-}
-.sc-palremove {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fff;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-.sc-palcol:hover .sc-palremove,
-.sc-palremove:focus-visible {
-  opacity: 1;
-}
-.sc-palremove:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 1px;
-}
-.sc-palette-empty {
-  color: var(--sc-fg3);
-  font-size: 12.5px;
-  margin: 0;
-}
-/* The favorites shelf lives in the kit column, not the gallery, so it keeps a
-   smaller floor than --sc-tile: four cards across 872px, and it counts columns
-   instead of pinning four, so a wider kit column adds cards rather than
-   stretching them. */
-.sc-lookgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-@media (max-width: 860px) {
-  .sc-lookgrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-.sc-danger {
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-panel);
-  padding: 14px 16px;
+.sc-cp-foot {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  margin-top: 10px;
 }
-.sc-danger b {
-  font-size: 13px;
+.sc-cp-preview {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--sc-radius-sm);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+}
+.sc-cp-hex {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  font-family: var(--sc-font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--sc-fg);
+  background: var(--sc-well);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+}
+.sc-cp-hex:focus {
+  outline: none;
+  border-color: var(--sc-focus);
+}
+.sc-cp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-cp-presets button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+}
+.sc-cp-presets button[data-on] {
+  box-shadow: 0 0 0 2px var(--sc-bg), 0 0 0 3px var(--sc-fg);
+}
+/* Default trigger for callers that do not supply their own. */
+.sc-cp-trigger {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-sm);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+  cursor: pointer;
+}
+.sc-swatch-custom {
+  position: relative;
+}
+
+/* ---------- brand kit pane (inside Settings) ---------- */
+/*
+ * Built from this dialog's own grammar: Group -> .sc-set-card -> rows. Nothing
+ * here invents a second visual language, and nothing piggy-backs on
+ * `.sc-set-row` — that rule is `display:flex` and lives thousands of lines
+ * further down the sheet, so a block that borrowed its class had its children
+ * silently laid out side by side.
+ */
+
+/* A card section whose content is a block rather than a label/control pair. */
+.sc-set-block {
+  padding: 14px 16px;
+}
+.sc-set-in {
+  width: 190px;
+  flex: none;
+  height: 34px;
+  margin-bottom: 0;
+}
+.sc-tag[data-state="error"] {
+  color: var(--sc-red);
+}
+
+/* ---- edit in place ---- */
+.sc-edit {
+  /*
+   * Sized to its own text, not to its container. As a full-width block the
+   * hover rectangle stretched across the whole pane, so pointing at empty space
+   * far from the words lit up a bar — which is what made these fields feel like
+   * they were reacting to the wrong thing.
+   */
   display: block;
+  width: auto;
+  max-width: 100%;
+  min-width: 6ch;
+  field-sizing: content;
+  margin: -2px -6px;
+  padding: 2px 6px;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--sc-radius-sm);
+  transition: background 120ms ease, border-color 120ms ease;
 }
-.sc-danger small {
+@supports not (field-sizing: content) {
+  .sc-edit {
+    width: 100%;
+  }
+}
+.sc-edit::placeholder {
   color: var(--sc-fg3);
-  display: block;
+  opacity: 1;
+}
+/* One tint for every field. Mixing against `currentColor` gave the name a white
+   wash and the tagline a grey one — the same gesture reading as two controls. */
+.sc-edit:hover {
+  background: var(--sc-hover);
+}
+.sc-edit:focus {
+  outline: none;
+  background: var(--sc-well);
+  border-color: var(--sc-focus);
+}
+/* Matches `.sc-set-row b` — this is a settings row, not a hero. */
+.sc-edit[data-variant="name"] {
+  font: 600 13px var(--sc-font);
+}
+/* Matches `.sc-set-row small`. */
+.sc-edit[data-variant="lede"] {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sc-fg3);
+}
+textarea.sc-edit {
+  resize: none;
+  overflow: hidden;
+  min-height: 1.4em;
+}
+/* Two lines is a tagline; more is a paragraph that belongs in Direction. */
+textarea.sc-edit[data-variant="lede"] {
+  max-height: 2.9em;
+}
+
+/* ---- identity ---- */
+.sc-ident {
+  transition: box-shadow 120ms ease;
+}
+.sc-ident[data-drag-over] {
+  box-shadow: inset 0 0 0 2px var(--sc-focus);
+  border-radius: var(--sc-radius-lg);
+}
+.sc-well-wrap {
+  position: relative;
+  flex: none;
+}
+/* Same footprint as `.sc-eng-ic` in the engines pane next door. */
+.sc-well {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  padding: 4px;
+  overflow: hidden;
+  /* A mark is usually transparent art, so the well states what it sits on —
+     a dark wordmark on a dark panel is an empty box. */
+  background: #ffffff;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+}
+.sc-well[data-bg="dark"] {
+  background: #111111;
+}
+.sc-well[data-empty] {
+  color: var(--sc-fg3);
+  background: var(--sc-raised);
+  border-style: dashed;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.sc-well[data-empty]:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-well img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.sc-well-acts,
+.sc-mark-edit {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 3;
+  display: none;
+  gap: 4px;
+  padding: 6px;
+  background: var(--sc-panel);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  box-shadow: var(--sc-shadow-2);
+}
+.sc-well-wrap:hover .sc-well-acts,
+.sc-well-wrap:focus-within .sc-well-acts,
+.sc-mark:hover .sc-mark-edit,
+.sc-mark:focus-within .sc-mark-edit {
+  display: flex;
+}
+.sc-well-acts select,
+.sc-mark-edit select {
+  height: 24px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--sc-fg2);
+  background: var(--sc-well);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  cursor: pointer;
+}
+.sc-well-acts button,
+.sc-mark-edit button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--sc-fg3);
+  background: none;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  cursor: pointer;
+}
+.sc-well-acts button:hover,
+.sc-mark-edit button:hover {
+  color: var(--sc-red);
+}
+
+/* alternate marks */
+.sc-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 12px 62px;
+}
+.sc-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 34px;
+  padding: 5px;
+  background: #ffffff;
+  border-radius: var(--sc-radius-sm);
+}
+.sc-mark[data-bg="dark"] {
+  background: #111111;
+}
+.sc-mark img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.sc-marks-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--sc-fg3);
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.sc-marks-add:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+
+/* ---- palette ---- */
+.sc-pal {
+  display: grid;
+  gap: 2px;
+}
+.sc-pal-empty {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--sc-fg3);
+}
+.sc-pal-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 84px 26px;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+}
+/* Grounds and surfaces, below the colours a shot is told to favour. */
+.sc-pal-group {
+  margin: 12px 0 2px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-fg3);
+}
+.sc-pal-chip {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-sm);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+  cursor: pointer;
+}
+.sc-pal-chip:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-pal-name,
+.sc-pal-hex {
+  min-width: 0;
+  height: 28px;
+  padding: 0 7px;
+  font: inherit;
+  color: var(--sc-fg);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--sc-radius-sm);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.sc-pal-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+.sc-pal-hex {
+  font-family: var(--sc-font-mono);
+  font-size: 11.5px;
+  color: var(--sc-fg3);
+  text-transform: uppercase;
+}
+.sc-pal-name::placeholder {
+  color: var(--sc-fg3);
+}
+.sc-pal-name:hover,
+.sc-pal-hex:hover {
+  background: var(--sc-hover);
+}
+.sc-pal-name:focus,
+.sc-pal-hex:focus {
+  outline: none;
+  background: var(--sc-well);
+  border-color: var(--sc-focus);
+}
+/*
+ * Always visible, never behind a hover or a menu. Hiding it tidied the row and
+ * made removing a colour an affordance you had to discover — tidy is not worth
+ * unreachable.
+ */
+.sc-pal-act {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--sc-fg3);
+  background: none;
+  border: 0;
+  border-radius: var(--sc-radius-sm);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.sc-pal-act:hover:not(:disabled) {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+.sc-pal-act[data-danger]:hover {
+  color: var(--sc-red);
+}
+.sc-pal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-pal-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sc-fg2);
+  background: none;
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.sc-pal-add:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-pal-sugg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--sc-fg3);
+}
+.sc-pal-sugg-chip {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+}
+
+/* ---- we never ---- */
+.sc-nv {
+  display: grid;
+  gap: 6px;
+}
+.sc-nv-hint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--sc-fg3);
+}
+/* The rules read as prohibitions, so they carry the warning colour the rest of
+   the app already uses for one. */
+.sc-nv .sc-chips-item {
+  background: color-mix(in srgb, var(--sc-red) 14%, transparent);
+}
+/* Suggestions: the same filter pill used everywhere else, so "one tap adds
+   this" needs no explaining. */
+.sc-chips-sugg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sc-chips-sugg .sc-chip {
+  gap: 5px;
+  color: var(--sc-fg3);
+  border-style: dashed;
+}
+.sc-chips-sugg .sc-chip:hover {
+  color: var(--sc-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-edit,
+  .sc-ident,
+  .sc-well[data-empty],
+  .sc-marks-add,
+  .sc-pal-name,
+  .sc-pal-hex,
+  .sc-pal-x,
+  .sc-pal-add {
+    transition: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .sc-set-in {
+    width: 130px;
+  }
+  /* The hex drops under the name rather than squeezing it to nothing. */
+  .sc-pal-row {
+    grid-template-columns: 26px minmax(0, 1fr) 26px;
+    grid-template-areas: "chip name act" ". hex .";
+    row-gap: 2px;
+  }
+  .sc-pal-chip {
+    grid-area: chip;
+  }
+  .sc-pal-name {
+    grid-area: name;
+  }
+  .sc-pal-hex {
+    grid-area: hex;
+    justify-self: start;
+    width: 84px;
+  }
+  .sc-pal-act {
+    grid-area: act;
+  }
+  .sc-marks {
+    padding-left: 16px;
+  }
 }
 
 /* ---------- brand setup wizard ---------- */
@@ -4225,12 +4752,6 @@ select {
   .sc-canvas-alert {
     margin-top: 12px;
   }
-  .sc-brandpage {
-    padding: 20px 14px 80px;
-  }
-  .sc-kit-hero {
-    flex-wrap: wrap;
-  }
 }
 @media (max-width: 479px) {
   .sc-feed {
@@ -4334,6 +4855,49 @@ select {
   color: var(--sc-fg);
   background: var(--sc-hover);
 }
+/* what the brand kit is adding to this shot, where the prompt is written */
+.sc-inherit {
+  margin: 0 0 6px;
+}
+.sc-inherit-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 6px;
+  font-size: 11px;
+  color: var(--sc-fg3);
+  background: none;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.sc-inherit-head:hover {
+  color: var(--sc-fg2);
+  background: var(--sc-hover);
+}
+.sc-inherit-body {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 9px 11px;
+  background: var(--sc-well);
+  border-radius: var(--sc-radius);
+}
+.sc-inherit-body p {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--sc-fg3);
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-inherit-head {
+    transition: none;
+  }
+}
+
 .sc-send {
   width: 34px;
   height: 34px;
@@ -4933,7 +5497,7 @@ select {
 
 .sc-looks {
   max-width: none;
-  padding: 8px 24px 96px;
+  padding: 16px 24px 96px;
 }
 
 /* Category rail — underlined text tabs (Home + library FacetFilter).
@@ -4944,21 +5508,21 @@ select {
   position: sticky;
   top: 0;
   z-index: 20;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   background: var(--sc-bg);
-  border-bottom: 1px solid var(--sc-line);
 }
 .sc-verticals {
   position: relative;
   display: flex;
   align-items: flex-end;
-  gap: 22px;
+  gap: 24px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 10px 0 0;
+  /* 1px bottom padding keeps the 1.5px ink inside the overflow clip box. */
+  padding: 8px 0 1px;
 }
 .sc-verticals::-webkit-scrollbar {
   display: none;
@@ -5001,8 +5565,7 @@ select {
   flex: 0 0 auto;
   border: none;
   background: none;
-  padding: 4px 0 12px;
-  margin-bottom: -1px;
+  padding: 8px 0 16px;
   white-space: nowrap;
   font: 400 17px var(--sc-font);
   letter-spacing: -0.022em;
@@ -5020,7 +5583,7 @@ select {
 .sc-verticals-ink {
   position: absolute;
   left: 0;
-  bottom: -1px;
+  bottom: 0;
   height: 1.5px;
   width: var(--sc-ink-w, 0px);
   background: var(--sc-fg);
@@ -5042,7 +5605,7 @@ select {
   display: inline;
 }
 .sc-vcount {
-  margin-left: 4px;
+  margin-left: 5px;
   font-size: 10px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -5061,52 +5624,59 @@ select {
   }
 }
 
-/* One sticky toolbar for title + tabs + search + primary action together.
-   A page title alone on one full-width row, then a filter row alone on the
-   next, reads as two mostly-empty rows with a gap between them — accurate
-   per-element spacing, but the composition itself is thin. One row holds
-   together at any content density: title-only, title+search, or
-   title+tabs+search+action all read as one deliberate toolbar instead of a
-   stack of near-empty bands.
-   .sc-verticals-shell keeps sticky/border/padding when used alone
-   (e.g. Presenters, which has no search); nested here, the wrapper takes
-   over those properties so everything shares one background, one border,
-   one sticky plane. */
+/* One sticky row for tabs + search + density + primary action.
+   Home is the same chrome with only tabs + density. Nested .sc-verticals-shell
+   drops its own sticky so everything shares one background, one sticky plane.
+   No full-width hairline — the sliding ink is the only underline. */
 .sc-filterbar {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
   align-items: flex-end;
-  gap: 16px;
-  padding: 10px 0 0;
-  margin-bottom: 32px;
+  gap: 24px;
+  padding: 8px 0 0;
+  margin-bottom: 24px;
   background: var(--sc-bg);
-  border-bottom: 1px solid var(--sc-line);
 }
 .sc-filterbar-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-shrink: 0;
   margin-left: auto;
-  /* Sit with the tab labels, not the underline slot under them. */
-  padding-bottom: 12px;
+  /* Sit with the tab labels, not the ink slot under them. */
+  padding-bottom: 8px;
 }
 .sc-filterbar-actions .sc-sec-more {
   margin-left: 0;
 }
+/* The density toggle ships at 32px and both its neighbours are 34px, which
+   left it a pixel proud at each edge — the kind of gap you feel before you
+   can name it. */
+.sc-filterbar-actions .sc-density {
+  height: 34px;
+}
+.sc-filterbar-actions .sc-density-opt {
+  height: 28px;
+}
 .sc-filterbar .sc-verticals-shell {
-  position: static;
+  /* `relative`, not `static`. The rail's edge fades are `position: absolute`
+     pseudo-elements on this shell, so a static shell hands them the nearest
+     positioned ancestor instead — which is `.sc-filterbar`, itself sticky.
+     The right-hand fade then pinned itself to the end of the whole toolbar
+     and painted across search, the grid toggle and the primary action at
+     z-index 3. Relative makes the rail a real column again and confines the
+     gradient to it. */
+  position: relative;
   z-index: auto;
   margin-bottom: 0;
   background: none;
-  border-bottom: none;
   flex: 1;
   min-width: 0;
 }
 .sc-filterbar .sc-verticals {
-  padding: 0;
+  padding: 0 0 1px;
 }
 
 /* ---------- Creative Library shell (Products, Presenters, Scenes) ----------
@@ -5115,7 +5685,7 @@ select {
 .sc-lib-count {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 12.5px;
   color: var(--sc-fg3);
   white-space: nowrap;
@@ -5146,18 +5716,198 @@ select {
   justify-content: center;
   margin: 34px 0 0;
 }
-@media (max-width: 767px) {
-  .sc-filterbar {
-    flex-wrap: wrap;
-  }
-  /* Full-width rail on wrap so horizontal pan has a clear track. */
-  .sc-filterbar .sc-verticals-shell {
-    flex: 1 1 100%;
-  }
-  .sc-verticals {
-    gap: 18px;
+
+/* ---------- Search ----------
+   One 34px target at rest, the same height and pill shape as the controls
+   beside it. These pages are for looking at pictures, and a resting input is
+   the loudest object above the grid, so the field is something you ask for.
+
+   The field is absolutely positioned over the rail rather than pushed into the
+   row, and the wrapper stays exactly 34px whether it is open or shut. That is
+   the whole trick: opening, typing, clearing and closing move nothing — not
+   the rail, not the toolbar's height, not the grid. */
+.sc-libsearch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 34px;
+}
+.sc-libsearch-toggle {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  /* Opaque, not transparent: the rail's edge fade ends right beside this and
+     read as lying across the button whenever it could show through. */
+  background: var(--sc-bg);
+  color: var(--sc-fg2);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+.sc-libsearch-toggle:hover {
+  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
+  color: var(--sc-fg);
+}
+.sc-libsearch-toggle:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-libsearch[data-open] .sc-libsearch-toggle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sc-libsearch-field {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  padding: 0 8px 0 14px;
+  border: 1px solid var(--sc-line-strong);
+  /* Keeps the pill it grew out of, so open and shut are one object, not two. */
+  border-radius: var(--sc-radius-full);
+  /* It floats above the rail, so it is one of the few things allowed a shadow. */
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-2);
+  color: var(--sc-fg3);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  /* No open/close animation: a control you reach for should already be there
+     when your eye arrives. The only thing that eases here is the clear
+     button's fade, which happens mid-edit rather than on the way in. */
+}
+.sc-libsearch[data-open] .sc-libsearch-field {
+  width: 280px;
+  opacity: 1;
+  pointer-events: auto;
+}
+.sc-libsearch:focus-within .sc-libsearch-field {
+  border-color: var(--sc-focus);
+}
+.sc-libsearch-field > svg {
+  flex: none;
+}
+.sc-libsearch-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--sc-fg);
+  font: 400 13px var(--sc-font);
+}
+.sc-libsearch-field input::placeholder {
+  color: var(--sc-fg3);
+}
+/* The native affordance duplicates .sc-libsearch-clear and can't be styled. */
+.sc-libsearch-field input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.sc-libsearch-clear {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
+}
+.sc-libsearch-clear[hidden] {
+  display: grid;
+  opacity: 0;
+  pointer-events: none;
+}
+.sc-libsearch-clear:hover {
+  background: var(--sc-chip);
+  color: var(--sc-fg);
+}
+.sc-libsearch-clear:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-libsearch-toggle,
+  .sc-libsearch-clear {
+    transition: none;
   }
 }
+@media (max-width: 767px) {
+  .sc-verticals {
+    gap: 16px;
+  }
+}
+
+/* ---------- Below 1280px ----------
+   The primary action is portalled into the top bar (TopBar.tsx), so the row
+   holds only the rail and search — which is the whole reason they can share
+   one line here instead of wrapping onto two. */
+@media (max-width: 1279px) {
+  .sc-filterbar {
+    flex-wrap: nowrap;
+  }
+  .sc-filterbar .sc-verticals-shell {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sc-filterbar-actions {
+    gap: 8px;
+  }
+  /* A count, a Clear, a rail and a field do not fit a phone row. The rail's
+     "every" tab and the field's own clear button are both still one tap away,
+     so nothing here is the only way out of a filter. */
+  .sc-filterbar .sc-lib-count {
+    display: none;
+  }
+
+  /* Open, the field takes the row rather than floating over the tabs — an
+     overlay reads as a panel that landed on top of the page, and the tabs
+     underneath still looked interactive. It replaces them instead. */
+  .sc-filterbar:has(.sc-libsearch[data-open]) .sc-verticals-shell {
+    display: none;
+  }
+  .sc-filterbar:has(.sc-libsearch[data-open]) .sc-filterbar-actions {
+    flex: 1;
+    min-width: 0;
+    margin-left: 0;
+  }
+  .sc-libsearch:has(.sc-libsearch-field) {
+    min-width: 34px;
+  }
+  .sc-libsearch[data-open] {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+  .sc-libsearch[data-open] .sc-libsearch-field {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+  }
+}
+
 
 .sc-coll {
   margin-bottom: 46px;
@@ -5269,6 +6019,53 @@ select {
 .sc-lookcard[data-variant="select"]:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 2px;
+}
+/* Star sits in the media's top-right, over the veil. Hidden until the card is
+   hovered so a wall of scenes stays a wall of pictures — except when it is on,
+   which is the whole point of a star, and except on touch, where there is no
+   hover to reveal it. */
+.sc-lookcard-star {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.42);
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.16s ease, color 0.12s ease, background 0.12s ease;
+}
+.sc-lookcard:hover .sc-lookcard-star,
+.sc-lookcard-star:focus-visible,
+.sc-lookcard-star[data-on] {
+  opacity: 1;
+}
+.sc-lookcard-star:hover {
+  background: rgba(0, 0, 0, 0.62);
+}
+.sc-lookcard-star[data-on] {
+  color: var(--sc-star);
+}
+.sc-lookcard-star:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+@media (hover: none) {
+  .sc-lookcard-star {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-lookcard-star {
+    transition: none;
+  }
 }
 .sc-lookcard-veil {
   position: absolute;
@@ -5398,7 +6195,6 @@ select {
    Pill → create; second tap on image → detail. */
 @media (hover: none) {
   .sc-masonry,
-  .sc-lookgrid,
   .sc-wiz-looks {
     row-gap: 22px;
     column-gap: 12px;
@@ -7161,7 +7957,7 @@ select {
   padding: 26px var(--sc-gutter) 230px;
 }
 .sc-looks {
-  padding: 8px var(--sc-gutter) 96px;
+  padding: 16px var(--sc-gutter) 96px;
 }
 @media (max-width: 767px) {
   :root {

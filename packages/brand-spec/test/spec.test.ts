@@ -13,10 +13,31 @@ describe('validateBrand', () => {
       typography: { display: { family: 'Canela', weights: [500] } },
       logos: [{ role: 'primary', file: 'assets/logo.svg', background: 'light' }],
       products: [{ id: 'bag', name: 'Bag', shots: [{ file: 'assets/bag.png', locked: true }] }],
+      rules: { never: ['competitor logos in frame'], notes: 'Packaging always upright.' },
       extensions: { 'dev.scenri.studio': { theme: 'dark' } },
     });
     expect(r.errors).toEqual([]);
     expect(r.valid).toBe(true);
+  });
+  it('accepts brand rules, and a brand without them', () => {
+    const base = { specVersion: '0.1', meta: { name: 'Acme' } };
+    expect(validateBrand(base).valid).toBe(true);
+    expect(validateBrand({ ...base, rules: {} }).valid).toBe(true);
+    expect(validateBrand({ ...base, rules: { never: [] } }).valid).toBe(true);
+    expect(validateBrand({ ...base, rules: { notes: 'Upright, unopened.' } }).valid).toBe(true);
+  });
+  it('rejects malformed rules and unknown top-level keys', () => {
+    const base = { specVersion: '0.1', meta: { name: 'Acme' } };
+    // rules.never is a list of short prohibitions, not free-form values
+    expect(validateBrand({ ...base, rules: { never: [{ text: 'no' }] } }).valid).toBe(false);
+    expect(validateBrand({ ...base, rules: { never: [''] } }).valid).toBe(false);
+    expect(validateBrand({ ...base, rules: { never: 'competitor logos' } }).valid).toBe(false);
+    expect(validateBrand({ ...base, rules: { always: ['upright'] } }).valid).toBe(false);
+    // additionalProperties:false is what keeps a typo from silently becoming brand data
+    expect(validateBrand({ ...base, ruels: {} }).valid).toBe(false);
+  });
+  it('pins specVersion to the 0.1 const', () => {
+    expect(validateBrand({ specVersion: '0.2', meta: { name: 'Acme' } }).valid).toBe(false);
   });
   it('rejects missing name, bad hex, bad extension namespace', () => {
     expect(validateBrand({ specVersion: '0.1', meta: {} }).valid).toBe(false);

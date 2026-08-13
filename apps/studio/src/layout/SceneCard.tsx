@@ -24,6 +24,8 @@ export function SceneCard({
   onUse,
   selected,
   onToggle,
+  starred,
+  onStar,
   size = 'grid',
 }: {
   scene: Scene;
@@ -37,6 +39,9 @@ export function SceneCard({
   /** `select` only. */
   selected?: boolean;
   onToggle?: (id: string) => void;
+  /** Favourite this scene from the card, where the browsing happens. */
+  starred?: boolean;
+  onStar?: (id: string) => void;
   size?: SceneCardSize;
 }) {
   return (
@@ -52,6 +57,8 @@ export function SceneCard({
       onUse={onUse}
       selected={selected}
       onToggle={onToggle}
+      starred={starred}
+      onStar={onStar}
       size={size}
     />
   );

@@ -9,7 +9,7 @@
   "hair": "short black hair in a sharp taper fade with a crisp lined-up hairline",
   "build": "tall, lean swimmer's frame with square shoulders and long steady hands",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Technology", "Electronics", "Accessories", "Apparel"],
+  "suitableCategories": ["Electronics", "Accessories", "Apparel"],
   "suitableStyles": ["Editorial", "Lifestyle"],
   "identityNotes": "the sharp lined-up taper fade, the rich even deep-brown skin tone and the close-shaved jaw beard must survive every generation — do not lighten the skin, grow the beard out, or soften the hairline",
   "negativeConstraints": [

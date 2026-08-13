@@ -2,6 +2,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { productLabel, productSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { flattenPalette } from '../brand/palette.js';
+import { attachableMarks, markLabel } from '../brand/marks.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import {
   CHIP,
@@ -44,7 +46,6 @@ export const FORMATS = [
   { id: 'portrait', label: 'Portrait', hint: '4:5', w: 1024, h: 1280 },
 ];
 
-const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
 /** Click this close to a chip's edge and you meant the caret, not the menu. */
 const EDGE = 6;
 
@@ -142,6 +143,7 @@ export const BriefInput = forwardRef<
   const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
   const cast: any[] = (brand.json?.characters ?? []) as any[];
   const palette = usePalette(brand);
+  const marks = useMemo(() => attachableMarks(brand.json), [brand]);
   const recent = shots
     .filter((s) => s.status === 'done' && s.images.length > 0)
     .slice(-6)
@@ -187,6 +189,14 @@ export const BriefInput = forwardRef<
       } else if (token.t === 'ref') {
         label = 'reference';
         thumb = imgUrl(token.imageHash);
+      } else if (token.t === 'mark') {
+        const m = marks.find((x) => x.hash === token.imageHash);
+        label = m ? markLabel(brand.json, m) : 'missing mark';
+        thumb = imgUrl(token.imageHash);
+      } else if (token.t === 'brand') {
+        label = 'Brand kit';
+        // The brand's own mark reads faster than any glyph could.
+        thumb = assetUrl(brand.json?.logos?.[0]?.file);
       }
 
       if (thumb) {
@@ -217,7 +227,7 @@ export const BriefInput = forwardRef<
       el.appendChild(x);
       return el;
     },
-    [templates, products, cast, presenters, demoProducts, flag],
+    [templates, products, cast, presenters, demoProducts, marks, brand, flag],
   );
 
   const emit = useCallback(() => {
@@ -372,6 +382,22 @@ export const BriefInput = forwardRef<
         swatch: c.hex,
         run: () => placeRef.current({ t: 'color', hex: c.hex, name: c.name }),
       })),
+      {
+        key: 'b:kit',
+        group: 'Brand',
+        label: 'Brand kit',
+        hint: 'palette, art direction and rules',
+        thumb: assetUrl(brand.json?.logos?.[0]?.file) ?? undefined,
+        run: () => placeRef.current({ t: 'brand' }),
+      },
+      ...marks.map((m) => ({
+        key: `m:${m.hash}`,
+        group: 'Brand',
+        label: markLabel(brand.json, m),
+        hint: 'the mark itself',
+        thumb: imgUrl(m.hash as string),
+        run: () => placeRef.current({ t: 'mark', imageHash: m.hash as string }),
+      })),
       ...recent.map((s, i) => ({
         key: `r:${s.images[0]}`,
         group: 'Recent shots',
@@ -381,7 +407,7 @@ export const BriefInput = forwardRef<
         run: () => placeRef.current({ t: 'ref', imageHash: s.images[0] }),
       })),
     ],
-    [templates, products, presenters, palette, recent, onTemplatePick],
+    [templates, products, presenters, palette, marks, brand, recent, onTemplatePick],
   );
 
   const openTok = openChip
@@ -526,9 +552,10 @@ export const BriefInput = forwardRef<
       if (t.t === 'template') return templates.some((x) => x.id === t.id);
       if (t.t === 'product') return products.some((x) => x.id === t.id) || demoProducts.some((x) => x.id === t.id);
       if (t.t === 'character') return cast.some((x) => x.id === t.id) || presenters.some((x) => x.id === t.id);
+      if (t.t === 'mark') return marks.some((x) => x.hash === t.imageHash);
       return true;
     },
-    [templates, products, cast, presenters, demoProducts],
+    [templates, products, cast, presenters, demoProducts, marks],
   );
 
   const onDragEnter = (e: React.DragEvent) => {
@@ -653,22 +680,13 @@ function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): s
   if (t.t === 'product') return products.find((x) => x.id === t.id)?.name ?? 'product';
   if (t.t === 'character') return 'someone';
   if (t.t === 'color') return t.name ?? t.hex;
+  if (t.t === 'mark') return 'brand mark';
+  if (t.t === 'brand') return 'brand kit';
   return 'reference';
 }
 
 function usePalette(brand: Brand) {
-  return useMemo(() => {
-    const p = brand.json?.palette;
-    const raw: { hex: string; name?: string }[] = [];
-    const add = (c: any) => {
-      if (c?.hex) raw.push({ hex: String(c.hex).toUpperCase(), name: c.name });
-    };
-    add(p?.primary);
-    add(p?.secondary);
-    (p?.accent ?? []).forEach(add);
-    (p?.neutrals ?? []).forEach(add);
-    return raw.map((c, i) => ({ hex: c.hex, name: c.name ?? ROLE_NAMES[i] ?? `Color ${i + 1}` }));
-  }, [brand]);
+  return useMemo(() => flattenPalette(brand.json?.palette), [brand]);
 }
 
 export { chipLabel };

@@ -20,7 +20,8 @@ import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
-import { VerticalsTabs } from '../layout/VerticalsTabs.js';
+import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
+import { FacetFilter } from '../layout/library/FacetFilter.js';
 
 /**
  * The launcher.
@@ -83,17 +84,22 @@ export function HomeView() {
 
   /** Counts against the full gallery, not the filtered view — a tab always
    * states how many examples it holds, not how many are currently shown. */
-  const categoryTabs = useMemo(() => {
+  const categoryFacet = useMemo(() => {
     const cats = sortShowcaseCategories(showcaseCategories);
-    return [
-      { value: null, label: 'All examples', count: showcase.length },
-      ...cats.map((c) => ({
+    return {
+      key: 'category',
+      label: 'Categories',
+      everyLabel: 'All examples',
+      everyCount: showcase.length,
+      selected: category,
+      onSelect: setCategory,
+      options: cats.map((c) => ({
         value: c,
         label: showcaseCategoryLabel(c) ?? c,
         count: showcase.filter((s) => s.category === c).length,
       })),
-    ];
-  }, [showcase, showcaseCategories]);
+    };
+  }, [showcase, showcaseCategories, category, setCategory]);
 
   /** A showcase entry's tokens only carry ids — resolve the names the card
    * actually shows (the product/presenter/scene chips this recipe was built
@@ -246,12 +252,10 @@ export function HomeView() {
 
         {showcaseLoaded && !showcaseError && showcase.length > 0 && (
           <>
-            <div className="sc-filterbar">
-              <VerticalsTabs aria-label="Categories" activeKey={category} items={categoryTabs} onSelect={setCategory} />
-              <div className="sc-filterbar-actions">
-                <DensityControl value={density} onChange={setDensity} />
-              </div>
-            </div>
+            <LibraryToolbar
+              filters={<FacetFilter mode="tabs" group={categoryFacet} />}
+              density={<DensityControl value={density} onChange={setDensity} />}
+            />
 
             {shownShowcase.length > 0 && (
               <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
@@ -335,7 +339,7 @@ function ProductsCard({
 }) {
   return (
     <Dialog.Root>
-      <Dialog.Trigger asChild>
+      <Dialog.Trigger>
         <button type="button" className="sc-create-card" data-tone="product">
           <CreateGlyph thumbUrl={thumbUrl} fallback={<Package size={22} weight="fill" />} />
           <b>

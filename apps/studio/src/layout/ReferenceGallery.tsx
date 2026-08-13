@@ -81,12 +81,7 @@ export function EmptyRefFrame() {
 export function ShotThumb({ node, onClick }: { node: TreeNode; onClick: () => void }) {
   const [broken, setBroken] = useState(false);
   return (
-    <button
-      type="button"
-      className="sc-lookcard"
-      aria-label={`Open ${nodeLabel(node)}`}
-      onClick={onClick}
-    >
+    <button type="button" className="sc-lookcard" aria-label={`Open ${nodeLabel(node)}`} onClick={onClick}>
       {broken ? (
         <span className="sc-lookcard-blank">
           <ImageSquare size={20} />

@@ -1,12 +1,12 @@
 // Adapter for openrouter — implemented per the MVP build plan (TDD). Interface: @scenri/core/src/engine.ts
 import fs from 'node:fs';
-import type {
-  EngineAdapter,
-  EngineCapabilities,
-  EngineResult,
-  GenerateRequest,
-  EditRequest,
-  ReferenceRole,
+import {
+  REFERENCE_ROLE_DIRECTIVE,
+  type EngineAdapter,
+  type EngineCapabilities,
+  type EngineResult,
+  type GenerateRequest,
+  type EditRequest,
 } from '@scenri/core';
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
@@ -119,18 +119,7 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
       // presenter's face ends up rendered as the product.
       const roles = req.referenceRoles ?? [];
       const refs = req.referenceImages ?? [];
-      const roleDirective: Record<ReferenceRole, string> = {
-        product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
-        character: 'the exact person — preserve their face, hair and build faithfully; do not restyle them',
-        brand:
-          'a brand reference for palette, type and mark treatment only — take no geometry, subject or composition from it',
-        scene: 'a reference for the environment and light only — take no subject, product or person from it',
-        composition:
-          'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
-        style:
-          'a reference for overall treatment and mood only — take no composition, subject or product detail from it',
-        reference: 'a reference to match in composition, lighting and treatment',
-      };
+      const roleDirective = REFERENCE_ROLE_DIRECTIVE;
       const refDirectives = refs
         .map((_, i) => {
           const role = roles[i] ?? 'reference';

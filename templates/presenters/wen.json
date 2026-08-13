@@ -9,7 +9,7 @@
   "hair": "straight black hair, side part",
   "build": "average height, lean build",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Technology", "Electronics", "Accessories"],
+  "suitableCategories": ["Electronics", "Accessories"],
   "suitableStyles": ["Editorial", "Lifestyle"],
   "identityNotes": "the lean narrow face and straight side-parted hair must survive every generation — do not add facial hair or change the part",
   "negativeConstraints": ["no facial hair", "no wavy or curly hair texture", "no heavy styling-product sheen"],

@@ -44,6 +44,218 @@ const mkProject = async (brandId: string) => {
   return res.json();
 };
 
+/** One multipart body with a file part plus optional plain text fields. */
+const filePayload = (file: Buffer, filename: string, contentType: string, fields: Record<string, string> = {}) => {
+  const boundary = '----sctest';
+  const parts: Buffer[] = [];
+  for (const [name, value] of Object.entries(fields)) {
+    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
+  }
+  parts.push(
+    Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`,
+    ),
+    file,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  );
+  return { payload: Buffer.concat(parts), headers: { 'content-type': `multipart/form-data; boundary=${boundary}` } };
+};
+// 1x1 red gif — deliberately not a png, so normalization is exercised
+const GIF_1PX = Buffer.from('R0lGODlhAQABAIAAAP8AAAAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64');
+// A second, genuinely different image: the store is content-addressed, so two
+// uploads of the same bytes are one asset and cannot be told apart by hash.
+const PNG_1PX = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+describe('brand marks', () => {
+  const uploadLogo = async (brandId: string, fields: Record<string, string> = {}, file = GIF_1PX) =>
+    app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/logos`,
+      ...filePayload(file, 'logo.gif', 'image/gif', fields),
+    });
+
+  it('uploads a mark as a normalized asset ref and leaves the rest of the kit alone', async () => {
+    const brand = await mkBrand();
+    const res = await uploadLogo(brand.id);
+    expect(res.statusCode).toBe(200);
+    const json = res.json().json;
+    expect(json.logos).toHaveLength(1);
+    expect(json.logos[0].file).toMatch(/^asset:[0-9a-f]{32,}$/);
+    // First mark is the primary; nothing else about the brand moved
+    expect(json.logos[0]).toMatchObject({ role: 'primary', background: 'any' });
+    expect(json.palette.primary.hex).toBe('#1F3D2B');
+    expect(json.products).toBeUndefined();
+
+    const served = await app.inject({ method: 'GET', url: `/api/images/${json.logos[0].file.slice(6)}` });
+    expect(served.statusCode).toBe(200);
+    expect(served.headers['content-type']).toBe('image/png');
+  });
+
+  it('defaults the second mark to alternate, and honours an explicit role', async () => {
+    const brand = await mkBrand();
+    await uploadLogo(brand.id);
+    const second = await uploadLogo(brand.id, { role: 'wordmark', background: 'dark' }, PNG_1PX);
+    expect(second.json().json.logos.map((l: any) => l.role)).toEqual(['primary', 'wordmark']);
+    expect(second.json().json.logos[1].background).toBe('dark');
+    const third = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/logos`,
+      ...filePayload(Buffer.from('other-bytes-entirely'), 'x.png', 'image/png'),
+    });
+    expect(third.statusCode).toBe(400);
+    expect(third.json().error).toMatch(/not an image/);
+  });
+
+  it('rejects an unknown role rather than writing a document the schema will refuse', async () => {
+    const brand = await mkBrand();
+    const res = await uploadLogo(brand.id, { role: 'favicon' });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(/unknown logo role/);
+    const after = await app.inject({ method: 'GET', url: '/api/brands' });
+    expect(after.json()[0].json.logos ?? []).toEqual([]);
+  });
+
+  it('patches and deletes by content hash, not by position', async () => {
+    const brand = await mkBrand();
+    await uploadLogo(brand.id);
+    const second = await uploadLogo(brand.id, { role: 'mark' }, PNG_1PX);
+    const [first, mark] = second.json().json.logos;
+    const firstHash = first.file.slice(6);
+    const markHash = mark.file.slice(6);
+
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/logos/${markHash}`,
+      payload: { background: 'light', clearSpace: '1x logo height' },
+    });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json().json.logos[1]).toMatchObject({ background: 'light', clearSpace: '1x logo height' });
+    expect(patched.json().json.logos[0].background).toBe('any');
+
+    // Clearing prose removes the key: '' would fail schema validation and take
+    // the whole document down with it.
+    const cleared = await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/logos/${markHash}`,
+      payload: { clearSpace: '' },
+    });
+    expect(cleared.json().json.logos[1].clearSpace).toBeUndefined();
+
+    const gone = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/logos/${firstHash}` });
+    expect(gone.statusCode).toBe(200);
+    expect(gone.json().json.logos.map((l: any) => l.file.slice(6))).toEqual([markHash]);
+
+    const missing = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/logos/nope` });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('refreshes from the website without undoing a single edit', async () => {
+    const html = `<html><head><title>Zen Tea Company</title><meta name="description" content="Buy tea online"><meta name="theme-color" content="#2A6F4E"><link rel="icon" href="/i.gif"></head></html>`;
+    const fetchImpl = (async (input: any) =>
+      String(input).endsWith('/i.gif') ? new Response(GIF_1PX) : new Response(html)) as unknown as typeof fetch;
+    const srv = buildServer({ core, engines: registryWith(), fetchImpl });
+    const made = await srv.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: {
+        brand: {
+          specVersion: '0.1',
+          meta: { name: 'Zen', tagline: 'Slow mornings' },
+          palette: { primary: { hex: '#000000', name: 'Ink' } },
+          rules: { never: ['competitor logos in frame'] },
+        },
+      },
+    });
+    const brand = made.json();
+    const res = await srv.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/refresh-from-url`,
+      payload: { url: 'https://zen.example' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.json.meta.name).toBe('Zen');
+    expect(body.json.meta.tagline).toBe('Slow mornings');
+    expect(body.json.meta.website).toBe('https://zen.example');
+    expect(body.json.palette).toEqual({ primary: { hex: '#000000', name: 'Ink' } });
+    expect(body.json.rules).toEqual({ never: ['competitor logos in frame'] });
+    // The scraped colours are offered, not applied
+    expect(body.suggestions.palette).toEqual([{ hex: '#2a6f4e' }]);
+    expect(body.json.logos).toHaveLength(1);
+    await srv.close();
+  });
+
+  it('reports the brand directives the compiler will actually append', async () => {
+    const brand = await mkBrand();
+    const empty = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/directives` });
+    expect(empty.json().directives).toEqual(['Brand palette: #1F3D2B — favour these over invented colour.']);
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/brands/${brand.id}`,
+      payload: {
+        brand: {
+          ...brand.json,
+          imagery: { mood: 'crafted, tactile', avoid: ['neon'] },
+          rules: { never: ['competitor logos in frame'] },
+        },
+      },
+    });
+    const res = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/directives` });
+    expect(res.json().directives).toEqual([
+      'Brand palette: #1F3D2B — favour these over invented colour.',
+      'Brand look and feel: crafted, tactile.',
+      'Brand look — avoid: neon.',
+      'Brand rules — never: competitor logos in frame.',
+    ]);
+
+    // This endpoint says what the kit *would* add, so a brief that asks for it
+    // gets every line verbatim — and one that does not gets none of them.
+    const preview = (tokens: unknown[]) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/brief/preview',
+        payload: { brandId: brand.id, engineId: 'demo', brief: { tokens } },
+      });
+
+    const asked = await preview([{ t: 'text', v: 'a mug on a table' }, { t: 'brand' }]);
+    expect(asked.statusCode).toBe(200);
+    for (const line of res.json().directives) expect(asked.json().prompt).toContain(line);
+
+    const plain = await preview([{ t: 'text', v: 'a mug on a table' }]);
+    expect(plain.json().prompt).not.toContain('Brand ');
+  });
+
+  it('serves the brand as a .brand zip named after its slug', async () => {
+    const brand = await mkBrand();
+    await uploadLogo(brand.id);
+    const res = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/export` });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('application/zip');
+    expect(res.headers['content-disposition']).toBe('attachment; filename="acme.brand"');
+    expect(res.rawPayload.subarray(0, 2).toString()).toBe('PK');
+
+    const missing = await app.inject({ method: 'GET', url: '/api/brands/nope/export' });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('404s directives for a brand that does not exist', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/brands/nope/directives' });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('re-uploading the same artwork retags it instead of creating a twin no hash can address', async () => {
+    const brand = await mkBrand();
+    await uploadLogo(brand.id);
+    const again = await uploadLogo(brand.id, { role: 'monochrome', background: 'dark' });
+    expect(again.json().json.logos).toHaveLength(1);
+    expect(again.json().json.logos[0]).toMatchObject({ role: 'monochrome', background: 'dark' });
+  });
+});
+
 describe('brands API', () => {
   it('rejects invalid brand json', async () => {
     const res = await app.inject({
@@ -57,9 +269,7 @@ describe('brands API', () => {
   it('creates from URL via injected fetch, saving logo asset', async () => {
     const html = `<html><head><title>Zen Tea</title><meta name="theme-color" content="#2A6F4E"><link rel="icon" href="/i.png"></head></html>`;
     const fetchImpl = (async (input: any) =>
-      String(input).endsWith('/i.png')
-        ? new Response(Buffer.from([1, 2, 3]))
-        : new Response(html)) as unknown as typeof fetch;
+      String(input).endsWith('/i.png') ? new Response(GIF_1PX) : new Response(html)) as unknown as typeof fetch;
     const srv = buildServer({ core, engines: registryWith(), fetchImpl });
     const res = await srv.inject({
       method: 'POST',
@@ -70,6 +280,29 @@ describe('brands API', () => {
     const body = res.json();
     expect(body.json.meta.name).toBe('Zen Tea');
     expect(body.json.logos[0].file).toMatch(/^asset:[a-f0-9]{32}$/);
+    // A scraped mark is stored as a real PNG, not as raw favicon bytes wearing
+    // a .png name — the store and /api/images both claim image/png regardless.
+    const served = await srv.inject({ method: 'GET', url: `/api/images/${body.json.logos[0].file.slice(6)}` });
+    expect(served.statusCode).toBe(200);
+    expect(served.rawPayload.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    await srv.close();
+  });
+  it('degrades to a warning when the scraped favicon is not a decodable image', async () => {
+    const html = `<html><head><title>Zen Tea</title><link rel="icon" href="/i.ico"></head></html>`;
+    const fetchImpl = (async (input: any) =>
+      String(input).endsWith('/i.ico')
+        ? new Response(Buffer.from([1, 2, 3]))
+        : new Response(html)) as unknown as typeof fetch;
+    const srv = buildServer({ core, engines: registryWith(), fetchImpl });
+    const res = await srv.inject({
+      method: 'POST',
+      url: '/api/brands/from-url',
+      payload: { url: 'https://zen.example' },
+    });
+    expect(res.statusCode).toBe(200);
+    // No logo is better than a logo that renders as a broken image everywhere
+    expect(res.json().json.logos).toBeUndefined();
+    expect(res.json().warnings.join(' ')).toMatch(/logo/i);
     await srv.close();
   });
   it('rejects non-http url', async () => {

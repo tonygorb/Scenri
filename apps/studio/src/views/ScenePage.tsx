@@ -5,12 +5,16 @@ import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { hubPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
-import { favoriteScenes } from '../favorites.js';
+import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
 import { SceneCard } from '../layout/SceneCard.js';
+import { Star } from '@phosphor-icons/react';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { useMediaQuery } from '../useMediaQuery.js';
 
 /** Matches `.sc-lookpage-refs` switching to 2 columns in tokens.css. */
+/** Its own breakpoint, not the app's 767px phone: this one tracks the
+ *  masonry's 760px column rule, so the cap and the columns can't disagree. */
 const LOOKPAGE_PHONE = '(max-width: 760px)';
 
 /**
@@ -28,6 +32,7 @@ export function ScenePage() {
   const applyScene = useApplyScene();
   const brandId = brand.id;
   const [refs, setRefs] = useState<string[]>([]);
+  const [favs, setFavs] = useState<string[]>(() => favoriteScenes(brandId));
   const [allParam, setOpenAll] = useFilterParam('all');
   const openAll = allParam === '1';
   // Cap tracks column count per breakpoint so collapsed rows stay full:
@@ -157,6 +162,7 @@ export function ScenePage() {
   // never carry a demo product, so they skip it.
   const showDemoProductNote = scene.subject !== 'person' && frames.length > 0;
 
+  const starred = favs.includes(scene.id);
   return (
     <ScrollPane>
       <main className="sc-lookpage" id="main">
@@ -177,6 +183,16 @@ export function ScenePage() {
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
             Use this scene
+          </button>
+          {/* Starred scenes lead the shelf on Home and in Create. */}
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost"
+            aria-pressed={starred}
+            onClick={() => setFavs(toggleFavoriteScene(brandId, scene.id))}
+          >
+            <Star size={13} weight={starred ? 'fill' : 'regular'} />
+            <span>{starred ? 'Starred' : 'Star'}</span>
           </button>
         </div>
 
@@ -221,17 +237,4 @@ export function ScenePage() {
       </main>
     </ScrollPane>
   );
-}
-
-/** Which layout the collapsed gallery should fill. Watched, not sampled. */
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const on = () => setMatches(mq.matches);
-    on();
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, [query]);
-  return matches;
 }

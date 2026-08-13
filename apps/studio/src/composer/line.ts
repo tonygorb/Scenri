@@ -21,6 +21,9 @@ export type SentenceToken =
   | { t: 'character'; id: string }
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string }
+  | { t: 'mark'; imageHash: string }
+  /** Ask for the brand kit. Carries nothing: asking is the whole payload. */
+  | { t: 'brand' }
   | { t: 'template'; id: string };
 
 /** Size lives on the composer, not in the sentence: it renders as nothing. */
@@ -64,7 +67,11 @@ export const encode = (t: SentenceToken): string =>
           ? `c:${t.hex}|${t.name ?? ''}`
           : t.t === 'ref'
             ? `r:${t.imageHash}`
-            : '';
+            : t.t === 'mark'
+              ? `m:${t.imageHash}`
+              : t.t === 'brand'
+                ? 'b:'
+                : '';
 
 export const decode = (s: string): SentenceToken | null => {
   const kind = s.slice(0, 1);
@@ -76,6 +83,8 @@ export const decode = (s: string): SentenceToken | null => {
   }
   if (kind === 'h') return rest ? { t: 'character', id: rest } : null;
   if (kind === 'r') return rest ? { t: 'ref', imageHash: rest } : null;
+  if (kind === 'm') return rest ? { t: 'mark', imageHash: rest } : null;
+  if (kind === 'b') return { t: 'brand' };
   if (kind === 'c') {
     const [hex, name] = rest.split('|');
     return hex ? { t: 'color', hex, name: name || undefined } : null;
@@ -94,7 +103,9 @@ export const groupOf = (t: SentenceToken): string | null =>
           ? 'Brand colors'
           : t.t === 'ref'
             ? 'Recent shots'
-            : null;
+            : t.t === 'mark' || t.t === 'brand'
+              ? 'Brand'
+              : null;
 
 // ---------------------------------------------------------------- read and render
 

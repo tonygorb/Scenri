@@ -314,14 +314,14 @@ describe('shipped showcase entries resolve against the real catalog', () => {
     const CATEGORY_TO_PRESENTER_CATEGORY: Record<string, string[]> = {
       fragrance: ['Fragrance'],
       footwear: ['Footwear', 'Apparel'],
-      apparel: ['Apparel', 'Fashion', 'Streetwear'],
+      apparel: ['Apparel'],
       furniture: ['Furniture', 'Home'],
-      beauty: ['Beauty', 'Wellness'],
-      electronics: ['Electronics', 'Technology'],
+      beauty: ['Beauty'],
+      electronics: ['Electronics'],
       accessories: ['Accessories'],
-      beverage: ['Beverages', 'Food & drink'],
+      beverage: ['Food & drink'],
       jewelry: ['Jewelry'],
-      food: ['Beverages', 'Food & drink'],
+      food: ['Food & drink'],
     };
     const productList = loadDemoProducts(defaultDemoProductsDir()).demoProducts;
     const presenterList = loadPresenters(defaultPresentersDir()).presenters;

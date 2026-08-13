@@ -9,7 +9,7 @@
   "hair": "fully shaved head",
   "build": "muscular, broad build",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Fragrance", "Fitness", "Accessories"],
+  "suitableCategories": ["Fragrance", "Sport", "Accessories"],
   "suitableStyles": ["Editorial"],
   "identityNotes": "the shaved head and heavy brow must survive every generation — do not add hair or soften the jawline",
   "negativeConstraints": ["no hair regrowth", "no slimmed-down build", "no soft or gentle expression"],

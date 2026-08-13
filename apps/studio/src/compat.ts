@@ -36,17 +36,30 @@ const CATEGORY_TO_SCENE_VERTICAL: Record<string, string[]> = {
   food: ['Food & drink'],
 };
 
+/**
+ * Presenters were migrated onto the scene vocabulary on 2026-08-13: the roster
+ * carried 18 distinct categories for 21 people — nearly one each — with
+ * Fashion/Streetwear beside Apparel, Technology beside Electronics, Wellness
+ * beside Beauty and a free-floating Lifestyle that duplicated `suitableStyles`.
+ * Merging them left 11 values, every one of them a word Scenes already uses,
+ * so the two maps below now agree on everything except footwear.
+ *
+ * They stay separate maps anyway. The catalogs are authored independently, and
+ * a single shared map is exactly what let the vocabularies drift apart
+ * unnoticed the first time.
+ */
 const CATEGORY_TO_PRESENTER_CATEGORY: Record<string, string[]> = {
   fragrance: ['Fragrance'],
+  // Someone cast to model shoes is cast to model what is worn with them.
   footwear: ['Footwear', 'Apparel'],
-  apparel: ['Apparel', 'Fashion', 'Streetwear'],
+  apparel: ['Apparel'],
   furniture: ['Furniture', 'Home'],
-  beauty: ['Beauty', 'Wellness'],
-  electronics: ['Electronics', 'Technology'],
+  beauty: ['Beauty'],
+  electronics: ['Electronics'],
   accessories: ['Accessories'],
-  beverage: ['Beverages', 'Food & drink'],
+  beverage: ['Food & drink'],
   jewelry: ['Jewelry'],
-  food: ['Beverages', 'Food & drink'],
+  food: ['Food & drink'],
 };
 
 export function isRecommendedScene(

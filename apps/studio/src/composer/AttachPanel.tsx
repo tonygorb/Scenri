@@ -4,18 +4,19 @@ import { Dialog } from '@radix-ui/themes';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { flattenPalette } from '../brand/palette.js';
+import { attachableMarks, markLabel } from '../brand/marks.js';
 import { ProductsPanel } from '../AssetPanel.js';
 import { isRecommendedScene, isRecommendedPresenter } from '../compat.js';
 import { categoryLabel } from '../productCategories.js';
 import type { SentenceToken } from './BriefInput.js';
 import { keepCaret } from './line.js';
 
-const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
 /** Per group on the All tab, where the point is breadth rather than depth. */
 const ALL_TAB_PREVIEW = 8;
 /** On a single tab, enough to browse; past this, searching beats scrolling. */
 const TAB_CAP = 60;
-const TABS = ['All', 'Products', 'Library', 'Presenters', 'Scenes', 'Colors', 'Shots'] as const;
+const TABS = ['All', 'Products', 'Library', 'Presenters', 'Scenes', 'Colors', 'Brand', 'Shots'] as const;
 export type AttachTab = (typeof TABS)[number];
 type Tab = AttachTab;
 
@@ -103,15 +104,8 @@ export function AttachPanel({
 
   const cards = useMemo<Card[]>(() => {
     const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
-    const p = brand.json?.palette;
-    const raw: { hex: string; name?: string }[] = [];
-    const add = (c: any) => {
-      if (c?.hex) raw.push({ hex: String(c.hex).toUpperCase(), name: c.name });
-    };
-    add(p?.primary);
-    add(p?.secondary);
-    (p?.accent ?? []).forEach(add);
-    (p?.neutrals ?? []).forEach(add);
+    const palette = flattenPalette(brand.json?.palette);
+    const marks = attachableMarks(brand.json);
     const recent = shots
       .filter((s) => s.status === 'done' && s.images.length > 0)
       .slice(-12)
@@ -168,14 +162,32 @@ export function AttachPanel({
           run: () => onTemplate(t.id),
         }),
       ),
-      ...raw.map(
-        (c, i): Card => ({
+      {
+        key: 'b:kit',
+        tab: 'Brand',
+        label: 'Brand kit',
+        sub: 'palette, art direction and rules',
+        thumb: assetUrl(brand.json?.logos?.[0]?.file) ?? null,
+        run: () => onToken({ t: 'brand' }),
+      },
+      ...marks.map(
+        (m): Card => ({
+          key: `m:${m.hash}`,
+          tab: 'Brand',
+          label: markLabel(brand.json, m),
+          sub: 'the mark itself',
+          thumb: imgUrl(m.hash as string),
+          run: () => onToken({ t: 'mark', imageHash: m.hash as string }),
+        }),
+      ),
+      ...palette.map(
+        (c): Card => ({
           key: `c:${c.hex}`,
           tab: 'Colors',
-          label: c.name ?? ROLE_NAMES[i] ?? `Color ${i + 1}`,
+          label: c.name,
           sub: c.hex,
           swatch: c.hex,
-          run: () => onToken({ t: 'color', hex: c.hex, name: c.name ?? ROLE_NAMES[i] }),
+          run: () => onToken({ t: 'color', hex: c.hex, name: c.name }),
         }),
       ),
       ...recent.map(

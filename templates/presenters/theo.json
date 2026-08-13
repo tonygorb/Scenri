@@ -9,7 +9,7 @@
   "hair": "curly sandy-brown hair, medium length",
   "build": "average height, slim build",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Apparel", "Lifestyle", "Beverages"],
+  "suitableCategories": ["Apparel", "Home", "Food & drink"],
   "suitableStyles": ["Lifestyle"],
   "identityNotes": "the curly sandy-brown hair and soft boyish face must survive every generation — do not mature the features or straighten the hair",
   "negativeConstraints": ["no straightened hair", "no aged or mature features", "no theatrical expression"],

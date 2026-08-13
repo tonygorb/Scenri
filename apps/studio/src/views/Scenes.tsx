@@ -1,18 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { sceneSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
-import { TextField } from '@radix-ui/themes';
-import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
+import { Plus } from '@phosphor-icons/react';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { scenePath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
+import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
+import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
-import { LibraryEmpty } from '../layout/library/LibraryEmpty.js';
+import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
@@ -37,8 +38,12 @@ export function ScenesView() {
   const { scenes, collections, verticals, loaded, error, refetch } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
+  // Taste, per brand, in localStorage — deliberately not in the .brand
+  // document. Read once here so every card on the wall shares one answer.
+  const [favs, setFavs] = useState<string[]>(() => favoriteScenes(brand.id));
+  const star = (id: string) => setFavs(toggleFavoriteScene(brand.id, id));
   const applyScene = useApplyScene();
-  const { q, setQ, facets, setFacet, active, clear } = useLibraryQuery(['vertical']);
+  const { q, setQ, facets, setFacet, active, clearSearch, clear } = useLibraryQuery(['vertical']);
   const vertical = facets.vertical;
   const searching = q.trim().length > 0;
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
@@ -91,17 +96,7 @@ export function ScenesView() {
           density={<DensityControl value={density} onChange={setDensity} />}
           search={
             scenes.length >= SEARCH_MIN && (
-              <TextField.Root
-                size="2"
-                style={{ width: 220 }}
-                placeholder={`Search ${scenes.length} scenes`}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              >
-                <TextField.Slot>
-                  <MagnifyingGlass size={14} />
-                </TextField.Slot>
-              </TextField.Root>
+              <LibrarySearch value={q} onChange={setQ} noun="scenes" total={scenes.length} />
             )
           }
           action={
@@ -144,7 +139,16 @@ export function ScenesView() {
                 </div>
                 <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
                   {inCollection.map((s) => (
-                    <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
+                    <SceneCard
+                      key={s.id}
+                      scene={s}
+                      variant="use"
+                      size="grid"
+                      onOpen={openScene}
+                      onUse={applyScene}
+                      starred={favs.includes(s.id)}
+                      onStar={star}
+                    />
                   ))}
                 </div>
               </section>
@@ -154,21 +158,22 @@ export function ScenesView() {
         {loaded && !error && searching && visible.length > 0 && (
           <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
             {visible.map((s) => (
-              <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
+              <SceneCard
+                key={s.id}
+                scene={s}
+                variant="use"
+                size="grid"
+                onOpen={openScene}
+                onUse={applyScene}
+                starred={favs.includes(s.id)}
+                onStar={star}
+              />
             ))}
           </div>
         )}
 
         {loaded && !error && scenes.length > 0 && filtered.length === 0 && (
-          <LibraryEmpty
-            shape="zero"
-            body="No scenes match these filters."
-            action={
-              <button type="button" className="sc-lib-clear" onClick={clear}>
-                Clear filters
-              </button>
-            }
-          />
+          <LibraryZero noun="scenes" q={q} facet={vertical} onClearSearch={clearSearch} onClearAll={clear} />
         )}
 
         {searching && remaining > 0 && (

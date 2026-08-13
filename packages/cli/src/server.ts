@@ -23,18 +23,19 @@ import {
   type DemoProduct,
 } from './demoProducts.js';
 import { loadShowcase, showcaseFacetsOf, type ShowcaseEntry } from './showcase.js';
-import { compileBrief, validateBrief, FORMATS, type Brief, type BriefToken } from './brief.js';
+import { brandDirectives, compileBrief, validateBrief, FORMATS, type Brief, type BriefToken } from './brief.js';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import JSZip from 'jszip';
 import { basename, join } from 'node:path';
 import type { Core, EngineAdapter, GenerateRequest, EditRequest, BrandContext, ReferenceRole } from '@scenri/core';
 import { SpendCapError, ASPECT_TOLERANCE } from '@scenri/core';
-import { validateBrand, buildFromUrl } from '@scenri/brand';
+import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
 import { driftDiff } from './diff.js';
 import { vibrantColor } from './swatch.js';
 import { buildExportZip, EXPORT_PRESETS } from './exportPack.js';
+import { buildBrandBundle } from './exportBrand.js';
 import {
   startCatalogImport,
   cancelCatalogImport,
@@ -76,6 +77,33 @@ function brandContext(core: Core, brandId: string): BrandContext {
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+/** `asset:<hash>` → `<hash>`; anything else (a URL, a relative path) → null. */
+const assetHash = (ref: unknown): string | null => {
+  const s = String(ref ?? '');
+  return s.startsWith('asset:') ? s.slice(6) : null;
+};
+
+const LOGO_ROLES = ['primary', 'mark', 'wordmark', 'monochrome', 'alternate'] as const;
+const LOGO_BACKGROUNDS = ['light', 'dark', 'any'] as const;
+
+/** Normalize an uploaded product shot: whatever arrived, store a PNG. */
+const toPng = (buf: Buffer): Promise<Buffer> => sharp(buf).png().toBuffer();
+
+/**
+ * The same for a brand mark, with two differences that only matter for marks.
+ *
+ * `density` because a vector mark otherwise rasterizes at its intrinsic box —
+ * for a favicon that is 16px, which is unusable as a reference image. The size
+ * cap because a mark arriving as a 6000px export is a reference the model never
+ * reads at that resolution, and every attachment is copied per generation.
+ */
+const MARK_MAX_EDGE = 2048;
+const toMarkPng = (buf: Buffer): Promise<Buffer> =>
+  sharp(buf, { density: 384 })
+    .resize({ width: MARK_MAX_EDGE, height: MARK_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
+    .png()
+    .toBuffer();
+
 export function buildServer(opts: ServerOptions): FastifyInstance {
   const { core, engines } = opts;
   const app = Fastify({ logger: false });
@@ -114,7 +142,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!/^https?:\/\//.test(url)) return reply.status(400).send({ error: 'url must be http(s)' });
     const { brand, warnings } = await buildFromUrl(url, {
       fetchImpl: opts.fetchImpl,
-      saveAsset: async (buf) => `asset:${core.images.save(buf)}`,
+      // The store names every blob `<hash>.png` and /api/images/:hash always
+      // serves image/png, so an un-normalized .ico or .svg here is a file lying
+      // about its own format — broken in the marks grid, and mislabelled to any
+      // engine it is later attached to.
+      saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
     });
     const row = core.store.createBrand(brand as any);
     return { ...row, warnings };
@@ -131,6 +163,31 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return { ok: true };
   });
 
+  /**
+   * The half of an upload every asset route shares: read the multipart file,
+   * reject the empty and the unreadable, and store the normalized bytes.
+   *
+   * Returns a result rather than throwing, because each caller has its own
+   * 404-first ordering and its own idea of what a bad file means.
+   */
+  const readImagePart = async (
+    req: any,
+    normalize: (buf: Buffer) => Promise<Buffer>,
+  ): Promise<{ hash: string; fields: any; filename?: string } | { error: string }> => {
+    const part = await req.file();
+    if (!part) return { error: 'multipart file field required' };
+    const buf: Buffer = await part.toBuffer();
+    if (buf.length === 0) return { error: 'empty file' };
+    try {
+      return { hash: core.images.save(await normalize(buf)), fields: part.fields ?? {}, filename: part.filename };
+    } catch {
+      // sharp throws on anything it cannot decode. Without this the user gets a
+      // 500 through setErrorHandler for the entirely ordinary act of dragging a
+      // PDF onto a dropzone.
+      return { error: 'that file is not an image we can read' };
+    }
+  };
+
   // ---- products (manual uploads to a brand's product library)
   // Characters/presenters no longer get a manual-add route: a presenter is
   // either in the curated catalog (see below) or, for older brands, already
@@ -142,12 +199,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const spec = ASSETS[kind];
     const brand = core.store.getBrand(req.params.id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
-    const part = await req.file();
-    if (!part) return reply.status(400).send({ error: 'multipart file field required' });
-    const buf: Buffer = await part.toBuffer();
-    if (buf.length === 0) return reply.status(400).send({ error: 'empty file' });
-    const png = await sharp(buf).png().toBuffer(); // normalize any input format
-    const hash = core.images.save(png);
+    const part = await readImagePart(req, toPng);
+    if ('error' in part) return reply.status(400).send({ error: part.error });
+    const hash = part.hash;
     const name = String(part.fields?.name?.value ?? part.filename ?? spec.fallback).slice(0, 80);
     const json = { ...(brand.json as any) };
     json[spec.key] = [
@@ -168,6 +222,138 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   };
   app.post('/api/brands/:id/products', addAsset('products'));
   app.delete('/api/brands/:id/products/:assetId', removeAsset('products'));
+
+  /**
+   * Re-scrape the brand's own website into the kit it already has.
+   *
+   * Not the same thing as from-url, which creates: this one merges, and the
+   * merge policy (see mergeScrape) is what keeps a refresh from quietly undoing
+   * an afternoon of editing. Scraped colours come back as suggestions the page
+   * offers, never as a write.
+   */
+  app.post('/api/brands/:id/refresh-from-url', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const url = String((req.body as any)?.url ?? (brand.json as any)?.meta?.website ?? '');
+    if (!/^https?:\/\//.test(url)) return reply.status(400).send({ error: 'url must be http(s)' });
+    const { brand: scraped, warnings } = await buildFromUrl(url, {
+      fetchImpl: opts.fetchImpl,
+      saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
+    });
+    const { brand: merged, suggestions } = mergeScrape(brand.json, scraped);
+    const v = validateBrand(merged);
+    if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
+    const row = core.store.updateBrand(brand.id, merged as any);
+    return { ...row, warnings, suggestions };
+  });
+
+  // ---- brand marks (logos)
+  //
+  // Identity is the content hash, never the array index: a logo entry has no id
+  // of its own, and an index-addressed delete races any concurrent write to the
+  // same row (a catalog import, the product routes) and removes the wrong mark.
+  const readLogos = (json: any): any[] => (Array.isArray(json.logos) ? json.logos : []);
+  const findLogo = (json: any, hash: string) => readLogos(json).findIndex((l) => assetHash(l?.file) === hash);
+  /** A supplied enum value must be one the schema allows: `null` means reject, never quietly default. */
+  const enumField = (raw: unknown, allowed: readonly string[], fallback: string | undefined): string | null => {
+    const v = raw === undefined || raw === null ? '' : String(raw);
+    if (!v) return fallback ?? '';
+    return allowed.includes(v) ? v : null;
+  };
+
+  app.post('/api/brands/:id/logos', async (req: any, reply: any) => {
+    const brand = core.store.getBrand(req.params.id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const json = { ...(brand.json as any) };
+    const logos = [...readLogos(json)];
+    const part = await readImagePart(req, toMarkPng);
+    if ('error' in part) return reply.status(400).send({ error: part.error });
+    // The store is content-addressed, so re-uploading the same artwork yields
+    // the same hash. Appending would put two entries in the array that no
+    // hash-addressed patch or delete could ever tell apart, so the second
+    // upload updates the first instead: a mark is identified by its pixels, and
+    // the same pixels under two roles is not a thing a brand has.
+    const existing = logos.findIndex((l) => assetHash(l?.file) === part.hash);
+    const role = enumField(
+      part.fields?.role?.value,
+      LOGO_ROLES,
+      existing !== -1 ? logos[existing].role : logos.length ? 'alternate' : 'primary',
+    );
+    const background = enumField(part.fields?.background?.value, LOGO_BACKGROUNDS, 'any');
+    if (role === null || background === null)
+      return reply.status(400).send({ error: 'unknown logo role or background' });
+    const entry = { role, file: `asset:${part.hash}`, background };
+    if (existing !== -1) logos[existing] = entry;
+    else logos.push(entry);
+    json.logos = logos;
+    const v = validateBrand(json);
+    if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
+    return core.store.updateBrand(brand.id, json);
+  });
+
+  app.patch('/api/brands/:id/logos/:hash', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const json = { ...(brand.json as any) };
+    const idx = findLogo(json, String((req.params as any).hash));
+    if (idx === -1) return reply.status(404).send({ error: 'logo not found' });
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: Record<string, unknown> = {};
+    if ('role' in body) {
+      const role = enumField(body.role, LOGO_ROLES, undefined);
+      if (!role) return reply.status(400).send({ error: 'unknown logo role' });
+      patch.role = role;
+    }
+    if ('background' in body) {
+      const bg = enumField(body.background, LOGO_BACKGROUNDS, undefined);
+      if (!bg) return reply.status(400).send({ error: 'unknown logo background' });
+      patch.background = bg;
+    }
+    // Cleared prose is an absent key, not an empty string: the schema's enums
+    // and formats reject '' outright, which would 400 the whole document and
+    // silently stop every other section of the Brand page from saving.
+    if ('clearSpace' in body) {
+      const cs = String(body.clearSpace ?? '').slice(0, 200);
+      if (cs) patch.clearSpace = cs;
+    }
+    json.logos = readLogos(json).map((l, i) => {
+      if (i !== idx) return l;
+      const next = { ...l, ...patch };
+      if ('clearSpace' in body && !patch.clearSpace) delete next.clearSpace;
+      return next;
+    });
+    const v = validateBrand(json);
+    if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
+    return core.store.updateBrand(brand.id, json);
+  });
+
+  /**
+   * The brand as the model actually receives it.
+   *
+   * The Brand page shows this verbatim. The studio cannot import compileBrief
+   * (it has no workspace dependencies), and a second hand-written copy of the
+   * wording in the UI is exactly the drift this endpoint exists to prevent:
+   * whatever ships here is the same array the compiler appends to every brief.
+   */
+  app.get('/api/brands/:id/directives', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    return { directives: brandDirectives(brand.json as any) };
+  });
+
+  app.delete('/api/brands/:id/logos/:hash', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const json = { ...(brand.json as any) };
+    const idx = findLogo(json, String((req.params as any).hash));
+    if (idx === -1) return reply.status(404).send({ error: 'logo not found' });
+    // The blob itself stays: the store is content-addressed, so the same bytes
+    // may still be a product shot or a mark on another brand.
+    json.logos = readLogos(json).filter((_, i) => i !== idx);
+    const v = validateBrand(json);
+    if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
+    return core.store.updateBrand(brand.id, json);
+  });
   // Manual products only: category/variant/material/dimensions, set from the
   // product's own page. Name lives here too, so renaming doesn't need a
   // second endpoint.
@@ -199,12 +385,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const products: any[] = json.products ?? [];
     const idx = products.findIndex((p) => p.id === productId);
     if (idx === -1) return reply.status(404).send({ error: 'product not found' });
-    const part = await req.file();
-    if (!part) return reply.status(400).send({ error: 'multipart file field required' });
-    const buf: Buffer = await part.toBuffer();
-    if (buf.length === 0) return reply.status(400).send({ error: 'empty file' });
-    const png = await sharp(buf).png().toBuffer();
-    const hash = core.images.save(png);
+    const part = await readImagePart(req, toPng);
+    if ('error' in part) return reply.status(400).send({ error: part.error });
+    const hash = part.hash;
     const angle = part.fields?.angle?.value ? String(part.fields.angle.value).slice(0, 60) : undefined;
     const shot: any = { file: `asset:${hash}`, locked: true };
     if (angle) shot.angle = angle;
@@ -1021,6 +1204,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   app.get('/api/export/presets', async () => EXPORT_PRESETS);
+  /**
+   * The brand as a portable `.brand` bundle.
+   *
+   * GET, not POST: the client is then a plain anchor with a download
+   * attribute, with no blob juggling and no second copy of the filename rule.
+   */
+  app.get('/api/brands/:id/export', async (req, reply) => {
+    const brandId = String((req.params as any).id);
+    if (!core.store.getBrand(brandId)) return reply.status(404).send({ error: 'brand not found' });
+    const { zip, filename } = await buildBrandBundle(core, brandId);
+    reply.header('content-type', 'application/zip').header('content-disposition', `attachment; filename="${filename}"`);
+    return reply.send(zip);
+  });
+
   app.post('/api/export', async (req, reply) => {
     const { imageHash, presets, baseName = 'scenri-export' } = req.body as any;
     if (!core.images.has(String(imageHash))) return reply.status(404).send({ error: 'image not found' });

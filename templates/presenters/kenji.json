@@ -9,7 +9,7 @@
   "hair": "short jet-black hair in a precise low side part, tidy at the temples",
   "build": "trim tailored build with straight posture, refined hands and wrists",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Accessories", "Jewelry", "Technology"],
+  "suitableCategories": ["Accessories", "Jewelry", "Electronics"],
   "suitableStyles": ["Editorial"],
   "identityNotes": "the precise low side part, clean-shaven face and refined wrist/hand lines must survive every generation — no stubble, no loosened or messy hair",
   "negativeConstraints": ["no stubble or beard", "no messy or spiked hair", "no heavy musculature"],

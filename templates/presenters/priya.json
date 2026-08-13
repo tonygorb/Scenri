@@ -9,7 +9,7 @@
   "hair": "black hair pulled into a low sleek bun",
   "build": "tall, lean elegant build",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Jewelry", "Fashion", "Accessories"],
+  "suitableCategories": ["Jewelry", "Apparel", "Accessories"],
   "suitableStyles": ["Editorial"],
   "identityNotes": "the sharp cheekbones and sleek low bun must survive every generation — do not loosen the hair or soften the jawline",
   "negativeConstraints": ["no loose or flowing hair", "no soft romantic styling", "no heavy contouring"],

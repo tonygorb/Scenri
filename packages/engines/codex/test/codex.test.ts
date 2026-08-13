@@ -146,13 +146,17 @@ describe('generate', () => {
     expect(result.images.slice().sort()).toEqual(['hash-1', 'hash-2']); // parallel workers — arrival order varies
   });
 
-  it('injects brand palette/mood/avoid into the prompt when present, omits when absent', async () => {
+  // The adapter deliberately says nothing about the brand: compileBrief owns
+  // every brand directive now, so what the composer previews is byte-for-byte
+  // what the engine receives — and an off-brand shot stays off-brand, which it
+  // could not while this adapter re-injected the kit behind the compiler's back.
+  it('adds no brand text of its own — the compiled prompt is the whole prompt', async () => {
     const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
       child.emit('exit', 0, null);
     });
     const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
-    const branded = {
+    await engine.generate({
       ...genReq,
       count: 1,
       brand: {
@@ -164,17 +168,32 @@ describe('generate', () => {
           imagery: { mood: 'crafted, tactile', keywords: ['warm daylight'], avoid: ['neon'] },
         },
       },
-    };
-    await engine.generate(branded);
+    });
     const p1 = calls[0].args[calls[0].args.indexOf('-C') + 2];
-    expect(p1).toContain('brand colors #1F3D2B, #D96C3B');
-    expect(p1).toContain('mood: crafted, tactile');
-    expect(p1).toContain('avoid: neon');
-    expect(p1).toContain('Slow mornings');
+    expect(p1).not.toContain('Brand style');
+    expect(p1).not.toContain('#1F3D2B');
+    expect(p1).not.toContain('Slow mornings');
+    expect(p1).toContain(genReq.prompt);
+  });
 
-    await engine.generate({ ...genReq, count: 1, brand: { brand: {}, assetPaths: {} } });
-    const p2 = calls[1].args[calls[1].args.indexOf('-C') + 2];
-    expect(p2).not.toContain('Brand style');
+  it('describes an attached brand mark as something to reproduce, not merely to sample', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const srcDir = mkdtempSync(join(tmpdir(), 'codex-mark-'));
+    const markPath = join(srcDir, 'wordmark.png');
+    writeFileSync(markPath, PNG_1);
+    await engine.generate({
+      ...genReq,
+      count: 1,
+      referenceImages: [markPath],
+      referenceRoles: ['brand'],
+    });
+    const p1 = calls[0].args[calls[0].args.length - 1]; // prompt is the positional tail
+    expect(p1).toContain("the brand's own mark");
+    expect(p1).toContain('reproduce it exactly as drawn');
   });
 
   it('passes referenceImages[0] via --image and adds the fidelity directive', async () => {

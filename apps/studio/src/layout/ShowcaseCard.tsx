@@ -1,4 +1,12 @@
-import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import {
+  Fragment,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import type { ShowcaseEntry } from '../api.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize } from './CatalogCard.js';
@@ -163,12 +171,7 @@ function CreditRow({
           {thumbs.map((t, ti) => (
             <Fragment key={t.key}>
               {ti > 0 && <span className="sc-showcase-join" style={idx()} aria-hidden />}
-              <CreditTip
-                credit={t}
-                open={tip === t.key}
-                onEnter={() => setTip(t.key)}
-                style={idx()}
-              >
+              <CreditTip credit={t} open={tip === t.key} onEnter={() => setTip(t.key)} style={idx()}>
                 {roundChip({ credit: t, step: ti === 0 ? 1 : 2 })}
               </CreditTip>
             </Fragment>
@@ -248,7 +251,13 @@ function CreditTip({
   const role = CREDIT_ROLE[credit.key];
 
   return (
-    <span ref={anchorRef} className="sc-credit-tip" data-open={open || undefined} onPointerEnter={onEnter} style={style}>
+    <span
+      ref={anchorRef}
+      className="sc-credit-tip"
+      data-open={open || undefined}
+      onPointerEnter={onEnter}
+      style={style}
+    >
       {children}
       {open &&
         createPortal(

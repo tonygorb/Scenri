@@ -9,6 +9,7 @@ import {
   TrashSimple,
 } from '@phosphor-icons/react';
 import { api, imgUrl, type Brand, type TextLayer, type TreeNode } from '../api.js';
+import { ColorPicker } from './ColorPicker.js';
 import { Confirm } from '../Confirm.js';
 import { EDITOR_FONTS, fontById } from '../editor/fonts.js';
 import { useToasts } from '../toasts.js';
@@ -300,12 +301,15 @@ function TextTab({
                   aria-label={`Color ${hex}`}
                 />
               ))}
-              <input
-                type="color"
+              {/* The brand's own colours are the presets: a caption is nearly
+                  always set in one of them, and the OS picker could not offer
+                  them at all. */}
+              <ColorPicker
                 value={/^#[0-9a-fA-F]{6}$/.test(sel.color) ? sel.color : '#ffffff'}
-                onChange={(e) => update({ color: e.target.value })}
-                aria-label="Custom color"
-                style={{ width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                onChange={(hex) => update({ color: hex })}
+                label="Custom color"
+                presets={swatches}
+                className="sc-swatch sc-swatch-custom"
               />
             </Flex>
           </div>

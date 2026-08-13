@@ -120,6 +120,21 @@ export const api = {
   brandFromUrl: (url: string) => req<Brand & { warnings: string[] }>('POST', '/api/brands/from-url', { url }),
   updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
+  /** The brand kit as the compiler will append it to every brief, verbatim. */
+  brandDirectives: (id: string) => req<{ directives: string[] }>('GET', `/api/brands/${id}/directives`),
+  /**
+   * Re-read the brand's own website. Merges: hand-edited fields survive, and
+   * scraped colours come back as `suggestions` rather than being applied.
+   */
+  refreshBrandFromUrl: (id: string, url?: string) =>
+    req<Brand & { warnings: string[]; suggestions: { palette: { hex: string }[] } }>(
+      'POST',
+      `/api/brands/${id}/refresh-from-url`,
+      url ? { url } : {},
+    ),
+  updateLogo: (brandId: string, hash: string, patch: { role?: string; background?: string; clearSpace?: string }) =>
+    req<Brand>('PATCH', `/api/brands/${brandId}/logos/${hash}`, patch),
+  deleteLogo: (brandId: string, hash: string) => req<Brand>('DELETE', `/api/brands/${brandId}/logos/${hash}`),
   projects: (brandId: string) => req<Project[]>('GET', `/api/projects?brandId=${encodeURIComponent(brandId)}`),
   createProject: (brandId: string, name: string) =>
     req<{ project: Project; root: TreeNode }>('POST', '/api/projects', { brandId, name }),
@@ -433,6 +448,24 @@ export const deleteAsset = (brandId: string, kind: 'products', assetId: string) 
   req<Brand>('DELETE', `/api/brands/${brandId}/${kind}/${assetId}`);
 export const deleteProduct = (brandId: string, productId: string) => deleteAsset(brandId, 'products', productId);
 
+/** Upload a brand mark. Re-uploading the same artwork retags it rather than adding a twin. */
+export async function uploadLogo(
+  brandId: string,
+  file: File,
+  opts: { role?: string; background?: string } = {},
+): Promise<Brand> {
+  const fd = new FormData();
+  if (opts.role) fd.append('role', opts.role);
+  if (opts.background) fd.append('background', opts.background);
+  fd.append('file', file);
+  const res = await fetch(`/api/brands/${brandId}/logos`, { method: 'POST', body: fd });
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as any).error ?? `HTTP ${res.status}`);
+  return res.json();
+}
+
+/** Where the browser fetches a `.brand` bundle from — a plain link, so no blob juggling. */
+export const brandExportUrl = (brandId: string) => `/api/brands/${brandId}/export`;
+
 /** One more reference angle onto an existing manual product (not a new product). */
 export async function addProductShot(brandId: string, productId: string, file: File, angle?: string): Promise<Brand> {
   const fd = new FormData();
@@ -468,6 +501,19 @@ export interface ExportPreset {
  * to the browser to finish on its own, and it is the only reason this is not
  * simply `api.saveOverlays`. Nothing can be reported back, so nothing tries.
  */
+export function saveBrandOnUnload(brandId: string, brand: unknown): void {
+  try {
+    void fetch(`/api/brands/${brandId}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ brand }),
+      keepalive: true,
+    });
+  } catch {
+    /* the page is leaving and there is no one left to tell */
+  }
+}
+
 export function saveOverlaysOnUnload(nodeId: string, overlays: Record<string, TextLayer[]>): void {
   try {
     void fetch(`/api/nodes/${nodeId}/overlays`, {
@@ -547,7 +593,7 @@ export interface BriefPreview {
   // was missing here, so the client could not reason about presenter
   // references at all — including noticing when one had been dropped.
   attachments: {
-    role: 'product' | 'character' | 'reference';
+    role: 'product' | 'character' | 'brand' | 'reference';
     /** Catalog id of the product/presenter this came from. Correlate on this, not `label`. */
     id?: string;
     label: string;

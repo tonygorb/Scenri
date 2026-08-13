@@ -51,3 +51,66 @@ export function LibraryEmpty({
     </div>
   );
 }
+
+/**
+ * The zero-result state, said back to the user in their own words. "No scenes
+ * match these filters" is true of every empty result and so tells you nothing;
+ * quoting the term and naming the facet tells you which of the two to undo,
+ * and the actions are exactly the undos that apply — never both when only one
+ * is set. No creation CTA: it is already in the row directly above, and a
+ * failed search is the wrong moment to sell.
+ */
+export function LibraryZero({
+  noun,
+  q,
+  facet,
+  onClearSearch,
+  onClearAll,
+}: {
+  /** Plural noun for the catalog, e.g. "scenes". */
+  noun: string;
+  q: string;
+  /** The active facet's label, e.g. "Portrait" — omitted when nothing is faceted. */
+  facet?: string | null;
+  onClearSearch: () => void;
+  onClearAll: () => void;
+}) {
+  const term = q.trim();
+
+  const body = term ? (
+    <>
+      No {noun} found for <em>“{term}”</em>
+      {facet ? ` in ${facet}` : ''}
+    </>
+  ) : (
+    <>
+      No {noun} in {facet}
+    </>
+  );
+
+  return (
+    <LibraryEmpty
+      shape="zero"
+      body={body}
+      action={
+        <span className="sc-lib-zero-acts">
+          {term && (
+            <button type="button" className="sc-lib-clear" onClick={onClearSearch}>
+              Clear search
+            </button>
+          )}
+          {term && facet && (
+            <button type="button" className="sc-lib-clear" onClick={onClearAll}>
+              Clear all
+            </button>
+          )}
+          {!term && (
+            <button type="button" className="sc-lib-clear" onClick={onClearAll}>
+              Clear filter
+            </button>
+          )}
+        </span>
+      }
+    />
+  );
+}

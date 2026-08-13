@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Dialog, Flex, Spinner } from '@radix-ui/themes';
 import {
   Broom,
@@ -8,6 +9,7 @@ import {
   Globe,
   Info,
   Lightning,
+  Palette,
   PiggyBank,
   Sun,
   Terminal,
@@ -16,12 +18,18 @@ import {
 } from '@phosphor-icons/react';
 import { api, type EngineInfo, type TreeNode } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
+import { brandName } from '../layout/nav.js';
 import { Confirm } from '../Confirm.js';
 import { useThemeMode, type ThemeChoice } from '../theme.js';
+import { BrandPane } from './settings/BrandPane.js';
 
-export type Pane = 'engines' | 'budget' | 'usage' | 'library' | 'appearance' | 'about' | 'danger';
+export type Pane = 'brand' | 'engines' | 'budget' | 'usage' | 'library' | 'appearance' | 'about' | 'danger';
 
 const PANES: { id: Pane; label: string; title: string; icon: React.ReactNode; danger?: boolean }[] = [
+  // First, and in its own group: the only pane scoped to a brand rather than to
+  // this machine, and the one whose contents reach a model.
+  { id: 'brand', label: 'Brand kit', title: 'Brand kit', icon: <Palette size={14} /> },
   { id: 'engines', label: 'Engines', title: 'Engines and keys', icon: <Lightning size={14} /> },
   { id: 'budget', label: 'Budget', title: 'Budget', icon: <PiggyBank size={14} /> },
   { id: 'usage', label: 'Usage', title: 'Usage', icon: <Database size={14} /> },
@@ -91,12 +99,14 @@ export function SettingsDialog({
         <Dialog.Title style={{ display: 'none' }}>Settings</Dialog.Title>
         <div className="sc-set-grid">
           <nav className="sc-set-rail">
+            <p className="sc-set-group">This brand</p>
+            <RailItem p={PANES[0]} on={pane === 'brand'} pick={() => setPane('brand')} />
             <p className="sc-set-group">Generation</p>
-            {PANES.slice(0, 3).map((p) => (
+            {PANES.slice(1, 4).map((p) => (
               <RailItem key={p.id} p={p} on={pane === p.id} pick={() => setPane(p.id)} />
             ))}
             <p className="sc-set-group">This machine</p>
-            {PANES.slice(3).map((p) => (
+            {PANES.slice(4).map((p) => (
               <RailItem key={p.id} p={p} on={pane === p.id} pick={() => setPane(p.id)} />
             ))}
             <span className="sc-set-spacer" />
@@ -114,6 +124,7 @@ export function SettingsDialog({
               </Dialog.Close>
             </div>
             <div className="sc-set-scroll">
+              {pane === 'brand' && <BrandPane />}
               {pane === 'engines' && (
                 <Engines engines={engines} onSaved={onSaved} draft={engineDraft} setDraft={setEngineDraft} />
               )}
@@ -146,7 +157,7 @@ function RailItem({ p, on, pick }: { p: (typeof PANES)[number]; on: boolean; pic
   );
 }
 
-function Group({ title, sub, children }: { title?: string; sub?: string; children: React.ReactNode }) {
+export function Group({ title, sub, children }: { title?: string; sub?: string; children: React.ReactNode }) {
   return (
     <section className="sc-set-sec">
       {(title || sub) && (
@@ -508,6 +519,8 @@ function About() {
 }
 
 function Danger({ onDone }: { onDone: () => void }) {
+  const { brand } = useBrand();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const run = useCallback(
     async (scope: 'shots' | 'all') => {
@@ -527,6 +540,30 @@ function Danger({ onDone }: { onDone: () => void }) {
 
   return (
     <Group sub="These do not come back. Export from Library first if you are not certain.">
+      {/* Deleting one brand belongs beside deleting all of them, not at the
+          bottom of the pane where that brand is edited. */}
+      <div className="sc-set-row">
+        <span className="txt">
+          <b>Delete this brand</b>
+          <small>Removes {brandName(brand)}, its projects and every shot. Other brands stay.</small>
+        </span>
+        <Confirm
+          label="Delete brand"
+          title={`Delete ${brandName(brand)}?`}
+          body="The kit, its projects and every shot go with it. Exports you already downloaded stay yours."
+          busy={busy}
+          onConfirm={() => {
+            setBusy(true);
+            void api
+              .deleteBrand(brand.id)
+              .then(onDone)
+              // The row this dialog is rendered inside is gone; land somewhere
+              // that still exists rather than re-resolving a dead slug.
+              .then(() => navigate('/', { replace: true }))
+              .finally(() => setBusy(false));
+          }}
+        />
+      </div>
       <div className="sc-set-row">
         <span className="txt">
           <b>Delete generated shots</b>

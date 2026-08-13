@@ -21,6 +21,34 @@ describe('matchesQuery', () => {
   it('collapses repeated whitespace between terms', () => {
     expect(matchesQuery('Marble Quarry Plinth', 'marble   plinth')).toBe(true);
   });
+
+  it('ignores accents on either side — a keyboard without an accent key still finds the record', () => {
+    expect(matchesQuery('Rose Quartz Plinth', 'rosé')).toBe(true);
+    expect(matchesQuery('Rosé Bottle Still', 'rose')).toBe(true);
+    expect(matchesQuery('Café Terrace Morning', 'cafe terrace')).toBe(true);
+    expect(matchesQuery('Cafe Terrace Morning', 'café')).toBe(true);
+  });
+
+  it('matches a plural query against a singular catalog entry', () => {
+    expect(matchesQuery('Renewal Serum 30ml', 'serums')).toBe(true);
+    expect(matchesQuery('Amber Candle', 'candles')).toBe(true);
+  });
+
+  it('needs no stemming for the other direction — substring already covers it', () => {
+    expect(matchesQuery('Renewal Serums', 'serum')).toBe(true);
+  });
+
+  it('will not stem a short term into a substring of everything', () => {
+    // 's'.slice(0, -1) is '', which is inside every haystack there is.
+    expect(matchesQuery('Marble Quarry Plinth', 'zs')).toBe(false);
+    expect(matchesQuery('Marble Quarry Plinth', 'xs')).toBe(false);
+    // …but a real four-letter plural still stems.
+    expect(matchesQuery('Aluminium Can Chill', 'cans')).toBe(true);
+  });
+
+  it('still requires every term when one of them is stemmed', () => {
+    expect(matchesQuery('Renewal Serum 30ml', 'serums canyon')).toBe(false);
+  });
 });
 
 describe('facetMode', () => {

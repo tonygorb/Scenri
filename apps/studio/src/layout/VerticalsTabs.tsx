@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, type KeyboardEvent } from 'react';
 
 export interface VerticalsTabItem {
   /** `null` is the "all / every" clear option. */
@@ -17,19 +17,19 @@ function isSelected(activeKey: string | null, value: string | null): boolean {
  * Grid updates instantly (no view-transition) so filtered images don't blink.
  */
 export function VerticalsTabs({
-  "aria-label": ariaLabel,
+  'aria-label': ariaLabel,
   activeKey,
   items,
   onSelect,
 }: {
-  "aria-label": string;
+  'aria-label': string;
   activeKey: string | null;
   items: VerticalsTabItem[];
   onSelect: (value: string | null) => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
-  const itemsKey = items.map((i) => `${i.value ?? ""}:${i.count}`).join("|");
+  const itemsKey = items.map((i) => `${i.value ?? ''}:${i.count}`).join('|');
 
   useLayoutEffect(() => {
     const shell = shellRef.current;
@@ -39,18 +39,15 @@ export function VerticalsTabs({
     let fadeRaf = 0;
 
     const placeInk = () => {
-      const on = rail.querySelector<HTMLElement>(":scope > button[data-on]");
+      const on = rail.querySelector<HTMLElement>(':scope > button[data-on]');
       if (!on) {
-        rail.style.setProperty("--sc-ink-x", "0px");
-        rail.style.setProperty("--sc-ink-w", "0px");
+        rail.style.setProperty('--sc-ink-x', '0px');
+        rail.style.setProperty('--sc-ink-w', '0px');
         return null;
       }
-      const label = on.querySelector<HTMLElement>(".sc-vlabel") ?? on;
-      rail.style.setProperty(
-        "--sc-ink-x",
-        `${on.offsetLeft + label.offsetLeft}px`,
-      );
-      rail.style.setProperty("--sc-ink-w", `${label.offsetWidth}px`);
+      const label = on.querySelector<HTMLElement>('.sc-vlabel') ?? on;
+      rail.style.setProperty('--sc-ink-x', `${on.offsetLeft + label.offsetLeft}px`);
+      rail.style.setProperty('--sc-ink-w', `${label.offsetWidth}px`);
       return on;
     };
 
@@ -61,9 +58,9 @@ export function VerticalsTabs({
         delete shell.dataset.overflowRight;
         return;
       }
-      if (rail.scrollLeft > 2) shell.dataset.overflowLeft = "";
+      if (rail.scrollLeft > 2) shell.dataset.overflowLeft = '';
       else delete shell.dataset.overflowLeft;
-      if (rail.scrollLeft < max - 2) shell.dataset.overflowRight = "";
+      if (rail.scrollLeft < max - 2) shell.dataset.overflowRight = '';
       else delete shell.dataset.overflowRight;
     };
 
@@ -75,9 +72,7 @@ export function VerticalsTabs({
       const max = rail.scrollWidth - rail.clientWidth;
       if (max <= 0) return;
 
-      const buttons = [
-        ...rail.querySelectorAll<HTMLElement>(":scope > button"),
-      ];
+      const buttons = [...rail.querySelectorAll<HTMLElement>(':scope > button')];
       const i = buttons.indexOf(on);
       if (i < 0) return;
 
@@ -91,21 +86,16 @@ export function VerticalsTabs({
       const wantRight = nextBtn
         ? nextBtn.offsetLeft + Math.min(peek, nextBtn.offsetWidth)
         : on.offsetLeft + on.offsetWidth + 8;
-      const wantLeft = prev
-        ? Math.max(0, prev.offsetLeft + prev.offsetWidth - peek)
-        : Math.max(0, on.offsetLeft - 8);
+      const wantLeft = prev ? Math.max(0, prev.offsetLeft + prev.offsetWidth - peek) : Math.max(0, on.offsetLeft - 8);
 
       let next = viewLeft;
-      if (wantRight > viewRight)
-        next = Math.min(max, wantRight - rail.clientWidth);
+      if (wantRight > viewRight) next = Math.min(max, wantRight - rail.clientWidth);
       else if (wantLeft < viewLeft) next = wantLeft;
       else return;
 
       if (Math.abs(next - viewLeft) < 1) return;
-      const reduce = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
-      rail.scrollTo({ left: next, behavior: reduce ? "auto" : "smooth" });
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      rail.scrollTo({ left: next, behavior: reduce ? 'auto' : 'smooth' });
     };
 
     const on = placeInk();
@@ -113,7 +103,7 @@ export function VerticalsTabs({
     placeFades();
     if (!rail.dataset.inkReady) {
       requestAnimationFrame(() => {
-        rail.dataset.inkReady = "";
+        rail.dataset.inkReady = '';
       });
     }
 
@@ -142,13 +132,13 @@ export function VerticalsTabs({
     });
     ro.observe(rail);
 
-    rail.addEventListener("scroll", onScroll, { passive: true });
-    rail.addEventListener("wheel", onWheel, { passive: false });
+    rail.addEventListener('scroll', onScroll, { passive: true });
+    rail.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       if (fadeRaf) cancelAnimationFrame(fadeRaf);
       ro.disconnect();
-      rail.removeEventListener("scroll", onScroll);
-      rail.removeEventListener("wheel", onWheel);
+      rail.removeEventListener('scroll', onScroll);
+      rail.removeEventListener('wheel', onWheel);
     };
   }, [activeKey, itemsKey]);
 
@@ -158,13 +148,7 @@ export function VerticalsTabs({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (
-      e.key !== "ArrowLeft" &&
-      e.key !== "ArrowRight" &&
-      e.key !== "Home" &&
-      e.key !== "End"
-    )
-      return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
     if (items.length === 0) return;
     e.preventDefault();
     const i = Math.max(
@@ -172,37 +156,29 @@ export function VerticalsTabs({
       items.findIndex((item) => isSelected(activeKey, item.value)),
     );
     let next = i;
-    if (e.key === "ArrowRight") next = Math.min(items.length - 1, i + 1);
-    else if (e.key === "ArrowLeft") next = Math.max(0, i - 1);
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = items.length - 1;
+    if (e.key === 'ArrowRight') next = Math.min(items.length - 1, i + 1);
+    else if (e.key === 'ArrowLeft') next = Math.max(0, i - 1);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = items.length - 1;
     if (next === i) return;
     select(items[next]!.value);
-    const btn = railRef.current?.querySelectorAll(":scope > button")[next] as
-      | HTMLButtonElement
-      | undefined;
+    const btn = railRef.current?.querySelectorAll(':scope > button')[next] as HTMLButtonElement | undefined;
     btn?.focus();
   };
 
   return (
     <div ref={shellRef} className="sc-verticals-shell">
-      <div
-        ref={railRef}
-        className="sc-verticals"
-        role="tablist"
-        aria-label={ariaLabel}
-        onKeyDown={onKeyDown}
-      >
+      <div ref={railRef} className="sc-verticals" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
         <span className="sc-verticals-ink" aria-hidden />
         {items.map((item) => {
           const on = isSelected(activeKey, item.value);
           return (
             <button
-              key={item.value ?? "__all__"}
+              key={item.value ?? '__all__'}
               type="button"
               role="tab"
               aria-selected={on}
-              data-on={on ? "" : undefined}
+              data-on={on ? '' : undefined}
               tabIndex={on ? 0 : -1}
               onClick={() => select(item.value)}
             >

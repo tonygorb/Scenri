@@ -9,7 +9,7 @@
   "hair": "glossy blue-black hair in a blunt chin-length bob with a straight fringe",
   "build": "petite and finely proportioned, straight posture, small precise hands",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Technology", "Electronics", "Home", "Accessories"],
+  "suitableCategories": ["Electronics", "Home", "Accessories"],
   "suitableStyles": ["Editorial", "Lifestyle"],
   "identityNotes": "the blunt chin-length bob with its straight fringe, the calm dark-brown eyes and the small precise hands must survive every generation — do not lengthen the hair, wave it, or bulk up the frame",
   "negativeConstraints": [

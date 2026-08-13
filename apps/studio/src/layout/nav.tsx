@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { useLocation, useMatch, useNavigate } from 'react-router';
-import { FilmSlate, House, IdentificationBadge, Package, PlusCircle, UsersThree } from '@phosphor-icons/react';
+import { FilmSlate, House, IdentificationBadge, Package, PlusCircle } from '@phosphor-icons/react';
 import { assetUrl, type Brand } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { P, brandPath, hubPath, kitPath, scenesPath, presentersPath, productsPath } from '../routes.js';
+import { P, brandPath, hubPath, scenesPath, presentersPath, productsPath } from '../routes.js';
 
 /**
  * The five destinations, shared by the bar and the sheet. They live here rather
@@ -47,7 +47,6 @@ export function useMainNav(iconSize: number): NavItem[] {
   const products = !!useMatch({ path: P.products, end: false });
   const scenes = !!useMatch({ path: P.scenes, end: false });
   const presenters = !!useMatch({ path: P.presenters, end: false });
-  const brandPage = !!useMatch(P.kit);
 
   // the glyph fills where you are: a real Phosphor weight, not a stroked icon
   // told to fill, which thickens the counters and reads as a smudge
@@ -90,26 +89,19 @@ export function useMainNav(iconSize: number): NavItem[] {
       active: scenes,
       go: () => navigate(scenesPath(brand)),
     },
-    {
-      key: 'kit',
-      label: 'Brand',
-      icon: <UsersThree size={iconSize} weight={w(brandPage)} />,
-      active: brandPage,
-      go: () => navigate(kitPath(brand)),
-    },
   ];
 }
 
 export const brandName = (b: Brand): string => b.json?.meta?.name ?? b.slug;
 
 /** First letter that carries meaning, which is not always the first character. */
-function monogram(name: string): string {
+export function monogram(name: string): string {
   const first = [...name.trim()].find((c) => /\p{L}|\p{N}/u.test(c));
   return (first ?? '?').toUpperCase();
 }
 
 /** Black or white, whichever the brand's own colour can actually carry. */
-function inkOn(hex: string): string {
+export function inkOn(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!m) return '#ffffff';
   const [r, g, b] = [0, 2, 4].map((i) => Number.parseInt(m[1].slice(i, i + 2), 16) / 255);

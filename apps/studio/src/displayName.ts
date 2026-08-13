@@ -1,4 +1,4 @@
-import type { DemoProduct, Product, Scene } from './api.js';
+import type { DemoProduct, Presenter, Product, Scene } from './api.js';
 
 /**
  * One display name never fits every surface. A composer chip has ~15
@@ -107,6 +107,31 @@ export function productSearchText(p: DemoProduct | Product): string {
     anyP.variant,
     anyP.productType,
     ...(anyP.tags ?? []),
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
+ * A presenter is cast, not named — nobody remembers "Nadia", they remember
+ * "the white-blonde pixie" or "someone for a fragrance shoot". So the whole
+ * casting sheet is searchable even though the card shows only name and
+ * descriptor: hair, skin, build and age are how people actually look for a
+ * face, and wardrobe/style/presentation are how they look for a fit.
+ */
+export function presenterSearchText(p: Presenter): string {
+  return [
+    p.name,
+    p.descriptor,
+    p.presentation,
+    p.ageRange,
+    p.facial,
+    p.skin,
+    p.hair,
+    p.build,
+    p.wardrobeDefault,
+    ...p.suitableCategories,
+    ...p.suitableStyles,
   ]
     .filter(Boolean)
     .join(' ');

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
+import { presenterSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
-import { TextField } from '@radix-ui/themes';
-import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
+import { Plus } from '@phosphor-icons/react';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
@@ -10,8 +10,9 @@ import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js
 import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
+import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
-import { LibraryEmpty } from '../layout/library/LibraryEmpty.js';
+import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
@@ -35,7 +36,7 @@ export function PresentersView() {
   const { brand } = useBrand();
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
-  const { q, setQ, facets, setFacet, active, clear } = useLibraryQuery(['category']);
+  const { q, setQ, facets, setFacet, active, clearSearch, clear } = useLibraryQuery(['category']);
   const category = facets.category;
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
@@ -53,10 +54,9 @@ export function PresentersView() {
   const filtered = useMemo(
     () =>
       byFacet.filter((p) =>
-        matchesQuery(
-          [p.name, p.descriptor, p.hair, p.facial, p.skin, p.build, p.ageRange, ...p.suitableCategories].join(' '),
-          q,
-        ),
+        // presenterSearchText carries the whole casting sheet — hair, skin,
+        // build, age, wardrobe — none of which the card shows.
+        matchesQuery(presenterSearchText(p), q),
       ),
     [byFacet, q],
   );
@@ -91,17 +91,7 @@ export function PresentersView() {
           density={<DensityControl value={density} onChange={setDensity} />}
           search={
             presenters.length >= SEARCH_MIN && (
-              <TextField.Root
-                size="2"
-                style={{ width: 220 }}
-                placeholder={`Search ${presenters.length} presenters`}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              >
-                <TextField.Slot>
-                  <MagnifyingGlass size={14} />
-                </TextField.Slot>
-              </TextField.Root>
+              <LibrarySearch value={q} onChange={setQ} noun="presenters" total={presenters.length} />
             )
           }
           action={
@@ -142,15 +132,7 @@ export function PresentersView() {
         )}
 
         {presentersLoaded && !presentersError && !filtered.length && presenters.length > 0 && (
-          <LibraryEmpty
-            shape="zero"
-            body="No presenters match these filters."
-            action={
-              <button type="button" className="sc-lib-clear" onClick={clear}>
-                Clear filters
-              </button>
-            }
-          />
+          <LibraryZero noun="presenters" q={q} facet={category} onClearSearch={clearSearch} onClearAll={clear} />
         )}
 
         {presentersLoaded && !presentersError && !presenters.length && (

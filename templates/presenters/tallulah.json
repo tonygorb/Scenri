@@ -9,7 +9,7 @@
   "hair": "tight natural afro, medium volume",
   "build": "average height, lean athletic build",
   "wardrobeDefault": "fitted off-white ribbed tank and matching fitted off-white leggings, barefoot",
-  "suitableCategories": ["Streetwear", "Beverages", "Accessories"],
+  "suitableCategories": ["Apparel", "Food & drink", "Accessories"],
   "suitableStyles": ["Editorial", "Lifestyle"],
   "identityNotes": "the natural afro texture and volume must survive every generation — do not straighten, loosen, or shrink the hair",
   "negativeConstraints": ["no straightened or loosened hair", "no skin lightening", "no theatrical expression"],

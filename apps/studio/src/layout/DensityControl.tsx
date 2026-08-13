@@ -1,14 +1,7 @@
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { SquaresFour } from '@phosphor-icons/react';
 import { PREF, useLocalPref } from '../prefs.js';
-import {
-  DENSITY_DEFAULT,
-  DENSITY_STAGES,
-  TILE_MAX,
-  TILE_MIN,
-  type DensityCols,
-  normalizeDensity,
-} from './masonry.js';
+import { DENSITY_DEFAULT, DENSITY_STAGES, TILE_MAX, TILE_MIN, type DensityCols, normalizeDensity } from './masonry.js';
 
 export type DensitySize = 'compact' | 'large';
 

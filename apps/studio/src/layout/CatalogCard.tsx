@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ContextMenu } from '@radix-ui/themes';
-import { Check, ImageSquare } from '@phosphor-icons/react';
+import { Check, ImageSquare, Star } from '@phosphor-icons/react';
 
 export type CatalogCardVariant = 'navigate' | 'use' | 'select' | 'plain';
 export type CatalogCardSize = 'shelf' | 'grid' | 'slider' | 'wizard';
@@ -31,6 +31,8 @@ export function CatalogCard({
   onUse,
   selected,
   onToggle,
+  starred,
+  onStar,
   size = 'grid',
 }: {
   id: string;
@@ -44,6 +46,15 @@ export function CatalogCard({
   onUse?: (id: string) => void;
   selected?: boolean;
   onToggle?: (id: string) => void;
+  /**
+   * Optional star, shown on the media in every variant but `select`.
+   *
+   * Favouriting used to happen once, in a setup wizard, which is the wrong
+   * moment for a judgement about taste — you make it while browsing, on the
+   * card in front of you.
+   */
+  starred?: boolean;
+  onStar?: (id: string) => void;
   size?: CatalogCardSize;
 }) {
   const [broken, setBroken] = useState(false);
@@ -144,6 +155,22 @@ export function CatalogCard({
             {useLabel}
           </button>
         )}
+        {onStar && (
+          <button
+            type="button"
+            className="sc-lookcard-star"
+            data-on={starred || undefined}
+            aria-pressed={!!starred}
+            aria-label={starred ? `Unstar ${primary}` : `Star ${primary}`}
+            onClick={(e) => {
+              // The media is an open-button; a star inside it must not open.
+              e.stopPropagation();
+              onStar(id);
+            }}
+          >
+            <Star size={13} weight={starred ? 'fill' : 'regular'} />
+          </button>
+        )}
       </div>
       {caption}
     </div>
@@ -157,6 +184,7 @@ export function CatalogCard({
       <ContextMenu.Content>
         {onOpen && <ContextMenu.Item onSelect={() => onOpen(id)}>Open</ContextMenu.Item>}
         {showUseButton && <ContextMenu.Item onSelect={() => onUse?.(id)}>{useLabel}</ContextMenu.Item>}
+        {onStar && <ContextMenu.Item onSelect={() => onStar(id)}>{starred ? 'Remove star' : 'Star'}</ContextMenu.Item>}
       </ContextMenu.Content>
     </ContextMenu.Root>
   );

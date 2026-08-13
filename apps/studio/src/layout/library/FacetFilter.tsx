@@ -30,12 +30,5 @@ export function FacetFilter({ mode, group }: { mode: FacetMode; group?: FacetGro
     ...group.options.map((o) => ({ value: o.value, label: o.label, count: o.count })),
   ];
 
-  return (
-    <VerticalsTabs
-      aria-label={group.label}
-      activeKey={group.selected}
-      items={items}
-      onSelect={group.onSelect}
-    />
-  );
+  return <VerticalsTabs aria-label={group.label} activeKey={group.selected} items={items} onSelect={group.onSelect} />;
 }

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { productLabel, sceneLabel, sceneSearchText, productSearchText } from '../src/displayName.js';
+import {
+  productLabel,
+  sceneLabel,
+  sceneSearchText,
+  productSearchText,
+  presenterSearchText,
+} from '../src/displayName.js';
 
 const kova: any = {
   id: 'kova-peach-soda',
@@ -21,6 +27,23 @@ const iceCore: any = {
   verticals: ['Beauty'],
   legacyNames: ['Glacier Ice Core'],
   keywords: ['glacier', 'frozen', 'crystalline', 'skincare'],
+};
+
+const nadia: any = {
+  id: 'nadia',
+  name: 'Nadia',
+  presentation: 'woman',
+  descriptor: 'Cool minimal · white-blonde pixie · composed stillness',
+  ageRange: 'late 20s',
+  facial: 'High cheekbones, sparse brows',
+  skin: 'Fair, cool undertone',
+  hair: 'White-blonde cropped pixie',
+  build: 'Slight, long-necked',
+  wardrobeDefault: 'Ecru silk slip',
+  suitableCategories: ['Beauty', 'Fragrance'],
+  suitableStyles: ['Editorial'],
+  identityNotes: 'ZZZUNIQUEZZZ',
+  negativeConstraints: [],
 };
 
 describe('productLabel', () => {
@@ -101,5 +124,19 @@ describe('search text', () => {
   it('does not leak promptName into search — legacyNames already covers it', () => {
     const withPrompt: any = { ...kova, promptName: 'ZZZUNIQUEZZZ' };
     expect(productSearchText(withPrompt)).not.toContain('ZZZUNIQUEZZZ');
+  });
+
+  it('finds a presenter by casting detail the card never shows', () => {
+    const t = presenterSearchText(nadia);
+    expect(t).toContain('White-blonde cropped pixie');
+    expect(t).toContain('Fair, cool undertone');
+    expect(t).toContain('late 20s');
+    expect(t).toContain('Ecru silk slip');
+    expect(t).toContain('Editorial');
+    expect(t).toContain('woman');
+  });
+
+  it('leaves a presenter identityNotes out of search — engine guardrail, not a casting term', () => {
+    expect(presenterSearchText(nadia)).not.toContain('ZZZUNIQUEZZZ');
   });
 });

@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { productSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
-import { Dialog, DropdownMenu, TextField } from '@radix-ui/themes';
-import { CaretDown, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
+import { Dialog, DropdownMenu } from '@radix-ui/themes';
+import { CaretDown, Plus, X } from '@phosphor-icons/react';
 import { useBrand } from '../app/BrandLayout.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
@@ -14,8 +14,9 @@ import { PRODUCT_CATEGORIES, categoryLabel, effectiveCategory } from '../product
 import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
+import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
-import { LibraryEmpty } from '../layout/library/LibraryEmpty.js';
+import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
@@ -40,7 +41,7 @@ export function ProductsView() {
   const { demoProducts } = useAppData();
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
-  const { q, setQ, facets, setFacet, active, clear } = useLibraryQuery(['category']);
+  const { q, setQ, facets, setFacet, active, clearSearch, clear } = useLibraryQuery(['category']);
   const category = facets.category;
   const [addOpen, setAddOpen] = useState(false);
   const [addInitial, setAddInitial] = useState<'upload' | 'import'>('upload');
@@ -146,17 +147,7 @@ export function ProductsView() {
             density={<DensityControl value={density} onChange={setDensity} />}
             search={
               products.length >= SEARCH_MIN && (
-                <TextField.Root
-                  size="2"
-                  style={{ width: 220 }}
-                  placeholder={`Search ${products.length} products`}
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                >
-                  <TextField.Slot>
-                    <MagnifyingGlass size={14} />
-                  </TextField.Slot>
-                </TextField.Root>
+                <LibrarySearch value={q} onChange={setQ} noun="products" total={products.length} />
               )
             }
             action={addMenu}
@@ -204,14 +195,12 @@ export function ProductsView() {
         )}
 
         {loaded && products.length > 0 && visible.length === 0 && (
-          <LibraryEmpty
-            shape="zero"
-            body="No products match these filters."
-            action={
-              <button type="button" className="sc-lib-clear" onClick={clear}>
-                Clear filters
-              </button>
-            }
+          <LibraryZero
+            noun="products"
+            q={q}
+            facet={category ? categoryLabel(category) : null}
+            onClearSearch={clearSearch}
+            onClearAll={clear}
           />
         )}
 

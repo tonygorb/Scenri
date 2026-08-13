@@ -7,6 +7,7 @@ import { api, imgUrl } from '../api.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../tasks.js';
 import { useToasts } from '../toasts.js';
+import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
 /**
  * The bell, and the two lists behind it.
@@ -21,8 +22,6 @@ import { useToasts } from '../toasts.js';
  * is the furthest point from a thumb and a 360px card there is a popover in
  * name only.
  */
-const PHONE = '(max-width: 767px)';
-
 type TabKey = 'tasks' | 'feed';
 
 export function NotificationsButton() {
@@ -316,19 +315,6 @@ function FeedRow({ item, now, onOpen }: { item: NotificationItem; now: number; o
       <span className="sc-notif-time">{agoLabel(item.at, now)}</span>
     </button>
   );
-}
-
-/** Which shell to render. Watched, not sampled: a rotated phone is a new answer. */
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const on = () => setMatches(mq.matches);
-    on();
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, [query]);
-  return matches;
 }
 
 /** A clock only while the panel is open — elapsed seconds should not cost a poll. */

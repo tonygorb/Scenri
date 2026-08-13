@@ -47,6 +47,13 @@ export function TopBar() {
       </div>
       <MainNav />
       <div className="sc-topbar-end">
+        {/* Where a page's primary action lands below 1280px. The library
+            toolbar portals into this rather than keeping the button in its own
+            row: on a phone that row has to hold a scrolling facet rail and a
+            search field, and "Create presenter" was the third thing competing
+            for a width that only fits two. Up here it sits with the rest of
+            the chrome, always in the same place on every page. */}
+        <div id="sc-page-action" className="sc-topbar-action" />
         {onHub ? <AssetsToggle /> : null}
         <NotificationsButton />
         <BrandMenu />

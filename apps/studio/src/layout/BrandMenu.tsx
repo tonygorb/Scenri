@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { GearSix, Plus } from '@phosphor-icons/react';
+import { GearSix, Palette, Plus } from '@phosphor-icons/react';
 import { BrandAvatar, brandName } from './nav.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -21,6 +21,11 @@ import { useOpenSettings } from '../views/SettingsDialog.js';
  * Theme is deliberately absent. Settings already owns an Appearance pane with
  * the same three choices, and a segmented picker in here outweighed everything
  * around it for a setting nobody changes twice.
+ *
+ * The brand kit is here rather than in the top nav for the same reason the nav
+ * has five items and not six: it is filled in once and revisited rarely, and a
+ * nav slot has to earn itself against work you do every session. This menu is
+ * already the brand-identity control, so it is where someone looks.
  */
 export function BrandMenu() {
   const { brands } = useAppData();
@@ -47,6 +52,11 @@ export function BrandMenu() {
             <span className="sc-menu-sub">Current brand</span>
           </span>
         </div>
+
+        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings('brand')}>
+          <Palette size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">Brand kit</span>
+        </DropdownMenu.Item>
 
         <div className="sc-menu-sep" />
 

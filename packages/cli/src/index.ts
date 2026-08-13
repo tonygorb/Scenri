@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { createEngineRegistry } from './engines.js';
+import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from './server.js';
 
 const PORT = Number(process.env.SCENRI_PORT || 4747);
@@ -34,7 +35,12 @@ function lanAddresses(): string[] {
 
 async function main() {
   const core = createCore();
-  const engines = createEngineRegistry(core);
+  // The e2e suite needs a generation that finishes without keys, money or a
+  // network. The demo engine is deliberately absent from the default registry
+  // (see engines.ts) because it proves nothing about fidelity, so it is opted
+  // into explicitly here and nowhere else.
+  const stubs = process.env.SCENRI_DEMO_ENGINE === '1' ? [createDemoEngine((b: Buffer) => core.images.save(b))] : [];
+  const engines = createEngineRegistry(core, stubs);
   const here = dirname(fileURLToPath(import.meta.url));
   // dev: monorepo path; published: bundled dist
   const candidates = [join(here, '..', '..', '..', 'apps', 'studio', 'dist'), join(here, '..', 'studio-dist')];

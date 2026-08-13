@@ -31,6 +31,15 @@ interface AppData extends UseScenesResult {
   refetchShowcase: () => void;
   /** Re-read brands and engines: brand edits and key changes both land here. */
   refresh: () => Promise<void>;
+  /**
+   * Swap one already-known brand row in place.
+   *
+   * `refresh()` would do it too, but it bumps `updatedAt` on the brand every
+   * consumer watches, and BrandLayout reacts to that by refetching the whole
+   * workspace — once per pause in an autosaving form. This is the narrow write
+   * for a page that already holds the row the server just returned.
+   */
+  applyBrand: (next: Brand) => void;
 }
 
 const Ctx = createContext<AppData | null>(null);
@@ -54,6 +63,10 @@ export function AppShell() {
   const presenters = usePresenters();
   const demoProducts = useDemoProducts();
   const showcase = useShowcase();
+
+  const applyBrand = useCallback((next: Brand) => {
+    setBrands((cur) => (cur ? cur.map((b) => (b.id === next.id ? next : b)) : cur));
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -108,6 +121,7 @@ export function AppShell() {
         showcaseError: showcase.error,
         refetchShowcase: showcase.refetch,
         refresh,
+        applyBrand,
       }}
     >
       <ScrollRestoration />

@@ -50,6 +50,10 @@ A portable, tool-neutral description of a brand's visual and verbal identity —
     "avoid": ["neon", "corporate stock poses", "pure white studio backgrounds"],
     "mood": "crafted, unhurried, tactile"
   },
+  "rules": {
+    "never": ["competitor logos in frame", "visible text on garments"],
+    "notes": "Packaging is always shown upright and unopened."
+  },
   "voice": {
     "tone": ["warm", "dry-witted", "plainspoken"],
     "avoid": ["exclamation marks", "hype adjectives"],
@@ -71,7 +75,10 @@ A portable, tool-neutral description of a brand's visual and verbal identity —
 
 1. **Everything optional except `specVersion` and `meta.name`.** A `.brand` built in 30 seconds from a URL scrape is valid; richness accretes.
 2. **`locked: true` on product shots** signals generators/editors that this asset's pixels are fidelity-critical — the contract behind drift-diff.
-3. **Prose fields are prompts.** `usage`, `rules`, `mood`, `notes` are free text intended to be injected into generation context verbatim — human-readable and machine-usable.
+3. **Prose fields are prompts.** `usage`, `typography.rules`, `mood`, `rules.notes` and `notes` are free text
+   intended to be injected into generation context verbatim — human-readable and machine-usable.
+   `rules` is the brand's standing law: `never` holds short prohibitions and `notes` free prose, and both
+   apply to every generation unless a tool offers an explicit off-brand escape.
 4. **`extensions`** is a namespaced escape hatch (`"com.example.tool": {...}`); tools must ignore unknown namespaces. Spec evolution via RFC issues, additive-only within 0.x.
 5. **No secrets.** A `.brand` must always be safe to email to a client. Keys, tokens, and provider config live in the tool, never the format.
 

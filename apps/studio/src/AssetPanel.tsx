@@ -12,6 +12,7 @@ import {
 } from './api.js';
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { CatalogImportDialog } from './layout/CatalogImportDialog.js';
+import { useFileDrop } from './layout/Dropzone.js';
 
 /** Cards drawn at once. Past this, the search box above is the way through. */
 const PANEL_CAP = 60;
@@ -61,8 +62,6 @@ export const ProductsPanel = forwardRef<
   const [job, setJob] = useState<CatalogImportJob | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const autoStarted = useRef(false);
-  const [dragOver, setDragOver] = useState(false);
-  const dragDepth = useRef(0);
 
   const loadLibrary = async (): Promise<Product[]> => {
     try {
@@ -133,6 +132,11 @@ export const ProductsPanel = forwardRef<
    * compileBrief wants up to PRODUCT_REF_MAX (3) angles and falls back to a
    * weaker single-image directive without them.
    */
+  const { dropProps } = useFileDrop({
+    onFiles: (files) => void upload(files),
+    onReject: () => setErr('Drop an image file.'),
+  });
+
   const upload = async (files: File[]) => {
     const [first, ...rest] = files;
     if (!first) return;
@@ -196,33 +200,7 @@ export const ProductsPanel = forwardRef<
           {job && !job.finishedAt ? 'Importing…' : 'Import catalog'}
         </button>
       </Flex>
-      <Flex
-        gap="2"
-        className="sc-upload-dz"
-        data-drag-over={dragOver || undefined}
-        onDragEnter={(e) => {
-          if (!Array.from(e.dataTransfer.types).includes('Files')) return;
-          e.preventDefault();
-          dragDepth.current++;
-          setDragOver(true);
-        }}
-        onDragOver={(e) => e.preventDefault()}
-        onDragLeave={() => {
-          dragDepth.current = Math.max(0, dragDepth.current - 1);
-          if (dragDepth.current === 0) setDragOver(false);
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          dragDepth.current = 0;
-          setDragOver(false);
-          const images = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
-          if (!images.length) {
-            setErr('Drop an image file.');
-            return;
-          }
-          void upload(images);
-        }}
-      >
+      <Flex gap="2" className="sc-upload-dz" {...dropProps}>
         <TextField.Root
           ref={nameFieldRef}
           style={{ flex: 1 }}

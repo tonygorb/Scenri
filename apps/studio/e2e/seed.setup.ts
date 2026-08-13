@@ -51,8 +51,9 @@ setup('seed the fixture brand', async ({ request }) => {
   expect(wsRes.ok(), await wsRes.text()).toBeTruthy();
   const { project } = await wsRes.json();
 
-  // One finished shot, so the plus menu has a "recent shot" to attach. The
-  // demo engine ships registered by default, so this needs no keys and is free.
+  // One finished shot, so the plus menu has a "recent shot" to attach. The demo
+  // engine is not in the default registry — it proves nothing about fidelity —
+  // so playwright.config.ts opts this server into it with SCENRI_DEMO_ENGINE.
   const nodeRes = await request.post('/api/nodes', {
     data: {
       projectId: project.id,

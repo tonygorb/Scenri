@@ -14,7 +14,6 @@ import { BrandLayout, useBrand } from './app/BrandLayout.js';
 import { P, hubPath, rewriteLegacyPath, setPath } from './routes.js';
 import { RootRedirect } from './app/RootRedirect.js';
 import { BrandSetup } from './views/BrandSetup.js';
-import { BrandView } from './views/Brand.js';
 import { HomeView } from './views/Home.js';
 import { ScenesView } from './views/Scenes.js';
 import { ScenePage } from './views/ScenePage.js';
@@ -104,6 +103,12 @@ function LegacyRedirect() {
   return <Navigate to={rewriteLegacyPath(pathname, search)} replace />;
 }
 
+/** /:brandSlug/kit → the brand's home with the Brand kit pane open. */
+function KitRedirect() {
+  const { brandSlug } = useParams();
+  return <Navigate to={`/${brandSlug}?settings=brand`} replace />;
+}
+
 function SceneRoute() {
   const { sceneId } = useParams();
   return <ScenePage key={sceneId} />;
@@ -147,7 +152,11 @@ export const router = createBrowserRouter([
             element: <SetRoute />,
             children: [{ path: P.setShot, element: <ShotDetailRoute /> }],
           },
-          { path: P.kit, element: <BrandView /> },
+          // The brand kit is Settings now: it is per-brand configuration filled
+          // in once, not a destination. The route stays so the links that point
+          // at it — the catalog-import notification, the legacy /b/<brand>/brand
+          // rewrite, anyone's bookmark — land in the pane instead of nowhere.
+          { path: P.kit, element: <KitRedirect /> },
           { path: P.products, element: <ProductsView /> },
           { path: P.product, element: <ProductRoute /> },
           { path: P.scenes, element: <ScenesView /> },
