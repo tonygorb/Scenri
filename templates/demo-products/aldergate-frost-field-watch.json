@@ -5,7 +5,16 @@
   "brand": "Aldergate",
   "format": "Field watch",
   "legacyNames": ["Stainless Steel Field Watch"],
-  "keywords": ["watch", "wristwatch", "timepiece", "mechanical", "stainless steel", "accessories", "military", "outdoor"],
+  "keywords": [
+    "watch",
+    "wristwatch",
+    "timepiece",
+    "mechanical",
+    "stainless steel",
+    "accessories",
+    "military",
+    "outdoor"
+  ],
   "category": "accessories",
   "description": "A mechanical field watch with a matte bead-blasted stainless steel case, a cream dial with painted indices, and a woven olive canvas strap.",
   "width": 1024,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchesQuery, facetMode, pageSlice } from '../src/layout/library/libraryRules.js';
+import { matchesQuery, facetMode, pageSlice, starredFirst } from '../src/layout/library/libraryRules.js';
 
 describe('matchesQuery', () => {
   it('matches a single term as a case-insensitive substring', () => {
@@ -79,5 +79,39 @@ describe('pageSlice', () => {
     const { visible, remaining } = pageSlice(items, 1000);
     expect(visible).toHaveLength(130);
     expect(remaining).toBe(0);
+  });
+});
+
+describe('starredFirst', () => {
+  const scenes = ['a', 'b', 'c', 'd', 'e'];
+  const starredIs =
+    (...ids: string[]) =>
+    (id: string) =>
+      ids.includes(id);
+
+  it('lifts starred items to the front', () => {
+    expect(starredFirst(scenes, starredIs('c', 'e'))).toEqual(['c', 'e', 'a', 'b', 'd']);
+  });
+
+  it('keeps catalog order inside each half — the lift is stable, not a re-sort', () => {
+    expect(starredFirst(scenes, starredIs('e', 'b'))).toEqual(['b', 'e', 'a', 'c', 'd']);
+  });
+
+  it('is identity when nothing is starred', () => {
+    expect(starredFirst(scenes, () => false)).toEqual(scenes);
+  });
+
+  it('is identity when everything is starred', () => {
+    expect(starredFirst(scenes, () => true)).toEqual(scenes);
+  });
+
+  it('never mutates the input — call sites pass the shared catalog array', () => {
+    const input = [...scenes];
+    starredFirst(input, starredIs('d'));
+    expect(input).toEqual(scenes);
+  });
+
+  it('handles an empty catalog', () => {
+    expect(starredFirst([], () => true)).toEqual([]);
   });
 });

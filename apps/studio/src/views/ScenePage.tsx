@@ -9,6 +9,7 @@ import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
 import { SceneCard } from '../layout/SceneCard.js';
 import { Star } from '@phosphor-icons/react';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+import { starredFirst } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 
@@ -91,11 +92,11 @@ export function ScenePage() {
     }
   }, [scenes, scene]);
 
-  /** Favorites-first, same ordering rule as Home's shelf and Create's FirstRun. */
+  /** Starred first, same ordering rule as Home's shelf and Create's FirstRun. */
   const recovery = useMemo(() => {
     if (scene || !loaded || error) return [];
     const favs = favoriteScenes(brandId);
-    return [...scenes].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id))).slice(0, 6);
+    return starredFirst(scenes, (s) => favs.includes(s.id)).slice(0, 6);
   }, [scene, loaded, error, scenes, brandId]);
 
   if (!loaded) {
@@ -184,7 +185,7 @@ export function ScenePage() {
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
             Use this scene
           </button>
-          {/* Starred scenes lead the shelf on Home and in Create. */}
+          {/* Starred scenes get their own shelf on /scenes, and lead the one on Home. */}
           <button
             type="button"
             className="sc-btn sc-btn-ghost"

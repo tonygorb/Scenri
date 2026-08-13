@@ -16,12 +16,19 @@ import { FacetFilter } from '../layout/library/FacetFilter.js';
 import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
-import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
+import { matchesQuery, type FacetMode } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { PREF, useLocalPref } from '../prefs.js';
 
 /** Below this, a search box has nothing worth narrowing — the whole set is one screenful. */
 const SEARCH_MIN = 8;
+
+/**
+ * The rail's value for the Favorites tab. Taste is a different axis from
+ * vertical, so it rides its own `?starred=1` param and this string never
+ * reaches the URL — which is why it can't collide with a real vertical name.
+ */
+const STARRED = '__starred';
 
 /**
  * The scenes library, built on the shared Creative Library shell
@@ -32,7 +39,12 @@ const SEARCH_MIN = 8;
  * undifferentiated grid. That sectioning only makes sense while browsing:
  * the moment a search term is active, three matches scattered across five
  * sections reads worse than one flat result list, so search collapses to a
- * single grid instead.
+ * single grid instead. Favorites collapses it the same way, for the same
+ * reason.
+ *
+ * Starring a card is what makes a catalog this size yours, and the Favorites
+ * tab is where that lands — one more tab on the rail you already use, holding
+ * only the scenes you starred.
  */
 export function ScenesView() {
   const { scenes, collections, verticals, loaded, error, refetch } = useAppData();
@@ -43,9 +55,12 @@ export function ScenesView() {
   const [favs, setFavs] = useState<string[]>(() => favoriteScenes(brand.id));
   const star = (id: string) => setFavs(toggleFavoriteScene(brand.id, id));
   const applyScene = useApplyScene();
-  const { q, setQ, facets, setFacet, clearSearch, clear } = useLibraryQuery(['vertical']);
+  const { q, setQ, facets, setFacets, clearSearch, clear } = useLibraryQuery(['vertical', 'starred']);
   const vertical = facets.vertical;
+  const onlyStarred = facets.starred === '1';
   const searching = q.trim().length > 0;
+  /** Sections are for browsing. Narrow the wall by anything and one flat list reads better. */
+  const flat = searching || onlyStarred;
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
   const setDensity = (cols: DensityCols) => setTile(cols);
@@ -54,35 +69,79 @@ export function ScenesView() {
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
-  const byVertical = useMemo(
-    () => (vertical ? scenes.filter((s) => s.verticals.includes(vertical)) : scenes),
-    [scenes, vertical],
-  );
+  const byFacet = useMemo(() => {
+    if (onlyStarred) return scenes.filter((s) => favs.includes(s.id));
+    return vertical ? scenes.filter((s) => s.verticals.includes(vertical)) : scenes;
+  }, [scenes, vertical, onlyStarred, favs]);
 
   const filtered = useMemo(
     () =>
-      byVertical.filter((s) =>
+      byFacet.filter((s) =>
         // sceneSearchText folds in keywords and pre-rename names, so a short
         // display name never costs a scene its findability.
         matchesQuery(sceneSearchText(s), q),
       ),
-    [byVertical, q],
+    [byFacet, q],
   );
 
-  const { visible, remaining, showMore } = useLibraryPage(filtered, `${vertical ?? ''}|${q}`);
+  const { visible, remaining, showMore } = useLibraryPage(
+    filtered,
+    `${vertical ?? ''}|${onlyStarred ? 'starred' : ''}|${q}`,
+  );
 
   const countFor = (v: string) => scenes.filter((s) => s.verticals.includes(v)).length;
-  const mode = facetMode(verticals.length);
+
+  // Favorites always leads the rail, including at zero. A tab that appears
+  // with the first star would shift every vertical along under the cursor at
+  // the exact moment of clicking one, and a rail whose shape depends on your
+  // history is a rail you can't build muscle memory for. Empty, it teaches
+  // itself. The count is what the tab can actually show: a star outlives its
+  // scene leaving the catalog, so the stored list is not the same as the tab.
+  const starredTotal = scenes.reduce((n, s) => n + (favs.includes(s.id) ? 1 : 0), 0);
+  const facetOptions = [
+    { value: STARRED, label: 'Favorites', count: starredTotal },
+    ...verticals.map((v) => ({ value: v, label: v, count: countFor(v) })),
+  ];
+  // Not facetMode's call any more: "Every scene" plus "Favorites" is already
+  // two real choices, so the rail earns itself the moment there is a catalog,
+  // however few verticals that catalog happens to carry.
+  const mode: FacetMode = scenes.length > 0 ? 'tabs' : 'none';
 
   const facetGroup = {
     key: 'vertical',
     label: 'Vertical',
     everyLabel: 'Every scene',
     everyCount: scenes.length,
-    selected: vertical,
-    onSelect: (v: string | null) => setFacet('vertical', v),
-    options: verticals.map((v) => ({ value: v, label: v, count: countFor(v) })),
+    selected: onlyStarred ? STARRED : vertical,
+    // One write, both axes: `starred` and `vertical` are mutually exclusive,
+    // and two separate setFacet calls would have the second undo the first.
+    onSelect: (v: string | null) =>
+      v === STARRED ? setFacets({ starred: '1', vertical: null }) : setFacets({ starred: null, vertical: v }),
+    options: facetOptions,
   };
+
+  const grid = (items: typeof scenes, wall = false) => (
+    <div
+      className="sc-masonry"
+      data-wall={wall || undefined}
+      data-density
+      data-density-size={densityAttr}
+      style={wallStyle}
+    >
+      {items.map((s) => (
+        <SceneCard
+          key={s.id}
+          scene={s}
+          variant="use"
+          size="grid"
+          onOpen={openScene}
+          onUse={applyScene}
+          starred={favs.includes(s.id)}
+          onStar={star}
+        />
+      ))}
+    </div>
+  );
 
   return (
     <ScrollPane>
@@ -120,9 +179,9 @@ export function ScenesView() {
 
         {loaded &&
           !error &&
-          !searching &&
+          !flat &&
           collections.map((c) => {
-            const inCollection = byVertical.filter((s) => s.collections.includes(c));
+            const inCollection = byFacet.filter((s) => s.collections.includes(c));
             if (!inCollection.length) return null;
             return (
               <section className="sc-coll" key={c}>
@@ -134,46 +193,38 @@ export function ScenesView() {
                     </button>
                   ))}
                 </div>
-                <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
-                  {inCollection.map((s) => (
-                    <SceneCard
-                      key={s.id}
-                      scene={s}
-                      variant="use"
-                      size="grid"
-                      onOpen={openScene}
-                      onUse={applyScene}
-                      starred={favs.includes(s.id)}
-                      onStar={star}
-                    />
-                  ))}
-                </div>
+                {grid(inCollection)}
               </section>
             );
           })}
 
-        {loaded && !error && searching && visible.length > 0 && (
-          <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-            {visible.map((s) => (
-              <SceneCard
-                key={s.id}
-                scene={s}
-                variant="use"
-                size="grid"
-                onOpen={openScene}
-                onUse={applyScene}
-                starred={favs.includes(s.id)}
-                onStar={star}
-              />
-            ))}
-          </div>
+        {loaded && !error && flat && visible.length > 0 && grid(visible, true)}
+
+        {/* An empty Favorites tab is not a failed search — nothing went wrong,
+            there is just nothing here yet. Say what puts something here. */}
+        {loaded && !error && onlyStarred && starredTotal === 0 && (
+          <LibraryEmpty
+            shape="zero"
+            body="Nothing starred yet. Star a scene from its card and it stays here."
+            action={
+              <button type="button" className="sc-lib-clear" onClick={() => setFacets({ starred: null })}>
+                Browse every scene
+              </button>
+            }
+          />
         )}
 
-        {loaded && !error && scenes.length > 0 && filtered.length === 0 && (
-          <LibraryZero noun="scenes" q={q} facet={vertical} onClearSearch={clearSearch} onClearAll={clear} />
+        {loaded && !error && scenes.length > 0 && starredTotal > 0 && filtered.length === 0 && (
+          <LibraryZero
+            noun="scenes"
+            q={q}
+            facet={onlyStarred ? 'Favorites' : vertical}
+            onClearSearch={clearSearch}
+            onClearAll={clear}
+          />
         )}
 
-        {searching && remaining > 0 && (
+        {flat && remaining > 0 && (
           <div className="sc-lib-more">
             <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
               Show {Math.min(remaining, 60)} more

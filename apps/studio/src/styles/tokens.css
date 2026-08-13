@@ -19,7 +19,7 @@
   /* layout */
   --sc-gutter: 24px; /* one page edge: top bar and content agree at every width */
   --sc-prompt-w: clamp(640px, 50vw, 1000px); /* the dock owns this; the card fills it */
-  --sc-topbar-h: 60px;
+  --sc-topbar-h: 52px;
   --sc-assets-w: 320px;
   --sc-tabbar-h: 0px;
   /* How much of the viewport the software keyboard is sitting on. iOS leaves

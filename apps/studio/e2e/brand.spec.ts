@@ -256,4 +256,56 @@ test.describe('brand kit', () => {
     const saved = await page.evaluate((id) => localStorage.getItem(`sc-favscenes-${id}`), brand.id);
     expect(JSON.parse(saved ?? '[]')).toHaveLength(1);
   });
+
+  test('the Favorites tab is always on the rail and filters the wall to what you starred', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/scenes`);
+
+    // Present at zero: the rail must not change shape as you star things.
+    const favTab = page.getByRole('tab', { name: /Favorites/ });
+    await expect(favTab).toHaveCount(1);
+    await expect(favTab).toContainText('0');
+
+    // Empty, it says what fills it — this is not a failed search.
+    await favTab.click();
+    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing starred yet');
+    await page.getByRole('button', { name: 'Browse every scene' }).click();
+    await expect(page).not.toHaveURL(/[?&]starred=1/);
+
+    await page.locator('.sc-lookcard-star').first().click();
+    await expect(favTab).toContainText('1');
+
+    // Picking it collapses the collection sections into one flat wall.
+    await favTab.click();
+    await expect(page).toHaveURL(/[?&]starred=1/);
+    await expect(page.locator('.sc-coll')).toHaveCount(0);
+    await expect(page.locator('[data-wall] .sc-lookcard')).toHaveCount(1);
+
+    // It survives a reload — the state is in the URL, not in a component.
+    await page.reload();
+    await expect(page.locator('[data-wall] .sc-lookcard')).toHaveCount(1);
+
+    // Unstarring the last one falls back to the empty state, not a blank page,
+    // and the tab stays put at zero.
+    await page.locator('.sc-lookcard-star[data-on]').first().click();
+    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing starred yet');
+    await expect(favTab).toContainText('0');
+    await page.getByRole('button', { name: 'Browse every scene' }).click();
+    await expect(page).not.toHaveURL(/[?&]starred=1/);
+    await expect(page.locator('.sc-coll').first()).toBeVisible();
+  });
+
+  test('picking a vertical clears the Favorites tab rather than stacking with it', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/scenes`);
+    await page.locator('.sc-lookcard-star').first().click();
+    await page.getByRole('tab', { name: /Favorites/ }).click();
+    await expect(page).toHaveURL(/[?&]starred=1/);
+
+    const vertical = page.getByRole('tab').nth(2);
+    await vertical.click();
+    await expect(page).not.toHaveURL(/[?&]starred=1/);
+    await expect(page).toHaveURL(/[?&]vertical=/);
+    await expect(page.locator('.sc-coll').first()).toBeVisible();
+  });
 });

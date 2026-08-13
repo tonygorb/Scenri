@@ -23,7 +23,8 @@ export function favoriteScenes(brandId: string): string[] {
   }
 }
 
-export function saveFavoriteScenes(brandId: string, ids: string[]): void {
+/** Private: the only way in is `toggleFavoriteScene`, so a write can't skip the read-modify. */
+function save(brandId: string, ids: string[]): void {
   try {
     localStorage.setItem(key(brandId), JSON.stringify(ids));
   } catch {
@@ -34,6 +35,6 @@ export function saveFavoriteScenes(brandId: string, ids: string[]): void {
 export function toggleFavoriteScene(brandId: string, id: string): string[] {
   const cur = favoriteScenes(brandId);
   const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-  saveFavoriteScenes(brandId, next);
+  save(brandId, next);
   return next;
 }

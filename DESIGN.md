@@ -121,7 +121,7 @@ Near-monochrome dark ground with a single rationed accent; imagery supplies the 
 **Character:** A precise, geometric-leaning working sans carries every screen; Playfair Display italic is a single accent voice, not a second typeface competing for attention — it shows up on one headline per screen at most, never in UI chrome, labels, or body copy.
 
 ### Hierarchy
-- **Title** (600, 15px, -0.01em tracking): section headers (`.sc-sec-title`) — "Products," "Palette," "Favorite looks."
+- **Title** (600, 15px, -0.01em tracking): section headers (`.sc-sec-title`) — "Products," "Palette," "Scenes."
 - **Body** (400, 13px): default UI copy, descriptions, list content.
 - **Label** (500, 12.5px): chips, tab counts, small metadata.
 - **Mono**: technical/numeric readouts (briefs, costs) where fixed-width matters.

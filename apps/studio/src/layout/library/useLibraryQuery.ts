@@ -90,6 +90,15 @@ export function useLibraryQuery(facetKeys: string[]) {
 
   const setFacet = useCallback((key: string, next: string | null) => update({ [key]: next }), [update]);
 
+  /**
+   * Several facets in one write. Two `setFacet` calls in a single handler both
+   * read the same stale `location.search`, so the second silently undoes the
+   * first — the exact trap this hook exists to close. Anything that moves more
+   * than one axis at once (picking a vertical while a pseudo-facet like
+   * `starred` is on) has to come through here.
+   */
+  const setFacets = update;
+
   const active = q.trim().length > 0 || Object.values(facets).some(Boolean);
 
   const clearSearch = useCallback(() => {
@@ -108,5 +117,5 @@ export function useLibraryQuery(facetKeys: string[]) {
     update(patch);
   }, [update, cancel, facetKeysStable]);
 
-  return { q, setQ, facets, setFacet, active, clearSearch, clear };
+  return { q, setQ, facets, setFacet, setFacets, active, clearSearch, clear };
 }

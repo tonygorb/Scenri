@@ -130,7 +130,9 @@ export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
           key={m.hash ?? m.file}
           mark={m}
           busy={busy}
-          onRole={(role) => void run('Could not retag that mark', () => api.updateLogo(brand.id, m.hash ?? '', { role }))}
+          onRole={(role) =>
+            void run('Could not retag that mark', () => api.updateLogo(brand.id, m.hash ?? '', { role }))
+          }
           onBackground={(background) =>
             void run('Could not update that mark', () => api.updateLogo(brand.id, m.hash ?? '', { background }))
           }

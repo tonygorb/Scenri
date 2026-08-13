@@ -61,3 +61,13 @@ export function facetMode(valueCount: number): FacetMode {
 export function pageSlice<T>(items: T[], shown: number): { visible: T[]; remaining: number } {
   return { visible: items.slice(0, shown), remaining: Math.max(0, items.length - shown) };
 }
+
+/**
+ * Starred items first, catalog order preserved inside each half. Taste is a
+ * lift, not a re-sort: the curated order a catalog was authored in is still
+ * the right order for everything you have no opinion about yet. Array#sort is
+ * stable, so that order survives the lift.
+ */
+export function starredFirst<T>(items: T[], isStarred: (item: T) => boolean): T[] {
+  return [...items].sort((a, b) => Number(isStarred(b)) - Number(isStarred(a)));
+}

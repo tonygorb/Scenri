@@ -39,6 +39,7 @@ import { useToasts } from '../toasts.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
+import { starredFirst } from '../layout/library/libraryRules.js';
 import { Canvas } from '../layout/Canvas.js';
 import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
@@ -1039,10 +1040,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
  * the harder opening move for someone who has never used this.
  */
 function FirstRun({ scenes, brandId, onScene }: { scenes: Scene[]; brandId: string; onScene: (id: string) => void }) {
-  // favourites first, the same ordering Home uses, so the two agree
+  // Starred first, the same ordering Home's shelf uses, so the two agree.
   const ordered = useMemo(() => {
     const favs = favoriteScenes(brandId);
-    return [...scenes].sort((a, b) => Number(favs.includes(b.id)) - Number(favs.includes(a.id))).slice(0, 8);
+    return starredFirst(scenes, (s) => favs.includes(s.id)).slice(0, 8);
   }, [scenes, brandId]);
 
   return (

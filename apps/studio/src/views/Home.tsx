@@ -27,7 +27,7 @@ import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { LibraryZero } from '../layout/library/LibraryEmpty.js';
-import { matchesQuery } from '../layout/library/libraryRules.js';
+import { matchesQuery, starredFirst } from '../layout/library/libraryRules.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
@@ -187,13 +187,25 @@ export function HomeView() {
   /** The brand feed root, the same parent Create hangs new shots off. */
   const root = nodes.find((n) => n.kind === 'root') ?? null;
 
-  /** Seed a scene (favorite first, else first in catalog) and open the products
-   * attach — product, presenter, and scene chain in Create from there. */
+  /** Seed a scene and open the products attach — product, presenter, and scene
+   * chain in Create from there. The most recently starred scene wins: stars are
+   * stored in the order they were given, and the newest one is the closest
+   * thing to what this brand is shooting right now. Nothing starred, or nothing
+   * starred that survived the catalog, falls back to the first scene. */
   const startCompose = () => {
     const favs = favoriteScenes(brand.id);
-    const sceneId = templates.find((t) => favs.includes(t.id))?.id ?? templates[0]?.id;
+    const sceneId = [...favs].reverse().find((id) => templates.some((t) => t.id === id)) ?? templates[0]?.id;
     toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
+
+  /** The Scenes shelf: starred first, catalog order under that. Eight tiles is
+   * a glance, and the ones you starred are the ones worth glancing at. Read
+   * per render rather than held in state — the shelf is rebuilt on every visit
+   * to Home, which is exactly when a star set on /scenes should show up. */
+  const shelfScenes = useMemo(() => {
+    const favs = favoriteScenes(brand.id);
+    return starredFirst(templates, (s) => favs.includes(s.id)).slice(0, 8);
+  }, [templates, brand.id]);
 
   /** Curated create-strip heroes — preferred showcase/scene ids in quality
    * order. Claimed uniquely so the row never repeats a still. */
@@ -391,7 +403,7 @@ export function HomeView() {
               </button>
             </div>
             <div className="sc-masonry">
-              {templates.slice(0, 8).map((s) => (
+              {shelfScenes.map((s) => (
                 <SceneCard key={s.id} scene={s} variant="navigate" size="grid" onOpen={applyScene} />
               ))}
             </div>

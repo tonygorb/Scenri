@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, TrashSimple } from '@phosphor-icons/react';
-import {
-  flattenPalette,
-  isInShots,
-  normalizeHex,
-  rebuildPalette,
-  type Swatch,
-} from '../../brand/palette.js';
+import { flattenPalette, isInShots, normalizeHex, rebuildPalette, type Swatch } from '../../brand/palette.js';
 import { ColorPicker } from '../../layout/ColorPicker.js';
 
 interface BrandDocLike {
