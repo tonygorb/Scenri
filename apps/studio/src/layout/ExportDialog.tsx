@@ -1,32 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Dialog, Spinner } from '@radix-ui/themes';
 import { X } from '@phosphor-icons/react';
-import { api, downloadExport, imgUrl, type ExportPreset, type TextLayer } from '../api.js';
-import { flattenToBlob } from '../editor/flatten.js';
-
-const FLAT = 'flat';
+import { api, downloadExport, type ExportPreset } from '../api.js';
 
 /** "1080 x 1920", or what the preset actually leaves alone. */
 function sizeOf(p: ExportPreset): string {
   return p.width && p.height ? `${p.width} x ${p.height}` : 'untouched render';
 }
 
-/**
- * Export this shot. The flattened option is offered only when there are text
- * layers to flatten; otherwise it would promise something that is not there.
- */
+/** Export this shot: pick the sizes you need. */
 export function ExportDialog({
   open,
   onOpenChange,
   hash,
   baseName,
-  layers,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hash: string;
   baseName: string;
-  layers: TextLayer[];
 }) {
   const [presets, setPresets] = useState<ExportPreset[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
@@ -36,31 +28,22 @@ export function ExportDialog({
   useEffect(() => {
     if (!open) return;
     setErr(null);
-    setPicked(layers.length > 0 ? [FLAT] : ['original']);
+    setPicked(['original']);
     void api
       .exportPresets()
       .then(setPresets)
       .catch(() => setPresets([]));
-  }, [open, layers.length]);
+  }, [open]);
 
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
-  const serverPresets = picked.filter((id) => id !== FLAT);
-  const wantsFlat = picked.includes(FLAT);
-  const files = serverPresets.length > 0 ? (wantsFlat ? 2 : 1) : wantsFlat ? 1 : 0;
+  const serverPresets = picked;
+  const files = serverPresets.length > 0 ? 1 : 0;
 
   const run = async () => {
     setBusy(true);
     setErr(null);
     try {
-      if (wantsFlat) {
-        const blob = await flattenToBlob(imgUrl(hash), layers);
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${baseName}-with-text.png`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-      }
       if (serverPresets.length > 0) await downloadExport(hash, serverPresets, baseName);
       onOpenChange(false);
     } catch (e) {
@@ -70,18 +53,11 @@ export function ExportDialog({
     }
   };
 
-  const rows: { id: string; label: string; note: string }[] = [
-    ...(layers.length > 0
-      ? [
-          {
-            id: FLAT,
-            label: 'PNG with text',
-            note: `${layers.length} layer${layers.length === 1 ? '' : 's'} flattened into the pixels`,
-          },
-        ]
-      : []),
-    ...presets.map((p) => ({ id: p.id, label: p.label.replace(/\s*\d+×\d+$/, ''), note: sizeOf(p) })),
-  ];
+  const rows: { id: string; label: string; note: string }[] = presets.map((p) => ({
+    id: p.id,
+    label: p.label.replace(/\s*\d+×\d+$/, ''),
+    note: sizeOf(p),
+  }));
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -92,11 +68,7 @@ export function ExportDialog({
           </button>
         </Dialog.Close>
         <Dialog.Title>Export this shot</Dialog.Title>
-        <p className="sc-dlg-sub">
-          {layers.length > 0
-            ? 'Text layers render into the pixels exactly as shown.'
-            : 'Pick the sizes you need. Several downloads one zip.'}
-        </p>
+        <p className="sc-dlg-sub">Pick the sizes you need. Several downloads one zip.</p>
         <div className="sc-opts">
           {rows.map((r) => (
             <button

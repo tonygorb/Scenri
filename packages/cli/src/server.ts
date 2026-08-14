@@ -1032,6 +1032,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // Only generations declare a target shape. An edit inherits the source
     // image's dimensions, so there is nothing to check it against.
     let expectShape: { width: number; height: number } | undefined;
+    /** For an edit, which image of the parent run it was made from. */
+    let editedFrom: string | null = null;
 
     if (compiled) {
       finalPrompt = compiled.prompt;
@@ -1073,6 +1075,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     } else {
       const parent = core.store.getNode(resolvedParentId);
       const srcHash = (req.body as any).sourceImage ?? parent?.images[0];
+      // Which image this refinement was actually made from. A run holds several,
+      // and without this the answer was thrown away the moment the request was
+      // served: the provenance badge, Compare and Try again all fell back to the
+      // first image, so three quarters of the refinements of a four-variant run
+      // pointed at a picture they had never touched.
+      editedFrom = srcHash ? String(srcHash) : null;
       if (!srcHash || !core.images.has(String(srcHash)))
         return reply.status(400).send({ error: 'edit needs a parent node with an image (sourceImage)' });
       if (!engine.capabilities().supportsEdit)
@@ -1098,7 +1106,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       prompt: finalPrompt,
       engineId: String(engineId),
     });
-    if (brief) core.store.setBrief(node.id, brief);
+    // the resolved source rides along in the brief, which is already a JSON
+    // blob on the node, so the record needs no new column to be accurate
+    if (brief) core.store.setBrief(node.id, editedFrom ? { ...(brief as object), sourceImage: editedFrom } : brief);
     // Fire and forget: the 202 is the answer and the node's own status carries
     // the outcome. runNode records failures itself, so a rejection here means
     // even that failed — log it, but never let it reach the process unhandled.

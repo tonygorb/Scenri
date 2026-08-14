@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { api, type TreeNode } from './api.js';
+import { api, nodeLabel, type TreeNode } from './api.js';
 import { useToasts } from './toasts.js';
 
 /**
@@ -19,7 +19,10 @@ export function useArchiveNode(onChanged: () => Promise<void> | void) {
         .then(() => {
           push({
             kind: 'success',
+            // which shot: archiving four in a row produced four identical
+            // toasts, and no way to tell which Undo restored which
             title: 'Archived',
+            detail: nodeLabel(node),
             action: {
               label: 'Undo',
               onClick: () => void api.archiveNode(node.id, false).then(onChanged),

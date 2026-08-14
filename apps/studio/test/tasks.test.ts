@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import type { ActivityNode, CatalogImportJob } from '../src/api.js';
 import {
   agoLabel,
+  unreadCount,
+  type NotificationItem,
   catalogPercent,
   elapsedLabel,
   elapsedSec,
@@ -344,5 +346,36 @@ describe('storage', () => {
     expect(loadFeed('b1')).toEqual([]);
     expect(loadSeen('b1')).toBeNull();
     if (real) Object.defineProperty(window, 'localStorage', real);
+  });
+});
+
+describe('unread and watched work', () => {
+  const item = (id: string, at: string, over: Partial<NotificationItem> = {}): NotificationItem => ({
+    id,
+    kind: 'generation',
+    state: 'done',
+    title: id,
+    subtitle: '',
+    thumb: null,
+    at,
+    href: null,
+    ...over,
+  });
+
+  it('does not badge work that landed on the screen you were watching', () => {
+    // the record keeps it; the bell just stops claiming it needs attention
+    const feed = [item('a', '2026-08-14 10:00:00', { watched: true }), item('b', '2026-08-14 10:01:00')];
+    expect(unreadCount(feed, '2026-08-14 09:00:00')).toBe(1);
+  });
+
+  it('counts everything unwatched when nothing has been seen yet', () => {
+    const feed = [item('a', '2026-08-14 10:00:00', { watched: true }), item('b', '2026-08-14 10:01:00')];
+    expect(unreadCount(feed, null)).toBe(1);
+  });
+
+  it('still badges a failure that happened while you were watching', () => {
+    // errors are never marked watched at the call site, so they always count
+    const feed = [item('a', '2026-08-14 10:00:00', { state: 'error' })];
+    expect(unreadCount(feed, '2026-08-14 09:00:00')).toBe(1);
   });
 });

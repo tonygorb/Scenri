@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { api, type Brand } from '../api.js';
 import { useToasts } from '../toasts.js';
 import {
@@ -88,6 +88,15 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
   panelOpenRef.current = panelOpen;
   const navRef = useRef(navigate);
   navRef.current = navigate;
+  /**
+   * Whether the feed a finished shot lands in is already on screen. The tile
+   * is its own announcement there, and after three or four refinements the
+   * toasts were stacking up over the assets rail to say what the work in front
+   * of you had already said.
+   */
+  const { pathname } = useLocation();
+  const watchingFeedRef = useRef(false);
+  watchingFeedRef.current = /\/(create|sets)(\/|$)/.test(pathname);
   const pushRef = useRef(push);
   pushRef.current = push;
 
@@ -120,7 +129,13 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
     if (arrivals.length === 0) return;
 
     setFeed((f) => {
-      const merged = mergeFeed(f, arrivals);
+      // a finish that landed on the feed you were looking at is already
+      // accounted for: it keeps its place in the record without also becoming
+      // an unread alert about itself
+      const marked = watchingFeedRef.current
+        ? arrivals.map((a) => (a.state === 'error' ? a : { ...a, watched: true }))
+        : arrivals;
+      const merged = mergeFeed(f, marked);
       saveFeed(brandId, merged);
       return merged;
     });
@@ -132,6 +147,9 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       announcedRef.current.add(n.id);
       // you already know: you are the one who cancelled it
       if (n.state === 'cancelled') continue;
+      // A finish you are watching land needs no second word. A failure still
+      // speaks: the tile it leaves behind is deliberately quiet.
+      if (n.state !== 'error' && watchingFeedRef.current) continue;
       const href = n.href;
       const action = href ? { label: 'View', onClick: () => navRef.current(href) } : undefined;
       pushRef.current(

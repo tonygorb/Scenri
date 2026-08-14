@@ -6,12 +6,10 @@ import {
   api,
   hasNoShots,
   nodeLabel,
-  saveOverlaysOnUnload,
   type Brand,
   type EngineInfo,
   type Scene,
   type ShotSet,
-  type TextLayer,
   type TreeNode,
 } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
@@ -45,7 +43,6 @@ import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
-import type { InspectorTab } from '../layout/Inspector.js';
 import { SceneCard } from '../layout/SceneCard.js';
 import { FeedDensitySlider } from '../layout/DensityControl.js';
 import { VerticalsTabs, type VerticalsTabItem } from '../layout/VerticalsTabs.js';
@@ -75,15 +72,10 @@ export interface ShotContext {
   archive: (node: TreeNode) => void;
   unarchive: (node: TreeNode) => void;
   delete: (node: TreeNode) => void;
-  layers: TextLayer[];
-  selectedLayerId: string | null;
-  setSelectedLayerId: (id: string | null) => void;
-  changeLayers: (node: TreeNode, layers: TextLayer[]) => void;
-  addLayer: (node: TreeNode) => void;
   /** A shot was made from inside the overlay: keep one refine thread. */
   refined: (nodeId: string, kind?: 'generation' | 'edit') => void;
-  tab: InspectorTab;
-  setTab: (tab: InspectorTab) => void;
+  /** Ids to display names, so a shot can say which ingredient moved. */
+  tokenNames: TokenNames;
 }
 
 /** The lenses that are not places. A set is a place and lives in the path. */
@@ -112,8 +104,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { open: assetsOpen, toggle: toggleAssets, setOpen: setAssetsOpen } = useAssetsPanel();
   const [err, setErr] = useState<string | null>(null);
-  const [draftLayers, setDraftLayers] = useState<TextLayer[]>([]);
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [remixBrief, setRemixBrief] = useState<any>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [lensParam, setLens] = useFilterParam('tab', 'all');
@@ -127,6 +117,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * work at all.
    */
   const [branchId, setBranchId] = useFilterParam('branch', '');
+  /**
+   * Which image of the target a refinement should work from. A run holds
+   * several and they are the whole reason to shoot more than one, so aiming at
+   * a take has to survive the same reload the target itself does.
+   */
+  const [branchImage, _setBranchImage] = useFilterParam('bi', '');
   /**
    * Looking at one shot and everything that came from it. A lens rather than a
    * place, so it rides in the query string next to the others: it is a way of
@@ -148,10 +144,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const sort: FeedSort = isFeedSort(sortPref) ? sortPref : 'newest';
   const [compareOpen, setCompareOpen] = useState(false);
   const [iParam, setIParam] = useFilterParam('i', '0');
-  const [panel, setPanel] = useFilterParam('panel', 'text');
   const imageIndex = Number.parseInt(iParam, 10) || 0;
-  const inspectorTab = (panel === 'info' ? 'info' : 'text') as InspectorTab;
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const _saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<ComposerHandle>(null);
   const { push } = useToasts();
   const { tasks, poke } = useTaskCenter();
@@ -178,8 +172,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   );
   const closeShot = useCallback(() => {
     const p = new URLSearchParams(params);
-    // the variant was about the shot that is closing, the rest is about the view
+    // the variant and the inspector tab were about the shot that is closing;
+    // the rest is about the view. Leaving ?panel= behind meant a reloaded or
+    // shared link carried overlay state that no longer applied to anything.
     p.delete('i');
+    p.delete('panel');
     const q = p.toString();
     // replace, not push: every in-overlay navigation since the initial open
     // has itself replaced rather than pushed, so this is the one entry to
@@ -406,20 +403,53 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     [allNodes, branchId],
   );
 
+  /** The frame of the target the dock will refine, named by ?bi=. */
+  const targetImage = target?.images[Number.parseInt(branchImage, 10) || 0] ?? target?.images[0] ?? null;
+
+  /**
+   * Let go of the refine thread: the shot AND the take chosen within it, in one
+   * write. Separately these were two param setters in a tick, which discard
+   * each other's work — so dropping the thread could leave half of it behind.
+   */
+  const clearTarget = useCallback(() => {
+    setParams(
+      (cur) => {
+        const p = new URLSearchParams(cur);
+        p.delete('branch');
+        p.delete('bi');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [setParams]);
+
   // a target that has stopped being one is dropped, and said so: a chip that
   // silently stops meaning anything is worse than no chip
   useEffect(() => {
     if (!branchId || target || !loaded) return;
-    setBranchId(null);
+    clearTarget();
     push({ kind: 'error', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
-  }, [branchId, target, loaded, setBranchId, push]);
+  }, [branchId, target, loaded, clearTarget, push]);
 
   const branchFrom = useCallback(
-    (id: string) => {
-      setBranchId(id);
+    (id: string, imageIndex = 0) => {
+      // One write for both halves. Two useFilterParam setters in the same tick
+      // are each handed the same params to start from, so the second silently
+      // discards the first — here that wiped the target the moment a take was
+      // aimed at, and the brief quietly went back to making a new shot.
+      setParams(
+        (cur) => {
+          const p = new URLSearchParams(cur);
+          p.set('branch', id);
+          if (imageIndex > 0) p.set('bi', String(imageIndex));
+          else p.delete('bi');
+          return p;
+        },
+        { replace: true },
+      );
       composerRef.current?.focus();
     },
-    [setBranchId],
+    [setParams],
   );
 
   /** Picking a different shot starts it at its first image, not the last one's. */
@@ -438,104 +468,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const goToShot = (id: string) => (nodeId ? openShot(id, 0, true) : select(id));
   const setImageIndex = (i: number) => setIParam(i === 0 ? null : String(i));
 
-  // hydrate editable layers when the edited surface changes
-  const surfaceKey = `${selected?.id ?? 'none'}:${imageIndex}`;
-  useEffect(() => {
-    setDraftLayers((selected?.overlays?.[String(imageIndex)] ?? []) as TextLayer[]);
-    setSelectedLayerId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surfaceKey]);
-
-  /**
-   * Text edits are debounced, so at any moment there can be a write that has
-   * been promised to the user and not yet sent. It is held here rather than
-   * captured in the timer alone, so it can be flushed deliberately instead of
-   * relying on a stray timer firing out of an unmounted closure.
-   */
-  const pendingSave = useRef<{ nodeId: string; overlays: Record<string, TextLayer[]> } | null>(null);
-
-  const flushLayers = useCallback(async () => {
-    const write = pendingSave.current;
-    if (!write) return;
-    pendingSave.current = null;
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    try {
-      await api.saveOverlays(write.nodeId, write.overlays);
-      await reload();
-    } catch (e: any) {
-      // the draft stays on screen: silently reverting to the server copy is
-      // how an edit disappears without anyone knowing it was ever at risk
-      push({
-        kind: 'error',
-        title: 'Text not saved',
-        detail: String(e?.message ?? e),
-        action: {
-          label: 'Try again',
-          onClick: () => {
-            pendingSave.current = write;
-            void flushLayers();
-          },
-        },
-      });
-    }
-  }, [reload, push]);
-
-  const changeLayers = (node: TreeNode, layers: TextLayer[]) => {
-    setDraftLayers(layers);
-    // the index is captured now, not when the timer fires: moving to another
-    // variant mid-debounce must not write these layers onto the one you moved to
-    pendingSave.current = { nodeId: node.id, overlays: { ...node.overlays, [String(imageIndex)]: layers } };
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => void flushLayers(), 700);
-  };
-
-  /**
-   * Leaving the edited surface, or the screen, sends what is owed first. The
-   * flush goes through a ref so this fires on a genuine surface change and not
-   * every time `reload` happens to get a new identity.
-   */
-  const flushRef = useRef(flushLayers);
-  flushRef.current = flushLayers;
-  useEffect(() => {
-    return () => {
-      void flushRef.current();
-    };
-  }, [surfaceKey]);
-
-  // A reload or a closed tab cannot await anything, so that one case goes out
-  // with keepalive instead.
-  useEffect(() => {
-    const onLeave = () => {
-      const write = pendingSave.current;
-      if (write) saveOverlaysOnUnload(write.nodeId, write.overlays);
-    };
-    window.addEventListener('beforeunload', onLeave);
-    return () => window.removeEventListener('beforeunload', onLeave);
-  }, []);
-
-  const addTextLayer = (node: TreeNode) => {
-    const layer: TextLayer = {
-      id: `l-${Math.random().toString(36).slice(2, 8)}`,
-      text: 'Your headline',
-      x: 8,
-      y: 8,
-      width: 60,
-      fontId: 'inter-tight',
-      size: 72,
-      weight: 700,
-      color: '#FFFFFF',
-      align: 'left',
-      lineHeight: 1.12,
-      opacity: 1,
-      shadow: { x: 0, y: 2, blur: 10, color: 'rgba(0,0,0,0.45)' },
-    };
-    changeLayers(node, [...draftLayers, layer]);
-    setSelectedLayerId(layer.id);
-  };
-
   /**
    * Run a shot's own recipe again, as a sibling of the one that failed.
    *
@@ -548,9 +480,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * worth reading. This used to be fired as `void retry(n)` and rejected in
    * silence, so the button simply appeared to do nothing.
    */
-  const retry = async (node: TreeNode) => {
+  const retry = async (node: TreeNode): Promise<string | null> => {
     try {
-      await api.addNode({
+      const made = await api.addNode({
         projectId,
         parentId: node.parentId,
         kind: node.kind === 'edit' ? 'edit' : 'generation',
@@ -558,10 +490,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         engineId: node.engineId,
         count: node.brief?.variants ?? Math.max(1, node.images.length || 1),
         brief: node.brief,
+        // a refinement runs again from the frame it came from; without this the
+        // retake silently switched to the run's first image
+        ...(node.kind === 'edit' && node.brief?.sourceImage ? { sourceImage: node.brief.sourceImage } : {}),
       });
       await reload();
+      return made?.id ?? null;
     } catch (e: any) {
       push({ kind: 'error', title: 'Could not run this again', detail: String(e.message ?? e) });
+      return null;
     }
   };
 
@@ -647,6 +584,19 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         e.preventDefault();
         return;
       }
+      /**
+       * Straight to the brief.
+       *
+       * It is the primary input of the product and it sat at Tab stop 79 from a
+       * cold load: sixteen stops of chrome, then four per tile, then the whole
+       * assets rail. A keyboard user could reach every thumbnail in the rail
+       * before reaching the field the page exists for.
+       */
+      if (e.key === '/' && !nodeId) {
+        composerRef.current?.focus();
+        e.preventDefault();
+        return;
+      }
       if (e.key === 'Escape' && shortcutsOpen) {
         setShortcutsOpen(false);
         e.preventDefault();
@@ -666,7 +616,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       // and with nothing else open, escape means "stop branching", which is the
       // only other piece of state on this screen you can be stuck in
       if (e.key === 'Escape' && branchId) {
-        setBranchId(null);
+        clearTarget();
         e.preventDefault();
         return;
       }
@@ -813,7 +763,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     setImageIndex,
     close: closeShot,
     select: goToShot,
-    retry: (n) => void retry(n),
+    // Try again from inside a shot used to file the new take behind the
+    // overlay: something was spent, the picture in front of you did not
+    // change, and the only way to learn it had worked was to close and hunt
+    // the feed. It walks to the take it just started instead, the way a
+    // refinement does. The previous one is one Back away and still in the feed.
+    retry: (n) => {
+      void retry(n).then((id) => {
+        if (id) goToShot(id);
+      });
+    },
     cancel: (n) => void cancel(n),
     reload: () => reload(),
     remix: (n) => {
@@ -837,19 +796,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     archive: (n) => void archive(n).then(() => closeShot()),
     unarchive: (n) => void unarchive(n),
     delete: (n) => void remove(n).then(() => closeShot()),
-    layers: draftLayers,
-    selectedLayerId,
-    setSelectedLayerId,
-    changeLayers,
-    addLayer: addTextLayer,
     // whichever surface a refine was pulled from, the workspace follows the
     // same thread, so stepping back out continues the conversation instead of
     // turning the next instruction into a brand new shot
     refined: (id, kind) => {
       if (kind === 'edit') setBranchId(id);
     },
-    tab: inspectorTab,
-    setTab: (t) => setPanel(t),
+    tokenNames,
   };
 
   return (
@@ -909,6 +862,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           sending={sending}
           onBranch={branchFrom}
           branchingFrom={target?.id ?? null}
+          branchingFromImage={targetImage}
           expanded={expanded}
           onToggleExpand={(id) =>
             setExpanded((cur) => {
@@ -993,10 +947,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             params.get('attach') === 'scenes' ? 'Scenes' : params.get('attach') === 'products' ? 'Products' : undefined
           }
           target={target}
-          onClearTarget={() => setBranchId(null)}
+          onClearTarget={clearTarget}
           onRestoreBranchId={setBranchId}
           setSlug={set?.slug ?? null}
           onSending={setSending}
+          sourceImage={targetImage ?? undefined}
           onQueued={(made, kind) => {
             setRemixBrief(null);
             /**
@@ -1043,7 +998,20 @@ export function CreateView({ set }: { set: ShotSet | null }) {
              * brand new shot instead of continuing the one on screen.
              */
             const thenPointAtIt = () => {
-              if (kind === 'edit' && made) setBranchId(made);
+              if (kind !== 'edit' || !made) return;
+              // one write, for the same reason branchFrom uses one: two param
+              // setters in a tick discard each other's work. A refinement comes
+              // back as a single image, so any take chosen on the shot before
+              // it no longer names anything.
+              setParams(
+                (cur) => {
+                  const p = new URLSearchParams(cur);
+                  p.set('branch', made);
+                  p.delete('bi');
+                  return p;
+                },
+                { replace: true },
+              );
             };
             if (set && made) void api.addToSet(set.id, [made]).then(reload).then(thenPointAtIt).finally(landed);
             else void reload().then(thenPointAtIt).finally(landed);

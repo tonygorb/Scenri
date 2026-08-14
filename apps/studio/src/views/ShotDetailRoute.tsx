@@ -53,18 +53,11 @@ export function ShotDetailRoute() {
       onCancel={ctx.cancel}
       onChanged={ctx.reload}
       onRefined={ctx.refined}
+      tokenNames={ctx.tokenNames}
       onRemix={ctx.remix}
-      onBranch={ctx.branch}
       onArchive={() => ctx.archive(node)}
       onUnarchive={() => ctx.unarchive(node)}
       onDelete={() => ctx.delete(node)}
-      layers={ctx.layers}
-      selectedLayerId={ctx.selectedLayerId}
-      onSelectLayer={ctx.setSelectedLayerId}
-      onLayersChange={(ls) => ctx.changeLayers(node, ls)}
-      onAddLayer={() => ctx.addLayer(node)}
-      tab={ctx.tab}
-      onTabChange={ctx.setTab}
     />
   );
 }

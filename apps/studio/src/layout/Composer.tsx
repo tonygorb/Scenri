@@ -1,13 +1,11 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { DropdownMenu, Select, Spinner } from '@radix-ui/themes';
+import { Popover, Select, Spinner } from '@radix-ui/themes';
 import {
   ArrowCounterClockwise,
   ArrowUp,
-  Crop,
-  Gauge,
   Lightning,
   Plus,
-  Stack,
+  SlidersHorizontal,
   WarningCircle,
   X,
 } from '@phosphor-icons/react';
@@ -19,7 +17,6 @@ import {
   type Brand,
   type BriefPreview,
   type EngineInfo,
-  type TextLayer,
   type TreeNode,
 } from '../api.js';
 import {
@@ -33,7 +30,13 @@ import {
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
-import { QUALITIES, ShotSettings, type QualityId } from '../composer/ShotSettings.js';
+import {
+  QUALITIES,
+  ShotSettings,
+  ShotSettingsFields,
+  ShotSettingsPills,
+  type QualityId,
+} from '../composer/ShotSettings.js';
 import { useOpenSettings } from '../views/SettingsDialog.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -187,6 +190,7 @@ export const Composer = forwardRef<
   const [attachTab, setAttachTab] = useState<AttachTab>('All');
   const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, 'standard');
   const [uploading, setUploading] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const briefRef = useRef<BriefInputHandle>(null);
   const attachRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -382,8 +386,8 @@ export const Composer = forwardRef<
    * ignores the rest, so these are stored rather than compiled.
    */
   const brief = useMemo(
-    () => ({ tokens, templateFields: tplFields, variants: count, quality }),
-    [tokens, tplFields, count, quality],
+    () => ({ tokens, templateFields: tplFields, variants: count, quality, format: formatId }),
+    [tokens, tplFields, count, quality, formatId],
   );
   const hasContent = sentence.some((t) => (t.t === 'text' ? !!t.v.trim() : true));
   /** The template now lives in the sentence, so read it back from the tokens. */
@@ -525,16 +529,36 @@ export const Composer = forwardRef<
    * a scene there used to quietly run as an edit of the picture on screen —
    * the one thing a scene is defined not to be.
    */
-  const mode: 'generation' | 'edit' = branchable && engineCanEdit && !template ? 'edit' : 'generation';
+  /**
+   * Asking for a different shape is asking for a different photograph.
+   *
+   * An edit request carries no width or height at all: the engine is handed the
+   * picture and an instruction and returns one the same shape. So the aspect
+   * control could either vanish here — which left people asking how to get the
+   * same setup at 16:9, with the answer being a differently-named button two
+   * blocks away — or stay, and mean what it says by running as a new shot from
+   * this setup. It stays. This is the same rule a scene already follows, for
+   * the same reason: some changes cannot be made to a picture, only to a brief.
+   */
+  const reshaping = !!target && !!target.brief?.format && target.brief.format !== formatId;
+  const mode: 'generation' | 'edit' = branchable && engineCanEdit && !template && !reshaping ? 'edit' : 'generation';
   const targetNote = !branchable
     ? null
     : template
       ? 'A scene starts a new shot.'
-      : !engineCanEdit
-        ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
-        : targetPending
-          ? 'Still rendering. This can be refined the moment it lands.'
-          : null;
+      : reshaping
+        ? 'A new shape starts a new shot from this setup.'
+        : !engineCanEdit
+          ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
+          : targetPending
+            ? 'Still rendering. This can be refined the moment it lands.'
+            : null;
+
+  /** What is currently set, so the one control can still say it out loud. */
+  const settingsSummary = useMemo(() => {
+    const q = QUALITIES.find((x) => x.id === quality)?.label ?? quality;
+    return mode === 'edit' ? `Quality ${q}` : `Aspect ${formatId}, ${count} variants, quality ${q}`;
+  }, [mode, formatId, count, quality]);
 
   /**
    * A scene is a fresh setup, so it cannot also be an edit of an existing shot.
@@ -560,6 +584,16 @@ export const Composer = forwardRef<
   // make a new shot instead of continuing the one on the chip, which is the
   // exact silent substitution this composer exists not to do.
   const canGo = !busy && hasContent && !!projectId && !targetPending;
+  /** Why the button will not go, in the words of the thing that is blocking. */
+  const blockedReason = busy
+    ? 'Working on the last one'
+    : !projectId
+      ? 'Still opening this brand'
+      : targetPending
+        ? 'Wait for this version to finish, or press X to start a new shot'
+        : !hasContent
+          ? 'Write a brief first'
+          : null;
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -585,7 +619,7 @@ export const Composer = forwardRef<
    * on standard and 1232x1536 on high — reduced honestly, that printed "51:64"
    * and "77:96". The shape the user picked has not changed; only its rounding.
    */
-  const ratio = useMemo(() => {
+  const _ratio = useMemo(() => {
     const f = FORMATS.find((x) => x.id === formatId) ?? FORMATS[0];
     const g = (a: number, b: number): number => (b ? g(b, a % b) : a);
     const d = g(f.w, f.h) || 1;
@@ -707,33 +741,14 @@ export const Composer = forwardRef<
         // one the run happens to have first
         ...(mode === 'edit' && sourceImage ? { sourceImage } : {}),
       });
-      if (template?.textZones?.length && mode === 'generation') {
-        const overlays: Record<string, TextLayer[]> = {};
-        for (let i = 0; i < count; i++) {
-          overlays[String(i)] = template.textZones.map((z, zi) => ({
-            id: `l-${Math.random().toString(36).slice(2, 8)}${zi}`,
-            text:
-              (tplFields[z.fieldKey] ?? '').trim() ||
-              (template.fields ?? [])
-                .find((f) => f.key === z.fieldKey)
-                ?.placeholder?.split('/')[0]
-                ?.trim() ||
-              'Headline',
-            x: z.x,
-            y: z.y,
-            width: z.width,
-            size: z.size,
-            fontId: 'inter-tight',
-            weight: z.weightHint ?? 700,
-            color: '#FFFFFF',
-            align: z.align,
-            lineHeight: 1.08,
-            opacity: 1,
-            shadow: { x: 0, y: 2, blur: 10, color: 'rgba(0,0,0,0.45)' },
-          }));
-        }
-        await api.saveOverlays(created.id, overlays);
-      }
+      /*
+       * A scene used to be able to declare text zones, and this turned them
+       * into editable layers on every variant as the shot was queued. No scene
+       * in the catalog has ever declared one — 0 of 72 — so this ran for
+       * nobody while sitting in the middle of the one path every brief takes.
+       * `Scene.textZones` still exists in the schema; if a scene ever carries
+       * zones again, this belongs here.
+       */
       // The compiler's own account of what it had to do without. These name
       // real fidelity risks and the server has always sent them back on the
       // accepted shot; nothing read them, so a brief could quietly go out
@@ -886,7 +901,12 @@ export const Composer = forwardRef<
             template
               ? 'Add art direction, or run it as written'
               : mode === 'edit'
-                ? 'Refine this shot, or describe a new one'
+                ? // Not "or describe a new one". Everything typed here is sent as
+                  // a change to the picture on the chip: an unrelated brief would
+                  // be painted over that photo rather than shot fresh. Starting
+                  // something new is what the chip's own X is for, which is why
+                  // it is labelled "Make a new shot instead".
+                  'Say what to change about this shot'
                 : 'What should we shoot? (use / to insert, @ for a product, # for a scene)'
           }
           placeholderSm={template || mode === 'edit' ? undefined : 'What should we shoot? (use / @ #)'}
@@ -940,57 +960,57 @@ export const Composer = forwardRef<
           </div>
 
           <div className="sc-prompt-right">
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                <button type="button" className="sc-var" aria-label={`Aspect ${ratio}`} title="Aspect ratio">
-                  <Crop size={14} />
-                  {ratio}
+            {/*
+              Three shells, one set of settings.
+
+              Where the row is wide and pointer-driven — the desktop hub — the
+              three settings are pills and say what they are set to. Where it is
+              not — a phone, a tablet, or this same composer in the overlay's
+              sidebar, which is 288px no matter how big the screen is — they
+              collapse behind one control, because three pills beside the button
+              that makes a picture is most of a narrow row spent on
+              configuration. All three shells render and CSS picks one, so there
+              is never a second trigger for the same thing on screen and never a
+              second copy of the state.
+            */}
+            <ShotSettingsPills
+              mode={mode}
+              formatId={formatId}
+              onFormat={setFormat}
+              count={count}
+              onCount={setVariants}
+              quality={quality}
+              onQuality={setQualityId}
+              onCloseAutoFocus={backToBrief}
+            />
+
+            <Popover.Root open={moreOpen} onOpenChange={setMoreOpen}>
+              <Popover.Trigger>
+                <button type="button" className="sc-var sc-more" aria-label={`Shot settings. ${settingsSummary}`}>
+                  <SlidersHorizontal size={14} />
+                  More
                 </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content align="end" onCloseAutoFocus={backToBrief}>
-                {FORMATS.map((f) => (
-                  <DropdownMenu.Item key={f.id} onSelect={() => setFormat(f.id)}>
-                    {f.label} · {f.hint}
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
+              </Popover.Trigger>
+              <Popover.Content
+                className="sc-morepop"
+                align="end"
+                sideOffset={8}
+                width="300px"
+                onCloseAutoFocus={backToBrief}
+              >
+                <ShotSettingsFields
+                  mode={mode}
+                  formatId={formatId}
+                  onFormat={setFormat}
+                  count={count}
+                  onCount={setVariants}
+                  quality={quality}
+                  onQuality={setQualityId}
+                />
+              </Popover.Content>
+            </Popover.Root>
 
-            {mode === 'generation' && (
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                  <button type="button" className="sc-var" aria-label={`${count} variants`} title="Variants">
-                    <Stack size={14} />
-                    {count}v
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content align="end" onCloseAutoFocus={backToBrief}>
-                  {[1, 2, 3, 4].map((n) => (
-                    <DropdownMenu.Item key={n} onSelect={() => setVariants(n)}>
-                      {n} variant{n === 1 ? '' : 's'}
-                    </DropdownMenu.Item>
-                  ))}
-                </DropdownMenu.Content>
-              </DropdownMenu.Root>
-            )}
-
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                <button type="button" className="sc-var" aria-label={`Quality ${quality}`} title="Quality">
-                  <Gauge size={14} />
-                  {QUALITIES.find((q) => q.id === quality)?.label}
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content align="end" onCloseAutoFocus={backToBrief}>
-                {QUALITIES.map((q) => (
-                  <DropdownMenu.Item key={q.id} onSelect={() => setQualityId(q.id)}>
-                    {q.label} · {q.edge}px · {q.note}
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-
-            {/* the phone's stand-in for the three pills above: CSS picks one */}
+            {/* the touch shell for the same fields: a sheet under the thumb */}
             <ShotSettings
               mode={mode}
               formatId={formatId}
@@ -1011,9 +1031,15 @@ export const Composer = forwardRef<
               aria-disabled={!canGo || undefined}
               onClick={() => void go()}
               aria-label={mode === 'edit' ? 'Refine' : 'Generate'}
-              title={err ?? templateFlag ?? `${mode === 'edit' ? 'Refine' : 'Generate'} (enter)`}
+              // A blocked button that will not say what blocks it is the least
+              // helpful control on the screen. The comment above chose
+              // aria-disabled precisely so this title could explain itself.
+              title={err ?? templateFlag ?? blockedReason ?? `${mode === 'edit' ? 'Refine' : 'Generate'} (enter)`}
             >
-              {busy ? <Spinner size="1" /> : <ArrowUp size={17} weight="bold" />}
+              {/* One fixed slot for whichever of the two is showing. The
+                  spinner is 12px and the arrow 17px, so swapping them resized
+                  the button at the exact moment you had just pressed it. */}
+              <span className="sc-send-ico">{busy ? <Spinner size="1" /> : <ArrowUp size={17} weight="bold" />}</span>
               {/* The one control whose meaning changes with the brief, and it
                   used to say so only in a tooltip: whether this makes a new
                   shot or continues an existing one is worth reading before

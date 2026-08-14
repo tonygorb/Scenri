@@ -42,6 +42,13 @@ export interface NotificationItem {
   thumb: string | null;
   at: string;
   href: string | null;
+  /**
+   * Already accounted for when it arrived, because it landed on a screen that
+   * was showing it. The record keeps it; the unread badge does not count it.
+   * A normal session used to end with a permanent "9+" on the bell for work
+   * the person had watched appear in front of them.
+   */
+  watched?: boolean;
 }
 
 export const FEED_CAP = 50;
@@ -225,9 +232,10 @@ export function mergeFeed(feed: NotificationItem[], arrivals: NotificationItem[]
 }
 
 export function unreadCount(feed: NotificationItem[], seenAt: string | null): number {
-  if (!seenAt) return feed.length;
+  const unwatched = feed.filter((n) => !n.watched);
+  if (!seenAt) return unwatched.length;
   const cut = parseTime(seenAt);
-  return feed.filter((n) => parseTime(n.at) > cut).length;
+  return unwatched.filter((n) => parseTime(n.at) > cut).length;
 }
 
 // ---- storage ---------------------------------------------------------------

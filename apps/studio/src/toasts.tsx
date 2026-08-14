@@ -14,6 +14,9 @@ interface ToastItem extends ToastInput {
 const Ctx = createContext<{ push: (t: ToastInput) => void }>({ push: () => {} });
 export const useToasts = () => useContext(Ctx);
 
+/** How many can stack before the oldest expendable one is dropped. */
+const MAX = 4;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
@@ -21,7 +24,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback(
     (t: ToastInput) => {
       const id = nextId.current++;
-      setItems((xs) => [...xs.slice(-3), { ...t, id }]);
+      setItems((xs) => {
+        const next = [...xs, { ...t, id }];
+        if (next.length <= MAX) return next;
+        /*
+         * Over the cap something has to go, and it must not be a failure.
+         * Trimming the oldest regardless meant four ordinary successes could
+         * silently destroy an unread error — and, worse, take an Undo with it,
+         * so the way back from an accident vanished because four other things
+         * happened afterwards. Successes are the ones that expire on their own.
+         */
+        const trimmed = [...next];
+        while (trimmed.length > MAX) {
+          const victim = trimmed.findIndex((x) => x.kind !== 'error' && !x.action);
+          trimmed.splice(victim === -1 ? 0 : victim, 1);
+        }
+        return trimmed;
+      });
       window.setTimeout(() => dismiss(id), t.kind === 'error' ? 9000 : 5000);
     },
     [dismiss],

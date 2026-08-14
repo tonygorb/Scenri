@@ -1,43 +1,37 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
   Archive,
   ArrowCounterClockwise,
   ArrowsClockwise,
-  PencilLine,
   ArrowsLeftRight,
   CaretLeft,
   CaretRight,
   CopySimple,
+  DotsThree,
   DownloadSimple,
-  Plus,
   Star,
   TrashSimple,
   WarningCircle,
   X,
   XCircle,
 } from '@phosphor-icons/react';
-import { AlertDialog, Button, Flex, Spinner } from '@radix-ui/themes';
-import {
-  api,
-  assetUrl,
-  imgUrl,
-  nodeLabel,
-  type Brand,
-  type EngineInfo,
-  type TextLayer,
-  type TreeNode,
-} from '../api.js';
-import { flattenToBlob } from '../editor/flatten.js';
+import { AlertDialog, Button, DropdownMenu, Flex, Spinner } from '@radix-ui/themes';
+import { api, assetUrl, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
-import { Inspector, type InspectorTab } from './Inspector.js';
+import { Inspector } from './Inspector.js';
 import { Composer } from './Composer.js';
 import { Coin } from './Coin.js';
 import { useAppData } from '../app/AppShell.js';
 import { useToasts } from '../toasts.js';
+import { briefChangeLine, sourceImageOf } from '../briefDiff.js';
+import { normalizeTint } from '../composer/line.js';
+import { presenterPath, productPath, scenePath } from '../routes.js';
+import type { TokenNames } from '../feedRules.js';
 
 /**
  * Full-screen takeover for one shot: lineage filmstrip left, stage with the
@@ -58,18 +52,11 @@ export function DetailOverlay({
   onCancel,
   onChanged,
   onRemix,
-  onBranch,
   onArchive,
   onUnarchive,
   onDelete,
-  layers,
-  selectedLayerId,
-  onSelectLayer,
-  onLayersChange,
-  onAddLayer,
   onRefined,
-  tab,
-  onTabChange,
+  tokenNames,
 }: {
   node: TreeNode;
   nodes: TreeNode[];
@@ -84,20 +71,13 @@ export function DetailOverlay({
   onCancel: (n: TreeNode) => void;
   onChanged: () => Promise<void> | void;
   onRemix: (n: TreeNode) => void;
-  /** Point the brief at this shot and stand back so you can see it. */
-  onBranch: (n: TreeNode) => void;
   onArchive: (n: TreeNode) => void;
   onUnarchive: (n: TreeNode) => void;
   onDelete: (n: TreeNode) => void;
-  layers: TextLayer[];
-  selectedLayerId: string | null;
-  onSelectLayer: (id: string | null) => void;
-  onLayersChange: (ls: TextLayer[]) => void;
-  onAddLayer: () => void;
   /** A shot was made from in here, so the workspace can follow the same thread. */
   onRefined?: (nodeId: string, kind?: 'generation' | 'edit') => void;
-  tab: InspectorTab;
-  onTabChange: (t: InspectorTab) => void;
+  /** Ids to display names, for the line saying which ingredient moved. */
+  tokenNames: TokenNames;
 }) {
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const ancestors = useMemo(() => {
@@ -119,6 +99,12 @@ export function DetailOverlay({
   const parent = node.parentId ? byId.get(node.parentId) : null;
   const parentShot = parent && parent.kind !== 'root' ? parent : null;
   const { push } = useToasts();
+  /** The image this refinement was made from, not merely the run's first. */
+  const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
+  const changeLine = useMemo(
+    () => (parentShot ? briefChangeLine(parentShot.brief, node.brief, tokenNames) : null),
+    [parentShot, node.brief, tokenNames],
+  );
   const [working, setWorking] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -133,12 +119,15 @@ export function DetailOverlay({
   const copyImage = async () => {
     setWorking(true);
     try {
-      const blob =
-        layers.length > 0 ? await flattenToBlob(imgUrl(hash), layers) : await (await fetch(imgUrl(hash))).blob();
+      const blob = await (await fetch(imgUrl(hash))).blob();
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       push({ kind: 'success', title: 'Copied to clipboard' });
     } catch (e: any) {
-      push({ kind: 'error', title: 'Copy failed', detail: String(e.message ?? e) });
+      push({
+        kind: 'error',
+        title: 'Copy failed',
+        detail: String(e.message ?? e),
+      });
     } finally {
       setWorking(false);
     }
@@ -152,6 +141,60 @@ export function DetailOverlay({
       document.body.style.overflow = prev;
     };
   }, []);
+
+  /**
+   * Everything you can do to the picture itself, as data.
+   *
+   * The header renders this twice — as a row of buttons where there is room,
+   * and as one overflow menu where there is not — so a phone and a desktop
+   * cannot end up offering different things, and adding an action never means
+   * remembering to add it in two places. Order is priority order: what people
+   * reach for most is first, and the destructive one is last.
+   */
+  const actions: { key: string; label: string; icon: ReactNode; onClick: () => void; tint?: string }[] = [
+    { key: 'export', label: 'Export', icon: <DownloadSimple size={14} />, onClick: () => setExportOpen(true) },
+    {
+      key: 'keep',
+      label: node.kept ? 'Remove from keepers' : 'Keep',
+      icon: <Star size={14} weight={node.kept ? 'fill' : 'regular'} />,
+      onClick: () =>
+        void api
+          .keep(node.id, !node.kept)
+          .then(onChanged)
+          .catch((e) =>
+            push({ kind: 'error', title: 'Could not update keeper status', detail: String(e.message ?? e) }),
+          ),
+      tint: node.kept ? 'var(--sc-star)' : undefined,
+    },
+    { key: 'copy', label: 'Copy image', icon: <CopySimple size={14} />, onClick: () => void copyImage() },
+    ...(sourceHash
+      ? [
+          {
+            key: 'compare',
+            label: 'Compare with source',
+            icon: <ArrowsLeftRight size={14} />,
+            onClick: () => setCompareOpen(true),
+          },
+        ]
+      : []),
+    {
+      key: 'archive',
+      label: node.archived ? 'Restore' : 'Archive',
+      icon: node.archived ? <ArrowCounterClockwise size={14} /> : <Archive size={14} />,
+      onClick: () => (node.archived ? onUnarchive(node) : onArchive(node)),
+    },
+    ...(node.archived
+      ? [
+          {
+            key: 'delete',
+            label: 'Delete permanently',
+            icon: <TrashSimple size={14} />,
+            onClick: () => setDeleteConfirmOpen(true),
+            tint: 'var(--sc-red)',
+          },
+        ]
+      : []),
+  ];
 
   const frame = (n: TreeNode, current = false) => (
     <button
@@ -182,169 +225,139 @@ export function DetailOverlay({
   );
 
   return createPortal(
-    <FocusScope trapped asChild>
-      <div className="sc-ovl" role="dialog" aria-modal="true" aria-label={nodeLabel(node)}>
-        <div className="sc-ovl-winbar">
-          <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
-            <X size={13} />
-          </button>
-          {/* These step siblings, which are whole runs off the same parent, so
-            they are versions. Variants are the images inside one run and are
-            stepped on the stage with [ and ]. */}
-          <button
-            type="button"
-            className="sc-icon-btn"
-            disabled={sibIndex <= 0}
-            style={sibIndex <= 0 ? { opacity: 0.4 } : undefined}
-            onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
-            aria-label="Previous version"
-            title="Previous version"
-          >
-            <CaretLeft size={13} />
-          </button>
-          <button
-            type="button"
-            className="sc-icon-btn"
-            disabled={sibIndex >= siblings.length - 1}
-            style={sibIndex >= siblings.length - 1 ? { opacity: 0.4 } : undefined}
-            onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
-            aria-label="Next version"
-            title="Next version"
-          >
-            <CaretRight size={13} />
-          </button>
-        </div>
+    // `loop` as well as `trapped`: without it Tab reached the last control and
+    // then did nothing at all — eighteen further presses moved focus nowhere,
+    // which reads as a frozen page rather than a contained one.
+    <FocusScope trapped loop asChild>
+      <div
+        className="sc-ovl"
+        role="dialog"
+        aria-modal="true"
+        aria-label={nodeLabel(node)}
+        // A trail of one is not a trail. The rail held a full-height column for
+        // a single thumbnail of the shot you were already looking at, which is
+        // the sort of furniture that makes a screen feel unplanned.
+      >
+        {/* ONE header owns the top of this screen.
 
-        <div className="sc-ovl-strip">
-          <span className="sc-eyebrow">Versions</span>
-          {ancestors.map((a) => (
-            <span key={a.id} style={{ display: 'contents' }}>
-              {frame(a)}
-              <span className="sc-wire" />
-            </span>
-          ))}
-          {frame(node, true)}
-          {children.length > 0 && (
-            <>
-              <span className="sc-wire" />
-              <span className="sc-sib-row">{children.slice(0, 4).map((c) => frame(c))}</span>
-            </>
-          )}
-        </div>
-
-        <div className="sc-ovl-stage">
-          {node.status === 'done' && node.images.length > 0 && (
-            <div className="sc-ovl-tools">
-              <span
-                className="sc-ovl-cost"
-                title={
-                  node.costUsd > 0 ? `$${node.costUsd.toFixed(3)} of your API budget` : 'Generated on a free engine'
-                }
-              >
-                <Coin size={13} />
-                {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
-              </span>
-              <button
-                type="button"
-                className="sc-icon-btn"
-                onClick={() => setExportOpen(true)}
-                aria-label="Export"
-                title="Export"
-              >
-                {working ? <Spinner size="1" /> : <DownloadSimple size={14} />}
-              </button>
-              <button
-                type="button"
-                className="sc-icon-btn"
-                onClick={() =>
-                  void api
-                    .keep(node.id, !node.kept)
-                    .then(onChanged)
-                    .catch((e) =>
-                      push({ kind: 'error', title: 'Could not update keeper status', detail: String(e.message ?? e) }),
-                    )
-                }
-                aria-label={node.kept ? 'Remove from keepers' : 'Keep'}
-                title={node.kept ? 'Keeper' : 'Keep'}
-                style={node.kept ? { color: 'var(--sc-star)' } : undefined}
-              >
-                <Star size={14} weight={node.kept ? 'fill' : 'regular'} />
-              </button>
-              <button
-                type="button"
-                className="sc-icon-btn"
-                onClick={() => (node.archived ? onUnarchive(node) : onArchive(node))}
-                aria-label={node.archived ? 'Restore this shot' : 'Archive this shot'}
-                title={node.archived ? 'Restore' : 'Archive'}
-              >
-                {node.archived ? <ArrowCounterClockwise size={14} /> : <Archive size={14} />}
-              </button>
-              {node.archived && (
-                <AlertDialog.Root open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                  <AlertDialog.Trigger>
-                    <button
-                      type="button"
-                      className="sc-icon-btn"
-                      aria-label="Delete this shot permanently"
-                      title="Delete permanently"
-                      style={{ color: 'var(--sc-red)' }}
-                    >
-                      <TrashSimple size={14} />
-                    </button>
-                  </AlertDialog.Trigger>
-                  <AlertDialog.Content maxWidth="420px">
-                    <AlertDialog.Title>Delete this shot permanently?</AlertDialog.Title>
-                    <AlertDialog.Description size="2">This cannot be undone.</AlertDialog.Description>
-                    <Flex gap="3" mt="4" justify="end">
-                      <AlertDialog.Cancel>
-                        <Button variant="soft" color="gray">
-                          Cancel
-                        </Button>
-                      </AlertDialog.Cancel>
-                      <AlertDialog.Action>
-                        <Button color="red" onClick={() => onDelete(node)}>
-                          Delete permanently
-                        </Button>
-                      </AlertDialog.Action>
-                    </Flex>
-                  </AlertDialog.Content>
-                </AlertDialog.Root>
-              )}
-              {parentShot?.images[0] && (
-                // Compare used to mean "switch to a tab called Info and scroll",
-                // which is why nobody found the one feature that answers what the
-                // model changed without being asked. It is an action, so it is a
-                // button, next to the shot it is about.
+            It used to be two: a `position: fixed` bar carrying close and the
+            version arrows, and a separate tools row that was the stage's own
+            first child. Neither knew the other existed, so on a phone they
+            landed on the same line and overlapped — measured at 67px on a
+            320px screen and 32px on a 390px one, with "Next version" sitting
+            entirely underneath the cost chip and the fixed bar painting over
+            it. No amount of spacing fixes two layouts competing for one line.
+            A single flex row with a left group and a right group cannot
+            collide, at any width, by construction. */}
+        <header className="sc-ovl-bar">
+          <div className="sc-ovl-bar-l">
+            <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
+              <X size={13} />
+            </button>
+            {/* These step siblings, which are whole runs off the same parent,
+                so they are versions. Variants are the images inside one run
+                and are stepped on the stage with [ and ]. They appear only
+                when there is somewhere to step: two permanently dimmed arrows
+                are two controls' worth of room spent saying "not available". */}
+            {siblings.length > 1 && (
+              <>
                 <button
                   type="button"
                   className="sc-icon-btn"
-                  onClick={() => setCompareOpen(true)}
-                  aria-label="Compare with the shot this came from"
-                  title="Compare with source"
+                  disabled={sibIndex <= 0}
+                  onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
+                  aria-label="Previous version"
+                  title="Previous version"
                 >
-                  <ArrowsLeftRight size={14} />
+                  <CaretLeft size={13} />
                 </button>
-              )}
-              <button
-                type="button"
-                className="sc-icon-btn"
-                onClick={() => void copyImage()}
-                aria-label="Copy image"
-                title="Copy image"
-              >
-                <CopySimple size={14} />
-              </button>
+                <button
+                  type="button"
+                  className="sc-icon-btn"
+                  disabled={sibIndex >= siblings.length - 1}
+                  onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
+                  aria-label="Next version"
+                  title="Next version"
+                >
+                  <CaretRight size={13} />
+                </button>
+              </>
+            )}
+          </div>
+
+          {node.status === 'done' && node.images.length > 0 && (
+            <div className="sc-ovl-bar-r">
+              {/* One list, two shells: buttons where the row is wide enough to
+                  hold them, one overflow where it is not. Written once, so the
+                  two can never drift apart or offer different things. */}
+              <div className="sc-ovl-acts">
+                {actions.map((a) => (
+                  <button
+                    type="button"
+                    key={a.key}
+                    className="sc-icon-btn"
+                    onClick={a.onClick}
+                    aria-label={a.label}
+                    title={a.label}
+                    style={a.tint ? { color: a.tint } : undefined}
+                  >
+                    {a.icon}
+                  </button>
+                ))}
+              </div>
+
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <button type="button" className="sc-icon-btn sc-ovl-overflow" aria-label="More actions">
+                    <DotsThree size={18} weight="bold" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content align="end" sideOffset={6}>
+                  {actions.map((a) => (
+                    <DropdownMenu.Item key={a.key} onSelect={a.onClick} color={a.tint ? 'red' : undefined}>
+                      {a.icon}
+                      {a.label}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
             </div>
           )}
+        </header>
+
+        {/* Delete is confirmed from a dialog this header only opens, so the
+            same action can sit in a menu item and in a button without two
+            copies of the confirmation. */}
+        <AlertDialog.Root open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialog.Content maxWidth="420px">
+            <AlertDialog.Title>Delete this shot permanently?</AlertDialog.Title>
+            <AlertDialog.Description size="2">This cannot be undone.</AlertDialog.Description>
+            <Flex gap="3" mt="4" justify="end">
+              <AlertDialog.Cancel>
+                <Button variant="soft" color="gray">
+                  Cancel
+                </Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action>
+                <Button color="red" onClick={() => onDelete(node)}>
+                  Delete permanently
+                </Button>
+              </AlertDialog.Action>
+            </Flex>
+          </AlertDialog.Content>
+        </AlertDialog.Root>
+
+        <div
+          className="sc-ovl-stage"
+          // the shot is capped so the row of takes below it always has room;
+          // the cap has to know whether that row is there
+          data-takes={node.status === 'done' && node.images.length > 1 ? '' : undefined}
+        >
           <StageFrame
             node={node}
             imageIndex={imageIndex}
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
-            layers={layers}
-            selectedLayerId={selectedLayerId}
-            onSelectLayer={onSelectLayer}
-            onLayersChange={onLayersChange}
           />
           {node.status === 'done' && node.images.length > 1 && (
             <div style={{ display: 'flex', gap: 8 }}>
@@ -354,7 +367,13 @@ export function DetailOverlay({
                   key={h}
                   onClick={() => onImageIndex(i)}
                   aria-label={`Image ${i + 1}`}
-                  style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', lineHeight: 0 }}
+                  style={{
+                    padding: 0,
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    lineHeight: 0,
+                  }}
                 >
                   <img
                     src={imgUrl(h)}
@@ -371,14 +390,28 @@ export function DetailOverlay({
         </div>
 
         <aside className="sc-ovl-meta">
+          {/* One line for what this shot IS: its kind, what it shows, what made
+              it and what it cost. The engine used to have a block of its own,
+              which on a phone left the word "demo" sitting alone on a line at
+              the same weight as the shot's description. The cost used to live
+              on a chip in the bar above, which is a row of actions — and once
+              that chip stepped aside on a phone, the price was not stated
+              anywhere at all. Both are facts about the shot, so both belong in
+              the shot's record, said once, at every width. */}
           <div className="sc-ovl-head">
-            <b>{node.kind === 'edit' ? 'Refine' : 'Generation'}</b>
+            <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
             <small>
               {node.images.length > 1 ? `${imageIndex + 1} of ${node.images.length} variants` : nodeLabel(node)}
             </small>
-          </div>
-          <div className="sc-ovl-who">
-            {node.engineId} · {node.costUsd > 0 ? `$${node.costUsd.toFixed(3)}` : 'free'}
+            <span className="sc-ovl-meta-sep" aria-hidden />
+            <small className="sc-ovl-eng">{node.engineId}</small>
+            <small
+              className="sc-ovl-spend"
+              title={node.costUsd > 0 ? 'Of your API budget' : 'Generated on a free engine'}
+            >
+              <Coin size={12} />
+              {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
+            </small>
           </div>
 
           <Ingredients brief={node.brief} brand={brand} />
@@ -389,32 +422,76 @@ export function DetailOverlay({
                 type="button"
                 className="sc-ctx-chip"
                 onClick={() => onSelect(parentShot.id)}
-                title="Open the shot this came from"
+                title={`Open ${nodeLabel(parentShot)}, the shot this came from`}
               >
-                {parentShot.images[0] && <img src={imgUrl(parentShot.images[0])} alt="" />}
-                refined from <b style={{ color: 'var(--sc-fg)', fontWeight: 500 }}>{nodeLabel(parentShot)}</b>
+                {sourceHash && <img src={imgUrl(sourceHash)} alt="" />}
+                {/* One text item, not two. As a bare text node beside a <b>,
+                    the words and the name were separate flex items that shrank
+                    and wrapped independently — which is how a pill ended up
+                    reading "refined / from" over two lines with the name
+                    stacked beside it. One span wraps as one sentence, and
+                    truncates as one, with the whole of it on the title. */}
+                <span className="sc-ctx-chip-t">
+                  refined from <b>{nodeLabel(parentShot)}</b>
+                </span>
               </button>
+              {/* Which ingredient moved, read from the two stored recipes.
+                  Without it, two refinements of one setup are told apart by
+                  their pictures alone, which after twenty minutes of work is
+                  not enough to remember why they differ. */}
+              {changeLine && <p className="sc-ctx-changed">{changeLine}</p>}
             </div>
           )}
 
-          {/* What to do next, offered rather than hunted for. Every one of these
-            already existed; they were just buried in tabs and menus. */}
+          {(ancestors.length > 0 || children.length > 0) && (
+            <div className="sc-ovl-trail">
+              <span className="sc-eyebrow">Versions</span>
+              <div className="sc-ovl-trail-row">
+                {ancestors.map((a) => (
+                  <span key={a.id} style={{ display: 'contents' }}>
+                    {frame(a)}
+                    <span className="sc-wire" />
+                  </span>
+                ))}
+                {frame(node, true)}
+                {children.length > 0 && (
+                  <>
+                    <span className="sc-wire" />
+                    {children.slice(0, 4).map((c) => frame(c))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Three verbs, and they are the only three there are.
+              Refining is not among them: the composer below IS refining, so a
+              button that only scrolls you to it was a fourth way to say the
+              same thing. "Add text" moved back to the Text tab, where the rest
+              of the text tools live. */}
           {node.status === 'done' && node.images.length > 0 && (
             <div className="sc-sugg">
-              <button type="button" className="sc-s" onClick={onAddLayer}>
-                <Plus size={12} /> Add text
-              </button>
-              <button type="button" className="sc-s" onClick={() => onBranch(node)}>
-                <PencilLine size={12} /> Refine this
-              </button>
               {node.brief && (
-                <button type="button" className="sc-s" onClick={() => onRemix(node)}>
-                  <ArrowsClockwise size={12} /> Remix this brief
+                <button
+                  type="button"
+                  className="sc-s"
+                  onClick={() => onRemix(node)}
+                  title="Put this shot's setup back in the brief, to change and run again"
+                >
+                  <ArrowsClockwise size={12} /> Reuse setup
                 </button>
               )}
-              <button type="button" className="sc-s" onClick={() => setExportOpen(true)}>
-                <DownloadSimple size={12} /> Export
+              <button
+                type="button"
+                className="sc-s"
+                onClick={() => onRetry(node)}
+                title="Run the same setup again for a different take"
+              >
+                <ArrowCounterClockwise size={12} /> Try again
               </button>
+              {/* Export lives once, with the other file actions over the shot.
+                  It was offered here too, from the same handler — the same word
+                  twice in one dialog. */}
             </div>
           )}
 
@@ -425,15 +502,8 @@ export function DetailOverlay({
               imageIndex={imageIndex}
               onChanged={onChanged}
               brand={brand}
-              layers={layers}
-              selectedLayerId={selectedLayerId}
-              onSelectLayer={onSelectLayer}
-              onLayersChange={onLayersChange}
-              onAddLayer={onAddLayer}
-              tab={tab}
-              onTabChange={onTabChange}
               onExport={() => setExportOpen(true)}
-              onCompare={parentShot?.images[0] ? () => setCompareOpen(true) : undefined}
+              onCompare={sourceHash ? () => setCompareOpen(true) : undefined}
               onArchive={() => onArchive(node)}
               onUnarchive={() => onUnarchive(node)}
               onDelete={() => onDelete(node)}
@@ -446,7 +516,14 @@ export function DetailOverlay({
               there is nothing else this composer could be talking about. The
               root is the fallback for the cases that cannot branch, so a look
               or a non-editing engine still makes a new shot rather than filing
-              one under a shot it never used. */}
+              one under a shot it never used.
+
+              It says so out loud now that the suggestion row no longer carries
+              a button pointing down here — the heading is the only thing that
+              names what typing in this field will do. */}
+            {node.status === 'done' && node.images.length > 0 && (
+              <div className="sc-eyebrow sc-ovl-edit-head">Refine this shot</div>
+            )}
             <Composer
               projectId={projectId}
               brand={brand}
@@ -479,14 +556,17 @@ export function DetailOverlay({
             />
           </div>
         </aside>
-        <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} layers={layers} />
-        {parentShot?.images[0] && (
+        <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} />
+        {parentShot && sourceHash && (
           <CompareDialog
             open={compareOpen}
             onOpenChange={setCompareOpen}
             a={parentShot}
             b={node}
-            imageA={parentShot.images[0]}
+            // the frame this refinement actually started from, so the drift
+            // figure measures the change it made rather than the distance to
+            // some other variant of the same run
+            imageA={sourceHash}
             imageB={hash}
           />
         )}
@@ -508,7 +588,16 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
   const products: any[] = (brand?.json?.products ?? []) as any[];
   const cast: any[] = (brand?.json?.characters ?? []) as any[];
 
-  type Chip = { key: string; kind: string; label: string; thumb?: string | null; swatch?: string };
+  type Chip = {
+    key: string;
+    kind: string;
+    label: string;
+    thumb?: string | null;
+    swatch?: string;
+    /** Where this ingredient lives in the catalog, when it has a page at all. */
+    to?: string;
+    tint?: string;
+  };
   const chips: Chip[] = tokens.flatMap((t: any): Chip[] => {
     if (t?.t === 'product') {
       const p = products.find((x) => x.id === t.id);
@@ -522,18 +611,25 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
           kind: 'product',
           label: p?.name ?? demo?.name ?? 'product',
           thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
+          // ProductPage resolves demo ids too, so a library product is as
+          // openable as one of the brand's own.
+          to: brand && (p || demo) ? productPath(brand, t.id) : undefined,
         },
       ];
     }
     if (t?.t === 'character') {
       const c = cast.find((x) => x.id === t.id);
       const pr = c ? null : presenters.find((x) => x.id === t.id);
+      // A roster entry is the brand's own copy; only the presenter it was cast
+      // from has a page, and a bespoke character has none at all.
+      const pid = pr?.id ?? c?.presenterId;
       return [
         {
           key: `h${t.id}`,
           kind: 'presenter',
           label: c?.name ?? pr?.name ?? 'someone',
           thumb: c ? assetUrl(c?.shots?.[0]?.file) : (pr?.avatarUrl ?? pr?.previewUrl ?? null),
+          to: brand && pid ? presenterPath(brand, pid) : undefined,
         },
       ];
     }
@@ -545,11 +641,22 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
           kind: 'scene',
           label: s?.name ?? 'a scene no longer in the catalog',
           thumb: s?.previewUrl ?? null,
+          to: brand && s ? scenePath(brand, s.id) : undefined,
+          // The composer tints a scene chip with the scene's own preview
+          // colour; the record of that shot says it the same way.
+          tint: normalizeTint(s?.previewColor),
         },
       ];
     }
     if (t?.t === 'color') {
-      return [{ key: `c${t.hex}`, kind: 'color', label: t.name ?? t.hex, swatch: t.hex }];
+      return [
+        {
+          key: `c${t.hex}`,
+          kind: 'color',
+          label: t.name ?? t.hex,
+          swatch: t.hex,
+        },
+      ];
     }
     return [];
   });
@@ -557,12 +664,41 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
 
   return (
     <div className="sc-ingredients">
-      {chips.map((c) => (
-        <span className="sc-ingredient" key={c.key} data-kind={c.kind} title={`${c.kind}: ${c.label}`}>
-          {c.thumb ? <img src={c.thumb} alt="" /> : c.swatch ? <i style={{ background: c.swatch }} /> : null}
-          {c.label}
-        </span>
-      ))}
+      {chips.map((c) => {
+        const body = (
+          <>
+            {c.thumb ? <img src={c.thumb} alt="" /> : c.swatch ? <i style={{ background: c.swatch }} /> : null}
+            {c.label}
+          </>
+        );
+        const style = c.tint ? ({ '--tint': c.tint } as CSSProperties) : undefined;
+        // Only the ingredients that have a catalog page become links; a colour
+        // and a deleted scene stay exactly as static as they read.
+        return c.to ? (
+          <Link
+            className="sc-ingredient"
+            key={c.key}
+            to={c.to}
+            data-kind={c.kind}
+            data-tinted={c.tint ? '' : undefined}
+            style={style}
+            title={`Open ${c.kind} ${c.label}`}
+          >
+            {body}
+          </Link>
+        ) : (
+          <span
+            className="sc-ingredient"
+            key={c.key}
+            data-kind={c.kind}
+            data-tinted={c.tint ? '' : undefined}
+            style={style}
+            title={`${c.kind}: ${c.label}`}
+          >
+            {body}
+          </span>
+        );
+      })}
     </div>
   );
 }

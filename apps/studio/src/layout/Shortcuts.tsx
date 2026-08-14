@@ -7,7 +7,8 @@ import { Dialog } from '@radix-ui/themes';
  */
 const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Generate', keys: ['cmd', 'enter'] },
-  { label: 'Insert menu', keys: ['/'] },
+  { label: 'Jump to the brief', keys: ['/'] },
+  { label: 'Insert menu (in the brief)', keys: ['/'] },
   { label: 'Ingredient menu', keys: ['@'] },
   { label: 'Scene menu', keys: ['#'] },
   // siblings are whole runs off one parent, so they are versions; the images

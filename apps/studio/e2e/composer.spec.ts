@@ -128,15 +128,10 @@ test('the settings ride along with the brief, so a shot can be run again as itse
   });
 
   await page.keyboard.type('a shot whose recipe must survive');
-  // the pill reads "2v"; its accessible name is the one that says variants.
-  // The phone sheet carries the same control, so this asks for the row's.
-  await dock(page).locator('button.sc-var[aria-label$="variants"]').click();
-  await page
-    .locator('[role="menuitem"]')
-    .filter({ hasText: /^3 variants/ })
-    .first()
-    .click();
-  await expect(page.locator('[role="menuitem"]')).toHaveCount(0);
+  // On a desktop the three settings are pills in the row; a narrow composer
+  // collapses the same three behind More, and a phone opens them as a sheet.
+  await dock(page).locator('.sc-prompt-pills [aria-label="2 variants"]').click();
+  await page.getByRole('menuitem', { name: '3 variants' }).click();
   await dock(page).locator('.sc-send').click();
   await expect(page.locator('.sc-banner[data-tone="error"]')).toBeVisible();
 
@@ -404,21 +399,28 @@ test('backspace over a chip removes it and leaves one space', async ({ page }) =
 });
 
 test('changing aspect and quality does not disturb the sentence', async ({ page }) => {
+  // A desktop composer has the room to state all three settings, so they are
+  // pills in the row. What is under test either way is the caret: changing a
+  // setting must not repaint the sentence or steal the place you were typing.
   await page.keyboard.type('a careful sentence');
+  const pills = () => dock(page).locator('.sc-prompt-pills');
 
-  await page.locator('.sc-var').first().click(); // aspect
-  await page.locator('[role="menuitem"]').filter({ hasText: /Story/ }).first().click();
-  await expect(page.locator('[role="menuitem"]')).toHaveCount(0); // the menu hands focus back as it closes
+  await pills().locator('[aria-label^="Aspect"]').click();
+  await page.getByRole('menuitem', { name: /9:16/ }).click();
+  // the menu hands the caret back as it closes, so typing before it has gone
+  // puts the next keystroke somewhere nobody asked for
+  await expect(page.locator('[role="menuitem"]')).toHaveCount(0);
   await page.keyboard.type(' more');
 
-  await page.locator('.sc-var', { hasText: /Draft|Standard|High/ }).click(); // quality
-  await page.locator('[role="menuitem"]').filter({ hasText: /High/ }).first().click();
+  await pills().locator('[aria-label^="Quality"]').click();
+  await page.getByRole('menuitem', { name: /^High/ }).click();
   await expect(page.locator('[role="menuitem"]')).toHaveCount(0);
   await page.keyboard.type(' still');
 
   // the sentence never repainted, and the caret came back both times
   expect(await sentence(page)).toBe('a careful sentence more still');
-  await expect(page.locator('.sc-var', { hasText: '9:16' })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"story"');
+  expect(await page.evaluate(() => localStorage.getItem('scenri:quality'))).toBe('"high"');
 });
 
 test('copy and paste rebuilds the chips', async ({ page }) => {
@@ -568,4 +570,76 @@ test('clicking the body of a chip opens its own menu', async ({ page }) => {
   if (!box) throw new Error('no chip');
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(page.locator('.sc-cmd-row').first()).toBeVisible();
+});
+
+/**
+ * Asking a refinement for a different shape.
+ *
+ * An edit request carries no width or height, so a refinement cannot reshape a
+ * picture. The aspect control used to vanish in refine mode because of that,
+ * which left "I want this shot at 16:9" with no answer in the place it was
+ * asked — the answer lived behind a differently-named button two blocks away.
+ * The control stays now and means what it says: a new shape runs the same setup
+ * again at that shape, as a new shot, and the composer says so before you send.
+ */
+test('a new shape while refining runs the setup again rather than editing', async ({ page }) => {
+  const brand = new URL(page.url()).pathname.split('/')[1];
+
+  /*
+   * Nothing here makes a picture.
+   *
+   * `reshaping` is a decision the composer makes on its own, by comparing the
+   * shape you have chosen against the one recorded on the shot it is pointed
+   * at — so the shot's recorded shape is the only input this needs, and the
+   * workspace response is the honest place to put it. Generating a real one
+   * instead left a just-finished shot behind, and three notification cases two
+   * files away then failed on an unread badge that was not theirs: they clear
+   * the stored record, the app re-derives it from the server, and my shot came
+   * back as somebody else's unread news.
+   */
+  let shot = '';
+  await page.route('**/workspace', async (route) => {
+    const res = await route.fetch();
+    const ws = await res.json();
+    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
+    if (done) {
+      shot = done.id;
+      done.brief = { ...(done.brief ?? { tokens: [] }), format: 'square' };
+    }
+    await route.fulfill({ response: res, json: ws });
+  });
+
+  await page.goto(`/${brand}/create`);
+  await expect.poll(() => shot).not.toBe('');
+
+  await page.goto(`/${brand}/create/shots/${shot}`);
+  const composer = page.locator('.sc-ovl-edit');
+  await expect(composer.locator('.sc-brief-line')).toBeVisible();
+
+  // pointed at the shot, this is a refinement
+  await expect(composer.locator('.sc-send')).toContainText('Refine');
+
+  // the shape is offered here, and choosing a new one changes what send means
+  await composer.locator('.sc-more').click();
+  await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '16:9' }).first().click();
+  await page.keyboard.press('Escape');
+
+  await expect(composer.locator('.sc-send')).toContainText('Generate');
+  await expect(composer).toContainText('A new shape starts a new shot from this setup.');
+
+  // the send is caught and answered here rather than allowed to make a picture
+  let posted: any = null;
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posted = route.request().postDataJSON();
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
+  });
+  await composer.locator('.sc-brief-line').click();
+  await page.keyboard.type('same setup, wider frame');
+  await composer.locator('.sc-send').click();
+
+  await expect.poll(() => posted?.kind).toBe('generation');
+  expect(posted.brief.format).toBe('landscape');
+  // and a fresh shot rather than a child of the one on screen
+  expect(posted.parentId).not.toBe(shot);
 });

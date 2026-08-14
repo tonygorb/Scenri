@@ -26,6 +26,11 @@ export interface TreeNode {
   kept: boolean;
   error: string | null;
   createdAt: string;
+  /**
+   * Captions once laid over a shot. scenri makes the picture; composing type
+   * onto it was a different product. Nothing writes this any more, and the
+   * field stays only because shots already carry it.
+   */
   overlays: Record<string, TextLayer[]>;
   /**
    * The recipe, stored verbatim so the shot can be run again or reopened in
@@ -39,6 +44,18 @@ export interface TreeNode {
     templateFields?: Record<string, string>;
     variants?: number;
     quality?: 'draft' | 'standard' | 'high';
+    /**
+     * The shape it was shot at. Recorded so a later composer can tell whether
+     * you have asked for a different one, which an edit cannot deliver: the
+     * send becomes a new shot from this same setup instead.
+     */
+    format?: string;
+    /**
+     * For a refinement, the image of the parent run it was actually made from.
+     * A run holds several; without this every surface fell back to the first,
+     * and a refinement of variant three claimed a source it never touched.
+     */
+    sourceImage?: string;
   } | null;
   archived: boolean;
 }
@@ -201,8 +218,6 @@ export const api = {
   exportPresets: () => req<ExportPreset[]>('GET', '/api/export/presets'),
   previewBrief: (brief: unknown, engineId: string, brandId: string) =>
     req<BriefPreview>('POST', '/api/brief/preview', { brief, engineId, brandId }),
-  saveOverlays: (nodeId: string, overlays: Record<string, TextLayer[]>) =>
-    req<TreeNode>('PUT', `/api/nodes/${nodeId}/overlays`, { overlays }),
   keep: (nodeId: string, kept: boolean) => req<TreeNode>('POST', `/api/nodes/${nodeId}/keep`, { kept }),
   archiveNode: (nodeId: string, archived: boolean) =>
     req<TreeNode>('POST', `/api/nodes/${nodeId}/archive`, { archived }),
@@ -511,13 +526,13 @@ export interface ExportPreset {
 }
 
 /**
- * A last-gasp overlay save for a page that is going away.
+ * A last-gasp brand save for a page that is going away.
  *
  * `beforeunload` cannot await anything: the normal request is abandoned the
  * moment the document is torn down, which is how a headline typed in the last
  * fraction of a second before a reload was lost. `keepalive` hands the request
- * to the browser to finish on its own, and it is the only reason this is not
- * simply `api.saveOverlays`. Nothing can be reported back, so nothing tries.
+ * to the browser to finish on its own. Nothing can be reported back, so
+ * nothing tries.
  */
 export function saveBrandOnUnload(brandId: string, brand: unknown): void {
   try {
@@ -525,19 +540,6 @@ export function saveBrandOnUnload(brandId: string, brand: unknown): void {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ brand }),
-      keepalive: true,
-    });
-  } catch {
-    /* the page is leaving and there is no one left to tell */
-  }
-}
-
-export function saveOverlaysOnUnload(nodeId: string, overlays: Record<string, TextLayer[]>): void {
-  try {
-    void fetch(`/api/nodes/${nodeId}/overlays`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ overlays }),
       keepalive: true,
     });
   } catch {

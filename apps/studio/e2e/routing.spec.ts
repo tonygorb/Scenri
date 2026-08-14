@@ -222,25 +222,22 @@ test('settings is a URL, and Back closes it', async ({ page }) => {
   await expect(page.locator('.sc-set')).toHaveCount(0);
 });
 
-test('switching set does not carry the last one text layers', async ({ page }) => {
+test('switching set starts the new one clean', async ({ page }) => {
   const brand = await currentBrand(page);
   const { nodeId } = await seedShot(page, brand.id);
-  const first = await seedSet(page, brand.id, 'Layers A', [nodeId]);
-  const second = await seedSet(page, brand.id, 'Layers B', []);
+  const first = await seedSet(page, brand.id, 'Keyed A', [nodeId]);
+  const second = await seedSet(page, brand.id, 'Keyed B', []);
 
+  // open a shot inside the first set, and point the brief at it
   await page.goto(`/${brand.slug}/sets/${first.slug}/shots/${nodeId}`);
-  await page
-    .locator('.sc-ovl')
-    .getByRole('button', { name: /^Add text$/ })
-    .first()
-    .click();
-  await expect(page.locator('.sc-lrow')).not.toHaveCount(0);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
 
   // React Router keeps a component mounted across a param change, so the set
-  // route is keyed; without that key these drafts follow you over
-  await page.goto(`/${brand.slug}/sets/${second.slug}`);
+  // route is keyed; without that key the last set's open shot and its refine
+  // target follow you into the next one
+  await page.goto(`/${brand.slug}/sets/${second.slug}?branch=${nodeId}`);
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
-  await expect(page.locator('.sc-lrow')).toHaveCount(0);
+  await expect(page.locator('.sc-canvas')).toBeVisible();
 });
 
 test('a set can be renamed and deleted from the crumb, and the shots survive', async ({ page }) => {
@@ -368,4 +365,117 @@ test('a shot URL whose node is gone falls back to the feed', async ({ page }) =>
   await page.goto(`/${brand.slug}/create/shots/no-such-node`);
   await page.waitForURL(`**/${brand.slug}/create`);
   await expect(page.locator('.sc-canvas')).toBeVisible();
+});
+
+/**
+ * The ingredients under a shot are a record of what went into it, and the
+ * natural next question about any of them is "show me that thing". They are
+ * links to the pages that already exist rather than a hover surface invented
+ * for the purpose, so the answer costs no new UI and Back returns to the exact
+ * shot you were reading.
+ */
+test('an ingredient chip opens the thing it names, and Back returns to the shot', async ({ page }) => {
+  const brand = await currentBrand(page);
+
+  // a shot whose brief names a product, a presenter, a scene and a colour, so
+  // every kind of chip is on the panel at once
+  const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const scenes = ((await api(page, '/api/scenes')) as any).scenes ?? [];
+  const presenters = ((await api(page, '/api/presenters')) as any).presenters ?? [];
+  const made = (await api(
+    page,
+    '/api/nodes',
+    postJson({
+      projectId: ws.project.id,
+      parentId: root?.id ?? null,
+      kind: 'generation',
+      prompt: 'ingredient chip shot',
+      engineId: 'demo',
+      count: 1,
+      brief: {
+        prose: 'ingredient chip shot',
+        tokens: [
+          { t: 'product', id: 'cold-brew-can' },
+          { t: 'character', id: presenters[0].id },
+          { t: 'template', id: scenes[0].id },
+          { t: 'color', hex: '#c8442a', name: 'Signal red' },
+        ],
+      },
+    }),
+  )) as any;
+
+  await page.goto(`/${brand.slug}/create/shots/${made.id}`);
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  await expect(page.locator('.sc-ingredient').first()).toBeVisible();
+
+  // a colour has no page anywhere, so it is the one chip that stays inert
+  await expect(page.locator('a.sc-ingredient')).toHaveCount(3);
+  await expect(page.locator('span.sc-ingredient[data-kind="color"]')).toHaveCount(1);
+
+  for (const kind of ['scene', 'presenter', 'product']) {
+    await page.goto(`/${brand.slug}/create/shots/${made.id}`);
+    await page.locator(`.sc-ingredient[data-kind="${kind}"]`).click();
+    await expect(page.locator('.sc-ovl')).toHaveCount(0);
+    expect(new URL(page.url()).pathname).not.toContain('/shots/');
+
+    await page.goBack();
+    await page.waitForURL(`**/${brand.slug}/create/shots/${made.id}`);
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+  }
+});
+
+/**
+ * A scene is tinted with its own preview colour on both surfaces that name it,
+ * and bordered on neither. The overlay used to add a grey hairline the brief
+ * line does not, which made one idea read as two.
+ */
+test('a scene chip says "scene" the same way in the brief line and on the shot', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const scenes = ((await api(page, '/api/scenes')) as any).scenes ?? [];
+  const scene = scenes[0];
+
+  const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const made = (await api(
+    page,
+    '/api/nodes',
+    postJson({
+      projectId: ws.project.id,
+      parentId: root?.id ?? null,
+      kind: 'generation',
+      prompt: 'scene chip shot',
+      engineId: 'demo',
+      count: 1,
+      brief: { prose: 'scene chip shot', tokens: [{ t: 'template', id: scene.id }] },
+    }),
+  )) as any;
+
+  const chipStyle = (sel: string) =>
+    page
+      .locator(sel)
+      .first()
+      .evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return {
+          bg: cs.backgroundColor,
+          shadow: cs.boxShadow,
+          weight: cs.fontWeight,
+          radius: cs.borderRadius,
+          border: cs.borderWidth,
+        };
+      });
+
+  await page.goto(`/${brand.slug}/create?scene=${scene.id}`);
+  await expect(page.locator('.sc-token[data-tinted]')).toBeVisible();
+  const composer = await chipStyle('.sc-token[data-tinted]');
+
+  await page.goto(`/${brand.slug}/create/shots/${made.id}`);
+  await expect(page.locator('.sc-ingredient[data-kind="scene"]')).toBeVisible();
+  const overlay = await chipStyle('.sc-ingredient[data-kind="scene"]');
+
+  expect(overlay).toEqual(composer);
+  // said twice on purpose: the regression was a ring, not a colour
+  expect(overlay.shadow).toBe('none');
+  expect(overlay.border).toBe('0px');
 });

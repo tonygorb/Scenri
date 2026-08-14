@@ -168,14 +168,36 @@ test('clearing empties the record', async ({ page }) => {
   await expect(page.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
 });
 
-test('a finish still toasts while you are on the feed', async ({ page }) => {
+test('a finish toasts wherever you cannot see it land', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
 
-  // the emitter moved up to TaskCenter; the toast must not have gone with it
+  // the emitter moved up to TaskCenter; the toast must not have gone with it.
+  // Home is not the feed, so the shot lands somewhere you are not looking.
   await page.goto(`/${brand.slug}`);
   await fireAndWalkAway(page, brand.id);
   await expect(page.locator('.sc-toast').first()).toBeVisible({ timeout: 20_000 });
+});
+
+test('a finish you are watching land does not also announce itself', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await clearHistory(page);
+
+  // On the feed the tile IS the announcement. Refining three or four times in
+  // a row used to stack that many toasts over the assets rail, all of them
+  // saying what the work in front of you had already said.
+  await page.goto(`/${brand.slug}/create`);
+  await expect(page.locator('.sc-canvas')).toBeVisible();
+  await fireAndWalkAway(page, brand.id);
+
+  // no toast, and no unread badge either: you watched it happen
+  await expect(page.locator('.sc-toast')).toHaveCount(0);
+  await expect(page.locator('.sc-bell-dot')).toHaveCount(0);
+
+  // but the record still keeps it — quiet is not the same as lost
+  await bell(page).click();
+  await tabs(page).nth(1).click();
+  await expect(rows(page)).not.toHaveCount(0, { timeout: 20_000 });
 });
 
 test('a notification row opens the shot it is about', async ({ page }) => {

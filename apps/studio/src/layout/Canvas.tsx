@@ -12,6 +12,7 @@ import {
   XCircle,
 } from '@phosphor-icons/react';
 import { hasNoShots, imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
+import { sourceImageOf } from '../briefDiff.js';
 import { elapsedSec, runningPhrase } from '../tasks.js';
 import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 
@@ -36,6 +37,7 @@ export function Canvas({
   sending,
   onBranch,
   branchingFrom,
+  branchingFromImage,
   expanded,
   onToggleExpand,
   versionsOf,
@@ -75,9 +77,11 @@ export function Canvas({
    */
   sending?: string | null;
   /** Point the brief at this shot. Absent where branching makes no sense. */
-  onBranch?: (id: string) => void;
+  onBranch?: (id: string, imageIndex?: number) => void;
   /** The shot the brief is currently pointed at, so its tile can say so. */
   branchingFrom?: string | null;
+  /** Which image of it, so an opened-out take can say it is the armed one. */
+  branchingFromImage?: string | null;
   /** Runs opened out into their variants. */
   expanded?: Set<string>;
   onToggleExpand?: (id: string) => void;
@@ -122,7 +126,12 @@ export function Canvas({
           // pass already fixed for SceneCard and the kept-star badge. A sibling
           // now, matching that pattern.
           <div key={n.id} className="sc-cell" data-running="true">
-            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
+            <button
+              type="button"
+              className="sc-cell-open"
+              aria-label={`Open ${nodeLabel(n)}, still rendering`}
+              onClick={() => onOpen(n.id)}
+            >
               <span className="sc-shimmer" />
               <RunningTag since={n.createdAt} />
             </button>
@@ -142,7 +151,12 @@ export function Canvas({
       if (n.status === 'cancelled') {
         return [
           <div key={n.id} className="sc-cell" data-cancelled="true" data-selected={n.id === selectedId}>
-            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)} />
+            <button
+              type="button"
+              className="sc-cell-open"
+              onClick={() => onOpen(n.id)}
+              aria-label={`Open ${nodeLabel(n)}`}
+            />
             <span className="sc-cell-failed">
               <XCircle size={16} />
               <span>Cancelled</span>
@@ -152,8 +166,12 @@ export function Canvas({
                 Try again
               </button>
               {onArchive && (
+                // Says what it will do. This called the same handler either
+                // way, and that handler restores an already-archived shot — so
+                // on an archived failure the button labelled Dismiss put it
+                // back, which is the opposite of dismissing it.
                 <button type="button" className="sc-cell-retry" onClick={() => onArchive(n)}>
-                  Dismiss
+                  {n.archived ? 'Restore' : 'Dismiss'}
                 </button>
               )}
             </span>
@@ -163,18 +181,31 @@ export function Canvas({
       if (n.status === 'error' || n.images.length === 0) {
         return [
           <div key={n.id} className="sc-cell" data-failed="true" data-selected={n.id === selectedId}>
-            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)} />
+            <button
+              type="button"
+              className="sc-cell-open"
+              onClick={() => onOpen(n.id)}
+              aria-label={`Open ${nodeLabel(n)}`}
+            />
             <span className="sc-cell-failed">
               <WarningCircle size={16} />
-              <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {n.error?.slice(0, 40) || 'Failed'}
+              {/* One truncation, not two: this was cut to 40 characters and
+                  then ellipsised again at 150px, so the reason a shot failed
+                  was usually unreadable on the tile that reported it. The full
+                  text is on the title and in the overlay. */}
+              <span className="sc-cell-why" title={n.error ?? undefined}>
+                {n.error || 'Failed'}
               </span>
               <button type="button" className="sc-cell-retry" onClick={() => onRetry(n)}>
                 Try again
               </button>
               {onArchive && (
+                // Says what it will do. This called the same handler either
+                // way, and that handler restores an already-archived shot — so
+                // on an archived failure the button labelled Dismiss put it
+                // back, which is the opposite of dismissing it.
                 <button type="button" className="sc-cell-retry" onClick={() => onArchive(n)}>
-                  Dismiss
+                  {n.archived ? 'Restore' : 'Dismiss'}
                 </button>
               )}
             </span>
@@ -192,24 +223,79 @@ export function Canvas({
        * four choices, and hiding them while a run is open made expanding it a
        * dead end you had to undo before you could do anything.
        */
-      const runControls = (
-        <>
-          {onBranch && (
+      const refineRun = onBranch && (
+        <button
+          type="button"
+          className="sc-cell-branch"
+          data-on={n.id === branchingFrom || undefined}
+          onClick={() => onBranch(n.id)}
+          aria-label={`Refine ${nodeLabel(n)}`}
+          title="Continue from this shot"
+        >
+          <PencilLine size={12} />
+          <span className="sc-cell-branch-lb">Refine</span>
+        </button>
+      );
+      /**
+       * What this shot IS, in one row in one corner.
+       *
+       * These three used to be three grammars in two corners: provenance was a
+       * full-radius sans pill at the top left, the variant count a small-radius
+       * mono chip at the bottom left, and the version count the same chip
+       * stacked 26px above it. Provenance also carried a rule nudging it right
+       * to dodge the selection box — which on a touch device is always on, so
+       * it permanently floated off its corner rather than sitting in it. They
+       * are facts about the same picture, so they read as one row: bottom left,
+       * one chip, wrapping when a tile is narrow.
+       */
+      const facts = (
+        // keyed only to settle the iterable check: this is built inside the
+        // callback that returns the tile array, but it is not a member of it
+        <div className="sc-cell-facts" key={`${n.id}-facts`}>
+          {parentShot?.images[0] && (
+            <span className="sc-fact sc-prov">
+              {/* the frame it was actually made from: a run holds several, and
+                  this used to show the first one on every tile */}
+              <img src={imgUrl(sourceImageOf(n, parentShot) ?? parentShot.images[0])} alt="" />
+              refined from
+            </span>
+          )}
+          {n.images.length > 1 && (
             <button
               type="button"
-              className="sc-cell-branch"
-              data-on={n.id === branchingFrom || undefined}
-              onClick={() => onBranch(n.id)}
-              aria-label={`Refine ${nodeLabel(n)}`}
-              title="Continue from this shot"
+              className="sc-fact sc-cell-stack"
+              onClick={() => onToggleExpand?.(n.id)}
+              aria-expanded="false"
+              aria-label={`Show all ${n.images.length} variants`}
             >
-              <PencilLine size={12} />
-              Refine
+              <Stack size={12} />
+              {n.images.length} variants
             </button>
           )}
+          {versions > 0 && onVersions && (
+            <button
+              type="button"
+              className="sc-fact sc-cell-versions"
+              onClick={() => onVersions(n.id)}
+              aria-label={`Show the ${versions} version${versions === 1 ? '' : 's'} of this shot`}
+            >
+              <ClockCounterClockwise size={11} />
+              {versions} version{versions === 1 ? '' : 's'}
+            </button>
+          )}
+        </div>
+      );
+
+      /**
+       * One brief that returned four images used to look like one image with
+       * a caption, and the other three were reachable only by opening the
+       * shot and stepping with [ and ]. Opened out, each is a tile of its
+       * own; the run's own actions stay on the first, because they act on
+       * the run and four copies of one checkbox is not four choices.
+       */
+      const runControlsWithoutRefine = (
+        <>
           {picking && (
-            // a checkbox rather than a modifier-click: the gesture has to be
-            // discoverable on a phone, where there is no modifier to hold
             <button
               type="button"
               className="sc-cell-pick"
@@ -221,25 +307,12 @@ export function Canvas({
               {chosen && <Check size={12} weight="bold" />}
             </button>
           )}
-          {versions > 0 && onVersions && (
-            // Lineage was a 40px badge and nothing else. This is the way in
-            // to the shots that came from this one.
-            <button
-              type="button"
-              className="sc-cell-versions"
-              onClick={() => onVersions(n.id)}
-              aria-label={`Show the ${versions} version${versions === 1 ? '' : 's'} of this shot`}
-            >
-              <ClockCounterClockwise size={11} />
-              {versions} version{versions === 1 ? '' : 's'}
-            </button>
-          )}
           {onArchive && (
             <button
               type="button"
               className="sc-cell-archive"
               onClick={() => onArchive(n)}
-              aria-label={n.archived ? 'Restore this shot' : 'Archive this shot'}
+              aria-label={n.archived ? 'Restore' : 'Archive'}
               title={n.archived ? 'Restore' : 'Archive'}
             >
               {n.archived ? <ArrowCounterClockwise size={12} /> : <Archive size={12} />}
@@ -248,13 +321,6 @@ export function Canvas({
         </>
       );
 
-      /**
-       * One brief that returned four images used to look like one image with
-       * a caption, and the other three were reachable only by opening the
-       * shot and stepping with [ and ]. Opened out, each is a tile of its
-       * own; the run's own actions stay on the first, because they act on
-       * the run and four copies of one checkbox is not four choices.
-       */
       if (expanded?.has(n.id) && n.images.length > 1) {
         return n.images.map((hash, i) => (
           <div
@@ -268,25 +334,62 @@ export function Canvas({
             data-first={i === 0 || undefined}
             data-selected={i === 0 && n.id === selectedId}
           >
-            <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id, i)}>
+            <button
+              type="button"
+              className="sc-cell-open"
+              aria-label={`Open ${nodeLabel(n)}, take ${i + 1} of ${n.images.length}`}
+              onClick={() => onOpen(n.id, i)}
+            >
               <img src={imgUrl(hash)} alt="" loading="lazy" />
             </button>
-            <span className="sc-cell-meta" style={{ opacity: 1 }}>
-              {i + 1} of {n.images.length}
-            </span>
-            {i === 0 && (
-              <>
+            {/* An opened-out take gets the same bottom line as any other tile:
+                what it is on the left, what to do with it on the right. It used
+                to place these itself, and once the counts moved into that row
+                the Collapse button kept its old class without the positioning
+                that came with it — and landed on top of Refine. */}
+            <div className="sc-cell-bar">
+              <div className="sc-cell-facts">
+                <span className="sc-fact">
+                  {i + 1} of {n.images.length}
+                </span>
+                {i === 0 && (
+                  <button
+                    type="button"
+                    className="sc-fact sc-cell-stack"
+                    onClick={() => onToggleExpand?.(n.id)}
+                    aria-expanded="true"
+                    aria-label={`Collapse ${n.images.length} variants`}
+                  >
+                    <Stack size={12} />
+                    Collapse
+                  </button>
+                )}
+              </div>
+              {/* Refining is the one action that is about THIS picture rather
+                  than the run — keeping, picking and archiving all act on the
+                  whole shot, so they stay on the first tile with the run's own
+                  controls. Without this the takes you opened out to compare
+                  were inert: you could look at variant three and then only ever
+                  refine variant one. */}
+              {onBranch && (
                 <button
                   type="button"
-                  className="sc-cell-stack"
-                  onClick={() => onToggleExpand?.(n.id)}
-                  aria-expanded="true"
-                  aria-label={`Collapse ${n.images.length} variants`}
+                  className="sc-cell-branch"
+                  data-on={branchingFrom === n.id && branchingFromImage === hash ? '' : undefined}
+                  onClick={() => onBranch(n.id, i)}
+                  aria-label={`Refine ${i + 1} of ${n.images.length}`}
+                  title="Continue from this take"
                 >
-                  <Stack size={12} />
-                  Collapse
+                  <PencilLine size={12} />
+                  <span className="sc-cell-branch-lb">Refine</span>
                 </button>
-                {runControls}
+              )}
+            </div>
+            {i === 0 && (
+              <>
+                {/* the run's own controls, without its Refine: every take now
+                    carries one that names the picture it is about */}
+                {runControlsWithoutRefine}
               </>
             )}
           </div>
@@ -297,28 +400,19 @@ export function Canvas({
         <ContextMenu.Root key={n.id}>
           <ContextMenu.Trigger>
             <div className="sc-cell" data-selected={n.id === selectedId} data-picked={chosen || undefined}>
-              <button type="button" className="sc-cell-open" onClick={() => onOpen(n.id)}>
+              <button
+                type="button"
+                className="sc-cell-open"
+                aria-label={`Open ${nodeLabel(n)}`}
+                onClick={() => onOpen(n.id)}
+              >
                 <img src={imgUrl(n.images[0])} alt="" loading="lazy" />
               </button>
-              {n.images.length > 1 && (
-                <button
-                  type="button"
-                  className="sc-cell-stack"
-                  onClick={() => onToggleExpand?.(n.id)}
-                  aria-expanded="false"
-                  aria-label={`Show all ${n.images.length} variants`}
-                >
-                  <Stack size={12} />
-                  {n.images.length} variants
-                </button>
-              )}
-              {runControls}
-              {parentShot?.images[0] && (
-                <span className="sc-prov">
-                  <img src={imgUrl(parentShot.images[0])} alt="" />
-                  refined from
-                </span>
-              )}
+              <div className="sc-cell-bar">
+                {facts}
+                {refineRun}
+              </div>
+              {runControlsWithoutRefine}
               {n.kept && (
                 <button
                   type="button"
@@ -397,13 +491,27 @@ export function Canvas({
         style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}
       >
         {Array.from({ length: cols }, (_, c) => (
-          // Dealt round-robin, so the first row reads left to right in the order
-          // the feed is sorted. Packing by shortest-column would look tidier and
-          // would put the second-newest shot anywhere at all.
-          //
+          /*
+           * Dealt round-robin, but counted from the OLDEST tile rather than the
+           * newest.
+           *
+           * The feed is sorted newest first, so every generation prepends. Deal
+           * on the plain index and that prepend renumbers everything: measured
+           * on a 12-shot feed, one new shot moved all 12 of the others, which
+           * is the whole page rearranging itself at the exact moment you are
+           * looking at what just arrived. Counting from the far end leaves an
+           * existing tile's ordinal — and so its column — untouched when
+           * something is added at the near end, so only the column the new shot
+           * joins shifts down.
+           *
+           * The cost is that the top row no longer reads strictly left to
+           * right; the newest tile lands in whichever column its ordinal picks.
+           * A masonry is scanned by column anyway, and a feed that holds still
+           * is worth more than a row that reads in order.
+           */
           // biome-ignore lint/suspicious/noArrayIndexKey: the index is the identity here. These are positions, not records: column 2 of 4 is column 2 of 4, and the count is in the key so a resize remounts them rather than reshuffling tiles between surviving columns.
           <div className="sc-feed-col" key={`col-${cols}-${c}`}>
-            {tiles.filter((_, i) => i % cols === c)}
+            {tiles.filter((_, i) => (tiles.length - 1 - i) % cols === c)}
           </div>
         ))}
       </div>

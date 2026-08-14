@@ -73,11 +73,12 @@ test('every control in the row is big enough for a finger', async ({ page }) => 
   }
 });
 
-test('a phone trades the three pills for a sheet', async ({ page }) => {
-  test.skip(!isPhone(page), 'the full row has the room above 768px');
+test('a phone opens the same settings as a sheet, not as a popover', async ({ page }) => {
+  test.skip(!isPhone(page), 'the popover has the room above 768px');
 
+  // One trigger on screen at a time: the sheet chip here, More on a desktop.
   await expect(chip(page)).toBeVisible();
-  await expect(pills(page).first()).toBeHidden();
+  await expect(page.locator('.sc-prompt-right .sc-more')).toBeHidden();
 
   await chip(page).click();
   const sheet = page.locator('.sc-shotsheet');
@@ -89,11 +90,11 @@ test('a phone trades the three pills for a sheet', async ({ page }) => {
   await expect(sheet).toBeVisible();
   await expect(sheet.locator('.sc-seg-o[data-on]', { hasText: /^High$/ })).toHaveCount(1);
 
-  // the sheet and the pills are one state, not two copies of it
+  // the sheet is the state, not a copy of it
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
-  await expect(page.locator('.sc-prompt-right .sc-var', { hasText: 'High' })).toHaveCount(1);
-  await expect(page.locator('.sc-prompt-right .sc-var', { hasText: '9:16' })).toHaveCount(1);
+  expect(await page.evaluate(() => localStorage.getItem('scenri:quality'))).toBe('"high"');
+  expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"story"');
 });
 
 test('the sheet is dragged away, and springs back from a nudge', async ({ page }) => {
@@ -134,4 +135,299 @@ test('focusing the brief cannot zoom the page', async ({ page }) => {
   // iOS zooms whenever it focuses a control computing under 16px
   const size = await line(page).evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
   expect(size).toBeGreaterThanOrEqual(16);
+});
+
+/**
+ * The filters are one row on a phone, not two.
+ *
+ * Wrapping gave the lenses their own line and the sets, search and sort a
+ * second, and the pair cost 114px of a 664px screen to filter a feed that had
+ * 324px left to show pictures in. The rail scrolls, so it is the part that
+ * gives.
+ */
+test('the feed filters share one row on a phone', async ({ page }) => {
+  test.skip(!isPhone(page), 'the two-row wrap only ever happened under 768px');
+
+  const toolbar = page.locator('.sc-toolbar');
+  await expect(toolbar).toBeVisible();
+
+  const rows = await page.evaluate(() => {
+    const bar = document.querySelector('.sc-toolbar') as HTMLElement;
+    // the groups are centred against each other, so equal tops would be the
+    // wrong test: what makes it one row is that every band overlaps the same
+    // horizontal slice
+    const boxes = [...bar.children].map((el) => el.getBoundingClientRect());
+    const top = Math.max(...boxes.map((b) => b.top));
+    const bottom = Math.min(...boxes.map((b) => b.bottom));
+    return {
+      groups: boxes.length,
+      sharedBand: Math.round(bottom - top),
+      height: Math.round(bar.getBoundingClientRect().height),
+    };
+  });
+
+  // every group crosses one shared band, and the bar stays under the height two
+  // stacked rows of controls would need
+  expect(rows.groups).toBeGreaterThan(1);
+  expect(rows.sharedBand).toBeGreaterThan(20);
+  expect(rows.height).toBeLessThan(80);
+
+  // and the rail still reaches every lens by scrolling rather than by wrapping
+  const rail = page.locator('.sc-toolbar .sc-verticals');
+  const scrolls = await rail.evaluate((el) => el.scrollWidth > el.clientWidth);
+  expect(scrolls).toBe(true);
+  await expect(page.locator('.sc-toolbar .sc-verticals-shell')).toHaveAttribute('data-overflow-right', '');
+});
+
+/**
+ * A scene section leads with scenes. The per-collection index listed every
+ * scene by name above the grid that showed those same scenes with pictures, so
+ * one collection put seventeen 15px-tall links above the fold and pushed every
+ * photograph below it.
+ */
+test('a scene collection shows pictures, not a list of its own names', async ({ page }) => {
+  test.skip(!isPhone(page), 'the index still serves as a quick jump on a wide screen');
+
+  const brand = new URL(page.url()).pathname.split('/')[1];
+  await page.goto(`/${brand}/scenes`);
+  await expect(page.locator('.sc-coll').first()).toBeVisible();
+
+  await expect(page.locator('.sc-coll-names').first()).toBeHidden();
+
+  // the first scene card is on screen without scrolling
+  const card = page.locator('.sc-coll .sc-lookcard, .sc-coll [class*="lookcard"]').first();
+  await expect(card).toBeVisible();
+  const top = await card.evaluate((el) => el.getBoundingClientRect().top);
+  const vh = page.viewportSize()?.height ?? 0;
+  expect(top).toBeLessThan(vh * 0.6);
+});
+
+/**
+ * The overlay's top actions are one header, not two bars sharing a line.
+ *
+ * They used to be a fixed bar (close, versions) and a separate tools row that
+ * was the stage's own first child, neither aware of the other. On a phone they
+ * overlapped — 67px at 320 and 32px at 390, with "Next version" sitting
+ * entirely under the cost chip. One flex row cannot do that at any width.
+ */
+test('the shot header never overlaps itself, and collapses to one overflow on a phone', async ({ page }) => {
+  const brand = new URL(page.url()).pathname.split('/')[1];
+
+  // a finished shot to open
+  const shot = await page.evaluate(async (slug) => {
+    const brands = await (await fetch('/api/brands')).json();
+    const b = brands.find((x: any) => x.slug === slug);
+    const ws = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
+    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length);
+    if (done) return done.id;
+    const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+    const made = await (
+      await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: ws.project.id,
+          parentId: root?.id ?? null,
+          kind: 'generation',
+          prompt: 'header spec shot',
+          engineId: 'demo',
+          count: 1,
+        }),
+      })
+    ).json();
+    for (let i = 0; i < 40; i++) {
+      const t = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
+      const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
+      if (n?.status === 'done') return n.id;
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    throw new Error('demo generation never finished');
+  }, brand);
+
+  await page.goto(`/${brand}/create/shots/${shot}`);
+  await expect(page.locator('.sc-ovl-bar')).toBeVisible();
+
+  // nothing in the header sits on anything else, and nothing leaves the screen
+  const geom = await page.evaluate(() => {
+    const bar = document.querySelector('.sc-ovl-bar') as HTMLElement;
+    const vis = (el: Element) => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
+    const boxes = [...bar.querySelectorAll('button')].filter(vis).map((el) => el.getBoundingClientRect());
+    let worst = 0;
+    for (let i = 0; i < boxes.length; i++)
+      for (let k = i + 1; k < boxes.length; k++) {
+        const ix = Math.min(boxes[i].right, boxes[k].right) - Math.max(boxes[i].left, boxes[k].left);
+        const iy = Math.min(boxes[i].bottom, boxes[k].bottom) - Math.max(boxes[i].top, boxes[k].top);
+        if (ix > 0 && iy > 0) worst = Math.max(worst, Math.round(ix));
+      }
+    return {
+      worstOverlap: worst,
+      offScreen: boxes.some((b) => b.right > innerWidth + 1 || b.left < -1),
+      count: boxes.length,
+    };
+  });
+  expect(geom.worstOverlap).toBe(0);
+  expect(geom.offScreen).toBe(false);
+
+  if (isPhone(page)) {
+    // the picture's actions live behind one control, and the price is not an
+    // action so it is not in the action row at all
+    await expect(page.locator('.sc-ovl-acts')).toBeHidden();
+    await expect(page.locator('.sc-ovl-bar .sc-ovl-cost')).toBeHidden();
+    const overflow = page.locator('.sc-ovl-overflow');
+    await expect(overflow).toBeVisible();
+
+    await overflow.tap();
+    await expect(page.getByRole('menuitem', { name: 'Export' })).toBeVisible();
+    // and the menu opens fully on screen rather than half off the right edge
+    const fits = await page.evaluate(() => {
+      const m = document.querySelector('[data-radix-popper-content-wrapper]');
+      if (!m) return false;
+      const r = m.getBoundingClientRect();
+      return r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1;
+    });
+    expect(fits).toBe(true);
+  } else {
+    // a tablet has the room, so the actions stay visible as buttons
+    await expect(page.locator('.sc-ovl-acts')).toBeVisible();
+    await expect(page.locator('.sc-ovl-overflow')).toBeHidden();
+  }
+});
+
+/**
+ * The shot, its takes and the header do not touch.
+ *
+ * The phone rule set the stage to `display: block`, which threw away the base
+ * grid's `gap`, and gave it `padding-top: 0`. Measured, the picture began at
+ * the exact pixel the header ended and the row of takes began at the exact
+ * pixel the picture ended: three things stacked with no air between any of them.
+ */
+test('the shot has room around it on a phone', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone rule is the one that dropped the gaps');
+
+  const brand = new URL(page.url()).pathname.split('/')[1];
+  const shot = await page.evaluate(async (slug) => {
+    const brands = await (await fetch('/api/brands')).json();
+    const b = brands.find((x: any) => x.slug === slug);
+    const ws = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
+    const many = (ws.nodes ?? []).find((n: any) => n.status === 'done' && (n.images?.length ?? 0) > 1);
+    if (many) return many.id;
+    const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+    const made = await (
+      await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: ws.project.id,
+          parentId: root?.id ?? null,
+          kind: 'generation',
+          prompt: 'stage rhythm shot',
+          engineId: 'demo',
+          count: 2,
+        }),
+      })
+    ).json();
+    for (let i = 0; i < 40; i++) {
+      const t = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
+      const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
+      if (n?.status === 'done') return n.id;
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    throw new Error('demo generation never finished');
+  }, brand);
+
+  await page.goto(`/${brand}/create/shots/${shot}`);
+  await expect(page.locator('.sc-ovl-stage img').first()).toBeVisible();
+
+  const gaps = await page.evaluate(() => {
+    const stage = document.querySelector('.sc-ovl-stage') as HTMLElement;
+    const bar = document.querySelector('.sc-ovl-bar')!.getBoundingClientRect();
+    const img = stage.querySelector('img')!.getBoundingClientRect();
+    const kids = [...stage.children];
+    const takes = kids.length > 1 ? kids[kids.length - 1].getBoundingClientRect() : null;
+    return {
+      headerToShot: Math.round(img.top - bar.bottom),
+      shotToTakes: takes ? Math.round(takes.top - img.bottom) : null,
+    };
+  });
+
+  expect(gaps.headerToShot).toBeGreaterThanOrEqual(8);
+  if (gaps.shotToTakes !== null) expect(gaps.shotToTakes).toBeGreaterThanOrEqual(8);
+});
+
+/**
+ * A short viewport must not cost the picture its width. The cap is a height and
+ * the picture keeps its shape, so capping the height shrank it in both
+ * directions: a square shot rendered 45% of the column on a 400px-tall window
+ * and 93% on a real 844px phone, which is why a device emulator with the panel
+ * docked looked broken while the phone looked right.
+ */
+test('a short window does not shrink the shot into the middle of the stage', async ({ page }) => {
+  test.skip(!isPhone(page), 'measured against the phone stage cap');
+
+  const brand = new URL(page.url()).pathname.split('/')[1];
+  await page.setViewportSize({ width: 390, height: 420 });
+  await page.goto(`/${brand}/create`);
+  const tile = page.locator('.sc-cell-open').first();
+  await tile.waitFor();
+  await tile.click();
+  await expect(page.locator('.sc-ovl-stage img').first()).toBeVisible();
+
+  const share = await page.evaluate(() => {
+    const stage = document.querySelector('.sc-ovl-stage')!.getBoundingClientRect();
+    const img = document.querySelector('.sc-ovl-stage img')!.getBoundingClientRect();
+    const cs = getComputedStyle(document.querySelector('.sc-ovl-stage')!);
+    const column = stage.width - Number.parseFloat(cs.paddingLeft) - Number.parseFloat(cs.paddingRight);
+    return img.width / column;
+  });
+  expect(share).toBeGreaterThan(0.6);
+});
+
+/**
+ * A tile says what its picture is in one row, in one corner, in one grammar.
+ *
+ * It used to be three: provenance as a full-radius sans pill at the top left
+ * (nudged right to dodge a selection box that is always on under a finger, so
+ * it floated mid-air), the variant count as a small-radius mono chip at the
+ * bottom left, and the version count the same chip stacked 26px above it. The
+ * Refine pill claimed the same bottom line from the other side, which is why
+ * both carried a max-width of half the tile — a truncation whose only job was
+ * to make a collision less likely.
+ */
+test('a feed tile states its facts in one row without truncating them', async ({ page }) => {
+  const bars = page.locator('.sc-cell-bar');
+  await expect(bars.first()).toBeAttached();
+
+  const report = await page.evaluate(() => {
+    const out: { truncated: string[]; overlap: number; outside: boolean }[] = [];
+    for (const bar of document.querySelectorAll('.sc-cell-bar')) {
+      const cell = bar.closest('.sc-cell')!.getBoundingClientRect();
+      const items = [...bar.querySelectorAll('.sc-fact, .sc-cell-branch')].filter(
+        (el) => getComputedStyle(el).display !== 'none',
+      );
+      if (!items.length) continue;
+      const boxes = items.map((el) => el.getBoundingClientRect());
+      let overlap = 0;
+      for (let i = 0; i < boxes.length; i++)
+        for (let k = i + 1; k < boxes.length; k++) {
+          const ix = Math.min(boxes[i].right, boxes[k].right) - Math.max(boxes[i].left, boxes[k].left);
+          const iy = Math.min(boxes[i].bottom, boxes[k].bottom) - Math.max(boxes[i].top, boxes[k].top);
+          if (ix > 0 && iy > 0) overlap = Math.max(overlap, Math.round(ix));
+        }
+      out.push({
+        truncated: [...bar.querySelectorAll('.sc-fact')]
+          .filter((el) => el.scrollWidth > el.clientWidth + 1)
+          .map((el) => el.textContent!.trim()),
+        overlap,
+        outside: boxes.some((b) => b.left < cell.left - 1 || b.right > cell.right + 1),
+      });
+    }
+    return out;
+  });
+
+  expect(report.length).toBeGreaterThan(0);
+  for (const r of report) {
+    expect(r.truncated, 'a fact was cut off to make room').toEqual([]);
+    expect(r.overlap, 'two things on the tile bar overlap').toBe(0);
+    expect(r.outside, 'something on the tile bar left the tile').toBe(false);
+  }
 });

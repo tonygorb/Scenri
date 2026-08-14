@@ -27,6 +27,17 @@
      ends up under the keyboard; useKeyboardInset writes the real number here
      and the docks add it to their offset. 0 everywhere else. */
   --sc-kb: 0px;
+  /* The one owner of bottom spacing for anything pinned to the bottom edge.
+
+     A max, never a sum. With the keyboard up it already covers the home
+     indicator, so adding the two would lift the composer by an inset nothing
+     needs — the double-padding this codebase had in two places and not in a
+     third. Anything fixed to the bottom uses this and adds only its own gap. */
+  --sc-bottom-inset: max(var(--sc-kb), env(safe-area-inset-bottom, 0px));
+  /* The shot panel's width, named once because two things need it: the grid
+     track, and the header above the stage, which must stop where the panel
+     begins or its actions paint over the panel's own heading. */
+  --sc-ovl-panel-w: 340px;
   /* Coarse pointers get a 44px floor on every chrome control. The graphic stays
      32px; the extra reach comes from an invisible ::after, so the bar does not
      grow chunky on a phone. */
@@ -38,6 +49,11 @@
      overlay winbar 90 · sheet scrim 91 · sheet 92 · dialog overlay 95
      toasts 100 · command menu 200 */
   --sc-z-topbar: 50;
+  /* Menus and popovers float above every surface that can host their trigger,
+     including the shot overlay at 80. Radix portals them to <body> with no
+     z-index of their own, so without this the quality menu opened behind the
+     overlay: styled, positioned, hit-testable and completely invisible. */
+  --sc-z-popover: 96;
   --sc-z-sheet-scrim: 91;
   --sc-z-sheet: 92;
   /* One tile floor for every picture grid: the feed, the canvas, the look
@@ -105,7 +121,10 @@
   --sc-line-chrome: #e4e4e4;
   --sc-fg: #0a0a0a;
   --sc-fg2: #666666;
-  --sc-fg3: #9a9a9a;
+  /* 4.54:1 on white. At #9a9a9a this was 2.81:1 and carried the composer
+     placeholder, the lens counts, every eyebrow and the rail's helper text —
+     one token failing AA on about sixteen sites per theme. */
+  --sc-fg3: #767676;
   --sc-inv-bg: #0a0a0a;
   --sc-inv-fg: #ffffff;
   --sc-hover: #f4f4f4;
@@ -139,7 +158,8 @@
   --sc-line-chrome: #262626;
   --sc-fg: #f5f5f5;
   --sc-fg2: #9a9a9a;
-  --sc-fg3: #6b6b6b;
+  /* 4.92:1 on #0d0d0d; was #6b6b6b at 3.46:1. See the light-theme note. */
+  --sc-fg3: #808080;
   --sc-inv-bg: #f5f5f5;
   --sc-inv-fg: #0d0d0d;
   --sc-hover: #1c1c1c;
@@ -217,6 +237,17 @@
 html,
 body {
   background: var(--sc-bg);
+  /* iOS inflates text on its own.
+     Safari and iOS Chrome — both WebKit — grow the text inside any block they
+     judge too narrow to read comfortably, per block, on top of whatever the
+     stylesheet asked for. Desktop Chrome does not, and neither does a device
+     emulator, which is why small controls measured correct here and arrived
+     oversized and uneven on the phone: not every block gets inflated, so the
+     type scale comes apart rather than simply growing.
+     100%, not `none`: it stops the automatic inflation while leaving pinch
+     zoom alone, which `none` takes away in older Safari. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 body,
 button,
@@ -2051,11 +2082,11 @@ select {
 .sc-cell-archive:has(~ .sc-cell-star) {
   right: 34px;
 }
-@media (pointer: coarse) {
-  .sc-cell-archive {
-    opacity: 1;
-  }
-}
+/* Not forced on under a finger any more. Long-press already opens a menu with
+   Archive in it, so a button pinned to every tile at all times was a second
+   way to reach the same thing, paid for in permanent chrome over the
+   photographs — and on a phone, where hover cannot hide it again, it never
+   went away. */
 .sc-cell-star:hover {
   transform: scale(1.12);
 }
@@ -2117,11 +2148,18 @@ select {
 .sc-cell[data-picked] {
   border-color: var(--sc-fg);
 }
-@media (hover: none) {
-  .sc-cell-pick {
-    opacity: 1;
-  }
-}
+/* Selection is a mode, not a permanent affordance.
+
+   With no hover to hide it, this pinned an empty grey box to the corner of
+   every tile on every phone — four blank squares over four photographs, which
+   is what a feed of pictures should never lead with. It reads as a control
+   that is broken rather than one that is waiting.
+
+   The rule above already shows every box once `.sc-feed[data-picking]` is set,
+   which happens as soon as one shot is picked, and long-press offers Select on
+   any tile. So the way in exists, the way out exists, and in between the tiles
+   are just the pictures. This is the same shape as the photo library the
+   gesture is borrowed from. */
 
 /* What you can do with a handful of shots. Only ever about membership. */
 /* Rides in the dock directly above the composer, so it clears whatever height
@@ -2357,16 +2395,44 @@ select {
   .sc-toolbar-count {
     display: none;
   }
-  /* The row may wrap on a phone; search and sort stay right-anchored on
-     their line so the field, which grows leftward, always has the room. */
+  /* One row, not two. Wrapping put the lenses on their own line and the sets
+     and search on a second, and the pair cost 114px — 17% of a 664px phone
+     screen — to filter a feed that had 324px left to show pictures in. The
+     rail already scrolls (1220px of tabs in a 320px track), so it is the part
+     that gives: it takes what the actions leave and scrolls for the rest. */
   .sc-toolbar {
-    flex-wrap: wrap;
-    row-gap: 6px;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0 8px;
+  }
+  .sc-toolbar-lenses {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* Sharing a row means sharing a line. The tab's 16px ink slot is sized for
+     a rail that owns its own band; here it hung the underline 6px below the
+     buttons beside it and pushed the labels 4px above their centres. */
+  .sc-toolbar .sc-verticals button {
+    padding: 8px 0;
+  }
+  /* A tab must never end flush against the Sets pill: at the clip the last
+     word is already cut, and with no gap the cut reads as broken text rather
+     than as a rail that keeps going. */
+  .sc-toolbar .sc-verticals {
+    padding-right: 4px;
+  }
+  .sc-toolbar-places,
+  .sc-toolbar-actions {
+    padding-bottom: 0;
   }
   .sc-toolbar-actions {
-    margin-left: auto;
+    margin-left: 0;
   }
-  .sc-sortbtn .sc-setsbtn-t {
+  /* Both of these read as icons on a phone: the folder and the arrows say
+     what the words did, and the words were the reason the row needed two. */
+  .sc-sortbtn .sc-setsbtn-t,
+  .sc-toolbar-places .sc-setsbtn .sc-setsbtn-t {
     display: none;
   }
 }
@@ -2411,10 +2477,17 @@ select {
 
    Bottom right is the only free corner: the pick checkbox owns top left, the
    keeper star owns top right, and the variants label owns bottom left. */
+/* The two bottom pills each get half the tile and no more. Both are absolutely
+   positioned in the same row with no width budget, so at the smallest grid size
+   the Refine pill was painted across the variants pill and took its clicks —
+   measured as a 23x21px overlap at 160px tiles. Truncation is honest; the full
+   text stays in the title. */
 .sc-cell-branch {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
+  max-width: 60%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2426,6 +2499,8 @@ select {
   border-radius: var(--sc-radius-sm);
   padding: 4px 8px;
   cursor: pointer;
+  /* the bar it sits in takes no clicks, so the button takes its own */
+  pointer-events: auto;
   opacity: 0;
   transition:
     opacity 120ms ease,
@@ -2451,15 +2526,45 @@ select {
 /* A run that returned several images says so with a control, not a caption:
    the count is the way into the other variants rather than a note that they
    exist somewhere. Bottom left, where the caption used to sit. */
-.sc-cell-stack,
-.sc-cell-versions {
+/* One row for everything the tile says about its picture, in the corner the
+   Refine pill does not use. It wraps, so a narrow tile stacks its facts rather
+   than letting one of them run under the other. */
+/* The tile's bottom line: what the picture is, and the one thing to do with
+   it. They used to be two absolutely-positioned pills that both claimed
+   `bottom: 8px`, which is why each carried a `max-width: calc(50% - 12px)` to
+   stop them painting across one another — a truncation whose only job was to
+   make a collision less likely. In one row with `space-between` the collision
+   is not possible, so the cap is gone and a fact can use the room the action
+   does not. */
+.sc-cell-bar {
   position: absolute;
   left: 8px;
+  right: 8px;
   bottom: 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  /* the row is a container, not a target: only its chips take clicks */
+  pointer-events: none;
+}
+.sc-cell-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+/* One chip. Provenance used to be a full-radius sans pill and the counts
+   small-radius mono chips, which is two grammars for one kind of statement. */
+.sc-fact {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-family: var(--sc-font-mono);
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 11px;
   font-weight: 500;
   color: var(--sc-fg2);
@@ -2467,21 +2572,25 @@ select {
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-sm);
   padding: 3px 7px;
-  cursor: pointer;
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   transition:
     color 120ms ease,
     border-color 120ms ease;
 }
-.sc-cell-stack:hover,
-.sc-cell-versions:hover {
+/* the two that are ways in rather than labels */
+button.sc-fact {
+  cursor: pointer;
+  pointer-events: auto;
+}
+button.sc-fact:hover {
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
 }
-/* both can be on one tile, so the lineage pip sits above the variant count */
+/* a count is a number, and numbers read better in the mono face */
+.sc-cell-stack,
 .sc-cell-versions {
-  bottom: 34px;
+  font-family: var(--sc-font-mono);
 }
 /* An opened run reads as a group: its first tile keeps the edge that the
    stacked one had, so the eye can see where the run begins. */
@@ -2712,7 +2821,13 @@ select {
      stays clickable everywhere except the button's own small hit area */
   pointer-events: none;
 }
-.sc-cell-failed .sc-cell-retry {
+.sc-cell-failed .sc-cell-why {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-cell-retry {
   pointer-events: auto;
 }
 /* .sc-cell-open's own children were absolutely positioned (shimmer, tag) or
@@ -2883,28 +2998,13 @@ select {
   outline: 2px solid var(--sc-fg);
   outline-offset: -2px;
 }
+/* Provenance keeps only what makes it itself: the frame it came from. Its
+   position, surface and radius come from .sc-fact, like every other fact. The
+   rule that nudged it right to dodge the selection box is gone with the
+   collision — on a touch device that box is always on, so the badge used to
+   float off its corner permanently rather than sit in it. */
 .sc-prov {
-  position: absolute;
-  left: 8px;
-  top: 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10.5px;
-  color: var(--sc-fg2);
-  background: var(--sc-glass);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  padding: 2px 8px 2px 3px;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  pointer-events: none;
-}
-/* The pick box owns the top-left corner while the feed is selectable, so the
-   provenance badge steps aside — the same de-collision the archive button and
-   the keeper star already use. Both used to sit at 8/8 and overlap. */
-.sc-cell-pick ~ .sc-prov {
-  left: 34px;
+  padding-left: 3px;
 }
 .sc-prov img {
   width: 16px;
@@ -3056,6 +3156,20 @@ select {
 /* The open group doesn't use the grid-row collapse at all — its body fills
    whatever space .sc-agroup's own flex-grow gives it and scrolls internally,
    a different sizing model than "collapse to an intrinsic content height". */
+/* Open, the content must be allowed its own height.
+
+   `overflow: hidden` on the content is what makes the collapse animation work
+   — it clips the cards away as the grid row shrinks to 0fr. Open, it did the
+   opposite of its job: as a flex item the content shrank to the body's height
+   and then clipped everything past it, so a category with more cards than fit
+   lost the rest AND left the body with nothing to scroll. 963px of presenters
+   in a 606px body, 357px of them simply gone. `flex: none` keeps the content
+   at its intrinsic height and `overflow: visible` stops the clip, which gives
+   the body something to scroll — which it was already asking to do. */
+.sc-agroup[data-mode="open"] .sc-agroup-content {
+  overflow: visible;
+  flex: none;
+}
 .sc-agroup[data-mode="open"] .sc-agroup-body {
   display: flex;
   flex-direction: column;
@@ -3111,8 +3225,10 @@ select {
 /* How many there are, so a folded group still says whether it is worth opening. */
 .sc-agroup-n {
   font-family: var(--sc-font-mono);
-  font-size: 10.5px;
-  color: var(--sc-fg3);
+  font-size: var(--sc-text-micro);
+  /* fg2, not fg3: this one sits on a raised pill rather than the panel, and the
+     quieter ink lands at 4.4:1 there — under AA while every sibling passes. */
+  color: var(--sc-fg2);
   background: var(--sc-raised);
   border-radius: 999px;
   padding: 1px 6px;
@@ -3264,30 +3380,32 @@ select {
   line-height: 1.45;
 }
 
-/* Floating dock over the canvas. It only shifts for the assets panel where the
-   panel is a grid column; under 1280px the panel is a fixed drawer over the
-   canvas, so subtracting its width there squeezed the composer to ~51px. */
+/* Floating dock over the canvas.
+   Its band is the canvas's own gutters, and it is centred inside that band —
+   so it centres over the feed it belongs to rather than over the window, which
+   with the assets panel open are two different centres. The band only insets
+   for that panel where the panel is a grid column; under 1280px the panel is a
+   fixed drawer over the canvas, so subtracting its width there squeezed the
+   composer to ~51px.
+   `margin-inline: auto` is load-bearing: with both offsets set, a max-width
+   box parks at the start of the band instead of centring in it. */
 .sc-canvas-dock {
   position: fixed;
   bottom: calc(var(--sc-tabbar-h) + 18px);
   z-index: 60;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(680px, calc(100vw - 40px));
+  left: var(--sc-space-7);
+  right: var(--sc-space-7);
+  width: auto;
+  max-width: 680px;
+  margin-inline: auto;
 }
 @media (min-width: 1280px) {
   .sc-canvas-dock {
-    left: calc((100vw - var(--sc-assets-w)) / 2);
-    width: min(680px, calc(100vw - var(--sc-assets-w) - 60px));
+    right: calc(var(--sc-assets-w) + var(--sc-space-7));
   }
   .sc-canvas-dock[data-full="true"] {
-    left: 50%;
-    width: min(680px, calc(100vw - 40px));
+    right: var(--sc-space-7);
   }
-}
-.sc-canvas-dock[data-full="true"] {
-  left: 50%;
-  width: min(680px, calc(100vw - 40px));
 }
 
 @media (max-width: 1279px) {
@@ -3317,16 +3435,82 @@ select {
   inset: 0;
   z-index: 80;
   display: grid;
-  grid-template-columns: 86px 1fr 340px;
+  /* Two regions: the shot, and what is known about it. The trail of versions
+     used to hold a third column of its own — 86px of chrome down the whole
+     height for a handful of thumbnails — and it reads better as a row beside
+     the shot's other details, which gives that width back to the picture. */
+  grid-template-columns: 1fr var(--sc-ovl-panel-w);
   background: var(--sc-bg);
 }
-.sc-ovl-winbar {
-  position: fixed;
+
+/* The versions trail, in the panel: where you came from, this shot, and what
+   came from it. */
+.sc-ovl-trail {
+  padding: 0 0 var(--sc-space-5);
+}
+.sc-ovl-trail-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+  margin-top: var(--sc-space-3);
+}
+.sc-ovl-trail .sc-fr {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 0;
+}
+.sc-ovl-trail .sc-fr[data-current] {
+  width: 44px;
+  height: 44px;
+}
+.sc-ovl-trail .sc-wire {
+  width: 10px;
+  height: 1px;
+}
+/* One header for the whole overlay: a left group that gets you out and
+   between versions, a right group for what you can do to the picture.
+
+   `space-between` with a gap is the entire fix for the two bars that used to
+   overlap. They cannot land on each other now however narrow the screen gets,
+   because they are items in one row rather than two independently positioned
+   layers. It is sticky rather than fixed so it stays with the column it
+   belongs to instead of floating over whatever happens to scroll past. */
+.sc-ovl-bar {
+  position: absolute;
   top: 14px;
   left: 14px;
-  z-index: 90;
+  right: 14px;
+  z-index: 12;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-5);
+  pointer-events: none;
+}
+.sc-ovl-bar-l,
+.sc-ovl-bar-r,
+.sc-ovl-acts {
+  display: flex;
+  align-items: center;
   gap: 6px;
+  pointer-events: auto;
+}
+/* the right group is the one that has to give when the row runs out */
+.sc-ovl-bar-r {
+  min-width: 0;
+}
+/* buttons where there is room; one overflow where there is not */
+.sc-ovl-overflow {
+  display: none;
+}
+/* Where the panel is a column beside the stage, the header belongs over the
+   stage only. Spanning the whole overlay put the actions on top of the panel's
+   heading. */
+@media (min-width: 1024px) {
+  .sc-ovl-bar {
+    right: calc(var(--sc-ovl-panel-w) + 14px);
+  }
 }
 .sc-ovl-strip {
   padding: 64px 0 20px;
@@ -3385,19 +3569,100 @@ select {
   height: 44px;
 }
 
-.sc-ovl-stage {
+/* The picture's place while it is being made: the box it will occupy, filled
+   with the feed's own shimmer, and what is happening said over it. */
+.sc-stage-wait {
+  position: relative;
+  /* Sized from the cap, not from the parent: the frame around this is an
+     inline-block that shrink-wraps its child, so a percentage width resolved
+     against an auto width and collapsed the box to nothing. A definite height
+     plus an aspect-ratio gives the width, and max-width clamps it back on a
+     narrow screen with the ratio kept. */
+  /* Fit a box of this ratio inside the room there is: take the smaller of the
+     column's width and what the cap allows, then let the ratio give the
+     height. Clamping a width while an explicit height stayed put is what bent
+     a 16:9 placeholder to 1.37. */
+  width: min(100%, calc(var(--sc-stage-cap) * var(--sc-wait-ar, 1)));
+  aspect-ratio: var(--sc-wait-ar, 1);
+  height: auto;
+  margin-inline: auto;
+  /* The shimmer is only a travelling highlight — it paints over a surface it
+     assumes is already there, which a feed tile has and this did not, so the
+     placeholder was a correctly-sized rectangle of nothing. */
+  background: var(--sc-raised);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.sc-stage-wait .sc-shimmer {
+  position: absolute;
+  inset: 0;
+}
+.sc-stage-wait-say {
+  position: absolute;
+  inset: auto 0 0 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
+  gap: var(--sc-space-5);
+  padding: var(--sc-space-7);
+}
+.sc-stage-wait-t {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg2);
+}
+
+.sc-ovl-stage {
+  /* A grid, not a flex column, because the shot is sized as a percentage of
+     the room it is given and a percentage needs a parent with a definite
+     height to be a percentage OF. As a column the image simply grew past the
+     stage and painted over the row of takes, which measured as visible and
+     could not be clicked. */
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
+  align-items: center;
+  gap: var(--sc-space-5);
   min-width: 0;
-  padding: 56px 28px 28px;
+  padding: 56px var(--sc-space-7) var(--sc-space-7);
   overflow: auto;
   position: relative;
 }
 .sc-ovl-stage .sc-frame {
   box-shadow: var(--sc-shadow-3);
+  min-height: 0;
+  max-height: 100%;
+}
+/* The shot's own ceiling. Stated against the viewport rather than as a
+   percentage: nothing between the stage and the image carries a definite
+   height, so a percentage resolved to nothing and the picture grew straight
+   over the row of takes — which then measured as visible and could not be
+   clicked. */
+/* The cap is a variable on the stage, and the picture only ever reads it.
+
+   This is the fix for the line that appeared to run behind the photograph. The
+   cap used to be written straight onto the image, so the phone's `52vh` rule
+   (`.sc-ovl-stage img`, 0-1-1) was outranked by the takes variant
+   (`.sc-ovl-stage[data-takes] img`, 0-2-1) and lost at every phone width: the
+   picture was allowed the desktop height, overflowed the stage by about 200px
+   into the panel beneath it, and the panel's top border painted straight
+   across it. Setting the cap on the stage instead puts every rule at the same
+   selector depth, so the phone block below simply wins by being later, and no
+   rule needs specificity to beat another.
+
+   dvh, not vh, for the same reason on iOS: `100vh` is the LARGE viewport — the
+   height the page would have if the browser chrome were collapsed — so on iOS
+   Chrome it promises room that is not on screen. */
+.sc-ovl-stage {
+  --sc-stage-cap: max(calc(100dvh - 124px), 320px);
+}
+.sc-ovl-stage[data-takes] {
+  --sc-stage-cap: max(calc(100dvh - 200px), 280px);
+}
+.sc-ovl-stage img {
+  max-height: var(--sc-stage-cap);
+}
+.sc-ovl-stage > * {
+  min-height: 0;
 }
 
 .sc-ovl-meta {
@@ -3406,14 +3671,35 @@ select {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 18px 18px 16px;
+  /* one gutter, on the scale, the same on both sides */
+  padding: var(--sc-space-7) var(--sc-space-7) var(--sc-space-6);
   min-height: 0;
 }
+/* The shot's record line. It wraps rather than truncating, because on a phone
+   this is the only place several of these facts are stated. */
 .sc-ovl-head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin-bottom: 2px;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-bottom: var(--sc-space-5);
+}
+/* Kind and description lead; how it was made and what it cost follow, a step
+   quieter, after a hairline that reads as "and also". */
+.sc-ovl-meta-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--sc-line-strong);
+  align-self: center;
+}
+.sc-ovl-eng,
+.sc-ovl-spend {
+  color: var(--sc-fg3);
+}
+.sc-ovl-spend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .sc-ovl-head b {
   font-family: var(--sc-font-display);
@@ -3424,29 +3710,51 @@ select {
   color: var(--sc-fg3);
   font-size: 11.5px;
 }
-.sc-ovl-who {
-  font-size: 12px;
-  color: var(--sc-fg2);
-  margin-bottom: 12px;
-}
+
 .sc-ctx {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--sc-space-3);
   margin-bottom: 14px;
+}
+/* Which ingredient moved since the shot this came from. A quiet second line
+   under the chip, never a chip of its own: it is a note about a relationship,
+   not another thing to press. */
+.sc-ctx-changed {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--sc-text-caption);
+  line-height: 1.45;
+  color: var(--sc-fg2);
 }
 .sc-ctx .sc-ctx-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
   padding: 3px 10px;
   font-size: 11.5px;
   background: var(--sc-panel);
   color: var(--sc-fg2);
+  text-align: left;
+}
+/* A pill stays one line: it is a label, and a label that wraps inside a fully
+   rounded border stops looking like one. The name gives first. */
+.sc-ctx-chip-t {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sc-ctx-chip-t b {
+  color: var(--sc-fg);
+  font-weight: 500;
 }
 .sc-ctx .sc-ctx-chip img {
+  flex: none;
   width: 17px;
   height: 17px;
   border-radius: 50%;
@@ -3462,9 +3770,28 @@ select {
 .sc-ovl-body {
   flex: 1;
   min-height: 0;
+  /* the scroll viewport inside grows to its content unless it is told where
+     the bottom is; without this the brief painted straight through the
+     composer below it */
+  overflow: hidden;
+}
+
+/* The stored brief. It is the panel's only real content, so it is given the
+   room the panel has rather than clamped to four lines behind a summary with
+   no marker on it — which left most of the pane empty and the rest of the
+   sentence reachable only by guessing it could be clicked. */
+.sc-brief-record {
+  margin: var(--sc-space-3) 0 0;
+  font-size: var(--sc-text-caption);
+  line-height: 1.55;
+  color: var(--sc-fg2);
 }
 .sc-ovl-edit {
-  margin-top: 12px;
+  margin-top: var(--sc-space-5);
+}
+/* names what typing below will do, now that no button points down here */
+.sc-ovl-edit-head {
+  margin-bottom: var(--sc-space-3);
 }
 .sc-ovl-edit .sc-composer {
   width: 100%;
@@ -4429,30 +4756,7 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-ovl-stage .sc-frame {
   max-width: 100%;
 }
-.sc-ovl-tools {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 12;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.sc-ovl-cost {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 11px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-glass);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--sc-fg2);
-}
+
 .sc-fr[data-failed="true"] {
   border-style: dashed;
   background: none;
@@ -4747,13 +5051,17 @@ textarea.sc-edit[data-variant="lede"] {
   .sc-greet em {
     font-size: 24px;
   }
+  /* The dock is anchored to the gutters now, not centred, so it needs the
+     phone's gutter rather than a width and a left edge. Left behind, the
+     `left: 50%` from the centred era pushed it half a screen to the right the
+     moment the transform went with the centring. */
   .sc-canvas-dock,
   .sc-canvas-dock[data-full="true"] {
-    width: calc(100vw - 24px);
-    left: 50%;
+    left: var(--sc-gutter);
+    right: var(--sc-gutter);
   }
   .sc-canvas {
-    padding: 0 12px 150px;
+    padding: 0 var(--sc-gutter) 150px;
   }
   .sc-toolbar {
     padding-top: 12px;
@@ -4778,28 +5086,240 @@ textarea.sc-edit[data-variant="lede"] {
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
   .sc-ovl-stage {
-    padding: 8px 14px 12px;
+    padding: 8px var(--sc-gutter) 12px;
   }
   .sc-ovl-meta {
     max-height: 48vh;
-    padding: 12px 14px 12px;
-  }
-  .sc-ovl-body {
-    overflow: hidden;
+    /* The panel shares the page edge with the stage above it, the header over
+       it and the composer below it. It used to sit 2px further in, which is
+       exactly the sort of difference nobody can name and everybody can see. */
+    padding: 12px var(--sc-gutter) 12px;
   }
   .sc-ovl-edit {
     flex-shrink: 0;
   }
-  .sc-ovl-tools {
-    top: 60px;
-    right: 10px;
-  }
-  .sc-ovl-winbar {
+  .sc-ovl-bar {
     top: 10px;
     left: 10px;
+    right: 10px;
   }
   .sc-ovl-strip {
     padding: 52px 12px 8px;
+  }
+}
+
+/* The composer's secondary settings, opened by More. The same fields the phone
+   shows in a sheet, in a surface that belongs to the composer it hangs off:
+   its own border and radius rather than the framework's default card. */
+.sc-morepop {
+  padding: var(--sc-space-5);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-3);
+}
+.sc-morepop .sc-shotfield + .sc-shotfield {
+  margin-top: var(--sc-space-5);
+}
+/* the trigger states what it opens, and stays quiet while it is open */
+.sc-more[data-state="open"] {
+  background: var(--sc-chip-active);
+  color: var(--sc-fg);
+}
+
+/* One focus ring, everywhere.
+   The brief — the primary input of the whole product — had no focus indicator
+   at all: no outline, no shadow, and no :focus-within on the card around it,
+   so a keyboard user could not tell they had arrived. The tile controls and the
+   top nav had none either and fell back to Chrome's blue, which is a second
+   accent colour nobody chose in a monochrome interface. */
+.sc-promptcard:focus-within {
+  border-color: var(--sc-fg);
+  box-shadow:
+    var(--sc-shadow-3),
+    0 0 0 2px var(--sc-focus);
+}
+.sc-assets-search:focus-within {
+  border-color: var(--sc-fg);
+  box-shadow: 0 0 0 2px var(--sc-focus);
+}
+.sc-cell-branch:focus-visible,
+.sc-cell-pick:focus-visible,
+.sc-cell-archive:focus-visible,
+.sc-cell-stack:focus-visible,
+.sc-cell-versions:focus-visible,
+.sc-setsbtn:focus-visible,
+.sc-sortbtn:focus-visible,
+.sc-newset:focus-visible,
+.sc-aadd:focus-visible,
+.sc-amore:focus-visible,
+.sc-s:focus-visible,
+.sc-ap-card:focus-visible,
+.sc-feed-density:focus-visible,
+.sc-mainnav button:focus-visible,
+.sc-nav button:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+
+/* Every Radix popper — dropdowns, selects, tooltips — sits above the surfaces
+   that can open one. */
+[data-radix-popper-content-wrapper] {
+  z-index: var(--sc-z-popover) !important;
+}
+
+/* ---------- 6.2 the shot overlay on a phone -------------------------------
+   Three panes side by side is a desktop shape. Squeezed onto 390px it kept the
+   panes and shrank each one past usefulness: the stage cropped a third off the
+   picture it exists to show, the variant thumbnails were laid out below the
+   stage's own clipped edge so a shot reading "1 of 3 variants" had no way to
+   reach 2 and 3, the inspector became a 78px window over 290px of content with
+   overflow hidden, and the composer sat below the fold the moment the keyboard
+   opened — you typed a refinement you could not see.
+
+   On a phone it is one column that scrolls, in the order the work happens:
+   the picture, the takes, what it is, what to do, and the field you type in. */
+@media (max-width: 767px) {
+  .sc-ovl {
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* room for the composer, which is pinned to the bottom of the viewport */
+    padding-bottom: calc(var(--sc-bottom-inset) + 132px);
+  }
+  /* the trail of versions rides along the top, out of the way */
+  .sc-ovl-strip {
+    padding: 52px var(--sc-space-5) var(--sc-space-3);
+  }
+  /* the picture is the point, so it is contained rather than cropped */
+  /* Still a column with a gap, not a bare block.
+
+     `display: block` threw away the grid's `gap`, and a `padding-top` of 0
+     left nothing between the header and the picture: measured, the shot
+     started at the exact pixel the header ended, and the row of takes started
+     at the exact pixel the shot ended. Three things stacked with no air
+     between any of them. A flex column is safe here where the base grid was
+     not, because the phone cap is a viewport length rather than a percentage
+     of the parent, so the picture does not need a definite parent height. */
+  .sc-ovl-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sc-space-6);
+    overflow: visible;
+    padding: var(--sc-space-5) var(--sc-gutter) var(--sc-space-6);
+  }
+  /* One column, so the picture takes a little over half the screen and the
+     rest of the shot's record is what you scroll to. Written as the cap the
+     stage owns, at the same depth as the rules above, so this is simply the
+     later one rather than a specificity contest it used to lose. */
+  /* A floor under the cap, because the cap is a height and the picture keeps
+     its shape: cap the height on a short window and the width goes with it.
+     At 400px tall a square shot was rendering 176px wide — 45% of the screen,
+     adrift in an empty stage — while the same shot on a 844px phone used 93%.
+     That is why this looked broken in a device emulator with the panel docked
+     and fine on the actual phone, and it is what a landscape phone gets too.
+     Below the floor the column simply scrolls, which it already does. */
+  .sc-ovl-stage {
+    --sc-stage-cap: max(52dvh, 300px);
+  }
+  .sc-ovl-stage[data-takes] {
+    --sc-stage-cap: max(44dvh, 260px);
+  }
+  .sc-ovl-stage .sc-frame,
+  .sc-ovl-stage img {
+    max-height: var(--sc-stage-cap);
+    max-width: 100%;
+    object-fit: contain;
+  }
+  /* A phone gets close, the versions if there are any, and one overflow. Six
+     icon buttons and a price on a 390px line is what made this area feel
+     cramped; the actions did not need to be visible to be reachable, and the
+     price is not an action at all — it is in the record below. */
+  .sc-ovl-acts {
+    display: none;
+  }
+  .sc-ovl-overflow {
+    display: grid;
+  }
+  /* the bar rides above the picture with a fade under it, so a scrolled brief
+     passes beneath rather than colliding with floating buttons */
+  .sc-ovl-bar {
+    position: sticky;
+    top: 0;
+    left: auto;
+    right: auto;
+    margin: 0 var(--sc-gutter);
+    padding: var(--sc-space-4) 0;
+    z-index: 40;
+  }
+  .sc-ovl-bar::before {
+    content: "";
+    position: absolute;
+    inset: 0 calc(-1 * var(--sc-gutter));
+    background: linear-gradient(to bottom, var(--sc-bg) 62%, transparent);
+    pointer-events: none;
+  }
+  .sc-ovl-bar > * {
+    position: relative;
+  }
+  .sc-ovl-meta {
+    max-height: none;
+    border-left: none;
+    overflow: visible;
+  }
+  /* the inspector scrolls with the page rather than inside a dead window */
+  .sc-ovl-body {
+    overflow: visible;
+    min-height: 0;
+  }
+  /* The field you type in stays above the keyboard, always.
+
+     The band itself carries no background and no border. A solid block with a
+     rule across the top reads as a form footer bolted under the page; the rest
+     of the app separates a floating control from what it covers with a fade,
+     and this is the same thing in the same language. The card inside keeps its
+     own opaque surface, so what you type stays fully legible: only the band
+     around it is soft, and the picture passes under it rather than stopping at
+     a line.
+
+     Bottom spacing comes from one place, --sc-bottom-inset. It is a max, not a
+     sum: with the keyboard up the keyboard already covers the home indicator,
+     so adding both would push the composer up by an inset nothing needs. */
+  .sc-ovl-edit {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    margin: 0;
+    padding: var(--sc-space-5) var(--sc-gutter) calc(var(--sc-bottom-inset) + var(--sc-space-4));
+    background: none;
+    border-top: none;
+    pointer-events: none;
+  }
+  /* the fade is the separation, and it is taller than the bar so the picture
+     dims into it instead of ending on an edge */
+  .sc-ovl-edit::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: calc(-1 * var(--sc-space-8));
+    background: linear-gradient(to bottom, transparent, var(--sc-bg) 42%);
+    pointer-events: none;
+  }
+  /* the fade is decoration; everything you can actually press sits over it */
+  .sc-ovl-edit > * {
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
+  }
+  /* the placeholder already says what typing here does, and on a phone the
+     line above it is the more expensive of the two */
+  .sc-ovl-edit-head {
+    display: none;
   }
 }
 
@@ -4826,6 +5346,68 @@ textarea.sc-edit[data-variant="lede"] {
   }
   .sc-topbar .sc-crumb-btn {
     position: relative;
+  }
+
+  /* The same invisible box for the controls that were left out of it. The
+     search toggle stands alone in a toolbar, so its reach can grow in every
+     direction without touching anything. */
+  .sc-libsearch-toggle::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+
+  /* A tile's corner controls cannot use that trick: a 44px box centred on a
+     control 8px from the edge of a 176px tile reaches across the 8px gutter
+     and takes taps meant for the tile beside it. They grow for real instead,
+     as far as the corner allows. */
+  .sc-cell-pick {
+    width: 28px;
+    height: 28px;
+  }
+  .sc-cell-archive {
+    width: 30px;
+    height: 30px;
+  }
+  /* On a 175px tile the word and the facts cannot both fit: "refined from"
+     truncated to "refined fro" to make room for a label. Tapping the picture
+     is what opens a shot — Refine is the shortcut — so on a phone the
+     shortcut gives up its word and keeps its target, and the row goes back to
+     saying what the picture is. */
+  .sc-cell-branch {
+    padding: 0;
+    width: 34px;
+    height: 34px;
+    justify-content: center;
+  }
+  .sc-cell-branch .sc-cell-branch-lb {
+    display: none;
+  }
+  /* Sits inside its card's corner, so it can grow without reaching a
+     neighbour the way a feed tile's corner controls would. */
+  .sc-lookcard-star {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* The rail's edge fade at phone widths. At 18px only about three pixels were
+   opaque, so a tab clipped mid-word still ended on a hard vertical edge and
+   read as broken text rather than as a rail with more to the right. */
+@media (max-width: 767px) {
+  .sc-verticals-shell::before,
+  .sc-verticals-shell::after {
+    width: 26px;
+  }
+  .sc-verticals-shell::before {
+    background: linear-gradient(to right, var(--sc-bg) 45%, transparent);
+  }
+  .sc-verticals-shell::after {
+    background: linear-gradient(to left, var(--sc-bg) 45%, transparent);
   }
 }
 
@@ -4922,12 +5504,20 @@ textarea.sc-edit[data-variant="lede"] {
   cursor: pointer;
   transition: opacity 120ms ease;
 }
-.sc-send:hover {
+/* a blocked button that lights up under the cursor is telling you it will
+   work; aria-disabled means it is still hoverable, so the state has to say no */
+.sc-send:hover:not([aria-disabled="true"]) {
   opacity: 0.88;
 }
 .sc-send:disabled,
 .sc-send[aria-disabled="true"] {
-  opacity: 0.42;
+  /* Not a blanket opacity: at 42% the label composited to 3.98:1 and the one
+     control people look for became the hardest thing on the card to read. */
+  background: var(--sc-chip-active);
+  /* Inactive controls are exempt from AA, but this is the control people look
+     for first: it reads as unavailable through its surface, not by being hard
+     to read. */
+  color: var(--sc-fg);
   cursor: not-allowed;
 }
 .sc-send:focus-visible {
@@ -5117,7 +5707,7 @@ textarea.sc-edit[data-variant="lede"] {
    feed kept desktop margins and 200px of dock room on a 390px screen. */
 @media (max-width: 767px) {
   .sc-canvas {
-    padding: 0 12px 150px;
+    padding: 0 var(--sc-gutter) 150px;
   }
 }
 
@@ -5949,6 +6539,15 @@ textarea.sc-edit[data-variant="lede"] {
   color: var(--sc-fg);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+/* On a phone this index is a second, worse copy of the grid directly beneath
+   it: the same scenes, by name only, as 15px-tall targets. One collection put
+   seventeen of them above the fold and pushed every picture off it. The cards
+   say the same names and show the scene. */
+@media (max-width: 767px) {
+  .sc-coll-names {
+    display: none;
+  }
 }
 
 /* A grid, not CSS columns: columns fill top-to-bottom, so a collection with
@@ -7227,8 +7826,8 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-ingredients {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 0 16px 12px;
+  gap: var(--sc-space-2);
+  padding: 0 0 var(--sc-space-5);
 }
 .sc-ingredient {
   display: inline-flex;
@@ -7244,7 +7843,10 @@ textarea.sc-edit[data-variant="lede"] {
   padding: 2px 8px 2px 4px;
   border-radius: 8px;
   border: none;
-  background: var(--sc-raised);
+  /* The composer's chip surface, not a near-miss of it. This block's own
+     comment claimed an ingredient looked identical to a .sc-token while
+     standing on --sc-raised, one step off the chip family's ground. */
+  background: var(--sc-chip);
   font-size: 12.5px;
   font-weight: 500;
   line-height: 1.5;
@@ -7265,9 +7867,33 @@ textarea.sc-edit[data-variant="lede"] {
   flex: none;
   margin-left: 4px;
 }
-/* a scene is the one ingredient we supply, so it carries a hairline */
-.sc-ingredient[data-kind="scene"] {
-  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+/* A scene says "scene" the same way here as in the brief line: a whisper of its
+   own preview colour on the same chip base, and no border. The grey hairline
+   that used to sit here was a second grammar for one idea, and the only
+   bordered chip on the panel. These are the composer's numbers verbatim, so
+   the two surfaces cannot drift apart by rounding. */
+.sc-ingredient[data-tinted] {
+  background: color-mix(in srgb, var(--tint) 14%, var(--sc-chip));
+  box-shadow: none;
+}
+
+/* An ingredient with a catalog page is a way into it. Everything visual stays
+   put; only the pointer and the hover say the chip does something. */
+a.sc-ingredient {
+  text-decoration: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+a.sc-ingredient:hover {
+  background: var(--sc-chip-hover);
+}
+a.sc-ingredient[data-tinted]:hover {
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+}
+a.sc-ingredient:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
 }
 
 /* ================================================================
@@ -8005,12 +8631,19 @@ select.sc-in {
 
 /* Suggested actions in the overlay — implements the .sugg stack in detail.html.
    Offered next steps, so the obvious move is never buried in a tab or a menu. */
+/* Three secondary actions, in one wrapping row. A column of three identical
+   pills read as a menu of equals down the side of the shot and took the height
+   the panel needed for the things that matter.
+
+   No horizontal padding: the panel already provides the gutter, and adding a
+   second one here put these pills on a different left edge from everything
+   above and below them. */
 .sc-sugg {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 0 16px 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: 0 0 var(--sc-space-5);
 }
 .sc-s {
   display: inline-flex;
@@ -8274,16 +8907,12 @@ select.sc-in {
 .sc-composer {
   width: 100%;
 }
+/* The dock's width is settled once, where it is positioned. This block used to
+   restate it three more times with a different formula and won by being later,
+   which is how the composer ended up centred while the rest of the page was
+   aligned to the gutter. */
 .sc-canvas-dock {
-  width: min(var(--sc-prompt-w), calc(100vw - 40px));
-}
-@media (min-width: 1280px) {
-  .sc-canvas-dock {
-    width: min(var(--sc-prompt-w), calc(100vw - var(--sc-assets-w) - 60px));
-  }
-  .sc-canvas-dock[data-full="true"] {
-    width: min(var(--sc-prompt-w), calc(100vw - 40px));
-  }
+  max-width: var(--sc-prompt-w);
 }
 .sc-dock-fade {
   height: 300px;
@@ -8325,15 +8954,27 @@ select.sc-in {
   font-size: 13.5px;
   border-radius: 9px;
 }
-/* The send button says what it will do. It is a pill rather than a disc so the
-   word has somewhere to sit, and it keeps the disc's height so the row's
+/* The send button says what it will do. It is a pill where the word fits and a
+   disc where it does not, and it keeps one height either way so the row's
    baseline does not move when the brief switches between making a new shot and
-   continuing one. */
+   continuing one.
+
+   Two custom properties own the geometry, and nothing else may set width,
+   height or padding. That is the whole fix for a button that was not round:
+   the horizontal padding used to be written per context and asymmetrically
+   (`0 20px 0 16px` here, `0 16px 0 12px` in the overlay), so as soon as the
+   label was hidden the box kept padding meant for a word and came out 45x38 —
+   four pixels wider on the right, exactly as it looked. With the padding at 0
+   the width collapses onto min-width and the disc is square by construction
+   rather than by a number someone kept in sync. */
 .sc-send {
+  --sc-send-size: 44px;
+  --sc-send-pad: var(--sc-space-6);
   width: auto;
-  min-width: 44px;
-  height: 44px;
-  padding: 0 var(--sc-space-7) 0 var(--sc-space-6);
+  min-width: var(--sc-send-size);
+  height: var(--sc-send-size);
+  padding: 0 var(--sc-send-pad);
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -8343,6 +8984,13 @@ select.sc-in {
 }
 .sc-send-lb {
   white-space: nowrap;
+}
+.sc-send-ico {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  flex: none;
 }
 /* the filled send is the loud one, so the ghost + sits a notch under it */
 .sc-prompt-row .sc-attach-toggle {
@@ -8372,9 +9020,12 @@ select.sc-in {
   padding: 0 10px;
   font-size: 12.5px;
 }
+/* The sidebar composer runs a notch smaller. It states the size and nothing
+   else: width, height and padding belong to the two properties above, which is
+   why this can no longer make the disc oblong. */
 .sc-ovl-edit .sc-send {
-  width: 34px;
-  height: 34px;
+  --sc-send-size: 38px;
+  --sc-send-pad: var(--sc-space-5);
 }
 .sc-ovl-edit .sc-prompt-row .sc-attach-toggle {
   width: 32px;
@@ -8406,9 +9057,11 @@ select.sc-in {
   .sc-send-lb {
     display: none;
   }
-  .sc-send {
-    min-width: 0;
-    padding: 0;
+  /* no word, no padding: the disc closes onto its own size and is round */
+  .sc-send,
+  .sc-ovl-edit .sc-send {
+    --sc-send-size: 44px;
+    --sc-send-pad: 0px;
   }
   .sc-mini-sel {
     height: 30px !important;
@@ -8429,26 +9082,59 @@ select.sc-in {
   flex: 0 1 auto;
   max-width: clamp(96px, 30vw, 200px) !important;
 }
-/* the chip stands in for the three pills, so on a desktop it is not there */
+/* Three shells for one set of settings, and exactly one of them on screen.
+
+   The default is the widest: a pointer-driven composer with room to spare
+   states the shape, the frame count and the quality as pills. The other two
+   shells take over where that is not true, and the two conditions are separate
+   because they are separate facts:
+
+   - the composer itself is narrow. The refinement composer lives in the
+     overlay's 288px sidebar however wide the display is, so this is a fact
+     about the container, not the viewport, and `.sc-ovl-edit` names it.
+   - the device is a phone or a tablet. Then it is More, and on a phone that
+     More is a sheet under the thumb rather than a popover by the cursor.
+
+   Nothing here branches in JS: all three render and the cascade picks. */
+.sc-more,
 .sc-shotset {
   display: none;
 }
 
-@media (max-width: 767px) {
-  .sc-prompt-right > .sc-var:not(.sc-shotset) {
+/* narrow composer, any display: the sidebar where a refinement is written */
+.sc-ovl-edit .sc-prompt-pills {
+  display: none;
+}
+.sc-ovl-edit .sc-more {
+  display: inline-flex;
+}
+
+/* phone and tablet: by input method, so a large tablet is not mistaken for a
+   desktop on width alone */
+@media (hover: none), (max-width: 1023px) {
+  .sc-prompt-pills {
     display: none;
   }
+  .sc-more {
+    display: inline-flex;
+  }
+}
+
+/* a phone opens the same fields as a sheet, so More steps aside for it */
+@media (max-width: 767px) {
+  .sc-more,
+  .sc-ovl-edit .sc-more {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
   .sc-shotset {
     display: inline-flex;
     justify-content: center;
     width: 40px;
     height: 40px;
     padding: 0;
-  }
-  /* with three pills gone the row can afford honest targets again */
-  .sc-send {
-    width: 44px;
-    height: 44px;
   }
   .sc-prompt-row .sc-attach-toggle {
     width: 40px;
@@ -8497,13 +9183,15 @@ select.sc-in {
 }
 
 /* The docks are fixed, and iOS shrinks only the visual viewport, so without
-   this the keyboard covers the thing you are typing into. */
+   this the keyboard covers the thing you are typing into. The inset is the
+   shared one: the tab bar pads itself for the home indicator, so a dock that
+   counted only --sc-tabbar-h sat that far into it. */
 .sc-canvas-dock,
 .sc-canvas-dock[data-full="true"] {
-  bottom: calc(var(--sc-kb) + var(--sc-tabbar-h) + 18px);
+  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px);
 }
 .sc-dock-fade {
-  bottom: calc(var(--sc-kb) + var(--sc-tabbar-h));
+  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h));
 }
 
 /* ---------- shot settings sheet --------------------------------------------
@@ -8524,7 +9212,9 @@ select.sc-in {
   max-height: 80dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 18px max(20px, env(safe-area-inset-bottom));
+  /* the page's edge, not one of its own: the sheet covers the screen it opens
+     over, so its rows should line up with what is behind them */
+  padding: 0 var(--sc-gutter) max(var(--sc-space-7), env(safe-area-inset-bottom));
   background: var(--sc-panel);
   border-top: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;

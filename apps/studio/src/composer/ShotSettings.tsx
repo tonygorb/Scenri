@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { SlidersHorizontal } from '@phosphor-icons/react';
+import { DropdownMenu } from '@radix-ui/themes';
+import { Crop, Gauge, SlidersHorizontal, Stack } from '@phosphor-icons/react';
 import { FORMATS } from './BriefInput.js';
 
 export type QualityId = 'draft' | 'standard' | 'high';
@@ -113,39 +114,183 @@ export function ShotSettings({
             <Dialog.Title className="sc-vh">Shot settings</Dialog.Title>
           </div>
 
-          <Field label="Aspect ratio">
-            {FORMATS.map((f) => (
-              <Opt key={f.id} on={f.id === formatId} label={f.label} onClick={() => onFormat(f.id)}>
-                {f.hint}
-              </Opt>
-            ))}
-          </Field>
-
-          {mode === 'generation' && (
-            /* Variants, not versions: these are the images one brief returns.
-               A version is a branch off a finished shot, which is a different
-               thing entirely, and the desktop pills for this same state have
-               always said variants. CSS picks which of the two you see, so a
-               disagreement here changed the word when the window narrowed. */
-            <Field label="Variants">
-              {[1, 2, 3, 4].map((n) => (
-                <Opt key={n} on={n === count} label={`${n} variant${n === 1 ? '' : 's'}`} onClick={() => onCount(n)}>
-                  {n}
-                </Opt>
-              ))}
-            </Field>
-          )}
-
-          <Field label="Quality">
-            {QUALITIES.map((q) => (
-              <Opt key={q.id} on={q.id === quality} label={`${q.label}, ${q.edge}px`} onClick={() => onQuality(q.id)}>
-                {q.label}
-              </Opt>
-            ))}
-          </Field>
+          <ShotSettingsFields
+            mode={mode}
+            formatId={formatId}
+            onFormat={onFormat}
+            count={count}
+            onCount={onCount}
+            quality={quality}
+            onQuality={onQuality}
+          />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/** What every surface calls each setting, so no two spell it differently. */
+export type ShotSettingsProps = {
+  mode: 'generation' | 'edit';
+  formatId: string;
+  onFormat: (id: string) => void;
+  count: number;
+  onCount: (n: number) => void;
+  quality: QualityId;
+  onQuality: (q: QualityId) => void;
+};
+
+/**
+ * The three settings, inline, each as its own pill.
+ *
+ * This is the form for a composer with room to spare: the desktop hub, where
+ * the row is 700px wide and stating the shape, the frame count and the quality
+ * costs nothing anyone misses. Where the composer is narrow — a phone, a
+ * tablet, or the refinement composer in the overlay's sidebar — the same three
+ * settings arrive behind one control instead, and the CSS picks which shell is
+ * on screen. There is no second copy of the state: every shell drives the same
+ * props from the same Composer.
+ */
+export function ShotSettingsPills({
+  mode,
+  formatId,
+  onFormat,
+  count,
+  onCount,
+  quality,
+  onQuality,
+  onCloseAutoFocus,
+}: ShotSettingsProps & { onCloseAutoFocus?: (e: Event) => void }) {
+  const ratio = FORMATS.find((f) => f.id === formatId)?.label ?? 'Square';
+  return (
+    <div className="sc-prompt-pills">
+      {/* Always offered, in both modes: a refinement cannot reshape a picture,
+          but asking for a new shape runs the same setup again at that shape,
+          and the composer says so before you send. */}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger>
+          <button type="button" className="sc-var" aria-label={`Aspect ${ratio}`} title="Aspect ratio">
+            <Crop size={14} />
+            {ratio}
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end" onCloseAutoFocus={onCloseAutoFocus}>
+          {FORMATS.map((f) => (
+            <DropdownMenu.Item key={f.id} onSelect={() => onFormat(f.id)}>
+              {f.label} · {f.hint}
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+
+      {mode === 'generation' && (
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            <button type="button" className="sc-var" aria-label={`${count} variants`} title="Variants">
+              <Stack size={14} />
+              {count}v
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="end" onCloseAutoFocus={onCloseAutoFocus}>
+            {[1, 2, 3, 4].map((n) => (
+              <DropdownMenu.Item key={n} onSelect={() => onCount(n)}>
+                {n} variant{n === 1 ? '' : 's'}
+              </DropdownMenu.Item>
+            ))}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      )}
+
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger>
+          <button type="button" className="sc-var" aria-label={`Quality ${quality}`} title="Quality">
+            <Gauge size={14} />
+            {QUALITIES.find((q) => q.id === quality)?.label}
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end" onCloseAutoFocus={onCloseAutoFocus}>
+          {QUALITIES.map((q) => (
+            <DropdownMenu.Item key={q.id} onSelect={() => onQuality(q.id)}>
+              {q.label} · {q.edge}px · {q.note}
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+    </div>
+  );
+}
+
+/**
+ * The settings themselves, without a container.
+ *
+ * Aspect, variants and quality are configuration: they matter when you reach
+ * for them and cost attention every second they sit in the row. They are the
+ * same three controls wherever they appear — as pills where the row is wide,
+ * behind More where it is not, in a sheet under the thumb on a phone — so they
+ * are written once and the shells only decide where they open.
+ */
+export function ShotSettingsFields({
+  mode,
+  formatId,
+  onFormat,
+  count,
+  onCount,
+  quality,
+  onQuality,
+}: {
+  mode: 'generation' | 'edit';
+  formatId: string;
+  onFormat: (id: string) => void;
+  count: number;
+  onCount: (n: number) => void;
+  quality: QualityId;
+  onQuality: (q: QualityId) => void;
+}) {
+  return (
+    <>
+      {/* The shape is always a choice, in both modes, because it is the one of
+          the three a refinement can still honour — not by editing the picture,
+          which cannot change shape, but by running the same setup again at the
+          new one. The composer says so before you send. */}
+      <Field label="Aspect ratio">
+        {FORMATS.map((f) => (
+          <Opt key={f.id} on={f.id === formatId} label={f.label} onClick={() => onFormat(f.id)}>
+            {f.hint}
+          </Opt>
+        ))}
+      </Field>
+
+      {/* Frame count genuinely cannot survive an edit: the request carries no
+          count, so an edit returns exactly one picture however many are asked
+          for. Unlike the shape, there is nothing here to reinterpret. */}
+      {mode === 'generation' && (
+        /* Variants, not versions: these are the images one brief returns. A
+           version is a branch off a finished shot, which is a different thing
+           entirely. */
+        <Field label="Variants">
+          {[1, 2, 3, 4].map((n) => (
+            <Opt key={n} on={n === count} label={`${n} variant${n === 1 ? '' : 's'}`} onClick={() => onCount(n)}>
+              {n}
+            </Opt>
+          ))}
+        </Field>
+      )}
+
+      {/* Quality is the long edge asked of the engine, and an edit request
+          carries no size at all: it is handed the picture and an instruction,
+          and returns one the same shape. So this did nothing on a refinement
+          either, which is worse than absent — the setting moved, the number
+          changed, and the result could not have been affected. */}
+      {mode === 'generation' && (
+        <Field label="Quality">
+          {QUALITIES.map((q) => (
+            <Opt key={q.id} on={q.id === quality} label={`${q.label}, ${q.edge}px`} onClick={() => onQuality(q.id)}>
+              {q.label}
+            </Opt>
+          ))}
+        </Field>
+      )}
+    </>
   );
 }
 
