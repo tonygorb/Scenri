@@ -280,10 +280,163 @@
           },
           "notes": {
             "type": "string"
+          },
+          "origin": {
+            "const": "custom",
+            "description": "Set on a person the user built here from their own photos. Absent on a legacy hand-added roster entry, which stays read-only."
+          },
+          "promptName": {
+            "type": "string",
+            "description": "Frozen at creation: the phrase a generator is given for this person. A character with no promptName is named by `name`, so renaming one would change its generations — this field is what makes `name` safe to edit."
+          },
+          "presentation": {
+            "enum": ["woman", "man"]
+          },
+          "descriptor": {
+            "type": "string",
+            "description": "Casting-sheet caption, e.g. \"Warm editorial · dark waves · confident, understated\"."
+          },
+          "ageRange": {
+            "type": "string"
+          },
+          "hair": {
+            "type": "string"
+          },
+          "identityNotes": {
+            "type": "string",
+            "description": "What must survive every generation about this person. Injected verbatim."
+          },
+          "negativeConstraints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The drift to refuse, e.g. \"no hair grown past the crop length\". Injected verbatim."
+          },
+          "suitableCategories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Industries this person is cast for. Display and filtering only; never sent to a generator."
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file"],
+              "additionalProperties": false,
+              "properties": {
+                "file": {
+                  "$ref": "#/$defs/assetRef"
+                }
+              }
+            },
+            "description": "The user's own photos of this person, kept as the identity ground truth. `shots` may hold normalized views built from these; these are the evidence they were built from and are never overwritten by a generator."
+          },
+          "preview": {
+            "$ref": "#/$defs/assetRef",
+            "description": "Card thumbnail. A crop of the first shot, not a picture of its own, so it can never show a different person than the references do."
+          },
+          "avatar": {
+            "$ref": "#/$defs/assetRef",
+            "description": "Square head-and-shoulders portrait, for surfaces that render a person small or round. Also a crop of the first shot."
           }
         }
       },
       "description": "Named people who can appear in shots. Same shape as products: a name plus locked reference photos, so a person stays the same person across generations."
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "lighting", "description", "subject", "prompt", "width", "height"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "promptName": {
+            "type": "string",
+            "description": "Frozen at creation: what a generator is told this place is called. Never rendered."
+          },
+          "lighting": {
+            "type": "string",
+            "description": "Short phrase naming the light, e.g. \"Low warm morning window light, soft directional shadows\"."
+          },
+          "description": {
+            "type": "string"
+          },
+          "subject": {
+            "enum": ["product", "person", "either"]
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "not": {
+              "pattern": "\\{product_name\\}"
+            },
+            "description": "The set only — the reusable visual world. A scene never names the product or person staged in it; the brief supplies those."
+          },
+          "camera": {
+            "type": "string",
+            "description": "Camera tendency only. A shot that says anything about camera outranks it."
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "verticals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 256
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 256
+          },
+          "instruction": {
+            "type": "string",
+            "description": "What the user asked for in their own words when this scene was built. Kept so a later refinement has the original intent."
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file"],
+              "additionalProperties": false,
+              "properties": {
+                "file": {
+                  "$ref": "#/$defs/assetRef"
+                }
+              }
+            },
+            "description": "The user's inspiration images. Display only — a scene contributes text to a generation, never pixels, so these are never sent to a generator as references."
+          },
+          "preview": {
+            "$ref": "#/$defs/assetRef",
+            "description": "A generated example of this scene, used as its card thumbnail."
+          }
+        }
+      },
+      "description": "Reusable visual worlds this brand owns: where and how a campaign takes place. Same shape as a tool's built-in scene presets, so a brand's own scene and a preset compile identically."
     },
     "extensions": {
       "type": "object",

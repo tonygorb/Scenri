@@ -64,6 +64,8 @@ export function ShowcaseCard({
   onOpenProduct,
   onOpenPresenter,
   onOpenScene,
+  active,
+  hideRecipe,
   size = 'grid',
 }: {
   entry: ShowcaseEntry;
@@ -85,6 +87,10 @@ export function ShowcaseCard({
   onOpenPresenter?: (presenterId: string) => void;
   /** Opens the scene's own page. Omit to keep the chip a plain credit. */
   onOpenScene?: (sceneId: string) => void;
+  /** This recipe is the one currently sitting in the brief, waiting to send. */
+  active?: boolean;
+  /** Drop the second caption line. The credits above already name the recipe. */
+  hideRecipe?: boolean;
   size?: ShowcaseCardSize;
 }) {
   const recipe = [productName, presenterName, sceneName].filter(Boolean).join(' · ');
@@ -120,13 +126,13 @@ export function ShowcaseCard({
       : null;
 
   return (
-    <div className="sc-showcase-tile">
+    <div className="sc-showcase-tile" data-active={active || undefined}>
       <CatalogCard
         id={entry.id}
         previewUrl={entry.previewUrl}
         title={entry.title}
         primary={entry.title}
-        secondary={recipe}
+        secondary={hideRecipe ? '' : recipe}
         useLabel="Recreate this"
         variant="use"
         onOpen={onOpen}

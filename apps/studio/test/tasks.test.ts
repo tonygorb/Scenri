@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { ActivityNode, CatalogImportJob } from '../src/api.js';
+import type { ActivityNode, AssetBuild, CatalogImportJob } from '../src/api.js';
 import {
   agoLabel,
-  unreadCount,
-  type NotificationItem,
   catalogPercent,
   elapsedLabel,
   elapsedSec,
@@ -16,6 +14,7 @@ import {
   saveFeed,
   saveSeen,
   settled,
+  taskFromAssetBuild,
   taskFromCatalogJob,
   taskFromNode,
   unreadCount,
@@ -212,6 +211,88 @@ describe('taskFromCatalogJob', () => {
   });
   it('points a finished catalog import at the kit, where the products landed', () => {
     expect(taskFromCatalogJob(job({ stage: 'completed' }), brand).href).toBe('/b1/kit');
+  });
+});
+
+const build = (over: Partial<AssetBuild> = {}): AssetBuild => ({
+  id: 'ab-1',
+  brandId: 'b-1',
+  kind: 'presenter',
+  name: 'Mara',
+  stage: 'building',
+  step: 1,
+  steps: 4,
+  message: 'Building the studio views (1 of 4)',
+  assetId: null,
+  previewHash: null,
+  warnings: [],
+  coverage: [],
+  facets: [],
+  error: null,
+  startedAt: '2026-08-04 12:00:00',
+  finished: false,
+  ...over,
+});
+
+describe('taskFromAssetBuild', () => {
+  it('maps every stage to a state', () => {
+    for (const stage of ['queued', 'analyzing', 'building', 'saving'] as const) {
+      expect(taskFromAssetBuild(build({ stage }), brand).state).toBe('running');
+    }
+    expect(taskFromAssetBuild(build({ stage: 'done', finished: true }), brand).state).toBe('done');
+    expect(taskFromAssetBuild(build({ stage: 'failed', finished: true }), brand).state).toBe('error');
+    expect(taskFromAssetBuild(build({ stage: 'cancelled', finished: true }), brand).state).toBe('cancelled');
+  });
+
+  it('keeps the kind, so the row can wear the right glyph', () => {
+    expect(taskFromAssetBuild(build(), brand).kind).toBe('presenter');
+    expect(taskFromAssetBuild(build({ kind: 'scene' }), brand).kind).toBe('scene');
+  });
+
+  it('gets a real percent from real counters, and none when there are none', () => {
+    expect(taskFromAssetBuild(build({ step: 1, steps: 4 }), brand).percent).toBe(25);
+    expect(taskFromAssetBuild(build({ step: 4, steps: 4 }), brand).percent).toBe(100);
+    expect(taskFromAssetBuild(build({ step: 0, steps: 0 }), brand).percent).toBeNull();
+  });
+
+  it('has nowhere to go until the asset exists, then points at its page', () => {
+    expect(taskFromAssetBuild(build(), brand).href).toBeNull();
+    expect(taskFromAssetBuild(build({ stage: 'done', finished: true, assetId: 'up-9' }), brand).href).toBe(
+      '/b1/presenters/up-9',
+    );
+    expect(
+      taskFromAssetBuild(build({ kind: 'scene', stage: 'done', finished: true, assetId: 'us-9' }), brand).href,
+    ).toBe('/b1/scenes/us-9');
+  });
+
+  it('says the error when it failed, and the stage message while it runs', () => {
+    expect(
+      taskFromAssetBuild(build({ stage: 'failed', finished: true, error: 'codex exited 1' }), brand).subtitle,
+    ).toBe('codex exited 1');
+    expect(taskFromAssetBuild(build(), brand).subtitle).toBe('Building the studio views (1 of 4)');
+  });
+
+  it('surfaces a warning or a coverage note on the finished row, where it can still be read', () => {
+    expect(
+      taskFromAssetBuild(
+        build({ stage: 'done', finished: true, warnings: ['The back view could not be drawn'] }),
+        brand,
+      ).subtitle,
+    ).toBe('The back view could not be drawn');
+    expect(
+      taskFromAssetBuild(
+        build({ stage: 'done', finished: true, coverage: ['A three-quarter photo would help'] }),
+        brand,
+      ).subtitle,
+    ).toBe('A three-quarter photo would help');
+  });
+
+  it('namespaces its id so it cannot collide with a node or a catalog job', () => {
+    expect(taskFromAssetBuild(build(), brand).id).toBe('build:ab-1');
+  });
+
+  it('shows the first drawn frame as soon as there is one', () => {
+    expect(taskFromAssetBuild(build({ previewHash: 'a'.repeat(32) }), brand).thumb).toBe('a'.repeat(32));
   });
 });
 

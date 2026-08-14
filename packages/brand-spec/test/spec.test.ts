@@ -36,6 +36,87 @@ describe('validateBrand', () => {
     // additionalProperties:false is what keeps a typo from silently becoming brand data
     expect(validateBrand({ ...base, ruels: {} }).valid).toBe(false);
   });
+  it('accepts a character built from a person’s own photos', () => {
+    const r = validateBrand({
+      specVersion: '0.1',
+      meta: { name: 'Acme' },
+      characters: [
+        {
+          id: 'up-8f2c41ab',
+          name: 'Mara',
+          promptName: 'a woman in her early thirties with dark shoulder-length waves',
+          presentation: 'woman',
+          descriptor: 'Warm editorial · dark waves · composed',
+          ageRange: 'early 30s',
+          hair: 'dark shoulder-length waves',
+          identityNotes: 'the wide-set brown eyes must survive every generation',
+          negativeConstraints: ['no straightened hair'],
+          sourceRefs: [{ file: 'asset:deadbeef' }],
+          shots: [{ file: 'asset:cafe1234', angle: 'front', locked: true }],
+          origin: 'custom',
+        },
+      ],
+    });
+    expect(r.errors).toEqual([]);
+    expect(r.valid).toBe(true);
+  });
+  it('still accepts a bare character, and rejects an unknown character field', () => {
+    const base = { specVersion: '0.1', meta: { name: 'Acme' } };
+    expect(validateBrand({ ...base, characters: [{ id: 'mara', name: 'Mara' }] }).valid).toBe(true);
+    expect(validateBrand({ ...base, characters: [{ id: 'mara', name: 'Mara', origin: 'catalog' }] }).valid).toBe(false);
+    expect(validateBrand({ ...base, characters: [{ id: 'mara', name: 'Mara', presentation: 'robot' }] }).valid).toBe(
+      false,
+    );
+  });
+  it('accepts a brand-owned scene', () => {
+    const r = validateBrand({
+      specVersion: '0.1',
+      meta: { name: 'Acme' },
+      scenes: [
+        {
+          id: 'us-3ab90c17',
+          name: 'Wet Basalt Shore',
+          promptName: 'Wet Basalt Shore',
+          lighting: 'Low directional sunset, long shadows across wet stone',
+          description: 'A dark volcanic shoreline at last light.',
+          subject: 'product',
+          prompt: 'A wet dark basalt shelf at low sunset light, cool atmospheric ocean haze behind.',
+          collections: ['Editorial'],
+          verticals: ['Beauty'],
+          keywords: ['volcanic', 'shore'],
+          instruction: 'like these rocks but less orange',
+          refs: [{ file: 'asset:deadbeef' }],
+          preview: 'asset:cafe1234',
+          width: 1024,
+          height: 1280,
+        },
+      ],
+    });
+    expect(r.errors).toEqual([]);
+    expect(r.valid).toBe(true);
+  });
+  it('rejects a scene that is incomplete, mis-subjected, or names the product', () => {
+    const base = { specVersion: '0.1', meta: { name: 'Acme' } };
+    const ok = {
+      id: 'us-3ab90c17',
+      name: 'Shore',
+      lighting: 'Low sunset',
+      description: 'A shoreline.',
+      subject: 'product' as const,
+      prompt: 'A wet basalt shelf at low sunset light.',
+      width: 1024,
+      height: 1280,
+    };
+    expect(validateBrand({ ...base, scenes: [ok] }).valid).toBe(true);
+    const { prompt: _drop, ...noPrompt } = ok;
+    expect(validateBrand({ ...base, scenes: [noPrompt] }).valid).toBe(false);
+    expect(validateBrand({ ...base, scenes: [{ ...ok, subject: 'landscape' }] }).valid).toBe(false);
+    // the whole point of the model: the set never names what is staged in it
+    expect(validateBrand({ ...base, scenes: [{ ...ok, prompt: 'A shelf holding {product_name}.' }] }).valid).toBe(
+      false,
+    );
+    expect(validateBrand({ ...base, scenes: [{ ...ok, id: 'Us_3AB' }] }).valid).toBe(false);
+  });
   it('pins specVersion to the 0.1 const', () => {
     expect(validateBrand({ specVersion: '0.2', meta: { name: 'Acme' } }).valid).toBe(false);
   });

@@ -9,8 +9,8 @@ import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { showcaseBrief, useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
-import { ProductsPanel } from '../AssetPanel.js';
 import { favoriteScenes } from '../favorites.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
@@ -63,9 +63,9 @@ export function HomeView() {
     showcaseLoaded,
     showcaseError,
     refetchShowcase,
-    refresh,
   } = useAppData();
   const { brand, workspace, nodes, products: library } = useBrand();
+  const createAsset = useCreateAsset();
   const navigate = useNavigate();
   const { push } = useToasts();
   const applyPresenter = useApplyPresenter();
@@ -292,18 +292,30 @@ export function HomeView() {
             <CreateGlyph thumbUrl={createThumbs.compose} fallback={<Aperture size={22} weight="fill" />} />
             <b>Create an image</b>
           </button>
-          <ProductsCard brand={brand} onChanged={refresh} count={products.length} thumbUrl={createThumbs.product} />
-          <ComingSoonCard
+          {/* The three ingredients that image is made from. All three are real
+              flows now; the last two spent a while here as disabled "Soon"
+              cards against a backend that had already shipped. */}
+          <IngredientCard
+            tone="product"
+            title="Add a product"
+            count={products.length}
+            thumbUrl={createThumbs.product}
+            icon={<Package size={22} weight="fill" />}
+            onClick={() => createAsset('product')}
+          />
+          <IngredientCard
             tone="presenter"
             title="Create a presenter"
             thumbUrl={createThumbs.presenter}
-            fallback={<User size={22} weight="fill" />}
+            icon={<User size={22} weight="fill" />}
+            onClick={() => createAsset('presenter')}
           />
-          <ComingSoonCard
+          <IngredientCard
             tone="scene"
             title="Create a scene"
             thumbUrl={createThumbs.scene}
-            fallback={<Mountains size={22} weight="fill" />}
+            icon={<Mountains size={22} weight="fill" />}
+            onClick={() => createAsset('scene')}
           />
         </div>
 
@@ -434,72 +446,36 @@ export function HomeView() {
   );
 }
 
-function ProductsCard({
-  brand,
-  onChanged,
-  count,
-  thumbUrl,
-}: {
-  brand: Brand;
-  onChanged: () => void;
-  count: number;
-  thumbUrl?: string | null;
-}) {
-  return (
-    <Dialog.Root>
-      <Dialog.Trigger>
-        <button type="button" className="sc-create-card" data-tone="product">
-          <CreateGlyph thumbUrl={thumbUrl} fallback={<Package size={22} weight="fill" />} />
-          <b>
-            Add your product
-            {count > 0 && (
-              <Badge variant="soft" radius="full" size="1">
-                {count}
-              </Badge>
-            )}
-          </b>
-        </button>
-      </Dialog.Trigger>
-      <Dialog.Content maxWidth="560px">
-        <Dialog.Close>
-          <button type="button" className="sc-set-close sc-dlg-close" aria-label="Close">
-            <X size={16} />
-          </button>
-        </Dialog.Close>
-        <Dialog.Title>Products: {brand.json?.meta?.name}</Dialog.Title>
-        <ProductsPanel brand={brand} onChanged={onChanged} />
-      </Dialog.Content>
-    </Dialog.Root>
-  );
-}
-
-/** Ingredient slot that is not buildable yet — keeps the composition story
- * visible without a dead click into a missing flow. */
-function ComingSoonCard({
+/**
+ * One of the three ingredient cards. It opens the same flow the top bar's + and
+ * the Products page open — Home has no dialog of its own any more.
+ */
+function IngredientCard({
   tone,
   title,
+  icon,
+  count,
   thumbUrl,
-  fallback,
+  onClick,
 }: {
-  tone: 'scene' | 'presenter';
+  tone: string;
   title: string;
+  icon: ReactNode;
+  count?: number;
   thumbUrl?: string | null;
-  fallback: ReactNode;
+  onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className="sc-create-card"
-      data-tone={tone}
-      data-soon=""
-      disabled
-      aria-disabled="true"
-      aria-label={`${title} (coming soon)`}
-      title="Coming soon"
-    >
-      <CreateGlyph thumbUrl={thumbUrl} fallback={fallback} />
-      <b>{title}</b>
-      <span className="sc-create-soon">Soon</span>
+    <button type="button" className="sc-create-card" data-tone={tone} onClick={onClick}>
+      <CreateGlyph thumbUrl={thumbUrl} fallback={icon} />
+      <b>
+        {title}
+        {count ? (
+          <Badge variant="soft" radius="full" size="1">
+            {count}
+          </Badge>
+        ) : null}
+      </b>
     </button>
   );
 }

@@ -1,11 +1,23 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle, WarningCircle, X } from '@phosphor-icons/react';
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastInput {
   kind: 'success' | 'error';
   title: string;
   detail?: string;
-  action?: { label: string; onClick: () => void };
+  /** One action, the original shape. Kept so no existing caller changes. */
+  action?: ToastAction;
+  /**
+   * Two, at most — "what did I just make" usually has exactly two honest
+   * answers (go look at it, use it), and a third would turn a notice into a
+   * menu you have to read.
+   */
+  actions?: ToastAction[];
 }
 interface ToastItem extends ToastInput {
   id: number;
@@ -36,7 +48,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
          */
         const trimmed = [...next];
         while (trimmed.length > MAX) {
-          const victim = trimmed.findIndex((x) => x.kind !== 'error' && !x.action);
+          const victim = trimmed.findIndex((x) => x.kind !== 'error' && !x.action && !x.actions?.length);
           trimmed.splice(victim === -1 ? 0 : victim, 1);
         }
         return trimmed;
@@ -60,18 +72,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div style={{ minWidth: 0, flex: 1 }}>
               <b>{t.title}</b>
               {t.detail && <small>{t.detail.slice(0, 140)}</small>}
-              {t.action && (
+              {(t.actions?.length ? t.actions : t.action ? [t.action] : []).slice(0, 2).map((a) => (
                 <button
+                  key={a.label}
                   type="button"
                   className="sc-toast-act"
                   onClick={() => {
-                    t.action!.onClick();
+                    a.onClick();
                     dismiss(t.id);
                   }}
                 >
-                  {t.action.label}
+                  {a.label}
                 </button>
-              )}
+              ))}
             </div>
             <button type="button" className="sc-toast-x" onClick={() => dismiss(t.id)} aria-label="Dismiss">
               <X size={13} />

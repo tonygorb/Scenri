@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { api, type Brand } from '../api.js';
+import { api, type AssetBuild, type Brand } from '../api.js';
 import { useToasts } from '../toasts.js';
+import { hubPath } from '../routes.js';
+import { useAppData } from './AppShell.js';
 import {
   loadFeed,
   loadSeen,
@@ -10,6 +12,7 @@ import {
   saveFeed,
   saveSeen,
   settled,
+  taskFromAssetBuild,
   taskFromCatalogJob,
   taskFromNode,
   unreadCount,
@@ -41,6 +44,15 @@ const IDLE_MS = 5000;
 export interface TaskCenterValue {
   tasks: Task[];
   running: number;
+  /**
+   * The presenters and scenes being built for this brand, raw.
+   *
+   * The library pages draw their own card for these, which needs more than a
+   * task row carries — the stage message, the step count, the preview frame as
+   * soon as one exists. Polling for them lives here rather than on those pages
+   * because the top bar's + can start one from anywhere.
+   */
+  builds: AssetBuild[];
   feed: NotificationItem[];
   unread: number;
   markSeen: () => void;
@@ -66,11 +78,13 @@ export function useTaskCenter(): TaskCenterValue {
 export function TaskCenterProvider({ brand, children }: { brand: Brand; children: ReactNode }) {
   const navigate = useNavigate();
   const { push } = useToasts();
+  const { refresh: refreshBrands } = useAppData();
   // the feed is keyed by id and the links are built from the slug: a rename
   // changes where a task points, never which brand's history it belongs to
   const brandId = brand.id;
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [builds, setBuilds] = useState<AssetBuild[]>([]);
   const [feed, setFeed] = useState<NotificationItem[]>(() => loadFeed(brandId));
   const [seenAt, setSeenAt] = useState<string | null>(() => loadSeen(brandId));
   const [panelOpen, setPanelOpen] = useState(false);
@@ -81,6 +95,11 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
   const prevRef = useRef<Map<string, Task> | null>(null);
   const announcedRef = useRef<Set<string>>(new Set());
   const runningRef = useRef(0);
+  // Which finished builds we have already refetched the brand for. A finished
+  // build stays in the list, so without this every tick would refetch.
+  const brandPulledRef = useRef<Set<string>>(new Set());
+  const refreshBrandsRef = useRef(refreshBrands);
+  refreshBrandsRef.current = refreshBrands;
   // the live timer's own re-arm, published by the effect below so poke() can
   // reach it without owning a timer of its own
   const restartRef = useRef<(() => void) | null>(null);
@@ -106,19 +125,38 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
     prevRef.current = null;
     announcedRef.current = new Set();
     runningRef.current = 0;
+    brandPulledRef.current = new Set();
     setTasks([]);
+    setBuilds([]);
     setFeed(loadFeed(brandId));
     setSeenAt(loadSeen(brandId));
   }, [brandId]);
 
   const pull = useCallback(async () => {
     let next: Task[];
+    let liveBuilds: AssetBuild[];
     try {
-      const { nodes, jobs } = await api.activity(brandId);
-      next = [...nodes.map((n) => taskFromNode(n, brand)), ...jobs.map((j) => taskFromCatalogJob(j, brand))];
+      // One tick, both sources. Asked together so a build and a generation can
+      // never disagree about what moment it is.
+      const [{ nodes, jobs }, { builds: bs }] = await Promise.all([api.activity(brandId), api.assetBuilds(brandId)]);
+      liveBuilds = bs;
+      next = [
+        ...nodes.map((n) => taskFromNode(n, brand)),
+        ...jobs.map((j) => taskFromCatalogJob(j, brand)),
+        ...bs.map((b) => taskFromAssetBuild(b, brand)),
+      ];
     } catch {
       // the bell is not worth an error state; the next tick will tell the truth
       return;
+    }
+    setBuilds(liveBuilds);
+
+    // A build writes straight into the brand document, so the moment one lands
+    // the brand this app is holding is a version behind.
+    const landed = liveBuilds.filter((b) => b.finished && b.assetId && !brandPulledRef.current.has(b.id));
+    if (landed.length) {
+      for (const b of landed) brandPulledRef.current.add(b.id);
+      await refreshBrandsRef.current();
     }
 
     const arrivals = settled(prevRef.current, next);
@@ -152,16 +190,48 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       if (n.state !== 'error' && watchingFeedRef.current) continue;
       const href = n.href;
       const action = href ? { label: 'View', onClick: () => navRef.current(href) } : undefined;
-      pushRef.current(
-        n.state === 'error'
-          ? { kind: 'error', title: `${n.title} failed`, detail: n.subtitle, action }
-          : {
-              kind: 'success',
-              title: n.kind === 'catalog' ? 'Catalog import finished' : 'Generation finished',
-              detail: n.title,
-              action,
-            },
-      );
+      if (n.state === 'error') {
+        pushRef.current({ kind: 'error', title: `${n.title} failed`, detail: n.subtitle, action });
+        continue;
+      }
+      /*
+       * A built asset says its own name and offers the two things anyone does
+       * next with one. "Generation finished / <prompt>" would be the wrong
+       * sentence here: nothing was generated for the feed, something was added
+       * to the brand.
+       */
+      if (n.kind === 'presenter' || n.kind === 'scene') {
+        const assetId = n.id.startsWith('build:')
+          ? (liveBuilds.find((b) => `build:${b.id}` === n.id)?.assetId ?? null)
+          : null;
+        pushRef.current({
+          kind: 'success',
+          title: `${n.title} is ready`,
+          detail: n.subtitle,
+          actions: href
+            ? [
+                {
+                  label: n.kind === 'presenter' ? 'View presenter' : 'View scene',
+                  onClick: () => navRef.current(href),
+                },
+                {
+                  label: 'Use in a shot',
+                  onClick: () =>
+                    navRef.current(
+                      `${hubPath(brand)}?${n.kind === 'presenter' ? 'presenter' : 'scene'}=${assetId}&compose=1`,
+                    ),
+                },
+              ]
+            : undefined,
+        });
+        continue;
+      }
+      pushRef.current({
+        kind: 'success',
+        title: n.kind === 'catalog' ? 'Catalog import finished' : 'Generation finished',
+        detail: n.title,
+        action,
+      });
     }
   }, [brandId, brand]);
 
@@ -221,6 +291,7 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
     () => ({
       tasks,
       running: tasks.filter((t) => t.state === 'running').length,
+      builds,
       feed,
       unread: unreadCount(feed, seenAt),
       markSeen,
@@ -229,7 +300,7 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       setPanelOpen,
       poke,
     }),
-    [tasks, feed, seenAt, markSeen, clearFeed, panelOpen, poke],
+    [tasks, builds, feed, seenAt, markSeen, clearFeed, panelOpen, poke],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

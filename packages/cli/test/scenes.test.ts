@@ -217,6 +217,89 @@ describe('product uploads + scene generation via API', () => {
     expect(del.json().json.products).toHaveLength(0);
   });
 
+  /** The JSON path the create dialog uses: hashes already in the store, one write, one answer. */
+  async function putImage(): Promise<string> {
+    const png = await sharp({ create: { width: 24, height: 24, channels: 3, background: '#114488' } })
+      .png()
+      .toBuffer();
+    const boundary = '----imgboundary';
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\ncontent-disposition: form-data; name="file"; filename="ref.png"\r\ncontent-type: image/png\r\n\r\n`,
+      ),
+      png,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/images',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+    return res.json().hash;
+  }
+
+  it('creates a product from stored hashes in one write and says which id it made', async () => {
+    const brand = await newBrand();
+    const [a, b] = [await putImage(), await putImage()];
+    // distinct bytes would be ideal, but the store is content-addressed: two
+    // identical images collapse to one hash, so ask for a second colour
+    const png2 = await sharp({ create: { width: 24, height: 24, channels: 3, background: '#883322' } })
+      .png()
+      .toBuffer();
+    const boundary = '----imgboundary2';
+    const second = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/images',
+        headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+        payload: Buffer.concat([
+          Buffer.from(
+            `--${boundary}\r\ncontent-disposition: form-data; name="file"; filename="ref2.png"\r\ncontent-type: image/png\r\n\r\n`,
+          ),
+          png2,
+          Buffer.from(`\r\n--${boundary}--\r\n`),
+        ]),
+      })
+    ).json().hash;
+    expect(b).toBe(a);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      payload: { name: 'House Blend 250g', imageHashes: [a, second], category: 'food-drink' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.productId).toMatch(/^p-[a-f0-9]{8}$/);
+    const products = body.json.products;
+    expect(products).toHaveLength(1);
+    expect(products[0].id).toBe(body.productId);
+    expect(products[0].name).toBe('House Blend 250g');
+    expect(products[0].category).toBe('food-drink');
+    expect(products[0].shots).toHaveLength(2);
+    expect(products[0].shots.every((s: any) => s.locked === true)).toBe(true);
+    expect(products[0].shots.map((s: any) => s.file)).toEqual([`asset:${a}`, `asset:${second}`]);
+  });
+
+  it('refuses a JSON product with no images, or with a hash nothing was ever stored under', async () => {
+    const brand = await newBrand();
+    const none = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      payload: { name: 'Ghost', imageHashes: [] },
+    });
+    expect(none.statusCode).toBe(400);
+
+    const bogus = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      payload: { name: 'Ghost', imageHashes: ['f'.repeat(32)] },
+    });
+    expect(bogus.statusCode).toBe(400);
+    expect(bogus.json().error).toContain('unknown image');
+  });
+
   it('has no manual-add route for characters — presenters attach straight from the catalog instead', async () => {
     const brand = await newBrand();
     const res = await upload(brand.id, 'characters', 'Marco');

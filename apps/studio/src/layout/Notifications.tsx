@@ -2,8 +2,17 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router';
 import { Popover } from '@radix-ui/themes';
-import { Bell, ImageSquare, Storefront, WarningCircle, XCircle } from '@phosphor-icons/react';
+import {
+  Bell,
+  FilmSlate,
+  IdentificationBadge,
+  ImageSquare,
+  Storefront,
+  WarningCircle,
+  XCircle,
+} from '@phosphor-icons/react';
 import { api, imgUrl } from '../api.js';
+import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../tasks.js';
 import { useToasts } from '../toasts.js';
@@ -109,6 +118,7 @@ function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
 
 function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
   const { tasks, feed, unread, clearFeed } = useTaskCenter();
+  const { brand } = useBrand();
   const navigate = useNavigate();
   const { push } = useToasts();
   const [tab, setTab] = useState<TabKey>('tasks');
@@ -120,11 +130,18 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
   // 1.5s interval while anything is running) picks up the resulting status
   // change on its own, so this has nothing else to do once the call lands
   const cancelTask = (taskId: string) => {
-    const nodeId = taskId.startsWith('node:') ? taskId.slice(5) : null;
-    if (!nodeId) return;
-    void api
-      .cancelNode(nodeId)
-      .catch((e) => push({ kind: 'error', title: 'Could not cancel this shot', detail: String(e.message ?? e) }));
+    if (taskId.startsWith('node:')) {
+      void api
+        .cancelNode(taskId.slice(5))
+        .catch((e) => push({ kind: 'error', title: 'Could not cancel this shot', detail: String(e.message ?? e) }));
+      return;
+    }
+    // A build runs a real child process on this machine; cancelling kills it.
+    if (taskId.startsWith('build:')) {
+      void api
+        .cancelAssetBuild(brand.id, taskId.slice(6))
+        .catch((e) => push({ kind: 'error', title: 'Could not stop this build', detail: String(e.message ?? e) }));
+    }
   };
 
   // opening on Tasks must not silently clear the badge: the mark belongs to the
@@ -234,6 +251,9 @@ function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'
   if (task.state === 'error') return <WarningCircle size={17} weight="fill" />;
   if (task.state === 'cancelled') return <XCircle size={17} color="var(--sc-fg3)" />;
   if (task.kind === 'catalog') return <Storefront size={17} />;
+  // the same glyphs the nav uses for these two destinations
+  if (task.kind === 'presenter') return <IdentificationBadge size={17} />;
+  if (task.kind === 'scene') return <FilmSlate size={17} />;
   return <ImageSquare size={17} />;
 }
 
@@ -249,7 +269,8 @@ function TaskRow({
   onCancel: (taskId: string) => void;
 }) {
   const running = task.state === 'running';
-  const nodeTask = task.id.startsWith('node:');
+  // Both kinds of work that can actually be stopped. A catalog import cannot.
+  const stoppable = task.id.startsWith('node:') || task.id.startsWith('build:');
   // past 60s, the cancel control is the one thing on this row worth making
   // louder than the rest, since it is the only way out of a stuck run
   const urgent = running && elapsedSec(task.startedAt, now) >= 60;
@@ -279,7 +300,7 @@ function TaskRow({
           {running ? elapsedLabel(task.startedAt, now) : agoLabel(task.startedAt, now)}
         </span>
       </button>
-      {running && nodeTask && (
+      {running && stoppable && (
         <button
           type="button"
           className="sc-notif-row-cancel"

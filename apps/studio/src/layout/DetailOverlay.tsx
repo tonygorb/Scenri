@@ -27,6 +27,7 @@ import { Inspector } from './Inspector.js';
 import { Composer } from './Composer.js';
 import { Coin } from './Coin.js';
 import { useAppData } from '../app/AppShell.js';
+import { customScenesOf } from '../brandAssets.js';
 import { useToasts } from '../toasts.js';
 import { briefChangeLine, sourceImageOf } from '../briefDiff.js';
 import { normalizeTint } from '../composer/line.js';
@@ -587,6 +588,7 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
   if (!tokens.length) return null;
   const products: any[] = (brand?.json?.products ?? []) as any[];
   const cast: any[] = (brand?.json?.characters ?? []) as any[];
+  const ownScenes = customScenesOf(brand);
 
   type Chip = {
     key: string;
@@ -621,20 +623,24 @@ function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand 
       const c = cast.find((x) => x.id === t.id);
       const pr = c ? null : presenters.find((x) => x.id === t.id);
       // A roster entry is the brand's own copy; only the presenter it was cast
-      // from has a page, and a bespoke character has none at all.
-      const pid = pr?.id ?? c?.presenterId;
+      // from has a page. A person built here is the exception: they are a
+      // roster entry that owns their page, under their own id.
+      const pid = pr?.id ?? c?.presenterId ?? (c?.origin === 'custom' ? c.id : undefined);
       return [
         {
           key: `h${t.id}`,
           kind: 'presenter',
           label: c?.name ?? pr?.name ?? 'someone',
-          thumb: c ? assetUrl(c?.shots?.[0]?.file) : (pr?.avatarUrl ?? pr?.previewUrl ?? null),
+          thumb: c
+            ? (assetUrl(c?.preview) ?? assetUrl(c?.shots?.[0]?.file))
+            : (pr?.avatarUrl ?? pr?.previewUrl ?? null),
           to: brand && pid ? presenterPath(brand, pid) : undefined,
         },
       ];
     }
     if (t?.t === 'template') {
-      const s = scenes.find((x) => x.id === t.id);
+      // The brand's own scenes first, the same precedence the compiler uses.
+      const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
       return [
         {
           key: `t${t.id}`,

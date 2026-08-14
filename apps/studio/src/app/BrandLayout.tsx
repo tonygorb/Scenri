@@ -5,6 +5,7 @@ import { P, brandPath } from '../routes.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
 import { TabBar } from '../layout/TabBar.js';
 import { TopBar } from '../layout/TopBar.js';
+import { AssetCreateHost } from '../create/AssetCreateHost.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
 import { useProductLibrary } from '../useProductLibrary.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
@@ -176,13 +177,17 @@ export function BrandLayout() {
     >
       <SettingsDialog engines={engines} shots={nodes} onSaved={refresh} />
       <TaskCenterProvider brand={brand}>
-        <AssetsCtx.Provider value={assets}>
-          <div className="sc-shell">
-            <TopBar />
-            <Outlet />
-            <TabBar />
-          </div>
-        </AssetsCtx.Provider>
+        {/* Inside TaskCenter: a creation flow reads the builds already in
+            flight, and pokes the one poll when it starts another. */}
+        <AssetCreateHost>
+          <AssetsCtx.Provider value={assets}>
+            <div className="sc-shell">
+              <TopBar />
+              <Outlet />
+              <TabBar />
+            </div>
+          </AssetsCtx.Provider>
+        </AssetCreateHost>
       </TaskCenterProvider>
     </Ctx.Provider>
   );

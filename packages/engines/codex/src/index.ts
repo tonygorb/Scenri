@@ -10,9 +10,8 @@
  * Codex subscription session and must never run in hosted mode — hence
  * `localOnly: true`. See docs/STRATEGY.md §13.
  */
-import { spawn as nodeSpawn } from 'node:child_process';
-import { copyFile, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import type { spawn as nodeSpawn } from 'node:child_process';
+import { copyFile, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   EDIT_REFERENCE_ROLE_DIRECTIVE,
@@ -24,6 +23,10 @@ import {
   type GenerateRequest,
   type ReferenceRole,
 } from '@scenri/core';
+import { createRunner, execArgs } from './run.js';
+
+export { createCodexAnalyzer } from './analyzer.js';
+export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
 
 export interface CodexEngineOptions {
   saveImage: (buf: Buffer) => string;
@@ -31,75 +34,11 @@ export interface CodexEngineOptions {
   timeoutMs?: number;
 }
 
-const NOT_AVAILABLE_REASON = 'Codex CLI not found or not signed in (run: codex login)';
-const DEFAULT_TIMEOUT_MS = 300_000;
-
 export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   const { saveImage } = opts;
-  const spawnImpl = opts.spawnImpl ?? nodeSpawn;
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-
-  /** Run `codex <args>`, resolving on exit 0; kill + reject after timeoutMs. */
-  function runCodex(args: string[], signal?: AbortSignal): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      let child: ReturnType<typeof nodeSpawn>;
-      try {
-        child = spawnImpl('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-      } catch (err) {
-        reject(new Error(`Failed to spawn codex: ${(err as Error).message}`));
-        return;
-      }
-
-      let settled = false;
-      let stderr = '';
-      // codex streams its full transcript to stdout; it MUST be drained or the
-      // 64KB pipe buffer fills and codex blocks forever (real hang, 2026-08-01).
-      child.stdout?.on('data', () => {});
-      child.stderr?.on('data', (d: Buffer | string) => {
-        stderr += String(d);
-      });
-
-      const timer = setTimeout(() => {
-        child.kill();
-        finish(() => reject(new Error(`Codex CLI timed out after ${timeoutMs}ms`)));
-      }, timeoutMs);
-
-      const onAbort = () => {
-        child.kill();
-        finish(() => reject(new Error('Codex CLI run aborted')));
-      };
-
-      function finish(fn: () => void): void {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        signal?.removeEventListener('abort', onAbort);
-        fn();
-      }
-
-      if (signal) {
-        if (signal.aborted) {
-          onAbort();
-          return;
-        }
-        signal.addEventListener('abort', onAbort, { once: true });
-      }
-
-      child.on('error', (err: Error) => {
-        finish(() => reject(new Error(`Failed to spawn codex: ${err.message}`)));
-      });
-      child.on('exit', (code: number | null) => {
-        if (code === 0) {
-          finish(resolve);
-        } else {
-          const snippet = stderr.trim().slice(0, 200);
-          finish(() =>
-            reject(new Error(`codex exited with code ${code ?? 'unknown'}${snippet ? `: ${snippet}` : ''}`)),
-          );
-        }
-      });
-    });
-  }
+  const runner = createRunner(opts);
+  const runCodex = runner.run;
+  const withWorkDir = runner.withWorkDir;
 
   /** Read out-*.png from dir (numerically sorted), save each, return hashes. */
   async function collectImages(dir: string): Promise<string[]> {
@@ -122,16 +61,6 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     return hashes;
   }
 
-  async function withWorkDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
-    const dir = await mkdtemp(join(tmpdir(), 'scenri-codex-'));
-    try {
-      return await fn(dir);
-    } finally {
-      // Best-effort cleanup.
-      await rm(dir, { recursive: true, force: true }).catch(() => {});
-    }
-  }
-
   return {
     capabilities(): EngineCapabilities {
       return {
@@ -152,26 +81,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     },
 
     isAvailable(): Promise<{ ok: boolean; reason?: string }> {
-      return new Promise((resolve) => {
-        let settled = false;
-        const done = (r: { ok: boolean; reason?: string }) => {
-          if (!settled) {
-            settled = true;
-            resolve(r);
-          }
-        };
-        let child: ReturnType<typeof nodeSpawn>;
-        try {
-          child = spawnImpl('codex', ['--version']);
-        } catch {
-          done({ ok: false, reason: NOT_AVAILABLE_REASON });
-          return;
-        }
-        child.on('error', () => done({ ok: false, reason: NOT_AVAILABLE_REASON }));
-        child.on('exit', (code: number | null) => {
-          done(code === 0 ? { ok: true } : { ok: false, reason: NOT_AVAILABLE_REASON });
-        });
-      });
+      return runner.probe();
     },
 
     async costEstimate(): Promise<number> {
@@ -240,21 +150,6 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       });
     },
   };
-
-  /** Shared exec args: low reasoning — imagegen needs speed, not deliberation. */
-  function execArgs(dir: string, promptText: string): string[] {
-    return [
-      'exec',
-      '--skip-git-repo-check',
-      '--sandbox',
-      'workspace-write',
-      '-c',
-      'model_reasoning_effort="low"',
-      '-C',
-      dir,
-      promptText,
-    ];
-  }
 
   // Wording matters: codex's imagegen skill needs shell access (cp/sips) to
   // place the file — forbid browsing/exploration, but NOT running commands.

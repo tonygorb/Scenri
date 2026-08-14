@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { api, type Scene } from '../api.js';
+import { Spinner, TextArea, TextField } from '@radix-ui/themes';
+import { api, type Scene, type ScenePatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { customSceneById } from '../brandAssets.js';
 import { hubPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
+import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { Star } from '@phosphor-icons/react';
+import { ArrowClockwise, Star } from '@phosphor-icons/react';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { starredFirst } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -25,7 +28,7 @@ const LOOKPAGE_PHONE = '(max-width: 760px)';
  */
 export function ScenePage() {
   const { sceneId = '' } = useParams();
-  const { scenes, loaded, error, refetch } = useAppData();
+  const { scenes, loaded, error, refetch, applyBrand } = useAppData();
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this scene actually produce"
   const { brand, nodes: shots } = useBrand();
@@ -43,13 +46,19 @@ export function ScenePage() {
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
-  const scene = scenes.find((s) => s.id === sceneId);
+  // The brand's own places come before the catalog, the same order the
+  // compiler resolves them in.
+  const owned = customSceneById(brand, sceneId);
+  const scene = owned ?? scenes.find((s) => s.id === sceneId);
 
   // One ask for the whole set. Probing slot by slot filled the console with
   // 404s for every scene that has no set yet.
   useEffect(() => {
     let alive = true;
     setRefs([]);
+    // A scene built here carries its own images; only a curated one has a
+    // reference set sitting on disk to go and ask about.
+    if (owned) return;
     void api
       .sceneFrames(sceneId)
       .then((r) => {
@@ -61,7 +70,7 @@ export function ScenePage() {
     return () => {
       alive = false;
     };
-  }, [sceneId]);
+  }, [sceneId, owned]);
 
   /** Shots whose brief carried this scene, newest first. */
   const made = useMemo(
@@ -99,7 +108,65 @@ export function ScenePage() {
     return starredFirst(scenes, (s) => favs.includes(s.id)).slice(0, 6);
   }, [scene, loaded, error, scenes, brandId]);
 
-  if (!loaded) {
+  const [draftName, setDraftName] = useState(owned?.name ?? '');
+  const [draftDescription, setDraftDescription] = useState(owned?.description ?? '');
+  const [draftLighting, setDraftLighting] = useState(owned?.lighting ?? '');
+  const [draftPrompt, setDraftPrompt] = useState(owned?.prompt ?? '');
+  const [err, setErr] = useState<string | null>(null);
+  const [drawing, setDrawing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    // Resync only on a different scene, so a refresh landing mid-keystroke
+    // cannot overwrite what is being typed.
+    setDraftName(owned?.name ?? '');
+    setDraftDescription(owned?.description ?? '');
+    setDraftLighting(owned?.lighting ?? '');
+    setDraftPrompt(owned?.prompt ?? '');
+  }, [owned?.id]);
+
+  /** Editing a scene is a plain write. Only the preview costs a generation. */
+  const patch = (next: ScenePatch) => {
+    if (!owned) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void api
+        .updateScene(brand.id, owned.id, next)
+        .then((r) => {
+          applyBrand(r.brand);
+          setErr(r.warnings[0] ?? null);
+        })
+        .catch((e: any) => setErr(String(e.message ?? e)));
+    }, 500);
+  };
+
+  const redrawPreview = async () => {
+    if (!owned) return;
+    setDrawing(true);
+    setErr(null);
+    try {
+      applyBrand((await api.generateScenePreview(brand.id, owned.id)).brand);
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    } finally {
+      setDrawing(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!owned) return;
+    setBusy(true);
+    try {
+      await api.deleteScene(brand.id, owned.id);
+      navigate(scenesPath(brand));
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+      setBusy(false);
+    }
+  };
+
+  if (!loaded && !owned) {
     return (
       <ScrollPane>
         <main className="sc-lookpage" id="main">
@@ -109,7 +176,7 @@ export function ScenePage() {
     );
   }
 
-  if (error) {
+  if (error && !owned) {
     return (
       <ScrollPane>
         <main className="sc-lookpage" id="main">
@@ -156,12 +223,20 @@ export function ScenePage() {
   }
 
   const visibleRefs = openAll ? refs : refs.slice(0, collapsedCap);
-  const frames = refs.length ? visibleRefs : scene.previewUrl ? [scene.previewUrl] : [];
+  const frames = owned
+    ? owned.previewUrl
+      ? [owned.previewUrl]
+      : []
+    : refs.length
+      ? visibleRefs
+      : scene.previewUrl
+        ? [scene.previewUrl]
+        : [];
   // Product/either scenes ship their reference gallery shot with a demo
   // product standing in for the art direction — the caption says so, so
   // nobody mistakes it for part of the scene's recipe. Person-only scenes
   // never carry a demo product, so they skip it.
-  const showDemoProductNote = scene.subject !== 'person' && frames.length > 0;
+  const showDemoProductNote = !owned && scene.subject !== 'person' && frames.length > 0;
 
   const starred = favs.includes(scene.id);
   return (
@@ -172,11 +247,36 @@ export function ScenePage() {
             Scenes
           </button>
           <span>/</span>
-          <span>{scene.collections[0]}</span>
+          <span>{owned ? 'Yours' : scene.collections[0]}</span>
         </div>
 
-        <h1>{scene.name}</h1>
-        <p className="sc-lookpage-lede">{scene.description}</p>
+        {owned ? (
+          <TextField.Root
+            className="sc-ownededit-title"
+            value={draftName}
+            aria-label="Scene name"
+            onChange={(e) => {
+              setDraftName(e.target.value);
+              patch({ name: e.target.value });
+            }}
+          />
+        ) : (
+          <h1>{scene.name}</h1>
+        )}
+        {owned ? (
+          <TextField.Root
+            className="sc-ownededit-lede"
+            value={draftDescription}
+            placeholder="One sentence for the card"
+            aria-label="Description"
+            onChange={(e) => {
+              setDraftDescription(e.target.value);
+              patch({ description: e.target.value });
+            }}
+          />
+        ) : (
+          <p className="sc-lookpage-lede">{scene.description}</p>
+        )}
         <p className="sc-lookpage-facts">
           {scene.lighting} · {scene.subject === 'either' ? 'product or person' : `for a ${scene.subject}`} ·{' '}
           {scene.width === scene.height ? 'square by default' : `${scene.width}×${scene.height} by default`}
@@ -186,16 +286,30 @@ export function ScenePage() {
             Use in a shot
           </button>
           {/* Starred scenes get their own shelf on /scenes, and lead the one on Home. */}
-          <button
-            type="button"
-            className="sc-btn sc-btn-ghost"
-            aria-pressed={starred}
-            onClick={() => setFavs(toggleFavoriteScene(brandId, scene.id))}
-          >
-            <Star size={13} weight={starred ? 'fill' : 'regular'} />
-            <span>{starred ? 'Starred' : 'Star'}</span>
-          </button>
+          {!owned && (
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              aria-pressed={starred}
+              onClick={() => setFavs(toggleFavoriteScene(brandId, scene.id))}
+            >
+              <Star size={13} weight={starred ? 'fill' : 'regular'} />
+              <span>{starred ? 'Starred' : 'Star'}</span>
+            </button>
+          )}
+          {owned && (
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              disabled={drawing}
+              onClick={() => void redrawPreview()}
+            >
+              {drawing ? <Spinner size="1" /> : <ArrowClockwise size={13} />}
+              <span>{owned.previewUrl ? 'Redraw the example' : 'Draw an example'}</span>
+            </button>
+          )}
         </div>
+        {err && <p className="sc-assetform-err">{err}</p>}
 
         {frames.length > 0 ? (
           <>
@@ -207,7 +321,12 @@ export function ScenePage() {
             {showDemoProductNote && (
               <p className="sc-lookpage-note">Shown with a demo product for reference — yours replaces it.</p>
             )}
-            {refs.length > collapsedCap && (
+            {owned && (
+              <p className="sc-lookpage-note">
+                The place with nothing staged in it. Whatever you attach to a shot goes here.
+              </p>
+            )}
+            {!owned && refs.length > collapsedCap && (
               <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
                 {openAll ? 'Enough, close it' : 'See the whole set'}
               </button>
@@ -218,6 +337,61 @@ export function ScenePage() {
           // the same blank box a broken/missing image falls back to below,
           // rather than nothing where the scene's visual identity should be
           <EmptyRefFrame />
+        )}
+
+        {owned && (
+          <div className="sc-ownedbits">
+            {owned.refs.length > 0 && (
+              <section>
+                <p className="sc-bandhead">Your references</p>
+                <p className="sc-ownedbits-note">
+                  What this scene was read from. Kept here to look at: a scene reaches a shot as words, never as pixels,
+                  so nothing in these images can turn up in a render on its own.
+                </p>
+                <div className="sc-lookpage-refs">
+                  {owned.refs.map((src) => (
+                    <RefFrame key={src} src={src} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <p className="sc-bandhead">The place itself</p>
+              <p className="sc-ownedbits-note">
+                Sent with every shot built here. Describe the world, not what stands in it.
+              </p>
+              <TextArea
+                value={draftPrompt}
+                rows={5}
+                onChange={(e) => {
+                  setDraftPrompt(e.target.value);
+                  patch({ prompt: e.target.value });
+                }}
+              />
+              <TextField.Root
+                mt="2"
+                value={draftLighting}
+                placeholder="The light, in a short phrase"
+                aria-label="Lighting"
+                onChange={(e) => {
+                  setDraftLighting(e.target.value);
+                  patch({ lighting: e.target.value });
+                }}
+              />
+              {owned.instruction && <p className="sc-ownedbits-note">You asked for: {owned.instruction}</p>}
+            </section>
+
+            <div className="sc-lookpage-acts">
+              <Confirm
+                label="Delete scene"
+                title={`Delete ${owned.name}?`}
+                body="Shots already made here keep their images and their recipe. Only future shots lose it."
+                busy={busy}
+                onConfirm={() => void remove()}
+              />
+            </div>
+          </div>
         )}
 
         {made.length > 0 && (

@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { api } from '../api.js';
+import { TextArea, TextField } from '@radix-ui/themes';
+import { api, type PresenterPatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { customPresenterById } from '../brandAssets.js';
 import { presenterPath, presentersPath, shotPath } from '../routes.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
+import { Confirm } from '../Confirm.js';
 import { PresenterCard } from '../layout/PresenterCard.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -20,7 +23,7 @@ const FRONT_ANGLES = 4;
  */
 export function PresenterPage() {
   const { presenterId = '' } = useParams();
-  const { presenters, presentersLoaded, presentersError, refetchPresenters } = useAppData();
+  const { presenters, presentersLoaded, presentersError, refetchPresenters, applyBrand } = useAppData();
   const { brand, nodes: shots } = useBrand();
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
@@ -28,11 +31,17 @@ export function PresenterPage() {
   const [allParam, setOpenAll] = useFilterParam('all');
   const openAll = allParam === '1';
 
-  const presenter = presenters.find((p) => p.id === presenterId);
+  // The brand's own people come before the catalog, the same order the
+  // compiler resolves them in.
+  const owned = customPresenterById(brand, presenterId);
+  const presenter = owned ?? presenters.find((p) => p.id === presenterId);
 
   useEffect(() => {
     let alive = true;
     setRefs([]);
+    // A person built here carries their views in the brand document; only a
+    // curated one has frames sitting on disk to go and ask about.
+    if (owned) return;
     void api
       .presenterFrames(presenterId)
       .then((r) => {
@@ -44,7 +53,7 @@ export function PresenterPage() {
     return () => {
       alive = false;
     };
-  }, [presenterId]);
+  }, [presenterId, owned]);
 
   // Older brands may still have a roster copy from before presenters attached
   // straight from the catalog — its shots used the copy's own id, not the
@@ -69,7 +78,46 @@ export function PresenterPage() {
     [shots, presenterId, inRoster],
   );
 
-  if (!presentersLoaded) {
+  const [draftName, setDraftName] = useState(owned?.name ?? '');
+  const [draftDescriptor, setDraftDescriptor] = useState(owned?.descriptor ?? '');
+  const [draftIdentity, setDraftIdentity] = useState(owned?.identityNotes ?? '');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    // Resync only on a different person, so a poll landing mid-keystroke
+    // cannot overwrite what is being typed.
+    setDraftName(owned?.name ?? '');
+    setDraftDescriptor(owned?.descriptor ?? '');
+    setDraftIdentity(owned?.identityNotes ?? '');
+  }, [owned?.id]);
+
+  /** Field edits are plain writes: nothing here costs a generation. */
+  const patch = (next: PresenterPatch) => {
+    if (!owned) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void api
+        .updatePresenter(brand.id, owned.id, next)
+        .then((r) => applyBrand(r.brand))
+        .catch((e: any) => setErr(String(e.message ?? e)));
+    }, 500);
+  };
+
+  const remove = async () => {
+    if (!owned) return;
+    setBusy(true);
+    try {
+      await api.deletePresenter(brand.id, owned.id);
+      navigate(presentersPath(brand));
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+      setBusy(false);
+    }
+  };
+
+  if (!presentersLoaded && !owned) {
     return (
       <ScrollPane>
         <main className="sc-lookpage" id="main">
@@ -79,7 +127,7 @@ export function PresenterPage() {
     );
   }
 
-  if (presentersError) {
+  if (presentersError && !owned) {
     return (
       <ScrollPane>
         <main className="sc-lookpage" id="main">
@@ -111,8 +159,9 @@ export function PresenterPage() {
     );
   }
 
+  const ownedFrames = owned?.shots ?? [];
   const visibleRefs = openAll ? refs : refs.slice(0, FRONT_ANGLES);
-  const frames = refs.length ? visibleRefs : presenter.previewUrl ? [presenter.previewUrl] : [];
+  const frames = owned ? ownedFrames : refs.length ? visibleRefs : presenter.previewUrl ? [presenter.previewUrl] : [];
   const others = presenters.filter((p) => p.id !== presenter.id).slice(0, 8);
   // A real square portrait needs no cropping trickery; the 4:5 fallback still does.
   const hasAvatar = Boolean(presenter.avatarUrl);
@@ -126,7 +175,7 @@ export function PresenterPage() {
             Presenters
           </button>
           <span>/</span>
-          <span>{presenter.suitableStyles[0] ?? presenter.presentation}</span>
+          <span>{owned ? 'Yours' : (presenter.suitableStyles[0] ?? presenter.presentation)}</span>
         </div>
 
         {avatarSrc ? (
@@ -135,25 +184,57 @@ export function PresenterPage() {
           </div>
         ) : null}
 
-        <h1>{presenter.name}</h1>
-        <p className="sc-lookpage-lede">{presenter.descriptor}</p>
+        {owned ? (
+          <TextField.Root
+            className="sc-ownededit-title"
+            value={draftName}
+            aria-label="Their name"
+            onChange={(e) => {
+              setDraftName(e.target.value);
+              patch({ name: e.target.value });
+            }}
+          />
+        ) : (
+          <h1>{presenter.name}</h1>
+        )}
+        {owned ? (
+          <TextField.Root
+            className="sc-ownededit-lede"
+            value={draftDescriptor}
+            placeholder="A short caption for the card"
+            aria-label="Caption"
+            onChange={(e) => {
+              setDraftDescriptor(e.target.value);
+              patch({ descriptor: e.target.value });
+            }}
+          />
+        ) : (
+          <p className="sc-lookpage-lede">{presenter.descriptor}</p>
+        )}
         <p className="sc-lookpage-facts">
-          {presenter.ageRange} · {presenter.hair} · {presenter.suitableCategories.join(', ')}
+          {[presenter.ageRange, presenter.hair, presenter.suitableCategories.join(', ')].filter(Boolean).join(' · ')}
         </p>
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyPresenter(presenterId)}>
             Use in a shot
           </button>
         </div>
+        {err && <p className="sc-assetform-err">{err}</p>}
 
         {frames.length > 0 ? (
           <>
             <div className="sc-lookpage-refs">
-              {frames.map((src) => (
-                <RefFrame key={src} src={src} />
+              {frames.map((src, i) => (
+                <div key={src} className="sc-ownedref" data-engine={owned && i < 2 ? '' : undefined}>
+                  <RefFrame src={src} />
+                  {/* Two references per person reach the engine, and they are
+                      the first two. Saying which is the difference between a
+                      gallery and knowing what your shots are built from. */}
+                  {owned && i < 2 && <span className="sc-ownedref-tag">Used in shots</span>}
+                </div>
               ))}
             </div>
-            {refs.length > FRONT_ANGLES && (
+            {!owned && refs.length > FRONT_ANGLES && (
               <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
                 {openAll ? 'Enough, close it' : 'See the whole set'}
               </button>
@@ -161,6 +242,55 @@ export function PresenterPage() {
           </>
         ) : (
           <EmptyRefFrame />
+        )}
+
+        {owned && (
+          <div className="sc-ownedbits">
+            {owned.sourceRefs.length > 0 && (
+              <section>
+                <p className="sc-bandhead">Your photos</p>
+                <p className="sc-ownedbits-note">
+                  What this presenter was built from. Kept as they arrived, and never replaced by anything generated.
+                </p>
+                <div className="sc-lookpage-refs">
+                  {owned.sourceRefs.map((src) => (
+                    <RefFrame key={src} src={src} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <p className="sc-bandhead">What must stay the same</p>
+              <p className="sc-ownedbits-note">Sent with every shot they appear in.</p>
+              <TextArea
+                value={draftIdentity}
+                rows={3}
+                placeholder="For example: the wide-set eyes and the small scar above the left brow must survive every generation."
+                onChange={(e) => {
+                  setDraftIdentity(e.target.value);
+                  patch({ identityNotes: e.target.value });
+                }}
+              />
+              {owned.negativeConstraints.length > 0 && (
+                <ul className="sc-ownedbits-list">
+                  {owned.negativeConstraints.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <div className="sc-lookpage-acts">
+              <Confirm
+                label="Delete presenter"
+                title={`Delete ${owned.name}?`}
+                body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+                busy={busy}
+                onConfirm={() => void remove()}
+              />
+            </div>
+          </div>
         )}
 
         {made.length > 0 && (

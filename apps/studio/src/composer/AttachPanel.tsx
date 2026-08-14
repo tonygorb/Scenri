@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { productLabel, productSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
 import { Dialog } from '@radix-ui/themes';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { flattenPalette } from '../brand/palette.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
-import { ProductsPanel } from '../AssetPanel.js';
 import { isRecommendedScene, isRecommendedPresenter } from '../compat.js';
 import { categoryLabel } from '../productCategories.js';
 import type { SentenceToken } from './BriefInput.js';
@@ -70,28 +71,33 @@ export function AttachPanel({
     setTab(initialTab);
   }, [initialTab]);
   const [q, setQ] = useState('');
-  const [addProductOpen, setAddProductOpen] = useState(false);
   const { products: library } = useBrand();
+  const createAsset = useCreateAsset();
+  // The creation dialog lives in the URL now, so "is something stacked on top
+  // of me" is a question the URL answers rather than a boolean this panel has
+  // to remember to keep in sync.
+  const [params] = useSearchParams();
+  const creating = params.get('new') !== null;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // the Add-product dialog is a real Radix Dialog stacked on top — its
-      // own Escape closes it; this only steps in once nothing is on top
-      if (e.key === 'Escape' && !addProductOpen) {
+      // the creation dialog is a real Radix Dialog stacked on top — its own
+      // Escape closes it; this only steps in once nothing is on top
+      if (e.key === 'Escape' && !creating) {
         e.stopPropagation();
         onClose();
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose, addProductOpen]);
+  }, [onClose, creating]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      // same reason: the Add-product dialog portals to document.body, so a
-      // click inside it — its input, its own close button — reads as "outside
+      // same reason: the creation dialog portals to document.body, so a click
+      // inside it — its input, its own close button — reads as "outside
       // .sc-attachpanel" and closed both the dialog and the panel underneath it
-      if (addProductOpen) return;
+      if (creating) return;
       if (
         !(e.target as HTMLElement).closest('.sc-attachpanel') &&
         !(e.target as HTMLElement).closest('.sc-attach-toggle')
@@ -100,7 +106,7 @@ export function AttachPanel({
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [onClose, addProductOpen]);
+  }, [onClose, creating]);
 
   const cards = useMemo<Card[]>(() => {
     const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
@@ -298,7 +304,18 @@ export function AttachPanel({
               {tab === 'Products' && (
                 // Add-a-product used to mean close this panel, open the Assets
                 // rail, upload, close, reopen, find it, click it. One button.
-                <button type="button" className="sc-ap-card sc-ap-add" onClick={() => setAddProductOpen(true)}>
+                <button
+                  type="button"
+                  className="sc-ap-card sc-ap-add"
+                  onClick={() =>
+                    // The one caller that genuinely needs an answer back: the
+                    // chip goes into a brief that is still in memory, so a URL
+                    // round-trip would remount the composer under it.
+                    createAsset('product', {
+                      onCreated: (made) => made.kind === 'product' && onToken({ t: 'product', id: made.id }),
+                    })
+                  }
+                >
                   <span className="sc-ap-thumb sc-ap-thumb-empty">
                     <Plus size={16} />
                   </span>
@@ -317,28 +334,6 @@ export function AttachPanel({
           </>
         )}
       </div>
-      <Dialog.Root open={addProductOpen} onOpenChange={setAddProductOpen}>
-        <Dialog.Content maxWidth="560px">
-          <Dialog.Close>
-            <button type="button" className="sc-set-close sc-dlg-close" aria-label="Close">
-              <X size={16} />
-            </button>
-          </Dialog.Close>
-          <Dialog.Title>Products: {brand.json?.meta?.name}</Dialog.Title>
-          <ProductsPanel
-            brand={brand}
-            onChanged={(newProductId) => {
-              // a single manual upload lands one product: insert it as a chip
-              // and close the small dialog, collapsing what used to be a
-              // close-reopen-find-click round trip down to this one upload
-              if (newProductId) {
-                onToken({ t: 'product', id: newProductId });
-                setAddProductOpen(false);
-              }
-            }}
-          />
-        </Dialog.Content>
-      </Dialog.Root>
     </div>
   );
 }

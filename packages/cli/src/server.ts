@@ -42,6 +42,26 @@ import {
   brandJsonWithCatalogProducts,
   resolveLibraryProduct,
 } from './catalogImport.js';
+import {
+  brandCharacters,
+  brandSceneById,
+  brandScenes,
+  cancelAssetBuild,
+  commit,
+  getAssetBuild,
+  forgetAssetBuild,
+  isCustomPresenter,
+  listAssetBuilds,
+  lintSceneProse,
+  presenterRecordFrom,
+  sceneRecordFrom,
+  scenePreviewPrompt,
+  startAssetBuild,
+  type Analyzer,
+  type AssetBuildDeps,
+  type CustomScene,
+} from './customAssets.js';
+import { createCodexAnalyzer } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 
 export interface ServerOptions {
@@ -51,6 +71,8 @@ export interface ServerOptions {
   fetchImpl?: typeof fetch;
   templatesDir?: string; // override for tests
   access?: AccessOptions; // host allowlist + LAN token; loopback-only by default
+  /** Reads a brand's own references into structured records. Injected in tests. */
+  analyzer?: Analyzer;
 }
 
 /** Settings keys exposed via the API. Secrets are write-only: reads return booleans. */
@@ -89,6 +111,15 @@ const LOGO_BACKGROUNDS = ['light', 'dark', 'any'] as const;
 /** Normalize an uploaded product shot: whatever arrived, store a PNG. */
 const toPng = (buf: Buffer): Promise<Buffer> => sharp(buf).png().toBuffer();
 
+/** One standard image, for asking an engine what it charges. */
+const COST_PROBE = {
+  prompt: '',
+  brand: { brand: {}, assetPaths: {} },
+  width: 1024,
+  height: 1024,
+  count: 1,
+} as GenerateRequest;
+
 /**
  * The same for a brand mark, with two differences that only matter for marks.
  *
@@ -121,6 +152,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const { scenes } = loadScenes(opts.templatesDir);
   // resolves a scene by its id or by any id it used to answer to
   const resolveScene = sceneResolver(scenes);
+  /**
+   * The same resolver, with the brand's own scenes ahead of the catalog.
+   *
+   * Same precedence a brand's `characters[]` already has over the presenter
+   * catalog: what you built for yourself wins. Every compileBrief call site
+   * uses this, so a brief carrying a custom scene compiles through exactly the
+   * same path a curated one does.
+   */
+  const sceneFor = (brandJson: any) => (id: string) => brandSceneById(brandJson, id) ?? resolveScene(id);
   app.register(fastifyMultipart, { limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
 
   app.setErrorHandler((err: unknown, _req, reply) => {
@@ -195,22 +235,65 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const ASSETS = {
     products: { key: 'products', prefix: 'p', fallback: 'Product' },
   } as const;
+  /**
+   * Two ways in, one row out.
+   *
+   * The multipart path is the original: one file, one product, and the client
+   * has to guess which product it just made by diffing the library. The JSON
+   * path takes hashes already put through POST /api/images — which normalizes
+   * with the identical `sharp(buf).png()` — so a product with four angles is
+   * one brand write instead of five, and the response says which id it is.
+   *
+   * `productId` rides beside the brand row rather than inside `json`, so the
+   * schema's `additionalProperties: false` is untouched and every existing
+   * caller still reads the same shape it always did.
+   */
   const addAsset = (kind: keyof typeof ASSETS) => async (req: any, reply: any) => {
     const spec = ASSETS[kind];
     const brand = core.store.getBrand(req.params.id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
-    const part = await readImagePart(req, toPng);
-    if ('error' in part) return reply.status(400).send({ error: part.error });
-    const hash = part.hash;
-    const name = String(part.fields?.name?.value ?? part.filename ?? spec.fallback).slice(0, 80);
+
+    const isJson = String(req.headers['content-type'] ?? '').includes('application/json');
+    let name: string;
+    let hashes: string[];
+    let category: string | undefined;
+
+    if (isJson) {
+      const body = (req.body ?? {}) as any;
+      hashes = Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [];
+      if (hashes.length === 0) return reply.status(400).send({ error: 'at least one image is required' });
+      for (const h of hashes) {
+        if (!/^[a-f0-9]{32}$/.test(h) || !core.images.has(h))
+          return reply.status(400).send({ error: `unknown image ${h}` });
+      }
+      name =
+        String(body.name ?? '')
+          .trim()
+          .slice(0, 80) || spec.fallback;
+      const raw = body.category == null ? '' : String(body.category).slice(0, 500);
+      category = raw || undefined;
+    } else {
+      const part = await readImagePart(req, toPng);
+      if ('error' in part) return reply.status(400).send({ error: part.error });
+      hashes = [part.hash];
+      name = String(part.fields?.name?.value ?? part.filename ?? spec.fallback).slice(0, 80);
+    }
+
+    const id = `${spec.prefix}-${randomUUID().slice(0, 8)}`;
     const json = { ...(brand.json as any) };
     json[spec.key] = [
       ...(json[spec.key] ?? []),
-      { id: `${spec.prefix}-${randomUUID().slice(0, 8)}`, name, shots: [{ file: `asset:${hash}`, locked: true }] },
+      {
+        id,
+        name,
+        ...(category ? { category } : {}),
+        shots: hashes.map((h) => ({ file: `asset:${h}`, locked: true })),
+      },
     ];
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
-    return core.store.updateBrand(brand.id, json);
+    const saved = core.store.updateBrand(brand.id, json);
+    return isJson ? { ...saved, productId: id } : saved;
   };
   const removeAsset = (kind: keyof typeof ASSETS) => async (req: any, reply: any) => {
     const spec = ASSETS[kind];
@@ -585,6 +668,255 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return serveJpeg(req, reply, path);
   });
 
+  // ---- custom presenters and scenes (the ones a brand builds for itself)
+  //
+  // These live in the brand document, not in templates/, and everything past
+  // this point treats them identically to the curated ones: compileBrief
+  // already prefers `characters[]` over the presenter catalog, and the scene
+  // resolver below prefers `scenes[]` over the scene catalog.
+  const analyzer: Analyzer | null = opts.analyzer ?? createCodexAnalyzer();
+
+  /**
+   * Which engine draws a person's studio views and a scene's preview.
+   *
+   * Prefers codex-cli: it is local, free on the user's own subscription, and
+   * carries six references, which is what a chained identity plan needs. Any
+   * available engine that can take a reference at all will do; one that takes
+   * none could not hold a face, so it is not offered.
+   */
+  const buildEngine = async (): Promise<EngineAdapter | null> => {
+    const ordered = [...engines.all()].sort((a, b) => {
+      const rank = (e: EngineAdapter) => (e.capabilities().id === 'codex-cli' ? 0 : 1);
+      return rank(a) - rank(b);
+    });
+    for (const engine of ordered) {
+      const caps = engine.capabilities();
+      if (!caps.maxReferenceImages || caps.placeholder) continue;
+      if ((await engine.isAvailable()).ok) return engine;
+    }
+    return null;
+  };
+
+  const buildDeps = async (): Promise<AssetBuildDeps> => ({
+    core,
+    engine: await buildEngine(),
+    analyzer: (await analyzer?.isAvailable())?.ok ? analyzer : null,
+    brandContext: (brandId: string) => brandContext(core, brandId),
+    // The filters that already exist, so a new asset lands under a tab a
+    // person can actually click rather than inventing a category of one.
+    vocabulary: { ...facetsOf(scenes), categories: presenterFacetsOf(presenters).categories },
+  });
+
+  /** What a creation flow needs to know before it promises anything. */
+  app.get('/api/asset-builds/capabilities', async () => {
+    const [engine, probe] = await Promise.all([buildEngine(), analyzer?.isAvailable() ?? { ok: false }]);
+    return {
+      canAnalyze: probe.ok,
+      analyzeReason: probe.ok ? null : (probe.reason ?? null),
+      canGenerate: !!engine,
+      engineId: engine?.capabilities().id ?? null,
+      engineName: engine?.capabilities().displayName ?? null,
+      /** True when building costs the user nothing but time. */
+      free: engine ? (await engine.costEstimate(COST_PROBE).catch(() => 0)) <= 0 : true,
+    };
+  });
+
+  const brandOr404 = (req: any, reply: any) => {
+    const brand = core.store.getBrand(String(req.params.id));
+    if (!brand) {
+      reply.status(404).send({ error: 'brand not found' });
+      return null;
+    }
+    return brand;
+  };
+
+  app.post('/api/brands/:id/asset-builds', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const body = (req.body ?? {}) as any;
+    const kind = String(body.kind ?? '');
+    if (kind !== 'presenter' && kind !== 'scene')
+      return reply.status(400).send({ error: 'kind must be presenter|scene' });
+    try {
+      return startAssetBuild(await buildDeps(), {
+        brandId: brand.id,
+        kind,
+        name: String(body.name ?? ''),
+        instruction: body.instruction == null ? undefined : String(body.instruction),
+        imageHashes: Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [],
+        facets: Array.isArray(body.facets) ? body.facets.map((f: unknown) => String(f)) : [],
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'could not start' });
+    }
+  });
+  app.get('/api/brands/:id/asset-builds', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    return { builds: listAssetBuilds(brand.id) };
+  });
+  app.get('/api/brands/:id/asset-builds/:jobId', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const job = getAssetBuild(String((req.params as any).jobId));
+    if (!job || job.brandId !== brand.id) return reply.status(404).send({ error: 'build not found' });
+    return job;
+  });
+  /**
+   * Forget a build that finished badly. `prune` only drops finished builds past
+   * the newest twelve, so without this a failed card sits on the wall for twelve
+   * more builds with no way to dismiss it.
+   */
+  app.delete('/api/brands/:id/asset-builds/:jobId', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const job = getAssetBuild(String((req.params as any).jobId));
+    if (!job || job.brandId !== brand.id) return reply.status(404).send({ error: 'build not found' });
+    forgetAssetBuild(job.id);
+    return { ok: true };
+  });
+  app.post('/api/brands/:id/asset-builds/:jobId/cancel', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const job = getAssetBuild(String((req.params as any).jobId));
+    if (!job || job.brandId !== brand.id) return reply.status(404).send({ error: 'build not found' });
+    cancelAssetBuild(job.id);
+    return { ok: true };
+  });
+
+  /**
+   * Write a presenter directly, without a build.
+   *
+   * This is the path when nothing can read the photos: they become the
+   * references as they are, and every field stays editable on the presenter's
+   * own page. Named `presenters` rather than `characters` because there is
+   * still no manual-add route for the legacy roster shape.
+   */
+  app.post('/api/brands/:id/presenters', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const built = presenterRecordFrom((req.body ?? {}) as any);
+    if (!built.ok) return reply.status(400).send({ error: built.error });
+    try {
+      commit(core, brand.id, (json) => {
+        json.characters = [...brandCharacters(json), built.presenter];
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message });
+    }
+    return { presenter: built.presenter, brand: core.store.getBrand(brand.id) };
+  });
+  app.patch('/api/brands/:id/presenters/:presenterId', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).presenterId);
+    const base = brandCharacters(brand.json).find((c: any) => c.id === id);
+    if (!base) return reply.status(404).send({ error: 'presenter not found' });
+    if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
+    const built = presenterRecordFrom((req.body ?? {}) as any, base);
+    if (!built.ok) return reply.status(400).send({ error: built.error });
+    try {
+      commit(core, brand.id, (json) => {
+        json.characters = brandCharacters(json).map((c: any) => (c.id === id ? built.presenter : c));
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message });
+    }
+    return { presenter: built.presenter, brand: core.store.getBrand(brand.id) };
+  });
+  app.delete('/api/brands/:id/presenters/:presenterId', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).presenterId);
+    const base = brandCharacters(brand.json).find((c: any) => c.id === id);
+    if (!base) return reply.status(404).send({ error: 'presenter not found' });
+    if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
+    // Shots already made keep their prompt and their pixels. A brief that names
+    // this person again will say so; see compileBrief's roster warning.
+    commit(core, brand.id, (json) => {
+      json.characters = brandCharacters(json).filter((c: any) => c.id !== id);
+    });
+    return { ok: true };
+  });
+
+  app.post('/api/brands/:id/scenes', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const built = sceneRecordFrom((req.body ?? {}) as any);
+    if (!built.ok) return reply.status(400).send({ error: built.error });
+    try {
+      commit(core, brand.id, (json) => {
+        json.scenes = [...brandScenes(json), built.scene];
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message });
+    }
+    return {
+      scene: built.scene,
+      warnings: lintSceneProse(brand.json, built.scene),
+      brand: core.store.getBrand(brand.id),
+    };
+  });
+  app.patch('/api/brands/:id/scenes/:sceneId', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).sceneId);
+    const base = brandScenes(brand.json).find((s) => s.id === id);
+    if (!base) return reply.status(404).send({ error: 'scene not found' });
+    const built = sceneRecordFrom((req.body ?? {}) as any, base);
+    if (!built.ok) return reply.status(400).send({ error: built.error });
+    try {
+      commit(core, brand.id, (json) => {
+        json.scenes = brandScenes(json).map((s) => (s.id === id ? built.scene : s));
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message });
+    }
+    return {
+      scene: built.scene,
+      warnings: lintSceneProse(brand.json, built.scene),
+      brand: core.store.getBrand(brand.id),
+    };
+  });
+  app.delete('/api/brands/:id/scenes/:sceneId', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).sceneId);
+    if (!brandScenes(brand.json).some((s) => s.id === id)) return reply.status(404).send({ error: 'scene not found' });
+    commit(core, brand.id, (json) => {
+      json.scenes = brandScenes(json).filter((s) => s.id !== id);
+    });
+    return { ok: true };
+  });
+
+  /** Redraw a scene's example. One generation, asked for explicitly. */
+  app.post('/api/brands/:id/scenes/:sceneId/preview', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).sceneId);
+    const scene = brandScenes(brand.json).find((s) => s.id === id);
+    if (!scene) return reply.status(404).send({ error: 'scene not found' });
+    const engine = await buildEngine();
+    if (!engine) return reply.status(400).send({ error: 'no engine here can draw a preview' });
+    const request = {
+      prompt: scenePreviewPrompt(scene as CustomScene),
+      brand: brandContext(core, brand.id),
+      width: scene.width,
+      height: scene.height,
+      count: 1,
+    };
+    const engineId = engine.capabilities().id;
+    core.ledger.assertUnderCap(engineId, await engine.costEstimate(request).catch(() => 0));
+    const result = await engine.generate(request);
+    core.ledger.recordCost(engineId, null, result.costUsd);
+    const hash = result.images[0];
+    if (!hash) return reply.status(500).send({ error: 'the engine returned no image' });
+    commit(core, brand.id, (json) => {
+      json.scenes = brandScenes(json).map((s) => (s.id === id ? { ...s, preview: `asset:${hash}` } : s));
+    });
+    return { preview: `asset:${hash}`, brand: core.store.getBrand(brand.id) };
+  });
+
   // ---- demo products (curated, fictional-but-premium product catalog). A
   // demo product attaches straight into a brief like a Presenter does — see
   // brandJsonWithResolvedDemoProducts below. Never touches a real brand's
@@ -699,12 +1031,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       ),
       brief.tokens,
     );
+    const sceneById = sceneFor(brandJson);
     const compiled = compileBrief(brief as Brief, {
       brand: brandJson,
       images: core.images,
       engineCaps: engine.capabilities(),
-      template: brief.templateId ? resolveScene(String(brief.templateId)) : undefined,
-      templateById: (id: string) => resolveScene(id),
+      template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
+      templateById: sceneById,
     });
     // paths are server-side detail; the UI works in hashes
     const { referenceImages, ...rest } = compiled;
@@ -969,12 +1302,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ),
         brief.tokens,
       );
+      const sceneById = sceneFor(brandJson);
       compiled = compileBrief(brief as Brief, {
         brand: brandJson,
         images: core.images,
         engineCaps: engine.capabilities(),
-        template: brief.templateId ? resolveScene(String(brief.templateId)) : undefined,
-        templateById: (id: string) => resolveScene(id),
+        template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
+        templateById: sceneById,
       });
       if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
     }
@@ -992,7 +1326,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let referenceImages: string[] | undefined;
     let referenceRoles: ReferenceRole[] | undefined;
     if (!compiled && (productId || templateId)) {
-      if (templateId && !resolveScene(String(templateId)))
+      if (templateId && !sceneFor(core.store.getBrand(project.brandId)?.json)(String(templateId)))
         return reply.status(400).send({ error: `unknown template ${templateId}` });
       if (productId && !resolveLibraryProduct(core, project.brandId, String(productId)))
         return reply.status(400).send({ error: 'product not found in brand' });
@@ -1020,7 +1354,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         brand: brandJson,
         images: core.images,
         engineCaps: engine.capabilities(),
-        templateById: (id: string) => resolveScene(id),
+        templateById: sceneFor(brandJson),
       });
       if (productId && !compiled.attachments.some((a) => a.role === 'product'))
         return reply.status(400).send({ error: 'product has no usable shots' });

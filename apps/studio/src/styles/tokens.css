@@ -816,7 +816,11 @@ select {
   background: var(--sc-hover);
   color: var(--sc-fg);
 }
-.sc-chip[data-active="true"] {
+/* Two spellings of the same on-state. `data-on` is the convention everywhere
+   else a control can be lit (.sc-icon-btn), and the chip was the one holdout —
+   which is why a selected facet chip in the create form looked unselected. */
+.sc-chip[data-active="true"],
+.sc-chip[data-on] {
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
   border-color: transparent;
@@ -2909,6 +2913,11 @@ button.sc-fact:hover {
 }
 .sc-toast-act:hover {
   background: var(--sc-hover);
+}
+/* JSX puts no whitespace between siblings, so a second action would touch the
+   first. Two is the cap; this is the only spacing they need. */
+.sc-toast-act + .sc-toast-act {
+  margin-left: 6px;
 }
 .sc-toast-x {
   border: none;
@@ -5700,14 +5709,18 @@ textarea.sc-edit[data-variant="lede"] {
   margin-bottom: 14px;
 }
 .sc-canvas {
-  padding: 0 20px 200px;
+  /* Named, because the first-run shelf cancels exactly this gutter to bleed. */
+  --sc-canvas-gutter: 20px;
+  --sc-dock-reserve: 200px;
+  padding: 0 var(--sc-canvas-gutter) var(--sc-dock-reserve);
 }
 /* The phone's own gutter, restated here because the rule above is later in the
    file than the media query that first set it and was quietly winning: the
    feed kept desktop margins and 200px of dock room on a 390px screen. */
 @media (max-width: 767px) {
   .sc-canvas {
-    padding: 0 var(--sc-gutter) 150px;
+    --sc-canvas-gutter: var(--sc-gutter);
+    --sc-dock-reserve: 150px;
   }
 }
 
@@ -6519,36 +6532,12 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-coll h2 {
   font: 600 19px var(--sc-font);
   letter-spacing: -0.02em;
-  margin-bottom: 8px;
-}
-.sc-coll-names {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
   margin-bottom: 14px;
 }
-.sc-coll-names button {
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 12.5px;
-  color: var(--sc-fg3);
-}
-.sc-coll-names button:hover {
-  color: var(--sc-fg);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-/* On a phone this index is a second, worse copy of the grid directly beneath
-   it: the same scenes, by name only, as 15px-tall targets. One collection put
-   seventeen of them above the fold and pushed every picture off it. The cards
-   say the same names and show the scene. */
-@media (max-width: 767px) {
-  .sc-coll-names {
-    display: none;
-  }
-}
+/* The text index that used to sit between a collection heading and its wall
+   is gone. It listed, by name, exactly the scenes pictured directly below it:
+   the same targets twice, the worse copy first. It had already been hidden on
+   phones for that reason; it is no better on a desktop. */
 
 /* A grid, not CSS columns: columns fill top-to-bottom, so a collection with
    two looks would leave half the row empty. Auto-fill wraps left-to-right and
@@ -7317,59 +7306,61 @@ textarea.sc-edit[data-variant="lede"] {
   padding: 30px 0;
 }
 
-/* ---- Products empty state: cold CTA + Scenri Library shelf.
-   Scoped under .sc-products so Create's .sc-canvas-empty stays untouched.
-   Larger type + section gaps so the hero reads above the secondary shelf. */
-.sc-products .sc-canvas-empty {
-  padding: 64px 0 36px;
+/* ---- The first-run state, shared by Products, Presenters and Scenes.
+   One offer, one seam, then the library. The three pages render the same
+   component in the same order, so they get one set of numbers rather than
+   three that drift apart: `data-hero` on <main> is the shared hook. ---- */
+.sc-looks[data-hero] .sc-canvas-empty {
+  padding: 104px 0 0;
 }
-.sc-products .sc-canvas-empty h3 {
+.sc-looks[data-hero] .sc-canvas-empty h3,
+.sc-canvas[data-firstrun] .sc-canvas-empty h3 {
   font-size: 28px;
   letter-spacing: -0.025em;
   margin-bottom: 12px;
 }
-.sc-products .sc-canvas-empty h3 em {
+.sc-looks[data-hero] .sc-canvas-empty h3 em,
+.sc-canvas[data-firstrun] .sc-canvas-empty h3 em {
   font-size: 32px;
 }
-.sc-products .sc-canvas-empty p {
+.sc-looks[data-hero] .sc-canvas-empty p,
+.sc-canvas[data-firstrun] .sc-canvas-empty p {
   font-size: 14px;
   line-height: 1.45;
   margin-bottom: 0;
+  /* `pretty` only protects the last line, which on a two-line lede leaves a
+     long first line over a stub. These three are short by design, so balance
+     them into even halves instead. */
+  text-wrap: balance;
 }
-.sc-products .sc-canvas-empty .sc-lookpage-acts {
-  margin-top: 20px;
+.sc-looks[data-hero] .sc-canvas-empty .sc-lookpage-acts {
+  margin-top: 24px;
   margin-bottom: 0;
 }
-.sc-products-starter {
-  margin-top: 72px;
-  text-align: left;
-}
-.sc-products-starter .sc-eyebrow {
-  margin-bottom: 18px;
-}
 @media (max-width: 900px) {
-  .sc-products .sc-canvas-empty {
-    padding: 48px 0 28px;
+  .sc-looks[data-hero] .sc-canvas-empty {
+    padding-top: 72px;
   }
-  .sc-products .sc-canvas-empty h3 {
+  .sc-looks[data-hero] .sc-canvas-empty h3,
+  .sc-canvas[data-firstrun] .sc-canvas-empty h3 {
     font-size: 24px;
   }
-  .sc-products .sc-canvas-empty h3 em {
+  .sc-looks[data-hero] .sc-canvas-empty h3 em,
+  .sc-canvas[data-firstrun] .sc-canvas-empty h3 em {
     font-size: 28px;
   }
 }
 @media (max-width: 600px) {
-  .sc-products .sc-canvas-empty {
-    padding: 36px 0 24px;
+  .sc-looks[data-hero] .sc-canvas-empty {
+    padding-top: 52px;
   }
-  .sc-products .sc-canvas-empty h3 {
+  .sc-looks[data-hero] .sc-canvas-empty h3,
+  .sc-canvas[data-firstrun] .sc-canvas-empty h3 {
     font-size: 22px;
   }
-  .sc-products .sc-canvas-empty h3 em {
+  .sc-looks[data-hero] .sc-canvas-empty h3 em,
+  .sc-canvas[data-firstrun] .sc-canvas-empty h3 em {
     font-size: 26px;
-  }
-  .sc-products-starter {
-    margin-top: 48px;
   }
 }
 
@@ -9462,5 +9453,803 @@ textarea:disabled {
 @media (max-width: 767px) {
   .sc-main[data-no-dock] {
     padding-bottom: 48px;
+  }
+}
+
+/* ---------- 6.3 assets a brand owns ----------
+   "Your presenters" / "Your scenes" sit above the curated wall on their own
+   library pages. Same masonry, same cards: only the eyebrow and the beat
+   between the two halves say which is which, so the page reads as one library
+   with a personal top rather than two competing lists. */
+.sc-owned {
+  margin-bottom: 46px;
+}
+/* A build card carries a caption under its media, so it is taller than a
+   finished one. Without this the grid stretches every sibling to match and a
+   finished card grows an empty tail of its own background. */
+.sc-owned .sc-masonry {
+  align-items: start;
+}
+.sc-owned .sc-eyebrow {
+  margin-bottom: 18px;
+}
+/* The seam between your work and the catalog: a hairline, the system's own
+   separator, not a second eyebrow. */
+.sc-owned + .sc-owned-divider {
+  padding-top: 22px;
+  border-top: 1px solid var(--sc-line);
+}
+
+/* The catalog, introduced under the offer. Same block Products uses for its
+   own library shelf, minus the page scoping, because three pages share it now.
+   The filter row rides inside it, so it stays attached to the wall it filters
+   and keeps sticking to the top of the viewport on the way down. */
+/* The gap between the offer and the library it introduces. The hero owns the
+   air above itself, this owns the air below it, so the rhythm is set in two
+   places rather than stacked out of four. */
+.sc-starter {
+  margin-top: 96px;
+}
+@media (max-width: 900px) {
+  .sc-starter {
+    margin-top: 68px;
+  }
+}
+@media (max-width: 600px) {
+  .sc-starter {
+    margin-top: 52px;
+  }
+}
+
+/* The seam itself: a centred label with a rule out to each edge. Set in the
+   label type, not the uppercase eyebrow, because this separates two halves of
+   a page rather than titling the second one. */
+.sc-starter-rule {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  color: var(--sc-fg3);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.sc-starter-rule::before,
+.sc-starter-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--sc-line);
+}
+.sc-starter-rule > span {
+  text-wrap: balance;
+  text-align: center;
+}
+
+/* Nothing above the offer but the nav, so the page does not reserve the band
+   the filter row would have used. */
+.sc-looks[data-hero] {
+  padding-top: 0;
+}
+
+/* The library CTA, hoisted into the top bar below 1280px. It is one control in
+   a row of fixed chrome, so it keeps its label on one line: folded in half a
+   two-word label reads as a broken button rather than a tight fit. */
+
+/* The cold state reads the same here as on Products: one centred offer, then
+   the catalog underneath. Only the copy changes. */
+.sc-presenters .sc-canvas-empty,
+.sc-scenes .sc-canvas-empty {
+  padding: 56px 0 32px;
+}
+.sc-presenters .sc-canvas-empty h3,
+.sc-scenes .sc-canvas-empty h3 {
+  font-size: 28px;
+  letter-spacing: -0.025em;
+  margin-bottom: 12px;
+}
+.sc-presenters .sc-canvas-empty h3 em,
+.sc-scenes .sc-canvas-empty h3 em {
+  font-size: 32px;
+}
+.sc-presenters .sc-canvas-empty p,
+.sc-scenes .sc-canvas-empty p {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.sc-presenters .sc-canvas-empty .sc-lookpage-acts,
+.sc-scenes .sc-canvas-empty .sc-lookpage-acts {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+/* A card for something still being built. It holds a real place in the wall,
+   so nothing reflows when the finished asset replaces it. */
+.sc-lookcard[data-building] .sc-lookcard-media {
+  background: var(--sc-well);
+}
+/* Its caption is the point, so it sits under the card and stays put. Every
+   other card overlays its caption on the image and reveals it on hover, which
+   for a progress card would hide the one thing it exists to say. */
+.sc-lookcard[data-build] {
+  overflow: visible;
+  background: none;
+}
+.sc-lookcard[data-build] .sc-lookcard-cap {
+  position: static;
+  opacity: 1;
+  transform: none;
+  padding: 8px 2px 0;
+  text-shadow: none;
+}
+.sc-lookcard[data-build] .sc-lookcard-cap b {
+  color: var(--sc-fg);
+}
+.sc-lookcard[data-build] .sc-lookcard-cap span {
+  color: var(--sc-fg3);
+}
+/* What the build noticed on the way: a view it could not draw, or which photo
+   would buy more consistency next time. Muted and under the caption, because
+   none of it is an error — the asset still landed. */
+.sc-buildnotes {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0 2px;
+  color: var(--sc-fg3);
+  font-size: 11px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+.sc-buildnotes li + li {
+  margin-top: 2px;
+}
+.sc-buildbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--sc-line);
+}
+.sc-buildbar > span {
+  display: block;
+  height: 100%;
+  background: var(--sc-fg);
+  transition: width 400ms ease;
+}
+
+/* ---------- 6.4 making a presenter or a scene ----------
+   One short form: a name, some evidence, an optional sentence. Everything
+   structural is read off the references, so there is nothing here to tune. */
+.sc-assetform {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* Four slots, fixed: the row keeps its rhythm as references arrive rather
+   than resizing every tile on each upload. */
+.sc-assetform-refs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.sc-assetform-refs .sc-dropzone {
+  min-height: 0;
+  aspect-ratio: 4 / 5;
+  padding: 6px;
+  gap: 3px;
+}
+.sc-assetform-refs .sc-dropzone .sc-dropzone-label {
+  font-size: 11px;
+}
+.sc-assetform-ref {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--sc-radius-lg);
+  overflow: hidden;
+  background: var(--sc-well);
+}
+.sc-assetform-ref img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sc-assetform-drop {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--sc-bg);
+  background: color-mix(in srgb, var(--sc-fg) 78%, transparent);
+}
+.sc-assetform-drop:hover {
+  background: var(--sc-fg);
+}
+.sc-assetform .sc-dropzone small {
+  max-width: 34ch;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* Where a new asset files. Optional, so it is set quietly in the system's own
+   chips rather than as a required field with a label above it. */
+.sc-assetform-facets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: none;
+  padding: 2px 0 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+.sc-assetform-facets legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 8px;
+  color: var(--sc-fg3);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.sc-assetform-facets .sc-chip {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* The same red as .sc-dlg-err, for the edit forms on an owned asset's page.
+   One error voice whether the form is in a dialog or on a page. */
+.sc-assetform-err {
+  color: var(--sc-red);
+  font-size: 11.5px;
+  margin: 8px 0 0;
+}
+
+/* ---------- 6.5 an asset you own, on its own page ----------
+   A curated presenter or scene is read-only, so its page is a title and a
+   lede. One you built is the same page with those two turned into fields:
+   the layout does not move between them, so switching between yours and ours
+   is not a change of place. */
+/* Centred like the heading it replaces: the page is a centred column, so a
+   field that reads left while everything around it reads centre looks like a
+   different page rather than the same one in an editable state. */
+.sc-lookpage .sc-ownededit-title input {
+  font: 600 var(--sc-text-h1, 30px) / 1.15 var(--sc-font-display, var(--sc-font));
+  letter-spacing: -0.03em;
+  padding: 0;
+  height: auto;
+  text-align: center;
+}
+.sc-lookpage .sc-ownededit-lede input {
+  font-size: 14px;
+  color: var(--sc-fg2);
+  padding: 0;
+  height: auto;
+  text-align: center;
+}
+
+/* One frame is the ordinary case for a scene you built, and a lone tile in
+   the first column of a three-column grid reads as a layout that broke. */
+.sc-lookpage-refs:has(> :only-child) {
+  grid-template-columns: min(380px, 100%);
+  justify-content: center;
+}
+.sc-ownededit-title,
+.sc-ownededit-lede {
+  --text-field-focus-color: transparent;
+  box-shadow: none;
+  background: transparent;
+  margin-bottom: 6px;
+}
+.sc-ownededit-title:focus-within,
+.sc-ownededit-lede:focus-within {
+  box-shadow: inset 0 -1px 0 0 var(--sc-line-strong);
+}
+
+/* Which references actually reach an engine. Two per person, and they are
+   the first two, so a gallery that does not say which is a gallery you have
+   to guess at. */
+.sc-ownedref {
+  position: relative;
+}
+.sc-ownedref-tag {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sc-bg);
+  background: color-mix(in srgb, var(--sc-fg) 78%, transparent);
+}
+
+.sc-ownedbits {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  margin-top: 40px;
+  padding-top: 34px;
+  border-top: 1px solid var(--sc-line);
+  text-align: left;
+}
+.sc-ownedbits-note {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--sc-fg3);
+  margin: 0 0 10px;
+  max-width: 62ch;
+}
+.sc-ownedbits-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sc-fg3);
+}
+
+/* ---------- 6.6 the first-run shelf ----------
+   The use-case row on an empty Create. A plain swipeable shelf: this screen is
+   for reading the options and picking one, and a row that drifts makes labels
+   harder to read and every card a moving target. The fades say it continues. */
+.sc-shelf {
+  position: relative;
+  /* Bleeds to the canvas edges, not the window's. 100vw here ran the row under
+     the assets sidebar and gave the whole page a horizontal scrollbar: the
+     canvas is a grid column, so its own gutter is the only thing to cancel. */
+  margin-inline: calc(var(--sc-canvas-gutter, 20px) * -1);
+}
+.sc-shelf-row {
+  display: grid;
+  grid-auto-flow: column;
+  /* Wide enough for the credits to read, narrow enough that a second card is
+     always visibly cut off, which is what says the row keeps going. */
+  grid-auto-columns: 232px;
+  gap: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* No scroll-snap: this is a gallery you flick through, and snapping nudged
+     the row off its true left edge at rest, which lit the left fade over
+     nothing. The inline padding puts the first card back on the content edge
+     while the row itself still runs to the canvas edges. */
+  padding: 2px var(--sc-canvas-gutter, 20px) 4px;
+}
+.sc-shelf-row::-webkit-scrollbar {
+  display: none;
+}
+.sc-shelf::before,
+.sc-shelf::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 110px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.sc-shelf::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 22%, transparent);
+}
+.sc-shelf::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 22%, transparent);
+}
+.sc-shelf[data-overflow-left]::before,
+.sc-shelf[data-overflow-right]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-shelf::before,
+  .sc-shelf::after {
+    transition: none;
+  }
+}
+
+/* Arrows, because a mouse has no sideways gesture. Same shape and behaviour as
+   the detail-page sliders: hidden until the row is hovered or focused. */
+.sc-shelf-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-panel);
+  color: var(--sc-fg2);
+  opacity: 0;
+  transition:
+    opacity 0.16s ease,
+    color 0.16s ease;
+}
+.sc-shelf:hover .sc-shelf-arrow,
+.sc-shelf-arrow:focus-visible {
+  opacity: 1;
+}
+.sc-shelf-arrow:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-shelf-arrow.prev {
+  left: 14px;
+  transform: translateY(-50%);
+}
+.sc-shelf-arrow.next {
+  right: 14px;
+  transform: translateY(-50%);
+}
+@media (hover: none) {
+  .sc-shelf-arrow {
+    display: none;
+  }
+}
+
+/* The recipe currently sitting in the brief. Drawn inside the picture, not as
+   an outline around the card: an outline sits outside the box and the row
+   clips it on every edge, which read as a chopped ring. */
+.sc-showcase-tile[data-active] .sc-lookcard-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 2px var(--sc-fg),
+    inset 0 0 0 4px var(--sc-bg);
+}
+.sc-showcase-tile[data-active] .sc-lookcard-veil,
+.sc-showcase-tile[data-active] .sc-lookcard-cap {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- 6.7 the first run of an empty brand ----------
+   One screen: a title, a line, a shelf. It sits in the middle of the canvas
+   rather than hanging off the top, and the beats between the three are set
+   here rather than inherited from the generic empty state. */
+/* First run: nothing scrolls, because nothing is above or below. Killing the
+   scroll also kills the scrollbar gutter, which was leaving an 11px seam
+   between the shelf and the assets panel that no amount of bleed could close. */
+.sc-canvas[data-firstrun] {
+  overflow: hidden;
+  /* The feed keeps a permanent scrollbar gutter so it cannot shift when one
+     appears. Nothing scrolls here, so that reserve was just an 11px seam
+     between the shelf and the assets panel. */
+  scrollbar-gutter: auto;
+  /* The composer's resting height plus a beat. Deliberately a fixed number and
+     not the dock's live height: the dock grows with a long brief, and anything
+     tracking it re-centres this whole screen the moment a recipe is staged.
+     The generic 200px reserve is sized for a scrolling feed and left this
+     screen sitting 29px high. */
+  padding-bottom: 136px;
+}
+.sc-canvas > .sc-canvas-empty:only-child {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* The canvas already reserves the dock's height as bottom padding, so its
+     content box IS the visible area: filling it and centring inside puts the
+     middle of this block on the middle of the screen. Adding the reserve back
+     overshot and pushed the shelf under the dock. */
+  min-height: 100%;
+  padding: 0;
+}
+.sc-canvas > .sc-canvas-empty:only-child h3 {
+  margin-bottom: 10px;
+}
+.sc-canvas > .sc-canvas-empty:only-child p {
+  margin-bottom: 44px;
+}
+.sc-canvas > .sc-canvas-empty:only-child .sc-shelf {
+  margin-bottom: 0;
+}
+/* The shelf holds ten of a hundred, in a different order every visit, so
+   there has to be a way through to the rest. One quiet line, not a button. */
+.sc-shelf-more {
+  align-self: center;
+  margin-top: 22px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+}
+.sc-shelf-more:hover {
+  color: var(--sc-fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 1023px) {
+  .sc-shelf-row {
+    grid-auto-columns: 200px;
+    gap: 12px;
+  }
+  .sc-shelf::before,
+  .sc-shelf::after {
+    width: 64px;
+  }
+  .sc-canvas > .sc-canvas-empty:only-child p {
+    margin-bottom: 32px;
+  }
+}
+@media (max-width: 767px) {
+  .sc-canvas[data-firstrun] {
+    padding-bottom: 120px;
+  }
+  .sc-shelf-row {
+    grid-auto-columns: 168px;
+    gap: 10px;
+  }
+  .sc-shelf::before,
+  .sc-shelf::after {
+    width: 40px;
+  }
+  .sc-canvas > .sc-canvas-empty:only-child h3 {
+    margin-bottom: 8px;
+  }
+  .sc-canvas > .sc-canvas-empty:only-child p {
+    margin-bottom: 24px;
+  }
+}
+
+/* ---------- 6.6 one way to add to a brand ----------------------------------
+   Product, presenter and scene are three different objects and three different
+   forms; this is everything about them that should never differ. One header
+   shape, one error slot, one full-width primary, one line under it saying what
+   pressing it will do. Below 767px the same markup is a sheet — the switch is
+   here, not in JS, so there is never a second copy of the dialog's state. */
+.sc-newdlg {
+  display: flex;
+  flex-direction: column;
+  max-height: min(76dvh, 640px);
+}
+.sc-newdlg-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: -4px 0 0;
+}
+/* Only rendered when a chooser is actually behind this. */
+.sc-newdlg-back {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  margin-left: -6px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--sc-radius-sm);
+  color: var(--sc-fg2);
+}
+.sc-newdlg-back:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-newdlg-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--sc-text-title-s);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.sc-newdlg-close {
+  flex: none;
+  margin-right: -10px;
+}
+.sc-newdlg-close:hover {
+  color: var(--sc-fg);
+}
+.sc-newdlg-sub {
+  flex: none;
+  color: var(--sc-fg2);
+  font-size: 12px;
+  line-height: 1.45;
+  text-wrap: pretty;
+  margin: 4px 0 14px;
+}
+/* The only part that scrolls, so the title and the primary never leave. */
+.sc-newdlg-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.sc-newdlg-foot {
+  flex: none;
+  padding-top: 12px;
+}
+.sc-newdlg-err {
+  color: var(--sc-red);
+  font-size: 11.5px;
+  margin: 0 0 8px;
+}
+
+/* The other way in, kept quiet. Importing a catalog is a real path, not a
+   co-equal choice — it was a menu item pretending to be its own flow. */
+.sc-newdlg-secondary {
+  flex: none;
+  border-top: 1px solid var(--sc-line);
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.sc-newdlg-secmore {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--sc-fg2);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--sc-line-strong);
+}
+.sc-newdlg-secmore:hover {
+  color: var(--sc-fg);
+}
+.sc-newdlg-seclabel {
+  display: block;
+  color: var(--sc-fg3);
+  font-size: 11.5px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.sc-newdlg-secrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.sc-newdlg-secrow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The launcher: three rows, not three tiles. A row is something you pass
+   through; the icon+heading+text card grid this system rejects by name is
+   something you stop and read. The glyphs are the nav's own. */
+.sc-newlist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -8px -4px;
+}
+.sc-newrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--sc-radius-md);
+  color: var(--sc-fg);
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-newrow:hover {
+  background: var(--sc-raised);
+}
+.sc-newrow:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+.sc-newrow-ico {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--sc-radius-sm);
+  color: var(--sc-fg2);
+  background: var(--sc-well);
+  transition: color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-newrow:hover .sc-newrow-ico {
+  color: var(--sc-fg);
+}
+.sc-newrow-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.sc-newrow-txt b {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.sc-newrow-txt small {
+  color: var(--sc-fg3);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.sc-newrow-go {
+  flex: none;
+  color: var(--sc-fg3);
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-newrow:hover .sc-newrow-go,
+.sc-newrow:focus-visible .sc-newrow-go {
+  opacity: 1;
+}
+@media (hover: none) {
+  .sc-newrow-go {
+    opacity: 1;
+  }
+}
+
+/* The library pages keep their own button only where there is room for it.
+   Under 1280px this row holds a scrolling facet rail and a search field, and
+   the top bar's + is the same action — see TopBar.tsx. */
+@media (max-width: 1279px) {
+  .sc-filterbar-cta {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Same dialog, docked to the bottom edge. Radix still owns the focus trap,
+     the scroll lock and every dismissal path; only the geometry changes. */
+  .rt-BaseDialogOverlay:has(.sc-newdlg) .rt-BaseDialogScroll {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    padding: 0;
+    overflow: hidden;
+  }
+  .rt-BaseDialogOverlay:has(.sc-newdlg) .rt-BaseDialogScrollPadding {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .sc-newdlg {
+    width: 100%;
+    max-width: none;
+    /* Hugs its content and stops at 92dvh. A fixed height left a short form —
+       the product one is three fields — with a hand's width of empty sheet
+       between the last chip and the button. */
+    height: auto;
+    max-height: 92dvh;
+    margin: 0;
+    border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
+    /* --sc-bottom-inset already folds in the software keyboard, so the primary
+       clears it without this having to know anything about the keyboard. */
+    padding-bottom: max(var(--sc-space-7), var(--sc-bottom-inset));
+  }
+  .sc-newdlg[data-state="open"] {
+    animation: sc-sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .sc-newdlg[data-state="closed"] {
+    animation: sc-sheet-down 160ms ease-in;
+  }
+  .sc-newdlg-title {
+    font-size: 17px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-newdlg[data-state="open"],
+  .sc-newdlg[data-state="closed"] {
+    animation: none;
   }
 }

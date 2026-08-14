@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { productLabel } from '../displayName.js';
 import { useNavigate, useParams } from 'react-router';
 import { Callout, Flex, Select, Text, TextField } from '@radix-ui/themes';
-import { api, assetUrl, addProductShot, type Product } from '../api.js';
+import { api, assetUrl, addProductShot, deleteProduct, type Product } from '../api.js';
+import { Confirm } from '../Confirm.js';
 
 /** Mirrors PRODUCT_REF_MAX in packages/cli/src/brief.ts — the number of product images a brief actually attaches. */
 const PRODUCT_REF_MAX = 3;
@@ -28,6 +29,7 @@ export function ProductPage() {
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
   const [uploadingAngle, setUploadingAngle] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -103,6 +105,26 @@ export function ProductPage() {
         .updateCatalogProductCategory(brand.id, product.id, key)
         .then(() => refresh())
         .catch((e: any) => setErr(String(e.message ?? e)));
+  };
+
+  /** Catalog rows live in their own table, manual ones in the brand document —
+   *  the same branch the products grid used to own, moved to where the product is. */
+  const remove = async () => {
+    if (!product) return;
+    setRemoving(true);
+    setErr(null);
+    try {
+      if (product.origin === 'catalog' || product.id.startsWith('cat-')) {
+        await api.deleteCatalogProduct(brand.id, product.id);
+      } else {
+        await deleteProduct(brand.id, product.id);
+      }
+      await refresh();
+      navigate(productsPath(brand), { replace: true });
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+      setRemoving(false);
+    }
   };
 
   const uploadAngle = async (angleKey: string, file: File) => {
@@ -434,6 +456,20 @@ export function ProductPage() {
             ))}
           </Slider>
         )}
+
+        {/* Last on the page and nowhere near "Use in a shot" — the same place
+            a presenter and a scene keep theirs. A product used to be removable
+            only from the add-product dialog's grid, which is not somewhere
+            anyone goes looking to delete something. */}
+        <div className="sc-lookpage-acts">
+          <Confirm
+            label="Delete product"
+            title={`Delete ${product.name}?`}
+            body="Shots already made with it keep their images and their recipe. Only future shots lose it."
+            busy={removing}
+            onConfirm={() => void remove()}
+          />
+        </div>
       </main>
     </ScrollPane>
   );

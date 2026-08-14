@@ -43,6 +43,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
+import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
 
 export interface ComposerHandle {
@@ -158,7 +159,21 @@ export const Composer = forwardRef<
   handleRef,
 ) {
   const { products: libraryProducts } = useBrand();
-  const { scenes: templates, presenters, demoProducts, loaded } = useAppData();
+  const { scenes: catalogScenes, presenters: catalogPresenters, demoProducts, loaded } = useAppData();
+  /**
+   * The brand's own scenes and presenters, ahead of the curated catalogs.
+   *
+   * Merged once, here, because every consumer below takes these two lists:
+   * the attach panel, the sigil menus, the chips, the scene-switch policy, and
+   * the per-chip warnings. Missing any one of them would be worse than
+   * cosmetic — BriefInput drops a token it cannot resolve, so a restored draft
+   * carrying a custom scene would come back silently without it.
+   */
+  const templates = useMemo(() => withCustomFirst(customScenesOf(brand), catalogScenes), [brand, catalogScenes]);
+  const presenters = useMemo(
+    () => withCustomFirst(customPresentersOf(brand), catalogPresenters),
+    [brand, catalogPresenters],
+  );
   const openSettings = useOpenSettings();
   const { push } = useToasts();
   const usable = engines.filter((e) => e.available);

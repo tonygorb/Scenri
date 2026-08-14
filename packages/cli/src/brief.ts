@@ -376,7 +376,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         hasPerson = true;
-        append(c.name);
+        // Same two-name contract products have: the model reads `promptName`
+        // where there is one, humans read `name`. A curated presenter has no
+        // promptName and is named by `name`, which is why renaming one is a
+        // generation change; a person built here freezes a promptName at
+        // creation so their display name stays free to edit.
+        append(c.promptName ?? c.name);
         // Up to 2 angles per person (front + one more, if available): a face
         // benefits from multiple views for identity lock, unlike a labeled
         // product, which a single well-matched reference fully specifies.

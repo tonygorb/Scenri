@@ -255,7 +255,124 @@ export const api = {
   /** Catalog products only — a category override, the one field this app invents. */
   updateCatalogProductCategory: (brandId: string, productId: string, category: string | null) =>
     req<{ product: unknown }>('PATCH', `/api/brands/${brandId}/catalog/products/${productId}`, { category }),
+
+  // ---- presenters and scenes a brand builds for itself
+  /** What this machine can actually do, asked before anything is promised. */
+  assetBuildCapabilities: () => req<AssetBuildCapabilities>('GET', '/api/asset-builds/capabilities'),
+  startAssetBuild: (
+    brandId: string,
+    p: {
+      kind: 'presenter' | 'scene';
+      name: string;
+      instruction?: string;
+      imageHashes: string[];
+      /** Where it files: a presenter's industries, a scene's verticals. */
+      facets?: string[];
+    },
+  ) => req<{ jobId: string }>('POST', `/api/brands/${brandId}/asset-builds`, p),
+  assetBuild: (brandId: string, jobId: string) =>
+    req<AssetBuild>('GET', `/api/brands/${brandId}/asset-builds/${jobId}`),
+  assetBuilds: (brandId: string) => req<{ builds: AssetBuild[] }>('GET', `/api/brands/${brandId}/asset-builds`),
+  cancelAssetBuild: (brandId: string, jobId: string) =>
+    req<{ ok: true }>('POST', `/api/brands/${brandId}/asset-builds/${jobId}/cancel`),
+  /** Dismiss a build that is over. Cancelling stops work; this only forgets it. */
+  deleteAssetBuild: (brandId: string, jobId: string) =>
+    req<{ ok: true }>('DELETE', `/api/brands/${brandId}/asset-builds/${jobId}`),
+  /**
+   * A product from images already in the store, in one write.
+   *
+   * The multipart sibling (`uploadProduct`) takes one file and answers with the
+   * whole brand, which left the caller diffing the library to work out what it
+   * had just made. This one says.
+   */
+  createProduct: (brandId: string, p: { name: string; imageHashes: string[]; category?: string }) =>
+    req<Brand & { productId: string }>('POST', `/api/brands/${brandId}/products`, p),
+  /** Write a presenter with no build behind it: the photos become the references. */
+  createPresenter: (brandId: string, p: { name: string; shotHashes: string[]; sourceHashes?: string[] }) =>
+    req<{ presenter: unknown; brand: Brand }>('POST', `/api/brands/${brandId}/presenters`, p),
+  updatePresenter: (brandId: string, presenterId: string, patch: PresenterPatch) =>
+    req<{ presenter: unknown; brand: Brand }>('PATCH', `/api/brands/${brandId}/presenters/${presenterId}`, patch),
+  deletePresenter: (brandId: string, presenterId: string) =>
+    req<{ ok: true }>('DELETE', `/api/brands/${brandId}/presenters/${presenterId}`),
+  createScene: (brandId: string, p: ScenePatch) =>
+    req<{ scene: unknown; warnings: string[]; brand: Brand }>('POST', `/api/brands/${brandId}/scenes`, p),
+  updateScene: (brandId: string, sceneId: string, patch: ScenePatch) =>
+    req<{ scene: unknown; warnings: string[]; brand: Brand }>(
+      'PATCH',
+      `/api/brands/${brandId}/scenes/${sceneId}`,
+      patch,
+    ),
+  deleteScene: (brandId: string, sceneId: string) =>
+    req<{ ok: true }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}`),
+  /** Redraw a scene's example. One generation, always asked for out loud. */
+  generateScenePreview: (brandId: string, sceneId: string) =>
+    req<{ preview: string; brand: Brand }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/preview`),
 };
+
+/**
+ * Whether this machine can read references and draw from them.
+ *
+ * Both are accelerators, not gates: without them a person is still made from
+ * the photos as they arrive, and a place from a sentence. The creation flow
+ * reads this so it can say which of those is about to happen.
+ */
+export interface AssetBuildCapabilities {
+  canAnalyze: boolean;
+  analyzeReason: string | null;
+  canGenerate: boolean;
+  engineId: string | null;
+  engineName: string | null;
+  /** True when building costs the user nothing but time. */
+  free: boolean;
+}
+
+export interface AssetBuild {
+  id: string;
+  brandId: string;
+  kind: 'presenter' | 'scene';
+  name: string;
+  stage: 'queued' | 'analyzing' | 'building' | 'saving' | 'done' | 'failed' | 'cancelled';
+  step: number;
+  steps: number;
+  message: string | null;
+  /** The finished asset's id, once it exists in the brand. */
+  assetId: string | null;
+  /** Something to look at while the rest is still being drawn. */
+  previewHash: string | null;
+  warnings: string[];
+  /** Non-blocking notes on which further reference would buy consistency. */
+  coverage: string[];
+  facets: string[];
+  error: string | null;
+  startedAt: string;
+  finished: boolean;
+}
+
+export interface PresenterPatch {
+  name?: string;
+  descriptor?: string;
+  ageRange?: string;
+  hair?: string;
+  identityNotes?: string;
+  negativeConstraints?: string[];
+  /** Ordered. The first two are the views a brief attaches. */
+  shotHashes?: string[];
+  sourceHashes?: string[];
+}
+
+export interface ScenePatch {
+  name?: string;
+  lighting?: string;
+  description?: string;
+  subject?: 'product' | 'person' | 'either';
+  prompt?: string;
+  camera?: string;
+  collections?: string[];
+  verticals?: string[];
+  keywords?: string[];
+  instruction?: string;
+  refHashes?: string[];
+}
 
 export interface SceneField {
   key: string;
@@ -311,6 +428,13 @@ export interface Scene {
 export interface Presenter {
   id: string;
   name: string;
+  /**
+   * The frozen phrase the compiler sends the engine, for a person built here
+   * from their own photos. Never render it. A curated presenter has none and
+   * is named to the engine by `name`, which is why a curated one cannot be
+   * renamed without moving its generations.
+   */
+  promptName?: string;
   presentation: 'woman' | 'man';
   /** The casting-sheet caption, e.g. "Warm editorial · dark waves · confident, understated". */
   descriptor: string;

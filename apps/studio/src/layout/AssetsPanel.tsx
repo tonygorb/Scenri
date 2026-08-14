@@ -5,8 +5,8 @@ import { Dialog } from '@radix-ui/themes';
 import { CaretRight, ImageSquare, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useAppData } from '../app/AppShell.js';
-import { ProductsPanel } from '../AssetPanel.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { presentersPath } from '../routes.js';
 
@@ -40,7 +40,6 @@ export function AssetsPanel({
   onColor,
   onRef,
   onTemplate,
-  onBrandChanged,
   onClose,
 }: {
   brand: Brand;
@@ -52,7 +51,6 @@ export function AssetsPanel({
   onColor: (hex: string, name?: string) => void;
   onRef: (imageHash: string) => void;
   onTemplate: (id: string) => void;
-  onBrandChanged: () => void;
   /** Drawer mode close (shown under 1280px only). */
   onClose: () => void;
 }) {
@@ -61,6 +59,7 @@ export function AssetsPanel({
   const toggleGroup = (name: string) => setOpenGroup((g) => (g === name ? null : name));
   const navigate = useNavigate();
   const { products: library } = useBrand();
+  const createAsset = useCreateAsset();
   const { demoProducts } = useAppData();
   const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
   const palette = useMemo(() => {
@@ -100,17 +99,15 @@ export function AssetsPanel({
       openGroup={openGroup}
       onToggle={toggleGroup}
       action={
-        <Dialog.Root>
-          <Dialog.Trigger>
-            <button type="button" className="sc-aadd" title="Add product" aria-label="Add product">
-              <Plus size={10} />
-            </button>
-          </Dialog.Trigger>
-          <Dialog.Content maxWidth="560px">
-            <Dialog.Title>Products: {brand.json?.meta?.name}</Dialog.Title>
-            <ProductsPanel brand={brand} onChanged={onBrandChanged} />
-          </Dialog.Content>
-        </Dialog.Root>
+        <button
+          type="button"
+          className="sc-aadd"
+          title="Add product"
+          aria-label="Add product"
+          onClick={() => createAsset('product')}
+        >
+          <Plus size={10} />
+        </button>
       }
       empty={q ? 'No product matches.' : 'No products yet. Add one so shots stay exact.'}
       note="Click to attach. Locked shots keep the product exact."

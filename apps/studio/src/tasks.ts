@@ -1,5 +1,5 @@
-import { type ActivityNode, type CatalogImportJob, nodeLabel } from './api.js';
-import { kitPath, shotPath } from './routes.js';
+import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel } from './api.js';
+import { kitPath, presenterPath, scenePath, shotPath } from './routes.js';
 
 /**
  * The model behind the notifications bell.
@@ -14,11 +14,11 @@ import { kitPath, shotPath } from './routes.js';
  * so it lives here where a test can reach it. (vitest only globs `.ts`.)
  */
 
-export type TaskKind = 'generation' | 'edit' | 'catalog';
+export type TaskKind = 'generation' | 'edit' | 'catalog' | 'presenter' | 'scene';
 export type TaskState = 'running' | 'done' | 'error' | 'cancelled' | 'partial';
 
 export interface Task {
-  /** `node:<uuid>` or `catalog:<uuid>`. Stable across polls. */
+  /** `node:<uuid>`, `catalog:<uuid>` or `build:<id>`. Stable across polls. */
   id: string;
   kind: TaskKind;
   state: TaskState;
@@ -171,6 +171,40 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
     percent: catalogPercent(j),
     startedAt: j.createdAt,
     href: kitPath(brand),
+  };
+}
+
+/**
+ * A presenter or scene being built, as a row in the same list as everything else.
+ *
+ * This is what makes the top bar's + honest: a build started from Home used to
+ * be visible only on the library page that started it, so navigating away hid a
+ * twenty-minute job with no trace. Its progress is real — a presenter is four
+ * numbered studio frames — so unlike a generation it gets an actual bar.
+ */
+export function taskFromAssetBuild(b: AssetBuild, brand: { slug: string }): Task {
+  const state: TaskState =
+    b.stage === 'done' ? 'done' : b.stage === 'failed' ? 'error' : b.stage === 'cancelled' ? 'cancelled' : 'running';
+  const subtitle =
+    state === 'error'
+      ? (b.error ?? 'failed')
+      : state === 'cancelled'
+        ? 'stopped'
+        : state === 'done'
+          ? (b.warnings[0] ?? b.coverage[0] ?? (b.kind === 'presenter' ? 'Ready to cast' : 'Ready to use'))
+          : (b.message ?? (b.kind === 'presenter' ? 'Building the studio views' : 'Reading the references'));
+  return {
+    id: `build:${b.id}`,
+    kind: b.kind,
+    state,
+    title: b.name,
+    subtitle,
+    thumb: b.previewHash,
+    // real counters, so a real bar — the same rule catalogPercent follows
+    percent: b.steps > 0 ? Math.min(100, Math.round((b.step / b.steps) * 100)) : null,
+    startedAt: b.startedAt,
+    // nowhere to go until the asset exists
+    href: b.assetId ? (b.kind === 'presenter' ? presenterPath(brand, b.assetId) : scenePath(brand, b.assetId)) : null,
   };
 }
 

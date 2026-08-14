@@ -3,6 +3,7 @@ import { useMatch, useNavigate, useSearchParams } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
 import { CaretDown, SidebarSimple } from '@phosphor-icons/react';
 import { BrandMenu } from './BrandMenu.js';
+import { NewAssetButton } from '../create/NewAssetButton.js';
 import { NotificationsButton } from './Notifications.js';
 import { useMainNav } from './nav.js';
 import { api } from '../api.js';
@@ -47,13 +48,11 @@ export function TopBar() {
       </div>
       <MainNav />
       <div className="sc-topbar-end">
-        {/* Where a page's primary action lands below 1280px. The library
-            toolbar portals into this rather than keeping the button in its own
-            row: on a phone that row has to hold a scrolling facet rail and a
-            search field, and "Create presenter" was the third thing competing
-            for a width that only fits two. Up here it sits with the rest of
-            the chrome, always in the same place on every page. */}
-        <div id="sc-page-action" className="sc-topbar-action" />
+        {/* A page's primary action used to be portalled up here below 1280px.
+            It is gone: the + beside it does the same job on every screen, and
+            the two together overflowed a 360px bar. Above 1280px the library
+            pages keep their own button, where it has always been. */}
+        <NewAssetButton />
         {onHub ? <AssetsToggle /> : null}
         <NotificationsButton />
         <BrandMenu />

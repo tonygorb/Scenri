@@ -106,6 +106,54 @@ export async function buildBrandBundle(core: Core, brandId: string): Promise<{ z
   withShots('products', 'products');
   withShots('characters', 'characters');
 
+  // A person built here also travels with the photographs they were built from
+  // and their card crop, so the bundle carries the evidence and not only the
+  // views generated from it.
+  const characters: any[] = Array.isArray(json.characters) ? json.characters : [];
+  if (characters.length) {
+    json.characters = characters.map((c, ci) => {
+      const id = slug(c?.id, String(ci + 1));
+      const next: any = { ...c };
+      const sources: any[] = Array.isArray(c?.sourceRefs) ? c.sourceRefs : [];
+      const keptSources = sources
+        .map((r, si) => {
+          const file = rw.place(r?.file, `characters/${id}-source-${String(si + 1).padStart(2, '0')}`);
+          return file ? { ...r, file } : null;
+        })
+        .filter(Boolean);
+      if (keptSources.length) next.sourceRefs = keptSources;
+      else delete next.sourceRefs;
+      const preview = rw.place(c?.preview, `characters/${id}-card`);
+      if (preview) next.preview = preview;
+      else delete next.preview;
+      const avatar = rw.place(c?.avatar, `characters/${id}-avatar`);
+      if (avatar) next.avatar = avatar;
+      else delete next.avatar;
+      return next;
+    });
+  }
+
+  const brandScenes: any[] = Array.isArray(json.scenes) ? json.scenes : [];
+  if (brandScenes.length) {
+    json.scenes = brandScenes.map((s, si) => {
+      const id = slug(s?.id, String(si + 1));
+      const next: any = { ...s };
+      const refs: any[] = Array.isArray(s?.refs) ? s.refs : [];
+      const kept = refs
+        .map((r, ri) => {
+          const file = rw.place(r?.file, `scenes/${id}-ref-${String(ri + 1).padStart(2, '0')}`);
+          return file ? { ...r, file } : null;
+        })
+        .filter(Boolean);
+      if (kept.length) next.refs = kept;
+      else delete next.refs;
+      const preview = rw.place(s?.preview, `scenes/${id}-preview`);
+      if (preview) next.preview = preview;
+      else delete next.preview;
+      return next;
+    });
+  }
+
   const refs: any[] = Array.isArray(json.imagery?.styleReferences) ? json.imagery.styleReferences : [];
   if (refs.length) {
     const kept = refs

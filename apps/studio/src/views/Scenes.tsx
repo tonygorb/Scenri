@@ -1,11 +1,17 @@
 import { useMemo, useState } from 'react';
 import { sceneSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
+import { Plus } from '@phosphor-icons/react';
+import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useTaskCenter } from '../app/TaskCenter.js';
+import { useCreateAsset } from '../create/AssetCreateHost.js';
+import { customScenesOf } from '../brandAssets.js';
 import { scenePath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
+import { AssetBuildCard } from '../layout/AssetBuildCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
@@ -13,6 +19,7 @@ import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
 import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
+import { StarterDivider } from '../layout/library/StarterDivider.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
 import { matchesQuery, type FacetMode } from '../layout/library/libraryRules.js';
@@ -54,6 +61,13 @@ export function ScenesView() {
   const [favs, setFavs] = useState<string[]>(() => favoriteScenes(brand.id));
   const star = (id: string) => setFavs(toggleFavoriteScene(brand.id, id));
   const applyScene = useApplyScene();
+  // One poll for the whole app, owned by TaskCenter: a build started from the
+  // top bar on any screen has to stay visible after you leave the screen that
+  // started it.
+  const { builds, poke: refreshBuilds } = useTaskCenter();
+  const createAsset = useCreateAsset();
+  const mine = useMemo(() => customScenesOf(brand), [brand]);
+  const buildingScenes = builds.filter((b) => b.kind === 'scene' && (!b.finished || b.stage === 'failed'));
   const { q, setQ, facets, setFacets, clearSearch, clear } = useLibraryQuery(['vertical', 'starred']);
   const vertical = facets.vertical;
   const onlyStarred = facets.starred === '1';
@@ -88,7 +102,10 @@ export function ScenesView() {
     `${vertical ?? ''}|${onlyStarred ? 'starred' : ''}|${q}`,
   );
 
-  const countFor = (v: string) => scenes.filter((s) => s.verticals.includes(v)).length;
+  // Both halves of the wall, counted by the same rule the tab filters by
+  // (untagged included), so the number always equals what the tab shows.
+  const countFor = (v: string) =>
+    [...mine, ...scenes].filter((s) => !s.verticals.length || s.verticals.includes(v)).length;
 
   // Favorites always leads the rail, including at zero. A tab that appears
   // with the first star would shift every vertical along under the cursor at
@@ -110,7 +127,7 @@ export function ScenesView() {
     key: 'vertical',
     label: 'Vertical',
     everyLabel: 'Every scene',
-    everyCount: scenes.length,
+    everyCount: scenes.length + mine.length,
     selected: onlyStarred ? STARRED : vertical,
     // One write, both axes: `starred` and `vertical` are mutually exclusive,
     // and two separate setFacet calls would have the second undo the first.
@@ -118,6 +135,46 @@ export function ScenesView() {
       v === STARRED ? setFacets({ starred: '1', vertical: null }) : setFacets({ starred: null, vertical: v }),
     options: facetOptions,
   };
+
+  /**
+   * The brand's own places, narrowed by whatever the wall is narrowed by.
+   *
+   * A custom scene answers to search and to a vertical exactly as a curated one
+   * does. Favorites is the one axis it stays out of: a star is a way of picking
+   * favourites from a large catalog you did not write.
+   */
+  const mineShown = useMemo(
+    () =>
+      mine
+        // Untagged is unfiltered: a scene nobody categorised would otherwise
+        // vanish from every tab, which reads as losing it.
+        .filter((s) => (vertical ? !s.verticals.length || s.verticals.includes(vertical) : true))
+        .filter((s) => matchesQuery(sceneSearchText(s), q)),
+    [mine, vertical, q],
+  );
+  /**
+   * Whether this brand has scenes of its own at all, before any filter.
+   *
+   * Not "does the filtered list have anything": narrowing to a vertical your
+   * one scene is not in used to drop the whole page back to the first-run
+   * offer, chrome included.
+   */
+  const owned = mine.length > 0 || buildingScenes.length > 0;
+  const showMine = !onlyStarred && (buildingScenes.length > 0 || mineShown.length > 0);
+  /**
+   * Nothing of your own yet: the page leads with its offer.
+   *
+   * Ownership is the only input, so a filter can never make the offer vanish.
+   * Favorites is the one exception: that tab is a place you deliberately went,
+   * and it has its own empty state to show.
+   */
+  const heroMode = !owned && !onlyStarred;
+
+  const createCta = (
+    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('scene')}>
+      <Plus size={12} /> Create scene
+    </button>
+  );
 
   const grid = (items: typeof scenes, wall = false) => (
     <div
@@ -142,19 +199,73 @@ export function ScenesView() {
     </div>
   );
 
+  /**
+   * The filter row belongs to the wall it filters.
+   *
+   * In the cold state that wall is the catalog, a screenful below the offer,
+   * so the row travels down and sits directly on top of it.
+   */
+  const toolbar = (
+    <LibraryToolbar
+      title="Scenes"
+      filters={<FacetFilter mode={mode} group={facetGroup} />}
+      density={<DensityControl value={density} onChange={setDensity} />}
+      search={
+        scenes.length >= SEARCH_MIN && <LibrarySearch value={q} onChange={setQ} noun="scenes" total={scenes.length} />
+      }
+      // One CTA on the page: the offer owns it while it is showing, the row
+      // owns it the rest of the time.
+      action={heroMode ? undefined : createCta}
+    />
+  );
+
   return (
     <ScrollPane>
-      <main className="sc-looks" id="main">
-        <LibraryToolbar
-          title="Scenes"
-          filters={<FacetFilter mode={mode} group={facetGroup} />}
-          density={<DensityControl value={density} onChange={setDensity} />}
-          search={
-            scenes.length >= SEARCH_MIN && (
-              <LibrarySearch value={q} onChange={setQ} noun="scenes" total={scenes.length} />
-            )
-          }
-        />
+      <main className="sc-looks sc-scenes" id="main" data-hero={heroMode || undefined}>
+        {!heroMode && toolbar}
+
+        {showMine && (
+          <section className="sc-owned">
+            <div className="sc-sec-head">
+              <h2 className="sc-sec-title">Your scenes</h2>
+            </div>
+            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+              {buildingScenes.map((b) => (
+                <AssetBuildCard
+                  key={b.id}
+                  build={b}
+                  onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
+                  onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
+                  onRetry={() => createAsset('scene')}
+                />
+              ))}
+              {mineShown.map((s) => (
+                <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* The cold state, the same one Products shows. */}
+        {heroMode && loaded && !error && scenes.length > 0 && (
+          <LibraryEmpty
+            shape="cold"
+            title={
+              <>
+                Build your own <em>scene</em>
+              </>
+            }
+            body="Upload a few references of a place, and its light and materials carry into every image you make."
+            action={createCta}
+          />
+        )}
+
+        {/* A heading only where it separates two things. */}
+        {showMine && loaded && !error && !onlyStarred && byFacet.length > 0 && (
+          <div className="sc-sec-head sc-owned-divider">
+            <h2 className="sc-sec-title">Scenri scenes</h2>
+          </div>
+        )}
 
         {!loaded && (
           <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
@@ -171,26 +282,27 @@ export function ScenesView() {
           />
         )}
 
-        {loaded &&
-          !error &&
-          !flat &&
-          collections.map((c) => {
-            const inCollection = byFacet.filter((s) => s.collections.includes(c));
-            if (!inCollection.length) return null;
-            return (
-              <section className="sc-coll" key={c}>
-                <h2>{c}</h2>
-                <div className="sc-coll-names">
-                  {inCollection.map((s) => (
-                    <button type="button" key={s.id} onClick={() => openScene(s.id)}>
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-                {grid(inCollection)}
-              </section>
-            );
-          })}
+        {loaded && !error && !flat && (
+          // In the cold state the catalog is introduced the way Products
+          // introduces its library, under one eyebrow, and carries the filter
+          // row with it. Only eyebrow on the page.
+          <div className={heroMode ? 'sc-starter' : undefined}>
+            {heroMode && <StarterDivider label="Or start from one of ours" />}
+            {collections.map((c) => {
+              const inCollection = byFacet.filter((s) => s.collections.includes(c));
+              if (!inCollection.length) return null;
+              return (
+                // Just the heading and the wall. The row of scene names that
+                // used to sit here repeated, in text, every card directly
+                // below it: two ways to open the same thing, stacked.
+                <section className="sc-coll" key={c}>
+                  <h2>{c}</h2>
+                  {grid(inCollection)}
+                </section>
+              );
+            })}
+          </div>
+        )}
 
         {loaded && !error && flat && visible.length > 0 && grid(visible, true)}
 

@@ -1,6 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { useMediaQuery } from '../../useMediaQuery.js';
+import type { ReactNode } from 'react';
 
 /**
  * The one sticky row every catalog wall shares — tabs, search, density, and
@@ -8,9 +6,6 @@ import { useMediaQuery } from '../../useMediaQuery.js';
  * visible page title: the nav bar already names the page. `title` is a
  * visually-hidden `<h1>` only.
  */
-/** Below this the primary action moves up into the top bar — see TopBar.tsx. */
-const COMPACT = '(max-width: 1279px)';
-
 export function LibraryToolbar({
   title,
   filters,
@@ -32,16 +27,8 @@ export function LibraryToolbar({
   search?: ReactNode;
   action?: ReactNode;
 }) {
-  const compact = useMediaQuery(COMPACT);
-  // The portal target is rendered by TopBar, which mounts before any route, but
-  // the node only exists after that first paint — so resolve it in an effect.
-  const [slot, setSlot] = useState<HTMLElement | null>(null);
-  useEffect(() => setSlot(document.getElementById('sc-page-action')), []);
-  const hoisted = compact && slot && action;
-
   return (
     <div className="sc-filterbar">
-      {hoisted ? createPortal(action, slot) : null}
       {title ? <h1 className="sc-vh">{title}</h1> : null}
 
       {filters}
@@ -59,7 +46,10 @@ export function LibraryToolbar({
         )}
         {search}
         {density}
-        {hoisted ? null : action}
+        {/* Wide only. Under 1280px this row already has a scrolling facet rail
+            and a search field to fit, and the top bar's + is the same action —
+            two buttons for one job, one of which overflowed a 360px bar. */}
+        {action ? <span className="sc-filterbar-cta">{action}</span> : null}
       </div>
     </div>
   );

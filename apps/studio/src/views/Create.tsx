@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
 import { Callout, DropdownMenu } from '@radix-ui/themes';
-import { ArrowsDownUp, CaretDown, FolderSimple, Plus } from '@phosphor-icons/react';
+import { ArrowsDownUp, CaretDown, CaretLeft, CaretRight, FolderSimple, Plus } from '@phosphor-icons/react';
 import {
   api,
   hasNoShots,
   nodeLabel,
   type Brand,
   type EngineInfo,
-  type Scene,
+  type ShowcaseEntry,
   type ShotSet,
   type TreeNode,
 } from '../api.js';
@@ -16,9 +16,11 @@ import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { showcaseBrief } from '../app/useApplyShowcase.js';
-import { P, hubPath, setPath } from '../routes.js';
+import { P, brandPath, hubPath, presenterPath, productPath, scenePath, setPath } from '../routes.js';
 import { briefTokens } from '../composer/BriefInput.js';
 import { Confirm } from '../Confirm.js';
+import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
+import { recipeProps, type Catalogs } from '../showcaseRecipe.js';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
 import { favoriteScenes } from '../favorites.js';
@@ -43,7 +45,8 @@ import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
-import { SceneCard } from '../layout/SceneCard.js';
+import { ShowcaseCard } from '../layout/ShowcaseCard.js';
+import { useEdgeFades } from '../layout/useEdgeFades.js';
 import { FeedDensitySlider } from '../layout/DensityControl.js';
 import { VerticalsTabs, type VerticalsTabItem } from '../layout/VerticalsTabs.js';
 import { TILE_DEFAULT } from '../layout/masonry.js';
@@ -96,6 +99,11 @@ type Lens = 'all' | 'keepers' | 'ungrouped' | 'archived';
 export function CreateView({ set }: { set: ShotSet | null }) {
   const { engines, scenes: templates, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
   const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh, products } = useBrand();
+  // The rail offers what a brief can resolve, so the brand's own assets lead
+  // it exactly as they do in the composer's own attach panel.
+  const railScenes = useMemo(() => customScenesOf(brand), [brand]);
+  const railTemplates = useMemo(() => withCustomFirst(railScenes, templates), [railScenes, templates]);
+  const railPresenters = useMemo(() => withCustomFirst(customPresentersOf(brand), presenters), [brand, presenters]);
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const nodeId = useNodeId();
@@ -105,6 +113,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const { open: assetsOpen, toggle: toggleAssets, setOpen: setAssetsOpen } = useAssetsPanel();
   const [err, setErr] = useState<string | null>(null);
   const [remixBrief, setRemixBrief] = useState<any>(null);
+  /** Which use case is sitting in the brief right now, so its card can say so. */
+  const [stagedId, setStagedId] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [lensParam, setLens] = useFilterParam('tab', 'all');
   /**
@@ -337,6 +347,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const tokenNames = useMemo<TokenNames>(() => {
     const library: any[] = products.length ? products : ((brand.json?.products ?? []) as any[]);
     const cast: any[] = (brand.json?.characters ?? []) as any[];
+    // The brand's own scenes are not in the catalog, so a shot built in one
+    // would be unsearchable by its name without this.
+    const ownScenes = railScenes;
     return {
       product: (id) => {
         const p = library.find((x) => x.id === id) ?? demoProducts.find((x) => x.id === id);
@@ -344,11 +357,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       },
       person: (id) => cast.find((x) => x.id === id)?.name ?? presenters.find((x) => x.id === id)?.name ?? null,
       scene: (id) => {
-        const t = templates.find((x) => x.id === id);
+        const t = ownScenes.find((x) => x.id === id) ?? templates.find((x) => x.id === id);
         return t ? sceneLabel(t, 'tooltip') : null;
       },
     };
-  }, [products, demoProducts, brand, presenters, templates]);
+  }, [products, demoProducts, brand, presenters, templates, railScenes]);
 
   /** Haystack per shot, cached by id: prompt and brief never change once made. */
   const searchTextFor = useMemo(() => {
@@ -737,8 +750,23 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * The brand being empty outranks the lens: "star a shot to make it a keeper"
    * is useless advice when there is no shot to star.
    */
-  const emptyState = hasNoShots(allNodes) ? (
-    <FirstRun scenes={templates} brandId={brand.id} onScene={(id) => compose({ scene: id })} />
+  /** Never made anything here. Drives both the empty state and the bare chrome. */
+  const firstRun = hasNoShots(allNodes);
+
+  const emptyState = firstRun ? (
+    <FirstRun
+      entries={showcase}
+      catalogs={{ demoProducts, presenters, scenes: templates }}
+      stagedId={stagedId}
+      onOpenProduct={(id) => navigate(productPath(brand, id))}
+      onOpenPresenter={(id) => navigate(presenterPath(brand, id))}
+      onOpenScene={(id) => navigate(scenePath(brand, id))}
+      onSeeAll={() => navigate(brandPath(brand))}
+      onUse={(e) => {
+        setStagedId(e.id);
+        setRemixBrief(showcaseBrief(e));
+      }}
+    />
   ) : q.trim() ? (
     // outranks the lens branches: a search that filtered a lens to nothing
     // must not read as "No keepers yet" when the keepers are merely hidden
@@ -807,30 +835,36 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   return (
     <div className="sc-work" data-assets={assetsOpen}>
-      <main className="sc-canvas" id="main">
+      <main className="sc-canvas" id="main" data-firstrun={firstRun || undefined}>
         {err && (
           <Callout.Root className="sc-canvas-alert" color="red" mb="3">
             <Callout.Text>{err}</Callout.Text>
           </Callout.Root>
         )}
 
-        <FeedToolbar
-          brand={brand}
-          sets={sets}
-          active={set}
-          lens={lens}
-          lensCounts={lensCounts}
-          onLens={(l) => setLens(l === 'all' ? null : l)}
-          onNewSet={() => void newSetWith([])}
-          count={feed.length}
-          q={q}
-          onQ={setQ}
-          searchTotal={shown.length}
-          sort={sort}
-          onSort={setSortPref}
-          tile={tile}
-          onTile={setTile}
-        />
+        {/* The app-wide rule: a page with nothing in it carries no chrome.
+            Lenses, sets, search, sort and density all describe a feed, and
+            there is no feed yet, so every one of them would be a control over
+            nothing. Same pattern as Products, Presenters and Scenes. */}
+        {!firstRun && (
+          <FeedToolbar
+            brand={brand}
+            sets={sets}
+            active={set}
+            lens={lens}
+            lensCounts={lensCounts}
+            onLens={(l) => setLens(l === 'all' ? null : l)}
+            onNewSet={() => void newSetWith([])}
+            count={feed.length}
+            q={q}
+            onQ={setQ}
+            searchTotal={shown.length}
+            sort={sort}
+            onSort={setSortPref}
+            tile={tile}
+            onTile={setTile}
+          />
+        )}
 
         {lineage && (
           <div className="sc-lineage-bar">
@@ -894,15 +928,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
       <AssetsPanel
         brand={brand}
-        templates={templates}
-        presenters={presenters}
+        templates={railTemplates}
+        presenters={railPresenters}
         shots={allNodes}
         onProduct={(id) => composerRef.current?.insertToken({ t: 'product', id })}
         onCharacter={(id) => composerRef.current?.insertToken({ t: 'character', id })}
         onColor={(hex, name) => composerRef.current?.insertToken({ t: 'color', hex, name })}
         onRef={(imageHash) => composerRef.current?.insertToken({ t: 'ref', imageHash })}
         onTemplate={(id) => composerRef.current?.applyScene(id)}
-        onBrandChanged={() => void reload()}
         onClose={() => setAssetsOpen(false)}
       />
 
@@ -1032,12 +1065,44 @@ export function CreateView({ set }: { set: ShotSet | null }) {
  * row is here and not a second sentence: the brief accepts prose, but prose is
  * the harder opening move for someone who has never used this.
  */
-function FirstRun({ scenes, brandId, onScene }: { scenes: Scene[]; brandId: string; onScene: (id: string) => void }) {
-  // Starred first, the same ordering Home's shelf uses, so the two agree.
-  const ordered = useMemo(() => {
-    const favs = favoriteScenes(brandId);
-    return starredFirst(scenes, (s) => favs.includes(s.id)).slice(0, 8);
-  }, [scenes, brandId]);
+/**
+ * The first screen of an empty brand.
+ *
+ * It offers use cases rather than scenes. A scene is one ingredient of three,
+ * so picking one still leaves you to choose a product, cast someone and write
+ * the direction before anything can run. A use case is a whole recipe that
+ * already ran: product, presenter, scene, art direction and format together.
+ * One click stages the lot in the brief below, ready to send or to edit, which
+ * is the shortest honest path from an empty brand to a real image.
+ *
+ * The row is a plain swipeable shelf, not a marquee. This is the first screen
+ * of an empty brand and the job here is to read the options and pick one: a
+ * row that drifts makes labels harder to read and every card a moving target.
+ * The fade on each end already says it continues. */
+function FirstRun({
+  entries,
+  catalogs,
+  stagedId,
+  onUse,
+  onOpenProduct,
+  onOpenPresenter,
+  onOpenScene,
+  onSeeAll,
+}: {
+  entries: ShowcaseEntry[];
+  catalogs: Catalogs;
+  stagedId: string | null;
+  onUse: (entry: ShowcaseEntry) => void;
+  onOpenProduct: (id: string) => void;
+  onOpenPresenter: (id: string) => void;
+  onOpenScene: (id: string) => void;
+  /** The whole gallery lives on Home; this shelf is a shuffled handful of it. */
+  onSeeAll?: () => void;
+}) {
+  // A different handful, in a different order, every time the page is opened:
+  // the wall is a gallery of what the tool can do, not a ranked list.
+  const shelf = useMemo(() => shuffle(entries).slice(0, 10), [entries]);
+  const { ref, edges, page, canLeft, canRight } = useEdgeFades<HTMLDivElement>([shelf.length]);
 
   return (
     <div className="sc-canvas-empty">
@@ -1047,16 +1112,64 @@ function FirstRun({ scenes, brandId, onScene }: { scenes: Scene[]; brandId: stri
       {/* No "start writing" button: the caret is already in the brief below.
           A button whose only job is to focus something already focused is one
           more thing to read on the emptiest screen in the app. */}
-      <p>Describe what you want in the brief below, or start from a scene.</p>
-      {ordered.length > 0 && (
-        <div className="sc-tplrow sc-empty-looks">
-          {ordered.map((t) => (
-            <SceneCard key={t.id} scene={t} variant="use" size="shelf" onUse={onScene} />
-          ))}
+      <p>Describe what you want in the brief below, or open one of these.</p>
+      {shelf.length > 0 && (
+        <div className="sc-shelf" {...edges}>
+          {/* A mouse has no sideways gesture. The wheel is redirected in the
+              hook; these are the visible way to say the row moves. */}
+          {canLeft && (
+            <button
+              type="button"
+              className="sc-shelf-arrow prev"
+              aria-label="Previous examples"
+              onClick={() => page(-1)}
+            >
+              <CaretLeft size={13} weight="bold" />
+            </button>
+          )}
+          {canRight && (
+            <button type="button" className="sc-shelf-arrow next" aria-label="More examples" onClick={() => page(1)}>
+              <CaretRight size={13} weight="bold" />
+            </button>
+          )}
+          <div className="sc-shelf-row" ref={ref}>
+            {shelf.map((e) => (
+              <ShowcaseCard
+                key={e.id}
+                entry={e}
+                // `grid`, not `shelf`: the shelf size pins captions open, and
+                // ten always-on titles under ten pictures is a wall of text.
+                // Hover reveals one, the same as Home.
+                size="grid"
+                hideRecipe
+                active={stagedId === e.id}
+                onOpen={() => onUse(e)}
+                onOpenProduct={onOpenProduct}
+                onOpenPresenter={onOpenPresenter}
+                onOpenScene={onOpenScene}
+                {...recipeProps(e, catalogs)}
+              />
+            ))}
+          </div>
         </div>
+      )}
+      {onSeeAll && shelf.length > 0 && (
+        <button type="button" className="sc-shelf-more" onClick={onSeeAll}>
+          More like these
+        </button>
       )}
     </div>
   );
+}
+
+/** Fisher-Yates, on a copy: the caller's list is catalog order and stays that way. */
+function shuffle<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 /**
