@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { ArrowsDownUp, CaretDown, CaretLeft, CaretRight, FolderSimple, Plus } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import {
   api,
   hasNoShots,
@@ -19,40 +19,40 @@ import { showcaseBrief } from '../app/useApplyShowcase.js';
 import { P, hubPath, presenterPath, productPath, scenePath, setPath } from '../routes.js';
 import { briefTokens } from '../composer/BriefInput.js';
 import { Confirm } from '../Confirm.js';
-import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
+import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
+import { NO_ATTACHMENTS, type AttachedIds } from '../layout/railSections.js';
 import { recipeProps, type Catalogs } from '../showcaseRecipe.js';
 import { useShelf } from '../layout/useShelf.js';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
-import { favoriteScenes } from '../favorites.js';
 import {
-  FEED_SORTS,
+  applyLens,
   byNewest,
+  countLenses,
   filterFeed,
   isFeedSort,
+  isLens,
   shotSearchText,
   sortFeed,
   type FeedSort,
+  type Lens,
   type TokenNames,
 } from '../feedRules.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
-import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { FailureRow } from '../layout/Failure.js';
 import { describeFailure, failureToast } from '../failure.js';
-import { starredFirst } from '../layout/library/libraryRules.js';
 import { Canvas } from '../layout/Canvas.js';
 import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
 import { ShowcaseCard } from '../layout/ShowcaseCard.js';
-import { FeedDensitySlider } from '../layout/DensityControl.js';
-import { VerticalsTabs, type VerticalsTabItem } from '../layout/VerticalsTabs.js';
-import { TILE_DEFAULT } from '../layout/masonry.js';
+import { FeedToolbar } from '../layout/FeedToolbar.js';
+import { TILE_DEFAULT, nearestTileStop } from '../layout/masonry.js';
 import { useArchiveNode } from '../useArchiveNode.js';
 import { useDeleteNode } from '../useDeleteNode.js';
 
@@ -85,7 +85,6 @@ export interface ShotContext {
 }
 
 /** The lenses that are not places. A set is a place and lives in the path. */
-type Lens = 'all' | 'keepers' | 'ungrouped' | 'archived';
 
 /**
  * The hub: everything this brand has made, and the brief that makes more.
@@ -104,9 +103,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh, products } = useBrand();
   // The rail offers what a brief can resolve, so the brand's own assets lead
   // it exactly as they do in the composer's own attach panel.
-  const railScenes = useMemo(() => customScenesOf(brand), [brand]);
-  const railTemplates = useMemo(() => withCustomFirst(railScenes, templates), [railScenes, templates]);
-  const railPresenters = useMemo(() => withCustomFirst(customPresentersOf(brand), presenters), [brand, presenters]);
+  // One assembled catalog for this screen. The rail builds its own from the
+  // same hook; this copy exists for `tokenNames` below, which has to be able
+  // to name a token that points at a scene this brand built for itself.
+  const catalog = useIngredientCatalog();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const nodeId = useNodeId();
@@ -126,11 +126,23 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   const assetsOpen = rawAssetsOpen && !phone;
   const [err, setErr] = useState<string | null>(null);
+  /** What the docked composer's brief holds, so the rail can tick it. */
+  const [attached, setAttached] = useState<AttachedIds>(NO_ATTACHMENTS);
   const [remixBrief, setRemixBrief] = useState<any>(null);
   /** Which use case is sitting in the brief right now, so its card can say so. */
   const [stagedId, setStagedId] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [lensParam, setLens] = useFilterParam('tab', 'all');
+  /**
+   * Which pile of the brand you are looking at, when it is not a set.
+   *
+   * A set is a route because it is somewhere you can be; "not in a set" is the
+   * same kind of answer without an address of its own, so it rides here. It
+   * used to be a fourth lens tab, which put a filing chore beside the two
+   * lenses people look through all day and made the row read as one question
+   * when it is two.
+   */
+  const [placeParam, setPlace] = useFilterParam('in', '');
   /**
    * The shot the brief will branch from.
    *
@@ -155,8 +167,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [lineageId, setLineageId] = useFilterParam('lineage', '');
   /** Runs opened out into their variants. Not in the URL: it is a glance. */
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  /** How big the feed tiles are (px). Create-only preference. */
-  const [tile, setTile] = useLocalPref(PREF.tileSize, TILE_DEFAULT);
+  /** How big the feed tiles are (px). Create-only preference, snapped to one
+   * of three sizes — the pref key predates them and can hold any slider value. */
+  const [tilePref, setTile] = useLocalPref(PREF.tileSize, TILE_DEFAULT);
+  const tile = nearestTileStop(tilePref);
   /**
    * Free-text search over the feed. URL-backed (`?q=`) for the same reason the
    * lens is: the set route remounts on every switch, and a query you typed is
@@ -208,8 +222,17 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     navigate(`${base}${q ? `?${q}` : ''}`, { replace: true });
   }, [base, navigate, params]);
 
-  const lens: Lens =
-    lensParam === 'keepers' || lensParam === 'ungrouped' || lensParam === 'archived' ? lensParam : 'all';
+  const lens: Lens = isLens(lensParam) ? lensParam : 'all';
+  /** Only ever a hub answer: inside a set, the set is the place. */
+  const ungrouped = !set && placeParam === 'ungrouped';
+
+  // `?tab=ungrouped` was this same pile back when it was a lens; a bookmark or
+  // a shared link from then still lands on the shots it meant.
+  useEffect(() => {
+    if (lensParam !== 'ungrouped') return;
+    setLens(null);
+    setPlace('ungrouped');
+  }, [lensParam, setLens, setPlace]);
 
   // announcing a finish is TaskCenter's job: it is mounted above the router and
   // so can still speak once you have walked away
@@ -326,32 +349,33 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     push({ kind: 'error', title: 'That shot is no longer available', detail: 'Showing everything instead.' });
   }, [lineageId, loaded, lineage, setLineageId, push]);
 
-  const shown = useMemo(() => {
-    // archived shots are excluded from `shots` itself, so this lens reads
-    // straight from allNodes rather than layering on top of the others
-    if (lens === 'archived') {
-      return [...allNodes].filter((n) => n.kind !== 'root' && n.archived).sort(byNewest);
-    }
-    if (lineage) return shots.filter((n) => lineage.ids.has(n.id));
-    if (set) {
-      const inSet = new Set(membership[set.id] ?? []);
-      return shots.filter((n) => inSet.has(n.id));
-    }
-    if (lens === 'keepers') return shots.filter((n) => n.kept);
-    if (lens === 'ungrouped') return shots.filter((n) => !setsByNode.has(n.id));
-    return shots;
-  }, [shots, set, membership, lens, setsByNode, lineage, allNodes]);
-
-  /** Brand-level — what a lens click actually opens, including when it leaves a set. */
-  const lensCounts = useMemo(
-    () => ({
-      all: shots.length,
-      keepers: shots.filter((n) => n.kept).length,
-      ungrouped: shots.filter((n) => !setsByNode.has(n.id)).length,
-      archived: allNodes.filter((n) => n.kind !== 'root' && n.archived).length,
-    }),
-    [shots, setsByNode, allNodes],
+  /**
+   * The place, in two halves.
+   *
+   * Archived shots are held out of `shots` everywhere else in the app, so
+   * "archived, inside this set" cannot be a flag to filter on — it is a
+   * second array scoped the same way. Both halves are scoped before any lens
+   * touches them, which is what lets a lens compose with a set instead of
+   * cancelling it.
+   */
+  const archivedShots = useMemo(
+    () => [...allNodes].filter((n) => n.kind !== 'root' && n.archived).sort(byNewest),
+    [allNodes],
   );
+  const scope = useMemo(() => {
+    const inScope = (list: TreeNode[]) => {
+      if (lineage) return list.filter((n) => lineage.ids.has(n.id));
+      if (set) {
+        const inSet = new Set(membership[set.id] ?? []);
+        return list.filter((n) => inSet.has(n.id));
+      }
+      if (ungrouped) return list.filter((n) => !setsByNode.has(n.id));
+      return list;
+    };
+    return { live: inScope(shots), archived: inScope(archivedShots) };
+  }, [shots, archivedShots, set, membership, setsByNode, lineage, ungrouped]);
+
+  const shown = useMemo(() => applyLens(scope.live, scope.archived, lens), [scope, lens]);
 
   /**
    * Brief tokens carry ids; searching wants the names behind them. Every
@@ -363,7 +387,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     const cast: any[] = (brand.json?.characters ?? []) as any[];
     // The brand's own scenes are not in the catalog, so a shot built in one
     // would be unsearchable by its name without this.
-    const ownScenes = railScenes;
+    const ownScenes = catalog.scenes;
     return {
       product: (id) => {
         const p = library.find((x) => x.id === id) ?? demoProducts.find((x) => x.id === id);
@@ -371,11 +395,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       },
       person: (id) => cast.find((x) => x.id === id)?.name ?? presenters.find((x) => x.id === id)?.name ?? null,
       scene: (id) => {
-        const t = ownScenes.find((x) => x.id === id) ?? templates.find((x) => x.id === id);
+        const t = ownScenes.find((x) => x.id === id);
         return t ? sceneLabel(t, 'tooltip') : null;
       },
     };
-  }, [products, demoProducts, brand, presenters, templates, railScenes]);
+  }, [products, demoProducts, brand, presenters, catalog.scenes]);
 
   /** Haystack per shot, cached by id: prompt and brief never change once made. */
   const searchTextFor = useMemo(() => {
@@ -388,6 +412,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       return text;
     };
   }, [tokenNames, engines]);
+
+  /** What each tab would show from here — this place, this search. */
+  const lensCounts = useMemo(
+    () => countLenses(scope.live, scope.archived, q, searchTextFor),
+    [scope, q, searchTextFor],
+  );
+  const ungroupedCount = useMemo(
+    () => shots.reduce((n, s) => n + (setsByNode.has(s.id) ? 0 : 1), 0),
+    [shots, setsByNode],
+  );
 
   /** What the canvas actually renders: the lensed feed, searched, then ordered. */
   const feed = useMemo(() => sortFeed(filterFeed(shown, q, searchTextFor), sort), [shown, q, searchTextFor, sort]);
@@ -766,6 +800,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   /** Never made anything here. Drives both the empty state and the bare chrome. */
   const firstRun = hasNoShots(allNodes);
+  /**
+   * First run has no feed toolbar — there is no feed to describe — so it also
+   * has no rail switch. The rail stays open there regardless: it is the
+   * surface that teaches what a shot is made of, and a first-time screen
+   * should not be able to land with it shut because of a preference set while
+   * looking at another brand.
+   */
+  const railOpen = assetsOpen || (firstRun && !phone);
 
   const emptyState = firstRun ? (
     <FirstRun
@@ -784,14 +826,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     // outranks the lens branches: a search that filtered a lens to nothing
     // must not read as "No keepers yet" when the keepers are merely hidden
     <LensEmpty text={`No shots match “${q.trim()}”.`} onAll={clearSearch} actionLabel="Clear search" />
-  ) : set ? (
-    <LensEmpty text="Nothing in this set yet. Pick shots on All, then add them here." />
   ) : lens === 'keepers' ? (
     <LensEmpty text="No keepers yet. Star a shot and it lands here." onAll={() => setLens(null)} />
-  ) : lens === 'ungrouped' ? (
-    <LensEmpty text="Every shot is already in a set." onAll={() => setLens(null)} />
   ) : lens === 'archived' ? (
     <LensEmpty text="Nothing archived." onAll={() => setLens(null)} />
+  ) : set ? (
+    <LensEmpty text="Nothing in this set yet. Pick shots on All, then add them here." />
+  ) : ungrouped ? (
+    <LensEmpty text="Every shot is already in a set." onAll={() => setPlace(null)} />
   ) : null;
 
   const shotContext: ShotContext = {
@@ -847,7 +889,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   };
 
   return (
-    <div className="sc-work" data-assets={assetsOpen}>
+    <div className="sc-work" data-assets={railOpen}>
       <main className="sc-canvas" id="main" data-firstrun={firstRun || undefined}>
         {/* Was a bare Radix callout printing whatever the server threw. Same
             reading as every other failure in the app now, so the page does not
@@ -859,19 +901,22 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         )}
 
         {/* The app-wide rule: a page with nothing in it carries no chrome.
-            Lenses, sets, search, sort and density all describe a feed, and
-            there is no feed yet, so every one of them would be a control over
-            nothing. Same pattern as Products, Presenters and Scenes. */}
+            Places, lenses, search and view all describe a feed, and there is
+            no feed yet, so every one of them would be a control over nothing.
+            Same pattern as Products, Presenters and Scenes. */}
         {!firstRun && (
           <FeedToolbar
-            brand={brand}
             sets={sets}
             active={set}
+            ungrouped={ungrouped}
+            ungroupedCount={ungroupedCount}
+            onPlaceAll={() => (set ? navigate(hubPath(brand)) : setPlace(null))}
+            onPlaceUngrouped={() => (set ? navigate(`${hubPath(brand)}?in=ungrouped`) : setPlace('ungrouped'))}
+            onOpenSet={(s) => navigate(setPath(brand, s))}
+            onNewSet={() => void newSetWith([])}
             lens={lens}
             lensCounts={lensCounts}
             onLens={(l) => setLens(l === 'all' ? null : l)}
-            onNewSet={() => void newSetWith([])}
-            count={feed.length}
             q={q}
             onQ={setQ}
             searchTotal={shown.length}
@@ -879,6 +924,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             onSort={setSortPref}
             tile={tile}
             onTile={setTile}
+            assets={assetsOpen}
+            onAssets={toggleAssets}
+            showAssets={!phone}
           />
         )}
 
@@ -942,7 +990,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         />
       )}
 
-      {assetsOpen && <div className="sc-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
+      {railOpen && <div className="sc-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
       <Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
       {/* Not mounted at all on a phone: an off-screen drawer that can never be
@@ -950,9 +998,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       {!phone && (
         <AssetsPanel
           brand={brand}
-          templates={railTemplates}
-          presenters={railPresenters}
           shots={allNodes}
+          attached={attached}
           onProduct={(id) => composerRef.current?.insertToken({ t: 'product', id })}
           onCharacter={(id) => composerRef.current?.insertToken({ t: 'character', id })}
           onColor={(hex, name) => composerRef.current?.insertToken({ t: 'color', hex, name })}
@@ -962,7 +1009,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         />
       )}
 
-      <ComposerDock full={!assetsOpen}>
+      <ComposerDock full={!railOpen}>
         {/* Inside the dock, not floating above it at a guessed offset: the
             composer grows with a banner, a target chip or an open attach panel,
             and any fixed distance from the bottom was a bet that it would not.
@@ -1007,6 +1054,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           onRestoreBranchId={setBranchId}
           setSlug={set?.slug ?? null}
           onSending={setSending}
+          onAttached={setAttached}
           sourceImage={targetImage ?? undefined}
           onQueued={(made, kind) => {
             setRemixBrief(null);
@@ -1207,156 +1255,6 @@ function LensEmpty({
           {actionLabel}
         </button>
       )}
-    </div>
-  );
-}
-
-/**
- * All, Keepers, Ungrouped, then the sets.
- *
- * A lens is a way of looking at the hub and rides in the query string; a set is
- * somewhere you can be and has a path of its own. Leaving a set therefore means
- * a navigation, and it must land on the hub — never on Home, which holds none
- * of this and would read as the filter having thrown the work away.
- */
-const LENSES: { id: Lens; label: string; query: string }[] = [
-  { id: 'all', label: 'All', query: '' },
-  { id: 'keepers', label: 'Keepers', query: '?tab=keepers' },
-  { id: 'ungrouped', label: 'Ungrouped', query: '?tab=ungrouped' },
-  { id: 'archived', label: 'Archived', query: '?tab=archived' },
-];
-
-/**
- * One row above the feed, with each kind of thing in its own shape.
- *
- * This used to be a single strip of identical tabs holding three unrelated
- * things: lenses, which filter where you already are; sets, which are places
- * with their own address; and an action. Nothing on screen said which was
- * which, so "Keepers" and a set name looked like the same kind of click and
- * behaved completely differently. Ten sets also squashed the row, because it
- * was a nowrap flex line with nothing to stop it.
- *
- * Now: the library tab rail for the lenses, a menu for the sets (which holds
- * fifty as happily as two), an icon for the action, and the view controls
- * pushed to the far end.
- */
-function FeedToolbar({
-  brand,
-  sets,
-  active,
-  lens,
-  lensCounts,
-  onLens,
-  onNewSet,
-  count,
-  q,
-  onQ,
-  searchTotal,
-  sort,
-  onSort,
-  tile,
-  onTile,
-}: {
-  brand: Brand;
-  sets: ShotSet[];
-  active: ShotSet | null;
-  lens: Lens;
-  lensCounts: Record<Lens, number>;
-  onLens: (l: Lens) => void;
-  onNewSet: () => void;
-  count: number;
-  q: string;
-  onQ: (q: string) => void;
-  /** How many shots the search is over (pre-search), for the placeholder. */
-  searchTotal: number;
-  sort: FeedSort;
-  onSort: (s: FeedSort) => void;
-  tile: number;
-  onTile: (px: number) => void;
-}) {
-  const navigate = useNavigate();
-  const toHub = (q = '') => navigate(hubPath(brand) + q);
-  const leave = active ? `Leaves ${active.name}, back to the whole brand` : undefined;
-  const lensItems: VerticalsTabItem[] = LENSES.map((l) => ({
-    value: l.id === 'all' ? null : l.id,
-    label: l.label,
-    count: lensCounts[l.id],
-  }));
-
-  return (
-    <div className="sc-toolbar">
-      <div className="sc-toolbar-lenses" title={leave} data-leaves-set={!!active || undefined}>
-        <VerticalsTabs
-          aria-label={active ? `Shot lenses, leaves ${active.name}` : 'Shot lenses'}
-          activeKey={active ? '__set__' : lens === 'all' ? null : lens}
-          items={lensItems}
-          onSelect={(value) => {
-            const next = (value ?? 'all') as Lens;
-            if (active) toHub(LENSES.find((l) => l.id === next)?.query ?? '');
-            else onLens(next);
-          }}
-        />
-      </div>
-
-      <div className="sc-toolbar-places">
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <button type="button" className="sc-setsbtn" data-on={!!active || undefined}>
-              <FolderSimple size={13} />
-              <span className="sc-setsbtn-t">{active ? active.name : 'Sets'}</span>
-              {!active && sets.length > 0 && <span className="sc-setsbtn-n">{sets.length}</span>}
-              <CaretDown size={10} />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="start">
-            {sets.length === 0 && <DropdownMenu.Item disabled>No sets yet</DropdownMenu.Item>}
-            {sets.map((s) => (
-              <DropdownMenu.Item key={s.id} onSelect={() => navigate(setPath(brand, s))}>
-                {s.name}
-              </DropdownMenu.Item>
-            ))}
-            {active && (
-              <>
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={() => toHub()}>Leave this set</DropdownMenu.Item>
-              </>
-            )}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-
-        <button type="button" className="sc-icon-btn sc-newset" onClick={onNewSet} title="New set" aria-label="New set">
-          <Plus size={14} />
-        </button>
-      </div>
-
-      <div className="sc-toolbar-actions">
-        <LibrarySearch value={q} onChange={onQ} noun="shots" total={searchTotal} />
-
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <button type="button" className="sc-setsbtn sc-sortbtn" aria-label="Sort shots">
-              <ArrowsDownUp size={13} />
-              <span className="sc-setsbtn-t">{FEED_SORTS.find((s) => s.id === sort)?.label}</span>
-              <CaretDown size={10} />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end">
-            <DropdownMenu.RadioGroup value={sort} onValueChange={(v) => onSort(v as FeedSort)}>
-              {FEED_SORTS.map((s) => (
-                <DropdownMenu.RadioItem key={s.id} value={s.id}>
-                  {s.label}
-                </DropdownMenu.RadioItem>
-              ))}
-            </DropdownMenu.RadioGroup>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-
-        <span className="sc-toolbar-count">
-          {count} shot{count === 1 ? '' : 's'}
-        </span>
-
-        <FeedDensitySlider value={tile} onChange={onTile} />
-      </div>
     </div>
   );
 }

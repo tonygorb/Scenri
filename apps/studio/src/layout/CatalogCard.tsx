@@ -144,7 +144,15 @@ export function CatalogCard({
   };
 
   const card = (
-    <div ref={cardRef} className="sc-lookcard" data-variant={variant} data-size={size} data-armed={armed || undefined}>
+    <div
+      ref={cardRef}
+      className="sc-lookcard"
+      data-fb="catalog-card"
+      data-fb-id={id}
+      data-variant={variant}
+      data-size={size}
+      data-armed={armed || undefined}
+    >
       <div className="sc-lookcard-media">
         <button type="button" className="sc-lookcard-open" onClick={handleOpen} aria-label={title}>
           {preview}
@@ -185,6 +193,17 @@ export function CatalogCard({
         {onOpen && <ContextMenu.Item onSelect={() => onOpen(id)}>Open</ContextMenu.Item>}
         {showUseButton && <ContextMenu.Item onSelect={() => onUse?.(id)}>{useLabel}</ContextMenu.Item>}
         {onStar && <ContextMenu.Item onSelect={() => onStar(id)}>{starred ? 'Remove star' : 'Star'}</ContextMenu.Item>}
+        {/* Alpha builds only, and an event rather than an import. */}
+        {__SC_ALPHA__ && (
+          <>
+            <ContextMenu.Separator />
+            <ContextMenu.Item
+              onSelect={() => window.dispatchEvent(new CustomEvent('scenri:feedback', { detail: { fbId: id } }))}
+            >
+              Report this
+            </ContextMenu.Item>
+          </>
+        )}
       </ContextMenu.Content>
     </ContextMenu.Root>
   );

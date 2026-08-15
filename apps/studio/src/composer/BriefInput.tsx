@@ -8,6 +8,7 @@ import { matchesQuery } from '../layout/library/libraryRules.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
 import { NOUN, buildCandidates, pickerKind, type Candidate, type IngredientKind } from './ingredientOptions.js';
+import { useIngredientCatalog } from './useIngredientCatalog.js';
 import {
   CHIP,
   caretBeside,
@@ -42,12 +43,23 @@ import {
 export type { SentenceToken, BriefToken, FormatToken } from './line.js';
 export { briefTokens, emptySentence, isSentence } from './line.js';
 
-/** Kept as the composer's own list: size renders as nothing in the sentence. */
+/**
+ * Kept as the composer's own list: size renders as nothing in the sentence.
+ *
+ * Ordered so the shapes progress — square, then narrower, then wide — rather
+ * than alternating, because the picker draws each one at its real proportion
+ * and a list that jumps tall-wide-tall reads as four unrelated options. Square
+ * stays first: it is the fallback when a stored format id no longer resolves.
+ *
+ * `packages/cli/src/brief.ts` holds the compiler's own copy of these four.
+ * Order is meaningless there (it looks them up by id), but the dimensions are
+ * not, and `e2e/composer.spec.ts` asserts the two lists still agree.
+ */
 export const FORMATS = [
   { id: 'square', label: 'Square', hint: '1:1', w: 1024, h: 1024 },
+  { id: 'portrait', label: 'Portrait', hint: '4:5', w: 1024, h: 1280 },
   { id: 'story', label: 'Story', hint: '9:16', w: 1080, h: 1920 },
   { id: 'landscape', label: 'Landscape', hint: '16:9', w: 1600, h: 900 },
-  { id: 'portrait', label: 'Portrait', hint: '4:5', w: 1024, h: 1280 },
 ];
 
 /** Click this close to a chip's edge and you meant the caret, not the menu. */
@@ -479,18 +491,7 @@ export const BriefInput = forwardRef<
    * on name and descriptor while the attach panel searched the whole casting
    * sheet. Both surfaces read this now, so neither can drift from the other.
    */
-  const catalog = useMemo(
-    () => ({
-      libraryProducts: library,
-      brandProducts: (brand.json?.products ?? []) as any[],
-      demoProducts,
-      presenters,
-      cast,
-      scenes: templates,
-      productCategory: activeProductCategory ?? null,
-    }),
-    [library, brand, demoProducts, presenters, cast, templates, activeProductCategory],
-  );
+  const catalog = useIngredientCatalog(activeProductCategory);
 
   const candidatesFor = useCallback((kind: IngredientKind): Candidate[] => buildCandidates(kind, catalog), [catalog]);
 
@@ -811,6 +812,19 @@ export const BriefInput = forwardRef<
     return true;
   };
 
+  // Chromium drops a caret-host <br> into an empty contenteditable the moment it
+  // gains focus. The placeholder is an inline ::before, so that <br> opened a
+  // second line box and the whole composer card grew about a line's height on
+  // click-in, then collapsed again on blur — the one genuine geometry change in
+  // the composer. syncEmpty() already strips it; it simply had no focus caller.
+  // rAF because the <br> is inserted after this event fires.
+  const onFocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      const root = rootRef.current;
+      if (root && document.activeElement === root && syncEmpty(root)) caretToEnd(root);
+    });
+  }, []);
+
   return (
     <div className="sc-brief" data-drag-over={dragOver || undefined}>
       <div
@@ -834,6 +848,7 @@ export const BriefInput = forwardRef<
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
+        onFocus={onFocus}
         onBlur={emit}
       />
 

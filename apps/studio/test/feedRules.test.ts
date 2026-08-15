@@ -2,9 +2,13 @@ import { describe, it, expect } from 'vitest';
 import type { TreeNode } from '../src/api.js';
 import {
   FEED_SORTS,
+  LENSES,
+  applyLens,
   byNewest,
+  countLenses,
   filterFeed,
   isFeedSort,
+  isLens,
   shotSearchText,
   sortFeed,
   type TokenNames,
@@ -178,5 +182,72 @@ describe('isFeedSort', () => {
     expect(isFeedSort('zzz')).toBe(false);
     expect(isFeedSort(undefined)).toBe(false);
     expect(isFeedSort(null)).toBe(false);
+  });
+});
+
+describe('isLens', () => {
+  it('accepts every listed lens and rejects junk', () => {
+    for (const l of LENSES) expect(isLens(l.id)).toBe(true);
+    expect(isLens('zzz')).toBe(false);
+    expect(isLens(undefined)).toBe(false);
+  });
+
+  it('rejects "ungrouped", which is a place now and not a lens', () => {
+    expect(isLens('ungrouped')).toBe(false);
+  });
+});
+
+describe('applyLens', () => {
+  const kept = node({ kept: true });
+  const plain = node();
+  const gone = node({ archived: true });
+
+  it('shows the whole live half on all', () => {
+    expect(applyLens([kept, plain], [gone], 'all')).toEqual([kept, plain]);
+  });
+
+  it('keeps only kept shots on keepers', () => {
+    expect(applyLens([kept, plain], [gone], 'keepers')).toEqual([kept]);
+  });
+
+  it('swaps to the archived half rather than filtering the live one', () => {
+    expect(applyLens([kept, plain], [gone], 'archived')).toEqual([gone]);
+  });
+
+  it('composes with a scope: keepers inside a set are that set\u2019s keepers', () => {
+    const inSetKept = node({ kept: true });
+    const inSetPlain = node();
+    const elsewhereKept = node({ kept: true });
+    const set = [inSetKept, inSetPlain];
+    expect(applyLens(set, [], 'keepers')).toEqual([inSetKept]);
+    expect(applyLens(set, [], 'keepers')).not.toContain(elsewhereKept);
+  });
+
+  it('never mutates either half', () => {
+    const live = [kept, plain];
+    const archived = [gone];
+    applyLens(live, archived, 'keepers');
+    expect(live).toEqual([kept, plain]);
+    expect(archived).toEqual([gone]);
+  });
+});
+
+describe('countLenses', () => {
+  const textFor = (n: TreeNode) => n.prompt;
+  const kept = node({ kept: true, prompt: 'denim jacket on a plinth' });
+  const plain = node({ prompt: 'a bottle on a plinth' });
+  const gone = node({ archived: true, prompt: 'denim offcut' });
+
+  it('counts each lens over the scope it is given', () => {
+    expect(countLenses([kept, plain], [gone], '', textFor)).toEqual({ all: 2, keepers: 1, archived: 1 });
+  });
+
+  it('follows the active search, so a tab says what a click would show', () => {
+    expect(countLenses([kept, plain], [gone], 'denim', textFor)).toEqual({ all: 1, keepers: 1, archived: 1 });
+    expect(countLenses([kept, plain], [gone], 'bottle', textFor)).toEqual({ all: 1, keepers: 0, archived: 0 });
+  });
+
+  it('is scoped: a narrower place reports narrower numbers', () => {
+    expect(countLenses([plain], [], '', textFor)).toEqual({ all: 1, keepers: 0, archived: 0 });
   });
 });

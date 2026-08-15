@@ -44,6 +44,16 @@ export interface Candidate {
   thumb?: string | null;
   /** Scenes only: the preview's own hue, normalized. */
   tint?: string;
+  /**
+   * Set when `thumb` is a 4:5 card crop rather than a square head crop, so a
+   * square tile can pull the framing up instead of cropping the face off.
+   *
+   * A presenter this brand built often has no square avatar — `brandAssets`
+   * refuses to claim the 4:5 preview as one, on purpose, because a circle
+   * needs the real zoom. A square tile can do better than nothing: shift the
+   * framing rather than centre it and render a torso.
+   */
+  crop?: 'top';
   /** `brand` = the user's own upload or import; `catalog` = scenri's. */
   source: 'brand' | 'catalog';
   /** A hint from compat.ts, never a gate. Only set for scenes and presenters. */
@@ -88,6 +98,15 @@ const clean = (s: string | null | undefined): string | undefined => {
 };
 
 /**
+ * Whether a scene or presenter is this brand's own rather than scenri's.
+ *
+ * `custom: true` is set once, by the adapters in `brandAssets.ts`, on the way
+ * out of the brand document — so this asks the record instead of inferring
+ * ownership from which array an item happened to be in.
+ */
+const isOwn = (x: unknown): boolean => (x as { custom?: boolean } | null)?.custom === true;
+
+/**
  * Every option of one kind, in catalog order.
  *
  * This is the single source for Products, Presenters and Scenes: the picker
@@ -119,7 +138,11 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
           search: presenterSearchText(p),
           // Square first: a 1:1 box crops the head off the 4:5 casting card.
           thumb: p.avatarUrl ?? p.previewUrl ?? null,
-          source: 'catalog',
+          crop: p.avatarUrl ? undefined : 'top',
+          // This list arrives already merged (`withCustomFirst`), so it is not
+          // all scenri's. A person this brand cast for itself carries `custom`
+          // and is as much theirs as an uploaded product is.
+          source: isOwn(p) ? 'brand' : 'catalog',
           recommended: isRecommendedPresenter(p, cat.productCategory),
           token: { t: 'character', id: p.id },
         }),
@@ -134,6 +157,7 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
           full: c.name,
           search: c.name,
           thumb: assetUrl(c.shots?.[0]?.file),
+          crop: 'top',
           source: 'brand',
           token: { t: 'character', id: c.id },
         }),
@@ -151,7 +175,9 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
       search: sceneSearchText(s),
       thumb: s.previewUrl ?? null,
       tint: normalizeTint(s.previewColor),
-      source: 'catalog',
+      // Same merged list as presenters: a scene this brand built carries
+      // `custom`. Hardcoding 'catalog' here made every own scene read as ours.
+      source: isOwn(s) ? 'brand' : 'catalog',
       recommended: isRecommendedScene(s, cat.productCategory),
       token: { t: 'template', id: s.id },
     }),
@@ -234,11 +260,15 @@ export interface PickList {
  * each, so the order a catalog was authored in survives underneath the lift.
  */
 function rank(kind: IngredientKind, c: Candidate, starred: ReadonlySet<string>): number {
-  if (kind === 'scene') return starred.has(c.id) ? 0 : c.recommended ? 1 : 2;
-  if (kind === 'presenter') return c.recommended ? 0 : 1;
-  // A brand's own products before the ones scenri ships, which is the only
-  // thing that separated them once the shelves went.
-  return c.source === 'brand' ? 0 : 1;
+  // Yours outranks ours, in every kind. This used to hold for products alone,
+  // which meant a *suggested* scenri presenter sorted above the person this
+  // brand cast for itself — a hint beating an owner. Ownership is the one
+  // thing the panel never has to explain, so it leads, and taste and
+  // suitability order what is left.
+  if (c.source === 'brand') return 0;
+  if (kind === 'scene') return starred.has(c.id) ? 1 : c.recommended ? 2 : 3;
+  if (kind === 'presenter') return c.recommended ? 1 : 2;
+  return 1;
 }
 
 export function pickList(

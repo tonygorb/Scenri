@@ -214,6 +214,7 @@ export function DetailOverlay({
       type="button"
       key={n.id}
       className="sc-fr"
+      data-fb-node={n.id}
       data-current={current}
       data-failed={n.status === 'error' || (!n.images[0] && n.status !== 'running' && n.status !== 'cancelled')}
       data-cancelled={n.status === 'cancelled' && !n.images[0]}
@@ -244,6 +245,9 @@ export function DetailOverlay({
     <FocusScope trapped loop asChild>
       <div
         className="sc-ovl"
+        data-fb="shot-overlay"
+        data-fb-node={node.id}
+        data-fb-variant={imageIndex}
         role="dialog"
         aria-modal="true"
         aria-label={nodeLabel(node)}

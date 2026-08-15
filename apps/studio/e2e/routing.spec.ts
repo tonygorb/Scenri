@@ -74,6 +74,32 @@ async function seedShot(p: Page, brand: string) {
   throw new Error('demo generation never finished');
 }
 
+/** A second, distinct finished shot — for the cases that need two. */
+async function seedAnotherShot(p: Page, brand: string, prompt: string) {
+  const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const made = (await api(
+    p,
+    '/api/nodes',
+    postJson({
+      projectId: ws.project.id,
+      parentId: root?.id ?? null,
+      kind: 'generation',
+      prompt,
+      engineId: 'demo',
+      count: 1,
+    }),
+  )) as any;
+
+  for (let i = 0; i < 40; i++) {
+    const t = (await api(p, `/api/brands/${brand}/workspace`)) as any;
+    const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
+    if (n?.status === 'done') return { nodeId: n.id as string };
+    await p.waitForTimeout(300);
+  }
+  throw new Error('demo generation never finished');
+}
+
 /** A set holding one shot, so the filtered route has something to show. */
 async function seedSet(p: Page, brand: string, name: string, nodeIds: string[]) {
   const made = (await api(p, `/api/brands/${brand}/sets`, postJson({ name }))) as any;
@@ -238,6 +264,66 @@ test('switching set starts the new one clean', async ({ page }) => {
   await page.goto(`/${brand.slug}/sets/${second.slug}?branch=${nodeId}`);
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
   await expect(page.locator('.sc-canvas')).toBeVisible();
+});
+
+/**
+ * A lens narrows the place you are in; it is not itself a place.
+ *
+ * Asking for keepers while inside a set used to navigate you out to the whole
+ * brand — the feed's filter short-circuited on the set and the row answered by
+ * leaving. Worse, while inside a set no tab read as selected at all, so the
+ * row could not say what you were looking at. They compose now.
+ */
+test('a lens narrows the set you are in rather than throwing you out of it', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const stamp = String(process.hrtime.bigint()).slice(-8);
+  const { nodeId: kept } = await seedShot(page, brand.id);
+  const { nodeId: plain } = await seedAnotherShot(page, brand.id, `lens spec ${stamp}`);
+  const set = await seedSet(page, brand.id, `Lens ${stamp}`, [kept, plain]);
+  await api(page, `/api/nodes/${kept}/keep`, postJson({ kept: true }));
+
+  // cold, straight off the URL: the set keeps its address and the lens applies
+  // inside it
+  await page.goto(`/${brand.slug}/sets/${set.slug}?tab=keepers`);
+  await expect(page.locator('.sc-toolbar')).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe(`/${brand.slug}/sets/${set.slug}`);
+  await expect(page.locator('.sc-toolbar .sc-verticals button[data-on] .sc-vlabel')).toHaveText('Keepers');
+  await expect(page.locator('.sc-cell')).toHaveCount(1);
+
+  // and the counts describe this set rather than the whole brand
+  const all = page.locator('.sc-toolbar .sc-verticals button', { hasText: 'All' });
+  await expect(all.locator('.sc-vcount')).toHaveText('2');
+
+  // clicking back to All stays in the set too
+  await all.click();
+  await page.waitForURL((u) => u.pathname === `/${brand.slug}/sets/${set.slug}` && !u.search.includes('tab='));
+  await expect(page.locator('.sc-cell')).toHaveCount(2);
+});
+
+/**
+ * The shots no set has claimed are a pile you can stand in, not a lens: they
+ * answer "which shots", the same question a set answers. They used to be a
+ * fourth tab beside the two lenses people look through all day.
+ */
+test('the shots outside every set are reachable, and a lens still narrows them', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const stamp = String(process.hrtime.bigint()).slice(-8);
+  const { nodeId: filed } = await seedShot(page, brand.id);
+  await seedSet(page, brand.id, `Filed ${stamp}`, [filed]);
+
+  await page.goto(`/${brand.slug}/create?in=ungrouped`);
+  await expect(page.locator('.sc-toolbar')).toBeVisible();
+  await expect(page.locator('.sc-toolbar-scope .sc-toolbar-btn')).toHaveAttribute('data-on', 'true');
+
+  // the filed shot is the one thing this pile must not contain
+  const ids = await page
+    .locator('.sc-cell[data-fb-node]')
+    .evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.fbNode));
+  expect(ids).not.toContain(filed);
+
+  // and the address it rode in on survives a reload, like every other filter
+  await page.reload();
+  await expect(page.locator('.sc-toolbar-scope .sc-toolbar-btn')).toHaveAttribute('data-on', 'true');
 });
 
 test('a set can be renamed and deleted from the crumb, and the shots survive', async ({ page }) => {

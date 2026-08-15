@@ -9,6 +9,7 @@ import { AssetCreateHost } from '../create/AssetCreateHost.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
 import { useProductLibrary } from '../useProductLibrary.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
+import { FeedbackHost } from '../feedback/FeedbackHost.js';
 import { ProviderSetup } from '../views/ProviderSetup.js';
 import { useAppData } from './AppShell.js';
 import { pickBrand } from './RootRedirect.js';
@@ -33,6 +34,8 @@ interface BrandData {
    * same endpoint before this moved up.
    */
   products: Product[];
+  /** False until the product library's first answer lands for this brand. */
+  productsLoaded: boolean;
   /** False until the first answer lands, so /s/:slug knows it cannot resolve yet. */
   loaded: boolean;
   refresh: () => Promise<void>;
@@ -110,7 +113,7 @@ export function BrandLayout() {
   useKeyboardInset();
 
   const brand = brands.find((b) => b.slug === brandSlug) ?? brands.find((b) => b.id === brandSlug) ?? null;
-  const products = useProductLibrary(brand?.id);
+  const { products, loaded: productsLoaded } = useProductLibrary(brand?.id);
 
   /**
    * One ask for the whole brand: its shots, its sets, and who is in what.
@@ -170,6 +173,7 @@ export function BrandLayout() {
         sets,
         membership,
         products,
+        productsLoaded,
         loaded,
         refresh: refreshWorkspace,
         applySet,
@@ -183,11 +187,13 @@ export function BrandLayout() {
             flight, and pokes the one poll when it starts another. */}
         <AssetCreateHost>
           <AssetsCtx.Provider value={assets}>
-            <div className="sc-shell">
-              <TopBar />
-              <Outlet />
-              <TabBar />
-            </div>
+            <FeedbackHost brand={brand} workspace={workspace} nodes={nodes}>
+              <div className="sc-shell">
+                <TopBar />
+                <Outlet />
+                <TabBar />
+              </div>
+            </FeedbackHost>
           </AssetsCtx.Provider>
         </AssetCreateHost>
       </TaskCenterProvider>

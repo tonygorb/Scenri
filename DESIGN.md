@@ -184,6 +184,7 @@ The shared shell behind every curated-asset browsing surface (Products, Scenes, 
 - **Do** treat `.sc-sec-head` as a 2-slot contract (title-group, trailing action); nest a subtitle inside the title group with its own explicit gap, never as a sibling flex item.
 - **Do** keep every interactive control (button, chip, tab, input) on the existing radius/height scale — 34px controls, full-pill chips/buttons, 10px field radius.
 - **Do** let product/look photography carry the color on any screen; keep surrounding chrome monochrome.
+- **Do** give every new focusable control the system's one focus treatment — `outline: 2px solid var(--sc-focus); outline-offset: 2px` — by adding its selector to the shared list in `tokens.css`, and give fields the same ring via `:focus-within` (`.sc-swap-search`, `.sc-assets-search`). The only sanctioned variation is `outline-offset: 1px` where a control sits in a tight grid or inside another control's border and 2px would collide or spill.
 
 ### Don't:
 - **Don't** use gradient text, hero-metric tiles, or identical icon+heading+text card grids — the generic-SaaS-dashboard pattern this system explicitly rejects.
@@ -193,4 +194,5 @@ The shared shell behind every curated-asset browsing surface (Products, Scenes, 
 - **Don't** give a resting card, panel, or section header a shadow "for depth" — flat + hairline is the rest state; shadow means floating.
 - **Don't** stack a subtitle, a header title, and a trailing action as three siblings in `.sc-sec-head` with no gap — this is the exact bug this pass fixes; wrap title+subtitle together instead.
 - **Don't** put a "Create new" tile as the first item in a catalog/library grid. It disrupts a visual-comparison surface, shifts scan position on every return visit, and duplicates the header's own primary CTA — evaluated and rejected for the Creative Library pattern, not merely unconsidered.
+- **Don't** invent a per-component focus or active treatment — a `border-color` swap, a box-shadow halo, a background change. It reads as a second vocabulary for a state the user already knows, and the two drift apart the moment either is touched. This has been fixed once already, on the Create rail's search field; add to the shared list instead.
 - **Don't** style an unwired CTA as primary (inverse-fill). Ghost is the tell that it's not the real, working action yet — Scenes'/Presenters' "Create" buttons are visible ahead of their backend route, deliberately never styled as loud as Products' real "Add product."

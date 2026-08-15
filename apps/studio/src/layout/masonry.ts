@@ -4,15 +4,39 @@ import { useEffect, useState } from 'react';
 export const GAP = 14;
 
 /** Below this a masonry feed has no room for a grid-size control (Create's own
- * `.sc-feed-density` disappears at this width in tokens.css) and falls back to a
+ * size choice disappears at this width in tokens.css) and falls back to a
  * forced 2-column layout instead of inheriting a fixed tile width no phone
  * screen could fit. */
 export const PHONE = 768;
 
-/** Create feed only — continuous tile-width slider (px). */
-export const TILE_MIN = 160;
-export const TILE_MAX = 420;
-export const TILE_DEFAULT = 240;
+/**
+ * Create feed tile widths (px) — compact and large, the same two views every
+ * catalog wall in the app offers, so one control means one thing everywhere.
+ *
+ * This was a 160→420 slider in 20px steps, but the layout below only changes
+ * when the column count flips, so most of its fourteen stops did nothing: you
+ * dragged and the feed sat still. These two land on a different column count
+ * at every width the feed is ever laid out at — from ~700px, the narrowest
+ * canvas that is not phone mode, upwards. `test/masonry.test.ts` holds them
+ * to that.
+ */
+export const TILE_STOPS = [
+  { px: 190, label: 'Compact', cells: 3 },
+  { px: 320, label: 'Large', cells: 2 },
+] as const;
+
+/** Large, matching DENSITY_DEFAULT — the walls open large too. */
+export const TILE_DEFAULT = 320;
+
+/** Snaps a stored pref — including every value the old slider could write. */
+export function nearestTileStop(raw: unknown): number {
+  const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : TILE_DEFAULT;
+  let best: number = TILE_STOPS[0].px;
+  for (const s of TILE_STOPS) {
+    if (Math.abs(s.px - n) < Math.abs(best - n)) best = s.px;
+  }
+  return best;
+}
 
 /**
  * Catalog walls only (Home / Products / Presenters / Scenes).

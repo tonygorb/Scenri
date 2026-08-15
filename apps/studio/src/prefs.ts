@@ -18,8 +18,19 @@ export const PREF = {
   count: 'scenri:count',
   format: 'scenri:format',
   assetsOpen: 'scenri:assets-open',
-  /** Which single asset group is expanded into the accordion's open pane, if any. */
-  assetsOpenGroup: 'scenri:assets-open-group',
+  /**
+   * Which rail sections are opened out, as a list of stable kind keys.
+   *
+   * Expansion is the exception, so the empty default is the compact panel —
+   * every section showing its quick row, nothing taking over the column.
+   *
+   * Session-scoped, not machine-scoped: opening Presenters out means "I am
+   * casting right now", which should survive walking to the Products page and
+   * back but has no business being the shape of the panel three weeks later.
+   * The key it replaced stored one display *name* ("Scenri library"), so
+   * renaming a section silently reset it.
+   */
+  assetsExpanded: 'scenri:assets-expanded',
   /** Create feed tile width in px (continuous slider). */
   tileSize: 'scenri:tile-size',
   /** Catalog wall density: compact (7) | large (5). */
@@ -94,6 +105,32 @@ export function useLocalPref<T>(key: string, fallback: T) {
     window.addEventListener(PREF_EVENT, onChanged);
     return () => window.removeEventListener(PREF_EVENT, onChanged);
   }, [key]);
+  return [value, setValue] as const;
+}
+
+/**
+ * useState that remembers for this tab only.
+ *
+ * The same shape as `useLocalPref`, against `sessionStorage`, for the state
+ * that should outlive a navigation but not a launch. No cross-copy event: the
+ * one caller is mounted once.
+ */
+export function useSessionPref<T>(key: string, fallback: T) {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const raw = sessionStorage.getItem(key);
+      return raw === null ? fallback : (JSON.parse(raw) as T);
+    } catch {
+      return fallback;
+    }
+  });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      /* private mode */
+    }
+  }, [key, value]);
   return [value, setValue] as const;
 }
 

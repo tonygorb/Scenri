@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { productSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
@@ -37,17 +37,24 @@ const SEARCH_MIN = 8;
  * catalog import with sparse category data still gets a real, usable filter.
  */
 export function ProductsView() {
-  const { brand, products, loaded } = useBrand();
+  const { brand, products, productsLoaded } = useBrand();
   const { demoProducts } = useAppData();
   /**
-   * Before you have products of your own, the wall on this page is the Scenri
-   * library, so the filter row filters that instead of filtering nothing.
+   * Whether this brand has products of its own at all, before any filter.
    *
-   * It used to be hidden here entirely, which left the one page in the set
-   * opening differently from Presenters and Scenes, and left 44 products with
-   * no way to narrow them.
+   * The wall below is always the scenri library. It used to be *either* your
+   * products or ours — own one and all 44 vanished from the page, which made
+   * the default catalog behave like an onboarding fallback rather than the
+   * complementary library it is. Presenters and Scenes have always shown both
+   * halves; this is that same shape, and the reason a brand can still reach
+   * for a scenri product to test a scene or rebuild a homepage example after
+   * importing a catalog of its own.
+   *
+   * Gated on the *product library's* own loaded flag, not the workspace's: a
+   * brand with a full catalog used to flash the first-run offer on every cold
+   * load, because the shots had arrived and the products had not.
    */
-  const cold = loaded && products.length === 0;
+  const cold = productsLoaded && products.length === 0;
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
   const createAsset = useCreateAsset();
@@ -59,15 +66,19 @@ export function ProductsView() {
   const wallStyle = densityWallStyle(density);
   const densityAttr = densitySize(density);
 
-  // In the cold state the filter row answers for the library, so everything
-  // below reads from whichever set is actually on screen.
-  const withCategory = useMemo(
-    () =>
-      cold
-        ? demoProducts.map((p) => ({ product: p as any, category: p.category }))
-        : products.map((p) => ({ product: p as any, category: effectiveCategory(p) })),
-    [cold, demoProducts, products],
+  /** Yours, for the section above the seam. */
+  const mine = useMemo(
+    () => products.map((p) => ({ product: p as any, category: effectiveCategory(p), own: true })),
+    [products],
   );
+  /** Ours, for the wall below it. Always present, at every catalog size. */
+  const theirs = useMemo(
+    () => demoProducts.map((p) => ({ product: p as any, category: p.category, own: false })),
+    [demoProducts],
+  );
+  // The filter row answers for the whole page, both halves, so a count on a
+  // tab is never a number for only one of them.
+  const withCategory = useMemo(() => [...mine, ...theirs], [mine, theirs]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -83,18 +94,27 @@ export function ProductsView() {
 
   const openProduct = (id: string) => navigate(productPath(brand, id));
 
-  const filtered = useMemo(
-    () =>
-      withCategory
+  /** The facet and the search, applied to either half by the same rule. */
+  const narrow = useCallback(
+    (rows: { product: any; category: string | null | undefined }[]) =>
+      rows
         .filter(({ category: c }) => !category || c === category)
         .filter(({ product: p, category: c }) =>
           matchesQuery([productSearchText(p), categoryLabel(c)].filter(Boolean).join(' '), q),
         )
         .map(({ product }) => product),
-    [withCategory, category, q],
+    [category, q],
   );
 
-  const { visible, remaining, showMore } = useLibraryPage(filtered, `${cold ? 'lib' : ''}${category ?? ''}|${q}`);
+  const mineFiltered = useMemo(() => narrow(mine), [narrow, mine]);
+  const theirsFiltered = useMemo(() => narrow(theirs), [narrow, theirs]);
+
+  /**
+   * Only your half pages. A brand's own catalog runs to hundreds after a store
+   * import; scenri's is a fixed forty-four, and hiding a third of a small,
+   * unchanging library behind a button is chrome for nothing.
+   */
+  const { visible: mineVisible, remaining, showMore } = useLibraryPage(mineFiltered, `${category ?? ''}|${q}`);
 
   const facetGroup = {
     key: 'category',
@@ -120,8 +140,15 @@ export function ProductsView() {
     </button>
   );
 
-  /** Nothing of your own yet: the page leads with its offer, filter or not. */
+  /**
+   * Nothing of your own yet: the page leads with its offer, filter or not.
+   *
+   * Ownership is the only input — never the filtered count. Narrowing to a
+   * category your one product is not in used to read as losing the page,
+   * chrome and all, and snapping back to the first-run offer.
+   */
   const heroMode = cold;
+  const showMine = products.length > 0;
 
   const toolbar = (
     <LibraryToolbar
@@ -143,12 +170,42 @@ export function ProductsView() {
       <main className="sc-looks sc-products" id="main" data-hero={heroMode || undefined}>
         {heroMode ? <h1 className="sc-vh">Products</h1> : toolbar}
 
-        {!loaded && (
+        {!productsLoaded && (
           <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
             <ProductCardSkeleton size="grid" count={8} />
           </div>
         )}
 
+        {showMine && mineVisible.length > 0 && (
+          <section className="sc-owned">
+            <div className="sc-sec-head">
+              <h2 className="sc-sec-title">Your products</h2>
+            </div>
+            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+              {mineVisible.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  variant="use"
+                  size="grid"
+                  onOpen={openProduct}
+                  onUse={applyProduct}
+                />
+              ))}
+            </div>
+            {remaining > 0 && (
+              <div className="sc-lib-more">
+                <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
+                  Show {Math.min(remaining, 60)} more
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* The cold state, the same one Presenters and Scenes show: the offer,
+            centred, with the library underneath so the page is never an empty
+            room. */}
         {heroMode && (
           <LibraryEmpty
             shape="cold"
@@ -162,7 +219,33 @@ export function ProductsView() {
           />
         )}
 
-        {!heroMode && visible.length === 0 && (
+        {/* A heading only where it separates two things. Filter your own half
+            away and the page is simply a wall of ours, which needs no label. */}
+        {showMine && mineVisible.length > 0 && theirsFiltered.length > 0 && (
+          <div className="sc-sec-head sc-owned-divider">
+            <h2 className="sc-sec-title">Scenri products</h2>
+          </div>
+        )}
+
+        {theirsFiltered.length > 0 && (
+          <div className={heroMode ? 'sc-starter' : undefined}>
+            {heroMode && <StarterDivider label="Or borrow one of ours" />}
+            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+              {theirsFiltered.map((p) => (
+                <DemoProductCard
+                  key={p.id}
+                  product={p}
+                  variant="use"
+                  size="grid"
+                  onUse={applyProduct}
+                  onOpen={openProduct}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {productsLoaded && mineFiltered.length === 0 && theirsFiltered.length === 0 && (
           <LibraryZero
             noun="products"
             q={q}
@@ -170,45 +253,6 @@ export function ProductsView() {
             onClearSearch={clearSearch}
             onClearAll={clear}
           />
-        )}
-
-        {loaded && visible.length > 0 && (
-          // Cold, the wall is the Scenri library and carries the filter row
-          // with it, the same shape Presenters and Scenes open with.
-          <div className={heroMode ? 'sc-starter' : undefined}>
-            {heroMode && <StarterDivider label="Or borrow one of ours" />}
-            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-              {visible.map((p) =>
-                cold ? (
-                  <DemoProductCard
-                    key={p.id}
-                    product={p}
-                    variant="use"
-                    size="grid"
-                    onUse={applyProduct}
-                    onOpen={openProduct}
-                  />
-                ) : (
-                  <ProductCard
-                    key={p.id}
-                    product={p}
-                    variant="use"
-                    size="grid"
-                    onOpen={openProduct}
-                    onUse={applyProduct}
-                  />
-                ),
-              )}
-            </div>
-          </div>
-        )}
-
-        {remaining > 0 && (
-          <div className="sc-lib-more">
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
-              Show {Math.min(remaining, 60)} more
-            </button>
-          </div>
         )}
       </main>
     </ScrollPane>

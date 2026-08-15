@@ -22,6 +22,58 @@ export function isFeedSort(v: unknown): v is FeedSort {
   return FEED_SORTS.some((s) => s.id === v);
 }
 
+/**
+ * A lens narrows the place you are already in. It is not the place: a set is
+ * somewhere you can be, with its own address, and "keepers" is a way of
+ * looking at wherever you are — including inside that set. The two used to be
+ * one control, so asking for keepers while inside a set threw you out of it.
+ */
+export type Lens = 'all' | 'keepers' | 'archived';
+
+export const LENSES: ReadonlyArray<{ id: Lens; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'keepers', label: 'Keepers' },
+  { id: 'archived', label: 'Archived' },
+];
+
+/** Guards a URL read. `?tab=ungrouped` was a lens once and is a place now. */
+export function isLens(v: unknown): v is Lens {
+  return LENSES.some((l) => l.id === v);
+}
+
+/**
+ * The lens, over a place that has already been scoped.
+ *
+ * Both halves of the place arrive separately because archived shots are held
+ * out of the live list everywhere else in the app — so "archived, inside this
+ * set" is a different array, not a flag to filter on.
+ */
+export function applyLens(live: TreeNode[], archived: TreeNode[], lens: Lens): TreeNode[] {
+  if (lens === 'archived') return archived;
+  if (lens === 'keepers') return live.filter((n) => n.kept);
+  return live;
+}
+
+/**
+ * What each tab would actually show from here — scoped to the current place
+ * and narrowed by the current search, so the numbers describe the collection
+ * in front of you rather than the whole brand. This is what lets the row drop
+ * its separate result count: the tabs already say it.
+ */
+export function countLenses(
+  live: TreeNode[],
+  archived: TreeNode[],
+  q: string,
+  textFor: (n: TreeNode) => string,
+): Record<Lens, number> {
+  const l = filterFeed(live, q, textFor);
+  return {
+    all: l.length,
+    keepers: l.reduce((n, s) => n + (s.kept ? 1 : 0), 0),
+    archived: filterFeed(archived, q, textFor).length,
+  };
+}
+
 /** Newest first — the ordering the feed has always used. */
 export const byNewest = (a: TreeNode, b: TreeNode): number => b.createdAt.localeCompare(a.createdAt);
 

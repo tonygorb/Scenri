@@ -1,23 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { productLabel, productSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
-import { Dialog } from '@radix-ui/themes';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
-import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
-import { useBrand } from '../app/BrandLayout.js';
+import { imgUrl, type Brand, type TreeNode } from '../api.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { flattenPalette } from '../brand/palette.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
-import { isRecommendedScene, isRecommendedPresenter } from '../compat.js';
-import { categoryLabel } from '../productCategories.js';
 import type { SentenceToken } from './BriefInput.js';
 import { keepCaret } from './line.js';
+import { matchesQuery } from '../layout/library/libraryRules.js';
+import { buildCandidates, pickList, type IngredientKind } from './ingredientOptions.js';
+import { useIngredientCatalog } from './useIngredientCatalog.js';
+import { favoriteScenes } from '../favorites.js';
 
 /** Per group on the All tab, where the point is breadth rather than depth. */
 const ALL_TAB_PREVIEW = 8;
 /** On a single tab, enough to browse; past this, searching beats scrolling. */
 const TAB_CAP = 60;
-const TABS = ['All', 'Products', 'Library', 'Presenters', 'Scenes', 'Colors', 'Brand', 'Shots'] as const;
+/**
+ * "Library" used to sit here as a tab of its own, holding scenri's products
+ * while "Products" held yours — ownership presented as a type. They are the
+ * same kind of thing and they share a tab now, yours ranked first, which is
+ * what the caret menu and the chip picker have always done.
+ */
+const TABS = ['All', 'Products', 'Presenters', 'Scenes', 'Colors', 'Brand', 'Shots'] as const;
 export type AttachTab = (typeof TABS)[number];
 type Tab = AttachTab;
 
@@ -42,9 +47,6 @@ interface Card {
  */
 export function AttachPanel({
   brand,
-  templates,
-  presenters,
-  demoProducts,
   shots,
   initialTab = 'All',
   activeProductCategory,
@@ -54,9 +56,6 @@ export function AttachPanel({
   onClose,
 }: {
   brand: Brand;
-  templates: Scene[];
-  presenters: Presenter[];
-  demoProducts: DemoProduct[];
   shots: TreeNode[];
   initialTab?: AttachTab;
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
@@ -71,7 +70,8 @@ export function AttachPanel({
     setTab(initialTab);
   }, [initialTab]);
   const [q, setQ] = useState('');
-  const { products: library } = useBrand();
+  const catalog = useIngredientCatalog(activeProductCategory);
+  const starred = useMemo(() => new Set(favoriteScenes(brand.id)), [brand.id]);
   const createAsset = useCreateAsset();
   // The creation dialog lives in the URL now, so "is something stacked on top
   // of me" is a question the URL answers rather than a boolean this panel has
@@ -109,7 +109,6 @@ export function AttachPanel({
   }, [onClose, creating]);
 
   const cards = useMemo<Card[]>(() => {
-    const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
     const palette = flattenPalette(brand.json?.palette);
     const marks = attachableMarks(brand.json);
     const recent = shots
@@ -117,57 +116,34 @@ export function AttachPanel({
       .slice(-12)
       .reverse();
 
+    /**
+     * Products, presenters and scenes come from the one shared model, ranked
+     * the same way the rail and the chip picker rank them — yours first, then
+     * suitability and taste. This panel used to build its own three lists,
+     * with its own products fallback and its own search text, which is how it
+     * ended up able to find things the caret menu could not.
+     */
+    const ingredient = (kind: IngredientKind, tab: Exclude<Tab, 'All'>): Card[] =>
+      pickList(kind, buildCandidates(kind, catalog), {
+        currentId: null,
+        query: '',
+        starred,
+        shown: Number.MAX_SAFE_INTEGER,
+      }).items.map((c) => ({
+        key: `${kind}:${c.id}`,
+        tab,
+        label: c.label,
+        sub: c.sub,
+        search: c.search,
+        thumb: c.thumb,
+        recommended: c.recommended,
+        run: () => (c.kind === 'scene' ? onTemplate(c.id) : onToken(c.token)),
+      }));
+
     return [
-      ...products.map(
-        (pr): Card => ({
-          key: `p:${pr.id}`,
-          tab: 'Products',
-          label: productLabel(pr, 'card'),
-          sub: 'stays exact',
-          search: productSearchText(pr),
-          thumb: assetUrl(pr.shots?.[0]?.file),
-          run: () => onToken({ t: 'product', id: pr.id }),
-        }),
-      ),
-      // Scenri's own curated, always-available starter products — a
-      // separate tab (not mixed into "Products"), mirroring exactly how
-      // Presenters is already a global catalog independent of the brand's
-      // own data. Never written into the brand's own products[]; selecting
-      // one just drops the same {t:'product'} token a real product would.
-      ...demoProducts.map(
-        (pr): Card => ({
-          key: `dp:${pr.id}`,
-          tab: 'Library',
-          label: productLabel(pr, 'card'),
-          sub: categoryLabel(pr.category) ?? pr.category,
-          search: productSearchText(pr),
-          thumb: pr.previewUrl ?? null,
-          run: () => onToken({ t: 'product', id: pr.id }),
-        }),
-      ),
-      ...presenters.map(
-        (pr): Card => ({
-          key: `h:${pr.id}`,
-          tab: 'Presenters',
-          label: pr.name,
-          sub: pr.descriptor,
-          thumb: pr.avatarUrl ?? pr.previewUrl ?? null,
-          recommended: isRecommendedPresenter(pr, activeProductCategory),
-          run: () => onToken({ t: 'character', id: pr.id }),
-        }),
-      ),
-      ...templates.map(
-        (t): Card => ({
-          key: `t:${t.id}`,
-          tab: 'Scenes',
-          label: sceneLabel(t, 'card'),
-          sub: t.lighting,
-          search: sceneSearchText(t),
-          thumb: (t as any).previewUrl ?? null,
-          recommended: isRecommendedScene(t, activeProductCategory),
-          run: () => onTemplate(t.id),
-        }),
-      ),
+      ...ingredient('product', 'Products'),
+      ...ingredient('presenter', 'Presenters'),
+      ...ingredient('scene', 'Scenes'),
       ...marks.map(
         (m): Card => ({
           key: `m:${m.hash}`,
@@ -199,13 +175,14 @@ export function AttachPanel({
         }),
       ),
     ];
-  }, [brand, library, templates, presenters, demoProducts, shots, activeProductCategory, onToken, onTemplate]);
+  }, [brand, catalog, starred, shots, onToken, onTemplate]);
 
-  const query = q.trim().toLowerCase();
-  const match = (c: Card) => !query || `${c.label} ${c.sub ?? ''} ${c.search ?? ''}`.toLowerCase().includes(query);
+  // The library matcher, not a second one: `rosé` and `serums` found results
+  // on every library page and in the picker, and nothing here.
+  const match = (c: Card) => matchesQuery(`${c.label} ${c.sub ?? ''} ${c.search ?? ''}`, q);
   const inTab = (c: Card) => tab === 'All' || c.tab === tab;
   const shown = cards.filter((c) => inTab(c) && match(c));
-  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Library', 'Presenters', 'Scenes', 'Colors', 'Shots'];
+  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Colors', 'Shots'];
 
   const card = (c: Card) => (
     <button
@@ -265,7 +242,7 @@ export function AttachPanel({
       </div>
 
       <div className="sc-ap-body">
-        {shown.length === 0 && <div className="sc-ap-empty">Nothing matches{query ? ` "${q.trim()}"` : ''}.</div>}
+        {shown.length === 0 && <div className="sc-ap-empty">Nothing matches{q.trim() ? ` "${q.trim()}"` : ''}.</div>}
         {tab === 'All' ? (
           groups.map((g) => {
             const items = shown.filter((c) => c.tab === g);
@@ -280,15 +257,7 @@ export function AttachPanel({
             const rest = items.length - preview.length;
             return (
               <div key={g} className="sc-ap-group">
-                <div className="sc-eyebrow">
-                  {g === 'Shots'
-                    ? 'Recent shots'
-                    : g === 'Colors'
-                      ? 'Brand colors'
-                      : g === 'Library'
-                        ? 'Scenri library'
-                        : g}
-                </div>
+                <div className="sc-eyebrow">{g === 'Shots' ? 'Recent shots' : g === 'Colors' ? 'Brand colors' : g}</div>
                 <div className="sc-ap-grid">{preview.map(card)}</div>
                 {rest > 0 && (
                   <button type="button" className="sc-amore" onClick={() => setTab(g)}>

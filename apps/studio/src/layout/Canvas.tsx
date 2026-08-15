@@ -133,7 +133,7 @@ export function Canvas({
           // (React warned on it), and the same nested-interactive mistake this
           // pass already fixed for SceneCard and the kept-star badge. A sibling
           // now, matching that pattern.
-          <div key={n.id} className="sc-cell" data-running="true">
+          <div key={n.id} className="sc-cell" data-running="true" data-fb-node={n.id}>
             <button
               type="button"
               className="sc-cell-open"
@@ -171,6 +171,7 @@ export function Canvas({
           <div
             key={n.id}
             className="sc-cell"
+            data-fb-node={n.id}
             data-cancelled={cancelled || undefined}
             data-failed={!cancelled || undefined}
             data-selected={n.id === selectedId}
@@ -322,6 +323,8 @@ export function Canvas({
             // not rely on that staying true.
             key={`${n.id}:${hash}`}
             className="sc-cell"
+            data-fb-node={n.id}
+            data-fb-variant={i}
             data-variant=""
             data-first={i === 0 || undefined}
             data-selected={i === 0 && n.id === selectedId}
@@ -391,7 +394,12 @@ export function Canvas({
       return [
         <ContextMenu.Root key={n.id}>
           <ContextMenu.Trigger>
-            <div className="sc-cell" data-selected={n.id === selectedId} data-picked={chosen || undefined}>
+            <div
+              className="sc-cell"
+              data-fb-node={n.id}
+              data-selected={n.id === selectedId}
+              data-picked={chosen || undefined}
+            >
               <button
                 type="button"
                 className="sc-cell-open"
@@ -453,6 +461,20 @@ export function Canvas({
                 <ContextMenu.Separator />
                 <ContextMenu.Item color="red" onSelect={() => setDeleteTarget(n)}>
                   Delete permanently
+                </ContextMenu.Item>
+              </>
+            )}
+            {/* Alpha builds only, and an event rather than an import: nothing
+                here may pull the feedback layer into the public bundle. */}
+            {__SC_ALPHA__ && (
+              <>
+                <ContextMenu.Separator />
+                <ContextMenu.Item
+                  onSelect={() =>
+                    window.dispatchEvent(new CustomEvent('scenri:feedback', { detail: { nodeId: n.id } }))
+                  }
+                >
+                  Report this
                 </ContextMenu.Item>
               </>
             )}

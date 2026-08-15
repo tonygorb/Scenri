@@ -24,7 +24,8 @@ import {
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
 import {
-  QUALITIES,
+  openOnGroup,
+  RESOLUTIONS,
   ShotSettings,
   ShotSettingsFields,
   ShotSettingsPills,
@@ -32,15 +33,17 @@ import {
 } from '../composer/ShotSettings.js';
 import { useOpenSettings, useOpenSetup } from '../app/dialogs.js';
 import { effectiveEngineId, engineTitle, FALLBACK_ENGINE_ID } from '../engines/active.js';
+import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
-import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
+import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
 import { failureToast } from '../failure.js';
+import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.js';
 
 export interface ComposerHandle {
   /** Append a token to the brief (assets panel click path). */
@@ -105,6 +108,15 @@ export const Composer = forwardRef<
      */
     onSending?: (text: string | null) => void;
     /**
+     * Which assets the brief holds, published whenever that set changes.
+     *
+     * The rail ticks what is attached, and it cannot read a contenteditable.
+     * Keyed rather than fired on every `sentence` change on purpose: the
+     * sentence is a new array per keystroke, and re-rendering the rail while
+     * someone types would be a jumping panel.
+     */
+    onAttached?: (ids: AttachedIds) => void;
+    /**
      * The shot this brief will branch from, chosen with Branch. Null means a
      * new shot, which is the resting state and the only other one there is.
      */
@@ -145,6 +157,7 @@ export const Composer = forwardRef<
     openAttachTab,
     onQueued,
     onSending,
+    onAttached,
     target,
     onClearTarget,
     sourceImage,
@@ -155,21 +168,21 @@ export const Composer = forwardRef<
   handleRef,
 ) {
   const { products: libraryProducts } = useBrand();
-  const { scenes: catalogScenes, presenters: catalogPresenters, demoProducts, loaded } = useAppData();
+  const { demoProducts, loaded } = useAppData();
   /**
    * The brand's own scenes and presenters, ahead of the curated catalogs.
    *
-   * Merged once, here, because every consumer below takes these two lists:
-   * the attach panel, the sigil menus, the chips, the scene-switch policy, and
-   * the per-chip warnings. Missing any one of them would be worse than
-   * cosmetic — BriefInput drops a token it cannot resolve, so a restored draft
-   * carrying a custom scene would come back silently without it.
+   * Every consumer below takes these two lists: the attach panel, the sigil
+   * menus, the chips, the scene-switch policy, and the per-chip warnings.
+   * Missing any one of them would be worse than cosmetic — BriefInput drops a
+   * token it cannot resolve, so a restored draft carrying a custom scene would
+   * come back silently without it. The merge itself lives in
+   * `useIngredientCatalog` now, which is also what the rail reads, so the two
+   * cannot answer differently about what this brand owns.
    */
-  const templates = useMemo(() => withCustomFirst(customScenesOf(brand), catalogScenes), [brand, catalogScenes]);
-  const presenters = useMemo(
-    () => withCustomFirst(customPresentersOf(brand), catalogPresenters),
-    [brand, catalogPresenters],
-  );
+  const composerCatalog = useIngredientCatalog();
+  const templates = composerCatalog.scenes;
+  const presenters = composerCatalog.presenters;
   const openSettings = useOpenSettings();
   const openSetup = useOpenSetup();
   const { push } = useToasts();
@@ -211,7 +224,7 @@ export const Composer = forwardRef<
 
   const [sentence, setSentence] = useState<SentenceToken[]>(emptySentence());
   const [seedTokens, setSeedTokens] = useState<SentenceToken[] | undefined>(undefined);
-  const [formatId, setFormatId] = useLocalPref(PREF.format, 'square');
+  const [formatId, setFormatId, borrowFormat] = useRecipeSetting(PREF.format, 'square');
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
   const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, 2);
   const [busy, setBusy] = useState(false);
@@ -279,12 +292,14 @@ export const Composer = forwardRef<
     const carriedFormat = (initialBrief.tokens ?? []).find((t) => t.t === 'format') as
       | Extract<BriefToken, { t: 'format' }>
       | undefined;
-    if (carriedFormat) setFormatId(carriedFormat.id);
-    // A curated example was shot at a chosen variant count and quality. Left
-    // to the visitor's own prefs, a 4-variant catalog example could open as a
-    // single draft frame and stop matching the tile it came from. Borrowed for
-    // this brief rather than written: looking at an example is not a decision
-    // about what every later shot should cost.
+    // A curated example was shot at a chosen shape, variant count and
+    // resolution. Left to the visitor's own prefs, a 4-variant catalog example
+    // could open as a single draft frame and stop matching the tile it came
+    // from. Borrowed for this brief rather than written: looking at an example
+    // is not a decision about what every later shot should be. The shape used
+    // to be the exception here, so opening one 16:9 example permanently
+    // rewrote the default aspect of every shot after it.
+    if (carriedFormat) borrowFormat(carriedFormat.id);
     if (initialBrief.variants) borrowCount(initialBrief.variants);
     if (initialBrief.quality) borrowQuality(initialBrief.quality);
     setSeedTokens(briefTokens(initialBrief));
@@ -402,7 +417,7 @@ export const Composer = forwardRef<
    */
   const format = useMemo(() => {
     const f = FORMATS.find((x) => x.id === formatId) ?? FORMATS[0];
-    const edge = QUALITIES.find((x) => x.id === quality)?.edge ?? 1024;
+    const edge = RESOLUTIONS.find((x) => x.id === quality)?.edge ?? 1024;
     const scale = edge / Math.max(f.w, f.h);
     const round8 = (n: number) => Math.max(256, Math.round((n * scale) / 8) * 8);
     return { t: 'format' as const, id: f.id, w: round8(f.w), h: round8(f.h) };
@@ -480,6 +495,17 @@ export const Composer = forwardRef<
     },
   }));
 
+  // Derived here rather than in the rail because this is the only place the
+  // live sentence exists. The key is what the effect watches, so typing text
+  // around the chips publishes nothing.
+  const attached = useMemo(() => attachedIdsOf(sentence), [sentence]);
+  const attachedKey = attachedIdsKey(attached);
+  const attachedRef = useRef(attached);
+  attachedRef.current = attached;
+  useEffect(() => {
+    onAttached?.(attachedRef.current);
+  }, [attachedKey, onAttached]);
+
   // a `?scene=` id (or a restored draft) that no longer resolves must not sit as
   // a silent, still-submittable chip — mirrors Create.tsx's stale-branch-target
   // toast for the same class of problem
@@ -530,6 +556,8 @@ export const Composer = forwardRef<
   }, [flushDraft, brand.id]);
 
   const engine = engines.find((e) => e.id === engineId);
+  /** The engine's name as a person says it, for the lines that name it. */
+  const engineLabel = engine ? engineTitle(engine.displayName) : 'This engine';
 
   /**
    * What this brief will do, and why.
@@ -585,11 +613,21 @@ export const Composer = forwardRef<
             ? 'Still rendering. This can be refined the moment it lands.'
             : null;
 
-  /** What is currently set, so the one control can still say it out loud. */
+  /**
+   * What is currently set, so the one control can still say it out loud.
+   *
+   * Display labels, never the stored ids: this used to announce "Aspect
+   * portrait, quality high". And on a refinement it named the one setting that
+   * surface does not contain, because a refine carries no size.
+   */
   const settingsSummary = useMemo(() => {
-    const q = QUALITIES.find((x) => x.id === quality)?.label ?? quality;
-    return mode === 'edit' ? `Quality ${q}` : `Aspect ${formatId}, ${count} variants, quality ${q}`;
-  }, [mode, formatId, count, quality]);
+    const f = FORMATS.find((x) => x.id === formatId) ?? FORMATS[0];
+    const shape = `Aspect ${f.label} ${f.hint}`;
+    if (mode === 'edit') return shape;
+    const r = RESOLUTIONS.find((x) => x.id === quality);
+    const size = sizingOf(engineId) === 'ratio' || !r ? null : `${r.label} ${r.edge} px`;
+    return [shape, `${count} variants`, size && `resolution ${size}`].filter(Boolean).join(', ');
+  }, [mode, formatId, count, quality, engineId]);
 
   /**
    * A scene is a fresh setup, so it cannot also be an edit of an existing shot.
@@ -645,20 +683,6 @@ export const Composer = forwardRef<
     setCount(n);
     briefRef.current?.focus();
   };
-  /**
-   * The ratio label reads from the chosen FORMAT, never from the pixels we are
-   * about to send. Those are scaled to the quality edge and quantised to a
-   * multiple of 8 for the model's grid, which leaves 4:5 arriving as 816x1024
-   * on standard and 1232x1536 on high — reduced honestly, that printed "51:64"
-   * and "77:96". The shape the user picked has not changed; only its rounding.
-   */
-  const _ratio = useMemo(() => {
-    const f = FORMATS.find((x) => x.id === formatId) ?? FORMATS[0];
-    const g = (a: number, b: number): number => (b ? g(b, a % b) : a);
-    const d = g(f.w, f.h) || 1;
-    return `${f.w / d}:${f.h / d}`;
-  }, [formatId]);
-
   /**
    * A Radix menu returns focus to its trigger on close, so picking an aspect or
    * a quality left the brief without a caret and the next keystroke went
@@ -792,6 +816,7 @@ export const Composer = forwardRef<
       briefRef.current?.setTokens(emptySentence());
       setTplFields({});
       // the borrowed settings belonged to the brief that just left the screen
+      borrowFormat(null);
       borrowCount(null);
       borrowQuality(null);
       if (persistDraft) clearDraft(brand.id);
@@ -847,9 +872,6 @@ export const Composer = forwardRef<
       {attachOpen && (
         <AttachPanel
           brand={brand}
-          templates={templates}
-          presenters={presenters}
-          demoProducts={demoProducts}
           activeProductCategory={activeProductCategory}
           shots={shots}
           initialTab={attachTab}
@@ -1033,6 +1055,8 @@ export const Composer = forwardRef<
             */}
             <ShotSettingsPills
               mode={mode}
+              engineId={engineId}
+              engineName={engineLabel}
               formatId={formatId}
               onFormat={setFormat}
               count={count}
@@ -1054,10 +1078,13 @@ export const Composer = forwardRef<
                 align="end"
                 sideOffset={8}
                 width="300px"
+                onOpenAutoFocus={openOnGroup}
                 onCloseAutoFocus={backToBrief}
               >
                 <ShotSettingsFields
                   mode={mode}
+                  engineId={engineId}
+                  engineName={engineLabel}
                   formatId={formatId}
                   onFormat={setFormat}
                   count={count}
@@ -1071,6 +1098,8 @@ export const Composer = forwardRef<
             {/* the touch shell for the same fields: a sheet under the thumb */}
             <ShotSettings
               mode={mode}
+              engineId={engineId}
+              engineName={engineLabel}
               formatId={formatId}
               onFormat={setFormat}
               count={count}

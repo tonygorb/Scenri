@@ -212,6 +212,42 @@ describe('buildCandidates — presenters', () => {
   });
 });
 
+describe('ownership', () => {
+  it('a scene this brand built reports itself as the brand’s, not scenri’s', () => {
+    const cs = buildCandidates('scene', catalog({ scenes: [scene({ id: 'us-1', custom: true } as any)] }));
+    expect(cs[0]?.source).toBe('brand');
+  });
+
+  it('a presenter this brand cast reports itself as the brand’s', () => {
+    const cs = buildCandidates('presenter', catalog({ presenters: [presenter({ id: 'up-1', custom: true } as any)] }));
+    expect(cs[0]?.source).toBe('brand');
+  });
+
+  it('scenri’s own still report as the catalog’s', () => {
+    expect(buildCandidates('scene', catalog({ scenes: [scene()] }))[0]?.source).toBe('catalog');
+    expect(buildCandidates('presenter', catalog({ presenters: [presenter()] }))[0]?.source).toBe('catalog');
+  });
+
+  it('owning products never hides the ones scenri ships', () => {
+    const cs = buildCandidates(
+      'product',
+      catalog({ libraryProducts: [owned({ id: 'mine' })], demoProducts: [demo({ id: 'theirs' })] }),
+    );
+    expect(ids(cs)).toContain('theirs');
+  });
+});
+
+describe('thumb framing', () => {
+  it('marks a 4:5 fallback so a square tile can pull the face up', () => {
+    const cs = buildCandidates('presenter', catalog({ presenters: [presenter({ avatarUrl: null } as any)] }));
+    expect(cs[0]?.crop).toBe('top');
+  });
+
+  it('leaves a real square avatar alone', () => {
+    expect(buildCandidates('presenter', catalog({ presenters: [presenter()] }))[0]?.crop).toBeUndefined();
+  });
+});
+
 describe('buildCandidates — scenes', () => {
   it('carries the preview, the normalized tint and the full search vocabulary', () => {
     const [c] = buildCandidates('scene', catalog({ scenes: [scene()] }));
@@ -336,6 +372,31 @@ describe('pickList', () => {
     it('keeps catalog order inside a band rather than re-sorting it', () => {
       const cs = scenes(5);
       expect(ids(pickList('scene', cs, opts()).items)).toEqual(['s0', 's1', 's2', 's3', 's4']);
+    });
+
+    it('presenters: your own person outranks a merely suited one of ours', () => {
+      const cs = buildCandidates(
+        'presenter',
+        catalog({
+          presenters: [
+            presenter({ id: 'ours-suited', suitableCategories: ['Beauty'] }),
+            presenter({ id: 'up-mine', suitableCategories: [], custom: true } as any),
+          ],
+          productCategory: 'beauty',
+        }),
+      );
+      expect(ids(pickList('presenter', cs, opts()).items)).toEqual(['up-mine', 'ours-suited']);
+    });
+
+    it('scenes: your own place outranks a starred one of ours', () => {
+      const cs = buildCandidates(
+        'scene',
+        catalog({
+          scenes: [scene({ id: 'ours-starred' }), scene({ id: 'us-mine', custom: true } as any)],
+        }),
+      );
+      const l = pickList('scene', cs, opts({ starred: new Set(['ours-starred']) }));
+      expect(ids(l.items)).toEqual(['us-mine', 'ours-starred']);
     });
   });
 

@@ -38,6 +38,33 @@ chmodSync(entry, 0o755);
 const studioSrc = join(repo, 'apps', 'studio', 'dist');
 if (!existsSync(studioSrc)) fail('apps/studio/dist is missing. Run `pnpm build` at the repo root first.');
 if (!existsSync(join(studioSrc, 'index.html'))) fail('apps/studio/dist has no index.html');
+/*
+ * Both builds write to apps/studio/dist, so the bytes sitting there decide
+ * what ships and nothing in the filename says which they are. Building the
+ * alpha and then publishing without rebuilding would put the feedback layer —
+ * and the private feedback repo's URL — into the package every `npx scenri`
+ * user installs.
+ *
+ * `vite build --mode alpha` drops a marker beside the bundle. The two have to
+ * agree, in both directions: an alpha dist may only be published with
+ * SCENRI_CHANNEL=alpha, and that channel may not publish a public dist.
+ */
+const isAlphaDist = existsSync(join(studioSrc, '.alpha-channel'));
+const wantAlpha = process.env.SCENRI_CHANNEL === 'alpha';
+if (isAlphaDist && !wantAlpha) {
+  fail(
+    'apps/studio/dist is an ALPHA build (it carries .alpha-channel).\n' +
+      '        Publishing it would ship the feedback layer to every user.\n' +
+      '        Run `pnpm build` to rebuild the public studio, or set SCENRI_CHANNEL=alpha to publish the alpha on purpose.',
+  );
+}
+if (!isAlphaDist && wantAlpha) {
+  fail(
+    'SCENRI_CHANNEL=alpha, but apps/studio/dist is a public build. Run `pnpm --filter @scenri/studio build:alpha` first.',
+  );
+}
+console.log(`prepack: studio channel is ${isAlphaDist ? 'ALPHA' : 'public'}`);
+
 const studioDest = join(pkg, 'studio-dist');
 rmSync(studioDest, { recursive: true, force: true });
 cpSync(studioSrc, studioDest, { recursive: true });

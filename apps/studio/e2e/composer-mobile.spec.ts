@@ -138,14 +138,14 @@ test('focusing the brief cannot zoom the page', async ({ page }) => {
 });
 
 /**
- * The filters are one row on a phone, not two.
+ * The feed's controls are one row on a phone, not two.
  *
- * Wrapping gave the lenses their own line and the sets, search and sort a
+ * Wrapping gave the lenses their own line and the place, search and view a
  * second, and the pair cost 114px of a 664px screen to filter a feed that had
  * 324px left to show pictures in. The rail scrolls, so it is the part that
  * gives.
  */
-test('the feed filters share one row on a phone', async ({ page }) => {
+test('the feed controls share one row on a phone', async ({ page }) => {
   test.skip(!isPhone(page), 'the two-row wrap only ever happened under 768px');
 
   const toolbar = page.locator('.sc-toolbar');
@@ -163,20 +163,56 @@ test('the feed filters share one row on a phone', async ({ page }) => {
       groups: boxes.length,
       sharedBand: Math.round(bottom - top),
       height: Math.round(bar.getBoundingClientRect().height),
+      overflows: Math.round(bar.getBoundingClientRect().right) > document.documentElement.clientWidth,
     };
   });
 
-  // every group crosses one shared band, and the bar stays under the height two
-  // stacked rows of controls would need
-  expect(rows.groups).toBeGreaterThan(1);
+  // scope and actions each cross one shared band, and the bar stays under the
+  // height two stacked rows of controls would need
+  expect(rows.groups).toBe(2);
   expect(rows.sharedBand).toBeGreaterThan(20);
   expect(rows.height).toBeLessThan(80);
+  expect(rows.overflows).toBe(false);
 
-  // and the rail still reaches every lens by scrolling rather than by wrapping
+  // the rail reaches every lens by scrolling rather than by wrapping — and
+  // when three lenses do fit, it says so by not claiming an edge it has not got
   const rail = page.locator('.sc-toolbar .sc-verticals');
-  const scrolls = await rail.evaluate((el) => el.scrollWidth > el.clientWidth);
-  expect(scrolls).toBe(true);
-  await expect(page.locator('.sc-toolbar .sc-verticals-shell')).toHaveAttribute('data-overflow-right', '');
+  const scrolls = await rail.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+  const shell = page.locator('.sc-toolbar .sc-verticals-shell');
+  if (scrolls) await expect(shell).toHaveAttribute('data-overflow-right', '');
+  else await expect(shell).not.toHaveAttribute('data-overflow-right', '');
+});
+
+/**
+ * Search takes the row rather than floating over the tabs, the same move the
+ * library filterbar makes when it runs out of width. One search behaviour, not
+ * a second one to learn — and the row stays one row while it happens.
+ */
+test('search takes the feed row on a phone rather than covering it', async ({ page }) => {
+  test.skip(!isPhone(page), 'the row takeover is the phone answer only');
+
+  const toolbar = page.locator('.sc-toolbar');
+  await expect(toolbar).toBeVisible();
+  const before = await toolbar.evaluate((el) => Math.round(el.getBoundingClientRect().height));
+
+  await page.locator('.sc-toolbar .sc-libsearch-toggle').click();
+  const field = page.locator('.sc-toolbar .sc-libsearch input');
+  await expect(field).toBeFocused();
+
+  // the scope group steps aside, the field takes the width it left, and the
+  // row is exactly as tall as it was
+  await expect(page.locator('.sc-toolbar-scope')).toBeHidden();
+  const after = await toolbar.evaluate((el) => Math.round(el.getBoundingClientRect().height));
+  expect(after).toBe(before);
+
+  const wide = await page
+    .locator('.sc-toolbar .sc-libsearch-field')
+    .evaluate((el) => el.getBoundingClientRect().width > 200);
+  expect(wide).toBe(true);
+
+  // escape gives the row back
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.sc-toolbar-scope')).toBeVisible();
 });
 
 /**

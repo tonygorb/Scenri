@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
-import { SquaresFour } from '@phosphor-icons/react';
 import { PREF, useLocalPref } from '../prefs.js';
-import { DENSITY_DEFAULT, DENSITY_STAGES, TILE_MAX, TILE_MIN, type DensityCols, normalizeDensity } from './masonry.js';
+import { DENSITY_DEFAULT, TILE_STOPS, type DensityCols, nearestTileStop, normalizeDensity } from './masonry.js';
 
 export type DensitySize = 'compact' | 'large';
 
@@ -16,13 +15,66 @@ export function useWallDensitySize(): DensitySize {
   return densitySize(raw);
 }
 
+interface SizeOption {
+  value: number;
+  label: string;
+  hint: string;
+  /** Cells per side in the icon: 3 reads denser than 2. */
+  cells: number;
+}
+
+const WALL_OPTIONS: SizeOption[] = [
+  { value: 7, label: 'Compact', hint: 'More cards per row', cells: 3 },
+  { value: 5, label: 'Large', hint: 'Fewer, larger cards', cells: 2 },
+];
+
+const FEED_OPTIONS: SizeOption[] = TILE_STOPS.map((s) => ({
+  value: s.px,
+  label: s.label,
+  hint: s.label === 'Compact' ? 'More shots per row' : 'Fewer, larger shots',
+  cells: s.cells,
+}));
+
 /**
  * Catalog wall density — two-view icon toggle (compact ↔ large).
  * Sliding pill only (no wall fade — grid reflow is instant).
- * Separate from Create’s feed size slider. Hidden on phone via `.sc-density`.
  */
 export function DensityControl({ value, onChange }: { value: number; onChange: (cols: DensityCols) => void }) {
-  const current = normalizeDensity(value);
+  return (
+    <SizeToggle
+      label="Grid size"
+      value={normalizeDensity(value)}
+      options={WALL_OPTIONS}
+      onChange={(v) => onChange(v as DensityCols)}
+    />
+  );
+}
+
+/**
+ * The Create feed's own size, in the same control.
+ *
+ * It was a fourteen-stop width slider, which was both a shape nothing else in
+ * the app used and a promise it could not keep: the feed only reflows when the
+ * column count flips, so most of those stops moved nothing. The feed is a wall
+ * of pictures like every other wall here, so it gets the wall's own toggle —
+ * one control, one meaning, wherever you meet it.
+ */
+export function FeedSizeControl({ value, onChange }: { value: number; onChange: (px: number) => void }) {
+  return <SizeToggle label="Shot size" value={nearestTileStop(value)} options={FEED_OPTIONS} onChange={onChange} />;
+}
+
+/** The shared shape: a radiogroup of matched icons under one sliding pill. */
+function SizeToggle({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  options: SizeOption[];
+  onChange: (value: number) => void;
+}) {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -50,29 +102,28 @@ export function DensityControl({ value, onChange }: { value: number; onChange: (
     const ro = new ResizeObserver(placeInk);
     ro.observe(root);
     return () => ro.disconnect();
-  }, [current]);
+  }, [value]);
 
   return (
-    <div ref={rootRef} className="sc-density" role="radiogroup" aria-label="Grid size">
+    <div ref={rootRef} className="sc-density" role="radiogroup" aria-label={label}>
       <span className="sc-density-ink" aria-hidden />
-      {DENSITY_STAGES.map((cols) => {
-        const compact = cols === 7;
-        const on = current === cols;
+      {options.map((opt) => {
+        const on = value === opt.value;
         return (
           <button
-            key={cols}
+            key={opt.value}
             type="button"
             role="radio"
             className="sc-density-opt"
             aria-checked={on}
-            aria-label={compact ? 'Compact' : 'Large'}
-            title={compact ? 'More cards per row' : 'Fewer, larger cards'}
+            aria-label={opt.label}
+            title={opt.hint}
             data-on={on || undefined}
             onClick={() => {
-              if (cols !== current) onChange(cols);
+              if (!on) onChange(opt.value);
             }}
           >
-            <DensityIcon cols={cols} />
+            <DensityIcon cells={opt.cells} />
           </button>
         );
       })}
@@ -80,30 +131,12 @@ export function DensityControl({ value, onChange }: { value: number; onChange: (
   );
 }
 
-/** Create feed only — continuous tile-width range (original control). */
-export function FeedDensitySlider({ value, onChange }: { value: number; onChange: (px: number) => void }) {
-  return (
-    <label className="sc-feed-density">
-      <SquaresFour size={13} />
-      <input
-        type="range"
-        min={TILE_MIN}
-        max={TILE_MAX}
-        step={20}
-        value={value}
-        aria-label="Grid size"
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </label>
-  );
-}
-
 /**
  * Matched pair: same 16×16 frame, same 1.5px gutter, same rx ratio.
  * Compact = 3×3, large = 2×2 — density reads from cell count, not weight.
  */
-function DensityIcon({ cols }: { cols: DensityCols }) {
-  const n = cols === 7 ? 3 : 2;
+function DensityIcon({ cells }: { cells: number }) {
+  const n = cells;
   const box = 16;
   const pad = 1.5;
   const gap = 1.5;
@@ -111,20 +144,17 @@ function DensityIcon({ cols }: { cols: DensityCols }) {
   const cell = (inner - gap * (n - 1)) / n;
   const rx = Math.max(0.6, cell * 0.22);
 
-  const cells: { x: number; y: number }[] = [];
+  const rects: { x: number; y: number }[] = [];
   for (let row = 0; row < n; row++) {
     for (let col = 0; col < n; col++) {
-      cells.push({
-        x: pad + col * (cell + gap),
-        y: pad + row * (cell + gap),
-      });
+      rects.push({ x: pad + col * (cell + gap), y: pad + row * (cell + gap) });
     }
   }
 
   return (
     <svg className="sc-density-icon" width={box} height={box} viewBox={`0 0 ${box} ${box}`} aria-hidden>
-      {cells.map((c, i) => (
-        <rect key={i} x={c.x} y={c.y} width={cell} height={cell} rx={rx} ry={rx} fill="currentColor" />
+      {rects.map((c) => (
+        <rect key={`${c.x}-${c.y}`} x={c.x} y={c.y} width={cell} height={cell} rx={rx} ry={rx} fill="currentColor" />
       ))}
     </svg>
   );

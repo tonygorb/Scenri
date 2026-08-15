@@ -154,7 +154,7 @@ test('the settings ride along with the brief, so a shot can be run again as itse
   // On a desktop the three settings are pills in the row; a narrow composer
   // collapses the same three behind More, and a phone opens them as a sheet.
   await dock(page).locator('.sc-prompt-pills [aria-label="2 variants"]').click();
-  await page.getByRole('menuitem', { name: '3 variants' }).click();
+  await page.locator('.sc-setpop').getByRole('radio', { name: '3 variants' }).click();
   await dock(page).locator('.sc-send').click();
   await expect(page.locator('.sc-toast', { hasText: 'That did not send' })).toBeVisible();
 
@@ -421,29 +421,142 @@ test('backspace over a chip removes it and leaves one space', async ({ page }) =
   expect(await sentence(page)).not.toMatch(/ {2}/);
 });
 
-test('changing aspect and quality does not disturb the sentence', async ({ page }) => {
-  // A desktop composer has the room to state all three settings, so they are
-  // pills in the row. What is under test either way is the caret: changing a
-  // setting must not repaint the sentence or steal the place you were typing.
+test('changing aspect and resolution does not disturb the sentence', async ({ page }) => {
+  // A desktop composer has the room to state all three settings, so each has
+  // its own control in the row. What is under test either way is the caret:
+  // changing a setting must not repaint the sentence or steal the place you
+  // were typing.
   await page.keyboard.type('a careful sentence');
   const pills = () => dock(page).locator('.sc-prompt-pills');
+  // scoped to the open surface on purpose: all three shells render at once, so
+  // the sheet's and More's own options answer to [role=radio] as well
+  const open = () => page.locator('.sc-setpop');
 
   await pills().locator('[aria-label^="Aspect"]').click();
-  await page.getByRole('menuitem', { name: /9:16/ }).click();
-  // the menu hands the caret back as it closes, so typing before it has gone
+  await open().getByRole('radio', { name: /9:16/ }).click();
+  // the surface hands the caret back as it closes, so typing before it has gone
   // puts the next keystroke somewhere nobody asked for
-  await expect(page.locator('[role="menuitem"]')).toHaveCount(0);
+  await expect(open()).toHaveCount(0);
   await page.keyboard.type(' more');
 
-  await pills().locator('[aria-label^="Quality"]').click();
-  await page.getByRole('menuitem', { name: /^High/ }).click();
-  await expect(page.locator('[role="menuitem"]')).toHaveCount(0);
+  await pills().locator('[aria-label^="Resolution"]').click();
+  await open().getByRole('radio', { name: /^High/ }).click();
+  await expect(open()).toHaveCount(0);
   await page.keyboard.type(' still');
 
   // the sentence never repainted, and the caret came back both times
   expect(await sentence(page)).toBe('a careful sentence more still');
   expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"story"');
   expect(await page.evaluate(() => localStorage.getItem('scenri:quality'))).toBe('"high"');
+});
+
+test('a settings surface opens without painting a focus ring', async ({ page }) => {
+  // Radix focuses the first tabbable thing in a surface it opens, which is the
+  // option already set. That matched :focus-visible, so every picker opened
+  // with the mouse arrived with the app's 2px ring drawn on it. The group takes
+  // the focus instead, and the ring waits for an arrow key.
+  await dock(page).locator('.sc-prompt-pills [aria-label^="Aspect"]').click();
+  const pop = page.locator('.sc-setpop');
+  await expect(pop).toBeVisible();
+  expect(await pop.locator('[role="radio"]').evaluateAll((els) => els.some((e) => e.matches(':focus-visible')))).toBe(
+    false,
+  );
+
+  // an arrow moves the choice and the focus together, the way a radio group does
+  await page.keyboard.press('ArrowDown');
+  await expect(pop.locator('[role="radio"][aria-checked="true"]')).toBeFocused();
+  expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"portrait"');
+});
+
+test('one open picker gives way to the next on a single click', async ({ page }) => {
+  // Each setting is its own Radix root. The open one used to treat a press on a
+  // neighbouring trigger as an interaction outside itself and dismiss on the
+  // very gesture that was opening the neighbour, so two layers raced over one
+  // click: often the surface asked for opened and shut in the same frame, and
+  // the control read as needing to be pressed twice.
+  const pills = dock(page).locator('.sc-prompt-pills .sc-var');
+  const open = page.locator('.sc-setpop[data-state="open"]');
+
+  for (const i of [2, 0, 1, 2, 1, 0]) {
+    await pills.nth(i).click();
+    await expect(open, `control ${i} did not end up open`).toHaveCount(1);
+    // and still open a few frames later, rather than opened and shut at once
+    await page.waitForTimeout(200);
+    await expect(open, `control ${i} opened and closed again`).toHaveCount(1);
+  }
+});
+
+test('a picker closes on its own trigger, and on a click away from the row', async ({ page }) => {
+  const pill = dock(page).locator('.sc-prompt-pills .sc-var').first();
+  const open = page.locator('.sc-setpop[data-state="open"]');
+
+  for (let i = 0; i < 3; i++) {
+    await pill.click();
+    await expect(open, `cycle ${i} open`).toHaveCount(1);
+    await pill.click();
+    await expect(open, `cycle ${i} shut by its own trigger`).toHaveCount(0);
+  }
+
+  await pill.click();
+  await expect(open).toHaveCount(1);
+  // somewhere the picker is not covering: it opens upward, over the brief
+  await page.mouse.click(24, 200);
+  await expect(open, 'a click away from the row still dismisses').toHaveCount(0);
+});
+
+test('a picker on its way out takes no clicks with it', async ({ page }) => {
+  // Radix keeps the content mounted until the exit animation ends. For those
+  // frames it was a full-size box with live pointer events over the composer,
+  // and whatever was clicked next landed on a picker that had already gone.
+  await dock(page).locator('.sc-prompt-pills .sc-var').first().click();
+  await expect(page.locator('.sc-setpop[data-state="open"]')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+
+  const live = await page.locator('.sc-setpop[data-state="closed"]').evaluateAll((els) =>
+    els
+      .map((e) => ({
+        content: getComputedStyle(e).pointerEvents,
+        wrapper: getComputedStyle(e.parentElement as HTMLElement).pointerEvents,
+      }))
+      .filter((s) => s.content !== 'none' || s.wrapper !== 'none'),
+  );
+  expect(live, 'a closing picker still takes pointer events').toEqual([]);
+});
+
+test('the composer and the compiler agree on the four shapes', async ({ page }) => {
+  // Two hardcoded copies of the same list, one per package, and nothing can
+  // import across them: the studio depends on neither @scenri/core nor
+  // @scenri/cli. A shape the composer offers that the compiler sizes
+  // differently is a picture that comes back the wrong shape, so both are
+  // checked against one written-down answer here.
+  const SHAPES = [
+    { id: 'square', hint: '1:1', w: 1024, h: 1024 },
+    { id: 'portrait', hint: '4:5', w: 1024, h: 1280 },
+    { id: 'story', hint: '9:16', w: 1080, h: 1920 },
+    { id: 'landscape', hint: '16:9', w: 1600, h: 900 },
+  ];
+
+  const server: { id: string; w: number; h: number }[] = await page.evaluate(async () =>
+    (await fetch('/api/formats')).json(),
+  );
+  const byId = new Map(server.map((f) => [f.id, f]));
+  expect(byId.size, 'the compiler ships a different number of shapes').toBe(SHAPES.length);
+  for (const want of SHAPES) {
+    expect(byId.get(want.id), `the compiler has no ${want.id}`).toBeTruthy();
+    expect([byId.get(want.id)?.w, byId.get(want.id)?.h], `${want.id} is a different size in the compiler`).toEqual([
+      want.w,
+      want.h,
+    ]);
+  }
+
+  // and the composer offers exactly those, in the order the picker draws them
+  await dock(page).locator('.sc-prompt-pills [aria-label^="Aspect"]').click();
+  const rows = page.locator('.sc-setpop [role="radio"]');
+  await expect(rows).toHaveCount(SHAPES.length);
+  expect(await rows.evaluateAll((els) => els.map((e) => e.getAttribute('data-id')))).toEqual(SHAPES.map((f) => f.id));
+  expect(
+    await page.locator('.sc-setpop .sc-setrow-v').evaluateAll((els) => els.map((e) => e.textContent?.trim())),
+  ).toEqual(SHAPES.map((f) => f.hint));
 });
 
 test('copy and paste rebuilds the chips', async ({ page }) => {
@@ -767,6 +880,10 @@ test('a scenri-library product finds its own siblings', async ({ page }) => {
   // The caret menu built Products from the brand library alone, so a chip
   // holding one of these had a checkmark that matched no row and no way to
   // reach the other forty-three.
+  //
+  // Scenri's products used to sit behind a "Library" tab of their own, as if
+  // ownership were a second kind of object. They share the Products tab now,
+  // ranked after the brand's, so this reaches one from there instead.
   const ids: string[] = await page.evaluate(async () => {
     const r = await fetch('/api/demo-products');
     const j = await r.json();
@@ -774,8 +891,9 @@ test('a scenri-library product finds its own siblings', async ({ page }) => {
   });
   expect(ids.length).toBeGreaterThan(1);
 
-  await plusMenu(page, /library/i);
-  await pickCard(page, 0);
+  await plusMenu(page, /product/i);
+  // The brand's own lead the tab, so the last card is reliably one of scenri's.
+  await pickCard(page, (await attachCards(page).count()) - 1);
   await page.keyboard.press('Escape');
 
   await openPicker(page);

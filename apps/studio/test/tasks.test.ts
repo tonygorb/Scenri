@@ -179,7 +179,7 @@ describe('taskFromNode', () => {
 });
 
 describe('catalogPercent', () => {
-  // the numbers CatalogImportDialog showed before the formula moved here
+  // the numbers the import progress row shows, before the formula moved here
   it('reproduces every stage', () => {
     expect(catalogPercent(null)).toBe(0);
     expect(catalogPercent(job({ stage: 'queued' }))).toBe(5);

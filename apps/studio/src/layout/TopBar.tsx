@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useMatch, useNavigate, useSearchParams } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { CaretDown, SidebarSimple } from '@phosphor-icons/react';
+import { CaretDown } from '@phosphor-icons/react';
 import { BrandMenu } from './BrandMenu.js';
 import { NewAssetButton } from '../create/NewAssetButton.js';
 import { NotificationsButton } from './Notifications.js';
 import { useMainNav } from './nav.js';
 import { api } from '../api.js';
-import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
-import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+import { useBrand } from '../app/BrandLayout.js';
 import { P, brandPath, hubPath, setPath } from '../routes.js';
 
 /**
@@ -54,7 +53,11 @@ export function TopBar() {
             the two together overflowed a 360px bar. Above 1280px the library
             pages keep their own button, where it has always been. */}
         <NewAssetButton />
-        {onHub ? <AssetsToggle /> : null}
+        {/* The assets rail's switch used to sit here, gated on `onHub` — a
+            control for one screen's panel, appearing and disappearing from
+            the app's chrome as you moved around. It lives in that screen's own
+            toolbar now, beside the sort and the tile size, which is the row
+            that already answers "how am I looking at this". */}
         <NotificationsButton />
         <BrandMenu />
       </div>
@@ -181,32 +184,5 @@ function SetCrumb({ slug }: { slug: string }) {
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
-  );
-}
-
-/**
- * The assets panel's switch, on the screens where the panel exists.
- *
- * Not on a phone. There the panel has no column to occupy and can only arrive
- * as a full-screen drawer over the work, and everything in it is already a tap
- * away inside the composer, so the button would open a second front door to
- * the same room while costing scarce bar width.
- */
-function AssetsToggle() {
-  const { open, toggle } = useAssetsPanel();
-  const phone = useMediaQuery(PHONE);
-  if (phone) return null;
-  return (
-    <button
-      type="button"
-      className="sc-icon-btn"
-      data-on={open || undefined}
-      onClick={toggle}
-      aria-label="Toggle assets panel"
-      aria-pressed={open}
-      title="Assets panel (.)"
-    >
-      <SidebarSimple size={16} mirrored />
-    </button>
   );
 }
