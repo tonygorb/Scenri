@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Dialog } from '@radix-ui/themes';
 import { Broom, Database, Info, Lightning, Palette, PiggyBank, Sun, TrashSimple, X } from '@phosphor-icons/react';
-import { api, type EngineInfo, type TreeNode } from '../api.js';
+import { api, type EngineInfo, type TreeNode, type VersionInfo } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import type { Pane } from '../app/dialogs.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -83,6 +83,22 @@ export function SettingsDialog({
 }) {
   const settings = useDialogParam('settings');
   const open = settings.value !== null;
+  // The one true version comes from the server (which read its own
+  // package.json); a literal here would drift the moment release-please bumps.
+  const [version, setVersion] = useState<VersionInfo | null>(null);
+  useEffect(() => {
+    if (!open || version) return;
+    let alive = true;
+    api
+      .version()
+      .then((v) => alive && setVersion(v))
+      .catch(() => {
+        /* offline from the API is not a settings problem */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, version]);
   // Brand kit is the landing pane, because the menu that opens Settings no
   // longer carries a separate row for it: this is the way in.
   const pane = (PANES.some((p) => p.id === settings.value) ? settings.value : 'brand') as Pane;
@@ -127,7 +143,7 @@ export function SettingsDialog({
               <RailItem key={p.id} p={p} on={pane === p.id} pick={() => setPane(p.id)} />
             ))}
             <span className="sc-set-spacer" />
-            <p className="sc-set-ver">v0.1.0 · local</p>
+            <p className="sc-set-ver">{version ? `v${version.version}` : 'scenri'} · local</p>
           </nav>
 
           <div className="sc-set-body">
@@ -152,7 +168,7 @@ export function SettingsDialog({
               {pane === 'usage' && <Usage shots={shots} />}
               {pane === 'library' && <Library />}
               {pane === 'appearance' && <Appearance />}
-              {pane === 'about' && <About />}
+              {pane === 'about' && <About version={version} />}
               {pane === 'danger' && <Danger onDone={onSaved} />}
             </div>
           </div>
@@ -424,13 +440,13 @@ function Appearance() {
   );
 }
 
-function About() {
+function About({ version }: { version: VersionInfo | null }) {
   return (
     <Group>
       <div className="sc-set-row">
         <span className="txt">
           <b>scenri</b>
-          <small>v0.1.0 · local studio</small>
+          <small>{version ? `v${version.version}` : ''} · local studio</small>
         </span>
       </div>
       <div className="sc-set-row">

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { RESERVED_SLUGS, firstFree, slugifyWithId } from './slug.js';
 
@@ -348,11 +348,56 @@ function collapseProjects(db: DB): void {
   }
 }
 
+/**
+ * The migration steps below stay "idempotent by shape" — each detects for
+ * itself whether it has run. The version stamp exists for the two things shape
+ * cannot express: refusing a database written by a NEWER build (its rows may
+ * mean things this build has never heard of), and knowing when to take a
+ * backup before this build changes anything.
+ */
+export const SCHEMA_VERSION = 1;
+
+export class SchemaTooNewError extends Error {
+  constructor(found: number, supported: number) {
+    super(
+      `This library was written by a newer scenri (schema ${found}; this build understands ${supported}). ` +
+        'Update and retry: npx scenri@latest',
+    );
+    this.name = 'SchemaTooNewError';
+  }
+}
+
+function backupBeforeMigration(db: DB, homeDir: string, fromVersion: number): void {
+  const dir = join(homeDir, 'backups');
+  mkdirSync(dir, { recursive: true });
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  // Checkpoint first so the snapshot carries everything still sitting in the
+  // WAL; VACUUM INTO is a single consistent, compacted copy.
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  db.prepare('VACUUM INTO ?').run(join(dir, `scenri-v${fromVersion}-${stamp}.db`));
+  const old = readdirSync(dir)
+    .filter((f) => /^scenri-v\d+-\d{8}-\d{6}\.db$/.test(f))
+    .sort((a, b) => a.slice(-18).localeCompare(b.slice(-18)));
+  for (const f of old.slice(0, Math.max(0, old.length - 3))) rmSync(join(dir, f));
+}
+
 export function openDb(homeDir: string): DB {
   mkdirSync(homeDir, { recursive: true });
-  const db = new Database(join(homeDir, 'scenri.db'));
+  const dbPath = join(homeDir, 'scenri.db');
+  // Captured before Database() — opening creates the file, and a fresh db also
+  // reads user_version 0 but must not trigger a backup.
+  const preExisting = existsSync(dbPath);
+  const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  const found = db.pragma('user_version', { simple: true }) as number;
+  if (found > SCHEMA_VERSION) {
+    db.close();
+    throw new SchemaTooNewError(found, SCHEMA_VERSION);
+  }
+  if (preExisting && found < SCHEMA_VERSION) backupBeforeMigration(db, homeDir, found);
   db.exec(MIGRATIONS);
   // Guarded column migration (sqlite has no ADD COLUMN IF NOT EXISTS).
   const nodeCols = (db.pragma('table_info(nodes)') as { name: string }[]).map((c) => c.name);
@@ -378,5 +423,6 @@ export function openDb(homeDir: string): DB {
   db.prepare(
     "UPDATE nodes SET status='error', error='interrupted — server restarted mid-generation' WHERE status='running'",
   ).run();
+  db.pragma(`user_version = ${SCHEMA_VERSION}`);
   return db;
 }

@@ -159,6 +159,16 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type VersionInfo = {
+  name: string;
+  version: string;
+  schema: number;
+  /** How this build was installed; decides which update path the UI offers. */
+  installKind: 'npx' | 'global' | 'managed' | 'dev' | 'unknown';
+  supervised: boolean;
+  home: string;
+};
+
 export const api = {
   brands: () => req<Brand[]>('GET', '/api/brands'),
   createBrand: (brand: any) => req<Brand>('POST', '/api/brands', { brand }),
@@ -252,6 +262,7 @@ export const api = {
   /** Where the library lives on this machine, and how big it has grown. */
   home: () => req<{ dir: string; dbPath: string; images: number; bytes: number }>('GET', '/api/home'),
   reveal: () => req<{ ok: true }>('POST', '/api/system/reveal'),
+  version: () => req<VersionInfo>('GET', '/api/version'),
   /** The reference frames a scene has on disk, if any. */
   sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),

@@ -819,7 +819,9 @@ describe('codex setup', () => {
 
   it('refuses a second setup run while one is in flight', async () => {
     // Two concurrent global installs fight over the same npm prefix.
-    let release: (() => void) | null = null;
+    // definite-assignment: the Promise executor runs synchronously, but TS's
+    // narrowing can't see that and pins a `| null` initializer to null
+    let release!: () => void;
     const gate = new Promise<void>((r) => {
       release = r;
     });
@@ -837,7 +839,7 @@ describe('codex setup', () => {
     await new Promise((r) => setTimeout(r, 10));
     const second = await local.inject({ method: 'POST', url: '/api/engines/codex/install' });
     expect(second.statusCode).toBe(409);
-    release?.();
+    release();
     await first;
     await local.close();
   });

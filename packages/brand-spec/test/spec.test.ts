@@ -150,6 +150,13 @@ describe('buildFromUrl', () => {
     return new Response(HTML, { status: 200 });
   }) as typeof fetch;
 
+  it('stamps createdWith from the caller, falling back to the bare tool name', async () => {
+    const { brand } = await buildFromUrl('https://acme.coffee/', { fetchImpl, createdWith: 'scenri/9.9.9' });
+    expect((brand as any).meta.createdWith).toBe('scenri/9.9.9');
+    const { brand: plain } = await buildFromUrl('https://acme.coffee/', { fetchImpl });
+    expect((plain as any).meta.createdWith).toBe('scenri');
+  });
+
   it('extracts name, tagline, palette, logo; result validates', async () => {
     const saved: Buffer[] = [];
     const { brand, warnings } = await buildFromUrl('https://acme.coffee/', {

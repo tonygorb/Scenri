@@ -4,6 +4,8 @@ export interface BuildOptions {
   fetchImpl?: typeof fetch;
   /** Persist a downloaded asset; returns a reference string stored in the .brand (e.g. "asset:<hash>"). */
   saveAsset?: (buf: Buffer, kind: 'logo' | 'image') => Promise<string>;
+  /** Tool stamp for meta.createdWith, e.g. "scenri/0.2.0". The caller knows its version; this package does not. */
+  createdWith?: string;
 }
 
 export interface BuildResult {
@@ -151,7 +153,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
           .slice(0, 48) || origin.hostname,
       ...(tagline ? { tagline } : {}),
       website: origin.origin,
-      createdWith: 'scenri/0.1.0',
+      createdWith: opts.createdWith ?? 'scenri',
       updatedAt: new Date().toISOString(),
     },
     ...(palette.primary

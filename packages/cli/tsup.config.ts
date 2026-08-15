@@ -15,7 +15,11 @@ import { defineConfig } from 'tsup';
  * better-sqlite3 with @scenri/core.
  */
 export default defineConfig({
-  entry: ['src/index.ts'],
+  // Two entries with splitting: the bin chunk keeps only argv handling and
+  // node builtins, so `scenri --version` (and later the launcher) never loads
+  // fastify or a native module. serve.ts is the heavy chunk, reached through
+  // a dynamic import — `dist/index.js serve` is the frozen launcher contract.
+  entry: ['src/index.ts', 'src/serve.ts'],
   outDir: 'dist',
   format: ['esm'],
   platform: 'node',
@@ -25,6 +29,6 @@ export default defineConfig({
   sourcemap: true,
   // src/index.ts already carries the shebang; keep it executable after bundling.
   banner: {},
-  splitting: false,
+  splitting: true,
   treeshake: true,
 });

@@ -29,7 +29,8 @@ import { spawn } from 'node:child_process';
 import JSZip from 'jszip';
 import { basename, join } from 'node:path';
 import type { Core, EngineAdapter, GenerateRequest, EditRequest, BrandContext, ReferenceRole } from '@scenri/core';
-import { SpendCapError, ASPECT_TOLERANCE } from '@scenri/core';
+import { SpendCapError, ASPECT_TOLERANCE, SCHEMA_VERSION } from '@scenri/core';
+import { readMeta } from './meta.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
 import { driftDiff } from './diff.js';
@@ -64,6 +65,16 @@ import {
 import { createCodexAnalyzer, createCodexSetup, type CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Abort in-flight generations, close the server, close the database. Idempotent. */
+    drain(): Promise<void>;
+  }
+}
+
+/** How this build reached the user's disk; decides which update path the UI offers. */
+export type InstallKind = 'npx' | 'global' | 'managed' | 'dev' | 'unknown';
+
 export interface ServerOptions {
   core: Core;
   engines: EngineRegistry;
@@ -71,6 +82,8 @@ export interface ServerOptions {
   fetchImpl?: typeof fetch;
   templatesDir?: string; // override for tests
   access?: AccessOptions; // host allowlist + LAN token; loopback-only by default
+  /** Posture serve.ts works out from its own entry path; tests leave it unset. */
+  runtime?: { installKind: InstallKind; supervised: boolean };
   /** Reads a brand's own references into structured records. Injected in tests. */
   analyzer?: Analyzer;
   /** Installs and signs in the local Codex CLI for the setup wizard. Injected in tests. */
@@ -139,6 +152,7 @@ const toMarkPng = (buf: Buffer): Promise<Buffer> =>
 
 export function buildServer(opts: ServerOptions): FastifyInstance {
   const { core, engines } = opts;
+  const meta = readMeta();
   const app = Fastify({ logger: false });
   // First hook, before any route: Fastify only applies a hook to routes
   // registered after it was added.
@@ -189,6 +203,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // about its own format — broken in the marks grid, and mislabelled to any
       // engine it is later attached to.
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
+      createdWith: `${meta.name}/${meta.version}`,
     });
     const row = core.store.createBrand(brand as any);
     return { ...row, warnings };
@@ -324,6 +339,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const { brand: scraped, warnings } = await buildFromUrl(url, {
       fetchImpl: opts.fetchImpl,
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
+      createdWith: `${meta.name}/${meta.version}`,
     });
     const { brand: merged, suggestions } = mergeScrape(brand.json, scraped);
     const v = validateBrand(merged);
@@ -1629,6 +1645,35 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   // ---- this machine: where the work lives, and how to get it all out
+  // ---- version + lifecycle
+  const runtime = opts.runtime ?? { installKind: 'unknown' as const, supervised: false };
+  app.get('/api/version', async () => ({
+    name: meta.name,
+    version: meta.version,
+    schema: SCHEMA_VERSION,
+    installKind: runtime.installKind,
+    supervised: runtime.supervised,
+    home: core.home,
+  }));
+
+  // Settle in-flight work before the process goes away (Ctrl-C, update
+  // restart). Abort is the same path the cancel button takes, so every node
+  // lands in 'cancelled' with its reservation released — never in the crash
+  // sweep's 'interrupted' bucket.
+  let drained: Promise<void> | null = null;
+  app.decorate('drain', (): Promise<void> => {
+    drained ??= (async () => {
+      for (const ctrl of runningGenerations.values()) ctrl.abort();
+      const deadline = Date.now() + 5000;
+      while (runningGenerations.size > 0 && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      await app.close();
+      core.close();
+    })();
+    return drained;
+  });
+
   app.get('/api/home', async () => {
     const imagesDir = join(core.home, 'images');
     let files = 0,
