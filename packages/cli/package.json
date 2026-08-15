@@ -11,6 +11,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsup",
+    "prepack": "node scripts/prepack.mjs",
     "prepublishOnly": "node scripts/prepack.mjs"
   },
   "dependencies": {

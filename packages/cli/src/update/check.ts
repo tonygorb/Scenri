@@ -11,6 +11,37 @@ const CACHE_MS = 24 * 60 * 60 * 1000;
 const FORCE_COOLDOWN_MS = 60 * 1000;
 const TIMEOUT_MS = 5000;
 
+export function resolveRegistry(env: Record<string, string | undefined> = process.env, override?: string): string {
+  return (override ?? env.SCENRI_REGISTRY ?? 'https://registry.npmjs.org').replace(/\/+$/, '');
+}
+
+/** One small GET for the dist-tags document. 404 = never published (forks): latest null, no error. */
+export async function fetchDistTagLatest(
+  name: string,
+  opts: { registry?: string; fetchImpl?: typeof fetch; env?: Record<string, string | undefined> } = {},
+): Promise<{ latest: string | null; error: string | null }> {
+  const doFetch = opts.fetchImpl ?? fetch;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    if (typeof timer === 'object') timer.unref?.();
+    let res: Response;
+    try {
+      res = await doFetch(`${resolveRegistry(opts.env, opts.registry)}/-/package/${name}/dist-tags`, {
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.status === 404) return { latest: null, error: null };
+    if (!res.ok) return { latest: null, error: `registry answered ${res.status}` };
+    const tags = (await res.json()) as { latest?: string };
+    return { latest: tags.latest ?? null, error: null };
+  } catch (err) {
+    return { latest: null, error: String((err as Error)?.message ?? err) };
+  }
+}
+
 /** "1.2.3" → [1,2,3]; anything else → null. No prerelease: 0.x already means early. */
 function triplet(v: string): [number, number, number] | null {
   const m = v.match(/^(\d+)\.(\d+)\.(\d+)$/);
@@ -59,8 +90,7 @@ export function createUpdateChecker(deps: {
   const env = deps.env ?? process.env;
   const now = deps.now ?? Date.now;
   const log = deps.log ?? console.log;
-  const doFetch = deps.fetchImpl ?? fetch;
-  const registry = (deps.registry ?? env.SCENRI_REGISTRY ?? 'https://registry.npmjs.org').replace(/\/+$/, '');
+  const registry = resolveRegistry(env, deps.registry);
 
   const cached = (): CheckResult => {
     const at = deps.store.getSetting('update.checkedAt');
@@ -83,31 +113,13 @@ export function createUpdateChecker(deps: {
       log('  checking npm for updates (version only; set SCENRI_NO_UPDATE_CHECK=1 to disable)');
       deps.store.setSetting('update.disclosed', '1');
     }
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-      if (typeof timer === 'object') timer.unref?.();
-      let res: Response;
-      try {
-        res = await doFetch(`${registry}/-/package/${deps.name}/dist-tags`, { signal: ctrl.signal });
-      } finally {
-        clearTimeout(timer);
-      }
-      if (res.status === 404) {
-        // A fork published under no name gets a clean "no update", not an error.
-        deps.store.setSetting('update.latest', '');
-        deps.store.setSetting('update.checkedAt', String(now()));
-        return cached();
-      }
-      if (!res.ok) return { ...cached(), error: `registry answered ${res.status}` };
-      const tags = (await res.json()) as { latest?: string };
-      deps.store.setSetting('update.latest', tags.latest ?? '');
-      deps.store.setSetting('update.checkedAt', String(now()));
-      return cached();
-    } catch (err) {
-      // Offline is a non-event: keep the previous answer, note why.
-      return { ...cached(), error: String((err as Error)?.message ?? err) };
-    }
+    const res = await fetchDistTagLatest(deps.name, { registry, fetchImpl: deps.fetchImpl });
+    // Offline is a non-event: keep the previous answer, note why.
+    if (res.error) return { ...cached(), error: res.error };
+    // A 404 (a fork published under no name) is a clean "no update", cached.
+    deps.store.setSetting('update.latest', res.latest ?? '');
+    deps.store.setSetting('update.checkedAt', String(now()));
+    return cached();
   }
 
   async function check(force = false): Promise<CheckResult> {

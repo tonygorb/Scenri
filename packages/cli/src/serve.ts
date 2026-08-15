@@ -97,9 +97,32 @@ async function run(): Promise<void> {
       await app.listen({ port: PORT, host: HOST });
       break;
     } catch (err) {
-      if ((err as { code?: string }).code === 'EADDRINUSE' && supervised && attempt < 10) {
-        await new Promise((r) => setTimeout(r, 300));
-        continue;
+      if ((err as { code?: string }).code === 'EADDRINUSE') {
+        if (supervised && attempt < 10) {
+          await new Promise((r) => setTimeout(r, 300));
+          continue;
+        }
+        // Someone already answers on this port. If it is scenri, a second
+        // start is not a failure — hand the person their running studio.
+        try {
+          const res = await fetch(`http://127.0.0.1:${PORT}/api/version`);
+          const info = (await res.json()) as { name?: string };
+          if (info.name === readMeta().name) {
+            const url = `http://127.0.0.1:${PORT}`;
+            console.log(`\n  scenri is already running → ${url}\n`);
+            if (process.env.SCENRI_NO_OPEN !== '1') {
+              try {
+                const { default: open } = await import('open');
+                await open(url);
+              } catch {
+                /* headless env */
+              }
+            }
+            process.exit(0);
+          }
+        } catch {
+          /* not scenri, or not answering — fall through to the real error */
+        }
       }
       throw err;
     }

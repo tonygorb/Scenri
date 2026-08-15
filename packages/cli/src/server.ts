@@ -1744,7 +1744,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return reply.send({ ok: true });
   });
 
-  /** Everything you made, as one zip. Never keys: those live in config.json. */
+  /** Everything you made, as one zip. Never keys: those live in the settings table, which this never reads. */
   app.get('/api/export/all', async (_req, reply) => {
     const zip = new JSZip();
     const brands = core.store.listBrands();
@@ -1792,7 +1792,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       return { ok: true, scope, projects: removed };
     }
     core.close();
-    rmSync(core.home, { recursive: true, force: true });
+    // User data by explicit name — never the whole home dir: ~/.scenri/app
+    // holds the staged application versions, and one of them may be the code
+    // answering this very request.
+    for (const name of ['scenri.db', 'scenri.db-wal', 'scenri.db-shm', 'images', 'backups']) {
+      rmSync(join(core.home, name), { recursive: true, force: true });
+    }
     return { ok: true, scope };
   });
 

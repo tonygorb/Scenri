@@ -28,15 +28,24 @@ switch (command.cmd) {
   case 'serve':
     await (await import('./serve.js')).serve();
     break;
-  case 'update':
-    // Arrives with the launcher (update staging). Present in --help so the
-    // name is settled; honest about not existing yet.
-    console.error('scenri update is not part of this build yet');
-    process.exit(1);
+  case 'update': {
+    const { runUpdateCommand } = await import('./update/cli.js');
+    process.exit(await runUpdateCommand(command));
     break;
-  case 'launch':
-    // The supervising launcher arrives in a later change; until then the
-    // default command serves directly, exactly as it always has.
-    await (await import('./serve.js')).serve();
+  }
+  case 'launch': {
+    const ownEntry = process.argv[1] ?? '';
+    // From a checkout (tsx, src/) there is nothing to supervise: pnpm dev and
+    // the e2e webServer keep their exact old behaviour.
+    if (!/[\\/]dist[\\/]/.test(ownEntry)) {
+      await (await import('./serve.js')).serve();
+      break;
+    }
+    const { runLauncher } = await import('./launcher.js');
+    const { readMeta } = await import('./meta.js');
+    const { defaultHome } = await import('./update/versionsDir.js');
+    const meta = readMeta();
+    process.exit(await runLauncher({ home: defaultHome(), pkg: meta.name, ownVersion: meta.version, ownEntry }));
     break;
+  }
 }
