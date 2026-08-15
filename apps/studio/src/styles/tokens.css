@@ -11552,7 +11552,7 @@ textarea:disabled {
   max-width: min(480px, calc(100vw - 36px));
   padding: 8px 8px 8px 16px;
   border: 1px solid var(--sc-line-strong);
-  border-radius: var(--sc-radius-float);
+  border-radius: var(--sc-radius-lg);
   background: var(--sc-panel);
   box-shadow: var(--sc-shadow-2);
   font-family: var(--sc-font);
@@ -11586,25 +11586,22 @@ textarea:disabled {
 .sc-upd-float .sc-btn {
   flex: none;
 }
-/* Dismiss is deliberately the quietest control on the row: waving away is
-   allowed, never invited. */
-.sc-upd-float-x {
+/* Declining is a link, not a button: the quietest thing on the row. Holds for
+   this version only — the next release announces itself again. */
+.sc-upd-float-later {
   flex: none;
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
+  padding: 4px 6px;
   border: none;
-  border-radius: var(--sc-radius-full);
+  border-radius: var(--sc-radius-sm);
   background: none;
+  font: 500 12.5px / 1 var(--sc-font);
   color: var(--sc-fg2);
   cursor: pointer;
 }
-.sc-upd-float-x:hover {
-  background: var(--sc-raised);
+.sc-upd-float-later:hover {
   color: var(--sc-fg);
 }
-.sc-upd-float-x:focus-visible {
+.sc-upd-float-later:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 1px;
 }

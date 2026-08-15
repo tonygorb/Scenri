@@ -110,11 +110,12 @@ test.describe
       await fx.stop();
     });
 
-    test('the float announces it quietly, with the brand-trigger dot and menu row', async ({ page }) => {
+    test('the float announces it: one sentence, Not now, Update — plus dot and menu row', async ({ page }) => {
       await page.goto(`${fx.base()}/`);
       await expect(float(page)).toBeVisible();
-      await expect(float(page)).toContainText('scenri 0.99.0 is available');
-      await expect(float(page).locator('.sc-btn')).toHaveText(["What's new", 'Update']);
+      await expect(float(page)).toContainText('A new update is available');
+      await expect(float(page).locator('.sc-btn')).toHaveText(['Update']);
+      await expect(float(page).locator('.sc-upd-float-later')).toHaveText('Not now');
       await expect(dot(page)).toBeVisible();
 
       await page.locator('.sc-org-btn').click();
@@ -122,18 +123,26 @@ test.describe
       await page.keyboard.press('Escape');
     });
 
-    test("What's new opens Settings → About with the verdict and the manual command", async ({ page }) => {
-      await page.goto(`${fx.base()}/`);
-      await float(page).locator('.sc-btn', { hasText: "What's new" }).click();
-      await expect(page).toHaveURL(/settings=about/);
+    test("What's new lives in Settings → About and degrades to the GitHub link", async ({ page }) => {
+      // straight to the brand path: the / redirect drops query params
+      await page.goto(`${fx.base()}/acme?settings=about`);
       await expect(page.locator('.sc-set .sc-tag-gold')).toHaveText('0.99.0 available');
+
+      const row = aboutRows(page).filter({ hasText: "What's new" });
+      await row.locator('button', { hasText: 'Show' }).click();
+      // no GitHub release exists for 0.99.0 (offline CI included), so the row
+      // answers with the link instead of a body — the designed degradation
+      const link = row.locator('a', { hasText: 'GitHub' });
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute('href', /releases\/tag\/v0\.99\.0/);
+
       // running from source in this spec, so the update row is git guidance
       await expect(aboutRows(page).filter({ hasText: 'Update' }).first()).toBeVisible();
     });
 
-    test('dismissing holds across reloads, for this version only', async ({ page }) => {
+    test('Not now holds across reloads, for this version only', async ({ page }) => {
       await page.goto(`${fx.base()}/`);
-      await float(page).locator('.sc-upd-float-x').click();
+      await float(page).locator('.sc-upd-float-later').click();
       await expect(float(page)).toHaveCount(0);
       await expect(dot(page)).toHaveCount(0);
 
@@ -141,7 +150,7 @@ test.describe
       await expect(page.locator('.sc-greet')).toBeVisible();
       await expect(float(page)).toHaveCount(0);
 
-      // the menu row stays: dismissed is quiet, not gone
+      // the menu row stays: declined is quiet, not gone
       await page.locator('.sc-org-btn').click();
       await expect(page.locator('.sc-menu-item[data-update]')).toBeVisible();
     });

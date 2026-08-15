@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowCircleUp, X } from '@phosphor-icons/react';
+import { ArrowCircleUp } from '@phosphor-icons/react';
 import { api, type UpdateStatus } from '../api.js';
 import { useOpenSettings } from './dialogs.js';
 import { canOneClick } from './updateRules.js';
@@ -200,10 +200,11 @@ function RestartOverlay({ version }: { version: string | null }) {
 
 /**
  * The announcement, floating in the quiet corner — bottom-left, every screen
- * (the composer owns bottom-center, the work owns the canvas). One line,
- * three actions. Never a modal, never a toast (auto-dismiss loses the one
- * action that matters), never a container stripe: the gold dot is the whole
- * accent. Waving it away holds for this version only.
+ * (the composer owns bottom-center, the work owns the canvas). One sentence,
+ * one link, one button: Not now holds for this version, Update does the work.
+ * Release notes live in Settings → About, where reading has room. Never a
+ * modal, never a toast (auto-dismiss loses the one action that matters),
+ * never a container stripe: the gold dot is the whole accent.
  */
 function UpdateFloat() {
   const { status, dismiss, apply, busy, applyError } = useUpdateCenter();
@@ -214,11 +215,11 @@ function UpdateFloat() {
     <div className="sc-upd-float" role="status">
       <span className="sc-upd-float-dot" aria-hidden="true" />
       <span className="sc-upd-float-txt">
-        <b>scenri {status.latest}</b> is available
+        A new update is available
         {applyError && <small>{applyError}</small>}
       </span>
-      <button type="button" className="sc-btn sc-btn-ghost" onClick={() => openSettings('about')}>
-        What's new
+      <button type="button" className="sc-upd-float-later" onClick={dismiss}>
+        Not now
       </button>
       <button
         type="button"
@@ -227,9 +228,6 @@ function UpdateFloat() {
         onClick={() => (canOneClick(status) ? void apply() : openSettings('about'))}
       >
         {busy === 'applying' ? 'Updating…' : 'Update'}
-      </button>
-      <button type="button" className="sc-upd-float-x" aria-label="Dismiss until the next release" onClick={dismiss}>
-        <X size={13} />
       </button>
     </div>
   );
