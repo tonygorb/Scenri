@@ -1,12 +1,17 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { productLabel, productSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
+import { productLabel, sceneLabel } from '../displayName.js';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { flattenPalette } from '../brand/palette.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
+import { categoryLabel } from '../productCategories.js';
+import { matchesQuery } from '../layout/library/libraryRules.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
+import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
+import { NOUN, buildCandidates, pickerKind, type Candidate, type IngredientKind } from './ingredientOptions.js';
 import {
   CHIP,
+  caretBeside,
   caretFromPoint,
   caretRect,
   caretToEnd,
@@ -19,7 +24,6 @@ import {
   decode,
   emptySentence,
   encode,
-  groupOf,
   insertToken,
   normalizeLine,
   normalizeTint,
@@ -32,6 +36,7 @@ import {
   sigilAtCaret,
   templateChip,
   textBeforeCaret,
+  unitsBeforeChip,
   type SentenceToken,
 } from './line.js';
 
@@ -88,11 +93,15 @@ export const BriefInput = forwardRef<
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
-    /** The one warning a click can actually fix: a template chip that builds
-     * around a product with none attached. A click there used to be the same
-     * swap-this-template menu every chip gets — which doesn't add a product —
-     * so this takes over instead and opens where one gets attached. */
-    onProductWarningClick?: () => void;
+    /** The category of whichever product the brief already holds, for the
+     * picker's "Suited to X" lift. A hint, never a gate — see compat.ts. */
+    activeProductCategory?: string | null;
+    /** Open the attach panel on a named tab. The one warning a click can
+     * genuinely fix is a scene built around a product or a person the brief
+     * has not got, and the fix is a different ingredient rather than a
+     * different scene — so the picker offers it as an action instead of the
+     * chip's own click silently becoming it. */
+    onAttachRequest?: (tab: 'Products' | 'Presenters') => void;
     onSubmit: () => void;
     /** A dropped file goes straight to the same place a picked one does — this
      * only hands the raw FileList off, upload + insert stays wherever it
@@ -112,7 +121,8 @@ export const BriefInput = forwardRef<
     placeholder,
     placeholderSm,
     flag,
-    onProductWarningClick,
+    activeProductCategory,
+    onAttachRequest,
     onSubmit,
     onDropFiles,
   },
@@ -125,12 +135,33 @@ export const BriefInput = forwardRef<
    * left it: the file dialog and the attach panel's search box.
    */
   const lastCaret = useRef<number | null>(null);
-  const [openChip, setOpenChip] = useState<string | null>(null);
+  /**
+   * The caret menu, and nothing else.
+   *
+   * It used to double as the chip's replace menu through a `replaceUid`, which
+   * is what made typing at a chip menu insert into the brief: the query is fed
+   * by the sigil under the caret, and in replace mode there was none, so the
+   * menu said "keep typing to narrow" while every letter went into the line
+   * behind it. A chip opens a picker now; this state cannot describe one.
+   */
   const [menu, setMenu] = useState<{
     anchor: { getBoundingClientRect(): DOMRect } | null;
-    replaceUid?: string;
     sigil?: '/' | '@' | '#';
   } | null>(null);
+  /** The open chip picker. Never both this and `menu`. */
+  const [picker, setPicker] = useState<{
+    uid: string;
+    kind: IngredientKind;
+    anchor: HTMLElement;
+    /** Where the caret was when it opened, so closing can put it back. */
+    caret: number | null;
+    /** Opened by touch: closing must not re-focus, or the keyboard springs up. */
+    touch: boolean;
+  } | null>(null);
+  const pickerRef = useRef(picker);
+  useEffect(() => {
+    pickerRef.current = picker;
+  }, [picker]);
   const [query, setQuery] = useState('');
   const uidSeq = useRef(0);
   const [dragOver, setDragOver] = useState(false);
@@ -214,10 +245,28 @@ export const BriefInput = forwardRef<
         el.dataset.warn = '1';
       }
 
+      /**
+       * A chip that opens a picker is a button, and says so.
+       *
+       * It was a bare span with no tabIndex and a remove button at -1, so the
+       * only keyboard route to a chip was to backspace over it: there was no
+       * way to reach one, and no way to change one. Tab is intercepted in
+       * `onKeyDown` so six chips do not become six tab stops on the way out.
+       */
+      const pk = pickerKind(token);
+      if (pk) {
+        el.tabIndex = 0;
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-haspopup', 'dialog');
+        el.setAttribute('aria-expanded', 'false');
+        el.setAttribute('aria-label', `${NOUN[pk]}: ${label}. Change or remove.`);
+      }
+
       const x = document.createElement('button');
       x.type = 'button';
       x.tabIndex = -1;
-      x.setAttribute('aria-label', 'Remove');
+      // three chips all announcing "Remove" is no help to anyone
+      x.setAttribute('aria-label', `Remove ${label}`);
       x.dataset.role = 'remove';
       x.appendChild(closeIcon());
       el.appendChild(x);
@@ -280,19 +329,6 @@ export const BriefInput = forwardRef<
     (token: SentenceToken) => {
       const root = rootRef.current;
       if (!root) return;
-      const replaceUid = menu?.replaceUid;
-      if (replaceUid) {
-        const el = root.querySelector<HTMLElement>(`[data-uid="${replaceUid}"]`);
-        if (el) {
-          el.replaceWith(chipFor(token, replaceUid));
-          normalizeLine(root);
-          emit();
-        }
-        setMenu(null);
-        setQuery('');
-        setOpenChip(null);
-        return;
-      }
       // one template per brief, swapped in its own slot rather than appended
       if (token.t === 'template') {
         const existing = templateChip(root);
@@ -318,6 +354,100 @@ export const BriefInput = forwardRef<
     placeRef.current = place;
   }, [place]);
 
+  /**
+   * Swap one chip for another in its own slot.
+   *
+   * The uid is reused, so the element is replaced but the *position* is not:
+   * `caretUnits` counts a chip as exactly one unit, so every caret index in
+   * the line is the same number before and after. That invariance is what
+   * lets the picker take focus for its search field and still hand the caret
+   * back where it found it.
+   */
+  const replaceChip = useCallback(
+    (uid: string, token: SentenceToken): boolean => {
+      const root = rootRef.current;
+      const el = root?.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
+      if (!root || !el) return false; // the chip went away underneath the picker
+      el.replaceWith(chipFor(token, uid));
+      normalizeLine(root);
+      emit();
+      return true;
+    },
+    [chipFor, emit],
+  );
+
+  /** Take a chip out, and answer with the seam its caret should land on. */
+  const removeChipByUid = useCallback(
+    (uid: string): number | null => {
+      const root = rootRef.current;
+      const el = root?.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
+      if (!root || !el) return null;
+      // Worked out before the mutation: once the node is gone there is nothing
+      // left to measure from.
+      const at = unitsBeforeChip(root, el);
+      removeChip(root, el);
+      emit();
+      return at;
+    },
+    [emit],
+  );
+
+  const openPicker = useCallback((chip: HTMLElement, kind: IngredientKind, caret: number | null, touch: boolean) => {
+    const uid = chip.dataset.uid;
+    if (!uid) return;
+    chip.dataset.open = '';
+    chip.setAttribute('aria-expanded', 'true');
+    setMenu(null);
+    setQuery('');
+    setPicker({ uid, kind, anchor: chip, caret, touch });
+  }, []);
+
+  /**
+   * Every way out of the picker, and the only place the caret comes back.
+   *
+   * Idempotent through the ref: a drag that dismisses and an outside click
+   * that lands in the same frame must not fight over it.
+   */
+  const closePicker = useCallback((_reason: CloseReason, caretOverride?: number | null) => {
+    const p = pickerRef.current;
+    pickerRef.current = null;
+    setPicker(null);
+    if (!p) return;
+    const root = rootRef.current;
+    const chip = root?.querySelector<HTMLElement>(`[data-uid="${CSS.escape(p.uid)}"]`);
+    if (chip) {
+      delete chip.dataset.open;
+      chip.setAttribute('aria-expanded', 'false');
+    }
+    const at = caretOverride !== undefined ? caretOverride : p.caret;
+    // Opened by a thumb: the line was never focused, and focusing it now is
+    // exactly how the software keyboard would come up as the sheet leaves.
+    if (p.touch) {
+      if (at != null) lastCaret.current = at;
+      return;
+    }
+    if (!root) return;
+    // focus first: setCaretUnits places a range but does not focus, and
+    // Chromium only re-establishes an editing caret on a genuine transition
+    root.focus({ preventScroll: true });
+    if (at != null) setCaretUnits(root, at);
+    else caretToEnd(root);
+  }, []);
+
+  /**
+   * The chip a picker is anchored to stopped existing.
+   *
+   * `setTokens` regenerates every uid (a remix loaded, the brief cleared after
+   * a send), and a chip can also be backspaced out from under an open picker.
+   * Either way the panel is pointing at nothing.
+   */
+  useEffect(() => {
+    if (!picker) return;
+    const root = rootRef.current;
+    if (root?.querySelector(`[data-uid="${CSS.escape(picker.uid)}"]`)) return;
+    closePicker('outside');
+  }, [picker, closePicker]);
+
   useImperativeHandle(ref, () => ({
     insert: (t) => placeRef.current(t),
     setTokens: (t) => {
@@ -342,34 +472,44 @@ export const BriefInput = forwardRef<
     focus: () => caretToEnd(rootRef.current),
   }));
 
+  /**
+   * Everything the three catalogs offer, built once.
+   *
+   * The caret menu used to build its own list from the brand library alone, so
+   * `@` could not reach a scenri library product and a presenter matched only
+   * on name and descriptor while the attach panel searched the whole casting
+   * sheet. Both surfaces read this now, so neither can drift from the other.
+   */
+  const catalog = useMemo(
+    () => ({
+      libraryProducts: library,
+      brandProducts: (brand.json?.products ?? []) as any[],
+      demoProducts,
+      presenters,
+      cast,
+      scenes: templates,
+      productCategory: activeProductCategory ?? null,
+    }),
+    [library, brand, demoProducts, presenters, cast, templates, activeProductCategory],
+  );
+
+  const candidatesFor = useCallback((kind: IngredientKind): Candidate[] => buildCandidates(kind, catalog), [catalog]);
+
+  const toOption = (c: Candidate, group: string): MenuOption => ({
+    key: encode(c.token),
+    group,
+    label: c.label,
+    hint: c.sub,
+    search: c.search,
+    thumb: c.thumb ?? undefined,
+    run: () => (c.kind === 'scene' ? onTemplatePick(c.id) : placeRef.current(c.token)),
+  });
+
   const options: MenuOption[] = useMemo(
     () => [
-      ...products.map((p) => ({
-        key: `p:${p.id}`,
-        group: 'Products',
-        label: productLabel(p, 'card'),
-        hint: p.variant ?? undefined,
-        search: productSearchText(p),
-        thumb: assetUrl(p.shots?.[0]?.file) ?? undefined,
-        run: () => placeRef.current({ t: 'product', id: p.id }),
-      })),
-      ...presenters.map((p) => ({
-        key: `h:${p.id}`,
-        group: 'Presenters',
-        label: p.name,
-        hint: p.descriptor,
-        thumb: p.avatarUrl ?? p.previewUrl ?? undefined,
-        run: () => placeRef.current({ t: 'character', id: p.id }),
-      })),
-      ...templates.map((t) => ({
-        key: `t:${t.id}`,
-        group: 'Scenes',
-        label: sceneLabel(t, 'card'),
-        hint: t.lighting,
-        search: sceneSearchText(t),
-        thumb: t.previewUrl ?? undefined,
-        run: () => onTemplatePick(t.id),
-      })),
+      ...buildCandidates('product', catalog).map((c) => toOption(c, 'Products')),
+      ...buildCandidates('presenter', catalog).map((c) => toOption(c, 'Presenters')),
+      ...buildCandidates('scene', catalog).map((c) => toOption(c, 'Scenes')),
       ...palette.map((c) => ({
         key: `c:${c.hex}|${c.name}`,
         group: 'Brand colors',
@@ -395,30 +535,25 @@ export const BriefInput = forwardRef<
         run: () => placeRef.current({ t: 'ref', imageHash: s.images[0] }),
       })),
     ],
-    [templates, products, presenters, palette, marks, brand, recent, onTemplatePick],
+    [catalog, palette, marks, brand, recent, onTemplatePick],
   );
 
-  const openTok = openChip
-    ? decode(rootRef.current?.querySelector<HTMLElement>(`[data-uid="${openChip}"]`)?.dataset.tok ?? '')
-    : null;
-  const menuGroup = openTok ? groupOf(openTok) : null;
   // / = everything, @ = ingredients (not scenes), # = scenes only
-  const bySigil =
+  const shownOptions =
     menu?.sigil === '#'
       ? options.filter((o) => o.group === 'Scenes')
       : menu?.sigil === '@'
         ? options.filter((o) => o.group !== 'Scenes')
         : options;
-  const shownOptions = menuGroup ? options.filter((o) => o.group === menuGroup) : bySigil;
-  const selectedKey = openTok ? encode(openTok) || undefined : undefined;
 
   // Once the typed query matches nothing the sigil was not a sigil: it was a hex
   // colour or an address. Close, and let the characters stand as plain text.
   useEffect(() => {
-    if (!menu || menu.replaceUid || !query) return;
-    const q = query.toLowerCase();
+    if (!menu || !query) return;
+    // the same matcher the menu itself filters with: if these two disagree,
+    // the menu closes on a query it would have had rows for
     const hit = shownOptions.some((o) =>
-      `${o.label} ${o.group} ${o.hint ?? ''} ${o.search ?? ''}`.toLowerCase().includes(q),
+      matchesQuery(`${o.label} ${o.group} ${o.hint ?? ''} ${o.search ?? ''}`, query),
     );
     if (!hit) {
       setMenu(null);
@@ -431,10 +566,11 @@ export const BriefInput = forwardRef<
     const target = e.target as HTMLElement;
     if (target.closest('[data-role="remove"]')) {
       e.preventDefault();
-      removeChip(root, chipAt(target));
+      const chip = chipAt(target);
+      if (picker && chip?.dataset.uid === picker.uid) closePicker('remove');
+      removeChip(root, chip);
       emit();
       setMenu(null);
-      setOpenChip(null);
       return;
     }
     // Every click in the line is resolved by the line, not by the browser:
@@ -446,28 +582,93 @@ export const BriefInput = forwardRef<
     // the outer few pixels are for reaching the caret, not for opening the menu
     const box = chip.getBoundingClientRect();
     if (e.clientX - box.left <= EDGE || box.right - e.clientX <= EDGE) return;
-    if (chip.dataset.warn && onProductWarningClick) {
-      e.preventDefault();
-      onProductWarningClick();
-      return;
-    }
     const uid = chip.dataset.uid ?? null;
-    if (openChip === uid) {
-      setMenu(null);
-      setOpenChip(null);
+    // The touch path already opened it on pointerdown, before the browser
+    // could focus the line; this would close what that just opened.
+    if (uid && picker?.uid === uid) {
+      if (e.detail !== 0) closePicker('outside');
       return;
     }
-    setQuery('');
-    setOpenChip(uid);
-    setMenu({ anchor: chip, replaceUid: uid ?? undefined });
+    const kind = pickerKind(decode(chip.dataset.tok ?? ''));
+    // A colour, a reference or a brand mark is not a visual catalog to browse.
+    if (!kind) {
+      setQuery('');
+      setMenu({ anchor: chip });
+      return;
+    }
+    // The caret was just placed by caretFromPoint above, while the line still
+    // has focus — so this is an exact reading, and it is the one the picker
+    // hands back when it closes.
+    openPicker(chip, kind, caretUnits(root), false);
+  };
+
+  /**
+   * A thumb on a chip opens the sheet, and must not focus the line.
+   *
+   * A tap focuses a contenteditable natively, before any React handler runs,
+   * which brings the software keyboard up behind the sheet that is opening.
+   * The only place to stop that is pointerdown.
+   */
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-role="remove"]')) return;
+    const chip = chipAt(target);
+    if (!chip) return; // prose still focuses, and still raises the keyboard
+    const box = chip.getBoundingClientRect();
+    if (e.clientX - box.left <= EDGE || box.right - e.clientX <= EDGE) return;
+    const kind = pickerKind(decode(chip.dataset.tok ?? ''));
+    if (!kind) return;
+    if (chip.dataset.uid && picker?.uid === chip.dataset.uid) return;
+    e.preventDefault();
+    const root = rootRef.current;
+    const had = document.activeElement === root;
+    const at = had ? caretUnits(root) : lastCaret.current;
+    if (had) root?.blur();
+    openPicker(chip, kind, at, true);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    const root = rootRef.current;
+    const focused = chipAt(e.target as HTMLElement);
+    // A chip has focus, so these keys are the chip's before they are the line's.
+    // Enter especially: without this branch first, a focused chip submits.
+    if (focused && !picker) {
+      const back = () => {
+        caretBeside(root, focused, 'after');
+        root?.focus({ preventScroll: true });
+      };
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        // Step off the chip into the line rather than into the next chip: one
+        // more Tab then leaves the composer the way it always did.
+        caretBeside(root, focused, e.shiftKey ? 'before' : 'after');
+        root?.focus({ preventScroll: true });
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const kind = pickerKind(decode(focused.dataset.tok ?? ''));
+        if (kind && root) openPicker(focused, kind, unitsBeforeChip(root, focused) + 1, false);
+        return;
+      }
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        const at = focused.dataset.uid ? removeChipByUid(focused.dataset.uid) : null;
+        root?.focus({ preventScroll: true });
+        if (at != null) setCaretUnits(root, at);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        back();
+        return;
+      }
+    }
     if (e.key === 'Escape' && menu) {
       e.preventDefault();
       setMenu(null);
       setQuery('');
-      setOpenChip(null);
       return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -475,7 +676,7 @@ export const BriefInput = forwardRef<
       if (!menu) onSubmit();
       return;
     }
-    if (menu) return;
+    if (menu || picker) return;
     // '/' inserts anything, '@' an ingredient, '#' a scene. Which one you typed
     // is the filter, so the menu opens already narrowed instead of everything.
     if (e.key === '/' || e.key === '@' || e.key === '#') {
@@ -500,7 +701,7 @@ export const BriefInput = forwardRef<
     // clearing the line leaves a <br>; strip it and flip data-empty so the
     // placeholder returns even if Chromium re-inserts a caret host
     if (syncEmpty(root)) caretToEnd(root);
-    if (menu && !menu.replaceUid) {
+    if (menu) {
       const live = sigilAtCaret(root);
       if (!live) {
         setMenu(null);
@@ -624,6 +825,7 @@ export const BriefInput = forwardRef<
         data-ph={placeholder}
         {...(placeholderSm ? { 'data-ph-sm': placeholderSm } : {})}
         onClick={onClick}
+        onPointerDown={onPointerDown}
         onKeyDown={onKeyDown}
         onInput={onInput}
         onCopy={onCopy}
@@ -641,17 +843,71 @@ export const BriefInput = forwardRef<
           anchor={menu.anchor}
           query={query}
           options={shownOptions}
-          selectedKey={selectedKey}
           onClose={() => {
             setMenu(null);
             setQuery('');
-            setOpenChip(null);
           }}
+        />
+      )}
+
+      {picker && (
+        <IngredientPicker
+          // A reopen gets a clean mount rather than the last one's scroll,
+          // search and roving index.
+          key={picker.uid}
+          kind={picker.kind}
+          anchor={picker.anchor}
+          currentId={currentIdOf(picker.anchor)}
+          candidates={candidatesFor(picker.kind)}
+          brandId={brand.id}
+          categoryTitle={categoryLabel(activeProductCategory)}
+          warning={picker.anchor.title || null}
+          onAttachRequest={
+            onAttachRequest
+              ? (tab) => {
+                  closePicker('outside');
+                  onAttachRequest(tab);
+                }
+              : undefined
+          }
+          onPick={(c) => {
+            const uid = picker.uid;
+            if (c.id === currentIdOf(picker.anchor)) {
+              // Re-picking what is already there is a true no-op: no swap, no
+              // emit, no draft write, and for a scene no toast either.
+              closePicker('pick');
+              return;
+            }
+            if (c.kind === 'scene') {
+              // One shared attach policy for every entry point: it is what
+              // toasts, offers the undo, and drops a branch target.
+              onTemplatePick(c.id);
+            } else {
+              replaceChip(uid, c.token);
+            }
+            closePicker('pick');
+          }}
+          onCreated={(productId) => {
+            const uid = picker.uid;
+            replaceChip(uid, { t: 'product', id: productId });
+            closePicker('pick');
+          }}
+          onRemove={() => {
+            const at = removeChipByUid(picker.uid);
+            closePicker('remove', at);
+          }}
+          onClose={closePicker}
         />
       )}
     </div>
   );
 });
+
+/** What a chip is holding, read back off the element the picker is anchored to. */
+function currentIdOf(chip: HTMLElement): string | null {
+  const t = decode(chip.dataset.tok ?? '');
+  return t && 'id' in t ? t.id : null;
+}
 
 /** Characters before a node, chips counting as one, for restoring a caret. */
 function caretUnitsOf(root: HTMLElement, node: Node): number {

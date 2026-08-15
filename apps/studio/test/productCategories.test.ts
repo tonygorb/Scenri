@@ -127,4 +127,15 @@ describe('effectiveCategory', () => {
   it('is null when there is no stored category and nothing to suggest from', () => {
     expect(effectiveCategory({ category: null, productType: null, tags: [] })).toBeNull();
   });
+
+  /**
+   * A demo product's `category` is already a real key, and it has neither a
+   * productType nor tags to fall back on. The composer used to read `p.category`
+   * raw off the brand library only, so a brief built from the scenri library
+   * produced no category at all and nothing was ever recommended anywhere.
+   */
+  it('passes a demo product straight through, which is what makes "Suited to X" fire at all', () => {
+    expect(effectiveCategory({ category: 'beverage' })).toBe('beverage');
+    expect(effectiveCategory({ category: 'jewelry' })).toBe('jewelry');
+  });
 });

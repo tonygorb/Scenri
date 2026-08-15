@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check } from '@phosphor-icons/react';
+import { matchesQuery } from '../layout/library/libraryRules.js';
 import { keepCaret } from './line.js';
 
 /** Rows a caret menu will draw. Past this, typing is faster than scrolling. */
@@ -35,14 +35,11 @@ export function TokenMenu({
   anchor,
   query,
   options,
-  selectedKey,
   onClose,
 }: {
   anchor: Anchor;
   query: string;
   options: MenuOption[];
-  /** Marks the row a chip currently holds, when the menu was opened from one. */
-  selectedKey?: string;
   onClose: () => void;
 }) {
   const [active, setActive] = useState(0);
@@ -59,17 +56,18 @@ export function TokenMenu({
    * move rather than scrolling.
    */
   const all = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return options;
-    return options.filter((o) => `${o.label} ${o.group} ${o.hint ?? ''} ${o.search ?? ''}`.toLowerCase().includes(q));
+    // The library matcher, so a caret menu and a library page agree on what
+    // "matches" means: accent-folded, every term required, a trailing plural
+    // stemmed. A raw substring test disagreed with both on all three.
+    return options.filter((o) => matchesQuery(`${o.label} ${o.group} ${o.hint ?? ''} ${o.search ?? ''}`, q));
   }, [options, query]);
   const filtered = useMemo(() => all.slice(0, MENU_CAP), [all]);
 
   useEffect(() => {
-    const i = selectedKey ? filtered.findIndex((o) => o.key === selectedKey) : -1;
-    setActive(i >= 0 ? i : 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, selectedKey]);
+    setActive(0);
+  }, [query]);
 
   useLayoutEffect(() => {
     if (!anchor) return;
@@ -158,7 +156,6 @@ export function TokenMenu({
               role="option"
               aria-selected={i === active}
               data-active={i === active}
-              data-selected={o.key === selectedKey || undefined}
               onMouseEnter={() => setActive(i)}
               onMouseDown={() => o.run()}
             >
@@ -170,11 +167,7 @@ export function TokenMenu({
                 <span className="sc-cmd-swatch sc-cmd-swatch-empty" />
               )}
               <span className="sc-cmd-label">{o.label}</span>
-              {o.key === selectedKey ? (
-                <Check className="sc-cmd-check" size={12} weight="bold" />
-              ) : (
-                o.hint && <span className="sc-cmd-hint">{o.hint}</span>
-              )}
+              {o.hint && <span className="sc-cmd-hint">{o.hint}</span>}
             </button>
           </div>
         );

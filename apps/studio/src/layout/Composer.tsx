@@ -19,6 +19,7 @@ import {
   type EngineInfo,
   type TreeNode,
 } from '../api.js';
+import { effectiveCategory } from '../productCategories.js';
 import {
   briefTokens,
   BriefInput,
@@ -789,9 +790,23 @@ export const Composer = forwardRef<
   };
 
   const activeProductId = sentence.find((t) => t.t === 'product')?.id;
-  const activeProductCategory = activeProductId
-    ? (libraryProducts.find((p) => p.id === activeProductId)?.category ?? null)
+  /**
+   * The category behind every "Suited to X" lift.
+   *
+   * Resolved across all three places a product token can point — the live
+   * library, brand.json, and the scenri library — and through
+   * `effectiveCategory`, which falls back to the guess a catalog import's
+   * productType supports. Reading `p.category` raw off `libraryProducts` alone
+   * meant a demo product resolved to nothing, so the homepage's own examples
+   * were exactly the briefs that got no recommendations at all.
+   */
+  const activeProduct = activeProductId
+    ? (libraryProducts.find((p) => p.id === activeProductId) ??
+      ((brand.json?.products ?? []) as any[]).find((p: any) => p.id === activeProductId) ??
+      demoProducts.find((p) => p.id === activeProductId) ??
+      null)
     : null;
+  const activeProductCategory = activeProduct ? effectiveCategory(activeProduct as any) : null;
 
   return (
     <div className="sc-composer">
@@ -911,7 +926,8 @@ export const Composer = forwardRef<
           demoProducts={demoProducts}
           onTemplatePick={applyScene}
           flag={flagToken}
-          onProductWarningClick={() => openAttach('Products')}
+          onAttachRequest={(tab) => openAttach(tab)}
+          activeProductCategory={activeProductCategory}
           placeholder={
             template
               ? 'Add art direction, or run it as written'

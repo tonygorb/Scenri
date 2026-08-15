@@ -46,6 +46,25 @@ async function pickCard(p: Page, index = 0) {
   await expect(chips(p)).not.toHaveCount(0);
 }
 
+const pick = (p: Page) => p.locator('.sc-swap');
+/** The choosable grid, which is not the Current row and not the Add card. */
+const cards = (p: Page) => p.locator('.sc-swap .sc-swap-grid .sc-swap-card:not(.sc-swap-add)');
+const pickSearch = (p: Page) => p.locator('.sc-swap-search input');
+
+/**
+ * Click a chip, which is the whole gesture: change this one.
+ *
+ * `at` is where across the chip to land, because the click still places the
+ * caret before the picker opens — and which side of the chip it lands on is
+ * what the picker has to hand back when it closes.
+ */
+async function openPicker(p: Page, index = 0, at = 0.5) {
+  const box = await chips(p).nth(index).boundingBox();
+  if (!box) throw new Error('no chip to open');
+  await p.mouse.click(box.x + box.width * at, box.y + box.height / 2);
+  await pick(p).waitFor();
+}
+
 /**
  * Click exactly at a character in the line.
  *
@@ -462,7 +481,8 @@ test('clicking a chip puts the caret beside it, never inside it', async ({ page 
   const box = (await chips(page).first().boundingBox())!;
   // the middle of the chip: the caret belongs after it, not in its label
   await page.mouse.click(box.x + box.width * 0.55, box.y + box.height / 2);
-  await page.keyboard.press('Escape'); // the chip's own menu opened too
+  await page.keyboard.press('Escape'); // the chip's own picker opened too
+  await expect(page.locator('.sc-swap')).toHaveCount(0);
   expect(
     await page.evaluate(() => {
       const n = getSelection()?.anchorNode as Node | null;
@@ -561,15 +581,16 @@ test('every point in the card puts the caret where it was clicked', async ({ pag
   expect(await sentence(page)).toMatch(/sdf!$/);
 });
 
-test('clicking the body of a chip opens its own menu', async ({ page }) => {
+test('clicking the body of a chip opens its picker, not the caret menu', async ({ page }) => {
   await page.keyboard.type('with ');
   await plusMenu(page, /product/i);
   await pickCard(page);
   await page.keyboard.press('Escape');
-  const box = await chips(page).first().boundingBox();
-  if (!box) throw new Error('no chip');
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(page.locator('.sc-cmd-row').first()).toBeVisible();
+  await openPicker(page);
+  await expect(pick(page)).toHaveAttribute('data-kind', 'product');
+  await expect(cards(page).first()).toBeVisible();
+  // the two surfaces are exclusive: a chip is a catalog, not a command list
+  await expect(page.locator('.sc-cmd')).toHaveCount(0);
 });
 
 /**
@@ -642,4 +663,220 @@ test('a new shape while refining runs the setup again rather than editing', asyn
   expect(posted.brief.format).toBe('landscape');
   // and a fresh shot rather than a child of the one on screen
   expect(posted.parentId).not.toBe(shot);
+});
+
+/**
+ * Changing an ingredient that is already in the brief.
+ *
+ * The chip used to open the caret menu in a "replace" mode that had no query
+ * behind it: it drew "40 of 576. Keep typing to narrow." over a list that
+ * ignored typing, and the letters went into the brief instead. These cases are
+ * the shape of the thing that replaced it.
+ */
+test('a chip swaps in one click and the prose survives', async ({ page }) => {
+  await page.keyboard.type('a shot of ');
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+  await page.keyboard.type(' at dawn');
+  const before = await chips(page).first().textContent();
+
+  await openPicker(page);
+  await expect(pick(page)).toHaveAttribute('data-kind', 'scene');
+  // the one that is on says so, and it is the only one that does
+  await expect(page.locator('.sc-swap-card[aria-selected="true"]')).toHaveCount(1);
+
+  await cards(page).nth(3).click();
+  await expect(pick(page)).toHaveCount(0); // one click, then out of the way
+  await expect(chips(page)).toHaveCount(1);
+  expect(await chips(page).first().textContent()).not.toBe(before);
+  expect(await sentence(page)).toMatch(/^a shot of /);
+  expect(await sentence(page)).toMatch(/at dawn$/);
+});
+
+test('typing in the picker never reaches the brief', async ({ page }) => {
+  await page.keyboard.type('keep me ');
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+  const before = await sentence(page);
+
+  await openPicker(page);
+  await pickSearch(page).fill('zzzqqq');
+  // the brief is untouched, and the panel says so rather than pretending
+  expect(await sentence(page)).toBe(before);
+  await expect(page.locator('.sc-swap-empty')).toBeVisible();
+  await expect(page.locator('.sc-swap-capped')).toHaveCount(0);
+});
+
+test('search finds a scene and one click takes it', async ({ page }) => {
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+
+  await openPicker(page);
+  const name = (await cards(page).nth(2).locator('b').textContent())!.trim();
+  await pickSearch(page).fill(name);
+  await expect(cards(page).first().locator('b')).toHaveText(name);
+  await cards(page).first().click();
+  await expect(pick(page)).toHaveCount(0);
+  expect((await chips(page).first().textContent())?.includes(name)).toBe(true);
+});
+
+test('the caret comes back where it was, on whichever side it was', async ({ page }) => {
+  await page.keyboard.type('AAAA ');
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+  await page.keyboard.type('BBBB');
+
+  // The panel takes focus for its search field, so the line loses the caret
+  // outright: coming back to the same character is the whole contract.
+  await openPicker(page, 0, 0.55);
+  await page.keyboard.press('Escape');
+  await expect(pick(page)).toHaveCount(0);
+  await page.keyboard.type('X');
+  expect(await sentence(page)).toMatch(/XBBBB$/);
+
+  // and the other side of the same chip comes back to the other side
+  await openPicker(page, 0, 0.2);
+  await page.keyboard.press('Escape');
+  await expect(pick(page)).toHaveCount(0);
+  await page.keyboard.type('Z');
+  expect(await sentence(page)).toMatch(/^AAAA Z/);
+});
+
+test('remove from the footer empties the slot', async ({ page }) => {
+  await page.keyboard.type('mood ');
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+
+  await openPicker(page);
+  await page.locator('.sc-swap-remove').click();
+  await expect(pick(page)).toHaveCount(0);
+  await expect(chips(page)).toHaveCount(0);
+  expect(await sentence(page)).toMatch(/^mood/);
+});
+
+test('a scenri-library product finds its own siblings', async ({ page }) => {
+  // The caret menu built Products from the brand library alone, so a chip
+  // holding one of these had a checkmark that matched no row and no way to
+  // reach the other forty-three.
+  const ids: string[] = await page.evaluate(async () => {
+    const r = await fetch('/api/demo-products');
+    const j = await r.json();
+    return j.demoProducts.map((p: { id: string }) => p.id);
+  });
+  expect(ids.length).toBeGreaterThan(1);
+
+  await plusMenu(page, /library/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+
+  await openPicker(page);
+  await expect(pick(page)).toHaveAttribute('data-kind', 'product');
+  await expect(page.locator('.sc-swap-card[aria-selected="true"]')).toHaveCount(1);
+  const lib = page.locator('.sc-swap-sec[data-section="library"] .sc-swap-card');
+  await expect(lib.first()).toBeVisible();
+  const before = await chips(page).first().textContent();
+  await lib.nth(1).click();
+  await expect(chips(page)).toHaveCount(1);
+  expect(await chips(page).first().textContent()).not.toBe(before);
+});
+
+test('a brand product and the scenri library are separate shelves', async ({ page }) => {
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape');
+
+  await openPicker(page);
+  await expect(page.locator('.sc-swap-sec[data-section="mine"]')).toBeVisible();
+  await expect(page.locator('.sc-swap-sec[data-section="library"]')).toBeVisible();
+  // adding one is offered where the shelf that would hold it is
+  await expect(page.locator('.sc-swap-sec[data-section="mine"] .sc-swap-add')).toBeVisible();
+});
+
+test('re-picking what is already there changes nothing', async ({ page }) => {
+  await page.keyboard.type('same ');
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+  const before = await sentence(page);
+
+  await openPicker(page);
+  await page.locator('.sc-swap-card[aria-selected="true"]').click();
+  await expect(pick(page)).toHaveCount(0);
+  expect(await sentence(page)).toBe(before);
+  await expect(chips(page)).toHaveCount(1);
+  // a no-op is not a switch, so nothing announces one
+  await expect(page.locator('.sc-toast')).toHaveCount(0);
+});
+
+test('a scene swapped through the picker still toasts and still undoes', async ({ page }) => {
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+  const first = await chips(page).first().textContent();
+
+  await openPicker(page);
+  await cards(page).nth(4).click();
+  const toast = page.locator('.sc-toast', { hasText: /switched to/i });
+  await expect(toast).toBeVisible();
+  await toast.getByRole('button', { name: /undo/i }).click();
+  await expect(chips(page)).toHaveCount(1);
+  expect(await chips(page).first().textContent()).toBe(first);
+});
+
+test('the panel flips below the chip when there is no room above', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 380 });
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+
+  await openPicker(page);
+  const box = (await pick(page).boundingBox())!;
+  const vp = page.viewportSize()!;
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(vp.height + 1);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(vp.width + 1);
+});
+
+test('only one surface is ever open', async ({ page }) => {
+  await page.keyboard.type('one ');
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+
+  await openPicker(page);
+  await expect(page.locator('.sc-cmd')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // and the other way round: a caret menu gives way to a chip's picker
+  await page.keyboard.type(' #');
+  await page.locator('.sc-cmd-row').first().waitFor();
+  await openPicker(page);
+  await expect(page.locator('.sc-cmd')).toHaveCount(0);
+});
+
+test('a chip is reachable, openable and removable from the keyboard', async ({ page }) => {
+  await page.keyboard.type('AAAA ');
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+
+  await chips(page).first().focus();
+  await expect(chips(page).first()).toHaveAttribute('aria-haspopup', 'dialog');
+  await page.keyboard.press('Enter');
+  await expect(pick(page)).toBeVisible();
+  await expect(chips(page).first()).toHaveAttribute('aria-expanded', 'true');
+
+  await page.keyboard.press('Escape');
+  await expect(pick(page)).toHaveCount(0);
+  await expect(chips(page).first()).toHaveAttribute('aria-expanded', 'false');
+
+  await chips(page).first().focus();
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(0);
+  expect(await sentence(page)).toMatch(/^AAAA/);
 });

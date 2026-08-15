@@ -475,13 +475,21 @@ function eatQuery(host: Text, before: string): string {
 export function removeChip(root: HTMLElement | null, chip: Element | null): void {
   if (!root || !chip) return;
   root.normalize();
-  const before = unitsBefore(root, chip);
+  const before = unitsBeforeChip(root, chip);
   chip.remove();
   normalizeLine(root);
   setCaretUnits(root, before);
 }
 
-function unitsBefore(root: HTMLElement, node: Node): number {
+/**
+ * Characters before a node, a chip counting as one.
+ *
+ * Exported because a caret has to be worked out *before* a chip is taken out
+ * of the line, not after: once the node is gone there is nothing left to
+ * measure from. `removeChip` uses it for its own restore; the picker needs the
+ * same number to hand back to a line it has to re-focus first.
+ */
+export function unitsBeforeChip(root: HTMLElement, node: Node): number {
   let n = 0;
   for (const c of Array.from(root.childNodes)) {
     if (c === node) break;

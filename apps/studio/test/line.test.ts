@@ -23,6 +23,7 @@ import {
   sigilAtCaret,
   templateChip,
   textBeforeCaret,
+  unitsBeforeChip,
   type SentenceToken,
 } from '../src/composer/line.js';
 
@@ -684,5 +685,125 @@ describe('sigilAtCaret: which menu the caret is asking for', () => {
 
   it('is null in ordinary prose', () => {
     expect(sigilAtCaret(caretAfter('a quiet morning shot'))).toBeNull();
+  });
+});
+
+/**
+ * What the picker does to the line, and what it must not do to it.
+ *
+ * A chip is swapped by replacing the element while keeping its uid, so the
+ * slot survives and every caret index in the line is unchanged. The whole
+ * focus contract rests on that: the picker takes focus for its search field,
+ * so the caret has to be restored from a number recorded before the swap.
+ */
+describe('replacing a chip in place', () => {
+  const line = (): SentenceToken[] => [
+    { t: 'text', v: 'a shot of ' },
+    { t: 'product', id: 'p1' },
+    { t: 'text', v: ' in ' },
+    { t: 'template', id: 't1' },
+    { t: 'text', v: ' today' },
+  ];
+
+  /** How BriefInput swaps: same uid, new token, then renormalize. */
+  const swap = (uid: string, t: SentenceToken) => {
+    const el = root.querySelector<HTMLElement>(`[data-uid="${uid}"]`)!;
+    const next = chipFor(t);
+    next.dataset.uid = uid;
+    el.replaceWith(next);
+    normalizeLine(root);
+  };
+
+  beforeEach(() => {
+    renderLine(root, line(), chipFor);
+    for (const [i, c] of chips().entries()) (c as HTMLElement).dataset.uid = `u${i}`;
+  });
+
+  it('changes exactly one token and leaves the prose byte-identical', () => {
+    const before = readLine(root);
+    swap('u0', { t: 'product', id: 'p2' });
+    const after = readLine(root);
+
+    expect(after).toHaveLength(before.length);
+    const differing = after.filter((t, i) => JSON.stringify(t) !== JSON.stringify(before[i]));
+    expect(differing).toEqual([{ t: 'product', id: 'p2' }]);
+    expect(after.filter((t) => t.t === 'text')).toEqual(before.filter((t) => t.t === 'text'));
+  });
+
+  it('keeps the chip in its own slot rather than appending it', () => {
+    swap('u0', { t: 'product', id: 'p2' });
+    expect(shape()).toEqual(['"a shot of "', '<product>', '" in "', '<template>', '" today"']);
+    expect(chips()).toHaveLength(2);
+  });
+
+  it('leaves every caret index in the line untouched, wherever the caret was', () => {
+    for (const at of [0, 3, 10, 11, 15, 16, 20]) {
+      renderLine(root, line(), chipFor);
+      for (const [i, c] of chips().entries()) (c as HTMLElement).dataset.uid = `u${i}`;
+      caret(at);
+      const before = caretUnits(root);
+      swap('u0', { t: 'product', id: 'p2' });
+      caret(before!);
+      expect(caretUnits(root)).toBe(before);
+    }
+  });
+
+  it('survives a swap repeated many times, which is the point of a picker', () => {
+    const prose = readLine(root).filter((t) => t.t === 'text');
+    for (let i = 0; i < 12; i++) swap('u1', { t: 'template', id: `t${i}` });
+    expect(chips()).toHaveLength(2);
+    expect(readLine(root).filter((t) => t.t === 'text')).toEqual(prose);
+    expect(readLine(root).find((t) => t.t === 'template')).toEqual({ t: 'template', id: 't11' });
+  });
+
+  it('a swap does not disturb the other chip', () => {
+    swap('u0', { t: 'product', id: 'p2' });
+    expect(readLine(root).find((t) => t.t === 'template')).toEqual({ t: 'template', id: 't1' });
+  });
+});
+
+describe('unitsBeforeChip', () => {
+  beforeEach(() => {
+    renderLine(
+      root,
+      [
+        { t: 'text', v: 'a shot of ' },
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' in ' },
+        { t: 'template', id: 't1' },
+        { t: 'text', v: ' today' },
+      ],
+      chipFor,
+    );
+  });
+
+  it('counts characters before a chip, chips counting as one', () => {
+    const [product, template] = chips();
+    expect(unitsBeforeChip(root, product)).toBe(10);
+    // 'a shot of ' + <product> + ' in '
+    expect(unitsBeforeChip(root, template)).toBe(15);
+  });
+
+  it('is the seam a caret should take once the chip is gone', () => {
+    const template = chips()[1];
+    const at = unitsBeforeChip(root, template);
+    template.remove();
+    normalizeLine(root);
+    setCaretUnits(root, at);
+    // the caret is in real text, not stranded on a node that no longer exists
+    expect(caretUnits(root)).toBe(at);
+    expect(chips()).toHaveLength(1);
+  });
+
+  it('is zero for a chip that opens the line', () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' alone' },
+      ],
+      chipFor,
+    );
+    expect(unitsBeforeChip(root, chips()[0])).toBe(0);
   });
 });

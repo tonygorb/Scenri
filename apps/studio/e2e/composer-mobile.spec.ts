@@ -431,3 +431,120 @@ test('a feed tile states its facts in one row without truncating them', async ({
     expect(r.outside, 'something on the tile bar left the tile').toBe(false);
   }
 });
+
+/**
+ * Changing an ingredient with a thumb.
+ *
+ * The chip's old menu had no mobile rules at all: a fixed 256px box, always
+ * drawn above its anchor, positioned against `window.innerHeight` while the
+ * anchor rect is in visual-viewport coordinates. With the keyboard up it landed
+ * off the screen. A phone gets a sheet instead, and the tap that opens it is
+ * the one that must not raise the keyboard in the first place.
+ */
+
+const briefChips = (p: Page) => p.locator('.sc-brief-line .sc-token');
+const sheet = (p: Page) => p.locator('.sc-swapsheet');
+
+/** Put one scene chip in the brief, whatever width we are at. */
+async function seedScene(p: Page) {
+  await p.locator('.sc-canvas-dock .sc-attach-toggle').click();
+  await p.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
+  await expect(briefChips(p)).not.toHaveCount(0);
+  await p.keyboard.press('Escape');
+}
+
+async function tapChip(p: Page) {
+  const box = (await briefChips(p).first().boundingBox())!;
+  await p.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+test('a phone gets a sheet, a tablet gets the anchored panel', async ({ page }) => {
+  await seedScene(page);
+  await tapChip(page);
+
+  if (isPhone(page)) {
+    await expect(sheet(page)).toBeVisible();
+    await expect(page.locator('.sc-swap')).toHaveCount(0);
+  } else {
+    // proves the shell is chosen by the 768 breakpoint and not by pointer:coarse
+    await expect(page.locator('.sc-swap')).toBeVisible();
+    await expect(sheet(page)).toHaveCount(0);
+  }
+});
+
+test('tapping a chip does not focus the brief, so no keyboard comes up', async ({ page }) => {
+  test.skip(!isPhone(page), 'the sheet only exists below 768px');
+  await seedScene(page);
+  await tapChip(page);
+  await expect(sheet(page)).toBeVisible();
+  const focused = await page.evaluate(() => document.activeElement?.className ?? '');
+  expect(focused).not.toContain('sc-brief-line');
+});
+
+test('the picker sheet is dragged away, and can be opened again straight after', async ({ page }) => {
+  test.skip(!isPhone(page), 'the sheet only exists below 768px');
+  await seedScene(page);
+  await tapChip(page);
+  await expect(sheet(page)).toBeVisible();
+
+  const pull = async (dy: number) => {
+    const box = (await page.locator('.sc-swapsheet .sc-shotsheet-grip').boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + dy, { steps: 10 });
+    await page.mouse.up();
+  };
+
+  await pull(24);
+  await expect(sheet(page)).toBeVisible();
+
+  await pull(200);
+  // Wait for the scrim to be gone, not merely for the sheet to be invisible:
+  // Radix keeps both mounted for the 140ms exit, and while the scrim is there
+  // it is what a tap lands on. That is the sheet shell's own timing, shared
+  // with the shot settings, and the animation is the feedback that says so.
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page.locator('.sc-shotsheet-scrim')).toHaveCount(0);
+
+  // the chip is live again: a dismissal is not a dead end
+  await tapChip(page);
+  await expect(sheet(page)).toBeVisible();
+});
+
+test('one tap swaps the ingredient and the sheet gets out of the way', async ({ page }) => {
+  await seedScene(page);
+  const before = await briefChips(page).first().textContent();
+  await tapChip(page);
+
+  const cards = page.locator('.sc-swap-grid .sc-swap-card:not(.sc-swap-add)');
+  await cards.first().waitFor();
+  await cards.nth(3).click();
+  await expect(page.locator('.sc-swapsheet, .sc-swap')).toHaveCount(0);
+  await expect(briefChips(page)).toHaveCount(1);
+  expect(await briefChips(page).first().textContent()).not.toBe(before);
+});
+
+test('the picker search cannot zoom the page', async ({ page }) => {
+  await seedScene(page);
+  await tapChip(page);
+  const size = await page
+    .locator('.sc-swap-search input')
+    .evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+  expect(size).toBeGreaterThanOrEqual(16);
+});
+
+test('every picker card is big enough for a thumb', async ({ page }) => {
+  await seedScene(page);
+  await tapChip(page);
+  const cards = page.locator('.sc-swap-grid .sc-swap-card:not(.sc-swap-add)');
+  await cards.first().waitFor();
+  const n = Math.min(await cards.count(), 8);
+  for (let i = 0; i < n; i++) {
+    const box = (await cards.nth(i).boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+});
