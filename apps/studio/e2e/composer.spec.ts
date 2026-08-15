@@ -48,7 +48,7 @@ async function pickCard(p: Page, index = 0) {
 
 const pick = (p: Page) => p.locator('.sc-swap');
 /** The choosable grid, which is not the Current row and not the Add card. */
-const cards = (p: Page) => p.locator('.sc-swap .sc-swap-grid .sc-swap-card:not(.sc-swap-add)');
+const cards = (p: Page) => p.locator('.sc-swap .sc-swap-grid .sc-swap-card');
 const pickSearch = (p: Page) => p.locator('.sc-swap-search input');
 
 /**
@@ -792,8 +792,9 @@ test('a brand product and the scenri library are separate shelves', async ({ pag
   await openPicker(page);
   await expect(page.locator('.sc-swap-sec[data-section="mine"]')).toBeVisible();
   await expect(page.locator('.sc-swap-sec[data-section="library"]')).toBeVisible();
-  // adding one is offered where the shelf that would hold it is
-  await expect(page.locator('.sc-swap-sec[data-section="mine"] .sc-swap-add')).toBeVisible();
+  // adding one is offered on the shelf that would hold it, whether or not it
+  // has anything on it yet
+  await expect(page.locator('.sc-swap-sec[data-section="mine"] .sc-swap-lbact')).toBeVisible();
 });
 
 test('re-picking what is already there changes nothing', async ({ page }) => {

@@ -61,8 +61,16 @@ export interface Section {
   /** How many of `total` are not drawn yet. Above zero, say so out loud. */
   remaining: number;
   total: number;
-  /** Only `mine` sets this, so the Add-product card leads that grid. */
-  leadWithAdd?: boolean;
+  /**
+   * An action on the section's own heading row.
+   *
+   * Adding a product used to be a card at the head of the grid, which on a
+   * brand with nothing uploaded yet made a whole section out of one dashed box
+   * and three empty columns — the one place the three pickers stopped looking
+   * like the same thing. On the heading it costs a line whether the section has
+   * ten products in it or none.
+   */
+  action?: 'add-product';
 }
 
 /** Everything the three catalogs need, in the shapes the app already holds them. */
@@ -199,19 +207,18 @@ function productCandidate(p: Product | DemoProduct, source: 'brand' | 'catalog',
 }
 
 /**
- * The line under a product's name: who makes it, and what shape it comes in.
+ * The line under a product's name: who makes it.
  *
- * The qualifier is dropped when it only restates the name. A watch called
- * "Field Watch" with the format "Field watch" produced "Aldergate · Field
- * watch" under the words "Field Watch", which reads as a mistake rather than as
- * information.
+ * The brand and nothing else. It used to carry the format too, which at 96px
+ * truncated to "Almanac Supply · ..." — the same line of noise a scene's
+ * lighting phrase was making before it was taken out. The picture already
+ * shows the format, because a can looks like a can; the brand is the one thing
+ * about a product a photograph cannot say. The format is still in the tooltip
+ * and still searchable.
  */
 function productSub(p: Product | DemoProduct): string | undefined {
   const anyP = p as Product & DemoProduct;
-  const brand = clean(anyP.brand) ?? clean(anyP.vendor);
-  const qualifier = clean(anyP.format) ?? clean(anyP.subcategory) ?? clean(anyP.variant);
-  const same = qualifier && qualifier.toLowerCase() === p.name.toLowerCase();
-  return [brand, same ? undefined : qualifier].filter(Boolean).join(' · ') || undefined;
+  return clean(anyP.brand) ?? clean(anyP.vendor);
 }
 
 /** AND-match over the hidden haystack. The library matcher, not a second one. */
@@ -260,7 +267,7 @@ export function sectionsFor(kind: IngredientKind, items: Candidate[], o: Section
     const library = items.filter((c) => c.source === 'catalog' && !isCurrent(c));
     // Always rendered, even at zero, because the Add card needs a home and an
     // empty products page is exactly when adding one is the thing to do.
-    out.push({ ...page({ id: 'mine', title: 'Your products', items: mine }, o.shown.mine), leadWithAdd: true });
+    out.push({ ...page({ id: 'mine', title: 'Your products', items: mine }, o.shown.mine), action: 'add-product' });
     if (library.length) out.push(page({ id: 'library', title: 'Scenri library', items: library }, o.shown.library));
     return out;
   }

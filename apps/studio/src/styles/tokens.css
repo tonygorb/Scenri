@@ -1797,9 +1797,42 @@ select {
 .sc-swap-sec + .sc-swap-sec {
   margin-top: var(--sc-space-5);
 }
-/* The heading is a label for what is under it, so it sits close to it. */
-.sc-swap-sec > .sc-eyebrow {
+/* A label for the group under it, not an announcement of it. `.sc-eyebrow` is
+   uppercase and letterspaced, which carries a page section; at this size, four
+   of them in a 440px panel is most of what the eye lands on. */
+.sc-swap-lb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  min-height: 18px;
   margin-bottom: var(--sc-space-3);
+  font-size: var(--sc-text-caption);
+  font-weight: 550;
+  color: var(--sc-fg3);
+}
+/* Whatever the section itself can do, on the line that names it. */
+.sc-swap-lbact {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  margin: -2px -6px -2px 0;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 550;
+}
+.sc-swap-lbact:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-swap-lbact:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
 }
 .sc-swap-empty {
   margin: 0;
@@ -1809,7 +1842,9 @@ select {
 .sc-swap-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-  gap: var(--sc-space-4) var(--sc-space-3);
+  /* Even on both axes. A wider row gap than column gap reads as a mistake at
+     this size, and there is no caption tall enough here to need one. */
+  gap: var(--sc-space-4);
 }
 .sc-swap-card {
   position: relative;
@@ -1896,7 +1931,7 @@ select {
 
 /* What is on now: a row, so the name is read rather than clipped to a cell. */
 .sc-swap-cur {
-  padding-bottom: var(--sc-space-4);
+  padding-bottom: var(--sc-space-3);
   border-bottom: 1px solid var(--sc-line);
 }
 .sc-swap-currow {
@@ -1984,20 +2019,6 @@ select {
   .sc-swap-star {
     opacity: 1;
   }
-}
-.sc-swap-add .sc-swap-thumb-empty {
-  background: none;
-  border: 1px dashed var(--sc-line-strong);
-  box-shadow: none;
-  color: var(--sc-fg3);
-}
-.sc-swap-add:hover .sc-swap-thumb-empty {
-  border-color: var(--sc-fg3);
-  color: var(--sc-fg2);
-}
-.sc-swap-add b {
-  color: var(--sc-fg3);
-  font-weight: 500;
 }
 .sc-swap-foot {
   flex: none;
@@ -9645,7 +9666,7 @@ select.sc-in {
 /* Bigger targets for a thumb, and fewer of them across. */
 .sc-swapsheet .sc-swap-grid {
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: var(--sc-space-4);
+  gap: var(--sc-space-5);
 }
 .sc-swapsheet .sc-swap-foot {
   padding: var(--sc-space-4) var(--sc-gutter) max(var(--sc-space-5), env(safe-area-inset-bottom));

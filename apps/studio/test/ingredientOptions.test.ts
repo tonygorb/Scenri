@@ -154,11 +154,12 @@ describe('buildCandidates — products', () => {
     // brand, so every card read the same and none of them matched its chip.
     const [c] = buildCandidates('product', catalog({ demoProducts: [demo()] }));
     expect(c.label).toBe('Peach Soda');
-    expect(c.sub).toBe('Kova · 330ml can');
+    // the brand alone: the picture already shows it is a can
+    expect(c.sub).toBe('Kova');
     expect(c.full).toBe('Kova Peach Soda · 330ml can');
   });
 
-  it('does not restate the name in its own sub line', () => {
+  it('never restates the name, because the format is not on the card at all', () => {
     const [c] = buildCandidates(
       'product',
       catalog({ demoProducts: [demo({ name: 'Field Watch', brand: 'Aldergate', format: 'Field watch' })] }),
@@ -167,7 +168,7 @@ describe('buildCandidates — products', () => {
     expect(c.sub).toBe('Aldergate');
   });
 
-  it('leaves the sub off entirely when there is neither a brand nor a format', () => {
+  it('leaves the sub off entirely for a product with no brand', () => {
     const [c] = buildCandidates('product', catalog({ libraryProducts: [owned()] }));
     expect(c.label).toBe('Cold brew can');
     expect(c.sub).toBeUndefined();
@@ -374,9 +375,9 @@ describe('sectionsFor — products', () => {
     const secs = sectionsFor('product', onlyDemo, opts());
     const mine = secs.find((s) => s.id === 'mine')!;
     expect(mine.items).toHaveLength(0);
-    // the Add card is in it and the scenri shelf is right below, so the
-    // section explains itself without a sentence telling you it is empty
-    expect(mine.leadWithAdd).toBe(true);
+    // the heading still carries Add, so an empty shelf is one line rather than
+    // a grid with a single dashed box alone in it
+    expect(mine.action).toBe('add-product');
   });
 
   it('ticks a demo product as Current and still offers the rest of the library', () => {

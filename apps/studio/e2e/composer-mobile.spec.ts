@@ -519,7 +519,7 @@ test('one tap swaps the ingredient and the sheet gets out of the way', async ({ 
   const before = await briefChips(page).first().textContent();
   await tapChip(page);
 
-  const cards = page.locator('.sc-swap-grid .sc-swap-card:not(.sc-swap-add)');
+  const cards = page.locator('.sc-swap-grid .sc-swap-card');
   await cards.first().waitFor();
   await cards.nth(3).click();
   await expect(page.locator('.sc-swapsheet, .sc-swap')).toHaveCount(0);
@@ -539,7 +539,7 @@ test('the picker search cannot zoom the page', async ({ page }) => {
 test('every picker card is big enough for a thumb', async ({ page }) => {
   await seedScene(page);
   await tapChip(page);
-  const cards = page.locator('.sc-swap-grid .sc-swap-card:not(.sc-swap-add)');
+  const cards = page.locator('.sc-swap-grid .sc-swap-card');
   await cards.first().waitFor();
   const n = Math.min(await cards.count(), 8);
   for (let i = 0; i < n; i++) {

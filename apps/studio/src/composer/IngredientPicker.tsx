@@ -115,7 +115,6 @@ function PickerBody({
     const m = new Map<string, number>();
     let i = 0;
     for (const sec of sections) {
-      if (sec.leadWithAdd) m.set(`${sec.id}:__add`, i++);
       for (const c of sec.items) m.set(`${sec.id}:${c.id}`, i++);
     }
     return m;
@@ -222,6 +221,18 @@ function PickerBody({
   const star = (id: string) => setStarred(new Set(toggleFavoriteScene(brandId, id)));
 
   const noun = NOUN[kind];
+  /**
+   * Whether a card carries a second line.
+   *
+   * Only where the picture cannot tell two things apart. A scene's light and a
+   * presenter's casting note are both real, but in a 92px cell they arrive as
+   * "Hard freeze-flash ..." and "Cool minimal · whit..." — a line of truncated
+   * text under every tile, in a grid whose entire job is to be looked at. Two
+   * products, though, are routinely the same bottle in a different variant, so
+   * there the brand is what separates them. Both still reach the full text on
+   * hover, and the current pick shows it in the row, which has the width.
+   */
+  const showSub = kind === 'product';
 
   /* The wrapper routes keys for the panel's own focusable controls and is
      deliberately not a control itself. The point of it existing at all is that
@@ -246,13 +257,15 @@ function PickerBody({
       </div>
 
       <div className="sc-swap-body" ref={gridsRef}>
-        {flat.length === 0 && !sections.some((sec) => sec.leadWithAdd) && (
+        {flat.length === 0 && !sections.some((sec) => sec.action) && (
           <p className="sc-swap-empty">{query.trim() ? `Nothing matches “${query.trim()}”.` : `No ${noun}s yet.`}</p>
         )}
 
         {currentCard && (
           <section className="sc-swap-sec sc-swap-cur" data-section="current" aria-label={current?.title}>
-            <div className="sc-eyebrow">{current?.title}</div>
+            <div className="sc-swap-lb">
+              <span>{current?.title}</span>
+            </div>
             <div role="listbox" aria-label={current?.title}>
               <div
                 className="sc-swap-card sc-swap-currow"
@@ -286,14 +299,12 @@ function PickerBody({
 
         {rest.map((sec) => (
           <section className="sc-swap-sec" key={sec.id} data-section={sec.id} aria-label={sec.title}>
-            <div className="sc-eyebrow">{sec.title}</div>
-            <div className="sc-swap-grid" role="listbox" aria-label={sec.title} aria-multiselectable="false">
-              {sec.leadWithAdd && (
+            <div className="sc-swap-lb">
+              <span>{sec.title}</span>
+              {sec.action === 'add-product' && (
                 <button
                   type="button"
-                  className="sc-swap-card sc-swap-add"
-                  data-nav={nav.get(`${sec.id}:__add`)}
-                  tabIndex={nav.get(`${sec.id}:__add`) === active ? 0 : -1}
+                  className="sc-swap-lbact"
                   onClick={() =>
                     // The chip goes into a brief that is still in memory, so a
                     // URL round trip would remount the composer under it.
@@ -302,73 +313,77 @@ function PickerBody({
                     })
                   }
                 >
-                  <span className="sc-swap-thumb sc-swap-thumb-empty">
-                    <Plus size={16} />
-                  </span>
-                  <b>Add product</b>
+                  <Plus size={11} weight="bold" />
+                  Add
                 </button>
               )}
-              {sec.items.map((c) => {
-                const i = nav.get(`${sec.id}:${c.id}`) ?? -1;
-                const on = c.id === currentId;
-                const fav = starred.has(c.id);
-                return (
-                  // A div, not a button: a scene card carries its own star, and
-                  // a button inside a button is not a thing a browser can parse.
-                  // `option` inside `listbox` is the right role for one-of-many
-                  // anyway, and it takes its own focus and Enter/Space.
-                  <div
-                    key={`${sec.id}:${c.id}`}
-                    className="sc-swap-card"
-                    role="option"
-                    aria-selected={on}
-                    data-on={on || undefined}
-                    data-nav={i}
-                    tabIndex={i === active ? 0 : -1}
-                    title={c.full}
-                    style={c.tint ? ({ '--tint': c.tint } as React.CSSProperties) : undefined}
-                    onFocus={() => setActive(i)}
-                    onClick={() => onPick(c)}
-                    onKeyDown={(e) => {
-                      if (e.key !== 'Enter' && e.key !== ' ') return;
-                      e.preventDefault();
-                      onPick(c);
-                    }}
-                  >
-                    <Thumb src={c.thumb} tinted={!!c.tint} />
-                    {on && (
-                      <span className="sc-swap-tick" aria-hidden>
-                        <Check size={11} weight="bold" />
-                      </span>
-                    )}
-                    {/* Only where nothing else says it. Under a "Suited to X"
+            </div>
+            {/* An empty shelf is its heading and nothing else: a grid with no
+                cards in it is just a gap. */}
+            {sec.items.length > 0 && (
+              <div className="sc-swap-grid" role="listbox" aria-label={sec.title} aria-multiselectable="false">
+                {sec.items.map((c) => {
+                  const i = nav.get(`${sec.id}:${c.id}`) ?? -1;
+                  const on = c.id === currentId;
+                  const fav = starred.has(c.id);
+                  return (
+                    // A div, not a button: a scene card carries its own star, and
+                    // a button inside a button is not a thing a browser can parse.
+                    // `option` inside `listbox` is the right role for one-of-many
+                    // anyway, and it takes its own focus and Enter/Space.
+                    <div
+                      key={`${sec.id}:${c.id}`}
+                      className="sc-swap-card"
+                      role="option"
+                      aria-selected={on}
+                      data-on={on || undefined}
+                      data-nav={i}
+                      tabIndex={i === active ? 0 : -1}
+                      title={c.full}
+                      style={c.tint ? ({ '--tint': c.tint } as React.CSSProperties) : undefined}
+                      onFocus={() => setActive(i)}
+                      onClick={() => onPick(c)}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter' && e.key !== ' ') return;
+                        e.preventDefault();
+                        onPick(c);
+                      }}
+                    >
+                      <Thumb src={c.thumb} tinted={!!c.tint} />
+                      {on && (
+                        <span className="sc-swap-tick" aria-hidden>
+                          <Check size={11} weight="bold" />
+                        </span>
+                      )}
+                      {/* Only where nothing else says it. Under a "Suited to X"
                         heading the badge is the heading repeated on every card
                         in the section; in a flat result list it is the only
                         place the hint can live. */}
-                    {c.recommended && !on && sec.id === 'results' && <span className="sc-swap-rec">Suited</span>}
-                    <b dir="auto">{c.label}</b>
-                    {c.sub && <span dir="auto">{c.sub}</span>}
-                    {kind === 'scene' && (
-                      <button
-                        type="button"
-                        className="sc-swap-star"
-                        data-on={fav || undefined}
-                        aria-pressed={fav}
-                        aria-label={fav ? `Unstar ${c.label}` : `Star ${c.label}`}
-                        tabIndex={-1}
-                        onClick={(e) => {
-                          // The card is the pick; a star inside it must not pick.
-                          e.stopPropagation();
-                          star(c.id);
-                        }}
-                      >
-                        <Star size={12} weight={fav ? 'fill' : 'regular'} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      {c.recommended && !on && sec.id === 'results' && <span className="sc-swap-rec">Suited</span>}
+                      <b dir="auto">{c.label}</b>
+                      {showSub && c.sub && <span dir="auto">{c.sub}</span>}
+                      {kind === 'scene' && (
+                        <button
+                          type="button"
+                          className="sc-swap-star"
+                          data-on={fav || undefined}
+                          aria-pressed={fav}
+                          aria-label={fav ? `Unstar ${c.label}` : `Star ${c.label}`}
+                          tabIndex={-1}
+                          onClick={(e) => {
+                            // The card is the pick; a star inside it must not pick.
+                            e.stopPropagation();
+                            star(c.id);
+                          }}
+                        >
+                          <Star size={12} weight={fav ? 'fill' : 'regular'} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {sec.remaining > 0 && (
               <>
                 {/* Never a silent truncation: say what is not on screen, and
