@@ -1755,7 +1755,11 @@ select {
      stroke  1px, `--sc-line-strong` around the panel, `--sc-line` within it
      focus   2px `--sc-focus`, offset 2 out, offset -2 where a control is
              full-bleed and 2 out would be clipped by the panel                */
-.sc-swap {
+/* On both shells, because the sheet is not a `.sc-swap` — it is the shot
+   settings sheet carrying the same body, and every one of these resolved to
+   nothing there. */
+.sc-swap,
+.sc-swapsheet {
   --swap-inset: var(--sc-space-5);
   --swap-step: var(--sc-space-3);
   /* Heights, not spacing: the search and the remove button are the same
@@ -1763,6 +1767,8 @@ select {
      below either of them. */
   --swap-control: 32px;
   --swap-face: 44px;
+}
+.sc-swap {
   position: fixed;
   z-index: var(--sc-z-popover);
   display: flex;
@@ -1824,8 +1830,41 @@ select {
   border-bottom: 1px solid var(--sc-line);
   background: none;
   color: var(--sc-fg);
-  cursor: pointer;
   text-align: start;
+}
+/* The one thing on the row that is a control, and it says so: a real target,
+   its own hover, and the only pointer cursor here. Revealed on hover on a
+   mouse, always there on a touch screen, which is the grammar the catalog
+   cards already use. */
+.sc-swap-open {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--sc-space-7);
+  height: var(--sc-space-7);
+  border-radius: var(--sc-radius-sm);
+  color: var(--sc-fg3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-swap-cur:hover .sc-swap-open {
+  opacity: 1;
+}
+.sc-swap-open:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+  opacity: 1;
+}
+.sc-swap-open:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  opacity: 1;
+}
+@media (hover: none) {
+  .sc-swap-open {
+    opacity: 1;
+  }
 }
 .sc-swap-curtext {
   display: flex;
@@ -1849,13 +1888,6 @@ select {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-/* Full-bleed row: a ring 2px outside it would be cut off by the panel edge. */
-.sc-swap-cur:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: -2px;
-  border-radius: var(--sc-radius-sm);
-}
-
 .sc-swap-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -9583,6 +9615,21 @@ select.sc-in {
   }
 }
 
+/* A thumb, whichever shell it lands on: the tablet gets the anchored panel and
+   is still a touch screen. The cards are already ~96px; these are the two
+   controls that were sized for a mouse. */
+@media (pointer: coarse) {
+  .sc-swap,
+  .sc-swapsheet {
+    --swap-control: var(--sc-tap);
+  }
+  /* The row is inert, so this is the only thing on it a thumb can hit. */
+  .sc-swap-open {
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
+
 /* The picker on a phone is the shot-settings sheet wearing different content:
    it carries both classes, so the drag, both animations, the reduced-motion
    rule and the scrollbar gutter above are the ones already written.
@@ -9593,6 +9640,7 @@ select.sc-in {
    own. Nothing else here is a spacing rule. */
 .sc-swapsheet {
   --swap-inset: var(--sc-gutter);
+  --swap-face: 54px;
   display: flex;
   flex-direction: column;
   max-height: 88dvh;
@@ -9607,10 +9655,6 @@ select.sc-in {
 /* Bigger targets for a thumb, and fewer of them across. */
 .sc-swapsheet .sc-swap-grid {
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-}
-/* One number again: a thumb has more room to be looked at on a phone. */
-.sc-swapsheet {
-  --swap-face: 54px;
 }
 .sc-swapsheet .sc-swap-foot {
   padding-bottom: max(var(--swap-inset), env(safe-area-inset-bottom));

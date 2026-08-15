@@ -859,6 +859,7 @@ export const BriefInput = forwardRef<
           currentId={currentIdOf(picker.anchor)}
           candidates={candidatesFor(picker.kind)}
           brandId={brand.id}
+          brandSlug={brand.slug}
           warning={picker.anchor.title || null}
           onAttachRequest={
             onAttachRequest

@@ -473,13 +473,27 @@ test('a phone gets a sheet, a tablet gets the anchored panel', async ({ page }) 
   }
 });
 
-test('tapping a chip does not focus the brief, so no keyboard comes up', async ({ page }) => {
-  test.skip(!isPhone(page), 'the sheet only exists below 768px');
+test('opening the picker by touch raises no keyboard, from either end', async ({ page }) => {
   await seedScene(page);
   await tapChip(page);
-  await expect(sheet(page)).toBeVisible();
-  const focused = await page.evaluate(() => document.activeElement?.className ?? '');
-  expect(focused).not.toContain('sc-brief-line');
+  await expect(page.locator('.sc-swapsheet, .sc-swap')).toBeVisible();
+  const focused = await page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null;
+    return { cls: el?.className ?? '', tag: el?.tagName ?? '' };
+  });
+  // the brief is what the tap would have focused natively...
+  expect(focused.cls).not.toContain('sc-brief-line');
+  // ...and the search field is what the shell would have focused for us. Both
+  // of them summon the software keyboard over the pictures.
+  expect(focused.tag).not.toBe('INPUT');
+});
+
+test('the search still takes the keyboard when it is tapped', async ({ page }) => {
+  await seedScene(page);
+  await tapChip(page);
+  const input = page.locator('.sc-swap-search input');
+  await input.tap();
+  await expect(input).toBeFocused();
 });
 
 test('the picker sheet is dragged away, and can be opened again straight after', async ({ page }) => {

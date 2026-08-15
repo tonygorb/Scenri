@@ -810,7 +810,7 @@ test('one list, with the brand’s own products before the ones scenri ships', a
   expect(firstForeign === -1 || lastOwn < firstForeign).toBe(true);
 });
 
-test('re-picking what is already there changes nothing', async ({ page }) => {
+test('the row saying what is on is not a door', async ({ page }) => {
   await page.keyboard.type('same ');
   await plusMenu(page, /scenes/i);
   await pickCard(page, 0);
@@ -818,12 +818,44 @@ test('re-picking what is already there changes nothing', async ({ page }) => {
   const before = await sentence(page);
 
   await openPicker(page);
+  // it is information. Clicking it does not close, does not deselect, does not
+  // navigate — every one of those has its own labelled way to happen.
   await currentRow(page).click();
-  await expect(pick(page)).toHaveCount(0);
+  await expect(pick(page)).toBeVisible();
   expect(await sentence(page)).toBe(before);
   await expect(chips(page)).toHaveCount(1);
-  // a no-op is not a switch, so nothing announces one
   await expect(page.locator('.sc-toast')).toHaveCount(0);
+
+  // and what is on is never also offered as a thing to switch to
+  const names = await cards(page).locator('b').allTextContents();
+  const current = (await currentRow(page).locator('b').textContent())!.trim();
+  expect(names.map((n) => n.trim())).not.toContain(current);
+});
+
+test('a mouse gets the search field straight away', async ({ page }) => {
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+
+  await openPicker(page);
+  // the counterpart of the touch rule: on a pointer nothing is covered by the
+  // keyboard, so typing is the fastest way into a catalog of this size
+  await expect(pickSearch(page)).toBeFocused();
+  await page.keyboard.type('sil');
+  await expect(cards(page).first().locator('b')).toContainText(/sil/i);
+});
+
+test('the current row links out to the asset, and only from its own button', async ({ page }) => {
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+
+  await openPicker(page);
+  const open = currentRow(page).locator('.sc-swap-open');
+  await expect(open).toHaveAttribute('target', '_blank');
+  await expect(open).toHaveAttribute('href', /\/scenes\/[a-z0-9-]+$/);
+  // the row itself carries no href: looking at a thing is a deliberate act
+  expect(await currentRow(page).getAttribute('href')).toBeNull();
 });
 
 test('a scene swapped through the picker still toasts and still undoes', async ({ page }) => {

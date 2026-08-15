@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Check, ImageSquare, MagnifyingGlass, Trash } from '@phosphor-icons/react';
+import { ArrowSquareOut, Check, ImageSquare, MagnifyingGlass, Trash } from '@phosphor-icons/react';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+
+/** A thumb, not a mouse. Decides whether opening the panel takes the keyboard. */
+const COARSE = '(pointer: coarse)';
 import { favoriteScenes } from '../favorites.js';
+import { presenterPath, productPath, scenePath } from '../routes.js';
 import { placePanel, type Placed } from './anchorPanel.js';
 import { NOUN, PAGE, pickList, type Candidate, type IngredientKind } from './ingredientOptions.js';
 
@@ -27,6 +31,18 @@ export function IngredientPicker(props: PickerProps) {
   return phone ? <PickerSheet {...props} /> : <PickerPanel {...props} />;
 }
 
+/**
+ * Whether the search field should take focus the moment the panel opens.
+ *
+ * On a mouse, yes: typing is the fastest way into a long catalog and nothing
+ * is covered by it. On a touch screen it summons the software keyboard over
+ * the pictures you opened the thing to look at, so the field waits to be
+ * tapped.
+ */
+function useAutoFocusSearch(): boolean {
+  return !useMediaQuery(COARSE);
+}
+
 export type CloseReason = 'pick' | 'remove' | 'escape' | 'outside' | 'dismiss';
 
 export interface PickerProps {
@@ -37,6 +53,8 @@ export interface PickerProps {
   currentId: string | null;
   candidates: Candidate[];
   brandId: string;
+  /** For the link out to the asset's own page. */
+  brandSlug: string;
   /** The chip's own warning, if the compiler flagged it. Shown above Remove. */
   warning: string | null;
   onPick: (c: Candidate) => void;
@@ -58,11 +76,20 @@ const removeLabel = (kind: IngredientKind) => `Remove ${NOUN[kind]}`;
  * between a desktop panel and a sheet under a thumb, which is the point — the
  * interaction is learned once and then it is the same everywhere.
  */
+/** Where a thing of this kind lives, for the link off the current row. */
+function assetPath(kind: IngredientKind, brandSlug: string, id: string): string {
+  const b = { slug: brandSlug };
+  if (kind === 'product') return productPath(b, id);
+  if (kind === 'presenter') return presenterPath(b, id);
+  return scenePath(b, id);
+}
+
 function PickerBody({
   kind,
   currentId,
   candidates,
   brandId,
+  brandSlug,
   warning,
   onPick,
   onRemove,
@@ -211,23 +238,37 @@ function PickerBody({
       </div>
 
       {/* What is on, above the line, wherever the search happens to be. It is
-          the answer to "what do I have", so it does not come and go. */}
+          the answer to "what do I have", so it does not come and go.
+
+          Not a control. It was a button that closed the panel, then a link that
+          took you out of the app, and both were the same mistake: a row this
+          size invites a click, and there is no single obvious thing that click
+          should do. Swapping is the grid, removing is the button that says
+          "Remove", and neither of those wants a second unlabelled door. What is
+          left is "let me look at it properly", which is real but secondary — so
+          it is one small marked button at the end of the row, and the row
+          itself does nothing at all. */}
       {list.current && (
-        <button
-          type="button"
-          className="sc-swap-cur"
-          title={list.current.full}
-          onClick={() => onPick(list.current as Candidate)}
-        >
+        <div className="sc-swap-cur" title={list.current.full}>
           <Thumb src={list.current.thumb} tinted={!!list.current.tint} />
           <span className="sc-swap-curtext">
             <b dir="auto">{list.current.label}</b>
             {list.current.sub && <span dir="auto">{list.current.sub}</span>}
           </span>
+          <a
+            className="sc-swap-open"
+            href={assetPath(kind, brandSlug, list.current.id)}
+            target="_blank"
+            rel="noreferrer"
+            title={`Open this ${noun} in a new tab`}
+            aria-label={`Open ${list.current.label} in a new tab`}
+          >
+            <ArrowSquareOut size={14} />
+          </a>
           <span className="sc-swap-tick" aria-hidden>
             <Check size={11} weight="bold" />
           </span>
-        </button>
+        </div>
       )}
 
       <div className="sc-swap-body">
@@ -336,6 +377,7 @@ function Thumb({ src, tinted }: { src?: string | null; tinted: boolean }) {
  */
 function PickerPanel(props: PickerProps) {
   const { anchor, kind, onClose } = props;
+  const autoFocus = useAutoFocusSearch();
   const [pos, setPos] = useState<Placed | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -394,7 +436,7 @@ function PickerPanel(props: PickerProps) {
       aria-label={`Change ${NOUN[kind]}`}
       style={{ left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxHeight }}
     >
-      <PickerBody {...props} autoFocusSearch />
+      <PickerBody {...props} autoFocusSearch={autoFocus} />
     </div>,
     document.body,
   );
@@ -449,6 +491,14 @@ function PickerSheet(props: PickerProps) {
           className="sc-shotsheet sc-swapsheet"
           data-kind={kind}
           aria-describedby={undefined}
+          // Radix focuses the first tabbable thing it finds, which is the
+          // search field, which raises the keyboard over the grid the sheet
+          // exists to show. Focus the sheet itself instead: the trap and
+          // Escape still work, and the field waits to be tapped.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            sheet.current?.focus({ preventScroll: true });
+          }}
           // Radix would hand focus back to the chip, and the chip is inside a
           // contenteditable — the software keyboard would come straight up.
           onCloseAutoFocus={(e) => e.preventDefault()}
