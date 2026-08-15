@@ -1797,7 +1797,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const r = await updates.check();
     if (!r.latest || !ghSlug) return reply.status(404).send({ error: 'no release to describe' });
     const notes = await fetchReleaseNotes({ slug: ghSlug, version: r.latest, fetchImpl: opts.fetchImpl });
-    if (!notes) return reply.status(502).send({ error: 'release notes unavailable' });
+    if (notes === 'missing') return reply.status(404).send({ error: `no notes published for ${r.latest}` });
+    if (notes === 'unreachable') return reply.status(502).send({ error: 'release notes unavailable' });
     return notes;
   });
 

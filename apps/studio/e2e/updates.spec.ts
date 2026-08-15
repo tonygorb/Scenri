@@ -130,11 +130,12 @@ test.describe
 
       const row = aboutRows(page).filter({ hasText: "What's new" });
       await row.locator('button', { hasText: 'Show' }).click();
-      // no GitHub release exists for 0.99.0 (offline CI included), so the row
-      // answers with the link instead of a body — the designed degradation
-      const link = row.locator('a', { hasText: 'GitHub' });
+      // no GitHub release exists for 0.99.0, so the row answers with the
+      // releases link instead of a body — "nothing published yet" when GitHub
+      // answered 404, "couldn't reach" when there is no network. Both carry
+      // the same link; the copy differs, so anchor on the href.
+      const link = row.locator('a[href*="releases/tag/v0.99.0"]');
       await expect(link).toBeVisible();
-      await expect(link).toHaveAttribute('href', /releases\/tag\/v0\.99\.0/);
 
       // running from source in this spec, so the update row is git guidance
       await expect(aboutRows(page).filter({ hasText: 'Update' }).first()).toBeVisible();

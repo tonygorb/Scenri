@@ -125,6 +125,14 @@ describe('GET /api/update/notes', () => {
     const res = await app.inject({ method: 'GET', url: '/api/update/notes' });
     expect(res.statusCode).toBe(502);
   });
+
+  it('says 404, not 502, when the release simply has no notes published', async () => {
+    app = build(updateFetch({ latest: '0.9.9', ghStatus: 404 }).impl);
+    await app.inject({ method: 'GET', url: '/api/update/status' });
+    const res = await app.inject({ method: 'GET', url: '/api/update/notes' });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toContain('published');
+  });
 });
 
 describe('one-click apply + restart', () => {

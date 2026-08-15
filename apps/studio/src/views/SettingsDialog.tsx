@@ -467,13 +467,15 @@ function updateCommand(kind: VersionInfo['installKind'] | undefined): string {
 function WhatsNew({ notesUrl }: { notesUrl: string | null }) {
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState<ReleaseNotes | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<false | 'missing' | 'unreachable'>(false);
   useEffect(() => {
     if (!open || notes || failed) return;
     void api
       .updateNotes()
       .then(setNotes)
-      .catch(() => setFailed(true));
+      // 404 is "nothing written yet", anything else is "GitHub is away" —
+      // different sentences, or the empty case reads as breakage
+      .catch((err) => setFailed((err as { status?: number }).status === 404 ? 'missing' : 'unreachable'));
   }, [open, notes, failed]);
 
   return (
@@ -491,13 +493,11 @@ function WhatsNew({ notesUrl }: { notesUrl: string | null }) {
         )}
         {open && failed && (
           <small data-prose="">
-            Couldn't fetch the notes.{' '}
-            {notesUrl ? (
+            {failed === 'missing' ? 'Nothing published for this release yet.' : "Couldn't reach GitHub."}{' '}
+            {notesUrl && (
               <a href={notesUrl} target="_blank" rel="noreferrer">
-                Read them on GitHub
+                {failed === 'missing' ? 'Watch the releases page' : 'Read them on GitHub'}
               </a>
-            ) : (
-              'Try again later.'
             )}
           </small>
         )}

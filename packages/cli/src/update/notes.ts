@@ -16,7 +16,7 @@ export async function fetchReleaseNotes(deps: {
   slug: string; // "owner/repo"
   version: string; // plain semver; the tag is v<version> (release-please, no component prefix)
   fetchImpl?: typeof fetch;
-}): Promise<ReleaseNotes | null> {
+}): Promise<ReleaseNotes | 'missing' | 'unreachable'> {
   const doFetch = deps.fetchImpl ?? fetch;
   try {
     const ctrl = new AbortController();
@@ -31,7 +31,9 @@ export async function fetchReleaseNotes(deps: {
     } finally {
       clearTimeout(timer);
     }
-    if (!res.ok) return null;
+    // "there is no such release" and "GitHub is down" are different sentences
+    if (res.status === 404) return 'missing';
+    if (!res.ok) return 'unreachable';
     const r = (await res.json()) as { name?: string; body?: string; html_url?: string; published_at?: string };
     return {
       name: r.name ?? `v${deps.version}`,
@@ -40,6 +42,6 @@ export async function fetchReleaseNotes(deps: {
       publishedAt: r.published_at ?? null,
     };
   } catch {
-    return null;
+    return 'unreachable';
   }
 }
