@@ -4,7 +4,6 @@ import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProd
 import { useBrand } from '../app/BrandLayout.js';
 import { flattenPalette } from '../brand/palette.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
-import { categoryLabel } from '../productCategories.js';
 import { matchesQuery } from '../layout/library/libraryRules.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
@@ -860,7 +859,6 @@ export const BriefInput = forwardRef<
           currentId={currentIdOf(picker.anchor)}
           candidates={candidatesFor(picker.kind)}
           brandId={brand.id}
-          categoryTitle={categoryLabel(activeProductCategory)}
           warning={picker.anchor.title || null}
           onAttachRequest={
             onAttachRequest
@@ -885,11 +883,6 @@ export const BriefInput = forwardRef<
             } else {
               replaceChip(uid, c.token);
             }
-            closePicker('pick');
-          }}
-          onCreated={(productId) => {
-            const uid = picker.uid;
-            replaceChip(uid, { t: 'product', id: productId });
             closePicker('pick');
           }}
           onRemove={() => {

@@ -4,8 +4,8 @@ import {
   PAGE,
   buildCandidates,
   filterCandidates,
+  pickList,
   pickerKind,
-  sectionsFor,
   type Candidate,
   type IngredientCatalog,
 } from '../src/composer/ingredientOptions.js';
@@ -82,12 +82,10 @@ const catalog = (over: Partial<IngredientCatalog> = {}): IngredientCatalog => ({
   ...over,
 });
 
-const opts = (over: Partial<Parameters<typeof sectionsFor>[2]> = {}) => ({
+const opts = (over: Partial<Parameters<typeof pickList>[2]> = {}) => ({
   currentId: null,
   query: '',
   starred: new Set<string>(),
-  categoryTitle: null,
-  shown: {},
   ...over,
 });
 
@@ -261,188 +259,141 @@ describe('filterCandidates', () => {
   });
 });
 
-describe('sectionsFor — searching', () => {
-  const cs = buildCandidates('scene', catalog({ scenes: [scene(), scene({ id: 's2', name: 'Rosé Terrace' })] }));
+describe('pickList', () => {
+  const scenes = (n: number, over: (i: number) => Partial<Scene> = () => ({})) =>
+    buildCandidates(
+      'scene',
+      catalog({ scenes: Array.from({ length: n }, (_, i) => scene({ id: `s${i}`, ...over(i) })) }),
+    );
 
-  it('collapses every kind to one list: sections would lie about what the filter did', () => {
-    const secs = sectionsFor('scene', cs, opts({ query: 'rose', currentId: 's1', starred: new Set(['s1']) }));
-    expect(secs).toHaveLength(1);
-    expect(secs[0].id).toBe('results');
-    expect(ids(secs[0].items)).toEqual(['s2']);
+  it('lifts what is on out of the grid, so it is never in two places', () => {
+    const cs = scenes(4);
+    const l = pickList('scene', cs, opts({ currentId: 's1' }));
+    expect(l.current?.id).toBe('s1');
+    expect(ids(l.items)).toEqual(['s0', 's2', 's3']);
+    expect(l.total).toBe(3);
   });
 
-  it('reports zero matches as an empty results section rather than no section', () => {
-    const secs = sectionsFor('scene', cs, opts({ query: 'zzzz' }));
-    expect(secs).toHaveLength(1);
-    expect(secs[0].items).toHaveLength(0);
-  });
-});
-
-describe('sectionsFor — scenes', () => {
-  const many = Array.from({ length: 6 }, (_, i) =>
-    scene({ id: `s${i}`, name: `Scene ${i}`, verticals: i < 3 ? ['Beauty'] : ['Sport'] }),
-  );
-  const cs = buildCandidates('scene', catalog({ scenes: many, productCategory: 'beauty' }));
-
-  it('orders current, starred, suited, all', () => {
-    const secs = sectionsFor('scene', cs, opts({ currentId: 's0', starred: new Set(['s4']), categoryTitle: 'Beauty' }));
-    expect(secs.map((s) => s.id)).toEqual(['current', 'starred', 'suited', 'all']);
-    expect(secs[0].title).toBe('Current');
-    expect(secs[2].title).toBe('Suited to Beauty');
-    expect(secs[3].title).toBe('All scenes');
+  it('has no current when the chip holds an id the catalog lost', () => {
+    const l = pickList('scene', scenes(3), opts({ currentId: 'deleted' }));
+    expect(l.current).toBeNull();
+    expect(l.items).toHaveLength(3);
   });
 
-  it('shows every candidate exactly once across every section', () => {
-    const secs = sectionsFor('scene', cs, opts({ currentId: 's0', starred: new Set(['s4']), categoryTitle: 'Beauty' }));
-    const seen = secs.flatMap((s) => ids(s.items));
+  it('is one list: every candidate is either current or in it, exactly once', () => {
+    const cs = scenes(9, (i) => ({ verticals: i % 2 ? ['Beauty'] : ['Sport'] }));
+    const l = pickList('scene', cs, opts({ currentId: 's0', starred: new Set(['s5']) }));
+    const seen = [...(l.current ? [l.current.id] : []), ...ids(l.items)];
     expect(seen.slice().sort()).toEqual(ids(cs).slice().sort());
     expect(new Set(seen).size).toBe(seen.length);
   });
 
-  it('drops a lift back into All rather than losing it when the section is not drawn', () => {
-    // no categoryTitle, so there is no Suited heading to put a suited scene under
-    const secs = sectionsFor('scene', cs, opts({ categoryTitle: null }));
-    expect(secs.map((s) => s.id)).toEqual(['all']);
-    expect(ids(secs[0].items).slice().sort()).toEqual(ids(cs).slice().sort());
+  describe('order is the lift, not a heading', () => {
+    it('scenes: starred, then suited, then the catalog as authored', () => {
+      const cs = buildCandidates(
+        'scene',
+        catalog({
+          scenes: [
+            scene({ id: 'plain-a', verticals: ['Sport'] }),
+            scene({ id: 'suited-a', verticals: ['Beauty'] }),
+            scene({ id: 'plain-b', verticals: ['Sport'] }),
+            scene({ id: 'starred-a', verticals: ['Sport'] }),
+          ],
+          productCategory: 'beauty',
+        }),
+      );
+      const l = pickList('scene', cs, opts({ starred: new Set(['starred-a']) }));
+      expect(ids(l.items)).toEqual(['starred-a', 'suited-a', 'plain-a', 'plain-b']);
+    });
+
+    it('presenters: suited first, and nothing else moves', () => {
+      const cs = buildCandidates(
+        'presenter',
+        catalog({
+          presenters: [
+            presenter({ id: 'p-plain', suitableCategories: ['Sport'] }),
+            presenter({ id: 'p-suited', suitableCategories: ['Beauty'] }),
+          ],
+          productCategory: 'beauty',
+        }),
+      );
+      expect(ids(pickList('presenter', cs, opts()).items)).toEqual(['p-suited', 'p-plain']);
+    });
+
+    it('presenters have no favourites, so a starred set does nothing to them', () => {
+      const cs = buildCandidates('presenter', catalog({ presenters: [presenter(), presenter({ id: 'p2' })] }));
+      expect(ids(pickList('presenter', cs, opts({ starred: new Set(['p2']) })).items)).toEqual(['p1', 'p2']);
+    });
+
+    it('products: the brand’s own before the ones scenri ships', () => {
+      const cs = buildCandidates(
+        'product',
+        catalog({ libraryProducts: [owned({ id: 'mine' })], demoProducts: [demo({ id: 'theirs' })] }),
+      );
+      expect(ids(pickList('product', cs, opts()).items)).toEqual(['mine', 'theirs']);
+    });
+
+    it('keeps catalog order inside a band rather than re-sorting it', () => {
+      const cs = scenes(5);
+      expect(ids(pickList('scene', cs, opts()).items)).toEqual(['s0', 's1', 's2', 's3', 's4']);
+    });
   });
 
-  it('omits Current when the chip holds an id the catalog no longer has', () => {
-    const secs = sectionsFor('scene', cs, opts({ currentId: 'deleted-scene' }));
-    expect(secs.some((s) => s.id === 'current')).toBe(false);
-    expect(secs.flatMap((s) => ids(s.items))).toHaveLength(cs.length);
-  });
-
-  it('omits Starred when nothing is starred', () => {
-    expect(sectionsFor('scene', cs, opts()).some((s) => s.id === 'starred')).toBe(false);
-  });
-
-  it('never counts the starred scene twice when it is also suited', () => {
-    const secs = sectionsFor('scene', cs, opts({ starred: new Set(['s1']), categoryTitle: 'Beauty' }));
-    const starred = secs.find((s) => s.id === 'starred')!;
-    const suited = secs.find((s) => s.id === 'suited')!;
-    expect(ids(starred.items)).toEqual(['s1']);
-    expect(ids(suited.items)).not.toContain('s1');
-  });
-});
-
-describe('sectionsFor — presenters', () => {
-  const cs = buildCandidates(
-    'presenter',
-    catalog({
-      presenters: [presenter(), presenter({ id: 'p2', name: 'Marek', suitableCategories: ['Sport'] })],
-      productCategory: 'beauty',
-    }),
-  );
-
-  it('orders current, suited, all — no starred, because presenters have no favourites', () => {
-    const secs = sectionsFor('presenter', cs, opts({ currentId: 'p2', categoryTitle: 'Beauty' }));
-    expect(secs.map((s) => s.id)).toEqual(['current', 'suited', 'all']);
-    expect(secs[2].title).toBe('All presenters');
-  });
-
-  it('ignores a starred set entirely', () => {
-    const secs = sectionsFor('presenter', cs, opts({ starred: new Set(['p1']) }));
-    expect(secs.some((s) => s.id === 'starred')).toBe(false);
-    expect(secs.flatMap((s) => ids(s.items))).toHaveLength(2);
-  });
-});
-
-describe('sectionsFor — products', () => {
-  const cs = buildCandidates(
-    'product',
-    catalog({ libraryProducts: [owned(), owned({ id: 'o2' })], demoProducts: [demo(), demo({ id: 'd2' })] }),
-  );
-
-  it('splits the brand library from the scenri one, so 44 curated products stay reachable past 576 imported', () => {
-    const secs = sectionsFor('product', cs, opts());
-    expect(secs.map((s) => s.id)).toEqual(['mine', 'library']);
-    expect(ids(secs[0].items)).toEqual(['o1', 'o2']);
-    expect(ids(secs[1].items)).toEqual(['d1', 'd2']);
-  });
-
-  it('has no Suited section — inventing one would be worse than none', () => {
-    const withCat = buildCandidates(
-      'product',
-      catalog({ libraryProducts: [owned()], demoProducts: [demo()], productCategory: 'beverage' }),
-    );
-    expect(sectionsFor('product', withCat, opts({ categoryTitle: 'Beverage' })).some((s) => s.id === 'suited')).toBe(
-      false,
-    );
-  });
-
-  it('keeps Your products even at zero, because that is exactly when adding one is the move', () => {
-    const onlyDemo = buildCandidates('product', catalog({ demoProducts: [demo()] }));
-    const secs = sectionsFor('product', onlyDemo, opts());
-    const mine = secs.find((s) => s.id === 'mine')!;
-    expect(mine.items).toHaveLength(0);
-    // the heading still carries Add, so an empty shelf is one line rather than
-    // a grid with a single dashed box alone in it
-    expect(mine.action).toBe('add-product');
-  });
-
-  it('ticks a demo product as Current and still offers the rest of the library', () => {
-    const secs = sectionsFor('product', cs, opts({ currentId: 'd1' }));
-    expect(ids(secs.find((s) => s.id === 'current')!.items)).toEqual(['d1']);
-    expect(ids(secs.find((s) => s.id === 'library')!.items)).toEqual(['d2']);
-  });
-
-  it('drops the library section when there are no scenri products to show', () => {
-    const own = buildCandidates('product', catalog({ libraryProducts: [owned()] }));
-    expect(sectionsFor('product', own, opts()).some((s) => s.id === 'library')).toBe(false);
-  });
-});
-
-describe('sectionsFor — paging', () => {
-  const build = (n: number) =>
-    buildCandidates('scene', catalog({ scenes: Array.from({ length: n }, (_, i) => scene({ id: `s${i}` })) }));
-
-  it('draws everything and owes nothing at exactly one page', () => {
-    const [all] = sectionsFor('scene', build(PAGE), opts());
-    expect(all.items).toHaveLength(PAGE);
-    expect(all.remaining).toBe(0);
-    expect(all.total).toBe(PAGE);
-  });
-
-  it('says what it is holding back rather than stopping silently', () => {
-    const [all] = sectionsFor('scene', build(PAGE + 1), opts());
-    expect(all.items).toHaveLength(PAGE);
-    expect(all.remaining).toBe(1);
-    expect(all.total).toBe(PAGE + 1);
-  });
-
-  it('pages a 576-product library one section at a time', () => {
+  describe('search', () => {
     const cs = buildCandidates(
-      'product',
+      'scene',
       catalog({
-        libraryProducts: Array.from({ length: 576 }, (_, i) => owned({ id: `o${i}` })),
-        demoProducts: [demo()],
+        scenes: [scene(), scene({ id: 's2', name: 'Rosé Terrace', legacyNames: [], keywords: ['balcony'] })],
       }),
     );
-    const secs = sectionsFor('product', cs, opts());
-    const mine = secs.find((s) => s.id === 'mine')!;
-    expect(mine.items).toHaveLength(PAGE);
-    expect(mine.remaining).toBe(576 - PAGE);
-    // the scenri library is not buried behind them
-    expect(secs.find((s) => s.id === 'library')!.items).toHaveLength(1);
+
+    it('filters the grid and leaves what is on where it is', () => {
+      const l = pickList('scene', cs, opts({ currentId: 's1', query: 'rose' }));
+      // still answers "what do I have" while you are looking for something else
+      expect(l.current?.id).toBe('s1');
+      expect(ids(l.items)).toEqual(['s2']);
+    });
+
+    it('reports no matches as an empty list, not as a missing one', () => {
+      expect(pickList('scene', cs, opts({ query: 'zzzz' })).items).toHaveLength(0);
+    });
+
+    it('never offers what is already on as a result', () => {
+      const l = pickList('scene', cs, opts({ currentId: 's1', query: 'ice' }));
+      expect(ids(l.items)).not.toContain('s1');
+    });
   });
 
-  it('honours a per-section Show more without touching its siblings', () => {
-    const cs = buildCandidates(
-      'product',
-      catalog({
-        libraryProducts: Array.from({ length: 60 }, (_, i) => owned({ id: `o${i}` })),
-        demoProducts: Array.from({ length: 44 }, (_, i) => demo({ id: `d${i}` })),
-      }),
-    );
-    const secs = sectionsFor('product', cs, opts({ shown: { mine: PAGE * 2 } }));
-    expect(secs.find((s) => s.id === 'mine')!.items).toHaveLength(PAGE * 2);
-    expect(secs.find((s) => s.id === 'library')!.items).toHaveLength(PAGE);
-  });
+  describe('paging', () => {
+    it('draws everything and owes nothing at exactly one page', () => {
+      const l = pickList('scene', scenes(PAGE), opts());
+      expect(l.items).toHaveLength(PAGE);
+      expect(l.remaining).toBe(0);
+    });
 
-  it('pages the results of a search too', () => {
-    const [results] = sectionsFor('scene', build(PAGE + 5), opts({ query: 'ice' }));
-    expect(results.id).toBe('results');
-    expect(results.items).toHaveLength(PAGE);
-    expect(results.remaining).toBe(5);
+    it('says what it is holding back rather than stopping silently', () => {
+      const l = pickList('scene', scenes(PAGE + 5), opts());
+      expect(l.items).toHaveLength(PAGE);
+      expect(l.remaining).toBe(5);
+      expect(l.total).toBe(PAGE + 5);
+    });
+
+    it('shows more when asked, without disturbing the order', () => {
+      const cs = scenes(PAGE + 5);
+      const l = pickList('scene', cs, opts({ shown: PAGE * 2 }));
+      expect(l.items).toHaveLength(PAGE + 5);
+      expect(l.remaining).toBe(0);
+      expect(ids(l.items)).toEqual(ids(cs));
+    });
+
+    it('pages a 576-product library', () => {
+      const cs = buildCandidates(
+        'product',
+        catalog({ libraryProducts: Array.from({ length: 576 }, (_, i) => owned({ id: `o${i}` })) }),
+      );
+      const l = pickList('product', cs, opts());
+      expect(l.items).toHaveLength(PAGE);
+      expect(l.remaining).toBe(576 - PAGE);
+    });
   });
 });

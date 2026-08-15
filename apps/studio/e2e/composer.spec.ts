@@ -50,6 +50,8 @@ const pick = (p: Page) => p.locator('.sc-swap');
 /** The choosable grid, which is not the Current row and not the Add card. */
 const cards = (p: Page) => p.locator('.sc-swap .sc-swap-grid .sc-swap-card');
 const pickSearch = (p: Page) => p.locator('.sc-swap-search input');
+/** What is on, lifted out of the grid so it is never in two places at once. */
+const currentRow = (p: Page) => p.locator('.sc-swap-cur');
 
 /**
  * Click a chip, which is the whole gesture: change this one.
@@ -683,8 +685,9 @@ test('a chip swaps in one click and the prose survives', async ({ page }) => {
 
   await openPicker(page);
   await expect(pick(page)).toHaveAttribute('data-kind', 'scene');
-  // the one that is on says so, and it is the only one that does
-  await expect(page.locator('.sc-swap-card[aria-selected="true"]')).toHaveCount(1);
+  // what is on sits above the line, and never also in the grid below it
+  await expect(currentRow(page)).toHaveCount(1);
+  await expect(currentRow(page).locator('b')).toHaveText((before ?? '').replace(/×/g, '').trim());
 
   await cards(page).nth(3).click();
   await expect(pick(page)).toHaveCount(0); // one click, then out of the way
@@ -775,26 +778,36 @@ test('a scenri-library product finds its own siblings', async ({ page }) => {
 
   await openPicker(page);
   await expect(pick(page)).toHaveAttribute('data-kind', 'product');
-  await expect(page.locator('.sc-swap-card[aria-selected="true"]')).toHaveCount(1);
-  const lib = page.locator('.sc-swap-sec[data-section="library"] .sc-swap-card');
-  await expect(lib.first()).toBeVisible();
+  await expect(currentRow(page)).toHaveCount(1);
+  // the other forty-three are reachable, which is the whole of this bug
+  await expect(cards(page)).not.toHaveCount(0);
   const before = await chips(page).first().textContent();
-  await lib.nth(1).click();
+  await cards(page).last().click();
   await expect(chips(page)).toHaveCount(1);
   expect(await chips(page).first().textContent()).not.toBe(before);
 });
 
-test('a brand product and the scenri library are separate shelves', async ({ page }) => {
+test('one list, with the brand’s own products before the ones scenri ships', async ({ page }) => {
   await plusMenu(page, /product/i);
   await pickCard(page);
   await page.keyboard.press('Escape');
 
   await openPicker(page);
-  await expect(page.locator('.sc-swap-sec[data-section="mine"]')).toBeVisible();
-  await expect(page.locator('.sc-swap-sec[data-section="library"]')).toBeVisible();
-  // adding one is offered on the shelf that would hold it, whether or not it
-  // has anything on it yet
-  await expect(page.locator('.sc-swap-sec[data-section="mine"] .sc-swap-lbact')).toBeVisible();
+  // no shelves, no headings: order carries it, so there is one thing to read
+  await expect(page.locator('.sc-swap-grid')).toHaveCount(1);
+  const own: string[] = await page.evaluate(async () => {
+    const brandId = location.pathname.split('/').filter(Boolean)[0];
+    const brands = await (await fetch('/api/brands')).json();
+    const b = brands.find((x: any) => x.slug === brandId || x.id === brandId);
+    const r = await (await fetch(`/api/brands/${b.id}/products-library`)).json();
+    return r.products.map((p: { name: string }) => p.name);
+  });
+  expect(own.length).toBeGreaterThan(0);
+  const labels = await cards(page).locator('b').allTextContents();
+  // every one of the brand's own appears before the first that is not theirs
+  const firstForeign = labels.findIndex((l) => !own.includes(l.trim()));
+  const lastOwn = labels.map((l) => own.includes(l.trim())).lastIndexOf(true);
+  expect(firstForeign === -1 || lastOwn < firstForeign).toBe(true);
 });
 
 test('re-picking what is already there changes nothing', async ({ page }) => {
@@ -805,7 +818,7 @@ test('re-picking what is already there changes nothing', async ({ page }) => {
   const before = await sentence(page);
 
   await openPicker(page);
-  await page.locator('.sc-swap-card[aria-selected="true"]').click();
+  await currentRow(page).click();
   await expect(pick(page)).toHaveCount(0);
   expect(await sentence(page)).toBe(before);
   await expect(chips(page)).toHaveCount(1);

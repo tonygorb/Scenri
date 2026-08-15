@@ -20,8 +20,8 @@ export const NOUN: Record<IngredientKind, string> = {
   scene: 'scene',
 };
 
-/** Cards per section before "Show more". Six rows of four in a 440px panel. */
-export const PAGE = 24;
+/** Cards before "Show more". Twelve rows of four, which is most of a catalog. */
+export const PAGE = 48;
 
 /**
  * One thing that could be picked.
@@ -50,27 +50,6 @@ export interface Candidate {
   recommended?: boolean;
   /** What picking this produces. */
   token: SentenceToken;
-}
-
-export type SectionId = 'current' | 'starred' | 'suited' | 'mine' | 'library' | 'all' | 'results';
-
-export interface Section {
-  id: SectionId;
-  title: string;
-  items: Candidate[];
-  /** How many of `total` are not drawn yet. Above zero, say so out loud. */
-  remaining: number;
-  total: number;
-  /**
-   * An action on the section's own heading row.
-   *
-   * Adding a product used to be a card at the head of the grid, which on a
-   * brand with nothing uploaded yet made a whole section out of one dashed box
-   * and three empty columns — the one place the three pickers stopped looking
-   * like the same thing. On the heading it costs a line whether the section has
-   * ten products in it or none.
-   */
-  action?: 'add-product';
 }
 
 /** Everything the three catalogs need, in the shapes the app already holds them. */
@@ -228,70 +207,50 @@ export function filterCandidates(items: Candidate[], query: string): Candidate[]
   return items.filter((c) => matchesQuery(c.search, q));
 }
 
-export interface SectionOptions {
-  /** The id the chip currently holds, whether or not it still resolves. */
-  currentId: string | null;
-  query: string;
-  /** Scenes only; empty for the other two, which have no favourites. */
-  starred: ReadonlySet<string>;
-  /** "Suited to Beverage". Null omits the section entirely. */
-  categoryTitle: string | null;
-  /** How many cards each section has been asked to draw so far. */
-  shown: Partial<Record<SectionId, number>>;
+/**
+ * What the picker shows: what is on, and everything else, best first.
+ *
+ * There are no sections. Three kinds of thing were growing three different
+ * section models — starred/suited/all for a scene, suited/all for a presenter,
+ * yours/scenri for a product — which is three layouts to learn for one job.
+ * The same information is order instead: a lift, not a heading, which is what
+ * the library pages already do with taste (`starredFirst`). One list, one rule,
+ * and the reason the good ones sit near the top needs no explaining.
+ */
+export interface PickList {
+  /** What the chip holds, when the catalog still has it. */
+  current: Candidate | null;
+  /** Everything else, ranked and capped. */
+  items: Candidate[];
+  /** How many more matched than are drawn. Never truncate silently. */
+  remaining: number;
+  total: number;
 }
 
 /**
- * The picker's whole information architecture, as data.
+ * Where a candidate sits before catalog order decides the rest.
  *
- * A search collapses every kind to one list. Sections are how you browse; a
- * query is how you aim, and pinning the current item above a filter it does
- * not match would be a lie about what the filter did. Nothing is a tab: the
- * whole point of this surface is that one scroll answers "what else is there".
+ * Deliberately blunt: two or three bands per kind, with a stable sort inside
+ * each, so the order a catalog was authored in survives underneath the lift.
  */
-export function sectionsFor(kind: IngredientKind, items: Candidate[], o: SectionOptions): Section[] {
-  const q = o.query.trim();
-  if (q) {
-    const hits = filterCandidates(items, q);
-    return [page({ id: 'results', title: 'Results', items: hits }, o.shown.results)];
-  }
-
-  const current = o.currentId ? (items.find((c) => c.id === o.currentId) ?? null) : null;
-  const isCurrent = (c: Candidate) => !!current && c.id === current.id;
-  const out: Section[] = [];
-  // A chip whose id no longer resolves has no card to show. The picker says so
-  // in its footer instead of silently opening with nothing selected.
-  if (current) out.push({ id: 'current', title: 'Current', items: [current], remaining: 0, total: 1 });
-
-  if (kind === 'product') {
-    const mine = items.filter((c) => c.source === 'brand' && !isCurrent(c));
-    const library = items.filter((c) => c.source === 'catalog' && !isCurrent(c));
-    // Always rendered, even at zero, because the Add card needs a home and an
-    // empty products page is exactly when adding one is the thing to do.
-    out.push({ ...page({ id: 'mine', title: 'Your products', items: mine }, o.shown.mine), action: 'add-product' });
-    if (library.length) out.push(page({ id: 'library', title: 'Scenri library', items: library }, o.shown.library));
-    return out;
-  }
-
-  // A lift only earns its heading when it is actually drawn. Anything lifted
-  // into a section that never renders has to fall back into the remainder, or
-  // the picker would quietly stop offering it at all.
-  const starred = kind === 'scene' ? items.filter((c) => o.starred.has(c.id) && !isCurrent(c)) : ([] as Candidate[]);
-  const lifted = new Set(starred.map((c) => c.id));
-  const suited = o.categoryTitle ? items.filter((c) => c.recommended && !lifted.has(c.id) && !isCurrent(c)) : [];
-  for (const c of suited) lifted.add(c.id);
-  const rest = items.filter((c) => !lifted.has(c.id) && !isCurrent(c));
-
-  if (starred.length) out.push(page({ id: 'starred', title: 'Starred', items: starred }, o.shown.starred));
-  if (suited.length)
-    out.push(page({ id: 'suited', title: `Suited to ${o.categoryTitle}`, items: suited }, o.shown.suited));
-  // Starred and suited already lifted what they lift; re-sorting the remainder
-  // would only scramble the order the catalog was authored in.
-  out.push(page({ id: 'all', title: kind === 'scene' ? 'All scenes' : 'All presenters', items: rest }, o.shown.all));
-  return out;
+function rank(kind: IngredientKind, c: Candidate, starred: ReadonlySet<string>): number {
+  if (kind === 'scene') return starred.has(c.id) ? 0 : c.recommended ? 1 : 2;
+  if (kind === 'presenter') return c.recommended ? 0 : 1;
+  // A brand's own products before the ones scenri ships, which is the only
+  // thing that separated them once the shelves went.
+  return c.source === 'brand' ? 0 : 1;
 }
 
-/** Never a silent truncation: `remaining` is what the section owes the reader. */
-function page(s: { id: SectionId; title: string; items: Candidate[] }, shown: number | undefined): Section {
-  const { visible, remaining } = pageSlice(s.items, shown ?? PAGE);
-  return { id: s.id, title: s.title, items: visible, remaining, total: s.items.length };
+export function pickList(
+  kind: IngredientKind,
+  items: Candidate[],
+  o: { currentId: string | null; query: string; starred: ReadonlySet<string>; shown?: number },
+): PickList {
+  const current = o.currentId ? (items.find((c) => c.id === o.currentId) ?? null) : null;
+  const pool = current ? items.filter((c) => c.id !== current.id) : items;
+  const hits = filterCandidates(pool, o.query);
+  // Array#sort is stable, so catalog order holds inside every band.
+  const ranked = [...hits].sort((a, b) => rank(kind, a, o.starred) - rank(kind, b, o.starred));
+  const { visible, remaining } = pageSlice(ranked, o.shown ?? PAGE);
+  return { current, items: visible, remaining, total: ranked.length };
 }

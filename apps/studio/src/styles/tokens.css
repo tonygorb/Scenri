@@ -234,8 +234,7 @@
 .sc-brief,
 .sc-set-rail,
 .sc-set-scroll,
-.sc-shotsheet,
-.sc-swap-body {
+.sc-shotsheet {
   scrollbar-gutter: stable;
 }
 html,
@@ -1739,9 +1738,31 @@ select {
    arrow through, so it is 256px of text rows. This is what a chip opens: the
    thing in it is a photograph, and the question is which photograph, so it is
    wide enough for four real thumbnails and it says out loud which one is on.
+
+   One search, what is on, one grid, one way out. Relevance is the order the
+   grid is in rather than a set of headings over it, so a product, a presenter
+   and a scene are the same surface with different pictures in them.
+
    Anchored by `top` with a computed max-height (see anchorPanel.ts) rather
-   than pinned by `bottom`, so it cannot grow off the screen as it fills. */
+   than pinned by `bottom`, so it cannot grow off the screen as it fills.
+
+   ONE SCALE, stated here and never re-derived further down:
+     inset   `--swap-inset`  every edge, every gap between blocks, the grid gap
+     step    `--swap-step`   inside a block: thumbnail to its own caption
+     control `--swap-control` one height for every control the panel owns
+     face    `--swap-face`   the current row's thumbnail
+     radius  panel xl · picture `--sc-radius` · anything pill-shaped full
+     stroke  1px, `--sc-line-strong` around the panel, `--sc-line` within it
+     focus   2px `--sc-focus`, offset 2 out, offset -2 where a control is
+             full-bleed and 2 out would be clipped by the panel                */
 .sc-swap {
+  --swap-inset: var(--sc-space-5);
+  --swap-step: var(--sc-space-3);
+  /* Heights, not spacing: the search and the remove button are the same
+     control and must measure the same, and the spacing scale tops out well
+     below either of them. */
+  --swap-control: 32px;
+  --swap-face: 44px;
   position: fixed;
   z-index: var(--sc-z-popover);
   display: flex;
@@ -1758,18 +1779,19 @@ select {
   min-height: 0;
   flex: 1 1 auto;
 }
-.sc-swap-head {
-  flex: none;
-  padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-3);
-}
+
 /* The search is the whole header. No title: the chip you clicked is still on
    screen behind the panel, and it already says which kind this is. */
+.sc-swap-head {
+  flex: none;
+  padding: var(--swap-inset) var(--swap-inset) 0;
+}
 .sc-swap-search {
   display: flex;
   align-items: center;
-  gap: var(--sc-space-3);
-  height: 32px;
-  padding: 0 var(--sc-space-4);
+  gap: var(--swap-step);
+  height: var(--swap-control);
+  padding: 0 var(--swap-inset);
   border-radius: var(--sc-radius-full);
   background: var(--sc-well);
   color: var(--sc-fg3);
@@ -1786,53 +1808,59 @@ select {
 }
 .sc-swap-search:focus-within {
   outline: 2px solid var(--sc-focus);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
+
+/* What is on, above the line, wherever the search happens to be. It is the
+   answer to "what do I have", so it does not come and go. */
+.sc-swap-cur {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--swap-inset);
+  margin: var(--swap-inset) var(--swap-inset) 0;
+  padding: 0 0 var(--swap-inset);
+  border: none;
+  border-bottom: 1px solid var(--sc-line);
+  background: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+  text-align: start;
+}
+.sc-swap-curtext {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.sc-swap-curtext b {
+  font-size: var(--sc-text-control);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sc-swap-curtext > span {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+  line-height: 1.35;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* Full-bleed row: a ring 2px outside it would be cut off by the panel edge. */
+.sc-swap-cur:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+  border-radius: var(--sc-radius-sm);
+}
+
 .sc-swap-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--sc-space-4) var(--sc-space-4);
-}
-.sc-swap-sec + .sc-swap-sec {
-  margin-top: var(--sc-space-5);
-}
-/* A label for the group under it, not an announcement of it. `.sc-eyebrow` is
-   uppercase and letterspaced, which carries a page section; at this size, four
-   of them in a 440px panel is most of what the eye lands on. */
-.sc-swap-lb {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sc-space-4);
-  min-height: 18px;
-  margin-bottom: var(--sc-space-3);
-  font-size: var(--sc-text-caption);
-  font-weight: 550;
-  color: var(--sc-fg3);
-}
-/* Whatever the section itself can do, on the line that names it. */
-.sc-swap-lbact {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
-  margin: -2px -6px -2px 0;
-  border: none;
-  border-radius: var(--sc-radius-sm);
-  background: none;
-  color: var(--sc-fg3);
-  cursor: pointer;
-  font: inherit;
-  font-weight: 550;
-}
-.sc-swap-lbact:hover {
-  background: var(--sc-hover);
-  color: var(--sc-fg);
-}
-.sc-swap-lbact:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 1px;
+  padding: var(--swap-inset);
 }
 .sc-swap-empty {
   margin: 0;
@@ -1842,15 +1870,14 @@ select {
 .sc-swap-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-  /* Even on both axes. A wider row gap than column gap reads as a mistake at
-     this size, and there is no caption tall enough here to need one. */
-  gap: var(--sc-space-4);
+  /* The same number as every edge, on both axes. A grid gap that is neither
+     the inset nor square with itself is what reads as broken. */
+  gap: var(--swap-inset);
 }
 .sc-swap-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
   padding: 0;
   border: none;
   background: none;
@@ -1870,19 +1897,21 @@ select {
 .sc-swap-card b {
   font-size: var(--sc-text-caption);
   font-weight: 550;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 .sc-swap-card > span:not([class]) {
   font-size: var(--sc-text-micro);
   color: var(--sc-fg3);
-  line-height: 1.3;
+  line-height: 1.35;
 }
 .sc-swap-thumb {
   display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
+  /* the one gap inside a card: picture to the words about it */
+  margin-bottom: var(--swap-step);
   object-fit: cover;
-  border-radius: var(--sc-radius-md);
+  border-radius: var(--sc-radius);
   background: var(--sc-well);
   box-shadow: inset 0 0 0 1px var(--sc-line);
 }
@@ -1895,18 +1924,15 @@ select {
 .sc-swap-thumb[data-tinted] {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 40%, var(--sc-line));
 }
-.sc-swap-card:hover .sc-swap-thumb {
+.sc-swap-cur .sc-swap-thumb {
+  width: var(--swap-face);
+  height: var(--swap-face);
+  flex: none;
+  margin-bottom: 0;
+}
+.sc-swap-card:hover .sc-swap-thumb,
+.sc-swap-cur:hover .sc-swap-thumb {
   box-shadow: inset 0 0 0 1px var(--sc-line-strong);
-}
-/* The selected card is the one thing that must read in a fraction of a second,
-   so it gets a real ring and a tick rather than a tint you have to compare. */
-.sc-swap-card[data-on] .sc-swap-thumb {
-  box-shadow:
-    inset 0 0 0 2px var(--sc-fg),
-    0 0 0 1px var(--sc-panel);
-}
-.sc-swap-card[data-on] b {
-  font-weight: 650;
 }
 .sc-swap-card:focus-visible {
   outline: none;
@@ -1916,117 +1942,41 @@ select {
   outline-offset: 2px;
 }
 .sc-swap-tick {
-  position: absolute;
-  top: var(--sc-space-2);
-  inset-inline-start: var(--sc-space-2);
-  z-index: 1;
+  flex: none;
   display: grid;
   place-items: center;
-  width: 17px;
-  height: 17px;
+  width: var(--sc-space-6);
+  height: var(--sc-space-6);
   border-radius: var(--sc-radius-full);
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
 }
-
-/* What is on now: a row, so the name is read rather than clipped to a cell. */
-.sc-swap-cur {
-  padding-bottom: var(--sc-space-3);
-  border-bottom: 1px solid var(--sc-line);
-}
-.sc-swap-currow {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--sc-space-4);
+.sc-swap-more {
+  display: block;
   width: 100%;
-}
-.sc-swap-currow .sc-swap-thumb {
-  width: 46px;
-  height: 46px;
-  flex: none;
-}
-.sc-swap-curtext {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  flex: 1;
-}
-/* The name leads. Nested one level deeper than a grid card's caption, so it
-   needs saying again here rather than inheriting the panel's own size, which
-   drew the brand larger than the thing it belongs to. */
-.sc-swap-curtext b {
-  font-size: var(--sc-text-control);
-  font-weight: 600;
-  line-height: 1.3;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.sc-swap-curtext > span {
-  font-size: var(--sc-text-caption);
-  color: var(--sc-fg3);
-  line-height: 1.3;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-/* The row has the width the grid cell did not, so nothing here truncates
-   before it has to. */
-.sc-swap-currow .sc-swap-tick {
-  position: static;
-  flex: none;
-}
-.sc-swap-rec {
-  position: absolute;
-  top: var(--sc-space-2);
-  inset-inline-start: var(--sc-space-2);
-  padding: 1px 5px;
-  border-radius: var(--sc-radius-xs);
-  background: var(--sc-scrim);
-  color: var(--sc-scrim-fg);
-  font-size: var(--sc-text-micro);
-  font-weight: 600;
-}
-/* Hover-revealed on a pointer, always there on a touch screen, which is the
-   same grammar the catalog cards already use. */
-.sc-swap-star {
-  position: absolute;
-  top: var(--sc-space-2);
-  inset-inline-end: var(--sc-space-2);
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
+  margin-top: var(--swap-inset);
+  padding: var(--swap-step);
   border: none;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-scrim);
-  color: var(--sc-scrim-fg);
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  color: var(--sc-fg2);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+  font-size: var(--sc-text-caption);
 }
-.sc-swap-card:hover .sc-swap-star,
-.sc-swap-star:focus-visible,
-.sc-swap-star[data-on] {
-  opacity: 1;
+.sc-swap-more:hover {
+  color: var(--sc-fg);
 }
-.sc-swap-star[data-on] {
-  color: var(--sc-star);
-}
-@media (hover: none) {
-  .sc-swap-star {
-    opacity: 1;
-  }
+.sc-swap-more:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
 }
 .sc-swap-foot {
   flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--sc-space-3);
-  padding: var(--sc-space-3) var(--sc-space-4);
+  gap: var(--swap-step);
+  padding: var(--swap-inset);
   border-top: 1px solid var(--sc-line);
 }
 .sc-swap-warn {
@@ -2038,7 +1988,7 @@ select {
 .sc-swap-attach {
   flex: 1 0 100%;
   display: flex;
-  gap: var(--sc-space-3);
+  gap: var(--swap-step);
 }
 /* Removal is a labelled action here, not the hover-X grammar of the chip. The
    X is the shortcut for someone who already knows where it is; this is the one
@@ -2046,9 +1996,9 @@ select {
 .sc-swap-remove {
   display: inline-flex;
   align-items: center;
-  gap: var(--sc-space-3);
-  height: 30px;
-  padding: 0 var(--sc-space-4);
+  gap: var(--swap-step);
+  height: var(--swap-control);
+  padding: 0 var(--swap-inset);
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
   background: none;
@@ -9635,9 +9585,14 @@ select.sc-in {
 
 /* The picker on a phone is the shot-settings sheet wearing different content:
    it carries both classes, so the drag, both animations, the reduced-motion
-   rule and the scrollbar gutter above are the ones already written. Only the
-   things a grid of thumbnails needs are new. */
+   rule and the scrollbar gutter above are the ones already written.
+
+   It changes one number. `--swap-inset` becomes the page gutter, because a
+   sheet's edges are the screen's edges and its rows should line up with what
+   is behind them; every padding, gap and grid gap follows from that on its
+   own. Nothing else here is a spacing rule. */
 .sc-swapsheet {
+  --swap-inset: var(--sc-gutter);
   display: flex;
   flex-direction: column;
   max-height: 88dvh;
@@ -9649,27 +9604,16 @@ select.sc-in {
 .sc-swapsheet .sc-swap-inner {
   min-height: 0;
 }
-.sc-swapsheet .sc-swap-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding-inline: var(--sc-gutter);
-  background: var(--sc-panel);
-}
-.sc-swapsheet .sc-swap-body {
-  padding: 0 var(--sc-gutter) var(--sc-space-5);
-}
-.sc-swapsheet .sc-swap-currow .sc-swap-thumb {
-  width: 56px;
-  height: 56px;
-}
 /* Bigger targets for a thumb, and fewer of them across. */
 .sc-swapsheet .sc-swap-grid {
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: var(--sc-space-5);
+}
+/* One number again: a thumb has more room to be looked at on a phone. */
+.sc-swapsheet {
+  --swap-face: 54px;
 }
 .sc-swapsheet .sc-swap-foot {
-  padding: var(--sc-space-4) var(--sc-gutter) max(var(--sc-space-5), env(safe-area-inset-bottom));
+  padding-bottom: max(var(--swap-inset), env(safe-area-inset-bottom));
 }
 .sc-swapsheet .sc-swap-remove {
   height: var(--sc-tap);

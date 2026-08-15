@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useSearchParams } from 'react-router';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Check, ImageSquare, MagnifyingGlass, Plus, Star, Trash } from '@phosphor-icons/react';
+import { Check, ImageSquare, MagnifyingGlass, Trash } from '@phosphor-icons/react';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
-import { useCreateAsset } from '../create/AssetCreateHost.js';
-import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
+import { favoriteScenes } from '../favorites.js';
 import { placePanel, type Placed } from './anchorPanel.js';
-import { NOUN, PAGE, sectionsFor, type Candidate, type IngredientKind, type SectionId } from './ingredientOptions.js';
+import { NOUN, PAGE, pickList, type Candidate, type IngredientKind } from './ingredientOptions.js';
 
 /**
  * Change the product, presenter or scene a chip already holds.
@@ -39,8 +37,6 @@ export interface PickerProps {
   currentId: string | null;
   candidates: Candidate[];
   brandId: string;
-  /** "Suited to Beverage". Null omits the section. */
-  categoryTitle: string | null;
   /** The chip's own warning, if the compiler flagged it. Shown above Remove. */
   warning: string | null;
   onPick: (c: Candidate) => void;
@@ -48,8 +44,6 @@ export interface PickerProps {
   onClose: (reason: CloseReason) => void;
   /** For a scene warned that it builds around a product or a person. */
   onAttachRequest?: (tab: 'Products' | 'Presenters') => void;
-  /** A product created from inside the picker goes straight into the chip. */
-  onCreated?: (productId: string) => void;
 }
 
 /** The label on the button that empties the slot. */
@@ -69,69 +63,37 @@ function PickerBody({
   currentId,
   candidates,
   brandId,
-  categoryTitle,
   warning,
   onPick,
   onRemove,
   onClose,
   onAttachRequest,
-  onCreated,
   autoFocusSearch,
 }: PickerProps & { autoFocusSearch: boolean }) {
   const [query, setQuery] = useState('');
-  const [shown, setShown] = useState<Partial<Record<SectionId, number>>>({});
-  const [starred, setStarred] = useState<ReadonlySet<string>>(() =>
-    kind === 'scene' ? new Set(favoriteScenes(brandId)) : new Set(),
-  );
+  const [shown, setShown] = useState(PAGE);
   const searchRef = useRef<HTMLInputElement>(null);
-  const gridsRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
-  const createAsset = useCreateAsset();
+  // Read, never written. Favouriting is something you do while browsing a
+  // library; here it only decides what floats to the top.
+  const starred = useMemo<ReadonlySet<string>>(
+    () => (kind === 'scene' ? new Set(favoriteScenes(brandId)) : new Set()),
+    [kind, brandId],
+  );
 
   // A new search is a new list, so what was drawn of the old one means nothing.
   // Item count alone must not reset it: the product library polls every four
   // seconds and a shrinking list would otherwise yank the page back to one.
   useEffect(() => {
-    setShown({});
+    setShown(PAGE);
     setActive(0);
   }, [query]);
 
-  const sections = useMemo(
-    () => sectionsFor(kind, candidates, { currentId, query, starred, categoryTitle, shown }),
-    [kind, candidates, currentId, query, starred, categoryTitle, shown],
+  const list = useMemo(
+    () => pickList(kind, candidates, { currentId, query, starred, shown }),
+    [kind, candidates, currentId, query, starred, shown],
   );
-
-  /** The candidates on screen, in render order. */
-  const flat = useMemo(() => sections.flatMap((s) => s.items), [sections]);
-
-  /**
-   * Where each focusable entry sits in the roving order.
-   *
-   * Includes the Add card, which is focusable but is not a candidate — so the
-   * arrow keys walk everything the eye can see, while Enter in the search
-   * field still picks the first real result.
-   */
-  const nav = useMemo(() => {
-    const m = new Map<string, number>();
-    let i = 0;
-    for (const sec of sections) {
-      for (const c of sec.items) m.set(`${sec.id}:${c.id}`, i++);
-    }
-    return m;
-  }, [sections]);
-  const navCount = nav.size;
-
-  /**
-   * What is on now, and the rest.
-   *
-   * The current pick is one item, and one item in a four-column grid is a card
-   * with three empty columns beside it and a name clipped to fit a cell it did
-   * not need to fit. It reads as a row: big enough thumbnail, the whole name,
-   * and the tick at the end of it.
-   */
-  const current = sections.find((sec) => sec.id === 'current');
-  const rest = sections.filter((sec) => sec.id !== 'current');
-  const currentCard = current?.items[0];
 
   useLayoutEffect(() => {
     if (autoFocusSearch) searchRef.current?.focus({ preventScroll: true });
@@ -140,12 +102,11 @@ function PickerBody({
   // Clamped rather than reset: a poll that drops one card should not throw the
   // keyboard back to the top of the list.
   useEffect(() => {
-    setActive((a) => Math.max(0, Math.min(a, navCount - 1)));
-  }, [navCount]);
+    setActive((a) => Math.max(0, Math.min(a, list.items.length - 1)));
+  }, [list.items.length]);
 
   const focusCard = useCallback((i: number) => {
-    const cards = gridsRef.current?.querySelectorAll<HTMLElement>('[data-nav]');
-    const el = cards?.[i];
+    const el = gridRef.current?.querySelectorAll<HTMLElement>('[data-nav]')[i];
     if (!el) return;
     setActive(i);
     el.focus({ preventScroll: true });
@@ -154,7 +115,7 @@ function PickerBody({
 
   /** With `auto-fill` the column count is whatever fitted, so ask the layout. */
   const columns = useCallback((): number => {
-    const grid = gridsRef.current?.querySelector<HTMLElement>('.sc-swap-grid');
+    const grid = gridRef.current;
     if (!grid) return 1;
     return Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length);
   }, []);
@@ -176,16 +137,16 @@ function PickerBody({
       return;
     }
     const onSearch = e.target === searchRef.current;
-    if (e.key === 'ArrowDown' && onSearch) {
+    if (onSearch && e.key === 'ArrowDown') {
       e.preventDefault();
       focusCard(0);
       return;
     }
-    if (e.key === 'Enter' && onSearch) {
+    if (onSearch && e.key === 'Enter') {
       e.preventDefault();
       // Type three letters, press Enter. The whole point of a search field
       // over a list you were going to arrow through anyway.
-      if (flat[0]) onPick(flat[0]);
+      if (list.items[0]) onPick(list.items[0]);
       return;
     }
     if (onSearch) return; // arrows and Home/End belong to the text while it has focus
@@ -206,7 +167,7 @@ function PickerBody({
       const next = active + step;
       // Up from the top row goes back to the search field rather than nowhere.
       if (next < 0 && step === -cols) searchRef.current?.focus();
-      else if (next >= 0 && next < navCount) focusCard(next);
+      else if (next >= 0 && next < list.items.length) focusCard(next);
       return;
     }
     if (e.key === 'Home') {
@@ -214,29 +175,22 @@ function PickerBody({
       focusCard(0);
     } else if (e.key === 'End') {
       e.preventDefault();
-      focusCard(navCount - 1);
+      focusCard(list.items.length - 1);
     }
   };
-
-  const star = (id: string) => setStarred(new Set(toggleFavoriteScene(brandId, id)));
 
   const noun = NOUN[kind];
   /**
    * Whether a card carries a second line.
    *
    * Only where the picture cannot tell two things apart. A scene's light and a
-   * presenter's casting note are both real, but in a 92px cell they arrive as
-   * "Hard freeze-flash ..." and "Cool minimal · whit..." — a line of truncated
-   * text under every tile, in a grid whose entire job is to be looked at. Two
-   * products, though, are routinely the same bottle in a different variant, so
-   * there the brand is what separates them. Both still reach the full text on
-   * hover, and the current pick shows it in the row, which has the width.
+   * presenter's casting note both truncate to nothing at this size. Two
+   * products, though, are routinely the same bottle from a different house, so
+   * there the brand is what separates them — and with one list rather than two
+   * shelves it is also what says whose product it is.
    */
   const showSub = kind === 'product';
 
-  /* The wrapper routes keys for the panel's own focusable controls and is
-     deliberately not a control itself. The point of it existing at all is that
-     nothing here listens on window, the way the caret menu does. */
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a key router, not a control
     <div className="sc-swap-inner" onKeyDown={onKeyDown}>
@@ -256,158 +210,70 @@ function PickerBody({
         </span>
       </div>
 
-      <div className="sc-swap-body" ref={gridsRef}>
-        {flat.length === 0 && !sections.some((sec) => sec.action) && (
-          <p className="sc-swap-empty">{query.trim() ? `Nothing matches “${query.trim()}”.` : `No ${noun}s yet.`}</p>
+      {/* What is on, above the line, wherever the search happens to be. It is
+          the answer to "what do I have", so it does not come and go. */}
+      {list.current && (
+        <button
+          type="button"
+          className="sc-swap-cur"
+          title={list.current.full}
+          onClick={() => onPick(list.current as Candidate)}
+        >
+          <Thumb src={list.current.thumb} tinted={!!list.current.tint} />
+          <span className="sc-swap-curtext">
+            <b dir="auto">{list.current.label}</b>
+            {list.current.sub && <span dir="auto">{list.current.sub}</span>}
+          </span>
+          <span className="sc-swap-tick" aria-hidden>
+            <Check size={11} weight="bold" />
+          </span>
+        </button>
+      )}
+
+      <div className="sc-swap-body">
+        {list.items.length === 0 && (
+          <p className="sc-swap-empty">{query.trim() ? `Nothing matches “${query.trim()}”.` : `No other ${noun}s.`}</p>
         )}
 
-        {currentCard && (
-          <section className="sc-swap-sec sc-swap-cur" data-section="current" aria-label={current?.title}>
-            <div className="sc-swap-lb">
-              <span>{current?.title}</span>
+        <div className="sc-swap-grid" ref={gridRef} role="listbox" aria-label={`Choose a ${noun}`}>
+          {list.items.map((c, i) => (
+            // A div, not a button: `option` inside `listbox` is the right role
+            // for one-of-many, and it takes its own focus and Enter/Space.
+            <div
+              key={c.id}
+              className="sc-swap-card"
+              role="option"
+              aria-selected={false}
+              data-nav={i}
+              tabIndex={i === active ? 0 : -1}
+              title={c.full}
+              style={c.tint ? ({ '--tint': c.tint } as React.CSSProperties) : undefined}
+              onFocus={() => setActive(i)}
+              onClick={() => onPick(c)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                onPick(c);
+              }}
+            >
+              <Thumb src={c.thumb} tinted={!!c.tint} />
+              <b dir="auto">{c.label}</b>
+              {showSub && c.sub && <span dir="auto">{c.sub}</span>}
             </div>
-            <div role="listbox" aria-label={current?.title}>
-              <div
-                className="sc-swap-card sc-swap-currow"
-                role="option"
-                aria-selected
-                data-on
-                data-nav={nav.get(`current:${currentCard.id}`)}
-                tabIndex={nav.get(`current:${currentCard.id}`) === active ? 0 : -1}
-                title={currentCard.full}
-                style={currentCard.tint ? ({ '--tint': currentCard.tint } as React.CSSProperties) : undefined}
-                onFocus={() => setActive(nav.get(`current:${currentCard.id}`) ?? 0)}
-                onClick={() => onPick(currentCard)}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter' && e.key !== ' ') return;
-                  e.preventDefault();
-                  onPick(currentCard);
-                }}
-              >
-                <Thumb src={currentCard.thumb} tinted={!!currentCard.tint} />
-                <span className="sc-swap-curtext">
-                  <b dir="auto">{currentCard.label}</b>
-                  {currentCard.sub && <span dir="auto">{currentCard.sub}</span>}
-                </span>
-                <span className="sc-swap-tick" aria-hidden>
-                  <Check size={11} weight="bold" />
-                </span>
-              </div>
-            </div>
-          </section>
-        )}
+          ))}
+        </div>
 
-        {rest.map((sec) => (
-          <section className="sc-swap-sec" key={sec.id} data-section={sec.id} aria-label={sec.title}>
-            <div className="sc-swap-lb">
-              <span>{sec.title}</span>
-              {sec.action === 'add-product' && (
-                <button
-                  type="button"
-                  className="sc-swap-lbact"
-                  onClick={() =>
-                    // The chip goes into a brief that is still in memory, so a
-                    // URL round trip would remount the composer under it.
-                    createAsset('product', {
-                      onCreated: (made) => made.kind === 'product' && onCreated?.(made.id),
-                    })
-                  }
-                >
-                  <Plus size={11} weight="bold" />
-                  Add
-                </button>
-              )}
-            </div>
-            {/* An empty shelf is its heading and nothing else: a grid with no
-                cards in it is just a gap. */}
-            {sec.items.length > 0 && (
-              <div className="sc-swap-grid" role="listbox" aria-label={sec.title} aria-multiselectable="false">
-                {sec.items.map((c) => {
-                  const i = nav.get(`${sec.id}:${c.id}`) ?? -1;
-                  const on = c.id === currentId;
-                  const fav = starred.has(c.id);
-                  return (
-                    // A div, not a button: a scene card carries its own star, and
-                    // a button inside a button is not a thing a browser can parse.
-                    // `option` inside `listbox` is the right role for one-of-many
-                    // anyway, and it takes its own focus and Enter/Space.
-                    <div
-                      key={`${sec.id}:${c.id}`}
-                      className="sc-swap-card"
-                      role="option"
-                      aria-selected={on}
-                      data-on={on || undefined}
-                      data-nav={i}
-                      tabIndex={i === active ? 0 : -1}
-                      title={c.full}
-                      style={c.tint ? ({ '--tint': c.tint } as React.CSSProperties) : undefined}
-                      onFocus={() => setActive(i)}
-                      onClick={() => onPick(c)}
-                      onKeyDown={(e) => {
-                        if (e.key !== 'Enter' && e.key !== ' ') return;
-                        e.preventDefault();
-                        onPick(c);
-                      }}
-                    >
-                      <Thumb src={c.thumb} tinted={!!c.tint} />
-                      {on && (
-                        <span className="sc-swap-tick" aria-hidden>
-                          <Check size={11} weight="bold" />
-                        </span>
-                      )}
-                      {/* Only where nothing else says it. Under a "Suited to X"
-                        heading the badge is the heading repeated on every card
-                        in the section; in a flat result list it is the only
-                        place the hint can live. */}
-                      {c.recommended && !on && sec.id === 'results' && <span className="sc-swap-rec">Suited</span>}
-                      <b dir="auto">{c.label}</b>
-                      {showSub && c.sub && <span dir="auto">{c.sub}</span>}
-                      {kind === 'scene' && (
-                        <button
-                          type="button"
-                          className="sc-swap-star"
-                          data-on={fav || undefined}
-                          aria-pressed={fav}
-                          aria-label={fav ? `Unstar ${c.label}` : `Star ${c.label}`}
-                          tabIndex={-1}
-                          onClick={(e) => {
-                            // The card is the pick; a star inside it must not pick.
-                            e.stopPropagation();
-                            star(c.id);
-                          }}
-                        >
-                          <Star size={12} weight={fav ? 'fill' : 'regular'} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {sec.remaining > 0 && (
-              <>
-                {/* Never a silent truncation: say what is not on screen, and
-                    that the field above is how to reach it. */}
-                <p className="sc-swap-capped">
-                  Showing {sec.items.length} of {sec.total}. Search to narrow it down.
-                </p>
-                <button
-                  type="button"
-                  className="sc-amore"
-                  onClick={() => setShown((s) => ({ ...s, [sec.id]: (s[sec.id] ?? PAGE) + PAGE }))}
-                >
-                  Show {Math.min(PAGE, sec.remaining)} more
-                </button>
-              </>
-            )}
-          </section>
-        ))}
+        {list.remaining > 0 && (
+          <button type="button" className="sc-swap-more" onClick={() => setShown((n) => n + PAGE)}>
+            {/* Never a silent truncation: say what is not on screen, and that
+                the field above is how to reach it. */}
+            Show {Math.min(PAGE, list.remaining)} more of {list.total}
+          </button>
+        )}
       </div>
 
       <div className="sc-swap-foot">
-        {currentId && !flat.some((c) => c.id === currentId) && !query.trim() && (
-          <p className="sc-swap-warn">This {noun} is no longer available.</p>
-        )}
+        {currentId && !list.current && <p className="sc-swap-warn">This {noun} is no longer available.</p>}
         {warning && <p className="sc-swap-warn">{warning}</p>}
         {warning && onAttachRequest && kind === 'scene' && (
           <div className="sc-swap-attach">
@@ -472,10 +338,6 @@ function PickerPanel(props: PickerProps) {
   const { anchor, kind, onClose } = props;
   const [pos, setPos] = useState<Placed | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  // The creation dialog is a real Radix Dialog stacked on top, portaled to the
-  // body — a click inside it reads as "outside the picker" without this.
-  const [params] = useSearchParams();
-  const creating = params.get('new') !== null;
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -510,7 +372,6 @@ function PickerPanel(props: PickerProps) {
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (creating) return;
       const t = e.target as HTMLElement;
       if (rootRef.current?.contains(t)) return;
       // Clicking the chip again is a toggle, and the chip's own handler owns
@@ -520,7 +381,7 @@ function PickerPanel(props: PickerProps) {
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [onClose, creating]);
+  }, [onClose]);
 
   if (!pos) return null;
   return createPortal(
