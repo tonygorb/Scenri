@@ -66,6 +66,7 @@ export function ShowcaseCard({
   onOpenScene,
   active,
   hideRecipe,
+  decorative,
   size = 'grid',
 }: {
   entry: ShowcaseEntry;
@@ -91,6 +92,8 @@ export function ShowcaseCard({
   active?: boolean;
   /** Drop the second caption line. The credits above already name the recipe. */
   hideRecipe?: boolean;
+  /** A duplicate rendered only to make a row loop: visible, but not content. */
+  decorative?: boolean;
   size?: ShowcaseCardSize;
 }) {
   const recipe = [productName, presenterName, sceneName].filter(Boolean).join(' · ');
@@ -126,7 +129,12 @@ export function ShowcaseCard({
       : null;
 
   return (
-    <div className="sc-showcase-tile" data-active={active || undefined}>
+    <div
+      className="sc-showcase-tile"
+      data-active={active || undefined}
+      aria-hidden={decorative || undefined}
+      {...(decorative ? { inert: '' } : {})}
+    >
       <CatalogCard
         id={entry.id}
         previewUrl={entry.previewUrl}

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { TextField } from '@radix-ui/themes';
 import { api } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { PRODUCT_CATEGORIES } from '../productCategories.js';
@@ -100,8 +99,13 @@ export function ProductForm({ onBack, onStarted }: FlowProps) {
           onReject={() => f.setErr('Drop an image file.')}
         />
 
-        <TextField.Root
-          placeholder="Product name (e.g. House Blend 250g)"
+        {/* Named, not filled in. A bordered box under a picture reads as a
+            form; a line under it reads as a caption, which is what it is. */}
+        <input
+          className="sc-newtitle"
+          type="text"
+          placeholder="Name this product"
+          aria-label="Product name"
           value={f.fields.name}
           onChange={(e) => f.set({ name: e.target.value })}
         />
@@ -132,8 +136,10 @@ export function ProductForm({ onBack, onStarted }: FlowProps) {
               Your store's address
             </label>
             <div className="sc-newdlg-secrow">
-              <TextField.Root
+              <input
                 id="sc-import-url"
+                className="sc-in"
+                type="url"
                 placeholder={brand.json?.meta?.website ?? 'https://yourstore.com'}
                 value={f.fields.importUrl}
                 onChange={(e) => f.set({ importUrl: e.target.value })}

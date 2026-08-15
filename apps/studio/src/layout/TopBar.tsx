@@ -8,6 +8,7 @@ import { NotificationsButton } from './Notifications.js';
 import { useMainNav } from './nav.js';
 import { api } from '../api.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
+import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { P, brandPath, hubPath, setPath } from '../routes.js';
 
 /**
@@ -183,9 +184,18 @@ function SetCrumb({ slug }: { slug: string }) {
   );
 }
 
-/** Reachable at every width: closing the panel on a phone used to be final. */
+/**
+ * The assets panel's switch, on the screens where the panel exists.
+ *
+ * Not on a phone. There the panel has no column to occupy and can only arrive
+ * as a full-screen drawer over the work, and everything in it is already a tap
+ * away inside the composer, so the button would open a second front door to
+ * the same room while costing scarce bar width.
+ */
 function AssetsToggle() {
   const { open, toggle } = useAssetsPanel();
+  const phone = useMediaQuery(PHONE);
+  if (phone) return null;
   return (
     <button
       type="button"

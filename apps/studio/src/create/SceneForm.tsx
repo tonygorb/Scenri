@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { TextArea, TextField } from '@radix-ui/themes';
 import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -66,12 +65,6 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
       onPrimary={() => void start()}
     >
       <div className="sc-assetform">
-        <TextField.Root
-          placeholder="Name this place"
-          value={f.fields.name}
-          onChange={(e) => f.set({ name: e.target.value })}
-        />
-
         <RefStrip
           hashes={f.fields.imageHashes}
           max={MAX_REFS}
@@ -83,11 +76,24 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
           onReject={() => f.setErr('Drop an image file.')}
         />
 
-        <TextArea
+        <input
+          className="sc-newtitle"
+          type="text"
+          placeholder="Name this place"
+          aria-label="Scene name"
+          value={f.fields.name}
+          onChange={(e) => f.set({ name: e.target.value })}
+        />
+
+        {/* The one flow where words alone are enough, so the prose gets room
+            rather than a two-line box at the bottom of a stack. */}
+        <textarea
+          className="sc-newnote"
           placeholder="What matters here, in your words. Keep the architecture and the light, lose the plants."
+          aria-label="What matters here"
+          rows={3}
           value={f.fields.instruction}
           onChange={(e) => f.set({ instruction: e.target.value })}
-          rows={2}
         />
 
         {verticals.length > 0 && (

@@ -16,11 +16,12 @@ import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { showcaseBrief } from '../app/useApplyShowcase.js';
-import { P, brandPath, hubPath, presenterPath, productPath, scenePath, setPath } from '../routes.js';
+import { P, hubPath, presenterPath, productPath, scenePath, setPath } from '../routes.js';
 import { briefTokens } from '../composer/BriefInput.js';
 import { Confirm } from '../Confirm.js';
 import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
 import { recipeProps, type Catalogs } from '../showcaseRecipe.js';
+import { useShelf } from '../layout/useShelf.js';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
 import { favoriteScenes } from '../favorites.js';
@@ -35,6 +36,7 @@ import {
   type TokenNames,
 } from '../feedRules.js';
 import { PREF, useLocalPref } from '../prefs.js';
+import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
@@ -46,7 +48,6 @@ import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
 import { ShowcaseCard } from '../layout/ShowcaseCard.js';
-import { useEdgeFades } from '../layout/useEdgeFades.js';
 import { FeedDensitySlider } from '../layout/DensityControl.js';
 import { VerticalsTabs, type VerticalsTabItem } from '../layout/VerticalsTabs.js';
 import { TILE_DEFAULT } from '../layout/masonry.js';
@@ -110,7 +111,18 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const { open: assetsOpen, toggle: toggleAssets, setOpen: setAssetsOpen } = useAssetsPanel();
+  const { open: rawAssetsOpen, toggle: toggleAssets, setOpen: setAssetsOpen } = useAssetsPanel();
+  const phone = useMediaQuery(PHONE);
+  /**
+   * The assets panel does not exist on a phone.
+   *
+   * There is no column for it there, so it could only cover the work as a
+   * drawer, and every asset in it is already reachable from the composer's own
+   * attach control. A stored preference from a desktop session must not be
+   * able to open it on a phone either, which is why this gates the value
+   * rather than the button.
+   */
+  const assetsOpen = rawAssetsOpen && !phone;
   const [err, setErr] = useState<string | null>(null);
   const [remixBrief, setRemixBrief] = useState<any>(null);
   /** Which use case is sitting in the brief right now, so its card can say so. */
@@ -761,7 +773,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       onOpenProduct={(id) => navigate(productPath(brand, id))}
       onOpenPresenter={(id) => navigate(presenterPath(brand, id))}
       onOpenScene={(id) => navigate(scenePath(brand, id))}
-      onSeeAll={() => navigate(brandPath(brand))}
       onUse={(e) => {
         setStagedId(e.id);
         setRemixBrief(showcaseBrief(e));
@@ -926,18 +937,22 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       {assetsOpen && <div className="sc-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
       <Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
-      <AssetsPanel
-        brand={brand}
-        templates={railTemplates}
-        presenters={railPresenters}
-        shots={allNodes}
-        onProduct={(id) => composerRef.current?.insertToken({ t: 'product', id })}
-        onCharacter={(id) => composerRef.current?.insertToken({ t: 'character', id })}
-        onColor={(hex, name) => composerRef.current?.insertToken({ t: 'color', hex, name })}
-        onRef={(imageHash) => composerRef.current?.insertToken({ t: 'ref', imageHash })}
-        onTemplate={(id) => composerRef.current?.applyScene(id)}
-        onClose={() => setAssetsOpen(false)}
-      />
+      {/* Not mounted at all on a phone: an off-screen drawer that can never be
+          opened is still a tab stop and still fetches its thumbnails. */}
+      {!phone && (
+        <AssetsPanel
+          brand={brand}
+          templates={railTemplates}
+          presenters={railPresenters}
+          shots={allNodes}
+          onProduct={(id) => composerRef.current?.insertToken({ t: 'product', id })}
+          onCharacter={(id) => composerRef.current?.insertToken({ t: 'character', id })}
+          onColor={(hex, name) => composerRef.current?.insertToken({ t: 'color', hex, name })}
+          onRef={(imageHash) => composerRef.current?.insertToken({ t: 'ref', imageHash })}
+          onTemplate={(id) => composerRef.current?.applyScene(id)}
+          onClose={() => setAssetsOpen(false)}
+        />
+      )}
 
       <ComposerDock full={!assetsOpen}>
         {/* Inside the dock, not floating above it at a guessed offset: the
@@ -1087,7 +1102,6 @@ function FirstRun({
   onOpenProduct,
   onOpenPresenter,
   onOpenScene,
-  onSeeAll,
 }: {
   entries: ShowcaseEntry[];
   catalogs: Catalogs;
@@ -1096,13 +1110,11 @@ function FirstRun({
   onOpenProduct: (id: string) => void;
   onOpenPresenter: (id: string) => void;
   onOpenScene: (id: string) => void;
-  /** The whole gallery lives on Home; this shelf is a shuffled handful of it. */
-  onSeeAll?: () => void;
 }) {
   // A different handful, in a different order, every time the page is opened:
   // the wall is a gallery of what the tool can do, not a ranked list.
   const shelf = useMemo(() => shuffle(entries).slice(0, 10), [entries]);
-  const { ref, edges, page, canLeft, canRight } = useEdgeFades<HTMLDivElement>([shelf.length]);
+  const { ref, page } = useShelf<HTMLDivElement>(shelf.length);
 
   return (
     <div className="sc-canvas-empty">
@@ -1114,49 +1126,42 @@ function FirstRun({
           more thing to read on the emptiest screen in the app. */}
       <p>Describe what you want in the brief below, or open one of these.</p>
       {shelf.length > 0 && (
-        <div className="sc-shelf" {...edges}>
+        <div className="sc-shelf">
           {/* A mouse has no sideways gesture. The wheel is redirected in the
-              hook; these are the visible way to say the row moves. */}
-          {canLeft && (
-            <button
-              type="button"
-              className="sc-shelf-arrow prev"
-              aria-label="Previous examples"
-              onClick={() => page(-1)}
-            >
-              <CaretLeft size={13} weight="bold" />
-            </button>
-          )}
-          {canRight && (
-            <button type="button" className="sc-shelf-arrow next" aria-label="More examples" onClick={() => page(1)}>
-              <CaretRight size={13} weight="bold" />
-            </button>
-          )}
+              hook; these are the visible way to say the row moves. The row
+              loops, so neither arrow is ever at an end and neither hides. */}
+          <button type="button" className="sc-shelf-arrow prev" aria-label="Previous examples" onClick={() => page(-1)}>
+            <CaretLeft size={13} weight="bold" />
+          </button>
+          <button type="button" className="sc-shelf-arrow next" aria-label="More examples" onClick={() => page(1)}>
+            <CaretRight size={13} weight="bold" />
+          </button>
           <div className="sc-shelf-row" ref={ref}>
-            {shelf.map((e) => (
-              <ShowcaseCard
-                key={e.id}
-                entry={e}
-                // `grid`, not `shelf`: the shelf size pins captions open, and
-                // ten always-on titles under ten pictures is a wall of text.
-                // Hover reveals one, the same as Home.
-                size="grid"
-                hideRecipe
-                active={stagedId === e.id}
-                onOpen={() => onUse(e)}
-                onOpenProduct={onOpenProduct}
-                onOpenPresenter={onOpenPresenter}
-                onOpenScene={onOpenScene}
-                {...recipeProps(e, catalogs)}
-              />
-            ))}
+            {/* Three copies: the loop lives in the middle one and steps back a
+                copy whenever it drifts out. The outer two are scenery, so they
+                stay out of the tab order and out of a screen reader's way. */}
+            {[0, 1, 2].map((copy) =>
+              shelf.map((e) => (
+                <ShowcaseCard
+                  key={`${copy}-${e.id}`}
+                  entry={e}
+                  // `grid`, not `shelf`: the shelf size pins captions open, and
+                  // ten always-on titles under ten pictures is a wall of text.
+                  // Hover reveals one, the same as Home.
+                  size="grid"
+                  hideRecipe
+                  decorative={copy !== 1}
+                  active={stagedId === e.id}
+                  onOpen={() => onUse(e)}
+                  onOpenProduct={onOpenProduct}
+                  onOpenPresenter={onOpenPresenter}
+                  onOpenScene={onOpenScene}
+                  {...recipeProps(e, catalogs)}
+                />
+              )),
+            )}
           </div>
         </div>
-      )}
-      {onSeeAll && shelf.length > 0 && (
-        <button type="button" className="sc-shelf-more" onClick={onSeeAll}>
-          More like these
-        </button>
       )}
     </div>
   );

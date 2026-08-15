@@ -6,11 +6,15 @@ import { Dropzone } from '../layout/Dropzone.js';
  * The pictures you hand over, in every flow that takes pictures.
  *
  * This is the one widget all three creation forms genuinely share, and sharing
- * it is what makes them feel like one system: the same empty dropzone, the same
+ * it is what makes them feel like one system: the same well, the same 4:5
  * thumbnails, the same little X, whether you are giving Scenri a bottle, a face
- * or a room. What those pictures then mean is entirely the form's business —
- * a presenter's photos are pixels an engine will read, a scene's references
- * are only ever read as prose.
+ * or a room. What those pictures then mean is entirely the form's business — a
+ * presenter's photos are pixels an engine will read, a scene's references are
+ * only ever read as prose.
+ *
+ * It leads every form on purpose. The material is the real subject of all three
+ * dialogs, and a name typed above an empty box is a form; a name typed under
+ * the thing you just dropped in is a caption.
  *
  * Files upload as they are picked rather than on submit. That is what lets the
  * whole form survive being closed: a hash outlives the tab, a File does not.
@@ -37,11 +41,14 @@ export function RefStrip({
 }) {
   if (hashes.length === 0) {
     return (
-      <Dropzone label={label} hint={hint} busy={busy} onFiles={onAdd} onReject={onReject}>
-        <Plus size={16} />
-      </Dropzone>
+      <div className="sc-assetwell">
+        <Dropzone label={label} hint={hint} busy={busy} onFiles={onAdd} onReject={onReject}>
+          <Plus size={18} />
+        </Dropzone>
+      </div>
     );
   }
+  const room = max - hashes.length;
   return (
     <div className="sc-assetform-refs">
       {hashes.map((h, i) => (
@@ -57,8 +64,8 @@ export function RefStrip({
           </button>
         </span>
       ))}
-      {hashes.length < max && (
-        <Dropzone label="Add" busy={busy} onFiles={onAdd} onReject={onReject}>
+      {room > 0 && (
+        <Dropzone label={`${room} more`} busy={busy} onFiles={onAdd} onReject={onReject}>
           <Plus size={15} />
         </Dropzone>
       )}

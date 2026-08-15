@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { TextArea, TextField } from '@radix-ui/themes';
 import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -66,12 +65,8 @@ export function PresenterForm({ onBack, onStarted, caps, capsNote, pendingState 
       onPrimary={() => void start()}
     >
       <div className="sc-assetform">
-        <TextField.Root
-          placeholder="Their name"
-          value={f.fields.name}
-          onChange={(e) => f.set({ name: e.target.value })}
-        />
-
+        {/* The photographs first: they are the person, and everything the
+            server works out about them is read off these. */}
         <RefStrip
           hashes={f.fields.imageHashes}
           max={MAX_REFS}
@@ -83,11 +78,22 @@ export function PresenterForm({ onBack, onStarted, caps, capsNote, pendingState 
           onReject={() => f.setErr('Drop an image file.')}
         />
 
-        <TextArea
+        <input
+          className="sc-newtitle"
+          type="text"
+          placeholder="Their name"
+          aria-label="Presenter name"
+          value={f.fields.name}
+          onChange={(e) => f.set({ name: e.target.value })}
+        />
+
+        <textarea
+          className="sc-newnote"
           placeholder="Anything worth knowing about them (optional)"
+          aria-label="Notes"
+          rows={2}
           value={f.fields.instruction}
           onChange={(e) => f.set({ instruction: e.target.value })}
-          rows={2}
         />
 
         {/* Where they file. Optional on purpose: leave it and the analysis picks

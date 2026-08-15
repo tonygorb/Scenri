@@ -110,13 +110,22 @@ test('the chooser is usable by touch', async ({ page }) => {
   const slug = await brandSlug(page);
   await page.goto(`/${slug}`);
   await page.getByRole('button', { name: 'Add to this brand', exact: true }).tap();
-  await expect(page.locator('.sc-newrow')).toHaveCount(3);
+  await expect(page.locator('.sc-pick')).toHaveCount(3);
 
-  // every row clears the 44px touch floor the rest of the app holds to
-  const heights = await page
-    .locator('.sc-newrow')
-    .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+  // every card clears the 44px touch floor the rest of the app holds to
+  const heights = await page.locator('.sc-pick').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
   for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+
+  const lefts = await page
+    .locator('.sc-pick')
+    .evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().left)));
+  if (isPhone(page)) {
+    // one column on a phone: three 4:5 cards side by side are three stamps
+    expect(new Set(lefts).size, 'the cards should stack, not sit in a row').toBe(1);
+  } else {
+    // a tablet keeps the desktop grid — three pictures, side by side
+    expect(new Set(lefts).size, 'the cards should stay in a row').toBe(3);
+  }
 
   await page.locator('[data-kind="scene"]').tap();
   await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();

@@ -34,12 +34,16 @@ test.describe('adding to a brand', () => {
     await trigger(page).click();
     await expect(page).toHaveURL(/\?new=1$/);
 
-    const rows = page.locator('.sc-newrow');
-    await expect(rows).toHaveCount(3);
+    const cards = page.locator('.sc-pick');
+    await expect(cards).toHaveCount(3);
     // nav order, fixed — the launcher never reshuffles itself per page
-    await expect(rows.nth(0)).toHaveAttribute('data-kind', 'product');
-    await expect(rows.nth(1)).toHaveAttribute('data-kind', 'presenter');
-    await expect(rows.nth(2)).toHaveAttribute('data-kind', 'scene');
+    await expect(cards.nth(0)).toHaveAttribute('data-kind', 'product');
+    await expect(cards.nth(1)).toHaveAttribute('data-kind', 'presenter');
+    await expect(cards.nth(2)).toHaveAttribute('data-kind', 'scene');
+    // every card is a picture, not an icon: this is a visual choice
+    await expect(page.locator('.sc-pick-media img')).toHaveCount(3);
+    // and one press does it — there is no confirm step to get past
+    await expect(page.locator('.sc-newpick .sc-dlg-go')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Add to this brand' })).toBeVisible();
   });
 
@@ -85,7 +89,7 @@ test.describe('adding to a brand', () => {
 
     await page.locator('.sc-newdlg-back').click();
     await expect(page).toHaveURL(/\?new=1$/);
-    await expect(page.locator('.sc-newrow')).toHaveCount(3);
+    await expect(page.locator('.sc-pick')).toHaveCount(3);
   });
 
   test('the chooser puts the keyboard on the row for the page you are on', async ({ page }) => {
@@ -96,7 +100,7 @@ test.describe('adding to a brand', () => {
     ] as const) {
       await page.goto(`/${slug}/${path}`);
       await trigger(page).click();
-      await expect(page.locator('.sc-newrow').first()).toBeVisible();
+      await expect(page.locator('.sc-pick').first()).toBeVisible();
       await expect(page.locator(':focus')).toHaveAttribute('data-kind', kind);
       await page.keyboard.press('Escape');
     }
