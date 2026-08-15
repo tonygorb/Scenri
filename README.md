@@ -71,7 +71,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 - **Iteration is the product.** A version tree, not a prompt box. Branch, compare, keep the winners.
 - **Your brands are files, not hostages.** `.brand` is an open, documented format under a permissive license. Email one to a client. Any tool can adopt it.
 - **Your AI, your cost.** Bring your own Codex CLI session or an API key. Experiments cost raw API price, or nothing at all on a local session. No credits that burn on a miss.
-- **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only.
+- **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only. The one request scenri makes on its own behalf is a daily version-number check against npm so updates can announce themselves — nothing about you or your work is sent, and it turns off in Settings or with `SCENRI_NO_UPDATE_CHECK=1` ([how updates work](docs/updates.md)).
 - **Text you can still edit.** Headlines land as real layers on the image, not baked pixels. Restyle and re-export without regenerating.
 
 ## Engines
@@ -101,6 +101,8 @@ Your Codex session is yours: scenri runs the official `codex` commands on your m
 | `SCENRI_PORT` | `4747` | port |
 | `SCENRI_HOST` | `127.0.0.1` | this machine only, see the note below |
 | `SCENRI_NO_OPEN` | unset | set to `1` to skip opening a browser |
+| `SCENRI_NO_UPDATE_CHECK` | unset | set to `1` to never ask npm for the latest version |
+| `SCENRI_REGISTRY` | npmjs | registry for the update check and downloads (mirrors, forks, airgaps) |
 
 `OPENROUTER_API_KEY`, `REPLICATE_API_TOKEN` and `FAL_KEY` are read from the environment as an alternative to entering them in Settings.
 
