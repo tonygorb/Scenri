@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Dialog } from '@radix-ui/themes';
 import { Broom, Database, Info, Lightning, Palette, PiggyBank, Sun, TrashSimple, X } from '@phosphor-icons/react';
-import { api, type EngineInfo, type TreeNode, type VersionInfo } from '../api.js';
+import { api, type EngineInfo, type ReleaseNotes, type TreeNode, type VersionInfo } from '../api.js';
+import { useUpdateCenter } from '../app/UpdateCenter.js';
 import { useDialogParam } from '../app/AppShell.js';
 import type { Pane } from '../app/dialogs.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -440,14 +441,182 @@ function Appearance() {
   );
 }
 
+const INSTALL_LABEL: Record<VersionInfo['installKind'], string> = {
+  npx: 'run with npx',
+  global: 'installed with npm',
+  managed: 'managed install',
+  dev: 'running from source',
+  unknown: 'local studio',
+};
+
+/** The one manual command that updates this particular install. */
+function updateCommand(kind: VersionInfo['installKind'] | undefined): string {
+  switch (kind) {
+    case 'npx':
+      return 'npx scenri update';
+    case 'global':
+    case 'managed':
+      return 'scenri update';
+    default:
+      return 'npx scenri@latest';
+  }
+}
+
+/** Release notes on demand: fetched when opened, a plain link when GitHub won't answer. */
+function WhatsNew({ notesUrl }: { notesUrl: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [notes, setNotes] = useState<ReleaseNotes | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!open || notes || failed) return;
+    void api
+      .updateNotes()
+      .then(setNotes)
+      .catch(() => setFailed(true));
+  }, [open, notes, failed]);
+
+  return (
+    <div className="sc-set-row">
+      <span className="txt">
+        <b>What's new</b>
+        {open && notes && (
+          <small data-prose="" style={{ whiteSpace: 'pre-wrap' }}>
+            {notes.body.trim() || 'No notes on this one.'}
+            {'\n'}
+            <a href={notes.url} target="_blank" rel="noreferrer">
+              View on GitHub
+            </a>
+          </small>
+        )}
+        {open && failed && (
+          <small data-prose="">
+            Couldn't fetch the notes.{' '}
+            {notesUrl ? (
+              <a href={notesUrl} target="_blank" rel="noreferrer">
+                Read them on GitHub
+              </a>
+            ) : (
+              'Try again later.'
+            )}
+          </small>
+        )}
+      </span>
+      <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setOpen((v) => !v)}>
+        {open ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  );
+}
+
 function About({ version }: { version: VersionInfo | null }) {
+  const updates = useUpdateCenter();
+  const s = updates.status;
+  const [autoCheck, setAutoCheck] = useState<boolean | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    void api
+      .settings()
+      .then((all) => setAutoCheck(Boolean(all.updateCheck)))
+      .catch(() => {});
+  }, []);
+
+  const toggleAutoCheck = async () => {
+    if (autoCheck === null) return;
+    const next = !autoCheck;
+    setAutoCheck(next);
+    try {
+      await api.saveSettings({ updateCheck: next });
+    } catch {
+      setAutoCheck(!next);
+    }
+  };
+
+  const command = updateCommand(version?.installKind);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard blocked: the command is on screen to select */
+    }
+  };
+
+  const verdict = updates.checking ? (
+    <span className="sc-tag">checking…</span>
+  ) : s?.available ? (
+    <span className="sc-tag sc-tag-gold">{s.latest} available</span>
+  ) : s?.error ? (
+    <span className="sc-tag">couldn't reach npm</span>
+  ) : s?.checkedAt ? (
+    <span className="sc-tag">up to date</span>
+  ) : null;
+
   return (
     <Group>
       <div className="sc-set-row">
         <span className="txt">
           <b>scenri</b>
-          <small>{version ? `v${version.version}` : ''} · local studio</small>
+          <small>
+            {version ? `v${version.version}` : ''} · {INSTALL_LABEL[version?.installKind ?? 'unknown']}
+          </small>
         </span>
+      </div>
+      <div className="sc-set-row">
+        <span className="txt">
+          <b>Updates</b>
+          <small>{s?.available ? `You are on ${s.current}.` : 'New versions announce themselves here.'}</small>
+        </span>
+        {verdict}
+        <button
+          type="button"
+          className="sc-btn sc-btn-ghost"
+          disabled={updates.checking}
+          onClick={() => void updates.checkNow()}
+        >
+          Check for updates
+        </button>
+      </div>
+      {s?.available && <WhatsNew notesUrl={s.notesUrl} />}
+      {s?.available &&
+        (version?.installKind === 'dev' ? (
+          <div className="sc-set-row">
+            <span className="txt">
+              <b>Update</b>
+              <small data-prose="">
+                Running from source — pull and rebuild when you're ready. Nothing here touches your checkout.
+              </small>
+            </span>
+          </div>
+        ) : (
+          <div className="sc-set-row">
+            <span className="txt">
+              <b>Update</b>
+              <small data-prose="">
+                Run <code>{command}</code> in a terminal, then start scenri again. Your library is not part of the app
+                and stays put.
+              </small>
+            </span>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void copy()}>
+              {copied ? 'Copied' : 'Copy command'}
+            </button>
+          </div>
+        ))}
+      <div className="sc-set-row">
+        <span className="txt">
+          <b>Check for updates automatically</b>
+          <small data-prose="">
+            One version-number request to npm, at most daily. Off means scenri never calls anywhere by itself.
+          </small>
+        </span>
+        <button
+          type="button"
+          className="sc-btn sc-btn-ghost"
+          disabled={autoCheck === null}
+          onClick={() => void toggleAutoCheck()}
+        >
+          {autoCheck === null ? '…' : autoCheck ? 'Turn off' : 'Turn on'}
+        </button>
       </div>
       <div className="sc-set-row">
         <span className="txt">

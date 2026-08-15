@@ -1,0 +1,140 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createCore, type Core, type EngineAdapter } from '@scenri/core';
+import { buildServer } from '../src/server.js';
+import type { FastifyInstance } from 'fastify';
+
+const pkg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
+
+function registryWith(...adapters: EngineAdapter[]) {
+  const byId = new Map(adapters.map((a) => [a.capabilities().id, a]));
+  return { all: () => adapters, get: (id: string) => byId.get(id) ?? null };
+}
+
+/** Answers the npm dist-tags lookup and the GitHub release-notes lookup. */
+function updateFetch(opts: { latest?: string; ghStatus?: number }) {
+  const calls: string[] = [];
+  const impl = (async (input: unknown) => {
+    const url = String(input);
+    calls.push(url);
+    if (url.includes('/-/package/')) {
+      return new Response(JSON.stringify({ latest: opts.latest ?? '0.9.9' }), { status: 200 });
+    }
+    if (url.includes('api.github.com')) {
+      if (opts.ghStatus && opts.ghStatus !== 200) return new Response('{}', { status: opts.ghStatus });
+      return new Response(
+        JSON.stringify({
+          name: `v${opts.latest ?? '0.9.9'}`,
+          body: '- 6 new Scenes\n- generation fidelity fixes',
+          html_url: `https://github.com/tonygorb/scenri/releases/tag/v${opts.latest ?? '0.9.9'}`,
+          published_at: '2026-08-15T00:00:00Z',
+        }),
+        { status: 200 },
+      );
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+  return { impl, calls };
+}
+
+let home: string;
+let core: Core;
+let app: FastifyInstance | null;
+
+beforeEach(() => {
+  home = mkdtempSync(join(tmpdir(), 'sc-upd-'));
+  core = createCore(home);
+  app = null;
+});
+afterEach(async () => {
+  await app?.close();
+  core.close();
+  rmSync(home, { recursive: true, force: true });
+});
+
+const build = (fetchImpl: typeof fetch) => buildServer({ core, engines: registryWith(), fetchImpl });
+
+describe('GET /api/update/status', () => {
+  it('answers with the full verdict once the registry has been asked', async () => {
+    app = build(updateFetch({ latest: '0.9.9' }).impl);
+    const res = await app.inject({ method: 'GET', url: '/api/update/status' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      enabled: true,
+      current: pkg.version,
+      latest: '0.9.9',
+      available: true,
+      kind: 'minor',
+      attention: false,
+      checkedAt: expect.any(Number),
+      notesUrl: 'https://github.com/tonygorb/scenri/releases/tag/v0.9.9',
+      error: null,
+    });
+  });
+
+  it('flags a major as needing attention', async () => {
+    app = build(updateFetch({ latest: '99.0.0' }).impl);
+    const res = await app.inject({ method: 'GET', url: '/api/update/status' });
+    expect(res.json()).toMatchObject({ kind: 'major', attention: true });
+  });
+
+  it('reports not-available when the registry answer is no newer', async () => {
+    app = build(updateFetch({ latest: '0.0.0' }).impl);
+    const res = await app.inject({ method: 'GET', url: '/api/update/status' });
+    expect(res.json()).toMatchObject({ available: false, kind: null, notesUrl: expect.any(String) });
+  });
+});
+
+describe('POST /api/update/check', () => {
+  it('forces a fresh look and returns the same shape', async () => {
+    const { impl, calls } = updateFetch({ latest: '0.9.9' });
+    app = build(impl);
+    await app.inject({ method: 'GET', url: '/api/update/status' });
+    const registryCalls = () => calls.filter((u) => u.includes('/-/package/')).length;
+    const before = registryCalls();
+    const res = await app.inject({ method: 'POST', url: '/api/update/check' });
+    expect(res.json()).toMatchObject({ latest: '0.9.9', available: true });
+    expect(registryCalls()).toBe(before + 1);
+  });
+});
+
+describe('GET /api/update/notes', () => {
+  it('proxies the GitHub release for the latest version', async () => {
+    app = build(updateFetch({ latest: '0.9.9' }).impl);
+    await app.inject({ method: 'GET', url: '/api/update/status' });
+    const res = await app.inject({ method: 'GET', url: '/api/update/notes' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      name: 'v0.9.9',
+      body: '- 6 new Scenes\n- generation fidelity fixes',
+      url: 'https://github.com/tonygorb/scenri/releases/tag/v0.9.9',
+      publishedAt: '2026-08-15T00:00:00Z',
+    });
+  });
+
+  it('degrades to 502 when GitHub cannot answer, so the UI links out instead', async () => {
+    app = build(updateFetch({ latest: '0.9.9', ghStatus: 500 }).impl);
+    await app.inject({ method: 'GET', url: '/api/update/status' });
+    const res = await app.inject({ method: 'GET', url: '/api/update/notes' });
+    expect(res.statusCode).toBe(502);
+  });
+});
+
+describe('settings toggle', () => {
+  it('exposes updateCheck as a real boolean and turns the check off', async () => {
+    const { impl, calls } = updateFetch({ latest: '0.9.9' });
+    app = build(impl);
+    expect((await app.inject({ method: 'GET', url: '/api/settings' })).json()).toMatchObject({ updateCheck: true });
+
+    const put = await app.inject({ method: 'PUT', url: '/api/settings', payload: { updateCheck: false } });
+    expect(put.statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/api/settings' })).json()).toMatchObject({ updateCheck: false });
+
+    const status = await app.inject({ method: 'GET', url: '/api/update/status' });
+    expect(status.json()).toMatchObject({ enabled: false, latest: null });
+    expect(calls.filter((u) => u.includes('/-/package/'))).toHaveLength(0);
+  });
+});

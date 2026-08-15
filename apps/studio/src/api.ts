@@ -169,6 +169,21 @@ export type VersionInfo = {
   home: string;
 };
 
+export type UpdateStatus = {
+  enabled: boolean;
+  current: string;
+  latest: string | null;
+  available: boolean;
+  kind: 'major' | 'minor' | 'patch' | null;
+  /** True only for a major step: pre-1.0 breaking changes ride minors and stay quiet. */
+  attention: boolean;
+  checkedAt: number | null;
+  notesUrl: string | null;
+  error: string | null;
+};
+
+export type ReleaseNotes = { name: string; body: string; url: string; publishedAt: string | null };
+
 export const api = {
   brands: () => req<Brand[]>('GET', '/api/brands'),
   createBrand: (brand: any) => req<Brand>('POST', '/api/brands', { brand }),
@@ -257,12 +272,15 @@ export const api = {
   diff: (imageA: string, imageB: string) =>
     req<{ score: number; heatmapHash: string }>('POST', '/api/diff', { imageA, imageB }),
   settings: () => req<Record<string, boolean>>('GET', '/api/settings'),
-  saveSettings: (s: Record<string, string>) => req<{ ok: true }>('PUT', '/api/settings', s),
+  saveSettings: (s: Record<string, string | boolean>) => req<{ ok: true }>('PUT', '/api/settings', s),
   costs: () => req<{ byEngine: Record<string, number>; caps: Record<string, number> }>('GET', '/api/costs/summary'),
   /** Where the library lives on this machine, and how big it has grown. */
   home: () => req<{ dir: string; dbPath: string; images: number; bytes: number }>('GET', '/api/home'),
   reveal: () => req<{ ok: true }>('POST', '/api/system/reveal'),
   version: () => req<VersionInfo>('GET', '/api/version'),
+  updateStatus: () => req<UpdateStatus>('GET', '/api/update/status'),
+  updateCheck: () => req<UpdateStatus>('POST', '/api/update/check'),
+  updateNotes: () => req<ReleaseNotes>('GET', '/api/update/notes'),
   /** The reference frames a scene has on disk, if any. */
   sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),

@@ -1,0 +1,171 @@
+import { test, expect, type Page } from '@playwright/test';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { createServer, type Server } from 'node:http';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * The update lifecycle, driven end to end against a real server and a fixture
+ * npm registry. The shared e2e server runs with the check disabled, so this
+ * spec boots its own scenri (tsx, from source) with SCENRI_REGISTRY pointed at
+ * a tiny local registry whose answer the tests control. Selects by the sc-
+ * class names the app ships, like every other spec.
+ */
+
+const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+
+class Fixture {
+  server!: ChildProcess;
+  registry!: Server;
+  home!: string;
+  port: number;
+  regPort: number;
+  latest: string;
+  down = false;
+
+  constructor(port: number, regPort: number, latest: string) {
+    this.port = port;
+    this.regPort = regPort;
+    this.latest = latest;
+  }
+
+  base(): string {
+    return `http://127.0.0.1:${this.port}`;
+  }
+
+  async start(): Promise<void> {
+    this.registry = createServer((req, res) => {
+      if (this.down) {
+        res.statusCode = 500;
+        res.end('{}');
+        return;
+      }
+      if (req.url?.includes('/-/package/')) {
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ latest: this.latest }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end('{}');
+    });
+    await new Promise<void>((r) => this.registry.listen(this.regPort, '127.0.0.1', r));
+
+    this.home = mkdtempSync(join(tmpdir(), 'sc-e2e-upd-'));
+    this.server = spawn('pnpm', ['exec', 'tsx', 'packages/cli/src/index.ts', 'serve'], {
+      cwd: ROOT,
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        SCENRI_PORT: String(this.port),
+        SCENRI_HOST: '127.0.0.1',
+        SCENRI_HOME: this.home,
+        SCENRI_NO_OPEN: '1',
+        SCENRI_DEMO_ENGINE: '1',
+        SCENRI_NO_UPDATE_CHECK: '0',
+        SCENRI_REGISTRY: `http://127.0.0.1:${this.regPort}`,
+      },
+    });
+    // up when /api/version answers
+    for (let i = 0; i < 100; i++) {
+      try {
+        const r = await fetch(`${this.base()}/api/version`);
+        if (r.ok) break;
+      } catch {
+        /* not yet */
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    const made = await fetch(`${this.base()}/api/brands`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ brand: { specVersion: '0.1', meta: { name: 'Acme' } } }),
+    });
+    if (!made.ok) throw new Error(`brand seed failed: ${made.status}`);
+  }
+
+  async stop(): Promise<void> {
+    this.server.kill('SIGTERM');
+    await new Promise<void>((r) => {
+      this.server.once('exit', () => r());
+      setTimeout(r, 4000);
+    });
+    await new Promise<void>((r) => this.registry.close(() => r()));
+    rmSync(this.home, { recursive: true, force: true });
+  }
+}
+
+const banner = (p: Page) => p.locator('.sc-upd-banner');
+const dot = (p: Page) => p.locator('.sc-org-btn .sc-upd-dot');
+const aboutRows = (p: Page) => p.locator('.sc-set .sc-set-row');
+
+test.describe
+  .serial('an update is available', () => {
+    const fx = new Fixture(4767, 4768, '0.99.0');
+    test.beforeAll(async () => {
+      await fx.start();
+    });
+    test.afterAll(async () => {
+      await fx.stop();
+    });
+
+    test('Home announces it quietly: banner, brand-trigger dot, menu row', async ({ page }) => {
+      await page.goto(`${fx.base()}/`);
+      await expect(banner(page)).toBeVisible();
+      await expect(banner(page)).toContainText('scenri 0.99.0 is available');
+      await expect(banner(page).locator('.sc-banner-act')).toHaveText(["What's new", 'Update']);
+      await expect(dot(page)).toBeVisible();
+
+      await page.locator('.sc-org-btn').click();
+      await expect(page.locator('.sc-menu-item[data-update]')).toContainText('Update available — 0.99.0');
+      await page.keyboard.press('Escape');
+    });
+
+    test("What's new opens Settings → About with the verdict and the manual command", async ({ page }) => {
+      await page.goto(`${fx.base()}/`);
+      await banner(page).locator('.sc-banner-act', { hasText: "What's new" }).click();
+      await expect(page).toHaveURL(/settings=about/);
+      await expect(page.locator('.sc-set .sc-tag-gold')).toHaveText('0.99.0 available');
+      // running from source in this spec, so the update row is git guidance
+      await expect(aboutRows(page).filter({ hasText: 'Update' }).first()).toBeVisible();
+    });
+
+    test('dismissing holds across reloads, for this version only', async ({ page }) => {
+      await page.goto(`${fx.base()}/`);
+      await banner(page).locator('.sc-banner-x').click();
+      await expect(banner(page)).toHaveCount(0);
+      await expect(dot(page)).toHaveCount(0);
+
+      await page.reload();
+      await expect(page.locator('.sc-greet')).toBeVisible();
+      await expect(banner(page)).toHaveCount(0);
+
+      // the menu row stays: dismissed is quiet, not gone
+      await page.locator('.sc-org-btn').click();
+      await expect(page.locator('.sc-menu-item[data-update]')).toBeVisible();
+    });
+  });
+
+test.describe
+  .serial('the registry cannot be reached', () => {
+    const fx = new Fixture(4769, 4770, '0.99.0');
+    test.beforeAll(async () => {
+      fx.down = true;
+      await fx.start();
+    });
+    test.afterAll(async () => {
+      await fx.stop();
+    });
+
+    test('the app stays quiet and About says so only when asked', async ({ page }) => {
+      await page.goto(`${fx.base()}/`);
+      await expect(page.locator('.sc-greet')).toBeVisible();
+      await expect(banner(page)).toHaveCount(0);
+
+      // straight to the brand path: the / redirect drops query params
+      await page.goto(`${fx.base()}/acme?settings=about`);
+      await page.locator('.sc-set button', { hasText: 'Check for updates' }).first().click();
+      await expect(page.locator('.sc-set .sc-tag', { hasText: "couldn't reach npm" })).toBeVisible();
+    });
+  });

@@ -8,6 +8,7 @@ import { useDemoProducts } from '../useDemoProducts.js';
 import { useShowcase } from '../useShowcase.js';
 import { FailureRow } from '../layout/Failure.js';
 import { describeFailure } from '../failure.js';
+import { UpdateCenterProvider } from './UpdateCenter.js';
 
 // usePresenters and useScenes both expose `loaded`/`error`/`refetch` — spreading
 // both into one context would let whichever lands second silently win for
@@ -124,8 +125,12 @@ export function AppShell() {
         applyBrand,
       }}
     >
-      <ScrollRestoration />
-      <Outlet />
+      {/* Machine-scoped, so it sits above the brand tree: an app update is
+          about this install, not about whichever brand is open. */}
+      <UpdateCenterProvider>
+        <ScrollRestoration />
+        <Outlet />
+      </UpdateCenterProvider>
     </Ctx.Provider>
   );
 }

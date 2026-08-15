@@ -121,6 +121,10 @@ async function run(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
+  // First look ~10s after listen, then daily. check() itself honours the
+  // Settings toggle and SCENRI_NO_UPDATE_CHECK, and stays silent offline.
+  app.updates.schedule();
+
   const query = token ? `/?t=${token}` : '';
   const localUrl = `http://127.0.0.1:${PORT}${query}`;
 

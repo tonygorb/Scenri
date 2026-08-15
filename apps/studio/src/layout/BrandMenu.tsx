@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { CaretDown, GearSix, Plus } from '@phosphor-icons/react';
+import { ArrowCircleUp, CaretDown, GearSix, Plus } from '@phosphor-icons/react';
 import { BrandAvatar, brandName } from './nav.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useUpdateCenter } from '../app/UpdateCenter.js';
 import { brandPath } from '../routes.js';
 import { useOpenSettings } from '../app/dialogs.js';
 
@@ -38,7 +39,12 @@ export function BrandMenu() {
   const { brand } = useBrand();
   const navigate = useNavigate();
   const openSettings = useOpenSettings();
+  const updates = useUpdateCenter();
   const others = brands.filter((b) => b.id !== brand.id);
+  // Gold reads as "notice", never as selection (active state is monochrome by
+  // doctrine). The dot follows the banner's dismissal: waved away is waved away.
+  const updateAvailable = Boolean(updates.status?.available);
+  const showDot = updateAvailable && !updates.dismissed;
 
   return (
     <DropdownMenu.Root>
@@ -49,6 +55,7 @@ export function BrandMenu() {
             {brandName(brand)}
           </span>
           <CaretDown size={11} className="sc-caret" />
+          {showDot && <span className="sc-upd-dot" aria-hidden="true" />}
         </button>
       </DropdownMenu.Trigger>
 
@@ -78,6 +85,12 @@ export function BrandMenu() {
 
         <div className="sc-menu-sep" />
 
+        {updateAvailable && (
+          <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('about')}>
+            <ArrowCircleUp size={18} className="sc-menu-ic" />
+            <span className="sc-menu-lb">Update available — {updates.status?.latest}</span>
+          </DropdownMenu.Item>
+        )}
         <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings()}>
           <GearSix size={18} className="sc-menu-ic" />
           <span className="sc-menu-lb">Settings</span>

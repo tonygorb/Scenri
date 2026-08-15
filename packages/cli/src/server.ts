@@ -30,7 +30,9 @@ import JSZip from 'jszip';
 import { basename, join } from 'node:path';
 import type { Core, EngineAdapter, GenerateRequest, EditRequest, BrandContext, ReferenceRole } from '@scenri/core';
 import { SpendCapError, ASPECT_TOLERANCE, SCHEMA_VERSION } from '@scenri/core';
-import { readMeta } from './meta.js';
+import { readMeta, repoSlug } from './meta.js';
+import { classify, createUpdateChecker, type UpdateChecker } from './update/check.js';
+import { fetchReleaseNotes } from './update/notes.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
 import { driftDiff } from './diff.js';
@@ -69,6 +71,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     /** Abort in-flight generations, close the server, close the database. Idempotent. */
     drain(): Promise<void>;
+    /** The update checker; serve.ts starts its daily schedule after listen. */
+    updates: UpdateChecker;
   }
 }
 
@@ -1245,11 +1249,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const all = core.store.allSettings();
     const out: Record<string, unknown> = {};
     for (const k of SECRET_KEYS) out[k] = Boolean(all[k] || process.env[k.toUpperCase()]);
+    // The one non-secret: a real boolean, not an is-it-set flag.
+    out.updateCheck = updates.enabled();
     return out;
   });
   app.put('/api/settings', async (req) => {
-    const body = req.body as Record<string, string>;
-    for (const k of SECRET_KEYS) if (typeof body[k] === 'string') core.store.setSetting(k, body[k]);
+    const body = req.body as Record<string, unknown>;
+    for (const k of SECRET_KEYS) if (typeof body[k] === 'string') core.store.setSetting(k, body[k] as string);
+    if (typeof body.updateCheck === 'boolean') core.store.setSetting('update.enabled', String(body.updateCheck));
     return { ok: true };
   });
 
@@ -1655,6 +1662,39 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     supervised: runtime.supervised,
     home: core.home,
   }));
+
+  // ---- updates: check (npm dist-tags, daily, cached) + notes (GitHub release)
+  const updates = createUpdateChecker({ name: meta.name, store: core.store, fetchImpl: opts.fetchImpl });
+  app.decorate('updates', updates);
+  const ghSlug = repoSlug(meta.repository);
+
+  const updateStatus = async (force = false) => {
+    const r = await updates.check(force);
+    const kind = r.latest ? classify(meta.version, r.latest) : null;
+    return {
+      enabled: updates.enabled(),
+      current: meta.version,
+      latest: r.latest,
+      available: kind !== null,
+      kind,
+      // Pre-1.0, release-please folds breaking changes into minors
+      // (bump-minor-pre-major), so only a real major asks for attention.
+      attention: kind === 'major',
+      checkedAt: r.checkedAt,
+      notesUrl: r.latest && ghSlug ? `https://github.com/${ghSlug}/releases/tag/v${r.latest}` : null,
+      error: r.error,
+    };
+  };
+
+  app.get('/api/update/status', async () => updateStatus());
+  app.post('/api/update/check', async () => updateStatus(true));
+  app.get('/api/update/notes', async (_req, reply) => {
+    const r = await updates.check();
+    if (!r.latest || !ghSlug) return reply.status(404).send({ error: 'no release to describe' });
+    const notes = await fetchReleaseNotes({ slug: ghSlug, version: r.latest, fetchImpl: opts.fetchImpl });
+    if (!notes) return reply.status(502).send({ error: 'release notes unavailable' });
+    return notes;
+  });
 
   // Settle in-flight work before the process goes away (Ctrl-C, update
   // restart). Abort is the same path the cancel button takes, so every node

@@ -11532,3 +11532,67 @@ textarea:disabled {
 .sc-import-note .sc-failrow {
   max-width: none;
 }
+
+/* ================================================================== */
+/* Update lifecycle: the Home banner, the brand-trigger dot, the menu  */
+/* row. Gold throughout — notice, never selection (DESIGN.md).         */
+/* ================================================================== */
+
+/* A card of its own on Home: elsewhere .sc-banner borrows its tray from
+   .sc-notes, but the launcher screen gives it nothing to sit in. */
+.sc-upd-banner {
+  margin: 0 0 16px;
+  border: 1px solid var(--sc-line-strong);
+  border-left: 3px solid var(--sc-gold);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-panel);
+}
+
+/* Dismiss is deliberately the quietest control on the row: waving away is
+   allowed, never invited. */
+.sc-banner-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: 2px;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-banner-x:hover {
+  background: var(--sc-raised);
+  color: var(--sc-fg);
+}
+.sc-banner-x:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+
+/* Same grammar as the bell's dot, on the brand trigger: the one place in the
+   chrome that is about this machine rather than this brand. */
+.sc-upd-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-gold);
+  box-shadow: 0 0 0 2px var(--sc-bg);
+  pointer-events: none;
+}
+
+.sc-menu-item[data-update] .sc-menu-ic {
+  color: var(--sc-gold);
+}
+
+/* break-all above is for paths (the Library rows); sentences opt back into
+   word wrapping, else "part of" splits mid-word at the row's edge. */
+.sc-set-row small[data-prose] {
+  word-break: normal;
+  overflow-wrap: break-word;
+}

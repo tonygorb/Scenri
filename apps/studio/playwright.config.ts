@@ -46,6 +46,9 @@ export default defineConfig({
       // The seed needs one finished shot. The demo engine draws a placeholder
       // and costs nothing, and it is registered only because this says so.
       SCENRI_DEMO_ENGINE: '1',
+      // The shared server must never reach the real npm registry.
+      // updates.spec.ts spawns its own server against a fixture registry.
+      SCENRI_NO_UPDATE_CHECK: '1',
     },
   },
   projects: [
