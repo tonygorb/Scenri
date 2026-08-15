@@ -11596,3 +11596,49 @@ textarea:disabled {
   word-break: normal;
   overflow-wrap: break-word;
 }
+
+/* The moment between versions: the old server left on purpose, the new one is
+   not up yet. Full-bleed on purpose — every control behind it points at a
+   process that is gone. */
+.sc-upd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--sc-bg) 82%, transparent);
+  backdrop-filter: blur(6px);
+}
+.sc-upd-overlay-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 36px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  font-family: var(--sc-font);
+}
+.sc-upd-overlay-card svg {
+  color: var(--sc-gold);
+  animation: sc-upd-breathe 1.8s ease-in-out infinite;
+}
+.sc-upd-overlay-card b {
+  font: 600 13.5px / 1.4 var(--sc-font);
+}
+.sc-upd-overlay-card small {
+  font-size: 12px;
+  color: var(--sc-fg2);
+}
+@keyframes sc-upd-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}

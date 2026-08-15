@@ -4,6 +4,7 @@ import { Dialog } from '@radix-ui/themes';
 import { Broom, Database, Info, Lightning, Palette, PiggyBank, Sun, TrashSimple, X } from '@phosphor-icons/react';
 import { api, type EngineInfo, type ReleaseNotes, type TreeNode, type VersionInfo } from '../api.js';
 import { useUpdateCenter } from '../app/UpdateCenter.js';
+import { canOneClick } from '../app/updateRules.js';
 import { useDialogParam } from '../app/AppShell.js';
 import type { Pane } from '../app/dialogs.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -587,6 +588,26 @@ function About({ version }: { version: VersionInfo | null }) {
                 Running from source — pull and rebuild when you're ready. Nothing here touches your checkout.
               </small>
             </span>
+          </div>
+        ) : canOneClick(s) ? (
+          <div className="sc-set-row">
+            <span className="txt">
+              <b>Update</b>
+              <small data-prose="">
+                {updates.applyError ??
+                  (s.phase === 'ready'
+                    ? `${s.stagedVersion} is downloaded and verified — restarting finishes it.`
+                    : 'Downloads next to the running version, verifies it loads, then restarts. Your library stays put.')}
+              </small>
+            </span>
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary"
+              disabled={updates.busy !== 'idle'}
+              onClick={() => void updates.apply()}
+            >
+              {updates.busy === 'applying' ? 'Updating…' : s.phase === 'ready' ? 'Restart now' : 'Update now'}
+            </button>
           </div>
         ) : (
           <div className="sc-set-row">

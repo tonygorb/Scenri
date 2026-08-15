@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { ArrowCircleUp, X } from '@phosphor-icons/react';
 import { api, type UpdateStatus } from '../api.js';
 import { useOpenSettings } from './dialogs.js';
+import { canOneClick } from './updateRules.js';
 
 /**
  * The machine-scoped update awareness, mounted once in AppShell — deliberately
@@ -44,6 +45,10 @@ interface UpdateCenterValue {
   /** The Home banner is dismissed per version; the next release brings it back. */
   dismissed: boolean;
   dismiss(): void;
+  /** The one click: download + verify, then restart into the new version. */
+  apply(): Promise<void>;
+  busy: 'idle' | 'applying' | 'restarting';
+  applyError: string | null;
 }
 
 const Ctx = createContext<UpdateCenterValue | null>(null);
@@ -109,7 +114,87 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
 
   const dismissed = status?.latest != null && status.latest === dismissedVersion;
 
-  return <Ctx.Provider value={{ status, checking, checkNow, dismissed, dismiss }}>{children}</Ctx.Provider>;
+  const [busy, setBusy] = useState<'idle' | 'applying' | 'restarting'>('idle');
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  const restart = useCallback(async (oldVersion: string | undefined) => {
+    setBusy('restarting');
+    try {
+      await api.updateRestart();
+    } catch {
+      /* the socket may die mid-reply; the polls below are the real answer */
+    }
+    // the launcher is swapping processes under us: poll until a different
+    // version answers, then reload into it
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+      await sleep(800);
+      try {
+        const v = await api.version();
+        if (v.version !== oldVersion) {
+          location.reload();
+          return;
+        }
+      } catch {
+        /* between processes */
+      }
+    }
+    setBusy('idle');
+    setApplyError('The restart did not complete — check the terminal scenri runs in.');
+  }, []);
+
+  const apply = useCallback(async () => {
+    if (busy !== 'idle') return;
+    setApplyError(null);
+    const oldVersion = status?.current;
+    try {
+      if (status?.phase !== 'ready') {
+        setBusy('applying');
+        await api.updateApply();
+        for (;;) {
+          await sleep(1500);
+          const s = await api.updateStatus();
+          setStatus(s);
+          if (s.phase === 'ready') break;
+          if (s.phase === 'error') {
+            setApplyError(s.error ?? 'The update could not be staged.');
+            setBusy('idle');
+            return;
+          }
+        }
+      }
+      await restart(oldVersion);
+    } catch (err) {
+      setApplyError(String((err as Error)?.message ?? err));
+      setBusy('idle');
+    }
+  }, [busy, status, restart]);
+
+  return (
+    <Ctx.Provider value={{ status, checking, checkNow, dismissed, dismiss, apply, busy, applyError }}>
+      {children}
+      {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
+    </Ctx.Provider>
+  );
+}
+
+/**
+ * The moment between versions. The server answered the restart request and
+ * went away on purpose; this holds the room until the new one answers, then
+ * reloads. Drafts and prefs live in localStorage per brand, so the work on
+ * screen survives the reload.
+ */
+function RestartOverlay({ version }: { version: string | null }) {
+  return (
+    <div className="sc-upd-overlay" role="status" aria-live="polite">
+      <div className="sc-upd-overlay-card">
+        <ArrowCircleUp size={22} />
+        <b>{version ? `Updating to scenri ${version}` : 'Updating scenri'}</b>
+        <small>Restarting — this page reconnects by itself.</small>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -118,7 +203,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
  * matters). Waving it away holds for this version only.
  */
 export function UpdateBanner() {
-  const { status, dismissed, dismiss } = useUpdateCenter();
+  const { status, dismissed, dismiss, apply, busy, applyError } = useUpdateCenter();
   const openSettings = useOpenSettings();
   if (!status?.available || dismissed) return null;
 
@@ -130,16 +215,23 @@ export function UpdateBanner() {
       <span className="sc-banner-txt">
         <b>scenri {status.latest} is available</b>
         <small>
-          {status.attention
-            ? 'A major update — worth a look at the notes before you install.'
-            : `You are on ${status.current}. Your work stays where it is.`}
+          {applyError ??
+            (status.attention
+              ? 'A major update — worth a look at the notes before you install.'
+              : `You are on ${status.current}. Your work stays where it is.`)}
         </small>
       </span>
       <button type="button" className="sc-banner-act" onClick={() => openSettings('about')}>
         What's new
       </button>
-      <button type="button" className="sc-banner-act" data-primary="" onClick={() => openSettings('about')}>
-        Update
+      <button
+        type="button"
+        className="sc-banner-act"
+        data-primary=""
+        disabled={busy !== 'idle'}
+        onClick={() => (canOneClick(status) ? void apply() : openSettings('about'))}
+      >
+        {busy === 'applying' ? 'Updating…' : 'Update'}
       </button>
       <button type="button" className="sc-banner-x" aria-label="Dismiss until the next release" onClick={dismiss}>
         <X size={13} />

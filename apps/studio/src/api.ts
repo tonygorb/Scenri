@@ -139,6 +139,30 @@ export interface EngineInfo {
   generationsTotal: number | null;
 }
 
+/**
+ * A failed request, with the parts a bare Error threw away.
+ *
+ * Every call below funnels through `req`, and it used to flatten the status,
+ * the method and the URL into a message string -- so all ~35 call sites that
+ * surface an error could say *what* went wrong but never *which* request, or
+ * with what code. Carrying them costs nothing, and it is what lets a bug
+ * report say "POST /api/nodes -> 402" rather than only "monthly cap reached".
+ */
+export interface ApiError extends Error {
+  status: number;
+  method: string;
+  url: string;
+}
+
+/**
+ * Notified of every failed request. Null in the public build, where nothing
+ * ever calls the setter, so it costs one null check and nothing else.
+ */
+let onReqError: ((e: ApiError) => void) | null = null;
+export const setApiErrorSink = (fn: ((e: ApiError) => void) | null): void => {
+  onReqError = fn;
+};
+
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,
@@ -154,7 +178,9 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
     } catch {
       /* ignore */
     }
-    throw new Error(msg);
+    const err = Object.assign(new Error(msg), { status: res.status, method, url }) as ApiError;
+    onReqError?.(err);
+    throw err;
   }
   return res.json() as Promise<T>;
 }
@@ -180,6 +206,11 @@ export type UpdateStatus = {
   checkedAt: number | null;
   notesUrl: string | null;
   error: string | null;
+  /** One-click is possible here; when false, blockReason names why and the manual command remains. */
+  canApply: boolean;
+  blockReason: 'dev' | 'unsupervised' | 'launcher-too-old' | 'no-npm' | null;
+  phase: 'idle' | 'staging' | 'ready' | 'error';
+  stagedVersion: string | null;
 };
 
 export type ReleaseNotes = { name: string; body: string; url: string; publishedAt: string | null };
@@ -281,6 +312,8 @@ export const api = {
   updateStatus: () => req<UpdateStatus>('GET', '/api/update/status'),
   updateCheck: () => req<UpdateStatus>('POST', '/api/update/check'),
   updateNotes: () => req<ReleaseNotes>('GET', '/api/update/notes'),
+  updateApply: () => req<{ ok: true; staging: string }>('POST', '/api/update/apply'),
+  updateRestart: () => req<{ ok: true }>('POST', '/api/update/restart'),
   /** The reference frames a scene has on disk, if any. */
   sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),

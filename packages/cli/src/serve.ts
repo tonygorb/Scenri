@@ -1,7 +1,7 @@
 import { createCore, SchemaTooNewError } from '@scenri/core';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { createEngineRegistry } from './engines.js';
@@ -40,7 +40,15 @@ function lanAddresses(): string[] {
  */
 export function detectInstallKind(entryPath: string, home: string): InstallKind {
   if (!entryPath.includes(`${sep}dist${sep}`) && !entryPath.endsWith(`${sep}dist`)) return 'dev';
-  if (entryPath.startsWith(join(home, 'app', 'versions') + sep)) return 'managed';
+  // Module paths arrive realpathed; SCENRI_HOME may travel through a symlink
+  // (macOS /tmp does), so compare like with like.
+  let homeReal = home;
+  try {
+    homeReal = realpathSync(home);
+  } catch {
+    /* a home that does not exist yet cannot hold a managed install */
+  }
+  if (entryPath.startsWith(join(homeReal, 'app', 'versions') + sep)) return 'managed';
   if (entryPath.includes(`${sep}_npx${sep}`)) return 'npx';
   if (entryPath.includes(`${sep}node_modules${sep}`)) return 'global';
   return 'unknown';
@@ -86,7 +94,11 @@ async function run(): Promise<void> {
     engines,
     studioDist,
     access: { allowedHosts: reachableAt, token },
-    runtime: { installKind, supervised },
+    runtime: {
+      installKind,
+      supervised,
+      launcherProtocol: Number(process.env.SCENRI_LAUNCHER_PROTOCOL ?? '1') || 1,
+    },
   });
 
   // A restart after an update races the outgoing process for the port. Under

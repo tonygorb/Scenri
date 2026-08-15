@@ -33,6 +33,8 @@ import { SpendCapError, ASPECT_TOLERANCE, SCHEMA_VERSION } from '@scenri/core';
 import { readMeta, repoSlug } from './meta.js';
 import { classify, createUpdateChecker, type UpdateChecker } from './update/check.js';
 import { fetchReleaseNotes } from './update/notes.js';
+import { findNpm, stageVersion } from './update/stage.js';
+import { compareSemver, newestStaged } from './update/versionsDir.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
 import { driftDiff } from './diff.js';
@@ -44,6 +46,7 @@ import {
   cancelCatalogImport,
   brandJsonWithCatalogProducts,
   resolveLibraryProduct,
+  runningImportCount,
 } from './catalogImport.js';
 import {
   brandCharacters,
@@ -57,6 +60,7 @@ import {
   listAssetBuilds,
   lintSceneProse,
   presenterRecordFrom,
+  runningAssetBuildCount,
   sceneRecordFrom,
   scenePreviewPrompt,
   startAssetBuild,
@@ -87,7 +91,11 @@ export interface ServerOptions {
   templatesDir?: string; // override for tests
   access?: AccessOptions; // host allowlist + LAN token; loopback-only by default
   /** Posture serve.ts works out from its own entry path; tests leave it unset. */
-  runtime?: { installKind: InstallKind; supervised: boolean };
+  runtime?: { installKind: InstallKind; supervised: boolean; launcherProtocol?: number };
+  /** The staging function, injected in tests so no npm runs. */
+  stageImpl?: typeof stageVersion;
+  /** process.exit, injected in tests so the restart route can be observed. */
+  exitImpl?: (code: number) => void;
   /** Reads a brand's own references into structured records. Injected in tests. */
   analyzer?: Analyzer;
   /** Installs and signs in the local Codex CLI for the setup wizard. Injected in tests. */
@@ -1668,9 +1676,39 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   app.decorate('updates', updates);
   const ghSlug = repoSlug(meta.repository);
 
+  // The apply state machine: idle → staging → ready | error. 'ready' also
+  // covers a version staged by `scenri update` in a terminal before this boot.
+  let applyState: { phase: 'idle' | 'staging' | 'ready' | 'error'; version: string | null; error: string | null } = {
+    phase: 'idle',
+    version: null,
+    error: null,
+  };
+  const effectiveApply = () => {
+    if (applyState.phase === 'idle') {
+      const staged = newestStaged(core.home, meta.name);
+      if (staged && compareSemver(staged, meta.version) > 0) {
+        return { phase: 'ready' as const, version: staged, error: null };
+      }
+    }
+    return applyState;
+  };
+
+  /** Why one-click cannot run here, or null when it can. The manual `scenri update` always remains. */
+  const REQUIRED_PROTOCOL = 1;
+  let npmProbe: boolean | null = null;
+  const blockReason = (): 'dev' | 'unsupervised' | 'launcher-too-old' | 'no-npm' | null => {
+    if (runtime.installKind === 'dev') return 'dev';
+    if (!runtime.supervised) return 'unsupervised';
+    if ((runtime.launcherProtocol ?? 1) < REQUIRED_PROTOCOL) return 'launcher-too-old';
+    if (opts.stageImpl) return null; // injected staging carries its own npm story
+    npmProbe ??= findNpm() !== null;
+    return npmProbe ? null : 'no-npm';
+  };
+
   const updateStatus = async (force = false) => {
     const r = await updates.check(force);
     const kind = r.latest ? classify(meta.version, r.latest) : null;
+    const apply = effectiveApply();
     return {
       enabled: updates.enabled(),
       current: meta.version,
@@ -1682,12 +1720,79 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       attention: kind === 'major',
       checkedAt: r.checkedAt,
       notesUrl: r.latest && ghSlug ? `https://github.com/${ghSlug}/releases/tag/v${r.latest}` : null,
-      error: r.error,
+      error: apply.phase === 'error' ? apply.error : r.error,
+      canApply: blockReason() === null,
+      blockReason: blockReason(),
+      phase: apply.phase,
+      stagedVersion: apply.version,
     };
   };
 
   app.get('/api/update/status', async () => updateStatus());
   app.post('/api/update/check', async () => updateStatus(true));
+
+  app.post('/api/update/apply', async (_req, reply) => {
+    // Never over live work: a restart mid-generation is the one way this
+    // system could cost someone an image.
+    const busy = runningGenerations.size + runningImportCount() + runningAssetBuildCount();
+    if (busy > 0) {
+      return reply.status(409).send({ error: `work is still running (${busy} task${busy === 1 ? '' : 's'})` });
+    }
+    const block = blockReason();
+    if (block)
+      return reply.status(409).send({ error: `one-click update cannot run here (${block})`, blockReason: block });
+    if (applyState.phase === 'staging') return reply.status(409).send({ error: 'an update is already staging' });
+
+    const r = await updates.check();
+    const kind = r.latest ? classify(meta.version, r.latest) : null;
+    if (!r.latest || kind === null) return reply.status(409).send({ error: 'nothing newer to install' });
+
+    const target = r.latest;
+    applyState = { phase: 'staging', version: target, error: null };
+    void (opts.stageImpl ?? stageVersion)({
+      home: core.home,
+      pkg: meta.name,
+      source: { version: target },
+      keep: new Set([meta.version]),
+    })
+      .then((res) => {
+        applyState = res.ok
+          ? { phase: 'ready', version: res.version, error: null }
+          : { phase: 'error', version: null, error: `${res.reason}: ${res.detail}` };
+      })
+      .catch((err) => {
+        applyState = { phase: 'error', version: null, error: String((err as Error)?.message ?? err) };
+      });
+    return { ok: true, staging: target };
+  });
+
+  app.post('/api/update/restart', async (_req, reply) => {
+    const apply = effectiveApply();
+    if (apply.phase !== 'ready') return reply.status(409).send({ error: 'no staged update to restart into' });
+    if (!runtime.supervised) {
+      return reply.status(409).send({ error: 'not supervised — restart scenri yourself', blockReason: 'unsupervised' });
+    }
+    // Answer first, then go: the browser needs this reply to start its
+    // reconnect overlay before the socket disappears.
+    reply.send({ ok: true });
+    const exit = opts.exitImpl ?? ((code: number) => process.exit(code));
+    setTimeout(() => {
+      let done = false;
+      setTimeout(() => {
+        if (!done) exit(75);
+      }, 5000).unref();
+      void app
+        .drain()
+        .then(() => {
+          done = true;
+          exit(75);
+        })
+        .catch(() => {
+          done = true;
+          exit(75);
+        });
+    }, 50);
+  });
   app.get('/api/update/notes', async (_req, reply) => {
     const r = await updates.check();
     if (!r.latest || !ghSlug) return reply.status(404).send({ error: 'no release to describe' });

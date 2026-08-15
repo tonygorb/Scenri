@@ -57,6 +57,20 @@ afterEach(async () => {
   rmSync(home, { recursive: true, force: true });
 });
 
+describe('detectInstallKind', () => {
+  it('recognises a managed install even when the home path travels through a symlink', async () => {
+    const { detectInstallKind } = await import('../src/serve.js');
+    const { symlinkSync, mkdirSync, realpathSync } = await import('node:fs');
+    const real = join(home, 'real-home');
+    mkdirSync(join(real, 'app', 'versions', '1.0.0', 'node_modules', 'scenri', 'dist'), { recursive: true });
+    const alias = join(home, 'alias-home');
+    symlinkSync(real, alias);
+    // node reports module paths fully realpathed; the SCENRI_HOME env may be the alias
+    const entry = join(realpathSync(real), 'app', 'versions', '1.0.0', 'node_modules', 'scenri', 'dist', 'serve.js');
+    expect(detectInstallKind(entry, alias)).toBe('managed');
+  });
+});
+
 describe('GET /api/version', () => {
   it('reports package identity, schema version and runtime posture', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/version' });

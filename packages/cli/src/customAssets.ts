@@ -961,3 +961,8 @@ export function customAssetHashes(brandJson: any): string[] {
   }
   return out;
 }
+
+/** How many asset builds are mid-flight — the update path refuses to restart over one. */
+export function runningAssetBuildCount(): number {
+  return running.size;
+}

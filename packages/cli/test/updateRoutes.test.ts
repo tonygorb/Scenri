@@ -72,6 +72,10 @@ describe('GET /api/update/status', () => {
       checkedAt: expect.any(Number),
       notesUrl: 'https://github.com/tonygorb/scenri/releases/tag/v0.9.9',
       error: null,
+      canApply: false,
+      blockReason: 'unsupervised',
+      phase: 'idle',
+      stagedVersion: null,
     });
   });
 
@@ -120,6 +124,141 @@ describe('GET /api/update/notes', () => {
     await app.inject({ method: 'GET', url: '/api/update/status' });
     const res = await app.inject({ method: 'GET', url: '/api/update/notes' });
     expect(res.statusCode).toBe(502);
+  });
+});
+
+describe('one-click apply + restart', () => {
+  const supervised = { installKind: 'managed' as const, supervised: true };
+
+  /** Generates forever; settles only when aborted. */
+  const hangingEngine = (): EngineAdapter => {
+    const hang = (signal?: AbortSignal) =>
+      new Promise<never>((_res, reject) => {
+        signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      });
+    return {
+      capabilities: () => ({
+        id: 'hang',
+        displayName: 'Hang',
+        localOnly: false,
+        supportsEdit: false,
+        supportsMask: false,
+        maxReferenceImages: 0,
+        placeholder: true,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: (_r, s) => hang(s),
+      edit: (_r, s) => hang(s),
+    };
+  };
+
+  const okStage = async () => ({ ok: true as const, version: '0.9.9', entry: '/staged/entry' });
+
+  it('applies: stages async, then reports ready with the staged version', async () => {
+    app = buildServer({
+      core,
+      engines: registryWith(),
+      fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+      runtime: supervised,
+      stageImpl: okStage,
+    });
+    await app.inject({ method: 'GET', url: '/api/update/status' });
+    const kicked = await app.inject({ method: 'POST', url: '/api/update/apply' });
+    expect(kicked.statusCode).toBe(200);
+    for (let i = 0; i < 50; i++) {
+      const s = (await app.inject({ method: 'GET', url: '/api/update/status' })).json();
+      if (s.phase !== 'staging') {
+        expect(s).toMatchObject({ phase: 'ready', stagedVersion: '0.9.9', canApply: true });
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  });
+
+  it('refuses to apply while a generation is running', async () => {
+    app = buildServer({
+      core,
+      engines: registryWith(hangingEngine()),
+      fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+      runtime: supervised,
+      stageImpl: okStage,
+    });
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        parentId: proj.root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'hang',
+        width: 256,
+        height: 256,
+      },
+    });
+
+    const refused = await app.inject({ method: 'POST', url: '/api/update/apply' });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error).toContain('running');
+    await app.drain();
+  });
+
+  it('refuses to apply unsupervised, naming the reason', async () => {
+    app = buildServer({ core, engines: registryWith(), fetchImpl: updateFetch({ latest: '0.9.9' }).impl });
+    const refused = await app.inject({ method: 'POST', url: '/api/update/apply' });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ blockReason: 'unsupervised' });
+  });
+
+  it('surfaces a failed staging as phase error with the detail', async () => {
+    app = buildServer({
+      core,
+      engines: registryWith(),
+      fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+      runtime: supervised,
+      stageImpl: async () => ({ ok: false as const, reason: 'no-npm' as const, detail: 'npm is not reachable' }),
+    });
+    await app.inject({ method: 'POST', url: '/api/update/apply' });
+    for (let i = 0; i < 50; i++) {
+      const s = (await app.inject({ method: 'GET', url: '/api/update/status' })).json();
+      if (s.phase !== 'staging') {
+        expect(s).toMatchObject({ phase: 'error', error: expect.stringContaining('npm') });
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  });
+
+  it('restarts only from ready, by draining and exiting 75', async () => {
+    const exits: number[] = [];
+    app = buildServer({
+      core,
+      engines: registryWith(),
+      fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+      runtime: supervised,
+      stageImpl: okStage,
+      exitImpl: (code) => exits.push(code),
+    });
+    const early = await app.inject({ method: 'POST', url: '/api/update/restart' });
+    expect(early.statusCode).toBe(409);
+
+    await app.inject({ method: 'POST', url: '/api/update/apply' });
+    await new Promise((r) => setTimeout(r, 50));
+    const res = await app.inject({ method: 'POST', url: '/api/update/restart' });
+    expect(res.statusCode).toBe(200);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(exits).toEqual([75]);
   });
 });
 

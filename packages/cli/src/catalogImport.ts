@@ -260,3 +260,8 @@ export function brandJsonWithCatalogProducts(core: Core, brandId: string): any {
   }));
   return json;
 }
+
+/** How many imports are mid-flight — the update path refuses to restart over one. */
+export function runningImportCount(): number {
+  return running.size;
+}
