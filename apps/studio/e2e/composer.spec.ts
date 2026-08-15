@@ -126,15 +126,17 @@ test('a refusal is on the screen, and the brief survives it', async ({ page }) =
   await page.keyboard.type('a shot that will be refused');
   await dock(page).locator('.sc-send').click();
 
-  const banner = page.locator('.sc-banner[data-tone="error"]');
-  await expect(banner).toBeVisible();
-  await expect(banner).toContainText(refusal);
+  // A refused send is reported as an event, in the same toast every other
+  // failure in the app uses; it no longer owns a card above the composer.
+  const failed = page.locator('.sc-toast', { hasText: 'That did not send' });
+  await expect(failed).toBeVisible();
+  await expect(failed).toContainText(refusal);
 
   // nothing typed is thrown away by a send that never happened
   expect(await sentence(page)).toContain('a shot that will be refused');
 
-  await banner.locator('.sc-banner-act').click();
-  await expect(banner).toHaveCount(0);
+  await failed.locator('.sc-toast-x').click();
+  await expect(failed).toHaveCount(0);
 });
 
 test('the settings ride along with the brief, so a shot can be run again as itself', async ({ page }) => {
@@ -154,7 +156,7 @@ test('the settings ride along with the brief, so a shot can be run again as itse
   await dock(page).locator('.sc-prompt-pills [aria-label="2 variants"]').click();
   await page.getByRole('menuitem', { name: '3 variants' }).click();
   await dock(page).locator('.sc-send').click();
-  await expect(page.locator('.sc-banner[data-tone="error"]')).toBeVisible();
+  await expect(page.locator('.sc-toast', { hasText: 'That did not send' })).toBeVisible();
 
   expect(body?.count).toBe(3);
   expect(body?.brief?.variants).toBe(3);

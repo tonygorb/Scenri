@@ -108,6 +108,20 @@ export interface TextLayer {
   background?: { color: string; paddingX: number; paddingY: number; radius: number } | null;
   stroke?: { color: string; width: number } | null;
 }
+/** Which setup step would make an engine ready, when the engine knows. */
+export type UnavailableCode = 'not-installed' | 'not-authenticated';
+
+export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'ready';
+
+export interface CodexSetupResult {
+  ok: boolean;
+  state: CodexSetupState;
+  /** What to run by hand when the automatic path could not work. */
+  fallbackCommand?: string;
+  docsUrl?: string;
+  detail?: string;
+}
+
 export interface EngineInfo {
   id: string;
   displayName: string;
@@ -115,8 +129,10 @@ export interface EngineInfo {
   supportsEdit: boolean;
   available: boolean;
   reason: string | null;
+  code: UnavailableCode | null;
   monthlySpend: number;
   cap: number | null;
+  /** Not billed per image through scenri. Not a claim that it costs nothing. */
   free: boolean;
   perGeneration: number;
   generationsLeft: number | null;
@@ -182,6 +198,10 @@ export const api = {
     req<{ ok: true; added: number }>('POST', `/api/sets/${id}/nodes`, { nodeIds }),
   removeFromSet: (id: string, nodeId: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}/nodes/${nodeId}`),
   engines: () => req<EngineInfo[]>('GET', '/api/engines'),
+  codexStatus: () => req<{ state: CodexSetupState; reason?: string }>('GET', '/api/engines/codex/status'),
+  installCodex: () => req<CodexSetupResult>('POST', '/api/engines/codex/install'),
+  /** Resolves when the browser sign-in finishes; poll codexStatus alongside it. */
+  loginCodex: () => req<CodexSetupResult>('POST', '/api/engines/codex/login'),
   setCap: (engineId: string, capUsd: number | null) => req<{ ok: true }>('PUT', '/api/caps', { engineId, capUsd }),
   addNode: (p: {
     projectId: string;
@@ -322,7 +342,7 @@ export interface AssetBuildCapabilities {
   canGenerate: boolean;
   engineId: string | null;
   engineName: string | null;
-  /** True when building costs the user nothing but time. */
+  /** Not billed per image through scenri. Codex still spends a ChatGPT plan. */
   free: boolean;
 }
 

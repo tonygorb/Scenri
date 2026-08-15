@@ -10,7 +10,11 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { EngineAvailability } from '@scenri/core';
 
+export const NOT_INSTALLED_REASON = 'Codex CLI is not installed on this computer';
+export const NOT_AUTHENTICATED_REASON = 'Codex CLI is installed but not signed in';
+/** @deprecated kept so older callers still compile; prefer the two specific reasons. */
 export const NOT_AVAILABLE_REASON = 'Codex CLI not found or not signed in (run: codex login)';
 export const DEFAULT_TIMEOUT_MS = 300_000;
 
@@ -25,7 +29,7 @@ export interface RunnerOptions {
 export interface CodexRunner {
   run(args: string[], signal?: AbortSignal): Promise<void>;
   withWorkDir<T>(fn: (dir: string) => Promise<T>): Promise<T>;
-  probe(): Promise<{ ok: boolean; reason?: string }>;
+  probe(): Promise<EngineAvailability>;
 }
 
 /** Shared exec args. The prompt is always the positional tail. */
@@ -119,28 +123,49 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     }
   }
 
-  /** `codex --version`. Never rejects: an absent binary is an answer, not a fault. */
-  function probe(): Promise<{ ok: boolean; reason?: string }> {
+  /**
+   * Run one short `codex` subcommand and report only whether it exited 0.
+   * Never rejects: an absent binary is an answer, not a fault. stdout/stderr
+   * are drained for the same reason `run` drains them — a full pipe hangs.
+   */
+  function exitedZero(args: string[]): Promise<boolean> {
     return new Promise((resolve) => {
       let settled = false;
-      const done = (r: { ok: boolean; reason?: string }) => {
+      const done = (ok: boolean) => {
         if (!settled) {
           settled = true;
-          resolve(r);
+          resolve(ok);
         }
       };
       let child: ReturnType<typeof nodeSpawn>;
       try {
-        child = spawnImpl('codex', ['--version']);
+        child = spawnImpl('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
       } catch {
-        done({ ok: false, reason: NOT_AVAILABLE_REASON });
+        done(false);
         return;
       }
-      child.on('error', () => done({ ok: false, reason: NOT_AVAILABLE_REASON }));
-      child.on('exit', (code: number | null) => {
-        done(code === 0 ? { ok: true } : { ok: false, reason: NOT_AVAILABLE_REASON });
-      });
+      child.stdout?.on('data', () => {});
+      child.stderr?.on('data', () => {});
+      child.on('error', () => done(false));
+      child.on('exit', (code: number | null) => done(code === 0));
     });
+  }
+
+  /**
+   * Two questions, not one: is the binary here, and is there a session behind
+   * it. They have different fixes — one is an install, the other is a sign-in —
+   * so collapsing them into a single "not available" string left the setup UI
+   * guessing which screen to show. Exit codes only; the wording of codex's own
+   * output is not a contract we can pin.
+   */
+  async function probe(): Promise<EngineAvailability> {
+    if (!(await exitedZero(['--version']))) {
+      return { ok: false, reason: NOT_INSTALLED_REASON, code: 'not-installed' };
+    }
+    if (!(await exitedZero(['login', 'status']))) {
+      return { ok: false, reason: NOT_AUTHENTICATED_REASON, code: 'not-authenticated' };
+    }
+    return { ok: true };
   }
 
   return { run, withWorkDir, probe };

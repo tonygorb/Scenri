@@ -2969,12 +2969,11 @@ button.sc-fact:hover {
   display: grid;
   place-items: center;
 }
+/* Only a place to stand, now that what goes in it brings its own type and
+   rhythm — the same change .sc-cell-failed got, for the same reason. */
 .sc-cmp-err {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  display: grid;
+  place-items: center;
 }
 .sc-cmp-note {
   margin: 14px 0 0;
@@ -3048,6 +3047,7 @@ button.sc-fact:hover {
   margin: 0;
   padding: 12px 14px 0;
 }
+
 .sc-target-lb {
   display: inline-flex;
   align-items: center;
@@ -3119,36 +3119,28 @@ button.sc-fact:hover {
   text-align: left;
 }
 .sc-cell[data-failed] {
-  aspect-ratio: 4 / 5;
   border-style: dashed;
   background: none;
 }
 .sc-cell[data-cancelled] {
-  aspect-ratio: 4 / 5;
   border-color: var(--sc-line);
   background: none;
 }
+/* Only a place to stand. What goes in it is a .sc-fail, which brings its own
+   type, colour and rhythm — this used to set all three and fight it. */
 .sc-cell-failed {
   position: absolute;
   inset: 0;
   display: grid;
   place-content: center;
-  gap: 6px;
-  justify-items: center;
-  color: var(--sc-fg3);
-  font-size: 12px;
   /* the icon/text/button used to live inside .sc-cell-open, so a click
      anywhere here bubbled up to "open" for free; now a sibling, so the tile
-     stays clickable everywhere except the button's own small hit area */
+     stays clickable everywhere except the buttons' own small hit areas */
   pointer-events: none;
 }
-.sc-cell-failed .sc-cell-why {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sc-cell-retry {
+.sc-cell-retry,
+.sc-cell-failed .sc-s,
+.sc-cell-failed .sc-fail-alt {
   pointer-events: auto;
 }
 /* .sc-cell-open's own children were absolutely positioned (shimmer, tag) or
@@ -6048,10 +6040,6 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-cell[data-cancelled] {
   aspect-ratio: 3 / 2;
 }
-.sc-cell-failed {
-  gap: 8px;
-  font-size: 11.5px;
-}
 
 /* ---------- control row: one scale, two groups, no Radix margin surprises ----------
    Radix ghost triggers ship negative inline margins, which silently ate the
@@ -8402,6 +8390,10 @@ a.sc-ingredient:focus-visible {
   color: var(--sc-star);
   border-color: color-mix(in srgb, var(--sc-gold) 45%, transparent);
 }
+/* One state, so one dot. There used to be three colours for what is a single
+   boolean on the server: green ready, grey unavailable, gold unavailable-and-
+   fixable. Nothing that is not connected carries a status now — its own action
+   button says so more plainly than a grey dot ever did. */
 .sc-stat {
   display: inline-flex;
   align-items: center;
@@ -8411,16 +8403,28 @@ a.sc-ingredient:focus-visible {
   white-space: nowrap;
 }
 .sc-stat .d {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex: none;
-}
-.sc-stat.on .d {
   background: var(--sc-green);
 }
-.sc-stat.off .d {
-  background: var(--sc-fg3);
+/* An engine that is neither connected nor fixable from here says why in its own
+   words. Prose, so unlike a state word it may wrap rather than push the row. */
+.sc-stat-why {
+  white-space: normal;
+  text-align: right;
+  max-width: 15rem;
+}
+/* The row's own action: a smaller pill than a standalone button, because it is
+   the third thing in a row and should not out-weigh the name. Height is fixed
+   so every row's action sits on the same baseline whatever its label. */
+.sc-eng-act {
+  flex: none;
+  height: 28px;
+  padding: 0 13px;
+  font-size: 12px;
+  border-radius: var(--sc-radius-full);
 }
 
 .sc-set-row {
@@ -8463,18 +8467,18 @@ a.sc-ingredient:focus-visible {
   width: auto;
 }
 
+/* A provider, on one line: mark, name over its one meta line, state, action.
+   Every row carries both text lines whether or not it is connected, so four
+   rows scan as one column of names rather than as blocks of differing height. */
 .sc-eng {
-  display: grid;
-  gap: 10px;
-  padding: 14px 16px;
-}
-.sc-eng + .sc-eng {
-  border-top: 1px solid var(--sc-line);
-}
-.sc-eng-top {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 12px 16px;
+  min-height: 58px;
+}
+.sc-eng + .sc-eng {
+  border-top: 1px solid var(--sc-line);
 }
 .sc-eng-ic {
   width: 32px;
@@ -8483,10 +8487,28 @@ a.sc-ingredient:focus-visible {
   display: grid;
   place-items: center;
   border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius);
+  /* Tighter than a field's radius: at 32px the 10px default rounded these into
+     pills-in-waiting, and a provider's plate should read as its icon. */
+  border-radius: var(--sc-radius-sm);
   background: var(--sc-raised);
-  color: var(--sc-fg2);
+  color: var(--sc-fg);
 }
+/* A provider that publishes an icon wears that icon: its own plate colour, its
+   own mark colour, no border and nothing mixed in. The pair is set inline from
+   the mark table and is identical in both themes, because an app icon does not
+   have a dark variant and inventing one would be redrawing someone's logo.
+   Only a provider with no published icon keeps the neutral bordered tile. */
+.sc-eng-ic[data-brand] {
+  border: 0;
+  background: var(--sc-plate);
+  color: var(--sc-ink);
+  /* Two of these four publish a white plate, which on the light theme's white
+     card leaves the mark floating while the red and pink ones read as tiles.
+     The app's own smallest shadow gives every plate the same edge without
+     drawing a line around anybody's logo. */
+  box-shadow: var(--sc-shadow-1);
+}
+
 .sc-eng-name {
   min-width: 0;
   flex: 1;
@@ -8494,25 +8516,16 @@ a.sc-ingredient:focus-visible {
 .sc-eng-name b {
   display: block;
   font: 600 13px var(--sc-font);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sc-eng-name small {
   display: block;
   color: var(--sc-fg2);
   font-size: 12px;
+  line-height: 1.45;
 }
-.sc-eng-key {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.sc-eng-key .sc-in {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.sc-eng-key .sc-btn {
-  flex: none;
-}
-
 .sc-set .sc-in {
   min-width: 0;
 }
@@ -8871,8 +8884,7 @@ select.sc-in {
     flex-direction: column;
     align-items: stretch;
   }
-  .sc-set-controls .sc-in,
-  .sc-eng-key .sc-in {
+  .sc-set-controls .sc-in {
     flex: none;
     width: 100%;
     max-width: none;
@@ -8898,13 +8910,16 @@ select.sc-in {
   .sc-pal-row {
     grid-template-columns: 28px minmax(0, 1fr) 6.5rem 44px;
   }
-  .sc-eng-key {
-    flex-direction: column;
-    align-items: stretch;
+  /* The status stays in its own column at every width: one word beside an
+     action fits a phone, and moving it onto the second line put the same fact
+     in two places depending on how wide the window happened to be. The name
+     gives up its width first, which is what its ellipsis is for. */
+  .sc-eng {
+    padding: 12px 14px;
+    gap: 10px;
   }
-  .sc-eng-key .sc-btn {
-    width: 100%;
-    justify-content: center;
+  .sc-eng-act {
+    height: 34px;
   }
   .sc-cap-top {
     flex-wrap: wrap;
@@ -9088,79 +9103,181 @@ select.sc-in {
 }
 
 /* Engine-unavailable banner — states.html, above the composer card. */
+/* What this composer has to say about itself, fused to the top of the prompt
+   card as one object: nothing to generate with, a draft recovered, a send that
+   failed.
+   A tray, not a stack of cards. Two notices used to mean two floating cards
+   above a third, and three boxes on top of each other is what read as
+   unfinished. The band is slightly recessed and closed by a hairline, so it is
+   clearly chrome belonging to the input rather than prose inside it. */
+.sc-notes {
+  /* Docked above the prompt card and deliberately narrower than it: the inset
+     is what makes this read as something belonging to the input below rather
+     than a second surface of equal weight. Corners a step tighter than the
+     card's for the same reason. */
+  width: calc(100% - 44px);
+  /* Flush, not floating: it grows out of the top of the input instead of
+     hovering above it with a gap. The card's own top border becomes the rule
+     between the two, so there is one line there and not two. */
+  margin: 0 auto;
+  border: 1px solid var(--sc-line-strong);
+  border-bottom: 0;
+  border-radius: var(--sc-radius-lg) var(--sc-radius-lg) 0 0;
+  /* One step down from the card's own fill: nested chrome should sit under the
+     surface it belongs to, not level with it. */
+  background: var(--sc-well);
+  overflow: hidden;
+}
 .sc-banner {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--sc-line);
-  border-left: 3px solid var(--sc-gold);
-  border-radius: var(--sc-radius-md);
-  background: var(--sc-panel);
-  padding: 12px 14px;
-  font-size: 12.5px;
-  margin-bottom: 8px;
+  padding: 9px 11px;
+  font-family: var(--sc-font);
   color: var(--sc-fg);
 }
-.sc-banner > svg {
+/* Still a list, if a second persistent state ever earns a row here. */
+.sc-banner + .sc-banner {
+  border-top: 1px solid var(--sc-line);
+}
+.sc-banner-ic {
   flex: none;
+  display: grid;
+  place-items: center;
+  /* matched to the title and its line below, so the tile reads as the row's
+     left edge rather than a small square floating beside taller text */
+  width: 32px;
+  height: 32px;
+  /* an app-icon corner rather than a chip's, since what sits in it is a mark */
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
   color: var(--sc-fg2);
 }
-/* the copy shrinks and clips; the action never gets pushed off the card */
-.sc-banner > span {
+.sc-banner-txt {
   flex: 1;
   min-width: 0;
 }
+.sc-banner b {
+  display: block;
+  font: 600 12.5px / 1.35 var(--sc-font);
+}
+/* Wraps rather than ellipsing: on the error the server writes here, the tail is
+   the half that says what to do about it. */
 .sc-banner small {
   display: block;
-  color: var(--sc-fg2);
   font-size: 11.5px;
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* A refusal, rather than a note about the setup: same shape, different rule. */
-.sc-banner[data-tone="error"] {
-  border-left-color: var(--sc-red);
-  /* the copy runs to several lines, and a centred icon beside a paragraph
-     reads as floating: everything hangs off the first line instead */
-  align-items: flex-start;
-}
-.sc-banner[data-tone="error"] > svg {
-  color: var(--sc-red);
-  margin-top: 1px;
-}
-.sc-banner[data-tone="error"] .sc-banner-act {
-  margin-top: -2px;
-}
-/* the server writes these in sentences and they are the whole point of the
-   banner, so they wrap rather than ellipsing away at the first comma */
-.sc-banner[data-tone="error"] small {
-  white-space: normal;
-  overflow: visible;
   line-height: 1.4;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
 }
+/* Deliberately not gold: colouring a third party's slot in our accent said
+   "warning" about what is only a setup step. Urgency is the solid button's job.
+   Dark on white is how OpenAI presents this mark, and reproducing it that way
+   keeps it unmodified rather than recoloured to suit us. */
+.sc-banner[data-tone="action"] .sc-banner-ic {
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+.sc-banner[data-tone="error"] .sc-banner-ic {
+  background: color-mix(in srgb, var(--sc-red) 14%, var(--sc-raised));
+  color: var(--sc-red);
+}
+
 .sc-banner-act {
-  margin-left: auto;
   flex: none;
-  border: 1px solid var(--sc-line);
+  border: 1px solid var(--sc-line-strong);
   background: none;
   border-radius: var(--sc-radius-full);
-  padding: 5px 12px;
+  padding: 4px 12px;
   font: 600 11.5px var(--sc-font);
   color: var(--sc-fg);
   cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    opacity 120ms ease;
 }
 .sc-banner-act:hover {
-  background: var(--sc-hover);
+  border-color: var(--sc-fg3);
+  background: var(--sc-raised);
+}
+.sc-banner-act:focus-visible {
+  outline: 2px solid var(--sc-fg);
+  outline-offset: 2px;
+}
+/* Solid only where the brief cannot run at all: with Generate below it dimmed,
+   this is the one live control in the card. */
+.sc-banner-act[data-primary] {
+  border-color: transparent;
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+.sc-banner-act[data-primary]:hover {
+  background: var(--sc-inv-bg);
+  opacity: 0.88;
+}
+/* The "what if I don't have one" affordance, riding the end of the sentence it
+   qualifies rather than sitting apart from it. */
+.sc-note-info {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -2px;
+  margin-left: 5px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.sc-note-info:hover,
+.sc-note-info[data-state="open"] {
+  color: var(--sc-fg);
+}
+.sc-note-info:focus-visible {
+  outline: 2px solid var(--sc-fg);
+  outline-offset: 2px;
+  border-radius: var(--sc-radius-full);
+}
+.sc-note-pop {
+  display: grid;
+  gap: 9px;
+  padding: 13px 14px;
+}
+.sc-note-pop p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sc-fg);
+}
+.sc-note-pop p + p {
+  margin-top: -1px;
+}
+/* The reassurance, said quietly: true, worth stating, not the headline. */
+.sc-note-pop-fine {
+  color: var(--sc-fg2) !important;
+  font-size: 11.5px !important;
+}
+.sc-note-pop .sc-btn {
+  justify-content: center;
+  margin-top: 2px;
 }
 
-/* Dialog copy and footer button, shared by the export and picker dialogs. */
-.sc-dlg-sub {
-  color: var(--sc-fg2);
-  font-size: 12px;
-  margin: 4px 0 14px;
+/* Phones: the row keeps its shape and the sentence takes the extra lines. The
+   action stays on the right where a thumb expects it, rather than wrapping to
+   a ragged second row. */
+@media (max-width: 767px) {
+  /* The inset is a proportion, not a number: 44px off a phone's width pushed the
+     sentence onto a third line, so the tray gives most of it back here. */
+  .sc-notes {
+    width: calc(100% - 22px);
+  }
+  .sc-banner {
+    gap: 9px;
+    padding: 10px 11px;
+  }
 }
+
 .sc-opts {
   margin-top: 12px;
 }
@@ -9240,9 +9357,9 @@ select.sc-in {
   }
 }
 
-.sc-promptcard {
-  border-radius: var(--sc-radius-float);
-}
+/* The two surfaces that float over the canvas, so their corners are stated in
+   one place and cannot drift apart. */
+.sc-promptcard,
 .sc-attachpanel {
   border-radius: var(--sc-radius-float);
 }
@@ -10834,4 +10951,584 @@ textarea:disabled {
   .sc-newdlg[data-state="closed"] {
     animation: none;
   }
+}
+
+/* ---------- setup wizard ----------
+   Two steps, one action per screen. Sized so the whole thing reads without a
+   scroll: a person who is not sure this app is for them will not scroll to find
+   out. */
+.sc-setup {
+  padding: 0 !important;
+  overflow: hidden;
+}
+.sc-setup-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Radix leading-trims the title to its cap height, so the bar's height comes
+     from the close button beside it. Keep both tight or the title floats in a
+     band with more air under it than over it. */
+  padding: 9px 9px 9px 18px;
+  border-bottom: 1px solid var(--sc-line);
+}
+/* This header borrows the Settings close button, which is a 44px coarse-pointer
+   tap target. In a 44px-tall header that is fine; here it was the tallest thing
+   in the row and inflated a 13px title's bar to 73px. Shrunk to the row it is
+   in, and given the tap target back on touch, where it is the one that matters. */
+.sc-setup-head .sc-set-close {
+  width: 28px;
+  height: 28px;
+}
+@media (pointer: coarse) {
+  .sc-setup-head {
+    padding: 8px 8px 8px 18px;
+  }
+  .sc-setup-head .sc-set-close {
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
+/* Radix's Heading ships its own size and a `normal` line-height, which left this
+   title an 8px-tall box: the text was there but its line was not, so nothing in
+   the row had a predictable centre to align to. */
+.sc-setup-title {
+  font: 600 13px / 1.4 var(--sc-font);
+  margin: 0;
+}
+/* Radix's Heading trims its own line box with ::before/::after negative margins.
+   That trimmed box is what a flex row centres, so the visible text sat 11px from
+   the top of this bar and 20px from the bottom: the same 9px of "extra padding
+   underneath" that made the header look unfinished. Turning the trim off makes
+   the line box itself the thing being centred. */
+.sc-setup-title::before,
+.sc-setup-title::after {
+  display: none;
+}
+.sc-setup-steps {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 0;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--sc-line);
+  list-style: none;
+  font-size: 12px;
+  color: var(--sc-fg2);
+}
+.sc-setup-steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.sc-setup-steps li .d {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sc-line);
+}
+/* A finished step recedes; the one you are on is the only one lit.
+   Done used to be gold, which in this app means "act before this works", so a
+   completed step wore the warning colour and read as a problem. */
+.sc-setup-steps li[data-on] {
+  color: var(--sc-fg3);
+}
+/* The tick carries the green, the label stays quiet: green is what this app
+   already uses for "Ready" on the engine rows, so a finished step wearing it is
+   the app's own vocabulary rather than a new one. */
+.sc-setup-steps li[data-on] svg {
+  color: var(--sc-green);
+}
+.sc-setup-steps li[data-now] {
+  color: var(--sc-fg);
+}
+.sc-setup-steps li[data-now] .d {
+  background: var(--sc-gold);
+}
+/* One rhythm instead of one gap. Everything used to sit 12px apart, including
+   the outer padding, so the sentence, its action and the way out read as three
+   unrelated things floating in a box. The action and the alternative below it
+   are one group and sit close; the sentence above them is separate; and the
+   outer padding is larger than any inner gap, so the composition has an edge. */
+.sc-setup-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 18px 20px;
+  justify-items: start;
+}
+/* The action and its alternative: one line where the dialog has the width for
+   it, stacked where it does not. */
+.sc-setup-acts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+@media (max-width: 560px) {
+  .sc-setup-acts {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+.sc-setup-body .sc-setup-acts + .sc-setup-note {
+  margin-top: -4px;
+}
+.sc-setup-lead {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--sc-fg);
+}
+.sc-setup-lead svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+  color: var(--sc-gold);
+}
+.sc-setup-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--sc-fg2);
+}
+/* The finish. Centred because it is an arrival, not another row of the form. */
+.sc-setup-done {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 0 2px;
+  text-align: center;
+  animation: sc-setup-arrive 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.sc-setup-done-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sc-green) 16%, transparent);
+  color: var(--sc-green);
+  margin-bottom: 2px;
+}
+.sc-setup-done b {
+  font: 600 15px / 1.3 var(--sc-font);
+}
+.sc-setup-done p {
+  margin: 0;
+  max-width: 40ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+.sc-setup-done .sc-btn {
+  margin-top: 6px;
+}
+@keyframes sc-setup-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* State change still reported, without the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .sc-setup-done {
+    animation: sc-fade-in 140ms ease both;
+  }
+}
+/* Connecting a provider: the row's tile, one sentence, one field.
+   The tile is the settings row's own, unchanged, so drilling in reads as that
+   row opening rather than as arriving somewhere new. */
+.sc-setup-who {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+.sc-setup-who .sc-eng-ic {
+  margin-top: 1px;
+}
+/* One field, full width: it is the whole of this dialog's business, and a key
+   is long enough that a field sized to its content would be the dialog. */
+.sc-setup-key {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+.sc-setup-key .sc-in {
+  width: 100%;
+}
+/* Removing a key is reachable without ever being the thing reached for first:
+   below the action, behind a hairline, and behind a confirm after that. */
+.sc-setup-cut {
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px solid var(--sc-line);
+}
+/* the way out of the happy path: present, never competing with the action */
+.sc-setup-alt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: 500 12px var(--sc-font);
+  color: var(--sc-fg2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.sc-setup-alt:hover {
+  color: var(--sc-fg);
+}
+.sc-setup-problem {
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--sc-red) 34%, var(--sc-line-strong));
+  border-radius: var(--sc-radius);
+  background: color-mix(in srgb, var(--sc-red) 7%, var(--sc-panel));
+  padding: 12px 14px;
+}
+.sc-setup-problem p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+/* npm and codex print several short lines; collapsing them into one run-on
+   sentence was the difference between "a permissions error" and noise. Capped
+   so a long dump cannot push the action out of the dialog. */
+.sc-setup-problem p[data-detail] {
+  white-space: pre-line;
+  max-height: 7.5em;
+  overflow-y: auto;
+}
+.sc-setup-problem p svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+  color: var(--sc-red);
+}
+.sc-setup-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sc-setup-cmd code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-raised);
+  padding: 7px 9px;
+  font: 500 11.5px var(--sc-mono, ui-monospace, monospace);
+  color: var(--sc-fg);
+}
+.sc-setup-cmd .sc-btn {
+  flex: none;
+}
+
+/* ---------- failure: one shape for "this did not work" ----------------------
+   Four grammars used to say this: the feed tile's grid of identical grey pills,
+   the stage's block of Radix Flex and inline var(--red-9), the build card's
+   caption, and a bare Callout color="red" in three more places. None of them
+   said what to do next.
+
+   The shape is the app's own centred state — the one .sc-setup-done and
+   .sc-canvas-empty already use: a round tinted mark, a display-font line, a
+   quiet sentence under it, one action. A failure is an empty state with a
+   reason, so it is built out of the empty state rather than out of a new box.
+
+   There is deliberately no frame. An earlier pass gave the note the picture's
+   full footprint, on the theory that nothing should collapse — which produced
+   an 800px dashed rectangle with a small note adrift in it. That is the same
+   void the old 420px card sat in, drawn a border. Centred content in the space
+   the stage already centres is both less chrome and less emptiness. */
+.sc-fail {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+  max-width: 100%;
+}
+.sc-fail-ic {
+  display: grid;
+  place-items: center;
+  border-radius: var(--sc-radius-full);
+  background: color-mix(in srgb, var(--sc-red) 15%, transparent);
+  color: var(--sc-red);
+}
+/* A cancel is not a failure — you did it on purpose — so it keeps the shape
+   without the alarm. Red here would be the interface scolding you for a
+   button you meant to press. */
+.sc-fail[data-kind="cancelled"] .sc-fail-ic {
+  background: var(--sc-raised);
+  color: var(--sc-fg2);
+}
+.sc-fail-txt {
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.sc-fail-txt b {
+  font-family: var(--sc-font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sc-fg);
+  max-width: var(--sc-measure-title);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+/* Wraps, never ellipses. The tile used to cut this at 200px with nowrap, so
+   the reason a shot failed was unreadable on the tile reporting it. */
+.sc-fail-txt small {
+  color: var(--sc-fg2);
+  max-width: var(--sc-measure-lede);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+/* The server writes one of these itself, naming the ingredients an engine
+   could not carry. It is three sentences, and three sentences set at display
+   size is a headline that has stopped being one. */
+.sc-fail[data-long] .sc-fail-txt b {
+  font-family: var(--sc-font);
+  font-weight: 600;
+  letter-spacing: 0;
+  max-width: var(--sc-measure-lede);
+  text-wrap: pretty;
+}
+.sc-fail-acts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3) var(--sc-space-5);
+  margin-top: var(--sc-space-2);
+}
+/* The way out, present and never competing — the .sc-setup-alt treatment.
+   As a matching pill this used to contend with Try again for the same press. */
+.sc-fail-alt {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: 500 12px var(--sc-font);
+  color: var(--sc-fg2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.sc-fail-alt:hover {
+  color: var(--sc-fg);
+}
+.sc-fail-alt:focus-visible,
+.sc-fail-raw summary:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: var(--sc-radius-sm);
+}
+/* The engine's own words. Kept verbatim for a bug report, kept folded so the
+   JSON is not the headline. */
+.sc-fail-raw {
+  width: 100%;
+  min-width: 0;
+  margin-top: var(--sc-space-2);
+}
+.sc-fail-raw summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.sc-fail-raw summary::-webkit-details-marker {
+  display: none;
+}
+.sc-fail-raw summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border: 3.5px solid transparent;
+  border-left-color: currentColor;
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-fail-raw[open] summary::before {
+  transform: rotate(90deg) translateX(1px);
+}
+.sc-fail-raw summary:hover {
+  color: var(--sc-fg2);
+}
+/* Left aligned inside a centred state: this is machine output, and centred
+   machine output is unreadable at the second line. */
+.sc-fail-raw pre {
+  margin: 8px 0 0;
+  max-height: 7.5em;
+  overflow: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: left;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  padding: 8px 9px;
+  font: 500 11px / 1.5 var(--sc-font-mono);
+  color: var(--sc-fg2);
+}
+
+/* --- in the feed: a record, not content.
+   Three things, not five. The fix line and the folded raw text both belong on
+   the shot's own screen, which is one press away — a 240px card carrying the
+   cause, the remedy, two buttons and a disclosure is a dialog wearing a tile. */
+.sc-fail[data-density="tile"] {
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-5);
+}
+.sc-fail[data-density="tile"] .sc-fail-ic {
+  width: 26px;
+  height: 26px;
+}
+.sc-fail[data-density="tile"] .sc-fail-txt b {
+  font-family: var(--sc-font);
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  max-width: 26ch;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* --- on the shot's own screen: the app's centred state, with a reason. */
+.sc-fail[data-density="stage"] {
+  gap: var(--sc-space-4);
+  width: min(100%, 46ch);
+  padding: var(--sc-space-6);
+  animation: sc-setup-arrive var(--sc-dur-slow) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.sc-fail[data-density="stage"] .sc-fail-ic {
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--sc-space-1);
+}
+.sc-fail[data-density="stage"] .sc-fail-txt b {
+  font-size: var(--sc-text-title);
+  line-height: 1.25;
+}
+.sc-fail[data-density="stage"] .sc-fail-txt small {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-fail[data-density="stage"] {
+    animation: sc-fade-in 140ms ease both;
+  }
+}
+/* --- the same note as a line, where the surface already has a shape of its
+   own: a dialog, a page, a route that could not load. */
+.sc-failrow {
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--sc-red) 30%, var(--sc-line-strong));
+  border-radius: var(--sc-radius-lg);
+  background: color-mix(in srgb, var(--sc-red) 6%, var(--sc-panel));
+  overflow: hidden;
+}
+/* Not every outcome worth a box is an alarm. An import that finished with gaps
+   did not fail, and painting it red says it did. */
+.sc-failrow[data-tone="note"] {
+  border-color: var(--sc-line-strong);
+  background: var(--sc-panel);
+}
+.sc-failrow .sc-banner {
+  align-items: flex-start;
+}
+.sc-failrow .sc-banner-ic {
+  margin-top: 1px;
+}
+
+/* ---------- failure on a hand and on a tablet -------------------------------
+   The tile in the feed is roughly 150px wide on a phone. At that size the old
+   one printed a single unwrapped line, so the message ran off both edges of
+   the card that was reporting it — the same clipping as on the desktop, only
+   worse for having less room to be wrong in. */
+@media (max-width: 767px) {
+  .sc-fail[data-density="tile"] {
+    padding: var(--sc-space-4);
+  }
+  .sc-fail[data-density="tile"] .sc-fail-ic {
+    width: 22px;
+    height: 22px;
+  }
+  .sc-fail[data-density="tile"] .sc-fail-txt b {
+    font-size: 11.5px;
+  }
+  /* Side by side these were 4px apart at the tile's narrowest and wrapped into
+     a ragged block. A column at this width is one decision per line. */
+  .sc-fail[data-density="tile"] .sc-fail-acts {
+    flex-direction: column;
+    gap: var(--sc-space-3);
+    width: 100%;
+  }
+  .sc-fail[data-density="tile"] .sc-fail-acts .sc-s {
+    justify-content: center;
+    width: 100%;
+  }
+  .sc-fail[data-density="stage"] {
+    padding: var(--sc-space-5);
+  }
+  /* --sc-text-title is an empty state's heading on a desktop; on a 390px
+     screen the same words at that size are four lines of headline. */
+  .sc-fail[data-density="stage"] .sc-fail-txt b {
+    font-size: 17px;
+  }
+}
+/* Below this the action row is wider than the phone it stands on. */
+@media (max-width: 460px) {
+  .sc-fail[data-density="stage"] .sc-fail-acts {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .sc-fail[data-density="stage"] .sc-fail-acts .sc-btn {
+    justify-content: center;
+  }
+  .sc-failrow .sc-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sc-failrow .sc-banner-ic {
+    align-self: flex-start;
+  }
+}
+/* A coarse pointer gets the tap floor wherever the note is, not only on a
+   phone-width window: a tablet is 1024px wide and still a finger. */
+@media (pointer: coarse) {
+  .sc-fail-alt,
+  .sc-fail-raw summary {
+    padding: 4px 0;
+  }
+}
+/* The import dialog's own gutter under a notice. The row it wraps is a
+   full-width block, so the space belongs to the dialog, not to the note. */
+.sc-import-note {
+  margin-bottom: 12px;
+}
+.sc-import-note .sc-failrow {
+  max-width: none;
 }

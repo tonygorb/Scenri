@@ -1,8 +1,9 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { Box, Flex, Spinner, Text } from '@radix-ui/themes';
-import { ArrowClockwise, WarningCircle, XCircle } from '@phosphor-icons/react';
+import { Box, Flex, Text } from '@radix-ui/themes';
 import { imgUrl, type TreeNode } from '../api.js';
 import { FORMATS } from '../composer/BriefInput.js';
+import { describeCancelled, describeFailure } from '../failure.js';
+import { FailureNote } from './Failure.js';
 // one clock for the whole app: the canvas and the bell must not disagree
 import { elapsedSec, runningPhrase } from '../tasks.js';
 
@@ -21,11 +22,14 @@ export function StageFrame({
   imageIndex,
   onRetry,
   onCancel,
+  engineName,
 }: {
   node: TreeNode;
   imageIndex: number;
   onRetry?: () => void;
   onCancel?: () => void;
+  /** What the engine that ran this is called, so a failure can name it. */
+  engineName?: string;
 }) {
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
   const [contentRect, setContentRect] = useState<{ left: number; top: number; width: number; height: number } | null>(
@@ -121,53 +125,28 @@ export function StageFrame({
     );
   }
 
+  /*
+   * Nothing landed, so nothing is framed.
+   *
+   * This was a 420px card of Radix `Flex` adrift in a full-screen dark
+   * rectangle, printing the engine's raw JSON as its body text and repeating
+   * the brief — already stated in full in the rail beside it — clipped at 160
+   * characters. The pass after that gave it the footprint the picture would
+   * have had, which drew an 800px dashed box around the same emptiness.
+   *
+   * A failure is an empty state with a reason. The stage already centres what
+   * it is given, so the note is simply given to it: no frame, no placeholder
+   * shape, no chrome standing in for a photograph that does not exist.
+   */
+  if (node.status === 'cancelled' || node.status === 'error') {
+    const cancelled = node.status === 'cancelled';
+    const failure = cancelled ? describeCancelled() : describeFailure(node.error, engineName);
+    return <FailureNote failure={failure} density="stage" onRetry={onRetry} />;
+  }
+
   return (
     <Flex justify="center">
       <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
-        {node.status === 'cancelled' && (
-          <Flex direction="column" gap="3" p="5" style={{ width: 'min(420px, 78vw)' }}>
-            <Flex align="center" gap="2">
-              <XCircle size={16} color="var(--sc-fg3)" weight="fill" />
-              <Text size="2" weight="medium">
-                Cancelled
-              </Text>
-            </Flex>
-            <Text size="1" style={{ color: 'var(--sc-fg2)', lineHeight: 1.5 }}>
-              {node.prompt}
-            </Text>
-          </Flex>
-        )}
-        {node.status === 'error' && (
-          <Flex direction="column" gap="3" p="5" style={{ width: 'min(420px, 78vw)' }}>
-            <Flex align="center" gap="2">
-              <WarningCircle size={16} color="var(--red-9)" weight="fill" />
-              <Text size="2" weight="medium">
-                This shot did not finish
-              </Text>
-            </Flex>
-            <Text size="1" style={{ color: 'var(--sc-fg2)', lineHeight: 1.5 }}>
-              {node.error}
-            </Text>
-            {node.prompt && (
-              <Text
-                size="1"
-                style={{
-                  color: 'var(--sc-fg3)',
-                  lineHeight: 1.5,
-                  borderTop: '1px solid var(--sc-line)',
-                  paddingTop: 10,
-                }}
-              >
-                {node.prompt.replace(/^\[[^\]]*\]\s*/, '').slice(0, 160)}
-              </Text>
-            )}
-            {onRetry && (
-              <button type="button" className="sc-btn sc-btn-primary" style={{ alignSelf: 'start' }} onClick={onRetry}>
-                <ArrowClockwise size={13} /> Try again
-              </button>
-            )}
-          </Flex>
-        )}
         {node.status === 'done' && node.images[imageIndex] && (
           <Box position="relative" style={{ lineHeight: 0 }}>
             <img

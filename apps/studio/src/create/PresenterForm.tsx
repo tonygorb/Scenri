@@ -54,7 +54,7 @@ export function PresenterForm({ onBack, onStarted, caps, capsNote, pendingState 
       error={f.err}
       footnote={capsNote(
         caps?.canGenerate
-          ? `Builds four studio views on ${caps.engineName ?? 'your engine'}${caps.free ? ', free on this machine' : ''}. A few minutes.`
+          ? `Builds four studio views on ${caps.engineName ?? 'your engine'}${caps.engineId === 'codex-cli' ? ', on your ChatGPT plan' : ''}. A few minutes.`
           : 'No engine connected, so your photos become the references as they are.',
       )}
       primaryLabel="Create presenter"

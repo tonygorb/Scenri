@@ -6,9 +6,10 @@
  * out-*.png results into the content-addressed store via the injected
  * saveImage function.
  *
- * OSS-local only (ToS boundary): this adapter bridges the user's OWN local
- * Codex subscription session and must never run in hosted mode — hence
- * `localOnly: true`. See docs/STRATEGY.md §13.
+ * OSS-local only (ToS boundary): this adapter drives the user's OWN local
+ * Codex session on their OWN machine, which is what that session is licensed
+ * for. It must never run in a hosted service on someone else's behalf — hence
+ * `localOnly: true`.
  */
 import type { spawn as nodeSpawn } from 'node:child_process';
 import { copyFile, readdir, readFile } from 'node:fs/promises';
@@ -18,6 +19,7 @@ import {
   REFERENCE_ROLE_DIRECTIVE,
   type EditRequest,
   type EngineAdapter,
+  type EngineAvailability,
   type EngineCapabilities,
   type EngineResult,
   type GenerateRequest,
@@ -26,6 +28,7 @@ import {
 import { createRunner, execArgs } from './run.js';
 
 export { createCodexAnalyzer } from './analyzer.js';
+export { createCodexSetup, INSTALL_COMMAND, type CodexSetup, type CodexSetupState } from './setup.js';
 export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
 
 export interface CodexEngineOptions {
@@ -66,7 +69,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       return {
         id: 'codex-cli',
         displayName: 'Codex CLI',
-        localOnly: true, // OSS-local only — ToS boundary, see docs/STRATEGY.md §13
+        localOnly: true, // OSS-local only: the user's own session, on the user's own machine
         supportsEdit: true,
         supportsMask: false,
         // The underlying `codex` binary's --image flag is genuinely variadic
@@ -80,7 +83,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       };
     },
 
-    isAvailable(): Promise<{ ok: boolean; reason?: string }> {
+    isAvailable(): Promise<EngineAvailability> {
       return runner.probe();
     },
 

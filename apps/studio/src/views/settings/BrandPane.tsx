@@ -9,6 +9,7 @@ import { BrandNever } from './BrandNever.js';
 import { BrandIdentity } from './BrandIdentity.js';
 import { BrandPalette } from './BrandPalette.js';
 import { saveLabel, useBrandDoc } from './useBrandDoc.js';
+import { failureToast } from '../../failure.js';
 
 /**
  * The brand kit, in Settings.
@@ -65,7 +66,7 @@ export function BrandPane() {
         detail: row.warnings?.length ? row.warnings.join(' ') : 'Your edits were kept.',
       });
     } catch (e: any) {
-      push({ kind: 'error', title: 'Could not read that website', detail: String(e?.message ?? e) });
+      push(failureToast(e, 'Could not read that website'));
     } finally {
       setRefreshing(false);
     }

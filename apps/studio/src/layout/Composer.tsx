@@ -1,14 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Popover, Select, Spinner } from '@radix-ui/themes';
-import {
-  ArrowCounterClockwise,
-  ArrowUp,
-  Lightning,
-  Plus,
-  SlidersHorizontal,
-  WarningCircle,
-  X,
-} from '@phosphor-icons/react';
+import { ArrowUp, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
 import {
   api,
   imgUrl,
@@ -38,7 +30,9 @@ import {
   ShotSettingsPills,
   type QualityId,
 } from '../composer/ShotSettings.js';
-import { useOpenSettings } from '../views/SettingsDialog.js';
+import { useOpenSettings, useOpenSetup } from '../app/dialogs.js';
+import { effectiveEngineId, engineTitle, FALLBACK_ENGINE_ID } from '../engines/active.js';
+import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
@@ -46,6 +40,7 @@ import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
 import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
+import { failureToast } from '../failure.js';
 
 export interface ComposerHandle {
   /** Append a token to the brief (assets panel click path). */
@@ -176,23 +171,43 @@ export const Composer = forwardRef<
     [brand, catalogPresenters],
   );
   const openSettings = useOpenSettings();
+  const openSetup = useOpenSetup();
   const { push } = useToasts();
   const usable = engines.filter((e) => e.available);
-  const [engineId, setEngineId] = useLocalPref(PREF.engine, 'codex-cli');
+  const [engineId, setEngineId] = useLocalPref(PREF.engine, FALLBACK_ENGINE_ID);
   useEffect(() => {
-    if (!usable.some((e) => e.id === engineId)) setEngineId(usable[0]?.id ?? 'codex-cli');
-  }, [usable, engineId]);
+    const next = effectiveEngineId(usable, engineId);
+    if (next !== engineId) setEngineId(next);
+  }, [usable, engineId, setEngineId]);
 
-  // Never invent a reason: the engine reports its own. There is no placeholder
-  // fallback any more — an engine that cannot carry a Product or a Presenter
-  // was never a real option, it just looked like one.
-  const selected = engines.find((e) => e.id === engineId);
-  const engineNote =
-    selected && !selected.available
-      ? { title: `${selected.displayName} is not ready`, detail: selected.reason ?? 'Connect it in Settings.' }
-      : usable.length === 0
-        ? { title: 'No engine connected', detail: 'Connect one in Settings to generate.' }
-        : null;
+  // Nothing to generate with is stated where it applies: directly above the
+  // brief, in a card built from the same material as the prompt card, so the
+  // two read as a pair rather than as an alert dropped on the page.
+  const setupNeeded =
+    usable.length === 0 && engines.some((e) => e.code === 'not-installed' || e.code === 'not-authenticated');
+  const noEngine = usable.length === 0;
+  const engineNote = noEngine
+    ? setupNeeded
+      ? {
+          // The mark of the thing the person actually brings: a ChatGPT account.
+          // Codex CLI is our plumbing, and its name means nothing to someone who
+          // has never opened a terminal. See OpenAIMark for the licensing.
+          icon: <OpenAIMark />,
+          title: 'Image generation is not set up yet',
+          detail: 'About a minute, using the ChatGPT account you already have.',
+          action: 'Set up' as const,
+          onAct: () => openSetup(),
+          info: true,
+        }
+      : {
+          icon: <Lightning size={15} />,
+          title: 'No image provider connected',
+          detail: 'Add a provider key and this brief is ready to run.',
+          action: 'Open settings' as const,
+          onAct: () => openSettings('engines'),
+          info: false,
+        }
+    : null;
 
   const [sentence, setSentence] = useState<SentenceToken[]>(emptySentence());
   const [seedTokens, setSeedTokens] = useState<SentenceToken[] | undefined>(undefined);
@@ -213,8 +228,6 @@ export const Composer = forwardRef<
 
   // per-brand draft persistence: an unsent brief must survive a navigation, a
   // brand switch, or a closed tab, none of which reliably unmount this component
-  const [restored, setRestored] = useState(false);
-  const hydratingRef = useRef(false);
   const contentRef = useRef({ tokens: sentence, tplFields, branchId: target?.id ?? null });
   contentRef.current = { tokens: sentence, tplFields, branchId: target?.id ?? null };
   const draftBrandIdRef = useRef<string | null>(null);
@@ -238,6 +251,13 @@ export const Composer = forwardRef<
       // abandoned.
       if (!persistDraft) return;
       const c = contentRef.current;
+      // Restoring is deliberately silent. It used to announce itself in a row
+      // above the brief, on every return to Create, which is a notice about
+      // something already on screen in the user's own words. Everything that
+      // notice offered is reachable without it: emptying the brief clears the
+      // stored draft on this very line, a restored branch target arrives as the
+      // Refining chip with its own X, and a scene's fields belong to the scene
+      // chip you can remove.
       if (isNonTrivial(c.tokens, c.tplFields, c.branchId)) saveDraft(brandId, { ...c, setSlug });
       else clearDraft(brandId);
     },
@@ -293,7 +313,6 @@ export const Composer = forwardRef<
     let tokens: SentenceToken[] | null = null;
     let tplFieldsToApply: Record<string, string> | null = null;
     let branchIdToApply: string | null = null;
-    let draftWasRestored = false;
 
     if (!hasExplicitSeed) {
       const draft = loadDraft(brand.id);
@@ -301,7 +320,6 @@ export const Composer = forwardRef<
         tokens = draft.tokens;
         tplFieldsToApply = draft.tplFields;
         branchIdToApply = draft.branchId;
-        draftWasRestored = true;
       }
     }
 
@@ -365,7 +383,6 @@ export const Composer = forwardRef<
       setSeedTokens(tokens);
       setTplFields(tplFieldsToApply ?? {});
       if (branchIdToApply) onRestoreBranchId?.(branchIdToApply);
-      if (draftWasRestored) setRestored(true);
     }
     draftBrandIdRef.current = brand.id;
     // deliberately keyed on brand.id + the three seed props: this must run
@@ -374,9 +391,7 @@ export const Composer = forwardRef<
 
   useEffect(() => {
     if (!seedTokens) return;
-    hydratingRef.current = true;
     briefRef.current?.setTokens(seedTokens);
-    hydratingRef.current = false;
     setSeedTokens(undefined);
   }, [seedTokens]);
 
@@ -599,17 +614,19 @@ export const Composer = forwardRef<
   // A version still rendering also holds the button: sending now would quietly
   // make a new shot instead of continuing the one on the chip, which is the
   // exact silent substitution this composer exists not to do.
-  const canGo = !busy && hasContent && !!projectId && !targetPending;
+  const canGo = !busy && hasContent && !!projectId && !targetPending && !noEngine;
   /** Why the button will not go, in the words of the thing that is blocking. */
-  const blockedReason = busy
-    ? 'Working on the last one'
-    : !projectId
-      ? 'Still opening this brand'
-      : targetPending
-        ? 'Wait for this version to finish, or press X to start a new shot'
-        : !hasContent
-          ? 'Write a brief first'
-          : null;
+  const blockedReason = noEngine
+    ? 'Image generation is not set up yet'
+    : busy
+      ? 'Working on the last one'
+      : !projectId
+        ? 'Still opening this brand'
+        : targetPending
+          ? 'Wait for this version to finish, or press X to start a new shot'
+          : !hasContent
+            ? 'Write a brief first'
+            : null;
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -678,7 +695,7 @@ export const Composer = forwardRef<
       }
     } catch (e: any) {
       setErr(String(e.message ?? e));
-      push({ kind: 'error', title: 'Could not attach that image', detail: String(e.message ?? e) });
+      push(failureToast(e, 'Could not attach that image'));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -780,7 +797,15 @@ export const Composer = forwardRef<
       if (persistDraft) clearDraft(brand.id);
       onQueued(created.id, mode);
     } catch (e: any) {
-      setErr(String(e.message ?? e));
+      const message = String(e.message ?? e);
+      // A failed send is an event, and this app already has one place for
+      // events: the same toast the success path above uses. It had its own
+      // card above the composer, which meant a transient failure permanently
+      // owned layout and stacked on top of whatever else the input had to say.
+      // Errors are never trimmed and outlive successes (see ToastProvider), so
+      // nothing is lost by not building a second surface for them.
+      setErr(message);
+      push({ kind: 'error', title: 'That did not send', detail: message });
       // the brief is deliberately not cleared above until the shot exists, so
       // everything typed is still on screen to send again
       onSending?.(null);
@@ -834,52 +859,59 @@ export const Composer = forwardRef<
           onClose={() => setAttachOpen(false)}
         />
       )}
-      {engineNote && (
-        <div className="sc-banner">
-          <Lightning size={15} />
-          <span>
-            {engineNote.title}
-            <small>{engineNote.detail}</small>
-          </span>
-          <button type="button" className="sc-banner-act" onClick={() => openSettings('engines')}>
-            Open settings
-          </button>
-        </div>
-      )}
-      {restored && (
-        <div className="sc-banner">
-          <ArrowCounterClockwise size={15} />
-          <span>Picked up where you left off</span>
-          <button
-            type="button"
-            className="sc-banner-act"
-            onClick={() => {
-              briefRef.current?.setTokens(emptySentence());
-              setTplFields({});
-              onClearTarget?.();
-              clearDraft(brand.id);
-              setRestored(false);
-            }}
-          >
-            Discard
-          </button>
-        </div>
-      )}
       {/* A refusal is written for a person to act on — which engine cannot carry
           the product, which cap was hit — and it used to reach the screen only
           as the send button's tooltip, where nobody looks after a click that
           appeared to do nothing. It sits closest to the card because it is
           about the brief still sitting in it. */}
-      {err && (
-        <div className="sc-banner" data-tone="error" role="alert">
-          <WarningCircle size={15} />
-          <span>
-            That did not send
-            <small title={err}>{err}</small>
-          </span>
-          <button type="button" className="sc-banner-act" onClick={() => setErr(null)}>
-            Dismiss
-          </button>
+      {/* Everything this composer has to say about itself, in one tray docked
+          above the card and inset from its edges, so it reads as subordinate to
+          the input rather than as a second surface of equal weight.
+          One tray, not one card per notice: two notices used to stack into three
+          boxes, which is what read as unfinished. */}
+      {engineNote && (
+        <div className="sc-notes">
+          {engineNote && (
+            <div className="sc-banner" data-tone="action">
+              <span className="sc-banner-ic">{engineNote.icon}</span>
+              <span className="sc-banner-txt">
+                <b>{engineNote.title}</b>
+                <small>
+                  {engineNote.detail}
+                  {engineNote.info && (
+                    <Popover.Root>
+                      <Popover.Trigger>
+                        <button
+                          type="button"
+                          className="sc-note-info"
+                          aria-label="What a ChatGPT account has to do with this"
+                        >
+                          <Info size={13} />
+                        </button>
+                      </Popover.Trigger>
+                      <Popover.Content className="sc-note-pop" align="start" sideOffset={8} width="300px">
+                        <p>
+                          Codex CLI signs in with your ChatGPT account and makes the images there. Every plan includes
+                          some Codex usage, so how many images you get depends on the plan you are on.
+                        </p>
+                        <p>No ChatGPT account, or run out for now? Use your own key from an image provider instead.</p>
+                        <p className="sc-note-pop-fine">
+                          scenri never sees your password or token. The sign-in happens in your browser and stays with
+                          Codex.
+                        </p>
+                        <button type="button" className="sc-btn sc-btn-ghost" onClick={() => openSettings('engines')}>
+                          Use a provider key instead
+                        </button>
+                      </Popover.Content>
+                    </Popover.Root>
+                  )}
+                </small>
+              </span>
+              <button type="button" className="sc-banner-act" data-primary="" onClick={engineNote.onAct}>
+                {engineNote.action}
+              </button>
+            </div>
+          )}
         </div>
       )}
       <div className="sc-promptcard">
@@ -913,12 +945,7 @@ export const Composer = forwardRef<
         )}
         <BriefInput
           ref={briefRef}
-          onChange={(t) => {
-            setSentence(t);
-            // a hydration writes through this same path; only a genuine edit
-            // should retire the "picked up where you left off" notice
-            if (!hydratingRef.current) setRestored(false);
-          }}
+          onChange={setSentence}
           brand={brand}
           shots={shots}
           templates={templates}
@@ -977,12 +1004,12 @@ export const Composer = forwardRef<
               <Select.Root value={engineId} onValueChange={setEngineId}>
                 <Select.Trigger variant="ghost" className="sc-mini-sel">
                   <Lightning size={14} />
-                  <span className="sc-mini-sel-t">{engine?.displayName ?? 'Demo'}</span>
+                  <span className="sc-mini-sel-t">{engine ? engineTitle(engine.displayName) : 'Demo'}</span>
                 </Select.Trigger>
                 <Select.Content>
                   {usable.map((e) => (
                     <Select.Item key={e.id} value={e.id}>
-                      {e.displayName}
+                      {engineTitle(e.displayName)}
                     </Select.Item>
                   ))}
                 </Select.Content>

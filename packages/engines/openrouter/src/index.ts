@@ -1,6 +1,7 @@
 // Adapter for openrouter — implemented per the MVP build plan (TDD). Interface: @scenri/core/src/engine.ts
 import fs from 'node:fs';
 import {
+  EDIT_REFERENCE_ROLE_DIRECTIVE,
   REFERENCE_ROLE_DIRECTIVE,
   type EngineAdapter,
   type EngineCapabilities,
@@ -29,6 +30,38 @@ function dataUrl(path: string): string {
 
 function snippet(body: string): string {
   return body.length > 200 ? body.slice(0, 200) : body;
+}
+
+/**
+ * The shapes this API will accept, as ratios.
+ *
+ * Asking for a size in prose does not work here: the model defaults to a square
+ * and the server's delivered-image check (ASPECT_TOLERANCE) then rejects it, so
+ * every portrait, story and landscape brief failed on this engine while square
+ * ones passed. The request has to carry the ratio as a field.
+ */
+const ASPECT_RATIOS: [string, number][] = [
+  ['1:1', 1],
+  ['2:3', 2 / 3],
+  ['3:2', 3 / 2],
+  ['3:4', 3 / 4],
+  ['4:3', 4 / 3],
+  ['4:5', 4 / 5],
+  ['5:4', 5 / 4],
+  ['9:16', 9 / 16],
+  ['16:9', 16 / 9],
+  ['21:9', 21 / 9],
+];
+
+/** Nearest supported ratio to what the compiler asked for. scenri's four formats all land exactly. */
+export function aspectRatioFor(width: number, height: number): string {
+  if (!(width > 0) || !(height > 0)) return '1:1';
+  const want = width / height;
+  let best = ASPECT_RATIOS[0];
+  for (const entry of ASPECT_RATIOS) {
+    if (Math.abs(entry[1] - want) < Math.abs(best[1] - want)) best = entry;
+  }
+  return best[0];
 }
 
 export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAdapter {
@@ -139,6 +172,7 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
         model: opts.model ?? DEFAULT_MODEL,
         modalities: ['image', 'text'],
         messages: [{ role: 'user', content }],
+        image_config: { aspect_ratio: aspectRatioFor(req.width, req.height) },
       };
 
       const hashes: string[] = [];
@@ -162,6 +196,17 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
 
     async edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult> {
       const key = requireKey();
+      // The source image is attachment 1, so references are named from 2 up.
+      // They were previously dropped entirely, which is how "restore the label"
+      // reached the model with nothing to restore it from.
+      const editRefs = req.referenceImages ?? [];
+      const editRoles = req.referenceRoles ?? [];
+      const refDirectives = editRefs
+        .map((_, i) => `Attached image ${i + 2} is ${EDIT_REFERENCE_ROLE_DIRECTIVE[editRoles[i] ?? 'reference']}.`)
+        .join(' ');
+      const instruction = refDirectives
+        ? `${req.instruction} Attached image 1 is the image to edit. ${refDirectives}`
+        : req.instruction;
       const body = {
         model: opts.editModel ?? opts.model ?? DEFAULT_MODEL,
         modalities: ['image', 'text'],
@@ -169,8 +214,9 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
           {
             role: 'user',
             content: [
-              { type: 'text', text: req.instruction },
+              { type: 'text', text: instruction },
               { type: 'image_url', image_url: { url: dataUrl(req.sourceImage) } },
+              ...editRefs.map((p) => ({ type: 'image_url', image_url: { url: dataUrl(p) } })),
             ],
           },
         ],

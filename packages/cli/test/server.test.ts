@@ -765,3 +765,108 @@ describe('diff + export + settings', () => {
     expect(JSON.stringify(res.json())).not.toContain('sk-secret');
   });
 });
+
+describe('codex setup', () => {
+  /** A scripted stand-in for the local Codex CLI, so no test touches a real binary. */
+  function fakeSetup(states: ('not-installed' | 'not-authenticated' | 'ready')[]) {
+    const seen = { install: 0, login: 0 };
+    let i = 0;
+    return {
+      seen,
+      setup: {
+        status: async () => ({ state: states[Math.min(i, states.length - 1)] }),
+        install: async () => {
+          seen.install++;
+          i++;
+          return { ok: true };
+        },
+        login: async () => {
+          seen.login++;
+          i++;
+          return { ok: true };
+        },
+      },
+    };
+  }
+
+  it('reports the state the wizard switches on', async () => {
+    const { setup } = fakeSetup(['not-installed']);
+    const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+    const res = await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ state: 'not-installed' });
+    await local.close();
+  });
+
+  it('installs, then reports what the probe now says', async () => {
+    const { setup, seen } = fakeSetup(['not-installed', 'not-authenticated']);
+    const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+    const res = await local.inject({ method: 'POST', url: '/api/engines/codex/install' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true, state: 'not-authenticated' });
+    expect(seen.install).toBe(1);
+    await local.close();
+  });
+
+  it('signs in, then reports ready', async () => {
+    const { setup, seen } = fakeSetup(['not-authenticated', 'ready']);
+    const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+    const res = await local.inject({ method: 'POST', url: '/api/engines/codex/login' });
+    expect(res.json()).toEqual({ ok: true, state: 'ready' });
+    expect(seen.login).toBe(1);
+    await local.close();
+  });
+
+  it('refuses a second setup run while one is in flight', async () => {
+    // Two concurrent global installs fight over the same npm prefix.
+    let release: (() => void) | null = null;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const setup = {
+      status: async () => ({ state: 'not-installed' as const }),
+      install: async () => {
+        await gate;
+        return { ok: true };
+      },
+      login: async () => ({ ok: true }),
+    };
+    const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+    const first = local.inject({ method: 'POST', url: '/api/engines/codex/install' });
+    // let the first request take the lock before the second arrives
+    await new Promise((r) => setTimeout(r, 10));
+    const second = await local.inject({ method: 'POST', url: '/api/engines/codex/install' });
+    expect(second.statusCode).toBe(409);
+    release?.();
+    await first;
+    await local.close();
+  });
+
+  it('tells /api/engines which step an engine is missing', async () => {
+    const stub: EngineAdapter = {
+      capabilities: () => ({
+        id: 'codex-cli',
+        displayName: 'Codex CLI',
+        localOnly: true,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 6,
+      }),
+      isAvailable: async () => ({ ok: false, reason: 'not signed in', code: 'not-authenticated' as const }),
+      costEstimate: async () => 0,
+      generate: async () => ({ images: [], costUsd: 0 }),
+      edit: async () => ({ images: [], costUsd: 0 }),
+    };
+    const local = buildServer({ core, engines: registryWith(stub) });
+    const res = await local.inject({ method: 'GET', url: '/api/engines' });
+    expect(res.json()[0]).toMatchObject({ available: false, code: 'not-authenticated' });
+    await local.close();
+  });
+
+  it('reports no code for an engine whose fix is just a key', async () => {
+    const local = buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))) });
+    const res = await local.inject({ method: 'GET', url: '/api/engines' });
+    expect(res.json()[0].code).toBeNull();
+    await local.close();
+  });
+});

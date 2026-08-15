@@ -5,7 +5,7 @@ import { BrandAvatar, brandName } from './nav.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../routes.js';
-import { useOpenSettings } from '../views/SettingsDialog.js';
+import { useOpenSettings } from '../app/dialogs.js';
 
 /**
  * The one identity control, at the end of the bar. The mark is the brand's own

@@ -1,6 +1,7 @@
 import { Spinner } from '@radix-ui/themes';
 import { ArrowClockwise, X } from '@phosphor-icons/react';
 import { imgUrl, type AssetBuild } from '../api.js';
+import { describeFailure } from '../failure.js';
 
 /**
  * A presenter or scene while it is still being built.
@@ -28,7 +29,14 @@ export function AssetBuildCard({
 }) {
   const failed = build.stage === 'failed';
   const pct = build.steps > 0 ? Math.round((build.step / build.steps) * 100) : 0;
-  const status = failed ? (build.error ?? 'Could not finish') : (build.message ?? 'Starting');
+  /*
+   * A failed build used to put the raw thrown string in the caption, where the
+   * card has one line for it — so a build that died on a missing API key
+   * reported "Codex request failed: HTTP 401 — {"error":{"me…". Read the same
+   * way every other failure in the app is; the raw text stays on the title.
+   */
+  const failure = failed ? describeFailure(build.error) : null;
+  const status = failure ? failure.title : (build.message ?? 'Starting');
 
   /*
    * What the build wants to tell you that is not its status: a view that could
@@ -79,7 +87,7 @@ export function AssetBuildCard({
           </button>
         )}
       </div>
-      <span className="sc-lookcard-cap" title={status}>
+      <span className="sc-lookcard-cap" title={failure?.raw || status}>
         <b dir="auto">{build.name}</b>
         <span>{status}</span>
       </span>

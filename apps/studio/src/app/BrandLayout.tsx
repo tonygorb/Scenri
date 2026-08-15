@@ -9,6 +9,7 @@ import { AssetCreateHost } from '../create/AssetCreateHost.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
 import { useProductLibrary } from '../useProductLibrary.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
+import { ProviderSetup } from '../views/ProviderSetup.js';
 import { useAppData } from './AppShell.js';
 import { pickBrand } from './RootRedirect.js';
 import { TaskCenterProvider } from './TaskCenter.js';
@@ -176,6 +177,7 @@ export function BrandLayout() {
       }}
     >
       <SettingsDialog engines={engines} shots={nodes} onSaved={refresh} />
+      <ProviderSetup engines={engines} onSaved={refresh} />
       <TaskCenterProvider brand={brand}>
         {/* Inside TaskCenter: a creation flow reads the builds already in
             flight, and pokes the one poll when it starts another. */}

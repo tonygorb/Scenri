@@ -79,34 +79,53 @@ describe('capabilities / costEstimate', () => {
 });
 
 describe('isAvailable', () => {
-  it('resolves ok:true when `codex --version` exits 0', async () => {
+  // Two questions with two different fixes: install, and sign in. The setup
+  // wizard switches on `code`, so these three cases are its whole contract.
+  it('asks --version then login status, and reports ready when both exit 0', async () => {
     const { spawnImpl, calls } = fakeSpawn(({ child }) => child.emit('exit', 0, null));
     const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
     await expect(engine.isAvailable()).resolves.toEqual({ ok: true });
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
     expect(calls[0].cmd).toBe('codex');
     expect(calls[0].args).toEqual(['--version']);
+    expect(calls[1].args).toEqual(['login', 'status']);
   });
 
-  it('resolves ok:false with reason on ENOENT (never rejects)', async () => {
-    const { spawnImpl } = fakeSpawn(({ child }) => {
+  it('reports not-installed on ENOENT, without asking about the session', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ child }) => {
       const err = Object.assign(new Error('spawn codex ENOENT'), { code: 'ENOENT' });
       child.emit('error', err);
     });
     const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
     await expect(engine.isAvailable()).resolves.toEqual({
       ok: false,
-      reason: 'Codex CLI not found or not signed in (run: codex login)',
+      reason: 'Codex CLI is not installed on this computer',
+      code: 'not-installed',
     });
+    expect(calls).toHaveLength(1);
   });
 
-  it('resolves ok:false with reason on nonzero exit', async () => {
+  it('reports not-installed when --version exits nonzero', async () => {
     const { spawnImpl } = fakeSpawn(({ child }) => child.emit('exit', 1, null));
     const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
     await expect(engine.isAvailable()).resolves.toEqual({
       ok: false,
-      reason: 'Codex CLI not found or not signed in (run: codex login)',
+      reason: 'Codex CLI is not installed on this computer',
+      code: 'not-installed',
     });
+  });
+
+  it('reports not-authenticated when the binary is there but the session is not', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      child.emit('exit', args[0] === '--version' ? 0 : 1, null);
+    });
+    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    await expect(engine.isAvailable()).resolves.toEqual({
+      ok: false,
+      reason: 'Codex CLI is installed but not signed in',
+      code: 'not-authenticated',
+    });
+    expect(calls.map((c) => c.args)).toEqual([['--version'], ['login', 'status']]);
   });
 });
 

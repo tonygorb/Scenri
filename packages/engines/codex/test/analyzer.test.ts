@@ -74,7 +74,8 @@ describe('isAvailable', () => {
     const analyzer = createCodexAnalyzer({ spawnImpl });
     await expect(analyzer.isAvailable()).resolves.toEqual({
       ok: false,
-      reason: 'Codex CLI not found or not signed in (run: codex login)',
+      reason: 'Codex CLI is not installed on this computer',
+      code: 'not-installed',
     });
   });
 });

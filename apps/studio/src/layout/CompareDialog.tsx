@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Dialog, Spinner } from '@radix-ui/themes';
 import { X } from '@phosphor-icons/react';
 import { api, imgUrl, nodeLabel, type TreeNode } from '../api.js';
+import { describeFailure } from '../failure.js';
+import { FailureNote } from './Failure.js';
 
 /**
  * Two shots, side by side, with the drift between them.
@@ -72,11 +74,13 @@ export function CompareDialog({
           </figure>
           <figure className="sc-cmp-side">
             {err ? (
+              // Was raw error text plus a pill borrowed from the feed's tile,
+              // which is a class about a masonry cell and has no business in a
+              // dialog. Same note as everywhere else now.
               <div className="sc-cmp-err">
-                {err}
-                <button type="button" className="sc-cell-retry" onClick={() => setRetryTick((t) => t + 1)}>
-                  Try again
-                </button>
+                {/* tile density, not stage: this is a square cell in a
+                    three-up figure, the same size as the two shots beside it. */}
+                <FailureNote failure={describeFailure(err)} density="tile" onRetry={() => setRetryTick((t) => t + 1)} />
               </div>
             ) : diff ? (
               <img src={imgUrl(diff.heatmapHash)} alt="Heatmap of the pixels that differ" />

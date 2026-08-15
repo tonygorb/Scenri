@@ -61,7 +61,7 @@ import {
   type AssetBuildDeps,
   type CustomScene,
 } from './customAssets.js';
-import { createCodexAnalyzer } from '@scenri/engine-codex';
+import { createCodexAnalyzer, createCodexSetup, type CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 
 export interface ServerOptions {
@@ -73,6 +73,8 @@ export interface ServerOptions {
   access?: AccessOptions; // host allowlist + LAN token; loopback-only by default
   /** Reads a brand's own references into structured records. Injected in tests. */
   analyzer?: Analyzer;
+  /** Installs and signs in the local Codex CLI for the setup wizard. Injected in tests. */
+  codexSetup?: CodexSetup;
 }
 
 /** Settings keys exposed via the API. Secrets are write-only: reads return booleans. */
@@ -679,8 +681,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   /**
    * Which engine draws a person's studio views and a scene's preview.
    *
-   * Prefers codex-cli: it is local, free on the user's own subscription, and
-   * carries six references, which is what a chained identity plan needs. Any
+   * Prefers codex-cli: it is local, adds no bill of ours on top of the plan the
+   * user already pays for, and carries six references, which is what a chained
+   * identity plan needs. Any
    * available engine that can take a reference at all will do; one that takes
    * none could not hold a face, so it is not offered.
    */
@@ -716,7 +719,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       canGenerate: !!engine,
       engineId: engine?.capabilities().id ?? null,
       engineName: engine?.capabilities().displayName ?? null,
-      /** True when building costs the user nothing but time. */
+      /**
+       * True when scenri cannot price this per image, because it is not billed
+       * through a key we hold. NOT the same as costing the user nothing: the
+       * local Codex engine spends the Codex allowance on their ChatGPT plan,
+       * which only OpenAI can meter. Copy built on this flag must say "nothing
+       * billed through scenri", never "free".
+       */
       free: engine ? (await engine.costEstimate(COST_PROBE).catch(() => 0)) <= 0 : true,
     };
   });
@@ -1128,6 +1137,42 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return { ok: true };
   });
 
+  // ---- codex setup (the guided path for people who have never opened a terminal)
+  //
+  // These run two official commands on the user's own machine: a global npm
+  // install, and `codex login`, which opens their browser. No credential is
+  // read, copied or stored here — the session lands in codex's own config and
+  // stays there. Both are gated by the same access guard as everything else.
+  const codexSetup: CodexSetup = opts.codexSetup ?? createCodexSetup();
+  /** One install/login at a time: two concurrent npm installs fight over the same prefix. */
+  let codexSetupBusy: 'install' | 'login' | null = null;
+
+  app.get('/api/engines/codex/status', async () => codexSetup.status());
+
+  app.post('/api/engines/codex/install', async (_req, reply) => {
+    if (codexSetupBusy) return reply.status(409).send({ error: `already running: ${codexSetupBusy}` });
+    codexSetupBusy = 'install';
+    try {
+      const res = await codexSetup.install();
+      const { state } = await codexSetup.status();
+      return { ...res, state };
+    } finally {
+      codexSetupBusy = null;
+    }
+  });
+
+  app.post('/api/engines/codex/login', async (_req, reply) => {
+    if (codexSetupBusy) return reply.status(409).send({ error: `already running: ${codexSetupBusy}` });
+    codexSetupBusy = 'login';
+    try {
+      const res = await codexSetup.login();
+      const { state } = await codexSetup.status();
+      return { ...res, state };
+    } finally {
+      codexSetupBusy = null;
+    }
+  });
+
   // ---- engines / caps / costs
   app.get('/api/engines', async () => {
     const list = [];
@@ -1150,6 +1195,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       } catch {
         perGeneration = 0;
       }
+      // "free" here means unpriceable by us, not costless to them. See the same
+      // flag on /api/asset-builds/capabilities.
       const free = perGeneration <= 0;
       const generationsLeft = free || cap === null ? null : Math.max(0, Math.floor((cap - spend) / perGeneration));
       const generationsTotal = free || cap === null ? null : Math.max(0, Math.floor(cap / perGeneration));
@@ -1157,6 +1204,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ...caps,
         available: avail.ok,
         reason: avail.reason ?? null,
+        // Which setup step would fix this, when the engine knows. The wizard
+        // switches on this instead of matching on prose.
+        code: avail.code ?? null,
         monthlySpend: spend,
         cap,
         free,

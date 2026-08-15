@@ -5,6 +5,7 @@ import { MARK_BACKGROUNDS, MARK_ROLES, MARK_ROLE_LABEL, marksOf, type Mark } fro
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { useToasts } from '../../toasts.js';
 import type { BrandDoc } from './useBrandDoc.js';
+import { failureToast } from '../../failure.js';
 
 /**
  * Who this brand is: mark, name, tagline.
@@ -49,7 +50,7 @@ export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
       await doc.flush();
       doc.applyRow(await fn());
     } catch (e: any) {
-      push({ kind: 'error', title: what, detail: String(e?.message ?? e) });
+      push(failureToast(e, what));
     } finally {
       setBusy(false);
     }

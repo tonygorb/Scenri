@@ -1,4 +1,4 @@
-import { Callout, Flex, ScrollArea, Text } from '@radix-ui/themes';
+import { Flex, ScrollArea, Text } from '@radix-ui/themes';
 import type { Brand, TreeNode } from '../api.js';
 import { Confirm } from '../Confirm.js';
 import { briefProse } from '../briefDiff.js';
@@ -65,12 +65,13 @@ function InfoTab({ node, onCompare, onDelete }: { node: TreeNode; onCompare?: ()
           the shot, and the header already says the engine and the cost. What
           was here repeated every one of them as a full-width button, so the
           panel read as a settings page for a photograph. Compare stays: it is
-          the only thing here with nowhere else to live. */}
-      {node.status === 'error' && (
-        <Callout.Root color="red" mt="3" size="1">
-          <Callout.Text>{node.error}</Callout.Text>
-        </Callout.Root>
-      )}
+          the only thing here with nowhere else to live.
+
+          The failure used to be stated here too, as a bare Radix callout
+          printing the engine's raw JSON — a second copy of what the stage a few
+          hundred pixels to the left was already saying, in a different visual
+          language, with no action attached. The stage owns it now, and on a
+          phone the stage stacks first, so it is still the first thing read. */}
       {/* Compare is the one thing here with nowhere else to live. */}
       {onCompare && (
         <>

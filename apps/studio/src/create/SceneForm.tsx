@@ -53,7 +53,7 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
       error={f.err}
       footnote={capsNote(
         caps?.canGenerate
-          ? `Draws one example on ${caps.engineName ?? 'your engine'}${caps.free ? ', free on this machine' : ''}. A few minutes.`
+          ? `Draws one example on ${caps.engineName ?? 'your engine'}${caps.engineId === 'codex-cli' ? ', on your ChatGPT plan' : ''}. A few minutes.`
           : 'No engine connected, so this scene is saved without an example image.',
       )}
       primaryLabel="Create scene"

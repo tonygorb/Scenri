@@ -8,7 +8,7 @@ import {
   useParams,
   useRouteError,
 } from 'react-router';
-import { Callout, Flex } from '@radix-ui/themes';
+import { Flex } from '@radix-ui/themes';
 import { AppShell } from './app/AppShell.js';
 import { BrandLayout, useBrand } from './app/BrandLayout.js';
 import { P, hubPath, rewriteLegacyPath, setPath } from './routes.js';
@@ -23,14 +23,14 @@ import { ProductsView } from './views/Products.js';
 import { ProductPage } from './views/ProductPage.js';
 import { CreateView } from './views/Create.js';
 import { ShotDetailRoute } from './views/ShotDetailRoute.js';
+import { FailureRow } from './layout/Failure.js';
+import { describeFailure } from './failure.js';
 
 function RouteError() {
   const error = useRouteError() as any;
   return (
-    <Flex align="center" justify="center" height="100vh">
-      <Callout.Root color="red">
-        <Callout.Text>{String(error?.message ?? error)}</Callout.Text>
-      </Callout.Root>
+    <Flex align="center" justify="center" height="100vh" p="5">
+      <FailureRow failure={describeFailure(String(error?.message ?? error))} />
     </Flex>
   );
 }

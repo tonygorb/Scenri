@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { api, nodeLabel, type TreeNode } from './api.js';
 import { useToasts } from './toasts.js';
+import { failureToast } from './failure.js';
 
 /**
  * Archive is a real, restorable put-away — not the old client-only Dismiss,
@@ -29,9 +30,7 @@ export function useArchiveNode(onChanged: () => Promise<void> | void) {
             },
           });
         })
-        .catch((e: any) =>
-          push({ kind: 'error', title: 'Could not archive this shot', detail: String(e.message ?? e) }),
-        ),
+        .catch((e: any) => push(failureToast(e, 'Could not archive this shot'))),
     [onChanged, push],
   );
 
@@ -40,9 +39,7 @@ export function useArchiveNode(onChanged: () => Promise<void> | void) {
       api
         .archiveNode(node.id, false)
         .then(() => onChanged())
-        .catch((e: any) =>
-          push({ kind: 'error', title: 'Could not restore this shot', detail: String(e.message ?? e) }),
-        ),
+        .catch((e: any) => push(failureToast(e, 'Could not restore this shot'))),
     [onChanged, push],
   );
 
@@ -50,9 +47,7 @@ export function useArchiveNode(onChanged: () => Promise<void> | void) {
     (ids: string[]) =>
       Promise.all(ids.map((id) => api.archiveNode(id, false)))
         .then(() => onChanged())
-        .catch((e: any) =>
-          push({ kind: 'error', title: 'Could not restore these shots', detail: String(e.message ?? e) }),
-        ),
+        .catch((e: any) => push(failureToast(e, 'Could not restore these shots'))),
     [onChanged, push],
   );
 

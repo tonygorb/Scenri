@@ -39,7 +39,9 @@ It runs as a local server on `127.0.0.1`. Your brands, your images, and your key
 npx scenri
 ```
 
-That is the whole install. It opens `http://127.0.0.1:4747`. If you already have the **Codex CLI** on your PATH, generation works on your existing session with **no API key and no per-image cost**.
+That is the whole install. It opens `http://127.0.0.1:4747`.
+
+Generation runs on **Codex CLI**, an official helper from OpenAI that draws on your own ChatGPT plan. No API key to paste, and scenri never charges you. Each image draws on your plan's Codex usage. You do not have to set it up by hand: if it is missing, scenri offers to install it and to sign you in, both from the app. No ChatGPT plan? Add your own key from an image provider in Settings instead — see [Engines](#engines).
 
 Requires **Node 20 or newer**. Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once.
 
@@ -60,7 +62,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 
 1. **Paste a website URL.** scenri reads the public page and drafts the kit: name, palette, logo, tone.
 2. **Describe a shot.** `@` pulls in a product or a person, `#` picks a look. The composer compiles a brief you can inspect before it runs.
-3. **Generate on Codex CLI.** Runs on your existing session — no key, no per-image cost.
+3. **Generate on Codex CLI.** Runs on your own ChatGPT plan — no key, no per-image cost.
 4. **Branch an edit** from any shot, then hit compare. The heatmap shows what moved.
 5. **Add a real engine** in Settings when you want output you can ship.
 
@@ -74,14 +76,22 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 
 ## Engines
 
-| Engine | Cost | Needs |
-|---|---|---|
-| **Codex CLI** | free on your existing session | `codex` on your PATH |
-| OpenRouter | about $0.04 a generation | API key |
-| Replicate | about $0.003 a generation | API token |
-| fal | about $0.003 a generation | API key |
+| Engine | What it costs you | Needs | Carries a Product or Presenter |
+|---|---|---|---|
+| **Codex CLI** | your ChatGPT plan | a ChatGPT account; the app installs and signs in for you | yes, up to 6 references |
+| OpenRouter | about $0.04 a generation | API key | yes, up to 4 references |
+| Replicate | about $0.003 a generation | API token | no |
+| fal | about $0.003 a generation | API key | no |
+
+Codex CLI is the default because it needs no key and because it carries the most reference images: a shot that has to keep both a product and a person accurate needs the room.
+
+It is not free. Every ChatGPT plan comes with some Codex usage and each image spends a little of it. OpenAI meters that, not scenri, so spend caps do not apply to this engine.
+
+**Without a ChatGPT plan**, use your own provider key. OpenRouter is the one to pick if your shots name a Product or a Presenter — Replicate and fal take no reference images, so scenri refuses those briefs on them rather than generating something that only looks right.
 
 Keys are stored in your local library folder, sent only to that provider, and never returned by the API. Set a monthly spend cap per engine in Settings.
+
+Your Codex session is yours: scenri runs the official `codex` commands on your machine and never reads, copies or stores the credential. That is also why there is no hosted version of this — a plan is licensed to the person who pays for it, not to a service pooling it for other people.
 
 ## Configuration
 

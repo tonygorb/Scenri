@@ -7,7 +7,8 @@
  *   agent session); the cost ledger records estimates, never invents charges.
  * - Local-agent adapters (codex-cli) are OSS-local only and must respect the
  *   `localOnly` capability flag: the hosted product never bridges a user's
- *   subscription session (see docs/STRATEGY.md §13).
+ *   subscription session — a subscription is licensed to its owner, on their
+ *   own machine, and is not ours to resell or pool.
  */
 
 /** Why a reference image is attached — the compiler's only defence against one image bleeding into a dimension it does not own. */
@@ -138,10 +139,26 @@ export interface EngineCapabilities {
   placeholder?: boolean;
 }
 
+/**
+ * Why an engine is not ready, in the one vocabulary the setup UI can act on.
+ *
+ * `reason` is prose for a human; `code` is for a wizard that has to decide
+ * which step to open. Only adapters with a real setup path (a local binary to
+ * install and a session to sign into) set it — a missing API key is already a
+ * one-step fix the Settings pane covers.
+ */
+export type UnavailableCode = 'not-installed' | 'not-authenticated';
+
+export interface EngineAvailability {
+  ok: boolean;
+  reason?: string;
+  code?: UnavailableCode;
+}
+
 export interface EngineAdapter {
   capabilities(): EngineCapabilities;
   /** Cheap readiness probe: binary present, session valid, key set, etc. */
-  isAvailable(): Promise<{ ok: boolean; reason?: string }>;
+  isAvailable(): Promise<EngineAvailability>;
   costEstimate(req: GenerateRequest | EditRequest): Promise<number>;
   generate(req: GenerateRequest, signal?: AbortSignal): Promise<EngineResult>;
   edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult>;

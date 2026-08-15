@@ -1,7 +1,9 @@
-import { Dialog, Spinner, Callout } from '@radix-ui/themes';
+import { Dialog, Spinner } from '@radix-ui/themes';
 import { CheckCircle, WarningCircle, XCircle } from '@phosphor-icons/react';
 import type { CatalogImportJob } from '../api.js';
 import { catalogPercent } from '../tasks.js';
+import { describeFailure } from '../failure.js';
+import { FailureRow } from './Failure.js';
 
 const _STAGE_LABEL: Record<string, string> = {
   queued: 'Queued',
@@ -122,19 +124,29 @@ export function CatalogImportDialog({
           </p>
         )}
 
+        {/* Both of these were bare Radix callouts, in the framework's own red
+            and amber rather than the app's. They are also two different things:
+            one is a failure, the other is a job that finished with gaps. */}
         {done && stage === 'failed' && (
-          <Callout.Root color="red" size="1" mb="3">
-            <Callout.Text>{job?.message || job?.errors?.[0]?.message || 'Import failed'}</Callout.Text>
-          </Callout.Root>
+          <div className="sc-import-note">
+            <FailureRow failure={describeFailure(job?.message || job?.errors?.[0]?.message || 'Import failed')} />
+          </div>
         )}
         {stage === 'partial' && (
-          <Callout.Root color="amber" size="1" mb="3">
-            <Callout.Text>
-              {job?.errors?.length
-                ? `${job.errors.length} item${job.errors.length === 1 ? '' : 's'} could not be imported. Everything else is ready.`
-                : 'Import finished with some gaps.'}
-            </Callout.Text>
-          </Callout.Root>
+          <div className="sc-import-note">
+            <FailureRow
+              tone="note"
+              failure={{
+                kind: 'unknown',
+                retryable: false,
+                raw: '',
+                title: job?.errors?.length
+                  ? `${job.errors.length} item${job.errors.length === 1 ? '' : 's'} could not be imported.`
+                  : 'Import finished with some gaps.',
+                fix: job?.errors?.length ? 'Everything else is ready.' : undefined,
+              }}
+            />
+          </div>
         )}
         {job?.errors?.length && job.errors.length <= 5 && stage !== 'failed' ? (
           <ul style={{ margin: '0 0 12px', paddingLeft: 18, fontSize: 11.5, color: 'var(--sc-fg3)' }}>
@@ -189,8 +201,10 @@ function Row({
     >
       {state === 'active' && <Spinner size="1" />}
       {state === 'done' && <CheckCircle size={14} weight="fill" />}
-      {state === 'warn' && <WarningCircle size={14} weight="fill" color="var(--amber-9)" />}
-      {state === 'fail' && <XCircle size={14} weight="fill" color="var(--red-9)" />}
+      {/* the app's own tokens: --amber-9/--red-9 are Radix's scale, and they do
+          not move with scenri's light and dark themes */}
+      {state === 'warn' && <WarningCircle size={14} weight="fill" color="var(--sc-gold)" />}
+      {state === 'fail' && <XCircle size={14} weight="fill" color="var(--sc-red)" />}
       {state === 'idle' && (
         <span
           style={{

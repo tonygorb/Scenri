@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
-import { Callout, DropdownMenu } from '@radix-ui/themes';
+import { DropdownMenu } from '@radix-ui/themes';
 import { ArrowsDownUp, CaretDown, CaretLeft, CaretRight, FolderSimple, Plus } from '@phosphor-icons/react';
 import {
   api,
@@ -41,6 +41,8 @@ import { useToasts } from '../toasts.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
+import { FailureRow } from '../layout/Failure.js';
+import { describeFailure, failureToast } from '../failure.js';
 import { starredFirst } from '../layout/library/libraryRules.js';
 import { Canvas } from '../layout/Canvas.js';
 import { CompareDialog } from '../layout/CompareDialog.js';
@@ -522,7 +524,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       await reload();
       return made?.id ?? null;
     } catch (e: any) {
-      push({ kind: 'error', title: 'Could not run this again', detail: String(e.message ?? e) });
+      push(failureToast(e, 'Could not run this again'));
       return null;
     }
   };
@@ -532,7 +534,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       await api.cancelNode(node.id);
       await reload();
     } catch (e: any) {
-      push({ kind: 'error', title: 'Could not cancel this shot', detail: String(e.message ?? e) });
+      push(failureToast(e, 'Could not cancel this shot'));
     }
   };
 
@@ -717,7 +719,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       await api.keep(node.id, next);
       await reload();
     } catch (e: any) {
-      push({ kind: 'error', title: 'Could not update keeper status', detail: String(e?.message ?? e) });
+      push(failureToast(e, 'Could not update keeper status'));
     }
   };
 
@@ -728,7 +730,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       await Promise.all(pickedNodes.filter((n) => n.kept !== next).map((n) => api.keep(n.id, next)));
       await reload();
     } catch (e: any) {
-      push({ kind: 'error', title: 'Could not update keeper status', detail: String(e?.message ?? e) });
+      push(failureToast(e, 'Could not update keeper status'));
     }
   };
 
@@ -738,7 +740,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       setPicked(new Set());
       await reload();
     } catch (e: any) {
-      push({ kind: 'error', title: 'Could not add to the set', detail: String(e?.message ?? e) });
+      push(failureToast(e, 'Could not add to the set'));
     }
   };
 
@@ -750,7 +752,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       await reload();
       navigate(`${setPath(brand, made)}?rename=1`);
     } catch (e: any) {
-      push({ kind: 'error', title: 'Could not create the set', detail: String(e?.message ?? e) });
+      push(failureToast(e, 'Could not create the set'));
     }
   };
 
@@ -847,10 +849,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   return (
     <div className="sc-work" data-assets={assetsOpen}>
       <main className="sc-canvas" id="main" data-firstrun={firstRun || undefined}>
+        {/* Was a bare Radix callout printing whatever the server threw. Same
+            reading as every other failure in the app now, so the page does not
+            change vocabulary depending on where the error came from. */}
         {err && (
-          <Callout.Root className="sc-canvas-alert" color="red" mb="3">
-            <Callout.Text>{err}</Callout.Text>
-          </Callout.Root>
+          <div className="sc-canvas-alert">
+            <FailureRow failure={describeFailure(err)} />
+          </div>
         )}
 
         {/* The app-wide rule: a page with nothing in it carries no chrome.
@@ -901,6 +906,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           // onClick needs to actually do the right one of the two
           onArchive={(n) => (n.archived ? unarchive(n) : archive(n))}
           onDeletePermanently={remove}
+          // Only a failed tile reads this, so it can say which engine refused
+          // rather than "the engine". The ids live here; the names do not.
+          engineName={(id) => engines.find((e) => e.id === id)?.displayName}
           setsFor={(id) => setsByNode.get(id) ?? []}
           picked={picked}
           onPick={togglePick}

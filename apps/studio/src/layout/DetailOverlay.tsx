@@ -29,6 +29,7 @@ import { Coin } from './Coin.js';
 import { useAppData } from '../app/AppShell.js';
 import { customScenesOf } from '../brandAssets.js';
 import { useToasts } from '../toasts.js';
+import { failureToast } from '../failure.js';
 import { briefChangeLine, sourceImageOf } from '../briefDiff.js';
 import { normalizeTint } from '../composer/line.js';
 import { presenterPath, productPath, scenePath } from '../routes.js';
@@ -99,6 +100,8 @@ export function DetailOverlay({
   const root = useMemo(() => nodes.find((n) => n.kind === 'root') ?? null, [nodes]);
   const parent = node.parentId ? byId.get(node.parentId) : null;
   const parentShot = parent && parent.kind !== 'root' ? parent : null;
+  /** What the engine that ran this is called, so a failure can name it in a sentence. */
+  const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
   const { push } = useToasts();
   /** The image this refinement was made from, not merely the run's first. */
   const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
@@ -124,11 +127,7 @@ export function DetailOverlay({
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       push({ kind: 'success', title: 'Copied to clipboard' });
     } catch (e: any) {
-      push({
-        kind: 'error',
-        title: 'Copy failed',
-        detail: String(e.message ?? e),
-      });
+      push(failureToast(e, 'Copy failed'));
     } finally {
       setWorking(false);
     }
@@ -152,7 +151,10 @@ export function DetailOverlay({
    * remembering to add it in two places. Order is priority order: what people
    * reach for most is first, and the destructive one is last.
    */
-  const actions: { key: string; label: string; icon: ReactNode; onClick: () => void; tint?: string }[] = [
+  type Action = { key: string; label: string; icon: ReactNode; onClick: () => void; tint?: string };
+
+  /** The ones that act on a file, so they are only offered where there is one. */
+  const fileActions: Action[] = [
     { key: 'export', label: 'Export', icon: <DownloadSimple size={14} />, onClick: () => setExportOpen(true) },
     {
       key: 'keep',
@@ -162,9 +164,7 @@ export function DetailOverlay({
         void api
           .keep(node.id, !node.kept)
           .then(onChanged)
-          .catch((e) =>
-            push({ kind: 'error', title: 'Could not update keeper status', detail: String(e.message ?? e) }),
-          ),
+          .catch((e) => push(failureToast(e, 'Could not update keeper status'))),
       tint: node.kept ? 'var(--sc-star)' : undefined,
     },
     { key: 'copy', label: 'Copy image', icon: <CopySimple size={14} />, onClick: () => void copyImage() },
@@ -178,6 +178,15 @@ export function DetailOverlay({
           },
         ]
       : []),
+  ];
+
+  /**
+   * Putting a shot away is not a file action, and gating it on a finished
+   * picture meant a failed shot opened onto a header with nothing in it but
+   * Close — so the only way to get rid of one was to back out to the feed and
+   * find it again. These are about the record, which exists either way.
+   */
+  const keepActions: Action[] = [
     {
       key: 'archive',
       label: node.archived ? 'Restore' : 'Archive',
@@ -196,6 +205,9 @@ export function DetailOverlay({
         ]
       : []),
   ];
+
+  const hasImage = node.status === 'done' && node.images.length > 0;
+  const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
 
   const frame = (n: TreeNode, current = false) => (
     <button
@@ -286,7 +298,7 @@ export function DetailOverlay({
             )}
           </div>
 
-          {node.status === 'done' && node.images.length > 0 && (
+          {actions.length > 0 && (
             <div className="sc-ovl-bar-r">
               {/* One list, two shells: buttons where the row is wide enough to
                   hold them, one overflow where it is not. Written once, so the
@@ -359,6 +371,7 @@ export function DetailOverlay({
             imageIndex={imageIndex}
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
+            engineName={engine?.displayName}
           />
           {node.status === 'done' && node.images.length > 1 && (
             <div style={{ display: 'flex', gap: 8 }}>
@@ -406,13 +419,18 @@ export function DetailOverlay({
             </small>
             <span className="sc-ovl-meta-sep" aria-hidden />
             <small className="sc-ovl-eng">{node.engineId}</small>
-            <small
-              className="sc-ovl-spend"
-              title={node.costUsd > 0 ? 'Of your API budget' : 'Generated on a free engine'}
-            >
-              <Coin size={12} />
-              {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
-            </small>
+            {/* Only where something was actually made. A shot that came back
+                with nothing was still announcing a gold coin and the word
+                "Free", which reads as a feature of the failure. */}
+            {hasImage && (
+              <small
+                className="sc-ovl-spend"
+                title={node.costUsd > 0 ? 'Of your API budget' : 'No API cost for this shot'}
+              >
+                <Coin size={12} />
+                {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
+              </small>
+            )}
           </div>
 
           <Ingredients brief={node.brief} brand={brand} />
@@ -470,7 +488,12 @@ export function DetailOverlay({
               button that only scrolls you to it was a fourth way to say the
               same thing. "Add text" moved back to the Text tab, where the rest
               of the text tools live. */}
-          {node.status === 'done' && node.images.length > 0 && (
+          {/* Reuse setup is offered on a failure too — changing the setup is
+              exactly what a declined brief or an unmakeable shape needs, and it
+              was the one route out that a failed shot had no way to reach.
+              Try again is not: the stage panel already carries it, and it knows
+              which failures re-running cannot fix. */}
+          {(hasImage || node.brief) && (
             <div className="sc-sugg">
               {node.brief && (
                 <button
@@ -482,14 +505,16 @@ export function DetailOverlay({
                   <ArrowsClockwise size={12} /> Reuse setup
                 </button>
               )}
-              <button
-                type="button"
-                className="sc-s"
-                onClick={() => onRetry(node)}
-                title="Run the same setup again for a different take"
-              >
-                <ArrowCounterClockwise size={12} /> Try again
-              </button>
+              {hasImage && (
+                <button
+                  type="button"
+                  className="sc-s"
+                  onClick={() => onRetry(node)}
+                  title="Run the same setup again for a different take"
+                >
+                  <ArrowCounterClockwise size={12} /> Try again
+                </button>
+              )}
               {/* Export lives once, with the other file actions over the shot.
                   It was offered here too, from the same handler — the same word
                   twice in one dialog. */}

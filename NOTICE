@@ -40,6 +40,49 @@ with them.
 
 Phosphor Icons (`@phosphor-icons/react`), MIT, Copyright (c) 2023 Phosphor Icons.
 
+## Third-party marks
+
+scenri shows each generation provider's own mark beside its name, so that the
+row asking for your key names the service you recognise rather than a generic
+glyph. Every mark is reproduced unmodified, in a variant its owner publishes,
+and is used referentially to identify which service a key or a sign-in belongs
+to. scenri is not built, supported, certified, endorsed by, or affiliated with
+any of them, and makes no such claim.
+
+| Mark | File | Artwork source | Artwork licence |
+|------|------|----------------|-----------------|
+| OpenAI | `apps/studio/src/layout/OpenAIMark.tsx` | Simple Icons (https://simpleicons.org) | CC0-1.0 |
+| OpenRouter | `apps/studio/src/layout/OpenRouterMark.tsx` | Simple Icons (https://simpleicons.org) | CC0-1.0 |
+| Replicate | `apps/studio/src/layout/ReplicateMark.tsx` | Simple Icons (https://simpleicons.org) | CC0-1.0 |
+| fal.ai | `apps/studio/src/layout/FalMark.tsx` | fal's own asset repository (https://github.com/fal-ai/fal-assets) | **All rights reserved** |
+
+Each mark sits on the plate its owner puts it on, in the colours its owner
+publishes, sampled from that owner's own icon: OpenAI's 180px favicon (white
+plate, black mark), OpenRouter's app icon (white plate, violet mark),
+Replicate's favicon (red plate, white mark) and fal's published C1 lockup (pink
+plate, red mark). The pairs are recorded in `BRAND` in
+`apps/studio/src/engines/providers.tsx` and are identical in both of scenri's
+themes, because none of these owners publishes a dark variant and inventing one
+would be redrawing their logo. No geometry is redrawn, distorted, recomposed,
+recoloured or tinted, and no mark is ever separated from its own plate.
+
+CC0 covers an artwork file. It does not, and cannot, license a trademark.
+"OpenAI", "ChatGPT" and "Codex" are trademarks of OpenAI; "OpenRouter",
+"Replicate" and "fal.ai" are trademarks of their respective owners.
+
+**fal.ai's assets carry no open licence.** Their repository states all rights
+reserved, permits personal non-commercial use, and requires written permission
+from fal.ai (hello@fal.ai) for commercial use, redistribution or modification.
+scenri's use is referential and unmodified, but that permission has not been
+sought or granted.
+
+If you fork or redistribute this project, every mark here is yours to justify:
+none of them is covered by this repository's licence, and each owner's brand
+guidelines govern it (OpenAI's are at https://openai.com/brand). Removing any
+mark is a one-line edit to `BRAND` in `apps/studio/src/engines/providers.tsx`,
+which drops that provider back to a plain Phosphor glyph; the app is otherwise
+unaffected.
+
 ## Other notable dependencies
 
 Apache-2.0: sharp, typescript.

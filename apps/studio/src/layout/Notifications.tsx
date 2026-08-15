@@ -17,6 +17,7 @@ import { useTaskCenter } from '../app/TaskCenter.js';
 import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../tasks.js';
 import { useToasts } from '../toasts.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+import { failureToast } from '../failure.js';
 
 /**
  * The bell, and the two lists behind it.
@@ -131,16 +132,14 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
   // change on its own, so this has nothing else to do once the call lands
   const cancelTask = (taskId: string) => {
     if (taskId.startsWith('node:')) {
-      void api
-        .cancelNode(taskId.slice(5))
-        .catch((e) => push({ kind: 'error', title: 'Could not cancel this shot', detail: String(e.message ?? e) }));
+      void api.cancelNode(taskId.slice(5)).catch((e) => push(failureToast(e, 'Could not cancel this shot')));
       return;
     }
     // A build runs a real child process on this machine; cancelling kills it.
     if (taskId.startsWith('build:')) {
       void api
         .cancelAssetBuild(brand.id, taskId.slice(6))
-        .catch((e) => push({ kind: 'error', title: 'Could not stop this build', detail: String(e.message ?? e) }));
+        .catch((e) => push(failureToast(e, 'Could not stop this build')));
     }
   };
 

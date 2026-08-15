@@ -19,6 +19,7 @@
 import type { spawn as nodeSpawn } from 'node:child_process';
 import { copyFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { EngineAvailability } from '@scenri/core';
 import { createRunner, execArgs, type RunnerOptions } from './run.js';
 
 export interface AnalyzeRequest {
@@ -65,7 +66,7 @@ export interface SceneDraft {
 }
 
 export interface CodexAnalyzer {
-  isAvailable(): Promise<{ ok: boolean; reason?: string }>;
+  isAvailable(): Promise<EngineAvailability>;
   analyze(req: AnalyzeRequest, signal?: AbortSignal): Promise<PresenterDraft | SceneDraft>;
 }
 

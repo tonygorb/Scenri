@@ -1,11 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
-import { Callout, Flex, Spinner } from '@radix-ui/themes';
+import { Flex, Spinner } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo, type Presenter, type DemoProduct, type ShowcaseEntry } from '../api.js';
 import { useScenes, type UseScenesResult } from '../useScenes.js';
 import { usePresenters } from '../usePresenters.js';
 import { useDemoProducts } from '../useDemoProducts.js';
 import { useShowcase } from '../useShowcase.js';
+import { FailureRow } from '../layout/Failure.js';
+import { describeFailure } from '../failure.js';
 
 // usePresenters and useScenes both expose `loaded`/`error`/`refetch` — spreading
 // both into one context would let whichever lands second silently win for
@@ -84,10 +86,8 @@ export function AppShell() {
 
   if (error) {
     return (
-      <Flex align="center" justify="center" height="100vh">
-        <Callout.Root color="red">
-          <Callout.Text>{error}</Callout.Text>
-        </Callout.Root>
+      <Flex align="center" justify="center" height="100vh" p="5">
+        <FailureRow failure={describeFailure(error)} />
       </Flex>
     );
   }

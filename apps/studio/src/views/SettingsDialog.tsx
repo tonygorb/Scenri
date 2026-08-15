@@ -1,36 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Dialog, Spinner } from '@radix-ui/themes';
-import {
-  Broom,
-  Circle,
-  Cube,
-  Database,
-  Globe,
-  Info,
-  Lightning,
-  Palette,
-  PiggyBank,
-  Sun,
-  Terminal,
-  TrashSimple,
-  X,
-} from '@phosphor-icons/react';
+import { Dialog } from '@radix-ui/themes';
+import { Broom, Database, Info, Lightning, Palette, PiggyBank, Sun, TrashSimple, X } from '@phosphor-icons/react';
 import { api, type EngineInfo, type TreeNode } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
+import type { Pane } from '../app/dialogs.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { engineTitle } from '../engines/active.js';
 import { brandName } from '../layout/nav.js';
 import { Confirm } from '../Confirm.js';
 import { useThemeMode, type ThemeChoice } from '../theme.js';
 import { BrandPane } from './settings/BrandPane.js';
-
-export type Pane = 'brand' | 'engines' | 'budget' | 'usage' | 'library' | 'appearance' | 'about' | 'danger';
+import { EnginesPane } from './settings/EnginesPane.js';
 
 const PANES: { id: Pane; label: string; title: string; icon: React.ReactNode; danger?: boolean }[] = [
   // First, and in its own group: the only pane scoped to a brand rather than to
   // this machine, and the one whose contents reach a model.
   { id: 'brand', label: 'Brand kit', title: 'Brand kit', icon: <Palette size={14} /> },
-  { id: 'engines', label: 'Engines', title: 'Engines and keys', icon: <Lightning size={14} /> },
+  { id: 'engines', label: 'Providers', title: 'Providers', icon: <Lightning size={14} /> },
   { id: 'budget', label: 'Budget', title: 'Budget', icon: <PiggyBank size={14} /> },
   { id: 'usage', label: 'Usage', title: 'Usage', icon: <Database size={14} /> },
   { id: 'library', label: 'Library', title: 'Library', icon: <Broom size={14} /> },
@@ -39,28 +26,8 @@ const PANES: { id: Pane; label: string; title: string; icon: React.ReactNode; da
   { id: 'danger', label: 'Danger zone', title: 'Danger zone', icon: <TrashSimple size={14} />, danger: true },
 ];
 
-const KEYS: { key: string; engineId: string; label: string; hint: string }[] = [
-  { key: 'openrouter_api_key', engineId: 'openrouter', label: 'OpenRouter', hint: 'sk-or-...' },
-  { key: 'replicate_api_token', engineId: 'replicate', label: 'Replicate', hint: 'r8_...' },
-  { key: 'fal_key', engineId: 'fal', label: 'fal', hint: 'fal_...' },
-];
-
-/** One mark per engine, so the list reads as five things and not one repeated. */
-const ENGINE_ICON: Record<string, React.ReactNode> = {
-  'codex-cli': <Terminal size={15} />,
-  openrouter: <Globe size={15} />,
-  replicate: <Cube size={15} />,
-  fal: <Lightning size={15} />,
-  demo: <Circle size={15} />,
-};
-
 const bytes = (n: number) =>
   n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n > 1e6 ? `${Math.round(n / 1e6)} MB` : `${Math.round(n / 1e3)} KB`;
-
-/** Settings lists do not need the BYOK suffix — this pane is the keys. */
-const engineTitle = (name: string) => name.replace(/\s*\(BYOK\)\s*$/i, '');
-
-const perGen = (n: number) => n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -105,15 +72,6 @@ function buildHeat(perDay: Map<string, number>, weeks: number) {
  * back when you close. Rail on the left (desktop), chip strip (phone), one pane
  * at a time.
  */
-/**
- * Any surface can ask for Settings without a prop threaded through the tree,
- * and the ask is a URL, so it survives a refresh and answers to Back.
- */
-export function useOpenSettings() {
-  const { open } = useDialogParam('settings');
-  return (pane: Pane = 'brand') => open(pane);
-}
-
 export function SettingsDialog({
   engines,
   shots,
@@ -130,14 +88,6 @@ export function SettingsDialog({
   const pane = (PANES.some((p) => p.id === settings.value) ? settings.value : 'brand') as Pane;
   const setPane = (next: Pane) => settings.set(next);
 
-  // A key mid-type lived in <Engines>'s own state, which unmounts — and
-  // silently drops it — every time the rail leaves the Engines pane, not just
-  // when the whole dialog closes. SettingsDialog itself never unmounts across
-  // opens/closes/pane switches (only its pane content does), so holding the
-  // draft here instead survives all three. Kept in memory only, never
-  // persisted: unlike the Composer's prose draft, a secret should not outlive
-  // a page reload.
-  const [engineDraft, setEngineDraft] = useState<Record<string, string>>({});
   const tabsRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -197,9 +147,7 @@ export function SettingsDialog({
             </nav>
             <div className="sc-set-scroll">
               {pane === 'brand' && <BrandPane />}
-              {pane === 'engines' && (
-                <Engines engines={engines} onSaved={onSaved} draft={engineDraft} setDraft={setEngineDraft} />
-              )}
+              {pane === 'engines' && <EnginesPane engines={engines} />}
               {pane === 'budget' && <Budget engines={engines} onSaved={onSaved} />}
               {pane === 'usage' && <Usage shots={shots} />}
               {pane === 'library' && <Library />}
@@ -284,102 +232,6 @@ function HeatRange({
   );
 }
 
-function Engines({
-  engines,
-  onSaved,
-  draft,
-  setDraft,
-}: {
-  engines: EngineInfo[];
-  onSaved: () => void;
-  draft: Record<string, string>;
-  setDraft: (update: (d: Record<string, string>) => Record<string, string>) => void;
-}) {
-  const [present, setPresent] = useState<Record<string, boolean>>({});
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    void api
-      .settings()
-      .then(setPresent)
-      .catch(() => {});
-  }, []);
-
-  const save = async (key: string) => {
-    const v = (draft[key] ?? '').trim();
-    if (!v) return;
-    setBusy(true);
-    try {
-      await api.saveSettings({ [key]: v });
-      setDraft((d) => ({ ...d, [key]: '' }));
-      setPresent(await api.settings());
-      onSaved();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Group sub="Keys are stored in your local library folder, sent only to that provider, and never shown again.">
-      {engines.map((e) => {
-        const spec = KEYS.find((k) => k.engineId === e.id);
-        const draftKey = spec ? (draft[spec.key] ?? '') : '';
-        const canSave = Boolean(spec && draftKey.trim());
-        const hasKey = Boolean(spec && present[spec.key]);
-        const status = e.available ? 'Ready' : spec && hasKey ? 'Key rejected' : spec ? null : (e.reason ?? null);
-        return (
-          <div className="sc-eng" key={e.id}>
-            <div className="sc-eng-top">
-              <span className="sc-eng-ic">{ENGINE_ICON[e.id] ?? <Lightning size={15} />}</span>
-              <span className="sc-eng-name">
-                <b>{engineTitle(e.displayName)}</b>
-                <small>
-                  {e.free
-                    ? e.localOnly
-                      ? 'Free · this machine'
-                      : 'Free per image'
-                    : `≈ $${perGen(e.perGeneration)} / gen`}
-                </small>
-              </span>
-              {status && (
-                <span className={`sc-stat ${e.available ? 'on' : 'off'}`}>
-                  <span className="d" />
-                  {status}
-                </span>
-              )}
-            </div>
-            {spec && (
-              <form
-                className="sc-eng-key"
-                onSubmit={(ev) => {
-                  ev.preventDefault();
-                  void save(spec.key);
-                }}
-              >
-                <input
-                  className="sc-in"
-                  type="password"
-                  placeholder={hasKey ? 'Key saved' : spec.hint}
-                  value={draftKey}
-                  onChange={(ev) => setDraft((d) => ({ ...d, [spec.key]: ev.target.value }))}
-                  autoComplete="off"
-                  name={spec.key}
-                  aria-label={`${engineTitle(e.displayName)} key`}
-                />
-                {canSave && (
-                  <button className="sc-btn sc-btn-ghost" type="submit" disabled={busy}>
-                    {busy ? <Spinner size="1" /> : hasKey ? 'Replace' : 'Save'}
-                  </button>
-                )}
-              </form>
-            )}
-          </div>
-        );
-      })}
-    </Group>
-  );
-}
-
 function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => void }) {
   const paid = engines.filter((e) => !e.free);
   const [caps, setCaps] = useState<Record<string, string>>({});
@@ -397,7 +249,7 @@ function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => vo
 
   if (!paid.length) {
     return (
-      <Group sub="Nothing here to cap: every engine you have connected is free.">
+      <Group sub="Nothing to cap yet. Caps apply to engines you pay for per image. Codex usage counts against your ChatGPT plan, which OpenAI meters, not scenri.">
         <p className="sc-set-empty">Add a paid engine key and its cap appears here.</p>
       </Group>
     );

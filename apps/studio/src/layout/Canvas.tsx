@@ -8,11 +8,11 @@ import {
   PencilLine,
   Stack,
   Star,
-  WarningCircle,
-  XCircle,
 } from '@phosphor-icons/react';
 import { hasNoShots, imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
 import { sourceImageOf } from '../briefDiff.js';
+import { describeCancelled, describeFailure } from '../failure.js';
+import { FailureNote } from './Failure.js';
 import { elapsedSec, runningPhrase } from '../tasks.js';
 import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 
@@ -42,6 +42,7 @@ export function Canvas({
   onToggleExpand,
   versionsOf,
   onVersions,
+  engineName,
   tile,
 }: {
   nodes: TreeNode[];
@@ -89,6 +90,13 @@ export function Canvas({
   versionsOf?: (id: string) => number;
   /** Look at just this shot and what came from it. */
   onVersions?: (id: string) => void;
+  /**
+   * An engine id to the name it is called by. Only a failed tile reads it, to
+   * say "OpenRouter did not accept your API key" rather than the same sentence
+   * about "the engine" — but the feed is the one place that knows the ids and
+   * not the names, so it is passed rather than looked up here.
+   */
+  engineName?: (id: string) => string | undefined;
   /** Target column width in px, from Create’s grid-size slider. */
   tile: number;
 }) {
@@ -148,9 +156,25 @@ export function Canvas({
           </div>,
         ];
       }
-      if (n.status === 'cancelled') {
+      /*
+       * Cancelled and failed are one tile with two readings. They used to be
+       * two near-identical blocks that had already drifted — the failed one
+       * clipped its message at 200px with `nowrap`, so the reason a shot failed
+       * was unreadable on the very tile reporting it, and both offered two grey
+       * pills of identical weight where one is a rescue and the other a
+       * dismissal.
+       */
+      if (n.status === 'cancelled' || n.status === 'error' || n.images.length === 0) {
+        const cancelled = n.status === 'cancelled';
+        const failure = cancelled ? describeCancelled() : describeFailure(n.error, engineName?.(n.engineId));
         return [
-          <div key={n.id} className="sc-cell" data-cancelled="true" data-selected={n.id === selectedId}>
+          <div
+            key={n.id}
+            className="sc-cell"
+            data-cancelled={cancelled || undefined}
+            data-failed={!cancelled || undefined}
+            data-selected={n.id === selectedId}
+          >
             <button
               type="button"
               className="sc-cell-open"
@@ -158,56 +182,24 @@ export function Canvas({
               aria-label={`Open ${nodeLabel(n)}`}
             />
             <span className="sc-cell-failed">
-              <XCircle size={16} />
-              <span>Cancelled</span>
-              {/* A cancel is usually a change of mind about the wait, not about
-                  the shot, so the way back to it is the same one a failure gets. */}
-              <button type="button" className="sc-cell-retry" onClick={() => onRetry(n)}>
-                Try again
-              </button>
-              {onArchive && (
-                // Says what it will do. This called the same handler either
-                // way, and that handler restores an already-archived shot — so
-                // on an archived failure the button labelled Dismiss put it
-                // back, which is the opposite of dismissing it.
-                <button type="button" className="sc-cell-retry" onClick={() => onArchive(n)}>
-                  {n.archived ? 'Restore' : 'Dismiss'}
-                </button>
-              )}
-            </span>
-          </div>,
-        ];
-      }
-      if (n.status === 'error' || n.images.length === 0) {
-        return [
-          <div key={n.id} className="sc-cell" data-failed="true" data-selected={n.id === selectedId}>
-            <button
-              type="button"
-              className="sc-cell-open"
-              onClick={() => onOpen(n.id)}
-              aria-label={`Open ${nodeLabel(n)}`}
-            />
-            <span className="sc-cell-failed">
-              <WarningCircle size={16} />
-              {/* One truncation, not two: this was cut to 40 characters and
-                  then ellipsised again at 150px, so the reason a shot failed
-                  was usually unreadable on the tile that reported it. The full
-                  text is on the title and in the overlay. */}
-              <span className="sc-cell-why" title={n.error ?? undefined}>
-                {n.error || 'Failed'}
-              </span>
-              <button type="button" className="sc-cell-retry" onClick={() => onRetry(n)}>
-                Try again
-              </button>
-              {onArchive && (
-                // Says what it will do. This called the same handler either
-                // way, and that handler restores an already-archived shot — so
-                // on an archived failure the button labelled Dismiss put it
-                // back, which is the opposite of dismissing it.
-                <button type="button" className="sc-cell-retry" onClick={() => onArchive(n)}>
-                  {n.archived ? 'Restore' : 'Dismiss'}
-                </button>
-              )}
+              <FailureNote
+                failure={failure}
+                density="tile"
+                onRetry={() => onRetry(n)}
+                dismiss={
+                  onArchive
+                    ? {
+                        // Says what it will do. Both of these called the same
+                        // handler under the same word, and that handler
+                        // restores an already-archived shot — so on an archived
+                        // failure the button labelled Dismiss put it back,
+                        // which is the opposite of dismissing it.
+                        label: n.archived ? 'Restore' : 'Dismiss',
+                        onClick: () => onArchive(n),
+                      }
+                    : undefined
+                }
+              />
             </span>
           </div>,
         ];

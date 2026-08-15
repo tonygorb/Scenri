@@ -309,3 +309,70 @@ describe('edit', () => {
     });
   });
 });
+
+describe('aspect ratio', () => {
+  // Asking for a shape in prose does not work on this API: it answers with a
+  // square, and the server's delivered-image check then rejects it. Every
+  // non-square brief failed this way, so the ratio has to travel as a field.
+  const bodyOf = (fetchImpl: ReturnType<typeof vi.fn>) => JSON.parse(fetchImpl.mock.calls[0][1].body as string);
+
+  it("carries scenri's four formats through as exact ratios", async () => {
+    for (const [width, height, ratio] of [
+      [1024, 1024, '1:1'],
+      [1024, 1280, '4:5'],
+      [1024, 1820, '9:16'],
+      [1820, 1024, '16:9'],
+    ] as [number, number, string][]) {
+      const { engine, fetchImpl } = makeEngine();
+      await engine.generate(genReq({ width, height }));
+      expect(bodyOf(fetchImpl).image_config).toEqual({ aspect_ratio: ratio });
+    }
+  });
+
+  it('snaps an odd request to the nearest shape the API accepts', async () => {
+    const { engine, fetchImpl } = makeEngine();
+    await engine.generate(genReq({ width: 1024, height: 768 }));
+    expect(bodyOf(fetchImpl).image_config).toEqual({ aspect_ratio: '4:3' });
+  });
+});
+
+describe('edit — references', () => {
+  it('attaches every reference and names what each one is for', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'or-edit-'));
+    const src = path.join(dir, 'src.png');
+    const prod = path.join(dir, 'prod.png');
+    const face = path.join(dir, 'face.png');
+    for (const f of [src, prod, face]) fs.writeFileSync(f, PNG_BYTES);
+
+    const { engine, fetchImpl } = makeEngine();
+    const req: EditRequest = {
+      instruction: 'remove the text',
+      sourceImage: src,
+      brand,
+      referenceImages: [prod, face],
+      referenceRoles: ['product', 'character'],
+    };
+    await engine.edit(req);
+
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body as string);
+    const parts = body.messages[0].content;
+    // source image first, then the two references
+    expect(parts.filter((p: any) => p.type === 'image_url')).toHaveLength(3);
+    const text = parts[0].text as string;
+    expect(text).toContain('Attached image 1 is the image to edit');
+    expect(text).toContain('Attached image 2 is the exact product');
+    expect(text).toContain('Attached image 3 is the exact person');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('says nothing about references when there are none', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'or-edit-'));
+    const src = path.join(dir, 'src.png');
+    fs.writeFileSync(src, PNG_BYTES);
+    const { engine, fetchImpl } = makeEngine();
+    await engine.edit({ instruction: 'brighten it', sourceImage: src, brand });
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body as string);
+    expect(body.messages[0].content[0].text).toBe('brighten it');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
