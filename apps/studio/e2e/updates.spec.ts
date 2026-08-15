@@ -96,7 +96,7 @@ class Fixture {
   }
 }
 
-const banner = (p: Page) => p.locator('.sc-upd-banner');
+const float = (p: Page) => p.locator('.sc-upd-float');
 const dot = (p: Page) => p.locator('.sc-org-btn .sc-upd-dot');
 const aboutRows = (p: Page) => p.locator('.sc-set .sc-set-row');
 
@@ -110,11 +110,11 @@ test.describe
       await fx.stop();
     });
 
-    test('Home announces it quietly: banner, brand-trigger dot, menu row', async ({ page }) => {
+    test('the float announces it quietly, with the brand-trigger dot and menu row', async ({ page }) => {
       await page.goto(`${fx.base()}/`);
-      await expect(banner(page)).toBeVisible();
-      await expect(banner(page)).toContainText('scenri 0.99.0 is available');
-      await expect(banner(page).locator('.sc-banner-act')).toHaveText(["What's new", 'Update']);
+      await expect(float(page)).toBeVisible();
+      await expect(float(page)).toContainText('scenri 0.99.0 is available');
+      await expect(float(page).locator('.sc-btn')).toHaveText(["What's new", 'Update']);
       await expect(dot(page)).toBeVisible();
 
       await page.locator('.sc-org-btn').click();
@@ -124,7 +124,7 @@ test.describe
 
     test("What's new opens Settings → About with the verdict and the manual command", async ({ page }) => {
       await page.goto(`${fx.base()}/`);
-      await banner(page).locator('.sc-banner-act', { hasText: "What's new" }).click();
+      await float(page).locator('.sc-btn', { hasText: "What's new" }).click();
       await expect(page).toHaveURL(/settings=about/);
       await expect(page.locator('.sc-set .sc-tag-gold')).toHaveText('0.99.0 available');
       // running from source in this spec, so the update row is git guidance
@@ -133,13 +133,13 @@ test.describe
 
     test('dismissing holds across reloads, for this version only', async ({ page }) => {
       await page.goto(`${fx.base()}/`);
-      await banner(page).locator('.sc-banner-x').click();
-      await expect(banner(page)).toHaveCount(0);
+      await float(page).locator('.sc-upd-float-x').click();
+      await expect(float(page)).toHaveCount(0);
       await expect(dot(page)).toHaveCount(0);
 
       await page.reload();
       await expect(page.locator('.sc-greet')).toBeVisible();
-      await expect(banner(page)).toHaveCount(0);
+      await expect(float(page)).toHaveCount(0);
 
       // the menu row stays: dismissed is quiet, not gone
       await page.locator('.sc-org-btn').click();
@@ -161,7 +161,7 @@ test.describe
     test('the app stays quiet and About says so only when asked', async ({ page }) => {
       await page.goto(`${fx.base()}/`);
       await expect(page.locator('.sc-greet')).toBeVisible();
-      await expect(banner(page)).toHaveCount(0);
+      await expect(float(page)).toHaveCount(0);
 
       // straight to the brand path: the / redirect drops query params
       await page.goto(`${fx.base()}/acme?settings=about`);

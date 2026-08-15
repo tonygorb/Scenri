@@ -5,7 +5,6 @@ import { Badge, Dialog } from '@radix-ui/themes';
 import { Aperture, Mountains, Package, User, X } from '@phosphor-icons/react';
 import { assetUrl, type Brand, type ShowcaseEntry } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
-import { UpdateBanner } from '../app/UpdateCenter.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { showcaseBrief, useApplyShowcase } from '../app/useApplyShowcase.js';
@@ -284,9 +283,6 @@ export function HomeView() {
   return (
     <ScrollPane>
       <main className="sc-main" id="main" data-no-dock={phone || undefined}>
-        {/* Machine-level notice, so it lives on the launcher screen and nowhere
-            deeper: work screens stay about the work. */}
-        <UpdateBanner />
         <h1 className="sc-greet">
           Compose a shot <em>on brand</em>
         </h1>

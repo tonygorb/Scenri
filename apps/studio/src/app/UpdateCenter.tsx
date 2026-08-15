@@ -174,6 +174,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ status, checking, checkNow, dismissed, dismiss, apply, busy, applyError }}>
       {children}
+      {busy !== 'restarting' && status?.available && !dismissed && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
     </Ctx.Provider>
   );
@@ -198,42 +199,36 @@ function RestartOverlay({ version }: { version: string | null }) {
 }
 
 /**
- * The quiet announcement on Home: title, one-line summary, What's new · Update.
- * Never a modal, never a toast (auto-dismiss loses the one action that
- * matters). Waving it away holds for this version only.
+ * The announcement, floating in the quiet corner — bottom-left, every screen
+ * (the composer owns bottom-center, the work owns the canvas). One line,
+ * three actions. Never a modal, never a toast (auto-dismiss loses the one
+ * action that matters), never a container stripe: the gold dot is the whole
+ * accent. Waving it away holds for this version only.
  */
-export function UpdateBanner() {
-  const { status, dismissed, dismiss, apply, busy, applyError } = useUpdateCenter();
+function UpdateFloat() {
+  const { status, dismiss, apply, busy, applyError } = useUpdateCenter();
   const openSettings = useOpenSettings();
-  if (!status?.available || dismissed) return null;
+  if (!status) return null;
 
   return (
-    <div className="sc-banner sc-upd-banner" data-tone="action">
-      <span className="sc-banner-ic">
-        <ArrowCircleUp size={15} />
+    <div className="sc-upd-float" role="status">
+      <span className="sc-upd-float-dot" aria-hidden="true" />
+      <span className="sc-upd-float-txt">
+        <b>scenri {status.latest}</b> is available
+        {applyError && <small>{applyError}</small>}
       </span>
-      <span className="sc-banner-txt">
-        <b>scenri {status.latest} is available</b>
-        <small>
-          {applyError ??
-            (status.attention
-              ? 'A major update — worth a look at the notes before you install.'
-              : `You are on ${status.current}. Your work stays where it is.`)}
-        </small>
-      </span>
-      <button type="button" className="sc-banner-act" onClick={() => openSettings('about')}>
+      <button type="button" className="sc-btn sc-btn-ghost" onClick={() => openSettings('about')}>
         What's new
       </button>
       <button
         type="button"
-        className="sc-banner-act"
-        data-primary=""
+        className="sc-btn sc-btn-primary"
         disabled={busy !== 'idle'}
         onClick={() => (canOneClick(status) ? void apply() : openSettings('about'))}
       >
         {busy === 'applying' ? 'Updating…' : 'Update'}
       </button>
-      <button type="button" className="sc-banner-x" aria-label="Dismiss until the next release" onClick={dismiss}>
+      <button type="button" className="sc-upd-float-x" aria-label="Dismiss until the next release" onClick={dismiss}>
         <X size={13} />
       </button>
     </div>

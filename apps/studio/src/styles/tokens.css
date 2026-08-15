@@ -11538,38 +11538,92 @@ textarea:disabled {
 /* row. Gold throughout — notice, never selection (DESIGN.md).         */
 /* ================================================================== */
 
-/* A card of its own on Home: elsewhere .sc-banner borrows its tray from
-   .sc-notes, but the launcher screen gives it nothing to sit in. */
-.sc-upd-banner {
-  margin: 0 0 16px;
+/* Floating in the quiet corner — bottom-left, every screen. One even border,
+   one shadow step, gold only as the dot: notice by content, never by
+   container stripes (no accent border-left, ever). */
+.sc-upd-float {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 320;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(480px, calc(100vw - 36px));
+  padding: 8px 8px 8px 16px;
   border: 1px solid var(--sc-line-strong);
-  border-left: 3px solid var(--sc-gold);
-  border-radius: var(--sc-radius-lg);
+  border-radius: var(--sc-radius-float);
   background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-2);
+  font-family: var(--sc-font);
+  color: var(--sc-fg);
+  animation: sc-upd-rise var(--sc-dur-slow) ease-out both;
 }
-
+.sc-upd-float-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-gold);
+}
+.sc-upd-float-txt {
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-upd-float-txt b {
+  font-weight: 600;
+}
+.sc-upd-float-txt small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+  white-space: normal;
+}
+.sc-upd-float .sc-btn {
+  flex: none;
+}
 /* Dismiss is deliberately the quietest control on the row: waving away is
    allowed, never invited. */
-.sc-banner-x {
+.sc-upd-float-x {
   flex: none;
   display: grid;
   place-items: center;
   width: 26px;
   height: 26px;
-  margin-left: 2px;
   border: none;
-  border-radius: var(--sc-radius-sm);
+  border-radius: var(--sc-radius-full);
   background: none;
   color: var(--sc-fg2);
   cursor: pointer;
 }
-.sc-banner-x:hover {
+.sc-upd-float-x:hover {
   background: var(--sc-raised);
   color: var(--sc-fg);
 }
-.sc-banner-x:focus-visible {
+.sc-upd-float-x:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 1px;
+}
+@keyframes sc-upd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* The phone bottom edge belongs to the tab bar; the brand-mark dot and
+   Settings → About carry the announcement there. */
+@media (max-width: 767px) {
+  .sc-upd-float {
+    display: none;
+  }
 }
 
 /* Same grammar as the bell's dot, on the brand trigger: the one place in the
