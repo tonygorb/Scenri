@@ -10,6 +10,14 @@ name: Publish
 on:
   release:
     types: [published]
+  # Re-running a failed run replays that run's commit and its workflow file,
+  # so a fix to this file can never reach it. This is the way to retry a
+  # publish with the current workflow, against a tag that already exists.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish, e.g. v0.1.0'
+        required: true
 
 # Never two publishes at once, and never cancel one midway: a version can only
 # be published once.
@@ -32,7 +40,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # The tag, not the branch: publish exactly what was released.
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
           persist-credentials: false
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -82,7 +90,7 @@ jobs:
       - name: Put the written release notes on the release page
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
         run: |
           written="$(pnpm exec tsx packages/cli/scripts/release-body.ts "$TAG")"
           if [ -z "$written" ]; then
