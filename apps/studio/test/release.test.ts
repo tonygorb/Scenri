@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readableDate, summarise } from '../src/release.js';
+import { readableDate } from '../src/release.js';
 
 describe('readableDate', () => {
   it('renders a record date the way the app writes dates', () => {
@@ -20,49 +20,5 @@ describe('readableDate', () => {
   it('hands back anything it cannot parse rather than guessing', () => {
     expect(readableDate('not a date')).toBe('not a date');
     expect(readableDate('2026-13-01')).toBe('2026-13-01');
-  });
-});
-
-describe('summarise', () => {
-  const entry = (over: Partial<Parameters<typeof summarise>[0]>) => ({
-    version: '1.0.0',
-    date: '2026-08-16',
-    sections: [],
-    ...over,
-  });
-
-  it('names the areas that changed, not the release headline', () => {
-    // A headline says a release happened; the areas say what was in it, and
-    // that is the only question the earlier-releases list is asked.
-    expect(
-      summarise(
-        entry({
-          title: 'The first public release of scenri.',
-          sections: [
-            { heading: 'Create', body: 'x' },
-            { heading: 'Library', body: 'y' },
-            { heading: 'Brand', body: 'z' },
-            { heading: 'Updates', body: 'w' },
-          ],
-        }),
-      ),
-    ).toBe('Create, Library, Brand, Updates');
-  });
-
-  it('reads the same whether or not a release carries a headline', () => {
-    expect(
-      summarise(
-        entry({
-          sections: [
-            { heading: 'Create', body: 'x' },
-            { heading: 'Scenes', body: 'y' },
-          ],
-        }),
-      ),
-    ).toBe('Create, Scenes');
-  });
-
-  it('says nothing for a release with nothing to say', () => {
-    expect(summarise(entry({}))).toBe('');
   });
 });

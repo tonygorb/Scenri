@@ -12139,108 +12139,72 @@ textarea:disabled {
 }
 
 /* ---------- what's new ----------
-   The release you are running, not the one you could have, with the three
-   before it as a footnote. Small, quiet, and over in one screen: two to four
-   areas of a line each, then a version and a line apiece for the ones behind
-   it. One hairline in the whole dialog. No cards, no bordered rows, no accent
-   container, no stripe down the side — the only gold in this whole feature is
-   the unread dot in the brand menu, which is what makes it mean something
-   there.
+   Title, one caption of version and date, the notes, then the way out.
+   Spacing does the hierarchy. No second heading, no rules around a
+   paragraph. The only gold in this feature is the unread dot. */
 
-   The shell (`.sc-newdlg`) owns the geometry: fixed head, one scrolling body,
-   fixed foot, bottom sheet under 768px. Everything below is type. */
 .sc-wn-sub {
-  /* The version is a fact under the title, not the title. Caption weight is
-     what keeps "what changed" the loudest thing in the dialog. */
   flex: none;
-  margin: 4px 0 14px;
-  font-size: var(--sc-text-caption);
+  margin: 2px 0 18px;
+  font-size: var(--sc-text-body);
+  line-height: 1.4;
   color: var(--sc-fg3);
 }
-/* The release you are running: an optional headline, then its areas. */
-.sc-wn-latest {
+.sc-wn-ver {
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-fg);
+}
+.sc-wn .sc-newdlg-body {
   display: flex;
   flex-direction: column;
   gap: var(--sc-space-6);
 }
-/* The one line a release is allowed above its sections. Sits at body size in
-   ink so it reads as the release speaking, not as a fifth section heading. */
 .sc-wn-lede {
-  margin: 0 0 -4px;
-  font-size: 13.5px;
-  line-height: 1.45;
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.35;
   color: var(--sc-fg);
   text-wrap: pretty;
 }
 .sc-wn-head {
-  /* Deliberately not a tracked uppercase eyebrow: this is a working tool, and
-     four of those in a row is a marketing page. */
-  margin: 0 0 3px;
-  font-size: 12.5px;
+  margin: 0 0 4px;
+  font-size: var(--sc-text-body);
   font-weight: 600;
+  line-height: 1.3;
   color: var(--sc-fg);
 }
 .sc-wn-txt {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--sc-fg2);
-}
-/* The last few releases, quiet under one hairline. Two lines each and never
-   truncated: the same meta-over-prose shape the release above them uses, so
-   the dialog reads as one column rather than a header and a table. Not
-   interactive — a release here is a footnote, not a destination. */
-.sc-wn-earlier {
-  margin-top: var(--sc-space-7);
-  padding-top: var(--sc-space-6);
-  border-top: 1px solid var(--sc-line);
-}
-.sc-wn-earlier-lb {
-  margin: 0 0 var(--sc-space-5);
-  font-size: var(--sc-text-body);
-  font-weight: 600;
-  color: var(--sc-fg);
-}
-.sc-wn-rel + .sc-wn-rel {
-  margin-top: var(--sc-space-5);
-}
-.sc-wn-rel-meta {
-  margin: 0 0 1px;
-  font-size: var(--sc-text-caption);
-  color: var(--sc-fg3);
-}
-.sc-wn-rel-sum {
-  margin: 0;
-  font-size: var(--sc-text-body);
-  line-height: 1.45;
+  max-width: var(--sc-measure-lede);
+  font-size: 13.5px;
+  line-height: 1.6;
   color: var(--sc-fg2);
   text-wrap: pretty;
 }
+
 .sc-wn-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-top: 8px;
+}
+.sc-wn-foot > .sc-btn:only-child {
+  margin-left: auto;
 }
 .sc-wn-link {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: var(--sc-text-body);
   color: var(--sc-fg3);
   text-decoration: none;
+  transition: color var(--sc-dur-fast) var(--sc-ease);
 }
 .sc-wn-link:hover {
   color: var(--sc-fg);
 }
-/* The foot is one button wide when there is no repository to link to. */
-.sc-wn-foot > .sc-btn:only-child {
-  margin-left: auto;
-}
 
-/* The unread mark on the menu row: same gold dot as the trigger's, in flow
-   rather than pinned to a corner. Never the only carrier of the state — the
-   row also says so out loud for a screen reader. */
 .sc-menu-new {
   flex: none;
   width: 6px;
@@ -12249,7 +12213,8 @@ textarea:disabled {
   background: var(--sc-gold);
 }
 
-/* No mobile block of its own: `.sc-wn` carries `.sc-newdlg`, so the bottom
-   sheet, the 92dvh cap, the safe-area padding and the reduced-motion kill all
-   come from the shell every other sheet in the app uses. This block used to be
-   a byte-for-byte copy of that one, minus the reduced-motion rule. */
+@media (prefers-reduced-motion: reduce) {
+  .sc-wn .sc-wn-link {
+    transition: none;
+  }
+}

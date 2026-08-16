@@ -67,26 +67,16 @@ Two different sentences, deliberately kept apart:
   build (`packages/cli/src/release/notes.data.ts`), so it answers offline and
   always describes the version actually running.
 
-The dialog is the running version in full — two to four product areas of a line
-each — and, under one hairline, the **three releases behind it**: a version, a
-date and one line apiece. Three because that is roughly a month at this
-project's cadence, which is the realistic "I have been away" window, and because
-a fourth row starts reading as a feed rather than a footnote. They are prose,
-not controls: no expanding, no hover, no focus stop, nothing to click. A release
-with no sections never appears there, and on a first release the whole section
-is absent rather than an empty heading.
-
-Everything older is the **releases page**, linked once from the foot as "All
-releases". That is a deliberate line: the part that has to work offline is "did
-I miss anything", and three records answer it; the complete archive is a rare,
-deliberate visit and the network is fine for it. The generated `CHANGELOG.md`
-stays what it has always been — the commit-level history for developers.
+The dialog is the running version: a headline where there is one, then two to
+four product areas. History is the **releases page**, linked once as "All
+releases". The generated `CHANGELOG.md` stays what it has always been — the
+commit-level history for developers.
 
 The lifecycle is one rule and one stored value (`whatsnew.seen`, in the
 settings table):
 
 1. The app reads its own notes once at startup — the running version's record,
-   the written history behind it, and the releases page to point at.
+   and the releases page to point at.
 2. If `whatsnew.seen` is not the running version, the brand menu shows an
    unread dot immediately, and What's New opens itself **once** — but only at a
    safe moment: nothing generating, nothing building, no other dialog open, the

@@ -219,8 +219,6 @@ export type ReleaseNotesResponse = {
   entry: ReleaseEntry | null;
   /** The last version whose What's New was acknowledged on this machine. */
   seen: string | null;
-  /** Every release with something to say, newest first. Quiet ones are absent. */
-  releases: ReleaseEntry[];
   /** This exact release's page. Null on a build that was never released. */
   changelogUrl: string | null;
   /** The releases index — the archive behind "All releases". */

@@ -28,13 +28,6 @@ afterEach(async () => {
 
 const build = () => buildServer({ core, engines: { all: () => [], get: () => null } });
 
-/** Newest-first is a property of the data; this is only how the test reads it. */
-const compareVersions = (a: string, b: string): number => {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  return pa[0] - pb[0] || pa[1] - pb[1] || pa[2] - pb[2];
-};
-
 describe('the authored release notes', () => {
   it('is publishable: the validator finds nothing wrong with the real records', () => {
     expect(validateReleases(RELEASES, pkg.version)).toEqual([]);
@@ -83,19 +76,6 @@ describe('GET /api/release/notes', () => {
     } else {
       expect(changelogUrl).toContain(`/releases/tag/v${version}`);
     }
-  });
-
-  it('hands over the written history, newest first, with the silent ones left out', async () => {
-    // The three-release footnote in the dialog reads this. A record with no
-    // sections is a version that deliberately had nothing to say, and a
-    // release the user could not have noticed is not history worth listing.
-    app = build();
-    const { releases } = (await app.inject({ method: 'GET', url: '/api/release/notes' })).json();
-    expect(releases).toEqual(RELEASES.filter(isNewsworthy));
-    expect(releases.every((r: ReleaseEntry) => r.sections.length > 0)).toBe(true);
-
-    const order = releases.map((r: ReleaseEntry) => r.version);
-    expect(order).toEqual([...order].sort((a, b) => compareVersions(b, a)));
   });
 
   it('points the archive at the index, not at one tag, and only when there is one', async () => {
