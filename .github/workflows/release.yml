@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     branches: [main]
+  # release-please refuses to open a new release PR while a merged one still
+  # carries `autorelease: pending` — a state a hand-made GitHub release leaves
+  # behind, because the tagging step that clears the label never ran. Fixing
+  # that is a label edit, and without this there is no way to ask release-please
+  # to look again except by pushing another commit to main.
+  workflow_dispatch:
 
 permissions:
   contents: write
