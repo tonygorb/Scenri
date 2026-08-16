@@ -9,6 +9,17 @@ updates:
     commit-message:
       prefix: 'chore(deps)'
       prefix-development: 'chore(deps-dev)'
+    # A major is a migration, not an upgrade: React 19 arrived as a routine
+    # weekly PR and broke the build on a single changed prop type. Majors are
+    # decisions, so they get made deliberately, by reading the release notes
+    # and opening the PR by hand. Patches and minors still arrive on their own.
+    #
+    # Note this also applies to security updates, so a vulnerability that can
+    # only be fixed by a major will show in the Security tab rather than as a
+    # PR. That is the trade for a quiet inbox; drop this block to reverse it.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       # One PR per family instead of a dozen. A solo maintainer cannot review
       # fifteen dependency PRs a week, and unreviewed ones just rot.

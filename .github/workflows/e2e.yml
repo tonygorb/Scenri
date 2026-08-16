@@ -17,6 +17,10 @@ jobs:
   composer:
     name: composer caret and chips
     runs-on: ubuntu-latest
+    # A healthy run is under two minutes. Without this a hung browser holds a
+    # runner for GitHub's six-hour default, which is how a broken suite turns
+    # into a bill.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -29,8 +33,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium
-        run: pnpm --filter @scenri/studio exec playwright install --with-deps chromium
+      # Chromium covers desktop and the Pixel 5 project; the tablet project is
+      # a real iPad, and an iPad is WebKit. Installing only Chromium made every
+      # tablet test die on launch in a few milliseconds, which reads as 28 test
+      # failures rather than one missing browser.
+      - name: Install browsers
+        run: pnpm --filter @scenri/studio exec playwright install --with-deps chromium webkit
 
       - name: Build the studio
         run: pnpm build

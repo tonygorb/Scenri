@@ -23,6 +23,10 @@ coverage/
 *.key
 *.p12
 *.pfx
+# `npm login` run anywhere inside this tree writes a project .npmrc with a
+# plaintext _authToken in it. Nothing else would stop that being committed,
+# and on a public repo one commit is one leaked token.
+.npmrc
 
 # agent and editor tooling. These write into the repo and have already leaked
 # an absolute home path once, so they stay out.

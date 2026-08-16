@@ -55,6 +55,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # CI runs on this same push, but as a separate workflow: it starts at the
+      # same moment as this one and nothing makes publishing wait for it. A
+      # version can only be published once and unpublishing is restricted after
+      # 72 hours, so the one irreversible step in this repo checks for itself
+      # rather than trusting a race.
+      - name: Verify before publishing
+        run: |
+          pnpm typecheck
+          pnpm exec biome ci .
+          pnpm test
+
       - name: Build the studio into the CLI bundle
         run: pnpm build
 
