@@ -31,18 +31,25 @@ describe('summarise', () => {
     ...over,
   });
 
-  it('prefers the headline the release was given', () => {
+  it('names the areas that changed, not the release headline', () => {
+    // A headline says a release happened; the areas say what was in it, and
+    // that is the only question the earlier-releases list is asked.
     expect(
       summarise(
         entry({
           title: 'The first public release of scenri.',
-          sections: [{ heading: 'Create', body: 'x' }],
+          sections: [
+            { heading: 'Create', body: 'x' },
+            { heading: 'Library', body: 'y' },
+            { heading: 'Brand', body: 'z' },
+            { heading: 'Updates', body: 'w' },
+          ],
         }),
       ),
-    ).toBe('The first public release of scenri.');
+    ).toBe('Create, Library, Brand, Updates');
   });
 
-  it('falls back to the areas that changed', () => {
+  it('reads the same whether or not a release carries a headline', () => {
     expect(
       summarise(
         entry({

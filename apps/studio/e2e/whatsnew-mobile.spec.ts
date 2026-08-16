@@ -20,13 +20,18 @@ const ENTRY = {
   ],
 };
 
-/** One of them carries a title long enough to test the wrap rather than a clip. */
+/** One of them touches every area, so its summary is long enough to wrap. */
 const HISTORY = [
   {
     version: '9.9.8',
     date: '2026-08-09',
-    title: 'Sets group a shoot without moving anything, and the feed remembers where you were.',
-    sections: [{ heading: 'Create', body: 'Sets.' }],
+    title: 'A headline the earlier list deliberately does not show.',
+    sections: [
+      { heading: 'Presenters', body: 'a' },
+      { heading: 'Products', body: 'b' },
+      { heading: 'Scenes', body: 'c' },
+      { heading: 'Updates', body: 'd' },
+    ],
   },
   {
     version: '9.9.7',
@@ -60,6 +65,7 @@ test("What's new is a bottom sheet on a phone, and closes by hand", async ({ pag
   await expect(page.locator('.sc-wn-head')).toHaveText(['Create', 'Scenes']);
   // the footnote survives the change of geometry, and so does the way out
   await expect(page.locator('.sc-wn-rel')).toHaveCount(HISTORY.length);
+  await expect(page.locator('.sc-wn-rel-sum').first()).toHaveText('Presenters, Products, Scenes, Updates');
   await expect(page.locator('.sc-wn-link')).toHaveText(/All releases/);
 
   const box = await sheet.boundingBox();

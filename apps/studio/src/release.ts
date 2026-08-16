@@ -40,11 +40,15 @@ export function readableDate(iso: string): string {
 /**
  * One line describing a release, for the list of earlier ones.
  *
- * The headline when the release has one; otherwise the areas it touched, which
- * is a fact already in the record rather than a summary invented here. A
- * release with neither says nothing, and the caller renders nothing.
+ * The areas it touched, always — never the release's own headline, even when
+ * it has one. The question this list answers is "did I miss anything", and
+ * "Create, Library, Brand" answers it for every release, where a headline
+ * answers it only for the releases someone thought to write one for. It is
+ * also a fact already in the record rather than a summary invented here.
+ *
+ * The headline is not lost: it still leads the release itself, in full, when
+ * that release is the one you are running.
  */
 export function summarise(entry: ReleaseEntry): string {
-  if (entry.title) return entry.title;
   return entry.sections.map((s) => s.heading).join(', ');
 }

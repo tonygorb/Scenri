@@ -128,9 +128,9 @@ test('the releases behind it are a footnote: three at most, never the one runnin
     'Version 9.9.8 · 9 August 2026',
     'Version 9.9.7 · 2 August 2026',
   ]);
-  // A release with a headline says it; one without names the areas it touched,
-  // which is a fact already in the record rather than a summary invented here.
-  await expect(page.locator('.sc-wn-rel-sum')).toHaveText(['Sets, and a steadier feed.', 'Products, Fixes']);
+  // The areas that changed, for both — 9.9.8 carries a headline and it is
+  // still the areas that get shown, because that is what the list is asked.
+  await expect(page.locator('.sc-wn-rel-sum')).toHaveText(['Create', 'Products, Fixes']);
   // The running version is the hero above, never also a row below.
   await expect(page.locator('.sc-wn-rel-meta').filter({ hasText: '9.9.9' })).toHaveCount(0);
 });
