@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Spinner } from '@radix-ui/themes';
 import { useOutletContext, useParams } from 'react-router';
 import { DetailOverlay } from '../layout/DetailOverlay.js';
@@ -15,7 +15,31 @@ export function ShotDetailRoute() {
   const ctx = useOutletContext<ShotContext>();
   const { push } = useToasts();
   const node = ctx.nodes.find((n) => n.id === shotId) ?? null;
-  const missing = ctx.loaded && (!node || node.kind === 'root');
+  const absent = ctx.loaded && (!node || node.kind === 'root');
+  // Asking the server before believing it is gone. The tree behind the overlay
+  // is a snapshot, and a shot made a moment ago on another screen — from a
+  // notification, say — is not in the snapshot that was fetched before it
+  // existed. Concluding "deleted" from that told people their finished work
+  // was "no longer available" and threw them back to the feed.
+  // State rather than a ref, for the same reason the set route uses state: a
+  // ref does not re-render, so nothing would recompute the verdict once the
+  // answer came back.
+  const [asked, setAsked] = useState<string | null>(null);
+  const missing = absent && asked === shotId;
+
+  useEffect(() => {
+    if (!absent || !shotId || asked === shotId) return;
+    let alive = true;
+    void ctx.reload().finally(() => alive && setAsked(shotId));
+    return () => {
+      alive = false;
+    };
+  }, [absent, shotId, asked, ctx.reload]);
+
+  // it resolved after all: a later miss on another shot is asked afresh
+  useEffect(() => {
+    if (node) setAsked(null);
+  }, [node]);
 
   // a link to a shot that has since been deleted, or to the project root:
   // fall back to the canvas rather than holding an empty overlay open, and
@@ -41,7 +65,15 @@ export function ShotDetailRoute() {
     );
   }
 
-  if (!node || node.kind === 'root') return null;
+  // Still asking: hold the shell rather than flashing an empty screen, exactly
+  // as while the tree was first loading.
+  if (!node || node.kind === 'root') {
+    return missing ? null : (
+      <div className="sc-ovl-wait" role="status" aria-label="Loading">
+        <Spinner size="3" />
+      </div>
+    );
+  }
 
   return (
     <DetailOverlay

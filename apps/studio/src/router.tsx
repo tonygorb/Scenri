@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Navigate,
   createBrowserRouter,
@@ -48,7 +48,7 @@ function RouteError() {
 function SetRoute() {
   const { setSlug = '' } = useParams();
   const { pathname, search } = useLocation();
-  const { brand, sets, loaded } = useBrand();
+  const { brand, sets, loaded, refresh } = useBrand();
   const navigate = useNavigate();
   const here = useMatch({ path: P.set, end: false });
   const set = sets.find((s) => s.slug === setSlug) ?? sets.find((s) => s.id === setSlug) ?? null;
@@ -61,22 +61,40 @@ function SetRoute() {
    * a set the list has already renamed.
    *
    * Redirecting on the spot read that disagreement as "this set was deleted"
-   * and threw you out of the set you had just named. So the miss is only
-   * believed a tick later, and only if it is *still* true then: the check reads
-   * through a ref rather than closing over the render that scheduled it, which
-   * is what made the first attempt at this fire on a stale snapshot anyway.
+   * and threw you out of the set you had just named. Deferring the miss to a
+   * `setTimeout(0)` and re-reading a ref was the first repair, and it only
+   * moved the race: the ref is written during render, so a timer that fires
+   * before React commits the rename still reads the list from before it. That
+   * is a race against the scheduler, and a loaded machine loses it — CI threw
+   * the rename case out of its own set while the server had the new name all
+   * along.
+   *
+   * So the list is no longer the authority on whether a set exists: ask the
+   * server once, and only believe the miss if it is still a miss afterwards.
+   * A genuine delete pays one request; a rename pays nothing, because the
+   * refresh brings the new slug back with it.
    */
-  const latest = useRef({ setSlug, sets });
-  latest.current = { setSlug, sets };
+  // State rather than a ref: a ref does not re-render, and neither `set` nor
+  // `setSlug` changes when the answer confirms the miss, so nothing would run
+  // the effect a second time and a genuinely deleted set would never bounce.
+  const [asked, setAsked] = useState<string | null>(null);
   useEffect(() => {
     if (!loaded || set) return;
-    const t = setTimeout(() => {
-      const { setSlug: id, sets: list } = latest.current;
-      if (list.some((s) => s.slug === id || s.id === id)) return;
+    if (asked === setSlug) {
       navigate(hubPath(brand), { replace: true });
-    }, 0);
-    return () => clearTimeout(t);
-  }, [loaded, set, brand, navigate]);
+      return;
+    }
+    let alive = true;
+    void refresh().finally(() => alive && setAsked(setSlug));
+    return () => {
+      alive = false;
+    };
+  }, [loaded, set, setSlug, asked, brand, navigate, refresh]);
+
+  // a set that resolves again clears the doubt, so a later miss is asked afresh
+  useEffect(() => {
+    if (set) setAsked(null);
+  }, [set]);
 
   // nothing to resolve against until the brand's sets land, and nothing to draw
   // while the miss above is still being given its tick

@@ -48,6 +48,11 @@ export default defineConfig({
       name: 'tablet',
       use: { ...devices['iPad Mini landscape'] },
       testMatch: /mobile\.spec\.ts/,
+      // An iPad is WebKit, and WebKit on a Linux runner is the slowest thing
+      // here by some way — a cold `page.goto` has been measured at 9s where
+      // chromium takes 1s. The 20s default left no room for that and failed a
+      // navigation rather than an assertion, which says nothing about the app.
+      timeout: 45_000,
     },
   ],
 });
