@@ -325,9 +325,12 @@ function roundChip({ credit, step }: { credit: Credit; step: 1 | 2 }): ReactNode
       </button>
     );
   }
+  // Not interactive, so there is no role to hang an aria-label on: the name
+  // goes to the image, which is the thing being named. With no image there is
+  // nothing to see and the name is said instead.
   return (
-    <span className="sc-showcase-chip" data-step={step} aria-label={name}>
-      {previewUrl ? <img src={previewUrl} alt="" /> : null}
+    <span className="sc-showcase-chip" data-step={step}>
+      {previewUrl ? <img src={previewUrl} alt={name} /> : <span className="sc-vh">{name}</span>}
     </span>
   );
 }
