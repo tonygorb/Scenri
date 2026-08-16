@@ -69,8 +69,10 @@ describe('GET /api/release/notes', () => {
     const res = await app.inject({ method: 'GET', url: '/api/release/notes' });
     const { version, changelogUrl } = res.json();
     if (version === '0.0.0') {
-      expect(changelogUrl).toMatch(/\/releases$/);
-      expect(changelogUrl).not.toContain('/tag/');
+      // Nothing has been released, so the releases index is an empty page and
+      // the tag does not exist. Null is the only honest answer, and it is what
+      // tells the dialog this is a development build.
+      expect(changelogUrl).toBeNull();
     } else {
       expect(changelogUrl).toContain(`/releases/tag/v${version}`);
     }

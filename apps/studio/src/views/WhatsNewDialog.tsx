@@ -50,6 +50,8 @@ export function WhatsNewDialog() {
   };
 
   const heading = version ? `What's new in scenri ${version}` : "What's new";
+  // No entry and nowhere to point means this build was never released at all.
+  const unreleased = status === 'ready' && !entry && !changelogUrl;
   const described =
     entry?.title ??
     (entry
@@ -58,7 +60,9 @@ export function WhatsNewDialog() {
         ? 'Release notes unavailable'
         : status === 'loading'
           ? 'Loading'
-          : 'Release information');
+          : unreleased
+            ? 'Development build'
+            : 'Release information');
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && close()}>
@@ -81,19 +85,21 @@ export function WhatsNewDialog() {
               </section>
             ))
           ) : (
-            // Four different silences, and saying the wrong one is worse than
-            // saying nothing: a maintenance release chose to have no news, a
-            // version with no record means nobody wrote one, a failed read
-            // means we do not know either way, and a read still in flight
-            // should not accuse anyone of anything.
+            // Five different silences, and saying the wrong one is worse than
+            // saying nothing: a read in flight should accuse nobody, a failed
+            // read means we do not know either way, an unreleased build was
+            // never a release at all, a record with no sections chose to have
+            // no news, and no record means nobody wrote one.
             <p className="sc-wn-txt">
               {status === 'loading'
                 ? 'Reading the release notes.'
                 : status === 'failed'
                   ? 'scenri could not read its release notes. If you are running a development server, it may predate this feature; restart it and try again.'
-                  : entry
-                    ? 'Maintenance only. Nothing here changes how scenri works for you. The full list of changes is on the release page.'
-                    : 'This version went out without a written summary. The full list of changes is on the release page.'}
+                  : unreleased
+                    ? 'You are running a development build. What changed in a version appears here once that version is published.'
+                    : entry
+                      ? 'Maintenance only. Nothing here changes how scenri works for you. The full list of changes is on the release page.'
+                      : 'This version went out without a written summary. The full list of changes is on the release page.'}
             </p>
           )}
         </div>

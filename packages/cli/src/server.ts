@@ -1814,15 +1814,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       version: meta.version,
       entry: releaseFor(meta.version),
       seen: core.store.getSetting('whatsnew.seen') || null,
-      // 0.0.0 is the placeholder release-please has not bumped yet: no such tag
-      // has ever existed, so linking one is a guaranteed 404. The releases
-      // index always exists. Every other version a user can be running was
-      // published, and publishing is what creates the tag.
-      changelogUrl: ghSlug
-        ? meta.version === UNRELEASED
-          ? `https://github.com/${ghSlug}/releases`
-          : `https://github.com/${ghSlug}/releases/tag/v${meta.version}`
-        : null,
+      // 0.0.0 is the placeholder release-please has not bumped yet. No tag has
+      // ever existed for it, and the releases index of a project that has not
+      // released is an empty page, so there is nowhere honest to point: null.
+      // Its absence is also what tells the dialog it is looking at a
+      // development build rather than a release nobody wrote notes for.
+      // Every other version a user can be running was published, and
+      // publishing is what creates the tag.
+      changelogUrl:
+        ghSlug && meta.version !== UNRELEASED ? `https://github.com/${ghSlug}/releases/tag/v${meta.version}` : null,
     };
   });
 

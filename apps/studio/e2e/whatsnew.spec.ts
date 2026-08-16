@@ -251,3 +251,25 @@ test('a failed read says so, instead of accusing the release of having no notes'
   await expect(page.locator('.sc-wn-txt')).toContainText('could not read its release notes');
   await expect(page.locator('.sc-wn-txt')).not.toContainText('without a written summary');
 });
+
+test('a development build says so, instead of blaming a release that never happened', async ({ page }) => {
+  // 0.0.0 has never been tagged and the releases page of an unreleased project
+  // is empty, so there is nowhere honest to point. No link is what tells the
+  // dialog it is looking at a build, not a release nobody documented.
+  await page.route(NOTES_URL, (route) =>
+    route.fulfill({ json: { version: '0.0.0', entry: null, seen: '0.0.0', changelogUrl: null } }),
+  );
+  await page.goto('/');
+  await expect(page.locator('.sc-greet')).toBeVisible();
+  await page.waitForTimeout(3500);
+  await expect(dialog(page)).toHaveCount(0); // never on its own
+
+  await menuTrigger(page).click();
+  await page.locator('.sc-menu-item', { hasText: "What's new" }).click();
+  await expect(dialog(page)).toBeVisible();
+  await expect(page.locator('.sc-wn-sub')).toHaveText('Development build');
+  await expect(page.locator('.sc-wn-txt')).toContainText('running a development build');
+  await expect(page.locator('.sc-wn-txt')).not.toContainText('without a written summary');
+  // no dead-end link to an empty releases page
+  await expect(page.locator('.sc-wn-link')).toHaveCount(0);
+});
