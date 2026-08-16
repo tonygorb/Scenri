@@ -23,7 +23,7 @@ export default defineConfig({
   outDir: 'dist',
   format: ['esm'],
   platform: 'node',
-  target: 'node20',
+  target: 'node22',
   noExternal: [/^@scenri\//],
   clean: true,
   sourcemap: true,

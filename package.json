@@ -6,7 +6,7 @@
   "author": "Tony Gorb <bytonygorb@gmail.com>",
   "packageManager": "pnpm@9.15.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "test": "pnpm -r --no-bail test",

@@ -15,9 +15,16 @@ jobs:
     name: typecheck, lint, test (node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
+      # Both finish, so a break tells you whether it is one version or the
+      # runtime floor moving under you.
       fail-fast: false
+      # The oldest Node still receiving patches, and the current active LTS.
+      # Not a formality: better-sqlite3 and sharp are native modules with a
+      # per-major ABI, and `npx scenri` runs on whatever Node a stranger has.
+      # Node 20 was dropped once it went end-of-life (2026-04-30) — promising a
+      # runtime that no longer gets security patches is worse than not.
       matrix:
-        node: [20, 22]
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v7
 
