@@ -3,11 +3,18 @@
   "separate-pull-requests": false,
   "include-component-in-tag": false,
   "packages": {
-    "packages/cli": {
+    ".": {
       "release-type": "node",
-      "changelog-path": "CHANGELOG.md",
-      "initial-version": "0.1.0",
-      "bump-minor-pre-major": true
+      "package-name": "scenri",
+      "changelog-path": "packages/cli/CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "packages/cli/package.json",
+          "jsonpath": "$.version"
+        }
+      ]
     }
   }
 }
