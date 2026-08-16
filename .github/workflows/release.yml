@@ -8,25 +8,22 @@ permissions:
   contents: write
   pull-requests: write
 
-# One release at a time. Two pushes to main in quick succession would otherwise
-# run release-please twice against the same state, and cancel-in-progress is
-# deliberately false: killing a job midway through `npm publish` is the one
-# thing worse than running it twice, because a version can only be published
-# once.
+# One release-please run at a time: two pushes to main in quick succession
+# would otherwise reason about the same state twice.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-# Versions are never typed by hand. release-please reads the conventional
-# commits on main, opens a PR carrying the version bump and CHANGELOG, and
-# publishing happens only when that PR is merged.
+# Versions are never typed by hand: release-please reads the conventional
+# commits on main and opens a pull request carrying the bump and the CHANGELOG.
+#
+# It does not publish. Publishing hangs off the `release: published` event in
+# publish.yml, so whatever creates the GitHub release — this, or a person —
+# the package still goes out verified and with provenance.
 jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    outputs:
-      cli_released: ${{ steps.release.outputs['packages/cli--release_created'] }}
-      cli_tag: ${{ steps.release.outputs['packages/cli--tag_name'] }}
     steps:
       # The automatic GITHUB_TOKEN cannot open a pull request unless the repo
       # opts into "Actions can create and approve pull requests", and any PR it
@@ -44,70 +41,3 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-
-  publish:
-    needs: release
-    if: needs.release.outputs.cli_released == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: write # gh release edit, to put the written notes on the page
-      id-token: write # npm provenance
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        # No step pushes with git, so the token has no business sitting in
-        # .git/config while dependency install scripts and tests run.
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 22
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-
-      - run: pnpm install --frozen-lockfile
-
-      # CI runs on this same push, but as a separate workflow: it starts at the
-      # same moment as this one and nothing makes publishing wait for it. A
-      # version can only be published once and unpublishing is restricted after
-      # 72 hours, so the one irreversible step in this repo checks for itself
-      # rather than trusting a race.
-      - name: Verify before publishing
-        run: |
-          pnpm typecheck
-          pnpm exec biome ci .
-          pnpm test
-
-      - name: Build the studio into the CLI bundle
-        run: pnpm build
-
-      - name: Publish scenri
-        run: pnpm --filter scenri publish --access public --no-git-checks --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      # The human summary for this version is already written: it ships inside
-      # the app as the What's New record. Prepend it to the release page rather
-      # than asking anyone to write the same sentences a second time.
-      #
-      # release-please's own commit-derived notes stay underneath, because a
-      # release page has two readers and only one of them wants prose. If no
-      # record exists the script prints nothing and this step does nothing —
-      # a release-note problem must never fail a release that already published.
-      - name: Put the written release notes on the release page
-        if: needs.release.outputs.cli_tag != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.release.outputs.cli_tag }}
-        run: |
-          written="$(pnpm exec tsx packages/cli/scripts/release-body.ts "$TAG")"
-          if [ -z "$written" ]; then
-            echo "no written record for $TAG — leaving the generated notes alone"
-            exit 0
-          fi
-          gh release view "$TAG" --json body --jq .body > generated.md
-          { printf '%s\n\n---\n\n' "$written"; cat generated.md; } > body.md
-          gh release edit "$TAG" --notes-file body.md

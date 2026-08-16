@@ -1,0 +1,79 @@
+name: Publish
+
+# Deliberately triggered by the release itself, not by release-please's output.
+#
+# Coupling the publish to `release_created` meant one tool's edge case could
+# leave a version tagged in the manifest but never published, with no way to
+# finish the job (release-please#2214). A GitHub release is the fact that
+# matters: whatever creates it — release-please, or a person — publishing
+# follows.
+on:
+  release:
+    types: [published]
+
+# Never two publishes at once, and never cancel one midway: a version can only
+# be published once.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # gh release edit, to put the written notes on the page
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The tag, not the branch: publish exactly what was released.
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # A version can only be published once and unpublishing is restricted
+      # after 72 hours, so the one irreversible step checks for itself rather
+      # than trusting a workflow that ran somewhere else.
+      - name: Verify before publishing
+        run: |
+          pnpm typecheck
+          pnpm exec biome ci .
+          pnpm test
+
+      - name: Build the studio into the CLI bundle
+        run: pnpm build
+
+      - name: Publish scenri
+        run: pnpm --filter scenri publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # The human summary already exists as the What's New record shipped in
+      # the build. Prepend it rather than writing the same sentences twice.
+      - name: Put the written release notes on the release page
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          written="$(pnpm exec tsx packages/cli/scripts/release-body.ts "$TAG")"
+          if [ -z "$written" ]; then
+            echo "no written record for $TAG — leaving the generated notes alone"
+            exit 0
+          fi
+          gh release view "$TAG" --json body --jq .body > generated.md
+          { printf '%s\n\n---\n\n' "$written"; cat generated.md; } > body.md
+          gh release edit "$TAG" --notes-file body.md
