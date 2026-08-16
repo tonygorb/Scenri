@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       cli_released: ${{ steps.release.outputs['packages/cli--release_created'] }}
+      cli_tag: ${{ steps.release.outputs['packages/cli--tag_name'] }}
     steps:
       # The automatic GITHUB_TOKEN cannot open a pull request unless the repo
       # opts into "Actions can create and approve pull requests", and any PR it
@@ -39,7 +40,7 @@ jobs:
     if: needs.release.outputs.cli_released == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # gh release edit, to put the written notes on the page
       id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v7
@@ -61,3 +62,26 @@ jobs:
         run: pnpm --filter scenri publish --access public --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # The human summary for this version is already written: it ships inside
+      # the app as the What's New record. Prepend it to the release page rather
+      # than asking anyone to write the same sentences a second time.
+      #
+      # release-please's own commit-derived notes stay underneath, because a
+      # release page has two readers and only one of them wants prose. If no
+      # record exists the script prints nothing and this step does nothing —
+      # a release-note problem must never fail a release that already published.
+      - name: Put the written release notes on the release page
+        if: needs.release.outputs.cli_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.cli_tag }}
+        run: |
+          written="$(pnpm exec tsx packages/cli/scripts/release-body.ts "$TAG")"
+          if [ -z "$written" ]; then
+            echo "no written record for $TAG — leaving the generated notes alone"
+            exit 0
+          fi
+          gh release view "$TAG" --json body --jq .body > generated.md
+          { printf '%s\n\n---\n\n' "$written"; cat generated.md; } > body.md
+          gh release edit "$TAG" --notes-file body.md

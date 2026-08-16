@@ -201,7 +201,26 @@ export type UpdateStatus = {
   stagedVersion: string | null;
 };
 
-export type ReleaseNotes = { name: string; body: string; url: string; publishedAt: string | null };
+/**
+ * What changed in the version this app IS — authored prose shipped inside the
+ * build, not the update check's business. `entry` is null when a version went
+ * out without notes; the dialog still names the version and links out.
+ */
+export type ReleaseSection = { heading: string; body: string };
+export type ReleaseEntry = {
+  version: string;
+  date: string;
+  title?: string;
+  sections: ReleaseSection[];
+  image?: string;
+};
+export type ReleaseNotesResponse = {
+  version: string;
+  entry: ReleaseEntry | null;
+  /** The last version whose What's New was acknowledged on this machine. */
+  seen: string | null;
+  changelogUrl: string | null;
+};
 
 export const api = {
   brands: () => req<Brand[]>('GET', '/api/brands'),
@@ -299,9 +318,10 @@ export const api = {
   version: () => req<VersionInfo>('GET', '/api/version'),
   updateStatus: () => req<UpdateStatus>('GET', '/api/update/status'),
   updateCheck: () => req<UpdateStatus>('POST', '/api/update/check'),
-  updateNotes: () => req<ReleaseNotes>('GET', '/api/update/notes'),
   updateApply: () => req<{ ok: true; staging: string }>('POST', '/api/update/apply'),
   updateRestart: () => req<{ ok: true }>('POST', '/api/update/restart'),
+  releaseNotes: () => req<ReleaseNotesResponse>('GET', '/api/release/notes'),
+  releaseSeen: (version: string) => req<{ ok: true }>('POST', '/api/release/seen', { version }),
   /** The reference frames a scene has on disk, if any. */
   sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),

@@ -35,9 +35,11 @@ are read from `package.json` at runtime, never hardcoded.
 
 ## Applying an update
 
-- **In the app**: the Home banner's Update button (or Settings → About)
-  downloads the new version next to the running one, verifies it actually
-  loads, and restarts into it. The browser reconnects by itself.
+- **In the app**: the Update button on the floating notice (or Settings →
+  About) downloads the new version next to the running one, verifies it
+  actually loads, and restarts into it. The browser reconnects by itself.
+  "Not now" holds the notice for the rest of the session; the next launch
+  offers it again, and updating ends it for good.
 - **In a terminal**: `scenri update` (with npx: `npx scenri update`) stages
   the newest version; it runs on the next start. `scenri update --check`
   only reports.
@@ -53,6 +55,66 @@ fallback to the build that last worked.
 
 Updates never run while a generation is in flight, and they are always
 user-triggered: nothing installs or restarts on its own.
+
+## What's new
+
+Two different sentences, deliberately kept apart:
+
+- **Update available** — "there is a newer scenri." Comes from the check above,
+  asks you to act, and lives in the floating notice and Settings → About.
+- **What's new** — "here is what changed in the version you now have." Asks for
+  nothing. Comes from release notes authored by hand and shipped *inside* the
+  build (`packages/cli/src/release/notes.data.ts`), so it answers offline and
+  always describes the version actually running. The generated `CHANGELOG.md`
+  stays what it has always been — the commit-level history — and the dialog
+  links out to the release page for it.
+
+The lifecycle is one rule and one stored value (`whatsnew.seen`, in the
+settings table):
+
+1. The app reads its own notes once at startup.
+2. If `whatsnew.seen` is not the running version, the brand menu shows an
+   unread dot immediately, and What's New opens itself **once** — but only at a
+   safe moment: nothing generating, nothing building, no other dialog open, the
+   brand loaded, the tab in front, and a couple of seconds after all of that
+   settles. If a safe moment never comes, nothing pops; the dot carries it.
+3. Any way out — Escape, the ×, the backdrop, "Got it" — is the
+   acknowledgement. It never returns for that version.
+4. **What's new** in the brand menu, and the row in Settings → About, reopen it
+   at any time. Neither is gated on anything.
+
+### Where the words come from
+
+Nobody writes release prose twice, and nothing generates it behind your back.
+
+release-please owns the version: it reads the conventional commits on `main`,
+decides the bump, and writes `CHANGELOG.md` — the commit-level history, for
+developers. The *written* record is separate and lives in
+`packages/cli/src/release/notes.data.ts`, one entry per published version.
+
+That record is authored with the `release-notes` skill, which reads the real
+commits since the last tag, drops everything a user would not notice, groups
+what is left into two to four product lines, and writes the entry. Every line
+has to trace to a commit in the range; counts like "8 new Scenes" are counted
+from added files, never estimated. `releaseNotes.test.ts` validates the result
+and fails the release PR until the record matches the version being released,
+which is what keeps a version and its notes atomic.
+
+The same record feeds the GitHub release page: `scripts/release-body.ts`
+renders it as markdown and `release.yml` puts it above release-please's
+generated notes. If the record is missing the script prints nothing and the
+release proceeds untouched, so a release-note problem can never fail a release.
+
+A version with nothing user-facing still gets a record, with `sections: []`.
+That is a maintenance release saying so on purpose, and the app reads it that
+way: no dialog, no dot.
+
+The first boot of a new home stamps `install.firstVersion` and marks the
+running version as already seen, so a brand-new install is never met with a
+modal explaining changes it has no memory of.
+
+Updates never install or restart on their own — see above. What's New is only
+ever a description of what already happened.
 
 ## Migrations and backups
 

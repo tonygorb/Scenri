@@ -4,6 +4,7 @@ import { X } from '@phosphor-icons/react';
 import { api, imgUrl, nodeLabel, type TreeNode } from '../api.js';
 import { describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
+import { focusSelfOnOpen } from '../app/dialogs.js';
 
 /**
  * Two shots, side by side, with the drift between them.
@@ -56,7 +57,7 @@ export function CompareDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content maxWidth="860px" aria-describedby={undefined}>
+      <Dialog.Content maxWidth="860px" aria-describedby={undefined} onOpenAutoFocus={focusSelfOnOpen}>
         <Dialog.Close>
           <button type="button" className="sc-set-close sc-dlg-close" aria-label="Close">
             <X size={16} />

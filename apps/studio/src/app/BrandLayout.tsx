@@ -9,10 +9,12 @@ import { AssetCreateHost } from '../create/AssetCreateHost.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
 import { useProductLibrary } from '../useProductLibrary.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
+import { WhatsNewDialog } from '../views/WhatsNewDialog.js';
 import { ProviderSetup } from '../views/ProviderSetup.js';
 import { useAppData } from './AppShell.js';
 import { pickBrand } from './RootRedirect.js';
 import { TaskCenterProvider } from './TaskCenter.js';
+import { WhatsNewGate } from './WhatsNew.js';
 
 interface BrandData {
   brand: Brand;
@@ -181,7 +183,11 @@ export function BrandLayout() {
     >
       <SettingsDialog engines={engines} shots={nodes} onSaved={refresh} />
       <ProviderSetup engines={engines} onSaved={refresh} />
+      <WhatsNewDialog />
       <TaskCenterProvider brand={brand}>
+        {/* The gate needs what only this level knows: whether anything is
+            generating or building. It renders nothing. */}
+        <WhatsNewGate />
         {/* Inside TaskCenter: a creation flow reads the builds already in
             flight, and pokes the one poll when it starts another. */}
         <AssetCreateHost>

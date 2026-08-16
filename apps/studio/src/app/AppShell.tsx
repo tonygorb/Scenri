@@ -9,6 +9,7 @@ import { useShowcase } from '../useShowcase.js';
 import { FailureRow } from '../layout/Failure.js';
 import { describeFailure } from '../failure.js';
 import { UpdateCenterProvider } from './UpdateCenter.js';
+import { WhatsNewProvider } from './WhatsNew.js';
 
 // usePresenters and useScenes both expose `loaded`/`error`/`refetch` — spreading
 // both into one context would let whichever lands second silently win for
@@ -128,8 +129,13 @@ export function AppShell() {
       {/* Machine-scoped, so it sits above the brand tree: an app update is
           about this install, not about whichever brand is open. */}
       <UpdateCenterProvider>
-        <ScrollRestoration />
-        <Outlet />
+        {/* Its neighbour, not its child in spirit: one says a newer scenri
+            exists, the other says what this one changed. Both are about the
+            install rather than the brand, so both live up here. */}
+        <WhatsNewProvider>
+          <ScrollRestoration />
+          <Outlet />
+        </WhatsNewProvider>
       </UpdateCenterProvider>
     </Ctx.Provider>
   );

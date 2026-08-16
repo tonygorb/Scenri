@@ -1,10 +1,11 @@
 import { useNavigate } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { ArrowCircleUp, CaretDown, GearSix, Plus } from '@phosphor-icons/react';
+import { ArrowCircleUp, CaretDown, GearSix, Plus, Sparkle } from '@phosphor-icons/react';
 import { BrandAvatar, brandName } from './nav.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useUpdateCenter } from '../app/UpdateCenter.js';
+import { useWhatsNew } from '../app/WhatsNew.js';
 import { brandPath } from '../routes.js';
 import { useOpenSettings } from '../app/dialogs.js';
 
@@ -40,11 +41,14 @@ export function BrandMenu() {
   const navigate = useNavigate();
   const openSettings = useOpenSettings();
   const updates = useUpdateCenter();
+  const whatsNew = useWhatsNew();
   const others = brands.filter((b) => b.id !== brand.id);
   // Gold reads as "notice", never as selection (active state is monochrome by
-  // doctrine). The dot follows the banner's dismissal: waved away is waved away.
+  // doctrine). One dot for two reasons — a newer scenri, or notes not yet read
+  // for this one — because two dots on one control says nothing twice. The
+  // rows below say which it is.
   const updateAvailable = Boolean(updates.status?.available);
-  const showDot = updateAvailable && !updates.dismissed;
+  const showDot = (updateAvailable && !updates.dismissed) || whatsNew.unread;
 
   return (
     <DropdownMenu.Root>
@@ -91,6 +95,19 @@ export function BrandMenu() {
             <span className="sc-menu-lb">Update available — {updates.status?.latest}</span>
           </DropdownMenu.Item>
         )}
+        {/* Permanent, and gated on nothing: the release you are running is
+            always a thing you are allowed to read about. */}
+        <DropdownMenu.Item className="sc-menu-item" onSelect={() => whatsNew.open()}>
+          <Sparkle size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">What's new</span>
+          {whatsNew.unread && (
+            <>
+              <span className="sc-menu-new" aria-hidden="true" />
+              {/* unread must survive a monochrome display and a screen reader */}
+              <span className="sc-vh">, not read yet</span>
+            </>
+          )}
+        </DropdownMenu.Item>
         <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings()}>
           <GearSix size={18} className="sc-menu-ic" />
           <span className="sc-menu-lb">Settings</span>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Dialog, Spinner } from '@radix-ui/themes';
 import { X } from '@phosphor-icons/react';
 import { api, downloadExport, type ExportPreset } from '../api.js';
+import { focusSelfOnOpen } from '../app/dialogs.js';
 
 /** "1080 x 1920", or what the preset actually leaves alone. */
 function sizeOf(p: ExportPreset): string {
@@ -61,7 +62,7 @@ export function ExportDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content maxWidth="360px" aria-describedby={undefined}>
+      <Dialog.Content maxWidth="360px" aria-describedby={undefined} onOpenAutoFocus={focusSelfOnOpen}>
         <Dialog.Close>
           <button type="button" className="sc-set-close sc-dlg-close" aria-label="Close">
             <X size={16} />

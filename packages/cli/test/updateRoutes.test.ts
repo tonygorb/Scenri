@@ -14,26 +14,14 @@ function registryWith(...adapters: EngineAdapter[]) {
   return { all: () => adapters, get: (id: string) => byId.get(id) ?? null };
 }
 
-/** Answers the npm dist-tags lookup and the GitHub release-notes lookup. */
-function updateFetch(opts: { latest?: string; ghStatus?: number }) {
+/** Answers the npm dist-tags lookup; nothing else is ever asked for. */
+function updateFetch(opts: { latest?: string }) {
   const calls: string[] = [];
   const impl = (async (input: unknown) => {
     const url = String(input);
     calls.push(url);
     if (url.includes('/-/package/')) {
       return new Response(JSON.stringify({ latest: opts.latest ?? '0.9.9' }), { status: 200 });
-    }
-    if (url.includes('api.github.com')) {
-      if (opts.ghStatus && opts.ghStatus !== 200) return new Response('{}', { status: opts.ghStatus });
-      return new Response(
-        JSON.stringify({
-          name: `v${opts.latest ?? '0.9.9'}`,
-          body: '- 6 new Scenes\n- generation fidelity fixes',
-          html_url: `https://github.com/tonygorb/scenri/releases/tag/v${opts.latest ?? '0.9.9'}`,
-          published_at: '2026-08-15T00:00:00Z',
-        }),
-        { status: 200 },
-      );
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -102,36 +90,6 @@ describe('POST /api/update/check', () => {
     const res = await app.inject({ method: 'POST', url: '/api/update/check' });
     expect(res.json()).toMatchObject({ latest: '0.9.9', available: true });
     expect(registryCalls()).toBe(before + 1);
-  });
-});
-
-describe('GET /api/update/notes', () => {
-  it('proxies the GitHub release for the latest version', async () => {
-    app = build(updateFetch({ latest: '0.9.9' }).impl);
-    await app.inject({ method: 'GET', url: '/api/update/status' });
-    const res = await app.inject({ method: 'GET', url: '/api/update/notes' });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({
-      name: 'v0.9.9',
-      body: '- 6 new Scenes\n- generation fidelity fixes',
-      url: 'https://github.com/tonygorb/scenri/releases/tag/v0.9.9',
-      publishedAt: '2026-08-15T00:00:00Z',
-    });
-  });
-
-  it('degrades to 502 when GitHub cannot answer, so the UI links out instead', async () => {
-    app = build(updateFetch({ latest: '0.9.9', ghStatus: 500 }).impl);
-    await app.inject({ method: 'GET', url: '/api/update/status' });
-    const res = await app.inject({ method: 'GET', url: '/api/update/notes' });
-    expect(res.statusCode).toBe(502);
-  });
-
-  it('says 404, not 502, when the release simply has no notes published', async () => {
-    app = build(updateFetch({ latest: '0.9.9', ghStatus: 404 }).impl);
-    await app.inject({ method: 'GET', url: '/api/update/status' });
-    const res = await app.inject({ method: 'GET', url: '/api/update/notes' });
-    expect(res.statusCode).toBe(404);
-    expect(res.json().error).toContain('published');
   });
 });
 

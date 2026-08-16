@@ -3,7 +3,7 @@ import { Dialog, Spinner } from '@radix-ui/themes';
 import { ArrowSquareOut, Check, Copy, DownloadSimple, Key, SignIn, Warning, X } from '@phosphor-icons/react';
 import { api, type CodexSetupState, type EngineInfo } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
-import { useOpenSetup } from '../app/dialogs.js';
+import { focusSelfOnOpen, useOpenSetup } from '../app/dialogs.js';
 import { engineTitle } from '../engines/active.js';
 import { EngineMark, engineTile, keyProviderFor, type KeyProvider } from '../engines/providers.jsx';
 import { Confirm } from '../Confirm.js';
@@ -46,12 +46,7 @@ export function ProviderSetup({ engines, onSaved }: { engines: EngineInfo[]; onS
         className="sc-setup"
         maxWidth="520px"
         aria-describedby={undefined}
-        // Without this the close button takes focus and the dialog opens wearing a
-        // ring around its X, which reads as an error. Same fix SettingsDialog uses.
-        onOpenAutoFocus={(e) => {
-          e.preventDefault();
-          (e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true });
-        }}
+        onOpenAutoFocus={focusSelfOnOpen}
       >
         {provider ? (
           <KeyPane

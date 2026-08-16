@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Dialog } from '@radix-ui/themes';
 import { Broom, Database, Info, Lightning, Palette, PiggyBank, Sun, TrashSimple, X } from '@phosphor-icons/react';
-import { api, type EngineInfo, type ReleaseNotes, type TreeNode, type VersionInfo } from '../api.js';
+import { api, type EngineInfo, type TreeNode, type VersionInfo } from '../api.js';
 import { useUpdateCenter } from '../app/UpdateCenter.js';
+import { useWhatsNew } from '../app/WhatsNew.js';
 import { canOneClick } from '../app/updateRules.js';
 import { useDialogParam } from '../app/AppShell.js';
-import type { Pane } from '../app/dialogs.js';
+import { focusSelfOnOpen, type Pane } from '../app/dialogs.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { engineTitle } from '../engines/active.js';
 import { brandName } from '../layout/nav.js';
@@ -126,10 +127,7 @@ export function SettingsDialog({
         className="sc-set"
         maxWidth="940px"
         aria-describedby={undefined}
-        onOpenAutoFocus={(e) => {
-          e.preventDefault();
-          (e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true });
-        }}
+        onOpenAutoFocus={focusSelfOnOpen}
       >
         <Dialog.Title style={{ display: 'none' }}>Settings</Dialog.Title>
         <div className="sc-set-grid">
@@ -463,54 +461,9 @@ function updateCommand(kind: VersionInfo['installKind'] | undefined): string {
   }
 }
 
-/** Release notes on demand: fetched when opened, a plain link when GitHub won't answer. */
-function WhatsNew({ notesUrl }: { notesUrl: string | null }) {
-  const [open, setOpen] = useState(false);
-  const [notes, setNotes] = useState<ReleaseNotes | null>(null);
-  const [failed, setFailed] = useState<false | 'missing' | 'unreachable'>(false);
-  useEffect(() => {
-    if (!open || notes || failed) return;
-    void api
-      .updateNotes()
-      .then(setNotes)
-      // 404 is "nothing written yet", anything else is "GitHub is away" —
-      // different sentences, or the empty case reads as breakage
-      .catch((err) => setFailed((err as { status?: number }).status === 404 ? 'missing' : 'unreachable'));
-  }, [open, notes, failed]);
-
-  return (
-    <div className="sc-set-row">
-      <span className="txt">
-        <b>What's new</b>
-        {open && notes && (
-          <small data-prose="" style={{ whiteSpace: 'pre-wrap' }}>
-            {notes.body.trim() || 'No notes on this one.'}
-            {'\n'}
-            <a href={notes.url} target="_blank" rel="noreferrer">
-              View on GitHub
-            </a>
-          </small>
-        )}
-        {open && failed && (
-          <small data-prose="">
-            {failed === 'missing' ? 'Nothing published for this release yet.' : "Couldn't reach GitHub."}{' '}
-            {notesUrl && (
-              <a href={notesUrl} target="_blank" rel="noreferrer">
-                {failed === 'missing' ? 'Watch the releases page' : 'Read them on GitHub'}
-              </a>
-            )}
-          </small>
-        )}
-      </span>
-      <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setOpen((v) => !v)}>
-        {open ? 'Hide' : 'Show'}
-      </button>
-    </div>
-  );
-}
-
 function About({ version }: { version: VersionInfo | null }) {
   const updates = useUpdateCenter();
+  const whatsNew = useWhatsNew();
   const s = updates.status;
   const [autoCheck, setAutoCheck] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
@@ -566,7 +519,20 @@ function About({ version }: { version: VersionInfo | null }) {
       <div className="sc-set-row">
         <span className="txt">
           <b>Updates</b>
-          <small>{s?.available ? `You are on ${s.current}.` : 'New versions announce themselves here.'}</small>
+          <small data-prose="">
+            {s?.available ? `You are on ${s.current}.` : 'New versions announce themselves here.'}
+            {/* What is in the version you do not have yet can only come from
+                the release page — the notes that ship inside a build describe
+                that build. One link, no fetch, no second renderer. */}
+            {s?.available && s.notesUrl && (
+              <>
+                {' '}
+                <a href={s.notesUrl} target="_blank" rel="noreferrer">
+                  See what's in {s.latest}
+                </a>
+              </>
+            )}
+          </small>
         </span>
         {verdict}
         <button
@@ -578,7 +544,20 @@ function About({ version }: { version: VersionInfo | null }) {
           Check for updates
         </button>
       </div>
-      {s?.available && <WhatsNew notesUrl={s.notesUrl} />}
+      {/* Permanent, never gated on an update being available: after you
+          update is exactly when you want to read what you got. One renderer,
+          one dialog — this row only opens it. */}
+      <div className="sc-set-row">
+        <span className="txt">
+          <b>What's new</b>
+          <small>
+            {whatsNew.entry?.title ?? `What changed in ${whatsNew.version ? `v${whatsNew.version}` : 'this version'}.`}
+          </small>
+        </span>
+        <button type="button" className="sc-btn sc-btn-ghost" onClick={() => whatsNew.open()}>
+          Show
+        </button>
+      </div>
       {s?.available &&
         (version?.installKind === 'dev' ? (
           <div className="sc-set-row">

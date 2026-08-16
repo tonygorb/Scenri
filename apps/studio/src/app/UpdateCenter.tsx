@@ -17,12 +17,24 @@ import { canOneClick } from './updateRules.js';
  */
 const POLL_MS = 6 * 60 * 60 * 1000;
 
-/** Machine-scoped: which latest-version the user has already waved away. */
+/**
+ * Which latest-version the user has waved away, for this session only.
+ *
+ * sessionStorage rather than localStorage on purpose. "Not now" used to be
+ * forever: one stray click and that version was never mentioned again, which
+ * for a security-relevant update is the wrong kind of quiet. Session-scoped, it
+ * holds for as long as the person is working and asks again next launch — and
+ * it ends permanently the moment they actually update, because `available`
+ * goes false and there is nothing left to say.
+ *
+ * It survives the post-update `location.reload()`, which is harmless for the
+ * same reason.
+ */
 const DISMISS_KEY = 'scenri:update-dismissed';
 
 function readDismissed(): string | null {
   try {
-    return localStorage.getItem(DISMISS_KEY);
+    return sessionStorage.getItem(DISMISS_KEY);
   } catch {
     return null;
   }
@@ -30,7 +42,7 @@ function readDismissed(): string | null {
 
 function writeDismissed(version: string): void {
   try {
-    localStorage.setItem(DISMISS_KEY, version);
+    sessionStorage.setItem(DISMISS_KEY, version);
   } catch {
     /* private mode */
   }
@@ -42,7 +54,7 @@ interface UpdateCenterValue {
   checking: boolean;
   /** Settings → About's "Check for updates": forces past the day cache. */
   checkNow(): Promise<void>;
-  /** The Home banner is dismissed per version; the next release brings it back. */
+  /** Dismissed per version, for this session; next launch asks again. */
   dismissed: boolean;
   dismiss(): void;
   /** The one click: download + verify, then restart into the new version. */

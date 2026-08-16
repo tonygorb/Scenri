@@ -123,25 +123,31 @@ test.describe
       await page.keyboard.press('Escape');
     });
 
-    test("What's new lives in Settings → About and degrades to the GitHub link", async ({ page }) => {
+    test("Settings → About opens the canonical What's new dialog", async ({ page }) => {
       // straight to the brand path: the / redirect drops query params
       await page.goto(`${fx.base()}/acme?settings=about`);
       await expect(page.locator('.sc-set .sc-tag-gold')).toHaveText('0.99.0 available');
 
+      // what is in the version you do NOT have is one link, not a second
+      // renderer: the notes that ship inside a build describe that build
+      await expect(
+        aboutRows(page).filter({ hasText: 'Updates' }).locator('a[href*="releases/tag/v0.99.0"]'),
+      ).toHaveText("See what's in 0.99.0");
+
+      // the row is permanent now — it is about the version you are running,
+      // not the one on offer, so it does not come and go with the update check
       const row = aboutRows(page).filter({ hasText: "What's new" });
       await row.locator('button', { hasText: 'Show' }).click();
-      // no GitHub release exists for 0.99.0, so the row answers with the
-      // releases link instead of a body — "nothing published yet" when GitHub
-      // answered 404, "couldn't reach" when there is no network. Both carry
-      // the same link; the copy differs, so anchor on the href.
-      const link = row.locator('a[href*="releases/tag/v0.99.0"]');
-      await expect(link).toBeVisible();
+      await expect(page.locator('.sc-wn')).toBeVisible();
+      await expect(page.getByRole('dialog')).toHaveAccessibleName(/What's new in scenri/);
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.sc-wn')).toHaveCount(0);
 
       // running from source in this spec, so the update row is git guidance
       await expect(aboutRows(page).filter({ hasText: 'Update' }).first()).toBeVisible();
     });
 
-    test('Not now holds across reloads, for this version only', async ({ page }) => {
+    test('Not now holds for this session, and asks again next launch', async ({ page, browser }) => {
       await page.goto(`${fx.base()}/`);
       await float(page).locator('.sc-upd-float-later').click();
       await expect(float(page)).toHaveCount(0);
@@ -154,6 +160,15 @@ test.describe
       // the menu row stays: declined is quiet, not gone
       await page.locator('.sc-org-btn').click();
       await expect(page.locator('.sc-menu-item[data-update]')).toBeVisible();
+      await page.keyboard.press('Escape');
+
+      // a fresh session is a fresh launch, and the offer comes back. "Not now"
+      // is a pause, not a permanent silence — only updating ends it.
+      const next = await browser.newContext();
+      const fresh = await next.newPage();
+      await fresh.goto(`${fx.base()}/`);
+      await expect(fresh.locator('.sc-upd-float')).toBeVisible();
+      await next.close();
     });
   });
 

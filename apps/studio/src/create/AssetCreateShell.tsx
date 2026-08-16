@@ -56,6 +56,11 @@ export function AssetCreateShell({
       // Focus the surface, not the first field: on a phone this is a sheet, and
       // landing in a text input would open the keyboard over the form before
       // anyone had decided to type.
+      //
+      // Deliberately NOT `focusSelfOnOpen`: the shared helper passes
+      // `preventScroll`, and this sheet needs the scroll — focusing it is what
+      // brings the overlay's scroller to the bottom edge it docks against.
+      // With the scroll suppressed the sheet floats ~45px above the edge.
       onOpenAutoFocus={(e) => {
         e.preventDefault();
         (e.currentTarget as HTMLElement | null)?.focus();

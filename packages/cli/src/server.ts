@@ -32,7 +32,7 @@ import type { Core, EngineAdapter, GenerateRequest, EditRequest, BrandContext, R
 import { SpendCapError, ASPECT_TOLERANCE, SCHEMA_VERSION } from '@scenri/core';
 import { readMeta, repoSlug } from './meta.js';
 import { classify, createUpdateChecker, type UpdateChecker } from './update/check.js';
-import { fetchReleaseNotes } from './update/notes.js';
+import { releaseFor } from './release/notes.data.js';
 import { findNpm, stageVersion } from './update/stage.js';
 import { compareSemver, newestStaged } from './update/versionsDir.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
@@ -1675,6 +1675,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const updates = createUpdateChecker({ name: meta.name, store: core.store, fetchImpl: opts.fetchImpl });
   app.decorate('updates', updates);
   const ghSlug = repoSlug(meta.repository);
+  /** The version a build carries before release-please has ever bumped it. */
+  const UNRELEASED = '0.0.0';
 
   // The apply state machine: idle → staging → ready | error. 'ready' also
   // covers a version staged by `scenri update` in a terminal before this boot.
@@ -1793,13 +1795,44 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         });
     }, 50);
   });
-  app.get('/api/update/notes', async (_req, reply) => {
-    const r = await updates.check();
-    if (!r.latest || !ghSlug) return reply.status(404).send({ error: 'no release to describe' });
-    const notes = await fetchReleaseNotes({ slug: ghSlug, version: r.latest, fetchImpl: opts.fetchImpl });
-    if (notes === 'missing') return reply.status(404).send({ error: `no notes published for ${r.latest}` });
-    if (notes === 'unreachable') return reply.status(502).send({ error: 'release notes unavailable' });
-    return notes;
+  // ---- what's new: the version this build IS, from data shipped inside it.
+  // Deliberately not the update routes' business. Those answer "there is a
+  // newer scenri" and ask you to act; this one answers "here is what you got"
+  // and asks nothing. Fusing them is what made the old notes route describe a
+  // version the user did not have, then vanish the moment they installed it.
+  app.get('/api/release/notes', async () => {
+    // A fresh install must not open a modal explaining changes to someone who
+    // has never seen the app. The first boot of a new home stamps both keys,
+    // so `seen` already equals the running version and nothing pops. The cost
+    // is one-time and known: the release that introduces this will not
+    // announce itself on an install that predates the marker.
+    if (!core.store.getSetting('install.firstVersion')) {
+      core.store.setSetting('install.firstVersion', meta.version);
+      core.store.setSetting('whatsnew.seen', meta.version);
+    }
+    return {
+      version: meta.version,
+      entry: releaseFor(meta.version),
+      seen: core.store.getSetting('whatsnew.seen') || null,
+      // 0.0.0 is the placeholder release-please has not bumped yet: no such tag
+      // has ever existed, so linking one is a guaranteed 404. The releases
+      // index always exists. Every other version a user can be running was
+      // published, and publishing is what creates the tag.
+      changelogUrl: ghSlug
+        ? meta.version === UNRELEASED
+          ? `https://github.com/${ghSlug}/releases`
+          : `https://github.com/${ghSlug}/releases/tag/v${meta.version}`
+        : null,
+    };
+  });
+
+  app.post('/api/release/seen', async (req) => {
+    // The version is the client's, not ours: it acknowledges what it was shown,
+    // which is the version it loaded. Anything else and a restart mid-read
+    // could mark the wrong release as read.
+    const v = (req.body as { version?: unknown } | undefined)?.version;
+    core.store.setSetting('whatsnew.seen', typeof v === 'string' && v ? v : meta.version);
+    return { ok: true };
   });
 
   // Settle in-flight work before the process goes away (Ctrl-C, update

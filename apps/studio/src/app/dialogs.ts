@@ -46,3 +46,20 @@ export function useOpenSetup() {
     [open],
   );
 }
+
+/**
+ * What a dialog does with focus the moment it opens.
+ *
+ * Radix aims at the first tabbable thing inside, which in almost every dialog
+ * here is the close button — so the dialog arrives wearing a ring around its
+ * ×, and a ring on a control nobody aimed at reads as an error. Focusing the
+ * surface itself keeps everything that matters: the trap, Escape, and the
+ * announcement a screen reader makes when focus enters a labelled dialog.
+ *
+ * Stated once because six dialogs had been writing it out by hand, and the two
+ * that had not were the ones showing the ring.
+ */
+export function focusSelfOnOpen(e: Event): void {
+  e.preventDefault();
+  (e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true });
+}
