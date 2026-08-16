@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/tonygorb/scenri/compare/v0.1.0...v0.1.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* improve handling of missing data in routes ([24946d5](https://github.com/tonygorb/scenri/commit/24946d5d1e3cecd050d88c46e42b31bb67c7ce94))
+
 ## 0.1.0 (2026-08-16)
 
 
