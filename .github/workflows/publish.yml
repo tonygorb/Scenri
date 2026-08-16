@@ -43,6 +43,11 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      # Trusted publishing is an npm CLI feature and needs 11.5.1 or newer;
+      # Node 22 still ships npm 10.
+      - name: Use an npm that can do trusted publishing
+        run: npm install -g npm@latest
+
       - run: pnpm install --frozen-lockfile
 
       # A version can only be published once and unpublishing is restricted
@@ -57,10 +62,20 @@ jobs:
       - name: Build the studio into the CLI bundle
         run: pnpm build
 
+      # No token. npm authenticates this workflow to the registry over OIDC
+      # ("trusted publishing"), which npm now requires: tokens that bypass 2FA
+      # are being restricted for direct publishing, so a CI token cannot be
+      # made to work no matter how it is scoped.
+      #
+      # `npm publish`, not `pnpm publish`: OIDC lives in the npm CLI. The only
+      # thing pnpm was doing that npm does not is rewriting `workspace:*`, and
+      # every one of those is a devDependency, which consumers never install.
+      #
+      # Provenance is automatic under trusted publishing; the flag is not
+      # needed and `id-token: write` above is what makes it possible.
       - name: Publish scenri
-        run: pnpm --filter scenri publish --access public --no-git-checks --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+        working-directory: packages/cli
 
       # The human summary already exists as the What's New record shipped in
       # the build. Prepend it rather than writing the same sentences twice.
