@@ -8,12 +8,22 @@ permissions:
   contents: write
   pull-requests: write
 
+# One release at a time. Two pushes to main in quick succession would otherwise
+# run release-please twice against the same state, and cancel-in-progress is
+# deliberately false: killing a job midway through `npm publish` is the one
+# thing worse than running it twice, because a version can only be published
+# once.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 # Versions are never typed by hand. release-please reads the conventional
 # commits on main, opens a PR carrying the version bump and CHANGELOG, and
 # publishing happens only when that PR is merged.
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       cli_released: ${{ steps.release.outputs['packages/cli--release_created'] }}
       cli_tag: ${{ steps.release.outputs['packages/cli--tag_name'] }}
@@ -22,13 +32,13 @@ jobs:
       # opts into "Actions can create and approve pull requests", and any PR it
       # did open would trigger no further workflows, so CI would never run on
       # the release PR. A short-lived App token has neither problem.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         id: app-token
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
         id: release
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -39,15 +49,20 @@ jobs:
     needs: release
     if: needs.release.outputs.cli_released == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write # gh release edit, to put the written notes on the page
       id-token: write # npm provenance
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        # No step pushes with git, so the token has no business sitting in
+        # .git/config while dependency install scripts and tests run.
+        with:
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: pnpm

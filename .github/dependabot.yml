@@ -2,10 +2,14 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    # Monthly, not weekly. A solo maintainer reviewing five dependency PRs a
+    # week reviews none of them, and an ignored PR is worse than a late one:
+    # it trains you to skim past the queue where a real problem will sit.
+    # Security advisories do not wait for this schedule; they surface in the
+    # Security tab independently.
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 3
     commit-message:
       prefix: 'chore(deps)'
       prefix-development: 'chore(deps-dev)'

@@ -13,6 +13,10 @@ concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
+# The suite only reads the repo and drives a browser against a local server.
+permissions:
+  contents: read
+
 jobs:
   composer:
     name: composer caret and chips
@@ -22,11 +26,15 @@ jobs:
     # into a bill.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        # No step pushes with git, so the token has no business sitting in
+        # .git/config while dependency install scripts and tests run.
+        with:
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: pnpm
@@ -53,7 +61,7 @@ jobs:
 
       # Traces, not playwright-report: the reporter is `list`, so no HTML
       # report is ever written, and the trace is what shows the failing screen.
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
           name: playwright-traces
