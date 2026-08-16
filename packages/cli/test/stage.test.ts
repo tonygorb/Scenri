@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findNpm, stageVersion } from '../src/update/stage.js';
-import { entryOf, listStaged, stagingDir, versionsDir } from '../src/update/versionsDir.js';
+import { entryOf, listStaged, stagingDir } from '../src/update/versionsDir.js';
 
 const PKG = 'scenri';
 let home: string;

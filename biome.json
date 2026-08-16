@@ -1,5 +1,10 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "**",
@@ -47,15 +52,6 @@
       },
       "correctness": {
         "useExhaustiveDependencies": "off"
-      },
-      "a11y": {
-        "noAutofocus": "warn",
-        "noLabelWithoutControl": "warn",
-        "noStaticElementInteractions": "warn",
-        "noSvgWithoutTitle": "warn",
-        "useFocusableInteractive": "warn",
-        "useKeyWithClickEvents": "warn",
-        "useSemanticElements": "warn"
       }
     }
   },
@@ -65,5 +61,17 @@
         "organizeImports": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/studio/src/styles/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDescendingSpecificity": "off"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -25,7 +25,7 @@ const QUICK_DEATH_MS = 10_000;
 
 interface ChildLike {
   on(event: 'exit', fn: (code: number | null, signal: NodeJS.Signals | null) => void): void;
-  kill(signal: NodeJS.Signals): boolean | void;
+  kill(signal: NodeJS.Signals): boolean | undefined;
 }
 
 export interface LauncherSpawnOptions {

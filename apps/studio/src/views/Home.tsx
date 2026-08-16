@@ -1,9 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { productLabel, sceneLabel, showcaseSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
-import { Badge, Dialog } from '@radix-ui/themes';
-import { Aperture, Mountains, Package, User, X } from '@phosphor-icons/react';
-import { assetUrl, type Brand, type ShowcaseEntry } from '../api.js';
+import { Badge } from '@radix-ui/themes';
+import { Aperture, Mountains, Package, User } from '@phosphor-icons/react';
+import { assetUrl, type ShowcaseEntry } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';

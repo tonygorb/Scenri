@@ -171,9 +171,10 @@ function CreditRow({
   const thumbs = [product, scene].filter(Boolean) as Credit[];
   const n = thumbs.length + (presenter ? 1 : 0) + Math.max(0, thumbs.length - 1);
   let i = 0;
-  const idx = (): CSSProperties => ({ ['--i']: i++ }) as CSSProperties;
+  const idx = (): CSSProperties => ({ '--i': i++ }) as CSSProperties;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover dismiss only — there is no click affordance here to expose, and the tips open from their own focusable pills
     <div className="sc-showcase-chips" onMouseLeave={() => setTip(null)}>
       {presenter && (
         <CreditTip credit={presenter} open={tip === 'presenter'} onEnter={() => setTip('presenter')}>
@@ -181,7 +182,7 @@ function CreditRow({
         </CreditTip>
       )}
       {thumbs.length > 0 && (
-        <div className="sc-showcase-recipe" style={{ ['--n']: n } as CSSProperties}>
+        <div className="sc-showcase-recipe" style={{ '--n': n } as CSSProperties}>
           {presenter && <span className="sc-showcase-join" style={idx()} aria-hidden />}
           {thumbs.map((t, ti) => (
             <Fragment key={t.key}>

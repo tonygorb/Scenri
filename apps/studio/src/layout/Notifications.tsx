@@ -106,7 +106,6 @@ function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
 
   return createPortal(
     <>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape above is the keyboard path; the scrim is a mouse convenience */}
       <div className="sc-notif-scrim" onClick={onClose} aria-hidden />
       <div className="sc-notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
         <div className="sc-notif-grab" aria-hidden />
@@ -171,7 +170,6 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
 
   return (
     <>
-      {/* biome-ignore lint/a11y/useFocusableInteractive: the tabs themselves are the focusable elements */}
       <div className="sc-notif-tabs" role="tablist" aria-label="Notifications" ref={tabsRef} onKeyDown={onKeyDown}>
         <Tab id="tasks" tab={tab} onSelect={setTab} count={tasks.length}>
           Tasks

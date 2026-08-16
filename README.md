@@ -125,7 +125,7 @@ One package publishes to npm: **`scenri`**, the CLI, which bundles everything el
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). Engine adapters are the friendliest surface: one file, one interface, well covered by tests.
 
-Looking for a first contribution? [docs/A11Y-BACKLOG.md](docs/A11Y-BACKLOG.md) lists real accessibility defects with exact file and line numbers.
+Accessibility is tracked in [docs/A11Y-BACKLOG.md](docs/A11Y-BACKLOG.md). Every Biome a11y rule runs at `error`, so the backlog is currently empty and a new defect fails CI rather than joining a list.
 
 Found a security problem? Please report it privately. See [SECURITY.md](SECURITY.md).
 

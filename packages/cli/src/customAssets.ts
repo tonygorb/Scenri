@@ -385,7 +385,7 @@ export function cancelAssetBuild(id: string): boolean {
  */
 export function forgetAssetBuild(id: string): boolean {
   const job = builds.get(id);
-  if (!job || !job.finished) return false;
+  if (!job?.finished) return false;
   return builds.delete(id);
 }
 

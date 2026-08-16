@@ -18,7 +18,7 @@ import {
   X,
   XCircle,
 } from '@phosphor-icons/react';
-import { AlertDialog, Button, DropdownMenu, Flex, Spinner } from '@radix-ui/themes';
+import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
 import { api, assetUrl, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
@@ -109,7 +109,6 @@ export function DetailOverlay({
     () => (parentShot ? briefChangeLine(parentShot.brief, node.brief, tokenNames) : null),
     [parentShot, node.brief, tokenNames],
   );
-  const [working, setWorking] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -121,15 +120,12 @@ export function DetailOverlay({
       .replace(/[^a-zA-Z0-9-]/g, '') || 'shot';
 
   const copyImage = async () => {
-    setWorking(true);
     try {
       const blob = await (await fetch(imgUrl(hash))).blob();
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       push({ kind: 'success', title: 'Copied to clipboard' });
     } catch (e: any) {
       push(failureToast(e, 'Copy failed'));
-    } finally {
-      setWorking(false);
     }
   };
 

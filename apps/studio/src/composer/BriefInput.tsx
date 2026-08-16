@@ -827,6 +827,8 @@ export const BriefInput = forwardRef<
 
   return (
     <div className="sc-brief" data-drag-over={dragOver || undefined}>
+      {/* biome-ignore lint/a11y/useFocusableInteractive: contentEditable is focusable; the rule does not model it */}
+      {/* biome-ignore lint/a11y/useSemanticElements: this cannot be a <textarea> — the brief renders product and scene chips inline */}
       <div
         ref={rootRef}
         className="sc-brief-line"

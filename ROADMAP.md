@@ -33,7 +33,7 @@ Anything that would break one of those is out of scope, however useful it sounds
 
 **Fill in the looks.** Only one of the ten looks currently ships generated reference frames, and only two carry text zones. All ten should have both.
 
-**Accessibility.** [docs/A11Y-BACKLOG.md](docs/A11Y-BACKLOG.md) lists every known defect with file and line. Keyboard reachability and label association come first.
+**Accessibility.** The known-defect backlog in [docs/A11Y-BACKLOG.md](docs/A11Y-BACKLOG.md) is clear and every Biome a11y rule now runs at `error`, so regressions fail CI. What automation cannot see is next: a real screen-reader pass over Create and the shot overlay, and keyboard reachability of the composer's chips.
 
 **Make adapters easy to write.** An engine adapter is one file behind one interface. It should be documented well enough that adding a provider is an afternoon, and it is the contribution the project most wants.
 
