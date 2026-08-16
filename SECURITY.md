@@ -19,8 +19,6 @@ The latest published `0.x` release is supported. There are no backports to earli
 
 This is a **local-first** application. It runs on your machine, stores data on your disk, and talks to AI providers using credentials you supply. There is no hosted service, no account system, and no telemetry.
 
-> **Alpha builds only.** `npx scenri@alpha` additionally carries a contextual feedback tool. It is not telemetry: it collects nothing until you invoke it, transmits nothing without a click, and sends by copying a report to your clipboard for you to paste into a GitHub issue — there is no scenri-operated server to upload to. It is compiled out of `npx scenri` entirely. What it captures, what it never captures, and how to verify both, is in [docs/alpha-feedback.md](docs/alpha-feedback.md).
-
 **In scope:**
 
 - The local HTTP server binding wider than intended, or accepting requests from an origin it should refuse

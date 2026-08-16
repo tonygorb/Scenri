@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { ArrowCircleUp, Bug, CaretDown, GearSix, Plus } from '@phosphor-icons/react';
+import { ArrowCircleUp, CaretDown, GearSix, Plus } from '@phosphor-icons/react';
 import { BrandAvatar, brandName } from './nav.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -95,19 +95,6 @@ export function BrandMenu() {
           <GearSix size={18} className="sc-menu-ic" />
           <span className="sc-menu-lb">Settings</span>
         </DropdownMenu.Item>
-        {/* Alpha only. The top bar is width constrained on phones, so this is
-            where the entry point lives at those widths. Deferred by a tick:
-            Radix closes the menu on select, and that close must not tear down
-            the picker it just started. */}
-        {__SC_ALPHA__ && (
-          <DropdownMenu.Item
-            className="sc-menu-item"
-            onSelect={() => setTimeout(() => window.dispatchEvent(new CustomEvent('scenri:feedback')), 0)}
-          >
-            <Bug size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Report a problem</span>
-          </DropdownMenu.Item>
-        )}
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   );

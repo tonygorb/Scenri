@@ -9,7 +9,6 @@ import { AssetCreateHost } from '../create/AssetCreateHost.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
 import { useProductLibrary } from '../useProductLibrary.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
-import { FeedbackHost } from '../feedback/FeedbackHost.js';
 import { ProviderSetup } from '../views/ProviderSetup.js';
 import { useAppData } from './AppShell.js';
 import { pickBrand } from './RootRedirect.js';
@@ -187,13 +186,11 @@ export function BrandLayout() {
             flight, and pokes the one poll when it starts another. */}
         <AssetCreateHost>
           <AssetsCtx.Provider value={assets}>
-            <FeedbackHost brand={brand} workspace={workspace} nodes={nodes}>
-              <div className="sc-shell">
-                <TopBar />
-                <Outlet />
-                <TabBar />
-              </div>
-            </FeedbackHost>
+            <div className="sc-shell">
+              <TopBar />
+              <Outlet />
+              <TabBar />
+            </div>
           </AssetsCtx.Provider>
         </AssetCreateHost>
       </TaskCenterProvider>

@@ -145,23 +145,13 @@ export interface EngineInfo {
  * Every call below funnels through `req`, and it used to flatten the status,
  * the method and the URL into a message string -- so all ~35 call sites that
  * surface an error could say *what* went wrong but never *which* request, or
- * with what code. Carrying them costs nothing, and it is what lets a bug
- * report say "POST /api/nodes -> 402" rather than only "monthly cap reached".
+ * with what code. Carrying them costs nothing and makes a failure diagnosable.
  */
 export interface ApiError extends Error {
   status: number;
   method: string;
   url: string;
 }
-
-/**
- * Notified of every failed request. Null in the public build, where nothing
- * ever calls the setter, so it costs one null check and nothing else.
- */
-let onReqError: ((e: ApiError) => void) | null = null;
-export const setApiErrorSink = (fn: ((e: ApiError) => void) | null): void => {
-  onReqError = fn;
-};
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -178,9 +168,7 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
     } catch {
       /* ignore */
     }
-    const err = Object.assign(new Error(msg), { status: res.status, method, url }) as ApiError;
-    onReqError?.(err);
-    throw err;
+    throw Object.assign(new Error(msg), { status: res.status, method, url }) as ApiError;
   }
   return res.json() as Promise<T>;
 }

@@ -193,17 +193,6 @@ export function CatalogCard({
         {onOpen && <ContextMenu.Item onSelect={() => onOpen(id)}>Open</ContextMenu.Item>}
         {showUseButton && <ContextMenu.Item onSelect={() => onUse?.(id)}>{useLabel}</ContextMenu.Item>}
         {onStar && <ContextMenu.Item onSelect={() => onStar(id)}>{starred ? 'Remove star' : 'Star'}</ContextMenu.Item>}
-        {/* Alpha builds only, and an event rather than an import. */}
-        {__SC_ALPHA__ && (
-          <>
-            <ContextMenu.Separator />
-            <ContextMenu.Item
-              onSelect={() => window.dispatchEvent(new CustomEvent('scenri:feedback', { detail: { fbId: id } }))}
-            >
-              Report this
-            </ContextMenu.Item>
-          </>
-        )}
       </ContextMenu.Content>
     </ContextMenu.Root>
   );

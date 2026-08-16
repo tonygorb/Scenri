@@ -464,20 +464,6 @@ export function Canvas({
                 </ContextMenu.Item>
               </>
             )}
-            {/* Alpha builds only, and an event rather than an import: nothing
-                here may pull the feedback layer into the public bundle. */}
-            {__SC_ALPHA__ && (
-              <>
-                <ContextMenu.Separator />
-                <ContextMenu.Item
-                  onSelect={() =>
-                    window.dispatchEvent(new CustomEvent('scenri:feedback', { detail: { nodeId: n.id } }))
-                  }
-                >
-                  Report this
-                </ContextMenu.Item>
-              </>
-            )}
           </ContextMenu.Content>
         </ContextMenu.Root>,
       ];
