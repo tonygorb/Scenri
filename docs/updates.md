@@ -65,14 +65,28 @@ Two different sentences, deliberately kept apart:
 - **What's new** — "here is what changed in the version you now have." Asks for
   nothing. Comes from release notes authored by hand and shipped *inside* the
   build (`packages/cli/src/release/notes.data.ts`), so it answers offline and
-  always describes the version actually running. The generated `CHANGELOG.md`
-  stays what it has always been — the commit-level history — and the dialog
-  links out to the release page for it.
+  always describes the version actually running.
+
+The dialog is the running version in full — two to four product areas of a line
+each — and, under one hairline, the **three releases behind it**: a version, a
+date and one line apiece. Three because that is roughly a month at this
+project's cadence, which is the realistic "I have been away" window, and because
+a fourth row starts reading as a feed rather than a footnote. They are prose,
+not controls: no expanding, no hover, no focus stop, nothing to click. A release
+with no sections never appears there, and on a first release the whole section
+is absent rather than an empty heading.
+
+Everything older is the **releases page**, linked once from the foot as "All
+releases". That is a deliberate line: the part that has to work offline is "did
+I miss anything", and three records answer it; the complete archive is a rare,
+deliberate visit and the network is fine for it. The generated `CHANGELOG.md`
+stays what it has always been — the commit-level history for developers.
 
 The lifecycle is one rule and one stored value (`whatsnew.seen`, in the
 settings table):
 
-1. The app reads its own notes once at startup.
+1. The app reads its own notes once at startup — the running version's record,
+   the written history behind it, and the releases page to point at.
 2. If `whatsnew.seen` is not the running version, the brand menu shows an
    unread dot immediately, and What's New opens itself **once** — but only at a
    safe moment: nothing generating, nothing building, no other dialog open, the
@@ -100,10 +114,11 @@ from added files, never estimated. `releaseNotes.test.ts` validates the result
 and fails the release PR until the record matches the version being released,
 which is what keeps a version and its notes atomic.
 
-The same record feeds the GitHub release page: `scripts/release-body.ts`
-renders it as markdown and `release.yml` puts it above release-please's
-generated notes. If the record is missing the script prints nothing and the
-release proceeds untouched, so a release-note problem can never fail a release.
+The same record is what the GitHub release page should read:
+`scripts/release-body.ts` renders it as markdown, and if the record is missing
+it prints nothing and exits clean, so a release-note problem can never fail a
+release. It is not wired into `release.yml` yet — that workflow currently
+publishes release-please's generated notes alone, and the script is run by hand.
 
 A version with nothing user-facing still gets a record, with `sections: []`.
 That is a maintenance release saying so on purpose, and the app reads it that

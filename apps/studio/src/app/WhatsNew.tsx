@@ -35,7 +35,11 @@ interface WhatsNewValue {
   /** The running version, once the server has said. */
   version: string | null;
   entry: ReleaseEntry | null;
+  /** Every release with something to say, newest first, including this one. */
+  releases: ReleaseEntry[];
   changelogUrl: string | null;
+  /** The releases index, for the one link out of the dialog. */
+  releasesUrl: string | null;
   /** This version's notes have not been acknowledged on this machine. */
   unread: boolean;
   /** Open it deliberately — the menu row, the About row. Always available. */
@@ -58,7 +62,9 @@ export function useWhatsNew(): WhatsNewValue {
 export function WhatsNewProvider({ children }: { children: ReactNode }) {
   const [version, setVersion] = useState<string | null>(null);
   const [entry, setEntry] = useState<ReleaseEntry | null>(null);
+  const [releases, setReleases] = useState<ReleaseEntry[]>([]);
   const [changelogUrl, setChangelogUrl] = useState<string | null>(null);
+  const [releasesUrl, setReleasesUrl] = useState<string | null>(null);
   const [seen, setSeen] = useState<string | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [autoOpenSpent, setAutoOpenSpent] = useState(false);
@@ -72,7 +78,11 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
         if (!alive) return;
         setVersion(r.version);
         setEntry(r.entry);
+        // A server older than this field answers without it. An empty list is
+        // the honest reading of that: no history rather than a crash.
+        setReleases(r.releases ?? []);
         setChangelogUrl(r.changelogUrl);
+        setReleasesUrl(r.releasesUrl ?? null);
         setSeen(r.seen);
         setStatus('ready');
       })
@@ -113,7 +123,21 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
   const unread = version !== null && seen !== version && entry !== null && entry.sections.length > 0;
 
   return (
-    <Ctx.Provider value={{ status, version, entry, changelogUrl, unread, open, autoOpenSpent, autoOpen, markSeen }}>
+    <Ctx.Provider
+      value={{
+        status,
+        version,
+        entry,
+        releases,
+        changelogUrl,
+        releasesUrl,
+        unread,
+        open,
+        autoOpenSpent,
+        autoOpen,
+        markSeen,
+      }}
+    >
       {children}
     </Ctx.Provider>
   );

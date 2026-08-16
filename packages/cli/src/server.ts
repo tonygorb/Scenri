@@ -32,7 +32,7 @@ import type { Core, EngineAdapter, GenerateRequest, EditRequest, BrandContext, R
 import { SpendCapError, ASPECT_TOLERANCE, SCHEMA_VERSION } from '@scenri/core';
 import { readMeta, repoSlug } from './meta.js';
 import { classify, createUpdateChecker, type UpdateChecker } from './update/check.js';
-import { releaseFor } from './release/notes.data.js';
+import { RELEASES, isNewsworthy, releaseFor } from './release/notes.data.js';
 import { findNpm, stageVersion } from './update/stage.js';
 import { compareSemver, newestStaged } from './update/versionsDir.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
@@ -1814,6 +1814,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       version: meta.version,
       entry: releaseFor(meta.version),
       seen: core.store.getSetting('whatsnew.seen') || null,
+      // The written history, newest first, for the short "Earlier releases"
+      // list. Records with no sections are the deliberate "nothing to say"
+      // ones and never appear: a version the user cannot have noticed is not
+      // history worth reading. Whole records rather than summaries, because
+      // this answers offline and one localhost read of a few hundred bytes per
+      // release is cheaper than a second route.
+      releases: RELEASES.filter(isNewsworthy),
       // 0.0.0 is the placeholder release-please has not bumped yet. No tag has
       // ever existed for it, and the releases index of a project that has not
       // released is an empty page, so there is nowhere honest to point: null.
@@ -1823,6 +1830,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // publishing is what creates the tag.
       changelogUrl:
         ghSlug && meta.version !== UNRELEASED ? `https://github.com/${ghSlug}/releases/tag/v${meta.version}` : null,
+      // Where everything before the three in the dialog lives. The index, not
+      // a tag: this one is the archive, and it outlives the version running.
+      // Gated on there being an archive at all, so a project that has never
+      // published does not offer a link to an empty page. Never use it to
+      // decide whether *this build* was released — `changelogUrl` answers that.
+      releasesUrl: ghSlug && RELEASES.some(isNewsworthy) ? `https://github.com/${ghSlug}/releases` : null,
     };
   });
 

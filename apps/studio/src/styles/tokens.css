@@ -12139,30 +12139,38 @@ textarea:disabled {
 }
 
 /* ---------- what's new ----------
-   The release you are running, not the one you could have. Small, quiet, and
-   over in one screen: two to four areas, a line each. No accent container, no
-   stripe down the side — the only gold in this whole feature is the unread dot
-   in the brand menu, which is what makes it mean something there. */
+   The release you are running, not the one you could have, with the three
+   before it as a footnote. Small, quiet, and over in one screen: two to four
+   areas of a line each, then a version and a line apiece for the ones behind
+   it. One hairline in the whole dialog. No cards, no bordered rows, no accent
+   container, no stripe down the side — the only gold in this whole feature is
+   the unread dot in the brand menu, which is what makes it mean something
+   there.
+
+   The shell (`.sc-newdlg`) owns the geometry: fixed head, one scrolling body,
+   fixed foot, bottom sheet under 768px. Everything below is type. */
 .sc-wn-sub {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--sc-fg2);
-}
-.sc-wn-date {
-  margin: 2px 0 0;
-  font-size: 11.5px;
+  /* The version is a fact under the title, not the title. Caption weight is
+     what keeps "what changed" the loudest thing in the dialog. */
+  flex: none;
+  margin: 4px 0 14px;
+  font-size: var(--sc-text-caption);
   color: var(--sc-fg3);
 }
-.sc-wn-body {
+/* The release you are running: an optional headline, then its areas. */
+.sc-wn-latest {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 18px;
-  /* A release that ran long scrolls inside itself rather than pushing "Got it"
-     off a short window. */
-  max-height: min(52vh, 420px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  gap: var(--sc-space-6);
+}
+/* The one line a release is allowed above its sections. Sits at body size in
+   ink so it reads as the release speaking, not as a fifth section heading. */
+.sc-wn-lede {
+  margin: 0 0 -4px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--sc-fg);
+  text-wrap: pretty;
 }
 .sc-wn-head {
   /* Deliberately not a tracked uppercase eyebrow: this is a working tool, and
@@ -12178,12 +12186,41 @@ textarea:disabled {
   line-height: 1.5;
   color: var(--sc-fg2);
 }
+/* The last few releases, quiet under one hairline. Two lines each and never
+   truncated: the same meta-over-prose shape the release above them uses, so
+   the dialog reads as one column rather than a header and a table. Not
+   interactive — a release here is a footnote, not a destination. */
+.sc-wn-earlier {
+  margin-top: var(--sc-space-7);
+  padding-top: var(--sc-space-6);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-wn-earlier-lb {
+  margin: 0 0 var(--sc-space-5);
+  font-size: var(--sc-text-body);
+  font-weight: 600;
+  color: var(--sc-fg);
+}
+.sc-wn-rel + .sc-wn-rel {
+  margin-top: var(--sc-space-5);
+}
+.sc-wn-rel-meta {
+  margin: 0 0 1px;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+.sc-wn-rel-sum {
+  margin: 0;
+  font-size: var(--sc-text-body);
+  line-height: 1.45;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
 .sc-wn-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 20px;
 }
 .sc-wn-link {
   display: inline-flex;
@@ -12212,39 +12249,7 @@ textarea:disabled {
   background: var(--sc-gold);
 }
 
-@media (max-width: 767px) {
-  /* Same dialog, docked to the bottom edge — the app's compact convention.
-     Radix keeps the focus trap, the scroll lock and every dismissal path;
-     only the geometry changes. */
-  .rt-BaseDialogOverlay:has(.sc-wn) .rt-BaseDialogScroll {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: flex-end;
-    padding: 0;
-    overflow: hidden;
-  }
-  .rt-BaseDialogOverlay:has(.sc-wn) .rt-BaseDialogScrollPadding {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-  }
-  .sc-wn {
-    width: 100%;
-    max-width: none;
-    height: auto;
-    max-height: 92dvh;
-    margin: 0;
-    border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
-    padding-bottom: max(var(--sc-space-7), var(--sc-bottom-inset));
-  }
-  .sc-wn[data-state="open"] {
-    animation: sc-sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .sc-wn[data-state="closed"] {
-    animation: sc-sheet-down 160ms ease-in;
-  }
-  .sc-wn-body {
-    max-height: none;
-  }
-}
+/* No mobile block of its own: `.sc-wn` carries `.sc-newdlg`, so the bottom
+   sheet, the 92dvh cap, the safe-area padding and the reduced-motion kill all
+   come from the shell every other sheet in the app uses. This block used to be
+   a byte-for-byte copy of that one, minus the reduced-motion rule. */

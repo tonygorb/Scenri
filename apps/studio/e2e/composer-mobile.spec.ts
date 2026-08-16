@@ -32,14 +32,18 @@ async function overflow(p: Page): Promise<number> {
 }
 
 test.beforeEach(async ({ page }) => {
-  // the brief lives on the hub: Home is the way in and carries no tools
-  await page.goto('/');
-  // a brand is the whole first segment now: one segment, and not the wizard
-  await page.waitForURL((u) => {
-    const seg = u.pathname.split('/').filter(Boolean);
-    return seg.length === 1 && seg[0] !== 'setup';
-  });
-  await page.goto(`${new URL(page.url()).pathname}/create`);
+  // Straight to the hub, and never through Home.
+  //
+  // Home was only ever a way to learn the brand's slug, and it costs a wall of
+  // showcase imagery to render: around forty-five thumbnails, still in flight
+  // when the next `goto` navigated away from them. Chromium drops those and
+  // moves on. WebKit holds their connections, and on the iPad project the
+  // bundles the hub needed then starved behind them — the document arrived in
+  // 61ms and `index.js` never arrived at all, so the app never booted and this
+  // hook timed out waiting for a brief that could not exist. Asking the API for
+  // the slug costs one request and loads no pictures.
+  const [brand] = (await (await page.request.get('/api/brands')).json()) as { slug: string }[];
+  await page.goto(`/${brand.slug}/create`);
   await line(page).waitFor();
 });
 

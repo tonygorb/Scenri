@@ -139,7 +139,8 @@ test.describe
       const row = aboutRows(page).filter({ hasText: "What's new" });
       await row.locator('button', { hasText: 'Show' }).click();
       await expect(page.locator('.sc-wn')).toBeVisible();
-      await expect(page.getByRole('dialog')).toHaveAccessibleName(/What's new in scenri/);
+      // the surface is the title; the version is a quiet fact under it
+      await expect(page.getByRole('dialog')).toHaveAccessibleName("What's new");
       await page.keyboard.press('Escape');
       await expect(page.locator('.sc-wn')).toHaveCount(0);
 
