@@ -131,13 +131,13 @@ test('every screen cold-loads from its own URL', async ({ page }) => {
   await expect(activeNav(page)).toHaveText('Scenes');
   await expect(page.locator('.sc-lookcard').first()).toBeVisible();
 
-  // the card's own centre is covered by the hover use action, which is a
-  // different destination: click the collection's name list instead
-  const name = page.locator('.sc-coll-names button').first();
-  const scened = (await name.innerText()).trim();
-  await name.click();
-  await page.waitForURL(/\/scenes\/[^/]+$/);
-  await expect(page.locator('.sc-lookpage h1')).toHaveText(scened);
+  // A scene page cold-loads from its own URL, which is what this test is
+  // named after. Clicking in is not the contract and no longer reaches it:
+  // the card's centre belongs to the hover "Use in a shot" action, and the
+  // collection name list it used to click was removed.
+  const scene = (await (await page.request.get('/api/scenes')).json()).scenes[0];
+  await page.goto(`/${brand.slug}/scenes/${scene.id}`);
+  await expect(page.locator('.sc-lookpage h1')).toHaveText(scene.name);
 
   await page.goto(`/${brand.slug}/sets/${set.slug}`);
   await expect(page.locator('.sc-canvas')).toBeVisible();
@@ -221,13 +221,18 @@ test('back closes a shot, and escape spends the same single entry', async ({ pag
 test('filters live in the URL and survive a reload', async ({ page }) => {
   const brand = await currentBrand(page);
 
-  await page.goto(`/${brand.slug}/scenes`);
-  // 0 is "Every scene" and 1 is Favorites, which rides its own ?starred= param:
-  // a real vertical starts at 2
-  const vertical = page.locator('.sc-verticals button').nth(2);
+  // Products, not Scenes: a library only wears its chrome once you own
+  // something in it, and the fixture owns a product but no scenes. The tab
+  // rail is the same component either way, so the filter contract is the same
+  // one; this just exercises it somewhere it is actually reachable.
+  await page.goto(`/${brand.slug}/products`);
+  // 0 is "Every product"; a real vertical starts at 1
+  const vertical = page.locator('.sc-verticals button').nth(1);
   const label = (await vertical.innerText()).split('\n')[0].trim();
   await vertical.click();
-  await page.waitForURL(/[?&]vertical=/);
+  // Each library names its own facet: Products filters on `category`,
+  // Scenes on `vertical`.
+  await page.waitForURL(/[?&]category=/);
 
   await page.reload();
   await expect(page.locator('.sc-verticals button[data-on]')).toHaveText(new RegExp(label));
