@@ -5,7 +5,7 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "scenri",
+      "package-name": "",
       "changelog-path": "packages/cli/CHANGELOG.md",
       "bump-minor-pre-major": true,
       "extra-files": [

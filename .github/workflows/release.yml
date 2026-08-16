@@ -23,6 +23,17 @@ concurrency:
 # Versions are never typed by hand: release-please reads the conventional
 # commits on main and opens a pull request carrying the bump and the CHANGELOG.
 #
+# `package-name` is deliberately empty in release-please-config.json. Two of
+# release-please's own accessors disagree about the component: `getComponent()`
+# honours `include-component-in-tag: false` and returns "", so the release PR
+# body and the branch are written without one, while `getBranchComponent()`
+# ignores that flag and derives "scenri" from the package name. On merge,
+# strategies/base.ts compares the two, finds "undefined" against "scenri", and
+# returns without creating the release — logging a warning while the job still
+# reports success. That is why v0.1.0 and v0.1.1 both had to be tagged by hand.
+# An empty package name makes both sides resolve to "", and the tag is
+# unaffected because the component is already excluded from it.
+#
 # It does not publish. Publishing hangs off the `release: published` event in
 # publish.yml, so whatever creates the GitHub release — this, or a person —
 # the package still goes out verified and with provenance.
