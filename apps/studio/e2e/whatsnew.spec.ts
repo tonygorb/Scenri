@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
 
 /**
- * What's new — the version you are running, not the one you could have.
+ * What's new — the version you are running, and the few behind it.
  *
  * The shared server is enough here: this feature never touches the registry
  * (updates.spec.ts owns that machinery). What it does touch is one local read,
@@ -15,6 +15,7 @@ isolate();
 
 const NOTES_URL = '**/api/release/notes';
 const SEEN_URL = '**/api/release/seen';
+const RELEASES_URL = 'https://github.com/tonygorb/scenri/releases';
 
 const ENTRY = {
   version: '9.9.9',
@@ -27,6 +28,38 @@ const ENTRY = {
   ],
 };
 
+/** Two written releases behind the one running, newest first. */
+const HISTORY = [
+  {
+    version: '9.9.8',
+    date: '2026-08-09',
+    title: 'Sets, and a steadier feed.',
+    sections: [{ heading: 'Create', body: 'Sets group a shoot without moving anything.' }],
+  },
+  {
+    version: '9.9.7',
+    date: '2026-08-02',
+    sections: [
+      { heading: 'Products', body: 'Uploads keep their background.' },
+      { heading: 'Fixes', body: 'The composer no longer loses a draft on a brand switch.' },
+    ],
+  },
+];
+
+/** Everything the route answers, with only the parts a case cares about set. */
+const notes = (over: Record<string, unknown> = {}) => ({
+  version: ENTRY.version,
+  entry: ENTRY,
+  releases: [ENTRY, ...HISTORY],
+  seen: ENTRY.version,
+  changelogUrl: `https://github.com/tonygorb/scenri/releases/tag/v${ENTRY.version}`,
+  releasesUrl: RELEASES_URL,
+  ...over,
+});
+
+const stub = (page: Page, over: Record<string, unknown> = {}) =>
+  page.route(NOTES_URL, (route) => route.fulfill({ json: notes(over) }));
+
 /**
  * The app as it looks to someone who has not read this version's notes yet.
  *
@@ -34,18 +67,9 @@ const ENTRY = {
  * POST would write a version this build has never heard of into the shared
  * home, and every later spec would then be met with a modal of its own.
  */
-async function stubUnread(page: Page): Promise<string[]> {
+async function stubUnread(page: Page, over: Record<string, unknown> = {}): Promise<string[]> {
   const acked: string[] = [];
-  await page.route(NOTES_URL, (route) =>
-    route.fulfill({
-      json: {
-        version: ENTRY.version,
-        entry: ENTRY,
-        seen: '0.0.1',
-        changelogUrl: 'https://github.com/tonygorb/scenri/releases/tag/v9.9.9',
-      },
-    }),
-  );
+  await stub(page, { seen: '0.0.1', ...over });
   await page.route(SEEN_URL, async (route) => {
     acked.push(String(route.request().postDataJSON()?.version));
     await route.fulfill({ json: { ok: true } });
@@ -55,17 +79,18 @@ async function stubUnread(page: Page): Promise<string[]> {
 
 const dialog = (p: Page) => p.locator('.sc-wn');
 const menuTrigger = (p: Page) => p.locator('.sc-org-btn');
+const openByHand = async (p: Page) => {
+  await menuTrigger(p).click();
+  await p.locator('.sc-menu-item', { hasText: "What's new" }).click();
+  await expect(dialog(p)).toBeVisible();
+};
 
 test('a release already acknowledged says nothing: no dialog, no dot', async ({ page }) => {
   // What a fresh install looks like from the browser's side: the server seeds
   // the first boot of a home as already seen, so a person who has never used
   // scenri is not met with a modal about changes. (That the server does the
   // seeding is proven in releaseNotes.test.ts; this is the consequence.)
-  await page.route(NOTES_URL, (route) =>
-    route.fulfill({
-      json: { version: ENTRY.version, entry: ENTRY, seen: ENTRY.version, changelogUrl: null },
-    }),
-  );
+  await stub(page);
   await page.goto('/');
   await expect(page.locator('.sc-greet')).toBeVisible();
   await page.waitForTimeout(3500); // past the gate's settle window
@@ -79,13 +104,59 @@ test('an unread release introduces itself once the screen is quiet', async ({ pa
   await expect(page.locator('.sc-greet')).toBeVisible();
 
   await expect(dialog(page)).toBeVisible({ timeout: 8000 });
-  // asserted through the accessible name rather than a Radix class: this is
-  // exactly what a screen reader is handed when the dialog takes focus
-  await expect(page.getByRole('dialog')).toHaveAccessibleName("What's new in scenri 9.9.9");
-  await expect(page.locator('.sc-wn-sub')).toHaveText(ENTRY.title);
+  // The title is the surface, not the version — asserted through the
+  // accessible name, which is exactly what a screen reader is handed when the
+  // dialog takes focus.
+  await expect(page.getByRole('dialog')).toHaveAccessibleName("What's new");
+  // The version is a fact under it, spoken as a sentence rather than as two
+  // bare numbers.
+  await expect(page.locator('.sc-wn-sub')).toHaveText('Version 9.9.9 · 16 August 2026');
+  await expect(page.locator('.sc-wn-lede')).toHaveText(ENTRY.title);
   await expect(page.locator('.sc-wn-head')).toHaveText(['Create', 'Scenes', 'Fixes']);
-  await expect(page.locator('.sc-wn-link')).toHaveAttribute('href', /releases\/tag\/v9\.9\.9/);
+  await expect(page.locator('.sc-wn-link')).toHaveAttribute('href', RELEASES_URL);
   await expect(page.locator('.sc-wn .sc-btn-primary')).toHaveText('Got it');
+});
+
+test('the releases behind it are a footnote: three at most, never the one running', async ({ page }) => {
+  await stubUnread(page);
+  await page.goto('/');
+  await expect(dialog(page)).toBeVisible({ timeout: 8000 });
+
+  await expect(page.locator('.sc-wn-earlier-lb')).toHaveText('Earlier releases');
+  await expect(page.locator('.sc-wn-rel')).toHaveCount(HISTORY.length);
+  await expect(page.locator('.sc-wn-rel-meta')).toHaveText([
+    'Version 9.9.8 · 9 August 2026',
+    'Version 9.9.7 · 2 August 2026',
+  ]);
+  // A release with a headline says it; one without names the areas it touched,
+  // which is a fact already in the record rather than a summary invented here.
+  await expect(page.locator('.sc-wn-rel-sum')).toHaveText(['Sets, and a steadier feed.', 'Products, Fixes']);
+  // The running version is the hero above, never also a row below.
+  await expect(page.locator('.sc-wn-rel-meta').filter({ hasText: '9.9.9' })).toHaveCount(0);
+});
+
+test('a long history stays three rows and the same dialog', async ({ page }) => {
+  const many = Array.from({ length: 50 }, (_, i) => ({
+    version: `9.9.${9 - i}`,
+    date: '2026-08-16',
+    sections: [{ heading: 'Fixes', body: `Round ${i}.` }],
+  }));
+  await stubUnread(page, { version: many[0].version, entry: many[0], releases: many });
+  await page.goto('/');
+  await expect(dialog(page)).toBeVisible({ timeout: 8000 });
+  await expect(page.locator('.sc-wn-rel')).toHaveCount(3);
+
+  const box = await dialog(page).boundingBox();
+  expect(box?.height ?? 0).toBeLessThanOrEqual(640);
+});
+
+test('a first release shows no empty heading over nothing', async ({ page }) => {
+  await stubUnread(page, { releases: [ENTRY] });
+  await page.goto('/');
+  await expect(dialog(page)).toBeVisible({ timeout: 8000 });
+  await expect(page.locator('.sc-wn-head')).toHaveCount(3); // the hero is intact
+  await expect(page.locator('.sc-wn-earlier')).toHaveCount(0);
+  await expect(page.locator('.sc-wn-rel')).toHaveCount(0);
 });
 
 test('closing it is the acknowledgement, and it does not come back', async ({ page }) => {
@@ -145,24 +216,16 @@ test('the unread marker is spoken as well as shown', async ({ page }) => {
   await expect(row.locator('.sc-vh')).toHaveText(', not read yet');
 });
 
-test('a version that shipped without notes still opens and still links out', async ({ page }) => {
-  await page.route(NOTES_URL, (route) =>
-    route.fulfill({
-      json: {
-        version: '9.9.9',
-        entry: null,
-        seen: '9.9.9',
-        changelogUrl: 'https://github.com/tonygorb/scenri/releases/tag/v9.9.9',
-      },
-    }),
-  );
+test('a version that shipped without notes still opens, and still has a history', async ({ page }) => {
+  await stub(page, { entry: null, releases: HISTORY });
   await page.goto('/');
   await expect(page.locator('.sc-greet')).toBeVisible();
-  await menuTrigger(page).click();
-  await page.locator('.sc-menu-item', { hasText: "What's new" }).click();
-  await expect(dialog(page)).toBeVisible();
+  await openByHand(page);
+  await expect(page.locator('.sc-wn-sub')).toHaveText('Version 9.9.9');
   await expect(page.locator('.sc-wn-txt')).toContainText('without a written summary');
-  await expect(page.locator('.sc-wn-link')).toBeVisible();
+  // the archive is still where everything else lives
+  await expect(page.locator('.sc-wn-link')).toHaveAttribute('href', RELEASES_URL);
+  await expect(page.locator('.sc-wn-rel')).toHaveCount(HISTORY.length);
 });
 
 test('it opens without a ring on anything, and the trap still holds', async ({ page }) => {
@@ -186,10 +249,10 @@ test('it opens without a ring on anything, and the trap still holds', async ({ p
   });
   expect(onOpen).toEqual({ insideDialog: true, isSurface: true, outline: '0px' });
 
-  // the accessible name is still the release heading
-  await expect(page.getByRole('dialog')).toHaveAccessibleName("What's new in scenri 9.9.9");
+  await expect(page.getByRole('dialog')).toHaveAccessibleName("What's new");
 
-  // and tabbing cycles inside, starting at the close button
+  // Three stops and no more: the earlier releases are prose, not controls, so
+  // reading the history costs a keyboard user nothing.
   const stops: string[] = [];
   for (let i = 0; i < 4; i++) {
     await page.keyboard.press('Tab');
@@ -201,23 +264,19 @@ test('it opens without a ring on anything, and the trap still holds', async ({ p
       }),
     );
   }
-  expect(stops).toEqual(['Close', 'Full changelog', 'Got it', 'Close']);
+  expect(stops).toEqual(['Close', 'All releases', 'Got it', 'Close']);
 });
 
-test('a maintenance release says nothing at all, but is still reachable', async ({ page }) => {
+test('a maintenance release says nothing of its own, but still shows what came before', async ({ page }) => {
   // A version that changed nothing a user would notice still gets a record —
   // that is what keeps the release atomic — but its record carries no
-  // sections, and an empty dialog is worse than no dialog.
-  await page.route(NOTES_URL, (route) =>
-    route.fulfill({
-      json: {
-        version: '9.9.9',
-        entry: { version: '9.9.9', date: '2026-08-16', sections: [] },
-        seen: '0.0.1',
-        changelogUrl: 'https://github.com/tonygorb/scenri/releases/tag/v9.9.9',
-      },
-    }),
-  );
+  // sections. It never interrupts, and opening it by hand is now worth doing:
+  // the releases behind it are the answer to why you came.
+  await stub(page, {
+    entry: { version: ENTRY.version, date: ENTRY.date, sections: [] },
+    releases: HISTORY,
+    seen: '0.0.1',
+  });
   await page.goto('/');
   await expect(page.locator('.sc-greet')).toBeVisible();
   await page.waitForTimeout(4000); // well past the gate's settle window
@@ -225,14 +284,13 @@ test('a maintenance release says nothing at all, but is still reachable', async 
   await expect(dialog(page)).toHaveCount(0);
   await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
 
-  // reachable on purpose, and honest about why it is empty
   await menuTrigger(page).click();
   const row = page.locator('.sc-menu-item', { hasText: "What's new" });
   await expect(row.locator('.sc-menu-new')).toHaveCount(0);
   await row.click();
   await expect(dialog(page)).toBeVisible();
   await expect(page.locator('.sc-wn-txt')).toContainText('Maintenance only');
-  await expect(page.locator('.sc-wn-link')).toBeVisible();
+  await expect(page.locator('.sc-wn-rel')).toHaveCount(HISTORY.length);
 });
 
 test('a failed read says so, instead of accusing the release of having no notes', async ({ page }) => {
@@ -248,32 +306,39 @@ test('a failed read says so, instead of accusing the release of having no notes'
   await expect(dialog(page)).toHaveCount(0);
   await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
 
-  await menuTrigger(page).click();
-  await page.locator('.sc-menu-item', { hasText: "What's new" }).click();
-  await expect(dialog(page)).toBeVisible();
+  await openByHand(page);
   await expect(page.locator('.sc-wn-sub')).toHaveText('Release notes unavailable');
   await expect(page.locator('.sc-wn-txt')).toContainText('could not read its release notes');
   await expect(page.locator('.sc-wn-txt')).not.toContainText('without a written summary');
+  await expect(page.locator('.sc-wn-earlier')).toHaveCount(0);
 });
 
 test('a development build says so, instead of blaming a release that never happened', async ({ page }) => {
-  // 0.0.0 has never been tagged and the releases page of an unreleased project
-  // is empty, so there is nowhere honest to point. No link is what tells the
-  // dialog it is looking at a build, not a release nobody documented.
-  await page.route(NOTES_URL, (route) =>
-    route.fulfill({ json: { version: '0.0.0', entry: null, seen: '0.0.0', changelogUrl: null } }),
-  );
+  // 0.0.0 has never been tagged, so there is no page for *this build*. That
+  // absence is what tells the dialog it is looking at a build rather than a
+  // release nobody documented — the archive of everything already published
+  // is a separate question and still answers.
+  await stub(page, { version: '0.0.0', entry: null, changelogUrl: null, releases: HISTORY });
   await page.goto('/');
   await expect(page.locator('.sc-greet')).toBeVisible();
   await page.waitForTimeout(3500);
   await expect(dialog(page)).toHaveCount(0); // never on its own
 
-  await menuTrigger(page).click();
-  await page.locator('.sc-menu-item', { hasText: "What's new" }).click();
-  await expect(dialog(page)).toBeVisible();
+  await openByHand(page);
   await expect(page.locator('.sc-wn-sub')).toHaveText('Development build');
   await expect(page.locator('.sc-wn-txt')).toContainText('running a development build');
   await expect(page.locator('.sc-wn-txt')).not.toContainText('without a written summary');
-  // no dead-end link to an empty releases page
+  await expect(page.locator('.sc-wn-rel')).toHaveCount(HISTORY.length);
+});
+
+test('a project that has never released offers no link to an empty page', async ({ page }) => {
+  await stub(page, { version: '0.0.0', entry: null, changelogUrl: null, releases: [], releasesUrl: null });
+  await page.goto('/');
+  await expect(page.locator('.sc-greet')).toBeVisible();
+  await openByHand(page);
+  await expect(page.locator('.sc-wn-sub')).toHaveText('Development build');
   await expect(page.locator('.sc-wn-link')).toHaveCount(0);
+  await expect(page.locator('.sc-wn-earlier')).toHaveCount(0);
+  // the one button is still reachable, pushed to the edge on its own
+  await expect(page.locator('.sc-wn .sc-btn-primary')).toBeVisible();
 });

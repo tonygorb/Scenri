@@ -4,7 +4,8 @@ import { isolate } from './harness.js';
 /**
  * The same dialog, docked to the bottom edge. A phone gets a sheet rather than
  * a shrunken desktop dialog, and everything that matters — the version, the
- * sections, the way out — has to survive the change of geometry.
+ * sections, the releases behind them, the way out — has to survive the change
+ * of geometry.
  */
 
 // A scenri of this file's own, on an empty home, seeded from scratch.
@@ -19,14 +20,31 @@ const ENTRY = {
   ],
 };
 
+/** One of them carries a title long enough to test the wrap rather than a clip. */
+const HISTORY = [
+  {
+    version: '9.9.8',
+    date: '2026-08-09',
+    title: 'Sets group a shoot without moving anything, and the feed remembers where you were.',
+    sections: [{ heading: 'Create', body: 'Sets.' }],
+  },
+  {
+    version: '9.9.7',
+    date: '2026-08-02',
+    sections: [{ heading: 'Fixes', body: 'Drafts survive a brand switch.' }],
+  },
+];
+
 test("What's new is a bottom sheet on a phone, and closes by hand", async ({ page }, testInfo) => {
   await page.route('**/api/release/notes', (route) =>
     route.fulfill({
       json: {
         version: ENTRY.version,
         entry: ENTRY,
+        releases: [ENTRY, ...HISTORY],
         seen: '0.0.1',
         changelogUrl: 'https://github.com/tonygorb/scenri/releases/tag/v9.9.9',
+        releasesUrl: 'https://github.com/tonygorb/scenri/releases',
       },
     }),
   );
@@ -40,6 +58,9 @@ test("What's new is a bottom sheet on a phone, and closes by hand", async ({ pag
   const sheet = page.locator('.sc-wn');
   await expect(sheet).toBeVisible({ timeout: 8000 });
   await expect(page.locator('.sc-wn-head')).toHaveText(['Create', 'Scenes']);
+  // the footnote survives the change of geometry, and so does the way out
+  await expect(page.locator('.sc-wn-rel')).toHaveCount(HISTORY.length);
+  await expect(page.locator('.sc-wn-link')).toHaveText(/All releases/);
 
   const box = await sheet.boundingBox();
   const viewport = page.viewportSize();
@@ -54,11 +75,14 @@ test("What's new is a bottom sheet on a phone, and closes by hand", async ({ pag
     expect(box.width).toBeLessThan(viewport.width);
     expect(box.y).toBeGreaterThan(0);
   }
-  // the page behind it must never scroll sideways because of this
+  // the page behind it must never scroll sideways because of this, and neither
+  // must a release title long enough to want to
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+  const summary = await page.locator('.sc-wn-rel-sum').first().boundingBox();
+  expect((summary?.x ?? 0) + (summary?.width ?? 0)).toBeLessThanOrEqual(box.x + box.width + 1);
 
   await page.locator('.sc-wn .sc-btn-primary', { hasText: 'Got it' }).click();
   await expect(sheet).toHaveCount(0);
