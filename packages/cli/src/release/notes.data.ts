@@ -47,6 +47,16 @@ export interface ReleaseEntry {
 
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.1.1',
+    date: '2026-08-16',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'Opening a shot from a notification could say it was no longer available, and renaming a set could drop you back to the feed. Both now check with the server before deciding something has gone.',
+      },
+    ],
+  },
+  {
     version: '0.1.0',
     date: '2026-08-16',
     title: 'The first public release of scenri.',
