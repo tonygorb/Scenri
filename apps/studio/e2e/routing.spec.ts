@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * The URL is the app's state. Everything here is a thing that was silently
@@ -9,6 +10,9 @@ import { test, expect, type Page } from '@playwright/test';
  * behaviour under test is the browser's own: history entries, a cold load of a
  * deep path, and what the address bar says after a click.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const api = async (p: Page, path: string, init?: RequestInit) =>
   p.evaluate(

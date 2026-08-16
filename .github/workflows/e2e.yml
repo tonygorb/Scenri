@@ -52,12 +52,12 @@ jobs:
         run: pnpm build
 
       # The suite drives a real server on purpose: synthetic events cannot
-      # reproduce focus or caret behaviour, so there is nothing to mock. It
-      # starts and seeds that server itself, from playwright.config.ts.
+      # reproduce focus or caret behaviour, so there is nothing to mock. Each
+      # spec file starts and seeds a scenri of its own on an empty home
+      # (e2e/harness.ts), so there is no library to point anywhere and nothing
+      # left behind to clean up.
       - name: Run Playwright
         run: pnpm --filter @scenri/studio test:e2e
-        env:
-          SCENRI_E2E_HOME: ${{ runner.temp }}/scenri-e2e
 
       # Traces, not playwright-report: the reporter is `list`, so no HTML
       # report is ever written, and the trace is what shows the failing screen.

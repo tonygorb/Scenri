@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * The bell exists because work used to be visible only from the screen that
@@ -9,6 +10,9 @@ import { test, expect, type Page } from '@playwright/test';
  * Like the other specs this runs against a real scenri server on the free Demo
  * engine, and selects by the `sc-` class names the app actually ships.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const api = async (p: Page, path: string, init?: RequestInit) =>
   p.evaluate(

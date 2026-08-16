@@ -3956,6 +3956,18 @@ button.sc-fact:hover {
 }
 
 /* ---------- detail overlay: filmstrip / stage / meta ---------- */
+/* The shot overlay while its tree is still loading. Same box, so nothing
+   moves when the real overlay replaces it — but a class of its own, so
+   `.sc-ovl` means the overlay is genuinely open and not merely on its way. */
+.sc-ovl-wait {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: var(--sc-bg);
+}
+
 .sc-ovl {
   position: fixed;
   inset: 0;

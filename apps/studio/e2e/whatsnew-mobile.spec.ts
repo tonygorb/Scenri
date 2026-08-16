@@ -1,10 +1,14 @@
 import { test, expect } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * The same dialog, docked to the bottom edge. A phone gets a sheet rather than
  * a shrunken desktop dialog, and everything that matters — the version, the
  * sections, the way out — has to survive the change of geometry.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const ENTRY = {
   version: '9.9.9',

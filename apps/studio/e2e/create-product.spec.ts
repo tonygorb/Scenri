@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * Making a product, all the way through.
@@ -10,6 +11,9 @@ import { test, expect, type Page } from '@playwright/test';
  * It is also where the draft contract is cheapest to prove. Closing this dialog
  * never asks "discard your work?" — because nothing is discarded.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 /** A tiny real PNG, built in the page rather than committed as a fixture. */
 const PNG = (hex: string) =>

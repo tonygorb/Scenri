@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * What's new — the version you are running, not the one you could have.
@@ -8,6 +9,9 @@ import { test, expect, type Page } from '@playwright/test';
  * so the unread cases stub that read rather than writing acknowledgements into
  * the shared home and leaking them into the next spec.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const NOTES_URL = '**/api/release/notes';
 const SEEN_URL = '**/api/release/seen';

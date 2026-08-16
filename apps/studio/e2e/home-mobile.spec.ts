@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * Home without the dock.
@@ -11,6 +12,9 @@ import { test, expect, type Page } from '@playwright/test';
  * Runs on the mobile (Pixel 5) and tablet (iPad Mini landscape) projects; the
  * tablet leg doubles as the ≥768px-unchanged guard.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const dock = (p: Page) => p.locator('.sc-canvas-dock');
 const tile = (p: Page) => p.locator('[data-wall] .sc-lookcard').first();

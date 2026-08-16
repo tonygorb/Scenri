@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * Adding to a brand on a hand's width, and on a tablet.
@@ -15,6 +16,9 @@ import { test, expect, type Page } from '@playwright/test';
  *
  * Runs on the mobile (Pixel 5) and tablet (iPad Mini landscape) projects.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const isPhone = (p: Page) => (p.viewportSize()?.width ?? 0) < 768;
 const dialog = (p: Page) => p.locator('.sc-newdlg');

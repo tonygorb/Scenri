@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * The caret and focus behaviour of the brief.
@@ -9,6 +10,9 @@ import { test, expect, type Page } from '@playwright/test';
  * has been invisible to unit tests and obvious within seconds of real clicking,
  * so this spec clicks and types for real.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const line = (p: Page) => p.locator('.sc-brief-line').first();
 const dock = (p: Page) => p.locator('.sc-canvas-dock').first();
@@ -237,19 +241,25 @@ test('refining points at the version it just made, not the one it started from',
   // and this case is about what the composer does with the id it is handed.
   const REFINED = 'refined-by-spec';
   let existingImage: string | null = null;
+  // The version does not exist until the refine that makes it. Adding it to the
+  // tree up front put a newer version on the shot before anyone asked for one,
+  // and branching from a shot reaches for its newest version — so the chip
+  // arrived already pointing at the answer and the case proved nothing.
+  let refined = false;
 
   await page.route('**/api/brands/*/workspace', async (route) => {
     const res = await route.fetch();
     const ws = await res.json();
     const donor = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length);
     existingImage = donor?.images?.[0] ?? null;
-    if (donor && !(ws.nodes ?? []).some((n: any) => n.id === REFINED)) {
+    if (refined && donor && !(ws.nodes ?? []).some((n: any) => n.id === REFINED)) {
       ws.nodes.push({ ...donor, id: REFINED, parentId: donor.id, kind: 'edit', prompt: 'made it tighter' });
     }
     await route.fulfill({ response: res, json: ws });
   });
   await page.route('**/api/nodes', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
+    refined = true;
     await route.fulfill({
       status: 202,
       contentType: 'application/json',

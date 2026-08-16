@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * The brand kit, end to end.
@@ -8,6 +9,9 @@ import { test, expect, type Page } from '@playwright/test';
  * reaches the prompt, and that the one bug this rewrite existed to kill — a
  * palette edit destroying the brand's neutrals — stays dead.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate({ scene: true });
 
 const api = async (p: Page, path: string, init?: RequestInit) =>
   p.evaluate(
@@ -257,6 +261,12 @@ test.describe('brand kit', () => {
     expect(JSON.parse(saved ?? '[]')).toHaveLength(1);
   });
 
+  // Both cases below assert "the rail must not change shape as you star
+  // things", which is only a claim the page makes once the brand owns a scene:
+  // `Scenes.tsx` sets `heroMode = !owned && !onlyStarred`, so a brand that owns
+  // nothing leads with its offer and renders no chrome at all. `isolate({ scene:
+  // true })` at the top of this file seeds that one owned scene, and nothing
+  // outside this file sees it.
   test('the Favorites tab is always on the rail and filters the wall to what you starred', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);

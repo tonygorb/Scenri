@@ -26,11 +26,16 @@ export function ShotDetailRoute() {
     ctx.close();
   }, [missing, ctx.close, push]);
 
-  // the tree has not arrived yet: a blank flash here would read as the shot
-  // itself being empty, when it is only the fetch that has not landed
+  // The tree has not arrived yet: a blank flash here would read as the shot
+  // itself being empty, when it is only the fetch that has not landed.
+  //
+  // Its own class, not `sc-ovl`. Sharing that one made "the overlay is open"
+  // a claim a spinner could satisfy, so every e2e assertion on `.sc-ovl`
+  // quietly also passed while the shot was still loading, and one that read
+  // the text straight after got an empty string.
   if (!ctx.loaded) {
     return (
-      <div className="sc-ovl" style={{ display: 'grid', placeItems: 'center' }} role="status" aria-label="Loading">
+      <div className="sc-ovl-wait" role="status" aria-label="Loading">
         <Spinner size="3" />
       </div>
     );

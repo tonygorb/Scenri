@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * The composer at hand width.
@@ -11,6 +12,9 @@ import { test, expect, type Page } from '@playwright/test';
  * Real devices rather than a resized desktop, because the touch rules hang off
  * `pointer: coarse` and a narrow desktop window does not report it.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const line = (p: Page) => p.locator('.sc-brief-line').first();
 const row = (p: Page) => p.locator('.sc-prompt-row').first();
@@ -97,19 +101,51 @@ test('a phone opens the same settings as a sheet, not as a popover', async ({ pa
   expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"story"');
 });
 
+/**
+ * Where the grip has come to rest.
+ *
+ * A sheet slides up when it opens, so a box read the moment it mounts names a
+ * place the grip is about to leave. Pressing there put the pointer on the
+ * scrim below the risen sheet, Radix read that as a click outside, and the
+ * drag case failed having never touched the thing it meant to drag.
+ */
+async function settledBox(p: Page, sel: string) {
+  let last = (await p.locator(sel).boundingBox())!;
+  for (let i = 0; i < 20; i++) {
+    await p.waitForTimeout(50);
+    const now = (await p.locator(sel).boundingBox())!;
+    if (Math.abs(now.y - last.y) < 0.5) return now;
+    last = now;
+  }
+  return last;
+}
+
+/**
+ * Drag a sheet down by its grip, as a hand would.
+ *
+ * The sheet leaves on distance *or* on speed — `moved > 96 || speed > 0.45`
+ * px/ms in IngredientPicker.tsx and ShotSettings.tsx — and playwright
+ * dispatches the whole move in one go, so a gentle 24px pull arrives at
+ * ~5px/ms and reads as a flick. The hold before releasing is what makes the
+ * gesture mean what it says: without it, on a fast machine, "a nudge"
+ * dismissed the sheet the nudge exists to prove it survives.
+ */
+async function dragSheet(p: Page, grip: string, dy: number) {
+  const box = await settledBox(p, grip);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await p.mouse.move(x, y);
+  await p.mouse.down();
+  await p.mouse.move(x, y + dy, { steps: 10 });
+  await p.waitForTimeout(200);
+  await p.mouse.up();
+}
+
 test('the sheet is dragged away, and springs back from a nudge', async ({ page }) => {
   test.skip(!isPhone(page), 'the sheet only exists below 768px');
 
   const sheet = page.locator('.sc-shotsheet');
-  const pull = async (dy: number) => {
-    const box = (await page.locator('.sc-shotsheet-grip').boundingBox())!;
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.move(x, y + dy, { steps: 10 });
-    await page.mouse.up();
-  };
+  const pull = (dy: number) => dragSheet(page, '.sc-shotsheet-grip', dy);
 
   // a nudge is not an intention: the sheet stays, and stays put
   await chip(page).click();
@@ -538,15 +574,7 @@ test('the picker sheet is dragged away, and can be opened again straight after',
   await tapChip(page);
   await expect(sheet(page)).toBeVisible();
 
-  const pull = async (dy: number) => {
-    const box = (await page.locator('.sc-swapsheet .sc-shotsheet-grip').boundingBox())!;
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.move(x, y + dy, { steps: 10 });
-    await page.mouse.up();
-  };
+  const pull = (dy: number) => dragSheet(page, '.sc-swapsheet .sc-shotsheet-grip', dy);
 
   await pull(24);
   await expect(sheet(page)).toBeVisible();

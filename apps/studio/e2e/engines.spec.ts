@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * The providers pane, and the dialog it drills into.
@@ -11,6 +12,9 @@ import { test, expect, type Page } from '@playwright/test';
  * The e2e server runs on its own port with its own SCENRI_HOME, so the keys
  * written here never touch the library you actually use.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 const api = async (p: Page, path: string, init?: RequestInit) =>
   p.evaluate(
@@ -181,7 +185,10 @@ test('the row stays readable at a phone width', async ({ page }) => {
 
   // Every row is still one line tall, and the action is still a real target.
   const heights = await page.locator('.sc-eng').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
-  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(1);
+  // One line tall each, within a pixel: sub-pixel rounding differs between
+  // rasterisers, so an exact match passes on macOS and fails on Linux CI for
+  // reasons that have nothing to do with the layout being right.
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
 
   const act = row(page, 'OpenRouter').getByRole('button');
   expect((await act.boundingBox())!.height).toBeGreaterThanOrEqual(32);

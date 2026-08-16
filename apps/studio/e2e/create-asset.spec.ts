@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { isolate } from './harness.js';
 
 /**
  * The one way to add a product, a presenter or a scene.
@@ -9,6 +10,9 @@ import { test, expect, type Page } from '@playwright/test';
  * history entry, moving between the chooser and a flow replaces, and closing
  * consumes. Same rules `?settings=` has always followed.
  */
+
+// A scenri of this file's own, on an empty home, seeded from scratch.
+isolate();
 
 /** The brand the app resolves "/" to, whatever this machine happens to hold. */
 async function currentBrand(p: Page): Promise<string> {
