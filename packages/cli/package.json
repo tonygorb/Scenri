@@ -47,6 +47,7 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.map",
     "templates",
     "studio-dist",
     "README.md",

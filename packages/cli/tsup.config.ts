@@ -26,6 +26,10 @@ export default defineConfig({
   target: 'node22',
   noExternal: [/^@scenri\//],
   clean: true,
+  // Local debugging only. These maps embed `sourcesContent` for everything
+  // `noExternal` inlines above, which is every @scenri/* package, so shipping
+  // them publishes the private source tree. `files` in package.json negates
+  // `dist/**/*.map` and test/packSurface.test.ts fails if that negation goes.
   sourcemap: true,
   // src/index.ts already carries the shebang; keep it executable after bundling.
   banner: {},
