@@ -487,24 +487,80 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     return core.store.updateBrand(brand.id, json);
   });
-  // Manual products only: add one more reference angle to a product that
-  // already exists, rather than creating a new one — what the Product page's
-  // per-category reference checklist uploads into.
+  // Add one more reference angle to a product that already exists, rather
+  // than creating a new one — what the Product page's add-angle tile uploads
+  // into. Works for both kinds: a manual product's shots live in the brand
+  // document, an imported one's in catalog_images under a `local:` URL that
+  // marks it as ours so the next import carries it across.
   app.post('/api/brands/:id/products/:productId/shots', async (req: any, reply: any) => {
     const brand = core.store.getBrand((req.params as any).id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const productId = String((req.params as any).productId);
+    const catalogId = productId.startsWith('cat-') ? productId.slice(4) : null;
     const json = { ...(brand.json as any) };
     const products: any[] = json.products ?? [];
-    const idx = products.findIndex((p) => p.id === productId);
-    if (idx === -1) return reply.status(404).send({ error: 'product not found' });
+    const idx = catalogId ? -1 : products.findIndex((p) => p.id === productId);
+    const catalogRow = catalogId ? core.catalog.getProduct(catalogId) : null;
+    if (idx === -1 && (!catalogRow || catalogRow.brandId !== brand.id)) {
+      return reply.status(404).send({ error: 'product not found' });
+    }
     const part = await readImagePart(req, toPng);
     if ('error' in part) return reply.status(400).send({ error: part.error });
     const hash = part.hash;
     const angle = part.fields?.angle?.value ? String(part.fields.angle.value).slice(0, 60) : undefined;
+    if (catalogId) {
+      core.catalog.addLocalImage(catalogId, `asset:${hash}`, angle ?? null);
+      return core.store.getBrand(brand.id);
+    }
     const shot: any = { file: `asset:${hash}`, locked: true };
     if (angle) shot.angle = angle;
     json.products = products.map((p, i) => (i === idx ? { ...p, shots: [...(p.shots ?? []), shot] } : p));
+    const v = validateBrand(json);
+    if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
+    return core.store.updateBrand(brand.id, json);
+  });
+
+  /**
+   * Rewrite a product's reference set: the body is the order the user wants,
+   * and anything left out is removed.
+   *
+   * One route rather than three, because promote, reorder and remove are the
+   * same write — a product's shots are an ordered list and the compiler reads
+   * meaning straight off that order (`shots[0]` is the essential reference,
+   * and only the first PRODUCT_REF_MAX reach an engine at all). Additions keep
+   * going through POST above; this only ever narrows or reorders what is here,
+   * so it cannot smuggle in an image the product never had.
+   */
+  app.put('/api/brands/:id/products/:productId/shots', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const productId = String((req.params as any).productId);
+    const body = (req.body ?? {}) as { files?: unknown };
+    const files = Array.isArray(body.files) ? body.files.map((f) => String(f)) : null;
+    if (!files || files.length === 0)
+      return reply.status(400).send({ error: 'a product needs at least one reference' });
+    if (new Set(files).size !== files.length) return reply.status(400).send({ error: 'duplicate reference' });
+
+    if (productId.startsWith('cat-')) {
+      const pid = productId.slice(4);
+      const row = core.catalog.getProduct(pid);
+      if (!row || row.brandId !== brand.id) return reply.status(404).send({ error: 'product not found' });
+      const have = new Set(core.catalog.listImages(pid).map((i) => i.assetRef));
+      if (files.some((f) => !have.has(f))) return reply.status(400).send({ error: 'unknown reference' });
+      core.catalog.setImageOrder(pid, files);
+      return core.store.getBrand(brand.id);
+    }
+
+    const json = { ...(brand.json as any) };
+    const products: any[] = json.products ?? [];
+    const idx = products.findIndex((p) => p.id === productId);
+    if (idx === -1) return reply.status(404).send({ error: 'product not found' });
+    const shots: any[] = products[idx].shots ?? [];
+    const byFile = new Map(shots.map((s) => [s.file, s]));
+    if (files.some((f) => !byFile.has(f))) return reply.status(400).send({ error: 'unknown reference' });
+    // Carry each shot across whole — angle and locked belong to the image, not
+    // to its position, and re-deriving them here would quietly drop them.
+    json.products = products.map((p, i) => (i === idx ? { ...p, shots: files.map((f) => byFile.get(f)) } : p));
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     return core.store.updateBrand(brand.id, json);
@@ -562,17 +618,23 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     core.catalog.deleteCatalogProduct(pid);
     return { ok: true };
   });
-  // Catalog products only: a category override. Everything else about an
-  // imported product (name, price, variants...) comes from the store, so
-  // only the field this app itself invents is editable here.
+  // Catalog products: the fields this app invents. Name, price, vendor and
+  // variants come from the store and are refreshed by every import, so they
+  // are not editable here. Material and dimensions have no store column at
+  // all, and they are the two the compiler turns into finish and true-scale
+  // directives — so an imported product can earn them like a manual one.
   app.patch('/api/brands/:id/catalog/products/:productId', async (req, reply) => {
     const brand = core.store.getBrand((req.params as any).id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const pid = String((req.params as any).productId).replace(/^cat-/, '');
     const row = core.catalog.getProduct(pid);
     if (!row || row.brandId !== brand.id) return reply.status(404).send({ error: 'product not found' });
-    const body = (req.body ?? {}) as { category?: string | null };
-    const updated = core.catalog.updateProduct(pid, { category: body.category ?? null });
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: Record<string, string | null> = {};
+    for (const f of ['category', 'variant', 'material', 'dimensions'] as const) {
+      if (f in body) patch[f] = body[f] == null ? null : String(body[f]).slice(0, 500) || null;
+    }
+    const updated = core.catalog.updateProduct(pid, patch);
     return { product: updated };
   });
 

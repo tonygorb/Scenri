@@ -41,6 +41,10 @@ export interface CatalogProductRow {
   available: boolean | null;
   status: 'active' | 'unavailable';
   raw: unknown;
+  /** Set here, never by an import: the store has no column for any of them. */
+  variant: string | null;
+  material: string | null;
+  dimensions: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -67,6 +71,10 @@ export interface CatalogImageRow {
   height: number | null;
   position: number;
   alt: string | null;
+  /** Which side of the object this shows, when it was added here rather than crawled. */
+  angle: string | null;
+  /** Taken out of the reference set by the user. Still here; just not used. */
+  excluded: boolean;
 }
 
 export interface CatalogCollectionRow {
@@ -123,7 +131,26 @@ export interface LibraryProduct {
    * user-uploaded product: the ProductPage checklist could never match a slot,
    * and compileBrief's angle selection could never fire outside demo products.
    */
-  shots: { file: string; locked?: boolean; angle?: string | null; alt?: string | null }[];
+  shots: {
+    file: string;
+    locked?: boolean;
+    angle?: string | null;
+    alt?: string | null;
+    /** Added here rather than crawled — the only kind of imported image that is ours to delete. */
+    local?: boolean;
+  }[];
+  /**
+   * Store images the user took out of the set. Never sent to an engine, kept
+   * so the page can offer them back — a colourway set arrives as one product,
+   * and the ones that are the wrong colour have to go somewhere.
+   */
+  hiddenShots?: {
+    file: string;
+    locked?: boolean;
+    angle?: string | null;
+    alt?: string | null;
+    local?: boolean;
+  }[];
   variants?: CatalogVariantRow[];
 }
 
@@ -160,6 +187,9 @@ function rowProduct(r: any): CatalogProductRow {
     available: r.available == null ? null : !!r.available,
     status: r.status,
     raw: r.raw ? JSON.parse(r.raw) : null,
+    variant: r.variant ?? null,
+    material: r.material ?? null,
+    dimensions: r.dimensions ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -345,8 +375,11 @@ export function createCatalogStore(db: DB) {
       const id = existing?.id ?? randomUUID();
       if (existing) {
         db.prepare(
+          // `category` is deliberately absent. The store's own taxonomy is
+          // `product_type`; `category` is this app's field, set by the user on
+          // the product page, and a re-import used to silently revert it.
           `UPDATE catalog_products SET
-            title=?, description_html=?, url=?, handle=?, vendor=?, product_type=?, tags=?, category=?,
+            title=?, description_html=?, url=?, handle=?, vendor=?, product_type=?, tags=?,
             price=?, compare_at_price=?, currency=?, available=?, status='active', raw=?,
             updated_at=datetime('now')
            WHERE id=?`,
@@ -358,7 +391,6 @@ export function createCatalogStore(db: DB) {
           input.vendor ?? null,
           input.productType ?? null,
           JSON.stringify(input.tags ?? []),
-          input.category ?? null,
           input.price ?? null,
           input.compareAtPrice ?? null,
           input.currency ?? null,
@@ -413,26 +445,71 @@ export function createCatalogStore(db: DB) {
         );
       }
 
-      // Merge images by source URL (preserve existing assetRef)
+      /**
+       * Merge images without destroying anything the user did here.
+       *
+       * Two things survive a re-import that a plain replace would wipe. Angles
+       * uploaded on the product page carry a `local:` source URL and have no
+       * counterpart in the crawl, so they are carried across whole. And the
+       * order of the set is the user's: it decides which images reach an
+       * engine (PRODUCT_REF_MAX) and which one is the essential reference, so
+       * an image already here keeps the position it already had. Only images
+       * the store has just added are appended.
+       */
       const existingImgs = db.prepare('SELECT * FROM catalog_images WHERE product_id=?').all(id) as any[];
       const byUrl = new Map(existingImgs.map((r) => [r.source_url, r]));
+      const maxPos = existingImgs.reduce((m, r) => Math.max(m, r.position ?? 0), -1);
+      const local = existingImgs.filter((r) => String(r.source_url ?? '').startsWith('local:'));
+
+      let appended = 0;
+      const merged = [
+        ...local.map((r) => ({
+          id: r.id,
+          sourceUrl: r.source_url,
+          assetRef: r.asset_ref,
+          width: r.width,
+          height: r.height,
+          alt: r.alt,
+          angle: r.angle ?? null,
+          excluded: r.excluded ?? 0,
+          sort: r.position ?? 0,
+        })),
+        ...(input.images ?? []).map((img) => {
+          const prev = byUrl.get(img.sourceUrl);
+          return {
+            id: prev?.id ?? randomUUID(),
+            sourceUrl: img.sourceUrl,
+            assetRef: img.assetRef ?? prev?.asset_ref ?? null,
+            width: img.width ?? prev?.width ?? null,
+            height: img.height ?? prev?.height ?? null,
+            alt: img.alt ?? prev?.alt ?? null,
+            angle: prev?.angle ?? null,
+            // A crawl re-reporting an image is not the user changing their
+            // mind about it.
+            excluded: prev?.excluded ?? 0,
+            sort: prev ? (prev.position ?? 0) : maxPos + 1 + appended++,
+          };
+        }),
+      ].sort((a, b) => a.sort - b.sort);
+
       db.prepare('DELETE FROM catalog_images WHERE product_id=?').run(id);
-      for (const img of input.images ?? []) {
-        const prev = byUrl.get(img.sourceUrl);
+      merged.forEach((img, position) => {
         db.prepare(
-          `INSERT INTO catalog_images (id, product_id, source_url, asset_ref, width, height, position, alt)
-           VALUES (?,?,?,?,?,?,?,?)`,
+          `INSERT INTO catalog_images (id, product_id, source_url, asset_ref, width, height, position, alt, angle, excluded)
+           VALUES (?,?,?,?,?,?,?,?,?,?)`,
         ).run(
-          prev?.id ?? randomUUID(),
+          img.id,
           id,
           img.sourceUrl,
-          img.assetRef ?? prev?.asset_ref ?? null,
-          img.width ?? prev?.width ?? null,
-          img.height ?? prev?.height ?? null,
-          img.position,
-          img.alt ?? prev?.alt ?? null,
+          img.assetRef,
+          img.width,
+          img.height,
+          position,
+          img.alt,
+          img.angle,
+          img.excluded,
         );
-      }
+      });
 
       for (const col of input.collections ?? []) {
         let colRow = db
@@ -491,6 +568,8 @@ export function createCatalogStore(db: DB) {
         height: r.height,
         position: r.position,
         alt: r.alt,
+        angle: r.angle ?? null,
+        excluded: !!r.excluded,
       }));
     },
 
@@ -560,6 +639,8 @@ export function createCatalogStore(db: DB) {
         height: r.height,
         position: r.position,
         alt: r.alt,
+        angle: r.angle ?? null,
+        excluded: !!r.excluded,
       }));
     },
 
@@ -567,15 +648,73 @@ export function createCatalogStore(db: DB) {
       db.prepare('DELETE FROM catalog_products WHERE id=?').run(id);
     },
 
-    /** Manual edits on top of an imported product — today just the category override. */
-    updateProduct(id: string, patch: { category?: string | null }): CatalogProductRow | null {
-      if ('category' in patch) {
-        db.prepare("UPDATE catalog_products SET category=?, updated_at=datetime('now') WHERE id=?").run(
-          patch.category ?? null,
-          id,
-        );
+    /**
+     * The fields this app invents on top of an imported product. Everything a
+     * store supplies — title, price, vendor, variants — stays the store's and
+     * is refreshed by every import; these four have no counterpart there, so
+     * they are the user's and an import never touches them.
+     */
+    updateProduct(
+      id: string,
+      patch: {
+        category?: string | null;
+        variant?: string | null;
+        material?: string | null;
+        dimensions?: string | null;
+      },
+    ): CatalogProductRow | null {
+      const cols = (['category', 'variant', 'material', 'dimensions'] as const).filter((k) => k in patch);
+      if (cols.length) {
+        db.prepare(
+          `UPDATE catalog_products SET ${cols.map((c) => `${c}=?`).join(', ')}, updated_at=datetime('now') WHERE id=?`,
+        ).run(...cols.map((c) => patch[c] ?? null), id);
       }
       return this.getProduct(id);
+    },
+
+    /**
+     * An angle the user shot themselves, added to an imported product. The
+     * `local:` prefix is what marks it as not-from-the-store, which is how the
+     * import merge knows to carry it across instead of deleting it.
+     */
+    addLocalImage(productId: string, assetRef: string, angle?: string | null): void {
+      const next =
+        ((db.prepare('SELECT MAX(position) AS p FROM catalog_images WHERE product_id=?').get(productId) as any)?.p ??
+          -1) + 1;
+      db.prepare(
+        `INSERT INTO catalog_images (id, product_id, source_url, asset_ref, position, angle)
+         VALUES (?,?,?,?,?,?)`,
+      ).run(randomUUID(), productId, `local:${assetRef}`, assetRef, next, angle ?? null);
+    },
+
+    /**
+     * Say which of a product's images make up its reference set, and in what
+     * order. `assetRefs` is the whole set: anything left out stops being used.
+     *
+     * An image the user uploaded here is theirs, so leaving it out deletes it.
+     * A store image is not — the next import would fetch it straight back — so
+     * leaving one out marks it excluded instead. That is the difference between
+     * a delete this can honour and one it cannot, and it is also what lets a
+     * store image be put back: pass it in again.
+     */
+    setImageOrder(productId: string, assetRefs: string[]): void {
+      const rows = this.listImages(productId).filter((i) => i.assetRef);
+      const keep = new Set(assetRefs);
+      const ordered = assetRefs.map((ref) => rows.find((r) => r.assetRef === ref)).filter(Boolean) as CatalogImageRow[];
+      const dropped = rows.filter((r) => !keep.has(r.assetRef!));
+      const setAside = dropped.filter((r) => !String(r.sourceUrl).startsWith('local:'));
+      db.transaction(() => {
+        for (const r of dropped) {
+          if (String(r.sourceUrl).startsWith('local:')) db.prepare('DELETE FROM catalog_images WHERE id=?').run(r.id);
+        }
+        for (const r of setAside) db.prepare('UPDATE catalog_images SET excluded=1 WHERE id=?').run(r.id);
+        for (const r of ordered) db.prepare('UPDATE catalog_images SET excluded=0 WHERE id=?').run(r.id);
+        // Pending images (no asset yet) sort after everything settled.
+        const tail = this.listImages(productId).filter((i) => !i.assetRef);
+        [...ordered, ...setAside, ...tail].forEach((r, i) => {
+          db.prepare('UPDATE catalog_images SET position=? WHERE id=?').run(i, r.id);
+        });
+      })();
     },
 
     /** Merge manual kit products + catalog into one library list. */
@@ -598,9 +737,24 @@ export function createCatalogStore(db: DB) {
 
       const catalog = this.listProducts(brandId).map((p): LibraryProduct => {
         const images = this.listImages(p.id);
-        const shots = images
-          .filter((i) => i.assetRef)
-          .map((i) => ({ file: i.assetRef!, locked: true, angle: null, alt: i.alt }));
+        const shot = (i: (typeof images)[number]) => ({
+          file: i.assetRef!,
+          locked: true,
+          angle: i.angle,
+          alt: i.alt,
+          local: String(i.sourceUrl).startsWith('local:'),
+        });
+        // One picture, one reference. Images are content-addressed, so a store
+        // that lists the same file twice arrives as two rows pointing at one
+        // asset — which would show as two identical thumbnails, take two of
+        // the three slots a shot gets, and make every write to the set fail on
+        // an ambiguous handle.
+        const seen = new Set<string>();
+        const usable = images.filter((i) => i.assetRef && !seen.has(i.assetRef) && seen.add(i.assetRef));
+        // Only what the user still counts as this product reaches `shots`, and
+        // `shots` is the whole of what the compiler ever sees.
+        const shots = usable.filter((i) => !i.excluded).map(shot);
+        const hiddenShots = usable.filter((i) => i.excluded).map(shot);
         return {
           id: `cat-${p.id}`,
           name: p.title,
@@ -611,12 +765,16 @@ export function createCatalogStore(db: DB) {
           productType: p.productType,
           tags: p.tags,
           category: p.category,
+          variant: p.variant,
+          material: p.material,
+          dimensions: p.dimensions,
           price: p.price,
           compareAtPrice: p.compareAtPrice,
           currency: p.currency,
           available: p.available,
           status: p.status,
           shots,
+          hiddenShots,
           variants: this.listVariants(p.id),
         };
       });

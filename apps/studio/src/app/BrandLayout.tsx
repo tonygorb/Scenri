@@ -37,6 +37,8 @@ interface BrandData {
   products: Product[];
   /** False until the product library's first answer lands for this brand. */
   productsLoaded: boolean;
+  /** Re-read the product library now — for a surface that has just written to it. */
+  refreshProducts: () => Promise<void>;
   /** False until the first answer lands, so /s/:slug knows it cannot resolve yet. */
   loaded: boolean;
   refresh: () => Promise<void>;
@@ -114,7 +116,7 @@ export function BrandLayout() {
   useKeyboardInset();
 
   const brand = brands.find((b) => b.slug === brandSlug) ?? brands.find((b) => b.id === brandSlug) ?? null;
-  const { products, loaded: productsLoaded } = useProductLibrary(brand?.id);
+  const { products, loaded: productsLoaded, reload: refreshProducts } = useProductLibrary(brand?.id);
 
   /**
    * One ask for the whole brand: its shots, its sets, and who is in what.
@@ -175,6 +177,7 @@ export function BrandLayout() {
         membership,
         products,
         productsLoaded,
+        refreshProducts,
         loaded,
         refresh: refreshWorkspace,
         applySet,

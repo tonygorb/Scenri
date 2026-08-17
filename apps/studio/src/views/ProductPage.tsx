@@ -1,56 +1,113 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { productLabel } from '../displayName.js';
 import { useNavigate, useParams } from 'react-router';
-import { Callout, Flex, Select, Text, TextField } from '@radix-ui/themes';
-import { api, assetUrl, addProductShot, deleteProduct, type Product } from '../api.js';
+import { api, assetUrl, addProductShot, deleteProduct, type DemoProduct, type Product } from '../api.js';
 import { Confirm } from '../Confirm.js';
-
-/** Mirrors PRODUCT_REF_MAX in packages/cli/src/brief.ts — the number of product images a brief actually attaches. */
-const PRODUCT_REF_MAX = 3;
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath, productsPath, shotPath } from '../routes.js';
+import { CategoryPicker } from '../layout/CategoryPicker.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { ProductCard } from '../layout/ProductCard.js';
-import { EmptyRefFrame, RefFrame, ShotThumb, Slider, UploadRefFrame } from '../layout/ReferenceGallery.js';
+import { ProductReferences, type ProductRef } from '../layout/ProductReferences.js';
+import { ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
-import { categoryLabel, categoryOf, effectiveCategory, PRODUCT_CATEGORIES } from '../productCategories.js';
+import { categoryLabel, effectiveCategory } from '../productCategories.js';
+
+/** Mirrors PRODUCT_REF_MAX in packages/cli/src/brief.ts — the number of product images a brief actually attaches. */
+const PRODUCT_REF_MAX = 3;
+
+type Editable = 'full' | 'fields' | 'none';
+
+/** Brand/vendor only when the heading would have prefixed it — never "Kova Kova". */
+function displayBrand(p: DemoProduct | Product): string | null {
+  const anyP = p as DemoProduct & Product;
+  const brand = (anyP.brand ?? anyP.vendor ?? '').trim();
+  if (!brand) return null;
+  if (p.name.toLowerCase().startsWith(brand.toLowerCase())) return null;
+  return brand;
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 /**
- * One product — the source of truth for what it actually looks like before
- * it goes into a scene. A manual product gets a per-category reference
- * checklist it can fill in directly; a catalog product shows whatever the
- * store already gave it, since its images and copy live there, not here.
+ * The heading, editable in place.
+ *
+ * A textarea rather than a field: product names run long ("Wide mechanical
+ * keyboard, tenkeyless, walnut"), the static heading wraps to a measure, and a
+ * single-line input would cut the same name off mid-word the moment it became
+ * editable. Grows to its content so the page never scrolls a heading sideways.
+ */
+function TitleField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const grow = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  useEffect(() => grow(ref.current), [value]);
+  return (
+    <textarea
+      ref={ref}
+      className="sc-lookpage-titleedit"
+      rows={1}
+      dir="auto"
+      aria-label="Product name"
+      value={value}
+      onChange={(e) => {
+        grow(e.currentTarget);
+        onChange(e.target.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
+/**
+ * One product — the record of what it actually looks like, and the place its
+ * references get corrected.
+ *
+ * Same look-page as a presenter or a scene: identity, one action, then the
+ * pictures. The pictures are the difference — one object from several sides,
+ * swapped in a single frame, not a grid of equal looks.
  */
 export function ProductPage() {
   const { productId = '' } = useParams();
-  const { brand, products, nodes: shots, refresh } = useBrand();
+  const { brand, products, nodes: shots, refresh, refreshProducts } = useBrand();
+  const { demoProducts, demoProductsLoaded } = useAppData();
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
-  const [uploadingAngle, setUploadingAngle] = useState<string | null>(null);
+
+  const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const product = products.find((p) => p.id === productId);
-  const isManual = (product?.origin ?? 'manual') === 'manual';
-
-  // A demo product is a global catalog object, like a presenter — it has no
-  // brand and nothing about it is editable. It still deserves a page: the whole
-  // homepage wall is built from these, and without one every reference to a
-  // demo product is a dead end.
-  const { demoProducts, demoProductsLoaded } = useAppData();
   const demoProduct = useMemo(
     () => (product ? undefined : demoProducts.find((d) => d.id === productId)),
     [product, demoProducts, productId],
   );
+
   const [demoFrames, setDemoFrames] = useState<{ angle: string; url: string }[]>([]);
-  // Component state, not a URL param: this is a per-product view toggle, and a
-  // URL-backed one survives back/forward, so a product opened later could show
-  // its whole set with no obvious reason why. ProductRoute keys on productId,
-  // so this resets to collapsed on every product.
-  const [openAll, setOpenAll] = useState(false);
   useEffect(() => {
     if (!demoProduct) {
       setDemoFrames([]);
@@ -71,44 +128,50 @@ export function ProductPage() {
   }, [demoProduct?.id]);
 
   const [name, setName] = useState(product?.name ?? '');
-  const [variant, setVariant] = useState(product?.variant ?? '');
-  const [material, setMaterial] = useState(product?.material ?? '');
-  const [dimensions, setDimensions] = useState(product?.dimensions ?? '');
   useEffect(() => {
     setName(product?.name ?? '');
-    setVariant(product?.variant ?? '');
-    setMaterial(product?.material ?? '');
-    setDimensions(product?.dimensions ?? '');
-    // resync only when switching products, so an in-flight edit doesn't get
-    // overwritten by the next 4s library poll landing mid-keystroke
   }, [product?.id]);
 
-  const categoryKey = product ? effectiveCategory(product) : null;
-  const category = categoryOf(categoryKey);
+  const made = useMemo(
+    () =>
+      shots
+        .filter(
+          (s) =>
+            s.status === 'done' &&
+            s.images.length > 0 &&
+            (s.brief?.tokens ?? []).some((t: any) => t?.t === 'product' && t.id === productId),
+        )
+        .slice(-12)
+        .reverse(),
+    [shots, productId],
+  );
 
-  const patchManual = (patch: Partial<Pick<Product, 'name' | 'category' | 'variant' | 'material' | 'dimensions'>>) => {
+  const isManual = (product?.origin ?? 'manual') === 'manual';
+
+  const patch = (p: Partial<Pick<Product, 'name' | 'category' | 'variant' | 'material' | 'dimensions'>>) => {
     if (!product) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      void api
-        .updateProduct(brand.id, product.id, patch)
-        .then(() => refresh())
-        .catch((e: any) => setErr(String(e.message ?? e)));
+      const write = isManual
+        ? api.updateProduct(brand.id, product.id, p)
+        : api.updateCatalogProduct(brand.id, product.id, p);
+      void write.then(() => refreshProducts()).catch((e: any) => setErr(String(e.message ?? e)));
     }, 500);
   };
 
-  const onCategoryChange = (key: string) => {
-    if (!product) return;
-    if (isManual) patchManual({ category: key });
-    else
-      void api
-        .updateCatalogProductCategory(brand.id, product.id, key)
-        .then(() => refresh())
-        .catch((e: any) => setErr(String(e.message ?? e)));
+  const run = async (job: Promise<unknown>) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await job;
+      await refreshProducts();
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  /** Catalog rows live in their own table, manual ones in the brand document —
-   *  the same branch the products grid used to own, moved to where the product is. */
   const remove = async () => {
     if (!product) return;
     setRemoving(true);
@@ -127,122 +190,28 @@ export function ProductPage() {
     }
   };
 
-  const uploadAngle = async (angleKey: string, file: File) => {
-    if (!product) return;
-    setUploadingAngle(angleKey);
-    setErr(null);
-    try {
-      await addProductShot(brand.id, product.id, file, angleKey);
-      await refresh();
-    } catch (e: any) {
-      setErr(String(e.message ?? e));
-    } finally {
-      setUploadingAngle(null);
-    }
-  };
-
-  /** Shots whose brief attached this product. */
-  const made = useMemo(
-    () =>
-      shots
-        .filter(
-          (s) =>
-            s.status === 'done' &&
-            s.images.length > 0 &&
-            (s.brief?.tokens ?? []).some((t: any) => t?.t === 'product' && t.id === productId),
-        )
-        .slice(-12)
-        .reverse(),
-    [shots, productId],
-  );
-
-  const others = products.filter((p) => p.id !== productId).slice(0, 8);
-
-  if (!product && demoProduct) {
-    const label = categoryLabel(demoProduct.category);
-    const others = demoProducts.filter((d) => d.id !== demoProduct.id).slice(0, 8);
+  if (!product && !demoProduct && !demoProductsLoaded) {
     return (
       <ScrollPane>
         <main className="sc-lookpage sc-productpage" id="main">
-          <div className="sc-lookpage-crumb">
-            <button type="button" onClick={() => navigate(productsPath(brand))}>
-              Products
-            </button>
-            <span>/</span>
-            <span>{label}</span>
+          <div className="sc-refskeleton" aria-hidden>
+            <span className="sc-refskeleton-title" />
+            <span className="sc-refskeleton-stage" />
+            <span className="sc-refskeleton-rail">
+              <span />
+              <span />
+              <span />
+            </span>
           </div>
-
-          <h1 dir="auto">{productLabel(demoProduct, 'heading')}</h1>
-          <p className="sc-lookpage-lede">{demoProduct.description}</p>
-          <p className="sc-lookpage-facts">
-            {label}
-            {demoProduct.subcategory ? ` · ${demoProduct.subcategory}` : ''} · from the Scenri library
+          <p className="sc-vh" role="status">
+            Loading this product
           </p>
-          <div className="sc-lookpage-acts">
-            <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(demoProduct.id)}>
-              Use in a shot
-            </button>
-          </div>
-
-          {demoFrames.length > 0 ? (
-            <>
-              <div className="sc-lookpage-refs">
-                {(openAll ? demoFrames : demoFrames.slice(0, PRODUCT_REF_MAX)).map((f) => (
-                  <RefFrame key={f.angle} src={f.url} />
-                ))}
-              </div>
-              <p className="sc-lookpage-note">
-                A reference set we shot. The first {PRODUCT_REF_MAX} are what a shot is built from — yours replaces
-                them.
-              </p>
-              {demoFrames.length > PRODUCT_REF_MAX && (
-                <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(!openAll)}>
-                  {openAll ? 'Enough, close it' : `See all ${demoFrames.length} angles`}
-                </button>
-              )}
-            </>
-          ) : (
-            <EmptyRefFrame />
-          )}
-
-          {made.length > 0 && (
-            <Slider label={`Shots featuring ${demoProduct.name}`}>
-              {made.map((s) => (
-                <ShotThumb key={s.id} node={s} onClick={() => navigate(shotPath(brand, null, s.id))} />
-              ))}
-            </Slider>
-          )}
-
-          {others.length > 0 && (
-            <Slider label="Other products in the library">
-              {others.map((d) => (
-                <DemoProductCard
-                  key={d.id}
-                  product={d}
-                  variant="navigate"
-                  size="slider"
-                  onOpen={(id) => navigate(productPath(brand, id))}
-                />
-              ))}
-            </Slider>
-          )}
         </main>
       </ScrollPane>
     );
   }
 
-  // The library poll can land after the first paint; don't flash "gone".
-  if (!product && !demoProductsLoaded) {
-    return (
-      <ScrollPane>
-        <main className="sc-lookpage" id="main">
-          <div className="sc-tplrow" aria-hidden />
-        </main>
-      </ScrollPane>
-    );
-  }
-
-  if (!product) {
+  if (!product && !demoProduct) {
     return (
       <ScrollPane>
         <main className="sc-lookpage" id="main">
@@ -258,29 +227,43 @@ export function ProductPage() {
     );
   }
 
-  const extraShots = (product.shots ?? []).filter((s) => !s.angle || !category.angles.some((a) => a.key === s.angle));
+  const editable: Editable = demoProduct ? 'none' : isManual ? 'full' : 'fields';
+  const subject = (product ?? demoProduct) as Product | DemoProduct;
+  const id = product?.id ?? demoProduct!.id;
+  const categoryKey = product ? effectiveCategory(product) : (demoProduct?.category ?? null);
+  const house = displayBrand(subject);
 
-  /**
-   * What the generator will actually send, stated plainly.
-   *
-   * compileBrief attaches up to PRODUCT_REF_MAX images and switches directive
-   * on the count: with more than one it says "the attached product images all
-   * show the exact same product from different angles ... do not redesign it";
-   * with one it falls back to a markedly weaker line. So the number of images
-   * a product has is not cosmetic, and the page should not imply otherwise.
-   * A catalog product cannot be topped up here — the shots route only accepts
-   * products that live in the brand's own products[] — so its advice points at
-   * the store instead of at an upload button that would 404.
-   */
-  const usable = (product.shots ?? []).length;
-  const refNote =
-    usable >= PRODUCT_REF_MAX
-      ? `The first ${PRODUCT_REF_MAX} are what a shot is built from.`
-      : usable > 1
-        ? `Both are used when building a shot. A third angle would pin its shape more tightly.`
-        : isManual
-          ? 'Only one reference, so a shot has to guess at every face it cannot see. Add a second angle below.'
-          : 'Only one image came from your store, so a shot has to guess at every face it cannot see. Add more images to this product in your store, then re-import.';
+  const toRef = (shot: { file: string; angle?: string | null }): ProductRef[] => {
+    const url = assetUrl(shot.file);
+    return url ? [{ file: shot.file, url, angle: shot.angle }] : [];
+  };
+  const refs: ProductRef[] = demoProduct
+    ? demoFrames.map((f) => ({ file: f.angle, url: f.url, angle: f.angle }))
+    : (product?.shots ?? []).flatMap(toRef);
+
+  const note = demoProduct
+    ? 'Our reference set. Yours replaces it.'
+    : refs.length === 0
+      ? isManual
+        ? 'No reference yet.'
+        : 'No reference yet. Images from your store are still arriving.'
+      : refs.length === 1
+        ? "One angle. A shot has to guess at every side it can't see."
+        : refs.length === 2
+          ? 'Two angles. A third pins the shape.'
+          : 'The first three build every shot. Remove any that show a different colour or version.';
+
+  const addLabel = editable === 'none' ? null : 'Add image';
+
+  const catalogCopy = product?.descriptionHtml ? stripHtml(product.descriptionHtml) : '';
+  const lede = demoProduct?.description || catalogCopy || null;
+
+  const rest = demoProduct ? [demoProduct.subcategory] : [product?.variant, product?.material, product?.dimensions];
+  const facts = [editable === 'none' ? categoryLabel(categoryKey) : null, ...rest].filter(Boolean);
+
+  const others = demoProduct
+    ? demoProducts.filter((d) => d.id !== id).slice(0, 8)
+    : products.filter((p) => p.id !== id).slice(0, 8);
 
   return (
     <ScrollPane>
@@ -290,153 +273,68 @@ export function ProductPage() {
             Products
           </button>
           <span>/</span>
-          <span>{category.label}</span>
+          <span>{demoProduct ? 'Scenri library' : isManual ? 'Yours' : 'From your store'}</span>
         </div>
 
-        <h1 dir="auto">{productLabel(product, 'heading')}</h1>
-        <p className="sc-lookpage-facts">
-          {category.label}
-          {product.variant ? ` · ${product.variant}` : ''}
-          {isManual ? '' : ` · ${product.vendor ?? 'from your store'}`}
-        </p>
+        {house && (
+          <p className="sc-lookpage-house">
+            <em className="sc-accent">{house}</em>
+          </p>
+        )}
+        {editable === 'full' ? (
+          <TitleField
+            value={name}
+            onChange={(v) => {
+              setName(v);
+              patch({ name: v });
+            }}
+          />
+        ) : (
+          <h1 dir="auto">{subject.name}</h1>
+        )}
+        {lede && <p className="sc-lookpage-lede">{lede}</p>}
+        {facts.length > 0 && <p className="sc-lookpage-facts">{facts.join(' · ')}</p>}
+
         <div className="sc-lookpage-acts">
-          <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(product.id)}>
+          {editable !== 'none' && <CategoryPicker value={categoryKey} onChange={(k) => patch({ category: k })} />}
+          <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(id)}>
             Use in a shot
           </button>
         </div>
 
-        {err && (
-          <Callout.Root color="red" size="1" style={{ marginBottom: 16 }}>
-            <Callout.Text>{err}</Callout.Text>
-          </Callout.Root>
-        )}
+        {err && <p className="sc-assetform-err">{err}</p>}
 
-        <Flex direction="column" gap="3" className="sc-kit-sec" style={{ marginBottom: 32 }}>
-          <div className="sc-sec-head">
-            <span className="sc-sec-title">Details</span>
-          </div>
-          <Flex gap="3" wrap="wrap">
-            <div style={{ minWidth: 200, flex: 1 }}>
-              <Text size="1" color="gray" as="p" mb="1">
-                Category
-              </Text>
-              <Select.Root value={categoryKey ?? 'other'} onValueChange={onCategoryChange}>
-                <Select.Trigger style={{ width: '100%' }} aria-label="Category" />
-                <Select.Content>
-                  {PRODUCT_CATEGORIES.map((c) => (
-                    <Select.Item key={c.key} value={c.key}>
-                      {c.label}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
-            </div>
-            {isManual ? (
-              <>
-                <div style={{ minWidth: 200, flex: 1 }}>
-                  <Text size="1" color="gray" as="p" mb="1">
-                    Name
-                  </Text>
-                  <TextField.Root
-                    aria-label="Name"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      patchManual({ name: e.target.value });
-                    }}
-                  />
-                </div>
-                <div style={{ minWidth: 200, flex: 1 }}>
-                  <Text size="1" color="gray" as="p" mb="1">
-                    Variant
-                  </Text>
-                  <TextField.Root
-                    aria-label="Variant"
-                    placeholder="Color, size…"
-                    value={variant}
-                    onChange={(e) => {
-                      setVariant(e.target.value);
-                      patchManual({ variant: e.target.value });
-                    }}
-                  />
-                </div>
-                <div style={{ minWidth: 200, flex: 1 }}>
-                  <Text size="1" color="gray" as="p" mb="1">
-                    Material
-                  </Text>
-                  <TextField.Root
-                    aria-label="Material"
-                    value={material}
-                    onChange={(e) => {
-                      setMaterial(e.target.value);
-                      patchManual({ material: e.target.value });
-                    }}
-                  />
-                </div>
-                <div style={{ minWidth: 200, flex: 1 }}>
-                  <Text size="1" color="gray" as="p" mb="1">
-                    Dimensions
-                  </Text>
-                  <TextField.Root
-                    aria-label="Dimensions"
-                    value={dimensions}
-                    onChange={(e) => {
-                      setDimensions(e.target.value);
-                      patchManual({ dimensions: e.target.value });
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
-              <Text size="1" color="gray">
-                Name, price and vendor come from your store — only the category above is editable here.
-              </Text>
-            )}
-          </Flex>
-        </Flex>
-
-        {isManual ? (
-          <div className="sc-lookpage-refs">
-            {category.angles.map((a) => {
-              const shot = product.shots?.find((s) => s.angle === a.key);
-              const url = shot ? assetUrl(shot.file) : null;
-              return url ? (
-                <RefFrame key={a.key} src={url} />
-              ) : (
-                <UploadRefFrame
-                  key={a.key}
-                  label={a.label}
-                  busy={uploadingAngle === a.key}
-                  onUpload={(file) => void uploadAngle(a.key, file)}
-                />
-              );
-            })}
-            {extraShots.map((s) => {
-              const url = assetUrl(s.file);
-              return url ? <RefFrame key={s.file} src={url} /> : null;
-            })}
-          </div>
-        ) : (product.shots ?? []).length > 0 ? (
-          <>
-            <div className="sc-lookpage-refs">
-              {(openAll ? (product.shots ?? []) : (product.shots ?? []).slice(0, PRODUCT_REF_MAX)).map((s) => {
-                const url = assetUrl(s.file);
-                return url ? <RefFrame key={s.file} src={url} /> : null;
-              })}
-            </div>
-            <p className="sc-lookpage-note">{refNote}</p>
-            {(product.shots ?? []).length > PRODUCT_REF_MAX && (
-              <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(!openAll)}>
-                {openAll ? 'Enough, close it' : `See all ${(product.shots ?? []).length} images`}
-              </button>
-            )}
-          </>
-        ) : (
-          <EmptyRefFrame />
-        )}
+        <ProductReferences
+          refs={refs}
+          cap={PRODUCT_REF_MAX}
+          note={note}
+          addLabel={addLabel}
+          busy={busy}
+          onAdd={editable === 'none' ? undefined : (file) => void run(addProductShot(brand.id, id, file))}
+          onPromote={
+            editable === 'none'
+              ? undefined
+              : (file) =>
+                  void run(
+                    api.setProductShots(brand.id, id, [file, ...refs.map((r) => r.file).filter((f) => f !== file)]),
+                  )
+          }
+          onRemove={
+            editable === 'none'
+              ? undefined
+              : (file) =>
+                  void run(
+                    api.setProductShots(
+                      brand.id,
+                      id,
+                      refs.map((r) => r.file).filter((f) => f !== file),
+                    ),
+                  )
+          }
+        />
 
         {made.length > 0 && (
-          <Slider label={`Shots featuring ${product.name}`}>
+          <Slider label={`Shots featuring ${subject.name}`}>
             {made.map((s) => (
               <ShotThumb key={s.id} node={s} onClick={() => navigate(shotPath(brand, null, s.id))} />
             ))}
@@ -444,32 +342,42 @@ export function ProductPage() {
         )}
 
         {others.length > 0 && (
-          <Slider label="Other products">
-            {others.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                variant="navigate"
-                size="slider"
-                onOpen={(id) => navigate(productPath(brand, id))}
-              />
-            ))}
+          <Slider label={demoProduct ? 'Other products in the library' : 'Other products'}>
+            {others.map((p) =>
+              demoProduct ? (
+                <DemoProductCard
+                  key={p.id}
+                  product={p as DemoProduct}
+                  variant="navigate"
+                  size="slider"
+                  onOpen={(pid) => navigate(productPath(brand, pid))}
+                />
+              ) : (
+                <ProductCard
+                  key={p.id}
+                  product={p as Product}
+                  variant="navigate"
+                  size="slider"
+                  onOpen={(pid) => navigate(productPath(brand, pid))}
+                />
+              ),
+            )}
           </Slider>
         )}
 
-        {/* Last on the page and nowhere near "Use in a shot" — the same place
-            a presenter and a scene keep theirs. A product used to be removable
-            only from the add-product dialog's grid, which is not somewhere
-            anyone goes looking to delete something. */}
-        <div className="sc-lookpage-acts">
-          <Confirm
-            label="Delete product"
-            title={`Delete ${product.name}?`}
-            body="Shots already made with it keep their images and their recipe. Only future shots lose it."
-            busy={removing}
-            onConfirm={() => void remove()}
-          />
-        </div>
+        {product && (
+          <div className="sc-ownedbits">
+            <div className="sc-lookpage-acts">
+              <Confirm
+                label="Delete product"
+                title={`Delete ${product.name}?`}
+                body="Shots already made with it keep their images and their recipe. Only future shots lose it."
+                busy={removing}
+                onConfirm={() => void remove()}
+              />
+            </div>
+          </div>
+        )}
       </main>
     </ScrollPane>
   );

@@ -19,11 +19,15 @@ export function DemoProductCard({
   variant,
   onOpen,
   onUse,
+  selected,
+  onToggle,
   size = 'grid',
 }: {
   product: DemoProduct;
   onOpen?: (id: string) => void;
   onUse?: (id: string) => void;
+  selected?: boolean;
+  onToggle?: (id: string) => void;
   variant: DemoProductCardVariant;
   size?: DemoProductCardSize;
 }) {
@@ -39,6 +43,8 @@ export function DemoProductCard({
       variant={variant}
       onOpen={onOpen}
       onUse={onUse}
+      selected={selected}
+      onToggle={onToggle}
       size={size}
     />
   );

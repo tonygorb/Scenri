@@ -414,6 +414,25 @@ export function openDb(homeDir: string): DB {
   if (!projectCols.includes('slug')) {
     db.exec('ALTER TABLE projects ADD COLUMN slug TEXT');
   }
+  // Fields this app invents on top of an imported product. A store supplies a
+  // title and a price; nothing supplies the finish or the real-world size, and
+  // those two are what keep a generated product at true scale. They live here
+  // rather than in `raw` because an import must never overwrite them.
+  const catalogCols = (db.pragma('table_info(catalog_products)') as { name: string }[]).map((c) => c.name);
+  for (const col of ['variant', 'material', 'dimensions']) {
+    if (!catalogCols.includes(col)) db.exec(`ALTER TABLE catalog_products ADD COLUMN ${col} TEXT`);
+  }
+  // An imported product can be topped up with angles the store never had, and
+  // an angle names which side of the object a reference shows. Without it a
+  // store product could never use the same reference checklist a manual one does.
+  const catalogImgCols = (db.pragma('table_info(catalog_images)') as { name: string }[]).map((c) => c.name);
+  if (!catalogImgCols.includes('angle')) db.exec('ALTER TABLE catalog_images ADD COLUMN angle TEXT');
+  // A store image the user has taken out of the reference set. Not a delete:
+  // the next import would fetch it straight back, so the only honest way to
+  // drop one is to remember that it was dropped.
+  if (!catalogImgCols.includes('excluded')) {
+    db.exec('ALTER TABLE catalog_images ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0');
+  }
   widenNodeStatusCheck(db);
   backfillSlugs(db);
   // after the backfill, so a set can inherit the slug its project already has

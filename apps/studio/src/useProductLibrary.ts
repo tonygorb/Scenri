@@ -1,8 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, type Product } from './api.js';
 
 export interface ProductLibrary {
   products: Product[];
+  /**
+   * Reload now, rather than on the next tick of the 4s poll.
+   *
+   * The library is polled, not pushed, so a write made on a product's own page
+   * — a rename, a category, a reference reordered — would sit invisible for up
+   * to four seconds while the page still showed the old answer. A caller that
+   * has just written knows it is stale immediately and can say so.
+   */
+  reload: () => Promise<void>;
   /**
    * Whether the first answer for this brand has landed.
    *
@@ -17,7 +26,19 @@ export interface ProductLibrary {
 
 /** Live unified product library (manual + catalog) for a brand. */
 export function useProductLibrary(brandId: string | undefined | null): ProductLibrary {
-  const [state, setState] = useState<ProductLibrary>({ products: [], loaded: false });
+  const [state, setState] = useState<Omit<ProductLibrary, 'reload'>>({ products: [], loaded: false });
+
+  const reload = useCallback(async () => {
+    if (!brandId) return;
+    try {
+      const r = await api.productsLibrary(brandId);
+      setState({ products: r.products, loaded: true });
+    } catch {
+      // A failed poll is not "this brand has nothing" — keep what is already
+      // on screen and let the next tick correct it.
+      setState((cur) => ({ products: cur.products, loaded: true }));
+    }
+  }, [brandId]);
 
   useEffect(() => {
     if (!brandId) {
@@ -34,8 +55,6 @@ export function useProductLibrary(brandId: string | undefined | null): ProductLi
           if (alive) setState({ products: r.products, loaded: true });
         })
         .catch(() => {
-          // A failed poll is not "this brand has nothing" — keep what is
-          // already on screen and let the next tick correct it.
           if (alive) setState((cur) => ({ products: cur.products, loaded: true }));
         });
     };
@@ -47,5 +66,5 @@ export function useProductLibrary(brandId: string | undefined | null): ProductLi
     };
   }, [brandId]);
 
-  return state;
+  return { ...state, reload };
 }

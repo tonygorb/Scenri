@@ -5,7 +5,9 @@
    serif italic accent once per screen, headings only; pills for controls. */
 
 :root {
-  --sc-font: "Inter Tight Variable", "Inter Variable", -apple-system, "Segoe UI", sans-serif;
+  --sc-font:
+    "Inter Tight Variable", "Inter Variable", -apple-system, "Segoe UI",
+    sans-serif;
   --sc-font-display: var(--sc-font);
   --sc-font-accent: "Playfair Display", serif;
   --sc-font-mono: ui-monospace, "SF Mono", monospace;
@@ -18,7 +20,11 @@
 
   /* layout */
   --sc-gutter: 24px; /* one page edge: top bar and content agree at every width */
-  --sc-prompt-w: clamp(640px, 50vw, 1000px); /* the dock owns this; the card fills it */
+  --sc-prompt-w: clamp(
+    640px,
+    50vw,
+    1000px
+  ); /* the dock owns this; the card fills it */
   --sc-topbar-h: 52px;
   /* Wide enough for three recognisable tiles and a short name; no wider,
      because every pixel here comes off the feed. Read by the dock and the
@@ -99,6 +105,7 @@
   --sc-text-input: 15px; /* what you type, and what you read back */
   --sc-text-title-s: 15px; /* a panel's own name */
   --sc-text-title: 20px; /* an empty state's heading */
+  --sc-text-h1: 42px; /* a detail page's own name, editable or not */
 
   /* Motion. Two speeds: one for a state changing under the cursor, one for
      something arriving or leaving. */
@@ -1977,7 +1984,8 @@ select {
 }
 /* A scene keeps its own hue here the way its chip does, from the same helper. */
 .sc-swap-thumb[data-tinted] {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 40%, var(--sc-line));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--tint) 40%, var(--sc-line));
 }
 .sc-swap-cur .sc-swap-thumb {
   width: var(--swap-face);
@@ -5790,7 +5798,8 @@ textarea.sc-edit[data-variant="lede"] {
     bottom: 0;
     z-index: 90;
     margin: 0;
-    padding: var(--sc-space-5) var(--sc-gutter) calc(var(--sc-bottom-inset) + var(--sc-space-4));
+    padding: var(--sc-space-5) var(--sc-gutter)
+      calc(var(--sc-bottom-inset) + var(--sc-space-4));
     background: none;
     border-top: none;
     pointer-events: none;
@@ -6395,10 +6404,18 @@ textarea.sc-edit[data-variant="lede"] {
   color: var(--sc-fg);
 }
 .sc-token[data-tinted] > button {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%);
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%
+  );
 }
 .sc-token[data-tinted]:hover > button {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%);
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%
+  );
 }
 
 /* ---------- chips, final pass (5.3) ----------
@@ -6477,7 +6494,11 @@ textarea.sc-edit[data-variant="lede"] {
   background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
 }
 .sc-token[data-tinted] > button::before {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover)));
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover))
+  );
 }
 
 /* Keyboard focus is a ring, here as everywhere else.
@@ -7037,9 +7058,15 @@ textarea.sc-edit[data-variant="lede"] {
 @media (min-width: 761px) {
   .sc-masonry[data-density] {
     grid-template-columns: repeat(
-        auto-fill,
-        minmax(min(100%, calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))), 1fr)
-      );
+      auto-fill,
+      minmax(
+        min(
+          100%,
+          calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))
+        ),
+        1fr
+      )
+    );
   }
 }
 /* ---- LookCard (docs/product/patterns/look-card.md) ----
@@ -7163,7 +7190,12 @@ textarea.sc-edit[data-variant="lede"] {
   inset: 0;
   opacity: 0;
   transition: opacity 0.16s ease;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.74) 0%, rgba(0, 0, 0, 0.26) 36%, rgba(0, 0, 0, 0) 64%);
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.74) 0%,
+    rgba(0, 0, 0, 0.26) 36%,
+    rgba(0, 0, 0, 0) 64%
+  );
   pointer-events: none;
 }
 /* Dead-center of the media frame — not the whole card (footer must not shift it). */
@@ -7393,16 +7425,22 @@ textarea.sc-edit[data-variant="lede"] {
     transform: scale(1.03);
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-veil,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-veil {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-veil {
     opacity: 1;
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-cap,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-cap {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-cap {
     opacity: 1;
     transform: none;
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-use,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-use {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-use {
     opacity: 1;
     transform: translate(-50%, -50%);
     pointer-events: auto;
@@ -7456,7 +7494,9 @@ textarea.sc-edit[data-variant="lede"] {
     opacity var(--sc-credit-motion) var(--sc-credit-spring),
     transform var(--sc-credit-motion) var(--sc-credit-spring);
   /* Close: last in the chain tucks first. --i / --n are set in CreditRow. */
-  transition-delay: calc((var(--n, 1) - 1 - var(--i, 0)) * var(--sc-credit-stagger));
+  transition-delay: calc(
+    (var(--n, 1) - 1 - var(--i, 0)) * var(--sc-credit-stagger)
+  );
 }
 .sc-showcase-recipe .sc-showcase-chip {
   position: relative;
@@ -7500,35 +7540,55 @@ textarea.sc-edit[data-variant="lede"] {
 /* Expanded chain: pill tucks into a round chip, thumbs slide+fade in.
    Same rules for 1 / 2 / 3 items — stagger is --i from CreditRow. */
 @media (hover: hover) {
-  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-chip,
-  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-join {
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-recipe
+    .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-recipe
+    .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
   }
-  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-chip,
-  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-credit-tip {
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-recipe
+    .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-recipe
+    .sc-credit-tip {
     pointer-events: auto;
   }
-  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge {
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge {
     gap: 0;
     padding: var(--sc-credit-lip);
     max-width: none;
   }
-  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge-name {
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge-name {
     max-width: 0;
     opacity: 0;
   }
 }
 @media (hover: none) {
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-chip,
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-join {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-recipe
+    .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-recipe
+    .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
   }
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-chip,
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-credit-tip {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-recipe
+    .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-recipe
+    .sc-credit-tip {
     pointer-events: auto;
   }
   .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
@@ -7758,11 +7818,15 @@ textarea.sc-edit[data-variant="lede"] {
   height: 12px;
   margin-inline: -6px;
 }
-.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::before {
+.sc-masonry[data-density-size="large"]
+  .sc-showcase-recipe
+  .sc-showcase-join::before {
   width: 6px;
   height: 1.5px;
 }
-.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::after {
+.sc-masonry[data-density-size="large"]
+  .sc-showcase-recipe
+  .sc-showcase-join::after {
   width: 1.5px;
   height: 6px;
 }
@@ -7866,10 +7930,12 @@ textarea.sc-edit[data-variant="lede"] {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: var(--sc-space-4);
   color: var(--sc-fg3);
   font-size: 11.5px;
-  margin-bottom: 18px;
+  /* A wider gap than the one inside the identity block below it: this is
+     navigation, and it should read as sitting outside what it labels. */
+  margin-bottom: var(--sc-space-7);
 }
 .sc-lookpage-crumb button {
   border: none;
@@ -7910,7 +7976,8 @@ textarea.sc-edit[data-variant="lede"] {
   transform: none;
 }
 .sc-lookpage h1 {
-  font: 600 42px / 1.14 var(--sc-font);
+  font: 600 var(--sc-text-h1) / 1.14 var(--sc-font);
+  color: var(--sc-fg);
   letter-spacing: -0.035em;
   margin: 0 auto 16px;
   max-width: var(--sc-measure-title);
@@ -7925,7 +7992,7 @@ textarea.sc-edit[data-variant="lede"] {
   text-wrap: pretty;
 }
 .sc-lookpage-facts {
-  font: 12.5px var(--sc-font);
+  font: 12.5px / 1.5 var(--sc-font);
   color: var(--sc-fg3);
   margin: 0 auto 24px;
   max-width: var(--sc-measure-lede);
@@ -7934,8 +8001,22 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-lookpage-acts {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 36px;
+  flex-wrap: wrap;
+  gap: var(--sc-space-4);
+  margin-bottom: calc(var(--sc-space-6) * 2);
+}
+/* Same box open as closed. `.sc-btn:active` translates 1px, which re-centers
+   the whole row the moment the menu opens. */
+.sc-catpick {
+  flex: none;
+  box-shadow: none;
+}
+.sc-catpick:active {
+  transform: none;
+}
+.sc-catpick[data-state="open"] {
+  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
 }
 
 .sc-lookpage-refs {
@@ -8160,17 +8241,19 @@ textarea.sc-edit[data-variant="lede"] {
     height: 80px;
     margin-bottom: 18px;
   }
+  .sc-lookpage {
+    --sc-text-h1: 34px;
+  }
   .sc-lookpage h1 {
-    font-size: 34px;
     line-height: 1.16;
     max-width: none;
-    margin-bottom: 14px;
+    margin-bottom: var(--sc-space-6);
   }
   .sc-lookpage-lede {
     margin-bottom: 10px;
   }
   .sc-lookpage-facts {
-    margin-bottom: 22px;
+    margin-bottom: var(--sc-space-8);
   }
   .sc-lookpage-acts {
     margin-bottom: 32px;
@@ -8208,15 +8291,17 @@ textarea.sc-edit[data-variant="lede"] {
   }
   .sc-lookpage-crumb {
     font-size: 11px;
-    margin-bottom: 14px;
+    margin-bottom: var(--sc-space-5);
   }
   .sc-presenterpage-avatar {
     width: 72px;
     height: 72px;
     margin-bottom: 16px;
   }
+  .sc-lookpage {
+    --sc-text-h1: 28px;
+  }
   .sc-lookpage h1 {
-    font-size: 28px;
     letter-spacing: -0.03em;
     line-height: 1.18;
     margin-bottom: 12px;
@@ -8267,8 +8352,8 @@ textarea.sc-edit[data-variant="lede"] {
   .sc-lookpage {
     padding: 20px 16px 88px;
   }
-  .sc-lookpage h1 {
-    font-size: 24px;
+  .sc-lookpage {
+    --sc-text-h1: 24px;
   }
   .sc-lookpage-acts {
     margin-bottom: 24px;
@@ -9834,7 +9919,8 @@ select.sc-in {
   overscroll-behavior: contain;
   /* the page's edge, not one of its own: the sheet covers the screen it opens
      over, so its rows should line up with what is behind them */
-  padding: 0 var(--sc-gutter) max(var(--sc-space-7), env(safe-area-inset-bottom));
+  padding: 0 var(--sc-gutter)
+    max(var(--sc-space-7), env(safe-area-inset-bottom));
   background: var(--sc-panel);
   border-top: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
@@ -10103,7 +10189,8 @@ select.sc-in {
 }
 /* full-bleed hairline: the line is about the list above it, not about itself */
 .sc-setpop-foot {
-  margin: var(--sc-space-2) calc(var(--sc-space-2) * -1) calc(var(--sc-space-2) * -1);
+  margin: var(--sc-space-2) calc(var(--sc-space-2) * -1)
+    calc(var(--sc-space-2) * -1);
   padding: var(--sc-space-3) var(--sc-space-4) var(--sc-space-4);
   border-top: 1px solid var(--sc-line);
   color: var(--sc-fg3);
@@ -10350,7 +10437,9 @@ textarea:disabled {
    text-entry control is 16px and the chrome around it keeps its own scale.
    These beat rules like `.sc-ap-search input`, hence the !important. */
 @media (pointer: coarse) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="color"]
+    ):not([type="file"]),
   textarea,
   select,
   [contenteditable]:not([contenteditable="false"]) {
@@ -10649,7 +10738,7 @@ textarea:disabled {
    field that reads left while everything around it reads centre looks like a
    different page rather than the same one in an editable state. */
 .sc-lookpage .sc-ownededit-title input {
-  font: 600 var(--sc-text-h1, 30px) / 1.15 var(--sc-font-display, var(--sc-font));
+  font: 600 var(--sc-text-h1) / 1.15 var(--sc-font-display, var(--sc-font));
   letter-spacing: -0.03em;
   padding: 0;
   height: auto;
@@ -10698,6 +10787,336 @@ textarea:disabled {
   letter-spacing: 0.02em;
   color: var(--sc-bg);
   background: color-mix(in srgb, var(--sc-fg) 78%, transparent);
+}
+
+/* The heading in its editable state. Same type, same measure, same centring
+   as the <h1> it stands in for — a field that reads at a different size or
+   ranges left looks like a different page rather than the same one being
+   edited. Chrome arrives on focus and nowhere else. */
+.sc-lookpage-titleedit {
+  display: block;
+  width: 100%;
+  max-width: var(--sc-measure-title);
+  margin: 0 auto 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sc-fg);
+  font: 600 var(--sc-text-h1) / 1.14 var(--sc-font);
+  letter-spacing: -0.035em;
+  text-align: center;
+  text-wrap: balance;
+  resize: none;
+  overflow: hidden;
+  box-shadow: inset 0 -1px 0 0 transparent;
+  transition: box-shadow var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-lookpage-titleedit:focus {
+  box-shadow: inset 0 -1px 0 0 var(--sc-line-strong);
+}
+@media (max-width: 900px) {
+  .sc-lookpage-titleedit {
+    max-width: none;
+    margin-bottom: var(--sc-space-6);
+  }
+}
+
+/* ---------- 6.7 a product's reference set ----------
+   A scene's references are a mood and belong in a grid you scan. A product's
+   are the same object from different sides, and those are read by swapping:
+   one frame big enough to inspect the label and the seams, the rest as a rail
+   beneath it. The set adapts to what exists — one reference is a frame and an
+   add button, never a grid with holes in it. */
+.sc-refstage {
+  --sc-refstage-h: clamp(320px, 52vh, 560px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sc-refstage-h);
+  margin: 0 auto var(--sc-space-5);
+}
+/* The frame is the size of the photograph, not a box the photograph sits
+   inside. A packshot on white would otherwise be a white slab with dark bars
+   either side of it, and a transparent PNG would get a hard rectangle it
+   never had. Fixed height, free width: the product keeps its own proportions
+   and the page still never moves when the image lands. */
+.sc-refstage-frame {
+  position: relative;
+  max-width: 100%;
+  border-radius: var(--sc-radius-lg);
+  overflow: hidden;
+  background: var(--sc-raised);
+}
+.sc-refstage-frame img {
+  max-height: var(--sc-refstage-h);
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+}
+.sc-refstage-blank {
+  width: min(360px, 100%);
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+}
+/* A tag only for the exception. That the first three are the ones sent is
+   said once, in the note; flagging each of them as well is the same sentence
+   four times. What cannot be seen is that the frame in front of you is not
+   one of them, so that is the only thing tagged.
+   Scrim colours, not the presenter tag's: this one has to stay readable on a
+   packshot shot against white. */
+.sc-refstage .sc-ownedref-tag {
+  left: 12px;
+  bottom: 12px;
+  color: var(--sc-scrim-fg);
+  background: var(--sc-scrim);
+  line-height: 1.7;
+}
+
+.sc-refrail {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-5);
+  /* The gap that separates the control from the things that talk about it.
+     Frame and rail are one object and sit close; everything below is commentary
+     and needs the break, or all four rows read as one undifferentiated list. */
+  margin: 0 auto var(--sc-space-8);
+  padding: 2px;
+}
+.sc-refrail-item {
+  position: relative;
+  flex: none;
+  width: 88px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius);
+  background: var(--sc-raised);
+  overflow: hidden;
+  cursor: pointer;
+}
+.sc-refrail-item img {
+  width: 100%;
+  height: 100%;
+  /* cover, unlike the stage above. A thumbnail is an index — it says which
+     picture, not what shape the object is — and a 4:5 photograph fitted into
+     a square leaves two grey bars that read as a broken tile. The stage is
+     where the proportions have to be honest. */
+  object-fit: cover;
+  display: block;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refrail-item[data-on] {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+}
+/* Past the third, an image is on the record but never sent. Dimming says so
+   across the whole set at once, which the tag on the stage can only say one
+   frame at a time. */
+.sc-refrail-item[data-spare] img {
+  opacity: 0.5;
+}
+.sc-refrail-item[data-spare]:hover img,
+.sc-refrail-item[data-spare][data-on] img {
+  opacity: 1;
+}
+
+/* Loading. The shape of what is coming, not a spinner in the middle of the
+   page: a title bar, the frame, and a rail, at the sizes they will really be,
+   so nothing jumps when the answer lands. */
+.sc-refskeleton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-5);
+}
+.sc-refskeleton span {
+  display: block;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+}
+.sc-refskeleton-title {
+  width: min(340px, 70%);
+  height: 34px;
+  border-radius: var(--sc-radius);
+  margin-bottom: var(--sc-space-6);
+}
+.sc-refskeleton-stage {
+  width: min(420px, 100%);
+  height: clamp(320px, 52vh, 560px);
+}
+.sc-refskeleton-rail {
+  display: flex;
+  gap: var(--sc-space-5);
+  background: none;
+}
+.sc-refskeleton-rail span {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--sc-radius);
+}
+
+.sc-refrail-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--sc-line);
+  background: none;
+  color: var(--sc-fg3);
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refrail-add:hover {
+  border-color: var(--sc-fg3);
+  color: var(--sc-fg);
+}
+.sc-refrail-add[data-busy] {
+  cursor: default;
+}
+.sc-refrail-add input {
+  display: none;
+}
+
+/* What can be done to the frame on show. Absent until there is more than one
+   reference, because with one there is nothing to promote and nothing that
+   can be removed without emptying the product.
+   Use first is the constructive move (a real pill); Remove is a quiet word. */
+.sc-refacts {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-5);
+  margin: 0 auto var(--sc-space-5);
+}
+.sc-refacts-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+.sc-refact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin: 0;
+  border: 1px solid transparent;
+  background: none;
+  cursor: pointer;
+  font: 500 12.5px / 1 var(--sc-font);
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refact:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-refact-lead {
+  padding: 0 14px 0 12px;
+  border-color: var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  color: var(--sc-fg);
+}
+.sc-refact-lead:hover {
+  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
+}
+.sc-refact-aside {
+  padding: 0 10px;
+  border-radius: var(--sc-radius-sm);
+  color: var(--sc-fg3);
+}
+.sc-refact-aside:hover {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+
+@media (max-width: 900px) {
+  .sc-refstage {
+    --sc-refstage-h: clamp(300px, 46vh, 460px);
+  }
+}
+@media (max-width: 640px) {
+  .sc-refstage {
+    /* the same 12 that pairs frame to rail everywhere else: the grouping has
+       to survive the breakpoint or the composition only reads on desktop */
+    margin-bottom: var(--sc-space-5);
+  }
+  /* One row that scrolls beats three that wrap: the set stays one gesture
+     wide, and the frame above it does not get pushed off the screen. */
+  .sc-refrail {
+    flex-wrap: nowrap;
+    /* `safe` centres a set that fits and falls back to the start edge when it
+       does not, so a long set never puts its first thumb out of reach. */
+    justify-content: safe center;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    margin-inline: calc(var(--sc-gutter) * -1);
+    padding-inline: var(--sc-gutter);
+  }
+  .sc-refrail::-webkit-scrollbar {
+    display: none;
+  }
+  .sc-refrail-item {
+    width: 64px;
+    scroll-snap-align: start;
+  }
+}
+@media (pointer: coarse) {
+  /* A finger needs 44px; a 64px thumb already has it, the controls under it
+     do not. Same invisible box the top bar uses, so nothing grows chunky. */
+  .sc-refacts .sc-btn,
+  .sc-refacts .sc-refact {
+    position: relative;
+  }
+  .sc-refacts .sc-btn::after,
+  .sc-refacts .sc-refact::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    min-width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
+
+/* The one Playfair moment on a product look-page: the house, above the name,
+   only when the heading would have prefixed it. Same accent as greet. */
+.sc-lookpage-house {
+  margin: 0 auto 6px;
+  line-height: 1;
+}
+.sc-lookpage-house .sc-accent {
+  font-size: 22px;
+}
+
+.sc-refstage-drop {
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, 100%);
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  cursor: pointer;
+  font: 500 13px var(--sc-font);
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refstage-drop:hover {
+  border-color: var(--sc-fg3);
+  color: var(--sc-fg);
+}
+.sc-refstage-drop[data-busy] {
+  cursor: default;
 }
 
 .sc-ownedbits {
@@ -11862,7 +12281,8 @@ textarea:disabled {
   gap: var(--sc-space-4);
   width: min(100%, 46ch);
   padding: var(--sc-space-6);
-  animation: sc-setup-arrive var(--sc-dur-slow) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: sc-setup-arrive var(--sc-dur-slow) cubic-bezier(0.2, 0.8, 0.2, 1)
+    both;
 }
 .sc-fail[data-density="stage"] .sc-fail-ic {
   width: 40px;

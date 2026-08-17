@@ -44,12 +44,18 @@ export interface Brief {
  * does: it forbids invented geometry on unseen faces, and it biases the
  * composition toward the view we actually have.
  *
- * `attached` is what reaches the engine (clamped by PRODUCT_REF_MAX and the
- * engine cap); `available` is how many views the product record holds. The
- * uncertainty claim keys on `attached`, because that is what the model can see —
- * but a product with full coverage gets told so, which licenses a freer angle.
+ * Keyed on `attached` alone — what actually reaches the engine.
+ *
+ * It used to also read how many images the product record held, and told the
+ * model that four or more of them "cover the object from every side, so no
+ * face of it has to be guessed at". Nothing checked that. An imported product
+ * routinely carries one shot per colourway rather than one per angle, so the
+ * products that tripped that branch were often the ones whose images were not
+ * angles at all — and the claim got *more* confident the more colours a store
+ * sold. A count is not evidence of coverage, so the coverage claim is gone and
+ * the conservative line is the only one left.
  */
-export function productFidelityDirective(attached: number, available: number): string {
+export function productFidelityDirective(attached: number): string {
   if (attached <= 1) {
     return (
       'The attached product image is the exact product: preserve its label, shape, colors and proportions faithfully, ' +
@@ -59,12 +65,12 @@ export function productFidelityDirective(attached: number, available: number): s
       'product from the view the reference gives.'
     );
   }
-  const base =
+  return (
     'The attached product images all show the exact same product from different angles: preserve its label, shape ' +
-    'and colors faithfully, do not redesign it, and do not treat the extra angles as additional products.';
-  return available >= 4
-    ? `${base} Together they cover the object from every side, so no face of it has to be guessed at.`
-    : `${base} Any face not visible in them is unknown — keep it plain and consistent with the visible materials, and do not invent detail on it.`;
+    'and colors faithfully, do not redesign it, and do not treat the extra angles as additional products. ' +
+    'Any face not visible in them is unknown — keep it plain and consistent with the visible materials, and do not ' +
+    'invent detail on it.'
+  );
 }
 
 /**
@@ -346,7 +352,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           phashes.forEach((h, i) => {
             attachments.push({ role: 'product', id: p.id, label: p.name, hash: h, essential: i === 0 });
           });
-          productDirectives.push(productFidelityDirective(phashes.length, (p.shots ?? []).length));
+          productDirectives.push(productFidelityDirective(phashes.length));
           if (p.preservationNotes) productDirectives.push(String(p.preservationNotes));
           if (p.negativeConstraints) productDirectives.push(`Avoid: ${p.negativeConstraints}`);
           // Real-world scale and material, when the product record knows them.

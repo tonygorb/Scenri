@@ -345,9 +345,19 @@ export const api = {
     productId: string,
     patch: Partial<Pick<Product, 'name' | 'category' | 'variant' | 'material' | 'dimensions'>>,
   ) => req<Brand>('PATCH', `/api/brands/${brandId}/products/${productId}`, patch),
-  /** Catalog products only — a category override, the one field this app invents. */
-  updateCatalogProductCategory: (brandId: string, productId: string, category: string | null) =>
-    req<{ product: unknown }>('PATCH', `/api/brands/${brandId}/catalog/products/${productId}`, { category }),
+  /** Catalog products only — the fields this app invents; the store owns the rest. */
+  updateCatalogProduct: (
+    brandId: string,
+    productId: string,
+    patch: Partial<Pick<Product, 'category' | 'variant' | 'material' | 'dimensions'>>,
+  ) => req<{ product: unknown }>('PATCH', `/api/brands/${brandId}/catalog/products/${productId}`, patch),
+  /**
+   * The product's reference set, in the order it should be read: `files` is
+   * the whole list, so leaving one out removes it and moving one to the front
+   * makes it the reference every shot is built from. Works for both kinds.
+   */
+  setProductShots: (brandId: string, productId: string, files: string[]) =>
+    req<Brand>('PUT', `/api/brands/${brandId}/products/${productId}/shots`, { files }),
 
   // ---- presenters and scenes a brand builds for itself
   /** What this machine can actually do, asked before anything is promised. */
@@ -612,7 +622,13 @@ export interface ShowcaseEntry {
 export interface Product {
   id: string;
   name: string;
-  shots?: { file: string; angle?: string; locked?: boolean; alt?: string | null }[];
+  shots?: { file: string; angle?: string; locked?: boolean; alt?: string | null; local?: boolean }[];
+  /**
+   * Store images taken out of the reference set. Never compiled into a shot.
+   * Catalog products only — kept so a re-import does not fetch them back.
+   * An image you uploaded yourself is deleted rather than excluded.
+   */
+  hiddenShots?: { file: string; angle?: string; locked?: boolean; alt?: string | null; local?: boolean }[];
   origin?: 'manual' | 'catalog';
   url?: string | null;
   price?: number | null;
@@ -716,7 +732,7 @@ export async function uploadLogo(
 /** Where the browser fetches a `.brand` bundle from — a plain link, so no blob juggling. */
 export const brandExportUrl = (brandId: string) => `/api/brands/${brandId}/export`;
 
-/** One more reference angle onto an existing manual product (not a new product). */
+/** One more reference angle onto a product that already exists (not a new product). */
 export async function addProductShot(brandId: string, productId: string, file: File, angle?: string): Promise<Brand> {
   const fd = new FormData();
   if (angle) fd.append('angle', angle);
