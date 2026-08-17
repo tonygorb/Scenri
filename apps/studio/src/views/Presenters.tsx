@@ -138,11 +138,15 @@ export function PresentersView() {
   };
 
   /**
-   * The filter row belongs to the wall it filters.
+   * The filter row belongs to the wall it filters, and is gated on that wall
+   * having contents — never on whether you own any of them. Home has always
+   * read it this way (`showcase.length > 0`).
    *
    * In the cold state that wall is the roster, a screenful below the offer, so
    * the row travels down and sits directly on top of it. Left at the top it
-   * filtered something you could not see, across an empty band.
+   * filtered something you could not see, across an empty band. It is a sibling
+   * of the wall rather than wrapped in a box that ends above it, so it stays
+   * sticky for the whole length of the scroll.
    */
   const toolbar = (
     <LibraryToolbar
@@ -232,24 +236,27 @@ export function PresentersView() {
           />
         )}
 
+        {/* The seam, and the row that belongs to the roster under it. The only
+            eyebrow on this page. */}
+        {heroMode && presentersLoaded && !presentersError && presenters.length > 0 && (
+          <>
+            <StarterDivider label="Or cast someone from ours" />
+            {toolbar}
+          </>
+        )}
+
         {presentersLoaded && !presentersError && visible.length > 0 && (
-          // In the cold state the roster is introduced the way Products
-          // introduces its library, under one eyebrow, and carries the filter
-          // row with it. That is the only eyebrow on this page.
-          <div className={heroMode ? 'sc-starter' : undefined}>
-            {heroMode && <StarterDivider label="Or cast someone from ours" />}
-            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-              {visible.map((p) => (
-                <PresenterCard
-                  key={p.id}
-                  presenter={p}
-                  variant="use"
-                  size="grid"
-                  onOpen={openPresenter}
-                  onUse={applyPresenter}
-                />
-              ))}
-            </div>
+          <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+            {visible.map((p) => (
+              <PresenterCard
+                key={p.id}
+                presenter={p}
+                variant="use"
+                size="grid"
+                onOpen={openPresenter}
+                onUse={applyPresenter}
+              />
+            ))}
           </div>
         )}
 

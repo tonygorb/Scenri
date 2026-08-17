@@ -5901,12 +5901,6 @@ textarea.sc-edit[data-variant="lede"] {
   .sc-cell-branch .sc-cell-branch-lb {
     display: none;
   }
-  /* Sits inside its card's corner, so it can grow without reaching a
-     neighbour the way a feed tile's corner controls would. */
-  .sc-lookcard-star {
-    width: 34px;
-    height: 34px;
-  }
 }
 
 /* The rail's edge fade at phone widths. At 18px only about three pixels were
@@ -6810,13 +6804,45 @@ textarea.sc-edit[data-variant="lede"] {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* A wall with nothing on it: a search that found nothing, or a tab you went to
+   before you had filled it. It owns the whole page when it happens — the grid
+   underneath is empty by definition — so it is centred over that space rather
+   than set flush left against the rail, where one short sentence read as a
+   caption that had lost its picture.
+
+   Not every empty wall wants this. A cold brand's empty Bookmarks tab keeps
+   the catalog up instead (`Scenes.tsx`, `bookmarksBrowse`): "bookmark a scene
+   from its card" is only an instruction if there are cards on screen.
+
+   The type and the way out are the Create feed's (`.sc-feed-empty`), which has
+   answered this question for its own empty lenses since before these pages
+   existed. */
 .sc-lib-zero {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  color: var(--sc-fg3);
+  /* Centred *in the wall's own area*, not stacked at the top of it. A short
+     block pinned under the rail with a screen of nothing beneath reads as
+     content that failed to load; the same words in the middle of that space
+     read as a wall that is empty, which is what happened. No ornament is
+     needed to say it — an icon here would be filling space rather than
+     meaning anything, and this page's whole argument is that the pictures are
+     the content. */
+  justify-content: center;
+  min-height: max(280px, 42vh);
+  gap: 14px;
   padding: 30px 0;
+  color: var(--sc-fg2);
+  font-size: 13px;
+  text-align: center;
   text-wrap: pretty;
+}
+/* Two ways out can apply at once — a search inside a facet — and they are
+   siblings, not a sentence. */
+.sc-lib-zero-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .sc-lib-more {
   display: flex;
@@ -7109,11 +7135,19 @@ textarea.sc-edit[data-variant="lede"] {
   outline: 2px solid var(--sc-focus);
   outline-offset: 2px;
 }
-/* Star sits in the media's top-right, over the veil. Hidden until the card is
-   hovered so a wall of scenes stays a wall of pictures — except when it is on,
-   which is the whole point of a star, and except on touch, where there is no
-   hover to reveal it. */
-.sc-lookcard-star {
+/* The read-only bookmark on a picker row. Not a control — it is the reason
+   that row is near the top, said in the caption line where a 10px glyph is
+   legible without a scrim over someone's photograph. */
+.sc-bm-mark {
+  margin-inline-end: 4px;
+  color: var(--sc-fg3);
+  vertical-align: -1px;
+}
+
+/* One corner puck, geometry only: the card's top-right, over the veil. Shared
+   by the bookmark toggle and an asset build's stop button, which used to
+   borrow the bookmark's own class and make every selector ambiguous. */
+.sc-cardpuck {
   position: absolute;
   top: 7px;
   right: 7px;
@@ -7127,36 +7161,59 @@ textarea.sc-edit[data-variant="lede"] {
   background: rgba(0, 0, 0, 0.42);
   border: 0;
   border-radius: var(--sc-radius-full);
-  opacity: 0;
   cursor: pointer;
   transition:
     opacity 0.16s ease,
     color 0.12s ease,
     background 0.12s ease;
 }
-.sc-lookcard:hover .sc-lookcard-star,
-.sc-lookcard-star:focus-visible,
-.sc-lookcard-star[data-on] {
-  opacity: 1;
-}
-.sc-lookcard-star:hover {
+.sc-cardpuck:hover {
   background: rgba(0, 0, 0, 0.62);
 }
-.sc-lookcard-star[data-on] {
-  color: var(--sc-star);
-}
-.sc-lookcard-star:focus-visible {
+.sc-cardpuck:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 2px;
 }
+/* Hidden until the card is hovered, so a wall of scenes stays a wall of
+   pictures — except when it is on, which is the whole point of a bookmark,
+   and except on touch, where there is no hover to reveal it. */
+.sc-lookcard-bookmark {
+  opacity: 0;
+}
+.sc-lookcard:hover .sc-lookcard-bookmark,
+.sc-lookcard-bookmark:focus-visible,
+.sc-lookcard-bookmark[data-on] {
+  opacity: 1;
+}
+/* On is the system's one active language — the same ink-on-page inversion an
+   active chip or a primary button uses. Not gold: that is the keeper star's,
+   and one colour cannot carry two meanings. */
+.sc-lookcard-bookmark[data-on] {
+  color: var(--sc-inv-fg);
+  background: var(--sc-inv-bg);
+}
+.sc-lookcard-bookmark[data-on]:hover {
+  background: var(--sc-inv-bg);
+  opacity: 0.88;
+}
 @media (hover: none) {
-  .sc-lookcard-star {
+  .sc-lookcard-bookmark {
     opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sc-lookcard-star {
+  .sc-cardpuck {
     transition: none;
+  }
+}
+/* Sits inside its card's corner, so it can grow without reaching a neighbour
+   the way a feed tile's corner controls would. Declared after the base rule,
+   not up in the phone block: a media query adds no specificity, so the 26px
+   default was winning at every width and the touch target never grew. */
+@media (max-width: 767px) {
+  .sc-cardpuck {
+    width: 34px;
+    height: 34px;
   }
 }
 .sc-lookcard-veil {
@@ -8156,8 +8213,12 @@ textarea.sc-edit[data-variant="lede"] {
 
 /* Phones + tablets: swipe the track — arrows only fight the layout. */
 @media (max-width: 1024px) {
-  .sc-slider-arrow {
+  .sc-slider-arrow,
+  .sc-refrail-arrow {
     display: none;
+  }
+  .sc-refrail {
+    overflow-x: auto;
   }
 }
 
@@ -10437,17 +10498,21 @@ textarea:disabled {
    and keeps sticking to the top of the viewport on the way down. */
 /* The gap between the offer and the library it introduces. The hero owns the
    air above itself, this owns the air below it, so the rhythm is set in two
-   places rather than stacked out of four. */
-.sc-starter {
+   places rather than stacked out of four.
+
+   It rides the seam rather than a wrapper around the seam and the wall. The
+   filter row sits between them now, and it is sticky: a wrapper that closed
+   above the wall would have unstuck it a few pixels into the first scroll. */
+.sc-looks[data-hero] .sc-starter-rule {
   margin-top: 96px;
 }
 @media (max-width: 900px) {
-  .sc-starter {
+  .sc-looks[data-hero] .sc-starter-rule {
     margin-top: 68px;
   }
 }
 @media (max-width: 600px) {
-  .sc-starter {
+  .sc-looks[data-hero] .sc-starter-rule {
     margin-top: 52px;
   }
 }
@@ -10808,23 +10873,48 @@ textarea:disabled {
   line-height: 1.7;
 }
 
-.sc-refrail {
+.sc-refrail-shell {
+  --sc-ref-thumb: 88px;
   display: flex;
-  /* One row that scrolls, at every width. A store product can carry twenty-odd
-     images, and wrapping those into three rows of thumbnails walls off the
-     frame they belong to. `safe` centres a set that fits and falls back to the
-     start edge when it does not, so a long set never puts its first thumb out
-     of reach. Desktop and touch behave identically. */
-  flex-wrap: nowrap;
-  justify-content: safe center;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
+  justify-content: center;
+  align-items: center;
   gap: var(--sc-space-5);
   /* The gap that separates the control from the things that talk about it.
      Frame and rail are one object and sit close; everything below is commentary
      and needs the break, or all four rows read as one undifferentiated list. */
   margin: 0 auto var(--sc-space-8);
+}
+.sc-refrail-track {
+  position: relative;
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.sc-refrail-shell:has(.sc-refrail-add) .sc-refrail-track {
+  /* Leave a slot for the pinned add tile so it never scrolls away. */
+  max-width: calc(100% - var(--sc-ref-thumb));
+}
+.sc-refrail-shell[data-overflow-right] {
+  /* The fade, not a gap, is what separates the last thumb from the add. */
+  gap: 0;
+}
+.sc-refrail {
+  display: flex;
+  /* One row that pages, at every width. A store product can carry twenty-odd
+     images, and wrapping those into three rows of thumbnails walls off the
+     frame they belong to. `safe` centres a set that fits and falls back to the
+     start edge when it does not, so a long set never puts its first thumb out
+     of reach. Overflow is hidden on a pointer: a mouse must not pan this row.
+     Touch restores swipe below. */
+  flex-wrap: nowrap;
+  justify-content: safe center;
+  overflow-x: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  gap: var(--sc-space-5);
+  max-width: 100%;
   padding: 2px;
 }
 .sc-refrail::-webkit-scrollbar {
@@ -10836,7 +10926,7 @@ textarea:disabled {
 .sc-refrail-item {
   position: relative;
   flex: none;
-  width: 88px;
+  width: var(--sc-ref-thumb);
   aspect-ratio: 1;
   padding: 0;
   border: none;
@@ -10869,6 +10959,82 @@ textarea:disabled {
 .sc-refrail-item[data-spare]:hover img,
 .sc-refrail-item[data-spare][data-on] img {
   opacity: 1;
+}
+
+/* Soft fold: thumbs dissolve into the page, then into the pinned add.
+   Same language as `.sc-slider` fades — only when that side is clipped. */
+.sc-refrail-track::before,
+.sc-refrail-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 64px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.sc-refrail-track::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 12%, transparent);
+}
+.sc-refrail-track::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 22%, transparent);
+}
+.sc-refrail-shell[data-overflow-left] .sc-refrail-track::before,
+.sc-refrail-shell[data-overflow-right] .sc-refrail-track::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-refrail-track::before,
+  .sc-refrail-track::after {
+    transition: none;
+  }
+}
+
+/* On the thumb track, inset so they sit in the fade — never on the add
+   tile, never covering the selected outline. Same reveal as the look-page
+   sliders: hidden until the row is hovered or focused. */
+.sc-refrail-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-panel);
+  color: var(--sc-fg2);
+  opacity: 0;
+  transition:
+    opacity 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
+}
+.sc-refrail-shell:hover .sc-refrail-arrow,
+.sc-refrail-arrow:focus-visible {
+  opacity: 1;
+}
+.sc-refrail-arrow:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-refrail-arrow.prev {
+  left: 8px;
+  transform: translateY(-50%);
+}
+.sc-refrail-arrow.next {
+  right: 8px;
+  transform: translateY(-50%);
+}
+.sc-refrail-shell:not([data-overflow-left]) .sc-refrail-arrow.prev,
+.sc-refrail-shell:not([data-overflow-right]) .sc-refrail-arrow.next {
+  display: none;
 }
 
 /* Loading. The shape of what is coming, not a spinner in the middle of the
@@ -10910,8 +11076,10 @@ textarea:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 3;
   border: 1px dashed var(--sc-line);
-  background: none;
+  /* Opaque so the last thumb can fold under it instead of showing through. */
+  background: var(--sc-bg);
   color: var(--sc-fg3);
   transition:
     border-color var(--sc-dur-fast) var(--sc-ease),
@@ -10995,14 +11163,12 @@ textarea:disabled {
        to survive the breakpoint or the composition only reads on desktop */
     margin-bottom: var(--sc-space-5);
   }
-  /* The scroll itself is in the base rule now; the phone only widens the track
-     to the gutter so a thumb can start at the screen edge. */
-  .sc-refrail {
+  /* The phone widens the shell to the gutter so a thumb can start at the
+     screen edge. The add tile stays pinned in that same padding. */
+  .sc-refrail-shell {
+    --sc-ref-thumb: 64px;
     margin-inline: calc(var(--sc-gutter) * -1);
     padding-inline: var(--sc-gutter);
-  }
-  .sc-refrail-item {
-    width: 64px;
   }
 }
 @media (pointer: coarse) {
@@ -11252,8 +11418,12 @@ textarea:disabled {
 }
 @media (hover: none) {
   .sc-shelf-arrow,
-  .sc-slider-arrow {
+  .sc-slider-arrow,
+  .sc-refrail-arrow {
     display: none;
+  }
+  .sc-refrail {
+    overflow-x: auto;
   }
 }
 

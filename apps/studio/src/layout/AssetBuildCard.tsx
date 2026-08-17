@@ -64,7 +64,7 @@ export function AssetBuildCard({
         {!failed && onCancel && (
           <button
             type="button"
-            className="sc-lookcard-star"
+            className="sc-cardpuck"
             aria-label={`Stop building ${build.name}`}
             onClick={() => onCancel(build.id)}
           >
@@ -74,7 +74,7 @@ export function AssetBuildCard({
         {failed && onDismiss && (
           <button
             type="button"
-            className="sc-lookcard-star"
+            className="sc-cardpuck"
             aria-label={`Dismiss ${build.name}`}
             onClick={() => onDismiss(build.id)}
           >

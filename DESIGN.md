@@ -184,6 +184,7 @@ The shared shell behind every curated-asset browsing surface (Products, Scenes, 
 - **Do** treat `.sc-sec-head` as a 2-slot contract (title-group, trailing action); nest a subtitle inside the title group with its own explicit gap, never as a sibling flex item.
 - **Do** keep every interactive control (button, chip, tab, input) on the existing radius/height scale — 34px controls, full-pill chips/buttons, 10px field radius.
 - **Do** let product/look photography carry the color on any screen; keep surrounding chrome monochrome.
+- **Do** reach for the shared active inversion (`--sc-inv-bg`/`--sc-inv-fg`) for any new on/off control — the scene card's bookmark toggle is the worked example. Gold is not an on-state; it belongs to the keeper star, and one colour cannot carry two meanings.
 - **Do** give every new focusable control the system's one focus treatment — `outline: 2px solid var(--sc-focus); outline-offset: 2px` — by adding its selector to the shared list in `tokens.css`, and give fields the same ring via `:focus-within` (`.sc-swap-search`, `.sc-assets-search`). The only sanctioned variation is `outline-offset: 1px` where a control sits in a tight grid or inside another control's border and 2px would collide or spill.
 
 ### Don't:

@@ -245,6 +245,56 @@ test.describe('a product and its references', () => {
       .toBe(before.shots.map((s: any) => s.file).join(','));
   });
 
+  test('a long reference set pages from the arrows, and the add tile stays put', async ({ page }) => {
+    const brand = await currentBrand(page);
+    const id = await seedProduct(page, brand.id, 'Many colourways', 16);
+    await page.goto(`/${brand.slug}/products/${id}`);
+
+    const rail = page.locator('.sc-refrail');
+    const add = page.locator('.sc-refrail-add');
+    const next = page.getByRole('button', { name: 'Next references' });
+
+    await expect(thumbs(page)).toHaveCount(16);
+    await expect.poll(() => rail.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+
+    // pinned outside the scroller, to the right of the thumbs
+    await expect(add).toBeVisible();
+    const [railBox, addBox] = await Promise.all([rail.boundingBox(), add.boundingBox()]);
+    expect(railBox && addBox, 'rail and add should be on screen').toBeTruthy();
+    expect(addBox!.x).toBeGreaterThan(railBox!.x + railBox!.width - 2);
+
+    // a mouse must not pan this row — the wheel belongs to the page
+    const beforeWheel = await rail.evaluate((el) => el.scrollLeft);
+    await rail.hover();
+    await page.mouse.wheel(0, 400);
+    expect(await rail.evaluate((el) => el.scrollLeft)).toBe(beforeWheel);
+
+    await expect(next).toBeHidden();
+    await page.locator('.sc-refrail-shell').hover();
+    await expect(next).toBeVisible();
+    const stride = await rail.evaluate((el) => {
+      const child = el.firstElementChild as HTMLElement | null;
+      if (!child) return 0;
+      return child.getBoundingClientRect().width + (Number.parseFloat(getComputedStyle(el).columnGap) || 0);
+    });
+    await next.click();
+    await expect
+      .poll(() => rail.evaluate((el) => el.scrollLeft))
+      .toBeGreaterThan(stride * 0.8);
+    await expect.poll(() => rail.evaluate((el) => el.scrollLeft)).toBeLessThan(stride * 1.5);
+    await expect(add).toBeVisible();
+  });
+
+  test('a short reference set has no arrows', async ({ page }) => {
+    const brand = await currentBrand(page);
+    const id = await seedProduct(page, brand.id, 'Just two', 2);
+    await page.goto(`/${brand.slug}/products/${id}`);
+
+    await expect(thumbs(page)).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Next references' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Previous references' })).toBeHidden();
+  });
+
   test('a product from the Scenri library can be used but not edited', async ({ page }) => {
     const brand = await currentBrand(page);
     const demoId = await page.evaluate(

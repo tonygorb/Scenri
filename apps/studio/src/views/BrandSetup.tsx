@@ -11,10 +11,10 @@ import { flattenPalette } from '../brand/palette.js';
  * First run: name the brand, or hand over a website and let the scrape do it.
  *
  * One step on purpose. This used to be four — review the scraped name and
- * tagline, add products, pick favourite scenes — and every one of those is
- * something you would rather do later, from inside the app, against a brand you
- * can already see. Editing now lives in Settings → Brand kit, products on the
- * Products page, favourites on the scene cards themselves.
+ * tagline, add products, pick scenes — and every one of those is something you
+ * would rather do later, from inside the app, against a brand you can already
+ * see. Editing now lives in Settings → Brand kit, products on the Products
+ * page, bookmarks on the scene cards themselves.
  *
  * What the extra steps were genuinely for is kept: a scraped site with a
  * storefront still triggers a catalog import, headlessly, the moment the brand

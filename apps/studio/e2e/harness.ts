@@ -49,11 +49,10 @@ const FIXTURE = {
 /**
  * A scene the brand owns.
  *
- * Ownership is the only thing that decides whether the Scenes library wears
- * its chrome: `Scenes.tsx:162` reads `customScenesOf(brand).length > 0`, and a
- * brand that owns nothing leads with its first-run offer and renders no tab
- * rail at all. Two brand.spec.ts cases are about that rail, so they ask for
- * this and nobody else does.
+ * Ownership decides whether the Scenes library leads with its first-run offer:
+ * `customScenesOf(brand).length > 0`. It no longer decides whether the tab rail
+ * renders — that is gated on the catalog the rail filters, so a cold brand has
+ * one too (see e2e/library-cold.spec.ts, which asks for the cold half).
  *
  * No picture: `previewUrl` is allowed to be null, and a card with nothing to
  * show is a state the app already handles.
@@ -73,7 +72,7 @@ const OWNED_SCENE = {
 };
 
 type SeedOptions = {
-  /** Seed a scene the brand owns, so the Scenes library renders its tab rail. */
+  /** Seed a scene the brand owns, so the Scenes library renders warm (no first-run offer). */
   scene?: boolean;
 };
 

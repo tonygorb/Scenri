@@ -95,7 +95,7 @@ export function useLibraryQuery(facetKeys: string[]) {
    * read the same stale `location.search`, so the second silently undoes the
    * first — the exact trap this hook exists to close. Anything that moves more
    * than one axis at once (picking a vertical while a pseudo-facet like
-   * `starred` is on) has to come through here.
+   * `bookmarked` is on) has to come through here.
    */
   const setFacets = update;
 

@@ -58,6 +58,13 @@ export interface Candidate {
   source: 'brand' | 'catalog';
   /** A hint from compat.ts, never a gate. Only set for scenes and presenters. */
   recommended?: boolean;
+  /**
+   * Stamped by `pickList`, scenes only: this one is on the brand's shortlist.
+   *
+   * The rank band already lifts it; this is what lets a row say why it is
+   * near the top instead of looking arbitrarily ordered.
+   */
+  bookmarked?: boolean;
   /** What picking this produces. */
   token: SentenceToken;
 }
@@ -237,11 +244,12 @@ export function filterCandidates(items: Candidate[], query: string): Candidate[]
  * What the picker shows: what is on, and everything else, best first.
  *
  * There are no sections. Three kinds of thing were growing three different
- * section models — starred/suited/all for a scene, suited/all for a presenter,
- * yours/scenri for a product — which is three layouts to learn for one job.
- * The same information is order instead: a lift, not a heading, which is what
- * the library pages already do with taste (`starredFirst`). One list, one rule,
- * and the reason the good ones sit near the top needs no explaining.
+ * section models — bookmarked/suited/all for a scene, suited/all for a
+ * presenter, yours/scenri for a product — which is three layouts to learn for
+ * one job. The same information is order instead: a lift, not a heading, which
+ * is what the library pages already do (`bookmarkedFirst`). One list, one rule,
+ * and a small bookmark on the row that was lifted, so the order explains
+ * itself rather than looking arbitrary.
  */
 export interface PickList {
   /** What the chip holds, when the catalog still has it. */
@@ -259,14 +267,14 @@ export interface PickList {
  * Deliberately blunt: two or three bands per kind, with a stable sort inside
  * each, so the order a catalog was authored in survives underneath the lift.
  */
-function rank(kind: IngredientKind, c: Candidate, starred: ReadonlySet<string>): number {
+function rank(kind: IngredientKind, c: Candidate, bookmarked: ReadonlySet<string>): number {
   // Yours outranks ours, in every kind. This used to hold for products alone,
   // which meant a *suggested* scenri presenter sorted above the person this
   // brand cast for itself — a hint beating an owner. Ownership is the one
-  // thing the panel never has to explain, so it leads, and taste and
+  // thing the panel never has to explain, so it leads, and the shortlist and
   // suitability order what is left.
   if (c.source === 'brand') return 0;
-  if (kind === 'scene') return starred.has(c.id) ? 1 : c.recommended ? 2 : 3;
+  if (kind === 'scene') return bookmarked.has(c.id) ? 1 : c.recommended ? 2 : 3;
   if (kind === 'presenter') return c.recommended ? 1 : 2;
   return 1;
 }
@@ -274,13 +282,17 @@ function rank(kind: IngredientKind, c: Candidate, starred: ReadonlySet<string>):
 export function pickList(
   kind: IngredientKind,
   items: Candidate[],
-  o: { currentId: string | null; query: string; starred: ReadonlySet<string>; shown?: number },
+  o: { currentId: string | null; query: string; bookmarked: ReadonlySet<string>; shown?: number },
 ): PickList {
   const current = o.currentId ? (items.find((c) => c.id === o.currentId) ?? null) : null;
   const pool = current ? items.filter((c) => c.id !== current.id) : items;
   const hits = filterCandidates(pool, o.query);
   // Array#sort is stable, so catalog order holds inside every band.
-  const ranked = [...hits].sort((a, b) => rank(kind, a, o.starred) - rank(kind, b, o.starred));
+  const ranked = [...hits]
+    .sort((a, b) => rank(kind, a, o.bookmarked) - rank(kind, b, o.bookmarked))
+    // Stamped here rather than read at each render site, so the rail and the
+    // chip picker can never disagree about which rows were lifted.
+    .map((c) => (o.bookmarked.has(c.id) ? { ...c, bookmarked: true } : c));
   const { visible, remaining } = pageSlice(ranked, o.shown ?? PAGE);
   return { current, items: visible, remaining, total: ranked.length };
 }

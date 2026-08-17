@@ -250,44 +250,46 @@ test.describe('brand kit', () => {
     expect(download.suggestedFilename()).toMatch(/\.brand$/);
   });
 
-  test('scenes are starred from the card, not from a wizard', async ({ page }) => {
+  test('scenes are bookmarked from the card, not from a wizard', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);
-    const firstStar = page.locator('.sc-lookcard-star').first();
-    await firstStar.click();
-    await expect(page.locator('.sc-lookcard-star[data-on]')).toHaveCount(1);
+    const firstBookmark = page.locator('.sc-lookcard-bookmark').first();
+    await firstBookmark.click();
+    await expect(page.locator('.sc-lookcard-bookmark[data-on]')).toHaveCount(1);
 
+    // The stored key keeps its historical spelling on purpose — renaming it
+    // would need a fourth migration hop and risk a real user's list.
     const saved = await page.evaluate((id) => localStorage.getItem(`sc-favscenes-${id}`), brand.id);
     expect(JSON.parse(saved ?? '[]')).toHaveLength(1);
   });
 
-  // Both cases below assert "the rail must not change shape as you star
+  // Both cases below assert "the rail must not change shape as you bookmark
   // things", which is only a claim the page makes once the brand owns a scene:
-  // `Scenes.tsx` sets `heroMode = !owned && !onlyStarred`, so a brand that owns
+  // `Scenes.tsx` sets `heroMode = !owned && !onlyMarked`, so a brand that owns
   // nothing leads with its offer and renders no chrome at all. `isolate({ scene:
   // true })` at the top of this file seeds that one owned scene, and nothing
   // outside this file sees it.
-  test('the Favorites tab is always on the rail and filters the wall to what you starred', async ({ page }) => {
+  test('the Bookmarks tab is always on the rail and filters the wall to what you bookmarked', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);
 
-    // Present at zero: the rail must not change shape as you star things.
-    const favTab = page.getByRole('tab', { name: /Favorites/ });
-    await expect(favTab).toHaveCount(1);
-    await expect(favTab).toContainText('0');
+    // Present at zero: the rail must not change shape as you bookmark things.
+    const bmTab = page.getByRole('tab', { name: /Bookmarks/ });
+    await expect(bmTab).toHaveCount(1);
+    await expect(bmTab).toContainText('0');
 
     // Empty, it says what fills it — this is not a failed search.
-    await favTab.click();
-    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing starred yet');
+    await bmTab.click();
+    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing bookmarked yet');
     await page.getByRole('button', { name: 'Browse every scene' }).click();
-    await expect(page).not.toHaveURL(/[?&]starred=1/);
+    await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
 
-    await page.locator('.sc-lookcard-star').first().click();
-    await expect(favTab).toContainText('1');
+    await page.locator('.sc-lookcard-bookmark').first().click();
+    await expect(bmTab).toContainText('1');
 
     // Picking it collapses the collection sections into one flat wall.
-    await favTab.click();
-    await expect(page).toHaveURL(/[?&]starred=1/);
+    await bmTab.click();
+    await expect(page).toHaveURL(/[?&]bookmarked=1/);
     await expect(page.locator('.sc-coll')).toHaveCount(0);
     await expect(page.locator('[data-wall] .sc-lookcard')).toHaveCount(1);
 
@@ -295,26 +297,26 @@ test.describe('brand kit', () => {
     await page.reload();
     await expect(page.locator('[data-wall] .sc-lookcard')).toHaveCount(1);
 
-    // Unstarring the last one falls back to the empty state, not a blank page,
+    // Removing the last one falls back to the empty state, not a blank page,
     // and the tab stays put at zero.
-    await page.locator('.sc-lookcard-star[data-on]').first().click();
-    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing starred yet');
-    await expect(favTab).toContainText('0');
+    await page.locator('.sc-lookcard-bookmark[data-on]').first().click();
+    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing bookmarked yet');
+    await expect(bmTab).toContainText('0');
     await page.getByRole('button', { name: 'Browse every scene' }).click();
-    await expect(page).not.toHaveURL(/[?&]starred=1/);
+    await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
     await expect(page.locator('.sc-coll').first()).toBeVisible();
   });
 
-  test('picking a vertical clears the Favorites tab rather than stacking with it', async ({ page }) => {
+  test('picking a vertical clears the Bookmarks tab rather than stacking with it', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);
-    await page.locator('.sc-lookcard-star').first().click();
-    await page.getByRole('tab', { name: /Favorites/ }).click();
-    await expect(page).toHaveURL(/[?&]starred=1/);
+    await page.locator('.sc-lookcard-bookmark').first().click();
+    await page.getByRole('tab', { name: /Bookmarks/ }).click();
+    await expect(page).toHaveURL(/[?&]bookmarked=1/);
 
     const vertical = page.getByRole('tab').nth(2);
     await vertical.click();
-    await expect(page).not.toHaveURL(/[?&]starred=1/);
+    await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
     await expect(page).toHaveURL(/[?&]vertical=/);
     await expect(page.locator('.sc-coll').first()).toBeVisible();
   });

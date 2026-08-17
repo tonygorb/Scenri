@@ -85,7 +85,7 @@ const catalog = (over: Partial<IngredientCatalog> = {}): IngredientCatalog => ({
 const opts = (over: Partial<Parameters<typeof pickList>[2]> = {}) => ({
   currentId: null,
   query: '',
-  starred: new Set<string>(),
+  bookmarked: new Set<string>(),
   ...over,
 });
 
@@ -318,14 +318,14 @@ describe('pickList', () => {
 
   it('is one list: every candidate is either current or in it, exactly once', () => {
     const cs = scenes(9, (i) => ({ verticals: i % 2 ? ['Beauty'] : ['Sport'] }));
-    const l = pickList('scene', cs, opts({ currentId: 's0', starred: new Set(['s5']) }));
+    const l = pickList('scene', cs, opts({ currentId: 's0', bookmarked: new Set(['s5']) }));
     const seen = [...(l.current ? [l.current.id] : []), ...ids(l.items)];
     expect(seen.slice().sort()).toEqual(ids(cs).slice().sort());
     expect(new Set(seen).size).toBe(seen.length);
   });
 
   describe('order is the lift, not a heading', () => {
-    it('scenes: starred, then suited, then the catalog as authored', () => {
+    it('scenes: bookmarked, then suited, then the catalog as authored', () => {
       const cs = buildCandidates(
         'scene',
         catalog({
@@ -333,13 +333,13 @@ describe('pickList', () => {
             scene({ id: 'plain-a', verticals: ['Sport'] }),
             scene({ id: 'suited-a', verticals: ['Beauty'] }),
             scene({ id: 'plain-b', verticals: ['Sport'] }),
-            scene({ id: 'starred-a', verticals: ['Sport'] }),
+            scene({ id: 'marked-a', verticals: ['Sport'] }),
           ],
           productCategory: 'beauty',
         }),
       );
-      const l = pickList('scene', cs, opts({ starred: new Set(['starred-a']) }));
-      expect(ids(l.items)).toEqual(['starred-a', 'suited-a', 'plain-a', 'plain-b']);
+      const l = pickList('scene', cs, opts({ bookmarked: new Set(['marked-a']) }));
+      expect(ids(l.items)).toEqual(['marked-a', 'suited-a', 'plain-a', 'plain-b']);
     });
 
     it('presenters: suited first, and nothing else moves', () => {
@@ -356,9 +356,9 @@ describe('pickList', () => {
       expect(ids(pickList('presenter', cs, opts()).items)).toEqual(['p-suited', 'p-plain']);
     });
 
-    it('presenters have no favourites, so a starred set does nothing to them', () => {
+    it('presenters have no bookmarks, so a bookmarked set does nothing to them', () => {
       const cs = buildCandidates('presenter', catalog({ presenters: [presenter(), presenter({ id: 'p2' })] }));
-      expect(ids(pickList('presenter', cs, opts({ starred: new Set(['p2']) })).items)).toEqual(['p1', 'p2']);
+      expect(ids(pickList('presenter', cs, opts({ bookmarked: new Set(['p2']) })).items)).toEqual(['p1', 'p2']);
     });
 
     it('products: the brand’s own before the ones scenri ships', () => {
@@ -388,15 +388,15 @@ describe('pickList', () => {
       expect(ids(pickList('presenter', cs, opts()).items)).toEqual(['up-mine', 'ours-suited']);
     });
 
-    it('scenes: your own place outranks a starred one of ours', () => {
+    it('scenes: your own place outranks a bookmarked one of ours', () => {
       const cs = buildCandidates(
         'scene',
         catalog({
-          scenes: [scene({ id: 'ours-starred' }), scene({ id: 'us-mine', custom: true } as any)],
+          scenes: [scene({ id: 'ours-marked' }), scene({ id: 'us-mine', custom: true } as any)],
         }),
       );
-      const l = pickList('scene', cs, opts({ starred: new Set(['ours-starred']) }));
-      expect(ids(l.items)).toEqual(['us-mine', 'ours-starred']);
+      const l = pickList('scene', cs, opts({ bookmarked: new Set(['ours-marked']) }));
+      expect(ids(l.items)).toEqual(['us-mine', 'ours-marked']);
     });
   });
 

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as Dialog from '@radix-ui/react-dialog';
-import { ArrowSquareOut, Check, ImageSquare, MagnifyingGlass, Trash } from '@phosphor-icons/react';
+import { ArrowSquareOut, BookmarkSimple, Check, ImageSquare, MagnifyingGlass, Trash } from '@phosphor-icons/react';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
 /** A thumb, not a mouse. Decides whether opening the panel takes the keyboard. */
 const COARSE = '(pointer: coarse)';
-import { favoriteScenes } from '../favorites.js';
+import { bookmarkedScenes } from '../bookmarks.js';
 import { presenterPath, productPath, scenePath } from '../routes.js';
 import { placePanel, type Placed } from './anchorPanel.js';
 import { NOUN, PAGE, pickList, type Candidate, type IngredientKind } from './ingredientOptions.js';
@@ -102,10 +102,11 @@ function PickerBody({
   const searchRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
-  // Read, never written. Favouriting is something you do while browsing a
-  // library; here it only decides what floats to the top.
-  const starred = useMemo<ReadonlySet<string>>(
-    () => (kind === 'scene' ? new Set(favoriteScenes(brandId)) : new Set()),
+  // Read, never written. Bookmarking is something you do while browsing a
+  // library; here it only decides what floats to the top, and marks the rows
+  // it lifted so the order is not a mystery.
+  const bookmarked = useMemo<ReadonlySet<string>>(
+    () => (kind === 'scene' ? new Set(bookmarkedScenes(brandId)) : new Set()),
     [kind, brandId],
   );
 
@@ -118,8 +119,8 @@ function PickerBody({
   }, [query]);
 
   const list = useMemo(
-    () => pickList(kind, candidates, { currentId, query, starred, shown }),
-    [kind, candidates, currentId, query, starred, shown],
+    () => pickList(kind, candidates, { currentId, query, bookmarked, shown }),
+    [kind, candidates, currentId, query, bookmarked, shown],
   );
 
   useLayoutEffect(() => {
@@ -298,7 +299,15 @@ function PickerBody({
               }}
             >
               <Thumb src={c.thumb} tinted={!!c.tint} />
-              <b dir="auto">{c.label}</b>
+              <b dir="auto">
+                {c.bookmarked && (
+                  <>
+                    <BookmarkSimple className="sc-bm-mark" size={10} weight="fill" aria-hidden />
+                    <span className="sc-vh">Bookmarked. </span>
+                  </>
+                )}
+                {c.label}
+              </b>
               {showSub && c.sub && <span dir="auto">{c.sub}</span>}
             </div>
           ))}

@@ -5,7 +5,9 @@ import type { ReactNode } from 'react';
  * the tone and layout can't drift page to page: `error` (the catalog failed
  * to load — Retry), `cold` (the catalog is genuinely empty — a real
  * first-run moment, reuses the existing `.sc-canvas-empty` treatment), and
- * `zero` (filters/search matched nothing — quiet text plus a way out).
+ * `zero` (nothing on the wall — either a filter that matched nothing or a tab
+ * you have not filled yet; quiet centred text plus a real way out, the same
+ * treatment the Create feed gives its own empty lenses).
  */
 export function LibraryEmpty({
   shape,
@@ -95,17 +97,17 @@ export function LibraryZero({
       action={
         <span className="sc-lib-zero-acts">
           {term && (
-            <button type="button" className="sc-lib-clear" onClick={onClearSearch}>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={onClearSearch}>
               Clear search
             </button>
           )}
           {term && facet && (
-            <button type="button" className="sc-lib-clear" onClick={onClearAll}>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={onClearAll}>
               Clear all
             </button>
           )}
           {!term && (
-            <button type="button" className="sc-lib-clear" onClick={onClearAll}>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={onClearAll}>
               Clear filter
             </button>
           )}

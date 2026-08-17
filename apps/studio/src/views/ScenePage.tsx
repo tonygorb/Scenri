@@ -7,12 +7,12 @@ import { useBrand } from '../app/BrandLayout.js';
 import { customSceneById } from '../brandAssets.js';
 import { hubPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
-import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
+import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { ArrowClockwise, Star } from '@phosphor-icons/react';
+import { ArrowClockwise, BookmarkSimple } from '@phosphor-icons/react';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
-import { starredFirst } from '../layout/library/libraryRules.js';
+import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 
@@ -36,7 +36,7 @@ export function ScenePage() {
   const applyScene = useApplyScene();
   const brandId = brand.id;
   const [refs, setRefs] = useState<string[]>([]);
-  const [favs, setFavs] = useState<string[]>(() => favoriteScenes(brandId));
+  const [marks, setMarks] = useState<string[]>(() => bookmarkedScenes(brandId));
   const [allParam, setOpenAll] = useFilterParam('all');
   const openAll = allParam === '1';
   // Cap tracks column count per breakpoint so collapsed rows stay full:
@@ -101,11 +101,11 @@ export function ScenePage() {
     }
   }, [scenes, scene]);
 
-  /** Starred first, same ordering rule as Home's shelf and Create's FirstRun. */
+  /** Bookmarked first, the same ordering rule as Home's scene shelf. */
   const recovery = useMemo(() => {
     if (scene || !loaded || error) return [];
-    const favs = favoriteScenes(brandId);
-    return starredFirst(scenes, (s) => favs.includes(s.id)).slice(0, 6);
+    const marks = bookmarkedScenes(brandId);
+    return bookmarkedFirst(scenes, (s) => marks.includes(s.id)).slice(0, 6);
   }, [scene, loaded, error, scenes, brandId]);
 
   const [draftName, setDraftName] = useState(owned?.name ?? '');
@@ -238,7 +238,7 @@ export function ScenePage() {
   // never carry a demo product, so they skip it.
   const showDemoProductNote = !owned && scene.subject !== 'person' && frames.length > 0;
 
-  const starred = favs.includes(scene.id);
+  const marked = marks.includes(scene.id);
   return (
     <ScrollPane>
       <main className="sc-lookpage" id="main">
@@ -285,16 +285,16 @@ export function ScenePage() {
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
             Use in a shot
           </button>
-          {/* Starred scenes get their own shelf on /scenes, and lead the one on Home. */}
+          {/* Bookmarked scenes get their own tab on /scenes, and lead the shelf on Home. */}
           {!owned && (
             <button
               type="button"
               className="sc-btn sc-btn-ghost"
-              aria-pressed={starred}
-              onClick={() => setFavs(toggleFavoriteScene(brandId, scene.id))}
+              aria-pressed={marked}
+              onClick={() => setMarks(toggleBookmarkScene(brandId, scene.id))}
             >
-              <Star size={13} weight={starred ? 'fill' : 'regular'} />
-              <span>{starred ? 'Starred' : 'Star'}</span>
+              <BookmarkSimple size={13} weight={marked ? 'fill' : 'regular'} />
+              <span>{marked ? 'Bookmarked' : 'Bookmark'}</span>
             </button>
           )}
           {owned && (

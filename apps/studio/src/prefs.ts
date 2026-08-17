@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react';
  * the machine rather than the URL, which stays about where you are.
  *
  * Most keys carry the scenri: prefix. Two older ones (sc-theme and
- * sc-favlooks-*) predate it and were spelled bt-* before the rename, so they
+ * sc-favscenes-*) predate it and were spelled bt-* before the rename, so they
  * are migrated on first read rather than renamed outright: a plain rename
- * would silently reset every existing user's theme and favourites on upgrade.
+ * would silently reset every existing user's theme and bookmarks on upgrade.
  * Once a release or two has passed, `migrateKey` and its call sites can go.
  */
 export const PREF = {

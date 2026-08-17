@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CaretDown, Check, ImageSquare, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
+import { BookmarkSimple, CaretDown, Check, ImageSquare, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { imgUrl, type Brand, type TreeNode } from '../api.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
-import { favoriteScenes } from '../favorites.js';
+import { bookmarkedScenes } from '../bookmarks.js';
 import { matchesQuery } from './library/libraryRules.js';
 import {
   buildCandidates,
@@ -103,7 +103,7 @@ export function AssetsPanel({
   const modeOf = (key: string): SectionMode =>
     searching ? 'result' : expanded === null ? 'idle' : expanded === key ? 'open' : 'collapsed';
 
-  const starred = useMemo(() => new Set(favoriteScenes(brand.id)), [brand.id]);
+  const bookmarked = useMemo(() => new Set(bookmarkedScenes(brand.id)), [brand.id]);
 
   /**
    * One ranked list per kind — yours lifted above scenri's, taste and
@@ -118,10 +118,10 @@ export function AssetsPanel({
   const ranked = useMemo(() => {
     const of = (kind: IngredientKind): Candidate[] => {
       const all = buildCandidates(kind, catalog);
-      return pickList(kind, all, { currentId: null, query: '', starred, shown: all.length }).items;
+      return pickList(kind, all, { currentId: null, query: '', bookmarked, shown: all.length }).items;
     };
     return { product: of('product'), presenter: of('presenter'), scene: of('scene') };
-  }, [catalog, starred]);
+  }, [catalog, bookmarked]);
 
   const found = useMemo(
     () => ({
@@ -421,7 +421,17 @@ function AssetCard({
           <Check size={10} weight="bold" />
         </span>
       </span>
-      {named && <span className="sc-acard-label">{candidate.label}</span>}
+      {named && (
+        <span className="sc-acard-label">
+          {candidate.bookmarked && (
+            <>
+              <BookmarkSimple className="sc-bm-mark" size={10} weight="fill" aria-hidden />
+              <span className="sc-vh">Bookmarked. </span>
+            </>
+          )}
+          {candidate.label}
+        </span>
+      )}
     </button>
   );
 }

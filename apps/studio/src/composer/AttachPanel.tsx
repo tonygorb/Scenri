@@ -10,7 +10,7 @@ import { keepCaret } from './line.js';
 import { matchesQuery } from '../layout/library/libraryRules.js';
 import { buildCandidates, pickList, type IngredientKind } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
-import { favoriteScenes } from '../favorites.js';
+import { bookmarkedScenes } from '../bookmarks.js';
 
 /** Per group on the All tab, where the point is breadth rather than depth. */
 const ALL_TAB_PREVIEW = 8;
@@ -71,7 +71,7 @@ export function AttachPanel({
   }, [initialTab]);
   const [q, setQ] = useState('');
   const catalog = useIngredientCatalog(activeProductCategory);
-  const starred = useMemo(() => new Set(favoriteScenes(brand.id)), [brand.id]);
+  const bookmarked = useMemo(() => new Set(bookmarkedScenes(brand.id)), [brand.id]);
   const createAsset = useCreateAsset();
   // The creation dialog lives in the URL now, so "is something stacked on top
   // of me" is a question the URL answers rather than a boolean this panel has
@@ -127,7 +127,7 @@ export function AttachPanel({
       pickList(kind, buildCandidates(kind, catalog), {
         currentId: null,
         query: '',
-        starred,
+        bookmarked,
         shown: Number.MAX_SAFE_INTEGER,
       }).items.map((c) => ({
         key: `${kind}:${c.id}`,
@@ -175,7 +175,7 @@ export function AttachPanel({
         }),
       ),
     ];
-  }, [brand, catalog, starred, shots, onToken, onTemplate]);
+  }, [brand, catalog, bookmarked, shots, onToken, onTemplate]);
 
   // The library matcher, not a second one: `rosé` and `serums` found results
   // on every library page and in the picker, and nothing here.

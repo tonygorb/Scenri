@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ContextMenu } from '@radix-ui/themes';
-import { Check, ImageSquare, Star } from '@phosphor-icons/react';
+import { BookmarkSimple, Check, ImageSquare } from '@phosphor-icons/react';
 
 export type CatalogCardVariant = 'navigate' | 'use' | 'select' | 'plain';
 export type CatalogCardSize = 'shelf' | 'grid' | 'slider' | 'wizard';
@@ -31,8 +31,8 @@ export function CatalogCard({
   onUse,
   selected,
   onToggle,
-  starred,
-  onStar,
+  bookmarked,
+  onBookmark,
   size = 'grid',
 }: {
   id: string;
@@ -47,14 +47,16 @@ export function CatalogCard({
   selected?: boolean;
   onToggle?: (id: string) => void;
   /**
-   * Optional star, shown on the media in every variant but `select`.
+   * Optional bookmark, shown on the media in every variant but `select`.
    *
-   * Favouriting used to happen once, in a setup wizard, which is the wrong
-   * moment for a judgement about taste — you make it while browsing, on the
-   * card in front of you.
+   * Shortlisting used to happen once, in a setup wizard, which is the wrong
+   * moment for it — you decide while browsing, on the card in front of you.
+   *
+   * A bookmark, not a star: a filled gold star already means a kept shot, and
+   * one glyph cannot mean two things in one app.
    */
-  starred?: boolean;
-  onStar?: (id: string) => void;
+  bookmarked?: boolean;
+  onBookmark?: (id: string) => void;
   size?: CatalogCardSize;
 }) {
   const [broken, setBroken] = useState(false);
@@ -163,20 +165,20 @@ export function CatalogCard({
             {useLabel}
           </button>
         )}
-        {onStar && (
+        {onBookmark && (
           <button
             type="button"
-            className="sc-lookcard-star"
-            data-on={starred || undefined}
-            aria-pressed={!!starred}
-            aria-label={starred ? `Unstar ${primary}` : `Star ${primary}`}
+            className="sc-cardpuck sc-lookcard-bookmark"
+            data-on={bookmarked || undefined}
+            aria-pressed={!!bookmarked}
+            aria-label={bookmarked ? `Remove bookmark from ${primary}` : `Bookmark ${primary}`}
             onClick={(e) => {
-              // The media is an open-button; a star inside it must not open.
+              // The media is an open-button; a bookmark inside it must not open.
               e.stopPropagation();
-              onStar(id);
+              onBookmark(id);
             }}
           >
-            <Star size={13} weight={starred ? 'fill' : 'regular'} />
+            <BookmarkSimple size={13} weight={bookmarked ? 'fill' : 'regular'} />
           </button>
         )}
       </div>
@@ -192,7 +194,11 @@ export function CatalogCard({
       <ContextMenu.Content>
         {onOpen && <ContextMenu.Item onSelect={() => onOpen(id)}>Open</ContextMenu.Item>}
         {showUseButton && <ContextMenu.Item onSelect={() => onUse?.(id)}>{useLabel}</ContextMenu.Item>}
-        {onStar && <ContextMenu.Item onSelect={() => onStar(id)}>{starred ? 'Remove star' : 'Star'}</ContextMenu.Item>}
+        {onBookmark && (
+          <ContextMenu.Item onSelect={() => onBookmark(id)}>
+            {bookmarked ? 'Remove bookmark' : 'Bookmark'}
+          </ContextMenu.Item>
+        )}
       </ContextMenu.Content>
     </ContextMenu.Root>
   );

@@ -11,7 +11,7 @@ import { showcaseBrief, useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
-import { favoriteScenes } from '../favorites.js';
+import { bookmarkedScenes } from '../bookmarks.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
@@ -27,7 +27,7 @@ import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { FacetFilter } from '../layout/library/FacetFilter.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
 import { LibraryZero } from '../layout/library/LibraryEmpty.js';
-import { matchesQuery, starredFirst } from '../layout/library/libraryRules.js';
+import { matchesQuery, bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
@@ -188,23 +188,25 @@ export function HomeView() {
   const root = nodes.find((n) => n.kind === 'root') ?? null;
 
   /** Seed a scene and open the products attach — product, presenter, and scene
-   * chain in Create from there. The most recently starred scene wins: stars are
-   * stored in the order they were given, and the newest one is the closest
-   * thing to what this brand is shooting right now. Nothing starred, or nothing
-   * starred that survived the catalog, falls back to the first scene. */
+   * chain in Create from there. The most recently bookmarked scene wins:
+   * bookmarks are stored in the order they were given, and the newest one is
+   * the closest thing to what this brand is shooting right now. Nothing
+   * bookmarked, or nothing bookmarked that survived the catalog, falls back to
+   * the first scene. */
   const startCompose = () => {
-    const favs = favoriteScenes(brand.id);
-    const sceneId = [...favs].reverse().find((id) => templates.some((t) => t.id === id)) ?? templates[0]?.id;
+    const marks = bookmarkedScenes(brand.id);
+    const sceneId = [...marks].reverse().find((id) => templates.some((t) => t.id === id)) ?? templates[0]?.id;
     toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
 
-  /** The Scenes shelf: starred first, catalog order under that. Eight tiles is
-   * a glance, and the ones you starred are the ones worth glancing at. Read
-   * per render rather than held in state — the shelf is rebuilt on every visit
-   * to Home, which is exactly when a star set on /scenes should show up. */
+  /** The Scenes shelf: bookmarked first, catalog order under that. Eight tiles
+   * is a glance, and the ones you shortlisted are the ones worth glancing at.
+   * Read per render rather than held in state — the shelf is rebuilt on every
+   * visit to Home, which is exactly when a bookmark set on /scenes should show
+   * up. */
   const shelfScenes = useMemo(() => {
-    const favs = favoriteScenes(brand.id);
-    return starredFirst(templates, (s) => favs.includes(s.id)).slice(0, 8);
+    const marks = bookmarkedScenes(brand.id);
+    return bookmarkedFirst(templates, (s) => marks.includes(s.id)).slice(0, 8);
   }, [templates, brand.id]);
 
   /** Curated create-strip heroes — preferred showcase/scene ids in quality

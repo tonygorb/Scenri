@@ -146,6 +146,10 @@ export function ProductsView() {
    * Ownership is the only input — never the filtered count. Narrowing to a
    * category your one product is not in used to read as losing the page,
    * chrome and all, and snapping back to the first-run offer.
+   *
+   * It gates the offer alone. The filter row is gated on the wall it filters
+   * (see below), so the cold state keeps its search and its categories over
+   * the 44 products of ours sitting underneath the offer.
    */
   const heroMode = cold;
   const showMine = products.length > 0;
@@ -168,7 +172,7 @@ export function ProductsView() {
   return (
     <ScrollPane>
       <main className="sc-looks sc-products" id="main" data-hero={heroMode || undefined}>
-        {heroMode ? <h1 className="sc-vh">Products</h1> : toolbar}
+        {!heroMode && toolbar}
 
         {!productsLoaded && (
           <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
@@ -227,21 +231,28 @@ export function ProductsView() {
           </div>
         )}
 
+        {/* The seam, and the row that belongs to the wall under it. Gated on
+            the unfiltered library, not on what survives the filter: a search
+            that finds nothing must not take the control you searched with. */}
+        {heroMode && theirs.length > 0 && (
+          <>
+            <StarterDivider label="Or borrow one of ours" />
+            {toolbar}
+          </>
+        )}
+
         {theirsFiltered.length > 0 && (
-          <div className={heroMode ? 'sc-starter' : undefined}>
-            {heroMode && <StarterDivider label="Or borrow one of ours" />}
-            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-              {theirsFiltered.map((p) => (
-                <DemoProductCard
-                  key={p.id}
-                  product={p}
-                  variant="use"
-                  size="grid"
-                  onUse={applyProduct}
-                  onOpen={openProduct}
-                />
-              ))}
-            </div>
+          <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+            {theirsFiltered.map((p) => (
+              <DemoProductCard
+                key={p.id}
+                product={p}
+                variant="use"
+                size="grid"
+                onUse={applyProduct}
+                onOpen={openProduct}
+              />
+            ))}
           </div>
         )}
 

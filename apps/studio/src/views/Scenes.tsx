@@ -10,7 +10,7 @@ import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { customScenesOf } from '../brandAssets.js';
 import { scenePath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
-import { favoriteScenes, toggleFavoriteScene } from '../favorites.js';
+import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { AssetBuildCard } from '../layout/AssetBuildCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
 import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
@@ -30,11 +30,11 @@ import { PREF, useLocalPref } from '../prefs.js';
 const SEARCH_MIN = 8;
 
 /**
- * The rail's value for the Favorites tab. Taste is a different axis from
- * vertical, so it rides its own `?starred=1` param and this string never
+ * The rail's value for the Bookmarks tab. A shortlist is a different axis from
+ * vertical, so it rides its own `?bookmarked=1` param and this string never
  * reaches the URL — which is why it can't collide with a real vertical name.
  */
-const STARRED = '__starred';
+const BOOKMARKED = '__bookmarked';
 
 /**
  * The scenes library, built on the shared Creative Library shell
@@ -45,21 +45,21 @@ const STARRED = '__starred';
  * undifferentiated grid. That sectioning only makes sense while browsing:
  * the moment a search term is active, three matches scattered across five
  * sections reads worse than one flat result list, so search collapses to a
- * single grid instead. Favorites collapses it the same way, for the same
+ * single grid instead. Bookmarks collapses it the same way, for the same
  * reason.
  *
- * Starring a card is what makes a catalog this size yours, and the Favorites
+ * Bookmarking a card is what makes a catalog this size yours, and the Bookmarks
  * tab is where that lands — one more tab on the rail you already use, holding
- * only the scenes you starred.
+ * only the scenes you bookmarked.
  */
 export function ScenesView() {
   const { scenes, collections, verticals, loaded, error, refetch } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
-  // Taste, per brand, in localStorage — deliberately not in the .brand
+  // The shortlist, per brand, in localStorage — deliberately not in the .brand
   // document. Read once here so every card on the wall shares one answer.
-  const [favs, setFavs] = useState<string[]>(() => favoriteScenes(brand.id));
-  const star = (id: string) => setFavs(toggleFavoriteScene(brand.id, id));
+  const [marks, setMarks] = useState<string[]>(() => bookmarkedScenes(brand.id));
+  const bookmark = (id: string) => setMarks(toggleBookmarkScene(brand.id, id));
   const applyScene = useApplyScene();
   // One poll for the whole app, owned by TaskCenter: a build started from the
   // top bar on any screen has to stay visible after you leave the screen that
@@ -68,12 +68,10 @@ export function ScenesView() {
   const createAsset = useCreateAsset();
   const mine = useMemo(() => customScenesOf(brand), [brand]);
   const buildingScenes = builds.filter((b) => b.kind === 'scene' && (!b.finished || b.stage === 'failed'));
-  const { q, setQ, facets, setFacets, clearSearch, clear } = useLibraryQuery(['vertical', 'starred']);
+  const { q, setQ, facets, setFacets, clearSearch, clear } = useLibraryQuery(['vertical', 'bookmarked']);
   const vertical = facets.vertical;
-  const onlyStarred = facets.starred === '1';
+  const onlyMarked = facets.bookmarked === '1';
   const searching = q.trim().length > 0;
-  /** Sections are for browsing. Narrow the wall by anything and one flat list reads better. */
-  const flat = searching || onlyStarred;
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
   const setDensity = (cols: DensityCols) => setTile(cols);
@@ -83,23 +81,48 @@ export function ScenesView() {
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
   const byFacet = useMemo(() => {
-    if (onlyStarred) return scenes.filter((s) => favs.includes(s.id));
+    if (onlyMarked) return scenes.filter((s) => marks.includes(s.id));
     return vertical ? scenes.filter((s) => s.verticals.includes(vertical)) : scenes;
-  }, [scenes, vertical, onlyStarred, favs]);
+  }, [scenes, vertical, onlyMarked, marks]);
+
+  const owned = mine.length > 0 || buildingScenes.length > 0;
+  const heroMode = !owned;
+  const markedTotal = scenes.reduce((n, s) => n + (marks.includes(s.id) ? 1 : 0), 0);
+  /** The one empty wall that is not a failure: a tab you have not filled yet. */
+  const bookmarksZero = onlyMarked && markedTotal === 0;
+  /** Cold brands: an empty shortlist has nothing to show — keep the catalog up. */
+  const bookmarksBrowse = bookmarksZero && heroMode;
+  /**
+   * The tab has its own thing to say, so nothing else should also speak.
+   *
+   * Gate the zero-result state on *this*, not on `bookmarksZero`: in
+   * `bookmarksBrowse` the wall is the whole catalog, a search can still empty
+   * it, and suppressing both messages left a blank page under a filled-in
+   * search box — the same silence this file already fixed once.
+   */
+  const bookmarksMessage = bookmarksZero && !heroMode;
+
+  /** Sections are for browsing. Narrow the wall by anything and one flat list reads better. */
+  const flat = searching || (onlyMarked && !bookmarksBrowse);
+
+  const wallSource = useMemo(
+    () => (bookmarksBrowse ? scenes : byFacet),
+    [bookmarksBrowse, scenes, byFacet],
+  );
 
   const filtered = useMemo(
     () =>
-      byFacet.filter((s) =>
+      wallSource.filter((s) =>
         // sceneSearchText folds in keywords and pre-rename names, so a short
         // display name never costs a scene its findability.
         matchesQuery(sceneSearchText(s), q),
       ),
-    [byFacet, q],
+    [wallSource, q],
   );
 
   const { visible, remaining, showMore } = useLibraryPage(
     filtered,
-    `${vertical ?? ''}|${onlyStarred ? 'starred' : ''}|${q}`,
+    `${vertical ?? ''}|${onlyMarked ? 'bookmarked' : ''}|${bookmarksBrowse ? 'browse' : ''}|${q}`,
   );
 
   // Both halves of the wall, counted by the same rule the tab filters by
@@ -107,18 +130,17 @@ export function ScenesView() {
   const countFor = (v: string) =>
     [...mine, ...scenes].filter((s) => !s.verticals.length || s.verticals.includes(v)).length;
 
-  // Favorites always leads the rail, including at zero. A tab that appears
-  // with the first star would shift every vertical along under the cursor at
-  // the exact moment of clicking one, and a rail whose shape depends on your
+  // Bookmarks always leads the rail, including at zero. A tab that appears
+  // with the first bookmark would shift every vertical along under the cursor
+  // at the exact moment of clicking one, and a rail whose shape depends on your
   // history is a rail you can't build muscle memory for. Empty, it teaches
-  // itself. The count is what the tab can actually show: a star outlives its
-  // scene leaving the catalog, so the stored list is not the same as the tab.
-  const starredTotal = scenes.reduce((n, s) => n + (favs.includes(s.id) ? 1 : 0), 0);
+  // itself. The count is what the tab can actually show: a bookmark outlives
+  // its scene leaving the catalog, so the stored list is not the same as the tab.
   const facetOptions = [
-    { value: STARRED, label: 'Favorites', count: starredTotal },
+    { value: BOOKMARKED, label: 'Bookmarks', count: markedTotal },
     ...verticals.map((v) => ({ value: v, label: v, count: countFor(v) })),
   ];
-  // Not facetMode's call any more: "Every scene" plus "Favorites" is already
+  // Not facetMode's call any more: "Every scene" plus "Bookmarks" is already
   // two real choices, so the rail earns itself the moment there is a catalog,
   // however few verticals that catalog happens to carry.
   const mode: FacetMode = scenes.length > 0 ? 'tabs' : 'none';
@@ -128,11 +150,11 @@ export function ScenesView() {
     label: 'Vertical',
     everyLabel: 'Every scene',
     everyCount: scenes.length + mine.length,
-    selected: onlyStarred ? STARRED : vertical,
-    // One write, both axes: `starred` and `vertical` are mutually exclusive,
+    selected: onlyMarked ? BOOKMARKED : vertical,
+    // One write, both axes: `bookmarked` and `vertical` are mutually exclusive,
     // and two separate setFacet calls would have the second undo the first.
     onSelect: (v: string | null) =>
-      v === STARRED ? setFacets({ starred: '1', vertical: null }) : setFacets({ starred: null, vertical: v }),
+      v === BOOKMARKED ? setFacets({ bookmarked: '1', vertical: null }) : setFacets({ bookmarked: null, vertical: v }),
     options: facetOptions,
   };
 
@@ -140,8 +162,8 @@ export function ScenesView() {
    * The brand's own places, narrowed by whatever the wall is narrowed by.
    *
    * A custom scene answers to search and to a vertical exactly as a curated one
-   * does. Favorites is the one axis it stays out of: a star is a way of picking
-   * favourites from a large catalog you did not write.
+   * does. Bookmarks is the one axis it stays out of: a bookmark is a way of
+   * shortlisting a large catalog you did not write.
    */
   const mineShown = useMemo(
     () =>
@@ -159,16 +181,15 @@ export function ScenesView() {
    * one scene is not in used to drop the whole page back to the first-run
    * offer, chrome included.
    */
-  const owned = mine.length > 0 || buildingScenes.length > 0;
-  const showMine = !onlyStarred && (buildingScenes.length > 0 || mineShown.length > 0);
+  const showMine = !onlyMarked && (buildingScenes.length > 0 || mineShown.length > 0);
   /**
    * Nothing of your own yet: the page leads with its offer.
    *
-   * Ownership is the only input, so a filter can never make the offer vanish.
-   * Favorites is the one exception: that tab is a place you deliberately went,
-   * and it has its own empty state to show.
+   * Ownership is the only input. A filter can never make the offer appear or
+   * vanish — this used to also read `&& !onlyMarked`, which meant selecting
+   * the Bookmarks tab tore the offer out from under the row and moved the row
+   * itself to the top of the page, at the moment of the click.
    */
-  const heroMode = !owned && !onlyStarred;
 
   const createCta = (
     <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('scene')}>
@@ -192,18 +213,30 @@ export function ScenesView() {
           size="grid"
           onOpen={openScene}
           onUse={applyScene}
-          starred={favs.includes(s.id)}
-          onStar={star}
+          bookmarked={marks.includes(s.id)}
+          onBookmark={bookmark}
         />
       ))}
     </div>
   );
 
   /**
-   * The filter row belongs to the wall it filters.
+   * The filter row belongs to the wall it filters, and is gated on that wall
+   * having contents — never on whether you own any of them. Home has always
+   * read it this way (`showcase.length > 0`); the library pages rode ownership
+   * instead, which hid search and every vertical from a brand that had not
+   * authored a scene of its own. That is nearly every brand: leaving the cold
+   * state takes a whole build flow, so it is the state this page lives in.
    *
-   * In the cold state that wall is the catalog, a screenful below the offer,
-   * so the row travels down and sits directly on top of it.
+   * In the cold state the wall is a screenful below the offer, so the row goes
+   * down with it and sits directly on top of it. It stays sticky there — it is
+   * a sibling of the wall, not wrapped in a box that ends above it, so it docks
+   * under the nav for the whole length of the scroll.
+   *
+   * What it must never do is arrive. A row that appears when you bookmark your
+   * first scene shoves the wall — and the card you just clicked — down by its
+   * own height, which is the same objection the Bookmarks tab itself answers by
+   * rendering at zero.
    */
   const toolbar = (
     <LibraryToolbar
@@ -261,10 +294,21 @@ export function ScenesView() {
         )}
 
         {/* A heading only where it separates two things. */}
-        {showMine && loaded && !error && !onlyStarred && byFacet.length > 0 && (
+        {showMine && loaded && !error && !onlyMarked && byFacet.length > 0 && (
           <div className="sc-sec-head sc-owned-divider">
             <h2 className="sc-sec-title">Scenri scenes</h2>
           </div>
+        )}
+
+        {/* The seam, and the row that belongs to the wall under it. Both sit
+            outside the sectioned branch below on purpose: searching or picking
+            Bookmarks flips `flat`, and a row that unmounts as you type in it is
+            worse than one that never appeared. */}
+        {heroMode && loaded && !error && scenes.length > 0 && (
+          <>
+            <StarterDivider label="Or start from one of ours" />
+            {toolbar}
+          </>
         )}
 
         {!loaded && (
@@ -282,49 +326,55 @@ export function ScenesView() {
           />
         )}
 
-        {loaded && !error && !flat && (
-          // In the cold state the catalog is introduced the way Products
-          // introduces its library, under one eyebrow, and carries the filter
-          // row with it. Only eyebrow on the page.
-          <div className={heroMode ? 'sc-starter' : undefined}>
-            {heroMode && <StarterDivider label="Or start from one of ours" />}
-            {collections.map((c) => {
-              const inCollection = byFacet.filter((s) => s.collections.includes(c));
-              if (!inCollection.length) return null;
-              return (
-                // Just the heading and the wall. The row of scene names that
-                // used to sit here repeated, in text, every card directly
-                // below it: two ways to open the same thing, stacked.
-                <section className="sc-coll" key={c}>
-                  <h2>{c}</h2>
-                  {grid(inCollection)}
-                </section>
-              );
-            })}
-          </div>
-        )}
+        {loaded &&
+          !error &&
+          !flat &&
+          collections.map((c) => {
+            const inCollection = wallSource.filter((s) => s.collections.includes(c));
+            if (!inCollection.length) return null;
+            return (
+              // Just the heading and the wall. The row of scene names that
+              // used to sit here repeated, in text, every card directly
+              // below it: two ways to open the same thing, stacked.
+              <section className="sc-coll" key={c}>
+                <h2>{c}</h2>
+                {grid(inCollection)}
+              </section>
+            );
+          })}
 
         {loaded && !error && flat && visible.length > 0 && grid(visible, true)}
 
-        {/* An empty Favorites tab is not a failed search — nothing went wrong,
-            there is just nothing here yet. Say what puts something here. */}
-        {loaded && !error && onlyStarred && starredTotal === 0 && (
+        {/* An empty Bookmarks tab is not a failed search — nothing went wrong,
+            there is just nothing here yet. Say what puts something here. In the
+            cold state the catalog stays up instead: there is nothing to hide
+            behind an empty wall, and the instruction only works if cards are
+            on screen. */}
+        {loaded && !error && bookmarksMessage && (
           <LibraryEmpty
             shape="zero"
-            body="Nothing starred yet. Star a scene from its card and it stays here."
+            body="Nothing bookmarked yet. Bookmark a scene from its card and it stays here."
             action={
-              <button type="button" className="sc-lib-clear" onClick={() => setFacets({ starred: null })}>
+              <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setFacets({ bookmarked: null })}>
                 Browse every scene
               </button>
             }
           />
         )}
 
-        {loaded && !error && scenes.length > 0 && starredTotal > 0 && filtered.length === 0 && (
+        {/* Everything else that empties the wall: a search, a vertical, or both.
+            Gated on the message above actually rendering, never on a proxy for
+            it. It used to read `markedTotal > 0`, then `!bookmarksZero`; both
+            were shorthand for "not the case above" and both left a state where
+            neither spoke and the page went blank under a filled-in search box.
+            The facet it names is the one the wall was actually narrowed by —
+            in `bookmarksBrowse` that is nothing, because the wall is the whole
+            catalog. */}
+        {loaded && !error && scenes.length > 0 && !bookmarksMessage && filtered.length === 0 && mineShown.length === 0 && (
           <LibraryZero
             noun="scenes"
             q={q}
-            facet={onlyStarred ? 'Favorites' : vertical}
+            facet={bookmarksBrowse ? null : onlyMarked ? 'Bookmarks' : vertical}
             onClearSearch={clearSearch}
             onClearAll={clear}
           />
