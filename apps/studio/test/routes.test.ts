@@ -8,6 +8,8 @@ import {
   scenesPath,
   presenterPath,
   presentersPath,
+  productPath,
+  productsPath,
   rewriteLegacyPath,
   setPath,
   shotPath,
@@ -17,6 +19,18 @@ const brand = { slug: 'nalla' };
 const set = { slug: 'spring-campaign' };
 
 describe('path builders', () => {
+  /**
+   * A catalog product's id carries the `cat-` prefix the server strips, and a
+   * demo product's is a plain slug. Both have to survive the round trip: the
+   * page reads the id straight back out of the URL to find the product.
+   */
+  it('carries every shape of product id through unmangled', () => {
+    expect(productPath(brand, 'cat-8f4da3e5-2d67-4cf8-838f-1fb72bc56cb3')).toBe(
+      '/nalla/products/cat-8f4da3e5-2d67-4cf8-838f-1fb72bc56cb3',
+    );
+    expect(productPath(brand, 'aldergate-frost-field-watch')).toBe('/nalla/products/aldergate-frost-field-watch');
+  });
+
   it('puts the brand at the root, with no prefix segment', () => {
     expect(brandPath(brand)).toBe('/nalla');
   });
@@ -27,6 +41,8 @@ describe('path builders', () => {
     expect(scenePath(brand, 'soft-daylight')).toBe('/nalla/scenes/soft-daylight');
     expect(presentersPath(brand)).toBe('/nalla/presenters');
     expect(presenterPath(brand, 'sana')).toBe('/nalla/presenters/sana');
+    expect(productsPath(brand)).toBe('/nalla/products');
+    expect(productPath(brand, 'p-1a2b3c4d')).toBe('/nalla/products/p-1a2b3c4d');
     expect(hubPath(brand)).toBe('/nalla/create');
     expect(setPath(brand, set)).toBe('/nalla/sets/spring-campaign');
   });
@@ -42,6 +58,8 @@ describe('path builders', () => {
       kitPath(brand),
       scenesPath(brand),
       scenePath(brand, 'soft-daylight'),
+      productsPath(brand),
+      productPath(brand, 'p-1a2b3c4d'),
       hubPath(brand),
       setPath(brand, set),
       shotPath(brand, null, 'n1'),

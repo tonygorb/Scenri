@@ -5,9 +5,7 @@
    serif italic accent once per screen, headings only; pills for controls. */
 
 :root {
-  --sc-font:
-    "Inter Tight Variable", "Inter Variable", -apple-system, "Segoe UI",
-    sans-serif;
+  --sc-font: "Inter Tight Variable", "Inter Variable", -apple-system, "Segoe UI", sans-serif;
   --sc-font-display: var(--sc-font);
   --sc-font-accent: "Playfair Display", serif;
   --sc-font-mono: ui-monospace, "SF Mono", monospace;
@@ -20,11 +18,7 @@
 
   /* layout */
   --sc-gutter: 24px; /* one page edge: top bar and content agree at every width */
-  --sc-prompt-w: clamp(
-    640px,
-    50vw,
-    1000px
-  ); /* the dock owns this; the card fills it */
+  --sc-prompt-w: clamp(640px, 50vw, 1000px); /* the dock owns this; the card fills it */
   --sc-topbar-h: 52px;
   /* Wide enough for three recognisable tiles and a short name; no wider,
      because every pixel here comes off the feed. Read by the dock and the
@@ -1984,8 +1978,7 @@ select {
 }
 /* A scene keeps its own hue here the way its chip does, from the same helper. */
 .sc-swap-thumb[data-tinted] {
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--tint) 40%, var(--sc-line));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 40%, var(--sc-line));
 }
 .sc-swap-cur .sc-swap-thumb {
   width: var(--swap-face);
@@ -5798,8 +5791,7 @@ textarea.sc-edit[data-variant="lede"] {
     bottom: 0;
     z-index: 90;
     margin: 0;
-    padding: var(--sc-space-5) var(--sc-gutter)
-      calc(var(--sc-bottom-inset) + var(--sc-space-4));
+    padding: var(--sc-space-5) var(--sc-gutter) calc(var(--sc-bottom-inset) + var(--sc-space-4));
     background: none;
     border-top: none;
     pointer-events: none;
@@ -6404,18 +6396,10 @@ textarea.sc-edit[data-variant="lede"] {
   color: var(--sc-fg);
 }
 .sc-token[data-tinted] > button {
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%
-  );
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%);
 }
 .sc-token[data-tinted]:hover > button {
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%
-  );
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%);
 }
 
 /* ---------- chips, final pass (5.3) ----------
@@ -6494,11 +6478,7 @@ textarea.sc-edit[data-variant="lede"] {
   background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
 }
 .sc-token[data-tinted] > button::before {
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover))
-  );
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover)));
 }
 
 /* Keyboard focus is a ring, here as everywhere else.
@@ -7058,15 +7038,9 @@ textarea.sc-edit[data-variant="lede"] {
 @media (min-width: 761px) {
   .sc-masonry[data-density] {
     grid-template-columns: repeat(
-      auto-fill,
-      minmax(
-        min(
-          100%,
-          calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))
-        ),
-        1fr
-      )
-    );
+        auto-fill,
+        minmax(min(100%, calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))), 1fr)
+      );
   }
 }
 /* ---- LookCard (docs/product/patterns/look-card.md) ----
@@ -7190,12 +7164,7 @@ textarea.sc-edit[data-variant="lede"] {
   inset: 0;
   opacity: 0;
   transition: opacity 0.16s ease;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.74) 0%,
-    rgba(0, 0, 0, 0.26) 36%,
-    rgba(0, 0, 0, 0) 64%
-  );
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.74) 0%, rgba(0, 0, 0, 0.26) 36%, rgba(0, 0, 0, 0) 64%);
   pointer-events: none;
 }
 /* Dead-center of the media frame — not the whole card (footer must not shift it). */
@@ -7425,22 +7394,16 @@ textarea.sc-edit[data-variant="lede"] {
     transform: scale(1.03);
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-veil,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
-    .sc-lookcard
-    .sc-lookcard-veil {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-veil {
     opacity: 1;
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-cap,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
-    .sc-lookcard
-    .sc-lookcard-cap {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-cap {
     opacity: 1;
     transform: none;
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-use,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
-    .sc-lookcard
-    .sc-lookcard-use {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-use {
     opacity: 1;
     transform: translate(-50%, -50%);
     pointer-events: auto;
@@ -7494,9 +7457,7 @@ textarea.sc-edit[data-variant="lede"] {
     opacity var(--sc-credit-motion) var(--sc-credit-spring),
     transform var(--sc-credit-motion) var(--sc-credit-spring);
   /* Close: last in the chain tucks first. --i / --n are set in CreditRow. */
-  transition-delay: calc(
-    (var(--n, 1) - 1 - var(--i, 0)) * var(--sc-credit-stagger)
-  );
+  transition-delay: calc((var(--n, 1) - 1 - var(--i, 0)) * var(--sc-credit-stagger));
 }
 .sc-showcase-recipe .sc-showcase-chip {
   position: relative;
@@ -7540,55 +7501,35 @@ textarea.sc-edit[data-variant="lede"] {
 /* Expanded chain: pill tucks into a round chip, thumbs slide+fade in.
    Same rules for 1 / 2 / 3 items — stagger is --i from CreditRow. */
 @media (hover: hover) {
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-recipe
-    .sc-showcase-chip,
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-recipe
-    .sc-showcase-join {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
   }
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-recipe
-    .sc-showcase-chip,
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-recipe
-    .sc-credit-tip {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-credit-tip {
     pointer-events: auto;
   }
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-chips:has(.sc-showcase-recipe)
-    .sc-showcase-badge {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge {
     gap: 0;
     padding: var(--sc-credit-lip);
     max-width: none;
   }
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-chips:has(.sc-showcase-recipe)
-    .sc-showcase-badge-name {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge-name {
     max-width: 0;
     opacity: 0;
   }
 }
 @media (hover: none) {
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
-    .sc-showcase-recipe
-    .sc-showcase-chip,
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
-    .sc-showcase-recipe
-    .sc-showcase-join {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
   }
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
-    .sc-showcase-recipe
-    .sc-showcase-chip,
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
-    .sc-showcase-recipe
-    .sc-credit-tip {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-credit-tip {
     pointer-events: auto;
   }
   .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
@@ -7818,15 +7759,11 @@ textarea.sc-edit[data-variant="lede"] {
   height: 12px;
   margin-inline: -6px;
 }
-.sc-masonry[data-density-size="large"]
-  .sc-showcase-recipe
-  .sc-showcase-join::before {
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::before {
   width: 6px;
   height: 1.5px;
 }
-.sc-masonry[data-density-size="large"]
-  .sc-showcase-recipe
-  .sc-showcase-join::after {
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::after {
   width: 1.5px;
   height: 6px;
 }
@@ -9919,8 +9856,7 @@ select.sc-in {
   overscroll-behavior: contain;
   /* the page's edge, not one of its own: the sheet covers the screen it opens
      over, so its rows should line up with what is behind them */
-  padding: 0 var(--sc-gutter)
-    max(var(--sc-space-7), env(safe-area-inset-bottom));
+  padding: 0 var(--sc-gutter) max(var(--sc-space-7), env(safe-area-inset-bottom));
   background: var(--sc-panel);
   border-top: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
@@ -10189,8 +10125,7 @@ select.sc-in {
 }
 /* full-bleed hairline: the line is about the list above it, not about itself */
 .sc-setpop-foot {
-  margin: var(--sc-space-2) calc(var(--sc-space-2) * -1)
-    calc(var(--sc-space-2) * -1);
+  margin: var(--sc-space-2) calc(var(--sc-space-2) * -1) calc(var(--sc-space-2) * -1);
   padding: var(--sc-space-3) var(--sc-space-4) var(--sc-space-4);
   border-top: 1px solid var(--sc-line);
   color: var(--sc-fg3);
@@ -10437,9 +10372,7 @@ textarea:disabled {
    text-entry control is 16px and the chrome around it keeps its own scale.
    These beat rules like `.sc-ap-search input`, hence the !important. */
 @media (pointer: coarse) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
-      [type="color"]
-    ):not([type="file"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
   textarea,
   select,
   [contenteditable]:not([contenteditable="false"]) {
@@ -10877,14 +10810,28 @@ textarea:disabled {
 
 .sc-refrail {
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
+  /* One row that scrolls, at every width. A store product can carry twenty-odd
+     images, and wrapping those into three rows of thumbnails walls off the
+     frame they belong to. `safe` centres a set that fits and falls back to the
+     start edge when it does not, so a long set never puts its first thumb out
+     of reach. Desktop and touch behave identically. */
+  flex-wrap: nowrap;
+  justify-content: safe center;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
   gap: var(--sc-space-5);
   /* The gap that separates the control from the things that talk about it.
      Frame and rail are one object and sit close; everything below is commentary
      and needs the break, or all four rows read as one undifferentiated list. */
   margin: 0 auto var(--sc-space-8);
   padding: 2px;
+}
+.sc-refrail::-webkit-scrollbar {
+  display: none;
+}
+.sc-refrail-item {
+  scroll-snap-align: start;
 }
 .sc-refrail-item {
   position: relative;
@@ -11048,34 +10995,28 @@ textarea:disabled {
        to survive the breakpoint or the composition only reads on desktop */
     margin-bottom: var(--sc-space-5);
   }
-  /* One row that scrolls beats three that wrap: the set stays one gesture
-     wide, and the frame above it does not get pushed off the screen. */
+  /* The scroll itself is in the base rule now; the phone only widens the track
+     to the gutter so a thumb can start at the screen edge. */
   .sc-refrail {
-    flex-wrap: nowrap;
-    /* `safe` centres a set that fits and falls back to the start edge when it
-       does not, so a long set never puts its first thumb out of reach. */
-    justify-content: safe center;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
     margin-inline: calc(var(--sc-gutter) * -1);
     padding-inline: var(--sc-gutter);
   }
-  .sc-refrail::-webkit-scrollbar {
-    display: none;
-  }
   .sc-refrail-item {
     width: 64px;
-    scroll-snap-align: start;
   }
 }
 @media (pointer: coarse) {
-  /* A finger needs 44px; a 64px thumb already has it, the controls under it
-     do not. Same invisible box the top bar uses, so nothing grows chunky. */
+  /* A finger needs 44px; a 64px thumb already has it, the controls under it do
+     not — and neither did the page's own action row, which is where "Use in a
+     shot" lives. A 34px primary was the smallest target on the page and the
+     one people came to press. Same invisible box the top bar uses, so the
+     graphic keeps its size and only the reach grows. */
+  .sc-lookpage-acts .sc-btn,
   .sc-refacts .sc-btn,
   .sc-refacts .sc-refact {
     position: relative;
   }
+  .sc-lookpage-acts .sc-btn::after,
   .sc-refacts .sc-btn::after,
   .sc-refacts .sc-refact::after {
     content: "";
@@ -11117,6 +11058,18 @@ textarea:disabled {
 }
 .sc-refstage-drop[data-busy] {
   cursor: default;
+}
+
+/* A store description is scraped, not written for this page: it arrives at any
+   length and sits between the name and the frame, so an uncapped one pushes
+   the product itself below the fold. Scoped to the product page; a scene's
+   lede is authored and short. */
+.sc-productpage .sc-lookpage-lede {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 
 .sc-ownedbits {
@@ -12281,8 +12234,7 @@ textarea:disabled {
   gap: var(--sc-space-4);
   width: min(100%, 46ch);
   padding: var(--sc-space-6);
-  animation: sc-setup-arrive var(--sc-dur-slow) cubic-bezier(0.2, 0.8, 0.2, 1)
-    both;
+  animation: sc-setup-arrive var(--sc-dur-slow) cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .sc-fail[data-density="stage"] .sc-fail-ic {
   width: 40px;

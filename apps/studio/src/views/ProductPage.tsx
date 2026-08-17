@@ -5,6 +5,7 @@ import { Confirm } from '../Confirm.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
+import { useToasts } from '../toasts.js';
 import { productPath, productsPath, shotPath } from '../routes.js';
 import { CategoryPicker } from '../layout/CategoryPicker.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
@@ -41,6 +42,15 @@ function stripHtml(html: string): string {
     .replace(/&gt;/g, '>')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** The opening sentence, or a clean truncation when the first one runs long. */
+function firstSentence(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const stop = text.slice(0, max + 1).search(/[.!?](\s|$)/);
+  if (stop > 40) return text.slice(0, stop + 1);
+  const cut = text.lastIndexOf(' ', max);
+  return `${text.slice(0, cut > 40 ? cut : max).trimEnd()}\u2026`;
 }
 
 /**
@@ -95,6 +105,7 @@ export function ProductPage() {
   const { demoProducts, demoProductsLoaded } = useAppData();
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
+  const { push } = useToasts();
 
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -241,6 +252,39 @@ export function ProductPage() {
     ? demoFrames.map((f) => ({ file: f.angle, url: f.url, angle: f.angle }))
     : (product?.shots ?? []).flatMap(toRef);
 
+  /**
+   * Take one image out of the set, and say so with the way back attached.
+   *
+   * The set is whatever the list names, so undoing is the same write with the
+   * old list — which restores the position too, not just the membership. That
+   * a store image is excluded rather than deleted underneath (an import would
+   * otherwise hand it straight back) is the server's problem, not something
+   * the page should make anyone learn.
+   */
+  const removeRef = (file: string) => {
+    const before = refs.map((r) => r.file);
+    const position = before.indexOf(file) + 1;
+    void run(
+      api.setProductShots(
+        brand.id,
+        id,
+        before.filter((f) => f !== file),
+      ),
+    ).then(() =>
+      push({
+        kind: 'success',
+        title: 'Reference removed',
+        // which one: removing three in a row produced three identical toasts,
+        // and no way to tell which Undo brought back which
+        detail: `Reference ${position} of ${before.length}`,
+        action: {
+          label: 'Undo',
+          onClick: () => void run(api.setProductShots(brand.id, id, before)),
+        },
+      }),
+    );
+  };
+
   const note = demoProduct
     ? 'Our reference set. Yours replaces it.'
     : refs.length === 0
@@ -255,7 +299,10 @@ export function ProductPage() {
 
   const addLabel = editable === 'none' ? null : 'Add image';
 
-  const catalogCopy = product?.descriptionHtml ? stripHtml(product.descriptionHtml) : '';
+  // A scraped description runs to any length. Keep the first sentence when it
+  // is a reasonable one, else a hard cap: enough to say what the thing is,
+  // never enough to push the product off the screen.
+  const catalogCopy = product?.descriptionHtml ? firstSentence(stripHtml(product.descriptionHtml), 200) : '';
   const lede = demoProduct?.description || catalogCopy || null;
 
   const rest = demoProduct ? [demoProduct.subcategory] : [product?.variant, product?.material, product?.dimensions];
@@ -319,18 +366,7 @@ export function ProductPage() {
                     api.setProductShots(brand.id, id, [file, ...refs.map((r) => r.file).filter((f) => f !== file)]),
                   )
           }
-          onRemove={
-            editable === 'none'
-              ? undefined
-              : (file) =>
-                  void run(
-                    api.setProductShots(
-                      brand.id,
-                      id,
-                      refs.map((r) => r.file).filter((f) => f !== file),
-                    ),
-                  )
-          }
+          onRemove={editable === 'none' ? undefined : removeRef}
         />
 
         {made.length > 0 && (

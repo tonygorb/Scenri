@@ -6,13 +6,7 @@ import { categoryLabel, PRODUCT_CATEGORIES } from '../productCategories.js';
  * How a product is filed. A ghost button in the action row — the category
  * name, a caret, the same menu every other picker in the app uses.
  */
-export function CategoryPicker({
-  value,
-  onChange,
-}: {
-  value: string | null;
-  onChange: (key: string) => void;
-}) {
+export function CategoryPicker({ value, onChange }: { value: string | null; onChange: (key: string) => void }) {
   const current = categoryLabel(value) ?? 'Other';
   const selected = value && PRODUCT_CATEGORIES.some((c) => c.key === value) ? value : 'other';
 

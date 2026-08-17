@@ -3,7 +3,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
-import { compileBrief, briefLabel, brandRuleDirectives, validateBrief, type Brief } from '../src/brief.js';
+import {
+  compileBrief,
+  briefLabel,
+  brandRuleDirectives,
+  validateBrief,
+  PRODUCT_REF_MAX,
+  type Brief,
+} from '../src/brief.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 import { waitDone } from './helpers.js';
 
@@ -384,6 +391,82 @@ describe('brand mark token', () => {
     expect(r.attachments.map((a) => a.role)).toEqual(['product', 'product']);
     expect(r.dropped.map((d) => d.role)).toEqual(['brand']);
     expect(r.warnings.join(' ')).toContain('Acme wordmark');
+  });
+});
+
+/**
+ * The reference set is an ordered list, and the order carries meaning the
+ * product page now teaches out loud: the first image is the one identity hangs
+ * on, and only the first PRODUCT_REF_MAX reach an engine at all. A change that
+ * quietly re-sorts or over-sends here would not fail any other test, and would
+ * show up as a product that came back the wrong colour.
+ */
+describe('a product reference set is ordered, and the order is the contract', () => {
+  /** Five distinct angles, so both the cap and the ordering are observable. */
+  const fiveAngles = () => {
+    const hashes = ['a', 'b', 'c', 'd', 'e'].map((n) => core.images.save(Buffer.from(`angle-${n}`)));
+    return {
+      hashes,
+      brand: {
+        meta: { name: 'Acme' },
+        products: [
+          {
+            id: 'p1',
+            name: 'House Blend',
+            shots: hashes.map((h, i) => ({ file: `asset:${h}`, angle: ['front', 'side', 'detail', 'back', 'top'][i] })),
+          },
+        ],
+      },
+    };
+  };
+
+  it('sends the first three, in the order they are stored', () => {
+    const { hashes, brand } = fiveAngles();
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(6) }));
+
+    expect(r.attachments).toHaveLength(PRODUCT_REF_MAX);
+    expect(r.attachments.map((a) => a.hash)).toEqual(hashes.slice(0, PRODUCT_REF_MAX));
+  });
+
+  it('marks exactly one reference essential, and it is the first', () => {
+    const { hashes, brand } = fiveAngles();
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(6) }));
+
+    expect(r.attachments.filter((a) => a.essential)).toHaveLength(1);
+    expect(r.attachments[0]).toMatchObject({ hash: hashes[0], essential: true });
+  });
+
+  it('reordering the stored set reorders what the engine is sent', () => {
+    const { hashes, brand } = fiveAngles();
+    // what a "Use first" on the fourth image leaves behind
+    brand.products[0].shots = [brand.products[0].shots[3], ...brand.products[0].shots.filter((_, i) => i !== 3)];
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(6) }));
+
+    expect(r.attachments[0]).toMatchObject({ hash: hashes[3], essential: true });
+    expect(r.attachments.map((a) => a.hash)).toEqual([hashes[3], hashes[0], hashes[1]]);
+  });
+
+  it('a requested angle leads, and still counts against the cap', () => {
+    const { hashes, brand } = fiveAngles();
+    const r = compileBrief(
+      { tokens: [{ t: 'product', id: 'p1', angle: 'back' }] },
+      ctx({ brand, engineCaps: caps(6) }),
+    );
+
+    expect(r.attachments[0]).toMatchObject({ hash: hashes[3], essential: true });
+    expect(r.attachments).toHaveLength(PRODUCT_REF_MAX);
+    // no image is sent twice just because it was also asked for by name
+    expect(new Set(r.attachments.map((a) => a.hash)).size).toBe(PRODUCT_REF_MAX);
+  });
+
+  it('says nothing about coverage it cannot check, however many images there are', () => {
+    const { brand } = fiveAngles();
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(6) }));
+
+    // A store sends one image per colourway as readily as one per angle, so a
+    // count is not evidence that every side is covered.
+    expect(r.prompt).not.toMatch(/cover the object from every side/i);
+    expect(r.prompt).toMatch(/Any face not visible in them is unknown/i);
   });
 });
 

@@ -340,14 +340,27 @@ describe('golden: responsibility contract', () => {
     expect(r.prompt).toMatch(/Any face not visible in them is unknown/i);
   });
 
-  it('a fully covered product is told there is no face to guess at', () => {
+  /**
+   * A count is not evidence of coverage.
+   *
+   * This used to assert the opposite: four stored views earned the product a
+   * line saying they "cover the object from every side, so no face of it has to
+   * be guessed at". Nothing checked that they were views at all. An imported
+   * product routinely carries one image per colourway rather than one per
+   * angle, so the products that tripped the branch were often the ones whose
+   * images were not angles — and the claim grew more confident the more colours
+   * the store sold. The branch is gone; a big set is told exactly what a small
+   * one is told.
+   */
+  it('a big set earns no claim about coverage it cannot support', () => {
     const b = brand();
     b.products[0].shots.push({ file: `asset:${inspoHash}`, angle: 'back', locked: true });
     const r = compileBrief(
       { tokens: [{ t: 'product', id: 'p1' }] },
       { brand: b, images: core.images, engineCaps: caps(6), templateById: resolveScene },
     );
-    expect(r.prompt).toMatch(/cover the object from every side, so no face of it has to be guessed at/i);
+    expect(r.prompt).not.toMatch(/cover the object from every side/i);
+    expect(r.prompt).toMatch(/Any face not visible in them is unknown/i);
   });
 
   it('identity survives every engine clamp — the product reference is the last thing dropped', () => {

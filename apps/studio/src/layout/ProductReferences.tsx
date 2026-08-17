@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLineUp, ImageSquare, Plus } from '@phosphor-icons/react';
 import { Spinner } from '@radix-ui/themes';
 
@@ -44,8 +44,10 @@ export function ProductReferences({
   onRemove?: (file: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
+  // The selection follows the image, not its index: promoting one moves every
+  // index, and a page that jumped to a different photo when you pressed "Use
+  // first" would look like it had promoted the wrong one.
   const current = useMemo(() => refs.find((r) => r.file === selected) ?? refs[0], [refs, selected]);
   useEffect(() => {
     if (refs.length && !refs.some((r) => r.file === selected)) setSelected(refs[0]?.file ?? null);
@@ -119,7 +121,6 @@ export function ProductReferences({
           {addLabel && onAdd && refs.length > 0 && (
             <label className="sc-refrail-item sc-refrail-add" data-busy={busy || undefined}>
               <input
-                ref={fileRef}
                 type="file"
                 accept="image/*"
                 hidden

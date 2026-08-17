@@ -557,10 +557,30 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (idx === -1) return reply.status(404).send({ error: 'product not found' });
     const shots: any[] = products[idx].shots ?? [];
     const byFile = new Map(shots.map((s) => [s.file, s]));
-    if (files.some((f) => !byFile.has(f))) return reply.status(400).send({ error: 'unknown reference' });
+    /*
+     * A file may name an image the product does not currently hold, as long as
+     * this machine has the image.
+     *
+     * Removing a reference from a manual product drops the entry but never the
+     * blob — the store is content-addressed and keeps it. Refusing anything not
+     * already in `shots` therefore made removal one-way for exactly the products
+     * where it is most likely to be a slip, because "put it back" is naming the
+     * same asset again. The guard that matters is that the asset exists at all,
+     * which is the same bar `POST /products` sets for `imageHashes`.
+     */
+    const known = (f: string) => {
+      if (byFile.has(f)) return true;
+      const h = /^asset:([a-f0-9]{32})$/.exec(f)?.[1];
+      return Boolean(h && core.images.has(h));
+    };
+    if (files.some((f) => !known(f))) return reply.status(400).send({ error: 'unknown reference' });
     // Carry each shot across whole — angle and locked belong to the image, not
-    // to its position, and re-deriving them here would quietly drop them.
-    json.products = products.map((p, i) => (i === idx ? { ...p, shots: files.map((f) => byFile.get(f)) } : p));
+    // to its position, and re-deriving them here would quietly drop them. One
+    // coming back has no entry to carry, so it is rebuilt the way a fresh
+    // upload arrives.
+    json.products = products.map((p, i) =>
+      i === idx ? { ...p, shots: files.map((f) => byFile.get(f) ?? { file: f, locked: true }) } : p,
+    );
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     return core.store.updateBrand(brand.id, json);

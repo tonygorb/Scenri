@@ -87,7 +87,12 @@ test.describe('a new product', () => {
     await expect(toast.getByRole('button', { name: 'Use in a shot' })).toBeVisible();
 
     await toast.getByRole('button', { name: 'Use in a shot' }).click();
-    await expect(page).toHaveURL(/[?&]product=p-[a-f0-9]{8}&compose=1/);
+    // `compose=1` rides along to focus the brief and Create deletes it on
+    // arrival (Create.tsx), so asserting it here was a race against that
+    // effect — green or red depending on how fast the machine was. The product
+    // is the part of the address that has to survive, and it does until the
+    // shot is queued.
+    await expect(page).toHaveURL(/\/create\?product=p-[a-f0-9]{8}/);
   });
 
   test('closing keeps what you typed, and sending clears it', async ({ page }) => {
