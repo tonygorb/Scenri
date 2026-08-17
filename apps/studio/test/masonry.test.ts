@@ -50,4 +50,15 @@ describe('the tile stops earn their place', () => {
       expect(out.tile).toBe(Math.floor((390 - GAP) / 2));
     }
   });
+
+  it('shares leftover width so columns fill the canvas', () => {
+    for (const width of [700, 920, 1400, 1600, 1800]) {
+      for (const s of TILE_STOPS) {
+        const out = masonryLayout(width, s.px, false);
+        const used = out.tile * out.cols + GAP * (out.cols - 1);
+        expect(used).toBeLessThanOrEqual(width);
+        expect(width - used).toBeLessThan(out.cols);
+      }
+    }
+  });
 });

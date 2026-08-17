@@ -6,12 +6,10 @@
  * of the screen as its content grows, and a panel measured against the layout
  * viewport while a software keyboard is covering half of it.
  *
- * The command menu (TokenMenu) does neither. It pins `bottom` to the anchor's
- * top and lets the box grow upward, so a taller list walks off the screen; and
- * it clamps against `window.innerHeight`, which on iOS does not shrink for the
- * keyboard. This anchors `top` and returns a `maxHeight` instead, so growth is
- * bounded by construction, and it takes the viewport as an argument so the
- * caller can hand it `visualViewport`.
+ * The insert menu uses `placeInsertMenu` for the same two problems. This
+ * helper stays the chip-picker path: it anchors `top` and returns a
+ * `maxHeight`, so growth is bounded by construction, and it takes the
+ * viewport as an argument so the caller can hand it `visualViewport`.
  */
 
 /** Wide enough for four cards of real thumbnail, narrow enough to stay a panel. */

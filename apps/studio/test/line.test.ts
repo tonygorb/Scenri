@@ -659,7 +659,7 @@ describe('sigilAtCaret: which menu the caret is asking for', () => {
     expect(sigilAtCaret(caretAfter('try /mar'))).toEqual({ sigil: '/', query: 'mar' });
   });
 
-  it('reads an ingredient query after @ at a word start', () => {
+  it('reads a presenter query after @ at a word start', () => {
     expect(sigilAtCaret(caretAfter('a shot of @mar'))).toEqual({ sigil: '@', query: 'mar' });
   });
 

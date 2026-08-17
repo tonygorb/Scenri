@@ -2,12 +2,19 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { productLabel, sceneLabel } from '../displayName.js';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { flattenPalette } from '../brand/palette.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
-import { matchesQuery } from '../layout/library/libraryRules.js';
+import { bookmarkedScenes } from '../bookmarks.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
-import { NOUN, buildCandidates, pickerKind, type Candidate, type IngredientKind } from './ingredientOptions.js';
+import { composingEvent, INSERT_MENU_ID, menuFromInput } from './insertMenu.js';
+import {
+  NOUN,
+  buildCandidates,
+  insertShortlist,
+  pickerKind,
+  type Candidate,
+  type IngredientKind,
+} from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import {
   CHIP,
@@ -98,7 +105,7 @@ export const BriefInput = forwardRef<
     templates: Scene[];
     presenters: Presenter[];
     demoProducts: DemoProduct[];
-    /** A Scene picked from the `#`/`/` menu goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
+    /** A Scene picked from the `#` menu goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
     onTemplatePick: (id: string) => void;
     placeholder: string;
     /** Shorter line for narrow viewports; falls back to placeholder. */
@@ -124,7 +131,6 @@ export const BriefInput = forwardRef<
     initialTokens,
     onChange,
     brand,
-    shots,
     templates,
     presenters,
     demoProducts,
@@ -174,6 +180,8 @@ export const BriefInput = forwardRef<
     pickerRef.current = picker;
   }, [picker]);
   const [query, setQuery] = useState('');
+  const [activeOptionId, setActiveOptionId] = useState<string | null>(null);
+  const pasted = useRef(false);
   const uidSeq = useRef(0);
   const [dragOver, setDragOver] = useState(false);
   // a counter, not a boolean: chips are non-editable child elements inside
@@ -184,12 +192,7 @@ export const BriefInput = forwardRef<
   const { products: library } = useBrand();
   const products: any[] = library.length ? library : ((brand.json?.products ?? []) as any[]);
   const cast: any[] = (brand.json?.characters ?? []) as any[];
-  const palette = usePalette(brand);
   const marks = useMemo(() => attachableMarks(brand.json), [brand]);
-  const recent = shots
-    .filter((s) => s.status === 'done' && s.images.length > 0)
-    .slice(-6)
-    .reverse();
 
   const chipFor = useCallback(
     (token: SentenceToken, uid?: string): HTMLElement => {
@@ -495,71 +498,23 @@ export const BriefInput = forwardRef<
 
   const candidatesFor = useCallback((kind: IngredientKind): Candidate[] => buildCandidates(kind, catalog), [catalog]);
 
-  const toOption = (c: Candidate, group: string): MenuOption => ({
-    key: encode(c.token),
-    group,
-    label: c.label,
-    hint: c.sub,
-    search: c.search,
-    thumb: c.thumb ?? undefined,
-    run: () => (c.kind === 'scene' ? onTemplatePick(c.id) : placeRef.current(c.token)),
-  });
+  const bookmarked = useMemo(() => new Set(bookmarkedScenes(brand.id)), [brand.id]);
 
-  const options: MenuOption[] = useMemo(
-    () => [
-      ...buildCandidates('product', catalog).map((c) => toOption(c, 'Products')),
-      ...buildCandidates('presenter', catalog).map((c) => toOption(c, 'Presenters')),
-      ...buildCandidates('scene', catalog).map((c) => toOption(c, 'Scenes')),
-      ...palette.map((c) => ({
-        key: `c:${c.hex}|${c.name}`,
-        group: 'Brand colors',
-        label: c.name,
-        hint: c.hex,
-        swatch: c.hex,
-        run: () => placeRef.current({ t: 'color', hex: c.hex, name: c.name }),
-      })),
-      ...marks.map((m) => ({
-        key: `m:${m.hash}`,
-        group: 'Brand',
-        label: markLabel(brand.json, m),
-        hint: 'the mark itself',
-        thumb: imgUrl(m.hash as string),
-        run: () => placeRef.current({ t: 'mark', imageHash: m.hash as string }),
-      })),
-      ...recent.map((s, i) => ({
-        key: `r:${s.images[0]}`,
-        group: 'Recent shots',
-        label: `Shot ${recent.length - i}`,
-        hint: 'as reference',
-        thumb: imgUrl(s.images[0]),
-        run: () => placeRef.current({ t: 'ref', imageHash: s.images[0] }),
-      })),
-    ],
-    [catalog, palette, marks, brand, recent, onTemplatePick],
-  );
-
-  // / = everything, @ = ingredients (not scenes), # = scenes only
-  const shownOptions =
-    menu?.sigil === '#'
-      ? options.filter((o) => o.group === 'Scenes')
-      : menu?.sigil === '@'
-        ? options.filter((o) => o.group !== 'Scenes')
-        : options;
-
-  // Once the typed query matches nothing the sigil was not a sigil: it was a hex
-  // colour or an address. Close, and let the characters stand as plain text.
-  useEffect(() => {
-    if (!menu || !query) return;
-    // the same matcher the menu itself filters with: if these two disagree,
-    // the menu closes on a query it would have had rows for
-    const hit = shownOptions.some((o) =>
-      matchesQuery(`${o.label} ${o.group} ${o.hint ?? ''} ${o.search ?? ''}`, query),
-    );
-    if (!hit) {
-      setMenu(null);
-      setQuery('');
-    }
-  }, [menu, query, shownOptions]);
+  const shownOptions: MenuOption[] = useMemo(() => {
+    if (!menu) return [];
+    return insertShortlist(
+      menu.sigil ?? '/',
+      {
+        products: buildCandidates('product', catalog),
+        presenters: buildCandidates('presenter', catalog),
+        scenes: buildCandidates('scene', catalog),
+      },
+      { query, bookmarked },
+    ).map((c) => ({
+      ...c,
+      run: () => (c.token.t === 'template' ? onTemplatePick(c.token.id) : placeRef.current(c.token)),
+    }));
+  }, [menu, catalog, query, bookmarked, onTemplatePick]);
 
   const onClick = (e: React.MouseEvent) => {
     const root = rootRef.current;
@@ -590,12 +545,10 @@ export const BriefInput = forwardRef<
       return;
     }
     const kind = pickerKind(decode(chip.dataset.tok ?? ''));
-    // A colour, a reference or a brand mark is not a visual catalog to browse.
-    if (!kind) {
-      setQuery('');
-      setMenu({ anchor: chip });
-      return;
-    }
+    // A colour, a reference or a brand mark is not a catalog to swap. The
+    // caret is already where the click landed; replace by deleting and
+    // inserting again, the same way those chips were made.
+    if (!kind) return;
     // The caret was just placed by caretFromPoint above, while the line still
     // has focus — so this is an exact reading, and it is the one the picker
     // hands back when it closes.
@@ -677,18 +630,23 @@ export const BriefInput = forwardRef<
       return;
     }
     if (menu || picker) return;
-    // '/' inserts anything, '@' an ingredient, '#' a scene. Which one you typed
-    // is the filter, so the menu opens already narrowed instead of everything.
+    if (composingEvent(e)) return;
+    // '/' a product, '@' a presenter, '#' a scene.
     if (e.key === '/' || e.key === '@' || e.key === '#') {
       const root = rootRef.current;
       const before = textBeforeCaret(root);
       const prev = before.slice(-1);
       if (before.length && !/[\s\u00a0]/.test(prev)) return; // mid-word: path, email, or hex
-      const rect = caretRect();
-      if (rect) {
-        setQuery('');
-        setMenu({ anchor: { getBoundingClientRect: () => rect }, sigil: e.key });
-      }
+      // Live caret, not a snapshot. keydown runs before `#` is in the line, and
+      // an empty contenteditable's range is the whole block — freezing that is
+      // how the menu sat in the middle of the composer on a bare trigger.
+      setQuery('');
+      setMenu({
+        anchor: {
+          getBoundingClientRect: () => caretRect() ?? root?.getBoundingClientRect() ?? new DOMRect(),
+        },
+        sigil: e.key,
+      });
     }
   };
 
@@ -701,12 +659,14 @@ export const BriefInput = forwardRef<
     // clearing the line leaves a <br>; strip it and flip data-empty so the
     // placeholder returns even if Chromium re-inserts a caret host
     if (syncEmpty(root)) caretToEnd(root);
-    if (menu) {
-      const live = sigilAtCaret(root);
-      if (!live) {
-        setMenu(null);
-        setQuery('');
-      } else setQuery(live.query);
+    const fromPaste = pasted.current;
+    pasted.current = false;
+    const next = menuFromInput(sigilAtCaret(root), fromPaste);
+    if (next.open) {
+      if (menu) setQuery(next.query);
+    } else if (menu) {
+      setMenu(null);
+      setQuery('');
     }
     emit();
   };
@@ -767,6 +727,7 @@ export const BriefInput = forwardRef<
 
   const onPaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
+    pasted.current = true;
     const parts = parseBriefHtml(e.clipboardData.getData('text/html'));
     if (parts && pasteParts(parts)) return;
     const text = e.clipboardData.getData('text/plain');
@@ -827,8 +788,8 @@ export const BriefInput = forwardRef<
 
   return (
     <div className="sc-brief" data-drag-over={dragOver || undefined}>
-      {/* biome-ignore lint/a11y/useFocusableInteractive: contentEditable is focusable; the rule does not model it */}
       {/* biome-ignore lint/a11y/useSemanticElements: this cannot be a <textarea> — the brief renders product and scene chips inline */}
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: textbox plus a listbox is the caret-menu pattern; combobox drops aria-multiline */}
       <div
         ref={rootRef}
         className="sc-brief-line"
@@ -836,6 +797,11 @@ export const BriefInput = forwardRef<
         suppressContentEditableWarning
         role="textbox"
         aria-multiline="true"
+        aria-autocomplete="list"
+        aria-expanded={menu ? true : undefined}
+        aria-controls={menu ? INSERT_MENU_ID : undefined}
+        aria-activedescendant={menu ? (activeOptionId ?? undefined) : undefined}
+        tabIndex={0}
         dir="auto"
         data-ph={placeholder}
         {...(placeholderSm ? { 'data-ph-sm': placeholderSm } : {})}
@@ -857,8 +823,19 @@ export const BriefInput = forwardRef<
       {menu && (
         <TokenMenu
           anchor={menu.anchor}
+          composer={{
+            getBoundingClientRect: () =>
+              rootRef.current?.closest('.sc-promptcard')?.getBoundingClientRect() ??
+              rootRef.current?.getBoundingClientRect() ??
+              new DOMRect(),
+          }}
+          line={{
+            getBoundingClientRect: () => rootRef.current?.getBoundingClientRect() ?? new DOMRect(),
+          }}
           query={query}
           options={shownOptions}
+          sigil={menu.sigil}
+          onActiveId={setActiveOptionId}
           onClose={() => {
             setMenu(null);
             setQuery('');
@@ -937,10 +914,6 @@ function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): s
   if (t.t === 'color') return t.name ?? t.hex;
   if (t.t === 'mark') return 'brand mark';
   return 'reference';
-}
-
-function usePalette(brand: Brand) {
-  return useMemo(() => flattenPalette(brand.json?.palette), [brand]);
 }
 
 export { chipLabel };

@@ -87,13 +87,12 @@ export function useViewportWidth(): number {
 /**
  * Create feed layout from a preferred tile width in px.
  *
- * Fits as many columns as will hold that width; on phone forces two columns
- * so a desktop slider value never overflows a small screen.
+ * Fits as many columns as will hold that width, then shares leftover so the
+ * row fills the canvas. Phone forces two columns so a desktop stop never
+ * overflows a small screen.
  */
 export function masonryLayout(width: number, tile: number, phoneMode: boolean): { tile: number; cols: number } {
   if (width <= 0) return { tile, cols: 1 };
-  if (phoneMode) {
-    return { tile: Math.floor((width - GAP) / 2), cols: 2 };
-  }
-  return { tile, cols: Math.max(1, Math.floor((width + GAP) / (tile + GAP))) };
+  const cols = phoneMode ? 2 : Math.max(1, Math.floor((width + GAP) / (tile + GAP)));
+  return { tile: Math.floor((width - GAP * (cols - 1)) / cols), cols };
 }

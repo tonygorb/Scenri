@@ -630,3 +630,19 @@ test('every picker card is big enough for a thumb', async ({ page }) => {
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
 });
+
+test('a phone docks the insert menu to the composer, not the caret', async ({ page }) => {
+  test.skip(!isPhone(page), 'phone shell only');
+  await line(page).click();
+  await page.keyboard.type('#');
+  const menu = page.locator('.sc-cmd');
+  await menu.waitFor();
+  await expect(menu).toHaveAttribute('data-shell', 'dock');
+  const menuBox = (await menu.boundingBox())!;
+  const card = (await page.locator('.sc-promptcard').first().boundingBox())!;
+  expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(card.y + 2);
+  expect(Math.abs(menuBox.x - card.x)).toBeLessThanOrEqual(2);
+  expect(Math.abs(menuBox.width - card.width)).toBeLessThanOrEqual(2);
+  const row = (await page.locator('.sc-cmd-row').first().boundingBox())!;
+  expect(row.height).toBeGreaterThanOrEqual(40);
+});

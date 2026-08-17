@@ -987,9 +987,8 @@ export const Composer = forwardRef<
                   // something new is what the chip's own X is for, which is why
                   // it is labelled "Make a new shot instead".
                   'Say what to change about this shot'
-                : 'What should we shoot? (use / to insert, @ for a product, # for a scene)'
+                : 'What should we shoot?'
           }
-          placeholderSm={template || mode === 'edit' ? undefined : 'What should we shoot? (use / @ #)'}
           onSubmit={() => void go()}
           onDropFiles={(files) => void pickFiles(files)}
         />

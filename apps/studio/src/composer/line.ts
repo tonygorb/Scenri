@@ -425,7 +425,7 @@ export function insertToken(root: HTMLElement | null, chip: HTMLElement, opts: I
   normalizeLine(root);
 }
 
-/** `/` inserts anything; `@` ingredients; `#` a scene. */
+/** `/` a product; `@` a presenter; `#` a scene. */
 export const SIGILS = ['/', '@', '#'] as const;
 export type Sigil = (typeof SIGILS)[number];
 const isSigil = (c: string): c is Sigil => (SIGILS as readonly string[]).includes(c);

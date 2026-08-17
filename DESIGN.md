@@ -167,6 +167,9 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **Style:** hairline border, panel background, `--sc-radius` (10px) corners.
 - **Focus:** border shifts to `--sc-focus` (ink), no glow/ring beyond the border itself — consistent with the no-decoration-at-rest posture.
 
+### Composer insert menus (`/`, `@`, `#`)
+A caret (or phone-docked) shortlist, not a command palette. The three triggers share one shell (`.sc-cmd`, `--sc-z-popover`) and one ranking rule (`pickList` / `insertShortlist`). `/` is products, `@` is presenters, `#` is scenes — each menu carries that label at the top. Typing in the brief is the filter — no inner search field, no cap banner, no keyboard-hint footer. Empty query is a ranked shortlist; a typed miss stays open with one quiet line. Colors, marks and shots stay on the attach panel. Structured chips and `compileBrief` IDs do not change.
+
 ### Section Headers (`.sc-sec-head`)
 - Flex row, title (15px/600) at the leading edge, an optional right-aligned action (ghost button, "+ Add X" pattern) at the trailing edge. **This is strictly a 2-slot contract** — title-group and trailing-action. A subtitle, when present, belongs inside the title group (its own inline flex with an explicit gap), never as a third top-level flex child — that's what produces the glued-text bug this pass is fixing.
 

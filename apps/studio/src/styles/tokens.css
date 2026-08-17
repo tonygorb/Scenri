@@ -50,7 +50,7 @@
      rail 20 · topbar 50 · assets backdrop 54 · assets drawer 55 · dock fade 55
      docks 60 · attach panel 70 · plus scrim 79 · plus menu 80 · detail overlay 80
      overlay winbar 90 · sheet scrim 91 · sheet 92 · dialog overlay 95
-     toasts 100 · command menu 200 */
+     toasts 100 */
   --sc-z-topbar: 50;
   /* Menus and popovers float above every surface that can host their trigger,
      including the shot overlay at 80. Radix portals them to <body> with no
@@ -1470,6 +1470,7 @@ select {
   [role="checkbox"],
   [role="menuitem"],
   [role="textbox"],
+  [role="combobox"],
   a[href],
   summary,
   input,
@@ -1665,103 +1666,113 @@ select {
   border-color: var(--sc-line-strong);
 }
 
-/* ---------- command menu (portal, caret-anchored, keyboard first) ---------- */
+/* ---------- insert menu (portal, caret or composer-docked) ----------
+   `/` `@` `#` share this shell. It is a shortlist you arrow through while
+   the brief keeps focus — not a command palette, not a second search field. */
 .sc-cmd {
   position: fixed;
-  z-index: 200;
-  width: 256px;
-  max-height: 292px;
+  z-index: var(--sc-z-popover);
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 4px;
+  padding: 5px;
   border: 1px solid var(--sc-line-strong);
-  border-radius: var(--sc-radius-lg);
+  border-radius: var(--sc-radius-xl);
   background: var(--sc-panel);
   box-shadow: var(--sc-shadow-2);
+  animation: sc-cmd-in 140ms ease-out;
+}
+@keyframes sc-cmd-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-cmd {
+    animation: none;
+  }
 }
 .sc-cmd-group {
   font-size: var(--sc-text-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--sc-fg3);
-  padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-2);
+  padding: 8px 10px 4px;
 }
 .sc-cmd-row {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  height: 30px;
-  padding: 0 8px;
+  height: 36px;
+  padding: 0 10px;
   border: none;
-  border-radius: 7px;
+  border-radius: 8px;
   background: none;
   color: var(--sc-fg);
   cursor: pointer;
   text-align: left;
   font-size: 12.5px;
+  font-weight: 500;
 }
 .sc-cmd-row[data-active="true"] {
   background: var(--sc-raised);
 }
-.sc-cmd-row img {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  object-fit: cover;
+.sc-cmd-row img,
+.sc-cmd-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
   flex-shrink: 0;
+}
+.sc-cmd-row img {
+  object-fit: cover;
   border: 1px solid var(--sc-line);
 }
 .sc-cmd-swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
   border: 1px solid var(--sc-line-strong);
-  flex-shrink: 0;
-}
-.sc-cmd-swatch-empty {
-  background: var(--sc-raised);
 }
 .sc-cmd-label {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.sc-cmd-label b {
+  font-weight: 600;
+}
 .sc-cmd-hint {
+  flex-shrink: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11px;
   color: var(--sc-fg3);
   font-variant-numeric: tabular-nums;
 }
 .sc-cmd-empty {
   padding: 14px 10px;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--sc-fg3);
 }
-.sc-cmd-foot {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  border-top: 1px solid var(--sc-line);
-  margin-top: 4px;
-  padding: 7px 8px 3px;
-  font-size: 10.5px;
-  color: var(--sc-fg3);
+@media (pointer: coarse) {
+  .sc-cmd-row {
+    height: 40px;
+  }
 }
-.sc-cmd-foot kbd {
-  font: inherit;
-  border: 1px solid var(--sc-line);
-  border-radius: 4px;
-  padding: 0 4px;
-  color: var(--sc-fg2);
-  background: var(--sc-raised);
+@media (max-width: 767px) {
+  .sc-cmd {
+    border-radius: var(--sc-radius-lg);
+  }
+  .sc-cmd-row {
+    height: 44px;
+  }
 }
 
 /* ---------- ingredient picker (portal, chip-anchored) ----------
-   The other half of the pair above. The command menu is a caret shortlist you
-   arrow through, so it is 256px of text rows. This is what a chip opens: the
-   thing in it is a photograph, and the question is which photograph, so it is
-   wide enough for four real thumbnails and it says out loud which one is on.
+   The other half of the pair above. The insert menu is a caret shortlist you
+   arrow through. This is what a chip opens: the thing in it is a photograph,
+   and the question is which photograph, so it is wide enough for four real
+   thumbnails and it says out loud which one is on.
 
    One search, what is on, one grid, one way out. Relevance is the order the
    grid is in rather than a set of headings over it, so a product, a presenter
@@ -2319,13 +2330,11 @@ select {
   gap: 14px;
   padding-top: 16px;
 }
-/* Exactly the width the grid-size slider asks for, never stretched to fill.
-   Stretching made the slider feel broken: the tiles only ever changed when the
-   column *count* changed, so half the drag did nothing at all and the tiles
-   were never the size you set. Fixed width means every step moves something,
-   and the leftover — always less than one tile — sits at the end of the row. */
+/* Density chooses how many columns fit; leftover width is shared so the row
+   fills the canvas. flex-grow also absorbs the 0–(cols-1)px floor remainder
+   and fills when Canvas caps columns to the number of tiles. */
 .sc-feed-col {
-  flex: 0 0 var(--sc-tile);
+  flex: 1 1 0;
   min-width: 0;
 }
 .sc-cell {
@@ -6018,54 +6027,6 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-prompt-row .sc-attach-toggle {
   width: 30px;
   height: 30px;
-}
-
-/* ---------- plus menu: first click picks a kind, then the panel opens ---------- */
-.sc-plus-wrap {
-  position: relative;
-  display: inline-flex;
-}
-.sc-plus-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 79;
-}
-.sc-plusmenu {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  z-index: 80;
-  min-width: 176px;
-  padding: 5px;
-  border: 1px solid var(--sc-line-strong);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-panel);
-  box-shadow: var(--sc-shadow-2);
-}
-.sc-plusmenu button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  height: 32px;
-  padding: 0 10px;
-  border: none;
-  border-radius: 8px;
-  background: none;
-  color: var(--sc-fg);
-  font-size: 12.5px;
-  text-align: left;
-  cursor: pointer;
-}
-.sc-plusmenu button:hover {
-  background: var(--sc-raised);
-}
-.sc-plusmenu button svg {
-  color: var(--sc-fg2);
-  flex-shrink: 0;
-}
-.sc-plusmenu button:hover svg {
-  color: var(--sc-fg);
 }
 
 /* ---------- dock gradient: the canvas dissolves under the composer ---------- */
@@ -10408,7 +10369,6 @@ textarea:disabled {
   cursor: not-allowed;
 }
 /* a scrim is a way out, not a control, so it keeps the plain arrow */
-.sc-plus-scrim,
 .sc-assets-backdrop,
 .sc-shotsheet-scrim {
   cursor: default;
@@ -10444,16 +10404,11 @@ textarea:disabled {
 /* Honest truncation: both of these say what is not on screen and how to reach
    it. A list that silently stops at sixty reads as a list of sixty. */
 .sc-ap-capped,
-.sc-swap-capped,
-.sc-cmd-capped {
+.sc-swap-capped {
   font-size: 11.5px;
   color: var(--sc-fg3);
   padding: 10px 2px 2px;
   margin: 0;
-}
-.sc-cmd-capped {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--sc-line);
 }
 
 /* ---------- 6.2 home without the dock ----------

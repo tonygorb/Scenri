@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { placePanel, PANEL_W, PANEL_MAX_H, type AnchorRect } from '../src/composer/anchorPanel.js';
+import {
+  INSERT_MENU_MAX_H,
+  INSERT_MENU_PHONE_MAX_H,
+  INSERT_MENU_W,
+  placeInsertMenu,
+} from '../src/composer/placeInsertMenu.js';
 
 const DESKTOP = { width: 1440, height: 900 };
 
@@ -85,5 +91,84 @@ describe('placePanel', () => {
     const naive = placePanel(chip({ top: 380, bottom: 402 }), { width: 390, height: 844 });
     expect(naive!.side).toBe('above');
     expect(withKeyboard!.side).toBe('above');
+  });
+});
+
+const composer = (over: Partial<AnchorRect> = {}): AnchorRect => ({
+  top: 720,
+  bottom: 880,
+  left: 360,
+  right: 1080,
+  ...over,
+});
+
+const caret = (over: Partial<AnchorRect> = {}): AnchorRect => ({
+  top: 748,
+  bottom: 766,
+  left: 420,
+  right: 428,
+  ...over,
+});
+
+describe('placeInsertMenu', () => {
+  it('anchors above the caret on desktop when there is room', () => {
+    const p = placeInsertMenu(caret(), composer(), DESKTOP);
+    expect(p?.shell).toBe('caret');
+    expect(p?.side).toBe('above');
+    expect(p?.width).toBe(INSERT_MENU_W);
+    expect(p?.maxHeight).toBeLessThanOrEqual(INSERT_MENU_MAX_H);
+    expect(p!.top + p!.maxHeight).toBeLessThanOrEqual(caret().top);
+  });
+
+  it('hangs off the line start when the caret rect is untrustworthy', () => {
+    const p = placeInsertMenu({ top: 0, bottom: 0, left: 0, right: 0 }, composer(), DESKTOP);
+    expect(p?.side).toBe('above');
+    expect(p?.left).toBe(composer().left);
+    expect(p!.top + p!.maxHeight).toBeLessThanOrEqual(composer().top);
+  });
+
+  it('hangs off the line start when the caret is null', () => {
+    const p = placeInsertMenu(null, composer(), DESKTOP);
+    expect(p?.left).toBe(composer().left);
+    expect(p!.top + p!.maxHeight).toBeLessThanOrEqual(composer().top);
+  });
+
+  it('stays inside the visual viewport, not the layout viewport', () => {
+    const vp = { width: 390, height: 430 };
+    const brief = composer({ top: 360, bottom: 500, left: 12, right: 378 });
+    const p = placeInsertMenu(caret({ top: 380, bottom: 398, left: 40, right: 48 }), brief, vp);
+    expect(p).not.toBeNull();
+    expect(p!.top).toBeGreaterThanOrEqual(0);
+    expect(p!.top + p!.maxHeight).toBeLessThanOrEqual(vp.height);
+  });
+
+  it('docks to the composer on the phone, ignoring the caret', () => {
+    const vp = { width: 390, height: 430 };
+    const brief = composer({ top: 300, bottom: 430, left: 12, right: 378 });
+    const p = placeInsertMenu(caret({ top: 320, bottom: 338, left: 40, right: 48 }), brief, vp, { phone: true });
+    expect(p?.shell).toBe('dock');
+    expect(p?.left).toBe(brief.left);
+    expect(p?.width).toBe(brief.right - brief.left);
+    expect(p?.maxHeight).toBeLessThanOrEqual(INSERT_MENU_PHONE_MAX_H);
+    expect(p?.maxHeight).toBeLessThanOrEqual(Math.floor(vp.height * 0.4));
+    expect(p!.top + p!.maxHeight).toBeLessThanOrEqual(brief.top);
+  });
+
+  it('never grows off the top of a short visual viewport', () => {
+    const vp = { width: 390, height: 200 };
+    const brief = composer({ top: 120, bottom: 200, left: 12, right: 378 });
+    const p = placeInsertMenu(null, brief, vp, { phone: true });
+    expect(p).not.toBeNull();
+    expect(p!.top).toBeGreaterThanOrEqual(8);
+    expect(p!.top + p!.maxHeight).toBeLessThanOrEqual(brief.top);
+  });
+
+  it('collapses an empty-line box to the text start, not the middle of the composer', () => {
+    // An empty contenteditable reports the whole line as the caret. Using that
+    // left as-is is fine; using its centre is how the menu floated over Generate.
+    const lineBox = { top: 740, bottom: 780, left: 374, right: 1066 };
+    const p = placeInsertMenu(lineBox, composer(), DESKTOP);
+    expect(p?.shell).toBe('caret');
+    expect(p?.left).toBe(374);
   });
 });

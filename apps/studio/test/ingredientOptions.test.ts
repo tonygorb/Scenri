@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
+  INSERT_CAP,
+  INSERT_EMPTY,
   NOUN,
   PAGE,
   buildCandidates,
   filterCandidates,
+  insertShortlist,
   pickList,
   pickerKind,
   type Candidate,
@@ -456,5 +459,83 @@ describe('pickList', () => {
       expect(l.items).toHaveLength(PAGE);
       expect(l.remaining).toBe(576 - PAGE);
     });
+  });
+});
+
+const choiceIds = (rows: ReturnType<typeof insertShortlist>) =>
+  rows.map((r) => ('id' in r.token ? r.token.id : r.label));
+
+describe('insertShortlist', () => {
+  const manyProducts = () =>
+    buildCandidates(
+      'product',
+      catalog({
+        libraryProducts: [owned({ id: 'mine' })],
+        demoProducts: Array.from({ length: 20 }, (_, i) => demo({ id: `d${i}`, name: `Demo ${i}` })),
+      }),
+    );
+  const manyPresenters = () =>
+    buildCandidates(
+      'presenter',
+      catalog({
+        presenters: [
+          presenter({ id: 'up-mine', name: 'Ours', custom: true } as any),
+          presenter({ id: 'p-suited', name: 'Suited', suitableCategories: ['Beauty'] }),
+          ...Array.from({ length: 8 }, (_, i) => presenter({ id: `p${i}`, name: `Cast ${i}` })),
+        ],
+        productCategory: 'beauty',
+      }),
+    );
+  const manyScenes = () =>
+    buildCandidates(
+      'scene',
+      catalog({
+        scenes: [
+          scene({ id: 'us-mine', name: 'Our set', custom: true } as any),
+          scene({ id: 'marked', name: 'Booked', verticals: ['Sport'] }),
+          scene({ id: 'suited', name: 'Suited set', verticals: ['Beauty'] }),
+          ...Array.from({ length: 12 }, (_, i) => scene({ id: `s${i}`, name: `Place ${i}`, verticals: ['Sport'] })),
+        ],
+        productCategory: 'beauty',
+      }),
+    );
+  const pools = () => ({ products: manyProducts(), presenters: manyPresenters(), scenes: manyScenes() });
+
+  it('empty / is products only, yours first', () => {
+    const rows = insertShortlist('/', pools(), { query: '' });
+    expect(rows.every((r) => r.group === 'Products')).toBe(true);
+    expect(choiceIds(rows)[0]).toBe('mine');
+    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Products);
+  });
+
+  it('empty @ is presenters only, yours first', () => {
+    const rows = insertShortlist('@', pools(), { query: '' });
+    expect(rows.every((r) => r.group === 'Presenters')).toBe(true);
+    expect(rows[0]?.token).toMatchObject({ t: 'character', id: 'up-mine' });
+    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Presenters);
+  });
+
+  it('empty # uses pickList order and never hides catalog scenes', () => {
+    const rows = insertShortlist('#', pools(), { query: '', bookmarked: new Set(['marked']) });
+    expect(rows.every((r) => r.group === 'Scenes')).toBe(true);
+    expect(choiceIds(rows).slice(0, 3)).toEqual(['us-mine', 'marked', 'suited']);
+    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Scenes);
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it('typing searches that catalog and caps silently at INSERT_CAP', () => {
+    const products = buildCandidates(
+      'product',
+      catalog({ libraryProducts: Array.from({ length: 80 }, (_, i) => owned({ id: `can-${i}`, name: `Can ${i}` })) }),
+    );
+    const rows = insertShortlist('/', { products, presenters: [], scenes: [] }, { query: 'can' });
+    expect(rows).toHaveLength(INSERT_CAP);
+    expect(rows.every((r) => r.group === 'Products')).toBe(true);
+  });
+
+  it('a typed query that matches nothing is an empty list, not a close', () => {
+    expect(insertShortlist('@', { products: [], presenters: manyPresenters(), scenes: [] }, { query: 'zzzz' })).toHaveLength(
+      0,
+    );
   });
 });

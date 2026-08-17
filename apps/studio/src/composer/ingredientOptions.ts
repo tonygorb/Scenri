@@ -296,3 +296,99 @@ export function pickList(
   const { visible, remaining } = pageSlice(ranked, o.shown ?? PAGE);
   return { current, items: visible, remaining, total: ranked.length };
 }
+
+/** A caret insert, not a command. `/` a product, `@` a presenter, `#` a scene. */
+export type InsertSigil = '/' | '@' | '#';
+
+export const INSERT_KIND: Record<InsertSigil, IngredientKind> = {
+  '/': 'product',
+  '@': 'presenter',
+  '#': 'scene',
+};
+
+/** Rows a typed query will draw. Past this, typing is faster than scrolling. */
+export const INSERT_CAP = 40;
+
+/**
+ * Empty-query cap. Opening `/` on a 700-product library used to dump the
+ * first forty; a shortlist is what makes typing the obvious next move.
+ */
+export const INSERT_EMPTY = {
+  Products: 8,
+  Presenters: 8,
+  Scenes: 8,
+} as const;
+
+export type InsertGroup = keyof typeof INSERT_EMPTY;
+
+export const INSERT_LABEL: Record<InsertSigil, InsertGroup> = {
+  '/': 'Products',
+  '@': 'Presenters',
+  '#': 'Scenes',
+};
+
+/** What TokenMenu renders. `run` is attached at the call site. */
+export interface InsertChoice {
+  key: string;
+  group: InsertGroup;
+  label: string;
+  hint?: string;
+  search?: string;
+  thumb?: string;
+  swatch?: string;
+  token: SentenceToken;
+}
+
+const GROUP_OF: Record<IngredientKind, InsertGroup> = {
+  product: 'Products',
+  presenter: 'Presenters',
+  scene: 'Scenes',
+};
+
+function fromCandidate(c: Candidate): InsertChoice {
+  return {
+    key: `${c.kind}:${c.id}`,
+    group: GROUP_OF[c.kind],
+    label: c.label,
+    hint: c.sub,
+    search: c.search,
+    thumb: c.thumb ?? undefined,
+    token: c.token,
+  };
+}
+
+function rankedKind(
+  kind: IngredientKind,
+  items: Candidate[],
+  bookmarked: ReadonlySet<string>,
+  shown: number,
+): InsertChoice[] {
+  return pickList(kind, items, { currentId: null, query: '', bookmarked, shown }).items.map(fromCandidate);
+}
+
+/**
+ * What `/` `@` `#` show: one catalog each.
+ *
+ * `/` products, `@` presenters, `#` scenes. Empty query is a ranked
+ * shortlist; typing searches that catalog and caps silently. Colors, marks
+ * and shots stay on the attach panel — mixing them back in is how `@`
+ * stopped meaning a person.
+ */
+export function insertShortlist(
+  sigil: InsertSigil,
+  pools: {
+    products: Candidate[];
+    presenters: Candidate[];
+    scenes: Candidate[];
+  },
+  o: { query: string; bookmarked?: ReadonlySet<string> } = { query: '' },
+): InsertChoice[] {
+  const bookmarked = o.bookmarked ?? new Set<string>();
+  const kind = INSERT_KIND[sigil];
+  const items = kind === 'product' ? pools.products : kind === 'presenter' ? pools.presenters : pools.scenes;
+  const q = o.query.trim();
+  if (!q) return rankedKind(kind, items, bookmarked, INSERT_EMPTY[INSERT_LABEL[sigil]]);
+  return filterCandidates(items, q)
+    .map(fromCandidate)
+    .slice(0, INSERT_CAP);
+}
