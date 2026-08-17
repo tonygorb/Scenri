@@ -11,13 +11,15 @@ export function composingEvent(e: {
 }
 
 export function insertLabel(sigil: InsertSigil | undefined): string {
+  if (sigil === '/') return 'Scenes';
   if (sigil === '@') return 'Presenters';
-  if (sigil === '#') return 'Scenes';
+  if (sigil === '#') return 'Colors';
   return 'Products';
 }
 
 export function emptyInsertCopy(sigil: InsertSigil | undefined): string {
-  if (sigil === '#') return 'No matching scenes';
+  if (sigil === '/') return 'No matching scenes';
+  if (sigil === '#') return 'No matching colours';
   if (sigil === '@') return 'No matching presenters';
   return 'No matching products';
 }

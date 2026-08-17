@@ -3,6 +3,7 @@ import {
   CHIP,
   caretBeside,
   caretUnits,
+  chipHexWords,
   chipLabel,
   closeIcon,
   collapseDoubleSpaceAtCaret,
@@ -24,6 +25,7 @@ import {
   templateChip,
   textBeforeCaret,
   unitsBeforeChip,
+  updateColorChip,
   type SentenceToken,
 } from '../src/composer/line.js';
 
@@ -262,7 +264,7 @@ describe('inserting a chip', () => {
   });
 
   it('eats a scene query the same way', () => {
-    renderLine(root, [{ t: 'text', v: 'shot #morn' }], chipFor);
+    renderLine(root, [{ t: 'text', v: 'shot /morn' }], chipFor);
     caret(10);
     insertToken(root, chipFor({ t: 'template', id: 'morning-tabletop' }), { eatQuery: true });
     expect(text()).toBe('shot T:morning-tabletop ');
@@ -655,7 +657,11 @@ describe('sigilAtCaret: which menu the caret is asking for', () => {
     return root;
   };
 
-  it('reads an insert query after / at a word start', () => {
+  it('reads a product query after $ at a word start', () => {
+    expect(sigilAtCaret(caretAfter('try $mar'))).toEqual({ sigil: '$', query: 'mar' });
+  });
+
+  it('reads a scene query after / at a word start', () => {
     expect(sigilAtCaret(caretAfter('try /mar'))).toEqual({ sigil: '/', query: 'mar' });
   });
 
@@ -663,7 +669,7 @@ describe('sigilAtCaret: which menu the caret is asking for', () => {
     expect(sigilAtCaret(caretAfter('a shot of @mar'))).toEqual({ sigil: '@', query: 'mar' });
   });
 
-  it('reads a scene query after # at a word start', () => {
+  it('reads a colour query after # at a word start', () => {
     expect(sigilAtCaret(caretAfter('in #morn'))).toEqual({ sigil: '#', query: 'morn' });
   });
 
@@ -671,8 +677,12 @@ describe('sigilAtCaret: which menu the caret is asking for', () => {
     expect(sigilAtCaret(caretAfter('@ma'))).toEqual({ sigil: '@', query: 'ma' });
   });
 
-  it('leaves a hex colour alone: #F5C518 is not a scene query', () => {
+  it('leaves a hex colour alone: #F5C518 is not a colour menu', () => {
     expect(sigilAtCaret(caretAfter('keep the cap in brand#F5C518'))).toBeNull();
+  });
+
+  it('leaves a mid-word dollar alone: cost$20 is not a product query', () => {
+    expect(sigilAtCaret(caretAfter('cost$20'))).toBeNull();
   });
 
   it('leaves an email alone: the @ has a letter in front of it', () => {
@@ -805,5 +815,87 @@ describe('unitsBeforeChip', () => {
       chipFor,
     );
     expect(unitsBeforeChip(root, chips()[0])).toBe(0);
+  });
+});
+
+describe('chipHexWords', () => {
+  const colorChip = (t: Extract<SentenceToken, { t: 'color' }>) => chipFor(t);
+
+  const type = (value: string, at?: number) => {
+    root.textContent = value;
+    caret(at ?? value.length);
+  };
+
+  it('chips a finished 6-digit hex and leaves the surrounding words', () => {
+    type('keep the cap #F5C518 exactly');
+    expect(chipHexWords(root, colorChip)).toBe(true);
+    expect(readLine(root).filter((t) => t.t === 'color')).toEqual([{ t: 'color', hex: '#F5C518' }]);
+    expect(text()).toContain('keep the cap');
+    expect(text()).toContain('exactly');
+  });
+
+  it('leaves a 3-digit hex alone until a terminator or commit', () => {
+    type('#fff');
+    expect(chipHexWords(root, colorChip)).toBe(false);
+    expect(chips()).toHaveLength(0);
+
+    type('#fff ');
+    expect(chipHexWords(root, colorChip)).toBe(true);
+    expect(readLine(root).filter((t) => t.t === 'color')).toEqual([{ t: 'color', hex: '#FFFFFF' }]);
+  });
+
+  it('chips a trailing 3-digit hex on commit', () => {
+    type('#fff');
+    expect(chipHexWords(root, colorChip, { commit: true })).toBe(true);
+    expect(readLine(root).filter((t) => t.t === 'color')).toEqual([{ t: 'color', hex: '#FFFFFF' }]);
+  });
+
+  it('leaves a mid-word hash as prose', () => {
+    type('cap#F5C518');
+    expect(chipHexWords(root, colorChip, { commit: true })).toBe(false);
+    expect(chips()).toHaveLength(0);
+    expect(text()).toBe('cap#F5C518');
+  });
+
+  it('leaves a scene query that is not a hex', () => {
+    type('in #ice');
+    expect(chipHexWords(root, colorChip, { commit: true })).toBe(false);
+    expect(chips()).toHaveLength(0);
+    expect(text()).toBe('in #ice');
+  });
+
+  it('names a hex that the caller recognises', () => {
+    type('#D96C3B');
+    chipHexWords(root, colorChip, { nameFor: (hex) => (hex === '#D96C3B' ? 'Terracotta' : undefined) });
+    expect(readLine(root).filter((t) => t.t === 'color')).toEqual([
+      { t: 'color', hex: '#D96C3B', name: 'Terracotta' },
+    ]);
+  });
+
+  it('chips two hexes in one run', () => {
+    type('use #fff and #000000');
+    expect(chipHexWords(root, colorChip)).toBe(true);
+    expect(readLine(root).filter((t) => t.t === 'color')).toEqual([
+      { t: 'color', hex: '#FFFFFF' },
+      { t: 'color', hex: '#000000' },
+    ]);
+  });
+});
+
+describe('updateColorChip', () => {
+  it('rewrites the token, swatch and label without replacing the node', () => {
+    const el = chipFor({ t: 'color', hex: '#FFFFFF' });
+    const sw = document.createElement('span');
+    sw.className = 'sc-token-swatch';
+    sw.style.background = '#FFFFFF';
+    el.insertBefore(sw, el.firstChild);
+    el.dataset.uid = 'u1';
+    root.appendChild(el);
+
+    updateColorChip(el, { t: 'color', hex: '#000000' });
+    expect(el).toBe(root.firstChild);
+    expect(decode(el.dataset.tok ?? '')).toEqual({ t: 'color', hex: '#000000' });
+    expect(sw.style.background).toBe('rgb(0, 0, 0)');
+    expect(chipLabel(el)).toBe('#000000');
   });
 });

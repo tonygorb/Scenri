@@ -50,10 +50,10 @@ export interface Placed {
  * scroller, so a chip can leave the viewport while its panel is open, and a
  * panel pointing at nothing should close rather than drift.
  */
-export function placePanel(a: AnchorRect, vp: Viewport): Placed | null {
+export function placePanel(a: AnchorRect, vp: Viewport, opts?: { width?: number }): Placed | null {
   if (a.bottom < 0 || a.top > vp.height) return null;
 
-  const width = Math.min(PANEL_W, vp.width - MARGIN * 2);
+  const width = Math.min(opts?.width ?? PANEL_W, vp.width - MARGIN * 2);
   const roomAbove = a.top - GAP - MARGIN;
   const roomBelow = vp.height - a.bottom - GAP - MARGIN;
 

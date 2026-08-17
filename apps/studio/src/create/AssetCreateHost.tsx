@@ -25,8 +25,9 @@ import type { Created } from './flow.js';
  *
  * The one thing the URL cannot carry is a callback — the composer needs the id
  * of the product it just made so it can drop a chip into a brief that is still
- * in memory. That lives in a ref, is fired only for the kind that asked, and
- * deliberately does not survive a reload: the product is still created, which
+ * in memory, and the Create rail needs to know so it can open the matching
+ * shelf. That lives in a ref, is fired only for the kind that asked, and
+ * deliberately does not survive a reload: the asset is still created, which
  * is the half that matters.
  */
 
@@ -181,6 +182,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         });
         return;
       }
+      if (cb?.kind === made.kind) cb.fn(made);
       push({
         kind: 'success',
         title: `Building ${made.name}`,

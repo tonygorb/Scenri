@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
 import { Popover } from '@radix-ui/themes';
 import { HexColorPicker } from 'react-colorful';
 import { normalizeHex } from '../brand/palette.js';
@@ -20,9 +20,11 @@ import { normalizeHex } from '../brand/palette.js';
  * - `live` (default) — `onChange` fires on every pointer move. Right for
  *   *editing* a colour that already exists, because the swatch tracks your
  *   finger. Callers that persist should debounce it.
- * - `close` — `onChange` fires exactly once, when the popover closes, with the
- *   colour you settled on. Right for *creating*, where a live callback means
- *   one new swatch per frame of the drag.
+ * - `close` — `onChange` fires once, with the colour you settled on. A drag
+ *   or a typed hex that then closes is a choice. Closing on the colour the
+ *   picker opened with is a cancel. Enter and a preset click confirm
+ *   immediately. Right for *creating*, where a live callback means one new
+ *   swatch per frame of the drag.
  */
 export function ColorPicker({
   value,
@@ -31,12 +33,14 @@ export function ColorPicker({
   presets,
   className,
   triggerStyle,
+  triggerProps,
   commitMode = 'live',
+  align = 'start',
   children,
 }: {
   value: string;
   onChange: (hex: string) => void;
-  /** `live` while dragging, or once on close. See the note above. */
+  /** `live` while dragging, or once on close if the colour changed. See the note above. */
   commitMode?: 'live' | 'close';
   /** Accessible name for the trigger — there is no visible label. */
   label: string;
@@ -44,6 +48,13 @@ export function ColorPicker({
   presets?: string[];
   className?: string;
   triggerStyle?: React.CSSProperties;
+  /** Extra attributes on the trigger — a swatch row that *is* the picker. */
+  triggerProps?: ButtonHTMLAttributes<HTMLButtonElement> & {
+    'data-nav'?: number;
+    'data-on'?: string;
+  };
+  /** The rail plus sits on the right edge; `end` keeps the popover on screen. */
+  align?: 'start' | 'center' | 'end';
   children?: React.ReactNode;
 }) {
   const safe = normalizeHex(value) ?? '#000000';
@@ -62,12 +73,22 @@ export function ColorPicker({
     if (commitMode === 'live') onChange(hex);
   };
 
+  /** Confirm a colour and, in `close` mode, put the popover away. */
+  const apply = (raw: string) => {
+    const hex = normalizeHex(raw);
+    if (!hex) return;
+    setDraft(hex);
+    onChange(hex);
+    if (commitMode === 'close') setOpen(false);
+  };
+
   const close = (next: boolean) => {
     setOpen(next);
-    if (!next && commitMode === 'close') {
-      const hex = normalizeHex(draft);
-      if (hex) onChange(hex);
-    }
+    if (next || commitMode !== 'close') return;
+    const hex = normalizeHex(draft);
+    // The plus opens on a suggested hex. Leaving that untouched is cancel;
+    // a drag or a typed value is the custom colour you meant to add.
+    if (hex && hex !== safe) onChange(hex);
   };
 
   const uniquePresets = [...new Set((presets ?? []).map((p) => normalizeHex(p)).filter((p): p is string => !!p))];
@@ -80,11 +101,12 @@ export function ColorPicker({
           className={className ?? 'sc-cp-trigger'}
           style={{ background: safe, ...triggerStyle }}
           aria-label={label}
+          {...triggerProps}
         >
           {children}
         </button>
       </Popover.Trigger>
-      <Popover.Content className="sc-cp" align="start" sideOffset={6} width="232px">
+      <Popover.Content className="sc-cp" align={align} sideOffset={6} width="232px">
         <HexColorPicker color={draft} onChange={set} />
         <div className="sc-cp-foot">
           <span className="sc-cp-preview" style={{ background: draft }} aria-hidden />
@@ -101,7 +123,10 @@ export function ColorPicker({
             }}
             onBlur={() => setDraft(normalizeHex(draft) ?? safe)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') close(false);
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              if (commitMode === 'close') apply(draft);
+              else setOpen(false);
             }}
           />
         </div>
@@ -115,7 +140,7 @@ export function ColorPicker({
                 data-on={hex === draft || undefined}
                 title={hex}
                 aria-label={hex}
-                onClick={() => set(hex)}
+                onClick={() => (commitMode === 'close' ? apply(hex) : set(hex))}
               />
             ))}
           </div>

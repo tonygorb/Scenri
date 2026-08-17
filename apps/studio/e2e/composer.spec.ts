@@ -224,9 +224,9 @@ test('a scene inside an open shot starts a new shot rather than editing it', asy
   await expect(editor.locator('.sc-send')).toHaveAttribute('aria-label', 'Refine');
 
   await editor.locator('.sc-brief-line').click();
-  await page.keyboard.type('#');
-  await page.locator('.sc-cmd-row').first().waitFor();
-  await page.locator('.sc-cmd-row').first().click();
+  await editor.locator('.sc-attach-toggle').click();
+  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await attachCards(page).first().click();
 
   await expect(editor.locator('.sc-send')).toHaveAttribute('aria-label', 'Generate');
   await expect(page.locator('.sc-target-note-alone')).toHaveText('A scene starts a new shot.');
@@ -362,16 +362,28 @@ test('a chip lands at the caret, not at the end', async ({ page }) => {
   expect(text).toMatch(/X\s*in golden light$/); // typing carried on after the chip
 });
 
-test('/ reaches for a product and typing carries on', async ({ page }) => {
+test('$ reaches for a product and typing carries on', async ({ page }) => {
   await page.keyboard.type('put the ');
-  await page.keyboard.type('/');
+  await page.keyboard.type('$');
   await expect(page.locator('.sc-cmd-group')).toHaveText('Products');
   await page.locator('.sc-cmd-row').first().click();
   expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^p:/);
   await page.keyboard.type('on ice');
   const text = await sentence(page);
-  expect(text).not.toContain('/');
+  expect(text).not.toContain('$');
   expect(text).toMatch(/on ice$/);
+});
+
+test('/ reaches for a scene and typing carries on', async ({ page }) => {
+  await page.keyboard.type('in ');
+  await page.keyboard.type('/');
+  await expect(page.locator('.sc-cmd-group')).toHaveText('Scenes');
+  await page.locator('.sc-cmd-row').first().click();
+  expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^t:/);
+  await page.keyboard.type('at dawn');
+  const text = await sentence(page);
+  expect(text).not.toContain('/');
+  expect(text).toMatch(/at dawn$/);
 });
 
 test('@ reaches for a presenter and typing carries on', async ({ page }) => {
@@ -386,22 +398,51 @@ test('@ reaches for a presenter and typing carries on', async ({ page }) => {
   expect(text).toMatch(/on ice$/);
 });
 
-test('# reaches for a scene, and offers only scenes', async ({ page }) => {
+test('# reaches for a colour', async ({ page }) => {
   await page.keyboard.type('a shot ');
   await page.keyboard.type('#');
-  await expect(page.locator('.sc-cmd-group')).toHaveText('Scenes');
+  await expect(page.locator('.sc-cmd-group', { hasText: 'Colors' })).toBeVisible();
+  await expect(page.locator('.sc-cmd-group', { hasText: 'Scenes' })).toHaveCount(0);
+  await expect(page.locator('.sc-cmd-swatch').first()).toBeVisible();
   await page.locator('.sc-cmd-row').first().click();
   await page.keyboard.type('at dawn');
-  const text = await sentence(page);
-  expect(text).not.toContain('#');
-  expect(text).toMatch(/at dawn$/);
+  expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^c:/);
+  expect(await sentence(page)).toMatch(/at dawn$/);
 });
 
 test('a hex colour is text, not a scene query', async ({ page }) => {
   await page.keyboard.type('keep the cap #F5C518 exactly');
   // the menu must not be open, and nothing may have been eaten
   await expect(page.locator('.sc-cmd')).toHaveCount(0);
-  expect(await sentence(page)).toContain('#F5C518');
+  const chip = chips(page).first();
+  await expect(chip).toHaveAttribute('data-kind', 'color');
+  expect(await chip.getAttribute('data-tok')).toMatch(/^c:#F5C518/);
+  expect(await sentence(page)).toMatch(/keep the cap /);
+  expect(await sentence(page)).toMatch(/exactly/);
+});
+
+test('a typed hex chip opens the picker from its custom row', async ({ page }) => {
+  await page.keyboard.type('#ffffff');
+  await expect(chips(page)).toHaveCount(1);
+  await expect(chips(page).first()).toHaveAttribute('data-kind', 'color');
+  await openPicker(page);
+  await expect(pick(page)).toHaveAttribute('data-kind', 'color');
+  const first = page.locator('.sc-swap-swatches .sc-swap-swatch').first();
+  await expect(first).toHaveAttribute('data-on');
+  await expect(first.locator('b')).toHaveText('#FFFFFF');
+  await first.click();
+  await expect(page.locator('.sc-cp')).toBeVisible();
+});
+
+test('Custom colour live-updates the chip without closing the menu', async ({ page }) => {
+  await page.keyboard.type('#ffffff');
+  await openPicker(page);
+  await page.locator('.sc-swap-custom').click();
+  await expect(page.locator('.sc-cp')).toBeVisible();
+  await page.locator('.sc-cp-hex').fill('#00FF00');
+  expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^c:#00FF00/i);
+  await expect(pick(page)).toBeVisible();
+  await expect(page.locator('.sc-cp')).toBeVisible();
 });
 
 test('an email keeps its @', async ({ page }) => {
@@ -1081,8 +1122,11 @@ test('typing after a trigger narrows, and a miss stays open', async ({ page }) =
   const before = await page.locator('.sc-cmd-row').count();
   await page.keyboard.type('zzzzzz');
   await expect(page.locator('.sc-cmd')).toBeVisible();
-  await expect(page.locator('.sc-cmd-empty')).toHaveText('No matching scenes');
+  await expect(page.locator('.sc-cmd-empty')).toHaveText('No matching colours');
   expect(await sentence(page)).toContain('#zzzzzz');
+  const menuBox = (await page.locator('.sc-cmd').boundingBox())!;
+  const cardBox = (await page.locator('.sc-promptcard').first().boundingBox())!;
+  expect(cardBox.y - (menuBox.y + menuBox.height)).toBeLessThanOrEqual(16);
   await page.keyboard.press('Backspace');
   await page.keyboard.press('Backspace');
   await page.keyboard.press('Backspace');
@@ -1101,11 +1145,11 @@ test('Enter and Tab insert, Escape and an outside click leave the text', async (
   expect(await sentence(page)).toMatch(/in #$/);
 
   await page.keyboard.press('Backspace');
-  await page.keyboard.type('#ice');
+  await page.keyboard.type('#ink');
   await page.locator('.sc-cmd-row').first().waitFor();
   await page.mouse.click(8, 8);
   await expect(page.locator('.sc-cmd')).toHaveCount(0);
-  expect(await sentence(page)).toContain('#ice');
+  expect(await sentence(page)).toContain('#ink');
 
   await page.keyboard.press('Backspace');
   await page.keyboard.press('Backspace');
@@ -1115,7 +1159,7 @@ test('Enter and Tab insert, Escape and an outside click leave the text', async (
   await page.locator('.sc-cmd-row').first().waitFor();
   await page.keyboard.press('Enter');
   await expect(chips(page)).toHaveCount(1);
-  expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^t:/);
+  expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^c:/);
   expect(await sentence(page)).not.toContain('#');
 
   await page.keyboard.type(' and @');
@@ -1127,17 +1171,36 @@ test('Enter and Tab insert, Escape and an outside click leave the text', async (
   expect(await sentence(page)).not.toContain('@');
 });
 
-test('a colour chip does not open the insert menu', async ({ page }) => {
+test('a colour chip opens the palette menu, not the insert menu', async ({ page }) => {
   await plusMenu(page, /colors/i);
-  const n = await attachCards(page).count();
-  if (n === 0) return;
   await pickCard(page);
   await page.keyboard.press('Escape');
-  const box = await chips(page).first().boundingBox();
-  if (!box) throw new Error('no colour chip');
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await openPicker(page);
+  await expect(pick(page)).toHaveAttribute('data-kind', 'color');
+  await expect(page.locator('.sc-swap-swatch').first()).toBeVisible();
   await expect(page.locator('.sc-cmd')).toHaveCount(0);
+});
+
+test('a colour chip swaps in one click and the prose survives', async ({ page }) => {
+  await page.keyboard.type('wash in ');
+  await plusMenu(page, /colors/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape');
+  await page.keyboard.type(' light');
+  const before = await chips(page).first().textContent();
+
+  await openPicker(page);
+  await expect(pick(page)).toHaveAttribute('data-kind', 'color');
+  const other = page.locator('.sc-swap-swatches .sc-swap-swatch:not([data-on])');
+  await expect(other.first()).toBeVisible();
+  const next = (await other.first().locator('b').textContent())?.trim();
+  await other.first().click();
   await expect(pick(page)).toHaveCount(0);
+  await expect(chips(page)).toHaveCount(1);
+  expect(await chips(page).first().textContent()).not.toBe(before);
+  if (next) expect((await chips(page).first().textContent()) ?? '').toContain(next);
+  expect(await sentence(page)).toMatch(/^wash in /);
+  expect(await sentence(page)).toMatch(/light$/);
 });
 
 test('paste of a sigil does not open the menu', async ({ page }) => {

@@ -1,4 +1,5 @@
 import { assetUrl, type DemoProduct, type Presenter, type Product, type Scene } from '../api.js';
+import type { Swatch } from '../brand/palette.js';
 import { isRecommendedPresenter, isRecommendedScene } from '../compat.js';
 import { productLabel, productSearchText, presenterSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
 import { matchesQuery, pageSlice } from '../layout/library/libraryRules.js';
@@ -7,9 +8,10 @@ import { normalizeTint, type SentenceToken } from './line.js';
 /**
  * The three ingredients a chip can hold that are picked from a visual catalog.
  *
- * Colours, references and brand marks are chips too, but they are not catalogs
- * you browse by eye — a swatch is its own label and a reference is one of the
- * last six shots. They keep the caret menu; only these three get a picker.
+ * Colours open a compact palette menu of their own. References and brand
+ * marks are chips too, but they are not catalogs you browse by eye — a
+ * reference is one of the last six shots. They keep the caret; only these
+ * three get IngredientPicker.
  */
 export type IngredientKind = 'product' | 'presenter' | 'scene';
 
@@ -96,6 +98,21 @@ export function pickerKind(t: SentenceToken | null | undefined): IngredientKind 
   if (t.t === 'product') return 'product';
   if (t.t === 'character') return 'presenter';
   if (t.t === 'template') return 'scene';
+  return null;
+}
+
+/**
+ * Which chip-anchored surface opens, if any.
+ *
+ * `pickerKind` is the three visual catalogs. A colour chip opens a smaller
+ * palette menu; a reference or a mark still has nothing to swap to.
+ */
+export type ChipPickerKind = IngredientKind | 'color';
+
+export function chipOpensPicker(t: SentenceToken | null | undefined): ChipPickerKind | null {
+  const kind = pickerKind(t);
+  if (kind) return kind;
+  if (t?.t === 'color') return 'color';
   return null;
 }
 
@@ -297,34 +314,36 @@ export function pickList(
   return { current, items: visible, remaining, total: ranked.length };
 }
 
-/** A caret insert, not a command. `/` a product, `@` a presenter, `#` a scene. */
-export type InsertSigil = '/' | '@' | '#';
+/** A caret insert, not a command. `$` a product, `/` a scene, `@` a presenter, `#` a colour. */
+export type InsertSigil = '$' | '/' | '@' | '#';
 
-export const INSERT_KIND: Record<InsertSigil, IngredientKind> = {
-  '/': 'product',
+export const INSERT_KIND: Record<Exclude<InsertSigil, '#'>, IngredientKind> = {
+  $: 'product',
+  '/': 'scene',
   '@': 'presenter',
-  '#': 'scene',
 };
 
 /** Rows a typed query will draw. Past this, typing is faster than scrolling. */
 export const INSERT_CAP = 40;
 
 /**
- * Empty-query cap. Opening `/` on a 700-product library used to dump the
+ * Empty-query cap. Opening `$` on a 700-product library used to dump the
  * first forty; a shortlist is what makes typing the obvious next move.
  */
 export const INSERT_EMPTY = {
   Products: 8,
   Presenters: 8,
+  Colors: 16,
   Scenes: 8,
 } as const;
 
 export type InsertGroup = keyof typeof INSERT_EMPTY;
 
 export const INSERT_LABEL: Record<InsertSigil, InsertGroup> = {
-  '/': 'Products',
+  $: 'Products',
+  '/': 'Scenes',
   '@': 'Presenters',
-  '#': 'Scenes',
+  '#': 'Colors',
 };
 
 /** What TokenMenu renders. `run` is attached at the call site. */
@@ -339,16 +358,10 @@ export interface InsertChoice {
   token: SentenceToken;
 }
 
-const GROUP_OF: Record<IngredientKind, InsertGroup> = {
-  product: 'Products',
-  presenter: 'Presenters',
-  scene: 'Scenes',
-};
-
 function fromCandidate(c: Candidate): InsertChoice {
   return {
     key: `${c.kind}:${c.id}`,
-    group: GROUP_OF[c.kind],
+    group: c.kind === 'presenter' ? 'Presenters' : c.kind === 'scene' ? 'Scenes' : 'Products',
     label: c.label,
     hint: c.sub,
     search: c.search,
@@ -367,28 +380,45 @@ function rankedKind(
 }
 
 /**
- * What `/` `@` `#` show: one catalog each.
+ * What `$` `/` `@` `#` show. One catalog each — never a mixed list.
  *
- * `/` products, `@` presenters, `#` scenes. Empty query is a ranked
- * shortlist; typing searches that catalog and caps silently. Colors, marks
- * and shots stay on the attach panel — mixing them back in is how `@`
- * stopped meaning a person.
+ * `$` products, `/` scenes, `@` presenters, `#` brand colours.
+ * Marks and shots stay on the attach panel.
  */
 export function insertShortlist(
   sigil: InsertSigil,
   pools: {
     products: Candidate[];
     presenters: Candidate[];
-    scenes: Candidate[];
+    scenes?: Candidate[];
+    colors?: Swatch[];
   },
   o: { query: string; bookmarked?: ReadonlySet<string> } = { query: '' },
 ): InsertChoice[] {
-  const bookmarked = o.bookmarked ?? new Set<string>();
-  const kind = INSERT_KIND[sigil];
-  const items = kind === 'product' ? pools.products : kind === 'presenter' ? pools.presenters : pools.scenes;
   const q = o.query.trim();
+  const bookmarked = o.bookmarked ?? new Set<string>();
+  if (sigil === '#') {
+    const colors = (pools.colors ?? []).map(fromSwatch);
+    if (!q) return colors.slice(0, INSERT_EMPTY.Colors);
+    return colors.filter((c) => matchesQuery(c.search ?? c.label, q)).slice(0, INSERT_CAP);
+  }
+  const kind = INSERT_KIND[sigil];
+  const items =
+    kind === 'product' ? pools.products : kind === 'presenter' ? pools.presenters : (pools.scenes ?? []);
   if (!q) return rankedKind(kind, items, bookmarked, INSERT_EMPTY[INSERT_LABEL[sigil]]);
   return filterCandidates(items, q)
     .map(fromCandidate)
     .slice(0, INSERT_CAP);
+}
+
+function fromSwatch(s: Swatch): InsertChoice {
+  return {
+    key: `color:${s.hex}`,
+    group: 'Colors',
+    label: s.name,
+    hint: s.hex,
+    search: `${s.name} ${s.hex}`,
+    swatch: s.hex,
+    token: { t: 'color', hex: s.hex, name: s.name || undefined },
+  };
 }

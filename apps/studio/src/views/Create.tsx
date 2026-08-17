@@ -100,7 +100,8 @@ export interface ShotContext {
  */
 export function CreateView({ set }: { set: ShotSet | null }) {
   const { engines, scenes: templates, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
-  const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh, products } = useBrand();
+  const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh, applySet, dropSet, products } =
+    useBrand();
   // The rail offers what a brief can resolve, so the brand's own assets lead
   // it exactly as they do in the composer's own attach panel.
   // One assembled catalog for this screen. The rail builds its own from the
@@ -778,15 +779,56 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     }
   };
 
-  const newSetWith = async (nodeIds: string[]) => {
+  const pendingMembers = useRef<string[]>([]);
+  const [askCreate, setAskCreate] = useState(false);
+  useEffect(() => {
+    if (!askCreate) return;
+    setAskCreate(false);
+  }, [askCreate]);
+
+  const newSetWith = async (nodeIds: string[], name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
     try {
-      const made = await api.createSet(brand.id, 'Untitled set');
+      const made = await api.createSet(brand.id, clean);
       if (nodeIds.length > 0) await api.addToSet(made.id, nodeIds);
       setPicked(new Set());
       await reload();
-      navigate(`${setPath(brand, made)}?rename=1`);
+      navigate(setPath(brand, made));
     } catch (e: any) {
       push(failureToast(e, 'Could not create the set'));
+    }
+  };
+
+  const takePendingMembers = () => {
+    const ids = pendingMembers.current;
+    pendingMembers.current = [];
+    return ids;
+  };
+
+  const renameActive = async (name: string) => {
+    if (!set) return;
+    const clean = name.trim();
+    if (!clean || clean === set.name) return;
+    try {
+      const saved = await api.renameSet(set.id, clean);
+      applySet(saved);
+      navigate(setPath(brand, saved), { replace: true });
+      void refresh();
+    } catch (e: any) {
+      push(failureToast(e, 'Could not rename the set'));
+    }
+  };
+
+  const deleteActive = async () => {
+    if (!set) return;
+    try {
+      await api.deleteSet(set.id);
+      dropSet(set.id);
+      navigate(hubPath(brand), { replace: true });
+      void refresh();
+    } catch (e: any) {
+      push(failureToast(e, 'Could not delete the set'));
     }
   };
 
@@ -903,8 +945,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         {/* The app-wide rule: a page with nothing in it carries no chrome.
             Places, lenses, search and view all describe a feed, and there is
             no feed yet, so every one of them would be a control over nothing.
-            Same pattern as Products, Presenters and Scenes. */}
-        {!firstRun && (
+            A set is a place you can be, so its name stays up even when the
+            brand has never made a shot. */}
+        {(!firstRun || set) && (
           <FeedToolbar
             sets={sets}
             active={set}
@@ -913,7 +956,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             onPlaceAll={() => (set ? navigate(hubPath(brand)) : setPlace(null))}
             onPlaceUngrouped={() => (set ? navigate(`${hubPath(brand)}?in=ungrouped`) : setPlace('ungrouped'))}
             onOpenSet={(s) => navigate(setPath(brand, s))}
-            onNewSet={() => void newSetWith([])}
+            onNewSet={(name) => void newSetWith(takePendingMembers(), name)}
+            onResetNewSet={() => {
+              pendingMembers.current = [];
+            }}
+            onRenameSet={(name) => void renameActive(name)}
+            onDeleteSet={() => void deleteActive()}
+            askCreate={askCreate}
             lens={lens}
             lensCounts={lensCounts}
             onLens={(l) => setLens(l === 'all' ? null : l)}
@@ -1019,7 +1068,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             count={picked.size}
             sets={sets}
             onAdd={(s) => void addPickedTo(s)}
-            onNew={() => void newSetWith([...picked])}
+            onNew={() => {
+              pendingMembers.current = [...picked];
+              setAskCreate(true);
+            }}
             onClear={() => setPicked(new Set())}
             onKeep={() => void keepPicked()}
             allKept={pickedNodes.length > 0 && pickedNodes.every((n) => n.kept)}

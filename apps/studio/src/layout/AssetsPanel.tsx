@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BookmarkSimple, CaretDown, Check, ImageSquare, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
-import { imgUrl, type Brand, type TreeNode } from '../api.js';
+import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
+import { appendColor, flattenPalette, nextHex, removeColor } from '../brand/palette.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { bookmarkedScenes } from '../bookmarks.js';
+import { failureToast } from '../failure.js';
 import { matchesQuery } from './library/libraryRules.js';
 import {
   buildCandidates,
@@ -13,6 +16,8 @@ import {
 } from '../composer/ingredientOptions.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { PREF, useSessionPref } from '../prefs.js';
+import { useToasts } from '../toasts.js';
+import { ColorPicker } from './ColorPicker.js';
 import {
   NO_ATTACHMENTS,
   RAIL_BATCH,
@@ -21,8 +26,6 @@ import {
   railSlice,
   type AttachedIds,
 } from './railSections.js';
-
-const ROLE_NAMES = ['Primary', 'Secondary', 'Accent', 'Accent 2', 'Neutral', 'Neutral 2'];
 
 /** The last shots, offered as style references. Not a history; a shelf. */
 const RECENT_SHOTS = 12;
@@ -71,6 +74,8 @@ export function AssetsPanel({
 }) {
   const catalog = useIngredientCatalog();
   const createAsset = useCreateAsset();
+  const { applyBrand } = useAppData();
+  const { push } = useToasts();
   /**
    * Which single section is opened out, if any.
    *
@@ -93,6 +98,18 @@ export function AssetsPanel({
    */
   const [q, setQ] = useState('');
   const searching = q.trim().length > 0;
+  /**
+   * Open this section and only this one, after something was just added to it.
+   *
+   * Search overrules expand — every match already draws as open — so a live
+   * query would hide the new tile if it did not match, and would keep every
+   * other section claiming height. Clear it. `toggle` would shut a section
+   * that was already open, which is the opposite of showing what you made.
+   */
+  const reveal = (key: string) => {
+    setQ('');
+    setExpanded(key);
+  };
 
   /**
    * Idle until something is open; then that one is open and the rest stand
@@ -132,23 +149,51 @@ export function AssetsPanel({
     [ranked, q],
   );
 
-  const palette = useMemo(() => {
-    const p = brand.json?.palette;
-    const raw: { hex: string; name?: string }[] = [];
-    const add = (c: any) => {
-      if (c?.hex) raw.push({ hex: String(c.hex).toUpperCase(), name: c.name });
-    };
-    add(p?.primary);
-    add(p?.secondary);
-    (p?.accent ?? []).forEach(add);
-    (p?.neutrals ?? []).forEach(add);
-    return raw.map((c, i) => ({ hex: c.hex, name: c.name ?? ROLE_NAMES[i] ?? `Color ${i + 1}` }));
-  }, [brand]);
+  const palette = useMemo(() => flattenPalette(brand.json?.palette), [brand]);
 
   const shownPalette = useMemo(
     () => (searching ? palette.filter((c) => matchesQuery(`${c.name} ${c.hex}`, q)) : palette),
     [palette, q, searching],
   );
+
+  const addColour = (hex: string) => {
+    void (async () => {
+      const result = appendColor(brand.json?.palette, hex);
+      if (!result.swatch) return;
+      if (result.added) {
+        try {
+          const row = await api.updateBrand(brand.id, {
+            ...(brand.json ?? {}),
+            palette: result.palette,
+          });
+          applyBrand(row);
+        } catch (e) {
+          push(failureToast(e, 'Could not save the brand'));
+          return;
+        }
+      }
+      // The plus writes the kit. The swatch is what drops a chip in the brief
+      // — same as every other rail tile. Committing here is what made a
+      // cancelled or already-known colour land in the composer anyway.
+      reveal('colors');
+    })();
+  };
+
+  const dropColour = (hex: string) => {
+    void (async () => {
+      const result = removeColor(brand.json?.palette, hex);
+      if (!result.removed) return;
+      try {
+        const row = await api.updateBrand(brand.id, {
+          ...(brand.json ?? {}),
+          palette: result.palette,
+        });
+        applyBrand(row);
+      } catch (e) {
+        push(failureToast(e, 'Could not save the brand'));
+      }
+    })();
+  };
 
   const recent = shots
     .filter((s) => s.status === 'done' && s.images.length > 0)
@@ -221,7 +266,10 @@ export function AssetsPanel({
               // A product is written synchronously, so it can go straight into
               // the brief. Presenters and scenes are build jobs; their tile
               // appears in the section when the build lands.
-              if (made.kind === 'product') onProduct(made.id);
+              if (made.kind === 'product') {
+                reveal('product');
+                onProduct(made.id);
+              }
             },
           })
         }
@@ -237,7 +285,13 @@ export function AssetsPanel({
         onPick={onCharacter}
         moreLabel="presenters"
         createLabel="Create presenter"
-        onCreate={() => createAsset('presenter')}
+        onCreate={() =>
+          createAsset('presenter', {
+            onCreated: (made) => {
+              if (made.kind === 'presenter') reveal('presenter');
+            },
+          })
+        }
       />
 
       <Section
@@ -250,27 +304,63 @@ export function AssetsPanel({
         onPick={onTemplate}
         moreLabel="scenes"
         createLabel="Create scene"
-        onCreate={() => createAsset('scene')}
+        onCreate={() =>
+          createAsset('scene', {
+            onCreated: (made) => {
+              if (made.kind === 'scene') reveal('scene');
+            },
+          })
+        }
       />
 
-      {/* Colours and reference shots are ingredients too — a brief carries them
-          as chips exactly the way it carries a product. They read as the same
-          kind of section because they are one; what they do not have is a
-          create flow of their own, and a header simply shows no action when
-          there is none to show. */}
-      {shownPalette.length > 0 && (
+      {/* Colours are ingredients too — a brief carries them as chips exactly
+          the way it carries a product. The plus writes the kit (not a catalog
+          object); the swatch is the insert, the same as every other tile.
+          Hidden only when a search turned nothing up. */}
+      {!(searching && shownPalette.length === 0) && (
         <Group
           name="Brand colors"
           count={shownPalette.length}
           mode={modeOf('colors')}
           onToggle={() => toggle('colors')}
+          action={
+            <ColorPicker
+              className="sc-aadd"
+              triggerStyle={{ background: 'none' }}
+              value={nextHex(palette)}
+              presets={palette.map((c) => c.hex)}
+              commitMode="close"
+              align="end"
+              label="Add colour"
+              onChange={addColour}
+            >
+              <Plus size={10} />
+            </ColorPicker>
+          }
         >
           {(shape) => (
             <div className="sc-arow">
               {(shape === 'open' ? shownPalette : shownPalette.slice(0, RAIL_COMPACT)).map((c) => (
-                <button type="button" key={c.hex} title={`${c.name} ${c.hex}`} onClick={() => onColor(c.hex, c.name)}>
-                  <span className="sc-aswatch" style={{ background: c.hex }} />
-                </button>
+                <div key={c.hex} className="sc-aswatch-tile">
+                  <button
+                    type="button"
+                    title={`${c.name} ${c.hex}`}
+                    onClick={() => onColor(c.hex, c.name)}
+                  >
+                    <span className="sc-aswatch" style={{ background: c.hex }} />
+                  </button>
+                  {shape === 'open' && (
+                    <button
+                      type="button"
+                      className="sc-aswatch-x"
+                      aria-label={`Remove ${c.name}`}
+                      title="Remove"
+                      onClick={() => dropColour(c.hex)}
+                    >
+                      <X size={10} weight="bold" />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}

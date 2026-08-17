@@ -76,6 +76,20 @@ export function normalizeHex(input: string): string | null {
   return HEX.test(out) ? out : null;
 }
 
+const HEX_WORD = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+
+/**
+ * A typed colour word: `#RGB` or `#RRGGBB`, or null.
+ *
+ * Stricter than `normalizeHex`, which also accepts a bare six-digit run.
+ * The composer only chips a hash-prefixed word so `ffffff` and `cap#F5C518`
+ * stay prose.
+ */
+export function hexWord(input: string): string | null {
+  const raw = String(input ?? '').trim();
+  return HEX_WORD.test(raw) ? normalizeHex(raw) : null;
+}
+
 /** Every colour in the kit, in the order a person reads them. */
 export function flattenPalette(palette: any): Swatch[] {
   const out: Swatch[] = [];
@@ -140,3 +154,71 @@ export function rebuildPalette(swatches: Swatch[], prev?: any): any {
  * of list position, because that is all it was ever worth.
  */
 export const isInShots = (s: Swatch): boolean => s.slot !== 'neutral';
+
+/**
+ * A starting colour for a new row that is not the one above it.
+ *
+ * A palette of identical greys was an earlier failure mode; rotating the
+ * channels means consecutive adds are told apart at a glance, and a brand with
+ * nothing yet starts on a neutral rather than on someone's idea of a nice blue.
+ */
+export function nextHex(colors: Swatch[]): string {
+  const last = colors[colors.length - 1]?.hex;
+  if (!last) return '#808080';
+  const n = Number.parseInt(last.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return `#${[b, r, g]
+    .map((v) => v.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase()}`;
+}
+
+export interface AppendedColor {
+  palette: any;
+  added: boolean;
+  swatch: Swatch | null;
+}
+
+/**
+ * Add one colour to a stored palette, or report that it is already there.
+ *
+ * The Create rail and the Brand page both write the same document. This is the
+ * one place that decides slot (first colour is primary, later ones are accents),
+ * skips a duplicate, and rebuilds so neutrals and `usage` survive. A malformed
+ * hex is a no-op: the schema rejects the whole document on a miss.
+ */
+export function appendColor(palette: any, hex: string): AppendedColor {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return { palette, added: false, swatch: null };
+  const current = flattenPalette(palette);
+  const existing = current.find((c) => c.hex === normalized);
+  if (existing) return { palette, added: false, swatch: existing };
+  const next: Swatch[] = [
+    ...current,
+    { hex: normalized, name: '', slot: current.length ? 'accent' : 'primary' },
+  ];
+  const rebuilt = rebuildPalette(next, palette);
+  const swatch = flattenPalette(rebuilt).find((c) => c.hex === normalized) ?? null;
+  return { palette: rebuilt, added: true, swatch };
+}
+
+export interface RemovedColor {
+  palette: any;
+  removed: boolean;
+}
+
+/**
+ * Take one colour out of a stored palette.
+ *
+ * Same writer as `appendColor`: rebuild so the remaining in-shot colours
+ * re-derive primary/secondary/accent, and neutrals and `usage` survive. A
+ * miss or a malformed hex is a no-op.
+ */
+export function removeColor(palette: any, hex: string): RemovedColor {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return { palette, removed: false };
+  const current = flattenPalette(palette);
+  const next = current.filter((c) => c.hex !== normalized);
+  if (next.length === current.length) return { palette, removed: false };
+  return { palette: rebuildPalette(next, palette), removed: true };
+}

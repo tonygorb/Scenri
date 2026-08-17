@@ -448,7 +448,7 @@ export const Composer = forwardRef<
 
   /**
    * The one shared policy behind every live scene-attach entry point (the
-   * Assets rail, the AttachPanel's Scenes tab, and the sigil menu) — decides
+   * Assets rail, the AttachPanel's Scenes tab, and `/` at the caret) — decides
    * through `resolveSceneSwitch`, applies through the same `insert`/
    * `removeTemplate` mechanics `place()` already uses for everything else.
    */
@@ -987,8 +987,9 @@ export const Composer = forwardRef<
                   // something new is what the chip's own X is for, which is why
                   // it is labelled "Make a new shot instead".
                   'Say what to change about this shot'
-                : 'What should we shoot?'
+                : 'What should we shoot? (use $ / @ #)'
           }
+          placeholderSm={template || mode === 'edit' ? undefined : 'What should we shoot? ($ / @ #)'}
           onSubmit={() => void go()}
           onDropFiles={(files) => void pickFiles(files)}
         />
@@ -1003,7 +1004,7 @@ export const Composer = forwardRef<
                 opened a panel that already had those same five as tabs. The
                 menu was a question the panel then asked again, so it is gone
                 and the panel opens on All. The kinds are still one click away,
-                as its tabs, and `@` and `#` still open the same list inline at
+                as its tabs, and `$` `/` `@` `#` still open the same list inline at
                 the caret for anyone who would rather not leave the keyboard. */}
             <button
               type="button"

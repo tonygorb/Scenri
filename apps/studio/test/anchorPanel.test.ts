@@ -76,6 +76,14 @@ describe('placePanel', () => {
     expect(p?.left).toBe(12);
   });
 
+  it('honours a narrower requested width and still clamps on a tight viewport', () => {
+    const wide = placePanel(chip(), DESKTOP, { width: 260 });
+    expect(wide?.width).toBe(260);
+    const tight = placePanel(chip({ left: 20, right: 120 }), { width: 240, height: 844 }, { width: 260 });
+    expect(tight?.width).toBe(240 - 24);
+    expect(tight?.left).toBe(12);
+  });
+
   it('returns null when the chip has scrolled out of its own 30vh scroller', () => {
     expect(placePanel(chip({ top: -60, bottom: -38 }), DESKTOP)).toBeNull();
     expect(placePanel(chip({ top: 980, bottom: 1002 }), DESKTOP)).toBeNull();
@@ -170,5 +178,34 @@ describe('placeInsertMenu', () => {
     const p = placeInsertMenu(lineBox, composer(), DESKTOP);
     expect(p?.shell).toBe('caret');
     expect(p?.left).toBe(374);
+  });
+
+  it('sits just above the caret when the box is only an empty state', () => {
+    const p = placeInsertMenu(caret(), composer(), DESKTOP, { height: 80 });
+    expect(p?.side).toBe('above');
+    expect(p?.shell).toBe('caret');
+    expect(p?.maxHeight).toBe(80);
+    // 748 caret - 8 gap - 80 box
+    expect(p?.top).toBe(660);
+    expect(p!.top + 80).toBe(caret().top - 8);
+  });
+
+  it('does not dock a short intentional box as an unusable sliver', () => {
+    const p = placeInsertMenu(caret(), composer(), DESKTOP, { height: 60 });
+    expect(p?.shell).toBe('caret');
+    expect(p?.maxHeight).toBe(60);
+    expect(p!.top + 60).toBe(caret().top - 8);
+  });
+
+  it('docks a short empty box just above the composer on the phone', () => {
+    const vp = { width: 390, height: 430 };
+    const brief = composer({ top: 300, bottom: 430, left: 12, right: 378 });
+    const p = placeInsertMenu(caret({ top: 320, bottom: 338, left: 40, right: 48 }), brief, vp, {
+      phone: true,
+      height: 80,
+    });
+    expect(p?.shell).toBe('dock');
+    expect(p?.maxHeight).toBe(80);
+    expect(p!.top + 80).toBe(brief.top - 8);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { emptyInsertCopy, INSERT_MENU_ID, insertLabel, splitMatch } from './insertMenu.js';
@@ -49,6 +49,8 @@ export function TokenMenu({
   const [active, setActive] = useState(0);
   const [pos, setPos] = useState<InsertPlaced | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const contentKey = `${query}\0${options.length}`;
+  const fitRef = useRef<{ key: string; height?: number }>({ key: '' });
 
   useEffect(() => {
     setActive(0);
@@ -58,26 +60,27 @@ export function TokenMenu({
     setActive((a) => Math.min(a, Math.max(0, options.length - 1)));
   }, [options.length]);
 
-  useLayoutEffect(() => {
-    const place = () => {
+  const placeWith = useCallback(
+    (height?: number): InsertPlaced | null => {
       const live = caretRect();
       const caret = live ?? anchor?.getBoundingClientRect() ?? null;
       const card = composer?.getBoundingClientRect();
-      if (!card) {
-        setPos(null);
-        return;
-      }
+      if (!card) return null;
       const lineRect = line?.getBoundingClientRect() ?? null;
       const vv = window.visualViewport;
-      setPos(
-        placeInsertMenu(
-          caret,
-          card,
-          { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight },
-          { phone, line: lineRect },
-        ),
+      return placeInsertMenu(
+        caret,
+        card,
+        { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight },
+        { phone, line: lineRect, height },
       );
-    };
+    },
+    [anchor, composer, line, phone],
+  );
+
+  useLayoutEffect(() => {
+    if (fitRef.current.key !== contentKey) fitRef.current = { key: contentKey };
+    const place = () => setPos(placeWith(fitRef.current.height));
     place();
     const later = requestAnimationFrame(place);
     window.addEventListener('resize', place);
@@ -91,7 +94,20 @@ export function TokenMenu({
       window.visualViewport?.removeEventListener('resize', place);
       window.visualViewport?.removeEventListener('scroll', place);
     };
-  }, [anchor, composer, line, phone, query]);
+  }, [anchor, composer, line, phone, contentKey, placeWith]);
+
+  // First pass reserves the tallest box so a growing list cannot run off the
+  // top. A miss paints ~80px; without this second pass it sits at the top of
+  // that 320px reservation, floating mid-canvas.
+  useLayoutEffect(() => {
+    if (pos?.side !== 'above' || !listRef.current) return;
+    const h = listRef.current.offsetHeight;
+    if (!(h > 0 && h < pos.maxHeight)) return;
+    fitRef.current = { key: contentKey, height: h };
+    const next = placeWith(h);
+    if (!next || (next.top === pos.top && next.maxHeight === pos.maxHeight)) return;
+    setPos(next);
+  }, [pos, contentKey, placeWith]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -126,7 +142,10 @@ export function TokenMenu({
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('.sc-cmd')) onClose();
+      if ((e.target as HTMLElement).closest('.sc-cmd')) return;
+      // The next keystroke is still in the brief: a dismiss must not steal the caret.
+      keepCaret(e);
+      onClose();
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -144,13 +163,17 @@ export function TokenMenu({
       role="listbox"
       aria-label={insertLabel(sigil)}
     >
-      <div className="sc-cmd-group">{insertLabel(sigil)}</div>
       {!options.length ? (
-        <div className="sc-cmd-empty">{emptyInsertCopy(sigil)}</div>
+        <>
+          <div className="sc-cmd-group">{insertLabel(sigil)}</div>
+          <div className="sc-cmd-empty">{emptyInsertCopy(sigil)}</div>
+        </>
       ) : (
         options.map((o, i) => {
+          const showGroup = i === 0 || o.group !== options[i - 1]?.group;
           return (
             <div key={o.key}>
+              {showGroup && <div className="sc-cmd-group">{o.group}</div>}
               <button
                 type="button"
                 id={`${INSERT_MENU_ID}-opt-${i}`}

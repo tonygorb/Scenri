@@ -21,17 +21,19 @@ describe('splitMatch', () => {
 
 describe('insertLabel', () => {
   it('names the catalog the sigil opens', () => {
-    expect(insertLabel('/')).toBe('Products');
+    expect(insertLabel('$')).toBe('Products');
+    expect(insertLabel('/')).toBe('Scenes');
     expect(insertLabel('@')).toBe('Presenters');
-    expect(insertLabel('#')).toBe('Scenes');
+    expect(insertLabel('#')).toBe('Colors');
   });
 });
 
 describe('emptyInsertCopy', () => {
   it('names the trigger, not a generic empty catalog', () => {
-    expect(emptyInsertCopy('#')).toBe('No matching scenes');
+    expect(emptyInsertCopy('$')).toBe('No matching products');
+    expect(emptyInsertCopy('/')).toBe('No matching scenes');
+    expect(emptyInsertCopy('#')).toBe('No matching colours');
     expect(emptyInsertCopy('@')).toBe('No matching presenters');
-    expect(emptyInsertCopy('/')).toBe('No matching products');
   });
 });
 

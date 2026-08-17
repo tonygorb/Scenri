@@ -383,6 +383,7 @@ select {
   .sc-agroup-content,
   .sc-agroup-caret,
   .sc-acard-tick,
+  .sc-aswatch-x,
   .sc-amore-tile {
     transition: none;
   }
@@ -441,6 +442,8 @@ select {
   align-items: center;
   gap: 2px;
   min-width: 0;
+  /* A set name is a crumb, not a headline. Uncapped it ate the centre nav. */
+  max-width: 18ch;
 }
 .sc-topbar-end {
   display: flex;
@@ -713,28 +716,35 @@ select {
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 5px 8px;
+  max-width: 100%;
+  padding: 5px 0;
   border: none;
-  border-radius: var(--sc-radius-sm);
+  border-radius: var(--sc-radius-xs);
   background: none;
   color: inherit;
   font-size: inherit;
   cursor: pointer;
-  transition: background 120ms ease;
 }
-.sc-crumb-btn:hover {
-  background: var(--sc-hover);
+.sc-crumb-btn:hover .sc-caret {
+  color: var(--sc-fg2);
 }
 .sc-crumb-btn b {
+  min-width: 0;
   color: var(--sc-fg);
   font-weight: 450;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.sc-crumb-btn:focus {
+  outline: none;
+}
 .sc-crumb-btn:focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 2px;
+}
+.sc-crumb-btn[data-state="open"] {
+  outline: none;
 }
 
 /* ---------- primitives ---------- */
@@ -2082,6 +2092,83 @@ select {
   outline-offset: 2px;
 }
 
+/* A colour chip's menu is a list of named swatches, not the catalog grid.
+   Same panel chrome; the rows reuse the cmd-swatch language (dot, name, hex). */
+.sc-swap-swatches {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sc-swap-swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--swap-step);
+  width: 100%;
+  min-height: var(--swap-control);
+  padding: 0 var(--swap-step);
+  border: none;
+  border-radius: var(--sc-radius);
+  background: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+  text-align: start;
+  font: inherit;
+}
+.sc-swap-swatch:hover,
+.sc-swap-swatch[data-on] {
+  background: var(--sc-raised);
+}
+.sc-swap-swatch:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+.sc-swap-dot {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+}
+.sc-swap-swatch b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--sc-text-control);
+  font-weight: 550;
+}
+.sc-swap-swatch > span:not([class]) {
+  flex: none;
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
+.sc-swap[data-kind="color"] .sc-swap-tick,
+.sc-swapsheet[data-kind="color"] .sc-swap-tick {
+  width: var(--sc-space-5);
+  height: var(--sc-space-5);
+}
+.sc-swap[data-kind="color"] .sc-swap-custom,
+.sc-swapsheet[data-kind="color"] .sc-swap-custom {
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  min-height: var(--swap-control);
+  box-shadow: none;
+  border-radius: var(--sc-radius);
+}
+.sc-swap[data-kind="color"] .sc-swap-foot,
+.sc-swapsheet[data-kind="color"] .sc-swap-foot {
+  flex-direction: column;
+  align-items: stretch;
+}
+.sc-swap[data-kind="color"] .sc-swap-remove,
+.sc-swapsheet[data-kind="color"] .sc-swap-remove {
+  justify-content: center;
+  width: 100%;
+}
+
 /* ---------- home: greeting, create cards, templates, feed ---------- */
 .sc-main {
   max-width: 1200px;
@@ -2570,11 +2657,13 @@ select {
   margin-bottom: var(--sc-space-2);
   background: var(--sc-bg);
 }
-/* Place and lens: two answers to one question, so they share a group. */
+/* Place and lens share a type size so they read as one row. The place is
+   heavier ink; the tabs stay the rail. A boxed chip next to the underlines
+   was a second widget system. */
 .sc-toolbar-scope {
   display: flex;
   align-items: center;
-  gap: var(--sc-space-6);
+  gap: var(--sc-space-8);
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -2586,6 +2675,7 @@ select {
   z-index: auto;
   margin-bottom: 0;
   background: none;
+  flex: 1 1 auto;
   min-width: 0;
 }
 .sc-toolbar .sc-verticals {
@@ -2616,7 +2706,65 @@ select {
 .sc-toolbar-assets {
   margin-left: var(--sc-space-6);
 }
-/* One shape for both menus in this row: a place to go, a way to look. */
+/* Same 17px as the lens tabs, heavier, always ink. No box at rest — hover
+   is the ghost chip. Padding matches the tab buttons so the words sit on
+   one axis; the underline hangs below both. */
+.sc-toolbar-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  margin: 0 -8px;
+  padding: 8px;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg);
+  font: 600 17px / 1 var(--sc-font);
+  letter-spacing: -0.022em;
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-toolbar-place:hover,
+.sc-toolbar-place[data-state="open"] {
+  background: var(--sc-hover);
+  outline: none;
+}
+.sc-toolbar-place:hover .sc-caret,
+.sc-toolbar-place:hover .sc-toolbar-place-ic,
+.sc-toolbar-place[data-state="open"] .sc-caret,
+.sc-toolbar-place[data-state="open"] .sc-toolbar-place-ic {
+  color: var(--sc-fg2);
+}
+.sc-toolbar-place-ic {
+  display: block;
+  flex: none;
+  color: var(--sc-fg3);
+}
+.sc-toolbar-place-t {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-toolbar-place .sc-caret {
+  color: var(--sc-fg3);
+  flex: none;
+  transition: color var(--sc-dur-fast) var(--sc-ease);
+}
+/* Keyboard only. A click that opens the menu must not leave a box on the
+   title — Radix keeps the trigger focused, and a ring here is a chip. */
+.sc-toolbar-place:focus {
+  outline: none;
+}
+.sc-toolbar-place:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+/* Sort is the remaining boxed menu in this row. */
 .sc-toolbar-btn {
   display: inline-flex;
   align-items: center;
@@ -2773,10 +2921,10 @@ select {
     padding: var(--sc-space-4) 0 var(--sc-space-4);
   }
   .sc-toolbar-scope {
-    gap: var(--sc-space-4);
+    gap: var(--sc-space-6);
     flex: 1 1 auto;
   }
-  /* A tab must never end flush against the place pill: at the clip the last
+  /* A tab must never end flush against the place title: at the clip the last
      word is already cut, and with no gap the cut reads as broken text rather
      than as a rail that keeps going. */
   .sc-toolbar .sc-verticals {
@@ -2785,10 +2933,30 @@ select {
   .sc-toolbar-actions {
     margin-left: 0;
   }
-  /* Both of these read as icons here: the folder and the sliders say what the
-     words did, and the words were the reason the row needed two lines. */
+  /* The title's words and Sort's label were the reason the row needed two
+     lines. The folder and the sliders say what they did. */
+  .sc-toolbar-place-t,
+  .sc-toolbar-place .sc-caret,
   .sc-toolbar-btn-t {
     display: none;
+  }
+  .sc-toolbar-place-ic {
+    display: block;
+  }
+  .sc-toolbar-place {
+    width: var(--sc-control-h);
+    height: var(--sc-control-h);
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    justify-content: center;
+    /* Icon-only on a black bar: the chip is what makes the folder a control
+       rather than a watermark. Desktop stays a title, so it stays unboxed. */
+    background: var(--sc-chip);
+  }
+  .sc-toolbar-place:hover,
+  .sc-toolbar-place[data-state="open"] {
+    background: var(--sc-chip-hover);
   }
   .sc-toolbar-btn {
     padding: 0 8px;
@@ -2820,21 +2988,25 @@ select {
   }
 }
 
-/* Renaming a set happens in the crumb itself, where its name already is. */
+/* Renaming a set happens in the crumb itself, where its name already is.
+   Type only — a bordered field plus a focus ring stacked into the concentric
+   pill that showed up on a short name. */
 .sc-crumb-input {
   font: inherit;
-  font-weight: 600;
+  font-weight: 450;
   color: var(--sc-fg);
-  background: var(--sc-raised);
-  border: 1px solid var(--sc-line-strong);
-  border-radius: 8px;
-  padding: 2px 8px;
-  min-width: 12ch;
-  max-width: 28ch;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  min-width: 8ch;
+  max-width: 18ch;
+  outline: none;
 }
 .sc-crumb-input:focus-visible {
   outline: 2px solid var(--sc-focus);
-  outline-offset: 1px;
+  outline-offset: 2px;
+  border-radius: var(--sc-radius-xs);
 }
 .sc-cell[data-running] {
   aspect-ratio: 4 / 5;
@@ -3557,9 +3729,9 @@ button.sc-fact:hover {
   flex: none;
 }
 /* The row's height is the create button's, whether or not this section has
-   one — otherwise the two that cannot be created into (colours, reference
-   shots) sat 3px shorter than the three that can, and the shelf lost its
-   rhythm at exactly the point it should read as one family. */
+   one — otherwise Recent shots (the one group that still cannot be created
+   into) sat 3px shorter than the others, and the shelf lost its rhythm at
+   exactly the point it should read as one family. */
 .sc-agroup-h {
   display: flex;
   align-items: center;
@@ -3615,6 +3787,9 @@ button.sc-fact:hover {
 .sc-agroup[data-mode="open"] .sc-agroup-content {
   overflow: visible;
   flex: none;
+  /* 2px ring + 1px offset on the last row, otherwise the section's own
+     scrollport chops the stroke along the bottom edge. */
+  padding-bottom: 4px;
 }
 /* The quick row and the named grid are different DOM — different cell count,
    different columns, labels or none — so swapping one for the other outright
@@ -3725,7 +3900,9 @@ button.sc-fact:hover {
   cursor: pointer;
 }
 .sc-agroup-h .sc-aadd:hover {
-  background: var(--sc-hover);
+  /* The colour-plus ColorPicker paints an inline background:none so it does
+     not read as a swatch; that would otherwise win over this hover fill. */
+  background: var(--sc-hover) !important;
   color: var(--sc-fg);
 }
 /* The closed shape: four square thumbnails, one row, no labels. Recognition
@@ -3735,29 +3912,130 @@ button.sc-fact:hover {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 7px;
+  /* 2px ring + 1px offset, plus a pixel so subpixels do not shear it. */
+  padding: 4px;
+  overflow: visible;
 }
 /* Plain image/swatch tiles — shared by the compact 4-col preview grid and any
    group (Brand colors, Recent shots) that skips the labeled AssetCard even
-   when open. Scoped by the tile's own markup, not by which grid it happens
-   to sit in, so it doesn't silently go unstyled if the wrapper class changes. */
-.sc-arow button,
+   when open. Direct children only: a colour tile wraps a pick button and a
+   remove, and those inner buttons must not inherit the tile chrome.
+   overflow stays visible here. Chromium clips an element's own outline (and
+   any corner control) when the same box is overflow:hidden + radius — the
+   chopped ring and quarter-circle X on a hovered brand swatch. Pictures and
+   pigment clip on the inner face instead. */
+.sc-arow > button,
+.sc-arow > .sc-aswatch-tile,
 .sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile) {
   border: 1px solid var(--sc-line);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
   background: var(--sc-raised);
   aspect-ratio: 1;
   cursor: pointer;
 }
-.sc-arow button:hover,
+.sc-arow > button:hover,
+.sc-arow > .sc-aswatch-tile:hover,
 .sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile):hover {
   border-color: var(--sc-line-strong);
 }
-.sc-arow button:focus-visible,
+.sc-arow > button:focus-visible,
+.sc-arow > .sc-aswatch-tile:focus-within,
 .sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile):focus-visible {
   outline: 2px solid var(--sc-focus);
   outline-offset: 1px;
+}
+.sc-aswatch-tile {
+  position: relative;
+}
+.sc-arow > .sc-aswatch-tile:hover,
+.sc-arow > .sc-aswatch-tile:focus-within,
+.sc-arow > button:hover,
+.sc-arow > button:focus-visible {
+  z-index: 1;
+}
+.sc-aswatch-tile > button:first-child {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.sc-aswatch-tile > button:first-child:focus,
+.sc-aswatch-tile > button:first-child:focus-visible {
+  outline: none;
+}
+/* A piece of glass over the pigment — not a white sticker.
+   The invert-disc from the photo thumbs fights cream swatches and shouts
+   over the colour, which is the thing this row exists to show. Dark glass
+   plus a white hairline reads on navy and on oat; danger red is reserved
+   for aiming at the X, which is the existing ghost-danger vocabulary.
+   The button is the hit area; the disc is painted on ::before so a 18px
+   mark can sit in an 8px corner without being a 18px target. */
+.sc-aswatch-x {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  line-height: 0;
+  font-size: 0;
+  cursor: pointer;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92);
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease),
+    transform var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-aswatch-x::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #000 46%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 24%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    box-shadow var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-aswatch-x svg {
+  position: relative;
+  display: block;
+}
+.sc-agroup[data-mode="open"] .sc-aswatch-tile:hover .sc-aswatch-x,
+.sc-agroup[data-mode="open"] .sc-aswatch-tile:focus-within .sc-aswatch-x,
+.sc-agroup[data-mode="result"] .sc-aswatch-tile:hover .sc-aswatch-x,
+.sc-agroup[data-mode="result"] .sc-aswatch-tile:focus-within .sc-aswatch-x {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.sc-aswatch-x:hover::before {
+  background: color-mix(in srgb, var(--sc-red) 88%, #000);
+  box-shadow: none;
+}
+.sc-aswatch-x:focus-visible {
+  outline: none;
+}
+.sc-aswatch-x:focus-visible::before {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
 }
 .sc-arow img,
 .sc-acard-grid > button:not(.sc-acard) img {
@@ -3765,12 +4043,14 @@ button.sc-fact:hover {
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: inherit;
 }
 .sc-arow .sc-aswatch,
 .sc-acard-grid > button:not(.sc-acard) .sc-aswatch {
   display: block;
   width: 100%;
   height: 100%;
+  border-radius: inherit;
 }
 /* The no-image fallback inside a card's thumb. Without a size it collapsed to
    the glyph's own height and sat against the top of an otherwise empty square
@@ -5868,11 +6148,13 @@ textarea.sc-edit[data-variant="lede"] {
     height: var(--sc-tap);
   }
 
-  /* The feed row's two menus lose their labels at this width, leaving a 34px
-     pill a thumb has to hit. The pill keeps its size; the reach does not. */
+  /* The feed row's menus lose their labels at this width, leaving a 34px
+     control a thumb has to hit. The control keeps its size; the reach does not. */
+  .sc-toolbar-place,
   .sc-toolbar-btn {
     position: relative;
   }
+  .sc-toolbar-place::after,
   .sc-toolbar-btn::after {
     content: "";
     position: absolute;

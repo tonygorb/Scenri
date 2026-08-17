@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, TrashSimple } from '@phosphor-icons/react';
-import { flattenPalette, isInShots, normalizeHex, rebuildPalette, type Swatch } from '../../brand/palette.js';
+import { flattenPalette, isInShots, nextHex, normalizeHex, rebuildPalette, type Swatch } from '../../brand/palette.js';
 import { ColorPicker } from '../../layout/ColorPicker.js';
 
 interface BrandDocLike {
@@ -127,24 +127,6 @@ export function BrandPalette({ doc, suggestions }: { doc: BrandDocLike; suggesti
       </div>
     </div>
   );
-}
-
-/**
- * A starting colour for a new row that is not the one above it.
- *
- * A palette of identical greys was an earlier failure mode; rotating the
- * channels means consecutive adds are told apart at a glance, and a brand with
- * nothing yet starts on a neutral rather than on someone's idea of a nice blue.
- */
-function nextHex(colors: Swatch[]): string {
-  const last = colors[colors.length - 1]?.hex;
-  if (!last) return '#808080';
-  const n = Number.parseInt(last.slice(1), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  return `#${[b, r, g]
-    .map((v) => v.toString(16).padStart(2, '0'))
-    .join('')
-    .toUpperCase()}`;
 }
 
 function SwatchRow({

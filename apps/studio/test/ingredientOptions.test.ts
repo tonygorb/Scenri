@@ -8,6 +8,7 @@ import {
   filterCandidates,
   insertShortlist,
   pickList,
+  chipOpensPicker,
   pickerKind,
   type Candidate,
   type IngredientCatalog,
@@ -114,6 +115,20 @@ describe('pickerKind', () => {
     expect(NOUN.product).toBe('product');
     expect(NOUN.presenter).toBe('presenter');
     expect(NOUN.scene).toBe('scene');
+  });
+});
+
+describe('chipOpensPicker', () => {
+  it('maps a colour chip to its own palette menu', () => {
+    expect(chipOpensPicker({ t: 'color', hex: '#ffffff' })).toBe('color');
+    expect(chipOpensPicker({ t: 'product', id: 'x' })).toBe('product');
+  });
+
+  it('still leaves a reference, a mark and prose without a picker', () => {
+    expect(chipOpensPicker({ t: 'ref', imageHash: 'h' })).toBeNull();
+    expect(chipOpensPicker({ t: 'mark', imageHash: 'h' })).toBeNull();
+    expect(chipOpensPicker({ t: 'text', v: 'hello' })).toBeNull();
+    expect(chipOpensPicker(null)).toBeNull();
   });
 });
 
@@ -499,13 +514,30 @@ describe('insertShortlist', () => {
         productCategory: 'beauty',
       }),
     );
-  const pools = () => ({ products: manyProducts(), presenters: manyPresenters(), scenes: manyScenes() });
+  const palette = [
+    { hex: '#D96C3B', name: 'Terracotta', slot: 'primary' as const },
+    { hex: '#1F2933', name: 'Ink', slot: 'secondary' as const },
+    { hex: '#F5C518', name: 'Gold', slot: 'accent' as const },
+  ];
+  const pools = () => ({
+    products: manyProducts(),
+    presenters: manyPresenters(),
+    scenes: manyScenes(),
+    colors: palette,
+  });
 
-  it('empty / is products only, yours first', () => {
-    const rows = insertShortlist('/', pools(), { query: '' });
+  it('empty $ is products only, yours first', () => {
+    const rows = insertShortlist('$', pools(), { query: '' });
     expect(rows.every((r) => r.group === 'Products')).toBe(true);
     expect(choiceIds(rows)[0]).toBe('mine');
     expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Products);
+  });
+
+  it('empty / is scenes only, yours first', () => {
+    const rows = insertShortlist('/', pools(), { query: '', bookmarked: new Set(['marked']) });
+    expect(rows.every((r) => r.group === 'Scenes')).toBe(true);
+    expect(choiceIds(rows).slice(0, 3)).toEqual(['us-mine', 'marked', 'suited']);
+    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Scenes);
   });
 
   it('empty @ is presenters only, yours first', () => {
@@ -515,12 +547,20 @@ describe('insertShortlist', () => {
     expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Presenters);
   });
 
-  it('empty # uses pickList order and never hides catalog scenes', () => {
-    const rows = insertShortlist('#', pools(), { query: '', bookmarked: new Set(['marked']) });
-    expect(rows.every((r) => r.group === 'Scenes')).toBe(true);
-    expect(choiceIds(rows).slice(0, 3)).toEqual(['us-mine', 'marked', 'suited']);
-    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Scenes);
-    expect(rows.length).toBeGreaterThan(0);
+  it('empty # is colours only', () => {
+    const rows = insertShortlist('#', pools(), { query: '' });
+    expect(rows.every((r) => r.group === 'Colors')).toBe(true);
+    expect(rows.map((r) => r.label)).toEqual(['Terracotta', 'Ink', 'Gold']);
+    expect(rows[0]?.token).toMatchObject({ t: 'color', hex: '#D96C3B', name: 'Terracotta' });
+    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Colors);
+  });
+
+  it('typing # searches colours, not scenes', () => {
+    const rows = insertShortlist('#', pools(), { query: 'ink' });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.token).toMatchObject({ t: 'color', hex: '#1F2933' });
+    expect(insertShortlist('#', pools(), { query: 'f5c' }).map((r) => r.label)).toEqual(['Gold']);
+    expect(insertShortlist('#', pools(), { query: 'our set' })).toEqual([]);
   });
 
   it('typing searches that catalog and caps silently at INSERT_CAP', () => {
@@ -528,13 +568,13 @@ describe('insertShortlist', () => {
       'product',
       catalog({ libraryProducts: Array.from({ length: 80 }, (_, i) => owned({ id: `can-${i}`, name: `Can ${i}` })) }),
     );
-    const rows = insertShortlist('/', { products, presenters: [], scenes: [] }, { query: 'can' });
+    const rows = insertShortlist('$', { products, presenters: [] }, { query: 'can' });
     expect(rows).toHaveLength(INSERT_CAP);
     expect(rows.every((r) => r.group === 'Products')).toBe(true);
   });
 
   it('a typed query that matches nothing is an empty list, not a close', () => {
-    expect(insertShortlist('@', { products: [], presenters: manyPresenters(), scenes: [] }, { query: 'zzzz' })).toHaveLength(
+    expect(insertShortlist('@', { products: [], presenters: manyPresenters() }, { query: 'zzzz' })).toHaveLength(
       0,
     );
   });

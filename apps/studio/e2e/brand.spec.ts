@@ -103,6 +103,73 @@ test.describe('brand kit', () => {
     await expect(page.locator('.sc-pal-row')).toHaveCount(5);
   });
 
+  test('a colour added from the Create rail lands in the kit, not the brief', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await putBrand(page, brand.id, {
+      ...brand.json,
+      palette: {
+        primary: { hex: '#1F3D2B', name: 'Forest' },
+        secondary: { hex: '#E8DCC8', name: 'Oat' },
+        accent: [{ hex: '#D96C3B', name: 'Terracotta' }],
+        neutrals: [{ hex: '#111111' }, { hex: '#FAFAF7' }],
+      },
+    });
+
+    await page.goto(`/${brand.slug}/create`);
+    // First-run keeps the rail open and has no toolbar switch. Once shots
+    // exist the switch appears, and a blind click would shut a rail that
+    // was already open.
+    const toggle = page.getByRole('button', { name: 'Assets panel' });
+    await expect(toggle.or(page.locator('[data-firstrun]'))).toBeVisible();
+    if ((await toggle.isVisible()) && (await toggle.getAttribute('aria-pressed')) !== 'true') {
+      await toggle.click();
+    }
+    const rail = page.locator('aside.sc-assets');
+    await expect(rail).toBeVisible();
+
+    await rail.getByRole('button', { name: 'Add colour' }).click();
+    const hex = page.locator('.sc-cp-hex');
+    await expect(hex).toBeVisible();
+    await hex.fill('#C8442A');
+    await hex.press('Enter');
+
+    // The plus writes the kit. A chip is a click on the swatch, not a side
+    // effect of opening the picker.
+    await expect(page.locator('.sc-brief-line .sc-token[data-kind="color"]')).toHaveCount(0);
+    await expect(rail.getByTitle('Accent 2 #C8442A')).toBeVisible();
+    await expect(rail.locator('.sc-agroup', { hasText: 'Brand colors' })).toHaveAttribute('data-mode', 'open');
+
+    await rail.getByTitle('Accent 2 #C8442A').click();
+    await expect(page.locator('.sc-brief-line .sc-token[data-kind="color"]')).toHaveCount(1);
+
+    await expect
+      .poll(async () => {
+        const brands = (await api(page, '/api/brands')) as any[];
+        return brands.find((b) => b.id === brand.id).json.palette;
+      })
+      .toMatchObject({
+        primary: { hex: '#1F3D2B', name: 'Forest' },
+        secondary: { hex: '#E8DCC8', name: 'Oat' },
+        accent: [{ hex: '#D96C3B', name: 'Terracotta' }, { hex: '#C8442A' }],
+        neutrals: [{ hex: '#111111' }, { hex: '#FAFAF7' }],
+      });
+
+    await rail.getByTitle('Accent 2 #C8442A').hover();
+    await rail.getByRole('button', { name: 'Remove Accent 2' }).click();
+    await expect(rail.getByTitle('Accent 2 #C8442A')).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const brands = (await api(page, '/api/brands')) as any[];
+        return brands.find((b) => b.id === brand.id).json.palette;
+      })
+      .toMatchObject({
+        primary: { hex: '#1F3D2B', name: 'Forest' },
+        secondary: { hex: '#E8DCC8', name: 'Oat' },
+        accent: [{ hex: '#D96C3B', name: 'Terracotta' }],
+        neutrals: [{ hex: '#111111' }, { hex: '#FAFAF7' }],
+      });
+  });
+
   test('rules apply on their own; nothing else about the brand does', async ({ page }) => {
     const brand = await currentBrand(page);
     await putBrand(page, brand.id, {

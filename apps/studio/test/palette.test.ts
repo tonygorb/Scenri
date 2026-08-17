@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { flattenPalette, isInShots, normalizeHex, rebuildPalette, ROLE_NAMES } from '../src/brand/palette.js';
+import {
+  appendColor,
+  flattenPalette,
+  isInShots,
+  hexWord,
+  nextHex,
+  normalizeHex,
+  rebuildPalette,
+  removeColor,
+  ROLE_NAMES,
+} from '../src/brand/palette.js';
 
 const full = {
   primary: { hex: '#1F3D2B', name: 'Forest' },
@@ -120,5 +130,86 @@ describe('normalizeHex', () => {
     expect(normalizeHex('#12345')).toBeNull();
     expect(normalizeHex('')).toBeNull();
     expect(normalizeHex('#GGGGGG')).toBeNull();
+  });
+});
+
+describe('hexWord', () => {
+  it('accepts a hash-prefixed 3 or 6 digit colour', () => {
+    expect(hexWord('#fff')).toBe('#FFFFFF');
+    expect(hexWord('#ffffff')).toBe('#FFFFFF');
+    expect(hexWord('  #AbC123 ')).toBe('#ABC123');
+  });
+
+  it('rejects a bare run, a mid-word hash, and the lengths that are not a colour', () => {
+    expect(hexWord('ffffff')).toBeNull();
+    expect(hexWord('cap#F5C518')).toBeNull();
+    expect(hexWord('#ffff')).toBeNull();
+    expect(hexWord('#12345')).toBeNull();
+    expect(hexWord('#12345678')).toBeNull();
+    expect(hexWord('#GGGGGG')).toBeNull();
+    expect(hexWord('')).toBeNull();
+  });
+});
+
+describe('nextHex', () => {
+  it('starts an empty kit on a neutral grey', () => {
+    expect(nextHex([])).toBe('#808080');
+  });
+
+  it('rotates the last swatch so consecutive adds are told apart', () => {
+    expect(nextHex([{ hex: '#1F3D2B', name: 'Forest', slot: 'primary' }])).toBe('#2B1F3D');
+  });
+});
+
+describe('appendColor', () => {
+  it('makes the first colour the primary', () => {
+    const out = appendColor({}, '#c8442a');
+    expect(out.added).toBe(true);
+    expect(out.swatch).toEqual({ hex: '#C8442A', name: 'Primary', slot: 'primary' });
+    expect(out.palette).toEqual({ primary: { hex: '#C8442A' } });
+  });
+
+  it('appends a later colour as an accent and leaves neutrals and usage alone', () => {
+    const out = appendColor(full, '#c8442a');
+    expect(out.added).toBe(true);
+    expect(out.swatch).toEqual({ hex: '#C8442A', name: 'Accent 2', slot: 'accent' });
+    expect(out.palette).toEqual({
+      ...full,
+      accent: [{ hex: '#D96C3B', name: 'Terracotta' }, { hex: '#C8442A' }],
+    });
+  });
+
+  it('is a no-op when the hex is already in the kit', () => {
+    const out = appendColor(full, '#1f3d2b');
+    expect(out.added).toBe(false);
+    expect(out.swatch).toEqual({ hex: '#1F3D2B', name: 'Forest', slot: 'primary' });
+    expect(out.palette).toEqual(full);
+  });
+
+  it('rejects a hex the schema would reject', () => {
+    const out = appendColor(full, 'red');
+    expect(out).toEqual({ palette: full, added: false, swatch: null });
+  });
+});
+
+describe('removeColor', () => {
+  it('drops a colour and re-derives primary without eating neutrals or usage', () => {
+    const out = removeColor(full, '#1f3d2b');
+    expect(out.removed).toBe(true);
+    expect(out.palette).toEqual({
+      primary: { hex: '#E8DCC8', name: 'Oat' },
+      secondary: { hex: '#D96C3B', name: 'Terracotta' },
+      neutrals: [{ hex: '#111111' }, { hex: '#FAFAF7' }],
+      usage: 'Forest dominates packaging.',
+    });
+  });
+
+  it('is a no-op when the hex is not in the kit', () => {
+    expect(removeColor(full, '#c8442a')).toEqual({ palette: full, removed: false });
+    expect(removeColor(full, 'red')).toEqual({ palette: full, removed: false });
+  });
+
+  it('leaves an empty kit as {}', () => {
+    expect(removeColor({ primary: { hex: '#C8442A' } }, '#c8442a')).toEqual({ palette: {}, removed: true });
   });
 });

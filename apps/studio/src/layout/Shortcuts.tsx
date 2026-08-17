@@ -8,9 +8,10 @@ import { Dialog } from '@radix-ui/themes';
 const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Generate', keys: ['cmd', 'enter'] },
   { label: 'Jump to the brief', keys: ['/'] },
-  { label: 'Product menu', keys: ['/'] },
+  { label: 'Product menu', keys: ['$'] },
+  { label: 'Scene menu', keys: ['/'] },
   { label: 'Presenter menu', keys: ['@'] },
-  { label: 'Scene menu', keys: ['#'] },
+  { label: 'Colour menu', keys: ['#'] },
   // siblings are whole runs off one parent, so they are versions; the images
   // inside a single run are its variants. Two words, two rows, one meaning each.
   { label: 'Walk versions', keys: ['←', '→'] },

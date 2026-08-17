@@ -1,14 +1,10 @@
-import { useEffect, useState } from 'react';
-import { useMatch, useNavigate, useSearchParams } from 'react-router';
-import { DropdownMenu } from '@radix-ui/themes';
-import { CaretDown } from '@phosphor-icons/react';
+import { useMatch, useNavigate } from 'react-router';
 import { BrandMenu } from './BrandMenu.js';
 import { NewAssetButton } from '../create/NewAssetButton.js';
 import { NotificationsButton } from './Notifications.js';
 import { useMainNav } from './nav.js';
-import { api } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { P, brandPath, hubPath, setPath } from '../routes.js';
+import { P, brandPath } from '../routes.js';
 
 /**
  * The one chrome bar, mounted once by BrandLayout. Three tracks: where you are,
@@ -40,11 +36,6 @@ export function TopBar() {
         <button type="button" className="sc-wordmark sc-display" onClick={() => navigate(brandPath(brand))}>
           scenri
         </button>
-        {set ? (
-          <div className="sc-topbar-context">
-            <SetCrumb slug={set.params.setSlug ?? ''} />
-          </div>
-        ) : null}
       </div>
       <MainNav />
       <div className="sc-topbar-end">
@@ -84,105 +75,5 @@ function MainNav() {
         ))}
       </ul>
     </nav>
-  );
-}
-
-/**
- * Second step of the breadcrumb, a switcher, and the only place a set can be
- * renamed or deleted — which the old project crumb never offered at all, so a
- * name typed once was a name kept forever.
- *
- * `slug` is what the path carries; an id still resolves, mid-rewrite.
- */
-function SetCrumb({ slug }: { slug: string }) {
-  const { brand, sets, refresh, applySet, dropSet } = useBrand();
-  const navigate = useNavigate();
-  const [renaming, setRenaming] = useState(false);
-  const [params, setParams] = useSearchParams();
-  const here = sets.find((x) => x.slug === slug) ?? sets.find((x) => x.id === slug);
-
-  // a set made from the feed arrives asking to be named, rather than keeping
-  // "Untitled set" because nobody found where to change it
-  useEffect(() => {
-    if (params.get('rename') === null) return;
-    setRenaming(true);
-    setParams(
-      (cur) => {
-        const p = new URLSearchParams(cur);
-        p.delete('rename');
-        return p;
-      },
-      { replace: true },
-    );
-  }, [params, setParams]);
-
-  if (!here) return null;
-
-  const rename = async (name: string) => {
-    setRenaming(false);
-    const clean = name.trim();
-    if (!clean || clean === here.name) return;
-    const saved = await api.renameSet(here.id, clean);
-    // patch and navigate together, then reconcile. Refetching first left one
-    // render where the list knew only the old slug and the URL still asked for
-    // it, and /s/:slug read that as a deleted set and bounced to the feed
-    applySet(saved);
-    navigate(setPath(brand, saved), { replace: true });
-    void refresh();
-  };
-
-  const remove = async () => {
-    await api.deleteSet(here.id);
-    dropSet(here.id);
-    navigate(hubPath(brand), { replace: true });
-    void refresh();
-  };
-
-  if (renaming) {
-    return (
-      <input
-        className="sc-crumb-input"
-        // the control exists only because you asked to rename: landing anywhere
-        // but in it would mean a second click to do the thing you just chose
-        // biome-ignore lint/a11y/noAutofocus: opened by an explicit Rename
-        autoFocus
-        defaultValue={here.name}
-        aria-label="Set name"
-        onBlur={(e) => void rename(e.currentTarget.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
-          if (e.key === 'Escape') setRenaming(false);
-        }}
-      />
-    );
-  }
-
-  return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <button type="button" className="sc-crumb-btn">
-          <b>{here.name}</b>
-          <CaretDown size={11} className="sc-caret" />
-        </button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content>
-        {/* the hub, not Home: leaving a set is dropping a filter, not leaving */}
-        <DropdownMenu.Item onSelect={() => navigate(hubPath(brand))}>All shots</DropdownMenu.Item>
-        {sets.length > 1 && <DropdownMenu.Separator />}
-        {sets
-          .filter((s) => s.id !== here.id)
-          .map((s) => (
-            <DropdownMenu.Item key={s.id} onSelect={() => navigate(setPath(brand, s))}>
-              {s.name}
-            </DropdownMenu.Item>
-          ))}
-        <DropdownMenu.Separator />
-        <DropdownMenu.Item onSelect={() => setRenaming(true)}>Rename</DropdownMenu.Item>
-        {/* the shots outlive the set: this is a label coming off, not a delete */}
-        <DropdownMenu.Item color="red" onSelect={() => void remove()}>
-          Delete set
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
   );
 }

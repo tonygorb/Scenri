@@ -1,4 +1,5 @@
-import { DropdownMenu } from '@radix-ui/themes';
+import { useEffect, useRef, useState } from 'react';
+import { AlertDialog, Button, Dialog, DropdownMenu, Flex } from '@radix-ui/themes';
 import { ArrowsDownUp, CaretDown, FolderSimple, SidebarSimple } from '@phosphor-icons/react';
 import type { ShotSet } from '../api.js';
 import { FEED_SORTS, LENSES, type FeedSort, type Lens } from '../feedRules.js';
@@ -9,19 +10,19 @@ import { VerticalsTabs, type VerticalsTabItem } from './VerticalsTabs.js';
 /**
  * One row above the feed, holding two questions and nothing else.
  *
- * WHAT AM I BROWSING sits on the left: a place (the whole brand, a set, or the
- * shots not filed into one) and a lens over it (all, keepers, archived). These
- * used to be one strip of identical tabs, which made them look like one
- * question when they are two — and worse, they fought: a set short-circuited
- * the lens in `shown`, so asking for keepers while inside a set silently threw
- * you out of the set, leaving no tab selected at all. They compose now.
+ * WHERE I AM sits on the left as the feed title: All shots, a named set, or
+ * the shots not filed into one. The lenses (all, keepers, archived) are
+ * children of that place. They used to be one strip of identical tabs, which
+ * made them look like one question when they are two — and worse, they
+ * fought: a set short-circuited the lens in `shown`. The title is the parent;
+ * the tabs stay the lens. Rename and delete live on this menu — the top bar
+ * does not name the set a second time.
  *
  * HOW DO I FIND SOMETHING sits on the right, in the order every catalog wall
- * in the app already uses: search, then size. Sort is the one thing only this
- * screen has, and it sits between them as a menu rather than as a permanent
- * label. The row used to also spend space on a result count — the tab numbers
- * carry that now, since they follow the place and the search — and on a
- * fourteen-stop width slider whose middle stops changed nothing.
+ * in the app already uses: search, then size. Sort is the one menu only this
+ * screen has. The row used to also spend space on a result count — the tab
+ * numbers carry that now — and on a fourteen-stop width slider whose middle
+ * stops changed nothing.
  *
  * Spacing says the same thing twice: 8px between siblings on one axis, 16px
  * across an axis boundary. Nothing here draws a container to do that work.
@@ -35,6 +36,10 @@ export function FeedToolbar({
   onPlaceUngrouped,
   onOpenSet,
   onNewSet,
+  onResetNewSet,
+  onRenameSet,
+  onDeleteSet,
+  askCreate,
   lens,
   lensCounts,
   onLens,
@@ -58,7 +63,15 @@ export function FeedToolbar({
   onPlaceAll: () => void;
   onPlaceUngrouped: () => void;
   onOpenSet: (set: ShotSet) => void;
-  onNewSet: () => void;
+  /** Create only happens after they name it — Cancel must not leave a set. */
+  onNewSet: (name: string) => void;
+  /** Drop any members the pick bar staged for the next create. */
+  onResetNewSet?: () => void;
+  /** Name the set you are in. Absent when you are not in one. */
+  onRenameSet?: (name: string) => void;
+  onDeleteSet?: () => void;
+  /** The pick bar asked to name a set that does not exist yet. */
+  askCreate?: boolean;
   lens: Lens;
   lensCounts: Record<Lens, number>;
   onLens: (l: Lens) => void;
@@ -76,8 +89,57 @@ export function FeedToolbar({
   showAssets: boolean;
 }) {
   const placeValue = active ? active.id : ungrouped ? '__ungrouped__' : '__all__';
-  const placeLabel = active ? active.name : ungrouped ? 'Not in a set' : 'Sets';
+  const placeLabel = active ? active.name : ungrouped ? 'Not in a set' : 'All shots';
   const somewhere = Boolean(active) || ungrouped;
+  const [naming, setNaming] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [draft, setDraft] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
+  const creatingRef = useRef(false);
+
+  const beginCreate = () => {
+    creatingRef.current = true;
+    setCreating(true);
+    setDraft('');
+    setNaming(true);
+  };
+
+  const openRename = () => {
+    if (!active) return;
+    creatingRef.current = false;
+    setCreating(false);
+    setDraft(active.name);
+    setNaming(true);
+  };
+
+  useEffect(() => {
+    if (!askCreate) return;
+    beginCreate();
+  }, [askCreate]);
+
+  const commitName = () => {
+    const name = draft.trim();
+    if (!name) return;
+    const made = creatingRef.current;
+    creatingRef.current = false;
+    setCreating(false);
+    setNaming(false);
+    if (made) onNewSet(name);
+    else onRenameSet?.(name);
+  };
+
+  const onNameOpenChange = (open: boolean) => {
+    if (open) {
+      setNaming(true);
+      return;
+    }
+    const abandon = creatingRef.current;
+    creatingRef.current = false;
+    setCreating(false);
+    setNaming(false);
+    if (abandon) onResetNewSet?.();
+  };
 
   const lensItems: VerticalsTabItem[] = LENSES.map((l) => ({
     value: l.id === 'all' ? null : l.id,
@@ -88,18 +150,24 @@ export function FeedToolbar({
   return (
     <div className="sc-toolbar">
       <div className="sc-toolbar-scope">
-        {/* A place is somewhere you can be, so this is a list of places and
-              the one you are in carries the tick — not a filter chip. */}
+        {/* The name of the place, not a boxed sibling of the lenses. Idle is
+              All shots — the type-name "Sets" and a set-count next to All 11
+              was the thing that made this look like a second nav. Rename
+              lives in a dialog so this trigger never swaps for an input. */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>
-            <button type="button" className="sc-toolbar-btn" data-on={somewhere || undefined} aria-label={placeLabel}>
-              <FolderSimple size={14} />
-              <span className="sc-toolbar-btn-t">{placeLabel}</span>
-              {!somewhere && sets.length > 0 && <span className="sc-toolbar-btn-n">{sets.length}</span>}
-              <CaretDown size={10} />
+            <button
+              type="button"
+              className="sc-toolbar-place"
+              data-on={somewhere || undefined}
+              aria-label={placeLabel}
+            >
+              <FolderSimple className="sc-toolbar-place-ic" size={14} />
+              <span className="sc-toolbar-place-t">{placeLabel}</span>
+              <CaretDown size={10} className="sc-caret" />
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="start">
+          <DropdownMenu.Content align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
             <DropdownMenu.RadioGroup value={placeValue}>
               <DropdownMenu.RadioItem value="__all__" onSelect={onPlaceAll}>
                 All shots
@@ -118,9 +186,84 @@ export function FeedToolbar({
               ))}
             </DropdownMenu.RadioGroup>
             <DropdownMenu.Separator />
-            <DropdownMenu.Item onSelect={onNewSet}>New set</DropdownMenu.Item>
+            <DropdownMenu.Item
+              onSelect={() => {
+                onResetNewSet?.();
+                beginCreate();
+              }}
+            >
+              New set
+            </DropdownMenu.Item>
+            {active && onRenameSet && <DropdownMenu.Item onSelect={openRename}>Rename</DropdownMenu.Item>}
+            {active && onDeleteSet && (
+              <DropdownMenu.Item color="red" onSelect={() => setConfirmDelete(true)}>
+                Delete set
+              </DropdownMenu.Item>
+            )}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
+
+        <Dialog.Root open={naming} onOpenChange={onNameOpenChange}>
+          <Dialog.Content
+            maxWidth="360px"
+            aria-describedby={undefined}
+            onOpenAutoFocus={(e) => {
+              e.preventDefault();
+              const field = nameRef.current;
+              if (!field) return;
+              field.focus();
+              field.select();
+            }}
+          >
+            <Dialog.Title>{creating ? 'Name this set' : 'Rename set'}</Dialog.Title>
+            <input
+              ref={nameRef}
+              className="sc-in"
+              style={{ width: '100%', marginTop: 8 }}
+              value={draft}
+              aria-label="Set name"
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitName();
+              }}
+            />
+            <Flex gap="3" mt="4" justify="end">
+              <Button variant="soft" color="gray" onClick={() => onNameOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={commitName} disabled={!draft.trim()}>
+                Save
+              </Button>
+            </Flex>
+          </Dialog.Content>
+        </Dialog.Root>
+
+        <AlertDialog.Root open={confirmDelete} onOpenChange={setConfirmDelete}>
+          <AlertDialog.Content maxWidth="420px">
+            <AlertDialog.Title>Delete this set?</AlertDialog.Title>
+            <AlertDialog.Description size="2">
+              Shots stay in the library. Only the set goes.
+            </AlertDialog.Description>
+            <Flex gap="3" mt="4" justify="end">
+              <AlertDialog.Cancel>
+                <Button variant="soft" color="gray">
+                  Cancel
+                </Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action>
+                <Button
+                  color="red"
+                  onClick={() => {
+                    onDeleteSet?.();
+                    setConfirmDelete(false);
+                  }}
+                >
+                  Delete set
+                </Button>
+              </AlertDialog.Action>
+            </Flex>
+          </AlertDialog.Content>
+        </AlertDialog.Root>
 
         {/* Counts follow the place and the search, so the row needs no
               separate "N shots": the tab you are on already says it. */}
@@ -135,9 +278,9 @@ export function FeedToolbar({
       <div className="sc-toolbar-actions">
         <LibrarySearch value={q} onChange={onQ} noun="shots" total={searchTotal} />
 
-        {/* Sort is the only control here that no other wall in the app has,
-              so it takes a menu rather than a permanent label: four orders,
-              the current one ticked, and a trigger that cannot change width. */}
+        {/* Sort is the only order control this wall has, so it takes a menu
+              rather than a permanent label: four orders, the current one
+              ticked, and a trigger that cannot change width. */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>
             <button type="button" className="sc-toolbar-btn" aria-label="Sort shots">

@@ -1,6 +1,6 @@
 /**
  * The shared decision behind every "attach a Scene" entry point: the rail, the
- * AttachPanel's Scenes tab, the `#` sigil menu, and the URL-driven `?scene=`
+ * AttachPanel's Scenes tab, the scene chip picker, and the URL-driven `?scene=`
  * seed all ask the same question — did anything actually change, and if so,
  * what does the user need to be told? No React here, so it can be called both
  * live (against already-rendered state) and during hydration (against raw

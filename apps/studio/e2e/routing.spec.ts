@@ -322,7 +322,7 @@ test('the shots outside every set are reachable, and a lens still narrows them',
 
   await page.goto(`/${brand.slug}/create?in=ungrouped`);
   await expect(page.locator('.sc-toolbar')).toBeVisible();
-  await expect(page.locator('.sc-toolbar-scope .sc-toolbar-btn')).toHaveAttribute('data-on', 'true');
+  await expect(page.locator('.sc-toolbar-place')).toHaveAttribute('data-on', 'true');
 
   // the filed shot is the one thing this pile must not contain
   const ids = await page
@@ -332,10 +332,10 @@ test('the shots outside every set are reachable, and a lens still narrows them',
 
   // and the address it rode in on survives a reload, like every other filter
   await page.reload();
-  await expect(page.locator('.sc-toolbar-scope .sc-toolbar-btn')).toHaveAttribute('data-on', 'true');
+  await expect(page.locator('.sc-toolbar-place')).toHaveAttribute('data-on', 'true');
 });
 
-test('a set can be renamed and deleted from the crumb, and the shots survive', async ({ page }) => {
+test('a set can be renamed and deleted from the place menu, and the shots survive', async ({ page }) => {
   const brand = await currentBrand(page);
   const { nodeId } = await seedShot(page, brand.id);
   // the e2e home persists between runs, so the names have to be this run's own
@@ -343,27 +343,54 @@ test('a set can be renamed and deleted from the crumb, and the shots survive', a
   const set = await seedSet(page, brand.id, `Crumb ${stamp}`, [nodeId]);
 
   await page.goto(`/${brand.slug}/sets/${set.slug}`);
-  await expect(page.locator('.sc-crumb-btn b')).toHaveText(`Crumb ${stamp}`);
+  await expect(page.locator('.sc-toolbar-place-t')).toHaveText(`Crumb ${stamp}`);
 
-  await page.locator('.sc-crumb-btn').click();
+  await page.locator('.sc-toolbar-place').click();
   await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
-  await page.locator('.sc-crumb-input').fill(`Renamed ${stamp}`);
+  // the place title stays put — rename is a dialog, not a swap in the row
+  await expect(page.locator('.sc-toolbar-place-t')).toHaveText(`Crumb ${stamp}`);
+  await expect(page.getByRole('dialog', { name: 'Rename set' })).toBeVisible();
+  await page.getByLabel('Set name').fill(`Renamed ${stamp}`);
   await page.keyboard.press('Enter');
 
   // the slug is the address: renaming has to move the path with it. On the
   // pathname alone, because the lens and the branch target ride in the query
   // and are nothing to do with which set this is.
   await page.waitForURL((u) => u.pathname === `/${brand.slug}/sets/renamed-${stamp}`);
-  await expect(page.locator('.sc-crumb-btn b')).toHaveText(`Renamed ${stamp}`);
+  await expect(page.locator('.sc-toolbar-place-t')).toHaveText(`Renamed ${stamp}`);
 
-  await page.locator('.sc-crumb-btn').click();
+  await page.locator('.sc-toolbar-place').click();
   await page.getByRole('menuitem', { name: 'Delete set', exact: true }).click();
+  await expect(page.getByRole('alertdialog', { name: 'Delete this set?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete set', exact: true }).click();
   await page.waitForURL((u) => u.pathname === `/${brand.slug}/create`);
 
   // deleting a set is a label coming off, never a shot going away
   const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
   expect(ws.nodes.some((n: any) => n.id === nodeId)).toBe(true);
   expect(ws.sets.some((s: any) => s.id === set.id)).toBe(false);
+});
+
+test('cancelling a new set does not leave an untitled one behind', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await seedShot(page, brand.id);
+  await page.goto(`/${brand.slug}/create`);
+  await expect(page.locator('.sc-toolbar')).toBeVisible();
+
+  const before = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const ids = new Set((before.sets ?? []).map((s: { id: string }) => s.id));
+
+  await page.locator('.sc-toolbar-place').click();
+  await page.getByRole('menuitem', { name: 'New set', exact: true }).click();
+  const nameDlg = page.getByRole('dialog', { name: 'Name this set' });
+  await expect(nameDlg).toBeVisible();
+  await nameDlg.getByRole('button', { name: 'Cancel' }).click();
+  await expect(nameDlg).toBeHidden();
+
+  const after = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const afterIds = (after.sets ?? []).map((s: { id: string }) => s.id);
+  expect(afterIds).toHaveLength(ids.size);
+  expect(afterIds.every((id: string) => ids.has(id))).toBe(true);
 });
 
 test('Create is never inert, wherever it is pressed from', async ({ page }) => {

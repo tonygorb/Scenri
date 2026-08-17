@@ -94,7 +94,7 @@ test('a set missing from a stale tree is confirmed, not bounced', async ({ page 
   });
 
   await page.goto(`/${brand.slug}/sets/${made.slug}`);
-  await expect(page.locator('.sc-crumb-btn b')).toHaveText('Race set');
+  await expect(page.locator('.sc-toolbar-place-t')).toHaveText('Race set');
   await expect(page).toHaveURL(new RegExp(`/sets/${made.slug}$`));
 });
 

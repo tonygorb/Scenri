@@ -53,38 +53,54 @@ function clampLeft(left: number, width: number, vp: Viewport, margin: number): n
   return Math.min(Math.max(left, margin), Math.max(margin, vp.width - width - margin));
 }
 
-function dockAboveComposer(composer: AnchorRect, vp: Viewport, phone: boolean): InsertPlaced {
+function dockAboveComposer(
+  composer: AnchorRect,
+  vp: Viewport,
+  phone: boolean,
+  height?: number,
+): InsertPlaced {
   const margin = phone ? PHONE_MARGIN : MARGIN;
   const width = phone
     ? Math.max(0, composer.right - composer.left)
     : Math.min(INSERT_MENU_W, vp.width - margin * 2);
   const left = phone ? composer.left : clampLeft(composer.left, width, vp, margin);
   const cap = phone ? Math.min(INSERT_MENU_PHONE_MAX_H, Math.floor(vp.height * 0.4)) : INSERT_MENU_MAX_H;
+  const want = Math.min(cap, height ?? cap);
   const room = composer.top - GAP - margin;
-  const maxHeight = Math.max(0, Math.min(cap, room));
+  const maxHeight = Math.max(0, Math.min(want, room));
   const top = Math.max(margin, composer.top - GAP - maxHeight);
   return { left, top, width, maxHeight, side: 'above', shell: 'dock' };
 }
 
-function placeAtCaret(caret: AnchorRect, composer: AnchorRect, vp: Viewport): InsertPlaced {
+function placeAtCaret(
+  caret: AnchorRect,
+  composer: AnchorRect,
+  vp: Viewport,
+  height?: number,
+): InsertPlaced {
   const width = Math.min(INSERT_MENU_W, vp.width - MARGIN * 2);
   const left = clampLeft(caret.left, width, vp, MARGIN);
   const roomAbove = caret.top - GAP - MARGIN;
   const roomBelow = vp.height - caret.bottom - GAP - MARGIN;
   const side: 'above' | 'below' = roomAbove >= COMFORTABLE || roomAbove >= roomBelow ? 'above' : 'below';
+  const reserved = Math.min(INSERT_MENU_MAX_H, height ?? INSERT_MENU_MAX_H);
   const room = side === 'above' ? roomAbove : roomBelow;
-  const maxHeight = Math.min(INSERT_MENU_MAX_H, Math.max(MIN_CARET_H, room));
+  const maxHeight = Math.min(reserved, height == null ? Math.max(MIN_CARET_H, room) : room);
 
   if (side === 'above') {
-    const top = Math.max(MARGIN, caret.top - GAP - Math.min(INSERT_MENU_MAX_H, roomAbove));
-    const height = Math.min(INSERT_MENU_MAX_H, caret.top - GAP - top);
-    if (height < MIN_CARET_H) return dockAboveComposer(composer, vp, false);
-    return { left, top, width, maxHeight: height, side, shell: 'caret' };
+    const top = Math.max(MARGIN, caret.top - GAP - Math.min(reserved, roomAbove));
+    const boxH = Math.min(reserved, caret.top - GAP - top);
+    // MIN_CARET_H is "this clipped list is unusable, dock instead." A
+    // measured empty miss is short on purpose and must stay on the caret.
+    if (height == null && boxH < MIN_CARET_H) return dockAboveComposer(composer, vp, false);
+    return { left, top, width, maxHeight: boxH, side, shell: 'caret' };
   }
 
   const top = caret.bottom + GAP;
-  if (top + Math.min(maxHeight, roomBelow) > vp.height - MARGIN) return dockAboveComposer(composer, vp, false);
-  return { left, top, width, maxHeight: Math.min(INSERT_MENU_MAX_H, roomBelow), side, shell: 'caret' };
+  if (top + Math.min(maxHeight, roomBelow) > vp.height - MARGIN) {
+    return dockAboveComposer(composer, vp, false, height);
+  }
+  return { left, top, width, maxHeight: Math.min(reserved, roomBelow), side, shell: 'caret' };
 }
 
 /**
@@ -96,18 +112,22 @@ function placeAtCaret(caret: AnchorRect, composer: AnchorRect, vp: Viewport): In
  *
  * `vp` is the visual viewport. Callers that pass `window.innerHeight` on iOS
  * recreate the bug this exists to avoid.
+ *
+ * `height` is the painted box when the caller has measured one. Without it
+ * the reservation is INSERT_MENU_MAX_H, which is how an empty miss used to
+ * sit 320px above the caret.
  */
 export function placeInsertMenu(
   caret: AnchorRect | null,
   composer: AnchorRect,
   vp: Viewport,
-  o: { phone?: boolean; line?: AnchorRect | null } = {},
+  o: { phone?: boolean; line?: AnchorRect | null; height?: number } = {},
 ): InsertPlaced | null {
-  if (o.phone) return dockAboveComposer(composer, vp, true);
+  if (o.phone) return dockAboveComposer(composer, vp, true, o.height);
   const line = o.line ?? composer;
-  if (caretReliable(caret, vp) && caret) return placeAtCaret(caret, composer, vp);
+  if (caretReliable(caret, vp) && caret) return placeAtCaret(caret, composer, vp, o.height);
   // Empty `#` / `@` / `/`: hang off the text start, not the prompt card.
   // Docking to the card is what put a slab over the middle of the composer.
   const box = caret && caret.right - caret.left > LINE_BOX ? caret : line;
-  return placeAtCaret(lineStart(box), composer, vp);
+  return placeAtCaret(lineStart(box), composer, vp, o.height);
 }

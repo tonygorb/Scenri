@@ -4,16 +4,20 @@ import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProd
 import { useBrand } from '../app/BrandLayout.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { bookmarkedScenes } from '../bookmarks.js';
+import { flattenPalette, normalizeHex } from '../brand/palette.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
+import { ColorChipMenu } from './ColorChipMenu.js';
 import { composingEvent, INSERT_MENU_ID, menuFromInput } from './insertMenu.js';
 import {
   NOUN,
   buildCandidates,
+  chipOpensPicker,
   insertShortlist,
-  pickerKind,
   type Candidate,
+  type ChipPickerKind,
   type IngredientKind,
+  type InsertSigil,
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import {
@@ -24,6 +28,7 @@ import {
   caretToEnd,
   caretUnits,
   chipAt,
+  chipHexWords,
   chipLabel,
   closeIcon,
   collapseDoubleSpaceAtCaret,
@@ -44,6 +49,7 @@ import {
   templateChip,
   textBeforeCaret,
   unitsBeforeChip,
+  updateColorChip,
   type SentenceToken,
 } from './line.js';
 
@@ -105,7 +111,7 @@ export const BriefInput = forwardRef<
     templates: Scene[];
     presenters: Presenter[];
     demoProducts: DemoProduct[];
-    /** A Scene picked from the `#` menu goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
+    /** A Scene picked from the attach panel or the chip picker goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
     onTemplatePick: (id: string) => void;
     placeholder: string;
     /** Shorter line for narrow viewports; falls back to placeholder. */
@@ -163,12 +169,12 @@ export const BriefInput = forwardRef<
    */
   const [menu, setMenu] = useState<{
     anchor: { getBoundingClientRect(): DOMRect } | null;
-    sigil?: '/' | '@' | '#';
+    sigil?: InsertSigil;
   } | null>(null);
   /** The open chip picker. Never both this and `menu`. */
   const [picker, setPicker] = useState<{
     uid: string;
-    kind: IngredientKind;
+    kind: ChipPickerKind;
     anchor: HTMLElement;
     /** Where the caret was when it opened, so closing can put it back. */
     caret: number | null;
@@ -267,13 +273,14 @@ export const BriefInput = forwardRef<
        * way to reach one, and no way to change one. Tab is intercepted in
        * `onKeyDown` so six chips do not become six tab stops on the way out.
        */
-      const pk = pickerKind(token);
+      const pk = chipOpensPicker(token);
       if (pk) {
+        const noun = pk === 'color' ? 'colour' : NOUN[pk];
         el.tabIndex = 0;
         el.setAttribute('role', 'button');
         el.setAttribute('aria-haspopup', 'dialog');
         el.setAttribute('aria-expanded', 'false');
-        el.setAttribute('aria-label', `${NOUN[pk]}: ${label}. Change or remove.`);
+        el.setAttribute('aria-label', `${noun}: ${label}. Change or remove.`);
       }
 
       const x = document.createElement('button');
@@ -406,7 +413,7 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
-  const openPicker = useCallback((chip: HTMLElement, kind: IngredientKind, caret: number | null, touch: boolean) => {
+  const openPicker = useCallback((chip: HTMLElement, kind: ChipPickerKind, caret: number | null, touch: boolean) => {
     const uid = chip.dataset.uid;
     if (!uid) return;
     chip.dataset.open = '';
@@ -503,18 +510,19 @@ export const BriefInput = forwardRef<
   const shownOptions: MenuOption[] = useMemo(() => {
     if (!menu) return [];
     return insertShortlist(
-      menu.sigil ?? '/',
+      menu.sigil ?? '$',
       {
         products: buildCandidates('product', catalog),
         presenters: buildCandidates('presenter', catalog),
         scenes: buildCandidates('scene', catalog),
+        colors: flattenPalette(brand.json?.palette),
       },
       { query, bookmarked },
     ).map((c) => ({
       ...c,
       run: () => (c.token.t === 'template' ? onTemplatePick(c.token.id) : placeRef.current(c.token)),
     }));
-  }, [menu, catalog, query, bookmarked, onTemplatePick]);
+  }, [menu, catalog, query, bookmarked, onTemplatePick, brand.json?.palette]);
 
   const onClick = (e: React.MouseEvent) => {
     const root = rootRef.current;
@@ -544,10 +552,10 @@ export const BriefInput = forwardRef<
       if (e.detail !== 0) closePicker('outside');
       return;
     }
-    const kind = pickerKind(decode(chip.dataset.tok ?? ''));
-    // A colour, a reference or a brand mark is not a catalog to swap. The
-    // caret is already where the click landed; replace by deleting and
-    // inserting again, the same way those chips were made.
+    const kind = chipOpensPicker(decode(chip.dataset.tok ?? ''));
+    // A reference or a brand mark is not a catalog to swap. The caret is
+    // already where the click landed; replace by deleting and inserting
+    // again, the same way those chips were made. A colour opens its own menu.
     if (!kind) return;
     // The caret was just placed by caretFromPoint above, while the line still
     // has focus — so this is an exact reading, and it is the one the picker
@@ -570,7 +578,7 @@ export const BriefInput = forwardRef<
     if (!chip) return; // prose still focuses, and still raises the keyboard
     const box = chip.getBoundingClientRect();
     if (e.clientX - box.left <= EDGE || box.right - e.clientX <= EDGE) return;
-    const kind = pickerKind(decode(chip.dataset.tok ?? ''));
+    const kind = chipOpensPicker(decode(chip.dataset.tok ?? ''));
     if (!kind) return;
     if (chip.dataset.uid && picker?.uid === chip.dataset.uid) return;
     e.preventDefault();
@@ -601,7 +609,7 @@ export const BriefInput = forwardRef<
       }
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        const kind = pickerKind(decode(focused.dataset.tok ?? ''));
+        const kind = chipOpensPicker(decode(focused.dataset.tok ?? ''));
         if (kind && root) openPicker(focused, kind, unitsBeforeChip(root, focused) + 1, false);
         return;
       }
@@ -631,8 +639,8 @@ export const BriefInput = forwardRef<
     }
     if (menu || picker) return;
     if (composingEvent(e)) return;
-    // '/' a product, '@' a presenter, '#' a scene.
-    if (e.key === '/' || e.key === '@' || e.key === '#') {
+    // '$' a product, '/' a scene, '@' a presenter, '#' a colour.
+    if (e.key === '$' || e.key === '/' || e.key === '@' || e.key === '#') {
       const root = rootRef.current;
       const before = textBeforeCaret(root);
       const prev = before.slice(-1);
@@ -650,6 +658,11 @@ export const BriefInput = forwardRef<
     }
   };
 
+  const nameForHex = useCallback(
+    (hex: string) => flattenPalette(brand.json?.palette).find((s) => s.hex === hex)?.name,
+    [brand.json?.palette],
+  );
+
   const onInput = () => {
     const root = rootRef.current;
     const chips = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
@@ -661,7 +674,13 @@ export const BriefInput = forwardRef<
     if (syncEmpty(root)) caretToEnd(root);
     const fromPaste = pasted.current;
     pasted.current = false;
-    const next = menuFromInput(sigilAtCaret(root), fromPaste);
+    const chipped = chipHexWords(root, (t) => chipFor(t), { commit: fromPaste, nameFor: nameForHex });
+    if (chipped) {
+      chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
+      setMenu(null);
+      setQuery('');
+    }
+    const next = chipped ? { open: false as const } : menuFromInput(sigilAtCaret(root), fromPaste);
     if (next.open) {
       if (menu) setQuery(next.query);
     } else if (menu) {
@@ -729,7 +748,14 @@ export const BriefInput = forwardRef<
     e.preventDefault();
     pasted.current = true;
     const parts = parseBriefHtml(e.clipboardData.getData('text/html'));
-    if (parts && pasteParts(parts)) return;
+    if (parts && pasteParts(parts)) {
+      const root = rootRef.current;
+      if (chipHexWords(root, (t) => chipFor(t), { commit: true, nameFor: nameForHex })) {
+        chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
+        emit();
+      }
+      return;
+    }
     const text = e.clipboardData.getData('text/plain');
     if (text) document.execCommand('insertText', false, text);
   };
@@ -817,7 +843,15 @@ export const BriefInput = forwardRef<
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onFocus={onFocus}
-        onBlur={emit}
+        onBlur={() => {
+          const root = rootRef.current;
+          if (chipHexWords(root, (t) => chipFor(t), { commit: true, nameFor: nameForHex })) {
+            chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
+            setMenu(null);
+            setQuery('');
+          }
+          emit();
+        }}
       />
 
       {menu && (
@@ -843,7 +877,35 @@ export const BriefInput = forwardRef<
         />
       )}
 
-      {picker && (
+      {picker?.kind === 'color' ? (
+        <ColorChipMenu
+          key={picker.uid}
+          anchor={picker.anchor}
+          currentHex={currentIdOf(picker.anchor)}
+          currentName={currentColorName(picker.anchor)}
+          palette={flattenPalette(brand.json?.palette)}
+          onPick={(token, opts) => {
+            const uid = picker.uid;
+            if (opts?.live) {
+              const el = rootRef.current?.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
+              if (el) updateColorChip(el, token);
+              emit();
+              return;
+            }
+            if (sameColor(token.hex, currentIdOf(picker.anchor))) {
+              closePicker('pick');
+              return;
+            }
+            replaceChip(uid, token);
+            closePicker('pick');
+          }}
+          onRemove={() => {
+            const at = removeChipByUid(picker.uid);
+            closePicker('remove', at);
+          }}
+          onClose={closePicker}
+        />
+      ) : picker ? (
         <IngredientPicker
           // A reopen gets a clean mount rather than the last one's scroll,
           // search and roving index.
@@ -886,7 +948,7 @@ export const BriefInput = forwardRef<
           }}
           onClose={closePicker}
         />
-      )}
+      ) : null}
     </div>
   );
 });
@@ -894,7 +956,20 @@ export const BriefInput = forwardRef<
 /** What a chip is holding, read back off the element the picker is anchored to. */
 function currentIdOf(chip: HTMLElement): string | null {
   const t = decode(chip.dataset.tok ?? '');
-  return t && 'id' in t ? t.id : null;
+  if (!t) return null;
+  if (t.t === 'color') return t.hex;
+  return 'id' in t ? t.id : null;
+}
+
+function currentColorName(chip: HTMLElement): string | undefined {
+  const t = decode(chip.dataset.tok ?? '');
+  return t?.t === 'color' ? t.name : undefined;
+}
+
+function sameColor(a: string | null | undefined, b: string | null | undefined): boolean {
+  const left = a ? normalizeHex(a) : null;
+  const right = b ? normalizeHex(b) : null;
+  return !!left && left === right;
 }
 
 /** Characters before a node, chips counting as one, for restoring a caret. */
