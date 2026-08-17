@@ -13,6 +13,8 @@
     "build": "pnpm --filter @scenri/studio build",
     "dev": "tsx packages/cli/src/index.ts",
     "typecheck": "pnpm -r --no-bail typecheck",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "verify:studio": "pnpm --filter @scenri/studio typecheck && pnpm exec biome lint apps/studio/src && pnpm --filter @scenri/studio test",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check .",
