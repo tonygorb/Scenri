@@ -51,13 +51,6 @@
   margin: 0 auto;
   text-wrap: pretty;
 }
-/* The look row is the second offer, so it sits under the first and reads as a
-   shelf rather than as the point of the screen. It is a column grid, so it
-   starts at the left edge on its own; only the copy above it is centred. */
-.sc-empty-looks {
-  margin-top: 26px;
-  text-align: left;
-}
 /* A lens empty is one line and, where there is a way out, one button under it. */
 .sc-feed-empty p {
   margin: 0;

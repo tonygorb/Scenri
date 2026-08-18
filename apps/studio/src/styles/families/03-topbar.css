@@ -24,14 +24,6 @@
   gap: 6px;
   min-width: 0;
 }
-.sc-topbar-context {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-  /* A set name is a crumb, not a headline. Uncapped it ate the centre nav. */
-  max-width: 18ch;
-}
 .sc-topbar-end {
   display: flex;
   align-items: center;
@@ -197,7 +189,6 @@
   display: block;
 }
 
-
 /* ---- coarse pointers: invisible 44px reach on the bar's small controls ----
    Moved verbatim from the overlay responsive pass (C2, css-restructure): the
    selectors are wholly topbar-scoped and their (0,2,x) specificity beats every
@@ -206,8 +197,7 @@
   /* A finger needs 44px; the bar does not. The graphic keeps its size and the
      reach comes from an invisible box centred on it, so nothing grows chunky. */
   .sc-topbar .sc-icon-btn::after,
-  .sc-topbar .sc-org-btn::after,
-  .sc-topbar .sc-crumb-btn::after {
+.sc-topbar .sc-org-btn::after {
     content: "";
     position: absolute;
     top: 50%;
@@ -216,8 +206,5 @@
     width: 100%;
     height: var(--sc-tap);
     min-width: var(--sc-tap);
-  }
-  .sc-topbar .sc-crumb-btn {
-    position: relative;
   }
 }

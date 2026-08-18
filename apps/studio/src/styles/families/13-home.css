@@ -134,15 +134,6 @@
 .sc-create-card:focus-visible:not([data-soon]) .sc-glyph {
   filter: brightness(1.22);
 }
-.sc-create-soon {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--sc-fg3);
-}
 /* Filled wells: life in the glyph, cards stay quiet. Compose well a touch warmer. */
 .sc-create-card[data-tone="compose"] .sc-glyph {
   background: #6e5810;

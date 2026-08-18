@@ -19,10 +19,6 @@
   display: block;
 }
 
-.sc-kit-sec {
-  margin-bottom: 28px;
-}
-
 /* ---------- colour picker (react-colorful in our own popover) ---------- */
 /*
  * The library ships its own class names and injects its own stylesheet; these
@@ -116,9 +112,6 @@
   border-radius: var(--sc-radius-sm);
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
   cursor: pointer;
-}
-.sc-swatch-custom {
-  position: relative;
 }
 
 /* ---------- brand kit pane (inside Settings) ---------- */

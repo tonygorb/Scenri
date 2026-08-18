@@ -34,78 +34,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sc-ovl-edit .sc-cta {
-  padding: 0 13px;
-  height: 30px;
-  font-size: 12.5px;
-  flex-shrink: 0;
-}
 .sc-ovl-edit .sc-brief-line {
   padding: 11px 13px 3px;
 }
 .sc-ovl-edit .sc-attachpanel {
   height: min(320px, 42vh);
-}
-
-/* ---------- overlay panel controls per detail-edit.html (5.1) ---------- */
-.sc-layers {
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-panel);
-  overflow: hidden;
-  margin-bottom: 14px;
-}
-.sc-lrow + .sc-lrow,
-.sc-layers .sc-addlayer {
-  border-top: 1px solid var(--sc-line);
-}
-.sc-lrow .sc-lrow-t {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sc-lrow .sc-lrow-x {
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--sc-fg3);
-  padding: 0;
-  display: inline-flex;
-}
-.sc-lrow .sc-lrow-x:hover {
-  color: var(--sc-fg);
-}
-.sc-addlayer {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--sc-fg2);
-  font-size: 12.5px;
-}
-.sc-addlayer:hover {
-  background: var(--sc-hover);
-  color: var(--sc-fg);
-}
-
-.sc-range {
-  width: 100%;
-  min-width: 0;
-  accent-color: var(--sc-fg);
-  height: 22px;
-  margin: 0;
-}
-
-.sc-fx {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
 }
 
 /* option rows with a real visible check, per states.html */
@@ -221,11 +154,6 @@
   .sc-wordmark {
     grid-column: 1;
   }
-  .sc-topbar-context {
-    grid-column: 2;
-    justify-self: center;
-    max-width: 100%;
-  }
   .sc-topbar-end {
     grid-column: 3;
   }
@@ -288,9 +216,6 @@
     top: 10px;
     left: 10px;
     right: 10px;
-  }
-  .sc-ovl-strip {
-    padding: 52px 12px 8px;
   }
 }
 
@@ -389,10 +314,6 @@
     overscroll-behavior: contain;
     /* room for the composer, which is pinned to the bottom of the viewport */
     padding-bottom: calc(var(--sc-bottom-inset) + 132px);
-  }
-  /* the trail of versions rides along the top, out of the way */
-  .sc-ovl-strip {
-    padding: 52px var(--sc-space-5) var(--sc-space-3);
   }
   /* the picture is the point, so it is contained rather than cropped */
   /* Still a column with a gap, not a bare block.
@@ -529,10 +450,6 @@
 
 /* coarse pointers get bigger text-editor handles */
 @media (pointer: coarse) {
-  .sc-editor-handle {
-    width: 24px !important;
-    height: 24px !important;
-  }
 
   /* The same invisible box for the controls that were left out of it. The
      search toggle stands alone in a toolbar, so its reach can grow in every
@@ -621,9 +538,6 @@
 @media (max-width: 767px) {
   .sc-wiz {
     padding: 18px 16px 40px;
-  }
-  .sc-wiz-looks {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 

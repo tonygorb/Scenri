@@ -145,16 +145,6 @@
   text-align: center;
   animation: sc-setup-arrive 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.sc-setup-done-mark {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--sc-green) 16%, transparent);
-  color: var(--sc-green);
-  margin-bottom: 2px;
-}
 .sc-setup-done b {
   font: 600 15px / 1.3 var(--sc-font);
 }

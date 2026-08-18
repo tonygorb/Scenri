@@ -92,14 +92,6 @@
   color: var(--sc-gold);
   background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
 }
-.sc-btn-danger {
-  background: none;
-  color: var(--sc-red);
-  border-color: var(--sc-line);
-}
-.sc-btn-danger:hover {
-  border-color: var(--sc-red);
-}
 
 .sc-chip {
   display: inline-flex;
@@ -156,7 +148,6 @@
     animation: none;
   }
 }
-
 
 /* ---- the destructive variant ----
    Moved verbatim from the Settings section (C3, css-restructure): a button

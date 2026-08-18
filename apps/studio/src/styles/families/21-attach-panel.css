@@ -120,12 +120,6 @@
   border: 1px dashed var(--sc-line);
   border-radius: var(--sc-radius);
 }
-.sc-upload-dz[data-drag-over] {
-  outline: 2px dashed var(--sc-focus);
-  outline-offset: 2px;
-  background: var(--sc-hover);
-  border-radius: var(--sc-radius);
-}
 .sc-ap-thumb {
   display: block;
   width: 100%;

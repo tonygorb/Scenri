@@ -277,8 +277,7 @@
 /* Touch: title footer under image; Use appears on first tap (hover substitute).
    Pill → create; second tap on image → detail. */
 @media (hover: none) {
-  .sc-masonry,
-  .sc-wiz-looks {
+  .sc-masonry {
     row-gap: 22px;
     column-gap: 12px;
   }

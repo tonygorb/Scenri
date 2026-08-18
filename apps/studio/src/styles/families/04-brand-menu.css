@@ -82,56 +82,11 @@
   white-space: nowrap;
   text-align: left;
 }
-
-/* the brand is context and reads as a prefix; only the project is a control */
-.sc-crumb {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-  font-size: 13px;
-  color: var(--sc-fg2);
-}
 .sc-crumb-sep {
   color: var(--sc-fg3);
   white-space: nowrap;
   flex: none;
   font-size: 12px;
   user-select: none;
-}
-.sc-crumb-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-  padding: 5px 0;
-  border: none;
-  border-radius: var(--sc-radius-xs);
-  background: none;
-  color: inherit;
-  font-size: inherit;
-  cursor: pointer;
-}
-.sc-crumb-btn:hover .sc-caret {
-  color: var(--sc-fg2);
-}
-.sc-crumb-btn b {
-  min-width: 0;
-  color: var(--sc-fg);
-  font-weight: 450;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sc-crumb-btn:focus {
-  outline: none;
-}
-.sc-crumb-btn:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-}
-.sc-crumb-btn[data-state="open"] {
-  outline: none;
 }
 

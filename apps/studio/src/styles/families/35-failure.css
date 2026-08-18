@@ -287,12 +287,4 @@
     padding: 4px 0;
   }
 }
-/* The import dialog's own gutter under a notice. The row it wraps is a
-   full-width block, so the space belongs to the dialog, not to the note. */
-.sc-import-note {
-  margin-bottom: 12px;
-}
-.sc-import-note .sc-failrow {
-  max-width: none;
-}
 

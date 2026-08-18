@@ -171,12 +171,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sc-toolbar-btn-n {
-  font-family: var(--sc-font-mono);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  color: var(--sc-fg3);
-}
 /* The wall's own size toggle, at this row's control height — the same
    adjustment .sc-filterbar makes, because the control ships smaller than the
    controls it stands beside. */
@@ -356,27 +350,6 @@
     width: 100%;
     box-shadow: none;
   }
-}
-
-/* Renaming a set happens in the crumb itself, where its name already is.
-   Type only — a bordered field plus a focus ring stacked into the concentric
-   pill that showed up on a short name. */
-.sc-crumb-input {
-  font: inherit;
-  font-weight: 450;
-  color: var(--sc-fg);
-  background: none;
-  border: none;
-  border-radius: 0;
-  padding: 0;
-  min-width: 8ch;
-  max-width: 18ch;
-  outline: none;
-}
-.sc-crumb-input:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-  border-radius: var(--sc-radius-xs);
 }
 .sc-cell[data-running] {
   aspect-ratio: 4 / 5;
