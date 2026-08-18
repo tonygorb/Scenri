@@ -1,0 +1,331 @@
+/* ---------- 6.0 the page is as wide as the screen ----------
+   The content column was pinned at 1200px while the top bar ran at the viewport
+   edge, so above 1200px the wordmark and the headline sat on different left
+   edges. One gutter token now feeds both, which also revives the mobile gutter:
+   the 767px rule below is a variable redefinition, so the later unmediated
+   .sc-main padding reads it instead of overriding it. */
+.sc-main {
+  max-width: none;
+  padding: 26px var(--sc-gutter) 230px;
+}
+.sc-looks {
+  padding: 16px var(--sc-gutter) 96px;
+}
+@media (max-width: 767px) {
+  :root {
+    --sc-gutter: 14px;
+  }
+}
+
+/* A 280px floor with no ceiling on the count packed six columns into 1800 and
+   the pictures read as thumbnails. --sc-tile is the floor now and the leftover
+   width is shared out, so a tile lands near 340px from 1280 up: 4 at 1440,
+   5 at 1800, 7 at 2560, and the picture stays the size of the picture. */
+.sc-cell {
+  margin-bottom: 14px;
+}
+
+/* ---------- 6.0 the composer is a bigger island ----------
+   The dock owns the width, the card fills it. Every min() self-clamps, so the
+   narrow-viewport dock rules earlier in this file still land without edits. */
+.sc-composer {
+  width: 100%;
+}
+/* The dock's width is settled once, where it is positioned. This block used to
+   restate it three more times with a different formula and won by being later,
+   which is how the composer ended up centred while the rest of the page was
+   aligned to the gutter. */
+.sc-canvas-dock {
+  max-width: var(--sc-prompt-w);
+}
+.sc-dock-fade {
+  height: 300px;
+}
+
+/* Stops at the tab bar rather than washing over it. This has to sit after the
+   base rule, not in the earlier phone block, or the unmediated bottom:0 below
+   simply wins on source order. */
+@media (max-width: 767px) {
+  .sc-dock-fade {
+    bottom: var(--sc-tabbar-h);
+  }
+}
+
+/* The two surfaces that float over the canvas, so their corners are stated in
+   one place and cannot drift apart. */
+.sc-promptcard,
+.sc-attachpanel {
+  border-radius: var(--sc-radius-float);
+}
+.sc-brief-line {
+  font-size: 15px;
+  padding: 18px 20px 10px;
+  min-height: 26px;
+}
+.sc-prompt-row {
+  padding: 8px 18px 18px;
+  gap: 14px;
+}
+.sc-prompt-left {
+  gap: 6px;
+}
+.sc-prompt-right {
+  gap: 4px;
+}
+/* The three settings, spaced like the row they sit in.
+
+   This had no layout rule at all, anywhere: a plain block div holding three
+   inline-flex pills, with the only newline between them stripped as
+   whitespace, so they sat edge to edge. Declared here rather than at the end
+   of the file because the two rules that hide this shell come later and must
+   keep winning. */
+.sc-prompt-pills {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+}
+/* the trigger that is currently open reads as held, the way More does */
+.sc-prompt-pills .sc-var[data-state="open"] {
+  background: var(--sc-chip);
+  color: var(--sc-fg);
+}
+/* The send button says what it will do. It is a pill where the word fits and a
+   disc where it does not, and it keeps one height either way so the row's
+   baseline does not move when the brief switches between making a new shot and
+   continuing one.
+
+   Two custom properties own the geometry, and nothing else may set width,
+   height or padding. That is the whole fix for a button that was not round:
+   the horizontal padding used to be written per context and asymmetrically
+   (`0 20px 0 16px` here, `0 16px 0 12px` in the overlay), so as soon as the
+   label was hidden the box kept padding meant for a word and came out 45x38 —
+   four pixels wider on the right, exactly as it looked. With the padding at 0
+   the width collapses onto min-width and the disc is square by construction
+   rather than by a number someone kept in sync. */
+.sc-send {
+  --sc-send-size: 44px;
+  --sc-send-pad: var(--sc-space-6);
+  width: auto;
+  min-width: var(--sc-send-size);
+  height: var(--sc-send-size);
+  padding: 0 var(--sc-send-pad);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-4);
+  border-radius: var(--sc-radius-full);
+  font: 600 var(--sc-text-control) var(--sc-font);
+}
+.sc-send-lb {
+  white-space: nowrap;
+}
+.sc-send-ico {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+/* the filled send is the loud one, so the ghost + sits a notch under it */
+.sc-prompt-row .sc-attach-toggle {
+  width: 40px;
+  height: 40px;
+}
+/* the Radix trigger block upstream is !important, so this has to be too */
+.sc-mini-sel {
+  height: 34px !important;
+  padding: 0 12px !important;
+  font-size: 13.5px !important;
+  border-radius: 9px !important;
+}
+
+/* The overlay aside is 340px wide and the phone is narrower still; neither can
+   hold the new row, so both keep the old scale. */
+.sc-ovl-edit .sc-brief-line {
+  font-size: 13.5px;
+  padding: 11px 13px 3px;
+}
+.sc-ovl-edit .sc-prompt-row {
+  padding: 6px 10px 10px 12px;
+  gap: 8px;
+}
+.sc-ovl-edit .sc-var {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+/* The sidebar composer runs a notch smaller. It states the size and nothing
+   else: width, height and padding belong to the two properties above, which is
+   why this can no longer make the disc oblong. */
+.sc-ovl-edit .sc-send {
+  --sc-send-size: 38px;
+  --sc-send-pad: var(--sc-space-5);
+}
+.sc-ovl-edit .sc-prompt-row .sc-attach-toggle {
+  width: 32px;
+  height: 32px;
+}
+.sc-ovl-edit .sc-mini-sel {
+  height: 30px !important;
+  padding: 0 10px !important;
+  font-size: 12.5px !important;
+}
+@media (max-width: 767px) {
+  .sc-brief-line {
+    font-size: 14px;
+    padding: 14px 14px 8px;
+  }
+  .sc-prompt-row {
+    padding: 6px 12px 12px;
+    gap: 10px;
+  }
+  .sc-var {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12.5px;
+  }
+  /* the word goes, the disc comes back: on a phone the row has no room for it
+     and the placeholder above already says what this brief is. The sizes are
+     set once, in 6.1 below, where the sheet frees the room for honest touch
+     targets — this block used to set its own and be overruled by them. */
+  .sc-send-lb {
+    display: none;
+  }
+  /* no word, no padding: the disc closes onto its own size and is round */
+  .sc-send,
+  .sc-ovl-edit .sc-send {
+    --sc-send-size: 44px;
+    --sc-send-pad: 0px;
+  }
+  .sc-mini-sel {
+    height: 30px !important;
+    padding: 0 10px !important;
+    font-size: 12.5px !important;
+  }
+}
+
+/* ---------- 6.1 the composer at hand width ---------------------------------
+   The row was asked to hold six controls inside calc(100vw - 24px) and could
+   not. Two faults, both fixed here. Everywhere: the engine chip had a fixed
+   200px ceiling but no min-width of its own, so it could not compress and the
+   two groups overlapped instead. Under 768px: aspect, variants and quality
+   leave the row for a sheet under the thumb, which buys back the room the 44px
+   touch floor needs. Nothing above 768px changes shape. */
+.sc-mini-sel {
+  min-width: 0 !important;
+  flex: 0 1 auto;
+  max-width: clamp(96px, 30vw, 200px) !important;
+}
+/* Three shells for one set of settings, and exactly one of them on screen.
+
+   The default is the widest: a pointer-driven composer with room to spare
+   states the shape, the frame count and the quality as pills. The other two
+   shells take over where that is not true, and the two conditions are separate
+   because they are separate facts:
+
+   - the composer itself is narrow. The refinement composer lives in the
+     overlay's 288px sidebar however wide the display is, so this is a fact
+     about the container, not the viewport, and `.sc-ovl-edit` names it.
+   - the device is a phone or a tablet. Then it is More, and on a phone that
+     More is a sheet under the thumb rather than a popover by the cursor.
+
+   Nothing here branches in JS: all three render and the cascade picks. */
+.sc-more,
+.sc-shotset {
+  display: none;
+}
+
+/* narrow composer, any display: the sidebar where a refinement is written */
+.sc-ovl-edit .sc-prompt-pills {
+  display: none;
+}
+.sc-ovl-edit .sc-more {
+  display: inline-flex;
+}
+
+/* phone and tablet: by input method, so a large tablet is not mistaken for a
+   desktop on width alone */
+@media (hover: none), (max-width: 1023px) {
+  .sc-prompt-pills {
+    display: none;
+  }
+  .sc-more {
+    display: inline-flex;
+  }
+}
+
+/* a phone opens the same fields as a sheet, so More steps aside for it */
+@media (max-width: 767px) {
+  .sc-more,
+  .sc-ovl-edit .sc-more {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .sc-shotset {
+    display: inline-flex;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+  }
+  .sc-prompt-row .sc-attach-toggle {
+    width: 40px;
+    height: 40px;
+  }
+  .sc-prompt-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sc-prompt-right {
+    gap: 6px;
+  }
+  /* the engine name is the only thing left that can use slack, so let it */
+  .sc-mini-sel {
+    height: 40px !important;
+    max-width: none !important;
+  }
+  /* the panel shares this screen with a keyboard */
+  .sc-attachpanel {
+    height: min(340px, 44vh);
+  }
+  .sc-ap-grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  }
+}
+
+/* A tablet keeps the full row, so its pills are the ones short of reach. Same
+   trick the top bar uses: the graphic keeps its size and an invisible box
+   centred on it carries the finger. */
+@media (pointer: coarse) {
+  .sc-prompt-row .sc-var,
+  .sc-prompt-row .sc-mini-sel {
+    position: relative;
+  }
+  .sc-prompt-row .sc-var::after,
+  .sc-prompt-row .sc-mini-sel::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: var(--sc-tap);
+    min-width: var(--sc-tap);
+  }
+}
+
+/* The docks are fixed, and iOS shrinks only the visual viewport, so without
+   this the keyboard covers the thing you are typing into. The inset is the
+   shared one: the tab bar pads itself for the home indicator, so a dock that
+   counted only --sc-tabbar-h sat that far into it. */
+.sc-canvas-dock,
+.sc-canvas-dock[data-full="true"] {
+  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px);
+}
+.sc-dock-fade {
+  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h));
+}
+

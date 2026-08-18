@@ -1,0 +1,170 @@
+/* ---------- primitives ---------- */
+.sc-icon-btn {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-well);
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-icon-btn:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-icon-btn:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-icon-btn[data-on] {
+  background: var(--sc-raised);
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+/* Actions are rounded squares, not pills, so a glance tells a place from a verb.
+   No resting outline: twelve hairline boxes in one row is clutter, and the hover
+   halo says "pressable" at the moment it matters. Chrome elsewhere (the detail
+   overlay) keeps its chip, because there the button sits on a photograph. */
+.sc-topbar .sc-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-color: transparent;
+  background: none;
+  border-radius: var(--sc-radius-sm);
+  color: var(--sc-fg2);
+}
+.sc-topbar .sc-icon-btn:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-topbar .sc-icon-btn[data-on] {
+  background: var(--sc-raised);
+  color: var(--sc-fg);
+  border-color: transparent;
+}
+
+.sc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--sc-radius-full);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.sc-btn:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-btn:disabled,
+.sc-btn[aria-disabled="true"] {
+  opacity: var(--sc-disabled);
+  cursor: not-allowed;
+}
+.sc-btn-primary {
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+.sc-btn-primary:hover {
+  opacity: 0.88;
+}
+.sc-btn-primary:disabled,
+.sc-btn-primary[aria-disabled="true"] {
+  opacity: var(--sc-disabled);
+  cursor: not-allowed;
+}
+.sc-btn-ghost {
+  background: none;
+  color: var(--sc-fg);
+  border-color: var(--sc-line);
+}
+.sc-btn-ghost:hover {
+  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
+}
+.sc-btn-ghost:disabled,
+.sc-btn-ghost[aria-disabled="true"] {
+  opacity: var(--sc-disabled);
+  cursor: not-allowed;
+}
+.sc-btn-ghost[data-urgent] {
+  border-color: var(--sc-gold);
+  color: var(--sc-gold);
+  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
+}
+.sc-btn-danger {
+  background: none;
+  color: var(--sc-red);
+  border-color: var(--sc-line);
+}
+.sc-btn-danger:hover {
+  border-color: var(--sc-red);
+}
+
+.sc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border: 1px solid var(--sc-line);
+  background: none;
+  color: var(--sc-fg2);
+  border-radius: var(--sc-radius-full);
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.sc-chip:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+/* Two spellings of the same on-state. `data-on` is the convention everywhere
+   else a control can be lit (.sc-icon-btn), and the chip was the one holdout —
+   which is why a selected facet chip in the create form looked unselected. */
+/* No weight change: a chip is laid out by its own text, so 500→600 moved every
+   chip after it. The inverted fill already says "on" louder than weight can. */
+.sc-chip[data-active="true"],
+.sc-chip[data-on] {
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  border-color: transparent;
+}
+.sc-chip:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+
+/* honest in-flight: gold shimmer + elapsed, never a fake percent */
+.sc-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--sc-gold) 14%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  animation: sc-shimmer 1.6s linear infinite;
+}
+@keyframes sc-shimmer {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-shimmer {
+    animation: none;
+  }
+}
+

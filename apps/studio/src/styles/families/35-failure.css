@@ -1,0 +1,298 @@
+/* ---------- failure: one shape for "this did not work" ----------------------
+   Four grammars used to say this: the feed tile's grid of identical grey pills,
+   the stage's block of Radix Flex and inline var(--red-9), the build card's
+   caption, and a bare Callout color="red" in three more places. None of them
+   said what to do next.
+
+   The shape is the app's own centred state — the one .sc-setup-done and
+   .sc-canvas-empty already use: a round tinted mark, a display-font line, a
+   quiet sentence under it, one action. A failure is an empty state with a
+   reason, so it is built out of the empty state rather than out of a new box.
+
+   There is deliberately no frame. An earlier pass gave the note the picture's
+   full footprint, on the theory that nothing should collapse — which produced
+   an 800px dashed rectangle with a small note adrift in it. That is the same
+   void the old 420px card sat in, drawn a border. Centred content in the space
+   the stage already centres is both less chrome and less emptiness. */
+.sc-fail {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+  max-width: 100%;
+}
+.sc-fail-ic {
+  display: grid;
+  place-items: center;
+  border-radius: var(--sc-radius-full);
+  background: color-mix(in srgb, var(--sc-red) 15%, transparent);
+  color: var(--sc-red);
+}
+/* A cancel is not a failure — you did it on purpose — so it keeps the shape
+   without the alarm. Red here would be the interface scolding you for a
+   button you meant to press. */
+.sc-fail[data-kind="cancelled"] .sc-fail-ic {
+  background: var(--sc-raised);
+  color: var(--sc-fg2);
+}
+.sc-fail-txt {
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.sc-fail-txt b {
+  font-family: var(--sc-font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sc-fg);
+  max-width: var(--sc-measure-title);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+/* Wraps, never ellipses. The tile used to cut this at 200px with nowrap, so
+   the reason a shot failed was unreadable on the tile reporting it. */
+.sc-fail-txt small {
+  color: var(--sc-fg2);
+  max-width: var(--sc-measure-lede);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+/* The server writes one of these itself, naming the ingredients an engine
+   could not carry. It is three sentences, and three sentences set at display
+   size is a headline that has stopped being one. */
+.sc-fail[data-long] .sc-fail-txt b {
+  font-family: var(--sc-font);
+  font-weight: 600;
+  letter-spacing: 0;
+  max-width: var(--sc-measure-lede);
+  text-wrap: pretty;
+}
+.sc-fail-acts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3) var(--sc-space-5);
+  margin-top: var(--sc-space-2);
+}
+/* The way out, present and never competing — the .sc-setup-alt treatment.
+   As a matching pill this used to contend with Try again for the same press. */
+.sc-fail-alt {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: 500 12px var(--sc-font);
+  color: var(--sc-fg2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.sc-fail-alt:hover {
+  color: var(--sc-fg);
+}
+.sc-fail-alt:focus-visible,
+.sc-fail-raw summary:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: var(--sc-radius-sm);
+}
+/* The engine's own words. Kept verbatim for a bug report, kept folded so the
+   JSON is not the headline. */
+.sc-fail-raw {
+  width: 100%;
+  min-width: 0;
+  margin-top: var(--sc-space-2);
+}
+.sc-fail-raw summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.sc-fail-raw summary::-webkit-details-marker {
+  display: none;
+}
+.sc-fail-raw summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border: 3.5px solid transparent;
+  border-left-color: currentColor;
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-fail-raw[open] summary::before {
+  transform: rotate(90deg) translateX(1px);
+}
+.sc-fail-raw summary:hover {
+  color: var(--sc-fg2);
+}
+/* Left aligned inside a centred state: this is machine output, and centred
+   machine output is unreadable at the second line. */
+.sc-fail-raw pre {
+  margin: 8px 0 0;
+  max-height: 7.5em;
+  overflow: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: left;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  padding: 8px 9px;
+  font: 500 11px / 1.5 var(--sc-font-mono);
+  color: var(--sc-fg2);
+}
+
+/* --- in the feed: a record, not content.
+   Three things, not five. The fix line and the folded raw text both belong on
+   the shot's own screen, which is one press away — a 240px card carrying the
+   cause, the remedy, two buttons and a disclosure is a dialog wearing a tile. */
+.sc-fail[data-density="tile"] {
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-5);
+}
+.sc-fail[data-density="tile"] .sc-fail-ic {
+  width: 26px;
+  height: 26px;
+}
+.sc-fail[data-density="tile"] .sc-fail-txt b {
+  font-family: var(--sc-font);
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  max-width: 26ch;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* --- on the shot's own screen: the app's centred state, with a reason. */
+.sc-fail[data-density="stage"] {
+  gap: var(--sc-space-4);
+  width: min(100%, 46ch);
+  padding: var(--sc-space-6);
+  animation: sc-setup-arrive var(--sc-dur-slow) cubic-bezier(0.2, 0.8, 0.2, 1)
+    both;
+}
+.sc-fail[data-density="stage"] .sc-fail-ic {
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--sc-space-1);
+}
+.sc-fail[data-density="stage"] .sc-fail-txt b {
+  font-size: var(--sc-text-title);
+  line-height: 1.25;
+}
+.sc-fail[data-density="stage"] .sc-fail-txt small {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-fail[data-density="stage"] {
+    animation: sc-fade-in 140ms ease both;
+  }
+}
+/* --- the same note as a line, where the surface already has a shape of its
+   own: a dialog, a page, a route that could not load. */
+.sc-failrow {
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--sc-red) 30%, var(--sc-line-strong));
+  border-radius: var(--sc-radius-lg);
+  background: color-mix(in srgb, var(--sc-red) 6%, var(--sc-panel));
+  overflow: hidden;
+}
+/* Not every outcome worth a box is an alarm. An import that finished with gaps
+   did not fail, and painting it red says it did. */
+.sc-failrow[data-tone="note"] {
+  border-color: var(--sc-line-strong);
+  background: var(--sc-panel);
+}
+.sc-failrow .sc-banner {
+  align-items: flex-start;
+}
+.sc-failrow .sc-banner-ic {
+  margin-top: 1px;
+}
+
+/* ---------- failure on a hand and on a tablet -------------------------------
+   The tile in the feed is roughly 150px wide on a phone. At that size the old
+   one printed a single unwrapped line, so the message ran off both edges of
+   the card that was reporting it — the same clipping as on the desktop, only
+   worse for having less room to be wrong in. */
+@media (max-width: 767px) {
+  .sc-fail[data-density="tile"] {
+    padding: var(--sc-space-4);
+  }
+  .sc-fail[data-density="tile"] .sc-fail-ic {
+    width: 22px;
+    height: 22px;
+  }
+  .sc-fail[data-density="tile"] .sc-fail-txt b {
+    font-size: 11.5px;
+  }
+  /* Side by side these were 4px apart at the tile's narrowest and wrapped into
+     a ragged block. A column at this width is one decision per line. */
+  .sc-fail[data-density="tile"] .sc-fail-acts {
+    flex-direction: column;
+    gap: var(--sc-space-3);
+    width: 100%;
+  }
+  .sc-fail[data-density="tile"] .sc-fail-acts .sc-s {
+    justify-content: center;
+    width: 100%;
+  }
+  .sc-fail[data-density="stage"] {
+    padding: var(--sc-space-5);
+  }
+  /* --sc-text-title is an empty state's heading on a desktop; on a 390px
+     screen the same words at that size are four lines of headline. */
+  .sc-fail[data-density="stage"] .sc-fail-txt b {
+    font-size: 17px;
+  }
+}
+/* Below this the action row is wider than the phone it stands on. */
+@media (max-width: 460px) {
+  .sc-fail[data-density="stage"] .sc-fail-acts {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .sc-fail[data-density="stage"] .sc-fail-acts .sc-btn {
+    justify-content: center;
+  }
+  .sc-failrow .sc-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sc-failrow .sc-banner-ic {
+    align-self: flex-start;
+  }
+}
+/* A coarse pointer gets the tap floor wherever the note is, not only on a
+   phone-width window: a tablet is 1024px wide and still a finger. */
+@media (pointer: coarse) {
+  .sc-fail-alt,
+  .sc-fail-raw summary {
+    padding: 4px 0;
+  }
+}
+/* The import dialog's own gutter under a notice. The row it wraps is a
+   full-width block, so the space belongs to the dialog, not to the note. */
+.sc-import-note {
+  margin-bottom: 12px;
+}
+.sc-import-note .sc-failrow {
+  max-width: none;
+}
+

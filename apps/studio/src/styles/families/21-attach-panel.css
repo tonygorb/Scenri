@@ -1,0 +1,172 @@
+/* ---------- attach panel: opens above the composer, full width ---------- */
+.sc-composer {
+  position: relative;
+}
+.sc-attachpanel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  height: min(480px, 55vh);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-3);
+  z-index: 70;
+  overflow: hidden;
+}
+.sc-ap-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--sc-line);
+  flex-shrink: 0;
+}
+.sc-ap-tabs {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sc-ap-tabs::-webkit-scrollbar {
+  display: none;
+}
+.sc-ap-tabs button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 5px 11px;
+  border-radius: var(--sc-radius-full);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--sc-fg2);
+  white-space: nowrap;
+}
+.sc-ap-tabs button:hover {
+  color: var(--sc-fg);
+}
+.sc-ap-tabs button[data-active="true"] {
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+.sc-ap-search {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  height: 28px;
+  padding: 0 10px;
+  color: var(--sc-fg3);
+  flex-shrink: 1;
+  min-width: 90px;
+}
+.sc-ap-search input {
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--sc-fg);
+  font-size: 12px;
+  width: 110px;
+  max-width: 100%;
+}
+.sc-ap-search input::placeholder {
+  color: var(--sc-fg3);
+}
+.sc-ap-close {
+  flex-shrink: 0;
+}
+.sc-ap-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+}
+.sc-ap-group {
+  margin-bottom: 14px;
+}
+.sc-ap-group .sc-eyebrow {
+  margin-bottom: 8px;
+}
+.sc-ap-group .sc-amore {
+  padding-top: 18px;
+}
+.sc-ap-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  column-gap: 10px;
+  row-gap: 18px;
+}
+.sc-ap-card {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: var(--sc-fg);
+  overflow: hidden;
+}
+.sc-ap-card:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+  border-radius: var(--sc-radius);
+}
+.sc-ap-add {
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--sc-radius);
+}
+.sc-upload-dz[data-drag-over] {
+  outline: 2px dashed var(--sc-focus);
+  outline-offset: 2px;
+  background: var(--sc-hover);
+  border-radius: var(--sc-radius);
+}
+.sc-ap-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: var(--sc-raised);
+  border-radius: var(--sc-radius);
+  margin-bottom: 8px;
+  transition: opacity 120ms ease;
+}
+.sc-ap-card:hover .sc-ap-thumb {
+  opacity: 0.85;
+}
+.sc-ap-thumb-empty {
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+}
+.sc-ap-card b {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A hint on a card rather than a heading over a group, so it stays sentence
+   case — it is telling you something about this one thing, not naming a
+   section. On the type scale, and in a colour that exists: it used to ask for
+   --sc-accent, which is defined nowhere, and quietly fall back every time. */
+.sc-ap-rec {
+  display: inline-block;
+  font: 600 var(--sc-text-micro) var(--sc-font);
+  letter-spacing: 0.01em;
+  color: var(--sc-fg2);
+  margin-bottom: var(--sc-space-1);
+}
+.sc-ap-empty {
+  padding: 30px 0;
+  text-align: center;
+  color: var(--sc-fg3);
+  font-size: 12.5px;
+}
+

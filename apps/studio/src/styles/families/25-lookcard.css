@@ -1,0 +1,818 @@
+/* ---- LookCard (docs/product/patterns/look-card.md) ----
+   .sc-lookcard
+     .sc-lookcard-media  — 4:5 image plane; use-pill is centered in THIS box
+       .sc-lookcard-open / preview / veil
+       .sc-lookcard-use  — hover (desktop) or data-armed first-tap (touch)
+     .sc-lookcard-cap    — overlay on desktop; static footer on touch */
+.sc-lookcard {
+  position: relative;
+  border: none;
+  padding: 0;
+  border-radius: var(--sc-radius-lg);
+  overflow: hidden;
+  background: var(--sc-raised);
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+.sc-lookcard[data-on] {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+}
+.sc-lookcard-media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--sc-raised);
+}
+.sc-lookcard img,
+.sc-lookcard-blank {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.45s cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+.sc-lookcard-blank {
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+  background: var(--sc-raised);
+}
+.sc-lookcard:hover img {
+  transform: scale(1.03);
+}
+.sc-lookcard-open,
+.sc-lookcard-use {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.sc-lookcard-open {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+.sc-lookcard-open:focus-visible,
+.sc-lookcard-use:focus-visible,
+.sc-lookcard[data-variant="select"]:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+/* The read-only bookmark on a picker row. Not a control — it is the reason
+   that row is near the top, said in the caption line where a 10px glyph is
+   legible without a scrim over someone's photograph. */
+.sc-bm-mark {
+  margin-inline-end: 4px;
+  color: var(--sc-fg3);
+  vertical-align: -1px;
+}
+
+/* One corner puck, geometry only: the card's top-right, over the veil. Shared
+   by the bookmark toggle and an asset build's stop button, which used to
+   borrow the bookmark's own class and make every selector ambiguous. */
+.sc-cardpuck {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.42);
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+  transition:
+    opacity 0.16s ease,
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.sc-cardpuck:hover {
+  background: rgba(0, 0, 0, 0.62);
+}
+.sc-cardpuck:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+/* Hidden until the card is hovered, so a wall of scenes stays a wall of
+   pictures — except when it is on, which is the whole point of a bookmark,
+   and except on touch, where there is no hover to reveal it. */
+.sc-lookcard-bookmark {
+  opacity: 0;
+}
+.sc-lookcard:hover .sc-lookcard-bookmark,
+.sc-lookcard-bookmark:focus-visible,
+.sc-lookcard-bookmark[data-on] {
+  opacity: 1;
+}
+/* On is the system's one active language — the same ink-on-page inversion an
+   active chip or a primary button uses. Not gold: that is the keeper star's,
+   and one colour cannot carry two meanings. */
+.sc-lookcard-bookmark[data-on] {
+  color: var(--sc-inv-fg);
+  background: var(--sc-inv-bg);
+}
+.sc-lookcard-bookmark[data-on]:hover {
+  background: var(--sc-inv-bg);
+  opacity: 0.88;
+}
+@media (hover: none) {
+  .sc-lookcard-bookmark {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-cardpuck {
+    transition: none;
+  }
+}
+/* Sits inside its card's corner, so it can grow without reaching a neighbour
+   the way a feed tile's corner controls would. Declared after the base rule,
+   not up in the phone block: a media query adds no specificity, so the 26px
+   default was winning at every width and the touch target never grew. */
+@media (max-width: 767px) {
+  .sc-cardpuck {
+    width: 34px;
+    height: 34px;
+  }
+}
+.sc-lookcard-veil {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.74) 0%,
+    rgba(0, 0, 0, 0.26) 36%,
+    rgba(0, 0, 0, 0) 64%
+  );
+  pointer-events: none;
+}
+/* Dead-center of the media frame — not the whole card (footer must not shift it). */
+.sc-lookcard-use {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -46%);
+  opacity: 0;
+  white-space: nowrap;
+  z-index: 2;
+  pointer-events: none;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+  background: #fff;
+  color: #0a0a0a;
+  border-radius: var(--sc-radius-full);
+  padding: 8px 16px;
+  font: 600 12px / 1 var(--sc-font);
+}
+.sc-lookcard-cap {
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  bottom: 12px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+  line-height: 1.35;
+  text-align: left;
+  pointer-events: none;
+  z-index: 1;
+}
+.sc-lookcard-cap b {
+  display: block;
+  color: #fff;
+  font: 600 13px var(--sc-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-lookcard-cap span {
+  display: block;
+  font: 11.5px var(--sc-font);
+  color: rgba(255, 255, 255, 0.68);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-lookcard-tick {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  display: none;
+  place-items: center;
+  z-index: 1;
+}
+.sc-lookcard[data-on] .sc-lookcard-tick {
+  display: grid;
+}
+@media (hover: hover) {
+  .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-veil,
+  .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-veil,
+  .sc-lookcard[data-variant="select"]:hover .sc-lookcard-veil {
+    opacity: 1;
+  }
+  .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-cap,
+  .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-cap,
+  .sc-lookcard[data-variant="select"]:hover .sc-lookcard-cap {
+    opacity: 1;
+    transform: none;
+  }
+  .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-use,
+  .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-use,
+  .sc-lookcard-use:hover {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+  }
+}
+.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
+.sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
+.sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-veil {
+  opacity: 1;
+}
+.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-cap,
+.sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-cap,
+.sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-cap {
+  opacity: 1;
+  transform: none;
+}
+.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-use,
+.sc-lookcard-use:focus-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+.sc-lookcard[data-size="shelf"] .sc-lookcard-veil,
+.sc-lookcard[data-size="wizard"] .sc-lookcard-veil,
+.sc-lookcard[data-size="shelf"] .sc-lookcard-cap,
+.sc-lookcard[data-size="wizard"] .sc-lookcard-cap {
+  opacity: 1;
+  transform: none;
+}
+.sc-lookcard[data-variant="skeleton"] {
+  background: var(--sc-raised);
+  aspect-ratio: 4 / 5;
+}
+
+/* Touch: title footer under image; Use appears on first tap (hover substitute).
+   Pill → create; second tap on image → detail. */
+@media (hover: none) {
+  .sc-masonry,
+  .sc-wiz-looks {
+    row-gap: 22px;
+    column-gap: 12px;
+  }
+  .sc-lookcard:has(.sc-lookcard-media) {
+    overflow: visible;
+    background: transparent;
+    border-radius: 0;
+  }
+  .sc-lookcard:has(.sc-lookcard-media) .sc-lookcard-media {
+    border-radius: var(--sc-radius-lg);
+  }
+  .sc-lookcard:has(.sc-lookcard-media)[data-on] {
+    outline: none;
+  }
+  .sc-lookcard:has(.sc-lookcard-media)[data-on] .sc-lookcard-media {
+    outline: 2px solid var(--sc-sel-line);
+    outline-offset: -2px;
+  }
+  .sc-lookcard:hover img {
+    transform: none;
+  }
+  .sc-lookcard-cap {
+    position: static;
+    display: block;
+    opacity: 1;
+    transform: none;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    padding: 8px 4px 0;
+    min-height: 1.35em;
+    transition: none;
+  }
+  .sc-lookcard-cap b {
+    color: var(--sc-fg);
+    font-size: 12.5px;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sc-lookcard-cap span {
+    display: none;
+  }
+  .sc-lookcard-veil,
+  .sc-lookcard[data-size="shelf"] .sc-lookcard-veil,
+  .sc-lookcard[data-size="wizard"] .sc-lookcard-veil,
+  .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
+  .sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
+  .sc-lookcard[data-variant="select"] .sc-lookcard-veil {
+    opacity: 0;
+  }
+  .sc-lookcard-use {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sc-lookcard[data-armed] .sc-lookcard-veil {
+    opacity: 1;
+  }
+  .sc-lookcard[data-armed] .sc-lookcard-use {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+  }
+  .sc-lookcard[data-variant="skeleton"] {
+    aspect-ratio: auto;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    border-radius: 0;
+  }
+  .sc-lookcard[data-variant="skeleton"]::before {
+    content: "";
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    border-radius: var(--sc-radius-lg);
+    background: var(--sc-raised);
+  }
+  .sc-lookcard[data-variant="skeleton"]::after {
+    content: "";
+    display: block;
+    height: 1.35em;
+    margin-top: 8px;
+  }
+}
+
+/* ---- showcase tile: presenter glass pill + bare recipe thumbs.
+   Credits sit *outside* .sc-lookcard. While the pointer (or chip focus) is
+   anywhere on the tile, keep the card fully hot: image zoom + veil +
+   caption + use — lookcard:hover alone is not enough. */
+.sc-showcase-tile {
+  position: relative;
+}
+.sc-showcase-tile:has(.sc-credit-tip[data-open]) {
+  z-index: 5;
+}
+@media (hover: hover) {
+  .sc-showcase-tile:hover .sc-lookcard img,
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard img {
+    transform: scale(1.03);
+  }
+  .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-veil,
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-veil {
+    opacity: 1;
+  }
+  .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-cap,
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-cap {
+    opacity: 1;
+    transform: none;
+  }
+  .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-use,
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-use {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+  }
+}
+.sc-showcase-chips {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  /* Compact is a step under large — same hierarchy, slightly smaller. */
+  --sc-credit-fill: rgba(0, 0, 0, 0.22);
+  --sc-credit-fill-hover: rgba(0, 0, 0, 0.38);
+  --sc-credit-ink: rgba(255, 255, 255, 0.92);
+  --sc-credit-lip: 2.5px;
+  /* Monotonic settle — the old linear() spring overshot past 1, and opacity /
+     max-width clamp there, so the motion sat still then kicked again. */
+  --sc-credit-motion: 0.48s;
+  --sc-credit-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --sc-credit-stagger: 0.04s;
+  pointer-events: none;
+}
+.sc-showcase-chips > .sc-showcase-badge,
+.sc-showcase-chips > .sc-credit-tip {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  flex: none;
+}
+.sc-showcase-recipe {
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 0;
+  pointer-events: none;
+}
+.sc-showcase-recipe .sc-credit-tip {
+  pointer-events: none;
+}
+.sc-showcase-recipe .sc-showcase-chip,
+.sc-showcase-recipe .sc-showcase-join {
+  opacity: 0;
+  transform: translate3d(-6px, 0, 0);
+  pointer-events: none;
+  transition:
+    opacity var(--sc-credit-motion) var(--sc-credit-spring),
+    transform var(--sc-credit-motion) var(--sc-credit-spring);
+  /* Close: last in the chain tucks first. --i / --n are set in CreditRow. */
+  transition-delay: calc(
+    (var(--n, 1) - 1 - var(--i, 0)) * var(--sc-credit-stagger)
+  );
+}
+.sc-showcase-recipe .sc-showcase-chip {
+  position: relative;
+  z-index: 0;
+  width: 26px;
+  height: 26px;
+}
+.sc-showcase-recipe .sc-showcase-join {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin-inline: -5px;
+  color: var(--sc-credit-ink);
+  background: var(--sc-credit-fill);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border-radius: 50%;
+  user-select: none;
+}
+.sc-showcase-recipe .sc-showcase-join::before,
+.sc-showcase-recipe .sc-showcase-join::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+.sc-showcase-recipe .sc-showcase-join::before {
+  width: 5.5px;
+  height: 1.25px;
+}
+.sc-showcase-recipe .sc-showcase-join::after {
+  width: 1.25px;
+  height: 5.5px;
+}
+
+/* Expanded chain: pill tucks into a round chip, thumbs slide+fade in.
+   Same rules for 1 / 2 / 3 items — stagger is --i from CreditRow. */
+@media (hover: hover) {
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-recipe
+    .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-recipe
+    .sc-showcase-join {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
+  }
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-recipe
+    .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-recipe
+    .sc-credit-tip {
+    pointer-events: auto;
+  }
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge {
+    gap: 0;
+    padding: var(--sc-credit-lip);
+    max-width: none;
+  }
+  .sc-showcase-tile:is(:hover, :focus-within)
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge-name {
+    max-width: 0;
+    opacity: 0;
+  }
+}
+@media (hover: none) {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-recipe
+    .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-recipe
+    .sc-showcase-join {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
+  }
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-recipe
+    .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-recipe
+    .sc-credit-tip {
+    pointer-events: auto;
+  }
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge {
+    gap: 0;
+    padding: var(--sc-credit-lip);
+    max-width: none;
+  }
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge-name {
+    max-width: 0;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-recipe .sc-showcase-join {
+    transform: none;
+    transition: opacity 0.15s ease;
+  }
+  .sc-showcase-badge {
+    transition: background 0.15s ease;
+  }
+  .sc-showcase-badge-name {
+    transition: opacity 0.15s ease;
+  }
+}
+
+/* Credit hover preview — portaled fixed glass.
+   Glass lives on the fixed pop itself (body child): no opacity animation,
+   no transform/translate — those prevent backdrop-filter from sampling. */
+.sc-credit-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  /* `flex: none` let this wrapper size to its content, so the presenter pill's
+     own `max-width: 100%` resolved against an unbounded parent and never
+     constrained anything. The round product/scene chips genuinely are fixed
+     size and must not shrink, so keep `flex: none` for them and let only the
+     pill's wrapper flex down. */
+  flex: none;
+  min-width: 0;
+  max-width: 100%;
+}
+.sc-credit-tip:has(.sc-showcase-badge) {
+  flex: 0 1 auto;
+}
+.sc-credit-tip-pop {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* Spacing lives on the children, not here: a flex gap applies equally
+     between image→name and name→role, and those two joints want different
+     amounts — the name needs air under the image, the role belongs tight
+     under the name it captions. */
+  gap: 0;
+  /* Compact preview — sized to a ~7-col tile, not the large-card pop. */
+  width: 88px;
+  padding: 4px;
+  border-radius: 10px;
+  pointer-events: none;
+  /* Soft grey glass fill — a bit more opaque than the presenter pill so the
+     floating preview reads as a muted panel, not a near-black frame. */
+  background: rgba(52, 52, 56, 0.58);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.38),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+.sc-credit-tip-card {
+  display: contents;
+}
+.sc-credit-tip-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+}
+.sc-credit-tip-name {
+  /* One line, always. Wrapping made the pop lurch taller for some credits and
+     not others, and a two-line name reads as a paragraph rather than a label.
+     The width above is sized so no shipped name reaches the ellipsis; it is
+     there for names added later. */
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 5px 2px 0;
+  color: #fff;
+  font: 600 9.5px / 1.3 var(--sc-font);
+  letter-spacing: -0.005em;
+  text-align: center;
+}
+.sc-credit-tip-role {
+  display: block;
+  padding: 1px 2px 1px;
+  /* Demoted: the name is the headline now, the role is the caption, and it
+     sits tight under it rather than floating between the two. */
+  color: rgba(255, 255, 255, 0.55);
+  font: 500 8.5px / 1.2 var(--sc-font);
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+/* Presenter — live glass pill. When the recipe thumbs appear, the name
+   tucks away and this becomes the same round chip as product/scene. */
+.sc-showcase-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2.5px 10px 2.5px 2.5px;
+  border: none;
+  box-shadow: none;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-credit-fill);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  color: var(--sc-credit-ink);
+  font: 500 11.5px var(--sc-font);
+  letter-spacing: 0.005em;
+  text-align: left;
+  min-width: 0;
+  max-width: 14ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background 0.18s ease,
+    padding var(--sc-credit-motion) var(--sc-credit-spring),
+    gap var(--sc-credit-motion) var(--sc-credit-spring);
+}
+.sc-showcase-badge-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 1;
+  transition:
+    max-width var(--sc-credit-motion) var(--sc-credit-spring),
+    opacity var(--sc-credit-motion) var(--sc-credit-spring);
+}
+
+/* The avatar must never be the thing that gets squeezed — shrink the text. */
+.sc-showcase-badge img {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+/* Product / scene — same glass and same inset as the presenter avatar. */
+.sc-showcase-chip {
+  display: block;
+  flex: none;
+  padding: var(--sc-credit-lip);
+  border: none;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--sc-credit-fill);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: none;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transition: background 0.18s ease;
+}
+.sc-showcase-chip img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.sc-showcase-badge[data-link],
+.sc-showcase-chip[data-link] {
+  cursor: pointer;
+}
+.sc-showcase-badge[data-link]:hover {
+  background: var(--sc-credit-fill-hover);
+}
+.sc-showcase-chip[data-link]:hover {
+  background: var(--sc-credit-fill-hover);
+}
+.sc-showcase-badge[data-link]:focus-visible,
+.sc-showcase-chip[data-link]:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+}
+
+/* Large wall: same credit hierarchy, one step up. Tips follow data-size. */
+.sc-masonry[data-density-size="large"] .sc-lookcard {
+  border-radius: 18px;
+}
+.sc-masonry[data-density-size="large"] .sc-showcase-chips {
+  left: 12px;
+  top: 12px;
+  --sc-credit-lip: 3px;
+}
+.sc-masonry[data-density-size="large"] .sc-showcase-badge {
+  gap: 7px;
+  padding: 3px 12px 3px 3px;
+  font-size: 12.5px;
+  max-width: 16ch;
+}
+.sc-masonry[data-density-size="large"] .sc-showcase-badge img {
+  width: 24px;
+  height: 24px;
+}
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-chip {
+  width: 30px;
+  height: 30px;
+}
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join {
+  width: 12px;
+  height: 12px;
+  margin-inline: -6px;
+}
+.sc-masonry[data-density-size="large"]
+  .sc-showcase-recipe
+  .sc-showcase-join::before {
+  width: 6px;
+  height: 1.5px;
+}
+.sc-masonry[data-density-size="large"]
+  .sc-showcase-recipe
+  .sc-showcase-join::after {
+  width: 1.5px;
+  height: 6px;
+}
+.sc-credit-tip-pop[data-size="large"] {
+  width: 144px;
+  padding: 8px;
+  border-radius: 16px;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.38),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1.5px rgba(255, 255, 255, 0.16),
+    0 0 0 1.5px rgba(0, 0, 0, 0.28);
+}
+.sc-credit-tip-pop[data-size="large"] .sc-credit-tip-card img {
+  border-radius: 10px;
+}
+.sc-credit-tip-pop[data-size="large"] .sc-credit-tip-name {
+  padding: 8px 2px 0;
+  font-size: 12px;
+}
+.sc-credit-tip-pop[data-size="large"] .sc-credit-tip-role {
+  font-size: 10.5px;
+}
+
+.sc-looks-empty {
+  color: var(--sc-fg3);
+  padding: 30px 0;
+}
+

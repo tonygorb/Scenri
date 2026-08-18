@@ -1,0 +1,772 @@
+/* ---------- the feed toolbar ----------
+   Two questions, one row. On the left, what am I browsing: a place (the whole
+   brand, a set, the shots no set has claimed) and a lens over it. On the
+   right, how do I find something in it: search, then the preferences that
+   describe how the results look rather than which results there are.
+
+   Spacing carries the grouping, not boxes: --sc-space-4 between siblings on
+   one axis, --sc-space-6 across an axis boundary. Two steps, no third. */
+.sc-toolbar {
+  /* One height for everything in the row, matching .sc-filterbar on the
+     library pages so the same search pill is not 30px here and 34px there. */
+  --sc-control-h: 34px;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-6);
+  /* sticky so the lenses stay reachable down a long feed; the canvas is the
+     scroller, so this pins to its top edge. The breathing room above the row
+     lives in this padding-top, not .sc-canvas's: a sticky child stuck at
+     top:0 can't get closer to the scroller's edge than the scroller's own
+     padding, so if that space were canvas padding instead, the row would
+     visibly close a gap over the first ~18px of every scroll — flush from
+     frame one instead, so nothing shifts. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: var(--sc-space-5) 0 var(--sc-space-4);
+  margin-bottom: var(--sc-space-2);
+  background: var(--sc-bg);
+}
+/* Place and lens share a type size so they read as one row. The place is
+   heavier ink; the tabs stay the rail. A boxed chip next to the underlines
+   was a second widget system. */
+.sc-toolbar-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-8);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* Nested the same way .sc-filterbar nests the rail: the shell's own sticky
+   and 24px margin would fight this row. Shrink when the tabs overflow; do not
+   grow past the labels, so the actions keep the far end. */
+.sc-toolbar .sc-verticals-shell {
+  position: relative;
+  z-index: auto;
+  margin-bottom: 0;
+  background: none;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sc-toolbar .sc-verticals {
+  padding: 0 0 1px;
+}
+/* The rail's 16px ink slot is sized for a page that gives it a line of its
+   own. Sharing this row, that slot hung the underline below every control
+   beside it and pushed the labels off the row's centre; 8px puts the ink
+   under the word and the word on the same axis as everything else. */
+.sc-toolbar .sc-verticals button {
+  padding: 8px 0;
+}
+
+.sc-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+/* Every control in the row is one height, the rail included. */
+.sc-toolbar-actions .sc-icon-btn {
+  width: var(--sc-control-h);
+  height: var(--sc-control-h);
+}
+/* The rail's switch is not a discovery control — it opens and shuts a column
+   of the page — so the boundary gap holds it off from search and view. */
+.sc-toolbar-assets {
+  margin-left: var(--sc-space-6);
+}
+/* Same 17px as the lens tabs, heavier, always ink. No box at rest — hover
+   is the ghost chip. Padding matches the tab buttons so the words sit on
+   one axis; the underline hangs below both. */
+.sc-toolbar-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  margin: 0 -8px;
+  padding: 8px;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg);
+  font: 600 17px / 1 var(--sc-font);
+  letter-spacing: -0.022em;
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-toolbar-place:hover,
+.sc-toolbar-place[data-state="open"] {
+  background: var(--sc-hover);
+  outline: none;
+}
+.sc-toolbar-place:hover .sc-caret,
+.sc-toolbar-place:hover .sc-toolbar-place-ic,
+.sc-toolbar-place[data-state="open"] .sc-caret,
+.sc-toolbar-place[data-state="open"] .sc-toolbar-place-ic {
+  color: var(--sc-fg2);
+}
+.sc-toolbar-place-ic {
+  display: block;
+  flex: none;
+  color: var(--sc-fg3);
+}
+.sc-toolbar-place-t {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-toolbar-place .sc-caret {
+  color: var(--sc-fg3);
+  flex: none;
+  transition: color var(--sc-dur-fast) var(--sc-ease);
+}
+/* Keyboard only. A click that opens the menu must not leave a box on the
+   title — Radix keeps the trigger focused, and a ring here is a chip. */
+.sc-toolbar-place:focus {
+  outline: none;
+}
+.sc-toolbar-place:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+/* Sort is the remaining boxed menu in this row. */
+.sc-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  flex: none;
+  height: var(--sc-control-h);
+  padding: 0 10px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg2);
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  cursor: pointer;
+  max-width: 220px;
+  transition:
+    color var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    background var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-toolbar-btn:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+/* Somewhere other than the whole brand. Same border width as the resting
+   state — a thicker one here would move the label by half a pixel. */
+.sc-toolbar-btn[data-on] {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+  background: var(--sc-raised);
+}
+.sc-toolbar-btn-t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-toolbar-btn-n {
+  font-family: var(--sc-font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-fg3);
+}
+/* The wall's own size toggle, at this row's control height — the same
+   adjustment .sc-filterbar makes, because the control ships smaller than the
+   controls it stands beside. */
+.sc-toolbar-actions .sc-density {
+  height: var(--sc-control-h);
+}
+.sc-toolbar-actions .sc-density-opt {
+  height: 28px;
+}
+
+/* The library search pill, at the row's own control height. The field grows
+   out of its own right edge, over the gap rather than into the row, so
+   opening it moves nothing. The sub-1280px filterbar rules turn the open pill
+   into a flex-grown row with a static field — right for a rail it replaces,
+   wrong here where the view menu sits beside it — so the properties they
+   touch are pinned back at this scope, above the phone width where taking the
+   row is in fact the better answer. */
+.sc-toolbar .sc-libsearch,
+.sc-toolbar .sc-libsearch-field {
+  width: var(--sc-control-h);
+  height: var(--sc-control-h);
+}
+@media (min-width: 768px) {
+  .sc-toolbar .sc-libsearch[data-open] {
+    flex: none;
+    width: var(--sc-control-h);
+  }
+  .sc-toolbar .sc-libsearch[data-open] .sc-libsearch-field {
+    position: absolute;
+    width: min(280px, calc(100vw - 28px));
+    box-shadow: var(--sc-shadow-2);
+  }
+}
+
+/* Catalog walls — two-view icon toggle (compact ↔ large). Sliding pill + VT. */
+.sc-density {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--sc-well);
+  border: 1px solid var(--sc-line);
+}
+.sc-density-ink {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: var(--sc-density-w, 0px);
+  border-radius: 7px;
+  background: var(--sc-raised);
+  box-shadow: 0 0 0 1px var(--sc-line);
+  pointer-events: none;
+  z-index: 0;
+  transform: translate3d(var(--sc-density-x, 0px), 0, 0);
+}
+.sc-density[data-ink-ready] .sc-density-ink {
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sc-density-opt {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.sc-density-opt:hover {
+  color: var(--sc-fg2);
+}
+.sc-density-opt[data-on] {
+  color: var(--sc-fg);
+}
+.sc-density-opt:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-density-icon {
+  display: block;
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-density[data-ink-ready] .sc-density-ink,
+  .sc-density-opt {
+    transition: none;
+  }
+}
+@media (max-width: 767px) {
+  .sc-density {
+    display: none;
+  }
+  /* One row, not two. Wrapping put the lenses on their own line and the place
+     and search on a second, and the pair cost 114px — 17% of a 664px phone
+     screen — to filter a feed that had 324px left to show pictures in. The
+     rail already scrolls, so it is the part that gives: it takes what the
+     actions leave and scrolls for the rest. */
+  .sc-toolbar {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--sc-space-5);
+    padding: var(--sc-space-4) 0 var(--sc-space-4);
+  }
+  .sc-toolbar-scope {
+    gap: var(--sc-space-6);
+    flex: 1 1 auto;
+  }
+  /* A tab must never end flush against the place title: at the clip the last
+     word is already cut, and with no gap the cut reads as broken text rather
+     than as a rail that keeps going. */
+  .sc-toolbar .sc-verticals {
+    padding-right: 4px;
+  }
+  .sc-toolbar-actions {
+    margin-left: 0;
+  }
+  /* The title's words and Sort's label were the reason the row needed two
+     lines. The folder and the sliders say what they did. */
+  .sc-toolbar-place-t,
+  .sc-toolbar-place .sc-caret,
+  .sc-toolbar-btn-t {
+    display: none;
+  }
+  .sc-toolbar-place-ic {
+    display: block;
+  }
+  .sc-toolbar-place {
+    width: var(--sc-control-h);
+    height: var(--sc-control-h);
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    justify-content: center;
+    /* Icon-only on a black bar: the chip is what makes the folder a control
+       rather than a watermark. Desktop stays a title, so it stays unboxed. */
+    background: var(--sc-chip);
+  }
+  .sc-toolbar-place:hover,
+  .sc-toolbar-place[data-state="open"] {
+    background: var(--sc-chip-hover);
+  }
+  .sc-toolbar-btn {
+    padding: 0 8px;
+  }
+  /* Opening search takes the row rather than floating a panel over the tabs —
+     the same move the library filterbar makes when it runs out of width, so
+     this is not a second search behaviour to learn. */
+  .sc-toolbar:has(.sc-libsearch[data-open]) {
+    gap: 0;
+  }
+  .sc-toolbar:has(.sc-libsearch[data-open]) .sc-toolbar-scope {
+    flex: 0 0 0;
+    overflow: hidden;
+    visibility: hidden;
+  }
+  .sc-toolbar:has(.sc-libsearch[data-open]) .sc-toolbar-actions {
+    flex: 1;
+    min-width: 0;
+  }
+  .sc-toolbar .sc-libsearch[data-open] {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+  .sc-toolbar .sc-libsearch[data-open] .sc-libsearch-field {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+  }
+}
+
+/* Renaming a set happens in the crumb itself, where its name already is.
+   Type only — a bordered field plus a focus ring stacked into the concentric
+   pill that showed up on a short name. */
+.sc-crumb-input {
+  font: inherit;
+  font-weight: 450;
+  color: var(--sc-fg);
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  min-width: 8ch;
+  max-width: 18ch;
+  outline: none;
+}
+.sc-crumb-input:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: var(--sc-radius-xs);
+}
+.sc-cell[data-running] {
+  aspect-ratio: 4 / 5;
+  cursor: default;
+}
+.sc-cell-tag {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  font-family: var(--sc-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sc-fg2);
+  background: var(--sc-glass);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  padding: 3px 7px;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+/* Branch sits on the tile, revealed the way the pick checkbox is, because the
+   feed is where you decide a shot is nearly right.
+
+   Bottom right is the only free corner: the pick checkbox owns top left, the
+   keeper star owns top right, and the variants label owns bottom left. */
+/* The two bottom pills each get half the tile and no more. Both are absolutely
+   positioned in the same row with no width budget, so at the smallest grid size
+   the Refine pill was painted across the variants pill and took its clicks —
+   measured as a 23x21px overlap at 160px tiles. Truncation is honest; the full
+   text stays in the title. */
+.sc-cell-branch {
+  max-width: 60%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sc-fg);
+  background: var(--sc-glass);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  padding: 4px 8px;
+  cursor: pointer;
+  /* the bar it sits in takes no clicks, so the button takes its own */
+  pointer-events: auto;
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    border-color 120ms ease;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.sc-cell:hover .sc-cell-branch,
+.sc-cell-branch:focus-visible,
+.sc-cell-branch[data-on] {
+  opacity: 1;
+}
+.sc-cell-branch[data-on] {
+  border-color: var(--sc-sel-line);
+}
+/* a coarse pointer has no hover to reveal with, so it never hides */
+@media (pointer: coarse) {
+  .sc-cell-branch,
+  .sc-cell-archive {
+    opacity: 1;
+  }
+}
+
+/* A run that returned several images says so with a control, not a caption:
+   the count is the way into the other variants rather than a note that they
+   exist somewhere. Bottom left, where the caption used to sit. */
+/* One row for everything the tile says about its picture, in the corner the
+   Refine pill does not use. It wraps, so a narrow tile stacks its facts rather
+   than letting one of them run under the other. */
+/* The tile's bottom line: what the picture is, and the one thing to do with
+   it. They used to be two absolutely-positioned pills that both claimed
+   `bottom: 8px`, which is why each carried a `max-width: calc(50% - 12px)` to
+   stop them painting across one another — a truncation whose only job was to
+   make a collision less likely. In one row with `space-between` the collision
+   is not possible, so the cap is gone and a fact can use the room the action
+   does not. */
+.sc-cell-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  /* the row is a container, not a target: only its chips take clicks */
+  pointer-events: none;
+}
+.sc-cell-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+/* One chip. Provenance used to be a full-radius sans pill and the counts
+   small-radius mono chips, which is two grammars for one kind of statement. */
+.sc-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sc-fg2);
+  background: var(--sc-glass);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  padding: 3px 7px;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+/* the two that are ways in rather than labels */
+button.sc-fact {
+  cursor: pointer;
+  pointer-events: auto;
+}
+button.sc-fact:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+/* a count is a number, and numbers read better in the mono face */
+.sc-cell-stack,
+.sc-cell-versions {
+  font-family: var(--sc-font-mono);
+}
+/* An opened run reads as a group: its first tile keeps the edge that the
+   stacked one had, so the eye can see where the run begins. */
+.sc-cell[data-variant][data-first] {
+  box-shadow: inset 3px 0 0 0 var(--sc-line-strong);
+}
+
+/* CompareDialog/ExportDialog relied on Escape/backdrop alone — reusing
+   .sc-set-close's button (SettingsDialog) for the visual, this just places it
+   since neither dialog has that dialog's own header row to sit inside. */
+.sc-dlg-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+/* Two shots and the drift between them, on one row. */
+.sc-cmp {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 6px;
+}
+.sc-cmp-side {
+  margin: 0;
+}
+.sc-cmp-side img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--sc-radius-lg);
+  border: 1px solid var(--sc-line);
+  display: block;
+  background: var(--sc-raised);
+}
+.sc-cmp-side figcaption {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-cmp-wait,
+.sc-cmp-err {
+  aspect-ratio: 1;
+  border-radius: var(--sc-radius-lg);
+  border: 1px dashed var(--sc-line);
+  color: var(--sc-fg3);
+  font-size: 12px;
+  padding: 12px;
+  text-align: center;
+}
+.sc-cmp-wait {
+  display: grid;
+  place-items: center;
+}
+/* Only a place to stand, now that what goes in it brings its own type and
+   rhythm — the same change .sc-cell-failed got, for the same reason. */
+.sc-cmp-err {
+  display: grid;
+  place-items: center;
+}
+.sc-cmp-note {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--sc-fg2);
+  line-height: 1.5;
+}
+.sc-cmp-note b {
+  color: var(--sc-fg);
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .sc-cmp {
+    grid-template-columns: 1fr 1fr;
+  }
+  /* the drift is the answer, so on a narrow screen it gets the full width
+     under the two it is about rather than being squeezed beside them */
+  .sc-cmp-side:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Which lineage the feed is showing, and the way back out of it. */
+.sc-lineage-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--sc-fg2);
+}
+.sc-lineage-bar b {
+  color: var(--sc-fg);
+  font-weight: 500;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-crumb-back {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--sc-fg2);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sc-crumb-back:hover {
+  color: var(--sc-fg);
+}
+.sc-crumb-sep {
+  color: var(--sc-fg3);
+}
+.sc-crumb-here {
+  color: var(--sc-fg3);
+}
+
+/* The brief says what it is about to do before it does it.
+
+   The card itself carries no padding on purpose (the editable owns it, so a
+   click in the padding still lands in the text), so this matches the brief
+   line's own 14px rather than inheriting a gutter that is not there. */
+.sc-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 12px 14px 0;
+}
+
+.sc-target-lb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+}
+.sc-target-lb img,
+.sc-target-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sc-radius-sm);
+  object-fit: cover;
+}
+/* the stand-in while the version being refined is still rendering */
+.sc-target-thumb {
+  display: inline-block;
+  flex: none;
+}
+.sc-target-lb b {
+  color: var(--sc-fg);
+  font-weight: 500;
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* When something overrules the branch, the chip says so instead of quietly
+   doing the other thing. */
+.sc-target-note {
+  font-size: 11px;
+  color: var(--sc-warn, var(--sc-fg3));
+}
+/* Inside an open shot there is no chip to sit in, so it lines up with the
+   sentence below it instead. */
+.sc-target-note-alone {
+  display: block;
+  padding: 10px 14px 0;
+}
+.sc-target-x {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--sc-fg3);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.sc-target-x:hover {
+  color: var(--sc-fg);
+  background: var(--sc-raised);
+}
+
+/* The stand-in for a brief that has been sent and not yet come back. It says
+   what was asked for, because for the second or two it exists that is the only
+   thing distinguishing it from any other shot starting up. */
+.sc-cell-said {
+  position: absolute;
+  inset: auto 10px 34px 10px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--sc-fg2);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  text-align: left;
+}
+.sc-cell[data-failed] {
+  border-style: dashed;
+  background: none;
+}
+.sc-cell[data-cancelled] {
+  border-color: var(--sc-line);
+  background: none;
+}
+/* Only a place to stand. What goes in it is a .sc-fail, which brings its own
+   type, colour and rhythm — this used to set all three and fight it. */
+.sc-cell-failed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  /* the icon/text/button used to live inside .sc-cell-open, so a click
+     anywhere here bubbled up to "open" for free; now a sibling, so the tile
+     stays clickable everywhere except the buttons' own small hit areas */
+  pointer-events: none;
+}
+.sc-cell-retry,
+.sc-cell-failed .sc-s,
+.sc-cell-failed .sc-fail-alt {
+  pointer-events: auto;
+}
+/* .sc-cell-open's own children were absolutely positioned (shimmer, tag) or
+   have moved out entirely (Cancel/Dismiss/Try again, now siblings) — without
+   this it has no in-flow content left to size itself by and collapses to
+   zero height, taking its click-to-open area with it. */
+.sc-cell[data-running] .sc-cell-open,
+.sc-cell[data-cancelled] .sc-cell-open,
+.sc-cell[data-failed] .sc-cell-open {
+  position: absolute;
+  inset: 0;
+}
+.sc-cell[data-running] .sc-cell-retry {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+}
+.sc-feed-empty {
+  padding: 60px 0 30px;
+  text-align: center;
+  color: var(--sc-fg2);
+  font-size: 13px;
+}
+

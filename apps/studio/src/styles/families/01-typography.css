@@ -1,0 +1,37 @@
+/* ---------- typography ---------- */
+.sc-display {
+  font-family: var(--sc-font-display);
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+.sc-display em,
+.sc-accent {
+  font-family: var(--sc-font-accent);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-size: 1.07em;
+}
+.sc-eyebrow {
+  font-size: var(--sc-text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 650;
+  color: var(--sc-fg3);
+}
+
+/* Measure & wrap utilities — prefer wiring via surface selectors; these
+   exist for one-off display copy that has no dedicated class yet.
+   balance = titles; pretty = ledes/prose. Never on dense chrome. */
+.sc-text-title {
+  text-wrap: balance;
+}
+.sc-text-lede {
+  text-wrap: pretty;
+  max-width: var(--sc-measure-lede);
+}
+.sc-text-prose {
+  text-wrap: pretty;
+  max-width: var(--sc-measure-prose);
+}
+

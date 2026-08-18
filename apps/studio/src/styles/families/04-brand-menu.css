@@ -1,0 +1,137 @@
+/* ---------- the brand menu -------------------------------------------------
+   Radix Themes' own item chrome is a 24px left inset with no leading slot, which
+   left three different left edges in one menu once icons and a radio group were
+   in it. Every row here is one grid instead: 20px mark, label, optional trailing
+   mark, on a 34px row. */
+.sc-menu {
+  width: 268px;
+  padding: 6px;
+}
+/* Off above 1024px, where the chip already carries the name and repeating it
+   8px below the thing you just clicked is the exact furniture the switcher list
+   avoids by listing only the other brands. Below that the trigger is a bare
+   mark, and this is the answer to "which one am I in". */
+.sc-menu-head {
+  display: none;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 10px 10px;
+  min-width: 0;
+}
+@media (max-width: 1023px) {
+  .sc-menu-head {
+    display: flex;
+    /* the hairline the removed Brand kit row used to put here: without it the
+       brand you are in and the brands you could switch to read as one list */
+    border-bottom: 1px solid var(--sc-line);
+    margin-bottom: 5px;
+  }
+}
+.sc-menu-head-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+.sc-menu-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--sc-fg);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-menu-sub {
+  font-size: 11.5px;
+  line-height: 1.2;
+  color: var(--sc-fg2);
+}
+
+.sc-menu-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--sc-line);
+}
+.sc-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--sc-radius-sm);
+  font-size: 13.5px;
+  color: var(--sc-fg);
+  cursor: pointer;
+}
+.sc-menu-item[data-highlighted] {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+  outline: none;
+}
+.sc-menu-ic {
+  flex: none;
+  color: var(--sc-fg2);
+}
+.sc-menu-lb {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* the brand is context and reads as a prefix; only the project is a control */
+.sc-crumb {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--sc-fg2);
+}
+.sc-crumb-sep {
+  color: var(--sc-fg3);
+  white-space: nowrap;
+  flex: none;
+  font-size: 12px;
+  user-select: none;
+}
+.sc-crumb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 0;
+  border: none;
+  border-radius: var(--sc-radius-xs);
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+.sc-crumb-btn:hover .sc-caret {
+  color: var(--sc-fg2);
+}
+.sc-crumb-btn b {
+  min-width: 0;
+  color: var(--sc-fg);
+  font-weight: 450;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-crumb-btn:focus {
+  outline: none;
+}
+.sc-crumb-btn:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-crumb-btn[data-state="open"] {
+  outline: none;
+}
+

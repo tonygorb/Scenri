@@ -1,0 +1,283 @@
+/* ---------- setup wizard ----------
+   Two steps, one action per screen. Sized so the whole thing reads without a
+   scroll: a person who is not sure this app is for them will not scroll to find
+   out. */
+.sc-setup {
+  padding: 0 !important;
+  overflow: hidden;
+}
+.sc-setup-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Radix leading-trims the title to its cap height, so the bar's height comes
+     from the close button beside it. Keep both tight or the title floats in a
+     band with more air under it than over it. */
+  padding: 9px 9px 9px 18px;
+  border-bottom: 1px solid var(--sc-line);
+}
+/* This header borrows the Settings close button, which is a 44px coarse-pointer
+   tap target. In a 44px-tall header that is fine; here it was the tallest thing
+   in the row and inflated a 13px title's bar to 73px. Shrunk to the row it is
+   in, and given the tap target back on touch, where it is the one that matters. */
+.sc-setup-head .sc-set-close {
+  width: 28px;
+  height: 28px;
+}
+@media (pointer: coarse) {
+  .sc-setup-head {
+    padding: 8px 8px 8px 18px;
+  }
+  .sc-setup-head .sc-set-close {
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
+/* Radix's Heading ships its own size and a `normal` line-height, which left this
+   title an 8px-tall box: the text was there but its line was not, so nothing in
+   the row had a predictable centre to align to. */
+.sc-setup-title {
+  font: 600 13px / 1.4 var(--sc-font);
+  margin: 0;
+}
+/* Radix's Heading trims its own line box with ::before/::after negative margins.
+   That trimmed box is what a flex row centres, so the visible text sat 11px from
+   the top of this bar and 20px from the bottom: the same 9px of "extra padding
+   underneath" that made the header look unfinished. Turning the trim off makes
+   the line box itself the thing being centred. */
+.sc-setup-title::before,
+.sc-setup-title::after {
+  display: none;
+}
+.sc-setup-steps {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 0;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--sc-line);
+  list-style: none;
+  font-size: 12px;
+  color: var(--sc-fg2);
+}
+.sc-setup-steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.sc-setup-steps li .d {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sc-line);
+}
+/* A finished step recedes; the one you are on is the only one lit.
+   Done used to be gold, which in this app means "act before this works", so a
+   completed step wore the warning colour and read as a problem. */
+.sc-setup-steps li[data-on] {
+  color: var(--sc-fg3);
+}
+/* The tick carries the green, the label stays quiet: green is what this app
+   already uses for "Ready" on the engine rows, so a finished step wearing it is
+   the app's own vocabulary rather than a new one. */
+.sc-setup-steps li[data-on] svg {
+  color: var(--sc-green);
+}
+.sc-setup-steps li[data-now] {
+  color: var(--sc-fg);
+}
+.sc-setup-steps li[data-now] .d {
+  background: var(--sc-gold);
+}
+/* One rhythm instead of one gap. Everything used to sit 12px apart, including
+   the outer padding, so the sentence, its action and the way out read as three
+   unrelated things floating in a box. The action and the alternative below it
+   are one group and sit close; the sentence above them is separate; and the
+   outer padding is larger than any inner gap, so the composition has an edge. */
+.sc-setup-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 18px 20px;
+  justify-items: start;
+}
+/* The action and its alternative: one line where the dialog has the width for
+   it, stacked where it does not. */
+.sc-setup-acts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+@media (max-width: 560px) {
+  .sc-setup-acts {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+.sc-setup-body .sc-setup-acts + .sc-setup-note {
+  margin-top: -4px;
+}
+.sc-setup-lead {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--sc-fg);
+}
+.sc-setup-lead svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+  color: var(--sc-gold);
+}
+.sc-setup-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--sc-fg2);
+}
+/* The finish. Centred because it is an arrival, not another row of the form. */
+.sc-setup-done {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 0 2px;
+  text-align: center;
+  animation: sc-setup-arrive 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.sc-setup-done-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sc-green) 16%, transparent);
+  color: var(--sc-green);
+  margin-bottom: 2px;
+}
+.sc-setup-done b {
+  font: 600 15px / 1.3 var(--sc-font);
+}
+.sc-setup-done p {
+  margin: 0;
+  max-width: 40ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+.sc-setup-done .sc-btn {
+  margin-top: 6px;
+}
+@keyframes sc-setup-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* State change still reported, without the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .sc-setup-done {
+    animation: sc-fade-in 140ms ease both;
+  }
+}
+/* Connecting a provider: the row's tile, one sentence, one field.
+   The tile is the settings row's own, unchanged, so drilling in reads as that
+   row opening rather than as arriving somewhere new. */
+.sc-setup-who {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+.sc-setup-who .sc-eng-ic {
+  margin-top: 1px;
+}
+/* One field, full width: it is the whole of this dialog's business, and a key
+   is long enough that a field sized to its content would be the dialog. */
+.sc-setup-key {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+.sc-setup-key .sc-in {
+  width: 100%;
+}
+/* Removing a key is reachable without ever being the thing reached for first:
+   below the action, behind a hairline, and behind a confirm after that. */
+.sc-setup-cut {
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px solid var(--sc-line);
+}
+/* the way out of the happy path: present, never competing with the action */
+.sc-setup-alt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: 500 12px var(--sc-font);
+  color: var(--sc-fg2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.sc-setup-alt:hover {
+  color: var(--sc-fg);
+}
+.sc-setup-problem {
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--sc-red) 34%, var(--sc-line-strong));
+  border-radius: var(--sc-radius);
+  background: color-mix(in srgb, var(--sc-red) 7%, var(--sc-panel));
+  padding: 12px 14px;
+}
+.sc-setup-problem p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+/* npm and codex print several short lines; collapsing them into one run-on
+   sentence was the difference between "a permissions error" and noise. Capped
+   so a long dump cannot push the action out of the dialog. */
+.sc-setup-problem p[data-detail] {
+  white-space: pre-line;
+  max-height: 7.5em;
+  overflow-y: auto;
+}
+.sc-setup-problem p svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+  color: var(--sc-red);
+}
+.sc-setup-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sc-setup-cmd code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-raised);
+  padding: 7px 9px;
+  font: 500 11.5px var(--sc-mono, ui-monospace, monospace);
+  color: var(--sc-fg);
+}
+.sc-setup-cmd .sc-btn {
+  flex: none;
+}
+

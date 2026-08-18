@@ -1,0 +1,82 @@
+/* ---------- cursors: one answer for the whole app --------------------------
+   A <button> is `cursor: default` in every browser, so every control has to
+   ask for a pointer and a dozen of them never did. State it once, here, for
+   anything that is actually a control. Radix Themes keeps its own answers
+   behind variables, so the parts we do not own are set the same way rather
+   than fought selector by selector. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="menuitem"],
+[role="option"],
+[role="tab"],
+summary,
+label[for],
+a[href] {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"],
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+/* a scrim is a way out, not a control, so it keeps the plain arrow */
+.sc-assets-backdrop,
+.sc-shotsheet-scrim,
+.sc-newdlg-scrim,
+.sc-newdlg-layer {
+  cursor: default;
+}
+.radix-themes {
+  --cursor-button: pointer;
+  --cursor-checkbox: pointer;
+  --cursor-disabled: not-allowed;
+  --cursor-link: pointer;
+  --cursor-menu-item: pointer;
+  --cursor-radio: pointer;
+  --cursor-slider-thumb: grab;
+  --cursor-slider-thumb-active: grabbing;
+  --cursor-switch: pointer;
+}
+
+/* ---------- no zoom on focus ------------------------------------------------
+   Safari zooms the page whenever it focuses a control computing under 16px,
+   and leaves you scrolled sideways in a layout that no longer fits. The fix
+   is the 16px: `maximum-scale=1` is the other way to stop it and it takes
+   pinch-zoom with it, which fails WCAG 1.4.4. So on a touch device every
+   text-entry control is 16px and the chrome around it keeps its own scale.
+   These beat rules like `.sc-ap-search input`, hence the !important. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="color"]
+    ):not([type="file"]),
+  textarea,
+  select,
+  [contenteditable]:not([contenteditable="false"]) {
+    font-size: 16px !important;
+  }
+}
+
+/* Honest truncation: both of these say what is not on screen and how to reach
+   it. A list that silently stops at sixty reads as a list of sixty. */
+.sc-ap-capped,
+.sc-swap-capped {
+  font-size: 11.5px;
+  color: var(--sc-fg3);
+  padding: 10px 2px 2px;
+  margin: 0;
+}
+
+/* ---------- 6.2 home without the dock ----------
+   On a phone the wall navigates into Create instead of staging into a dock,
+   so Home unmounts the composer and the 230px the unmediated .sc-main rule
+   reserves for it comes back to the scroll. Keyed on the attribute Home sets
+   when the dock is genuinely absent, not on width alone: the padding follows
+   the dock. */
+@media (max-width: 767px) {
+  .sc-main[data-no-dock] {
+    padding-bottom: 48px;
+  }
+}
+

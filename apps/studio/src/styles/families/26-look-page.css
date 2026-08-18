@@ -1,0 +1,606 @@
+/* ---- The first-run state, shared by Products, Presenters and Scenes.
+   One offer, one seam, then the library. The three pages render the same
+   component in the same order, so they get one set of numbers rather than
+   three that drift apart: `data-hero` on <main> is the shared hook. ---- */
+.sc-looks[data-hero] .sc-canvas-empty {
+  padding: 104px 0 0;
+}
+.sc-looks[data-hero] .sc-canvas-empty h3,
+.sc-canvas[data-firstrun] .sc-canvas-empty h3 {
+  font-size: 28px;
+  letter-spacing: -0.025em;
+  margin-bottom: 12px;
+}
+.sc-looks[data-hero] .sc-canvas-empty h3 em,
+.sc-canvas[data-firstrun] .sc-canvas-empty h3 em {
+  font-size: 32px;
+}
+.sc-looks[data-hero] .sc-canvas-empty p,
+.sc-canvas[data-firstrun] .sc-canvas-empty p {
+  font-size: 14px;
+  line-height: 1.45;
+  margin-bottom: 0;
+  /* `pretty` only protects the last line, which on a two-line lede leaves a
+     long first line over a stub. These three are short by design, so balance
+     them into even halves instead. */
+  text-wrap: balance;
+}
+.sc-looks[data-hero] .sc-canvas-empty .sc-lookpage-acts {
+  margin-top: 24px;
+  margin-bottom: 0;
+}
+@media (max-width: 900px) {
+  .sc-looks[data-hero] .sc-canvas-empty {
+    padding-top: 72px;
+  }
+  .sc-looks[data-hero] .sc-canvas-empty h3,
+  .sc-canvas[data-firstrun] .sc-canvas-empty h3 {
+    font-size: 24px;
+  }
+  .sc-looks[data-hero] .sc-canvas-empty h3 em,
+  .sc-canvas[data-firstrun] .sc-canvas-empty h3 em {
+    font-size: 28px;
+  }
+}
+@media (max-width: 600px) {
+  .sc-looks[data-hero] .sc-canvas-empty {
+    padding-top: 52px;
+  }
+  .sc-looks[data-hero] .sc-canvas-empty h3,
+  .sc-canvas[data-firstrun] .sc-canvas-empty h3 {
+    font-size: 22px;
+  }
+  .sc-looks[data-hero] .sc-canvas-empty h3 em,
+  .sc-canvas[data-firstrun] .sc-canvas-empty h3 em {
+    font-size: 26px;
+  }
+}
+
+/* ---- one look: centred column, the pictures do the talking.
+   Hierarchy with air: title → copy → CTA, then a clear beat into gallery,
+   then a larger beat into secondary shelves. ---- */
+.sc-lookpage {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-top: 40px;
+  padding-bottom: 120px;
+  padding-left: max(32px, env(safe-area-inset-left));
+  padding-right: max(32px, env(safe-area-inset-right));
+  text-align: center;
+}
+.sc-lookpage-crumb {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--sc-space-4);
+  color: var(--sc-fg3);
+  font-size: 11.5px;
+  /* A wider gap than the one inside the identity block below it: this is
+     navigation, and it should read as sitting outside what it labels. */
+  margin-bottom: var(--sc-space-7);
+}
+.sc-lookpage-crumb button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--sc-fg3);
+  font: inherit;
+  cursor: pointer;
+}
+.sc-lookpage-crumb button:hover {
+  color: var(--sc-fg);
+}
+/* Presenter lookpage: face crop above the name (full-length thumbs, top-pinned). */
+.sc-presenterpage-avatar {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-raised);
+  flex: none;
+}
+.sc-presenterpage-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  /* Fallback only: a waist-up 4:5 library thumb has to be zoomed hard into the
+     head or the circle reads as a tiny torso. */
+  object-position: 50% 0%;
+  transform: scale(3.2);
+  transform-origin: 50% 16%;
+}
+.sc-presenterpage-avatar[data-avatar] img {
+  /* A square head-and-shoulders portrait already fills the circle. */
+  object-position: 50% 50%;
+  transform: none;
+}
+.sc-lookpage h1 {
+  font: 600 var(--sc-text-h1) / 1.14 var(--sc-font);
+  color: var(--sc-fg);
+  letter-spacing: -0.035em;
+  margin: 0 auto 16px;
+  max-width: var(--sc-measure-title);
+  text-wrap: balance;
+}
+.sc-lookpage-lede {
+  color: var(--sc-fg2);
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: var(--sc-measure-lede);
+  margin: 0 auto 10px;
+  text-wrap: pretty;
+}
+.sc-lookpage-facts {
+  font: 12.5px / 1.5 var(--sc-font);
+  color: var(--sc-fg3);
+  margin: 0 auto 24px;
+  max-width: var(--sc-measure-lede);
+  text-wrap: pretty;
+}
+.sc-lookpage-acts {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-4);
+  margin-bottom: calc(var(--sc-space-6) * 2);
+}
+/* Same box open as closed. `.sc-btn:active` translates 1px, which re-centers
+   the whole row the moment the menu opens. */
+.sc-catpick {
+  flex: none;
+  box-shadow: none;
+}
+.sc-catpick:active {
+  transform: none;
+}
+.sc-catpick[data-state="open"] {
+  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
+}
+
+.sc-lookpage-refs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 14px;
+}
+.sc-presenterpage .sc-lookpage-refs {
+  grid-template-columns: repeat(2, 1fr);
+}
+.sc-lookpage-ref {
+  border-radius: var(--sc-radius-lg);
+  overflow: hidden;
+  background: var(--sc-raised);
+  line-height: 0;
+}
+.sc-lookpage-ref img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.sc-lookpage-ref-blank {
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+  background: var(--sc-raised);
+}
+.sc-lookpage-ref-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 1px dashed var(--sc-line);
+  transition: border-color 0.15s ease;
+}
+.sc-lookpage-ref-upload:hover {
+  border-color: var(--sc-fg3);
+}
+.sc-lookpage-ref-upload[data-busy] {
+  cursor: default;
+}
+.sc-lookpage-ref-upload .sc-lookpage-ref-blank {
+  background: none;
+}
+.sc-lookpage-ref-upload-label {
+  font: 500 11px var(--sc-font);
+  color: var(--sc-fg3);
+  text-align: center;
+  padding: 0 6px 8px;
+}
+.sc-lookpage-note {
+  text-align: center;
+  font: 12.5px / 1.5 var(--sc-font);
+  color: var(--sc-fg3);
+  margin: 0 auto;
+  max-width: var(--sc-measure-lede);
+  text-wrap: pretty;
+}
+.sc-lookpage-expand {
+  display: block;
+  margin: 14px auto 0;
+  border: 1px solid var(--sc-line);
+  background: none;
+  border-radius: var(--sc-radius-full);
+  height: 32px;
+  padding: 0 16px;
+  font: 600 12px var(--sc-font);
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-lookpage-expand:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+
+/* Section handoff lives on the band so it stays even with/without expand. */
+.sc-lookpage-band {
+  margin-top: 56px;
+  margin-bottom: 56px;
+}
+.sc-bandhead {
+  font: 600 20px / 1.25 var(--sc-font);
+  letter-spacing: -0.02em;
+  color: var(--sc-fg);
+  margin: 0 0 18px;
+  text-align: left;
+  text-wrap: balance;
+}
+
+/* a row that keeps going. Edge fades match .sc-verticals-shell: soft,
+   scroll-aware — only when that side is clipped. Arrows sit in the gutter
+   just outside the first/last card edges (not on the photos). */
+.sc-slider {
+  --sc-slider-gap: 16px;
+  --sc-slider-card: calc((100% - 48px) / 3.35);
+  position: relative;
+  overflow: visible;
+}
+.sc-slider-track {
+  display: flex;
+  gap: var(--sc-slider-gap);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0;
+}
+.sc-slider-track::-webkit-scrollbar {
+  display: none;
+}
+.sc-slider-track > * {
+  flex: 0 0 var(--sc-slider-card);
+}
+.sc-slider-track figure {
+  margin: 0;
+}
+.sc-slider-track figcaption {
+  padding: 8px 0 0;
+  text-align: left;
+  line-height: 1.4;
+}
+.sc-slider-track figcaption b {
+  display: block;
+  font: 600 12.5px var(--sc-font);
+  color: var(--sc-fg);
+}
+.sc-slider-track figcaption span {
+  display: block;
+  font: 11.5px var(--sc-font);
+  color: var(--sc-fg3);
+  margin-top: 2px;
+}
+.sc-slider::before,
+.sc-slider::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 96px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.sc-slider::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 0%, transparent 100%);
+}
+.sc-slider::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 0%, transparent 100%);
+}
+.sc-slider[data-overflow-left]::before,
+.sc-slider[data-overflow-right]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-slider::before,
+  .sc-slider::after {
+    transition: none;
+  }
+}
+.sc-slider-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-panel);
+  color: var(--sc-fg2);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.sc-slider:hover .sc-slider-arrow,
+.sc-slider-arrow:focus-visible {
+  opacity: 1;
+}
+.sc-slider-arrow:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+/* Center of the button sits on the outer card edge — half in the gutter. */
+.sc-slider-arrow.prev {
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+.sc-slider-arrow.next {
+  right: 0;
+  transform: translate(50%, -50%);
+}
+
+/* Phones + tablets: swipe the track — arrows only fight the layout. */
+@media (max-width: 1024px) {
+  .sc-slider-arrow,
+  .sc-refrail-arrow {
+    display: none;
+  }
+  .sc-refrail {
+    overflow-x: auto;
+  }
+}
+
+/* Tablet: 2-col refs (same as before), open gutters, dial type down.
+   Do NOT touch .sc-masonry here — Presenters/Scenes/Products walls own that. */
+@media (max-width: 900px) {
+  .sc-verticals button {
+    font-size: 15px;
+  }
+  .sc-lookpage {
+    padding: 32px 28px 104px;
+  }
+  .sc-lookpage-crumb {
+    margin-bottom: 16px;
+  }
+  .sc-presenterpage-avatar {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 18px;
+  }
+  .sc-lookpage {
+    --sc-text-h1: 34px;
+  }
+  .sc-lookpage h1 {
+    line-height: 1.16;
+    max-width: none;
+    margin-bottom: var(--sc-space-6);
+  }
+  .sc-lookpage-lede {
+    margin-bottom: 10px;
+  }
+  .sc-lookpage-facts {
+    margin-bottom: var(--sc-space-8);
+  }
+  .sc-lookpage-acts {
+    margin-bottom: 32px;
+  }
+  .sc-lookpage-refs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .sc-presenterpage .sc-lookpage-refs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sc-lookpage-band {
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+  .sc-bandhead {
+    font-size: 19px;
+    margin-bottom: 16px;
+  }
+  .sc-slider {
+    --sc-slider-card: calc((100% - 32px) / 2.6);
+    --sc-slider-gap: 16px;
+  }
+  .sc-slider::before,
+  .sc-slider::after {
+    width: 56px;
+  }
+}
+
+/* Phone: keep 2-col refs, clearer vertical beats. */
+@media (max-width: 640px) {
+  .sc-lookpage {
+    padding: 24px 20px 96px;
+  }
+  .sc-lookpage-crumb {
+    font-size: 11px;
+    margin-bottom: var(--sc-space-5);
+  }
+  .sc-presenterpage-avatar {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 16px;
+  }
+  .sc-lookpage {
+    --sc-text-h1: 28px;
+  }
+  .sc-lookpage h1 {
+    letter-spacing: -0.03em;
+    line-height: 1.18;
+    margin-bottom: 12px;
+  }
+  .sc-lookpage-lede {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .sc-lookpage-facts {
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+  .sc-lookpage-acts {
+    margin-bottom: 28px;
+  }
+  .sc-lookpage-refs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .sc-lookpage-note {
+    font-size: 12px;
+    padding: 0 4px;
+  }
+  .sc-lookpage-expand {
+    margin-top: 12px;
+  }
+  .sc-lookpage-band {
+    margin-top: 40px;
+    margin-bottom: 40px;
+  }
+  .sc-bandhead {
+    font-size: 17px;
+    margin-bottom: 14px;
+  }
+  .sc-slider {
+    --sc-slider-card: calc((100% - 12px) / 1.85);
+    --sc-slider-gap: 12px;
+  }
+  .sc-slider::before,
+  .sc-slider::after {
+    width: 40px;
+  }
+}
+
+@media (max-width: 400px) {
+  .sc-lookpage {
+    padding: 20px 16px 88px;
+  }
+  .sc-lookpage {
+    --sc-text-h1: 24px;
+  }
+  .sc-lookpage-acts {
+    margin-bottom: 24px;
+  }
+  .sc-lookpage-refs {
+    gap: 6px;
+  }
+  .sc-lookpage-band {
+    margin-top: 36px;
+    margin-bottom: 36px;
+  }
+  .sc-bandhead {
+    font-size: 16px;
+  }
+}
+
+/* Library walls (Presenters / Scenes / Products) — original breakpoints. */
+@media (max-width: 760px) {
+  .sc-masonry {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+@media (max-width: 460px) {
+  .sc-masonry {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* What went into a shot, read straight off its stored brief. Deliberately the
+   same chip as the composer's .sc-token, so an ingredient looks identical
+   whether you are writing it or reading it back. */
+.sc-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  padding: 0 0 var(--sc-space-5);
+}
+.sc-ingredient {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%; /* 5px matches .sc-token exactly */
+  /* It copied .sc-token's spacing but not its `nowrap`, so a long ingredient
+     name wrapped to a second line *inside* the chip. Ellipsis instead — the
+     full name is already on this element's `title`. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 8px 2px 4px;
+  border-radius: 8px;
+  border: none;
+  /* The composer's chip surface, not a near-miss of it. This block's own
+     comment claimed an ingredient looked identical to a .sc-token while
+     standing on --sc-raised, one step off the chip family's ground. */
+  background: var(--sc-chip);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--sc-fg);
+}
+.sc-ingredient img {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+.sc-ingredient i {
+  width: 11px;
+  height: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--sc-line-strong);
+  flex: none;
+  margin-left: 4px;
+}
+/* A scene says "scene" the same way here as in the brief line: a whisper of its
+   own preview colour on the same chip base, and no border. The grey hairline
+   that used to sit here was a second grammar for one idea, and the only
+   bordered chip on the panel. These are the composer's numbers verbatim, so
+   the two surfaces cannot drift apart by rounding. */
+.sc-ingredient[data-tinted] {
+  background: color-mix(in srgb, var(--tint) 14%, var(--sc-chip));
+  box-shadow: none;
+}
+
+/* An ingredient with a catalog page is a way into it. Everything visual stays
+   put; only the pointer and the hover say the chip does something. */
+a.sc-ingredient {
+  text-decoration: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+a.sc-ingredient:hover {
+  background: var(--sc-chip-hover);
+}
+a.sc-ingredient[data-tinted]:hover {
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+}
+a.sc-ingredient:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+

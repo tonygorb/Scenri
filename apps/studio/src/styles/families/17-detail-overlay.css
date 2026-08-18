@@ -1,0 +1,407 @@
+/* ---------- detail overlay: filmstrip / stage / meta ---------- */
+/* The shot overlay while its tree is still loading. Same box, so nothing
+   moves when the real overlay replaces it — but a class of its own, so
+   `.sc-ovl` means the overlay is genuinely open and not merely on its way. */
+.sc-ovl-wait {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: var(--sc-bg);
+}
+
+.sc-ovl {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  /* Two regions: the shot, and what is known about it. The trail of versions
+     used to hold a third column of its own — 86px of chrome down the whole
+     height for a handful of thumbnails — and it reads better as a row beside
+     the shot's other details, which gives that width back to the picture. */
+  grid-template-columns: 1fr var(--sc-ovl-panel-w);
+  background: var(--sc-bg);
+}
+
+/* The versions trail, in the panel: where you came from, this shot, and what
+   came from it. */
+.sc-ovl-trail {
+  padding: 0 0 var(--sc-space-5);
+}
+.sc-ovl-trail-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+  margin-top: var(--sc-space-3);
+}
+.sc-ovl-trail .sc-fr {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 0;
+}
+.sc-ovl-trail .sc-fr[data-current] {
+  width: 44px;
+  height: 44px;
+}
+.sc-ovl-trail .sc-wire {
+  width: 10px;
+  height: 1px;
+}
+/* One header for the whole overlay: a left group that gets you out and
+   between versions, a right group for what you can do to the picture.
+
+   `space-between` with a gap is the entire fix for the two bars that used to
+   overlap. They cannot land on each other now however narrow the screen gets,
+   because they are items in one row rather than two independently positioned
+   layers. It is sticky rather than fixed so it stays with the column it
+   belongs to instead of floating over whatever happens to scroll past. */
+.sc-ovl-bar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-5);
+  pointer-events: none;
+}
+.sc-ovl-bar-l,
+.sc-ovl-bar-r,
+.sc-ovl-acts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+/* the right group is the one that has to give when the row runs out */
+.sc-ovl-bar-r {
+  min-width: 0;
+}
+/* buttons where there is room; one overflow where there is not */
+.sc-ovl-overflow {
+  display: none;
+}
+/* Where the panel is a column beside the stage, the header belongs over the
+   stage only. Spanning the whole overlay put the actions on top of the panel's
+   heading. */
+@media (min-width: 1024px) {
+  .sc-ovl-bar {
+    right: calc(var(--sc-ovl-panel-w) + 14px);
+  }
+}
+.sc-ovl-strip {
+  padding: 64px 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+}
+.sc-ovl-strip .sc-eyebrow {
+  margin-bottom: var(--sc-space-4);
+}
+.sc-fr {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-raised);
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+}
+.sc-fr img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sc-fr:hover {
+  border-color: var(--sc-line-strong);
+}
+/* Current, without moving. This used to go 56→64px and 1→2px of border, so
+   every arrow-key step through the versions grew one tile inside a centred
+   column: the strip below it shifted 8px and the picture inside the tile
+   shifted again. An inset ring says the same thing and occupies no space. */
+.sc-fr[data-current="true"] {
+  border-color: var(--sc-sel-line);
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+}
+.sc-fr .sc-fr-star {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: var(--sc-star);
+}
+.sc-wire {
+  width: 1px;
+  height: 14px;
+  background: var(--sc-line-strong);
+  flex-shrink: 0;
+}
+.sc-sib-row {
+  display: flex;
+  gap: 6px;
+}
+.sc-sib-row .sc-fr {
+  width: 44px;
+  height: 44px;
+}
+
+/* The picture's place while it is being made: the box it will occupy, filled
+   with the feed's own shimmer, and what is happening said over it. */
+.sc-stage-wait {
+  position: relative;
+  /* Sized from the cap, not from the parent: the frame around this is an
+     inline-block that shrink-wraps its child, so a percentage width resolved
+     against an auto width and collapsed the box to nothing. A definite height
+     plus an aspect-ratio gives the width, and max-width clamps it back on a
+     narrow screen with the ratio kept. */
+  /* Fit a box of this ratio inside the room there is: take the smaller of the
+     column's width and what the cap allows, then let the ratio give the
+     height. Clamping a width while an explicit height stayed put is what bent
+     a 16:9 placeholder to 1.37. */
+  width: min(100%, calc(var(--sc-stage-cap) * var(--sc-wait-ar, 1)));
+  aspect-ratio: var(--sc-wait-ar, 1);
+  height: auto;
+  margin-inline: auto;
+  /* The shimmer is only a travelling highlight — it paints over a surface it
+     assumes is already there, which a feed tile has and this did not, so the
+     placeholder was a correctly-sized rectangle of nothing. */
+  background: var(--sc-raised);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.sc-stage-wait .sc-shimmer {
+  position: absolute;
+  inset: 0;
+}
+.sc-stage-wait-say {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-5);
+  padding: var(--sc-space-7);
+}
+.sc-stage-wait-t {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg2);
+}
+
+.sc-ovl-stage {
+  /* A grid, not a flex column, because the shot is sized as a percentage of
+     the room it is given and a percentage needs a parent with a definite
+     height to be a percentage OF. As a column the image simply grew past the
+     stage and painted over the row of takes, which measured as visible and
+     could not be clicked. */
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
+  align-items: center;
+  gap: var(--sc-space-5);
+  min-width: 0;
+  padding: 56px var(--sc-space-7) var(--sc-space-7);
+  overflow: auto;
+  position: relative;
+}
+.sc-ovl-stage .sc-frame {
+  box-shadow: var(--sc-shadow-3);
+  min-height: 0;
+  max-height: 100%;
+}
+/* The shot's own ceiling. Stated against the viewport rather than as a
+   percentage: nothing between the stage and the image carries a definite
+   height, so a percentage resolved to nothing and the picture grew straight
+   over the row of takes — which then measured as visible and could not be
+   clicked. */
+/* The cap is a variable on the stage, and the picture only ever reads it.
+
+   This is the fix for the line that appeared to run behind the photograph. The
+   cap used to be written straight onto the image, so the phone's `52vh` rule
+   (`.sc-ovl-stage img`, 0-1-1) was outranked by the takes variant
+   (`.sc-ovl-stage[data-takes] img`, 0-2-1) and lost at every phone width: the
+   picture was allowed the desktop height, overflowed the stage by about 200px
+   into the panel beneath it, and the panel's top border painted straight
+   across it. Setting the cap on the stage instead puts every rule at the same
+   selector depth, so the phone block below simply wins by being later, and no
+   rule needs specificity to beat another.
+
+   dvh, not vh, for the same reason on iOS: `100vh` is the LARGE viewport — the
+   height the page would have if the browser chrome were collapsed — so on iOS
+   Chrome it promises room that is not on screen. */
+.sc-ovl-stage {
+  --sc-stage-cap: max(calc(100dvh - 124px), 320px);
+}
+.sc-ovl-stage[data-takes] {
+  --sc-stage-cap: max(calc(100dvh - 200px), 280px);
+}
+.sc-ovl-stage img {
+  max-height: var(--sc-stage-cap);
+}
+.sc-ovl-stage > * {
+  min-height: 0;
+}
+
+.sc-ovl-meta {
+  border-left: 1px solid var(--sc-line-chrome);
+  background: var(--sc-bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  /* one gutter, on the scale, the same on both sides */
+  padding: var(--sc-space-7) var(--sc-space-7) var(--sc-space-6);
+  min-height: 0;
+}
+/* The shot's record line. It wraps rather than truncating, because on a phone
+   this is the only place several of these facts are stated. */
+.sc-ovl-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-bottom: var(--sc-space-5);
+}
+/* Kind and description lead; how it was made and what it cost follow, a step
+   quieter, after a hairline that reads as "and also". */
+.sc-ovl-meta-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--sc-line-strong);
+  align-self: center;
+}
+.sc-ovl-eng,
+.sc-ovl-spend {
+  color: var(--sc-fg3);
+}
+.sc-ovl-spend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sc-ovl-head b {
+  font-family: var(--sc-font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+.sc-ovl-head small {
+  color: var(--sc-fg3);
+  font-size: 11.5px;
+}
+
+.sc-ctx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+  margin-bottom: 14px;
+}
+/* Which ingredient moved since the shot this came from. A quiet second line
+   under the chip, never a chip of its own: it is a note about a relationship,
+   not another thing to press. */
+.sc-ctx-changed {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--sc-text-caption);
+  line-height: 1.45;
+  color: var(--sc-fg2);
+}
+.sc-ctx .sc-ctx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  padding: 3px 10px;
+  font-size: 11.5px;
+  background: var(--sc-panel);
+  color: var(--sc-fg2);
+  text-align: left;
+}
+/* A pill stays one line: it is a label, and a label that wraps inside a fully
+   rounded border stops looking like one. The name gives first. */
+.sc-ctx-chip-t {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sc-ctx-chip-t b {
+  color: var(--sc-fg);
+  font-weight: 500;
+}
+.sc-ctx .sc-ctx-chip img {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.sc-ctx button.sc-ctx-chip {
+  cursor: pointer;
+}
+.sc-ctx button.sc-ctx-chip:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-ovl-body {
+  flex: 1;
+  min-height: 0;
+  /* the scroll viewport inside grows to its content unless it is told where
+     the bottom is; without this the brief painted straight through the
+     composer below it */
+  overflow: hidden;
+}
+
+/* The stored brief. It is the panel's only real content, so it is given the
+   room the panel has rather than clamped to four lines behind a summary with
+   no marker on it — which left most of the pane empty and the rest of the
+   sentence reachable only by guessing it could be clicked. */
+.sc-brief-record {
+  margin: var(--sc-space-3) 0 0;
+  font-size: var(--sc-text-caption);
+  line-height: 1.55;
+  color: var(--sc-fg2);
+}
+.sc-ovl-edit {
+  margin-top: var(--sc-space-5);
+}
+/* names what typing below will do, now that no button points down here */
+.sc-ovl-edit-head {
+  margin-bottom: var(--sc-space-3);
+}
+.sc-ovl-edit .sc-composer {
+  width: 100%;
+}
+
+@media (max-width: 1023px) {
+  .sc-ovl {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+  .sc-ovl-strip {
+    flex-direction: row;
+    padding: 60px 14px 8px;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .sc-ovl-strip .sc-wire {
+    width: 14px;
+    height: 1px;
+  }
+  .sc-ovl-meta {
+    border-left: none;
+    border-top: 1px solid var(--sc-line-chrome);
+    max-height: 44vh;
+  }
+}
+

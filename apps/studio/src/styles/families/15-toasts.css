@@ -1,0 +1,74 @@
+/* ---------- toasts ---------- */
+.sc-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+.sc-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  background: var(--sc-panel);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-lg);
+  box-shadow: var(--sc-shadow-2);
+  font-size: 12.5px;
+}
+.sc-toast-ok {
+  color: var(--sc-green);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.sc-toast-err {
+  color: var(--sc-red);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.sc-toast b {
+  font-size: 12.5px;
+  font-weight: 600;
+  display: block;
+}
+.sc-toast small {
+  color: var(--sc-fg2);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+  display: block;
+  margin-top: 1px;
+}
+.sc-toast-act {
+  border: 1px solid var(--sc-line);
+  background: none;
+  cursor: pointer;
+  border-radius: var(--sc-radius-full);
+  padding: 3px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--sc-fg);
+  margin-top: 6px;
+}
+.sc-toast-act:hover {
+  background: var(--sc-hover);
+}
+/* JSX puts no whitespace between siblings, so a second action would touch the
+   first. Two is the cap; this is the only spacing they need. */
+.sc-toast-act + .sc-toast-act {
+  margin-left: 6px;
+}
+.sc-toast-x {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--sc-fg3);
+  padding: 2px;
+}
+.sc-toast-x:hover {
+  color: var(--sc-fg);
+}
+

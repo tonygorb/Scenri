@@ -1,0 +1,199 @@
+/* ---------- top bar ----------------------------------------------------------
+   Three tracks: where you are, the nav dead centre, what you can do.
+
+   This block is mostly subtraction. There is no track under the nav, no outline
+   on any control, no fill on the credits, no divider and nothing uppercase: one
+   hairline at the bottom, 52px of height, and active stated by ink and weight
+   alone. A top bar earns its keep by disappearing, and every box drawn around
+   something in a 52px row is furniture the work has to look past. */
+.sc-topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  height: var(--sc-topbar-h);
+  padding-left: max(var(--sc-gutter), env(safe-area-inset-left));
+  padding-right: max(var(--sc-gutter), env(safe-area-inset-right));
+  background: var(--sc-bg);
+  border-bottom: 1px solid var(--sc-line-chrome);
+  z-index: var(--sc-z-topbar);
+}
+.sc-topbar-lead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sc-topbar-context {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  /* A set name is a crumb, not a headline. Uncapped it ate the centre nav. */
+  max-width: 18ch;
+}
+.sc-topbar-end {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 2px;
+  min-width: 0;
+}
+.sc-topbar-lead > .sc-wordmark:first-child {
+  margin-left: -1px;
+}
+.sc-topbar-end {
+  gap: 6px;
+}
+.sc-wordmark {
+  border: none;
+  background: none;
+  padding: 0 6px 0 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 640;
+  color: var(--sc-fg);
+  flex: none;
+  letter-spacing: -0.03em;
+}
+.sc-wordmark:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* text, and nothing else. The gap does the grouping the pill used to do. */
+.sc-nav ul {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: var(--sc-radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--sc-fg2);
+  white-space: nowrap;
+  transition:
+    color 120ms cubic-bezier(0.3, 0, 0.2, 1),
+    background 120ms cubic-bezier(0.3, 0, 0.2, 1);
+}
+.sc-nav button:hover {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+.sc-nav button[data-active="true"] {
+  color: var(--sc-fg);
+  background: var(--sc-chip);
+}
+@media (max-width: 960px) {
+  .sc-nav button {
+    padding: 8px 12px;
+  }
+}
+
+.sc-caret {
+  color: var(--sc-fg3);
+  flex: none;
+}
+
+/* The identity control: mark, name, caret. A circle alone in this corner is the
+   universal sign for "your account", which is the one thing this is not, and it
+   left the brand you are working in unnamed until the menu opened. Nothing is
+   drawn at rest — the hover and open fills are the crumb's, so both dropdown
+   triggers in the bar behave the same. Below 1024px it collapses back to the
+   mark alone; see the narrow block below it. */
+.sc-org-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-width: 0;
+  max-width: 210px;
+  margin-left: 2px;
+  padding: 4px 8px 4px 5px;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  transition: background 120ms ease;
+}
+.sc-org-btn:hover {
+  background: var(--sc-hover);
+}
+.sc-org-btn[data-state="open"] {
+  background: var(--sc-chip);
+}
+.sc-org-btn:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-org-name {
+  font-size: 13px;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  color: var(--sc-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Below 1024px it goes back to being a mark. The 768-1023 band needs it because
+   the nav is still centred in the bar and the end track can be carrying the
+   assets toggle and a portalled page action too; the phone keeps the same shape
+   because a 375px row holds one name and the set crumb is the one you navigated
+   to. The menu header takes the naming back at both widths. */
+@media (max-width: 1023px) {
+  .sc-org-name,
+  .sc-org-btn .sc-caret {
+    display: none;
+  }
+  .sc-org-btn {
+    padding: 4px;
+    max-width: none;
+  }
+}
+
+/* The kit's own face. Logos arrive at any aspect and often transparent, so they
+   sit contained on a neutral tile rather than cropped; a brand with no logo gets
+   its initial on its own primary, which is still the brand and not a swatch. */
+.sc-brand-av {
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--sc-radius-sm);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.16) inset;
+}
+/* A white plate, in both themes, on purpose. Brand logos are overwhelmingly
+   dark ink on transparency: this one is 84% transparent with ink at luminance
+   91, which sat at 2.6:1 on a dark tile and a pure black mark would have
+   disappeared outright. A light plate is what every org avatar does, and it is
+   the only tile that cannot swallow the artwork. */
+.sc-brand-av[data-logo] {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.16) inset;
+}
+.sc-brand-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
+  display: block;
+}
+

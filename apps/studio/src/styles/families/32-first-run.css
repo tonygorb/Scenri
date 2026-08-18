@@ -1,0 +1,268 @@
+/* ---------- 6.6 the first-run shelf ----------
+   The use-case row on an empty Create. A plain swipeable shelf: this screen is
+   for reading the options and picking one, and a row that drifts makes labels
+   harder to read and every card a moving target. The fades say it continues. */
+.sc-shelf {
+  position: relative;
+  /* Bleeds to the canvas edges, not the window's. 100vw here ran the row under
+     the assets sidebar and gave the whole page a horizontal scrollbar: the
+     canvas is a grid column, so its own gutter is the only thing to cancel. */
+  margin-inline: calc(var(--sc-canvas-gutter, 20px) * -1);
+}
+.sc-shelf-row {
+  display: grid;
+  grid-auto-flow: column;
+  /* Wide enough for the credits to read, narrow enough that a second card is
+     always visibly cut off, which is what says the row keeps going. */
+  grid-auto-columns: 232px;
+  /* One gap, honoured exactly, because the cards never change width. */
+  gap: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* No scroll-snap: this is a gallery you flick through, and snapping nudged
+     the row off its true left edge at rest, which lit the left fade over
+     nothing. The inline padding puts the first card back on the content edge
+     while the row itself still runs to the canvas edges. */
+  padding: 2px var(--sc-canvas-gutter, 20px) 4px;
+}
+.sc-shelf-row::-webkit-scrollbar {
+  display: none;
+}
+.sc-shelf::before,
+.sc-shelf::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 96px;
+  z-index: 3;
+  pointer-events: none;
+  /* Always on. The row loops, so it genuinely continues in both directions and
+     there is no rest state where either end is the true edge to reveal. */
+  opacity: 1;
+}
+.sc-shelf::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 22%, transparent);
+}
+.sc-shelf::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 22%, transparent);
+}
+
+/* Cards swell toward the middle of the row and sit back at its ends, so the
+   shelf reads with depth and the two under the eye are the full-size ones.
+   Driven by a scroll timeline rather than a scroll handler: the browser
+   interpolates it off the compositor, so flicking stays smooth however many
+   cards are on the shelf.
+
+   Scale only, never layout: the grid track stays 232px whatever the card is
+   doing, so nothing reflows and the scroll distance is the same either way.
+   Where view timelines are missing the row is simply flat, which is the
+   feature this adds gracefully absent rather than a broken layout. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .sc-shelf-row > * {
+      animation: sc-shelf-swell linear both;
+      animation-timeline: view(inline);
+      /* Entry to exit, so a card is measured across its whole pass. */
+      animation-range: entry 0% exit 100%;
+      will-change: transform;
+    }
+    /* A plateau across the middle, not a single peak: without it only one card
+       is ever full size and the pair under the eye disagree by a few percent. */
+    @keyframes sc-shelf-swell {
+      /* Height and opacity only, never width.
+       *
+       * A card scaled on both axes shrinks inside a fixed grid cell, so the
+       * space beside it grows by half its shrink. With every card at a
+       * different scale, every gap ends up a different size, which is what
+       * made the row look broken. Width has to stay put for the gaps to stay
+       * equal, and animating the cell instead is not an option: width and
+       * margin are layout, so they would reflow every frame and keep changing
+       * scrollWidth, which is the measurement the loop depends on. */
+      0% {
+        transform: scaleY(0.76);
+        opacity: 0.34;
+      }
+      14% {
+        transform: scaleY(0.82);
+        opacity: 0.46;
+      }
+      32% {
+        transform: scaleY(0.93);
+        opacity: 0.78;
+      }
+      45% {
+        transform: scaleY(1);
+        opacity: 1;
+      }
+      55% {
+        transform: scaleY(1);
+        opacity: 1;
+      }
+      68% {
+        transform: scaleY(0.93);
+        opacity: 0.78;
+      }
+      86% {
+        transform: scaleY(0.82);
+        opacity: 0.46;
+      }
+      100% {
+        transform: scaleY(0.76);
+        opacity: 0.34;
+      }
+    }
+  }
+}
+/* Arrows, because a mouse has no sideways gesture. Same shape and behaviour as
+   the detail-page sliders: hidden until the row is hovered or focused. */
+.sc-shelf-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-panel);
+  color: var(--sc-fg2);
+  opacity: 0;
+  transition:
+    opacity 0.16s ease,
+    color 0.16s ease;
+}
+.sc-shelf:hover .sc-shelf-arrow,
+.sc-shelf-arrow:focus-visible {
+  opacity: 1;
+}
+.sc-shelf-arrow:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-shelf-arrow.prev {
+  left: 14px;
+  transform: translateY(-50%);
+}
+.sc-shelf-arrow.next {
+  right: 14px;
+  transform: translateY(-50%);
+}
+@media (hover: none) {
+  .sc-shelf-arrow,
+  .sc-slider-arrow,
+  .sc-refrail-arrow {
+    display: none;
+  }
+  .sc-refrail {
+    overflow-x: auto;
+  }
+}
+
+/* The recipe currently sitting in the brief. Drawn inside the picture, not as
+   an outline around the card: an outline sits outside the box and the row
+   clips it on every edge, which read as a chopped ring. */
+.sc-showcase-tile[data-active] .sc-lookcard-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 2px var(--sc-sel-line),
+    inset 0 0 0 4px var(--sc-bg);
+}
+.sc-showcase-tile[data-active] .sc-lookcard-veil,
+.sc-showcase-tile[data-active] .sc-lookcard-cap {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- 6.7 the first run of an empty brand ----------
+   One screen: a title, a line, a shelf. It sits in the middle of the canvas
+   rather than hanging off the top, and the beats between the three are set
+   here rather than inherited from the generic empty state. */
+/* First run: nothing scrolls, because nothing is above or below. Killing the
+   scroll also kills the scrollbar gutter, which was leaving an 11px seam
+   between the shelf and the assets panel that no amount of bleed could close. */
+.sc-canvas[data-firstrun] {
+  overflow: hidden;
+  /* The feed keeps a permanent scrollbar gutter so it cannot shift when one
+     appears. Nothing scrolls here, so that reserve was just an 11px seam
+     between the shelf and the assets panel. */
+  scrollbar-gutter: auto;
+  /* The composer's resting height plus a beat. Deliberately a fixed number and
+     not the dock's live height: the dock grows with a long brief, and anything
+     tracking it re-centres this whole screen the moment a recipe is staged.
+     The generic 200px reserve is sized for a scrolling feed and left this
+     screen sitting 29px high. */
+  padding-bottom: 136px;
+}
+.sc-canvas > .sc-canvas-empty:only-child {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* The canvas already reserves the dock's height as bottom padding, so its
+     content box IS the visible area: filling it and centring inside puts the
+     middle of this block on the middle of the screen. Adding the reserve back
+     overshot and pushed the shelf under the dock. */
+  min-height: 100%;
+  padding: 0;
+}
+.sc-canvas > .sc-canvas-empty:only-child h3 {
+  margin-bottom: 10px;
+}
+.sc-canvas > .sc-canvas-empty:only-child p {
+  margin-bottom: 44px;
+}
+.sc-canvas > .sc-canvas-empty:only-child .sc-shelf {
+  margin-bottom: 0;
+}
+@media (max-width: 1023px) {
+  .sc-shelf-row {
+    grid-auto-columns: 200px;
+    gap: 12px;
+  }
+  .sc-shelf::before,
+  .sc-shelf::after {
+    width: 64px;
+  }
+  .sc-canvas > .sc-canvas-empty:only-child p {
+    margin-bottom: 32px;
+  }
+}
+@media (max-width: 767px) {
+  .sc-canvas[data-firstrun] {
+    padding-bottom: 120px;
+  }
+  /* Wider than the desktop card as a share of the screen: only two or three
+     are ever visible, so a narrow one wastes the picture. */
+  .sc-shelf-row {
+    /* Small enough that the row reads as a shelf you flick through rather than
+       one card at a time: two full cards and the edge of a third. */
+    grid-auto-columns: min(38vw, 168px);
+    gap: 10px;
+    padding-inline: 14px;
+    /* Momentum, and a gentle pull toward whichever card you let go nearest. */
+    scroll-snap-type: x proximity;
+  }
+  .sc-shelf-row > * {
+    scroll-snap-align: center;
+  }
+  .sc-shelf::before,
+  .sc-shelf::after {
+    width: 48px;
+  }
+  .sc-canvas > .sc-canvas-empty:only-child h3 {
+    margin-bottom: 8px;
+  }
+  .sc-canvas > .sc-canvas-empty:only-child p {
+    margin-bottom: 24px;
+  }
+}
+

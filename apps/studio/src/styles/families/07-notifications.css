@@ -1,0 +1,317 @@
+/* ---------- notifications: one place for work in flight --------------------
+   Two lists behind one bell. Tasks is what is happening now and what just
+   happened; Notifications is the record you can come back to. A row is a
+   thumbnail, a title and one line of fact — list-scale grammar.
+
+   The badge never adds running work to unread history: they are different
+   questions and a single number would answer neither. A count means there is
+   something you have not read; a bare pulse means something is happening.
+
+   On a phone the same body opens as a bottom sheet instead, because a 360px
+   card pinned to the top right corner of a 390px screen is a popover in name
+   only. That is the one reason there are two shells. */
+.sc-notif-btn {
+  position: relative;
+}
+.sc-bell-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 7px;
+  height: 7px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-gold);
+  box-shadow: 0 0 0 2px var(--sc-bg);
+  pointer-events: none;
+}
+/* a number needs a plate to sit on; a pulse does not */
+.sc-bell-dot[data-count] {
+  top: 1px;
+  right: 0;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--sc-gold-ink);
+  font-variant-numeric: tabular-nums;
+}
+.sc-bell-dot[data-running]:not([data-count]) {
+  animation: sc-bell-pulse 1.8s ease-in-out infinite;
+}
+@keyframes sc-bell-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+
+.sc-notif-pop {
+  width: min(360px, calc(100vw - 24px));
+  padding: 6px;
+}
+/* A switch between two lists of the same kind, not a journey between two
+   places: that is a segmented control, not underlined tabs. */
+.sc-notif-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 3px;
+  margin: 2px 2px 6px;
+  background: var(--sc-well);
+  border-radius: var(--sc-radius);
+}
+.sc-notif-tab {
+  height: 30px;
+  border: none;
+  background: none;
+  border-radius: calc(var(--sc-radius) - 3px);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-notif-tab:hover {
+  color: var(--sc-fg);
+}
+.sc-notif-tab[aria-selected="true"] {
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  font-weight: 650;
+  box-shadow: var(--sc-shadow-1);
+}
+.sc-notif-tab:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+.sc-notif-n {
+  color: var(--sc-fg3);
+  font-weight: 600;
+  margin-left: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-notif-scroll {
+  max-height: min(52vh, var(--radix-popover-content-available-height, 52vh));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.sc-notif-scroll:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+  border-radius: var(--sc-radius-sm);
+}
+.sc-notif-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
+  border: none;
+  background: none;
+  border-radius: var(--sc-radius-sm);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.sc-notif-row:hover {
+  background: var(--sc-hover);
+}
+.sc-notif-row:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+.sc-notif-row-wrap {
+  position: relative;
+}
+.sc-notif-row-cancel {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid var(--sc-line);
+  background: var(--sc-panel);
+  border-radius: var(--sc-radius-full);
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--sc-fg);
+  cursor: pointer;
+}
+.sc-notif-row-cancel:hover {
+  background: var(--sc-hover);
+}
+.sc-notif-row-cancel[data-urgent] {
+  border-color: var(--sc-gold);
+  color: var(--sc-gold);
+  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
+}
+.sc-notif-row[data-running] {
+  padding-right: 76px;
+}
+.sc-notif-row[data-unread]::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-gold);
+  flex: none;
+  margin-left: -3px;
+}
+/* relative, so .sc-shimmer sits inside it unchanged */
+.sc-notif-thumb {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-raised);
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+}
+.sc-notif-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sc-notif-row[data-state="error"] .sc-notif-thumb {
+  color: var(--sc-red);
+}
+.sc-notif-txt {
+  min-width: 0;
+  flex: 1;
+}
+.sc-notif-txt b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sc-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-notif-txt small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-notif-row[data-state="error"] .sc-notif-txt small {
+  color: var(--sc-red);
+}
+.sc-notif-time {
+  font-size: 11px;
+  color: var(--sc-fg3);
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+/* only where a real counter exists — a generation never earns a bar */
+.sc-notif-meter {
+  height: 3px;
+  border-radius: var(--sc-radius-xs);
+  background: var(--sc-line);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.sc-notif-meter > div {
+  height: 100%;
+  background: var(--sc-gold);
+  transition: width 0.35s ease;
+}
+.sc-notif-empty {
+  padding: 34px 14px 38px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--sc-fg2);
+}
+.sc-notif-foot {
+  border-top: 1px solid var(--sc-line);
+  margin-top: 4px;
+  padding: 6px 4px 2px;
+  display: flex;
+  justify-content: flex-end;
+}
+.sc-notif-clear {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+  padding: 4px 8px;
+  border-radius: var(--sc-radius-sm);
+}
+.sc-notif-clear:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+
+/* the phone shell: same body, reachable edge */
+.sc-notif-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--sc-scrim);
+  z-index: var(--sc-z-sheet-scrim);
+  animation: sc-fade-in 140ms ease both;
+}
+.sc-notif-sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: var(--sc-z-sheet);
+  max-height: 78dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px calc(8px + env(safe-area-inset-bottom));
+  background: var(--sc-panel);
+  border-top: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-xl) var(--sc-radius-xl) 0 0;
+  box-shadow: var(--sc-shadow-3);
+  animation: sc-sheet-up 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  /* the spring back when a drag does not go far enough to dismiss */
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sc-notif-sheet .sc-notif-scroll {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+}
+.sc-notif-sheet .sc-notif-row {
+  padding: 10px 8px;
+}
+.sc-notif-sheet .sc-notif-thumb {
+  width: 44px;
+  height: 44px;
+}
+/* sc-sheet-up and sc-fade-in are defined once, further down with the shot
+   sheet. They used to be declared here too, and a later @keyframes of the same
+   name silently replaces an earlier one — so this copy animated nothing while
+   reading as though it did. */
+@media (prefers-reduced-motion: reduce) {
+  .sc-bell-dot,
+  .sc-notif-sheet,
+  .sc-notif-scrim {
+    animation: none;
+  }
+  .sc-notif-meter > div {
+    transition: none;
+  }
+}
+

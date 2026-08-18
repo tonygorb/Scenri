@@ -1,0 +1,771 @@
+/* ---------- project canvas: masonry + assets panel + floating dock ---------- */
+.sc-work {
+  display: grid;
+  height: 100%;
+  grid-template-columns: 1fr var(--sc-assets-w);
+  grid-template-areas: "canvas assets";
+  background: var(--sc-bg);
+}
+.sc-work[data-assets="false"] {
+  grid-template-columns: 1fr 0;
+}
+.sc-work[data-assets="false"] .sc-assets {
+  display: none;
+}
+.sc-canvas {
+  grid-area: canvas;
+  min-width: 0;
+  overflow-y: auto;
+  /* No top padding: .sc-toolbar (the first child) carries that spacing
+     itself, so its sticky top:0 has nothing to close a gap over. */
+  padding: 0 20px 170px;
+}
+/* Stands in for the top padding .sc-canvas no longer has, for the one
+   element that can render above .sc-toolbar instead of after it. */
+.sc-canvas-alert {
+  margin-top: 18px;
+}
+.sc-canvas-empty {
+  padding: 80px 0;
+  text-align: center;
+}
+.sc-canvas-empty h3 {
+  font-family: var(--sc-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0 auto 6px;
+  max-width: var(--sc-measure-title);
+  text-wrap: balance;
+}
+.sc-canvas-empty h3 em {
+  font-family: var(--sc-font-accent);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 22px;
+}
+.sc-canvas-empty p {
+  color: var(--sc-fg2);
+  font-size: 12.5px;
+  max-width: var(--sc-measure-lede);
+  margin: 0 auto;
+  text-wrap: pretty;
+}
+/* The look row is the second offer, so it sits under the first and reads as a
+   shelf rather than as the point of the screen. It is a column grid, so it
+   starts at the left edge on its own; only the copy above it is centred. */
+.sc-empty-looks {
+  margin-top: 26px;
+  text-align: left;
+}
+/* A lens empty is one line and, where there is a way out, one button under it. */
+.sc-feed-empty p {
+  margin: 0;
+}
+.sc-feed-empty .sc-btn {
+  margin-top: 12px;
+}
+/* The canvas is the page minus the assets panel, so it simply fits one column
+   fewer. The count is measured in Canvas.tsx from the real width, so the panel
+   opening or closing is just another resize. */
+.sc-canvas .sc-feed {
+  padding-top: 0;
+}
+/* Selected, over a picture. --sc-sel-line is the one rung that is the same in
+   both themes, because what it has to stay legible against is the photograph,
+   not the page: 4.3:1 on white and 4.9:1 on black. */
+.sc-cell[data-selected="true"] {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+}
+/* Provenance keeps only what makes it itself: the frame it came from. Its
+   position, surface and radius come from .sc-fact, like every other fact. The
+   rule that nudged it right to dodge the selection box is gone with the
+   collision — on a touch device that box is always on, so the badge used to
+   float off its corner permanently rather than sit in it. */
+.sc-prov {
+  padding-left: 3px;
+}
+.sc-prov img {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--sc-line);
+}
+.sc-cell-retry {
+  border: 1px solid var(--sc-line);
+  background: var(--sc-panel);
+  border-radius: var(--sc-radius-full);
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--sc-fg);
+  cursor: pointer;
+}
+.sc-cell-retry:hover {
+  background: var(--sc-hover);
+}
+.sc-cell-retry[data-urgent] {
+  border-color: var(--sc-gold);
+  color: var(--sc-gold);
+  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
+}
+
+/* One scroll container, and only one. Every section below is a fixed two-row
+   grid, so nothing inside here scrolls independently, steals the wheel, or
+   resets its position — the pathologies that come free with nested panes. */
+.sc-assets {
+  grid-area: assets;
+  border-left: 1px solid var(--sc-line-chrome);
+  background: var(--sc-panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 16px 170px;
+}
+/* Docked, the composer is inset by exactly this column's width and never
+   reaches over it, so the 170px the drawer has to keep clear of the dock is
+   dead space here — and dead space at the bottom is precisely the height an
+   opened section wants to claim. */
+@media (min-width: 1280px) {
+  .sc-assets {
+    padding-bottom: 16px;
+  }
+}
+/* Search over this rail and nothing else. It never scrolls away with the
+   sections: it is how you get back out of a search, so it has to be where you
+   left it. */
+/* Pinned to the top of the scrollport, full-bleed across the rail's own
+   padding so results pass behind it rather than beside it. A search you have
+   to scroll back up to clear is a search that traps you in its own results. */
+.sc-assets-searchbar {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  flex: none;
+  background: var(--sc-panel);
+  margin: -16px -16px 16px;
+  padding: 16px 16px 10px;
+}
+.sc-assets-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  padding: 0 6px 0 12px;
+  height: 32px;
+}
+/* The system's one focus treatment, the same ring `.sc-swap-search` and every
+   button in the shared list wear. A bespoke border-colour change was a second
+   vocabulary for the same state. */
+.sc-assets-search:focus-within {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-assets-search > svg {
+  color: var(--sc-fg3);
+  flex: none;
+}
+.sc-assets-search input {
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--sc-fg);
+  font-size: 12.5px;
+  width: 100%;
+  min-width: 0;
+}
+.sc-assets-search input::placeholder {
+  color: var(--sc-fg3);
+}
+.sc-assets-clear {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  padding: 0;
+  color: var(--sc-fg3);
+  cursor: pointer;
+}
+.sc-assets-clear:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+/* Offset 1, not the usual 2: this sits inside the pill's own border and a
+   2px ring would spill through it. Same rule as the tiles, for the same
+   reason — see the note on the shared focus list. */
+.sc-assets-clear:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-assets-zero {
+  font-size: 12px;
+  color: var(--sc-fg3);
+  line-height: 1.45;
+}
+/* Searching, every section is showing answers, so none of them claims the
+   column and the rail scrolls through the lot — one scroller, the ordinary
+   one, rather than five panes each scrolling a few results of their own. */
+.sc-agroup[data-mode="result"] {
+  flex: none;
+}
+/* Three states, because height in a 320px column is the scarce thing.
+
+   Idle — nothing open anywhere — is every section showing a quick row, so the
+   whole shelf reads at a glance and nothing has to be opened to find out
+   whether it was worth opening. Open one and every other section gives its row
+   back and waits as a header, because four quick rows nobody is looking at are
+   280px the section being worked in could be using. The rail itself never
+   scrolls; only the open section does, and only when it has to. */
+.sc-agroup {
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: auto;
+  margin-bottom: 16px;
+  transition: margin-bottom 240ms cubic-bezier(0.32, 0, 0.2, 1);
+}
+.sc-agroup[data-mode="collapsed"] {
+  margin-bottom: 6px;
+}
+/* Open, a section takes the height it can *use*, not all the height there is.
+   `flex-shrink: 1` with no grow means: stand at the natural height of the
+   tiles when they fit, and shrink to whatever is available (scrolling inside)
+   when they do not. Growing unconditionally was worse than it sounds — a
+   section holding six tiles claimed the whole column and left a dead panel of
+   empty space between its last row and the headers underneath. Any space left
+   over now falls at the very bottom of the rail, where it reads as the end of
+   the list rather than as a hole in it. */
+.sc-agroup[data-mode="open"] {
+  flex-grow: 0;
+  flex-shrink: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+.sc-agroup[data-mode="open"] > .sc-agroup-h {
+  flex: none;
+}
+/* The row's height is the create button's, whether or not this section has
+   one — otherwise Recent shots (the one group that still cannot be created
+   into) sat 3px shorter than the others, and the shelf lost its rhythm at
+   exactly the point it should read as one family. */
+.sc-agroup-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  margin-bottom: 8px;
+}
+/* A standing-down section collapses via grid-template-rows 1fr -> 0fr, the
+   standard no-JS way to animate to and from an intrinsic ("auto") height,
+   which a plain height transition cannot do since "auto" isn't animatable.
+   .sc-agroup-content is the single row; overflow:hidden on it is what clips
+   the tiles away as the row shrinks toward nothing. */
+.sc-agroup-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  min-height: 0;
+  transition: grid-template-rows 240ms cubic-bezier(0.32, 0, 0.2, 1);
+}
+.sc-agroup-content {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 1;
+  transition: opacity 120ms ease;
+}
+/* Visibility is delayed until the fade finishes on the way out, so the tiles
+   do not vanish mid-fade, and drops instantly on the way back in so a
+   returning row is clickable straight away. */
+.sc-agroup[data-mode="collapsed"] > .sc-agroup-body {
+  grid-template-rows: 0fr;
+}
+.sc-agroup[data-mode="collapsed"] .sc-agroup-content {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 120ms ease,
+    visibility 0s linear 120ms;
+}
+/* Open, the body is not collapsing to an intrinsic height — it is filling the
+   height its section was given, and scrolling only if the grid outruns it. A
+   different sizing model, so the grid-row machinery above is switched off and
+   `overflow: hidden` on the content, which exists to clip the collapse, would
+   otherwise clip the cards the body is meant to be scrolling. The gutter is
+   reserved so a section that starts scrolling does not shove its own cards
+   sideways as it opens. */
+.sc-agroup[data-mode="open"] > .sc-agroup-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+.sc-agroup[data-mode="open"] .sc-agroup-content {
+  overflow: visible;
+  flex: none;
+  /* 2px ring + 1px offset on the last row, otherwise the section's own
+     scrollport chops the stroke along the bottom edge. */
+  padding-bottom: 4px;
+}
+/* The quick row and the named grid are different DOM — different cell count,
+   different columns, labels or none — so swapping one for the other outright
+   reads as a pop, worst of all while the section is also changing height.
+   This is a plain cross-fade: content fades to 0, the shape swaps underneath
+   while it is invisible (see `useShape`), then fades back in. */
+.sc-agroup-content[data-fading] {
+  opacity: 0;
+}
+.sc-agroup-t {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+/* Down means "there is more of this below"; up means "put it away". A caret
+   swinging through the horizontal reads as a direction of travel rather than a
+   state, which is the wrong idea for a control that only ever has two. */
+.sc-agroup-caret {
+  color: var(--sc-fg3);
+  transition:
+    transform 160ms cubic-bezier(0.32, 0, 0.2, 1),
+    opacity 120ms ease;
+  transform: rotate(0deg);
+  flex: none;
+}
+.sc-agroup[data-mode="open"] .sc-agroup-caret {
+  transform: rotate(180deg);
+}
+/* Hidden until the header is hovered or focused, and only where hover is a
+   real pointer model. A disclosure control you use once a session should not
+   be permanent furniture on every heading; the header itself is the button
+   either way, and `aria-expanded` carries the state whether or not the glyph
+   is drawn.
+
+   Keyed on the pointer, not on the width: a narrow desktop window still has a
+   mouse and should still reveal on hover, while a touch device has no hover to
+   reveal anything with and keeps the caret drawn as its only static cue. */
+@media (hover: hover) and (pointer: fine) {
+  .sc-agroup-caret {
+    opacity: 0;
+  }
+  .sc-agroup-t:hover .sc-agroup-caret,
+  .sc-agroup-t:focus-visible .sc-agroup-caret {
+    opacity: 1;
+  }
+  /* The open section keeps its caret drawn. Here it is not a hint that the
+     control exists — it is the only thing on screen saying which section is
+     the open one and how to put it back, and that should not depend on the
+     pointer happening to be somewhere. */
+  .sc-agroup[data-mode="open"] .sc-agroup-caret {
+    opacity: 1;
+  }
+}
+/* How many there are, so a folded group still says whether it is worth opening. */
+.sc-agroup-n {
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-micro);
+  /* fg2, not fg3: this one sits on a raised pill rather than the panel, and the
+     quieter ink lands at 4.4:1 there — under AA while every sibling passes. */
+  color: var(--sc-fg2);
+  background: var(--sc-raised);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.sc-agroup-t:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* Not the rail's any more — the rail's "more" is a tile in the grid
+   (.sc-amore-tile below). This is the AttachPanel's All-tab "Show all N"
+   link, and it is the only thing left in this block that isn't. */
+.sc-amore {
+  border: none;
+  background: none;
+  padding: 6px 0 0;
+  color: var(--sc-fg2);
+  font-size: 11.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sc-amore:hover {
+  color: var(--sc-fg);
+}
+.sc-agroup-h b {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.sc-agroup-h .sc-aadd {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: none;
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-agroup-h .sc-aadd:hover {
+  /* The colour-plus ColorPicker paints an inline background:none so it does
+     not read as a swatch; that would otherwise win over this hover fill. */
+  background: var(--sc-hover) !important;
+  color: var(--sc-fg);
+}
+/* The closed shape: four square thumbnails, one row, no labels. Recognition
+   by eye — which is the whole premise of a visual asset rail — and the name is
+   a hover away. Four across is what fits legibly at 288px of content. */
+.sc-arow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  /* 2px ring + 1px offset, plus a pixel so subpixels do not shear it. */
+  padding: 4px;
+  overflow: visible;
+}
+/* Plain image/swatch tiles — shared by the compact 4-col preview grid and any
+   group (Brand colors, Recent shots) that skips the labeled AssetCard even
+   when open. Direct children only: a colour tile wraps a pick button and a
+   remove, and those inner buttons must not inherit the tile chrome.
+   overflow stays visible here. Chromium clips an element's own outline (and
+   any corner control) when the same box is overflow:hidden + radius — the
+   chopped ring and quarter-circle X on a hovered brand swatch. Pictures and
+   pigment clip on the inner face instead. */
+.sc-arow > button,
+.sc-arow > .sc-aswatch-tile,
+.sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile) {
+  border: 1px solid var(--sc-line);
+  border-radius: 8px;
+  overflow: visible;
+  padding: 0;
+  background: var(--sc-raised);
+  aspect-ratio: 1;
+  cursor: pointer;
+}
+.sc-arow > button:hover,
+.sc-arow > .sc-aswatch-tile:hover,
+.sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile):hover {
+  border-color: var(--sc-line-strong);
+}
+.sc-arow > button:focus-visible,
+.sc-arow > .sc-aswatch-tile:focus-within,
+.sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile):focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-aswatch-tile {
+  position: relative;
+}
+.sc-arow > .sc-aswatch-tile:hover,
+.sc-arow > .sc-aswatch-tile:focus-within,
+.sc-arow > button:hover,
+.sc-arow > button:focus-visible {
+  z-index: 1;
+}
+.sc-aswatch-tile > button:first-child {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.sc-aswatch-tile > button:first-child:focus,
+.sc-aswatch-tile > button:first-child:focus-visible {
+  outline: none;
+}
+/* A piece of glass over the pigment — not a white sticker.
+   The invert-disc from the photo thumbs fights cream swatches and shouts
+   over the colour, which is the thing this row exists to show. Dark glass
+   plus a white hairline reads on navy and on oat; danger red is reserved
+   for aiming at the X, which is the existing ghost-danger vocabulary.
+   The button is the hit area; the disc is painted on ::before so a 18px
+   mark can sit in an 8px corner without being a 18px target. */
+.sc-aswatch-x {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  line-height: 0;
+  font-size: 0;
+  cursor: pointer;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92);
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease),
+    transform var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-aswatch-x::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #000 46%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 24%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    box-shadow var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-aswatch-x svg {
+  position: relative;
+  display: block;
+}
+.sc-agroup[data-mode="open"] .sc-aswatch-tile:hover .sc-aswatch-x,
+.sc-agroup[data-mode="open"] .sc-aswatch-tile:focus-within .sc-aswatch-x,
+.sc-agroup[data-mode="result"] .sc-aswatch-tile:hover .sc-aswatch-x,
+.sc-agroup[data-mode="result"] .sc-aswatch-tile:focus-within .sc-aswatch-x {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.sc-aswatch-x:hover::before {
+  background: color-mix(in srgb, var(--sc-red) 88%, #000);
+  box-shadow: none;
+}
+.sc-aswatch-x:focus-visible {
+  outline: none;
+}
+.sc-aswatch-x:focus-visible::before {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-arow img,
+.sc-acard-grid > button:not(.sc-acard) img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+}
+.sc-arow .sc-aswatch,
+.sc-acard-grid > button:not(.sc-acard) .sc-aswatch {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+/* The no-image fallback inside a card's thumb. Without a size it collapsed to
+   the glyph's own height and sat against the top of an otherwise empty square
+   rather than in the middle of it. */
+.sc-acard-thumb .sc-aswatch {
+  width: 100%;
+  height: 100%;
+}
+/* Smaller against a 66px quick tile than against a 91px named one, so it
+   marks the picture rather than covering it. */
+.sc-arow .sc-acard-tick {
+  width: 14px;
+  height: 14px;
+  top: 4px;
+  right: 4px;
+}
+/* The open shape: nine cells, three across — eight assets, each big enough to
+   carry its name, and the way through to the rest in the last one. */
+.sc-acard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.sc-acard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+.sc-acard-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  overflow: hidden;
+  background: var(--sc-raised);
+}
+.sc-acard:hover .sc-acard-thumb {
+  border-color: var(--sc-line-strong);
+}
+.sc-acard:focus-visible .sc-acard-thumb {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-acard-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* A 4:5 casting card in a square box: centre it and the tile is a torso.
+   Pulling the framing up puts the face where a face belongs. */
+.sc-acard-thumb img[data-crop="top"] {
+  object-position: 50% 12%;
+}
+/* Attached, in one language: the same inverse-fill circle and bold check the
+   catalog cards use for a chosen item, at the rail's smaller scale. A scene
+   can only ever have one — the brief swaps templates rather than appending —
+   while products and presenters may honestly have several. Nothing attached
+   means nothing ticked, which needs no empty state of its own. */
+.sc-acard-tick {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity 120ms ease,
+    transform 120ms cubic-bezier(0.3, 0, 0.2, 1);
+}
+.sc-acard[data-on] .sc-acard-tick {
+  opacity: 1;
+  transform: scale(1);
+}
+.sc-acard[data-on] .sc-acard-thumb {
+  border-color: var(--sc-sel-line);
+}
+.sc-acard-label {
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-acard[data-on] .sc-acard-label {
+  color: var(--sc-fg);
+}
+/* The last cell. Not a text link competing with the pictures, and not another
+   control in an already-busy 288px header — it sits where the sixth asset
+   would be, identically in all three sections, and says how much more there
+   is on the way to saying where it lives. */
+.sc-amore-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  aspect-ratio: 1;
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--sc-fg3);
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+.sc-amore-tile:hover {
+  border-color: var(--sc-line-strong);
+  color: var(--sc-fg);
+}
+.sc-amore-tile:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-amore-n {
+  font-family: var(--sc-font-mono);
+  font-size: 12px;
+  line-height: 1;
+}
+.sc-amore-t {
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+/* Floating dock over the canvas.
+   Its band is the canvas's own gutters, and it is centred inside that band —
+   so it centres over the feed it belongs to rather than over the window, which
+   with the assets panel open are two different centres. The band only insets
+   for that panel where the panel is a grid column; under 1280px the panel is a
+   fixed drawer over the canvas, so subtracting its width there squeezed the
+   composer to ~51px.
+   `margin-inline: auto` is load-bearing: with both offsets set, a max-width
+   box parks at the start of the band instead of centring in it. */
+.sc-canvas-dock {
+  position: fixed;
+  bottom: calc(var(--sc-tabbar-h) + 18px);
+  z-index: 60;
+  left: var(--sc-space-7);
+  right: var(--sc-space-7);
+  width: auto;
+  max-width: 680px;
+  margin-inline: auto;
+  /* The dock rides --sc-bottom-inset, which jumps the moment a phone keyboard
+     opens. Untransitioned it teleported; focusing the composer looked like the
+     card had moved rather than the keyboard having arrived. `bottom` on a fixed
+     element does not reflow anything else, so this is safe to animate. */
+  transition: bottom var(--sc-dur-slow) var(--sc-ease-emphasis);
+}
+@media (min-width: 1280px) {
+  .sc-canvas-dock {
+    right: calc(var(--sc-assets-w) + var(--sc-space-7));
+  }
+  .sc-canvas-dock[data-full="true"] {
+    right: var(--sc-space-7);
+  }
+}
+
+@media (max-width: 1279px) {
+  .sc-work {
+    grid-template-columns: 1fr;
+    grid-template-areas: "canvas";
+  }
+  .sc-assets {
+    position: fixed;
+    top: var(--sc-topbar-h);
+    right: 0;
+    bottom: 0;
+    width: min(300px, 88vw);
+    z-index: 55;
+    box-shadow: var(--sc-shadow-3);
+    transform: translateX(100%);
+    transition: transform 200ms ease;
+  }
+  .sc-work[data-assets="true"] .sc-assets {
+    transform: translateX(0);
+  }
+}
+

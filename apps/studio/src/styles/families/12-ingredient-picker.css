@@ -1,0 +1,392 @@
+/* ---------- ingredient picker (portal, chip-anchored) ----------
+   The other half of the pair above. The insert menu is a caret shortlist you
+   arrow through. This is what a chip opens: the thing in it is a photograph,
+   and the question is which photograph, so it is wide enough for four real
+   thumbnails and it says out loud which one is on.
+
+   One search, what is on, one grid, one way out. Relevance is the order the
+   grid is in rather than a set of headings over it, so a product, a presenter
+   and a scene are the same surface with different pictures in them.
+
+   Anchored by `top` with a computed max-height (see anchorPanel.ts) rather
+   than pinned by `bottom`, so it cannot grow off the screen as it fills.
+
+   ONE SCALE, stated here and never re-derived further down:
+     inset   `--swap-inset`  every edge, every gap between blocks, the grid gap
+     step    `--swap-step`   inside a block: thumbnail to its own caption
+     control `--swap-control` one height for every control the panel owns
+     face    `--swap-face`   the current row's thumbnail
+     radius  panel xl · picture `--sc-radius` · anything pill-shaped full
+     stroke  1px, `--sc-line-strong` around the panel, `--sc-line` within it
+     focus   2px `--sc-focus`, offset 2 out, offset -2 where a control is
+             full-bleed and 2 out would be clipped by the panel                */
+/* On both shells, because the sheet is not a `.sc-swap` — it is the shot
+   settings sheet carrying the same body, and every one of these resolved to
+   nothing there. */
+.sc-swap,
+.sc-swapsheet {
+  --swap-inset: var(--sc-space-5);
+  --swap-step: var(--sc-space-3);
+  /* Heights, not spacing: the search and the remove button are the same
+     control and must measure the same, and the spacing scale tops out well
+     below either of them. */
+  --swap-control: 32px;
+  --swap-face: 44px;
+}
+.sc-swap {
+  position: fixed;
+  z-index: var(--sc-z-popover);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-3);
+}
+.sc-swap-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* The search is the whole header. No title: the chip you clicked is still on
+   screen behind the panel, and it already says which kind this is. */
+.sc-swap-head {
+  flex: none;
+  padding: var(--swap-inset) var(--swap-inset) 0;
+}
+.sc-swap-search {
+  display: flex;
+  align-items: center;
+  gap: var(--swap-step);
+  height: var(--swap-control);
+  padding: 0 var(--swap-inset);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-well);
+  color: var(--sc-fg3);
+}
+.sc-swap-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--sc-fg);
+  font: inherit;
+  font-size: var(--sc-text-control);
+}
+.sc-swap-search:focus-within {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+
+/* What is on, above the line, wherever the search happens to be. It is the
+   answer to "what do I have", so it does not come and go. */
+.sc-swap-cur {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--swap-inset);
+  margin: var(--swap-inset) var(--swap-inset) 0;
+  padding: 0 0 var(--swap-inset);
+  border: none;
+  border-bottom: 1px solid var(--sc-line);
+  background: none;
+  color: var(--sc-fg);
+  text-align: start;
+}
+/* The one thing on the row that is a control, and it says so: a real target,
+   its own hover, and the only pointer cursor here. Revealed on hover on a
+   mouse, always there on a touch screen, which is the grammar the catalog
+   cards already use. */
+.sc-swap-open {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--sc-space-7);
+  height: var(--sc-space-7);
+  border-radius: var(--sc-radius-sm);
+  color: var(--sc-fg3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-swap-cur:hover .sc-swap-open {
+  opacity: 1;
+}
+.sc-swap-open:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+  opacity: 1;
+}
+.sc-swap-open:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  opacity: 1;
+}
+@media (hover: none) {
+  .sc-swap-open {
+    opacity: 1;
+  }
+}
+.sc-swap-curtext {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.sc-swap-curtext b {
+  font-size: var(--sc-text-control);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sc-swap-curtext > span {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+  line-height: 1.35;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sc-swap-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--swap-inset);
+}
+.sc-swap-empty {
+  margin: 0;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+.sc-swap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  /* The same number as every edge, on both axes. A grid gap that is neither
+     the inset nor square with itself is what reads as broken. */
+  gap: var(--swap-inset);
+}
+.sc-swap-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+  text-align: start;
+  min-width: 0;
+}
+.sc-swap-card b,
+.sc-swap-card > span:not([class]) {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sc-swap-card b {
+  font-size: var(--sc-text-caption);
+  font-weight: 550;
+  line-height: 1.35;
+}
+.sc-swap-card > span:not([class]) {
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+  line-height: 1.35;
+}
+.sc-swap-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  /* the one gap inside a card: picture to the words about it */
+  margin-bottom: var(--swap-step);
+  object-fit: cover;
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+.sc-swap-thumb-empty {
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+}
+/* A scene keeps its own hue here the way its chip does, from the same helper. */
+.sc-swap-thumb[data-tinted] {
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--tint) 40%, var(--sc-line));
+}
+.sc-swap-cur .sc-swap-thumb {
+  width: var(--swap-face);
+  height: var(--swap-face);
+  flex: none;
+  margin-bottom: 0;
+}
+.sc-swap-card:hover .sc-swap-thumb,
+.sc-swap-cur:hover .sc-swap-thumb {
+  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+}
+.sc-swap-card:focus-visible {
+  outline: none;
+}
+.sc-swap-card:focus-visible .sc-swap-thumb {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-swap-tick {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--sc-space-6);
+  height: var(--sc-space-6);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+.sc-swap-more {
+  display: block;
+  width: 100%;
+  margin-top: var(--swap-inset);
+  padding: var(--swap-step);
+  border: none;
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  color: var(--sc-fg2);
+  cursor: pointer;
+  font-size: var(--sc-text-caption);
+}
+.sc-swap-more:hover {
+  color: var(--sc-fg);
+}
+.sc-swap-more:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-swap-foot {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--swap-step);
+  padding: var(--swap-inset);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-swap-warn {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg2);
+}
+.sc-swap-attach {
+  flex: 1 0 100%;
+  display: flex;
+  gap: var(--swap-step);
+}
+/* Removal is a labelled action here, not the hover-X grammar of the chip. The
+   X is the shortcut for someone who already knows where it is; this is the one
+   that says what it does, and the only one a thumb can reach. */
+.sc-swap-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--swap-step);
+  height: var(--swap-control);
+  padding: 0 var(--swap-inset);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: none;
+  color: var(--sc-fg2);
+  cursor: pointer;
+  font-size: var(--sc-text-control);
+}
+.sc-swap-remove:hover {
+  border-color: var(--sc-red);
+  color: var(--sc-red);
+}
+.sc-swap-remove:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+
+/* A colour chip's menu is a list of named swatches, not the catalog grid.
+   Same panel chrome; the rows reuse the cmd-swatch language (dot, name, hex). */
+.sc-swap-swatches {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sc-swap-swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--swap-step);
+  width: 100%;
+  min-height: var(--swap-control);
+  padding: 0 var(--swap-step);
+  border: none;
+  border-radius: var(--sc-radius);
+  background: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+  text-align: start;
+  font: inherit;
+}
+.sc-swap-swatch:hover,
+.sc-swap-swatch[data-on] {
+  background: var(--sc-raised);
+}
+.sc-swap-swatch:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+.sc-swap-dot {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+}
+.sc-swap-swatch b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--sc-text-control);
+  font-weight: 550;
+}
+.sc-swap-swatch > span:not([class]) {
+  flex: none;
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
+.sc-swap[data-kind="color"] .sc-swap-tick,
+.sc-swapsheet[data-kind="color"] .sc-swap-tick {
+  width: var(--sc-space-5);
+  height: var(--sc-space-5);
+}
+.sc-swap[data-kind="color"] .sc-swap-custom,
+.sc-swapsheet[data-kind="color"] .sc-swap-custom {
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  min-height: var(--swap-control);
+  box-shadow: none;
+  border-radius: var(--sc-radius);
+}
+.sc-swap[data-kind="color"] .sc-swap-foot,
+.sc-swapsheet[data-kind="color"] .sc-swap-foot {
+  flex-direction: column;
+  align-items: stretch;
+}
+.sc-swap[data-kind="color"] .sc-swap-remove,
+.sc-swapsheet[data-kind="color"] .sc-swap-remove {
+  justify-content: center;
+  width: 100%;
+}
+

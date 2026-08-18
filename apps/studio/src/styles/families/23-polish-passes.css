@@ -1,0 +1,503 @@
+/* ---------- spacing and hierarchy pass ---------- */
+.sc-prompt-row {
+  gap: 6px;
+  padding: 8px 10px 10px 10px;
+}
+.sc-prompt-right {
+  gap: 6px;
+}
+.sc-brief-line {
+  padding: 14px 14px 6px;
+}
+.sc-mini-sel {
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: var(--sc-radius-full);
+}
+.sc-ap-head {
+  gap: 8px;
+  padding: 10px 10px 10px 12px;
+}
+.sc-ap-body {
+  padding: 12px;
+}
+.sc-ap-group + .sc-ap-group {
+  margin-top: 4px;
+}
+
+/* ---------- dock fade: canvas dissolves under the composer ---------- */
+.sc-dock-fade {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 260px;
+  z-index: 55;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--sc-bg) 42%, transparent) 38%,
+    color-mix(in srgb, var(--sc-bg) 86%, transparent) 68%,
+    var(--sc-bg) 92%
+  );
+}
+@media (min-width: 1280px) {
+  .sc-dock-fade {
+    right: var(--sc-assets-w);
+  }
+  .sc-dock-fade[data-full="true"] {
+    right: 0;
+  }
+}
+
+/* ---------- control row: quiet icon controls, breathing room ---------- */
+.sc-prompt-row {
+  gap: 10px;
+  padding: 8px 10px 10px 10px;
+}
+.sc-prompt-right {
+  gap: 10px;
+}
+/* The composer row's quiet controls: attach, the engine select, and the three
+   shot settings.
+
+   Stated once. Five redesign passes each left a partial override behind, and
+   two of them — a 28px bordered pill and a 30px one — had every property they
+   set overridden further down, so they computed to nothing while still being
+   the first thing anyone found when reading for the height. What varies by
+   context still varies, but each context says so once and higher up the
+   specificity: the overlay's 288px sidebar and a phone both take this back to
+   30px. */
+.sc-var {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: var(--sc-fg2);
+  font-size: 13.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.sc-var:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-var svg {
+  color: var(--sc-fg3);
+}
+.sc-var:hover svg {
+  color: var(--sc-fg2);
+}
+.sc-mini-sel {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--sc-fg2);
+}
+.sc-mini-sel svg:first-child {
+  color: var(--sc-fg3);
+}
+
+/* ---------- page rhythm: one vertical scale, one left edge ---------- */
+.sc-main {
+  padding: 26px 24px 190px;
+}
+.sc-create-grid {
+  margin-bottom: 34px;
+}
+.sc-tplrow {
+  margin-bottom: 32px;
+}
+.sc-feed {
+  padding-top: 18px;
+}
+.sc-sec-head {
+  margin-bottom: 14px;
+}
+.sc-canvas {
+  /* Named, because the first-run shelf cancels exactly this gutter to bleed. */
+  --sc-canvas-gutter: 20px;
+  --sc-dock-reserve: 200px;
+  padding: 0 var(--sc-canvas-gutter) var(--sc-dock-reserve);
+}
+/* The phone's own gutter, restated here because the rule above is later in the
+   file than the media query that first set it and was quietly winning: the
+   feed kept desktop margins and 200px of dock room on a 390px screen. */
+@media (max-width: 767px) {
+  .sc-canvas {
+    --sc-canvas-gutter: var(--sc-gutter);
+    --sc-dock-reserve: 150px;
+  }
+}
+
+/* failed tiles stay small and quiet: they are a record, not content */
+.sc-cell[data-failed] {
+  aspect-ratio: 3 / 2;
+}
+.sc-cell[data-cancelled] {
+  aspect-ratio: 3 / 2;
+}
+
+/* ---------- control row: one scale, two groups, no Radix margin surprises ----------
+   Radix ghost triggers ship negative inline margins, which silently ate the
+   flex gap. Everything in this row is pinned to one 30px rhythm instead. */
+.sc-prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 10px;
+}
+.sc-prompt-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.sc-prompt-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.sc-prompt-row .sc-attach-toggle {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+.sc-var svg {
+  flex-shrink: 0;
+}
+
+.sc-mini-sel {
+  margin: 0 !important;
+  height: 30px !important;
+  padding: 0 10px !important;
+  gap: 6px;
+  border-radius: 8px !important;
+  font-size: 12.5px !important;
+  font-weight: 500;
+  color: var(--sc-fg2) !important;
+  max-width: 200px;
+}
+.sc-mini-sel:hover {
+  background: var(--sc-hover) !important;
+  color: var(--sc-fg) !important;
+}
+.sc-mini-sel-t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* the send button is the only thing that breaks the 30px rhythm, on purpose */
+.sc-prompt-right .sc-send {
+  margin-left: 10px;
+}
+
+/* One 14px frame for the whole card: sentence, controls and edges agree. The
+   frame sits on the editable line, not on the card around it, so a click in it
+   still lands in the text. As the card's padding it was dead space that threw
+   the caret to the start of the sentence. */
+.sc-brief-line {
+  padding: 14px 14px 8px;
+}
+.sc-prompt-row {
+  padding: 6px 14px 14px;
+}
+
+/* the two round buttons bracket the row, so they match each other, not the pills */
+.sc-prompt-row .sc-attach-toggle {
+  width: 34px;
+  height: 34px;
+}
+
+/* Radix wraps trigger children in its own span, which has no gap of its own */
+.sc-mini-sel .rt-SelectTriggerInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.sc-mini-sel .rt-SelectIcon {
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+/* Radix nests trigger children one span deeper than it looks; that inner
+   wrapper is the element that actually holds the icon next to the label */
+.sc-mini-sel .rt-SelectTriggerInner > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+/* ---------- chips are buttons that reopen their own menu ---------- */
+.sc-token {
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+.sc-token:hover {
+  background: var(--sc-hover);
+}
+.sc-token[data-open] {
+  box-shadow: 0 0 0 2px var(--sc-fg) inset;
+}
+.sc-token:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+
+/* A chip whose reference the chosen engine cannot carry. The tooltip already
+   said so, but a tooltip you have to hover to find is not far from silence —
+   and an identity that quietly became text is the failure this whole path
+   exists to prevent. Amber underline, not red: the generation still runs. */
+.sc-token[data-warn] {
+  box-shadow: inset 0 -2px 0 var(--sc-warn, #d99a2b);
+}
+
+/* a template chip wears the mood of its own preview image */
+.sc-token[data-tinted] {
+  background: color-mix(in srgb, var(--tint) 16%, var(--sc-panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tint) 34%, transparent) inset;
+  font-weight: 600;
+}
+.sc-token[data-tinted]:hover {
+  background: color-mix(in srgb, var(--tint) 26%, var(--sc-panel));
+}
+.sc-token[data-tinted][data-open] {
+  box-shadow: 0 0 0 2px var(--sc-fg) inset;
+}
+.sc-token[data-tinted] svg:first-child {
+  color: color-mix(in srgb, var(--tint) 70%, var(--sc-fg));
+}
+
+/* ---------- chip remove: floats over the right edge, never resizes the chip ----------
+   The X used to be display:none until hover, so every chip grew on hover and
+   the whole sentence reflowed. It now sits on top, behind a soft fade. */
+.sc-token {
+  position: relative;
+  padding-right: 10px;
+}
+.sc-token > button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 6px 0 0;
+  border: none;
+  border-radius: inherit;
+  color: var(--sc-fg2);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  background: linear-gradient(to right, transparent, var(--sc-raised) 45%);
+}
+.sc-token:hover > button,
+.sc-token:focus-within > button {
+  opacity: 1;
+}
+.sc-token > button:hover {
+  color: var(--sc-fg);
+}
+.sc-token[data-tinted] > button {
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%
+  );
+}
+.sc-token[data-tinted]:hover > button {
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%
+  );
+}
+
+/* ---------- chips, final pass (5.3) ----------
+   One language for every chip: same surface, thumbnail, no border, no ring.
+   The X floats over the right edge and only exists once it is visible, so
+   clicking anywhere on a chip opens its menu instead of deleting the token. */
+.sc-token {
+  background: var(--sc-chip);
+  border: none;
+  box-shadow: none;
+  font-weight: 500;
+}
+.sc-token:hover {
+  background: var(--sc-chip-hover);
+}
+.sc-token[data-open] {
+  background: var(--sc-chip-active);
+  outline: none;
+  box-shadow: none;
+}
+/* Keyboard focus is a ring, here as everywhere else. This selector used to be
+   grouped with [data-open] above and inherited its `outline: none`, so the one
+   state that has to be visible from the keyboard was the one with nothing to
+   see — which only mattered once a chip could be focused at all. */
+.sc-token:focus-visible {
+  background: var(--sc-chip-active);
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* a whisper of the template's own colour, on the same base as everything else */
+.sc-token[data-tinted] {
+  background: color-mix(in srgb, var(--tint) 14%, var(--sc-chip));
+  box-shadow: none;
+  font-weight: 500;
+}
+.sc-token[data-tinted]:hover {
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+}
+.sc-token[data-tinted][data-open],
+.sc-token[data-tinted]:focus-visible {
+  background: color-mix(in srgb, var(--tint) 20%, var(--sc-chip-active));
+  box-shadow: none;
+}
+.sc-token[data-tinted]:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+
+/* The fade lives on the button itself. As a ::before at z-index -1 it painted
+   behind the chip's own background, so the label showed straight through the X.
+   The hit area is the glyph, not the fade: at 30px it covered a third of the
+   chip, so aiming just inside the right edge to put the caret there deleted the
+   token instead. The gradient now runs to the LEFT of the button, outside it. */
+.sc-token > button {
+  pointer-events: none;
+  width: 18px;
+  background: var(--sc-chip-hover);
+}
+.sc-token > button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: 14px;
+  background: linear-gradient(to right, transparent, var(--sc-chip-hover));
+  pointer-events: none;
+}
+.sc-token:hover > button,
+.sc-token:focus-within > button {
+  pointer-events: auto;
+}
+.sc-token[data-tinted] > button {
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+}
+.sc-token[data-tinted] > button::before {
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover))
+  );
+}
+
+/* Keyboard focus is a ring, here as everywhere else.
+   These controls used to cancel it and change their background instead, which
+   is the same thing hovering does — so from the keyboard there was no way to
+   tell where you were, and the composer was the only place in the app that
+   behaved that way. The surface shift stays as a second cue, not the only one. */
+.sc-var:focus-visible,
+.sc-mini-sel:focus-visible,
+.sc-attach-toggle:focus-visible,
+.sc-send:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+  /* the app's stylesheets load after Radix, so plain source order beats its
+     accent glow; this line used to need !important and no longer does */
+  box-shadow: none;
+  background: var(--sc-chip-active);
+}
+/* Send keeps its own fill; the ring is the focus signal, so the brightness
+   lift it also used to take has gone. Three simultaneous cues on one button
+   is what made tabbing into the composer feel like an alarm. */
+.sc-send:focus-visible {
+  background: var(--sc-inv-bg);
+}
+
+/* ---------- the brief is one editable line (5.4) ----------
+   Single contenteditable root: native select-all, copy, cut and paste work
+   across prose and chips. Long briefs scroll inside the card instead of
+   pushing the controls off screen. */
+.sc-brief {
+  max-height: 30vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sc-brief-line {
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: 24px;
+  cursor: text;
+}
+/* Placeholder is driven by data-empty from syncEmpty(), not :empty — Chromium
+   inserts a <br> on focus/clear which breaks :empty permanently. */
+.sc-brief-line[data-empty]::before {
+  content: attr(data-ph);
+  color: var(--sc-fg3);
+  pointer-events: none;
+  /* the line uses overflow-wrap:anywhere for real prose; mid-word breaks
+     make the placeholder look broken on a phone */
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media (max-width: 767px) {
+  .sc-brief-line[data-empty]::before {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sc-brief-line[data-empty][data-ph-sm]::before {
+    content: attr(data-ph-sm);
+  }
+}
+/* chips are atoms in the flow, so they sit on the text baseline */
+/* chips take part in selection so select all, copy and cut carry their labels;
+   only the remove button opts out */
+/* A chip is an atom. user-select:text let the caret land INSIDE the label,
+   where there is nothing to type into: clicking after a chip appeared to do
+   nothing and it took two or three arrow presses to get back out. Copy still
+   carries chips because the clipboard is written from the range, not from what
+   the browser lets you select. The wider margin gives the gap after a chip a
+   target you can actually hit. */
+.sc-brief-line .sc-token {
+  display: inline-flex;
+  vertical-align: baseline;
+  margin: 0 2px;
+  user-select: none;
+}
+.sc-brief-line .sc-token > button {
+  user-select: none;
+}
+.sc-brief-line ::selection {
+  background: color-mix(in srgb, var(--sc-fg) 26%, transparent);
+}
+.sc-brief-line .sc-token::selection {
+  background: color-mix(in srgb, var(--sc-fg) 26%, transparent);
+}
+

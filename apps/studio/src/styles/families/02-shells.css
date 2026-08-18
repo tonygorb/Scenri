@@ -1,0 +1,72 @@
+/* ---------- shells ---------- */
+/* The bar is a grid row above the screen, not a child of it. dvh rather than
+   100%: the Radix Themes wrapper between #root and here is auto-height, so a
+   percentage would resolve against nothing and collapse the shell. minmax(0,1fr)
+   rather than 1fr: a bare 1fr has min-height auto, which lets a long canvas push
+   the row open and start the window scrolling. */
+.sc-shell {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: var(--sc-topbar-h) minmax(0, 1fr) var(--sc-tabbar-h);
+  overflow: hidden;
+  background: var(--sc-bg);
+}
+.sc-home {
+  height: 100%;
+  overflow-x: hidden; /* never page-pan sideways — carousels own their own x-scroll */
+  overflow-y: auto;
+  background: var(--sc-bg);
+}
+
+@media (max-width: 767px) {
+  .sc-desktop-only {
+    display: none !important;
+  }
+}
+@media (min-width: 768px) {
+  .sc-mobile-only {
+    display: none !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+  .sc-assets {
+    transition: none;
+  }
+  .sc-agroup {
+    transition: none;
+  }
+  .sc-agroup-body,
+  .sc-agroup-content,
+  .sc-agroup-caret,
+  .sc-acard-tick,
+  .sc-aswatch-x,
+  .sc-amore-tile {
+    transition: none;
+  }
+}
+
+/* Reachable only by keyboard, and only until it is used. */
+.sc-skip {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 1;
+  padding: 8px 14px;
+  border-radius: var(--sc-radius);
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 16px));
+  transition: transform 120ms ease;
+}
+.sc-skip:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+

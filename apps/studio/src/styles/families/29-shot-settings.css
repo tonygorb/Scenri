@@ -1,0 +1,491 @@
+/* ---------- shot settings sheet --------------------------------------------
+   The phone's home for aspect, variants and quality. It takes the z-order the
+   nav sheet reserved (scrim 91, panel 92), so it clears the detail overlay at
+   80 and the docks at 60. Rows are 48px and state their value, rather than
+   hiding it inside a 30px pill. */
+.sc-shotsheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sc-z-sheet-scrim);
+  background: rgba(0, 0, 0, 0.42);
+}
+.sc-shotsheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: var(--sc-z-sheet);
+  max-height: 80dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* the page's edge, not one of its own: the sheet covers the screen it opens
+     over, so its rows should line up with what is behind them */
+  padding: 0 var(--sc-gutter)
+    max(var(--sc-space-7), env(safe-area-inset-bottom));
+  background: var(--sc-panel);
+  border-top: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
+  box-shadow: var(--sc-shadow-3);
+  /* the spring back when a drag does not go far enough to dismiss */
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* Said to a screen reader, shown to nobody. */
+.sc-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The bar is the handle, and the handle is real: this whole strip takes the
+   drag. touch-action none, or the browser scrolls the page instead.
+   The generous strip is the point: a bar pinned to the top edge reads as trim
+   on the panel, and the first row underneath has nothing to breathe against. */
+.sc-shotsheet-grip {
+  display: grid;
+  justify-items: center;
+  /* 16 above the bar so it sits in the top radius as a handle, not trim;
+     20 below so the title has a full step of air before the first line. */
+  padding: var(--sc-space-6) 0 var(--sc-space-7);
+  touch-action: none;
+  cursor: grab;
+}
+.sc-shotsheet-grip:active {
+  cursor: grabbing;
+}
+.sc-shotsheet-bar {
+  width: 40px;
+  height: 4px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-line-strong);
+  transition: background 120ms ease;
+}
+.sc-shotsheet-grip:active .sc-shotsheet-bar {
+  background: var(--sc-fg3);
+}
+.sc-shotsheet-scrim[data-state="open"] {
+  animation: sc-fade-in 160ms ease-out both;
+}
+.sc-shotsheet-scrim[data-state="closed"] {
+  animation: sc-fade-out 140ms ease-in forwards;
+}
+.sc-shotsheet[data-state="open"] {
+  animation: sc-sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.sc-shotsheet[data-state="closed"] {
+  animation: sc-sheet-down 160ms ease-in forwards;
+}
+@keyframes sc-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes sc-sheet-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes sc-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sc-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-shotsheet,
+  .sc-shotsheet-scrim {
+    animation: none !important;
+  }
+}
+
+/* A thumb, whichever shell it lands on: the tablet gets the anchored panel and
+   is still a touch screen. The cards are already ~96px; these are the two
+   controls that were sized for a mouse. */
+@media (pointer: coarse) {
+  .sc-swap,
+  .sc-swapsheet {
+    --swap-control: var(--sc-tap);
+  }
+  /* The row is inert, so this is the only thing on it a thumb can hit. */
+  .sc-swap-open {
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
+
+/* The picker on a phone is the shot-settings sheet wearing different content:
+   it carries both classes, so the drag, both animations, the reduced-motion
+   rule and the scrollbar gutter above are the ones already written.
+
+   It changes one number. `--swap-inset` becomes the page gutter, because a
+   sheet's edges are the screen's edges and its rows should line up with what
+   is behind them; every padding, gap and grid gap follows from that on its
+   own. Nothing else here is a spacing rule. */
+.sc-swapsheet {
+  --swap-inset: var(--sc-gutter);
+  --swap-face: 54px;
+  display: flex;
+  flex-direction: column;
+  max-height: 88dvh;
+  /* the body scrolls, not the sheet: the search header has to stay put */
+  overflow: hidden;
+  padding-inline: 0;
+  padding-bottom: 0;
+}
+.sc-swapsheet .sc-swap-inner {
+  min-height: 0;
+}
+/* Bigger targets for a thumb, and fewer of them across. */
+.sc-swapsheet .sc-swap-grid {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+}
+.sc-swapsheet .sc-swap-foot {
+  padding-bottom: max(var(--swap-inset), env(safe-area-inset-bottom));
+}
+.sc-swapsheet .sc-swap-remove {
+  height: var(--sc-tap);
+  flex: 1;
+  justify-content: center;
+}
+
+/* Name above, every answer under it, one hairline between each setting.
+
+   The name used to sit opposite the answers, which put three strips of three
+   different widths down the right edge and left the shape — the one setting
+   that needs room to be shapes — with whatever was left over. Stacked, the
+   three read at one rhythm, every answer is the size of every other, and each
+   one is as wide as a thumb needs on the sheet this also draws. */
+.sc-shotfield {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-5) 0;
+}
+.sc-shotfield + .sc-shotfield {
+  border-top: 1px solid var(--sc-line);
+}
+.sc-shotfield-lb {
+  flex: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sc-fg2);
+}
+.sc-seg {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--sc-well);
+}
+.sc-seg-o {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 42px;
+  height: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--sc-fg2);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+/* Leaving the set the segmented control's own click already did silently —
+   this is the visible half of the fix, the icon being the tell. */
+.sc-seg[data-leaves-set] {
+  background: color-mix(in srgb, var(--sc-well) 100%, var(--sc-fg3) 8%);
+}
+.sc-seg[data-leaves-set] .sc-seg-o {
+  color: var(--sc-fg3);
+}
+.sc-seg-o:hover {
+  color: var(--sc-fg);
+}
+/* the chosen one is lifted out of the track, the way a real switch reads. The
+   inset hairline is what keeps that edge legible in dark, where a drop shadow
+   on a dark panel says nothing. */
+.sc-seg-o[data-on] {
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+.sc-seg-o:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-shotsheet {
+    transition: none;
+  }
+}
+
+/* ---------- shot settings: one language, three questions -------------------
+
+   Aspect, variants and resolution open into the same surface as each other and
+   as More: same fill, border, radius, shadow, and same 8px off their own
+   trigger. Only the contents differ, because a shape, a count and a size are
+   not the same question, and answering all three with one dropdown is how the
+   count ended up as a four-item menu you had to open to learn what it was set
+   to.
+
+   The set option is marked with the two idioms this app already has — the
+   segmented control's lifted tile and the picker's small check disc — so a
+   chosen thing reads the same here as everywhere else. No accent bars, no
+   coloured fills, no oversized ticks. */
+.sc-setpop {
+  padding: var(--sc-space-2);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-3);
+}
+.sc-setpop-list {
+  display: grid;
+  gap: 1px;
+}
+/* The group is only a focus target, never a focus indicator: the ring belongs
+   on whichever option an arrow key lands on. Named by the two classes a group
+   ever carries, because all three shells hold one and scoping this to the
+   popover left the browser's own ring drawn around More's whole aspect row. */
+.sc-setpop-list:focus,
+.sc-seg:focus {
+  outline: none;
+}
+/* Opposite a field label the strip is a control with a track around it, and
+   the track is what separates it from the label. Alone in a popover it is the
+   whole content, so the track is a second frame inside the first — the numbers
+   sit straight on the surface instead, and the set one lifts exactly as a row
+   does two lists over. */
+.sc-setpop .sc-seg {
+  margin-left: 0;
+  padding: 0;
+  gap: 1px;
+  background: none;
+}
+.sc-setpop .sc-seg-o {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+  height: 30px;
+  border-radius: var(--sc-radius-sm);
+  font-size: var(--sc-text-body);
+}
+.sc-setpop .sc-seg-o[data-on] {
+  background: var(--sc-raised);
+}
+/* full-bleed hairline: the line is about the list above it, not about itself */
+.sc-setpop-foot {
+  margin: var(--sc-space-2) calc(var(--sc-space-2) * -1)
+    calc(var(--sc-space-2) * -1);
+  padding: var(--sc-space-3) var(--sc-space-4) var(--sc-space-4);
+  border-top: 1px solid var(--sc-line);
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-micro);
+  line-height: 1.35;
+}
+
+/* One answer in a list of answers. These lists only ever open under a fine
+   pointer — the shell that holds them is hidden at `hover: none` — so the row
+   is sized for reading and aim, not for a thumb. */
+.sc-setrow {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--sc-space-4);
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg2);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-setrow:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+/* the same lift the segmented control uses, at row scale: raised out of the
+   surface, with the inset hairline that keeps its edge legible in dark */
+.sc-setrow[data-on] {
+  background: var(--sc-sel);
+  color: var(--sc-fg);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+.sc-setrow:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: -2px;
+}
+/* a shape this engine refuses. Dimmed and inert rather than absent: the option
+   exists, and hiding it would make the list change shape per engine. */
+.sc-setrow[aria-disabled="true"] {
+  opacity: var(--sc-disabled);
+  cursor: not-allowed;
+}
+.sc-setrow[aria-disabled="true"]:hover {
+  background: none;
+  color: var(--sc-fg2);
+}
+.sc-setrow-n {
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.sc-setrow[data-on] .sc-setrow-n {
+  color: var(--sc-fg);
+}
+.sc-setrow-v {
+  margin-left: auto;
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-caption);
+  font-variant-numeric: tabular-nums;
+}
+.sc-setrow[data-on] .sc-setrow-v {
+  color: var(--sc-fg2);
+}
+/* A bare check, not the filled disc the ingredient picker uses. That disc
+   works over a photograph, where nothing quieter would survive; here it was
+   the loudest thing on a 170px dark surface, and the row underneath it is
+   already lifted. Kept in the layout when it is not the answer so the value
+   column does not shift by its width on the one row that has it. */
+.sc-setpop-tick {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--sc-fg);
+  visibility: hidden;
+}
+.sc-setrow[data-on] .sc-setpop-tick {
+  visibility: visible;
+}
+
+/* A rectangle at the true proportion, centred in a fixed column so four of
+   them stack with their names aligned. Both dimensions are inline styles,
+   because here the size *is* the information — a crop icon would have been the
+   same picture beside all four shapes.
+
+   Filled, not outlined. Four small outlined boxes down the left edge of a list
+   is the exact drawing of a column of checkboxes, and that is what the first
+   version read as; a solid swatch reads as a shape. */
+.sc-ratio-slot {
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+/* Drawn as a canvas: a hairline edge with the barest wash inside it.
+
+   A solid swatch read as a blob at this size and lost the two shapes that sit
+   closest to each other, and a bare outline in a column of four is the exact
+   drawing of a checkbox list. The edge carries the proportion, the wash says it
+   is a surface, and one treatment now works in a trigger beside two stroke
+   icons as well as it does in a list. Inset shadow rather than a border, so the
+   box stays exactly the size the ratio asked for. */
+.sc-ratio {
+  display: block;
+  border-radius: 2px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  box-shadow: inset 0 0 0 1px currentColor;
+  transition:
+    color var(--sc-dur-fast) var(--sc-ease),
+    background var(--sc-dur-fast) var(--sc-ease);
+}
+/* one step quieter than the text beside it, exactly as `.sc-var svg` is */
+.sc-var .sc-ratio,
+.sc-setrow .sc-ratio,
+.sc-seg-ratio .sc-ratio {
+  color: var(--sc-fg3);
+}
+.sc-var:hover .sc-ratio {
+  color: var(--sc-fg2);
+}
+.sc-setrow:hover .sc-ratio,
+.sc-setrow[data-on] .sc-ratio,
+.sc-seg-ratio:hover .sc-ratio,
+.sc-seg-ratio[data-on] .sc-ratio {
+  color: var(--sc-fg);
+}
+
+/* a stacked field owns its width, so the strip fills it and the answers share
+   it equally rather than hugging the right edge beside a label */
+.sc-shotfield .sc-seg {
+  margin-left: 0;
+}
+.sc-shotfield .sc-seg-o {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+.sc-seg-ratio {
+  gap: var(--sc-space-3);
+  padding: 0 var(--sc-space-4);
+  font-size: 12px;
+}
+/* what the engine will not do with this setting, on its own line under it */
+.sc-shotfield-note {
+  margin: 0;
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-caption);
+  line-height: 1.35;
+}
+
+/* A surface on its way out must not take a click. Radix keeps it mounted until
+   the exit animation ends, and for those frames it was still a full-size box
+   over the composer: the next click landed on a picker that had already gone,
+   which reads as a control that needs pressing twice. Its positioning wrapper
+   needs the same, and gets it from JS in ShotSettings — a `:has()` rule for it
+   was dropped without a word by the CSS minifier. */
+.sc-setpop[data-state="closed"],
+.sc-morepop[data-state="closed"] {
+  pointer-events: none;
+}
+
+/* arriving and leaving, at the two speeds this app already uses */
+.sc-setpop[data-state="open"] {
+  animation: sc-setpop-in var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-setpop[data-state="closed"] {
+  animation: sc-setpop-out 100ms var(--sc-ease);
+}
+@keyframes sc-setpop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes sc-setpop-out {
+  to {
+    opacity: 0;
+  }
+}
+/* nothing here is automatic: every surface opts its own motion out */
+@media (prefers-reduced-motion: reduce) {
+  .sc-setpop {
+    animation: none !important;
+  }
+  .sc-setrow,
+  .sc-ratio {
+    transition: none;
+  }
+}
+

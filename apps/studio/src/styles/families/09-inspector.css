@@ -1,0 +1,51 @@
+/* ---------- inspector ---------- */
+/* Now only the Inspector's Text/Info pair. Its one caller used to cancel the
+   background inline, so the background is gone rather than fought. */
+.sc-prop {
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  align-items: center;
+  gap: 9px 12px;
+  margin-bottom: 10px;
+}
+.sc-prop > label {
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+}
+.sc-select {
+  width: 100%;
+  padding: 7px 11px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.sc-select:hover {
+  border-color: var(--sc-line-strong);
+}
+.sc-select:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+
+.sc-skeleton {
+  animation: sc-pulse 1.4s ease-in-out infinite;
+  background: var(--sc-raised);
+}
+@keyframes sc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-skeleton {
+    animation: none;
+  }
+}
+

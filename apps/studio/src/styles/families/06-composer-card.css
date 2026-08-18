@@ -1,0 +1,103 @@
+/* ---------- floating composer card ---------- */
+.sc-composer {
+  width: min(var(--sc-prompt-w), 100%);
+}
+.sc-promptcard {
+  width: 100%;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-3);
+  /* Both properties that change on focus, on one clock. The ring used to be
+     absent from this list, so it snapped in at 0ms while the border eased over
+     120ms — two timings on one edge, which is what read as the card shaking. */
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    box-shadow var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-promptcard:hover {
+  border-color: var(--sc-line-hover);
+}
+.sc-prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 12px 14px;
+}
+.sc-prompt-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.sc-mini-sel {
+  font-size: 12.5px;
+  font-weight: 500;
+  border: none;
+  background: none;
+  color: var(--sc-fg2);
+  cursor: pointer;
+  padding: 5px 6px;
+  border-radius: var(--sc-radius-sm);
+}
+.sc-mini-sel:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  padding: 2px 4px;
+  color: var(--sc-fg2);
+}
+.sc-stepper button {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  color: var(--sc-fg2);
+  font-size: 13px;
+  line-height: 1;
+}
+.sc-stepper button:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-stepper span {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0 3px;
+  min-width: 16px;
+  text-align: center;
+}
+.sc-cta {
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  border: none;
+  border-radius: var(--sc-radius-full);
+  padding: 0 16px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.sc-cta:hover {
+  opacity: 0.88;
+}
+.sc-cta:disabled {
+  opacity: var(--sc-disabled);
+  cursor: not-allowed;
+}
+.sc-cta:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+

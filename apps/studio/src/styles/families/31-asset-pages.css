@@ -1,0 +1,836 @@
+/* ---------- 6.3 assets a brand owns ----------
+   "Your presenters" / "Your scenes" sit above the curated wall on their own
+   library pages. Same masonry, same cards: only the eyebrow and the beat
+   between the two halves say which is which, so the page reads as one library
+   with a personal top rather than two competing lists. */
+.sc-owned {
+  margin-bottom: 46px;
+}
+/* A build card carries a caption under its media, so it is taller than a
+   finished one. Without this the grid stretches every sibling to match and a
+   finished card grows an empty tail of its own background. */
+.sc-owned .sc-masonry {
+  align-items: start;
+}
+.sc-owned .sc-eyebrow {
+  margin-bottom: 18px;
+}
+/* The seam between your work and the catalog: a hairline, the system's own
+   separator, not a second eyebrow. */
+.sc-owned + .sc-owned-divider {
+  padding-top: 22px;
+  border-top: 1px solid var(--sc-line);
+}
+
+/* The catalog, introduced under the offer. Same block Products uses for its
+   own library shelf, minus the page scoping, because three pages share it now.
+   The filter row rides inside it, so it stays attached to the wall it filters
+   and keeps sticking to the top of the viewport on the way down. */
+/* The gap between the offer and the library it introduces. The hero owns the
+   air above itself, this owns the air below it, so the rhythm is set in two
+   places rather than stacked out of four.
+
+   It rides the seam rather than a wrapper around the seam and the wall. The
+   filter row sits between them now, and it is sticky: a wrapper that closed
+   above the wall would have unstuck it a few pixels into the first scroll. */
+.sc-looks[data-hero] .sc-starter-rule {
+  margin-top: 96px;
+}
+@media (max-width: 900px) {
+  .sc-looks[data-hero] .sc-starter-rule {
+    margin-top: 68px;
+  }
+}
+@media (max-width: 600px) {
+  .sc-looks[data-hero] .sc-starter-rule {
+    margin-top: 52px;
+  }
+}
+
+/* The seam itself: a centred label with a rule out to each edge. Set in the
+   label type, not the uppercase eyebrow, because this separates two halves of
+   a page rather than titling the second one. */
+.sc-starter-rule {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  color: var(--sc-fg3);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.sc-starter-rule::before,
+.sc-starter-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--sc-line);
+}
+.sc-starter-rule > span {
+  text-wrap: balance;
+  text-align: center;
+}
+
+/* Nothing above the offer but the nav, so the page does not reserve the band
+   the filter row would have used. */
+.sc-looks[data-hero] {
+  padding-top: 0;
+}
+
+/* The library CTA, hoisted into the top bar below 1280px. It is one control in
+   a row of fixed chrome, so it keeps its label on one line: folded in half a
+   two-word label reads as a broken button rather than a tight fit. */
+
+/* The cold state reads the same here as on Products: one centred offer, then
+   the catalog underneath. Only the copy changes. */
+.sc-presenters .sc-canvas-empty,
+.sc-scenes .sc-canvas-empty {
+  padding: 56px 0 32px;
+}
+.sc-presenters .sc-canvas-empty h3,
+.sc-scenes .sc-canvas-empty h3 {
+  font-size: 28px;
+  letter-spacing: -0.025em;
+  margin-bottom: 12px;
+}
+.sc-presenters .sc-canvas-empty h3 em,
+.sc-scenes .sc-canvas-empty h3 em {
+  font-size: 32px;
+}
+.sc-presenters .sc-canvas-empty p,
+.sc-scenes .sc-canvas-empty p {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.sc-presenters .sc-canvas-empty .sc-lookpage-acts,
+.sc-scenes .sc-canvas-empty .sc-lookpage-acts {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+/* A card for something still being built. It holds a real place in the wall,
+   so nothing reflows when the finished asset replaces it. */
+.sc-lookcard[data-building] .sc-lookcard-media {
+  background: var(--sc-well);
+}
+/* Its caption is the point, so it sits under the card and stays put. Every
+   other card overlays its caption on the image and reveals it on hover, which
+   for a progress card would hide the one thing it exists to say. */
+.sc-lookcard[data-build] {
+  overflow: visible;
+  background: none;
+}
+.sc-lookcard[data-build] .sc-lookcard-cap {
+  position: static;
+  opacity: 1;
+  transform: none;
+  padding: 8px 2px 0;
+  text-shadow: none;
+}
+.sc-lookcard[data-build] .sc-lookcard-cap b {
+  color: var(--sc-fg);
+}
+.sc-lookcard[data-build] .sc-lookcard-cap span {
+  color: var(--sc-fg3);
+}
+/* What the build noticed on the way: a view it could not draw, or which photo
+   would buy more consistency next time. Muted and under the caption, because
+   none of it is an error — the asset still landed. */
+.sc-buildnotes {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0 2px;
+  color: var(--sc-fg3);
+  font-size: 11px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+.sc-buildnotes li + li {
+  margin-top: 2px;
+}
+.sc-buildbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--sc-line);
+}
+.sc-buildbar > span {
+  display: block;
+  height: 100%;
+  background: var(--sc-fg);
+  transition: width 400ms ease;
+}
+
+/* ---------- 6.4 making a presenter or a scene ----------
+   A picture being named. Empty: one large well. Filled: a 4:5 grid. Name and
+   notes are captions under the material, not a labeled form stack. */
+.sc-assetform {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.sc-assetwell .sc-dropzone {
+  min-height: 132px;
+  border-radius: var(--sc-radius-lg);
+  border-color: var(--sc-line-strong);
+}
+.sc-assetform-refs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sc-space-4);
+}
+.sc-assetform-refs .sc-dropzone {
+  min-height: 0;
+  aspect-ratio: 4 / 5;
+  padding: 6px;
+  gap: 3px;
+}
+.sc-assetform-refs .sc-dropzone .sc-dropzone-label {
+  font-size: 11px;
+}
+.sc-assetform-ref {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--sc-radius-lg);
+  overflow: hidden;
+  background: var(--sc-well);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+.sc-assetform-ref img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sc-assetform-drop {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--sc-bg);
+  background: color-mix(in srgb, var(--sc-fg) 78%, transparent);
+}
+.sc-assetform-drop:hover {
+  background: var(--sc-fg);
+}
+.sc-assetform .sc-dropzone small {
+  max-width: 34ch;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* Fields use the same `.sc-in` as Settings — no second input language here. */
+.sc-assetform-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+  margin-top: var(--sc-space-6);
+}
+.sc-assetform-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  min-width: 0;
+}
+.sc-assetform-field .sc-newdlg-seclabel,
+.sc-assetform-facets legend {
+  margin-bottom: 0;
+}
+.sc-assetform .sc-in {
+  width: 100%;
+}
+.sc-assetform textarea.sc-in {
+  height: auto;
+  min-height: 68px;
+  padding: 8px 12px;
+  line-height: 1.45;
+  resize: none;
+}
+
+/* Rhythm: well, fields, filing. */
+.sc-assetform > .sc-assetform-facets {
+  margin-top: var(--sc-space-6);
+}
+
+/* Where a new asset files. Optional, so it is set quietly in chips. */
+.sc-assetform-facets {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+.sc-assetform-facets legend {
+  float: none;
+  width: auto;
+  padding: 0;
+  margin: 0 0 8px;
+  color: var(--sc-fg3);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.sc-assetform-facets-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sc-assetform-facets .sc-chip {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* The same red as .sc-dlg-err, for the edit forms on an owned asset's page.
+   One error voice whether the form is in a dialog or on a page. */
+.sc-assetform-err {
+  color: var(--sc-red);
+  font-size: 11.5px;
+  margin: 8px 0 0;
+}
+
+/* ---------- 6.5 an asset you own, on its own page ----------
+   A curated presenter or scene is read-only, so its page is a title and a
+   lede. One you built is the same page with those two turned into fields:
+   the layout does not move between them, so switching between yours and ours
+   is not a change of place. */
+/* Centred like the heading it replaces: the page is a centred column, so a
+   field that reads left while everything around it reads centre looks like a
+   different page rather than the same one in an editable state. */
+.sc-lookpage .sc-ownededit-title input {
+  font: 600 var(--sc-text-h1) / 1.15 var(--sc-font-display, var(--sc-font));
+  letter-spacing: -0.03em;
+  padding: 0;
+  height: auto;
+  text-align: center;
+}
+.sc-lookpage .sc-ownededit-lede input {
+  font-size: 14px;
+  color: var(--sc-fg2);
+  padding: 0;
+  height: auto;
+  text-align: center;
+}
+
+/* One frame is the ordinary case for a scene you built, and a lone tile in
+   the first column of a three-column grid reads as a layout that broke. */
+.sc-lookpage-refs:has(> :only-child) {
+  grid-template-columns: min(380px, 100%);
+  justify-content: center;
+}
+.sc-ownededit-title,
+.sc-ownededit-lede {
+  --text-field-focus-color: transparent;
+  box-shadow: none;
+  background: transparent;
+  margin-bottom: 6px;
+}
+.sc-ownededit-title:focus-within,
+.sc-ownededit-lede:focus-within {
+  box-shadow: inset 0 -1px 0 0 var(--sc-line-strong);
+}
+
+/* Which references actually reach an engine. Two per person, and they are
+   the first two, so a gallery that does not say which is a gallery you have
+   to guess at. */
+.sc-ownedref {
+  position: relative;
+}
+.sc-ownedref-tag {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sc-bg);
+  background: color-mix(in srgb, var(--sc-fg) 78%, transparent);
+}
+
+/* The heading in its editable state. Same type, same measure, same centring
+   as the <h1> it stands in for — a field that reads at a different size or
+   ranges left looks like a different page rather than the same one being
+   edited. Chrome arrives on focus and nowhere else. */
+.sc-lookpage-titleedit {
+  display: block;
+  width: 100%;
+  max-width: var(--sc-measure-title);
+  margin: 0 auto 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sc-fg);
+  font: 600 var(--sc-text-h1) / 1.14 var(--sc-font);
+  letter-spacing: -0.035em;
+  text-align: center;
+  text-wrap: balance;
+  resize: none;
+  overflow: hidden;
+  box-shadow: inset 0 -1px 0 0 transparent;
+  transition: box-shadow var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-lookpage-titleedit:focus {
+  box-shadow: inset 0 -1px 0 0 var(--sc-line-strong);
+}
+@media (max-width: 900px) {
+  .sc-lookpage-titleedit {
+    max-width: none;
+    margin-bottom: var(--sc-space-6);
+  }
+}
+
+/* ---------- 6.7 a product's reference set ----------
+   A scene's references are a mood and belong in a grid you scan. A product's
+   are the same object from different sides, and those are read by swapping:
+   one frame big enough to inspect the label and the seams, the rest as a rail
+   beneath it. The set adapts to what exists — one reference is a frame and an
+   add button, never a grid with holes in it. */
+.sc-refstage {
+  --sc-refstage-h: clamp(320px, 52vh, 560px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sc-refstage-h);
+  margin: 0 auto var(--sc-space-5);
+}
+/* The frame is the size of the photograph, not a box the photograph sits
+   inside. A packshot on white would otherwise be a white slab with dark bars
+   either side of it, and a transparent PNG would get a hard rectangle it
+   never had. Fixed height, free width: the product keeps its own proportions
+   and the page still never moves when the image lands. */
+.sc-refstage-frame {
+  position: relative;
+  max-width: 100%;
+  border-radius: var(--sc-radius-lg);
+  overflow: hidden;
+  background: var(--sc-raised);
+}
+.sc-refstage-frame img {
+  max-height: var(--sc-refstage-h);
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+}
+.sc-refstage-blank {
+  width: min(360px, 100%);
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+}
+/* A tag only for the exception. That the first three are the ones sent is
+   said once, in the note; flagging each of them as well is the same sentence
+   four times. What cannot be seen is that the frame in front of you is not
+   one of them, so that is the only thing tagged.
+   Scrim colours, not the presenter tag's: this one has to stay readable on a
+   packshot shot against white. */
+.sc-refstage .sc-ownedref-tag {
+  left: 12px;
+  bottom: 12px;
+  color: var(--sc-scrim-fg);
+  background: var(--sc-scrim);
+  line-height: 1.7;
+}
+
+.sc-refrail-shell {
+  --sc-ref-thumb: 88px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--sc-space-5);
+  /* The gap that separates the control from the things that talk about it.
+     Frame and rail are one object and sit close; everything below is commentary
+     and needs the break, or all four rows read as one undifferentiated list. */
+  margin: 0 auto var(--sc-space-8);
+}
+.sc-refrail-track {
+  position: relative;
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.sc-refrail-shell:has(.sc-refrail-add) .sc-refrail-track {
+  /* Leave a slot for the pinned add tile so it never scrolls away. */
+  max-width: calc(100% - var(--sc-ref-thumb));
+}
+.sc-refrail-shell[data-overflow-right] {
+  /* The fade, not a gap, is what separates the last thumb from the add. */
+  gap: 0;
+}
+.sc-refrail {
+  display: flex;
+  /* One row that pages, at every width. A store product can carry twenty-odd
+     images, and wrapping those into three rows of thumbnails walls off the
+     frame they belong to. `safe` centres a set that fits and falls back to the
+     start edge when it does not, so a long set never puts its first thumb out
+     of reach. Overflow is hidden on a pointer: a mouse must not pan this row.
+     Touch restores swipe below. */
+  flex-wrap: nowrap;
+  justify-content: safe center;
+  overflow-x: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  gap: var(--sc-space-5);
+  max-width: 100%;
+  padding: 2px;
+}
+.sc-refrail::-webkit-scrollbar {
+  display: none;
+}
+.sc-refrail-item {
+  scroll-snap-align: start;
+}
+.sc-refrail-item {
+  position: relative;
+  flex: none;
+  width: var(--sc-ref-thumb);
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius);
+  background: var(--sc-raised);
+  overflow: hidden;
+  cursor: pointer;
+}
+.sc-refrail-item img {
+  width: 100%;
+  height: 100%;
+  /* cover, unlike the stage above. A thumbnail is an index — it says which
+     picture, not what shape the object is — and a 4:5 photograph fitted into
+     a square leaves two grey bars that read as a broken tile. The stage is
+     where the proportions have to be honest. */
+  object-fit: cover;
+  display: block;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refrail-item[data-on] {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+}
+/* Past the third, an image is on the record but never sent. Dimming says so
+   across the whole set at once, which the tag on the stage can only say one
+   frame at a time. */
+.sc-refrail-item[data-spare] img {
+  opacity: 0.5;
+}
+.sc-refrail-item[data-spare]:hover img,
+.sc-refrail-item[data-spare][data-on] img {
+  opacity: 1;
+}
+
+/* Soft fold: thumbs dissolve into the page, then into the pinned add.
+   Same language as `.sc-slider` fades — only when that side is clipped. */
+.sc-refrail-track::before,
+.sc-refrail-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 64px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.sc-refrail-track::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 12%, transparent);
+}
+.sc-refrail-track::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 22%, transparent);
+}
+.sc-refrail-shell[data-overflow-left] .sc-refrail-track::before,
+.sc-refrail-shell[data-overflow-right] .sc-refrail-track::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-refrail-track::before,
+  .sc-refrail-track::after {
+    transition: none;
+  }
+}
+
+/* On the thumb track, inset so they sit in the fade — never on the add
+   tile, never covering the selected outline. Same reveal as the look-page
+   sliders: hidden until the row is hovered or focused. */
+.sc-refrail-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-panel);
+  color: var(--sc-fg2);
+  opacity: 0;
+  transition:
+    opacity 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
+}
+.sc-refrail-shell:hover .sc-refrail-arrow,
+.sc-refrail-arrow:focus-visible {
+  opacity: 1;
+}
+.sc-refrail-arrow:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-refrail-arrow.prev {
+  left: 8px;
+  transform: translateY(-50%);
+}
+.sc-refrail-arrow.next {
+  right: 8px;
+  transform: translateY(-50%);
+}
+.sc-refrail-shell:not([data-overflow-left]) .sc-refrail-arrow.prev,
+.sc-refrail-shell:not([data-overflow-right]) .sc-refrail-arrow.next {
+  display: none;
+}
+
+/* Loading. The shape of what is coming, not a spinner in the middle of the
+   page: a title bar, the frame, and a rail, at the sizes they will really be,
+   so nothing jumps when the answer lands. */
+.sc-refskeleton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-5);
+}
+.sc-refskeleton span {
+  display: block;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+}
+.sc-refskeleton-title {
+  width: min(340px, 70%);
+  height: 34px;
+  border-radius: var(--sc-radius);
+  margin-bottom: var(--sc-space-6);
+}
+.sc-refskeleton-stage {
+  width: min(420px, 100%);
+  height: clamp(320px, 52vh, 560px);
+}
+.sc-refskeleton-rail {
+  display: flex;
+  gap: var(--sc-space-5);
+  background: none;
+}
+.sc-refskeleton-rail span {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--sc-radius);
+}
+
+.sc-refrail-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  border: 1px dashed var(--sc-line);
+  /* Opaque so the last thumb can fold under it instead of showing through. */
+  background: var(--sc-bg);
+  color: var(--sc-fg3);
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refrail-add:hover {
+  border-color: var(--sc-fg3);
+  color: var(--sc-fg);
+}
+.sc-refrail-add[data-busy] {
+  cursor: default;
+}
+.sc-refrail-add input {
+  display: none;
+}
+
+/* What can be done to the frame on show. Absent until there is more than one
+   reference, because with one there is nothing to promote and nothing that
+   can be removed without emptying the product.
+   Use first is the constructive move (a real pill); Remove is a quiet word. */
+.sc-refacts {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-5);
+  margin: 0 auto var(--sc-space-5);
+}
+.sc-refacts-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+.sc-refact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin: 0;
+  border: 1px solid transparent;
+  background: none;
+  cursor: pointer;
+  font: 500 12.5px / 1 var(--sc-font);
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refact:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-refact-lead {
+  padding: 0 14px 0 12px;
+  border-color: var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  color: var(--sc-fg);
+}
+.sc-refact-lead:hover {
+  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
+}
+.sc-refact-aside {
+  padding: 0 10px;
+  border-radius: var(--sc-radius-sm);
+  color: var(--sc-fg3);
+}
+.sc-refact-aside:hover {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+
+@media (max-width: 900px) {
+  .sc-refstage {
+    --sc-refstage-h: clamp(300px, 46vh, 460px);
+  }
+}
+@media (max-width: 640px) {
+  .sc-refstage {
+    /* the same 12 that pairs frame to rail everywhere else: the grouping has
+       to survive the breakpoint or the composition only reads on desktop */
+    margin-bottom: var(--sc-space-5);
+  }
+  /* The phone widens the shell to the gutter so a thumb can start at the
+     screen edge. The add tile stays pinned in that same padding. */
+  .sc-refrail-shell {
+    --sc-ref-thumb: 64px;
+    margin-inline: calc(var(--sc-gutter) * -1);
+    padding-inline: var(--sc-gutter);
+  }
+}
+@media (pointer: coarse) {
+  /* A finger needs 44px; a 64px thumb already has it, the controls under it do
+     not — and neither did the page's own action row, which is where "Use in a
+     shot" lives. A 34px primary was the smallest target on the page and the
+     one people came to press. Same invisible box the top bar uses, so the
+     graphic keeps its size and only the reach grows. */
+  .sc-lookpage-acts .sc-btn,
+  .sc-refacts .sc-btn,
+  .sc-refacts .sc-refact {
+    position: relative;
+  }
+  .sc-lookpage-acts .sc-btn::after,
+  .sc-refacts .sc-btn::after,
+  .sc-refacts .sc-refact::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    min-width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
+
+/* The one Playfair moment on a product look-page: the house, above the name,
+   only when the heading would have prefixed it. Same accent as greet. */
+.sc-lookpage-house {
+  margin: 0 auto 6px;
+  line-height: 1;
+}
+.sc-lookpage-house .sc-accent {
+  font-size: 22px;
+}
+
+.sc-refstage-drop {
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, 100%);
+  border: 1px dashed var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  cursor: pointer;
+  font: 500 13px var(--sc-font);
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refstage-drop:hover {
+  border-color: var(--sc-fg3);
+  color: var(--sc-fg);
+}
+.sc-refstage-drop[data-busy] {
+  cursor: default;
+}
+
+/* A store description is scraped, not written for this page: it arrives at any
+   length and sits between the name and the frame, so an uncapped one pushes
+   the product itself below the fold. Scoped to the product page; a scene's
+   lede is authored and short. */
+.sc-productpage .sc-lookpage-lede {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.sc-ownedbits {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  margin-top: 40px;
+  padding-top: 34px;
+  border-top: 1px solid var(--sc-line);
+  text-align: left;
+}
+.sc-ownedbits-note {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--sc-fg3);
+  margin: 0 0 10px;
+  max-width: 62ch;
+}
+.sc-ownedbits-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sc-fg3);
+}
+

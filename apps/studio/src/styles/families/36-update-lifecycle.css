@@ -1,0 +1,161 @@
+/* ================================================================== */
+/* Update lifecycle: the Home banner, the brand-trigger dot, the menu  */
+/* row. Gold throughout — notice, never selection (DESIGN.md).         */
+/* ================================================================== */
+
+/* Floating in the quiet corner — bottom-left, every screen. One even border,
+   one shadow step, gold only as the dot: notice by content, never by
+   container stripes (no accent border-left, ever). */
+.sc-upd-float {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 320;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(480px, calc(100vw - 36px));
+  padding: 8px 8px 8px 16px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-2);
+  font-family: var(--sc-font);
+  color: var(--sc-fg);
+  animation: sc-upd-rise var(--sc-dur-slow) ease-out both;
+}
+.sc-upd-float-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-gold);
+}
+.sc-upd-float-txt {
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-upd-float-txt b {
+  font-weight: 600;
+}
+.sc-upd-float-txt small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+  white-space: normal;
+}
+.sc-upd-float .sc-btn {
+  flex: none;
+}
+/* Declining is a link, not a button: the quietest thing on the row. Holds for
+   this version only — the next release announces itself again. */
+.sc-upd-float-later {
+  flex: none;
+  padding: 4px 6px;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  font: 500 12.5px / 1 var(--sc-font);
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-upd-float-later:hover {
+  color: var(--sc-fg);
+}
+.sc-upd-float-later:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 1px;
+}
+@keyframes sc-upd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* The phone bottom edge belongs to the tab bar; the brand-mark dot and
+   Settings → About carry the announcement there. */
+@media (max-width: 767px) {
+  .sc-upd-float {
+    display: none;
+  }
+}
+
+/* Same grammar as the bell's dot, on the brand trigger: the one place in the
+   chrome that is about this machine rather than this brand. */
+.sc-upd-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-gold);
+  box-shadow: 0 0 0 2px var(--sc-bg);
+  pointer-events: none;
+}
+
+.sc-menu-item[data-update] .sc-menu-ic {
+  color: var(--sc-gold);
+}
+
+/* break-all above is for paths (the Library rows); sentences opt back into
+   word wrapping, else "part of" splits mid-word at the row's edge. */
+.sc-set-row small[data-prose] {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* The moment between versions: the old server left on purpose, the new one is
+   not up yet. Full-bleed on purpose — every control behind it points at a
+   process that is gone. */
+.sc-upd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--sc-bg) 82%, transparent);
+  backdrop-filter: blur(6px);
+}
+.sc-upd-overlay-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 36px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  font-family: var(--sc-font);
+}
+.sc-upd-overlay-card svg {
+  color: var(--sc-gold);
+  animation: sc-upd-breathe 1.8s ease-in-out infinite;
+}
+.sc-upd-overlay-card b {
+  font: 600 13.5px / 1.4 var(--sc-font);
+}
+.sc-upd-overlay-card small {
+  font-size: 12px;
+  color: var(--sc-fg2);
+}
+@keyframes sc-upd-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+

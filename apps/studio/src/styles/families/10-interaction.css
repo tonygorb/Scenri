@@ -1,0 +1,77 @@
+/* ---------- interaction states ---------- */
+
+/* The focus ring, stated once for everything that can hold focus.
+   `:where()` carries no specificity, so any component rule still wins — this
+   is the floor, not an override. Its job is that a control nobody thought
+   about still gets a ring rather than falling back to the browser's blue,
+   and that the ring's geometry lives in two tokens instead of 53 copies. */
+:where(
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="menuitem"],
+  [role="textbox"],
+  [role="combobox"],
+  a[href],
+  summary,
+  input,
+  select,
+  textarea,
+  [tabindex]
+):focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+
+/* A dialog surface takes focus when it opens so the dialog is announced as a
+   whole and the trap has somewhere to start — not so it can wear a ring. The
+   ring belongs on controls the user aimed at; on the surface, or on the close
+   button Radix would otherwise pick, it reads as an error on arrival. Stated
+   once here for every dialog rather than per surface class, which is how two
+   of them ended up without it. The JS half is `focusSelfOnOpen` in
+   app/dialogs.ts — this rule is only correct alongside it. */
+.rt-BaseDialogContent:focus,
+.rt-BaseDialogContent:focus-visible,
+.sc-newdlg-layer:focus,
+.sc-newdlg-layer:focus-visible {
+  outline: none;
+}
+
+.sc-icon-btn,
+.sc-chip,
+.sc-btn {
+  /* Colour eases; the press does not. A press that animates *in* reads as lag,
+     so `transform` is deliberately absent from this list. */
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease),
+    opacity var(--sc-dur-fast) var(--sc-ease);
+}
+/* A whole pixel, not a half: 0.5px lands between device pixels and shimmers
+   rather than depressing. The surface step is what actually reads as tactile. */
+.sc-chip:active,
+.sc-btn:active,
+.sc-icon-btn:active {
+  transform: translateY(1px);
+}
+.sc-chip:active,
+.sc-icon-btn:active {
+  background: var(--sc-press);
+}
+.sc-btn-primary:active {
+  opacity: 0.75;
+}
+.sc-thumb:active {
+  transform: scale(0.985);
+}
+/* Which take you are looking at. This had no selected state anywhere: the
+   strip marked it with data-active and nothing in the stylesheet read it. */
+.sc-thumb[data-active="true"] {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+}
+

@@ -1,0 +1,438 @@
+/* ---------- brand kit leftovers still used elsewhere ---------- */
+
+.sc-kit-logo {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: 16px;
+  padding: 10px;
+  background: var(--sc-panel);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.sc-kit-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.sc-kit-sec {
+  margin-bottom: 28px;
+}
+
+/* ---------- colour picker (react-colorful in our own popover) ---------- */
+/*
+ * The library ships its own class names and injects its own stylesheet; these
+ * rules re-dress it rather than fight it, so nothing here depends on internals
+ * beyond the two public hooks it documents (`.react-colorful__*`).
+ */
+.sc-cp {
+  padding: 10px;
+  /* Above the settings dialog it is usually opened from — see the z-index
+     ladder at the top of this file (dialog 95, toasts 100). */
+  z-index: 96;
+}
+.sc-cp .react-colorful {
+  width: 100%;
+  height: 168px;
+  gap: 8px;
+}
+.sc-cp .react-colorful__saturation {
+  border-radius: var(--sc-radius);
+  border-bottom: none;
+}
+.sc-cp .react-colorful__hue {
+  height: 12px;
+  border-radius: var(--sc-radius-full);
+}
+.sc-cp .react-colorful__pointer {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+.sc-cp-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.sc-cp-preview {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--sc-radius-sm);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+}
+.sc-cp-hex {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  font-family: var(--sc-font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--sc-fg);
+  background: var(--sc-well);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+}
+.sc-cp-hex:focus {
+  border-color: var(--sc-focus);
+}
+.sc-cp-hex:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: 1px;
+}
+.sc-cp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-cp-presets button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+}
+.sc-cp-presets button[data-on] {
+  box-shadow:
+    0 0 0 2px var(--sc-bg),
+    0 0 0 3px var(--sc-sel-line);
+}
+/* Default trigger for callers that do not supply their own. */
+.sc-cp-trigger {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-sm);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+  cursor: pointer;
+}
+.sc-swatch-custom {
+  position: relative;
+}
+
+/* ---------- brand kit pane (inside Settings) ---------- */
+/*
+ * Built from this dialog's own grammar: Group -> .sc-set-card -> rows. Nothing
+ * here invents a second visual language, and nothing piggy-backs on
+ * `.sc-set-row` — that rule is `display:flex` and lives thousands of lines
+ * further down the sheet, so a block that borrowed its class had its children
+ * silently laid out side by side.
+ */
+
+/* A card section whose content is a block rather than a label/control pair. */
+.sc-set-block {
+  padding: 14px 16px;
+}
+.sc-tag[data-state="error"] {
+  color: var(--sc-red);
+}
+
+/* ---- edit in place ---- */
+.sc-edit {
+  /*
+   * Sized to its own text, not to its container. As a full-width block the
+   * hover rectangle stretched across the whole pane, so pointing at empty space
+   * far from the words lit up a bar — which is what made these fields feel like
+   * they were reacting to the wrong thing.
+   */
+  display: block;
+  width: auto;
+  max-width: 100%;
+  min-width: 6ch;
+  field-sizing: content;
+  margin: -2px -6px;
+  padding: 2px 6px;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--sc-radius-sm);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+@supports not (field-sizing: content) {
+  .sc-edit {
+    width: 100%;
+  }
+}
+.sc-edit::placeholder {
+  color: var(--sc-fg2);
+  opacity: 1;
+}
+/* One tint for every field. Mixing against `currentColor` gave the name a white
+   wash and the tagline a grey one — the same gesture reading as two controls. */
+.sc-edit:hover {
+  background: var(--sc-hover);
+}
+.sc-edit:focus {
+  background: var(--sc-well);
+  border-color: var(--sc-focus);
+}
+.sc-edit:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: 1px;
+}
+/* Matches `.sc-set-row b` — this is a settings row, not a hero. */
+.sc-edit[data-variant="name"] {
+  font: 600 13px var(--sc-font);
+}
+/* Matches `.sc-set-row small`. */
+.sc-edit[data-variant="lede"] {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sc-fg2);
+}
+textarea.sc-edit {
+  resize: none;
+  overflow: hidden;
+  min-height: 1.4em;
+}
+/* Two lines is a tagline; more is a paragraph that belongs in Direction. */
+textarea.sc-edit[data-variant="lede"] {
+  max-height: 2.9em;
+}
+
+/* ---- identity ---- */
+.sc-ident {
+  transition: box-shadow 120ms ease;
+}
+.sc-ident[data-drag-over],
+.sc-set-card:has(.sc-ident[data-drag-over]) {
+  box-shadow: inset 0 0 0 2px var(--sc-focus);
+}
+.sc-ident > .sc-set-row > .sc-in {
+  flex: 1;
+  min-width: 0;
+  max-width: 22rem;
+}
+.sc-ident .sc-set-controls .sc-well {
+  flex: none;
+}
+.sc-ident .sc-set-controls .sc-in {
+  flex: 1 1 8rem;
+  max-width: 11rem;
+}
+.sc-ident .sc-set-controls button:not(.sc-btn) {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  color: var(--sc-fg2);
+  background: none;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  cursor: pointer;
+}
+.sc-ident .sc-set-controls button:not(.sc-btn):hover {
+  color: var(--sc-red);
+  border-color: var(--sc-red);
+}
+.sc-well {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  padding: 8px;
+  overflow: hidden;
+  /* A mark is usually transparent art, so the well states what it sits on —
+     a dark wordmark on a dark panel is an empty box. */
+  background: #ffffff;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+}
+.sc-well[data-bg="dark"] {
+  background: #111111;
+}
+.sc-well[data-empty] {
+  color: var(--sc-fg2);
+  background: var(--sc-raised);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+.sc-well[data-empty]:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+.sc-well img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* ---- palette ---- */
+.sc-pal {
+  display: grid;
+  gap: 2px;
+}
+.sc-pal-empty {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--sc-fg2);
+}
+.sc-pal-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 7.2rem 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+/* Grounds and surfaces, below the colours a shot is told to favour. */
+.sc-pal-group {
+  margin: 12px 0 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sc-fg2);
+}
+.sc-pal-chip {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+  cursor: pointer;
+}
+.sc-pal-chip:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-pal-name {
+  min-width: 0;
+  font: 500 13px var(--sc-font);
+  color: var(--sc-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-pal-hex {
+  min-width: 0;
+  width: 100%;
+  font-family: var(--sc-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+/*
+ * Always visible, never behind a hover or a menu. Hiding it tidied the row and
+ * made removing a colour an affordance you had to discover — tidy is not worth
+ * unreachable.
+ */
+.sc-pal-act {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--sc-fg2);
+  background: none;
+  border: 0;
+  border-radius: var(--sc-radius);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
+.sc-pal-act:hover:not(:disabled) {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+.sc-pal-act[data-danger]:hover {
+  color: var(--sc-red);
+}
+.sc-pal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-pal-sugg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sc-fg2);
+}
+.sc-pal-sugg-chip {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+}
+
+/* ---- we never ---- */
+.sc-nv {
+  display: grid;
+  gap: 10px;
+}
+/* The rules read as prohibitions, so they carry the warning colour the rest of
+   the app already uses for one. */
+.sc-nv .sc-chips-item {
+  background: color-mix(in srgb, var(--sc-red) 14%, transparent);
+}
+.sc-set .sc-chips {
+  margin: 0;
+  min-height: 34px;
+  padding: 4px 8px;
+  gap: 6px;
+  background: var(--sc-panel);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+}
+.sc-set .sc-chips:hover {
+  background: var(--sc-panel);
+}
+.sc-set .sc-chips:focus-within {
+  background: var(--sc-panel);
+  border-color: var(--sc-focus);
+}
+.sc-set .sc-chips-in {
+  height: 24px;
+  font: 13px var(--sc-font);
+}
+.sc-set .sc-chips-in::placeholder {
+  color: var(--sc-fg2);
+}
+/* Offers, not drafts: the same solid chip as everywhere else. A dashed border
+   made them look unfinished; a plus made a ban look like an add. */
+.sc-chips-sugg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sc-chips-sugg .sc-chip {
+  color: var(--sc-fg2);
+}
+.sc-chips-sugg .sc-chip:hover {
+  color: var(--sc-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-edit,
+  .sc-ident,
+  .sc-well[data-empty],
+  .sc-pal-name,
+  .sc-pal-hex {
+    transition: none;
+  }
+}
+

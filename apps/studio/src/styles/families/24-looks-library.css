@@ -1,0 +1,514 @@
+/* ================================================================
+   Looks library and one look — implements docs/design/mockups/v6/
+   looks.html and look.html. Nothing is written on a picture; the
+   name, the light and the action all wait for hover.
+   ================================================================ */
+
+.sc-looks {
+  max-width: none;
+  padding: 16px 24px 96px;
+}
+
+/* Category rail — underlined text tabs (Home + library FacetFilter).
+   Shell owns sticky chrome + edge fades (pinned). Inner .sc-verticals pans.
+   Do NOT use touch-action:pan-x — it traps vertical page scroll when a finger
+   starts on the rail. */
+.sc-verticals-shell {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-bottom: 24px;
+  background: var(--sc-bg);
+}
+.sc-verticals {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  /* 16, not 24: eleven category labels already total more than the rail is
+     wide, so every extra pixel of gap buys nothing but a shorter run before
+     the clip. The phone rule below used to drop to 16 on its own — one value
+     now, at every width. */
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* 1px bottom padding keeps the 1.5px ink inside the overflow clip box. */
+  padding: 8px 0 1px;
+}
+.sc-verticals::-webkit-scrollbar {
+  display: none;
+}
+/* Edge fades live on the shell so they stay put while tabs swipe underneath. */
+.sc-verticals-shell::before,
+.sc-verticals-shell::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* 18px, not 36: the fade is a hint that the rail keeps going, and at 36 it
+     ate a whole word before the edge — the row read as a stripe of tabs
+     followed by a band of nothing, rather than as tabs running off-screen. */
+  width: 18px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.sc-verticals-shell::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 18%, transparent);
+}
+.sc-verticals-shell::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 18%, transparent);
+}
+.sc-verticals-shell[data-overflow-left]::before,
+.sc-verticals-shell[data-overflow-right]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-verticals-shell::before,
+  .sc-verticals-shell::after {
+    transition: none;
+  }
+}
+.sc-verticals button {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  padding: 8px 0 16px;
+  white-space: nowrap;
+  font: 400 17px var(--sc-font);
+  letter-spacing: -0.022em;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.sc-verticals button:hover {
+  color: var(--sc-fg2);
+}
+.sc-verticals button[data-on] {
+  color: var(--sc-fg);
+}
+/* Sliding ink — placed on select/resize only (scrolls with the rail naturally). */
+.sc-verticals-ink {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1.5px;
+  width: var(--sc-ink-w, 0px);
+  background: var(--sc-fg);
+  pointer-events: none;
+  z-index: 1;
+  transform: translate3d(var(--sc-ink-x, 0px), 0, 0);
+}
+.sc-verticals[data-ink-ready] .sc-verticals-ink {
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sc-verticals button:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+  border-radius: var(--sc-radius-xs);
+}
+.sc-vlabel {
+  display: inline;
+}
+/* Counts follow the search now, so they change on a keystroke: a reserved
+   two digits keeps a 9 → 10 from sliding the tabs after it, and the ink with
+   them. */
+.sc-vcount {
+  display: inline-block;
+  min-width: 1.6ch;
+  margin-left: 5px;
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  opacity: 0.45;
+  transform: translateY(-0.55em);
+}
+.sc-verticals button[data-on] .sc-vcount {
+  opacity: 0.4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-verticals button,
+  .sc-verticals[data-ink-ready] .sc-verticals-ink {
+    transition: none;
+  }
+}
+
+/* One sticky row for tabs + search + density + primary action.
+   Home is the same chrome with only tabs + density. Nested .sc-verticals-shell
+   drops its own sticky so everything shares one background, one sticky plane.
+   No full-width hairline — the sliding ink is the only underline. */
+.sc-filterbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  /* The rail is already clipped on any narrow screen, so every pixel between
+     it and the search sits at the exact spot where a label got cut. One
+     spacing value for the row, same as between the tabs themselves. */
+  gap: 16px;
+  padding: 8px 0 0;
+  margin-bottom: 24px;
+  background: var(--sc-bg);
+}
+.sc-filterbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+  /* Sit with the tab labels, not the ink slot under them. */
+  padding-bottom: 8px;
+}
+.sc-filterbar-actions .sc-sec-more {
+  margin-left: 0;
+}
+/* The density toggle ships at 32px and both its neighbours are 34px, which
+   left it a pixel proud at each edge — the kind of gap you feel before you
+   can name it. */
+.sc-filterbar-actions .sc-density {
+  height: 34px;
+}
+.sc-filterbar-actions .sc-density-opt {
+  height: 28px;
+}
+.sc-filterbar .sc-verticals-shell {
+  /* `relative`, not `static`. The rail's edge fades are `position: absolute`
+     pseudo-elements on this shell, so a static shell hands them the nearest
+     positioned ancestor instead — which is `.sc-filterbar`, itself sticky.
+     The right-hand fade then pinned itself to the end of the whole toolbar
+     and painted across search, the grid toggle and the primary action at
+     z-index 3. Relative makes the rail a real column again and confines the
+     gradient to it. */
+  position: relative;
+  z-index: auto;
+  margin-bottom: 0;
+  background: none;
+  flex: 1;
+  min-width: 0;
+}
+.sc-filterbar .sc-verticals {
+  padding: 0 0 1px;
+}
+/* ≥1280: the field's "grow over the gap" trick has no gap here — the rail is
+   flex-grown, so an open field floated straight across the tabs and sat there
+   for as long as it held a query. Let it take real row space instead: the
+   rail shrinks, and its own edge fade makes the cut — which is exactly what
+   a swipeable rail is for. In flow it also stops being a floater, so no
+   shadow. */
+@media (min-width: 1280px) {
+  .sc-filterbar .sc-libsearch[data-open] {
+    width: 280px;
+  }
+  .sc-filterbar .sc-libsearch[data-open] .sc-libsearch-field {
+    box-shadow: none;
+  }
+}
+
+/* ---------- Creative Library shell (Products, Presenters, Scenes) ----------
+   One row: filter, search, action — see LibraryToolbar.tsx. No visible
+   title/description; the nav bar already names the page. */
+.sc-lib-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+  white-space: nowrap;
+}
+.sc-lib-clear {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+}
+.sc-lib-clear:hover {
+  color: var(--sc-fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* A wall with nothing on it: a search that found nothing, or a tab you went to
+   before you had filled it. It owns the whole page when it happens — the grid
+   underneath is empty by definition — so it is centred over that space rather
+   than set flush left against the rail, where one short sentence read as a
+   caption that had lost its picture.
+
+   Not every empty wall wants this. A cold brand's empty Bookmarks tab keeps
+   the catalog up instead (`Scenes.tsx`, `bookmarksBrowse`): "bookmark a scene
+   from its card" is only an instruction if there are cards on screen.
+
+   The type and the way out are the Create feed's (`.sc-feed-empty`), which has
+   answered this question for its own empty lenses since before these pages
+   existed. */
+.sc-lib-zero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Centred *in the wall's own area*, not stacked at the top of it. A short
+     block pinned under the rail with a screen of nothing beneath reads as
+     content that failed to load; the same words in the middle of that space
+     read as a wall that is empty, which is what happened. No ornament is
+     needed to say it — an icon here would be filling space rather than
+     meaning anything, and this page's whole argument is that the pictures are
+     the content. */
+  justify-content: center;
+  min-height: max(280px, 42vh);
+  gap: 14px;
+  padding: 30px 0;
+  color: var(--sc-fg2);
+  font-size: 13px;
+  text-align: center;
+  text-wrap: pretty;
+}
+/* Two ways out can apply at once — a search inside a facet — and they are
+   siblings, not a sentence. */
+.sc-lib-zero-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sc-lib-more {
+  display: flex;
+  justify-content: center;
+  margin: 34px 0 0;
+}
+
+/* ---------- Search ----------
+   One 34px target at rest, the same height and pill shape as the controls
+   beside it. These pages are for looking at pictures, and a resting input is
+   the loudest object above the grid, so the field is something you ask for.
+
+   The field is absolutely positioned over the rail rather than pushed into the
+   row, and the wrapper stays exactly 34px whether it is open or shut. That is
+   the whole trick: opening, typing, clearing and closing move nothing — not
+   the rail, not the toolbar's height, not the grid. */
+.sc-libsearch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 34px;
+}
+.sc-libsearch-toggle {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  /* Opaque, not transparent: the rail's edge fade ends right beside this and
+     read as lying across the button whenever it could show through. */
+  background: var(--sc-bg);
+  color: var(--sc-fg2);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+.sc-libsearch-toggle:hover {
+  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
+  color: var(--sc-fg);
+}
+.sc-libsearch-toggle:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+.sc-libsearch[data-open] .sc-libsearch-toggle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sc-libsearch-field {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  padding: 0 8px 0 14px;
+  border: 1px solid var(--sc-line-strong);
+  /* Keeps the pill it grew out of, so open and shut are one object, not two. */
+  border-radius: var(--sc-radius-full);
+  /* It floats above the rail, so it is one of the few things allowed a shadow. */
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-2);
+  color: var(--sc-fg3);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  /* No open/close animation: a control you reach for should already be there
+     when your eye arrives. The only thing that eases here is the clear
+     button's fade, which happens mid-edit rather than on the way in. */
+}
+.sc-libsearch[data-open] .sc-libsearch-field {
+  width: 280px;
+  opacity: 1;
+  pointer-events: auto;
+}
+.sc-libsearch:focus-within .sc-libsearch-field {
+  border-color: var(--sc-focus);
+}
+.sc-libsearch-field > svg {
+  flex: none;
+}
+.sc-libsearch-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--sc-fg);
+  font: 400 13px var(--sc-font);
+}
+.sc-libsearch-field input::placeholder {
+  color: var(--sc-fg3);
+}
+/* The native affordance duplicates .sc-libsearch-clear and can't be styled. */
+.sc-libsearch-field input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.sc-libsearch-clear {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
+}
+.sc-libsearch-clear[hidden] {
+  display: grid;
+  opacity: 0;
+  pointer-events: none;
+}
+.sc-libsearch-clear:hover {
+  background: var(--sc-chip);
+  color: var(--sc-fg);
+}
+.sc-libsearch-clear:focus-visible {
+  outline: 2px solid var(--sc-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-libsearch-toggle,
+  .sc-libsearch-clear {
+    transition: none;
+  }
+}
+
+/* ---------- Below 1280px ----------
+   The primary action is portalled into the top bar (TopBar.tsx), so the row
+   holds only the rail and search — which is the whole reason they can share
+   one line here instead of wrapping onto two. */
+@media (max-width: 1279px) {
+  .sc-filterbar {
+    flex-wrap: nowrap;
+    /* Tighter still where the rail is guaranteed to be clipped: the tabs run
+       right up to the search rather than trailing off into a void. */
+    gap: 8px;
+  }
+  .sc-filterbar .sc-verticals-shell {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sc-filterbar-actions {
+    gap: 8px;
+  }
+  /* A count, a Clear, a rail and a field do not fit a phone row. The rail's
+     "every" tab and the field's own clear button are both still one tap away,
+     so nothing here is the only way out of a filter. */
+  .sc-filterbar .sc-lib-count {
+    display: none;
+  }
+
+  /* Open, the field takes the row rather than floating over the tabs — an
+     overlay reads as a panel that landed on top of the page, and the tabs
+     underneath still looked interactive. It replaces them instead. */
+  .sc-filterbar:has(.sc-libsearch[data-open]) .sc-verticals-shell {
+    display: none;
+  }
+  .sc-filterbar:has(.sc-libsearch[data-open]) .sc-filterbar-actions {
+    flex: 1;
+    min-width: 0;
+    margin-left: 0;
+  }
+  .sc-libsearch:has(.sc-libsearch-field) {
+    min-width: 34px;
+  }
+  .sc-libsearch[data-open] {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+  .sc-libsearch[data-open] .sc-libsearch-field {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+  }
+}
+
+.sc-coll {
+  margin-bottom: 46px;
+}
+.sc-coll h2 {
+  font: 600 19px var(--sc-font);
+  letter-spacing: -0.02em;
+  margin-bottom: 14px;
+}
+/* The text index that used to sit between a collection heading and its wall
+   is gone. It listed, by name, exactly the scenes pictured directly below it:
+   the same targets twice, the worse copy first. It had already been hidden on
+   phones for that reason; it is no better on a desktop. */
+
+/* A grid, not CSS columns: columns fill top-to-bottom, so a collection with
+   two looks would leave half the row empty. Auto-fill wraps left-to-right and
+   keeps every tile the same size whatever the collection holds. */
+.sc-masonry {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--sc-tile), 1fr));
+  gap: 14px;
+}
+/* Prefer ≤N columns from --sc-wall-cols (DensityControl). Mobile rules below 761px. */
+@media (min-width: 761px) {
+  .sc-masonry[data-density] {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(
+        min(
+          100%,
+          calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))
+        ),
+        1fr
+      )
+    );
+  }
+}
