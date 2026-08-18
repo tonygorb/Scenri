@@ -278,10 +278,13 @@ test('a scene collection shows pictures, not a list of its own names', async ({ 
   // its gap are under 80.
   const card = page.locator('.sc-coll .sc-lookcard, .sc-coll [class*="lookcard"]').first();
   await expect(card).toBeVisible();
-  const lede = await page.locator('.sc-coll').first().evaluate((section) => {
-    const first = section.querySelector('.sc-lookcard, [class*="lookcard"]') as HTMLElement;
-    return first.getBoundingClientRect().top - section.getBoundingClientRect().top;
-  });
+  const lede = await page
+    .locator('.sc-coll')
+    .first()
+    .evaluate((section) => {
+      const first = section.querySelector('.sc-lookcard, [class*="lookcard"]') as HTMLElement;
+      return first.getBoundingClientRect().top - section.getBoundingClientRect().top;
+    });
   expect(lede).toBeLessThan(80);
 });
 
