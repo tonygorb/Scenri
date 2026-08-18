@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Outlet, useMatch, useNavigate, useSearchParams } from 'react-router';
-import { DropdownMenu } from '@radix-ui/themes';
-import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { Outlet, useNavigate, useSearchParams } from 'react-router';
 import {
   api,
   hasNoShots,
   nodeLabel,
-  type Brand,
-  type EngineInfo,
-  type ShowcaseEntry,
   type ShotSet,
   type TreeNode,
 } from '../api.js';
@@ -16,13 +11,10 @@ import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { showcaseBrief } from '../app/useApplyShowcase.js';
-import { P, hubPath, presenterPath, productPath, scenePath, setPath } from '../routes.js';
+import { hubPath, presenterPath, productPath, scenePath, setPath } from '../routes.js';
 import { briefTokens } from '../composer/BriefInput.js';
-import { Confirm } from '../Confirm.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { NO_ATTACHMENTS, type AttachedIds } from '../layout/railSections.js';
-import { recipeProps, type Catalogs } from '../showcaseRecipe.js';
-import { useShelf } from '../layout/useShelf.js';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
 import {
@@ -50,39 +42,17 @@ import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
-import { ShowcaseCard } from '../layout/ShowcaseCard.js';
 import { FeedToolbar } from '../layout/FeedToolbar.js';
 import { TILE_DEFAULT, nearestTileStop } from '../layout/masonry.js';
 import { useArchiveNode } from '../useArchiveNode.js';
 import { useDeleteNode } from '../useDeleteNode.js';
+import { FirstRun } from './create/FirstRun.js';
+import { LensEmpty } from './create/LensEmpty.js';
+import { PickedBar } from './create/PickedBar.js';
+export type { ShotContext } from './create/shotContext.js';
+import type { ShotContext } from './create/shotContext.js';
+import { useNodeId } from './create/useNodeId.js';
 
-/**
- * What the shot overlay needs from the canvas behind it. The overlay is a child
- * route, so this travels through the Outlet rather than through props.
- */
-export interface ShotContext {
-  nodes: TreeNode[];
-  loaded: boolean;
-  brand: Brand;
-  engines: EngineInfo[];
-  projectId: string;
-  imageIndex: number;
-  setImageIndex: (i: number) => void;
-  close: () => void;
-  select: (id: string) => void;
-  retry: (node: TreeNode) => void;
-  cancel: (node: TreeNode) => void;
-  reload: () => Promise<void>;
-  remix: (node: TreeNode) => void;
-  branch: (node: TreeNode) => void;
-  archive: (node: TreeNode) => void;
-  unarchive: (node: TreeNode) => void;
-  delete: (node: TreeNode) => void;
-  /** A shot was made from inside the overlay: keep one refine thread. */
-  refined: (nodeId: string, kind?: 'generation' | 'edit') => void;
-  /** Ids to display names, so a shot can say which ingredient moved. */
-  tokenNames: TokenNames;
-}
 
 /** The lenses that are not places. A set is a place and lives in the path. */
 
@@ -1188,233 +1158,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
  * row is here and not a second sentence: the brief accepts prose, but prose is
  * the harder opening move for someone who has never used this.
  */
-/**
- * The first screen of an empty brand.
- *
- * It offers use cases rather than scenes. A scene is one ingredient of three,
- * so picking one still leaves you to choose a product, cast someone and write
- * the direction before anything can run. A use case is a whole recipe that
- * already ran: product, presenter, scene, art direction and format together.
- * One click stages the lot in the brief below, ready to send or to edit, which
- * is the shortest honest path from an empty brand to a real image.
- *
- * The row is a plain swipeable shelf, not a marquee. This is the first screen
- * of an empty brand and the job here is to read the options and pick one: a
- * row that drifts makes labels harder to read and every card a moving target.
- * The fade on each end already says it continues. */
-function FirstRun({
-  entries,
-  catalogs,
-  stagedId,
-  onUse,
-  onOpenProduct,
-  onOpenPresenter,
-  onOpenScene,
-}: {
-  entries: ShowcaseEntry[];
-  catalogs: Catalogs;
-  stagedId: string | null;
-  onUse: (entry: ShowcaseEntry) => void;
-  onOpenProduct: (id: string) => void;
-  onOpenPresenter: (id: string) => void;
-  onOpenScene: (id: string) => void;
-}) {
-  // A different handful, in a different order, every time the page is opened:
-  // the wall is a gallery of what the tool can do, not a ranked list.
-  const shelf = useMemo(() => shuffle(entries).slice(0, 10), [entries]);
-  const { ref, page } = useShelf<HTMLDivElement>(shelf.length);
 
-  return (
-    <div className="sc-canvas-empty">
-      <h3>
-        Your first <em>shot</em>
-      </h3>
-      {/* No "start writing" button: the caret is already in the brief below.
-          A button whose only job is to focus something already focused is one
-          more thing to read on the emptiest screen in the app. */}
-      <p>Describe what you want in the brief below, or open one of these.</p>
-      {shelf.length > 0 && (
-        <div className="sc-shelf">
-          {/* A mouse has no sideways gesture. The wheel is redirected in the
-              hook; these are the visible way to say the row moves. The row
-              loops, so neither arrow is ever at an end and neither hides. */}
-          <button type="button" className="sc-shelf-arrow prev" aria-label="Previous examples" onClick={() => page(-1)}>
-            <CaretLeft size={13} weight="bold" />
-          </button>
-          <button type="button" className="sc-shelf-arrow next" aria-label="More examples" onClick={() => page(1)}>
-            <CaretRight size={13} weight="bold" />
-          </button>
-          <div className="sc-shelf-row" ref={ref}>
-            {/* Three copies: the loop lives in the middle one and steps back a
-                copy whenever it drifts out. The outer two are scenery, so they
-                stay out of the tab order and out of a screen reader's way. */}
-            {[0, 1, 2].map((copy) =>
-              shelf.map((e) => (
-                <ShowcaseCard
-                  key={`${copy}-${e.id}`}
-                  entry={e}
-                  // `grid`, not `shelf`: the shelf size pins captions open, and
-                  // ten always-on titles under ten pictures is a wall of text.
-                  // Hover reveals one, the same as Home.
-                  size="grid"
-                  hideRecipe
-                  decorative={copy !== 1}
-                  active={stagedId === e.id}
-                  onOpen={() => onUse(e)}
-                  onOpenProduct={onOpenProduct}
-                  onOpenPresenter={onOpenPresenter}
-                  onOpenScene={onOpenScene}
-                  {...recipeProps(e, catalogs)}
-                />
-              )),
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
-/** Fisher-Yates, on a copy: the caller's list is catalog order and stays that way. */
-function shuffle<T>(items: T[]): T[] {
-  const out = [...items];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
 
-/**
- * A lens is hiding work that exists. Never a bare blank: say which lens, and
- * offer the way out of it, because the alternative reads as the shots having
- * been thrown away.
- */
-function LensEmpty({
-  text,
-  onAll,
-  actionLabel = 'Show all shots',
-}: {
-  text: string;
-  onAll?: () => void;
-  actionLabel?: string;
-}) {
-  return (
-    <div className="sc-feed-empty">
-      <p>{text}</p>
-      {onAll && (
-        <button type="button" className="sc-btn" onClick={onAll}>
-          {actionLabel}
-        </button>
-      )}
-    </div>
-  );
-}
 
-/** What you can do with a handful of shots. Only ever about membership. */
-function PickedBar({
-  count,
-  sets,
-  onAdd,
-  onNew,
-  onClear,
-  onKeep,
-  allKept,
-  comparable,
-  onCompare,
-  archivedLens,
-  pickedIds,
-  onRestoreBatch,
-  onDeleteBatch,
-}: {
-  count: number;
-  sets: ShotSet[];
-  onAdd: (s: ShotSet) => void;
-  onNew: () => void;
-  onClear: () => void;
-  onKeep: () => void;
-  allKept: boolean;
-  comparable: readonly [TreeNode, TreeNode] | null;
-  onCompare: () => void;
-  /** Keep/Compare/Add-to-set are curation for active work — an archived
-   * selection only has two sensible actions, so the bar swaps entirely. */
-  archivedLens: boolean;
-  pickedIds: string[];
-  onRestoreBatch: (ids: string[]) => void;
-  onDeleteBatch: (ids: string[]) => void;
-}) {
-  return (
-    <div className="sc-picked" role="status">
-      <span className="sc-picked-n">{count} selected</span>
-      {archivedLens ? (
-        <button type="button" className="sc-btn" onClick={() => onRestoreBatch(pickedIds)}>
-          Restore
-        </button>
-      ) : (
-        <>
-          <button type="button" className="sc-btn" onClick={onKeep}>
-            {allKept ? 'Remove from keepers' : 'Keep'}
-          </button>
-          {/* shown at two, so the bar does not carry a control that spends most of
-              its life disabled and unexplained */}
-          {count === 2 && (
-            <button
-              type="button"
-              className="sc-btn"
-              // aria-disabled: keeps the button tab-reachable so its title —
-              // the only explanation for why Compare is inert — stays
-              // discoverable to keyboard/screen-reader users, not just mouse hover
-              aria-disabled={!comparable || undefined}
-              onClick={() => {
-                if (comparable) onCompare();
-              }}
-              title={comparable ? 'Show the drift between these two' : 'Both shots need to have finished'}
-            >
-              Compare
-            </button>
-          )}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <button type="button" className="sc-btn sc-btn-primary">
-                Add to set
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              {sets.map((s) => (
-                <DropdownMenu.Item key={s.id} onSelect={() => onAdd(s)}>
-                  {s.name}
-                </DropdownMenu.Item>
-              ))}
-              {sets.length > 0 && <DropdownMenu.Separator />}
-              <DropdownMenu.Item onSelect={onNew}>New set…</DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </>
-      )}
-      <button type="button" className="sc-btn" onClick={onClear}>
-        Clear
-      </button>
-      {archivedLens && (
-        <Confirm
-          label={`Delete ${count} permanently`}
-          title={`Delete ${count} shot${count === 1 ? '' : 's'} permanently?`}
-          body="This cannot be undone."
-          busy={false}
-          onConfirm={() => onDeleteBatch(pickedIds)}
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * useParams only reaches as far as the route that rendered you, so the child
- * route's shotId is invisible from here. The overlay hangs off the hub and off
- * a set alike, so both spellings have to be matched — and unconditionally,
- * because React counts hooks by position.
- */
-function useNodeId(): string | null {
-  const onHub = useMatch(P.hubShot);
-  const inSet = useMatch(P.setShot);
-  return onHub?.params.shotId ?? inSet?.params.shotId ?? null;
-}

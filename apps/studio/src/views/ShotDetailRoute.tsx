@@ -3,7 +3,7 @@ import { Spinner } from '@radix-ui/themes';
 import { useOutletContext, useParams } from 'react-router';
 import { DetailOverlay } from '../layout/DetailOverlay.js';
 import { useToasts } from '../toasts.js';
-import type { ShotContext } from './Create.js';
+import type { ShotContext } from './create/shotContext.js';
 
 /**
  * The shot overlay as a URL. Being a child route keeps the canvas mounted

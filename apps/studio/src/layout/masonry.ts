@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 export const GAP = 14;
 
 /** Below this a masonry feed has no room for a grid-size control (Create's own
- * size choice disappears at this width in tokens.css) and falls back to a
+ * size choice disappears at this width in app.css) and falls back to a
  * forced 2-column layout instead of inheriting a fixed tile width no phone
  * screen could fit. */
 export const PHONE = 768;

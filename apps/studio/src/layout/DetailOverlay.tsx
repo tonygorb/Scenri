@@ -1,6 +1,5 @@
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
   Archive,
@@ -19,21 +18,19 @@ import {
   XCircle,
 } from '@phosphor-icons/react';
 import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
-import { api, assetUrl, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
+import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
 import { Inspector } from './Inspector.js';
 import { Composer } from './Composer.js';
 import { Coin } from './Coin.js';
-import { useAppData } from '../app/AppShell.js';
-import { customScenesOf } from '../brandAssets.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
 import { briefChangeLine, sourceImageOf } from '../briefDiff.js';
-import { normalizeTint } from '../composer/line.js';
-import { presenterPath, productPath, scenePath } from '../routes.js';
 import type { TokenNames } from '../feedRules.js';
+import { Ingredients } from './detail/Ingredients.js';
+import { useLineage } from './detail/useLineage.js';
 
 /**
  * Full-screen takeover for one shot: lineage filmstrip left, stage with the
@@ -81,25 +78,7 @@ export function DetailOverlay({
   /** Ids to display names, for the line saying which ingredient moved. */
   tokenNames: TokenNames;
 }) {
-  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
-  const ancestors = useMemo(() => {
-    const out: TreeNode[] = [];
-    let cur = node.parentId ? byId.get(node.parentId) : null;
-    while (cur && cur.kind !== 'root') {
-      out.unshift(cur);
-      cur = cur.parentId ? byId.get(cur.parentId) : null;
-    }
-    return out;
-  }, [node, byId]);
-  const children = useMemo(() => nodes.filter((n) => n.parentId === node.id && n.kind !== 'root'), [nodes, node.id]);
-  const siblings = useMemo(
-    () => nodes.filter((n) => n.parentId === node.parentId && n.kind !== 'root'),
-    [nodes, node.parentId],
-  );
-  const sibIndex = siblings.findIndex((n) => n.id === node.id);
-  const root = useMemo(() => nodes.find((n) => n.kind === 'root') ?? null, [nodes]);
-  const parent = node.parentId ? byId.get(node.parentId) : null;
-  const parentShot = parent && parent.kind !== 'root' ? parent : null;
+  const { ancestors, children, siblings, sibIndex, root, parentShot } = useLineage(nodes, node);
   /** What the engine that ran this is called, so a failure can name it in a sentence. */
   const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
   const { push } = useToasts();
@@ -602,134 +581,3 @@ export function DetailOverlay({
   );
 }
 
-/**
- * What went into the shot, named. A brief already stores its tokens, so the
- * ingredients are a read of the record rather than a guess from the pixels.
- */
-function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand | null }) {
-  const { scenes, presenters, demoProducts } = useAppData();
-
-  const tokens = brief?.tokens ?? [];
-  if (!tokens.length) return null;
-  const products: any[] = (brand?.json?.products ?? []) as any[];
-  const cast: any[] = (brand?.json?.characters ?? []) as any[];
-  const ownScenes = customScenesOf(brand);
-
-  type Chip = {
-    key: string;
-    kind: string;
-    label: string;
-    thumb?: string | null;
-    swatch?: string;
-    /** Where this ingredient lives in the catalog, when it has a page at all. */
-    to?: string;
-    tint?: string;
-  };
-  const chips: Chip[] = tokens.flatMap((t: any): Chip[] => {
-    if (t?.t === 'product') {
-      const p = products.find((x) => x.id === t.id);
-      // A demo product is not in the brand's own products[] — it is resolved at
-      // generation time — so without this fallback every Scenri Library product
-      // credited itself as the bare word "product".
-      const demo = p ? null : demoProducts.find((x) => x.id === t.id);
-      return [
-        {
-          key: `p${t.id}`,
-          kind: 'product',
-          label: p?.name ?? demo?.name ?? 'product',
-          thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
-          // ProductPage resolves demo ids too, so a library product is as
-          // openable as one of the brand's own.
-          to: brand && (p || demo) ? productPath(brand, t.id) : undefined,
-        },
-      ];
-    }
-    if (t?.t === 'character') {
-      const c = cast.find((x) => x.id === t.id);
-      const pr = c ? null : presenters.find((x) => x.id === t.id);
-      // A roster entry is the brand's own copy; only the presenter it was cast
-      // from has a page. A person built here is the exception: they are a
-      // roster entry that owns their page, under their own id.
-      const pid = pr?.id ?? c?.presenterId ?? (c?.origin === 'custom' ? c.id : undefined);
-      return [
-        {
-          key: `h${t.id}`,
-          kind: 'presenter',
-          label: c?.name ?? pr?.name ?? 'someone',
-          thumb: c
-            ? (assetUrl(c?.preview) ?? assetUrl(c?.shots?.[0]?.file))
-            : (pr?.avatarUrl ?? pr?.previewUrl ?? null),
-          to: brand && pid ? presenterPath(brand, pid) : undefined,
-        },
-      ];
-    }
-    if (t?.t === 'template') {
-      // The brand's own scenes first, the same precedence the compiler uses.
-      const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
-      return [
-        {
-          key: `t${t.id}`,
-          kind: 'scene',
-          label: s?.name ?? 'a scene no longer in the catalog',
-          thumb: s?.previewUrl ?? null,
-          to: brand && s ? scenePath(brand, s.id) : undefined,
-          // The composer tints a scene chip with the scene's own preview
-          // colour; the record of that shot says it the same way.
-          tint: normalizeTint(s?.previewColor),
-        },
-      ];
-    }
-    if (t?.t === 'color') {
-      return [
-        {
-          key: `c${t.hex}`,
-          kind: 'color',
-          label: t.name ?? t.hex,
-          swatch: t.hex,
-        },
-      ];
-    }
-    return [];
-  });
-  if (!chips.length) return null;
-
-  return (
-    <div className="sc-ingredients">
-      {chips.map((c) => {
-        const body = (
-          <>
-            {c.thumb ? <img src={c.thumb} alt="" /> : c.swatch ? <i style={{ background: c.swatch }} /> : null}
-            {c.label}
-          </>
-        );
-        const style = c.tint ? ({ '--tint': c.tint } as CSSProperties) : undefined;
-        // Only the ingredients that have a catalog page become links; a colour
-        // and a deleted scene stay exactly as static as they read.
-        return c.to ? (
-          <Link
-            className="sc-ingredient"
-            key={c.key}
-            to={c.to}
-            data-kind={c.kind}
-            data-tinted={c.tint ? '' : undefined}
-            style={style}
-            title={`Open ${c.kind} ${c.label}`}
-          >
-            {body}
-          </Link>
-        ) : (
-          <span
-            className="sc-ingredient"
-            key={c.key}
-            data-kind={c.kind}
-            data-tinted={c.tint ? '' : undefined}
-            style={style}
-            title={`${c.kind}: ${c.label}`}
-          >
-            {body}
-          </span>
-        );
-      })}
-    </div>
-  );
-}

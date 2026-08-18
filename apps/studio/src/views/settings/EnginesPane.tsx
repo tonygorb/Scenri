@@ -3,7 +3,7 @@ import type { EngineInfo } from '../../api.js';
 import { useOpenSetup } from '../../app/dialogs.js';
 import { engineMeta, engineTitle, FALLBACK_ENGINE_ID } from '../../engines/active.js';
 import { EngineMark, engineTile, keyProviderFor } from '../../engines/providers.jsx';
-import { Group } from '../SettingsDialog.js';
+import { Group } from './Group.js';
 
 /**
  * The providers pane: four rows, one state word, one action each.

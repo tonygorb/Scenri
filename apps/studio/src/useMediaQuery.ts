@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 /**
- * The one phone breakpoint. Matches the 767px boundary `tokens.css` already
+ * The one phone breakpoint. Matches the 767px boundary `app.css` already
  * uses for `--sc-gutter`, the tab bar and every mobile layout rule, so a
  * component that swaps shells in JS and one that restyles in CSS never
  * disagree by a pixel.

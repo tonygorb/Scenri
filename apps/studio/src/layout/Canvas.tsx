@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertDialog, Button, ContextMenu, Flex } from '@radix-ui/themes';
 import {
   Archive,
@@ -13,8 +13,9 @@ import { hasNoShots, imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../a
 import { sourceImageOf } from '../briefDiff.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
-import { elapsedSec, runningPhrase } from '../tasks.js';
+import { elapsedSec, } from '../tasks.js';
 import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
+import { RunningTag } from './canvas/RunningTag.js';
 
 /**
  * The feed: every shot the current lens admits, as a masonry tile.
@@ -540,20 +541,5 @@ export function Canvas({
         </AlertDialog.Content>
       </AlertDialog.Root>
     </>
-  );
-}
-
-function RunningTag({ since }: { since: string }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  // new Date() read SQLite's zone-less UTC as local time, so this counter used
-  // to start at the timezone offset instead of at zero
-  return (
-    <span className="sc-cell-tag">
-      {runningPhrase(since, now)} · {elapsedSec(since, now)}s
-    </span>
   );
 }

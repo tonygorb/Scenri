@@ -16,7 +16,7 @@ import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 
-/** Matches `.sc-lookpage-refs` switching to 2 columns in tokens.css. */
+/** Matches `.sc-lookpage-refs` switching to 2 columns in app.css. */
 /** Its own breakpoint, not the app's 767px phone: this one tracks the
  *  masonry's 760px column rule, so the cap and the columns can't disagree. */
 const LOOKPAGE_PHONE = '(max-width: 760px)';

@@ -5,6 +5,7 @@ import '@fontsource-variable/inter-tight';
 import '@fontsource/playfair-display/400-italic.css';
 import '@fontsource/playfair-display/500-italic.css';
 import './styles/tokens.css';
+import './styles/app.css';
 import { RouterProvider } from 'react-router';
 import { ThemeProvider } from './theme.js';
 import { ToastProvider } from './toasts.js';

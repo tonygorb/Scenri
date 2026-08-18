@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { BookmarkSimple, CaretDown, Check, ImageSquare, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
+import { useMemo, useState, } from 'react';
+import { MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { appendColor, flattenPalette, nextHex, removeColor } from '../brand/palette.js';
@@ -20,18 +20,17 @@ import { useToasts } from '../toasts.js';
 import { ColorPicker } from './ColorPicker.js';
 import {
   NO_ATTACHMENTS,
-  RAIL_BATCH,
   RAIL_COMPACT,
-  RAIL_EXPANDED,
-  railSlice,
   type AttachedIds,
 } from './railSections.js';
+import { Group } from './assets/Group.js';
+import { Section } from './assets/Section.js';
+export type { SectionMode } from './assets/useShape.js';
+import type { SectionMode } from './assets/useShape.js';
 
 /** The last shots, offered as style references. Not a history; a shelf. */
 const RECENT_SHOTS = 12;
 
-/** Matches the content fade in tokens.css. See `useShape`. */
-const FADE_MS = 130;
 
 /**
  * The creative-ingredients palette: what are we photographing, who appears,
@@ -397,218 +396,3 @@ export function AssetsPanel({
  * cells as a brand with six, which is what keeps this column calm and why
  * there is no pagination, no sentinel and no second scroll container in it.
  */
-function Section({
-  kind,
-  title,
-  items,
-  attached,
-  mode,
-  onToggle,
-  onPick,
-  moreLabel,
-  createLabel,
-  onCreate,
-}: {
-  kind: IngredientKind;
-  title: string;
-  items: Candidate[];
-  attached: string[];
-  mode: SectionMode;
-  onToggle: (key: string) => void;
-  onPick: (id: string) => void;
-  moreLabel: string;
-  createLabel: string;
-  onCreate: () => void;
-}) {
-  const on = useMemo(() => new Set(attached), [attached]);
-  const [shown, setShown] = useState(RAIL_EXPANDED);
-  // A section you closed and reopened starts at the top again. Coming back to
-  // find four hundred tiles still unrolled from ten minutes ago is a section
-  // that remembers something nobody asked it to.
-  useEffect(() => {
-    if (mode !== 'open') setShown(RAIL_EXPANDED);
-  }, [mode]);
-
-  // A search that turned nothing up in this kind takes the whole section with
-  // it. A row of headings over five empty shelves is a worse answer than one
-  // sentence saying so.
-  if (mode === 'result' && items.length === 0) return null;
-
-  return (
-    <Group
-      name={title}
-      count={items.length}
-      mode={mode}
-      onToggle={() => onToggle(kind)}
-      action={
-        <button type="button" className="sc-aadd" title={createLabel} aria-label={createLabel} onClick={onCreate}>
-          <Plus size={10} />
-        </button>
-      }
-    >
-      {(shape) => {
-        const { visible, more } = railSlice(items, on, shape === 'open' ? shown : RAIL_COMPACT);
-        return (
-          <div className={shape === 'open' ? 'sc-acard-grid' : 'sc-arow'}>
-            {visible.map((c) => (
-              <AssetCard
-                key={c.id}
-                candidate={c}
-                on={on.has(c.id)}
-                named={shape === 'open'}
-                onClick={() => onPick(c.id)}
-              />
-            ))}
-            {shape === 'open' && more > 0 && (
-              <button
-                type="button"
-                className="sc-amore-tile"
-                onClick={() => setShown((n) => n + RAIL_BATCH)}
-                aria-label={`Show ${Math.min(more, RAIL_BATCH)} more ${moreLabel}`}
-              >
-                <span className="sc-amore-n">+{more}</span>
-                <span className="sc-amore-t">more</span>
-              </button>
-            )}
-          </div>
-        );
-      }}
-    </Group>
-  );
-}
-
-/** A tile. One click attaches it; there is nothing else it does. */
-function AssetCard({
-  candidate,
-  on,
-  named,
-  onClick,
-}: {
-  candidate: Candidate;
-  on: boolean;
-  named: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="sc-acard"
-      data-on={on || undefined}
-      aria-label={candidate.full}
-      aria-pressed={on}
-      title={candidate.full}
-      onClick={onClick}
-    >
-      <span className="sc-acard-thumb">
-        {candidate.thumb ? (
-          <img src={candidate.thumb} alt="" loading="lazy" data-crop={candidate.crop} />
-        ) : (
-          <span className="sc-aswatch" style={{ display: 'grid', placeItems: 'center' }}>
-            <ImageSquare size={14} />
-          </span>
-        )}
-        <span className="sc-acard-tick" aria-hidden>
-          <Check size={10} weight="bold" />
-        </span>
-      </span>
-      {named && (
-        <span className="sc-acard-label">
-          {candidate.bookmarked && (
-            <>
-              <BookmarkSimple className="sc-bm-mark" size={10} weight="fill" aria-hidden />
-              <span className="sc-vh">Bookmarked. </span>
-            </>
-          )}
-          {candidate.label}
-        </span>
-      )}
-    </button>
-  );
-}
-
-/**
- * The shape actually on screen, one fade behind the one asked for.
- *
- * The quick row and the named grid are different DOM — different cell count,
- * different columns, labels or none — so swapping them the instant the state
- * flips reads as a pop, worst of all while the section is also changing
- * height. The content fades out first, the shape swaps underneath while it is
- * invisible, then it fades back in. Reduced motion strips the fade in CSS, so
- * waiting one out there would hold an unexplained blank instead of hiding a
- * swap: it goes straight across.
- */
-type Shape = 'compact' | 'open';
-
-/**
- * What a section is doing while the column is in whatever state it is in.
- *
- * `idle` — nothing is open anywhere, so every section shows its quick row and
- * the whole shelf is readable at a glance. `open` — this one is being used, so
- * it takes the height. `collapsed` — a sibling is open, so this one gives its
- * row back and waits as a header. `result` — a search is live, so every
- * section shows what it found and the rail scrolls through the answers.
- *
- * That third mode is the point. Height in a 320px column is the scarce thing:
- * four other quick rows are 280px that the section you are actually working in
- * could be using, and they are not being looked at while you work in it.
- */
-export type SectionMode = 'idle' | 'open' | 'collapsed' | 'result';
-
-function useShape(want: Shape): Shape {
-  const [shown, setShown] = useState(want);
-  useEffect(() => {
-    if (want === shown) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setShown(want);
-      return;
-    }
-    const t = setTimeout(() => setShown(want), FADE_MS);
-    return () => clearTimeout(t);
-  }, [want, shown]);
-  return shown;
-}
-
-/**
- * The shared shell: a header, and a body that changes shape under it.
- *
- * The caret is invisible until the header is hovered or focused — a disclosure
- * control that is always showing is permanent noise for something you do once
- * a section. It stays visible on touch, where there is no hover to reveal it,
- * and the header itself is the button either way, so `aria-expanded` carries
- * the state whether or not the glyph is drawn.
- */
-function Group({
-  name,
-  count,
-  mode,
-  onToggle,
-  action,
-  children,
-}: {
-  name: string;
-  count?: number;
-  mode: SectionMode;
-  onToggle: () => void;
-  action?: ReactNode;
-  children: (shape: Shape) => ReactNode;
-}) {
-  const want: Shape = mode === 'open' || mode === 'result' ? 'open' : 'compact';
-  const shape = useShape(want);
-  return (
-    <div className="sc-agroup" data-mode={mode}>
-      <div className="sc-agroup-h">
-        <button type="button" className="sc-agroup-t" aria-expanded={mode === 'open'} onClick={onToggle}>
-          <b>{name}</b>
-          {count !== undefined && count > 0 && <span className="sc-agroup-n">{count}</span>}
-          <CaretDown size={11} className="sc-agroup-caret" aria-hidden="true" />
-        </button>
-        {action}
-      </div>
-      <div className="sc-agroup-body">
-        <div className="sc-agroup-content" data-fading={shape !== want || undefined}>
-          {children(shape)}
-        </div>
-      </div>
-    </div>
-  );
-}

@@ -4,7 +4,7 @@ import { ArrowClockwise } from '@phosphor-icons/react';
 import { api, brandExportUrl } from '../../api.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useToasts } from '../../toasts.js';
-import { Group } from '../SettingsDialog.js';
+import { Group } from './Group.js';
 import { BrandNever } from './BrandNever.js';
 import { BrandIdentity } from './BrandIdentity.js';
 import { BrandPalette } from './BrandPalette.js';

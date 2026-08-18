@@ -12,7 +12,7 @@ import type { ReactNode } from 'react';
  *
  * `full` is that one difference: false only while Create's assets panel holds
  * a grid column, which is the sole case where the dock is not centred on the
- * viewport (see `.sc-canvas-dock` in tokens.css).
+ * viewport (see `.sc-canvas-dock` in app.css).
  */
 export function ComposerDock({ full = true, children }: { full?: boolean; children: ReactNode }) {
   return (
