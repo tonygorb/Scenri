@@ -197,3 +197,27 @@
   display: block;
 }
 
+
+/* ---- coarse pointers: invisible 44px reach on the bar's small controls ----
+   Moved verbatim from the overlay responsive pass (C2, css-restructure): the
+   selectors are wholly topbar-scoped and their (0,2,x) specificity beats every
+   plain single-class rule regardless of position, so the move is order-safe. */
+@media (pointer: coarse) {
+  /* A finger needs 44px; the bar does not. The graphic keeps its size and the
+     reach comes from an invisible box centred on it, so nothing grows chunky. */
+  .sc-topbar .sc-icon-btn::after,
+  .sc-topbar .sc-org-btn::after,
+  .sc-topbar .sc-crumb-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: var(--sc-tap);
+    min-width: var(--sc-tap);
+  }
+  .sc-topbar .sc-crumb-btn {
+    position: relative;
+  }
+}

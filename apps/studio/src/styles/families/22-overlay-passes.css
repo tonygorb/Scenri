@@ -534,24 +534,6 @@
     height: 24px !important;
   }
 
-  /* A finger needs 44px; the bar does not. The graphic keeps its size and the
-     reach comes from an invisible box centred on it, so nothing grows chunky. */
-  .sc-topbar .sc-icon-btn::after,
-  .sc-topbar .sc-org-btn::after,
-  .sc-topbar .sc-crumb-btn::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    translate: -50% -50%;
-    width: 100%;
-    height: var(--sc-tap);
-    min-width: var(--sc-tap);
-  }
-  .sc-topbar .sc-crumb-btn {
-    position: relative;
-  }
-
   /* The same invisible box for the controls that were left out of it. The
      search toggle stands alone in a toolbar, so its reach can grow in every
      direction without touching anything. */
