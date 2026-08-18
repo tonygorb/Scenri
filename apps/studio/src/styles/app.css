@@ -2,48 +2,55 @@
  * scenri studio styles — the manifest.
  *
  * IMPORT ORDER IS THE CASCADE. Later files deliberately override earlier ones,
- * exactly as the sections of the old single-file app.css did (12,785 lines,
- * split 1:1 in the css-restructure migration — docs/migrations/css-restructure/).
- * Never reorder these imports; add new rules to the family file that owns the
- * component, or a new family file at the position its overrides require.
+ * exactly as the sections of the old single-file app.css did (split 1:1 and
+ * then cleaned in the css-restructure migration — docs/migrations/css-restructure/).
+ * This list is the only order authority: directories express OWNERSHIP, never
+ * precedence, which is why foundations/, components/, surfaces/ and overrides/
+ * interleave below. Never reorder these imports. New rules go into the file
+ * that owns the component or surface; a genuinely new family gets a new import
+ * at the position its overrides require.
+ *
+ * overrides/ holds the three order-critical chained polish passes inherited
+ * from the chronological era — edit them in place, never relocate their rules
+ * without the conflict analysis the migration ledger describes.
  *
  * tokens.css (imported before this file from main.tsx) stays separate: it is
- * the token source and its textual structure is parsed by
- * scripts/capture-mockups.mjs.
+ * the token source, its two [data-theme] blocks drive theming, and its textual
+ * structure is parsed by scripts/capture-mockups.mjs.
  */
-@import './families/01-typography.css';
-@import './families/02-shells.css';
-@import './families/03-topbar.css';
-@import './families/04-brand-menu.css';
-@import './families/05-primitives.css';
-@import './families/06-composer-card.css';
-@import './families/07-notifications.css';
-@import './families/08-tabbar.css';
-@import './families/10-interaction.css';
-@import './families/11-composer-brief.css';
-@import './families/12-ingredient-picker.css';
-@import './families/13-home.css';
-@import './families/14-feed-toolbar.css';
-@import './families/15-toasts.css';
-@import './families/16-canvas.css';
-@import './families/17-detail-overlay.css';
-@import './families/18-chips-input.css';
-@import './families/19-brand-kit.css';
-@import './families/20-brand-setup.css';
-@import './families/21-attach-panel.css';
-@import './families/22-overlay-passes.css';
-@import './families/23-polish-passes.css';
-@import './families/24-looks-library.css';
-@import './families/25-lookcard.css';
-@import './families/26-look-page.css';
-@import './families/27-settings.css';
-@import './families/28-composer-island.css';
-@import './families/29-shot-settings.css';
-@import './families/30-platform.css';
-@import './families/31-asset-pages.css';
-@import './families/32-first-run.css';
-@import './families/33-add-to-brand.css';
-@import './families/34-setup-wizard.css';
-@import './families/35-failure.css';
-@import './families/36-update-lifecycle.css';
-@import './families/37-whatsnew.css';
+@import './foundations/typography.css';
+@import './foundations/shells.css';
+@import './components/topbar.css';
+@import './components/brand-menu.css';
+@import './components/primitives.css';
+@import './components/composer-card.css';
+@import './components/notifications.css';
+@import './components/tabbar.css';
+@import './foundations/interaction.css';
+@import './components/composer-brief.css';
+@import './components/ingredient-picker.css';
+@import './surfaces/home.css';
+@import './components/feed-toolbar.css';
+@import './components/toasts.css';
+@import './components/canvas.css';
+@import './components/detail-overlay.css';
+@import './components/chips-input.css';
+@import './surfaces/brand-kit.css';
+@import './surfaces/brand-setup.css';
+@import './components/attach-panel.css';
+@import './overrides/overlay-responsive.css';
+@import './overrides/composer-polish.css';
+@import './surfaces/library.css';
+@import './components/lookcard.css';
+@import './surfaces/look-page.css';
+@import './surfaces/settings.css';
+@import './overrides/composer-island.css';
+@import './components/shot-settings.css';
+@import './foundations/platform.css';
+@import './surfaces/asset-pages.css';
+@import './surfaces/first-run.css';
+@import './surfaces/add-to-brand.css';
+@import './surfaces/setup-wizard.css';
+@import './surfaces/failure.css';
+@import './surfaces/update-lifecycle.css';
+@import './surfaces/whatsnew.css';
