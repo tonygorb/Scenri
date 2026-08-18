@@ -65,8 +65,8 @@
   width: 100%;
 }
 .sc-create-card:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-create-card[data-main] {
   background: color-mix(in srgb, var(--sc-gold) 11%, var(--sc-raised));
@@ -278,7 +278,7 @@
   opacity: 0.92;
 }
 .sc-cell:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
 .sc-cell-meta {
@@ -361,8 +361,8 @@
   transform: scale(1.12);
 }
 .sc-cell-star:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
   border-radius: 50%;
 }
 
@@ -376,7 +376,7 @@
   cursor: pointer;
 }
 .sc-cell-open:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
 

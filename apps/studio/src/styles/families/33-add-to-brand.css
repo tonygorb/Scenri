@@ -238,8 +238,8 @@
   outline: none;
 }
 .sc-pick:focus-visible .sc-pick-media {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-pick:active .sc-pick-media {
   transform: translateY(0.5px);

@@ -61,8 +61,8 @@
 .sc-lookcard-open:focus-visible,
 .sc-lookcard-use:focus-visible,
 .sc-lookcard[data-variant="select"]:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 /* The read-only bookmark on a picker row. Not a control — it is the reason
    that row is near the top, said in the caption line where a 10px glyph is
@@ -100,8 +100,8 @@
   background: rgba(0, 0, 0, 0.62);
 }
 .sc-cardpuck:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 /* Hidden until the card is hovered, so a wall of scenes stays a wall of
    pictures — except when it is on, which is the whole point of a bookmark,

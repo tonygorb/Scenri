@@ -361,8 +361,8 @@
 .sc-ap-card:focus-visible,
 .sc-mainnav button:focus-visible,
 .sc-nav button:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 
 /* Every Radix popper — dropdowns, selects, tooltips — sits above the surfaces
@@ -720,8 +720,8 @@
   cursor: not-allowed;
 }
 .sc-send:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-prompt-row .sc-attach-toggle {
   width: 30px;

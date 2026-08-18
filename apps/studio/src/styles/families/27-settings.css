@@ -51,8 +51,8 @@
   color: var(--sc-fg);
 }
 .sc-set-item:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-set-item[data-on] {
   background: var(--sc-raised);
@@ -108,8 +108,8 @@
   color: var(--sc-fg);
 }
 .sc-set-close:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-set-tabs {
   display: none;
@@ -569,8 +569,8 @@ select.sc-in {
   border-color: var(--sc-line-strong);
 }
 .sc-tp:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-tp[data-on] {
   border-color: var(--sc-sel-line);

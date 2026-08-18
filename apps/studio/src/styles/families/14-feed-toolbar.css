@@ -131,8 +131,8 @@
   outline: none;
 }
 .sc-toolbar-place:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 /* Sort is the remaining boxed menu in this row. */
 .sc-toolbar-btn {
@@ -262,7 +262,7 @@
   color: var(--sc-fg);
 }
 .sc-density-opt:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
 .sc-density-icon {
@@ -374,8 +374,8 @@
   outline: none;
 }
 .sc-crumb-input:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
   border-radius: var(--sc-radius-xs);
 }
 .sc-cell[data-running] {

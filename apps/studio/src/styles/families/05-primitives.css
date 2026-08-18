@@ -16,10 +16,7 @@
   background: var(--sc-hover);
   color: var(--sc-fg);
 }
-.sc-icon-btn:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
-}
+/* focus ring: the :where() floor in 10-interaction.css supplies it */
 .sc-icon-btn[data-on] {
   background: var(--sc-raised);
   color: var(--sc-fg);
@@ -58,10 +55,6 @@
   border-radius: var(--sc-radius-full);
   border: 1px solid transparent;
   cursor: pointer;
-}
-.sc-btn:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
 }
 .sc-btn:disabled,
 .sc-btn[aria-disabled="true"] {
@@ -135,10 +128,6 @@
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
   border-color: transparent;
-}
-.sc-chip:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
 }
 
 /* honest in-flight: gold shimmer + elapsed, never a fake percent */

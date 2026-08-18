@@ -325,8 +325,8 @@
   color: var(--sc-fg);
 }
 .sc-libsearch-toggle:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-libsearch[data-open] .sc-libsearch-toggle {
   opacity: 0;
@@ -414,8 +414,8 @@
   color: var(--sc-fg);
 }
 .sc-libsearch-clear:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -66,7 +66,7 @@
 }
 .sc-skip:focus-visible {
   transform: translateY(0);
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 

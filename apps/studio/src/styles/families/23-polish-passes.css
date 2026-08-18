@@ -258,7 +258,7 @@
   box-shadow: 0 0 0 2px var(--sc-fg) inset;
 }
 .sc-token:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
 
@@ -356,8 +356,8 @@
    see — which only mattered once a chip could be focused at all. */
 .sc-token:focus-visible {
   background: var(--sc-chip-active);
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
   box-shadow: none;
 }
 

@@ -67,7 +67,7 @@
   color: var(--sc-fg);
 }
 .sc-upd-float-later:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
 @keyframes sc-upd-rise {

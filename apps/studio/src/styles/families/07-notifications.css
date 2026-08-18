@@ -90,7 +90,7 @@
   box-shadow: var(--sc-shadow-1);
 }
 .sc-notif-tab:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
 .sc-notif-n {
@@ -109,7 +109,7 @@
   gap: 1px;
 }
 .sc-notif-scroll:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
   border-radius: var(--sc-radius-sm);
 }
@@ -131,7 +131,7 @@
   background: var(--sc-hover);
 }
 .sc-notif-row:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
 .sc-notif-row-wrap {

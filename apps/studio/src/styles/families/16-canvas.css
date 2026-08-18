@@ -161,8 +161,8 @@
    button in the shared list wear. A bespoke border-colour change was a second
    vocabulary for the same state. */
 .sc-assets-search:focus-within {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-assets-search > svg {
   color: var(--sc-fg3);
@@ -201,7 +201,7 @@
    2px ring would spill through it. Same rule as the tiles, for the same
    reason — see the note on the shared focus list. */
 .sc-assets-clear:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
 .sc-assets-zero {
@@ -387,8 +387,8 @@
   padding: 1px 6px;
 }
 .sc-agroup-t:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
   border-radius: 6px;
 }
 /* Not the rail's any more — the rail's "more" is a tile in the grid
@@ -467,7 +467,7 @@
 .sc-arow > button:focus-visible,
 .sc-arow > .sc-aswatch-tile:focus-within,
 .sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile):focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
 .sc-aswatch-tile {
@@ -558,8 +558,8 @@
   outline: none;
 }
 .sc-aswatch-x:focus-visible::before {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-arow img,
 .sc-acard-grid > button:not(.sc-acard) img {
@@ -623,7 +623,7 @@
   border-color: var(--sc-line-strong);
 }
 .sc-acard:focus-visible .sc-acard-thumb {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
 .sc-acard-thumb img {
@@ -702,7 +702,7 @@
   color: var(--sc-fg);
 }
 .sc-amore-tile:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
 .sc-amore-n {

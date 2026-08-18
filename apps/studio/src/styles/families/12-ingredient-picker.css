@@ -78,8 +78,8 @@
   font-size: var(--sc-text-control);
 }
 .sc-swap-search:focus-within {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 
 /* What is on, above the line, wherever the search happens to be. It is the
@@ -122,8 +122,8 @@
   opacity: 1;
 }
 .sc-swap-open:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
   opacity: 1;
 }
 @media (hover: none) {
@@ -236,8 +236,8 @@
   outline: none;
 }
 .sc-swap-card:focus-visible .sc-swap-thumb {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-swap-tick {
   flex: none;
@@ -265,8 +265,8 @@
   color: var(--sc-fg);
 }
 .sc-swap-more:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 .sc-swap-foot {
   flex: none;
@@ -309,8 +309,8 @@
   color: var(--sc-red);
 }
 .sc-swap-remove:focus-visible {
-  outline: 2px solid var(--sc-focus);
-  outline-offset: 2px;
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
 }
 
 /* A colour chip's menu is a list of named swatches, not the catalog grid.
@@ -340,7 +340,7 @@
   background: var(--sc-raised);
 }
 .sc-swap-swatch:focus-visible {
-  outline: 2px solid var(--sc-focus);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
 .sc-swap-dot {
