@@ -39,7 +39,9 @@ if (arg) {
   console.log(`downloading ${url}`);
   const res = await fetch(url);
   if (!res.ok) {
-    console.error(`archive answered ${res.status}. On a private repo, download first: gh release download content-latest -p scenri-content.zip, then pass the file.`);
+    console.error(
+      `archive answered ${res.status}. On a private repo, download first: gh release download content-latest -p scenri-content.zip, then pass the file.`,
+    );
     process.exit(1);
   }
   zipBytes = Buffer.from(await res.arrayBuffer());
