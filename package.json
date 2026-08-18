@@ -20,7 +20,8 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check .",
-    "ci": "biome ci ."
+    "ci": "biome ci .",
+    "test:visual": "pnpm --filter @scenri/studio exec playwright test -c playwright.visual.config.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.6",

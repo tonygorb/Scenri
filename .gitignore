@@ -47,6 +47,9 @@ coverage/
 apps/studio/test-results/
 apps/studio/playwright-report/
 .playwright-mcp/
+# visual-regression baselines: darwin-local pixels, captured per machine from
+# the pre-restructure CSS (docs/migrations/css-restructure/), never committed
+apps/studio/visual/__screenshots__/
 
 # design mockups. Tony sketches new pages and components as static HTML here
 # before building them for real. That is a personal pre-code step, so it lives
