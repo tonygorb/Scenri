@@ -12,8 +12,6 @@
     "test": "pnpm -r --no-bail test",
     "build": "pnpm --filter @scenri/studio build",
     "dev": "tsx packages/cli/src/index.ts",
-    "context": "tsx scripts/context-bundle.mjs",
-    "context:mockups": "tsx scripts/capture-mockups.mjs",
     "typecheck": "pnpm -r --no-bail typecheck",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "verify:studio": "pnpm --filter @scenri/studio typecheck && pnpm exec biome lint apps/studio/src && pnpm --filter @scenri/studio test",
