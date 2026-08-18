@@ -136,10 +136,16 @@ test.describe('adding to a brand', () => {
     await page.locator('[data-kind="scene"]').click();
     await expect(dialog(page)).toBeVisible();
 
+    // Painted is not focused: the dialog takes focus on mount, and a Tab sent
+    // in between still belongs to the trigger behind it. `.sc-newdlg-layer` is
+    // the trap itself — the element carrying role="dialog" — and the surface
+    // the sheet aims focus at, so it is the boundary to hold, not the card.
+    const trapped = () => page.evaluate(() => !!document.activeElement?.closest('.sc-newdlg-layer'));
+    await expect.poll(trapped).toBe(true);
+
     for (let i = 0; i < 25; i++) {
       await page.keyboard.press('Tab');
-      const inside = await page.evaluate(() => !!document.activeElement?.closest('.sc-newdlg'));
-      expect(inside, `Tab ${i + 1} escaped the dialog`).toBe(true);
+      expect(await trapped(), `Tab ${i + 1} escaped the dialog`).toBe(true);
     }
 
     await page.keyboard.press('Escape');

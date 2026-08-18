@@ -270,12 +270,19 @@ test('a scene collection shows pictures, not a list of its own names', async ({ 
 
   await expect(page.locator('.sc-coll-names').first()).toBeHidden();
 
-  // the first scene card is on screen without scrolling
+  // The grid follows the collection's own heading with nothing in between.
+  // Measured against the collection rather than the fold: on a cold brand the
+  // catalog sits under the 200px "Build your own scene" offer, so a viewport
+  // fraction reads that legitimate first-run copy as the bug this test exists
+  // to catch. The index it does catch was seventeen 15px links; a heading and
+  // its gap are under 80.
   const card = page.locator('.sc-coll .sc-lookcard, .sc-coll [class*="lookcard"]').first();
   await expect(card).toBeVisible();
-  const top = await card.evaluate((el) => el.getBoundingClientRect().top);
-  const vh = page.viewportSize()?.height ?? 0;
-  expect(top).toBeLessThan(vh * 0.6);
+  const lede = await page.locator('.sc-coll').first().evaluate((section) => {
+    const first = section.querySelector('.sc-lookcard, [class*="lookcard"]') as HTMLElement;
+    return first.getBoundingClientRect().top - section.getBoundingClientRect().top;
+  });
+  expect(lede).toBeLessThan(80);
 });
 
 /**

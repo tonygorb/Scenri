@@ -269,9 +269,15 @@ test.describe('a product and its references', () => {
     await page.mouse.wheel(0, 400);
     expect(await rail.evaluate((el) => el.scrollLeft)).toBe(beforeWheel);
 
-    await expect(next).toBeHidden();
+    // The arrows fade rather than unmount, so Playwright reads them as visible
+    // at rest and `toBeHidden` never holds; opacity is the state to assert.
+    // The wheel step above also left the pointer on the shell, which is what
+    // reveals them, so the mouse has to leave before resting state means
+    // anything.
+    await page.mouse.move(0, 0);
+    await expect.poll(() => next.evaluate((el) => getComputedStyle(el).opacity)).toBe('0');
     await page.locator('.sc-refrail-shell').hover();
-    await expect(next).toBeVisible();
+    await expect.poll(() => next.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
     const stride = await rail.evaluate((el) => {
       const child = el.firstElementChild as HTMLElement | null;
       if (!child) return 0;
