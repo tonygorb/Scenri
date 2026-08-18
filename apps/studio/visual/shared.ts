@@ -23,6 +23,15 @@ export async function prep(page: Page, theme: 'dark' | 'light' = 'dark'): Promis
       s = (s * 1664525 + 1013904223) % 4294967296;
       return s / 4294967296;
     };
+    // Motion is killed at load, not at screenshot time. Playwright's own
+    // `animations: 'disabled'` injects a style during capture; that recalc
+    // intermittently re-snapped this app's fractional-offset layout by 1px
+    // (page.clock-stable DOM, 100% dy=-1 pixel match — see progress.md, C2).
+    // A page that never has motion needs no capture-time surgery.
+    const style = document.createElement('style');
+    style.textContent =
+      '*, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }';
+    document.documentElement.append(style);
   }, theme);
 }
 

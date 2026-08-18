@@ -19,10 +19,11 @@ export default defineConfig({
   expect: {
     timeout: 10_000,
     toHaveScreenshot: {
-      // Finishes CSS animations and transitions before the shot; the infinite
-      // sc-shimmer loop would never settle otherwise. JS-driven time is frozen
-      // separately via page.clock in visual/shared.ts.
-      animations: 'disabled',
+      // Motion is killed at page load by an injected kill-switch style in
+      // visual/shared.ts prep() — NOT by Playwright's capture-time 'disabled'
+      // machinery, whose injection forced a style recalc that intermittently
+      // re-snapped fractional layout by 1px (progress.md, C2 incident).
+      animations: 'allow',
       // Pixel-perfect is the whole point. Any per-shot exception must be
       // documented in docs/migrations/css-restructure/surface-matrix.md.
       maxDiffPixels: 0,
