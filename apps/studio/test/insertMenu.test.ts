@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { composingEvent, emptyInsertCopy, insertLabel, menuFromInput, splitMatch } from '../src/composer/insertMenu.js';
+import {
+  composingEvent,
+  emptyInsertCopy,
+  enterSubmits,
+  insertLabel,
+  menuFromInput,
+  splitMatch,
+} from '../src/composer/insertMenu.js';
 
 describe('splitMatch', () => {
   it('marks the first query term inside the label', () => {
@@ -61,5 +68,21 @@ describe('menuFromInput', () => {
       sigil: '#',
       query: 'stu',
     });
+  });
+});
+
+describe('enterSubmits', () => {
+  it('fires the shot when nothing else wanted the key', () => {
+    expect(enterSubmits({ menuOpen: false, handled: false })).toBe(true);
+  });
+
+  it('holds while the insert menu is open', () => {
+    expect(enterSubmits({ menuOpen: true, handled: false })).toBe(false);
+  });
+
+  it('holds when the menu took the key and closed itself inside the same event', () => {
+    // The state says no menu, because accepting a row closed it. Submitting
+    // here fires the shot on the keystroke that placed the chip.
+    expect(enterSubmits({ menuOpen: false, handled: true })).toBe(false);
   });
 });

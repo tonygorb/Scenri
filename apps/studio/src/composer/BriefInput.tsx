@@ -8,7 +8,7 @@ import { flattenPalette, normalizeHex } from '../brand/palette.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
 import { ColorChipMenu } from './ColorChipMenu.js';
-import { composingEvent, INSERT_MENU_ID, menuFromInput } from './insertMenu.js';
+import { composingEvent, enterSubmits, INSERT_MENU_ID, menuFromInput } from './insertMenu.js';
 import {
   NOUN,
   buildCandidates,
@@ -616,8 +616,9 @@ export const BriefInput = forwardRef<
       return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
+      const handled = e.defaultPrevented;
       e.preventDefault();
-      if (!menu) onSubmit();
+      if (enterSubmits({ menuOpen: !!menu, handled })) onSubmit();
       return;
     }
     if (menu || picker) return;
