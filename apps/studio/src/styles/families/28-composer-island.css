@@ -2,19 +2,15 @@
    The content column was pinned at 1200px while the top bar ran at the viewport
    edge, so above 1200px the wordmark and the headline sat on different left
    edges. One gutter token now feeds both, which also revives the mobile gutter:
-   the 767px rule below is a variable redefinition, so the later unmediated
-   .sc-main padding reads it instead of overriding it. */
+   the 767px redefinition (co-located with the tabbar one in 02-shells.css) is
+   a variable redefinition, so the later unmediated .sc-main padding reads it
+   instead of overriding it. */
 .sc-main {
   max-width: none;
   padding: 26px var(--sc-gutter) 230px;
 }
 .sc-looks {
   padding: 16px var(--sc-gutter) 96px;
-}
-@media (max-width: 767px) {
-  :root {
-    --sc-gutter: 14px;
-  }
 }
 
 /* A 280px floor with no ceiling on the count packed six columns into 1800 and

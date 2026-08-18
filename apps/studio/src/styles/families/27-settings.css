@@ -376,13 +376,6 @@ select.sc-in {
   flex: none;
   padding: 0 8px;
 }
-.sc-btn-red {
-  color: var(--sc-red);
-}
-.sc-btn-red:hover {
-  border-color: var(--sc-red);
-}
-
 .sc-cap {
   display: grid;
   gap: 10px;

@@ -157,3 +157,14 @@
   }
 }
 
+
+/* ---- the destructive variant ----
+   Moved verbatim from the Settings section (C3, css-restructure): a button
+   variant belongs with the buttons. Placed after ghost so its colour keeps
+   winning the same-specificity fight it has always won by order. */
+.sc-btn-red {
+  color: var(--sc-red);
+}
+.sc-btn-red:hover {
+  border-color: var(--sc-red);
+}

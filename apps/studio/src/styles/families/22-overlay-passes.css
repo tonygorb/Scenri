@@ -205,9 +205,9 @@
    the wordmark and the context out of their desktop wrapper so each can take
    its own column without duplicating either in the markup. */
 @media (max-width: 767px) {
-  :root {
-    --sc-tabbar-h: 58px;
-  }
+  /* --sc-tabbar-h flips 0 -> 58px at this width; the redefinition lives with
+     its twin (--sc-gutter) in 02-shells.css so the two phone-shell variables
+     are one find. */
   .sc-tabbar {
     display: block;
   }
