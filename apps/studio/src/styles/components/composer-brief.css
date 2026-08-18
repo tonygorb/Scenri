@@ -194,3 +194,257 @@
   }
 }
 
+/* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+.sc-brief-line {
+  padding: 14px 14px 6px;
+}
+/* One 14px frame for the whole card: sentence, controls and edges agree. The
+   frame sits on the editable line, not on the card around it, so a click in it
+   still lands in the text. As the card's padding it was dead space that threw
+   the caret to the start of the sentence. */
+.sc-brief-line {
+  padding: 14px 14px 8px;
+}
+/* ---------- chips are buttons that reopen their own menu ---------- */
+.sc-token {
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+.sc-token:hover {
+  background: var(--sc-hover);
+}
+.sc-token[data-open] {
+  box-shadow: 0 0 0 2px var(--sc-fg) inset;
+}
+.sc-token:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: 1px;
+}
+/* A chip whose reference the chosen engine cannot carry. The tooltip already
+   said so, but a tooltip you have to hover to find is not far from silence —
+   and an identity that quietly became text is the failure this whole path
+   exists to prevent. Amber underline, not red: the generation still runs. */
+.sc-token[data-warn] {
+  box-shadow: inset 0 -2px 0 var(--sc-warn, #d99a2b);
+}
+/* a template chip wears the mood of its own preview image */
+.sc-token[data-tinted] {
+  background: color-mix(in srgb, var(--tint) 16%, var(--sc-panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tint) 34%, transparent) inset;
+  font-weight: 600;
+}
+.sc-token[data-tinted]:hover {
+  background: color-mix(in srgb, var(--tint) 26%, var(--sc-panel));
+}
+.sc-token[data-tinted][data-open] {
+  box-shadow: 0 0 0 2px var(--sc-fg) inset;
+}
+.sc-token[data-tinted] svg:first-child {
+  color: color-mix(in srgb, var(--tint) 70%, var(--sc-fg));
+}
+/* ---------- chip remove: floats over the right edge, never resizes the chip ----------
+   The X used to be display:none until hover, so every chip grew on hover and
+   the whole sentence reflowed. It now sits on top, behind a soft fade. */
+.sc-token {
+  position: relative;
+  padding-right: 10px;
+}
+.sc-token > button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 6px 0 0;
+  border: none;
+  border-radius: inherit;
+  color: var(--sc-fg2);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  background: linear-gradient(to right, transparent, var(--sc-raised) 45%);
+}
+.sc-token:hover > button,
+.sc-token:focus-within > button {
+  opacity: 1;
+}
+.sc-token > button:hover {
+  color: var(--sc-fg);
+}
+.sc-token[data-tinted] > button {
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%
+  );
+}
+.sc-token[data-tinted]:hover > button {
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%
+  );
+}
+/* ---------- chips, final pass (5.3) ----------
+   One language for every chip: same surface, thumbnail, no border, no ring.
+   The X floats over the right edge and only exists once it is visible, so
+   clicking anywhere on a chip opens its menu instead of deleting the token. */
+.sc-token {
+  background: var(--sc-chip);
+  border: none;
+  box-shadow: none;
+  font-weight: 500;
+}
+.sc-token:hover {
+  background: var(--sc-chip-hover);
+}
+.sc-token[data-open] {
+  background: var(--sc-chip-active);
+  outline: none;
+  box-shadow: none;
+}
+/* Keyboard focus is a ring, here as everywhere else. This selector used to be
+   grouped with [data-open] above and inherited its `outline: none`, so the one
+   state that has to be visible from the keyboard was the one with nothing to
+   see — which only mattered once a chip could be focused at all. */
+.sc-token:focus-visible {
+  background: var(--sc-chip-active);
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+  box-shadow: none;
+}
+/* a whisper of the template's own colour, on the same base as everything else */
+.sc-token[data-tinted] {
+  background: color-mix(in srgb, var(--tint) 14%, var(--sc-chip));
+  box-shadow: none;
+  font-weight: 500;
+}
+.sc-token[data-tinted]:hover {
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+}
+.sc-token[data-tinted][data-open],
+.sc-token[data-tinted]:focus-visible {
+  background: color-mix(in srgb, var(--tint) 20%, var(--sc-chip-active));
+  box-shadow: none;
+}
+.sc-token[data-tinted]:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+/* The fade lives on the button itself. As a ::before at z-index -1 it painted
+   behind the chip's own background, so the label showed straight through the X.
+   The hit area is the glyph, not the fade: at 30px it covered a third of the
+   chip, so aiming just inside the right edge to put the caret there deleted the
+   token instead. The gradient now runs to the LEFT of the button, outside it. */
+.sc-token > button {
+  pointer-events: none;
+  width: 18px;
+  background: var(--sc-chip-hover);
+}
+.sc-token > button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: 14px;
+  background: linear-gradient(to right, transparent, var(--sc-chip-hover));
+  pointer-events: none;
+}
+.sc-token:hover > button,
+.sc-token:focus-within > button {
+  pointer-events: auto;
+}
+.sc-token[data-tinted] > button {
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+}
+.sc-token[data-tinted] > button::before {
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover))
+  );
+}
+/* ---------- the brief is one editable line (5.4) ----------
+   Single contenteditable root: native select-all, copy, cut and paste work
+   across prose and chips. Long briefs scroll inside the card instead of
+   pushing the controls off screen. */
+.sc-brief {
+  max-height: 30vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sc-brief-line {
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: 24px;
+  cursor: text;
+}
+/* Placeholder is driven by data-empty from syncEmpty(), not :empty — Chromium
+   inserts a <br> on focus/clear which breaks :empty permanently. */
+.sc-brief-line[data-empty]::before {
+  content: attr(data-ph);
+  color: var(--sc-fg3);
+  pointer-events: none;
+  /* the line uses overflow-wrap:anywhere for real prose; mid-word breaks
+     make the placeholder look broken on a phone */
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media (max-width: 767px) {
+.sc-brief-line[data-empty]::before {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+.sc-brief-line[data-empty][data-ph-sm]::before {
+    content: attr(data-ph-sm);
+  }
+}
+/* chips are atoms in the flow, so they sit on the text baseline */
+/* chips take part in selection so select all, copy and cut carry their labels;
+   only the remove button opts out */
+/* A chip is an atom. user-select:text let the caret land INSIDE the label,
+   where there is nothing to type into: clicking after a chip appeared to do
+   nothing and it took two or three arrow presses to get back out. Copy still
+   carries chips because the clipboard is written from the range, not from what
+   the browser lets you select. The wider margin gives the gap after a chip a
+   target you can actually hit. */
+.sc-brief-line .sc-token {
+  display: inline-flex;
+  vertical-align: baseline;
+  margin: 0 2px;
+  user-select: none;
+}
+.sc-brief-line .sc-token > button {
+  user-select: none;
+}
+.sc-brief-line ::selection {
+  background: color-mix(in srgb, var(--sc-fg) 26%, transparent);
+}
+.sc-brief-line .sc-token::selection {
+  background: color-mix(in srgb, var(--sc-fg) 26%, transparent);
+}
+
+/* ---- from composer-island.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+.sc-brief-line {
+  font-size: 15px;
+  padding: 18px 20px 10px;
+  min-height: 26px;
+}
+@media (max-width: 767px) {
+.sc-brief-line {
+    font-size: 14px;
+    padding: 14px 14px 8px;
+  }
+}

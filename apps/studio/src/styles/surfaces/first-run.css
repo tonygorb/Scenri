@@ -266,3 +266,21 @@
   }
 }
 
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+@media (max-width: 767px) {
+.sc-canvas {
+    padding: 0 var(--sc-gutter) 150px;
+  }
+}
+
+/* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+@media (max-width: 767px) {
+.sc-canvas {
+    --sc-canvas-gutter: var(--sc-gutter);
+    --sc-dock-reserve: 150px;
+  }
+}

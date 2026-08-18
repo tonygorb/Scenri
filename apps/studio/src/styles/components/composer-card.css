@@ -45,3 +45,79 @@
   color: var(--sc-fg);
 }
 
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* One focus ring, everywhere.
+   The brief — the primary input of the whole product — had no focus indicator
+   at all: no outline, no shadow, and no :focus-within on the card around it,
+   so a keyboard user could not tell they had arrived. The tile controls and the
+   top nav had none either and fell back to Chrome's blue, which is a second
+   accent colour nobody chose in a monochrome interface.
+
+   The card is lit by the caret, not by any child. As :focus-within it also
+   fired for Generate and for every pill, so tabbing along the row left the
+   whole card glowing behind whichever control already had its own ring — three
+   layers of "active" at once. And the edge was 1px of border plus 2px of ink
+   ring: 3px of near-white where there had been 1px of #383838. It is now one
+   hairline at --sc-focus and a 9% halo. */
+.sc-promptcard:has(.sc-brief-line:focus) {
+  border-color: var(--sc-focus);
+  box-shadow:
+    var(--sc-shadow-3),
+    0 0 0 2px var(--sc-focus-halo);
+}
+/* what the brand kit is adding to this shot, where the prompt is written */
+.sc-inherit {
+  margin: 0 0 6px;
+}
+.sc-inherit-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 6px;
+  font-size: 11px;
+  color: var(--sc-fg3);
+  background: none;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
+.sc-inherit-head:hover {
+  color: var(--sc-fg2);
+  background: var(--sc-hover);
+}
+.sc-inherit-body {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 9px 11px;
+  background: var(--sc-well);
+  border-radius: var(--sc-radius);
+}
+.sc-inherit-body p {
+  margin: 0;
+  font-family: var(--sc-font-mono);
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--sc-fg3);
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+.sc-inherit-head {
+    transition: none;
+  }
+}
+
+/* ---- from composer-island.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* ---------- 6.0 the composer is a bigger island ----------
+   The dock owns the width, the card fills it. Every min() self-clamps, so the
+   narrow-viewport dock rules earlier in this file still land without edits. */
+.sc-composer {
+  width: 100%;
+}

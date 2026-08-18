@@ -1,0 +1,56 @@
+
+
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* option rows with a real visible check, per states.html */
+.sc-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--sc-fg);
+  font-size: 12.5px;
+}
+.sc-opt:hover {
+  border-color: var(--sc-line-strong);
+}
+/* Chosen reads as a surface here, with the checkbox as the second signal. An
+   ink border was the same weight the focus ring used to carry, so a hovered
+   option and a chosen one and a focused one all looked alike. */
+.sc-opt[data-active="true"] {
+  border-color: var(--sc-sel-line);
+  background: var(--sc-sel);
+}
+.sc-opt small {
+  display: block;
+  color: var(--sc-fg3);
+  font-size: 11px;
+}
+.sc-opt .sc-cb {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  border: 1.5px solid var(--sc-line-strong);
+  position: relative;
+}
+.sc-opt[data-active="true"] .sc-cb {
+  background: var(--sc-fg);
+  border-color: var(--sc-fg);
+}
+.sc-opt[data-active="true"] .sc-cb::after {
+  content: "";
+  position: absolute;
+  inset: 3px 4px 5px;
+  border-left: 2px solid var(--sc-bg);
+  border-bottom: 2px solid var(--sc-bg);
+  transform: rotate(-45deg);
+}

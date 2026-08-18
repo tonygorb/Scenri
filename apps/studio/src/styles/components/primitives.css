@@ -159,3 +159,13 @@
 .sc-btn-red:hover {
   border-color: var(--sc-red);
 }
+
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+@media (max-width: 767px) {
+.sc-topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+}

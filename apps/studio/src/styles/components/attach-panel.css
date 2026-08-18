@@ -164,3 +164,25 @@
   font-size: 12.5px;
 }
 
+/* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+.sc-ap-head {
+  gap: 8px;
+  padding: 10px 10px 10px 12px;
+}
+.sc-ap-body {
+  padding: 12px;
+}
+.sc-ap-group + .sc-ap-group {
+  margin-top: 4px;
+}
+
+/* ---- from composer-island.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+@media (max-width: 767px) {
+.sc-ap-grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  }
+}

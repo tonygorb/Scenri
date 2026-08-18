@@ -762,3 +762,99 @@
   }
 }
 
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* ---------- responsive pass (5.1) ---------- */
+.sc-assets-head {
+  display: none;
+}
+@media (max-width: 1279px) {
+.sc-assets-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+.sc-work[data-assets="true"] .sc-assets-backdrop {
+    display: block;
+  }
+.sc-work[data-assets="false"] .sc-assets-backdrop {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+/* The dock is anchored to the gutters now, not centred, so it needs the
+     phone's gutter rather than a width and a left edge. Left behind, the
+     `left: 50%` from the centred era pushed it half a screen to the right the
+     moment the transform went with the centring. */
+  .sc-canvas-dock,
+  .sc-canvas-dock[data-full="true"] {
+    left: var(--sc-gutter);
+    right: var(--sc-gutter);
+  }
+.sc-canvas-alert {
+    margin-top: 12px;
+  }
+}
+
+/* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* ---------- dock fade: canvas dissolves under the composer ---------- */
+.sc-dock-fade {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 260px;
+  z-index: 55;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--sc-bg) 42%, transparent) 38%,
+    color-mix(in srgb, var(--sc-bg) 86%, transparent) 68%,
+    var(--sc-bg) 92%
+  );
+}
+@media (min-width: 1280px) {
+.sc-dock-fade {
+    right: var(--sc-assets-w);
+  }
+.sc-dock-fade[data-full="true"] {
+    right: 0;
+  }
+}
+
+/* ---- from composer-island.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* The dock's width is settled once, where it is positioned. This block used to
+   restate it three more times with a different formula and won by being later,
+   which is how the composer ended up centred while the rest of the page was
+   aligned to the gutter. */
+.sc-canvas-dock {
+  max-width: var(--sc-prompt-w);
+}
+.sc-dock-fade {
+  height: 300px;
+}
+@media (max-width: 767px) {
+.sc-dock-fade {
+    bottom: var(--sc-tabbar-h);
+  }
+}
+/* The docks are fixed, and iOS shrinks only the visual viewport, so without
+   this the keyboard covers the thing you are typing into. The inset is the
+   shared one: the tab bar pads itself for the home indicator, so a dock that
+   counted only --sc-tabbar-h sat that far into it. */
+.sc-canvas-dock,
+.sc-canvas-dock[data-full="true"] {
+  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px);
+}
+.sc-dock-fade {
+  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h));
+}

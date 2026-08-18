@@ -208,3 +208,18 @@
     min-width: var(--sc-tap);
   }
 }
+
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+@media (max-width: 767px) {
+.sc-topbar-lead {
+    display: contents;
+  }
+.sc-wordmark {
+    grid-column: 1;
+  }
+.sc-topbar-end {
+    grid-column: 3;
+  }
+}

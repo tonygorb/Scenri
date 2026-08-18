@@ -489,3 +489,18 @@
   }
 }
 
+
+/* The composer's secondary settings, opened by More. The same fields the phone
+   shows in a sheet, in a surface that belongs to the composer it hangs off:
+   its own border and radius rather than the framework's default card.
+   (From the overlay pass; property-disjoint from the rules above.) */
+.sc-morepop {
+  padding: var(--sc-space-5);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-3);
+}
+.sc-morepop .sc-shotfield + .sc-shotfield {
+  margin-top: var(--sc-space-5);
+}

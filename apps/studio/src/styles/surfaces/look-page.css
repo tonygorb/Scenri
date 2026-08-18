@@ -604,3 +604,9 @@ a.sc-ingredient:focus-visible {
   outline-offset: var(--sc-ring-off);
 }
 
+/* ---- from composer-island.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+.sc-looks {
+  padding: 16px var(--sc-gutter) 96px;
+}

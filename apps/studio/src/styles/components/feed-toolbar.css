@@ -743,3 +743,68 @@ button.sc-fact:hover {
   font-size: 13px;
 }
 
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* THE focus treatment. One ring, one colour, one offset, everywhere a control
+   can take the caret — including fields, via :focus-within (`.sc-swap-search`,
+   `.sc-assets-search`).
+ *
+ * Adding a control means adding it to this list, not inventing a treatment for
+ * it. A bespoke `border-color` swap or a box-shadow halo is a second
+ * vocabulary for a state the user already knows how to read, and the two drift
+ * the moment one of them is touched.
+ *
+ * The single sanctioned variation is `outline-offset: 1px` for a control
+ * inside a tight grid or inside another control's border — the rail's asset
+ * tiles, its "more" tile, the clear button in its search pill — where 2px
+ * would collide with a neighbour or spill through the parent's edge. Nothing
+ * else varies. */
+.sc-cell-branch:focus-visible,
+.sc-cell-pick:focus-visible,
+.sc-cell-archive:focus-visible,
+.sc-cell-stack:focus-visible,
+.sc-cell-versions:focus-visible,
+.sc-toolbar-btn:focus-visible,
+.sc-aadd:focus-visible,
+.sc-amore:focus-visible,
+.sc-s:focus-visible,
+.sc-ap-card:focus-visible,
+.sc-mainnav button:focus-visible,
+.sc-nav button:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+@media (pointer: coarse) {
+/* The feed row's menus lose their labels at this width, leaving a 34px
+     control a thumb has to hit. The control keeps its size; the reach does not. */
+  .sc-toolbar-place,
+  .sc-toolbar-btn {
+    position: relative;
+  }
+.sc-toolbar-place::after,
+  .sc-toolbar-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: var(--sc-tap);
+    min-width: var(--sc-tap);
+  }
+/* On a 175px tile the word and the facts cannot both fit: "refined from"
+     truncated to "refined fro" to make room for a label. Tapping the picture
+     is what opens a shot — Refine is the shortcut — so on a phone the
+     shortcut gives up its word and keeps its target, and the row goes back to
+     saying what the picture is. */
+  .sc-cell-branch {
+    padding: 0;
+    width: 34px;
+    height: 34px;
+    justify-content: center;
+  }
+.sc-cell-branch .sc-cell-branch-lb {
+    display: none;
+  }
+}

@@ -448,3 +448,84 @@
   white-space: nowrap;
 }
 
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+@media (max-width: 767px) {
+.sc-main {
+    padding: 18px 14px 150px;
+  }
+.sc-greet {
+    font-size: 22px;
+    margin: 6px 0 16px;
+    max-width: 26ch;
+  }
+.sc-greet em {
+    font-size: 24px;
+  }
+}
+@media (max-width: 479px) {
+.sc-feed {
+    columns: 2;
+    column-gap: 8px;
+  }
+.sc-cell {
+    margin-bottom: 8px;
+  }
+}
+@media (pointer: coarse) {
+/* A tile's corner controls cannot use that trick: a 44px box centred on a
+     control 8px from the edge of a 176px tile reaches across the 8px gutter
+     and takes taps meant for the tile beside it. They grow for real instead,
+     as far as the corner allows. */
+  .sc-cell-pick {
+    width: 28px;
+    height: 28px;
+  }
+.sc-cell-archive {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* ---------- page rhythm: one vertical scale, one left edge ---------- */
+.sc-main {
+  padding: 26px 24px 190px;
+}
+.sc-create-grid {
+  margin-bottom: 34px;
+}
+.sc-tplrow {
+  margin-bottom: 32px;
+}
+.sc-feed {
+  padding-top: 18px;
+}
+.sc-sec-head {
+  margin-bottom: 14px;
+}
+
+/* ---- from composer-island.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+/* ---------- 6.0 the page is as wide as the screen ----------
+   The content column was pinned at 1200px while the top bar ran at the viewport
+   edge, so above 1200px the wordmark and the headline sat on different left
+   edges. One gutter token now feeds both, which also revives the mobile gutter:
+   the 767px redefinition (co-located with the tabbar one in 02-shells.css) is
+   a variable redefinition, so the later unmediated .sc-main padding reads it
+   instead of overriding it. */
+.sc-main {
+  max-width: none;
+  padding: 26px var(--sc-gutter) 230px;
+}
+/* A 280px floor with no ceiling on the count packed six columns into 1800 and
+   the pictures read as thumbnails. --sc-tile is the floor now and the leftover
+   width is shared out, so a tile lands near 340px from 1280 up: 4 at 1440,
+   5 at 1800, 7 at 2560, and the picture stays the size of the picture. */
+.sc-cell {
+  margin-bottom: 14px;
+}

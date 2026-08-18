@@ -512,3 +512,21 @@
     );
   }
 }
+
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+@media (pointer: coarse) {
+/* The same invisible box for the controls that were left out of it. The
+     search toggle stands alone in a toolbar, so its reach can grow in every
+     direction without touching anything. */
+  .sc-libsearch-toggle::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}

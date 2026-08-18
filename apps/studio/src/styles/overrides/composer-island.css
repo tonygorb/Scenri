@@ -1,62 +1,14 @@
-/* ---------- 6.0 the page is as wide as the screen ----------
-   The content column was pinned at 1200px while the top bar ran at the viewport
-   edge, so above 1200px the wordmark and the headline sat on different left
-   edges. One gutter token now feeds both, which also revives the mobile gutter:
-   the 767px redefinition (co-located with the tabbar one in 02-shells.css) is
-   a variable redefinition, so the later unmediated .sc-main padding reads it
-   instead of overriding it. */
-.sc-main {
-  max-width: none;
-  padding: 26px var(--sc-gutter) 230px;
-}
-.sc-looks {
-  padding: 16px var(--sc-gutter) 96px;
-}
 
-/* A 280px floor with no ceiling on the count packed six columns into 1800 and
-   the pictures read as thumbnails. --sc-tile is the floor now and the leftover
-   width is shared out, so a tile lands near 340px from 1280 up: 4 at 1440,
-   5 at 1800, 7 at 2560, and the picture stays the size of the picture. */
-.sc-cell {
-  margin-bottom: 14px;
-}
-
-/* ---------- 6.0 the composer is a bigger island ----------
-   The dock owns the width, the card fills it. Every min() self-clamps, so the
-   narrow-viewport dock rules earlier in this file still land without edits. */
-.sc-composer {
-  width: 100%;
-}
-/* The dock's width is settled once, where it is positioned. This block used to
-   restate it three more times with a different formula and won by being later,
-   which is how the composer ended up centred while the rest of the page was
-   aligned to the gutter. */
-.sc-canvas-dock {
-  max-width: var(--sc-prompt-w);
-}
-.sc-dock-fade {
-  height: 300px;
-}
 
 /* Stops at the tab bar rather than washing over it. This has to sit after the
    base rule, not in the earlier phone block, or the unmediated bottom:0 below
    simply wins on source order. */
-@media (max-width: 767px) {
-  .sc-dock-fade {
-    bottom: var(--sc-tabbar-h);
-  }
-}
 
 /* The two surfaces that float over the canvas, so their corners are stated in
    one place and cannot drift apart. */
 .sc-promptcard,
 .sc-attachpanel {
   border-radius: var(--sc-radius-float);
-}
-.sc-brief-line {
-  font-size: 15px;
-  padding: 18px 20px 10px;
-  min-height: 26px;
 }
 .sc-prompt-row {
   padding: 8px 18px 18px;
@@ -168,10 +120,6 @@
   font-size: 12.5px !important;
 }
 @media (max-width: 767px) {
-  .sc-brief-line {
-    font-size: 14px;
-    padding: 14px 14px 8px;
-  }
   .sc-prompt-row {
     padding: 6px 12px 12px;
     gap: 10px;
@@ -231,11 +179,6 @@
 .sc-shotset {
   display: none;
 }
-
-/* narrow composer, any display: the sidebar where a refinement is written */
-.sc-ovl-edit .sc-prompt-pills {
-  display: none;
-}
 .sc-ovl-edit .sc-more {
   display: inline-flex;
 }
@@ -287,9 +230,6 @@
   .sc-attachpanel {
     height: min(340px, 44vh);
   }
-  .sc-ap-grid {
-    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  }
 }
 
 /* A tablet keeps the full row, so its pills are the ones short of reach. Same
@@ -311,17 +251,5 @@
     height: var(--sc-tap);
     min-width: var(--sc-tap);
   }
-}
-
-/* The docks are fixed, and iOS shrinks only the visual viewport, so without
-   this the keyboard covers the thing you are typing into. The inset is the
-   shared one: the tab bar pads itself for the home indicator, so a dock that
-   counted only --sc-tabbar-h sat that far into it. */
-.sc-canvas-dock,
-.sc-canvas-dock[data-full="true"] {
-  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px);
-}
-.sc-dock-fade {
-  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h));
 }
 

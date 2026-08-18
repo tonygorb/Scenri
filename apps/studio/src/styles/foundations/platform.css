@@ -80,3 +80,31 @@ textarea:disabled {
   }
 }
 
+/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
+   Appended in original pass order; relative order among dissolved passes is
+   preserved by dissolving passes in manifest order. */
+.sc-assets-backdrop {
+  display: none;
+}
+@media (max-width: 1279px) {
+.sc-assets-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: var(--sc-topbar-h);
+    z-index: 54;
+    background: rgba(0, 0, 0, 0.32);
+  }
+}
+@media (min-width: 1280px) {
+.sc-assets-backdrop {
+    display: none !important;
+  }
+}
+
+/* Every Radix popper — dropdowns, selects, tooltips — sits above the surfaces
+   that can open one. Radix's portal wrapper has no z-index of its own, hence
+   the !important against inline styles. Uncontested selector; position-free. */
+[data-radix-popper-content-wrapper] {
+  z-index: var(--sc-z-popover) !important;
+}
