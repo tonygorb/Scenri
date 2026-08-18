@@ -46,7 +46,7 @@ jobs:
       # opts into "Actions can create and approve pull requests", and any PR it
       # did open would trigger no further workflows, so CI would never run on
       # the release PR. A short-lived App token has neither problem.
-      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app-token
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
