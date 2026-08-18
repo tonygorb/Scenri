@@ -61,14 +61,22 @@ function ColorBody({ currentHex, currentName, palette, onPick, onRemove, onClose
   }, [palette, currentHex, currentName]);
 
   const listRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(() => Math.max(0, rows.findIndex((s) => sameHex(s.hex, currentHex))));
+  const [active, setActive] = useState(() =>
+    Math.max(
+      0,
+      rows.findIndex((s) => sameHex(s.hex, currentHex)),
+    ),
+  );
 
   useEffect(() => {
     setActive((a) => Math.max(0, Math.min(a, Math.max(0, rows.length - 1))));
   }, [rows.length]);
 
   useLayoutEffect(() => {
-    const i = Math.max(0, rows.findIndex((s) => sameHex(s.hex, currentHex)));
+    const i = Math.max(
+      0,
+      rows.findIndex((s) => sameHex(s.hex, currentHex)),
+    );
     listRef.current?.querySelectorAll<HTMLElement>('[data-nav]')[i]?.focus({ preventScroll: true });
   }, []);
 

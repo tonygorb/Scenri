@@ -31,7 +31,6 @@ export function briefTokens(brief: { tokens: BriefToken[]; templateId?: string }
 export const CHIP = 'sc-token';
 export const CHIP_SELECTOR = `.${CHIP}`;
 
-
 // ---------------------------------------------------------------- tokens <-> attribute
 
 export const encode = (t: SentenceToken): string =>

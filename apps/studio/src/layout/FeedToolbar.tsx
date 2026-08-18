@@ -156,12 +156,7 @@ export function FeedToolbar({
               lives in a dialog so this trigger never swaps for an input. */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>
-            <button
-              type="button"
-              className="sc-toolbar-place"
-              data-on={somewhere || undefined}
-              aria-label={placeLabel}
-            >
+            <button type="button" className="sc-toolbar-place" data-on={somewhere || undefined} aria-label={placeLabel}>
               <FolderSimple className="sc-toolbar-place-ic" size={14} />
               <span className="sc-toolbar-place-t">{placeLabel}</span>
               <CaretDown size={10} className="sc-caret" />
@@ -241,9 +236,7 @@ export function FeedToolbar({
         <AlertDialog.Root open={confirmDelete} onOpenChange={setConfirmDelete}>
           <AlertDialog.Content maxWidth="420px">
             <AlertDialog.Title>Delete this set?</AlertDialog.Title>
-            <AlertDialog.Description size="2">
-              Shots stay in the library. Only the set goes.
-            </AlertDialog.Description>
+            <AlertDialog.Description size="2">Shots stay in the library. Only the set goes.</AlertDialog.Description>
             <Flex gap="3" mt="4" justify="end">
               <AlertDialog.Cancel>
                 <Button variant="soft" color="gray">

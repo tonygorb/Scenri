@@ -1,38 +1,24 @@
-import Fastify, { type FastifyInstance, } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyMultipart from '@fastify/multipart';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
-import { loadScenes, sceneResolver, defaultScenesDir, } from './scenes.js';
-import {
-  brandJsonWithResolvedPresenters,
-  loadPresenters,
-} from './presenters.js';
-import {
-  brandJsonWithResolvedDemoProducts,
-  loadDemoProducts,
-  demoProductResolver,
-} from './demoProducts.js';
+import { loadScenes, sceneResolver, defaultScenesDir } from './scenes.js';
+import { brandJsonWithResolvedPresenters, loadPresenters } from './presenters.js';
+import { brandJsonWithResolvedDemoProducts, loadDemoProducts, demoProductResolver } from './demoProducts.js';
 import { compileBrief, validateBrief, FORMATS, type Brief, type BriefToken } from './brief.js';
-import { existsSync, readFileSync, } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Core, EngineAdapter, GenerateRequest, EditRequest, ReferenceRole } from '@scenri/core';
-import { SpendCapError, ASPECT_TOLERANCE, } from '@scenri/core';
-import { readMeta, } from './meta.js';
+import { SpendCapError, ASPECT_TOLERANCE } from '@scenri/core';
+import { readMeta } from './meta.js';
 import { createUpdateChecker, type UpdateChecker } from './update/check.js';
+import { createContentFetcher, type ContentFetcher } from './content/fetch.js';
 import type { stageVersion } from './update/stage.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
-import {
-  brandJsonWithCatalogProducts,
-  resolveLibraryProduct,
-  runningImportCount,
-} from './catalogImport.js';
-import {
-  brandSceneById,
-  runningAssetBuildCount,
-  type Analyzer,
-} from './customAssets.js';
+import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
+import { brandSceneById, runningAssetBuildCount, type Analyzer } from './customAssets.js';
 import type { CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
@@ -55,6 +41,8 @@ declare module 'fastify' {
     drain(): Promise<void>;
     /** The update checker; serve.ts starts its daily schedule after listen. */
     updates: UpdateChecker;
+    /** The one-time library download; serve.ts triggers it after listen. */
+    content: ContentFetcher;
   }
 }
 
@@ -859,6 +847,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const runtime = opts.runtime ?? { installKind: 'unknown' as const, supervised: false };
   const updates = createUpdateChecker({ name: meta.name, store: core.store, fetchImpl: opts.fetchImpl });
   app.decorate('updates', updates);
+  app.decorate('content', createContentFetcher({ store: core.store, fetchImpl: opts.fetchImpl }));
   registerUpdateRoutes(app, {
     core,
     meta,
@@ -869,7 +858,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     busyCount: () => runningGenerations.size + runningImportCount() + runningAssetBuildCount(),
   });
 
-    // Settle in-flight work before the process goes away (Ctrl-C, update
+  // Settle in-flight work before the process goes away (Ctrl-C, update
   // restart). Abort is the same path the cancel button takes, so every node
   // lands in 'cancelled' with its reservation released — never in the crash
   // sweep's 'interrupted' bucket.

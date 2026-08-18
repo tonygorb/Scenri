@@ -105,10 +105,7 @@ export function ScenesView() {
   /** Sections are for browsing. Narrow the wall by anything and one flat list reads better. */
   const flat = searching || (onlyMarked && !bookmarksBrowse);
 
-  const wallSource = useMemo(
-    () => (bookmarksBrowse ? scenes : byFacet),
-    [bookmarksBrowse, scenes, byFacet],
-  );
+  const wallSource = useMemo(() => (bookmarksBrowse ? scenes : byFacet), [bookmarksBrowse, scenes, byFacet]);
 
   const filtered = useMemo(
     () =>
@@ -370,15 +367,20 @@ export function ScenesView() {
             The facet it names is the one the wall was actually narrowed by —
             in `bookmarksBrowse` that is nothing, because the wall is the whole
             catalog. */}
-        {loaded && !error && scenes.length > 0 && !bookmarksMessage && filtered.length === 0 && mineShown.length === 0 && (
-          <LibraryZero
-            noun="scenes"
-            q={q}
-            facet={bookmarksBrowse ? null : onlyMarked ? 'Bookmarks' : vertical}
-            onClearSearch={clearSearch}
-            onClearAll={clear}
-          />
-        )}
+        {loaded &&
+          !error &&
+          scenes.length > 0 &&
+          !bookmarksMessage &&
+          filtered.length === 0 &&
+          mineShown.length === 0 && (
+            <LibraryZero
+              noun="scenes"
+              q={q}
+              facet={bookmarksBrowse ? null : onlyMarked ? 'Bookmarks' : vertical}
+              onClearSearch={clearSearch}
+              onClearAll={clear}
+            />
+          )}
 
         {flat && remaining > 0 && (
           <div className="sc-lib-more">

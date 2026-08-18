@@ -11,7 +11,11 @@ import { mtimeQS, serveJpeg } from './shared.js';
 
 export function registerDemoProductRoutes(
   app: FastifyInstance,
-  deps: { templatesRoot: string; demoProducts: DemoProduct[]; demoProductById: (id: string) => DemoProduct | undefined },
+  deps: {
+    templatesRoot: string;
+    demoProducts: DemoProduct[];
+    demoProductById: (id: string) => DemoProduct | undefined;
+  },
 ): void {
   const { templatesRoot, demoProducts, demoProductById } = deps;
   const demoProductThumbPath = (id: string) => {

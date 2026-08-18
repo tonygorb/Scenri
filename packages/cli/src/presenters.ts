@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import type { Core } from '@scenri/core';
+import { contentFile } from './content/overlay.js';
 
 /**
  * A presenter is a curated, identity-locked person: a name, a fixed
@@ -110,7 +111,9 @@ export const PRESENTER_ANGLES: [string, string][] = [
 ];
 
 export function presenterRefPath(templatesRoot: string, id: string, slot: string): string {
-  return join(templatesRoot, 'previews', 'presenters', id, `${slot}.jpg`);
+  // Overlays the downloaded library cache: the npm install carries no identity
+  // sets, so post-fetch these resolve into ~/.scenri/content transparently.
+  return contentFile(templatesRoot, 'previews', 'presenters', id, `${slot}.jpg`);
 }
 
 /**
@@ -120,7 +123,7 @@ export function presenterRefPath(templatesRoot: string, id: string, slot: string
  * never picks it up and no brief's output changes because it exists.
  */
 export function presenterAvatarPath(templatesRoot: string, id: string): string {
-  return join(templatesRoot, 'previews', 'presenters', id, 'avatar.jpg');
+  return contentFile(templatesRoot, 'previews', 'presenters', id, 'avatar.jpg');
 }
 
 /**

@@ -37,4 +37,3 @@ export function nodeLabel(n: TreeNode): string {
   const words = n.prompt.trim().split(/\s+/).slice(0, 6).join(' ');
   return words || (n.kind === 'edit' ? 'Edit' : 'Generation');
 }
-

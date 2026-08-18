@@ -219,8 +219,7 @@
 }
 /* A scene keeps its own hue here the way its chip does, from the same helper. */
 .sc-swap-thumb[data-tinted] {
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--tint) 40%, var(--sc-line));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 40%, var(--sc-line));
 }
 .sc-swap-cur .sc-swap-thumb {
   width: var(--swap-face);
@@ -389,4 +388,3 @@
   justify-content: center;
   width: 100%;
 }
-

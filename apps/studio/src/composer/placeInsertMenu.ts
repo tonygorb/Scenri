@@ -53,16 +53,9 @@ function clampLeft(left: number, width: number, vp: Viewport, margin: number): n
   return Math.min(Math.max(left, margin), Math.max(margin, vp.width - width - margin));
 }
 
-function dockAboveComposer(
-  composer: AnchorRect,
-  vp: Viewport,
-  phone: boolean,
-  height?: number,
-): InsertPlaced {
+function dockAboveComposer(composer: AnchorRect, vp: Viewport, phone: boolean, height?: number): InsertPlaced {
   const margin = phone ? PHONE_MARGIN : MARGIN;
-  const width = phone
-    ? Math.max(0, composer.right - composer.left)
-    : Math.min(INSERT_MENU_W, vp.width - margin * 2);
+  const width = phone ? Math.max(0, composer.right - composer.left) : Math.min(INSERT_MENU_W, vp.width - margin * 2);
   const left = phone ? composer.left : clampLeft(composer.left, width, vp, margin);
   const cap = phone ? Math.min(INSERT_MENU_PHONE_MAX_H, Math.floor(vp.height * 0.4)) : INSERT_MENU_MAX_H;
   const want = Math.min(cap, height ?? cap);
@@ -72,12 +65,7 @@ function dockAboveComposer(
   return { left, top, width, maxHeight, side: 'above', shell: 'dock' };
 }
 
-function placeAtCaret(
-  caret: AnchorRect,
-  composer: AnchorRect,
-  vp: Viewport,
-  height?: number,
-): InsertPlaced {
+function placeAtCaret(caret: AnchorRect, composer: AnchorRect, vp: Viewport, height?: number): InsertPlaced {
   const width = Math.min(INSERT_MENU_W, vp.width - MARGIN * 2);
   const left = clampLeft(caret.left, width, vp, MARGIN);
   const roomAbove = caret.top - GAP - MARGIN;

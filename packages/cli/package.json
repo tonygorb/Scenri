@@ -49,17 +49,20 @@
     "dist",
     "!dist/**/*.map",
     "templates",
+    "!templates/**/.DS_Store",
+    "!templates/previews/*.mjs",
     "studio-dist",
     "README.md",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "ASSETS-LICENSE.md"
   ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tonygorb/scenri.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://scenri.dev",
+  "homepage": "https://scenri.co",
   "bugs": {
     "url": "https://github.com/tonygorb/scenri/issues"
   },

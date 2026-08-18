@@ -154,7 +154,6 @@ export interface ApiError extends Error {
   url: string;
 }
 
-
 export type VersionInfo = {
   name: string;
   version: string;
@@ -206,7 +205,6 @@ export type ReleaseNotesResponse = {
   /** The releases index — the archive behind "All releases". */
   releasesUrl: string | null;
 };
-
 
 export interface AssetBuildCapabilities {
   canAnalyze: boolean;

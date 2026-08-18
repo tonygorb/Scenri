@@ -60,7 +60,6 @@ export const toMarkPng = (buf: Buffer): Promise<Buffer> =>
     .png()
     .toBuffer();
 
-
 /**
  * The half of an upload every asset route shares: read the multipart file,
  * reject the empty and the unreadable, and store the normalized bytes.
@@ -69,9 +68,9 @@ export const toMarkPng = (buf: Buffer): Promise<Buffer> =>
  * 404-first ordering and its own idea of what a bad file means.
  */
 export const readImagePart = async (
-core: Core,
-req: any,
-normalize: (buf: Buffer) => Promise<Buffer>,
+  core: Core,
+  req: any,
+  normalize: (buf: Buffer) => Promise<Buffer>,
 ): Promise<{ hash: string; fields: any; filename?: string } | { error: string }> => {
   const part = await req.file();
   if (!part) return { error: 'multipart file field required' };
@@ -86,7 +85,6 @@ normalize: (buf: Buffer) => Promise<Buffer>,
     return { error: 'that file is not an image we can read' };
   }
 };
-
 
 // A generated look's own jpg can be regenerated at the same filename (a
 // rejected preview, redone). `max-age=0, must-revalidate` (an earlier fix)

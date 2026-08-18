@@ -107,7 +107,7 @@
   overflow-wrap: anywhere;
 }
 @media (prefers-reduced-motion: reduce) {
-.sc-inherit-head {
+  .sc-inherit-head {
     transition: none;
   }
 }

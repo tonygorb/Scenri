@@ -193,10 +193,7 @@ export function appendColor(palette: any, hex: string): AppendedColor {
   const current = flattenPalette(palette);
   const existing = current.find((c) => c.hex === normalized);
   if (existing) return { palette, added: false, swatch: existing };
-  const next: Swatch[] = [
-    ...current,
-    { hex: normalized, name: '', slot: current.length ? 'accent' : 'primary' },
-  ];
+  const next: Swatch[] = [...current, { hex: normalized, name: '', slot: current.length ? 'accent' : 'primary' }];
   const rebuilt = rebuildPalette(next, palette);
   const swatch = flattenPalette(rebuilt).find((c) => c.hex === normalized) ?? null;
   return { palette: rebuilt, added: true, swatch };

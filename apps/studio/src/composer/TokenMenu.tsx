@@ -206,11 +206,7 @@ function MatchLabel({ text, query }: { text: string; query: string }) {
   return (
     <span className="sc-cmd-label">
       {splitMatch(text, query).map((p) =>
-        p.hit ? (
-          <b key={`h:${p.text}`}>{p.text}</b>
-        ) : (
-          <span key={`t:${p.text}`}>{p.text}</span>
-        ),
+        p.hit ? <b key={`h:${p.text}`}>{p.text}</b> : <span key={`t:${p.text}`}>{p.text}</span>,
       )}
     </span>
   );

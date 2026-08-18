@@ -1,6 +1,5 @@
 import type { ComponentType, SVGProps } from 'react';
 import { Circle, type Icon, Lightning } from '@phosphor-icons/react';
-import { FalMark } from '../layout/FalMark.js';
 import { OpenAIMark } from '../layout/OpenAIMark.js';
 import { OpenRouterMark } from '../layout/OpenRouterMark.js';
 import { ReplicateMark } from '../layout/ReplicateMark.js';
@@ -50,10 +49,10 @@ export const keyProviderFor = (engineId: string): KeyProvider | undefined =>
  *
  * `plate` and `ink` are not a palette we chose. They are sampled from each
  * owner's own icon: OpenAI's 180px favicon (white plate, black mark),
- * OpenRouter's app icon (white plate, violet mark), Replicate's favicon (red
- * plate, white mark) and fal's published C1 lockup (pink plate, red mark).
- * Nothing is tinted, mixed or adapted to scenri, and the pairs never come
- * apart: a mark always sits on the plate its owner puts it on.
+ * OpenRouter's app icon (white plate, violet mark) and Replicate's favicon
+ * (red plate, white mark). Nothing is tinted, mixed or adapted to scenri, and
+ * the pairs never come apart: a mark always sits on the plate its owner puts
+ * it on.
  *
  * Given the same box, Replicate's solid corner block reads twice as heavy as
  * OpenRouter's thin arrows, so the sizes are matched by weight on screen and
@@ -66,7 +65,6 @@ const BRAND: Record<
   'codex-cli': { Mark: OpenAIMark, size: 16, plate: '#FFFFFF', ink: '#000000' },
   openrouter: { Mark: OpenRouterMark, size: 18, plate: '#FFFFFF', ink: '#7624F4' },
   replicate: { Mark: ReplicateMark, size: 15, plate: '#E42022', ink: '#FFFFFF' },
-  fal: { Mark: FalMark, size: 16, plate: '#FFC4D8', ink: '#EC0648' },
 };
 
 /**
@@ -79,7 +77,11 @@ export const engineTile = (engineId: string): { plate: string; ink: string } | u
   return brand ? { plate: brand.plate, ink: brand.ink } : undefined;
 };
 
-/** Anything with no brand mark of its own, including fal until its asset lands. */
+/**
+ * Anything with no brand mark of its own. fal belongs here too: its published
+ * assets carry no open licence, so until fal grants written permission it
+ * falls through to the Lightning default like any unbranded engine.
+ */
 const GLYPH: Record<string, Icon> = {
   demo: Circle,
 };

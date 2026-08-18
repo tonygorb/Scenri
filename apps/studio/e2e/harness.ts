@@ -146,6 +146,7 @@ class ScenriFixture {
         // These servers must never reach the real npm registry.
         // updates.spec.ts spawns its own against a fixture registry.
         SCENRI_NO_UPDATE_CHECK: '1',
+        SCENRI_NO_CONTENT_FETCH: '1',
       },
     });
 

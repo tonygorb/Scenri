@@ -1,4 +1,3 @@
-
 import type { DB } from '../db.js';
 
 export type CatalogPlatform = 'shopify' | 'woocommerce' | 'webflow' | 'generic' | 'unknown';

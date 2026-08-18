@@ -18,8 +18,7 @@
   overscroll-behavior: contain;
   /* the page's edge, not one of its own: the sheet covers the screen it opens
      over, so its rows should line up with what is behind them */
-  padding: 0 var(--sc-gutter)
-    max(var(--sc-space-7), env(safe-area-inset-bottom));
+  padding: 0 var(--sc-gutter) max(var(--sc-space-7), env(safe-area-inset-bottom));
   background: var(--sc-panel);
   border-top: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
@@ -290,8 +289,7 @@
 }
 /* full-bleed hairline: the line is about the list above it, not about itself */
 .sc-setpop-foot {
-  margin: var(--sc-space-2) calc(var(--sc-space-2) * -1)
-    calc(var(--sc-space-2) * -1);
+  margin: var(--sc-space-2) calc(var(--sc-space-2) * -1) calc(var(--sc-space-2) * -1);
   padding: var(--sc-space-3) var(--sc-space-4) var(--sc-space-4);
   border-top: 1px solid var(--sc-line);
   color: var(--sc-fg3);
@@ -488,7 +486,6 @@
     transition: none;
   }
 }
-
 
 /* The composer's secondary settings, opened by More. The same fields the phone
    shows in a sheet, in a surface that belongs to the composer it hangs off:

@@ -408,37 +408,37 @@
   height: min(320px, 42vh);
 }
 @media (max-width: 1023px) {
-.sc-ovl {
+  .sc-ovl {
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
-.sc-ovl-stage {
+  .sc-ovl-stage {
     padding: 8px var(--sc-gutter) 12px;
   }
-.sc-ovl-meta {
+  .sc-ovl-meta {
     max-height: 48vh;
     /* The panel shares the page edge with the stage above it, the header over
        it and the composer below it. It used to sit 2px further in, which is
        exactly the sort of difference nobody can name and everybody can see. */
     padding: 12px var(--sc-gutter) 12px;
   }
-.sc-ovl-edit {
+  .sc-ovl-edit {
     flex-shrink: 0;
   }
-.sc-ovl-bar {
+  .sc-ovl-bar {
     top: 10px;
     left: 10px;
     right: 10px;
   }
 }
 @media (max-width: 767px) {
-.sc-ovl {
+  .sc-ovl {
     display: block;
     overflow-y: auto;
     overscroll-behavior: contain;
     /* room for the composer, which is pinned to the bottom of the viewport */
     padding-bottom: calc(var(--sc-bottom-inset) + 132px);
   }
-/* the picture is the point, so it is contained rather than cropped */
+  /* the picture is the point, so it is contained rather than cropped */
   /* Still a column with a gap, not a bare block.
 
      `display: block` threw away the grid's `gap`, and a `padding-top` of 0
@@ -456,7 +456,7 @@
     overflow: visible;
     padding: var(--sc-space-5) var(--sc-gutter) var(--sc-space-6);
   }
-/* One column, so the picture takes a little over half the screen and the
+  /* One column, so the picture takes a little over half the screen and the
      rest of the shot's record is what you scroll to. Written as the cap the
      stage owns, at the same depth as the rules above, so this is simply the
      later one rather than a specificity contest it used to lose. */
@@ -470,26 +470,26 @@
   .sc-ovl-stage {
     --sc-stage-cap: max(52dvh, 300px);
   }
-.sc-ovl-stage[data-takes] {
+  .sc-ovl-stage[data-takes] {
     --sc-stage-cap: max(44dvh, 260px);
   }
-.sc-ovl-stage .sc-frame,
+  .sc-ovl-stage .sc-frame,
   .sc-ovl-stage img {
     max-height: var(--sc-stage-cap);
     max-width: 100%;
     object-fit: contain;
   }
-/* A phone gets close, the versions if there are any, and one overflow. Six
+  /* A phone gets close, the versions if there are any, and one overflow. Six
      icon buttons and a price on a 390px line is what made this area feel
      cramped; the actions did not need to be visible to be reachable, and the
      price is not an action at all — it is in the record below. */
   .sc-ovl-acts {
     display: none;
   }
-.sc-ovl-overflow {
+  .sc-ovl-overflow {
     display: grid;
   }
-/* the bar rides above the picture with a fade under it, so a scrolled brief
+  /* the bar rides above the picture with a fade under it, so a scrolled brief
      passes beneath rather than colliding with floating buttons */
   .sc-ovl-bar {
     position: sticky;
@@ -500,27 +500,27 @@
     padding: var(--sc-space-4) 0;
     z-index: 40;
   }
-.sc-ovl-bar::before {
+  .sc-ovl-bar::before {
     content: "";
     position: absolute;
     inset: 0 calc(-1 * var(--sc-gutter));
     background: linear-gradient(to bottom, var(--sc-bg) 62%, transparent);
     pointer-events: none;
   }
-.sc-ovl-bar > * {
+  .sc-ovl-bar > * {
     position: relative;
   }
-.sc-ovl-meta {
+  .sc-ovl-meta {
     max-height: none;
     border-left: none;
     overflow: visible;
   }
-/* the inspector scrolls with the page rather than inside a dead window */
+  /* the inspector scrolls with the page rather than inside a dead window */
   .sc-ovl-body {
     overflow: visible;
     min-height: 0;
   }
-/* The field you type in stays above the keyboard, always.
+  /* The field you type in stays above the keyboard, always.
 
      The band itself carries no background and no border. A solid block with a
      rule across the top reads as a form footer bolted under the page; the rest
@@ -540,13 +540,12 @@
     bottom: 0;
     z-index: 90;
     margin: 0;
-    padding: var(--sc-space-5) var(--sc-gutter)
-      calc(var(--sc-bottom-inset) + var(--sc-space-4));
+    padding: var(--sc-space-5) var(--sc-gutter) calc(var(--sc-bottom-inset) + var(--sc-space-4));
     background: none;
     border-top: none;
     pointer-events: none;
   }
-/* the fade is the separation, and it is taller than the bar so the picture
+  /* the fade is the separation, and it is taller than the bar so the picture
      dims into it instead of ending on an edge */
   .sc-ovl-edit::before {
     content: "";
@@ -558,13 +557,13 @@
     background: linear-gradient(to bottom, transparent, var(--sc-bg) 42%);
     pointer-events: none;
   }
-/* the fade is decoration; everything you can actually press sits over it */
+  /* the fade is decoration; everything you can actually press sits over it */
   .sc-ovl-edit > * {
     position: relative;
     z-index: 1;
     pointer-events: auto;
   }
-/* the placeholder already says what typing here does, and on a phone the
+  /* the placeholder already says what typing here does, and on a phone the
      line above it is the more expensive of the two */
   .sc-ovl-edit-head {
     display: none;

@@ -574,8 +574,6 @@ describe('insertShortlist', () => {
   });
 
   it('a typed query that matches nothing is an empty list, not a close', () => {
-    expect(insertShortlist('@', { products: [], presenters: manyPresenters() }, { query: 'zzzz' })).toHaveLength(
-      0,
-    );
+    expect(insertShortlist('@', { products: [], presenters: manyPresenters() }, { query: 'zzzz' })).toHaveLength(0);
   });
 });

@@ -63,7 +63,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
   try {
     res = await fetchImpl(url, {
       redirect: 'follow',
-      headers: { 'user-agent': 'scenri/0.1 (+https://scenri.dev)' },
+      headers: { 'user-agent': 'scenri/0.1 (+https://scenri.co)' },
       signal: controller.signal,
     });
   } catch (err) {

@@ -18,4 +18,3 @@ export async function req<T>(method: string, url: string, body?: unknown): Promi
   }
   return res.json() as Promise<T>;
 }
-

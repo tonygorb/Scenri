@@ -1,13 +1,13 @@
-import { join } from 'node:path';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
+import { contentDirList, contentFile } from '../content/overlay.js';
 import { facetsOf, type Scene } from '../scenes.js';
 import { vibrantColor } from '../swatch.js';
 import { mtimeQS, serveJpeg } from './shared.js';
 
 export function registerSceneRoutes(app: FastifyInstance, deps: { templatesRoot: string; scenes: Scene[] }): void {
   const { templatesRoot, scenes } = deps;
-  const previewPath = (id: string) => join(templatesRoot, 'previews', `${id}.jpg`);
+  const previewPath = (id: string) => contentFile(templatesRoot, 'previews', `${id}.jpg`);
   // chips tint from their template's own preview; extracted once per process
   const previewColors = new Map<string, string | null>();
   const previewColor = async (id: string) => {
@@ -35,17 +35,14 @@ export function registerSceneRoutes(app: FastifyInstance, deps: { templatesRoot:
   });
   // A scene's reference set: several frames sharing one light, one per subject.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.
-  const refPath = (id: string, slot: string) => join(templatesRoot, 'previews', id, `${slot}.jpg`);
+  const refPath = (id: string, slot: string) => contentFile(templatesRoot, 'previews', id, `${slot}.jpg`);
   /** Which reference frames a scene actually has. One ask, instead of probing. */
   app.get('/api/scene-previews/:id', async (req, reply) => {
     const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
     if (!id) return reply.status(400).send({ error: 'bad scene id' });
-    const dir = join(templatesRoot, 'previews', id);
-    if (!existsSync(dir)) return { frames: [] };
-    const frames = readdirSync(dir)
+    const frames = contentDirList(templatesRoot, 'previews', id)
       .filter((f) => /^ref-[0-9]{2}\.jpg$/.test(f))
-      .sort()
-      .map((f) => `/api/scene-previews/${id}/${f}${mtimeQS(join(dir, f))}`);
+      .map((f) => `/api/scene-previews/${id}/${f}${mtimeQS(contentFile(templatesRoot, 'previews', id, f))}`);
     return { frames };
   });
   app.get('/api/scene-previews/:id/:file', async (req, reply) => {

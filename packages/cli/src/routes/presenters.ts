@@ -1,6 +1,6 @@
-import { join } from 'node:path';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
+import { contentDirList, contentFile } from '../content/overlay.js';
 import { presenterAvatarPath, presenterFacetsOf, presenterRefPath, type Presenter } from '../presenters.js';
 import { mtimeQS, serveJpeg } from './shared.js';
 
@@ -9,7 +9,7 @@ export function registerPresenterRoutes(
   deps: { templatesRoot: string; presenters: Presenter[] },
 ): void {
   const { templatesRoot, presenters } = deps;
-  const presenterThumbPath = (id: string) => join(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
+  const presenterThumbPath = (id: string) => contentFile(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
   const avatarPath = (id: string) => presenterAvatarPath(templatesRoot, id);
   const decoratePresenter = (p: Presenter) => ({
     ...p,
@@ -39,12 +39,10 @@ export function registerPresenterRoutes(
   app.get('/api/presenter-previews/:id', async (req, reply) => {
     const id = /^[a-z0-9-]+$/.exec(String((req.params as any).id))?.[0];
     if (!id) return reply.status(400).send({ error: 'bad presenter id' });
-    const dir = join(templatesRoot, 'previews', 'presenters', id);
-    if (!existsSync(dir)) return { frames: [] };
-    const frames = readdirSync(dir)
-      .filter((f) => /^ref-[0-9]{2}\.jpg$/.test(f))
-      .sort()
-      .map((f) => `/api/presenter-previews/${id}/${f}${mtimeQS(join(dir, f))}`);
+    const frames = contentDirList(templatesRoot, 'previews', 'presenters', id)
+      .map((f) => /^(ref-[0-9]{2})\.jpg$/.exec(f)?.[1])
+      .filter((slot): slot is string => !!slot)
+      .map((slot) => `/api/presenter-previews/${id}/${slot}.jpg${mtimeQS(presenterRefPath(templatesRoot, id, slot))}`);
     return { frames };
   });
   app.get('/api/presenter-previews/:id/:file', async (req, reply) => {

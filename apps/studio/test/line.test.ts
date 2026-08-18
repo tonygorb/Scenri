@@ -867,9 +867,7 @@ describe('chipHexWords', () => {
   it('names a hex that the caller recognises', () => {
     type('#D96C3B');
     chipHexWords(root, colorChip, { nameFor: (hex) => (hex === '#D96C3B' ? 'Terracotta' : undefined) });
-    expect(readLine(root).filter((t) => t.t === 'color')).toEqual([
-      { t: 'color', hex: '#D96C3B', name: 'Terracotta' },
-    ]);
+    expect(readLine(root).filter((t) => t.t === 'color')).toEqual([{ t: 'color', hex: '#D96C3B', name: 'Terracotta' }]);
   });
 
   it('chips two hexes in one run', () => {

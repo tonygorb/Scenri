@@ -4,7 +4,7 @@ Thanks for considering a contribution.
 
 ## CLA
 
-This project is AGPL-3.0 with a dual-licensing model that funds its development (the same code powers a future hosted service). All contributors must sign the Contributor License Agreement once, via the CLA bot on your first pull request. The CLA grants the maintainer the right to relicense contributed code; you retain copyright and all rights to use your contribution elsewhere. See [CLA.md](CLA.md).
+This project is AGPL-3.0 with a dual-licensing model that funds its development (the same code may power a future hosted service running API-priced engines; scenri never pools user plans). All contributors must sign the Contributor License Agreement once, via the CLA bot on your first pull request. The CLA grants the maintainer the right to relicense contributed code; you retain copyright and all rights to use your contribution elsewhere. See [CLA.md](CLA.md).
 
 ## Where to contribute
 

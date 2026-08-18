@@ -20,8 +20,9 @@ the next `npx scenri` rebuilds it.
 
 Once a day, the running server asks the npm registry for the latest published
 version — one GET of the dist-tags document, nothing else sent, 5 seconds max,
-silent when offline. It is scenri's only self-initiated network request, and
-it is disclosed in Settings → About and once in the console.
+silent when offline. It and the one-time library download below are scenri's
+only self-initiated network requests, and each is disclosed once in the
+console (the update check also in Settings → About).
 
 Turning it off (either works):
 
@@ -32,6 +33,22 @@ Turning it off (either works):
 (a mirror, an airgap proxy, a fork's registry). A fork that renames the
 package gets its own updates automatically: the package name and repository
 are read from `package.json` at runtime, never hardcoded.
+
+## The library download
+
+The npm package carries the complete catalog and every thumbnail, so the whole
+library is browsable offline from first launch. The heavy imagery — scene
+reference galleries, showcase heroes, product shots, presenter identity sets —
+is downloaded once from a versioned archive on the project's GitHub releases,
+cached under `~/.scenri/content`, and never fetched again. One GET for one
+file, nothing sent, silent when offline (the next launch simply retries).
+
+- `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; scenri stays on
+  thumbnails.
+- `SCENRI_CONTENT_URL` points a fork or an airgap mirror at its own archive.
+
+`~/.scenri/content` is a cache, not user data: deleting it is always safe and
+the next launch restores it.
 
 ## Applying an update
 

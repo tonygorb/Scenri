@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router';
-import {
-  api,
-  hasNoShots,
-  nodeLabel,
-  type ShotSet,
-  type TreeNode,
-} from '../api.js';
+import { api, hasNoShots, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
@@ -53,7 +47,6 @@ export type { ShotContext } from './create/shotContext.js';
 import type { ShotContext } from './create/shotContext.js';
 import { useNodeId } from './create/useNodeId.js';
 
-
 /** The lenses that are not places. A set is a place and lives in the path. */
 
 /**
@@ -70,8 +63,18 @@ import { useNodeId } from './create/useNodeId.js';
  */
 export function CreateView({ set }: { set: ShotSet | null }) {
   const { engines, scenes: templates, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
-  const { brand, workspace, nodes: allNodes, sets, membership, loaded, refresh, applySet, dropSet, products } =
-    useBrand();
+  const {
+    brand,
+    workspace,
+    nodes: allNodes,
+    sets,
+    membership,
+    loaded,
+    refresh,
+    applySet,
+    dropSet,
+    products,
+  } = useBrand();
   // The rail offers what a brief can resolve, so the brand's own assets lead
   // it exactly as they do in the composer's own attach panel.
   // One assembled catalog for this screen. The rail builds its own from the
@@ -1158,7 +1161,3 @@ export function CreateView({ set }: { set: ShotSet | null }) {
  * row is here and not a second sentence: the brief accepts prose, but prose is
  * the harder opening move for someone who has never used this.
  */
-
-
-
-

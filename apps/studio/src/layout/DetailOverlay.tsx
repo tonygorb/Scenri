@@ -580,4 +580,3 @@ export function DetailOverlay({
     document.body,
   );
 }
-

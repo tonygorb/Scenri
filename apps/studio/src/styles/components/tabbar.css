@@ -69,7 +69,7 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 @media (max-width: 767px) {
-/* --sc-tabbar-h flips 0 -> 58px at this width; the redefinition lives with
+  /* --sc-tabbar-h flips 0 -> 58px at this width; the redefinition lives with
      its twin (--sc-gutter) in 02-shells.css so the two phone-shell variables
      are one find. */
   .sc-tabbar {

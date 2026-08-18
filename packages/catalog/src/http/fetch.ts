@@ -1,6 +1,6 @@
 import type { FetchImpl } from '../types.js';
 
-export const USER_AGENT = 'scenri-catalog/0.1 (+https://scenri.dev)';
+export const USER_AGENT = 'scenri-catalog/0.1 (+https://scenri.co)';
 
 export interface HttpOptions {
   fetchImpl?: FetchImpl;

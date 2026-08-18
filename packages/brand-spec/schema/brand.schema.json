@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenri.dev/schema/brand-0.1.schema.json",
+  "$id": "https://scenri.co/schema/brand-0.1.schema.json",
   "title": ".brand \u2014 portable brand DNA (v0.1 draft)",
   "type": "object",
   "required": ["specVersion", "meta"],

@@ -278,9 +278,7 @@ test.describe('a product and its references', () => {
       return child.getBoundingClientRect().width + (Number.parseFloat(getComputedStyle(el).columnGap) || 0);
     });
     await next.click();
-    await expect
-      .poll(() => rail.evaluate((el) => el.scrollLeft))
-      .toBeGreaterThan(stride * 0.8);
+    await expect.poll(() => rail.evaluate((el) => el.scrollLeft)).toBeGreaterThan(stride * 0.8);
     await expect.poll(() => rail.evaluate((el) => el.scrollLeft)).toBeLessThan(stride * 1.5);
     await expect(add).toBeVisible();
   });

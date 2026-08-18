@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import type { Core } from '@scenri/core';
+import { contentFile } from './content/overlay.js';
 
 /**
  * A demo product is a fictional-but-premium product with a full multi-angle
@@ -142,7 +143,9 @@ export function demoProductFacetsOf(demoProducts: DemoProduct[]): { categories: 
 }
 
 export function demoProductRefPath(templatesRoot: string, id: string, angle: string): string {
-  return join(templatesRoot, 'previews', 'demo-products', id, `${angle}.jpg`);
+  // Overlays the downloaded library cache: the npm install carries no product
+  // shots, so post-fetch these resolve into ~/.scenri/content transparently.
+  return contentFile(templatesRoot, 'previews', 'demo-products', id, `${angle}.jpg`);
 }
 
 /**

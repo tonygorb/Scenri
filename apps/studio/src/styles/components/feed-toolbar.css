@@ -776,13 +776,13 @@ button.sc-fact:hover {
   outline-offset: var(--sc-ring-off);
 }
 @media (pointer: coarse) {
-/* The feed row's menus lose their labels at this width, leaving a 34px
+  /* The feed row's menus lose their labels at this width, leaving a 34px
      control a thumb has to hit. The control keeps its size; the reach does not. */
   .sc-toolbar-place,
   .sc-toolbar-btn {
     position: relative;
   }
-.sc-toolbar-place::after,
+  .sc-toolbar-place::after,
   .sc-toolbar-btn::after {
     content: "";
     position: absolute;
@@ -793,7 +793,7 @@ button.sc-fact:hover {
     height: var(--sc-tap);
     min-width: var(--sc-tap);
   }
-/* On a 175px tile the word and the facts cannot both fit: "refined from"
+  /* On a 175px tile the word and the facts cannot both fit: "refined from"
      truncated to "refined fro" to make room for a label. Tapping the picture
      is what opens a shot — Refine is the shortcut — so on a phone the
      shortcut gives up its word and keeps its target, and the row goes back to
@@ -804,7 +804,7 @@ button.sc-fact:hover {
     height: 34px;
     justify-content: center;
   }
-.sc-cell-branch .sc-cell-branch-lb {
+  .sc-cell-branch .sc-cell-branch-lb {
     display: none;
   }
 }

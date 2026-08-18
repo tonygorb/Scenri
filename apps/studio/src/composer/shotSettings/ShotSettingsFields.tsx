@@ -2,7 +2,14 @@ import type { ReactNode } from 'react';
 import { FORMATS } from '../formats.js';
 import { sizingOf } from '../../engines/capabilities.js';
 import { Choice, Choices, RatioGlyph } from './Choices.js';
-import { RESOLUTIONS, VARIANTS, blockedFormats, shapeNote, type QualityId, type ShotSettingsProps } from './settings.js';
+import {
+  RESOLUTIONS,
+  VARIANTS,
+  blockedFormats,
+  shapeNote,
+  type QualityId,
+  type ShotSettingsProps,
+} from './settings.js';
 
 /**
  * The settings themselves, without a container.

@@ -4,7 +4,14 @@ import { FORMATS } from '../formats.js';
 import { sizingOf } from '../../engines/capabilities.js';
 import { Pop } from './Pop.js';
 import { Choice, Choices, Foot, RatioGlyph, Tick } from './Choices.js';
-import { RESOLUTIONS, VARIANTS, blockedFormats, shapeNote, type QualityId, type ShotSettingsProps } from './settings.js';
+import {
+  RESOLUTIONS,
+  VARIANTS,
+  blockedFormats,
+  shapeNote,
+  type QualityId,
+  type ShotSettingsProps,
+} from './settings.js';
 
 /**
  * The three settings, inline, each behind its own control.

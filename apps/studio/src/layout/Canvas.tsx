@@ -13,7 +13,7 @@ import { hasNoShots, imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../a
 import { sourceImageOf } from '../briefDiff.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
-import { elapsedSec, } from '../tasks.js';
+import { elapsedSec } from '../tasks.js';
 import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 import { RunningTag } from './canvas/RunningTag.js';
 

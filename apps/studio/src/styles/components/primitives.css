@@ -164,7 +164,7 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 @media (max-width: 767px) {
-.sc-topbar {
+  .sc-topbar {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 8px;
   }

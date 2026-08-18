@@ -1,4 +1,4 @@
-import { useMemo, useState, } from 'react';
+import { useMemo, useState } from 'react';
 import { MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -18,11 +18,7 @@ import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { PREF, useSessionPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { ColorPicker } from './ColorPicker.js';
-import {
-  NO_ATTACHMENTS,
-  RAIL_COMPACT,
-  type AttachedIds,
-} from './railSections.js';
+import { NO_ATTACHMENTS, RAIL_COMPACT, type AttachedIds } from './railSections.js';
 import { Group } from './assets/Group.js';
 import { Section } from './assets/Section.js';
 export type { SectionMode } from './assets/useShape.js';
@@ -30,7 +26,6 @@ import type { SectionMode } from './assets/useShape.js';
 
 /** The last shots, offered as style references. Not a history; a shelf. */
 const RECENT_SHOTS = 12;
-
 
 /**
  * The creative-ingredients palette: what are we photographing, who appears,
@@ -341,11 +336,7 @@ export function AssetsPanel({
             <div className="sc-arow">
               {(shape === 'open' ? shownPalette : shownPalette.slice(0, RAIL_COMPACT)).map((c) => (
                 <div key={c.hex} className="sc-aswatch-tile">
-                  <button
-                    type="button"
-                    title={`${c.name} ${c.hex}`}
-                    onClick={() => onColor(c.hex, c.name)}
-                  >
+                  <button type="button" title={`${c.name} ${c.hex}`} onClick={() => onColor(c.hex, c.name)}>
                     <span className="sc-aswatch" style={{ background: c.hex }} />
                   </button>
                   {shape === 'open' && (

@@ -403,12 +403,9 @@ export function insertShortlist(
     return colors.filter((c) => matchesQuery(c.search ?? c.label, q)).slice(0, INSERT_CAP);
   }
   const kind = INSERT_KIND[sigil];
-  const items =
-    kind === 'product' ? pools.products : kind === 'presenter' ? pools.presenters : (pools.scenes ?? []);
+  const items = kind === 'product' ? pools.products : kind === 'presenter' ? pools.presenters : (pools.scenes ?? []);
   if (!q) return rankedKind(kind, items, bookmarked, INSERT_EMPTY[INSERT_LABEL[sigil]]);
-  return filterCandidates(items, q)
-    .map(fromCandidate)
-    .slice(0, INSERT_CAP);
+  return filterCandidates(items, q).map(fromCandidate).slice(0, INSERT_CAP);
 }
 
 function fromSwatch(s: Swatch): InsertChoice {

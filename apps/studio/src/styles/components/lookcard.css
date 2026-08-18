@@ -150,12 +150,7 @@
   inset: 0;
   opacity: 0;
   transition: opacity 0.16s ease;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.74) 0%,
-    rgba(0, 0, 0, 0.26) 36%,
-    rgba(0, 0, 0, 0) 64%
-  );
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.74) 0%, rgba(0, 0, 0, 0.26) 36%, rgba(0, 0, 0, 0) 64%);
   pointer-events: none;
 }
 /* Dead-center of the media frame — not the whole card (footer must not shift it). */
@@ -384,22 +379,16 @@
     transform: scale(1.03);
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-veil,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
-    .sc-lookcard
-    .sc-lookcard-veil {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-veil {
     opacity: 1;
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-cap,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
-    .sc-lookcard
-    .sc-lookcard-cap {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-cap {
     opacity: 1;
     transform: none;
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-use,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
-    .sc-lookcard
-    .sc-lookcard-use {
+  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-use {
     opacity: 1;
     transform: translate(-50%, -50%);
     pointer-events: auto;
@@ -453,9 +442,7 @@
     opacity var(--sc-credit-motion) var(--sc-credit-spring),
     transform var(--sc-credit-motion) var(--sc-credit-spring);
   /* Close: last in the chain tucks first. --i / --n are set in CreditRow. */
-  transition-delay: calc(
-    (var(--n, 1) - 1 - var(--i, 0)) * var(--sc-credit-stagger)
-  );
+  transition-delay: calc((var(--n, 1) - 1 - var(--i, 0)) * var(--sc-credit-stagger));
 }
 .sc-showcase-recipe .sc-showcase-chip {
   position: relative;
@@ -499,55 +486,35 @@
 /* Expanded chain: pill tucks into a round chip, thumbs slide+fade in.
    Same rules for 1 / 2 / 3 items — stagger is --i from CreditRow. */
 @media (hover: hover) {
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-recipe
-    .sc-showcase-chip,
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-recipe
-    .sc-showcase-join {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
   }
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-recipe
-    .sc-showcase-chip,
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-recipe
-    .sc-credit-tip {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-recipe .sc-credit-tip {
     pointer-events: auto;
   }
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-chips:has(.sc-showcase-recipe)
-    .sc-showcase-badge {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge {
     gap: 0;
     padding: var(--sc-credit-lip);
     max-width: none;
   }
-  .sc-showcase-tile:is(:hover, :focus-within)
-    .sc-showcase-chips:has(.sc-showcase-recipe)
-    .sc-showcase-badge-name {
+  .sc-showcase-tile:is(:hover, :focus-within) .sc-showcase-chips:has(.sc-showcase-recipe) .sc-showcase-badge-name {
     max-width: 0;
     opacity: 0;
   }
 }
 @media (hover: none) {
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
-    .sc-showcase-recipe
-    .sc-showcase-chip,
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
-    .sc-showcase-recipe
-    .sc-showcase-join {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-join {
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transition-delay: calc(var(--i, 0) * var(--sc-credit-stagger));
   }
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
-    .sc-showcase-recipe
-    .sc-showcase-chip,
-  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
-    .sc-showcase-recipe
-    .sc-credit-tip {
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-showcase-chip,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed])) .sc-showcase-recipe .sc-credit-tip {
     pointer-events: auto;
   }
   .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
@@ -777,15 +744,11 @@
   height: 12px;
   margin-inline: -6px;
 }
-.sc-masonry[data-density-size="large"]
-  .sc-showcase-recipe
-  .sc-showcase-join::before {
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::before {
   width: 6px;
   height: 1.5px;
 }
-.sc-masonry[data-density-size="large"]
-  .sc-showcase-recipe
-  .sc-showcase-join::after {
+.sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::after {
   width: 1.5px;
   height: 6px;
 }
@@ -814,4 +777,3 @@
   color: var(--sc-fg3);
   padding: 30px 0;
 }
-

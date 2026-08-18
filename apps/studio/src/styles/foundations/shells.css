@@ -70,7 +70,6 @@
   outline-offset: var(--sc-ring-off);
 }
 
-
 /* ---- the phone shell's two variable flips ----
    The only :root mutations outside tokens.css, co-located here (C5/C6,
    css-restructure) after living 4,000 lines apart. Both are variable

@@ -47,7 +47,6 @@ export interface Brief {
  * order, so what survives a tight cap is always identity before inspiration.
  */
 
-
 export const PRODUCT_REF_MAX = 3;
 export const CHARACTER_REF_MAX = 2;
 
@@ -119,10 +118,6 @@ const assetHash = (ref: unknown): string | null => {
   const s = String(ref ?? '');
   return s.startsWith('asset:') ? s.slice(6) : null;
 };
-
-
-
-
 
 /**
  * Structural validation at the API boundary.

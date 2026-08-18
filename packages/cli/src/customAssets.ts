@@ -57,7 +57,6 @@ import {
   type CustomScene,
 } from './assetRecords.js';
 
-
 export type AssetBuildStage = 'queued' | 'analyzing' | 'building' | 'saving' | 'done' | 'failed' | 'cancelled';
 
 export interface AssetBuild {

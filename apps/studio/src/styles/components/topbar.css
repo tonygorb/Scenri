@@ -197,7 +197,7 @@
   /* A finger needs 44px; the bar does not. The graphic keeps its size and the
      reach comes from an invisible box centred on it, so nothing grows chunky. */
   .sc-topbar .sc-icon-btn::after,
-.sc-topbar .sc-org-btn::after {
+  .sc-topbar .sc-org-btn::after {
     content: "";
     position: absolute;
     top: 50%;
@@ -213,13 +213,13 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 @media (max-width: 767px) {
-.sc-topbar-lead {
+  .sc-topbar-lead {
     display: contents;
   }
-.sc-wordmark {
+  .sc-wordmark {
     grid-column: 1;
   }
-.sc-topbar-end {
+  .sc-topbar-end {
     grid-column: 3;
   }
 }

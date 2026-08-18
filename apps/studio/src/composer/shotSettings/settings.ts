@@ -41,7 +41,8 @@ export type ShotSettingsProps = {
 };
 
 /** Which formats this engine refuses, as ids. */
-export const blockedFormats = (engineId: string) => FORMATS.filter((f) => !supportsFormat(engineId, f.id)).map((f) => f.id);
+export const blockedFormats = (engineId: string) =>
+  FORMATS.filter((f) => !supportsFormat(engineId, f.id)).map((f) => f.id);
 
 /**
  * The two sentences an engine's limits are worth saying, written once. Three

@@ -159,6 +159,9 @@ async function run(): Promise<void> {
   // First look ~10s after listen, then daily. check() itself honours the
   // Settings toggle and SCENRI_NO_UPDATE_CHECK, and stays silent offline.
   app.updates.schedule();
+  // The one-time library download, shortly after listen. ensure() honours
+  // SCENRI_NO_CONTENT_FETCH and its Settings toggle, and stays silent offline.
+  app.content.schedule();
 
   const query = token ? `/?t=${token}` : '';
   const localUrl = `http://127.0.0.1:${PORT}${query}`;

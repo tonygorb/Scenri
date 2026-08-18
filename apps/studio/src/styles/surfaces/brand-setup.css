@@ -174,13 +174,13 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 @media (min-width: 1024px) {
-.sc-wiz-preview {
+  .sc-wiz-preview {
     place-items: start center;
     padding-top: 76px;
   }
 }
 @media (max-width: 767px) {
-.sc-wiz {
+  .sc-wiz {
     padding: 18px 16px 40px;
   }
 }

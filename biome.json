@@ -72,6 +72,12 @@
           }
         }
       }
+    },
+    {
+      "includes": ["apps/studio/src/styles/tokens.css"],
+      "formatter": {
+        "enabled": false
+      }
     }
   ]
 }

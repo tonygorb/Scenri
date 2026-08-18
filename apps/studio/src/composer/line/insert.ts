@@ -107,8 +107,7 @@ export function sigilAtCaret(root: HTMLElement | null): { sigil: Sigil; query: s
 
 /** Remove the "$query", "/query", "@query" or "#query" that opened the menu, even across text nodes. */
 function eatQuery(host: Text, before: string): string {
-  const cut = (v: string) =>
-    Math.max(v.lastIndexOf('$'), v.lastIndexOf('/'), v.lastIndexOf('@'), v.lastIndexOf('#'));
+  const cut = (v: string) => Math.max(v.lastIndexOf('$'), v.lastIndexOf('/'), v.lastIndexOf('@'), v.lastIndexOf('#'));
   const here = cut(before);
   if (here >= 0) return before.slice(0, here);
   const wipe: ChildNode[] = [];

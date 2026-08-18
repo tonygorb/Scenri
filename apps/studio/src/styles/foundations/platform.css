@@ -48,9 +48,7 @@ textarea:disabled {
    text-entry control is 16px and the chrome around it keeps its own scale.
    These beat rules like `.sc-ap-search input`, hence the !important. */
 @media (pointer: coarse) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
-      [type="color"]
-    ):not([type="file"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
   textarea,
   select,
   [contenteditable]:not([contenteditable="false"]) {
@@ -87,7 +85,7 @@ textarea:disabled {
   display: none;
 }
 @media (max-width: 1279px) {
-.sc-assets-backdrop {
+  .sc-assets-backdrop {
     display: block;
     position: fixed;
     inset: 0;
@@ -97,7 +95,7 @@ textarea:disabled {
   }
 }
 @media (min-width: 1280px) {
-.sc-assets-backdrop {
+  .sc-assets-backdrop {
     display: none !important;
   }
 }

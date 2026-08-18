@@ -278,18 +278,10 @@
   color: var(--sc-fg);
 }
 .sc-token[data-tinted] > button {
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%
-  );
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%);
 }
 .sc-token[data-tinted]:hover > button {
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%
-  );
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%);
 }
 /* ---------- chips, final pass (5.3) ----------
    One language for every chip: same surface, thumbnail, no border, no ring.
@@ -365,11 +357,7 @@
   background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
 }
 .sc-token[data-tinted] > button::before {
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover))
-  );
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover)));
 }
 /* ---------- the brief is one editable line (5.4) ----------
    Single contenteditable root: native select-all, copy, cut and paste work
@@ -399,13 +387,13 @@
   word-break: normal;
 }
 @media (max-width: 767px) {
-.sc-brief-line[data-empty]::before {
+  .sc-brief-line[data-empty]::before {
     display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-.sc-brief-line[data-empty][data-ph-sm]::before {
+  .sc-brief-line[data-empty][data-ph-sm]::before {
     content: attr(data-ph-sm);
   }
 }
@@ -443,7 +431,7 @@
   min-height: 26px;
 }
 @media (max-width: 767px) {
-.sc-brief-line {
+  .sc-brief-line {
     font-size: 14px;
     padding: 14px 14px 8px;
   }

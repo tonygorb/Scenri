@@ -182,7 +182,7 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 @media (max-width: 767px) {
-.sc-ap-grid {
+  .sc-ap-grid {
     grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   }
 }

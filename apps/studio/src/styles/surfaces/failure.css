@@ -180,8 +180,7 @@
   gap: var(--sc-space-4);
   width: min(100%, 46ch);
   padding: var(--sc-space-6);
-  animation: sc-setup-arrive var(--sc-dur-slow) cubic-bezier(0.2, 0.8, 0.2, 1)
-    both;
+  animation: sc-setup-arrive var(--sc-dur-slow) cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .sc-fail[data-density="stage"] .sc-fail-ic {
   width: 40px;
@@ -287,4 +286,3 @@
     padding: 4px 0;
   }
 }
-

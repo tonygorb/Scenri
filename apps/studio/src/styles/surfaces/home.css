@@ -452,29 +452,29 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 @media (max-width: 767px) {
-.sc-main {
+  .sc-main {
     padding: 18px 14px 150px;
   }
-.sc-greet {
+  .sc-greet {
     font-size: 22px;
     margin: 6px 0 16px;
     max-width: 26ch;
   }
-.sc-greet em {
+  .sc-greet em {
     font-size: 24px;
   }
 }
 @media (max-width: 479px) {
-.sc-feed {
+  .sc-feed {
     columns: 2;
     column-gap: 8px;
   }
-.sc-cell {
+  .sc-cell {
     margin-bottom: 8px;
   }
 }
 @media (pointer: coarse) {
-/* A tile's corner controls cannot use that trick: a 44px box centred on a
+  /* A tile's corner controls cannot use that trick: a 44px box centred on a
      control 8px from the edge of a 176px tile reaches across the 8px gutter
      and takes taps meant for the tile beside it. They grow for real instead,
      as far as the corner allows. */
@@ -482,7 +482,7 @@
     width: 28px;
     height: 28px;
   }
-.sc-cell-archive {
+  .sc-cell-archive {
     width: 30px;
     height: 30px;
   }

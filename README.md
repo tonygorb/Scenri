@@ -14,12 +14,12 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 npx scenri
 ```
 
-<!-- BEFORE LAUNCH: record a 10 to 15 second loop showing generate, branch an
-     edit, compare the drift, keep the winner. Save to docs/media/demo.gif,
-     then uncomment the img below. This is the single highest-leverage asset
-     on the page, so it stays commented out rather than rendering broken. -->
+<img src="docs/media/hero.jpg" alt="Four scenri shots: a trail runner kicking up volcanic ash, a serum bottle cradled in wet succulent leaves, a halftone print of aviator sunglasses, and a bottle of sparkling water photographed from under the surface" width="820">
 
-<!-- <img src="docs/media/demo.gif" alt="Generating a shot, branching an edit, and comparing the drift" width="820"> -->
+<!-- BEFORE SHOW HN: record a 10 to 15 second loop showing generate, branch an
+     edit, compare the drift, keep the winner. Save to docs/media/demo.gif and
+     swap it in for the still grid above — motion is the single
+     highest-leverage asset on the page. Spec: docs/media/README.md -->
 
 </div>
 
@@ -71,7 +71,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 - **Iteration is the product.** A version tree, not a prompt box. Branch, compare, keep the winners.
 - **Your brands are files, not hostages.** `.brand` is an open, documented format under a permissive license. Email one to a client. Any tool can adopt it.
 - **Your AI, your cost.** Bring your own Codex CLI session or an API key. Experiments cost raw API price, or nothing at all on a local session. No credits that burn on a miss.
-- **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only. The one request scenri makes on its own behalf is a daily version-number check against npm so updates can announce themselves — nothing about you or your work is sent, and it turns off in Settings or with `SCENRI_NO_UPDATE_CHECK=1` ([how updates work](docs/updates.md)).
+- **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only. scenri makes exactly two requests on its own behalf: a daily version-number check against npm so updates can announce themselves, and a one-time download of the library imagery archive, cached locally forever after. Nothing about you or your work is ever sent, and both turn off: in Settings or `SCENRI_NO_UPDATE_CHECK=1` for the first, `SCENRI_NO_CONTENT_FETCH=1` for the second ([how updates work](docs/updates.md)).
 - **Text you can still edit.** Headlines land as real layers on the image, not baked pixels. Restyle and re-export without regenerating.
 
 ## Engines
@@ -91,7 +91,7 @@ It is not free. Every ChatGPT plan comes with some Codex usage and each image sp
 
 Keys are stored in your local library folder, sent only to that provider, and never returned by the API. Set a monthly spend cap per engine in Settings.
 
-Your Codex session is yours: scenri runs the official `codex` commands on your machine and never reads, copies or stores the credential. That is also why there is no hosted version of this — a plan is licensed to the person who pays for it, not to a service pooling it for other people.
+Your Codex session is yours: scenri runs the official `codex` commands on your machine and never reads, copies or stores the credential. That is also why scenri never pools user plans: a plan is licensed to the person who pays for it, not to a service reselling it to other people. Any hosted version of scenri, if one ever exists, would run API-priced engines only.
 
 ## Configuration
 
@@ -103,6 +103,8 @@ Your Codex session is yours: scenri runs the official `codex` commands on your m
 | `SCENRI_NO_OPEN` | unset | set to `1` to skip opening a browser |
 | `SCENRI_NO_UPDATE_CHECK` | unset | set to `1` to never ask npm for the latest version |
 | `SCENRI_REGISTRY` | npmjs | registry for the update check and downloads (mirrors, forks, airgaps) |
+| `SCENRI_NO_CONTENT_FETCH` | unset | set to `1` to never download the library imagery archive |
+| `SCENRI_CONTENT_URL` | GitHub releases | where the library archive comes from (mirrors, forks, airgaps) |
 
 `OPENROUTER_API_KEY`, `REPLICATE_API_TOKEN` and `FAL_KEY` are read from the environment as an alternative to entering them in Settings.
 
@@ -136,6 +138,8 @@ Early. The version is `0.x` and interfaces can still move. Everything documented
 ## License
 
 The application is [AGPL-3.0-only](LICENSE). The `.brand` format, its schema, and its validator live in [packages/brand-spec](packages/brand-spec) under Apache-2.0, so any tool may implement or reuse them without taking on copyleft. Contributions require a [CLA](CLA.md).
+
+The bundled imagery and curated content are licensed separately under [ASSETS-LICENSE.md](ASSETS-LICENSE.md): free to use within scenri, commercial work included; no redistribution or rebundling.
 
 ---
 

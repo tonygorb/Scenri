@@ -39,18 +39,18 @@ Anything that would break one of those is out of scope, however useful it sounds
 
 ## Before first public / npm release
 
-Parked on purpose — do **not** publish until the product is ready for strangers to run `npx scenri`.
+Parked on purpose. Do **not** publish until the product is ready for strangers to run `npx scenri`.
 
-Checklist (also mirrored for agents in `.cursor/rules/first-release.mdc`):
+Checklist:
 
 1. Product ready enough for an early `0.x` public CLI
-2. Add GitHub Actions secret `NPM_TOKEN` (npm granular automation token, write access for `scenri`)
+2. Publishing runs in CI over npm trusted publishing (OIDC); no npm token exists and none is ever added
 3. Confirm the open release-please PR (`chore: release main`) is green
-4. Merge that PR — creates the GitHub release/tag and publishes to npm
+4. Merge that PR: it creates the GitHub release and tag, and CI publishes to npm with provenance
 5. Verify `npm view scenri version` and the Release workflow publish job
-6. Optionally make the GitHub repo public and enable private vulnerability reporting
+6. Make the GitHub repo public and enable private vulnerability reporting
 
-Until then: keep developing on `dev`, leave the release-please PR alone, do not add `NPM_TOKEN` just to “get it over with.”
+Until then: keep developing on `dev` and leave the release-please PR alone.
 
 ## Later
 

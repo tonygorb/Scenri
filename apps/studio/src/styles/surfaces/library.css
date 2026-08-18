@@ -501,15 +501,9 @@
 @media (min-width: 761px) {
   .sc-masonry[data-density] {
     grid-template-columns: repeat(
-      auto-fill,
-      minmax(
-        min(
-          100%,
-          calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))
-        ),
-        1fr
-      )
-    );
+        auto-fill,
+        minmax(min(100%, calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))), 1fr)
+      );
   }
 }
 
@@ -517,7 +511,7 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 @media (pointer: coarse) {
-/* The same invisible box for the controls that were left out of it. The
+  /* The same invisible box for the controls that were left out of it. The
      search toggle stands alone in a toolbar, so its reach can grow in every
      direction without touching anything. */
   .sc-libsearch-toggle::after {

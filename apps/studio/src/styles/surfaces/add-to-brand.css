@@ -47,8 +47,7 @@
   max-height: 92dvh;
   overflow: hidden;
   scrollbar-gutter: auto;
-  padding: 0 var(--sc-gutter)
-    max(var(--sc-space-7), env(safe-area-inset-bottom));
+  padding: 0 var(--sc-gutter) max(var(--sc-space-7), env(safe-area-inset-bottom));
   background: var(--sc-panel);
   color: var(--sc-fg);
   border-top: 1px solid var(--sc-line);
@@ -391,4 +390,3 @@
     animation: none !important;
   }
 }
-

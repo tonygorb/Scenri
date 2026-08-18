@@ -49,6 +49,7 @@ Usage
   scenri --help         this text
 
 Configuration is via environment variables: SCENRI_PORT, SCENRI_HOST,
-SCENRI_HOME, SCENRI_NO_OPEN, SCENRI_NO_UPDATE_CHECK.
+SCENRI_HOME, SCENRI_NO_OPEN, SCENRI_NO_UPDATE_CHECK, SCENRI_NO_CONTENT_FETCH,
+SCENRI_CONTENT_URL.
 `;
 }

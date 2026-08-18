@@ -770,7 +770,7 @@
   display: none;
 }
 @media (max-width: 1279px) {
-.sc-assets-head {
+  .sc-assets-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -778,15 +778,15 @@
     font-size: 13px;
     font-weight: 600;
   }
-.sc-work[data-assets="true"] .sc-assets-backdrop {
+  .sc-work[data-assets="true"] .sc-assets-backdrop {
     display: block;
   }
-.sc-work[data-assets="false"] .sc-assets-backdrop {
+  .sc-work[data-assets="false"] .sc-assets-backdrop {
     display: none;
   }
 }
 @media (max-width: 767px) {
-/* The dock is anchored to the gutters now, not centred, so it needs the
+  /* The dock is anchored to the gutters now, not centred, so it needs the
      phone's gutter rather than a width and a left edge. Left behind, the
      `left: 50%` from the centred era pushed it half a screen to the right the
      moment the transform went with the centring. */
@@ -795,7 +795,7 @@
     left: var(--sc-gutter);
     right: var(--sc-gutter);
   }
-.sc-canvas-alert {
+  .sc-canvas-alert {
     margin-top: 12px;
   }
 }
@@ -821,10 +821,10 @@
   );
 }
 @media (min-width: 1280px) {
-.sc-dock-fade {
+  .sc-dock-fade {
     right: var(--sc-assets-w);
   }
-.sc-dock-fade[data-full="true"] {
+  .sc-dock-fade[data-full="true"] {
     right: 0;
   }
 }
@@ -843,7 +843,7 @@
   height: 300px;
 }
 @media (max-width: 767px) {
-.sc-dock-fade {
+  .sc-dock-fade {
     bottom: var(--sc-tabbar-h);
   }
 }

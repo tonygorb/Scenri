@@ -10,6 +10,7 @@ packages/cli/templates/
 packages/cli/LICENSE
 packages/cli/NOTICE
 packages/cli/README.md
+packages/cli/ASSETS-LICENSE.md
 .pnpm-store/
 .DS_Store
 *.local
@@ -28,38 +29,28 @@ coverage/
 # and on a public repo one commit is one leaked token.
 .npmrc
 
-# agent and editor tooling. These write into the repo and have already leaked
-# an absolute home path once, so they stay out.
-# ...except the skills, which are project doctrine rather than machine state:
-# the creative system's rules, the engine behaviours we paid quota to learn, and
-# the casting board. A clone without them cannot do this work. Written with
-# repo-relative paths only — never absolute — which is what the leak was about.
-# Note the trailing /*: git cannot re-include anything under an excluded
-# DIRECTORY, so the contents are excluded and the one keeper is negated.
+# agent and editor tooling. These write machine-local state into the repo, so
+# they stay out wholesale.
 .claude/*
-!.claude/skills/
 .serena/
 .cursor/
 .remember/
+.impeccable/
 .aider*
 
 # playwright
 apps/studio/test-results/
 apps/studio/playwright-report/
 .playwright-mcp/
-# visual-regression baselines: darwin-local pixels, captured per machine from
-# the pre-restructure CSS (docs/migrations/css-restructure/), never committed
+# visual-regression baselines: local pixels, captured per machine, never committed
 apps/studio/visual/__screenshots__/
 
-# design mockups. Tony sketches new pages and components as static HTML here
-# before building them for real. That is a personal pre-code step, so it lives
-# in a private working repo and this path is a symlink to it. No trailing
-# slash: git sees a symlink, not a directory, and a trailing slash would miss it.
+# local working material that never ships: design scratch and internal notes.
+# No trailing slash on docs/design: it may be a symlink, and a trailing slash
+# would miss it.
 docs/design
-
-# local research notes — keep off GitHub
 docs/research/
 docs/product/
 
-# the ChatGPT context bundle, rebuilt by `pnpm context`. Disposable, never committed.
+# disposable local bundles, rebuilt on demand, never committed
 .context/

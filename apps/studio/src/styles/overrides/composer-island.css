@@ -1,5 +1,3 @@
-
-
 /* Stops at the tab bar rather than washing over it. This has to sit after the
    base rule, not in the earlier phone block, or the unmediated bottom:0 below
    simply wins on source order. */
@@ -252,4 +250,3 @@
     min-width: var(--sc-tap);
   }
 }
-

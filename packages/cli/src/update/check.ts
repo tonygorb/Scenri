@@ -1,7 +1,8 @@
 /**
  * The update check: one GET for the registry's dist-tags, at most once a day,
- * cached in the settings table. This is the only request scenri ever makes on
- * its own behalf — keep it version-only, silent offline, and opt-out-able
+ * cached in the settings table. One of exactly two requests scenri ever makes
+ * on its own behalf (the other is the one-time library download in
+ * content/fetch.ts) — keep it version-only, silent offline, and opt-out-able
  * (Settings toggle, or SCENRI_NO_UPDATE_CHECK=1).
  */
 

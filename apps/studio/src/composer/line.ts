@@ -21,7 +21,14 @@ export { readLine, renderLine } from './line/render.js';
 export { caretUnits, setCaretUnits, caretToEnd, tailText } from './line/caret.js';
 export { normalizeLine, isBlankLine, syncEmpty } from './line/invariants.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
-export { insertToken, SIGILS, sigilAtCaret, removeChip, unitsBeforeChip, collapseDoubleSpaceAtCaret } from './line/insert.js';
+export {
+  insertToken,
+  SIGILS,
+  sigilAtCaret,
+  removeChip,
+  unitsBeforeChip,
+  collapseDoubleSpaceAtCaret,
+} from './line/insert.js';
 export { textBeforeCaret, caretRect, caretBeside, caretFromPoint } from './line/query.js';
 export { keepCaret } from './line/focus.js';
 export { serializeSelection, chipLabel, parseBriefHtml } from './line/clipboard.js';
