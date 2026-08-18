@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowSquareOut, BookmarkSimple, Check, ImageSquare, MagnifyingGlass, Trash } from '@phosphor-icons/react';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+import { useSheetDrag } from '../useSheetDrag.js';
 
 /** A thumb, not a mouse. Decides whether opening the panel takes the keyboard. */
 const COARSE = '(pointer: coarse)';
@@ -462,34 +463,7 @@ function PickerPanel(props: PickerProps) {
  */
 function PickerSheet(props: PickerProps) {
   const { kind, onClose } = props;
-  const sheet = useRef<HTMLDivElement>(null);
-  const from = useRef<{ y: number; t: number } | null>(null);
-  const moved = useRef(0);
-
-  const grab = (e: React.PointerEvent<HTMLElement>) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    from.current = { y: e.clientY, t: e.timeStamp };
-    moved.current = 0;
-    if (sheet.current) sheet.current.style.transition = 'none';
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const drag = (e: React.PointerEvent<HTMLElement>) => {
-    if (!from.current || !sheet.current) return;
-    moved.current = Math.max(0, e.clientY - from.current.y);
-    sheet.current.style.transform = `translateY(${moved.current}px)`;
-  };
-  const release = (e: React.PointerEvent<HTMLElement>) => {
-    const start = from.current;
-    from.current = null;
-    if (!start || !sheet.current) return;
-    sheet.current.style.transition = '';
-    const speed = moved.current / Math.max(1, e.timeStamp - start.t);
-    if (moved.current > 96 || speed > 0.45) {
-      onClose('dismiss');
-      return;
-    }
-    sheet.current.style.transform = '';
-  };
+  const { sheet, grip } = useSheetDrag(() => onClose('dismiss'));
 
   return (
     <Dialog.Root open onOpenChange={(o) => !o && onClose('dismiss')}>
@@ -516,13 +490,7 @@ function PickerSheet(props: PickerProps) {
             onClose('escape');
           }}
         >
-          <div
-            className="sc-shotsheet-grip"
-            onPointerDown={grab}
-            onPointerMove={drag}
-            onPointerUp={release}
-            onPointerCancel={release}
-          >
+          <div className="sc-shotsheet-grip" {...grip}>
             <span className="sc-shotsheet-bar" aria-hidden />
             <Dialog.Title className="sc-vh">Change {NOUN[kind]}</Dialog.Title>
           </div>

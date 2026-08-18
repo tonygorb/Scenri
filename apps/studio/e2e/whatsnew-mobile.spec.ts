@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
 
 /**
@@ -57,4 +57,55 @@ test("What's new is a bottom sheet on a phone, and closes by hand", async ({ pag
   await page.locator('.sc-wn .sc-btn-primary', { hasText: 'Got it' }).click();
   await expect(sheet).toHaveCount(0);
   expect(testInfo.project.name).toBeTruthy();
+});
+
+async function settledBox(p: Page, sel: string) {
+  let last = (await p.locator(sel).boundingBox())!;
+  for (let i = 0; i < 20; i++) {
+    await p.waitForTimeout(50);
+    const now = (await p.locator(sel).boundingBox())!;
+    if (Math.abs(now.y - last.y) < 0.5) return now;
+    last = now;
+  }
+  return last;
+}
+
+async function dragSheet(p: Page, grip: string, dy: number) {
+  const box = await settledBox(p, grip);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await p.mouse.move(x, y);
+  await p.mouse.down();
+  await p.mouse.move(x, y + dy, { steps: 10 });
+  await p.waitForTimeout(200);
+  await p.mouse.up();
+}
+
+test("What's new is dragged away, and springs back from a nudge", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) >= 768, 'the sheet only exists below 768px');
+
+  await page.route('**/api/release/notes', (route) =>
+    route.fulfill({
+      json: {
+        version: ENTRY.version,
+        entry: ENTRY,
+        seen: '0.0.1',
+        changelogUrl: 'https://github.com/tonygorb/scenri/releases/tag/v9.9.9',
+        releasesUrl: 'https://github.com/tonygorb/scenri/releases',
+      },
+    }),
+  );
+  await page.route('**/api/release/seen', (route) => route.fulfill({ json: { ok: true } }));
+
+  await page.goto('/');
+  const sheet = page.locator('.sc-wn');
+  await expect(sheet).toBeVisible({ timeout: 8000 });
+
+  const pull = (dy: number) => dragSheet(page, '.sc-wn > .sc-shotsheet-grip', dy);
+  await pull(24);
+  await expect(sheet).toBeVisible();
+  await expect.poll(() => sheet.evaluate((el) => el.style.transform)).toBe('');
+
+  await pull(200);
+  await expect(sheet).toHaveCount(0);
 });

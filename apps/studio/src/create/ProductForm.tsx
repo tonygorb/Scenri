@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { api } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { PRODUCT_CATEGORIES } from '../productCategories.js';
@@ -22,10 +22,6 @@ const USED_IN_SHOTS = 3;
  * engine, no waiting. It says so in the same place the other two say what they
  * are about to spend, which is what makes them read as one family rather than
  * one fast form and two slow ones.
- *
- * A store URL is the other way in, kept as a disclosure rather than a second
- * top-level choice — it was a menu item pretending to be its own flow, and it
- * opened this exact dialog.
  */
 export function ProductForm({ onBack, onStarted }: FlowProps) {
   const { brand } = useBrand();
@@ -35,7 +31,7 @@ export function ProductForm({ onBack, onStarted }: FlowProps) {
   const f = useAssetFields(brand.id, 'product', { max: MAX_REFS, pendingState: () => 'unknown' });
 
   const ready = f.fields.imageHashes.length > 0;
-  const blocked = ready ? undefined : 'Add at least one image of it';
+  const blocked = ready ? undefined : 'Add at least one photo';
 
   const create = async () => {
     setBusy(true);
@@ -64,8 +60,6 @@ export function ProductForm({ onBack, onStarted }: FlowProps) {
     try {
       await api.catalogImport(brand.id, url);
       f.set({ importUrl: '' });
-      // The import is a task like any other: it reports in the bell, with a real
-      // progress bar, so there is nothing left for this dialog to watch.
       onStarted({ kind: 'product', id: '', name: url });
     } catch (e: any) {
       f.setErr(String(e.message ?? e));
@@ -74,24 +68,30 @@ export function ProductForm({ onBack, onStarted }: FlowProps) {
     }
   };
 
+  const submitOnEnter = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (ready && !busy) void create();
+  };
+
   return (
     <AssetCreateShell
       title="New product"
-      sub="Photographs of the thing itself. These are what every shot of it is built from."
       error={f.err}
-      footnote="Saved to this brand straight away. Nothing is generated."
+      footnote="Added to this brand. No preview."
       primaryLabel="Add product"
       ready={ready}
       blocked={blocked}
       busy={busy}
       onBack={onBack}
       onPrimary={() => void create()}
+      onPasteFiles={(files) => void f.addFiles(files)}
     >
       <div className="sc-assetform">
         <RefStrip
           hashes={f.fields.imageHashes}
           max={MAX_REFS}
-          label="Add images"
+          label="Add packshots"
           hint={`Straight, well-lit packshots. The first ${USED_IN_SHOTS} are the ones a shot attaches.`}
           busy={f.uploading}
           onAdd={(files) => void f.addFiles(files)}
@@ -99,33 +99,39 @@ export function ProductForm({ onBack, onStarted }: FlowProps) {
           onReject={() => f.setErr('Drop an image file.')}
         />
 
-        {/* Named, not filled in. A bordered box under a picture reads as a
-            form; a line under it reads as a caption, which is what it is. */}
-        <input
-          className="sc-newtitle"
-          type="text"
-          placeholder="Name this product"
-          aria-label="Product name"
-          value={f.fields.name}
-          onChange={(e) => f.set({ name: e.target.value })}
-        />
+        <div className="sc-assetform-fields">
+          <div className="sc-assetform-field">
+            <label className="sc-newdlg-seclabel" htmlFor="sc-product-name">
+              Name
+            </label>
+            <input
+              id="sc-product-name"
+              className="sc-in"
+              type="text"
+              placeholder="Name this product"
+              value={f.fields.name}
+              onChange={(e) => f.set({ name: e.target.value })}
+              onKeyDown={submitOnEnter}
+            />
+          </div>
+        </div>
 
-        {/* One category, not many: a product is one kind of object, and the
-            choice decides which reference angles its page then asks for. */}
         <fieldset className="sc-assetform-facets">
-          <legend>Filed under</legend>
-          {PRODUCT_CATEGORIES.map((c) => (
-            <button
-              type="button"
-              key={c.key}
-              className="sc-chip"
-              data-on={f.fields.facets[0] === c.key || undefined}
-              aria-pressed={f.fields.facets[0] === c.key}
-              onClick={() => f.set({ facets: f.fields.facets[0] === c.key ? [] : [c.key] })}
-            >
-              {c.label}
-            </button>
-          ))}
+          <legend>Category</legend>
+          <div className="sc-assetform-facets-chips">
+            {PRODUCT_CATEGORIES.map((c) => (
+              <button
+                type="button"
+                key={c.key}
+                className="sc-chip"
+                data-on={f.fields.facets[0] === c.key || undefined}
+                aria-pressed={f.fields.facets[0] === c.key}
+                onClick={() => f.set({ facets: f.fields.facets[0] === c.key ? [] : [c.key] })}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
         </fieldset>
       </div>
 
@@ -159,7 +165,7 @@ export function ProductForm({ onBack, onStarted }: FlowProps) {
           </>
         ) : (
           <button type="button" className="sc-newdlg-secmore" onClick={() => setShowImport(true)}>
-            Have a store? Import your whole catalog
+            Import a catalog from a store URL
           </button>
         )}
       </div>

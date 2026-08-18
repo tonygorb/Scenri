@@ -113,7 +113,7 @@ test.describe('adding to a brand', () => {
   test('each flow says what pressing its button will actually do', async ({ page }) => {
     await page.goto(`/${slug}?new=product`);
     // the free one says so, where the other two say what they will spend
-    await expect(page.locator('.sc-dlg-foot')).toContainText('Nothing is generated');
+    await expect(page.locator('.sc-dlg-foot')).toContainText('No preview');
 
     await page.goto(`/${slug}?new=presenter`);
     await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');

@@ -5,19 +5,9 @@ import { Dropzone } from '../layout/Dropzone.js';
 /**
  * The pictures you hand over, in every flow that takes pictures.
  *
- * This is the one widget all three creation forms genuinely share, and sharing
- * it is what makes them feel like one system: the same well, the same 4:5
- * thumbnails, the same little X, whether you are giving Scenri a bottle, a face
- * or a room. What those pictures then mean is entirely the form's business — a
- * presenter's photos are pixels an engine will read, a scene's references are
- * only ever read as prose.
- *
- * It leads every form on purpose. The material is the real subject of all three
- * dialogs, and a name typed above an empty box is a form; a name typed under
- * the thing you just dropped in is a caption.
- *
- * Files upload as they are picked rather than on submit. That is what lets the
- * whole form survive being closed: a hash outlives the tab, a File does not.
+ * Empty: one large well — the material is the subject, not four dead columns.
+ * Filled: a 4:5 grid of what arrived, plus room for more. Sharing this widget
+ * is what makes the three forms feel like one system.
  */
 export function RefStrip({
   hashes,
@@ -31,7 +21,6 @@ export function RefStrip({
 }: {
   hashes: string[];
   max: number;
-  /** What to call them here — "photos", "references", "images". */
   label: string;
   hint: string;
   busy: boolean;

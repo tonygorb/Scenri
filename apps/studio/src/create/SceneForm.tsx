@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -24,7 +24,7 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
   const f = useAssetFields(brand.id, 'scene', { max: MAX_REFS, pendingState });
 
   const ready = Boolean(f.fields.name.trim()) && (f.fields.imageHashes.length > 0 || !!f.fields.instruction.trim());
-  const blocked = ready ? undefined : 'Add a name, and either a reference or a description';
+  const blocked = ready ? undefined : 'Add a name, and a photo or a note';
 
   const start = async () => {
     setBusy(true);
@@ -46,29 +46,36 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
     }
   };
 
+  const submitOnEnter = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (ready && !busy) void start();
+  };
+
+  const submitOnMetaEnter = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
+    e.preventDefault();
+    if (ready && !busy) void start();
+  };
+
   return (
     <AssetCreateShell
       title="New scene"
-      sub="References of a place. Scenri keeps its light and materials, and drops whatever was staged in them."
       error={f.err}
-      footnote={capsNote(
-        caps?.canGenerate
-          ? `Draws one example on ${caps.engineName ?? 'your engine'}${caps.engineId === 'codex-cli' ? ', on your ChatGPT plan' : ''}. A few minutes.`
-          : 'No engine connected, so this scene is saved without an example image.',
-      )}
+      footnote={capsNote(caps?.canGenerate ? 'One preview. A few minutes.' : 'Saved without a preview.')}
       primaryLabel="Create scene"
       ready={ready}
       blocked={blocked}
       busy={busy}
-      width="460px"
       onBack={onBack}
       onPrimary={() => void start()}
+      onPasteFiles={(files) => void f.addFiles(files)}
     >
       <div className="sc-assetform">
         <RefStrip
           hashes={f.fields.imageHashes}
           max={MAX_REFS}
-          label="Add references"
+          label="Add a place"
           hint={`Screenshots, photography, anything showing the world you want. Up to ${MAX_REFS}.`}
           busy={f.uploading}
           onAdd={(files) => void f.addFiles(files)}
@@ -76,41 +83,54 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
           onReject={() => f.setErr('Drop an image file.')}
         />
 
-        <input
-          className="sc-newtitle"
-          type="text"
-          placeholder="Name this place"
-          aria-label="Scene name"
-          value={f.fields.name}
-          onChange={(e) => f.set({ name: e.target.value })}
-        />
-
-        {/* The one flow where words alone are enough, so the prose gets room
-            rather than a two-line box at the bottom of a stack. */}
-        <textarea
-          className="sc-newnote"
-          placeholder="What matters here, in your words. Keep the architecture and the light, lose the plants."
-          aria-label="What matters here"
-          rows={3}
-          value={f.fields.instruction}
-          onChange={(e) => f.set({ instruction: e.target.value })}
-        />
+        <div className="sc-assetform-fields">
+          <div className="sc-assetform-field">
+            <label className="sc-newdlg-seclabel" htmlFor="sc-scene-name">
+              Name
+            </label>
+            <input
+              id="sc-scene-name"
+              className="sc-in"
+              type="text"
+              placeholder="Name this place"
+              value={f.fields.name}
+              onChange={(e) => f.set({ name: e.target.value })}
+              onKeyDown={submitOnEnter}
+            />
+          </div>
+          <div className="sc-assetform-field">
+            <label className="sc-newdlg-seclabel" htmlFor="sc-scene-notes">
+              Notes
+            </label>
+            <textarea
+              id="sc-scene-notes"
+              className="sc-in"
+              placeholder="What matters here, in your words"
+              rows={3}
+              value={f.fields.instruction}
+              onChange={(e) => f.set({ instruction: e.target.value })}
+              onKeyDown={submitOnMetaEnter}
+            />
+          </div>
+        </div>
 
         {verticals.length > 0 && (
           <fieldset className="sc-assetform-facets">
-            <legend>Suits</legend>
-            {verticals.map((v) => (
-              <button
-                type="button"
-                key={v}
-                className="sc-chip"
-                data-on={f.fields.facets.includes(v) || undefined}
-                aria-pressed={f.fields.facets.includes(v)}
-                onClick={() => f.toggleFacet(v)}
-              >
-                {v}
-              </button>
-            ))}
+            <legend>Categories</legend>
+            <div className="sc-assetform-facets-chips">
+              {verticals.map((v) => (
+                <button
+                  type="button"
+                  key={v}
+                  className="sc-chip"
+                  data-on={f.fields.facets.includes(v) || undefined}
+                  aria-pressed={f.fields.facets.includes(v)}
+                  onClick={() => f.toggleFacet(v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
           </fieldset>
         )}
       </div>

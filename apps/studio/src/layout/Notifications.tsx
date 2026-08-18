@@ -17,6 +17,7 @@ import { useTaskCenter } from '../app/TaskCenter.js';
 import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../tasks.js';
 import { useToasts } from '../toasts.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+import { useSheetDrag } from '../useSheetDrag.js';
 import { failureToast } from '../failure.js';
 
 /**
@@ -96,6 +97,7 @@ export function NotificationsButton() {
  * the popover for free and this is the half of the app that has to earn them.
  */
 function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
+  const { sheet, grip } = useSheetDrag(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -107,8 +109,10 @@ function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
   return createPortal(
     <>
       <div className="sc-notif-scrim" onClick={onClose} aria-hidden />
-      <div className="sc-notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
-        <div className="sc-notif-grab" aria-hidden />
+      <div ref={sheet} className="sc-notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div className="sc-shotsheet-grip" {...grip}>
+          <span className="sc-shotsheet-bar" aria-hidden />
+        </div>
         <Panel onClose={onClose} onSeen={onSeen} />
       </div>
     </>,

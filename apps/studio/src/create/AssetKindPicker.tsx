@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { Dialog } from '@radix-ui/themes';
 import { FilmSlate, IdentificationBadge, Package, X } from '@phosphor-icons/react';
+import { useDialogParam } from '../app/AppShell.js';
 import type { CreateKind } from '../createDraft.js';
+import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 import { useKindPreview } from './useKindPreview.js';
 
 /**
@@ -44,6 +45,7 @@ const held = (n: number, noun: string) => (n === 0 ? 'None yet' : `${n} ${noun}$
 
 export function AssetKindPicker({ suggest, onPick }: { suggest: CreateKind | null; onPick: (k: CreateKind) => void }) {
   const listRef = useRef<HTMLDivElement>(null);
+  const { close } = useDialogParam('new');
   const preview = useKindPreview();
 
   /** The card for the page you are on, or the first. Radix's own default lands
@@ -54,59 +56,60 @@ export function AssetKindPicker({ suggest, onPick }: { suggest: CreateKind | nul
   useEffect(focusCard, [suggest]);
 
   return (
-    <Dialog.Content
-      className="sc-newdlg sc-newpick"
+    <DialogSheet
+      className="sc-newpick"
       maxWidth="620px"
-      aria-describedby={undefined}
+      onDismiss={close}
       onOpenAutoFocus={(e) => {
         e.preventDefault();
         focusCard();
       }}
-      onCloseAutoFocus={(e) => e.preventDefault()}
     >
       <div className="sc-newdlg-head">
-        <Dialog.Title className="sc-newdlg-title">Add to this brand</Dialog.Title>
-        <Dialog.Close>
+        <SheetTitle className="sc-newdlg-title">Add to this brand</SheetTitle>
+        <SheetClose>
           <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
             <X size={16} />
           </button>
-        </Dialog.Close>
+        </SheetClose>
       </div>
       <p className="sc-newdlg-sub">The three things every shot is made from.</p>
 
-      <div className="sc-pickgrid" ref={listRef}>
-        {KINDS.map(({ kind, label, line, noun, icon: Icon }) => {
-          const { url, count, own } = preview[kind];
-          return (
-            <button
-              type="button"
-              key={kind}
-              className="sc-pick"
-              data-kind={kind}
-              onClick={() => onPick(kind)}
-              aria-label={`${label}. ${line}. ${held(count, noun)}.`}
-            >
-              <span className="sc-pick-media">
-                {url ? (
-                  <img src={url} alt="" loading="lazy" />
-                ) : (
-                  <span className="sc-pick-blank">
-                    <Icon size={22} />
-                  </span>
-                )}
-                {/* Their own work says so. On a brand with nothing yet this is
+      <div className="sc-newdlg-body">
+        <div className="sc-pickgrid" ref={listRef}>
+          {KINDS.map(({ kind, label, line, noun, icon: Icon }) => {
+            const { url, count, own } = preview[kind];
+            return (
+              <button
+                type="button"
+                key={kind}
+                className="sc-pick"
+                data-kind={kind}
+                onClick={() => onPick(kind)}
+                aria-label={`${label}. ${line}. ${held(count, noun)}.`}
+              >
+                <span className="sc-pick-media">
+                  {url ? (
+                    <img src={url} alt="" loading="lazy" />
+                  ) : (
+                    <span className="sc-pick-blank">
+                      <Icon size={22} />
+                    </span>
+                  )}
+                  {/* Their own work says so. On a brand with nothing yet this is
                     our catalog, and claiming otherwise would be a small lie. */}
-                {own && <span className="sc-pick-mine">Yours</span>}
-              </span>
-              <span className="sc-pick-cap">
-                <b>{label}</b>
-                <small>{line}</small>
-              </span>
-              <span className="sc-pick-count">{held(count, noun)}</span>
-            </button>
-          );
-        })}
+                  {own && <span className="sc-pick-mine">Yours</span>}
+                </span>
+                <span className="sc-pick-cap">
+                  <b>{label}</b>
+                  <small>{line}</small>
+                </span>
+                <span className="sc-pick-count">{held(count, noun)}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </Dialog.Content>
+    </DialogSheet>
   );
 }

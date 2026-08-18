@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import { Dialog, Spinner } from '@radix-ui/themes';
+import { Spinner } from '@radix-ui/themes';
 import { CaretLeft, X } from '@phosphor-icons/react';
+import { useDialogParam } from '../app/AppShell.js';
+import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 
 /**
  * The one shape every "add something to this brand" flow wears.
@@ -11,11 +13,9 @@ import { CaretLeft, X } from '@phosphor-icons/react';
  * the line under it saying what pressing it will actually do. The three bodies
  * are passed in as children and state their own fields.
  *
- * Built on Radix Themes' Dialog, like SettingsDialog, so the focus trap,
- * initial focus, return focus, scroll lock, Escape and backdrop all come for
- * free and behave identically to every other overlay in the app. Below 768px
- * the same markup becomes a bottom sheet, in CSS — no breakpoint in JS, so
- * there is never a second copy of this state.
+ * DialogSheet is a centred card above 768px and the same bottom sheet the
+ * composer chips already use below — overlay and content as siblings, so
+ * iOS never treats the sheet as fixed to an animating overlay.
  */
 export function AssetCreateShell({
   title,
@@ -29,10 +29,12 @@ export function AssetCreateShell({
   width = '440px',
   onBack,
   onPrimary,
+  onPasteFiles,
   children,
 }: {
   title: string;
-  sub: string;
+  /** Omitted on the three forms — the title and the material say enough. */
+  sub?: string;
   error?: string | null;
   /** What is about to happen, said before it happens. Never empty. */
   footnote?: ReactNode;
@@ -46,29 +48,22 @@ export function AssetCreateShell({
   /** Rendered only when there is a chooser behind this to go back to. */
   onBack?: () => void;
   onPrimary: () => void;
+  /** Images on the clipboard become references, same as a drop. */
+  onPasteFiles?: (files: File[]) => void;
   children: ReactNode;
 }) {
+  const { close } = useDialogParam('new');
   return (
-    <Dialog.Content
-      className="sc-newdlg"
+    <DialogSheet
       maxWidth={width}
-      aria-describedby={undefined}
-      // Focus the surface, not the first field: on a phone this is a sheet, and
-      // landing in a text input would open the keyboard over the form before
-      // anyone had decided to type.
-      //
-      // Deliberately NOT `focusSelfOnOpen`: the shared helper passes
-      // `preventScroll`, and this sheet needs the scroll — focusing it is what
-      // brings the overlay's scroller to the bottom edge it docks against.
-      // With the scroll suppressed the sheet floats ~45px above the edge.
-      onOpenAutoFocus={(e) => {
+      onDismiss={close}
+      onPaste={(e) => {
+        if (!onPasteFiles) return;
+        const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
+        if (!files.length) return;
         e.preventDefault();
-        (e.currentTarget as HTMLElement | null)?.focus();
+        onPasteFiles(files);
       }}
-      // The host puts focus back where it came from. Radix would aim at the
-      // element this Content remembers, which after a chooser-to-flow swap is
-      // a row that no longer exists — so focus landed on the body.
-      onCloseAutoFocus={(e) => e.preventDefault()}
     >
       <div className="sc-newdlg-head">
         {onBack && (
@@ -76,14 +71,14 @@ export function AssetCreateShell({
             <CaretLeft size={15} />
           </button>
         )}
-        <Dialog.Title className="sc-newdlg-title">{title}</Dialog.Title>
-        <Dialog.Close>
+        <SheetTitle className="sc-newdlg-title">{title}</SheetTitle>
+        <SheetClose>
           <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
             <X size={16} />
           </button>
-        </Dialog.Close>
+        </SheetClose>
       </div>
-      <p className="sc-newdlg-sub">{sub}</p>
+      {sub && <p className="sc-newdlg-sub">{sub}</p>}
 
       <div className="sc-newdlg-body">{children}</div>
 
@@ -109,6 +104,6 @@ export function AssetCreateShell({
         </button>
         {footnote && <p className="sc-dlg-foot">{footnote}</p>}
       </div>
-    </Dialog.Content>
+    </DialogSheet>
   );
 }

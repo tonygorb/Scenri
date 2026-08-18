@@ -65,6 +65,9 @@ test('the dialog is a sheet on a phone and a centred dialog on a tablet', async 
   const slug = await brandSlug(page);
   await page.goto(`/${slug}/scenes?new=scene`);
   await expect(dialog(page)).toBeVisible();
+  // the sheet rises from below the fold; a box read on the first paint is
+  // still travelling and is not the dock the assertions name
+  await settledBox(page, '.sc-newdlg');
 
   const geometry = await dialog(page).evaluate((el) => {
     const r = el.getBoundingClientRect();
@@ -133,4 +136,59 @@ test('the chooser is usable by touch', async ({ page }) => {
 
   await page.locator('[data-kind="scene"]').tap();
   await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
+});
+
+/**
+ * Where the grip has come to rest.
+ *
+ * A sheet slides up when it opens, so a box read the moment it mounts names a
+ * place the grip is about to leave. Pressing there put the pointer on the
+ * scrim below the risen sheet, Radix read that as a click outside, and the
+ * drag case failed having never touched the thing it meant to drag.
+ */
+async function settledBox(p: Page, sel: string) {
+  let last = (await p.locator(sel).boundingBox())!;
+  for (let i = 0; i < 20; i++) {
+    await p.waitForTimeout(50);
+    const now = (await p.locator(sel).boundingBox())!;
+    if (Math.abs(now.y - last.y) < 0.5) return now;
+    last = now;
+  }
+  return last;
+}
+
+/**
+ * Drag a sheet down by its grip, as a hand would.
+ *
+ * The sheet leaves on distance *or* on speed — `moved > 96 || speed > 0.45`
+ * px/ms — and playwright dispatches the whole move in one go, so a gentle
+ * 24px pull arrives at ~5px/ms and reads as a flick. The hold before
+ * releasing is what makes the gesture mean what it says.
+ */
+async function dragSheet(p: Page, grip: string, dy: number) {
+  const box = await settledBox(p, grip);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await p.mouse.move(x, y);
+  await p.mouse.down();
+  await p.mouse.move(x, y + dy, { steps: 10 });
+  await p.waitForTimeout(200);
+  await p.mouse.up();
+}
+
+test('the sheet is dragged away, and springs back from a nudge', async ({ page }) => {
+  test.skip(!isPhone(page), 'the sheet only exists below 768px');
+  const slug = await brandSlug(page);
+  await page.goto(`/${slug}/scenes?new=scene`);
+
+  const sheet = dialog(page);
+  const pull = (dy: number) => dragSheet(page, '.sc-newdlg > .sc-shotsheet-grip', dy);
+
+  await expect(sheet).toBeVisible();
+  await pull(24);
+  await expect(sheet).toBeVisible();
+  await expect.poll(() => sheet.evaluate((el) => el.style.transform)).toBe('');
+
+  await pull(200);
+  await expect(sheet).toHaveCount(0);
 });

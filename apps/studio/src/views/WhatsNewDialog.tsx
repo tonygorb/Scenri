@@ -1,8 +1,7 @@
-import { Dialog } from '@radix-ui/themes';
 import { ArrowSquareOut, X } from '@phosphor-icons/react';
 import { useDialogParam } from '../app/AppShell.js';
-import { focusSelfOnOpen } from '../app/dialogs.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
+import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
 import { readableDate } from '../release.js';
 
 /**
@@ -64,47 +63,45 @@ export function WhatsNewDialog() {
   );
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => !o && close()}>
-      <Dialog.Content maxWidth="420px" className="sc-newdlg sc-wn" onOpenAutoFocus={focusSelfOnOpen}>
-        <div className="sc-newdlg-head">
-          <Dialog.Title className="sc-newdlg-title">What's new</Dialog.Title>
-          <Dialog.Close>
-            <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
-              <X size={16} />
-            </button>
-          </Dialog.Close>
-        </div>
+    <DialogSheet open={open} className="sc-wn" maxWidth="420px" described onDismiss={close}>
+      <div className="sc-newdlg-head">
+        <SheetTitle className="sc-newdlg-title">What's new</SheetTitle>
+        <SheetClose>
+          <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
+            <X size={16} />
+          </button>
+        </SheetClose>
+      </div>
 
-        <Dialog.Description className="sc-wn-sub">{subtitle}</Dialog.Description>
+      <SheetDescription className="sc-wn-sub">{subtitle}</SheetDescription>
 
-        <div className="sc-newdlg-body">
-          {entry?.title && <p className="sc-wn-lede sc-accent">{entry.title}</p>}
-          {entry && entry.sections.length > 0 ? (
-            entry.sections.map((s) => (
-              <section key={s.heading} className="sc-wn-sec">
-                {named && <h3 className="sc-wn-head">{s.heading}</h3>}
-                <p className="sc-wn-txt">{s.body}</p>
-              </section>
-            ))
-          ) : (
-            <p className="sc-wn-txt">{silence}</p>
-          )}
-        </div>
+      <div className="sc-newdlg-body">
+        {entry?.title && <p className="sc-wn-lede sc-accent">{entry.title}</p>}
+        {entry && entry.sections.length > 0 ? (
+          entry.sections.map((s) => (
+            <section key={s.heading} className="sc-wn-sec">
+              {named && <h3 className="sc-wn-head">{s.heading}</h3>}
+              <p className="sc-wn-txt">{s.body}</p>
+            </section>
+          ))
+        ) : (
+          <p className="sc-wn-txt">{silence}</p>
+        )}
+      </div>
 
-        <div className="sc-newdlg-foot sc-wn-foot">
-          {releasesUrl && (
-            <a className="sc-wn-link" href={releasesUrl} target="_blank" rel="noreferrer">
-              All releases
-              <ArrowSquareOut size={13} />
-            </a>
-          )}
-          <Dialog.Close>
-            <button type="button" className="sc-btn sc-btn-primary">
-              Got it
-            </button>
-          </Dialog.Close>
-        </div>
-      </Dialog.Content>
-    </Dialog.Root>
+      <div className="sc-newdlg-foot sc-wn-foot">
+        {releasesUrl && (
+          <a className="sc-wn-link" href={releasesUrl} target="_blank" rel="noreferrer">
+            All releases
+            <ArrowSquareOut size={13} />
+          </a>
+        )}
+        <SheetClose>
+          <button type="button" className="sc-btn sc-btn-primary">
+            Got it
+          </button>
+        </SheetClose>
+      </div>
+    </DialogSheet>
   );
 }

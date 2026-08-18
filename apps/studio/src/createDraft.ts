@@ -23,7 +23,7 @@ export interface AssetDraft {
   name: string;
   /** Presenter's note, scene's description. Unused by product. */
   instruction: string;
-  /** "Casts for" / "Suits" / "Filed under" — one list, three legends. */
+  /** Categories the new asset files under. One list, three forms. */
   facets: string[];
   /**
    * Content hashes, never File objects. Uploading happens as files are picked,

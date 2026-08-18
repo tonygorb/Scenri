@@ -179,6 +179,9 @@ The shared shell behind every curated-asset browsing surface (Products, Scenes, 
 - **Search shows once a library clears ~8 items**, and may match more than the card displays (a Presenter card shows name + descriptor; its search also reads hair, skin, build, age) — the search system is allowed to be smarter than the visible card.
 - **A primary CTA slot may be visible before it's wired.** Products' CTA is real today (Upload/Import); Scenes/Presenters show "Create scene"/"Create presenter" as visible ghost buttons ahead of the backend route existing, at explicit product direction — the button's presence signals intent even before it does something.
 
+### Create dialogs (product / presenter / scene)
+A create dialog is a picture being named, not a settings panel. Empty: one large drop well. Filled: a 4:5 grid of references. Name and notes are labeled `.sc-in` fields — the same control as Settings, not a second input style. Filing is optional chips under a quiet legend. The chooser is one press; the forms do not grow a second step.
+
 ## 6. Do's and Don'ts
 
 ### Do:

@@ -4,6 +4,7 @@ import { Popover } from '@radix-ui/themes';
 import { Check, FrameCorners, SlidersHorizontal, Stack } from '@phosphor-icons/react';
 import { FORMATS } from './BriefInput.js';
 import { sizingOf, supportsFormat } from '../engines/capabilities.js';
+import { useSheetDrag } from '../useSheetDrag.js';
 
 /**
  * The stored id stays `quality` — it is a persisted pref key and a field on
@@ -526,44 +527,7 @@ export function ShotSettingsPills({
  */
 export function ShotSettings(props: ShotSettingsProps) {
   const [open, setOpen] = useState(false);
-  const sheet = useRef<HTMLDivElement>(null);
-  const from = useRef<{ y: number; t: number } | null>(null);
-  const moved = useRef(0);
-
-  /**
-   * The bar at the top is a real handle, not a picture of one: a sheet that
-   * shows the affordance and then refuses the gesture is worse than a sheet
-   * with no bar at all. Pointer events rather than touch, so a trackpad drag
-   * behaves the same as a thumb.
-   */
-  const grab = (e: React.PointerEvent<HTMLElement>) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    from.current = { y: e.clientY, t: e.timeStamp };
-    moved.current = 0;
-    if (sheet.current) sheet.current.style.transition = 'none';
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const drag = (e: React.PointerEvent<HTMLElement>) => {
-    if (!from.current || !sheet.current) return;
-    // down only: an upward pull has nowhere to go
-    moved.current = Math.max(0, e.clientY - from.current.y);
-    sheet.current.style.transform = `translateY(${moved.current}px)`;
-  };
-  const release = (e: React.PointerEvent<HTMLElement>) => {
-    const start = from.current;
-    from.current = null;
-    if (!start || !sheet.current) return;
-    sheet.current.style.transition = '';
-    // a short flick is as clear an intention as a long drag
-    const speed = moved.current / Math.max(1, e.timeStamp - start.t);
-    if (moved.current > 96 || speed > 0.45) {
-      // the transform stays put: the exit animation outranks it in the cascade
-      // and carries on from where the thumb left off
-      setOpen(false);
-      return;
-    }
-    sheet.current.style.transform = '';
-  };
+  const { sheet, grip } = useSheetDrag(() => setOpen(false));
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -583,13 +547,7 @@ export function ShotSettings(props: ShotSettingsProps) {
              keystroke meant for the brief would be lost */
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
-          <div
-            className="sc-shotsheet-grip"
-            onPointerDown={grab}
-            onPointerMove={drag}
-            onPointerUp={release}
-            onPointerCancel={release}
-          >
+          <div className="sc-shotsheet-grip" {...grip}>
             <span className="sc-shotsheet-bar" aria-hidden />
             {/* the named rows below say what this is; the heading is for the
                 screen reader that cannot see them yet */}

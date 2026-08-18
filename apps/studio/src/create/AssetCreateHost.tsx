@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMatch, useNavigate } from 'react-router';
-import { Dialog } from '@radix-ui/themes';
 import { api, type AssetBuildCapabilities } from '../api.js';
 import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -136,8 +135,8 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   const capsNote = useCallback(
     (whenKnown: string): ReactNode => {
       if (caps) return whenKnown;
-      if (capsFailed) return 'Could not check what this machine can do — building will still try.';
-      return 'Checking what this machine can do…';
+      if (capsFailed) return 'Could not reach the engine. You can still try.';
+      return 'Checking the engine…';
     },
     [caps, capsFailed],
   );
@@ -206,22 +205,20 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api2}>
       {children}
-      <Dialog.Root open={value !== null} onOpenChange={(o) => !o && close()}>
-        {value === CHOOSER && (
-          <AssetKindPicker
-            suggest={here}
-            onPick={(k) => {
-              setCameFromChooser(true);
-              setParam(k);
-            }}
-          />
-        )}
-        {/* Keyed by kind so switching flows remounts rather than carrying one
-            form's fields into another's. */}
-        {kind === 'product' && <ProductForm key="product" {...flowProps} />}
-        {kind === 'presenter' && <PresenterForm key="presenter" {...flowProps} />}
-        {kind === 'scene' && <SceneForm key="scene" {...flowProps} />}
-      </Dialog.Root>
+      {value === CHOOSER && (
+        <AssetKindPicker
+          suggest={here}
+          onPick={(k) => {
+            setCameFromChooser(true);
+            setParam(k);
+          }}
+        />
+      )}
+      {/* Keyed by kind so switching flows remounts rather than carrying one
+          form's fields into another's. */}
+      {kind === 'product' && <ProductForm key="product" {...flowProps} />}
+      {kind === 'presenter' && <PresenterForm key="presenter" {...flowProps} />}
+      {kind === 'scene' && <SceneForm key="scene" {...flowProps} />}
     </Ctx.Provider>
   );
 }

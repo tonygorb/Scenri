@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -47,26 +47,26 @@ export function PresenterForm({ onBack, onStarted, caps, capsNote, pendingState 
     }
   };
 
+  const submitOnEnter = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    e.preventDefault();
+    if (ready && !busy) void start();
+  };
+
   return (
     <AssetCreateShell
       title="New presenter"
-      sub="Photos of one person. Scenri reads their face, hair and build, then keeps them consistent."
       error={f.err}
-      footnote={capsNote(
-        caps?.canGenerate
-          ? `Builds four studio views on ${caps.engineName ?? 'your engine'}${caps.engineId === 'codex-cli' ? ', on your ChatGPT plan' : ''}. A few minutes.`
-          : 'No engine connected, so your photos become the references as they are.',
-      )}
+      footnote={capsNote(caps?.canGenerate ? 'Four studio views. A few minutes.' : 'Saved from the photos you add.')}
       primaryLabel="Create presenter"
       ready={ready}
       blocked={blocked}
       busy={busy}
       onBack={onBack}
       onPrimary={() => void start()}
+      onPasteFiles={(files) => void f.addFiles(files)}
     >
       <div className="sc-assetform">
-        {/* The photographs first: they are the person, and everything the
-            server works out about them is read off these. */}
         <RefStrip
           hashes={f.fields.imageHashes}
           max={MAX_REFS}
@@ -78,41 +78,53 @@ export function PresenterForm({ onBack, onStarted, caps, capsNote, pendingState 
           onReject={() => f.setErr('Drop an image file.')}
         />
 
-        <input
-          className="sc-newtitle"
-          type="text"
-          placeholder="Their name"
-          aria-label="Presenter name"
-          value={f.fields.name}
-          onChange={(e) => f.set({ name: e.target.value })}
-        />
+        <div className="sc-assetform-fields">
+          <div className="sc-assetform-field">
+            <label className="sc-newdlg-seclabel" htmlFor="sc-presenter-name">
+              Name
+            </label>
+            <input
+              id="sc-presenter-name"
+              className="sc-in"
+              type="text"
+              placeholder="Their name"
+              value={f.fields.name}
+              onChange={(e) => f.set({ name: e.target.value })}
+              onKeyDown={submitOnEnter}
+            />
+          </div>
+          <div className="sc-assetform-field">
+            <label className="sc-newdlg-seclabel" htmlFor="sc-presenter-notes">
+              Notes
+            </label>
+            <textarea
+              id="sc-presenter-notes"
+              className="sc-in"
+              placeholder="Anything worth knowing about them (optional)"
+              rows={2}
+              value={f.fields.instruction}
+              onChange={(e) => f.set({ instruction: e.target.value })}
+            />
+          </div>
+        </div>
 
-        <textarea
-          className="sc-newnote"
-          placeholder="Anything worth knowing about them (optional)"
-          aria-label="Notes"
-          rows={2}
-          value={f.fields.instruction}
-          onChange={(e) => f.set({ instruction: e.target.value })}
-        />
-
-        {/* Where they file. Optional on purpose: leave it and the analysis picks
-            from this same list, so nobody lands untagged and unreachable. */}
         {presenterCategories.length > 0 && (
           <fieldset className="sc-assetform-facets">
-            <legend>Casts for</legend>
-            {presenterCategories.map((v) => (
-              <button
-                type="button"
-                key={v}
-                className="sc-chip"
-                data-on={f.fields.facets.includes(v) || undefined}
-                aria-pressed={f.fields.facets.includes(v)}
-                onClick={() => f.toggleFacet(v)}
-              >
-                {v}
-              </button>
-            ))}
+            <legend>Categories</legend>
+            <div className="sc-assetform-facets-chips">
+              {presenterCategories.map((v) => (
+                <button
+                  type="button"
+                  key={v}
+                  className="sc-chip"
+                  data-on={f.fields.facets.includes(v) || undefined}
+                  aria-pressed={f.fields.facets.includes(v)}
+                  onClick={() => f.toggleFacet(v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
           </fieldset>
         )}
       </div>
