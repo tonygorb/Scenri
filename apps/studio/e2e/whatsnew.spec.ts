@@ -168,16 +168,20 @@ test('it opens without a ring on anything, and the trap still holds', async ({ p
   await page.goto('/');
   await expect(dialog(page)).toBeVisible({ timeout: 8000 });
 
+  // DialogSheet aims focus at the Radix Content, which is the element that
+  // carries role="dialog", the accessible name and the focus trap. `.sc-wn` is
+  // the card painted inside it, so the surface that takes focus is the one
+  // holding the card, not the card itself.
   const onOpen = await page.evaluate(() => {
     const el = document.activeElement as HTMLElement | null;
     const cs = el ? getComputedStyle(el) : null;
     return {
-      insideDialog: !!el?.closest('.sc-wn'),
-      isSurface: !!el?.classList.contains('sc-wn'),
+      isDialog: el?.getAttribute('role') === 'dialog',
+      holdsCard: !!el?.querySelector('.sc-wn'),
       outline: !cs || cs.outlineStyle === 'none' ? '0px' : cs.outlineWidth,
     };
   });
-  expect(onOpen).toEqual({ insideDialog: true, isSurface: true, outline: '0px' });
+  expect(onOpen).toEqual({ isDialog: true, holdsCard: true, outline: '0px' });
 
   await expect(page.getByRole('dialog')).toHaveAccessibleName("What's new");
 

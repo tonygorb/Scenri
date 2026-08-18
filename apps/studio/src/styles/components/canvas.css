@@ -493,7 +493,14 @@
    plus a white hairline reads on navy and on oat; danger red is reserved
    for aiming at the X, which is the existing ghost-danger vocabulary.
    The button is the hit area; the disc is painted on ::before so a 18px
-   mark can sit in an 8px corner without being a 18px target. */
+   mark can sit in an 8px corner without being a 18px target.
+
+   Capped at 45% of the tile so the hit area can never reach the tile's own
+   centre. At 28px square in a 59px tile the inner corner lands within half a
+   pixel of dead centre, so once hover or focus reveals the X, the swatch
+   underneath stops taking clicks: a second click on a colour you just used
+   deletes it instead of adding it again. The cap keeps the full 28px target on
+   a wide rail and shrinks with the tile everywhere else. */
 .sc-aswatch-x {
   position: absolute;
   top: 1px;
@@ -501,8 +508,8 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: min(28px, 45%);
+  height: min(28px, 45%);
   padding: 0;
   border: none;
   background: none;

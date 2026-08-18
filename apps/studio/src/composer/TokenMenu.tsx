@@ -109,7 +109,11 @@ export function TokenMenu({
     setPos(next);
   }, [pos, contentKey, placeWith]);
 
-  useEffect(() => {
+  // Layout, not passive: the menu is on screen the moment it paints, and the
+  // keystroke that opened it is often followed straight away by Enter. A
+  // passive effect attaches after paint, so on a slow machine there is a frame
+  // where the list is visible and the keys it advertises do nothing.
+  useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'ArrowDown') {

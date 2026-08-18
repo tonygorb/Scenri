@@ -25,6 +25,21 @@ export function emptyInsertCopy(sigil: InsertSigil | undefined): string {
 }
 
 /**
+ * Whether an Enter belongs to the brief and should fire the shot.
+ *
+ * Two things want Enter: the insert menu, to accept the highlighted row, and
+ * the brief, to generate. Asking only whether the menu is open is a race.
+ * The menu takes the key from a window capture listener and accepting a row
+ * closes it inside that same event, so under load the menu state has already
+ * gone by the time the brief's own handler runs, and the shot fires on the
+ * keystroke that was meant to place a chip. Whoever took it marked the event,
+ * so the mark is the second half of the answer.
+ */
+export function enterSubmits({ menuOpen, handled }: { menuOpen: boolean; handled: boolean }): boolean {
+  return !menuOpen && !handled;
+}
+
+/**
  * After an input event: stay open only when the caret is still in a typed
  * sigil. A paste that happens to contain `@` or `#` is not a trigger.
  */
