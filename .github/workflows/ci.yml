@@ -54,6 +54,17 @@ jobs:
       - name: Lint and format
         run: pnpm exec biome ci .
 
+      # The repo deliberately carries only the catalog and its thumbnails; the
+      # golden prompt tests compile against the full imagery, which lives in
+      # the content archive. Contributors run the same hydration once:
+      # pnpm exec tsx packages/cli/scripts/pull-content.mts
+      - name: Hydrate the content cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download content-latest --repo "$GITHUB_REPOSITORY" --pattern scenri-content.zip --dir "$RUNNER_TEMP"
+          pnpm exec tsx packages/cli/scripts/pull-content.mts "$RUNNER_TEMP/scenri-content.zip"
+
       - name: Test
         run: pnpm test
 

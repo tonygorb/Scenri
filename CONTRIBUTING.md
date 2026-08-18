@@ -32,6 +32,14 @@ Before opening a pull request:
 pnpm typecheck && pnpm exec biome ci . && pnpm test
 ```
 
+The full test suite compiles prompts against the library imagery, which the
+repo deliberately does not carry. Hydrate it once (a ~95 MB download, cached
+under `~/.scenri/content`):
+
+```bash
+pnpm exec tsx packages/cli/scripts/pull-content.mts
+```
+
 ## Ground rules
 
 - Conventional commits. The released version is generated from them, so the prefix decides the bump.
