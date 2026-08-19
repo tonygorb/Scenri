@@ -189,6 +189,17 @@ export function About({ version }: { version: VersionInfo | null }) {
           <small>AGPL-3.0 for the app · Apache-2.0 for the .brand format</small>
         </span>
       </div>
+      <div className="sc-set-row">
+        <span className="txt">
+          <b>Open source</b>
+          <small>
+            Built by Tony Gorb ·{' '}
+            <a href="https://github.com/tonygorb/scenri" target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+          </small>
+        </span>
+      </div>
     </Group>
   );
 }
