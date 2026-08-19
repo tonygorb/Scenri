@@ -101,9 +101,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   app.register(fastifyMultipart, { limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
 
   app.setErrorHandler((err: unknown, _req, reply) => {
-    const e = err as { statusCode?: number; message?: string };
+    const e = err as { statusCode?: number; message?: string; code?: string };
     const status = err instanceof SpendCapError ? 402 : (e.statusCode ?? 500);
-    reply.status(status).send({ error: e.message ?? 'unexpected error' });
+    // fs errors embed absolute paths ("ENOENT: … open '/Users/…'"); the path
+    // belongs in the terminal, not in a response a browser can read.
+    const leaksPath = typeof e.code === 'string' && /^(ENOENT|EACCES|EPERM|EISDIR|ENOTDIR)$/.test(e.code);
+    reply.status(status).send({ error: leaksPath ? 'unexpected error' : (e.message ?? 'unexpected error') });
   });
 
   // ---- brands

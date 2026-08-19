@@ -1,4 +1,3 @@
-import { basename } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import type { Core } from '@scenri/core';
@@ -53,16 +52,20 @@ export function registerImageRoutes(app: FastifyInstance, deps: { core: Core }):
   app.post('/api/export', async (req, reply) => {
     const { imageHash, presets, baseName = 'scenri-export' } = req.body as any;
     if (!core.images.has(String(imageHash))) return reply.status(404).send({ error: 'image not found' });
-    const zip = await buildExportZip(
-      core.images.read(String(imageHash)),
+    // one sanitized name for the zip entries and the header alike: a quote or
+    // separator in a user-supplied name must not reach content-disposition
+    const safeBase =
       String(baseName)
         .replace(/[^a-zA-Z0-9_-]+/g, '-')
-        .slice(0, 60) || 'export',
+        .slice(0, 60) || 'export';
+    const zip = await buildExportZip(
+      core.images.read(String(imageHash)),
+      safeBase,
       Array.isArray(presets) ? presets.map(String) : [],
     );
     reply
       .header('content-type', 'application/zip')
-      .header('content-disposition', `attachment; filename="${basename(String(baseName)) || 'export'}.zip"`);
+      .header('content-disposition', `attachment; filename="${safeBase}.zip"`);
     return reply.send(zip);
   });
 }
