@@ -204,3 +204,26 @@ A create dialog is a picture being named, not a settings panel. Empty: one large
 - **Do** let a dialog surface hold focus silently. Every dialog pairs `onOpenAutoFocus={focusSelfOnOpen}` (`app/dialogs.ts`) with the one shared `.rt-BaseDialogContent:focus` → `outline: none` rule in `styles/foundations/interaction.css`. Without the JS half Radix aims at the close button and the dialog opens wearing a ring around its ×; without the CSS half the ring simply moves onto the surface. Neither half is optional, and neither is written per dialog.
 - **Don't** invent a per-component focus or active treatment: a `border-color` swap, a box-shadow halo, a background change. It reads as a second vocabulary for a state the user already knows, and the two drift apart the moment either is touched. This has been fixed once already, on the Create rail's search field; add to the shared list instead.
 - **Don't** style an unwired CTA as primary (inverse-fill). Ghost is the tell that it's not the real, working action yet. Scenes'/Presenters' "Create" buttons are visible ahead of their backend route, deliberately never styled as loud as Products' real "Add product."
+
+## 7. The mark
+
+Landed 2026-08-19, replacing the text string the top bar had carried since day one.
+
+The artwork of record is `apps/studio/brand/scenri-lockup.svg` and `scenri-symbol.svg`. The same
+geometry is inlined in `layout/ScenriMark.tsx` so the mark cannot arrive after the bar it sits in;
+`test/scenriMark.test.ts` fails if the two drift. Every icon scenri ships is rendered from those two
+files by `scripts/brand-icons.mjs`, and the outputs are checked in.
+
+- **The mark is `currentColor`, never a light and dark pair.** `.sc-wordmark` sets
+  `color: var(--sc-fg)` and the ink follows the theme for free. A pair is two files to keep in step,
+  a variant to get backwards, and a flash while the theme resolves.
+- **The Figma suffixes name ink, not theme.** `scenri-logo-light` is the *white* cut and belongs on a
+  dark background. Wiring those names onto `[data-theme]` gives white on white.
+- **Twenty pixels tall in the 52px bar**, which renders 79 wide at the lockup's 3.947:1. Below 767px
+  the symbol replaces the lockup, by CSS and not by measuring the viewport in JS, because the swap
+  must not flash on mount.
+- **One tile for the rasters**: the mark in white on `#0d0d0d`, the app's own dark background. It
+  reads against light and dark browser chrome alike, and iOS composites black under transparency, so
+  the home screen clip has to be opaque regardless. `favicon.svg` is the single exception and carries
+  both inks behind `prefers-color-scheme`, because a tab strip is chrome and follows the OS rather
+  than the theme the app is set to.

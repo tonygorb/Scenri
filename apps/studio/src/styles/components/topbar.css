@@ -38,16 +38,21 @@
   gap: 6px;
 }
 .sc-wordmark {
+  display: inline-flex;
+  align-items: center;
   border: none;
   background: none;
   padding: 0 6px 0 0;
   cursor: pointer;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 640;
   color: var(--sc-fg);
   flex: none;
-  letter-spacing: -0.03em;
+}
+/* The mark inherits the ink from the line above, which is the whole reason
+   there is no light and dark pair of files to keep in step. */
+.sc-wordmark svg {
+  display: block;
+  height: 20px;
+  width: auto;
 }
 .sc-wordmark:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);

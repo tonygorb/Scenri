@@ -2,6 +2,7 @@ import { useMatch, useNavigate } from 'react-router';
 import { BrandMenu } from './BrandMenu.js';
 import { NewAssetButton } from '../create/NewAssetButton.js';
 import { NotificationsButton } from './Notifications.js';
+import { ScenriLockup } from './ScenriMark.js';
 import { useMainNav } from './nav.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { P, brandPath } from '../routes.js';
@@ -33,8 +34,16 @@ export function TopBar() {
         Skip to content
       </a>
       <div className="sc-topbar-lead">
-        <button type="button" className="sc-wordmark sc-display" onClick={() => navigate(brandPath(brand))}>
-          scenri
+        {/* The lockup at every width. The nav drops to the bottom TabBar below
+            768px, which leaves the middle of this bar empty: 155px of clear run
+            even at 320, against the 79px the mark asks for. */}
+        <button
+          type="button"
+          className="sc-wordmark"
+          aria-label="scenri home"
+          onClick={() => navigate(brandPath(brand))}
+        >
+          <ScenriLockup />
         </button>
       </div>
       <MainNav />
