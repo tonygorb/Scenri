@@ -18,12 +18,11 @@ Anything that would break one of those is out of scope, however useful it sounds
 
 - Brand kits, drafted from a website URL or built from scratch
 - The `.brand` open format, with a JSON Schema and a validator
-- Products and characters as locked reference photos
+- Products and presenters as locked reference photos
 - Product catalog import: Shopify, WooCommerce, Webflow, and a generic sitemap and JSON-LD reader
-- Seventy-two photographic looks, each with a preview and a six-shot reference gallery, plus a composer where `$` reaches for a product, `@` a presenter, `/` a scene and `#` a colour
-- The version tree: generate, branch an edit from any node, keep the winners
-- Drift-diff, a pixel heatmap between a node and its parent
-- A text overlay editor whose headlines stay editable layers, not baked pixels
+- Seventy-two photographic scenes, each with a preview and a six-shot reference gallery, plus a composer where `$` reaches for a product, `@` a presenter, `/` a scene and `#` a colour
+- The version tree: generate, branch an edit from any shot, keep the winners
+- Drift-diff, a pixel heatmap between any two shots
 - Export packs, and a per-engine cost ledger with monthly spend caps
 - Five engines: Demo, Codex CLI, OpenRouter, Replicate, fal
 
@@ -39,7 +38,7 @@ Anything that would break one of those is out of scope, however useful it sounds
 
 - Mask-based local edits, so a change can be scoped to a region rather than a whole frame
 - Batch generation across a product catalog
-- A documented plugin surface for looks and export presets
+- A documented plugin surface for scenes and export presets
 - A published `.brand` spec site, so the format can be adopted independently of this app
 
 ## Not planned

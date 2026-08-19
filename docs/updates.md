@@ -121,14 +121,14 @@ from added files, never estimated. `releaseNotes.test.ts` validates the result
 and fails the release PR until the record matches the version being released,
 which is what keeps a version and its notes atomic.
 
-The same record feeds the GitHub release page: `scripts/release-body.ts`
+The same record feeds the GitHub release page: `packages/cli/scripts/release-body.ts`
 renders it as markdown and `publish.yml`, on `release: published`, after the
 package goes out, puts it above release-please's generated notes. If the record
 is missing the script prints nothing and the step leaves the generated notes
 alone, so a release-note problem can never fail a release.
 
 That step rewrites the release body in place, so running it twice for one tag
-stacks a second copy of the record above the first. v0.1.0 is in that state.
+stacks a second copy of the record above the first.
 
 A version with nothing user-facing still gets a record, with `sections: []`.
 That is a maintenance release saying so on purpose, and the app reads it that

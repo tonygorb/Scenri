@@ -1,11 +1,11 @@
-# The `.brand` Format — Specification v0 (draft)
+# The `.brand` Format: Specification v0 (draft)
 
-**License of this spec + schema: Apache-2.0** (deliberately permissive — any tool may implement it).
+**License of this spec + schema: Apache-2.0** (deliberately permissive: any tool may implement it).
 Status: draft for RFC. Version field: `specVersion: "0.1"`.
 
 ## What it is
 
-A portable, tool-neutral description of a brand's visual and verbal identity — enough for an AI generation tool to produce on-brand assets without re-teaching the brand every time. Think `package.json` for brand DNA.
+A portable, tool-neutral description of a brand's visual and verbal identity: enough for an AI generation tool to produce on-brand assets without re-teaching the brand every time. Think `package.json` for brand DNA.
 
 ## Container
 
@@ -64,7 +64,7 @@ A portable, tool-neutral description of a brand's visual and verbal identity —
       "id": "flagship-bag",
       "name": "House Blend 250g",
       "shots": [ { "file": "assets/product-bag-front.png", "angle": "front", "locked": true } ],
-      "notes": "Label artwork must never be altered — lock pixels in edits."
+      "notes": "Label artwork must never be altered; lock pixels in edits."
     }
   ],
   "characters": [
@@ -107,19 +107,19 @@ A portable, tool-neutral description of a brand's visual and verbal identity —
 ## Design rules
 
 1. **Everything optional except `specVersion` and `meta.name`.** A `.brand` built in 30 seconds from a URL scrape is valid; richness accretes.
-2. **`locked: true` on product shots** signals generators/editors that this asset's pixels are fidelity-critical — the contract behind drift-diff.
+2. **`locked: true` on product shots** signals generators/editors that this asset's pixels are fidelity-critical: the contract behind drift-diff.
 3. **Prose fields are prompts.** `usage`, `typography.rules`, `mood`, `rules.notes` and `notes` are free text
-   intended to be injected into generation context verbatim — human-readable and machine-usable.
+   intended to be injected into generation context verbatim, human-readable and machine-usable.
    `rules` is the brand's standing law: `never` holds short prohibitions and `notes` free prose, and both
    apply to every generation unless a tool offers an explicit off-brand escape.
 4. **`extensions`** is a namespaced escape hatch (`"com.example.tool": {...}`); tools must ignore unknown namespaces. Spec evolution via RFC issues, additive-only within 0.x.
 5. **No secrets.** A `.brand` must always be safe to email to a client. Keys, tokens, and provider config live in the tool, never the format.
-6. **A scene is a place, not a picture.** `scenes[].prompt` describes the reusable world — environment, materials, light, atmosphere — and never names the product, brand or person staged in it (the schema rejects a `{product_name}` placeholder outright). `scenes[].refs` are the human's inspiration images, kept for display and provenance: a scene contributes text to a generation, never pixels, so a reference that happens to contain someone else's product or model can never leak into a render through it.
+6. **A scene is a place, not a picture.** `scenes[].prompt` describes the reusable world (environment, materials, light, atmosphere) and never names the product, brand or person staged in it (the schema rejects a `{product_name}` placeholder outright). `scenes[].refs` are the human's inspiration images, kept for display and provenance: a scene contributes text to a generation, never pixels, so a reference that happens to contain someone else's product or model can never leak into a render through it.
 7. **Identity evidence outranks anything generated from it.** `characters[].sourceRefs` holds the photos a person was built from; `characters[].shots` may hold normalized views derived from those. A tool may regenerate `shots`; it must never overwrite `sourceRefs`, and must not present a generated view as more authoritative than the evidence.
-8. **`promptName` is frozen, `name` is free.** Where both exist, generators read `promptName` and humans read `name`. Without it a record is named to the generator by `name`, which makes renaming a generation change — so tools that let people rename should write a `promptName` at creation.
+8. **`promptName` is frozen, `name` is free.** Where both exist, generators read `promptName` and humans read `name`. Without it a record is named to the generator by `name`, which makes renaming a generation change, so tools that let people rename should write a `promptName` at creation.
 
 ### Changelog
 
-- **0.1 draft, 2026-08:** added `scenes[]`, and `promptName` / `presentation` / `descriptor` / `ageRange` / `hair` / `identityNotes` / `negativeConstraints` / `sourceRefs` / `preview` / `avatar` / `origin` to `characters[]`. Additive within the draft — no `specVersion` bump — but a bundle using them will fail validation against an older 0.1 validator.
+- **0.1 draft, 2026-08:** added `scenes[]`, and `promptName` / `presentation` / `descriptor` / `ageRange` / `hair` / `identityNotes` / `negativeConstraints` / `sourceRefs` / `preview` / `avatar` / `origin` to `characters[]`. Additive within the draft, with no `specVersion` bump, but a bundle using them will fail validation against an older 0.1 validator.
 
 Machine-readable schema: [`schema/brand.schema.json`](schema/brand.schema.json). Reference validator: `validateBrand(json)` in this package, which ships inside the `scenri` CLI rather than as its own npm package. The schema and this spec are Apache-2.0, so implement them however you like. If you are building a tool that needs the validator on npm, open an issue and it will be published.

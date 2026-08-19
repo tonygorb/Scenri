@@ -110,7 +110,7 @@ Near-monochrome dark ground with a single rationed accent; imagery supplies the 
 ### Named Rules
 **The One Accent Rule.** Gold appears in exactly three places: the credits pill, the keeper star, and in-flight shimmer. If a new element reaches for gold to look "on brand," that's the tell it should reach for ink/inverse-fill instead.
 
-**The Imagery-Does-The-Color Rule.** Product and look photography is the only place saturated, varied color is allowed to run free. Chrome stays monochrome so it never competes with the work being art-directed.
+**The Imagery-Does-The-Color Rule.** Product and scene photography is the only place saturated, varied color is allowed to run free. Chrome stays monochrome so it never competes with the work being art-directed.
 
 ## 3. Typography
 
@@ -171,13 +171,13 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 A caret (or phone-docked) shortlist, not a command palette. The four triggers share one shell (`.sc-cmd`, `--sc-z-popover`) and one ranking rule (`pickList` / `insertShortlist`). `$` is products, `@` is presenters, `/` is scenes and `#` is colours. Each menu carries that label at the top. Typing in the brief is the filter: no inner search field, no cap banner, no keyboard-hint footer. Empty query is a ranked shortlist; a typed miss stays open with one quiet line. Colors, marks and shots stay on the attach panel. Structured chips and `compileBrief` IDs do not change.
 
 ### Section Headers (`.sc-sec-head`)
-- Flex row, title (15px/600) at the leading edge, an optional right-aligned action (ghost button, "+ Add X" pattern) at the trailing edge. **This is strictly a 2-slot contract**: title-group and trailing-action. A subtitle, when present, belongs inside the title group (its own inline flex with an explicit gap), never as a third top-level flex child, which is what produces the glued-text bug this pass is fixing.
+- Flex row, title (15px/600) at the leading edge, an optional right-aligned action (ghost button, "+ Add X" pattern) at the trailing edge. **This is strictly a 2-slot contract**: title-group and trailing-action. A subtitle, when present, belongs inside the title group (its own inline flex with an explicit gap), never as a third top-level flex child, which is what produces glued text.
 
 ### Library Pages
-The shared shell behind every curated-asset browsing surface (Products, Scenes, Presenters: "what / who / where"): one sticky row (`.sc-filterbar`): a facet's inline tabs at the leading edge, a result summary + Clear only while a filter/search is active, search, and a primary action, pinned right. No separate title/description band above it: the nav bar already names the active page, and a second header repeating it was tried and reverted the same session. It reintroduced the two-thin-rows dead-space problem this pattern exists to solve.
+The shared shell behind every curated-asset browsing surface (Products, Scenes, Presenters: "what / who / where"): one sticky row (`.sc-filterbar`): a facet's inline tabs at the leading edge, a result summary + Clear only while a filter/search is active, search, and a primary action, pinned right. No separate title/description band above it: the nav bar already names the active page, and a second header repeating it was tried and reverted: it reintroduced the two-thin-rows dead space this pattern exists to solve.
 - **The facet control is always real, inline tabs, never a popover.** One rule (`facetMode` in `libraryRules.ts`) decides only whether there's anything to select between (`<2` values → hidden); 2+ always renders as tabs, regardless of count: a long list scrolls horizontally rather than hiding behind a click. One consistent visible pattern across every page beats a "smarter" per-page treatment that looks different page to page.
 - **Search shows once a library clears ~8 items**, and may match more than the card displays (a Presenter card shows name + descriptor; its search also reads hair, skin, build, age): the search system is allowed to be smarter than the visible card.
-- **A primary CTA slot may be visible before it's wired.** Products' CTA is real today (Upload/Import); Scenes/Presenters show "Create scene"/"Create presenter" as visible ghost buttons ahead of the backend route existing, at explicit product direction: the button's presence signals intent even before it does something.
+- **A primary CTA slot may be visible before it's wired.** A not-yet-wired action renders as a ghost button: its presence signals intent even before it does something, and ghost is the tell that it is not the loud, working action yet.
 
 ### Create dialogs (product / presenter / scene)
 A create dialog is a picture being named, not a settings panel. Empty: one large drop well. Filled: a 4:5 grid of references. Name and notes are labeled `.sc-in` fields, the same control as Settings, not a second input style. Filing is optional chips under a quiet legend. The chooser is one press; the forms do not grow a second step.
@@ -189,7 +189,7 @@ A create dialog is a picture being named, not a settings panel. Empty: one large
 - **Do** use a hairline border as the default separator; reach for a shadow only when something is meant to read as floating above the page.
 - **Do** treat `.sc-sec-head` as a 2-slot contract (title-group, trailing action); nest a subtitle inside the title group with its own explicit gap, never as a sibling flex item.
 - **Do** keep every interactive control (button, chip, tab, input) on the existing radius/height scale: 34px controls, full-pill chips/buttons, 10px field radius.
-- **Do** let product/look photography carry the color on any screen; keep surrounding chrome monochrome.
+- **Do** let product/scene photography carry the color on any screen; keep surrounding chrome monochrome.
 - **Do** reach for the shared active inversion (`--sc-inv-bg`/`--sc-inv-fg`) for any new on/off control: the scene card's bookmark toggle is the worked example. Gold is not an on-state; it belongs to the keeper star, and one colour cannot carry two meanings.
 - **Do** give every new focusable control the system's one focus treatment: `outline: 2px solid var(--sc-focus); outline-offset: 2px`, by adding its selector to the shared list in `styles/foundations/interaction.css` (spell the geometry `var(--sc-ring-w)` / `var(--sc-ring-off)`, the tokens are authoritative), and give fields the same ring via `:focus-within` (`.sc-swap-search`, `.sc-assets-search`). The only sanctioned variation is `outline-offset: 1px` where a control sits in a tight grid or inside another control's border and 2px would collide or spill.
 
@@ -199,15 +199,13 @@ A create dialog is a picture being named, not a settings panel. Empty: one large
 - **Don't** add a tiny uppercase tracked eyebrow above a section as default scaffolding.
 - **Don't** apply gold to a UI-chrome default state (active tab, focus ring, link color, button fill). That is the rationing rule breaking.
 - **Don't** give a resting card, panel, or section header a shadow "for depth". Flat + hairline is the rest state; shadow means floating.
-- **Don't** stack a subtitle, a header title, and a trailing action as three siblings in `.sc-sec-head` with no gap. This is the exact bug this pass fixes; wrap title+subtitle together instead.
+- **Don't** stack a subtitle, a header title, and a trailing action as three siblings in `.sc-sec-head` with no gap. It produces glued text; wrap title+subtitle together instead.
 - **Don't** put a "Create new" tile as the first item in a catalog/library grid. It disrupts a visual-comparison surface, shifts scan position on every return visit, and duplicates the header's own primary CTA, evaluated and rejected for the Creative Library pattern, not merely unconsidered.
 - **Do** let a dialog surface hold focus silently. Every dialog pairs `onOpenAutoFocus={focusSelfOnOpen}` (`app/dialogs.ts`) with the one shared `.rt-BaseDialogContent:focus` → `outline: none` rule in `styles/foundations/interaction.css`. Without the JS half Radix aims at the close button and the dialog opens wearing a ring around its ×; without the CSS half the ring simply moves onto the surface. Neither half is optional, and neither is written per dialog.
-- **Don't** invent a per-component focus or active treatment: a `border-color` swap, a box-shadow halo, a background change. It reads as a second vocabulary for a state the user already knows, and the two drift apart the moment either is touched. This has been fixed once already, on the Create rail's search field; add to the shared list instead.
-- **Don't** style an unwired CTA as primary (inverse-fill). Ghost is the tell that it's not the real, working action yet. Scenes'/Presenters' "Create" buttons are visible ahead of their backend route, deliberately never styled as loud as Products' real "Add product."
+- **Don't** invent a per-component focus or active treatment: a `border-color` swap, a box-shadow halo, a background change. It reads as a second vocabulary for a state the user already knows, and the two drift apart the moment either is touched; add to the shared list in `styles/foundations/interaction.css` instead.
+- **Don't** style an unwired CTA as primary (inverse-fill). Ghost is the tell that it's not the real, working action yet.
 
 ## 7. The mark
-
-Landed 2026-08-19, replacing the text string the top bar had carried since day one.
 
 The artwork of record is `apps/studio/brand/scenri-lockup.svg` and `scenri-symbol.svg`. The same
 geometry is inlined in `layout/ScenriMark.tsx` so the mark cannot arrive after the bar it sits in;

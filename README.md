@@ -17,9 +17,9 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 npx scenri
 ```
 
-<img src="docs/media/demo.gif" alt="The scenri composer: a dollar sign opens a product picker and Selvedge Trucker is chosen, an at sign picks the presenter Maren, a slash picks the Editorial Walk look, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
+<img src="docs/media/demo.gif" alt="The scenri composer: a dollar sign opens a product picker and Selvedge Trucker is chosen, an at sign picks the presenter Maren, a slash picks the Editorial Walk scene, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
 
-<sub>Pick a product, pick a presenter, pick a look, then write the direction. That is the brief.</sub>
+<sub>Pick a product, pick a presenter, pick a scene, then write the direction. That is the brief.</sub>
 
 </div>
 
@@ -29,17 +29,28 @@ npx scenri
 
 Most AI image tools give you a prompt box and a slot machine. scenri gives you the part that actually takes the time: **art direction**.
 
-Every shot is a node in a tree. Branch an edit from any node, put the two side by side, and a drift-diff shows you exactly where the model changed your product when it should not have.
+Every shot keeps its lineage. Branch an edit from any shot, put the two side by side, and the drift heatmap shows you exactly where the model changed your product when it should not have.
 
 It runs as a local server on `127.0.0.1`. Your brands, your images, and your keys stay on your disk.
 
-## What that brief produced
+## What a brief produces
 
-<img src="docs/media/shot.jpg" alt="A woman at full stride on a city pavement, wearing an open indigo selvedge denim jacket over a white ribbed tank with charcoal wide-leg trousers and white sneakers" width="420">
+The film above ends on the shot its brief made: the Selvedge Trucker product, the presenter Maren, the Editorial Walk scene, and a paragraph of written direction. The chips carry the identity; the prose does the art direction. Here are eight more shots from the home wall, each built exactly that way:
 
-The image above came out of that same recipe: the Selvedge Trucker product, the presenter Maren, and the Editorial Walk look, plus a paragraph of written direction for the framing and the motion. The three chips carry the identity; the prose does the art direction.
+<p align="center">
+  <img src="docs/media/readme-serum-dew.jpg" title="Serum on the dew bed" alt="An amber Aurelia serum bottle nested in dew-covered succulent leaves, a droplet falling toward it" width="24.5%">
+  <img src="docs/media/readme-drivers-window.jpg" title="Leaning into the driver's window" alt="A man in a selvedge denim jacket leaning into the open driver's window of a car on a coastal road" width="24.5%">
+  <img src="docs/media/readme-under-surface.jpg" title="Under the surface, looking up" alt="A glass soda bottle standing on rippled sand underwater, shot from below looking up through the surface" width="24.5%">
+  <img src="docs/media/readme-sling-chair.jpg" title="Sling chair in the travertine atrium" alt="A leather sling chair alone in a travertine atrium, raking sunlight across the stone" width="24.5%">
+</p>
+<p align="center">
+  <img src="docs/media/readme-yuzu-spin.jpg" title="Yuzu can, mid-spin" alt="A woman mid-stride against a magenta backdrop, spinning a yellow can that throws off a fine spray" width="24.5%">
+  <img src="docs/media/readme-spa-ledge.jpg" title="Morning at the spa ledge" alt="A frosted Solenne cream jar with a brushed gold lid on a poolside travertine ledge, steam rising behind" width="24.5%">
+  <img src="docs/media/readme-pearls-silk.jpg" title="Pearls through ivory silk" alt="A single pearl on a fine gold chain, drawn across folds of deep green silk" width="24.5%">
+  <img src="docs/media/readme-two-drops.jpg" title="Two drops, morning routine" alt="A man holding an open Aurelia serum bottle toward the camera, a drop falling from the raised pipette" width="24.5%">
+</p>
 
-Every one of the 97 examples on the home wall works the same way. Open one and it loads back into the composer as the brief that made it, ready to change.
+All 97 examples on the home wall work the same way. Open one and it loads back into the composer as the brief that made it, ready to change.
 
 ## What you get out of the box
 
@@ -50,8 +61,6 @@ A library of scenes, presenters and demo products, so the app is useful before y
 <img src="docs/media/kit.jpg" alt="The scenri brand kit panel showing identity fields for logo, name and tagline, and a palette listing named colours with their hex values" width="820">
 
 The brand kit is the part that keeps output consistent. Name, mark, palette and rules, set once and carried into every shot that asks for them.
-
-<img src="docs/media/hero.jpg" alt="Four scenri shots: a trail runner kicking up volcanic ash, a serum bottle cradled in wet succulent leaves, a halftone print of aviator sunglasses, and a bottle of sparkling water photographed from under the surface" width="820">
 
 ## Run it
 
@@ -84,7 +93,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 2. **Describe a shot.** In the composer, `$` reaches for a product, `@` for a presenter, `/` for a scene, and `#` for a colour. Everything between them is your own words. The composer compiles a brief you can inspect before it runs.
 3. **Generate on Codex CLI.** Runs on your own ChatGPT plan, so there is no key and no per-image charge from us.
 4. **Branch an edit** from any shot, then hit compare. The heatmap shows what moved.
-5. **Add a real engine** in Settings when you want output you can ship.
+5. **Add your own key** in Settings to run on OpenRouter, Replicate or fal instead.
 
 ## Why it is built this way
 
@@ -92,7 +101,6 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 - **Your brands are files, not hostages.** `.brand` is an open, documented format under a permissive license. Email one to a client. Any tool can adopt it.
 - **Your AI, your cost.** Bring your own Codex CLI session or an API key. Experiments cost raw API price, or nothing at all on a local session. No credits that burn on a miss.
 - **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only. scenri makes exactly two requests on its own behalf: a daily version-number check against npm so updates can announce themselves, and a one-time download of the library imagery archive, cached locally forever after. Nothing about you or your work is ever sent, and both turn off: in Settings or `SCENRI_NO_UPDATE_CHECK=1` for the first, `SCENRI_NO_CONTENT_FETCH=1` for the second ([how updates work](docs/updates.md)).
-- **Text you can still edit.** Headlines land as real layers on the image, not baked pixels. Restyle and re-export without regenerating.
 
 ## Engines
 
@@ -136,7 +144,7 @@ Your Codex session is yours: scenri runs the official `codex` commands on your m
 |---|---|
 | `packages/cli` | the `scenri` command: local server, engine detection, browser open |
 | `packages/brand-spec` | the `.brand` schema, validator, and URL auto-builder |
-| `packages/core` | brands, projects, version tree, image store, cost ledger (SQLite) |
+| `packages/core` | brands, shot history, the version tree, image store, cost ledger (SQLite) |
 | `packages/catalog` | product catalog import: Shopify, WooCommerce, Webflow, generic |
 | `packages/engines/*` | engine adapters: `codex`, `openrouter`, `replicate`, `fal`, `demo` |
 | `apps/studio` | the React studio the CLI serves |
@@ -163,4 +171,4 @@ The bundled imagery and curated content are licensed separately under [ASSETS-LI
 
 ---
 
-Built in public by **Tony Gorb** · bytonygorb@gmail.com
+Built in public by **Tony Gorb** · [tonygorb.com](https://tonygorb.com) · [bytonygorb@gmail.com](mailto:bytonygorb@gmail.com)
