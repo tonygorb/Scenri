@@ -1,6 +1,9 @@
 <div align="center">
 
-# scenri
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/logo-on-dark.svg">
+  <img src="docs/media/logo-on-light.svg" alt="scenri" width="200">
+</picture>
 
 **The open studio for brand-consistent AI visuals.**
 
@@ -14,9 +17,9 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 npx scenri
 ```
 
-<img src="docs/media/demo.gif" alt="The scenri composer: typing a dollar sign opens a product picker and Studio Headphones is chosen, an at sign picks the presenter Kenji, a slash picks the Close Interaction look, and the finished brief reads Studio Headphones worn by Kenji in Close Interaction" width="820">
+<img src="docs/media/demo.gif" alt="The scenri composer: a dollar sign opens a product picker and Selvedge Trucker is chosen, an at sign picks the presenter Maren, a slash picks the Editorial Walk look, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
 
-<sub>Pick a product, pick a presenter, pick a look. That is the brief.</sub>
+<sub>Pick a product, pick a presenter, pick a look, then write the direction. That is the brief.</sub>
 
 </div>
 
@@ -32,9 +35,9 @@ It runs as a local server on `127.0.0.1`. Your brands, your images, and your key
 
 ## What that brief produced
 
-<img src="docs/media/shot.jpg" alt="Close crop of a man wearing brushed-copper over-ear headphones, eyes closed, shot against a plain grey backdrop with shallow depth of field" width="420">
+<img src="docs/media/shot.jpg" alt="A woman at full stride on a city pavement, wearing an open indigo selvedge denim jacket over a white ribbed tank with charcoal wide-leg trousers and white sneakers" width="420">
 
-The image above came out of that same recipe: the Studio Headphones product, the presenter Kenji, and the Close Interaction look, plus a paragraph of written direction for the crop and the light. The three chips carry the identity; the prose does the art direction.
+The image above came out of that same recipe: the Selvedge Trucker product, the presenter Maren, and the Editorial Walk look, plus a paragraph of written direction for the framing and the motion. The three chips carry the identity; the prose does the art direction.
 
 Every one of the 97 examples on the home wall works the same way. Open one and it loads back into the composer as the brief that made it, ready to change.
 
