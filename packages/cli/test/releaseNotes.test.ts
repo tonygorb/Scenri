@@ -68,10 +68,10 @@ describe('GET /api/release/notes', () => {
     app = build();
     const res = await app.inject({ method: 'GET', url: '/api/release/notes' });
     const { version, changelogUrl } = res.json();
-    if (version === '0.0.0') {
-      // Nothing has been released, so the releases index is an empty page and
-      // the tag does not exist. Null is the only honest answer, and it is what
-      // tells the dialog this is a development build.
+    if (version === '0.0.0' || version === '0.1.0' || version === '0.1.1') {
+      // 0.0.0 is the unbumped development placeholder, and the 0.1.x builds
+      // were published, unpublished, and never tagged. In every one of those
+      // cases the tag does not exist and null is the only honest answer.
       expect(changelogUrl).toBeNull();
     } else {
       expect(changelogUrl).toContain(`/releases/tag/v${version}`);

@@ -45,6 +45,10 @@ export interface ReleaseEntry {
   image?: string;
 }
 
+// 0.1.0 and 0.1.1 were published to npm and unpublished on 2026-08-17; those
+// numbers are burned and their tags never existed (see packSurface.test.ts).
+// They stay recorded here as the internal era. The first public release is
+// 0.2.0, and its entry is written when release-please proposes it.
 export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.1.1',
@@ -59,7 +63,7 @@ export const RELEASES: ReleaseEntry[] = [
   {
     version: '0.1.0',
     date: '2026-08-16',
-    title: 'The first public release of scenri.',
+    title: 'The first complete scenri, released internally.',
     sections: [
       {
         heading: 'Create',
