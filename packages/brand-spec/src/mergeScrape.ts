@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Fold a fresh scrape back into a brand someone has already edited.
  *

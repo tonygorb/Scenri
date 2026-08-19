@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/media/logo-on-dark.svg">
-  <img src="docs/media/logo-on-light.svg" alt="scenri" width="260">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-dark.svg">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-light.svg" alt="scenri" width="260">
 </picture>
 
 **The open studio for brand-consistent AI visuals.**<br>
@@ -18,7 +18,7 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 npx scenri
 ```
 
-<img src="docs/media/demo.gif" alt="The scenri composer: a dollar sign opens a product picker and Selvedge Trucker is chosen, an at sign picks the presenter Maren, a slash picks the Editorial Walk scene, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="The scenri composer: a dollar sign opens a product picker and Selvedge Trucker is chosen, an at sign picks the presenter Maren, a slash picks the Editorial Walk scene, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
 
 <sub>Pick a product, pick a presenter, pick a scene, then write the direction. That is the brief.</sub>
 
@@ -39,23 +39,23 @@ It runs as a local server on `127.0.0.1`. Your brands, your images, and your key
 The film above ends on the shot its brief made: the Selvedge Trucker product, the presenter Maren, the Editorial Walk scene, and a paragraph of written direction. The chips carry the identity; the prose does the art direction. Here are eight more shots from the home wall, each built exactly that way:
 
 <p align="center">
-  <img src="docs/media/readme-serum-dew.jpg" title="Serum on the dew bed" alt="An amber Aurelia serum bottle nested in dew-covered succulent leaves, a droplet falling toward it" width="24.5%">
-  <img src="docs/media/readme-drivers-window.jpg" title="Leaning into the driver's window" alt="A man in a selvedge denim jacket leaning into the open driver's window of a car on a coastal road" width="24.5%">
-  <img src="docs/media/readme-under-surface.jpg" title="Under the surface, looking up" alt="A glass soda bottle standing on rippled sand underwater, shot from below looking up through the surface" width="24.5%">
-  <img src="docs/media/readme-sling-chair.jpg" title="Sling chair in the travertine atrium" alt="A leather sling chair alone in a travertine atrium, raking sunlight across the stone" width="24.5%">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-serum-dew.jpg" title="Serum on the dew bed" alt="An amber Aurelia serum bottle nested in dew-covered succulent leaves, a droplet falling toward it" width="24.5%">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-drivers-window.jpg" title="Leaning into the driver's window" alt="A man in a selvedge denim jacket leaning into the open driver's window of a car on a coastal road" width="24.5%">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-under-surface.jpg" title="Under the surface, looking up" alt="A glass soda bottle standing on rippled sand underwater, shot from below looking up through the surface" width="24.5%">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-sling-chair.jpg" title="Sling chair in the travertine atrium" alt="A leather sling chair alone in a travertine atrium, raking sunlight across the stone" width="24.5%">
 </p>
 <p align="center">
-  <img src="docs/media/readme-yuzu-spin.jpg" title="Yuzu can, mid-spin" alt="A woman mid-stride against a magenta backdrop, spinning a yellow can that throws off a fine spray" width="24.5%">
-  <img src="docs/media/readme-spa-ledge.jpg" title="Morning at the spa ledge" alt="A frosted Solenne cream jar with a brushed gold lid on a poolside travertine ledge, steam rising behind" width="24.5%">
-  <img src="docs/media/readme-pearls-silk.jpg" title="Pearls through ivory silk" alt="A single pearl on a fine gold chain, drawn across folds of deep green silk" width="24.5%">
-  <img src="docs/media/readme-two-drops.jpg" title="Two drops, morning routine" alt="A man holding an open Aurelia serum bottle toward the camera, a drop falling from the raised pipette" width="24.5%">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-yuzu-spin.jpg" title="Yuzu can, mid-spin" alt="A woman mid-stride against a magenta backdrop, spinning a yellow can that throws off a fine spray" width="24.5%">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-spa-ledge.jpg" title="Morning at the spa ledge" alt="A frosted Solenne cream jar with a brushed gold lid on a poolside travertine ledge, steam rising behind" width="24.5%">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-pearls-silk.jpg" title="Pearls through ivory silk" alt="A single pearl on a fine gold chain, drawn across folds of deep green silk" width="24.5%">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-two-drops.jpg" title="Two drops, morning routine" alt="A man holding an open Aurelia serum bottle toward the camera, a drop falling from the raised pipette" width="24.5%">
 </p>
 
 All 97 examples on the home wall work the same way. Open one and it loads back into the composer as the brief that made it, ready to change.
 
 ## What you get out of the box
 
-<img src="docs/media/library.gif" alt="A slow scroll down the scenri home wall: rows of finished example shots across product categories, with the composer docked at the bottom of the screen" width="820">
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/library.gif" alt="A slow scroll down the scenri home wall: rows of finished example shots across product categories, with the composer docked at the bottom of the screen" width="820">
 
 A library of scenes, presenters and demo products, so the app is useful before you have uploaded anything of your own. Filter by category, bookmark what fits the brand, or build your own from a few reference photos.
 
@@ -164,10 +164,12 @@ Early. The version is `0.x` and interfaces can still move. Everything documented
 
 ## License
 
-The application is [AGPL-3.0-only](LICENSE). The `.brand` format, its schema, and its validator live in [packages/brand-spec](packages/brand-spec) under Apache-2.0, so any tool may implement or reuse them without taking on copyleft. Contributions require a [CLA](CLA.md).
+The application is [AGPL-3.0-only](LICENSE). The `.brand` format, its schema, and its validator live in [packages/brand-spec](https://github.com/tonygorb/scenri/tree/main/packages/brand-spec) under Apache-2.0, so any tool may implement or reuse them without taking on copyleft; the npm package carries that license text as `LICENSE-APACHE-2.0-brand-spec`. Contributions require a [CLA](CLA.md).
 
-The bundled imagery and curated content are licensed separately under [ASSETS-LICENSE.md](ASSETS-LICENSE.md): free to use within scenri, commercial work included; no redistribution or rebundling.
+The bundled imagery and curated content are licensed separately under [ASSETS-LICENSE.md](docs/ASSETS-LICENSE.md): free to use within scenri, commercial work included; no redistribution or rebundling. The npm package's `license` field describes the code; the starter imagery inside it stays under those asset terms.
+
+The name and the mark are not part of the code license: [TRADEMARKS.md](TRADEMARKS.md) says what a fork may and may not call itself. What the app does and does not send anywhere is written down in [PRIVACY.md](PRIVACY.md).
 
 ---
 
-Built in public by **Tony Gorb** · [tonygorb.com](https://tonygorb.com) · [bytonygorb@gmail.com](mailto:bytonygorb@gmail.com)
+Built in public by **Tony Gorb** · [tonygorb.com](https://tonygorb.com) · [hello@scenri.co](mailto:hello@scenri.co)

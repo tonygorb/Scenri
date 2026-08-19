@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 // Imported rather than read from disk: this module gets bundled into the scenri
