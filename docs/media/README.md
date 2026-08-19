@@ -11,9 +11,13 @@ What the README embeds, and how to remake it.
 | `kit.jpg` | same section | the brand kit panel |
 | `hero.jpg` | same section | the four-up gallery |
 
-Every URL in the README is absolute, pointing at `raw.githubusercontent.com`. Relative
-paths render on GitHub but are unreliable on the npm package page, which shows the same
-README to a different audience.
+The README references these with relative paths, so they render on GitHub and in any
+local markdown preview. One thing to check after the first publish: npmjs.com shows the
+same README to a different audience and resolves relative images against the repository,
+and this package sets `repository.directory` to `packages/cli`. If the images are missing
+on the npm page, swap the five `src` values for
+`https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/...` and they will work
+in both places.
 
 ## Remaking the demo
 

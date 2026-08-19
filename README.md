@@ -14,7 +14,7 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 npx scenri
 ```
 
-<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="The scenri composer: typing a dollar sign opens a product picker and Studio Headphones is chosen, an at sign picks the presenter Kenji, a slash picks the Close Interaction look, and the finished brief reads Studio Headphones worn by Kenji in Close Interaction" width="820">
+<img src="docs/media/demo.gif" alt="The scenri composer: typing a dollar sign opens a product picker and Studio Headphones is chosen, an at sign picks the presenter Kenji, a slash picks the Close Interaction look, and the finished brief reads Studio Headphones worn by Kenji in Close Interaction" width="820">
 
 <sub>Pick a product, pick a presenter, pick a look. That is the brief.</sub>
 
@@ -32,7 +32,7 @@ It runs as a local server on `127.0.0.1`. Your brands, your images, and your key
 
 ## What that brief produced
 
-<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/shot.jpg" alt="Close crop of a man wearing brushed-copper over-ear headphones, eyes closed, shot against a plain grey backdrop with shallow depth of field" width="420">
+<img src="docs/media/shot.jpg" alt="Close crop of a man wearing brushed-copper over-ear headphones, eyes closed, shot against a plain grey backdrop with shallow depth of field" width="420">
 
 The image above came out of that same recipe: the Studio Headphones product, the presenter Kenji, and the Close Interaction look, plus a paragraph of written direction for the crop and the light. The three chips carry the identity; the prose does the art direction.
 
@@ -40,15 +40,15 @@ Every one of the 97 examples on the home wall works the same way. Open one and i
 
 ## What you get out of the box
 
-<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/scenes.jpg" alt="The scenri scene library showing twelve scene thumbnails in a grid, with category tabs for accessories, apparel, beauty, beverage, electronics and more" width="820">
+<img src="docs/media/scenes.jpg" alt="The scenri scene library showing twelve scene thumbnails in a grid, with category tabs for accessories, apparel, beauty, beverage, electronics and more" width="820">
 
 A library of scenes, presenters and demo products, so the app is useful before you have uploaded anything of your own. Filter by category, bookmark what fits the brand, or build your own from a few reference photos.
 
-<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/kit.jpg" alt="The scenri brand kit panel showing identity fields for logo, name and tagline, and a palette listing named colours with their hex values" width="820">
+<img src="docs/media/kit.jpg" alt="The scenri brand kit panel showing identity fields for logo, name and tagline, and a palette listing named colours with their hex values" width="820">
 
 The brand kit is the part that keeps output consistent. Name, mark, palette and rules, set once and carried into every shot that asks for them.
 
-<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/hero.jpg" alt="Four scenri shots: a trail runner kicking up volcanic ash, a serum bottle cradled in wet succulent leaves, a halftone print of aviator sunglasses, and a bottle of sparkling water photographed from under the surface" width="820">
+<img src="docs/media/hero.jpg" alt="Four scenri shots: a trail runner kicking up volcanic ash, a serum bottle cradled in wet succulent leaves, a halftone print of aviator sunglasses, and a bottle of sparkling water photographed from under the surface" width="820">
 
 ## Run it
 
