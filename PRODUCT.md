@@ -6,7 +6,7 @@ product
 
 ## Users
 
-Indie designers and small creative studios (1-5 people) doing brand-consistent AI product photography and ad creative for clients. They work brand-by-brand: define a client's identity once (palette, products, presenters/models, looks), then generate, branch, and art-direct on-brand images through a version tree. Runs locally on their own machine against their own AI accounts — they're in an active production workflow, not browsing a marketing site.
+Indie designers and small creative studios (1-5 people) doing brand-consistent AI product photography and ad creative for clients. They work brand-by-brand: define a client's identity once (palette, products, presenters/models, looks), then generate, branch, and art-direct on-brand images through a version tree. Runs locally on their own machine against their own AI accounts. They are in an active production workflow, not browsing a marketing site.
 
 ## Product Purpose
 
@@ -14,7 +14,7 @@ scenri is the open-source studio for brand-consistent AI visuals. It replaces th
 
 ## Brand Personality
 
-Precise, editorial, confident. A professional instrument for people who already have taste — the UI gets out of the way of the work rather than performing enthusiasm at the user. Dark-default, imagery-first (the product photography is the content, chrome stays quiet), Inter Tight as the working sans, Playfair Display italic reserved for sparing accent moments (not a competing voice). Confidence shows as restraint and precision, not decoration.
+Precise, editorial, confident. A professional instrument for people who already have taste, so the UI gets out of the way of the work rather than performing enthusiasm at the user. Dark-default, imagery-first (the product photography is the content, chrome stays quiet), Inter Tight as the working sans, Playfair Display italic reserved for sparing accent moments (not a competing voice). Confidence shows as restraint and precision, not decoration.
 
 ## Anti-references
 
@@ -22,11 +22,11 @@ Generic SaaS dashboard: identical icon+heading+text card grids, gradient-text em
 
 ## Design Principles
 
-- Precision over decoration — every spacing/alignment choice should read as deliberate, not defaulted.
-- The work is the content — product/look imagery leads; UI chrome recedes.
-- One accent voice at a time — Playfair italic and any accent color are used sparingly and mean something when they appear, not applied as default flourish.
-- Consistency across sibling surfaces — Products, Presenters, Looks, and Brand are the same tool wearing different data; shared patterns (filter rows, card grids, section headers) must behave identically unless there's a real reason not to.
-- Dense but not cramped — this is a professional tool used for hours at a time, not a landing page skimmed once.
+- Precision over decoration. Every spacing/alignment choice should read as deliberate, not defaulted.
+- The work is the content. Product and look imagery leads; UI chrome recedes.
+- One accent voice at a time. Playfair italic and any accent color are used sparingly and mean something when they appear, not applied as default flourish.
+- Consistency across sibling surfaces. Products, Presenters, Looks, and Brand are the same tool wearing different data; shared patterns (filter rows, card grids, section headers) must behave identically unless there's a real reason not to.
+- Dense but not cramped. This is a professional tool used for hours at a time, not a landing page skimmed once.
 
 ## Accessibility & Inclusion
 

@@ -7,7 +7,7 @@ asks for a restart. Application code and your library never share a directory:
 
 ```
 ~/.scenri/
-  scenri.db, images/, backups/     your work — no update touches these
+  scenri.db, images/, backups/     your work, no update touches these
   app/
     staging/<version>/             npm's workbench while an update downloads
     versions/<version>/            installed app versions, newest wins
@@ -19,7 +19,7 @@ the next `npx scenri` rebuilds it.
 ## The update check
 
 Once a day, the running server asks the npm registry for the latest published
-version — one GET of the dist-tags document, nothing else sent, 5 seconds max,
+version: one GET of the dist-tags document, nothing else sent, 5 seconds max,
 silent when offline. It and the one-time library download below are scenri's
 only self-initiated network requests, and each is disclosed once in the
 console (the update check also in Settings → About).
@@ -37,8 +37,8 @@ are read from `package.json` at runtime, never hardcoded.
 ## The library download
 
 The npm package carries the complete catalog and every thumbnail, so the whole
-library is browsable offline from first launch. The heavy imagery — scene
-reference galleries, showcase heroes, product shots, presenter identity sets —
+library is browsable offline from first launch. The heavy imagery (scene
+reference galleries, showcase heroes, product shots, presenter identity sets)
 is downloaded once from a versioned archive on the project's GitHub releases,
 cached under `~/.scenri/content`, and never fetched again. One GET for one
 file, nothing sent, silent when offline (the next launch simply retries).
@@ -60,12 +60,12 @@ the next launch restores it.
 - **In a terminal**: `scenri update` (with npx: `npx scenri update`) stages
   the newest version; it runs on the next start. `scenri update --check`
   only reports.
-- **From a checkout**: you are on the git workflow — `git pull` and rebuild.
+- **From a checkout**: you are on the git workflow: `git pull` and rebuild.
   The app detects a source install and will never offer to overwrite it.
 
 A staged version is installed by npm (with npm's own tarball integrity
-checking; releases are published with npm provenance), then proven to load —
-including the native modules — by running its own `verify` under the local
+checking; releases are published with npm provenance), then proven to load,
+including the native modules, by running its own `verify` under the local
 node before it is ever handed to the launcher. A version that fails
 verification is discarded, and the one that failed to boot is skipped with a
 fallback to the build that last worked.
@@ -77,29 +77,29 @@ user-triggered: nothing installs or restarts on its own.
 
 Two different sentences, deliberately kept apart:
 
-- **Update available** — "there is a newer scenri." Comes from the check above,
+- **Update available**: "there is a newer scenri." Comes from the check above,
   asks you to act, and lives in the floating notice and Settings → About.
-- **What's new** — "here is what changed in the version you now have." Asks for
+- **What's new**: "here is what changed in the version you now have." Asks for
   nothing. Comes from release notes authored by hand and shipped *inside* the
   build (`packages/cli/src/release/notes.data.ts`), so it answers offline and
   always describes the version actually running.
 
 The dialog is the running version: a headline where there is one, then two to
 four product areas. History is the **releases page**, linked once as "All
-releases". The generated `CHANGELOG.md` stays what it has always been — the
+releases". The generated `CHANGELOG.md` stays what it has always been: the
 commit-level history for developers.
 
 The lifecycle is one rule and one stored value (`whatsnew.seen`, in the
 settings table):
 
-1. The app reads its own notes once at startup — the running version's record,
+1. The app reads its own notes once at startup, the running version's record,
    and the releases page to point at.
 2. If `whatsnew.seen` is not the running version, the brand menu shows an
-   unread dot immediately, and What's New opens itself **once** — but only at a
+   unread dot immediately, and What's New opens itself **once**, but only at a
    safe moment: nothing generating, nothing building, no other dialog open, the
    brand loaded, the tab in front, and a couple of seconds after all of that
    settles. If a safe moment never comes, nothing pops; the dot carries it.
-3. Any way out — Escape, the ×, the backdrop, "Got it" — is the
+3. Any way out, whether Escape, the ×, the backdrop or "Got it", is the
    acknowledgement. It never returns for that version.
 4. **What's new** in the brand menu, and the row in Settings → About, reopen it
    at any time. Neither is gated on anything.
@@ -109,7 +109,7 @@ settings table):
 Nobody writes release prose twice, and nothing generates it behind your back.
 
 release-please owns the version: it reads the conventional commits on `main`,
-decides the bump, and writes `CHANGELOG.md` — the commit-level history, for
+decides the bump, and writes `CHANGELOG.md`, the commit-level history, for
 developers. The *written* record is separate and lives in
 `packages/cli/src/release/notes.data.ts`, one entry per published version.
 
@@ -122,8 +122,8 @@ and fails the release PR until the record matches the version being released,
 which is what keeps a version and its notes atomic.
 
 The same record feeds the GitHub release page: `scripts/release-body.ts`
-renders it as markdown and `publish.yml` — on `release: published`, after the
-package goes out — puts it above release-please's generated notes. If the record
+renders it as markdown and `publish.yml`, on `release: published`, after the
+package goes out, puts it above release-please's generated notes. If the record
 is missing the script prints nothing and the step leaves the generated notes
 alone, so a release-note problem can never fail a release.
 
@@ -138,7 +138,7 @@ The first boot of a new home stamps `install.firstVersion` and marks the
 running version as already seen, so a brand-new install is never met with a
 modal explaining changes it has no memory of.
 
-Updates never install or restart on their own — see above. What's New is only
+Updates never install or restart on their own, see above. What's New is only
 ever a description of what already happened.
 
 ## Migrations and backups
@@ -164,5 +164,5 @@ contract between launcher and app changes only with a protocol bump:
    `SCENRI_LAUNCHER_VERSION`.
 
 The app refuses one-click updates when it is not supervised, or when the
-supervising launcher's protocol is older than it needs — the manual
+supervising launcher's protocol is older than it needs: the manual
 `scenri update` path always remains.

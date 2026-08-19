@@ -14,12 +14,9 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 npx scenri
 ```
 
-<img src="docs/media/hero.jpg" alt="Four scenri shots: a trail runner kicking up volcanic ash, a serum bottle cradled in wet succulent leaves, a halftone print of aviator sunglasses, and a bottle of sparkling water photographed from under the surface" width="820">
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="The scenri composer: typing a dollar sign opens a product picker and Studio Headphones is chosen, an at sign picks the presenter Kenji, a slash picks the Close Interaction look, and the finished brief reads Studio Headphones worn by Kenji in Close Interaction" width="820">
 
-<!-- BEFORE SHOW HN: record a 10 to 15 second loop showing generate, branch an
-     edit, compare the drift, keep the winner. Save to docs/media/demo.gif and
-     swap it in for the still grid above — motion is the single
-     highest-leverage asset on the page. Spec: docs/media/README.md -->
+<sub>Pick a product, pick a presenter, pick a look. That is the brief.</sub>
 
 </div>
 
@@ -33,6 +30,26 @@ Every shot is a node in a tree. Branch an edit from any node, put the two side b
 
 It runs as a local server on `127.0.0.1`. Your brands, your images, and your keys stay on your disk.
 
+## What that brief produced
+
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/shot.jpg" alt="Close crop of a man wearing brushed-copper over-ear headphones, eyes closed, shot against a plain grey backdrop with shallow depth of field" width="420">
+
+The image above came out of that same recipe: the Studio Headphones product, the presenter Kenji, and the Close Interaction look, plus a paragraph of written direction for the crop and the light. The three chips carry the identity; the prose does the art direction.
+
+Every one of the 97 examples on the home wall works the same way. Open one and it loads back into the composer as the brief that made it, ready to change.
+
+## What you get out of the box
+
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/scenes.jpg" alt="The scenri scene library showing twelve scene thumbnails in a grid, with category tabs for accessories, apparel, beauty, beverage, electronics and more" width="820">
+
+A library of scenes, presenters and demo products, so the app is useful before you have uploaded anything of your own. Filter by category, bookmark what fits the brand, or build your own from a few reference photos.
+
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/kit.jpg" alt="The scenri brand kit panel showing identity fields for logo, name and tagline, and a palette listing named colours with their hex values" width="820">
+
+The brand kit is the part that keeps output consistent. Name, mark, palette and rules, set once and carried into every shot that asks for them.
+
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/hero.jpg" alt="Four scenri shots: a trail runner kicking up volcanic ash, a serum bottle cradled in wet succulent leaves, a halftone print of aviator sunglasses, and a bottle of sparkling water photographed from under the surface" width="820">
+
 ## Run it
 
 ```bash
@@ -41,7 +58,7 @@ npx scenri
 
 That is the whole install. It opens `http://127.0.0.1:4747`.
 
-Generation runs on **Codex CLI**, an official helper from OpenAI that draws on your own ChatGPT plan. No API key to paste, and scenri never charges you. Each image draws on your plan's Codex usage. You do not have to set it up by hand: if it is missing, scenri offers to install it and to sign you in, both from the app. No ChatGPT plan? Add your own key from an image provider in Settings instead — see [Engines](#engines).
+Generation runs on **Codex CLI**, an official helper from OpenAI that draws on your own ChatGPT plan. No API key to paste, and scenri never charges you. Each image draws on your plan's Codex usage. You do not have to set it up by hand: if it is missing, scenri offers to install it and to sign you in, both from the app. No ChatGPT plan? Add your own key from an image provider in Settings instead, see [Engines](#engines).
 
 Requires **Node 22 or newer**. Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once.
 
@@ -61,8 +78,8 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 ## First five minutes
 
 1. **Paste a website URL.** scenri reads the public page and drafts the kit: name, palette, logo, tone.
-2. **Describe a shot.** `@` pulls in a product or a person, `#` picks a look. The composer compiles a brief you can inspect before it runs.
-3. **Generate on Codex CLI.** Runs on your own ChatGPT plan — no key, no per-image cost.
+2. **Describe a shot.** In the composer, `$` reaches for a product, `@` for a presenter, `/` for a scene, and `#` for a colour. Everything between them is your own words. The composer compiles a brief you can inspect before it runs.
+3. **Generate on Codex CLI.** Runs on your own ChatGPT plan, so there is no key and no per-image charge from us.
 4. **Branch an edit** from any shot, then hit compare. The heatmap shows what moved.
 5. **Add a real engine** in Settings when you want output you can ship.
 
@@ -87,7 +104,7 @@ Codex CLI is the default because it needs no key and because it carries the most
 
 It is not free. Every ChatGPT plan comes with some Codex usage and each image spends a little of it. OpenAI meters that, not scenri, so spend caps do not apply to this engine.
 
-**Without a ChatGPT plan**, use your own provider key. OpenRouter is the one to pick if your shots name a Product or a Presenter — Replicate and fal take no reference images, so scenri refuses those briefs on them rather than generating something that only looks right.
+**Without a ChatGPT plan**, use your own provider key. OpenRouter is the one to pick if your shots name a Product or a Presenter. Replicate and fal take no reference images, so scenri refuses those briefs on them rather than generating something that only looks right.
 
 Keys are stored in your local library folder, sent only to that provider, and never returned by the API. Set a monthly spend cap per engine in Settings.
 

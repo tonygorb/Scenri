@@ -20,7 +20,7 @@ Anything that would break one of those is out of scope, however useful it sounds
 - The `.brand` open format, with a JSON Schema and a validator
 - Products and characters as locked reference photos
 - Product catalog import: Shopify, WooCommerce, Webflow, and a generic sitemap and JSON-LD reader
-- Ten photographic looks with previews, plus a brief composer with `@` and `#` tokens
+- Seventy-two photographic looks, each with a preview and a six-shot reference gallery, plus a composer where `$` reaches for a product, `@` a presenter, `/` a scene and `#` a colour
 - The version tree: generate, branch an edit from any node, keep the winners
 - Drift-diff, a pixel heatmap between a node and its parent
 - A text overlay editor whose headlines stay editable layers, not baked pixels
@@ -31,26 +31,9 @@ Anything that would break one of those is out of scope, however useful it sounds
 
 **Make the first five minutes undeniable.** The gap between `npx scenri` and a shot worth keeping is still too wide. Better first-run guidance, faster URL to brand kit, clearer messaging when an engine is missing or a key is wrong.
 
-**Fill in the looks.** Only one of the ten looks currently ships generated reference frames, and only two carry text zones. All ten should have both.
-
 **Accessibility.** The known-defect backlog in [docs/A11Y-BACKLOG.md](docs/A11Y-BACKLOG.md) is clear and every Biome a11y rule now runs at `error`, so regressions fail CI. What automation cannot see is next: a real screen-reader pass over Create and the shot overlay, and keyboard reachability of the composer's chips.
 
 **Make adapters easy to write.** An engine adapter is one file behind one interface. It should be documented well enough that adding a provider is an afternoon, and it is the contribution the project most wants.
-
-## Before first public / npm release
-
-Parked on purpose. Do **not** publish until the product is ready for strangers to run `npx scenri`.
-
-Checklist:
-
-1. Product ready enough for an early `0.x` public CLI
-2. Publishing runs in CI over npm trusted publishing (OIDC); no npm token exists and none is ever added
-3. Confirm the open release-please PR (`chore: release main`) is green
-4. Merge that PR: it creates the GitHub release and tag, and CI publishes to npm with provenance
-5. Verify `npm view scenri version` and the Release workflow publish job
-6. Make the GitHub repo public and enable private vulnerability reporting
-
-Until then: keep developing on `dev` and leave the release-please PR alone.
 
 ## Later
 

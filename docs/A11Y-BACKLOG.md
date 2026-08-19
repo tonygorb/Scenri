@@ -1,7 +1,7 @@
 # Accessibility backlog
 
 **The backlog is empty.** Every accessibility rule Biome ships is enabled at its
-recommended severity — `error` — so a new defect fails CI rather than joining a
+recommended severity, `error`, so a new defect fails CI rather than joining a
 list. `biome.json` carries no `a11y` block at all, which is the point: there is
 nothing to soften.
 
@@ -9,7 +9,7 @@ Reproduce at any time:
 
 ```bash
 pnpm lint      # biome lint .
-pnpm ci        # biome ci . — what CI runs
+pnpm ci        # biome ci . is what CI runs
 ```
 
 ## How this list worked, and how to restart it
@@ -31,7 +31,7 @@ Do not reach for that unless the defects are real. The six cases below are not.
 ## Six documented suppressions, and why they are not defects
 
 Each carries a `biome-ignore` comment naming the rule and the reason, in the
-house style used elsewhere in the tree. **Please do not "fix" these** — the
+house style used elsewhere in the tree. **Please do not "fix" these**: the
 markup is already correct and the rule cannot model the situation.
 
 | File | Rule | Why the rule is wrong here |
@@ -43,7 +43,7 @@ markup is already correct and the rule cannot model the situation.
 | `apps/studio/src/composer/BriefInput.tsx` | `useSemanticElements` | It cannot be a `<textarea>`: the brief renders product and scene chips inline. |
 | `apps/studio/src/layout/ShowcaseCard.tsx` | `noStaticElementInteractions` | `onMouseLeave` only, dismissing a hover tip. There is no click affordance to expose, and the tips open from their own focusable pills. |
 
-If you disagree with one of these, open an issue rather than a patch — the
+If you disagree with one of these, open an issue rather than a patch, because the
 argument is about the pattern, not the line.
 
 ## One non-a11y exception, recorded here for want of a better home
