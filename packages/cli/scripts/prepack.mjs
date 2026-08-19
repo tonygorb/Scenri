@@ -112,10 +112,21 @@ copyInto(
 );
 console.log('prepack: copied the catalog and starter imagery');
 
-// 4. legal files, which `files` also cannot reach above the package root for
-for (const f of ['LICENSE', 'NOTICE', 'README.md', 'ASSETS-LICENSE.md']) {
-  const src = join(repo, f);
-  if (existsSync(src)) cpSync(src, join(pkg, f));
+// 4. legal files, which `files` also cannot reach above the package root for.
+//    A missing one is a broken release, not a skippable nicety: the tarball
+//    inlines @scenri/brand (Apache-2.0) into dist, so that license text has to
+//    travel with it (Apache-2.0 section 4a), alongside the app's own.
+const LEGAL = [
+  ['LICENSE', 'LICENSE'],
+  ['NOTICE', 'NOTICE'],
+  ['README.md', 'README.md'],
+  [join('docs', 'ASSETS-LICENSE.md'), 'ASSETS-LICENSE.md'],
+  [join('packages', 'brand-spec', 'LICENSE'), 'LICENSE-APACHE-2.0-brand-spec'],
+];
+for (const [src, dest] of LEGAL) {
+  const from = join(repo, src);
+  if (!existsSync(from)) fail(`legal file missing: ${src}`);
+  cpSync(from, join(pkg, dest));
 }
 
 const mb = (p) => (execFileSync('du', ['-sk', p]).toString().trim().split(/\s+/)[0] / 1024).toFixed(1);

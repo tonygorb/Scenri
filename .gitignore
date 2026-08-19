@@ -8,6 +8,7 @@ out/
 packages/cli/studio-dist/
 packages/cli/templates/
 packages/cli/LICENSE
+packages/cli/LICENSE-APACHE-2.0-brand-spec
 packages/cli/NOTICE
 packages/cli/README.md
 packages/cli/ASSETS-LICENSE.md
