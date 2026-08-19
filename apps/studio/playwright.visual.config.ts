@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Visual-regression harness for the CSS restructure (docs/migrations/css-restructure/).
+ * Visual-regression harness for the CSS restructure (2026-08 migration).
  *
  * Separate config on purpose: the normal e2e projects glob `./e2e`, this one
  * globs `./visual`, so neither run ever picks up the other's specs. Same
@@ -25,7 +25,7 @@ export default defineConfig({
       // re-snapped fractional layout by 1px (progress.md, C2 incident).
       animations: 'allow',
       // Pixel-perfect is the whole point. Any per-shot exception must be
-      // documented in docs/migrations/css-restructure/surface-matrix.md.
+      // documented beside the shot that needs it.
       maxDiffPixels: 0,
     },
   },

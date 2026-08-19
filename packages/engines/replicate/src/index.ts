@@ -59,7 +59,7 @@ function nearestAspectRatio(width: number, height: number): AspectRatio {
   }
   if (Math.abs(best[1] - ratio) / ratio > ASPECT_TOLERANCE)
     throw new Error(
-      `replicate supports only ${candidates.map((c) => c[0]).join(', ')} — ` +
+      `replicate supports only ${candidates.map((c) => c[0]).join(', ')}; ` +
         `a ${width}x${height} request would be silently returned as ${best[0]}`,
     );
   return best[0];
@@ -72,7 +72,7 @@ async function httpError(res: Response, context: string): Promise<Error> {
   } catch {
     // body unreadable; status alone will have to do
   }
-  return new Error(`Replicate ${context} failed: HTTP ${res.status}${snippet ? ` — ${snippet}` : ''}`);
+  return new Error(`Replicate ${context} failed: HTTP ${res.status}${snippet ? `: ${snippet}` : ''}`);
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {

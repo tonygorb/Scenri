@@ -87,7 +87,7 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
     });
     const text = await res.text();
     if (!res.ok) {
-      throw new Error(`OpenRouter request failed: HTTP ${res.status} — ${snippet(text)}`);
+      throw new Error(`OpenRouter request failed: HTTP ${res.status}: ${snippet(text)}`);
     }
     let json: any;
     try {

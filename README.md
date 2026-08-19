@@ -2,16 +2,17 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/logo-on-dark.svg">
-  <img src="docs/media/logo-on-light.svg" alt="scenri" width="200">
+  <img src="docs/media/logo-on-light.svg" alt="scenri" width="260">
 </picture>
 
-**The open studio for brand-consistent AI visuals.**
-
+**The open studio for brand-consistent AI visuals.**<br>
 Define a client's brand once. Then generate, branch, and art-direct on-brand images through a version tree, running entirely on your own machine and your own AI accounts.
 
 [![CI](https://github.com/tonygorb/scenri/actions/workflows/ci.yml/badge.svg)](https://github.com/tonygorb/scenri/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/scenri)](https://www.npmjs.com/package/scenri)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+
+**Get started:** one command, no account.
 
 ```bash
 npx scenri
@@ -54,13 +55,11 @@ All 97 examples on the home wall work the same way. Open one and it loads back i
 
 ## What you get out of the box
 
-<img src="docs/media/scenes.jpg" alt="The scenri scene library showing twelve scene thumbnails in a grid, with category tabs for accessories, apparel, beauty, beverage, electronics and more" width="820">
+<img src="docs/media/library.gif" alt="A slow scroll down the scenri home wall: rows of finished example shots across product categories, with the composer docked at the bottom of the screen" width="820">
 
 A library of scenes, presenters and demo products, so the app is useful before you have uploaded anything of your own. Filter by category, bookmark what fits the brand, or build your own from a few reference photos.
 
-<img src="docs/media/kit.jpg" alt="The scenri brand kit panel showing identity fields for logo, name and tagline, and a palette listing named colours with their hex values" width="820">
-
-The brand kit is the part that keeps output consistent. Name, mark, palette and rules, set once and carried into every shot that asks for them.
+The brand kit sits one gesture away in Settings and is the part that keeps output consistent. Name, mark, palette and rules, set once and carried into every shot that asks for them.
 
 ## Run it
 

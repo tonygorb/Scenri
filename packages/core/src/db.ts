@@ -440,7 +440,7 @@ export function openDb(homeDir: string): DB {
   // Nodes only leave 'running' via the in-process generation promise; after a
   // crash/restart those rows would spin forever in the UI. Sweep them to error.
   db.prepare(
-    "UPDATE nodes SET status='error', error='interrupted — server restarted mid-generation' WHERE status='running'",
+    "UPDATE nodes SET status='error', error='interrupted: server restarted mid-generation' WHERE status='running'",
   ).run();
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
   return db;

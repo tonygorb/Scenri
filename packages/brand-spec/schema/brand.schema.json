@@ -225,7 +225,7 @@
           },
           "category": {
             "type": "string",
-            "description": "One of productCategories.ts's keys — drives the reference-angle checklist a product's page shows."
+            "description": "One of productCategories.ts's keys. Drives the reference-angle checklist a product's page shows."
           },
           "variant": {
             "type": "string",
@@ -287,7 +287,7 @@
           },
           "promptName": {
             "type": "string",
-            "description": "Frozen at creation: the phrase a generator is given for this person. A character with no promptName is named by `name`, so renaming one would change its generations — this field is what makes `name` safe to edit."
+            "description": "Frozen at creation: the phrase a generator is given for this person. A character with no promptName is named by `name`, so renaming one would change its generations; this field is what makes `name` safe to edit."
           },
           "presentation": {
             "enum": ["woman", "man"]
@@ -380,7 +380,7 @@
             "not": {
               "pattern": "\\{product_name\\}"
             },
-            "description": "The set only — the reusable visual world. A scene never names the product or person staged in it; the brief supplies those."
+            "description": "The set only: the reusable visual world. A scene never names the product or person staged in it; the brief supplies those."
           },
           "camera": {
             "type": "string",
@@ -428,7 +428,7 @@
                 }
               }
             },
-            "description": "The user's inspiration images. Display only — a scene contributes text to a generation, never pixels, so these are never sent to a generator as references."
+            "description": "The user's inspiration images. Display only: a scene contributes text to a generation, never pixels, so these are never sent to a generator as references."
           },
           "preview": {
             "$ref": "#/$defs/assetRef",

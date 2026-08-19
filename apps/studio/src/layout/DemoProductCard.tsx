@@ -36,7 +36,7 @@ export function DemoProductCard({
     <CatalogCard
       id={product.id}
       previewUrl={product.previewUrl}
-      title={`${productLabel(product, 'tooltip')} — ${category}`}
+      title={`${productLabel(product, 'tooltip')} · ${category}`}
       primary={productLabel(product, 'card')}
       secondary={category}
       useLabel="Use in a shot"

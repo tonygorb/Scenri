@@ -98,7 +98,7 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
       } catch {
         /* body unreadable; report status alone */
       }
-      throw new Error(`fal.ai request failed: HTTP ${res.status}${snippet ? ` — ${snippet}` : ''}`);
+      throw new Error(`fal.ai request failed: HTTP ${res.status}${snippet ? `: ${snippet}` : ''}`);
     }
     try {
       return await res.json();
@@ -117,7 +117,7 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
       } catch {
         /* body unreadable; report status alone */
       }
-      throw new Error(`fal.ai image download failed: HTTP ${res.status}${snippet ? ` — ${snippet}` : ''}`);
+      throw new Error(`fal.ai image download failed: HTTP ${res.status}${snippet ? `: ${snippet}` : ''}`);
     }
     return Buffer.from(await res.arrayBuffer());
   }

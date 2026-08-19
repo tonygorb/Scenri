@@ -129,7 +129,7 @@ export function About({ version }: { version: VersionInfo | null }) {
             <span className="txt">
               <b>Update</b>
               <small data-prose="">
-                Running from source — pull and rebuild when you're ready. Nothing here touches your checkout.
+                Running from source. Pull and rebuild when you're ready. Nothing here touches your checkout.
               </small>
             </span>
           </div>
@@ -140,7 +140,7 @@ export function About({ version }: { version: VersionInfo | null }) {
               <small data-prose="">
                 {updates.applyError ??
                   (s.phase === 'ready'
-                    ? `${s.stagedVersion} is downloaded and verified — restarting finishes it.`
+                    ? `${s.stagedVersion} is downloaded and verified. Restarting finishes it.`
                     : 'Downloads next to the running version, verifies it loads, then restarts. Your library stays put.')}
               </small>
             </span>

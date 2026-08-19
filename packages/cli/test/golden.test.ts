@@ -1,6 +1,6 @@
 /**
- * Golden generation cases — the permanent regression suite for the contracts
- * in docs/product/generation-contracts.md.
+ * Golden generation cases — the permanent regression suite for the generation
+ * contracts: which references outrank which, and what the compiled brief must say.
  *
  * These assert on the COMPILED BRIEF (prompt text, reference count, role
  * order, dimensions, warnings) rather than on generated pixels: the compiled

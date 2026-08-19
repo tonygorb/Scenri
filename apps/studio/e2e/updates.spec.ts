@@ -119,7 +119,7 @@ test.describe
       await expect(dot(page)).toBeVisible();
 
       await page.locator('.sc-org-btn').click();
-      await expect(page.locator('.sc-menu-item[data-update]')).toContainText('Update available — 0.99.0');
+      await expect(page.locator('.sc-menu-item[data-update]')).toContainText('Update available · 0.99.0');
       await page.keyboard.press('Escape');
     });
 

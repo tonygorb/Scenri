@@ -179,20 +179,20 @@ describe('validateReleases', () => {
   it('refuses a duplicate version, and records that are not newest first', () => {
     const problems = validateReleases([ok(), ok()], '0.2.0');
     expect(problems).toContain('release 0.2.0: described twice');
-    expect(problems).toContain('release 0.2.0: out of order — records run newest first');
+    expect(problems).toContain('release 0.2.0: out of order; records run newest first');
   });
 
   it('refuses a changelog wearing a dialog: at most four sections', () => {
     const five = Array.from({ length: 5 }, (_, i) => ({ heading: `H${i}`, body: 'x' }));
     expect(validateReleases([ok({ sections: five })], '0.2.0')).toContain(
-      'release 0.2.0: 5 sections — four is the ceiling',
+      'release 0.2.0: 5 sections; four is the ceiling',
     );
   });
 
   it('refuses hype, emoji and long dashes, wherever they hide', () => {
     expect(
       validateReleases([ok({ sections: [{ heading: 'Create', body: 'A revolutionary new way to work.' }] })], '0.2.0'),
-    ).toContain('release 0.2.0: hype copy — say what changed, not how amazing it is');
+    ).toContain('release 0.2.0: hype copy; say what changed, not how amazing it is');
     expect(validateReleases([ok({ title: 'Unlock the power of scenri' })], '0.2.0')).toHaveLength(1);
     expect(validateReleases([ok({ sections: [{ heading: 'Create', body: 'Faster now 🚀' }] })], '0.2.0')).toContain(
       'release 0.2.0: emoji',

@@ -205,6 +205,26 @@ A create dialog is a picture being named, not a settings panel. Empty: one large
 - **Don't** invent a per-component focus or active treatment: a `border-color` swap, a box-shadow halo, a background change. It reads as a second vocabulary for a state the user already knows, and the two drift apart the moment either is touched; add to the shared list in `styles/foundations/interaction.css` instead.
 - **Don't** style an unwired CTA as primary (inverse-fill). Ghost is the tell that it's not the real, working action yet.
 
+### Writing
+
+Product copy is part of the design system. The voice is plain, factual and specific: say what
+happened and what to do next, in the words the interface already uses. Contractions are fine.
+Sentences are short.
+
+- **Talk about the work, not the technology.** A shot rendered, a brief was kept, a key was
+  refused. Never AI magic, never marvel at the model.
+- **No decorative emoji and no AI-flavored symbols** (sparkles, rockets, robots) in product or
+  public copy. Phosphor icons carry the iconography.
+- **No em or en dashes in authored copy.** Use a period, comma, colon, semicolon or parentheses,
+  whichever the sentence actually wants. Prompt text sent to an engine is exempt: changing a
+  prompt changes generated pixels.
+- **Avoid exclamation marks.** The work is the excitement.
+- **Prefer specific action labels.** "Export .brand", "Delete shots", "Add key". Never "Submit"
+  or "OK".
+- **Technical terms stay technical.** HTTP 401 is HTTP 401; naming it precisely is the courtesy.
+- `packages/cli/test/copyHygiene.test.ts` guards the public markdown surface; the release-notes
+  validator in `packages/cli/src/release/notes.data.ts` guards What's New copy.
+
 ## 7. The mark
 
 The artwork of record is `apps/studio/brand/scenri-lockup.svg` and `scenri-symbol.svg`. The same

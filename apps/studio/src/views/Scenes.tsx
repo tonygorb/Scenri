@@ -38,7 +38,7 @@ const BOOKMARKED = '__bookmarked';
 
 /**
  * The scenes library, built on the shared Creative Library shell
- * (docs/product/patterns/creative-library.md). A scene is a photographic
+ * (layout/library/). A scene is a photographic
  * setup, so browsing is nothing but the pictures — sections are collections
  * (Studio, Social, Portrait…), real art-direction groupings, not decoration,
  * so they survive the shared shell rather than being flattened into one

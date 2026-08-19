@@ -30,7 +30,7 @@ const SEARCH_MIN = 8;
 
 /**
  * The presenter library, built on the shared Creative Library shell
- * (docs/product/patterns/creative-library.md). One casting board, not a
+ * (layout/library/). One casting board, not a
  * Scene-style set of collection sections — eight-odd people don't need
  * Studio/Social-style grouping, and splitting into gendered sections by
  * default would read as a checkbox diversity grid rather than a curated

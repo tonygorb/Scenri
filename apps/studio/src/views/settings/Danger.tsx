@@ -33,12 +33,12 @@ export function Danger({ onDone }: { onDone: () => void }) {
       <div className="sc-set-row">
         <span className="txt">
           <b>Delete this brand</b>
-          <small>Removes {brandName(brand)}, its projects and every shot. Other brands stay.</small>
+          <small data-prose="">Removes {brandName(brand)}, its sets and every shot. Other brands stay.</small>
         </span>
         <Confirm
           label="Delete brand"
           title={`Delete ${brandName(brand)}?`}
-          body="The kit, its projects and every shot go with it. Exports you already downloaded stay yours."
+          body="The kit, its sets and every shot go with it. Exports you already downloaded stay yours."
           busy={busy}
           onConfirm={() => {
             setBusy(true);
@@ -55,12 +55,12 @@ export function Danger({ onDone }: { onDone: () => void }) {
       <div className="sc-set-row">
         <span className="txt">
           <b>Delete generated shots</b>
-          <small>Keeps brands, cast and scenes. Removes every project and its tree.</small>
+          <small data-prose="">Keeps brands, cast and scenes. Removes every set and every generated shot.</small>
         </span>
         <Confirm
           label="Delete shots"
           title="Delete every generated shot?"
-          body="Brands, cast and scenes stay. Every project and everything generated inside it goes."
+          body="Brands, cast and scenes stay. Every set and every generated shot goes."
           busy={busy}
           onConfirm={() => void run('shots')}
         />
@@ -68,12 +68,12 @@ export function Danger({ onDone }: { onDone: () => void }) {
       <div className="sc-set-row">
         <span className="txt">
           <b>Delete all local data</b>
-          <small>Brands, cast, projects, shots and saved keys, in one go.</small>
+          <small data-prose="">Brands, cast, sets, shots and saved keys, in one go.</small>
         </span>
         <Confirm
           label="Delete everything"
           title="Delete everything on this machine?"
-          body="The whole library folder is removed: brands, cast, projects, shots and your saved keys. There is no undo."
+          body="The whole library folder is removed: brands, cast, sets, shots and your saved keys. There is no undo."
           busy={busy}
           onConfirm={() => void run('all')}
         />

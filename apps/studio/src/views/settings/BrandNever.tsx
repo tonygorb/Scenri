@@ -15,8 +15,8 @@ interface BrandDocLike {
  * neither could be answered without creative vocabulary; the product's own
  * owner could not fill it in for his own brand.
  *
- * It was also redundant. `docs/product/generation-contracts.md` ranks scene
- * direction above brand style for look and composition, so on the normal path —
+ * It was also redundant. The generation contracts (packages/cli/test/golden.test.ts)
+ * rank scene direction above brand style for look and composition, so on the normal path —
  * where a shot carries a scene — everything typed there was overruled anyway.
  *
  * What survives is the part that is concrete, that no scene supplies, and that

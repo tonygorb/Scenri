@@ -130,7 +130,7 @@ export function registerUpdateRoutes(
     const apply = effectiveApply();
     if (apply.phase !== 'ready') return reply.status(409).send({ error: 'no staged update to restart into' });
     if (!runtime.supervised) {
-      return reply.status(409).send({ error: 'not supervised — restart scenri yourself', blockReason: 'unsupervised' });
+      return reply.status(409).send({ error: 'not supervised; restart scenri yourself', blockReason: 'unsupervised' });
     }
     // Answer first, then go: the browser needs this reply to start its
     // reconnect overlay before the socket disappears.

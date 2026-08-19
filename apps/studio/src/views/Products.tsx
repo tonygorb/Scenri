@@ -32,7 +32,7 @@ const SEARCH_MIN = 8;
  * about. Flat, not collection-sectioned like Scenes — a single brand's own
  * products don't need Studio/Social-style grouping, same reasoning as
  * PresentersView. Built on the shared Creative Library shell
- * (docs/product/patterns/creative-library.md). Category tabs use
+ * (layout/library/). Category tabs use
  * `effectiveCategory` (stored key, else a guess from productType/tags), so a
  * catalog import with sparse category data still gets a real, usable filter.
  */

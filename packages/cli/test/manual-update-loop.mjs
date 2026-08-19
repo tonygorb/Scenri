@@ -19,10 +19,10 @@ const ROOT = join(CLI, '..', '..');
 const PORT = 4791;
 
 const fail = (msg) => {
-  console.error(`✗ ${msg}`);
+  console.error(`FAIL: ${msg}`);
   process.exit(1);
 };
-const ok = (msg) => console.log(`✓ ${msg}`);
+const ok = (msg) => console.log(`ok: ${msg}`);
 
 if (spawnSync('npm', ['--version'], { stdio: 'ignore' }).status !== 0) {
   console.log('npm is not working on this machine — the loop test needs it. Skipping, not failing.');

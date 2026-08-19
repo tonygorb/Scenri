@@ -5,7 +5,7 @@ import { discover, prep, shot, type Discovered } from './shared.js';
 /**
  * The desktop surface matrix, warm fixture (owned scene seeded).
  * Golden baselines are captured from the pre-restructure CSS and never
- * regenerated mid-migration — see docs/migrations/css-restructure/.
+ * regenerated mid-migration.
  */
 
 isolate({ scene: true });

@@ -3,7 +3,7 @@
  *
  * IMPORT ORDER IS THE CASCADE. Later files deliberately override earlier ones,
  * exactly as the sections of the old single-file app.css did (split 1:1 and
- * then cleaned in the css-restructure migration — docs/migrations/css-restructure/).
+ * then cleaned in the 2026-08 css-restructure migration).
  * This list is the only order authority: directories express OWNERSHIP, never
  * precedence, which is why foundations/, components/, surfaces/ and overrides/
  * interleave below. Never reorder these imports. New rules go into the file

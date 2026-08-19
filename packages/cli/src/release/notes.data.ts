@@ -105,7 +105,7 @@ const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
  *
  * Deliberately not a validation framework: it exists to stop a version
  * shipping with no record, with someone else's record, or with copy that
- * breaks the house style. `releaseNotes.test.ts` runs it against the real
+ * breaks the house style (DESIGN.md §6, "Writing"). `releaseNotes.test.ts` runs it against the real
  * data, which is what makes the release PR go red until the notes are written.
  */
 export function validateReleases(releases: ReleaseEntry[], currentVersion: string): string[] {
@@ -117,7 +117,7 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
   // 0.0.0 is the pre-release placeholder release-please has not touched yet.
   if (currentVersion !== '0.0.0' && releases[0].version !== currentVersion) {
     problems.push(
-      `the newest record is ${releases[0].version} but this build is ${currentVersion} — write the record for ${currentVersion}`,
+      `the newest record is ${releases[0].version} but this build is ${currentVersion}; write the record for ${currentVersion}`,
     );
   }
 
@@ -136,21 +136,21 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
         previous[0] > triplet[0] ||
         (previous[0] === triplet[0] && previous[1] > triplet[1]) ||
         (previous[0] === triplet[0] && previous[1] === triplet[1] && previous[2] > triplet[2]);
-      if (!descending) problems.push(`${where}: out of order — records run newest first`);
+      if (!descending) problems.push(`${where}: out of order; records run newest first`);
     }
     previous = triplet;
 
     if (r.title !== undefined && r.title.trim() === '') problems.push(`${where}: empty title`);
     // An empty sections array is legal: it is how a maintenance release says
     // "no news". A section that exists and says nothing is not.
-    if (r.sections.length > 4) problems.push(`${where}: ${r.sections.length} sections — four is the ceiling`);
+    if (r.sections.length > 4) problems.push(`${where}: ${r.sections.length} sections; four is the ceiling`);
     for (const s of r.sections) {
       if (s.heading.trim() === '') problems.push(`${where}: a section with no heading`);
       if (s.body.trim() === '') problems.push(`${where}: section "${s.heading}" says nothing`);
     }
 
     const prose = [r.title ?? '', ...r.sections.flatMap((s) => [s.heading, s.body])].join(' ');
-    if (HYPE.test(prose)) problems.push(`${where}: hype copy — say what changed, not how amazing it is`);
+    if (HYPE.test(prose)) problems.push(`${where}: hype copy; say what changed, not how amazing it is`);
     if (EMOJI.test(prose)) problems.push(`${where}: emoji`);
     if (prose.includes('\u2014') || prose.includes('\u2013')) problems.push(`${where}: long dash`);
   }

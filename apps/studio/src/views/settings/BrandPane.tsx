@@ -125,7 +125,7 @@ export function BrandPane() {
         <div className="sc-set-row">
           <span className="txt">
             <b>Export .brand</b>
-            <small>A zip holding brand.json and every image it references — the form any tool can read.</small>
+            <small data-prose="">A zip holding brand.json and every image it references: the form any tool can read.</small>
           </span>
           <a className="sc-btn sc-btn-ghost" href={brandExportUrl(brand.id)} download onClick={() => void doc.flush()}>
             Export
@@ -134,7 +134,7 @@ export function BrandPane() {
         <div className="sc-set-row">
           <span className="txt">
             <b>Changes</b>
-            <small>Written as you make them — there is no save button to forget.</small>
+            <small data-prose="">Written as you make them. There is no save button to forget.</small>
           </span>
           <span className="sc-tag" data-state={doc.state}>
             {saveLabel(doc.state)}

@@ -189,7 +189,7 @@ export function AttachPanel({
       type="button"
       key={c.key}
       className="sc-ap-card"
-      title={c.sub ? `${c.label} — ${c.sub}` : c.label}
+      title={c.sub ? `${c.label} · ${c.sub}` : c.label}
       onClick={c.run}
     >
       {c.swatch ? (

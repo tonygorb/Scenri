@@ -146,7 +146,7 @@ async function run(): Promise<void> {
   const shutdown = (signal: NodeJS.Signals) => {
     if (closing) return;
     closing = true;
-    console.log(`\n  ${signal} — closing scenri…`);
+    console.log(`\n  ${signal}: closing scenri…`);
     setTimeout(() => process.exit(1), 5000).unref();
     app
       .drain()

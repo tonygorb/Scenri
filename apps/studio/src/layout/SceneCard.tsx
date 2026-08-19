@@ -7,7 +7,7 @@ export type SceneCardSize = CatalogCardSize;
 
 /**
  * The one Scene card, replacing six independently-drifted renderings
- * (docs/product/patterns/look-card.md). `variant` is the product decision
+ * (the shared LookCard pattern). `variant` is the product decision
  * (what a click does, if anything besides opening); `size` is only density.
  * A thin adapter over `CatalogCard` — see CatalogCard.tsx for the shared
  * shell this and `PresenterCard` both render through.
