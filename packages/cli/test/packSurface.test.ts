@@ -29,8 +29,13 @@ const packed = (): { files: string[]; size: number } => {
       maxBuffer: 64 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    const parsed = JSON.parse(out) as [{ files: { path: string }[]; size: number }];
-    packedCache = { files: parsed[0].files.map((f) => f.path), size: parsed[0].size };
+    // npm 11 returns an array of results; npm 12 returns an object keyed by
+    // package name. Accept both, so the guard survives the runner's npm.
+    type PackResult = { files: { path: string }[]; size: number };
+    const parsed = JSON.parse(out) as PackResult[] | Record<string, PackResult>;
+    const result = Array.isArray(parsed) ? parsed[0] : parsed[pkg.name as string];
+    if (!result) throw new Error('npm pack --json returned no result for this package');
+    packedCache = { files: result.files.map((f) => f.path), size: result.size };
   }
   return packedCache;
 };
