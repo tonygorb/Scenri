@@ -47,9 +47,32 @@ export interface ReleaseEntry {
 
 // 0.1.0 and 0.1.1 were published to npm and unpublished on 2026-08-17; those
 // numbers are burned and their tags never existed (see packSurface.test.ts).
-// They stay recorded here as the internal era. The first public release is
-// 0.2.0, and its entry is written when release-please proposes it.
+// They stay recorded here as the internal era. The first public
+// release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
+  {
+    version: '0.2.0',
+    date: '2026-08-20',
+    title: 'scenri goes public.',
+    sections: [
+      {
+        heading: 'Compose',
+        body: 'Type $ for a product, @ for a presenter and / for a scene, straight in the brief. The menu filters as you type and drops the pick in as a chip, so a whole shot can be assembled without leaving the keyboard. Enter no longer fires a shot while you are still placing one.',
+      },
+      {
+        heading: 'A lighter install',
+        body: 'The install dropped to about 12 MB. Every scene, presenter and recipe is still browsable immediately; the heavy imagery downloads once in the background, is cached locally forever, and SCENRI_NO_CONTENT_FETCH=1 turns the download off.',
+      },
+      {
+        heading: 'Create dialogs',
+        body: 'Creating a product, presenter or scene got fuller forms, and on a phone the dialogs open as sheets you can drag closed.',
+      },
+      {
+        heading: 'The studio',
+        body: 'The scenri mark sits in the top bar, the browser tab names the screen you are on, and About says who builds this and under which license.',
+      },
+    ],
+  },
   {
     version: '0.1.1',
     date: '2026-08-16',
