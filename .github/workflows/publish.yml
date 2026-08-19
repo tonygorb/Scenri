@@ -55,9 +55,11 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # Trusted publishing is an npm CLI feature and needs 11.5.1 or newer;
-      # Node 22 still ships npm 10.
+      # Node 22 still ships npm 10. Pinned to the 11 line rather than @latest:
+      # npm 12 changed `pack --json`'s output shape and broke the pack-surface
+      # guard mid-publish. A major bump here is a deliberate edit, not a drift.
       - name: Use an npm that can do trusted publishing
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
 
       - run: pnpm install --frozen-lockfile
 
