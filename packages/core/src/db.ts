@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { RESERVED_SLUGS, firstFree, slugifyWithId } from './slug.js';
 
@@ -384,12 +384,22 @@ function backupBeforeMigration(db: DB, homeDir: string, fromVersion: number): vo
 }
 
 export function openDb(homeDir: string): DB {
-  mkdirSync(homeDir, { recursive: true });
+  // 0o700 on creation: the database holds provider keys, so another local user
+  // has no business listing this directory. An existing home keeps whatever
+  // mode its owner gave it.
+  mkdirSync(homeDir, { recursive: true, mode: 0o700 });
   const dbPath = join(homeDir, 'scenri.db');
   // Captured before Database() — opening creates the file, and a fresh db also
   // reads user_version 0 but must not trigger a backup.
   const preExisting = existsSync(dbPath);
   const db = new Database(dbPath);
+  // Owner-only, every open: keys live in here. Before the WAL pragma below, so
+  // the -wal and -shm files inherit the tightened mode when SQLite creates them.
+  try {
+    chmodSync(dbPath, 0o600);
+  } catch {
+    /* a read-only or exotic filesystem must not stop the app from opening */
+  }
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   const found = db.pragma('user_version', { simple: true }) as number;
@@ -440,7 +450,7 @@ export function openDb(homeDir: string): DB {
   // Nodes only leave 'running' via the in-process generation promise; after a
   // crash/restart those rows would spin forever in the UI. Sweep them to error.
   db.prepare(
-    "UPDATE nodes SET status='error', error='interrupted — server restarted mid-generation' WHERE status='running'",
+    "UPDATE nodes SET status='error', error='interrupted: server restarted mid-generation' WHERE status='running'",
   ).run();
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
   return db;

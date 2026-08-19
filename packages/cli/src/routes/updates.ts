@@ -35,6 +35,9 @@ export function registerUpdateRoutes(
   const ghSlug = repoSlug(meta.repository);
   /** The version a build carries before release-please has ever bumped it. */
   const UNRELEASED = '0.0.0';
+  // The internal era: published to npm, unpublished 2026-08-17, tags never
+  // created. See the note above RELEASES in ../release/notes.data.ts.
+  const UNTAGGED = new Set(['0.1.0', '0.1.1']);
 
   // The apply state machine: idle → staging → ready | error. 'ready' also
   // covers a version staged by `scenri update` in a terminal before this boot.
@@ -130,7 +133,7 @@ export function registerUpdateRoutes(
     const apply = effectiveApply();
     if (apply.phase !== 'ready') return reply.status(409).send({ error: 'no staged update to restart into' });
     if (!runtime.supervised) {
-      return reply.status(409).send({ error: 'not supervised — restart scenri yourself', blockReason: 'unsupervised' });
+      return reply.status(409).send({ error: 'not supervised; restart scenri yourself', blockReason: 'unsupervised' });
     }
     // Answer first, then go: the browser needs this reply to start its
     // reconnect overlay before the socket disappears.
@@ -178,9 +181,13 @@ export function registerUpdateRoutes(
       // Its absence is also what tells the dialog it is looking at a
       // development build rather than a release nobody wrote notes for.
       // Every other version a user can be running was published, and
-      // publishing is what creates the tag.
+      // publishing is what creates the tag. The exceptions are the internal
+      // 0.1.x builds: published, unpublished, never tagged. Their numbers are
+      // burned on npm and a tag link would 404.
       changelogUrl:
-        ghSlug && meta.version !== UNRELEASED ? `https://github.com/${ghSlug}/releases/tag/v${meta.version}` : null,
+        ghSlug && meta.version !== UNRELEASED && !UNTAGGED.has(meta.version)
+          ? `https://github.com/${ghSlug}/releases/tag/v${meta.version}`
+          : null,
       // Where everything before the three in the dialog lives. The index, not
       // a tag: this one is the archive, and it outlives the version running.
       // Gated on there being an archive at all, so a project that has never

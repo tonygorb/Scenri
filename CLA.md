@@ -2,7 +2,7 @@
 
 By signing, You accept these terms for Your present and future Contributions to the project.
 
-1. **Definitions.** "You" = the copyright owner making a Contribution. "Contribution" = any original work of authorship intentionally submitted for inclusion in the project. "Maintainer" = Tony Gorb (bytonygorb@gmail.com) or a successor legal entity announced in the repository.
+1. **Definitions.** "You" = the copyright owner making a Contribution. "Contribution" = any original work of authorship intentionally submitted for inclusion in the project. "Maintainer" = Tony Gorb (hello@scenri.co) or a successor legal entity announced in the repository.
 2. **Copyright license.** You grant the Maintainer a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, and distribute Your Contributions, **including the right to license Contributions under other license terms** (dual licensing).
 3. **Patent license.** You grant the Maintainer and recipients of the project a perpetual, worldwide, non-exclusive, royalty-free, irrevocable patent license covering Your Contributions as combined with the project.
 4. **You retain ownership.** This is a license, not an assignment. You may use Your Contributions for any other purpose.

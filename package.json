@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.1",
   "license": "AGPL-3.0-only",
-  "author": "Tony Gorb <bytonygorb@gmail.com>",
+  "author": "Tony Gorb <hello@scenri.co>",
   "packageManager": "pnpm@9.15.0",
   "engines": {
     "node": ">=22"

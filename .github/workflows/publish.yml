@@ -61,6 +61,23 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The golden prompt tests compile against the full imagery, same as CI.
+      - name: Hydrate the content cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download content-latest --repo "$GITHUB_REPOSITORY" --pattern scenri-content.zip --dir "$RUNNER_TEMP"
+          pnpm exec tsx packages/cli/scripts/pull-content.mts "$RUNNER_TEMP/scenri-content.zip"
+
+      - name: Build the studio into the CLI bundle
+        run: pnpm build
+
+      # Stage the exact publish surface BEFORE the tests run: the packSurface
+      # suite skips itself when dist/templates are not staged, which is exactly
+      # how 0.1.x shipped its source maps. Build first, stage, then verify.
+      - name: Stage the package
+        run: node packages/cli/scripts/prepack.mjs
+
       # A version can only be published once and unpublishing is restricted
       # after 72 hours, so the one irreversible step checks for itself rather
       # than trusting a workflow that ran somewhere else.
@@ -70,8 +87,10 @@ jobs:
           pnpm exec biome ci .
           pnpm test
 
-      - name: Build the studio into the CLI bundle
-        run: pnpm build
+      # The tarball's exact file list, in the log, before the irreversible step.
+      - name: Show the exact tarball contents
+        working-directory: packages/cli
+        run: npm pack --dry-run --ignore-scripts
 
       # No token. npm authenticates this workflow to the registry over OIDC
       # ("trusted publishing"), which npm now requires: tokens that bypass 2FA

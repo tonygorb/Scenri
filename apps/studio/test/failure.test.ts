@@ -8,17 +8,17 @@ import { describeCancelled, describeFailure, failureToast } from '../src/failure
  */
 const REAL = {
   openrouter401:
-    'OpenRouter request failed: HTTP 401 — {"error":{"message":"Missing Authentication header","code":401}}',
-  fal500: 'fal.ai request failed: HTTP 500 — {"detail":"Internal Server Error"}',
+    'OpenRouter request failed: HTTP 401: {"error":{"message":"Missing Authentication header","code":401}}',
+  fal500: 'fal.ai request failed: HTTP 500: {"detail":"Internal Server Error"}',
   spendCap: 'Spend cap for openrouter: $10.00/mo. Spent $9.80, next ~$0.40 would exceed it.',
-  aspect: 'engine returned 1024x1024 for a 1024x1280 request — this engine cannot produce the requested aspect ratio',
+  aspect: 'engine returned 1024x1024 for a 1024x1280 request: this engine cannot produce the requested aspect ratio',
   references:
-    'Codex cannot carry enough reference images, so Acme Kettle would be named in the prompt but never shown — the result would not be your product. Choose an engine that supports reference images, or remove Acme Kettle from the brief.',
+    'Codex cannot carry enough reference images, so Acme Kettle would be named in the prompt but never shown. The result would not be your product. Choose an engine that supports reference images, or remove Acme Kettle from the brief.',
   spawn: 'Failed to spawn codex: spawn codex ENOENT',
   codexTimeout: 'Codex CLI timed out after 600000ms',
   codexAbort: 'Codex CLI run aborted',
   codexEmpty: 'Codex finished but produced no images',
-  restarted: 'interrupted — server restarted mid-generation',
+  restarted: 'interrupted: server restarted mid-generation',
   exitCode: 'codex exited with code 1: some unrecognised gibberish',
 };
 
@@ -37,7 +37,7 @@ describe('describeFailure', () => {
   });
 
   it('reads a 403 as a key that does not cover this', () => {
-    const f = describeFailure('HTTP 403 — forbidden', 'OpenRouter');
+    const f = describeFailure('HTTP 403: forbidden', 'OpenRouter');
     expect(f.kind).toBe('auth');
     expect(f.title).toBe('OpenRouter refused this key.');
     expect(f.retryable).toBe(false);
@@ -52,13 +52,13 @@ describe('describeFailure', () => {
   });
 
   it('separates the provider running dry from our own cap', () => {
-    const f = describeFailure('HTTP 402 — insufficient credit', 'OpenRouter');
+    const f = describeFailure('HTTP 402: insufficient credit', 'OpenRouter');
     expect(f.kind).toBe('credit');
     expect(f.remedy?.opens).toBe('engines');
   });
 
   it('a rate limit is the one money-adjacent failure worth retrying', () => {
-    const f = describeFailure('HTTP 429 — rate limit exceeded', 'OpenRouter');
+    const f = describeFailure('HTTP 429: rate limit exceeded', 'OpenRouter');
     expect(f.kind).toBe('rate');
     expect(f.retryable).toBe(true);
     expect(f.remedy).toBeUndefined();
@@ -88,7 +88,7 @@ describe('describeFailure', () => {
   });
 
   it('does not let a 404 swallow the more specific capability failures', () => {
-    expect(describeFailure('HTTP 404 — model not found', 'OpenRouter').kind).toBe('model');
+    expect(describeFailure('HTTP 404: model not found', 'OpenRouter').kind).toBe('model');
     // both of these contain no 404, but they used to be reachable only if the
     // generic rules were ordered after them
     expect(describeFailure(REAL.aspect, 'OpenRouter').kind).toBe('format');
@@ -114,6 +114,8 @@ describe('describeFailure', () => {
     expect(f.kind).toBe('restarted');
     expect(f.title).toBe('scenri restarted while this was rendering.');
     expect(f.retryable).toBe(true);
+    // Rows written by older builds keep the em-dash form in the DB forever.
+    expect(describeFailure('interrupted — server restarted mid-generation', 'Codex').kind).toBe('restarted');
   });
 
   it('reads 5xx as their problem, and offers the retry that goes with that', () => {

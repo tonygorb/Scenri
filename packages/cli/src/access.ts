@@ -90,6 +90,19 @@ export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = 
     if (!host || !allowed.has(host)) {
       return reply.status(403).send({ error: 'forbidden host' });
     }
+    // The host check cannot catch classic CSRF: a page on any origin can fire
+    // a body-less POST at 127.0.0.1 with a Host header we trust, and a POST
+    // without a content-type never triggers a preflight. Browsers stamp every
+    // request with Sec-Fetch-Site, so a cross-site one names itself. The one
+    // legitimate cross-site shape is the user clicking a link to their own
+    // studio — a top-level navigation, always a GET. Non-browser clients
+    // (curl, npm, the launcher's self-probe) send no Sec-Fetch-* headers and
+    // pass untouched.
+    if (req.headers['sec-fetch-site'] === 'cross-site') {
+      const isNavigation =
+        req.headers['sec-fetch-mode'] === 'navigate' && (req.method === 'GET' || req.method === 'HEAD');
+      if (!isNavigation) return reply.status(403).send({ error: 'cross-site request blocked' });
+    }
     if (!token) return;
 
     const q = (req.query as Record<string, unknown> | undefined)?.t;

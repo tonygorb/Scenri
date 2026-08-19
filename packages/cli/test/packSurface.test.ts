@@ -48,6 +48,26 @@ describe('the published package surface', () => {
     expect(pkg.files).toContain('ASSETS-LICENSE.md');
   });
 
+  // dist inlines @scenri/brand (Apache-2.0), so its license text must travel
+  // in the tarball next to the app's own — Apache-2.0 section 4(a).
+  it('ships the Apache license for the inlined brand-spec code, and the changelog', () => {
+    expect(pkg.files).toContain('LICENSE-APACHE-2.0-brand-spec');
+    expect(pkg.files).toContain('CHANGELOG.md');
+  });
+
+  // The starter wall is a hard-coded id list in a build script; a catalog
+  // rename would silently empty it. Bind every id to a real showcase entry.
+  it('every starter showcase id resolves to a catalog entry', () => {
+    const script = readFileSync(join(pkgDir, 'scripts', 'prepack.mjs'), 'utf8');
+    const block = script.match(/STARTER_SHOWCASE = new Set\(\[([\s\S]*?)\]\)/);
+    expect(block).not.toBeNull();
+    const ids = [...(block as RegExpMatchArray)[1].matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThanOrEqual(10);
+    for (const id of ids) {
+      expect(existsSync(join(pkgDir, '..', '..', 'templates', 'showcase', `${id}.json`)), id).toBe(true);
+    }
+  });
+
   // Only meaningful when a build exists to be excluded. publish.yml runs the
   // tests before `pnpm build`, so in CI there is nothing on disk to check and
   // asserting on an empty dist would pass for the wrong reason.
@@ -104,6 +124,20 @@ describe('the published package surface', () => {
       expect(heroes.length).toBeGreaterThanOrEqual(10);
       expect(heroes.length).toBeLessThanOrEqual(20);
       expect(packed().size).toBeLessThan(15 * 1024 * 1024);
+    },
+    30_000,
+  );
+
+  // Legal files are staged by prepack; only a staged tree can prove they pack.
+  const stagedApache = join(pkgDir, 'LICENSE-APACHE-2.0-brand-spec');
+  it.skipIf(!existsSync(stagedApache))(
+    'packs every legal file, and the Apache copy really is the Apache license',
+    () => {
+      const files = packedFiles();
+      for (const f of ['LICENSE', 'LICENSE-APACHE-2.0-brand-spec', 'NOTICE', 'ASSETS-LICENSE.md', 'CHANGELOG.md']) {
+        expect(files).toContain(f);
+      }
+      expect(readFileSync(stagedApache, 'utf8')).toContain('Apache License');
     },
     30_000,
   );

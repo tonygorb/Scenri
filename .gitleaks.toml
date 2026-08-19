@@ -1,0 +1,13 @@
+# gitleaks configuration. The default ruleset applies; this file exists so the
+# pre-commit hook and CI have one place to record deliberate exceptions.
+# Add an allowlist entry here instead of committing with --no-verify.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Deliberate false-positive exceptions, each with a reason"
+paths = [
+  # visual test fixtures carry long hex hashes that look like tokens
+  '''apps/studio/visual/__screenshots__''',
+]

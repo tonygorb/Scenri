@@ -43,13 +43,13 @@ describe('argv dispatcher', () => {
   });
 
   it('an unknown command is an error naming the argument', () => {
-    expect(parseArgs(['deploy'])).toEqual({ cmd: 'error', message: "unknown command 'deploy' — try --help" });
+    expect(parseArgs(['deploy'])).toEqual({ cmd: 'error', message: "unknown command 'deploy' (try --help)" });
   });
 
   it('an unknown flag on update is an error', () => {
     expect(parseArgs(['update', '--force'])).toEqual({
       cmd: 'error',
-      message: "unknown option '--force' — try --help",
+      message: "unknown option '--force' (try --help)",
     });
   });
 

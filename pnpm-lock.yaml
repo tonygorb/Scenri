@@ -78,6 +78,9 @@ importers:
       jsdom:
         specifier: ^25.0.0
         version: 25.0.1
+      sharp:
+        specifier: ^0.34.0
+        version: 0.34.5
       vite:
         specifier: ^6.0.0
         version: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)

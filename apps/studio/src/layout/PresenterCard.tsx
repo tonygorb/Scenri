@@ -6,7 +6,7 @@ export type PresenterCardSize = Exclude<CatalogCardSize, 'shelf'>;
 
 /**
  * The one Presenter card — same variant/size split as SceneCard
- * (docs/product/patterns/look-card.md), adapted for a person rather than a
+ * (the shared LookCard pattern), adapted for a person rather than a
  * photographic setup: the caption is name + casting descriptor, and the fast
  * path is "Use in a shot", attaching straight from the catalog exactly like
  * a Scene's own. A thin adapter over `CatalogCard` — see

@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://scenri.co/schema/brand-0.1.schema.json",
+  "$comment": "Copyright 2026 Tony Gorb. Licensed under Apache-2.0 (see packages/brand-spec/LICENSE); any tool may implement this schema.",
   "title": ".brand \u2014 portable brand DNA (v0.1 draft)",
   "type": "object",
   "required": ["specVersion", "meta"],
@@ -225,7 +226,7 @@
           },
           "category": {
             "type": "string",
-            "description": "One of productCategories.ts's keys — drives the reference-angle checklist a product's page shows."
+            "description": "One of productCategories.ts's keys. Drives the reference-angle checklist a product's page shows."
           },
           "variant": {
             "type": "string",
@@ -287,7 +288,7 @@
           },
           "promptName": {
             "type": "string",
-            "description": "Frozen at creation: the phrase a generator is given for this person. A character with no promptName is named by `name`, so renaming one would change its generations — this field is what makes `name` safe to edit."
+            "description": "Frozen at creation: the phrase a generator is given for this person. A character with no promptName is named by `name`, so renaming one would change its generations; this field is what makes `name` safe to edit."
           },
           "presentation": {
             "enum": ["woman", "man"]
@@ -380,7 +381,7 @@
             "not": {
               "pattern": "\\{product_name\\}"
             },
-            "description": "The set only — the reusable visual world. A scene never names the product or person staged in it; the brief supplies those."
+            "description": "The set only: the reusable visual world. A scene never names the product or person staged in it; the brief supplies those."
           },
           "camera": {
             "type": "string",
@@ -428,7 +429,7 @@
                 }
               }
             },
-            "description": "The user's inspiration images. Display only — a scene contributes text to a generation, never pixels, so these are never sent to a generator as references."
+            "description": "The user's inspiration images. Display only: a scene contributes text to a generation, never pixels, so these are never sent to a generator as references."
           },
           "preview": {
             "$ref": "#/$defs/assetRef",

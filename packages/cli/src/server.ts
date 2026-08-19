@@ -101,9 +101,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   app.register(fastifyMultipart, { limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
 
   app.setErrorHandler((err: unknown, _req, reply) => {
-    const e = err as { statusCode?: number; message?: string };
+    const e = err as { statusCode?: number; message?: string; code?: string };
     const status = err instanceof SpendCapError ? 402 : (e.statusCode ?? 500);
-    reply.status(status).send({ error: e.message ?? 'unexpected error' });
+    // fs errors embed absolute paths ("ENOENT: … open '/Users/…'"); the path
+    // belongs in the terminal, not in a response a browser can read.
+    const leaksPath = typeof e.code === 'string' && /^(ENOENT|EACCES|EPERM|EISDIR|ENOTDIR)$/.test(e.code);
+    reply.status(status).send({ error: leaksPath ? 'unexpected error' : (e.message ?? 'unexpected error') });
   });
 
   // ---- brands
@@ -536,7 +539,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const got = meta.width / meta.height;
       if (Math.abs(got - want) / want > ASPECT_TOLERANCE)
         throw new Error(
-          `engine returned ${meta.width}x${meta.height} for a ${expect.width}x${expect.height} request — ` +
+          `engine returned ${meta.width}x${meta.height} for a ${expect.width}x${expect.height} request: ` +
             'this engine cannot produce the requested aspect ratio',
         );
     }
@@ -711,7 +714,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         const names = joinNames(lostIdentity.map((d) => d.label));
         const kindWord = lostIdentity[0].role === 'product' ? 'product' : 'presenter';
         return reply.code(400).send({
-          error: `${engine.capabilities().displayName} cannot carry enough reference images, so ${names} would be named in the prompt but never shown — the result would not be your ${kindWord}. Choose an engine that supports reference images, or remove ${names} from the brief.`,
+          error: `${engine.capabilities().displayName} cannot carry enough reference images, so ${names} would be named in the prompt but never shown. The result would not be your ${kindWord}. Choose an engine that supports reference images, or remove ${names} from the brief.`,
         });
       }
       const genReq: GenerateRequest = {

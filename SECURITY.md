@@ -5,7 +5,7 @@
 Please report privately, not in a public issue.
 
 - Preferred: GitHub private vulnerability reporting, via the **Security** tab on this repository.
-- Fallback: bytonygorb@gmail.com.
+- Fallback: security@scenri.co.
 
 Include what you did, what happened, and what you expected. A proof of concept helps a lot. You will get a first response within 5 working days, and an assessment within 14 days. This is a solo-maintained project, so please allow for that in your disclosure timeline.
 
@@ -57,3 +57,11 @@ Setting `SCENRI_HOST=0.0.0.0` opens it to your local network so you can use it f
 - A random per-session access token, printed in the startup URL and required on every request. It is new on every run and never written to disk.
 
 Treat LAN mode as convenience on a network you trust, not as a security boundary.
+
+Browsers name cross-site requests via `Sec-Fetch-Site`, and the server rejects them (except top-level navigations, which is a user clicking a link to their own studio). That is the guard against drive-by CSRF from a page open in the same browser.
+
+## Known limitations, stated on purpose
+
+- The brand-from-URL and catalog importers fetch the URL you give them, follow redirects, and do not block private-IP destinations. They can only be invoked by the person at the keyboard (or with the LAN token), fetching from their own machine, which `curl` could do too. Treated as a non-goal for now; a report showing these reachable **without** local access is very much in scope.
+- Updates are staged with `npm install`, so integrity rests on npm's own tarball checksums plus two checks of our own: the staged manifest must match the requested name and version, and the staged version must boot and answer `verify` before it is promoted. There is no additional signature layer.
+- The library imagery archive is fetched once over HTTPS from this repository's GitHub Releases. There is no separate checksum yet; it contains imagery only and is never executed.

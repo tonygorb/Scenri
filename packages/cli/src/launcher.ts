@@ -81,7 +81,7 @@ export async function runLauncher(deps: LauncherDeps): Promise<number> {
     while (starts.length > 0 && startedAt - starts[0] > LOOP_WINDOW_MS) starts.shift();
     if (starts.length > LOOP_MAX_STARTS) {
       log('  scenri is restarting in a loop and has stopped trying.');
-      log('  Recover with:  rm -rf ~/.scenri/app   (app versions only — your library is untouched)');
+      log('  Recover with:  rm -rf ~/.scenri/app   (app versions only, your library is untouched)');
       log('  then start fresh:  npx scenri@latest');
       return 1;
     }
@@ -103,7 +103,7 @@ export async function runLauncher(deps: LauncherDeps): Promise<number> {
     if (signalled) return code ?? 0;
     if (code === RESTART_EXIT_CODE) continue;
     if (code !== 0 && useStaged && now() - startedAt < QUICK_DEATH_MS) {
-      log(`  scenri ${staged} failed to start — falling back to ${deps.ownVersion}.`);
+      log(`  scenri ${staged} failed to start. Falling back to ${deps.ownVersion}.`);
       log('  If this keeps happening:  rm -rf ~/.scenri/app');
       distrustStaged = true;
       continue;

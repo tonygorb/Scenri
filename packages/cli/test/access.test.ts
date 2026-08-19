@@ -93,6 +93,66 @@ describe('host allowlist', () => {
   });
 });
 
+describe('cross-site request blocking', () => {
+  let app: FastifyInstance;
+  afterEach(async () => await app.close());
+
+  // The CSRF shape: a page on another origin firing a body-less POST at the
+  // loopback port. No content-type means no preflight, and the Host header is
+  // one we trust, so Sec-Fetch-Site is the only thing that names the caller.
+  it('rejects a cross-site POST, which is how drive-by CSRF arrives', async () => {
+    app = serve();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/update/check',
+      headers: { host: '127.0.0.1:4747', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'no-cors' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('cross-site request blocked');
+  });
+
+  it('rejects a cross-site GET that is not a navigation', async () => {
+    app = serve();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/brands',
+      headers: { host: '127.0.0.1:4747', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'no-cors' },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  // the one legitimate cross-site shape: the user clicking a link to their studio
+  it('allows a cross-site top-level navigation', async () => {
+    app = serve();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/brands',
+      headers: { host: '127.0.0.1:4747', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('allows the SPA itself: same-origin fetches carry same-origin', async () => {
+    app = serve();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/update/check',
+      headers: { host: '127.0.0.1:4747', 'sec-fetch-site': 'same-origin' },
+    });
+    expect(res.statusCode).not.toBe(403);
+  });
+
+  it('leaves non-browser clients alone: no Sec-Fetch headers, no gate', async () => {
+    app = serve();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/update/check',
+      headers: { host: '127.0.0.1:4747' },
+    });
+    expect(res.statusCode).not.toBe(403);
+  });
+});
+
 describe('LAN access token', () => {
   let app: FastifyInstance;
   const token = 'test-token-value';

@@ -319,7 +319,7 @@ export function ScenePage() {
               ))}
             </div>
             {showDemoProductNote && (
-              <p className="sc-lookpage-note">Shown with a demo product for reference — yours replaces it.</p>
+              <p className="sc-lookpage-note">Shown with a demo product for reference. Yours replaces it.</p>
             )}
             {owned && (
               <p className="sc-lookpage-note">

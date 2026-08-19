@@ -192,7 +192,7 @@ function omit<T extends object>(obj: T, key: string): T {
 
 function readme(json: any, missing: number): string {
   return [
-    `${json.meta?.name ?? 'Brand'} — .brand bundle`,
+    `${json.meta?.name ?? 'Brand'} (.brand bundle)`,
     '',
     'brand.json holds the whole kit; assets/ holds every image it references,',
     'and the file fields inside brand.json are paths relative to brand.json.',

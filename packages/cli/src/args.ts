@@ -28,17 +28,17 @@ export function parseArgs(argv: string[]): Command {
       else if (a === '--from') {
         from = rest[++i];
         if (from === undefined) return { cmd: 'error', message: '--from requires a value' };
-      } else return { cmd: 'error', message: `unknown option '${a}' — try --help` };
+      } else return { cmd: 'error', message: `unknown option '${a}' (try --help)` };
     }
     return { cmd: 'update', check, from };
   }
-  return { cmd: 'error', message: `unknown command '${first}' — try --help` };
+  return { cmd: 'error', message: `unknown command '${first}' (try --help)` };
 }
 
 // `verify` is deliberately absent: it exists for the updater to probe a staged
 // install, not for people.
 export function helpText(): string {
-  return `scenri — local brand studio
+  return `scenri: local brand studio
 
 Usage
   scenri                start scenri (auto-restarts after updates)

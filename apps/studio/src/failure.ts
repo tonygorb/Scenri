@@ -171,14 +171,14 @@ const RULES: Rule[] = [
     re: /\brun aborted\b/i,
     kind: 'cancelled',
     title: () => 'You stopped this shot.',
-    fix: 'The brief is kept — run it again whenever.',
+    fix: 'The brief is kept. Run it again whenever.',
     retryable: true,
   },
   {
     re: /timed out|\btimeout\b|ETIMEDOUT/i,
     kind: 'timeout',
     title: (e) => `${cap(e)} took too long to answer.`,
-    fix: 'Try again — a long brief sometimes needs a second run.',
+    fix: 'Try again. A long brief sometimes needs a second run.',
     retryable: true,
   },
   {
@@ -189,7 +189,7 @@ const RULES: Rule[] = [
     retryable: true,
   },
   {
-    re: /interrupted — server restarted|interrupted - server restarted/i,
+    re: /interrupted\W+server restarted/i,
     kind: 'restarted',
     title: () => 'scenri restarted while this was rendering.',
     fix: 'The shot was lost, not the brief. Run it again.',
@@ -208,7 +208,7 @@ const RULES: Rule[] = [
     re: /produced no images|returned no image|no images returned|finished but produced no/i,
     kind: 'empty',
     title: (e) => `${cap(e)} finished without making a picture.`,
-    fix: 'Run it again — this usually clears on a second try.',
+    fix: 'Run it again. This usually clears on a second try.',
     retryable: true,
   },
 ];
@@ -262,7 +262,7 @@ export function describeCancelled(): Failure {
   return {
     kind: 'cancelled',
     title: 'You stopped this shot.',
-    fix: 'The brief is kept — run it again whenever.',
+    fix: 'The brief is kept. Run it again whenever.',
     raw: '',
     retryable: true,
   };

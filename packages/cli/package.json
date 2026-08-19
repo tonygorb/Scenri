@@ -1,7 +1,7 @@
 {
   "name": "scenri",
   "version": "0.1.1",
-  "author": "Tony Gorb <bytonygorb@gmail.com>",
+  "author": "Tony Gorb <hello@scenri.co>",
   "license": "AGPL-3.0-only",
   "type": "module",
   "bin": {
@@ -54,7 +54,9 @@
     "!templates/previews/*.mjs",
     "studio-dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
+    "LICENSE-APACHE-2.0-brand-spec",
     "NOTICE",
     "ASSETS-LICENSE.md"
   ],
@@ -63,7 +65,7 @@
     "url": "git+https://github.com/tonygorb/scenri.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://scenri.co",
+  "homepage": "https://github.com/tonygorb/scenri#readme",
   "bugs": {
     "url": "https://github.com/tonygorb/scenri/issues"
   },

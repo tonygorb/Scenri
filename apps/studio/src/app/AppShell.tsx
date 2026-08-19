@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Flex, Spinner } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo, type Presenter, type DemoProduct, type ShowcaseEntry } from '../api.js';
+import { useDocumentTitle } from '../useDocumentTitle.js';
 import { useScenes, type UseScenesResult } from '../useScenes.js';
 import { usePresenters } from '../usePresenters.js';
 import { useDemoProducts } from '../useDemoProducts.js';
@@ -60,6 +61,7 @@ export function useAppData(): AppData {
  * down in BrandLayout, since both of them are about a brand's projects.
  */
 export function AppShell() {
+  useDocumentTitle();
   const [brands, setBrands] = useState<Brand[] | null>(null);
   const [engines, setEngines] = useState<EngineInfo[]>([]);
   const [error, setError] = useState<string | null>(null);

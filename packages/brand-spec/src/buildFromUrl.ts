@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import * as cheerio from 'cheerio';
 
 export interface BuildOptions {
@@ -120,7 +121,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
     }
   }
   const palette = pickPalette(colorSources);
-  if (!palette.primary) warnings.push('No confident palette found — set colors manually.');
+  if (!palette.primary) warnings.push('No confident palette found. Set colors manually.');
 
   // logo: largest icon, else og:image
   let logoRef: string | undefined;
@@ -139,7 +140,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
       warnings.push('Logo download failed.');
     }
   }
-  if (!logoRef) warnings.push('No logo captured — add one manually.');
+  if (!logoRef) warnings.push('No logo captured. Add one manually.');
 
   const brand: Record<string, unknown> = {
     specVersion: '0.1',

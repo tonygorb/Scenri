@@ -92,7 +92,7 @@ export function BrandMenu() {
         {updateAvailable && (
           <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('about')}>
             <ArrowCircleUp size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Update available — {updates.status?.latest}</span>
+            <span className="sc-menu-lb">Update available · {updates.status?.latest}</span>
           </DropdownMenu.Item>
         )}
         {/* Permanent, and gated on nothing: the release you are running is

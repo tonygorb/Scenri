@@ -68,10 +68,10 @@ describe('GET /api/release/notes', () => {
     app = build();
     const res = await app.inject({ method: 'GET', url: '/api/release/notes' });
     const { version, changelogUrl } = res.json();
-    if (version === '0.0.0') {
-      // Nothing has been released, so the releases index is an empty page and
-      // the tag does not exist. Null is the only honest answer, and it is what
-      // tells the dialog this is a development build.
+    if (version === '0.0.0' || version === '0.1.0' || version === '0.1.1') {
+      // 0.0.0 is the unbumped development placeholder, and the 0.1.x builds
+      // were published, unpublished, and never tagged. In every one of those
+      // cases the tag does not exist and null is the only honest answer.
       expect(changelogUrl).toBeNull();
     } else {
       expect(changelogUrl).toContain(`/releases/tag/v${version}`);
@@ -179,20 +179,20 @@ describe('validateReleases', () => {
   it('refuses a duplicate version, and records that are not newest first', () => {
     const problems = validateReleases([ok(), ok()], '0.2.0');
     expect(problems).toContain('release 0.2.0: described twice');
-    expect(problems).toContain('release 0.2.0: out of order — records run newest first');
+    expect(problems).toContain('release 0.2.0: out of order; records run newest first');
   });
 
   it('refuses a changelog wearing a dialog: at most four sections', () => {
     const five = Array.from({ length: 5 }, (_, i) => ({ heading: `H${i}`, body: 'x' }));
     expect(validateReleases([ok({ sections: five })], '0.2.0')).toContain(
-      'release 0.2.0: 5 sections — four is the ceiling',
+      'release 0.2.0: 5 sections; four is the ceiling',
     );
   });
 
   it('refuses hype, emoji and long dashes, wherever they hide', () => {
     expect(
       validateReleases([ok({ sections: [{ heading: 'Create', body: 'A revolutionary new way to work.' }] })], '0.2.0'),
-    ).toContain('release 0.2.0: hype copy — say what changed, not how amazing it is');
+    ).toContain('release 0.2.0: hype copy; say what changed, not how amazing it is');
     expect(validateReleases([ok({ title: 'Unlock the power of scenri' })], '0.2.0')).toHaveLength(1);
     expect(validateReleases([ok({ sections: [{ heading: 'Create', body: 'Faster now 🚀' }] })], '0.2.0')).toContain(
       'release 0.2.0: emoji',
