@@ -22,3 +22,15 @@ if ! gitleaks protect --staged --redact --no-banner; then
   echo "  If it is a false positive: add a rule to .gitleaks.toml, not --no-verify."
   exit 1
 fi
+
+# Competitor names stay out of the tree: this is a public repo, and product
+# comparisons belong in private notes, not in shipped code or docs.
+names='kive|canva|freepik|photoroom|pebblely|midjourney|recraft|mokker|claid|higgsfield|magnific|krea|ideogram'
+hits=$(git diff --cached --unified=0 -- . ':(exclude).githooks/pre-commit' | grep -E '^\+' | grep -iwE "$names" || true)
+if [ -n "$hits" ]; then
+  echo ""
+  echo "pre-commit: BLOCKED. A staged line names a competitor product:"
+  echo "$hits" | head -5
+  echo "  Describe the pattern instead of naming the product, or --no-verify if truly deliberate."
+  exit 1
+fi

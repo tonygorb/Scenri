@@ -43,8 +43,8 @@ const SEARCH_MIN = 8;
  * screens: nothing here is a tool, everything is a way in.
  *
  * So there is no assets panel, no lens row and no selection here — but the
- * composer itself now docks at the bottom, the way Kive fuses gallery and
- * prompt. A showcase tile lands its whole recipe in that composer, in place:
+ * composer itself now docks at the bottom, fusing the gallery and the prompt
+ * into one surface. A showcase tile lands its whole recipe in that composer, in place:
  * chips, prose, settings, still on the wall, free to swap for another tile or
  * edit before committing. Send is the one moment that leaves — the brief
  * starts for real and the screen changes to Create, where results live.

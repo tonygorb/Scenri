@@ -125,7 +125,9 @@ export function BrandPane() {
         <div className="sc-set-row">
           <span className="txt">
             <b>Export .brand</b>
-            <small data-prose="">A zip holding brand.json and every image it references: the form any tool can read.</small>
+            <small data-prose="">
+              A zip holding brand.json and every image it references: the form any tool can read.
+            </small>
           </span>
           <a className="sc-btn sc-btn-ghost" href={brandExportUrl(brand.id)} download onClick={() => void doc.flush()}>
             Export
