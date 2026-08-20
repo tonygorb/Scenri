@@ -8,6 +8,7 @@ import { createEngineRegistry } from './engines.js';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer, type InstallKind } from './server.js';
 import { readMeta } from './meta.js';
+import { portBusyLines } from './bootError.js';
 
 const PORT = Number(process.env.SCENRI_PORT || 4747);
 /**
@@ -115,9 +116,13 @@ async function run(): Promise<void> {
           continue;
         }
         // Someone already answers on this port. If it is Scenri, a second
-        // start is not a failure — hand the person their running studio.
+        // start is not a failure — hand the person their running studio. The
+        // timeout matters: a non-HTTP occupant accepts the socket and never
+        // replies, and an unbounded fetch would hang this process silently.
         try {
-          const res = await fetch(`http://127.0.0.1:${PORT}/api/version`);
+          const res = await fetch(`http://127.0.0.1:${PORT}/api/version`, {
+            signal: AbortSignal.timeout(2000),
+          });
           const info = (await res.json()) as { name?: string };
           if (info.name === readMeta().name) {
             const url = `http://127.0.0.1:${PORT}`;
@@ -133,8 +138,12 @@ async function run(): Promise<void> {
             process.exit(0);
           }
         } catch {
-          /* not Scenri, or not answering — fall through to the real error */
+          /* not Scenri, or not answering — a foreign app owns the port */
         }
+        console.error('');
+        for (const line of portBusyLines(PORT)) console.error(`  ${line}`);
+        console.error('');
+        process.exit(1);
       }
       throw err;
     }
@@ -168,7 +177,8 @@ async function run(): Promise<void> {
 
   console.log(`\n  Scenri Studio → ${localUrl}`);
   for (const ip of reachableAt) console.log(`  on your network → http://${ip}:${PORT}${query}`);
-  console.log(`  data dir        → ${core.home}\n`);
+  console.log(`  data dir        → ${core.home}`);
+  console.log('  Keep this window open while Scenri is running.\n');
   if (!studioDist) console.log('  (studio UI not built, API only. Run: pnpm build)\n');
   if (token) {
     console.log('  Warning: the studio is reachable from your network.');
@@ -178,11 +188,25 @@ async function run(): Promise<void> {
     console.log('  For this machine only, unset SCENRI_HOST.\n');
   }
   if (process.env.SCENRI_NO_OPEN !== '1') {
+    // Headless or browserless environment: the URL above is the fallback,
+    // repeated so the last line on screen is the thing to click. The spawn
+    // listeners matter as much as the catch: on macOS a missing opener fails
+    // asynchronously on the child, not by throwing.
+    let told = false;
+    const tellUrl = () => {
+      if (told) return;
+      told = true;
+      console.log(`  Open ${localUrl} in your browser.\n`);
+    };
     try {
       const { default: open } = await import('open');
-      await open(localUrl);
+      const child = await open(localUrl);
+      child.once('error', tellUrl);
+      child.once('exit', (openExit) => {
+        if (openExit !== null && openExit !== 0) tellUrl();
+      });
     } catch {
-      /* headless env */
+      tellUrl();
     }
   }
 }
