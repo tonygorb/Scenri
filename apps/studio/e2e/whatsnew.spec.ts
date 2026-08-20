@@ -12,6 +12,17 @@ import { isolate } from './harness.js';
 
 isolate();
 
+/**
+ * The auto-open settle is 2.5s in production. Several assertions below prove
+ * a negative ("no dialog appears") and must out-wait it, so the suite
+ * shortens it before boot and waits five times the shortened value.
+ */
+const SETTLE_MS = 300;
+const OUTWAIT_MS = SETTLE_MS * 5;
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((ms) => localStorage.setItem('scenri:whatsnew-settle-ms', String(ms)), SETTLE_MS);
+});
+
 const NOTES_URL = '**/api/release/notes';
 const SEEN_URL = '**/api/release/seen';
 const RELEASES_URL = 'https://github.com/tonygorb/scenri/releases';
@@ -61,7 +72,7 @@ test('a release already acknowledged says nothing: no dialog, no dot', async ({ 
   await stub(page);
   await page.goto('/');
   await expect(page.locator('.sc-greet')).toBeVisible();
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);
   await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
 });
@@ -111,7 +122,7 @@ test('closing it is the acknowledgement, and it does not come back', async ({ pa
   await expect(dialog(page)).toHaveCount(0);
   expect(acked).toEqual(['9.9.9']);
   await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);
 });
 
@@ -119,7 +130,7 @@ test('it never stacks on a dialog that already owns the screen', async ({ page }
   await stubUnread(page);
   await page.goto('/e2e-fixture?settings=about');
   await expect(page.locator('.sc-set')).toBeVisible();
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);
 
   await page
@@ -206,7 +217,7 @@ test('a maintenance release says nothing of its own', async ({ page }) => {
   });
   await page.goto('/');
   await expect(page.locator('.sc-greet')).toBeVisible();
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(OUTWAIT_MS);
 
   await expect(dialog(page)).toHaveCount(0);
   await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
@@ -223,7 +234,7 @@ test('a failed read says so, instead of accusing the release of having no notes'
   await page.route(NOTES_URL, (route) => route.fulfill({ status: 404, json: { error: 'not found' } }));
   await page.goto('/');
   await expect(page.locator('.sc-greet')).toBeVisible();
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(OUTWAIT_MS);
 
   await expect(dialog(page)).toHaveCount(0);
   await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
@@ -238,7 +249,7 @@ test('a development build says so, instead of blaming a release that never happe
   await stub(page, { version: '0.0.0', entry: null, changelogUrl: null });
   await page.goto('/');
   await expect(page.locator('.sc-greet')).toBeVisible();
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);
 
   await openByHand(page);
