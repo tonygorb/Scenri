@@ -2,8 +2,9 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-dark.svg">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-light.svg" alt="scenri" width="260">
+  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-light.svg" alt="scenri" width="200">
 </picture>
+<br>
 
 **The open studio for brand-consistent AI visuals.**<br>
 Define a client's brand once. Then generate, branch, and art-direct on-brand images through a version tree, running entirely on your own machine and your own AI accounts.
@@ -38,18 +39,9 @@ It runs as a local server on `127.0.0.1`. Your brands, your images, and your key
 
 The film above ends on the shot its brief made: the Selvedge Trucker product, the presenter Maren, the Editorial Walk scene, and a paragraph of written direction. The chips carry the identity; the prose does the art direction. Here are eight more shots from the home wall, each built exactly that way:
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-serum-dew.jpg" title="Serum on the dew bed" alt="An amber Aurelia serum bottle nested in dew-covered succulent leaves, a droplet falling toward it" width="24.5%">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-drivers-window.jpg" title="Leaning into the driver's window" alt="A man in a selvedge denim jacket leaning into the open driver's window of a car on a coastal road" width="24.5%">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-under-surface.jpg" title="Under the surface, looking up" alt="A glass soda bottle standing on rippled sand underwater, shot from below looking up through the surface" width="24.5%">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-sling-chair.jpg" title="Sling chair in the travertine atrium" alt="A leather sling chair alone in a travertine atrium, raking sunlight across the stone" width="24.5%">
-</p>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-yuzu-spin.jpg" title="Yuzu can, mid-spin" alt="A woman mid-stride against a magenta backdrop, spinning a yellow can that throws off a fine spray" width="24.5%">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-spa-ledge.jpg" title="Morning at the spa ledge" alt="A frosted Solenne cream jar with a brushed gold lid on a poolside travertine ledge, steam rising behind" width="24.5%">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-pearls-silk.jpg" title="Pearls through ivory silk" alt="A single pearl on a fine gold chain, drawn across folds of deep green silk" width="24.5%">
-  <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-two-drops.jpg" title="Two drops, morning routine" alt="A man holding an open Aurelia serum bottle toward the camera, a drop falling from the raised pipette" width="24.5%">
-</p>
+<!-- One paragraph, no whitespace between the tags: a newline here renders as
+a fixed word-space, and 4 x 24.5% plus three spaces overflows a phone screen
+and wraps 3+1. With zero gaps the rows stay four wide at every width. --><p align="center"><img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-serum-dew.jpg" title="Serum on the dew bed" alt="An amber Aurelia serum bottle nested in dew-covered succulent leaves, a droplet falling toward it" width="24.5%"><img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-drivers-window.jpg" title="Leaning into the driver's window" alt="A man in a selvedge denim jacket leaning into the open driver's window of a car on a coastal road" width="24.5%"><img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-under-surface.jpg" title="Under the surface, looking up" alt="A glass soda bottle standing on rippled sand underwater, shot from below looking up through the surface" width="24.5%"><img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-sling-chair.jpg" title="Sling chair in the travertine atrium" alt="A leather sling chair alone in a travertine atrium, raking sunlight across the stone" width="24.5%"><img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-yuzu-spin.jpg" title="Yuzu can, mid-spin" alt="A woman mid-stride against a magenta backdrop, spinning a yellow can that throws off a fine spray" width="24.5%"><img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-spa-ledge.jpg" title="Morning at the spa ledge" alt="A frosted Solenne cream jar with a brushed gold lid on a poolside travertine ledge, steam rising behind" width="24.5%"><img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-pearls-silk.jpg" title="Pearls through ivory silk" alt="A single pearl on a fine gold chain, drawn across folds of deep green silk" width="24.5%"><img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/readme-two-drops.jpg" title="Two drops, morning routine" alt="A man holding an open Aurelia serum bottle toward the camera, a drop falling from the raised pipette" width="24.5%"></p>
 
 All 97 examples on the home wall work the same way. Open one and it loads back into the composer as the brief that made it, ready to change.
 
