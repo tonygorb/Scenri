@@ -62,7 +62,11 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   // inside quotes), and newlines split the line. All three are prose-safe
   // substitutions in an image prompt, so they are substituted, then every
   // argument is quoted, which makes & | < > ^ literal to cmd.
-  const winArg = (a: string) => `"${a.replace(/[\r\n]+/g, ' ').replace(/"/g, "'").replace(/%/g, ' percent ')}"`;
+  const winArg = (a: string) =>
+    `"${a
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/"/g, "'")
+      .replace(/%/g, ' percent ')}"`;
   const spawnCodex = (args: string[]) =>
     platform === 'win32'
       ? spawnImpl(['codex', ...args].map(winArg).join(' '), [], {

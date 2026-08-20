@@ -11,7 +11,6 @@
  * for. It must never run in a hosted service on someone else's behalf — hence
  * `localOnly: true`.
  */
-import type { spawn as nodeSpawn } from 'node:child_process';
 import { copyFile, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {

@@ -41,9 +41,7 @@ describe('codex spawn on win32', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].args).toEqual([]);
     expect(calls[0].opts.shell).toBe(true);
-    expect(calls[0].cmd).toBe(
-      `"codex" "exec" "a b" "say 'hi' & del x" "50 percent  cotton" "line break"`,
-    );
+    expect(calls[0].cmd).toBe(`"codex" "exec" "a b" "say 'hi' & del x" "50 percent  cotton" "line break"`);
   });
 
   it('keeps the POSIX array contract when the platform is pinned posix', async () => {

@@ -41,7 +41,10 @@ describe('status', () => {
     const notInstalled = createCodexSetup({ platform: 'linux', spawnImpl: scripted({ version: 1 }).spawnImpl });
     await expect(notInstalled.status()).resolves.toMatchObject({ state: 'not-installed' });
 
-    const notSignedIn = createCodexSetup({ platform: 'linux', spawnImpl: scripted({ version: 0, status: 1 }).spawnImpl });
+    const notSignedIn = createCodexSetup({
+      platform: 'linux',
+      spawnImpl: scripted({ version: 0, status: 1 }).spawnImpl,
+    });
     await expect(notSignedIn.status()).resolves.toMatchObject({ state: 'not-authenticated' });
 
     const ready = createCodexSetup({ platform: 'linux', spawnImpl: scripted({}).spawnImpl });
