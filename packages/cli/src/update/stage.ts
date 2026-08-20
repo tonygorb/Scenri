@@ -16,9 +16,15 @@ export type NpmArgv = string[];
 
 /** npm on PATH first; the npm that launched us second; pnpm/bun shells never. */
 export function findNpm(
-  opts: { env?: Record<string, string | undefined>; canRun?: (argv: string[]) => boolean } = {},
+  opts: {
+    env?: Record<string, string | undefined>;
+    canRun?: (argv: string[]) => boolean;
+    /** Tests pin this so the contract does not fork with the CI host OS. */
+    platform?: NodeJS.Platform;
+  } = {},
 ): NpmArgv | null {
   const env = opts.env ?? process.env;
+  const platform = opts.platform ?? process.platform;
   const canRun =
     opts.canRun ??
     ((argv: string[]) => {
@@ -31,11 +37,11 @@ export function findNpm(
   // Bare `npm` is POSIX-only on purpose: on Windows it is npm.cmd, which only
   // runs through a shell (CVE-2024-27980), and a shell line is a command
   // injection surface. npm's real JS entry runs through our own node instead.
-  if (process.platform !== 'win32' && canRun(['npm'])) return ['npm'];
+  if (platform !== 'win32' && canRun(['npm'])) return ['npm'];
   // npx scenri sets npm_execpath to npx-cli.js; npm-cli.js sits beside it.
   const ep = env.npm_execpath?.replace(/npx-cli\.js$/, 'npm-cli.js');
   if (ep && /npm-cli\.js$/.test(ep) && canRun([process.execPath, ep])) return [process.execPath, ep];
-  if (process.platform === 'win32') {
+  if (platform === 'win32') {
     const cli = windowsNpmCli();
     if (cli && canRun([process.execPath, cli])) return [process.execPath, cli];
   }

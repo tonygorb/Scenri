@@ -37,10 +37,11 @@ const okVerify = (version: string) => async () => ({ ok: true as const, version 
 
 describe('findNpm', () => {
   it('prefers npm on PATH', () => {
-    expect(findNpm({ canRun: (argv) => argv[0] === 'npm' })).toEqual(['npm']);
+    expect(findNpm({ platform: 'linux', canRun: (argv) => argv[0] === 'npm' })).toEqual(['npm']);
   });
   it('falls back to npm_execpath when it is npm', () => {
     const found = findNpm({
+      platform: 'linux',
       canRun: (argv) => argv[0] !== 'npm',
       env: { npm_execpath: '/x/npm-cli.js' },
     });
@@ -48,13 +49,18 @@ describe('findNpm', () => {
   });
   it('rewrites an npx execpath to the npm beside it (npx scenri is the documented path)', () => {
     const found = findNpm({
+      platform: 'linux',
       canRun: (argv) => argv[0] !== 'npm',
       env: { npm_execpath: '/x/npx-cli.js' },
     });
     expect(found).toEqual([process.execPath, '/x/npm-cli.js']);
   });
+  it('never hands out bare npm on win32, where a .cmd would need a shell', () => {
+    const found = findNpm({ platform: 'win32', canRun: (argv) => argv[0] === 'npm' });
+    expect(found).not.toEqual(['npm']);
+  });
   it('yields null when neither answers (pnpm-run shells included)', () => {
-    expect(findNpm({ canRun: () => false, env: { npm_execpath: '/x/pnpm.cjs' } })).toBeNull();
+    expect(findNpm({ platform: 'linux', canRun: () => false, env: { npm_execpath: '/x/pnpm.cjs' } })).toBeNull();
   });
 });
 
@@ -173,7 +179,14 @@ describe('stageVersion', () => {
         join(src, 'dist', 'index.js'),
         `#!/usr/bin/env node\nif (process.argv[2] === 'verify') console.log(JSON.stringify({ ok: true, version: '99.0.0' }));\n`,
       );
-      const tarball = join(src, execFileSync('npm', ['pack', '--loglevel=error'], { cwd: src }).toString().trim());
+      const tarball = join(
+        src,
+        // Fixed literal arguments, so the win32 shell (npm is npm.cmd there)
+        // has nothing to interpret.
+        execFileSync('npm', ['pack', '--loglevel=error'], { cwd: src, shell: process.platform === 'win32' })
+          .toString()
+          .trim(),
+      );
 
       const res = await stageVersion({ home, pkg: PKG, source: { from: tarball } });
       expect(res).toMatchObject({ ok: true, version: '99.0.0' });
