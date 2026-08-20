@@ -218,6 +218,12 @@ Sentences are short.
 - **No em or en dashes in authored copy.** Use a period, comma, colon, semicolon or parentheses,
   whichever the sentence actually wants. Prompt text sent to an engine is exempt: changing a
   prompt changes generated pixels.
+- **The product is Scenri; `scenri` is an identifier.** Capitalised in every sentence a person
+  reads: docs, UI copy, CLI output, comments, release notes. Lowercase only where a machine reads
+  it and changing it changes behaviour: the npm package and its subcommands, `@scenri/*`,
+  `SCENRI_*`, `~/.scenri`, `scenri.co`, `scenri:*` keys, filenames, tags and URLs. There is no
+  third case. The app's formal name is Scenri Studio; the product is Scenri, and tab titles use
+  the short form because tab strips are tight. See §7.
 - **Avoid exclamation marks.** The work is the excitement.
 - **Prefer specific action labels.** "Export .brand", "Delete shots", "Add key". Never "Submit"
   or "OK".
@@ -226,6 +232,8 @@ Sentences are short.
   validator in `packages/cli/src/release/notes.data.ts` guards What's New copy.
 
 ## 7. The mark
+
+The name is **Scenri**, spelled the way §6 requires; the wordmark draws it in caps.
 
 The artwork of record is `apps/studio/brand/scenri-lockup.svg` and `scenri-symbol.svg`. The same
 geometry is inlined in `layout/ScenriMark.tsx` so the mark cannot arrive after the bar it sits in;
