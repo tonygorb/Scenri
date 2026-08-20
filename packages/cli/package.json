@@ -28,7 +28,7 @@
     "open": "^10.1.0",
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",
-    "sharp": "^0.34.0"
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@scenri/brand": "workspace:*",
