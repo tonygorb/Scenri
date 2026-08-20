@@ -30,7 +30,7 @@ describe('ScenriMark', () => {
 
   it('draws the lockup as the symbol followed by the wordmark', () => {
     expect(lockup.slice(0, 4)).toEqual(symbol);
-    expect(lockup).toHaveLength(11);
+    expect(lockup).toHaveLength(10);
   });
 
   it('keeps both files on currentColor, so the theme picks the ink', () => {

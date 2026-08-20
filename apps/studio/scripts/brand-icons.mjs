@@ -118,8 +118,9 @@ write(join(out, 'icon-maskable-512.png'), await tile({ svg: symbol(), size: 512,
 write(join(repo, 'docs/media/logo-on-light.svg'), lockup(LIGHT_INK));
 write(join(repo, 'docs/media/logo-on-dark.svg'), lockup(DARK_INK));
 
-// Not wired into any page. GitHub's social preview is a repository setting,
-// uploaded by hand, and this is the file to upload.
-write(join(repo, 'docs/media/og.png'), await tile({ svg: lockup(), size: 630, width: 1200, inset: 0.34 }));
+// docs/media/og.png is deliberately NOT written here any more: it is designed
+// by hand in the Figma brand file (node 5211:969) and exported at 1200x630.
+// GitHub's social preview is a repository setting, uploaded by hand, and that
+// hand-made file is the one to upload.
 
 console.log('');
