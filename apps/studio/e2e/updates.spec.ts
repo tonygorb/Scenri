@@ -85,14 +85,27 @@ class Fixture {
     if (!made.ok) throw new Error(`brand seed failed: ${made.status}`);
   }
 
+  /**
+   * A server that has not actually let go of the library races the rmSync that
+   * takes it away, and loses: sqlite is still flushing its WAL, so the
+   * directory refills between the walk and the rmdir and Node reports
+   * ENOTEMPTY. SIGTERM alone cannot promise that, because the timeout used to
+   * resolve whether or not the process had gone. Escalate to SIGKILL like
+   * harness.ts does, and let rmSync retry the last of it.
+   */
   async stop(): Promise<void> {
-    this.server.kill('SIGTERM');
-    await new Promise<void>((r) => {
-      this.server.once('exit', () => r());
-      setTimeout(r, 4000);
-    });
+    if (this.server.exitCode === null) {
+      this.server.kill('SIGTERM');
+      await new Promise<void>((r) => {
+        this.server.once('exit', () => r());
+        setTimeout(() => {
+          this.server.kill('SIGKILL');
+          r();
+        }, 4000).unref();
+      });
+    }
     await new Promise<void>((r) => this.registry.close(() => r()));
-    rmSync(this.home, { recursive: true, force: true });
+    rmSync(this.home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 

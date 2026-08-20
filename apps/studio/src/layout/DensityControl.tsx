@@ -153,7 +153,7 @@ function DensityIcon({ cells }: { cells: number }) {
   }
 
   return (
-    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative — the button's own aria-label names the density, and aria-hidden is the correct treatment for the glyph
+    // decorative: the button's own aria-label names the density, so aria-hidden is the right treatment for the glyph
     <svg className="sc-density-icon" width={box} height={box} viewBox={`0 0 ${box} ${box}`} aria-hidden>
       {rects.map((c) => (
         <rect key={`${c.x}-${c.y}`} x={c.x} y={c.y} width={cell} height={cell} rx={rx} ry={rx} fill="currentColor" />

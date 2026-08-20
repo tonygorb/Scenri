@@ -1,7 +1,7 @@
 /** Small gold coin: credits read as a tangible thing, not an abstract meter. */
 export function Coin({ size = 14, dim = false }: { size?: number; dim?: boolean }) {
   return (
-    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative — the credit count beside it carries the meaning, and aria-hidden is the correct treatment for that
+    // decorative: the credit count beside it carries the meaning, so aria-hidden is the right treatment
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ opacity: dim ? 0.45 : 1, flexShrink: 0 }}>
       <defs>
         <linearGradient id="scCoinFace" x1="0" y1="0" x2="0.7" y2="1">
