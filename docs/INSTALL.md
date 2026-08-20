@@ -194,6 +194,11 @@ terminal window is older than the installation. Install Node.js from
 current LTS from [nodejs.org](https://nodejs.org); it replaces the old one. Open a new terminal
 window afterwards.
 
+**`npm error EACCES: permission denied`.** Your computer keeps npm's global folder in a place
+only an administrator may write to, so the Codex CLI install is refused. Run
+`sudo npm install -g @openai/codex` in the terminal, type your computer's password when asked
+(it stays invisible while you type), then reopen the setup window in Scenri.
+
 **`Port 4747 is in use by another app.`** Some other program on your computer answers on Scenri's
 port. The message shows the fix: run the command it prints, which starts Scenri on the next port
 over.

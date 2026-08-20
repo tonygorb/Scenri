@@ -22,6 +22,12 @@ export const INSTALL_COMMAND = 'npm install -g @openai/codex';
 /** Where a user goes when the automatic install cannot work. */
 export const INSTALL_DOCS_URL = 'https://developers.openai.com/codex/cli';
 
+/**
+ * npm's global folder is root-owned on a stock macOS Node install, so the
+ * plain command fails with EACCES for the very people this wizard is for.
+ */
+export const INSTALL_COMMAND_SUDO = 'sudo npm install -g @openai/codex';
+
 export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'ready';
 
 export interface CodexInstallResult {
@@ -122,6 +128,15 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
           };
         }
         return { ok: true };
+      }
+      if (process.platform !== 'win32' && /EACCES|permission denied/i.test(res.stderr)) {
+        return {
+          ok: false,
+          fallbackCommand: INSTALL_COMMAND_SUDO,
+          docsUrl: INSTALL_DOCS_URL,
+          detail:
+            'npm needs your password to install into its system folder. Run the command below and type your password when asked; it stays invisible while you type.',
+        };
       }
       const detail = (res.spawnError ?? res.stderr).trim().slice(0, 400) || undefined;
       return { ok: false, fallbackCommand: INSTALL_COMMAND, docsUrl: INSTALL_DOCS_URL, detail };
