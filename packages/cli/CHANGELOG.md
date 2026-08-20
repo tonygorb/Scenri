@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.3](https://github.com/tonygorb/Scenri/compare/v0.3.2...v0.3.3) (2026-08-20)
+
+
+### Bug Fixes
+
+* absolute README links so they survive the npm package page ([c8b2cd0](https://github.com/tonygorb/Scenri/commit/c8b2cd04e6f4a2e6be9e7470b970c2d5033d60d4))
+* absolute README links so they survive the npm package page ([16219cf](https://github.com/tonygorb/Scenri/commit/16219cf848279f58ab2d1e0db46e5f3efffeb388))
+
 ## [0.3.2](https://github.com/tonygorb/scenri/compare/v0.3.1...v0.3.2) (2026-08-20)
 
 
