@@ -11,7 +11,7 @@ import { isolate } from './harness.js';
  * with a thumb rather than a cursor.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {

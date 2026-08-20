@@ -153,7 +153,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
       }
     }
     setBusy('idle');
-    setApplyError('The restart did not complete. Check the terminal scenri runs in.');
+    setApplyError('The restart did not complete. Check the terminal Scenri runs in.');
   }, []);
 
   const apply = useCallback(async () => {
@@ -203,7 +203,7 @@ function RestartOverlay({ version }: { version: string | null }) {
     <div className="sc-upd-overlay" role="status" aria-live="polite">
       <div className="sc-upd-overlay-card">
         <ArrowCircleUp size={22} />
-        <b>{version ? `Updating to scenri ${version}` : 'Updating scenri'}</b>
+        <b>{version ? `Updating to Scenri ${version}` : 'Updating Scenri'}</b>
         <small>Restarting. This page reconnects by itself.</small>
       </div>
     </div>

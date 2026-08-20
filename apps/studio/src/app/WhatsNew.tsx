@@ -9,7 +9,7 @@ import { canAutoOpen } from './whatsNewRules.js';
 /**
  * What's new — deliberately not the update system.
  *
- * UpdateCenter answers "there is a newer scenri" and asks you to act. This
+ * UpdateCenter answers "there is a newer Scenri" and asks you to act. This
  * answers "here is what changed in the one you now have" and asks for nothing.
  * They meet in exactly one place: an update finishes, the new version boots,
  * and this introduces it.

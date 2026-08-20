@@ -53,7 +53,7 @@ const ASPECT_RATIOS: [string, number][] = [
   ['21:9', 21 / 9],
 ];
 
-/** Nearest supported ratio to what the compiler asked for. scenri's four formats all land exactly. */
+/** Nearest supported ratio to what the compiler asked for. Scenri's four formats all land exactly. */
 export function aspectRatioFor(width: number, height: number): string {
   if (!(width > 0) || !(height > 0)) return '1:1';
   const want = width / height;

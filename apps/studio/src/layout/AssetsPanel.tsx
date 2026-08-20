@@ -32,7 +32,7 @@ const RECENT_SHOTS = 12;
  * where does it live.
  *
  * Three sections, one grammar. Each shows what this brand owns first and what
- * scenri ships after it, in one list — because they are the same kind of
+ * Scenri ships after it, in one list — because they are the same kind of
  * thing, and which shelf a product came off is not the question you are asking
  * while composing. It used to lead with "Products" and "Scenri library" as two
  * top-level concepts, which made ownership look like a type and left every own
@@ -117,7 +117,7 @@ export function AssetsPanel({
   const bookmarked = useMemo(() => new Set(bookmarkedScenes(brand.id)), [brand.id]);
 
   /**
-   * One ranked list per kind — yours lifted above scenri's, taste and
+   * One ranked list per kind — yours lifted above Scenri's, taste and
    * suitability ordering what is left. `pickList` is the composer's own
    * ranking, so the rail and the chip picker can never offer two different
    * "best first".

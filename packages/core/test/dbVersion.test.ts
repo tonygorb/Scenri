@@ -43,7 +43,7 @@ describe('schema version gate', () => {
     snap.close();
   });
 
-  it('refuses to open a database written by a newer scenri', () => {
+  it('refuses to open a database written by a newer Scenri', () => {
     const db = openDb(home);
     db.pragma(`user_version = ${SCHEMA_VERSION + 1}`);
     db.close();

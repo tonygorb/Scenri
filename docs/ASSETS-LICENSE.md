@@ -1,12 +1,12 @@
-# scenri assets license
+# Scenri assets license
 
-scenri's code is AGPL-3.0-only (see LICENSE). The imagery and curated content are
+Scenri's code is AGPL-3.0-only (see LICENSE). The imagery and curated content are
 licensed under these terms instead.
 
 This covers the starter content pack, everything under `templates/`, the library
-content scenri downloads at runtime, and the project's marketing imagery.
+content Scenri downloads at runtime, and the project's marketing imagery.
 
-You may use this content freely within scenri, including for commercial work.
+You may use this content freely within Scenri, including for commercial work.
 Everything you generate with it is yours.
 
 You may not redistribute, rebundle, resell, or republish the content itself, and

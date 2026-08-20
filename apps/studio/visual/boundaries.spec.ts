@@ -5,7 +5,7 @@ import { discover, prep, shot, type Discovered } from './shared.js';
 /**
  * Breakpoint-boundary shots: one width immediately below and immediately above
  * each major layout threshold, on the two surfaces that own the most
- * responsive behaviour. The values are scenri's real boundaries (767/768,
+ * responsive behaviour. The values are Scenri's real boundaries (767/768,
  * 1023/1024, 1279/1280) — never generic ladder steps.
  */
 

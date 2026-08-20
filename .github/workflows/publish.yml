@@ -111,7 +111,7 @@ jobs:
       # needed and `id-token: write` above is what makes it possible.
       # --loglevel http keeps the OIDC token exchange visible in the log, so
       # an auth failure names itself instead of hiding behind a 404.
-      - name: Publish scenri
+      - name: Publish Scenri
         run: npm publish --access public --loglevel http
         working-directory: packages/cli
 

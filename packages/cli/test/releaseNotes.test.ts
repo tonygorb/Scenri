@@ -193,7 +193,7 @@ describe('validateReleases', () => {
     expect(
       validateReleases([ok({ sections: [{ heading: 'Create', body: 'A revolutionary new way to work.' }] })], '0.2.0'),
     ).toContain('release 0.2.0: hype copy; say what changed, not how amazing it is');
-    expect(validateReleases([ok({ title: 'Unlock the power of scenri' })], '0.2.0')).toHaveLength(1);
+    expect(validateReleases([ok({ title: 'Unlock the power of Scenri' })], '0.2.0')).toHaveLength(1);
     expect(validateReleases([ok({ sections: [{ heading: 'Create', body: 'Faster now 🚀' }] })], '0.2.0')).toContain(
       'release 0.2.0: emoji',
     );

@@ -131,7 +131,7 @@ export function AppShell() {
       {/* Machine-scoped, so it sits above the brand tree: an app update is
           about this install, not about whichever brand is open. */}
       <UpdateCenterProvider>
-        {/* Its neighbour, not its child in spirit: one says a newer scenri
+        {/* Its neighbour, not its child in spirit: one says a newer Scenri
             exists, the other says what this one changed. Both are about the
             install rather than the brand, so both live up here. */}
         <WhatsNewProvider>

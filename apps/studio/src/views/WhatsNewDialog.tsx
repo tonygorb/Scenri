@@ -35,11 +35,11 @@ export function WhatsNewDialog() {
     status === 'loading'
       ? 'Reading the release notes.'
       : status === 'failed'
-        ? 'scenri could not read its release notes. If you are running a development server, it may predate this feature; restart it and try again.'
+        ? 'Scenri could not read its release notes. If you are running a development server, it may predate this feature; restart it and try again.'
         : unreleased
           ? 'You are running a development build. What changed in a version appears here once that version is published.'
           : entry
-            ? 'Maintenance only. Nothing here changes how scenri works for you.'
+            ? 'Maintenance only. Nothing here changes how Scenri works for you.'
             : 'This version went out without a written summary.';
 
   const subtitle = entry ? (

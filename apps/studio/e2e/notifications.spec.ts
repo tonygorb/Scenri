@@ -7,11 +7,11 @@ import { isolate } from './harness.js';
  * impossible: start a generation, stand somewhere else entirely, and still be
  * told when it lands.
  *
- * Like the other specs this runs against a real scenri server on the free Demo
+ * Like the other specs this runs against a real Scenri server on the free Demo
  * engine, and selects by the `sc-` class names the app actually ships.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 const api = async (p: Page, path: string, init?: RequestInit) =>

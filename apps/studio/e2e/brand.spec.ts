@@ -10,7 +10,7 @@ import { isolate } from './harness.js';
  * palette edit destroying the brand's neutrals — stays dead.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate({ scene: true });
 
 const api = async (p: Page, path: string, init?: RequestInit) =>

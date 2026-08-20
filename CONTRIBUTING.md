@@ -55,6 +55,6 @@ pnpm build && pnpm --filter @scenri/studio test:e2e
 
 ## The CLA
 
-scenri is AGPL-3.0 with a dual-licensing model that funds its development. The same code may one day power a hosted service running API-priced engines, and scenri never pools user plans.
+Scenri is AGPL-3.0 with a dual-licensing model that funds its development. The same code may one day power a hosted service running API-priced engines, and Scenri never pools user plans.
 
 Every contributor signs the Contributor License Agreement once, through the CLA bot on your first pull request. It grants the maintainer the right to relicense contributed code. You keep your copyright and every right to use your contribution anywhere else. The full text is in [CLA.md](CLA.md).

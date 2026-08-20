@@ -43,7 +43,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: scenri version
+      label: Scenri version
       description: From Settings, About. Or `npx scenri --version`.
     validations:
       required: true

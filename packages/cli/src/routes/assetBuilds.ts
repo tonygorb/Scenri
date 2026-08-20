@@ -79,11 +79,11 @@ export function registerAssetBuildRoutes(
       engineId: engine?.capabilities().id ?? null,
       engineName: engine?.capabilities().displayName ?? null,
       /**
-       * True when scenri cannot price this per image, because it is not billed
+       * True when Scenri cannot price this per image, because it is not billed
        * through a key we hold. NOT the same as costing the user nothing: the
        * local Codex engine spends the Codex allowance on their ChatGPT plan,
        * which only OpenAI can meter. Copy built on this flag must say "nothing
-       * billed through scenri", never "free".
+       * billed through Scenri", never "free".
        */
       free: engine ? (await engine.costEstimate(COST_PROBE).catch(() => 0)) <= 0 : true,
     };

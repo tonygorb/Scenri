@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Separate config on purpose: the normal e2e projects glob `./e2e`, this one
  * globs `./visual`, so neither run ever picks up the other's specs. Same
- * server contract as e2e: each spec file boots its own scenri on 4757 via
+ * server contract as e2e: each spec file boots its own Scenri on 4757 via
  * e2e/harness.ts, so there is deliberately no `webServer` here either, and the
  * studio must be built first (`pnpm build`).
  *

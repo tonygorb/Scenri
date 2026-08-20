@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 /**
  * The update lifecycle, driven end to end against a real server and a fixture
  * npm registry. The shared e2e server runs with the check disabled, so this
- * spec boots its own scenri (tsx, from source) with SCENRI_REGISTRY pointed at
+ * spec boots its own Scenri (tsx, from source) with SCENRI_REGISTRY pointed at
  * a tiny local registry whose answer the tests control. Selects by the sc-
  * class names the app ships, like every other spec.
  */

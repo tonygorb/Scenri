@@ -1,5 +1,5 @@
 /**
- * Staging: put a new scenri on disk next to the running one, prove it works,
+ * Staging: put a new Scenri on disk next to the running one, prove it works,
  * and only then let the launcher see it. npm does the fetching (and its
  * integrity checking); the verify hop actually loads the native modules under
  * the running node, so an ABI surprise fails here — at stage time, recoverable

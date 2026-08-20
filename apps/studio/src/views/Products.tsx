@@ -42,12 +42,12 @@ export function ProductsView() {
   /**
    * Whether this brand has products of its own at all, before any filter.
    *
-   * The wall below is always the scenri library. It used to be *either* your
+   * The wall below is always the Scenri library. It used to be *either* your
    * products or ours — own one and all 44 vanished from the page, which made
    * the default catalog behave like an onboarding fallback rather than the
    * complementary library it is. Presenters and Scenes have always shown both
    * halves; this is that same shape, and the reason a brand can still reach
-   * for a scenri product to test a scene or rebuild a homepage example after
+   * for a Scenri product to test a scene or rebuild a homepage example after
    * importing a catalog of its own.
    *
    * Gated on the *product library's* own loaded flag, not the workspace's: a
@@ -111,7 +111,7 @@ export function ProductsView() {
 
   /**
    * Only your half pages. A brand's own catalog runs to hundreds after a store
-   * import; scenri's is a fixed forty-four, and hiding a third of a small,
+   * import; Scenri's is a fixed forty-four, and hiding a third of a small,
    * unchanging library behind a button is chrome for nothing.
    */
   const { visible: mineVisible, remaining, showMore } = useLibraryPage(mineFiltered, `${category ?? ''}|${q}`);

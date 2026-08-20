@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * scenri 0.1.0 and 0.1.1 shipped `dist/*.js.map` to npm. Because tsup.config.ts
+ * Scenri 0.1.0 and 0.1.1 shipped `dist/*.js.map` to npm. Because tsup.config.ts
  * inlines every `@scenri/*` package (`noExternal`), those maps carried
  * `sourcesContent` for the whole private source tree: core, catalog, brand, all
  * five engines and this package, 54 files of readable TypeScript. Both versions

@@ -75,7 +75,7 @@ export function About({ version }: { version: VersionInfo | null }) {
     <Group>
       <div className="sc-set-row">
         <span className="txt">
-          <b>scenri</b>
+          <b>Scenri</b>
           <small>
             {version ? `v${version.version}` : ''} · {INSTALL_LABEL[version?.installKind ?? 'unknown']}
           </small>
@@ -158,7 +158,7 @@ export function About({ version }: { version: VersionInfo | null }) {
             <span className="txt">
               <b>Update</b>
               <small data-prose="">
-                Run <code>{command}</code> in a terminal, then start scenri again. Your library is not part of the app
+                Run <code>{command}</code> in a terminal, then start Scenri again. Your library is not part of the app
                 and stays put.
               </small>
             </span>
@@ -171,7 +171,7 @@ export function About({ version }: { version: VersionInfo | null }) {
         <span className="txt">
           <b>Check for updates automatically</b>
           <small data-prose="">
-            One version-number request to npm, at most daily. Off means scenri never calls anywhere by itself.
+            One version-number request to npm, at most daily. Off means Scenri never calls anywhere by itself.
           </small>
         </span>
         <button

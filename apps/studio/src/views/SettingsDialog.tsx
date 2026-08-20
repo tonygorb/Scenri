@@ -99,7 +99,7 @@ export function SettingsDialog({
               <RailItem key={p.id} p={p} on={pane === p.id} pick={() => setPane(p.id)} />
             ))}
             <span className="sc-set-spacer" />
-            <p className="sc-set-ver">{version ? `v${version.version}` : 'scenri'} · local</p>
+            <p className="sc-set-ver">{version ? `v${version.version}` : 'Scenri'} · local</p>
           </nav>
 
           <div className="sc-set-body">

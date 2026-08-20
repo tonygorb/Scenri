@@ -94,7 +94,7 @@ const RULES: Rule[] = [
   },
 
   // ---- money ----
-  // scenri's own guard, before the provider's: this one is a setting you own.
+  // Scenri's own guard, before the provider's: this one is a setting you own.
   {
     re: /spend cap for .*would exceed it|spend cap for/i,
     kind: 'budget',
@@ -191,7 +191,7 @@ const RULES: Rule[] = [
   {
     re: /interrupted\W+server restarted/i,
     kind: 'restarted',
-    title: () => 'scenri restarted while this was rendering.',
+    title: () => 'Scenri restarted while this was rendering.',
     fix: 'The shot was lost, not the brief. Run it again.',
     retryable: true,
   },

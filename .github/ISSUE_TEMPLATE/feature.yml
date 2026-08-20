@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest something scenri should do
+description: Suggest something Scenri should do
 labels: [enhancement]
 body:
   - type: textarea

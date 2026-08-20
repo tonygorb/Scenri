@@ -1,13 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Runs against a real scenri server, because the whole point of this suite is
+ * Runs against a real Scenri server, because the whole point of this suite is
  * behaviour that only exists in a real browser: trusted clicks, focus and the
  * editing caret.
  *
  * There is deliberately no `webServer` here. A shared server means a shared
  * library, and a shared library is what made specs pass alone and fail in the
- * run. Each spec file starts its own scenri on an empty home instead — see
+ * run. Each spec file starts its own Scenri on an empty home instead — see
  * `e2e/harness.ts` — so the suite can never read or write the library you
  * actually use, and can never quietly pass because the spec before it happened
  * to leave the right data behind.

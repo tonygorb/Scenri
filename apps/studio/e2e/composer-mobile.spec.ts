@@ -13,7 +13,7 @@ import { isolate } from './harness.js';
  * `pointer: coarse` and a narrow desktop window does not report it.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 const line = (p: Page) => p.locator('.sc-brief-line').first();

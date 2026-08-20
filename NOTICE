@@ -1,4 +1,4 @@
-scenri
+Scenri
 Copyright 2026 Tony Gorb
 
 This product includes software and assets developed by third parties.
@@ -46,11 +46,11 @@ Phosphor Icons (`@phosphor-icons/react`), MIT, Copyright (c) 2023 Phosphor Icons
 
 ## Third-party marks
 
-scenri shows each generation provider's own mark beside its name, so that the
+Scenri shows each generation provider's own mark beside its name, so that the
 row asking for your key names the service you recognise rather than a generic
 glyph. Every mark is reproduced unmodified, in a variant its owner publishes,
 and is used referentially to identify which service a key or a sign-in belongs
-to. scenri is not built, supported, certified, endorsed by, or affiliated with
+to. Scenri is not built, supported, certified, endorsed by, or affiliated with
 any of them, and makes no such claim.
 
 | Mark | File | Artwork source | Artwork licence |
@@ -63,7 +63,7 @@ Each mark sits on the plate its owner puts it on, in the colours its owner
 publishes, sampled from that owner's own icon: OpenAI's 180px favicon (white
 plate, black mark), OpenRouter's app icon (white plate, violet mark) and
 Replicate's favicon (red plate, white mark). The pairs are recorded in `BRAND` in
-`apps/studio/src/engines/providers.tsx` and are identical in both of scenri's
+`apps/studio/src/engines/providers.tsx` and are identical in both of Scenri's
 themes, because none of these owners publishes a dark variant and inventing one
 would be redrawing their logo. No geometry is redrawn, distorted, recomposed,
 recoloured or tinted, and no mark is ever separated from its own plate.

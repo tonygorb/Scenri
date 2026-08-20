@@ -17,7 +17,7 @@ const ALL_TAB_PREVIEW = 8;
 /** On a single tab, enough to browse; past this, searching beats scrolling. */
 const TAB_CAP = 60;
 /**
- * "Library" used to sit here as a tab of its own, holding scenri's products
+ * "Library" used to sit here as a tab of its own, holding Scenri's products
  * while "Products" held yours — ownership presented as a type. They are the
  * same kind of thing and they share a tab now, yours ranked first, which is
  * what the caret menu and the chip picker have always done.

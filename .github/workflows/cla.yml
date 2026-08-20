@@ -51,7 +51,7 @@ jobs:
           # on this repo's behalf, so there is no third-party copyright to assign.
           allowlist: tonygorb,dependabot[bot],github-actions[bot],scenri-release-bot[bot]
           custom-notsigned-prcomment: >
-            Thank you for the pull request. scenri asks every contributor to sign its
+            Thank you for the pull request. Scenri asks every contributor to sign its
             [Contributor License Agreement](https://github.com/tonygorb/scenri/blob/main/CLA.md)
             once. You keep the copyright in your contribution and every right to use it
             elsewhere. To sign, reply to this pull request with exactly:

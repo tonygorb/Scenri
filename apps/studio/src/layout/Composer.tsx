@@ -844,7 +844,7 @@ export const Composer = forwardRef<
    * The category behind every "Suited to X" lift.
    *
    * Resolved across all three places a product token can point — the live
-   * library, brand.json, and the scenri library — and through
+   * library, brand.json, and the Scenri library — and through
    * `effectiveCategory`, which falls back to the guess a catalog import's
    * productType supports. Reading `p.category` raw off `libraryProducts` alone
    * meant a demo product resolved to nothing, so the homepage's own examples
@@ -918,7 +918,7 @@ export const Composer = forwardRef<
                         </p>
                         <p>No ChatGPT account, or run out for now? Use your own key from an image provider instead.</p>
                         <p className="sc-note-pop-fine">
-                          scenri never sees your password or token. The sign-in happens in your browser and stays with
+                          Scenri never sees your password or token. The sign-in happens in your browser and stays with
                           Codex.
                         </p>
                         <button type="button" className="sc-btn sc-btn-ghost" onClick={() => openSettings('engines')}>

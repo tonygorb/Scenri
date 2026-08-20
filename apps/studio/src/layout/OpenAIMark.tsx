@@ -3,10 +3,10 @@ import type { SVGProps } from 'react';
 /**
  * OpenAI's mark, as worn by ChatGPT.
  *
- * Here for one reason: what a person brings to scenri is their ChatGPT account,
+ * Here for one reason: what a person brings to Scenri is their ChatGPT account,
  * and the row that asks for it should show the thing they recognise rather than
  * a generic glyph. Used referentially, to name which service the local Codex
- * CLI signs into. scenri is not built, supported, certified or endorsed by
+ * CLI signs into. Scenri is not built, supported, certified or endorsed by
  * OpenAI, and does not claim to be.
  *
  * Geometry from Simple Icons (https://simpleicons.org), CC0-1.0, reproduced

@@ -1,5 +1,5 @@
 /**
- * Every icon scenri ships, rendered from the two files in brand/.
+ * Every icon Scenri ships, rendered from the two files in brand/.
  *
  * Run with `pnpm --filter @scenri/studio brand:icons`. The outputs are checked
  * in, because a favicon that only exists after someone remembers to run a
@@ -78,7 +78,7 @@ const write = (path, data) => {
   console.log(`  ${path.replace(`${repo}/`, '')}  ${(data.length / 1024).toFixed(1)}kB`);
 };
 
-console.log('\n  scenri brand icons\n');
+console.log('\n  Scenri brand icons\n');
 
 // The one asset that keeps both inks. A tab strip is chrome, not page, so it
 // follows the OS rather than the theme the app is set to. The <title> stays the

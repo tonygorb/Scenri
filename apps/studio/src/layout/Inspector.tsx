@@ -8,7 +8,7 @@ import { briefProse } from '../briefDiff.js';
  * the file itself. Lives inside the detail overlay.
  *
  * There used to be a Text tab beside this one, for laying editable captions
- * over a shot. That is composition, not photography — scenri makes the
+ * over a shot. That is composition, not photography — Scenri makes the
  * picture — and it had grown into the loudest control on the screen while the
  * shot itself floated small beside it.
  */

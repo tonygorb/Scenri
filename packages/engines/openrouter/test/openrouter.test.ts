@@ -316,7 +316,7 @@ describe('aspect ratio', () => {
   // non-square brief failed this way, so the ratio has to travel as a field.
   const bodyOf = (fetchImpl: ReturnType<typeof vi.fn>) => JSON.parse(fetchImpl.mock.calls[0][1].body as string);
 
-  it("carries scenri's four formats through as exact ratios", async () => {
+  it("carries Scenri's four formats through as exact ratios", async () => {
     for (const [width, height, ratio] of [
       [1024, 1024, '1:1'],
       [1024, 1280, '4:5'],

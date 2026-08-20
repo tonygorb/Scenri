@@ -17,7 +17,7 @@ import { isolate } from './harness.js';
  * Runs on the mobile (Pixel 5) and tablet (iPad Mini landscape) projects.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 const isPhone = (p: Page) => (p.viewportSize()?.width ?? 0) < 768;

@@ -11,7 +11,7 @@ import { isolate } from './harness.js';
  * so this spec clicks and types for real.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 const line = (p: Page) => p.locator('.sc-brief-line').first();
@@ -953,7 +953,7 @@ test('a scenri-library product finds its own siblings', async ({ page }) => {
   expect(ids.length).toBeGreaterThan(1);
 
   await plusMenu(page, /product/i);
-  // The brand's own lead the tab, so the last card is reliably one of scenri's.
+  // The brand's own lead the tab, so the last card is reliably one of Scenri's.
   await pickCard(page, (await attachCards(page).count()) - 1);
   await page.keyboard.press('Escape');
 
@@ -968,7 +968,7 @@ test('a scenri-library product finds its own siblings', async ({ page }) => {
   expect(await chips(page).first().textContent()).not.toBe(before);
 });
 
-test('one list, with the brand’s own products before the ones scenri ships', async ({ page }) => {
+test('one list, with the brand’s own products before the ones Scenri ships', async ({ page }) => {
   await plusMenu(page, /product/i);
   await pickCard(page);
   await page.keyboard.press('Escape');
