@@ -4,7 +4,7 @@
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-dark.svg">
   <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/logo-on-light.svg" alt="scenri" width="200">
 </picture>
-<br>
+<br><br>
 
 **The open studio for brand-consistent AI visuals.**<br>
 Define a client's brand once. Then generate, branch, and art-direct on-brand images through a version tree, running entirely on your own machine and your own AI accounts.
