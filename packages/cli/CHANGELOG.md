@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/tonygorb/scenri/compare/v0.2.2...v0.2.3) (2026-08-20)
+
+
+### Bug Fixes
+
+* **deps:** clear the esbuild advisory and a flaky e2e teardown ([97c6985](https://github.com/tonygorb/scenri/commit/97c6985dc7f6e92e3cac1eebd9e039201b12fc16))
+* **deps:** clear the esbuild advisory, and stop the update fixture racing its own teardown ([5cb7bff](https://github.com/tonygorb/scenri/commit/5cb7bff083a92c929bc570b1d88b50747c3a3605))
+
 ## [0.2.2](https://github.com/tonygorb/scenri/compare/v0.2.1...v0.2.2) (2026-08-20)
 
 
