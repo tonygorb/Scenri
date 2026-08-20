@@ -117,3 +117,4 @@ function legacyTail(rest: string[]): string {
   // function to survive it
   return rest.length ? `/${rest.join('/')}` : '';
 }
+
