@@ -51,6 +51,20 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.3.4',
+    date: '2026-08-21',
+    sections: [
+      {
+        heading: 'Presenters',
+        body: "A presenter's reference photos now define who they are, not what they wear. The neutral studio outfit from their reference set no longer follows them into finished shots; wardrobe comes from the shot, the product and the scene instead, and refining an image keeps the outfit it already has.",
+      },
+      {
+        heading: 'Fixes',
+        body: 'Opening a presenter or scene you built yourself no longer freezes the app.',
+      },
+    ],
+  },
+  {
     version: '0.3.3',
     date: '2026-08-20',
     // Documentation only: the links on the npm package page were resolving
