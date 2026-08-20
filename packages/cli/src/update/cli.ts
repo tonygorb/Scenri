@@ -52,7 +52,8 @@ export async function runUpdateCommand(opts: { check: boolean; from?: string }):
   }
   if (!findNpm()) {
     console.error('  npm is not reachable from here, so nothing can be downloaded.');
-    console.error('  Install Node.js with npm, or run: npx scenri@latest');
+    console.error('  Run the newest version directly with: npx scenri@latest');
+    console.error('  (or install Node.js with npm and try again)');
     return 1;
   }
 

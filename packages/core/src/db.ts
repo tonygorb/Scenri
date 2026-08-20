@@ -386,7 +386,9 @@ function backupBeforeMigration(db: DB, homeDir: string, fromVersion: number): vo
 export function openDb(homeDir: string): DB {
   // 0o700 on creation: the database holds provider keys, so another local user
   // has no business listing this directory. An existing home keeps whatever
-  // mode its owner gave it.
+  // mode its owner gave it. POSIX only: Windows ignores mkdir modes, and the
+  // directory inherits the user profile's ACLs instead, which amounts to the
+  // same owner-only default.
   mkdirSync(homeDir, { recursive: true, mode: 0o700 });
   const dbPath = join(homeDir, 'scenri.db');
   // Captured before Database() — opening creates the file, and a fresh db also
@@ -394,7 +396,9 @@ export function openDb(homeDir: string): DB {
   const preExisting = existsSync(dbPath);
   const db = new Database(dbPath);
   // Owner-only, every open: keys live in here. Before the WAL pragma below, so
-  // the -wal and -shm files inherit the tightened mode when SQLite creates them.
+  // the -wal and -shm files inherit the tightened mode when SQLite creates
+  // them. POSIX only: on Windows chmod merely toggles read-only, and the
+  // profile ACLs carry the protection.
   try {
     chmodSync(dbPath, 0o600);
   } catch {

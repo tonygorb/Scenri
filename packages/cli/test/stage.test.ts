@@ -46,6 +46,13 @@ describe('findNpm', () => {
     });
     expect(found).toEqual([process.execPath, '/x/npm-cli.js']);
   });
+  it('rewrites an npx execpath to the npm beside it (npx scenri is the documented path)', () => {
+    const found = findNpm({
+      canRun: (argv) => argv[0] !== 'npm',
+      env: { npm_execpath: '/x/npx-cli.js' },
+    });
+    expect(found).toEqual([process.execPath, '/x/npm-cli.js']);
+  });
   it('yields null when neither answers (pnpm-run shells included)', () => {
     expect(findNpm({ canRun: () => false, env: { npm_execpath: '/x/pnpm.cjs' } })).toBeNull();
   });
@@ -135,7 +142,15 @@ describe('stageVersion', () => {
   // Integration, so it needs a working npm on the machine — CI always has one.
   const npmWorks = (() => {
     try {
-      return spawnSync('npm', ['--version'], { stdio: 'ignore', timeout: 10_000 }).status === 0;
+      // npm is npm.cmd on Windows and only runs through a shell; without the
+      // flag this probe is false there and the integration test silently skips.
+      return (
+        spawnSync('npm', ['--version'], {
+          stdio: 'ignore',
+          timeout: 10_000,
+          shell: process.platform === 'win32',
+        }).status === 0
+      );
     } catch {
       return false;
     }

@@ -23,20 +23,41 @@ export function findNpm(
     opts.canRun ??
     ((argv: string[]) => {
       try {
-        return spawnSync(argv[0], [...argv.slice(1), '--version'], { stdio: 'ignore', timeout: 10_000 }).status === 0;
+        return (
+          spawnSync(argv[0], [...argv.slice(1), '--version'], {
+            stdio: 'ignore',
+            timeout: 10_000,
+            // npm is npm.cmd on Windows, and a .cmd only runs through a shell
+            // (CVE-2024-27980). Only the bare name needs it: the node fallback
+            // below is a real .exe, and a shell would not quote its path.
+            shell: process.platform === 'win32' && argv[0] === 'npm',
+          }).status === 0
+        );
       } catch {
         return false;
       }
     });
   if (canRun(['npm'])) return ['npm'];
-  const ep = env.npm_execpath;
+  // npx scenri sets npm_execpath to npx-cli.js; npm-cli.js sits beside it.
+  const ep = env.npm_execpath?.replace(/npx-cli\.js$/, 'npm-cli.js');
   if (ep && /npm-cli\.js$/.test(ep) && canRun([process.execPath, ep])) return [process.execPath, ep];
   return null;
 }
 
 function run(argv: string[]): Promise<{ code: number; output: string }> {
   return new Promise((resolve) => {
-    const child = spawn(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'] });
+    // A bare command name on Windows is a .cmd shim and needs a shell; the
+    // shell does not quote, so arguments with spaces (a --prefix under
+    // C:\Users\First Last) are wrapped by hand. Absolute paths (the node
+    // fallback from findNpm) spawn directly and keep array-argument safety.
+    const bare = !argv[0].includes('/') && !argv[0].includes('\\');
+    const child =
+      process.platform === 'win32' && bare
+        ? spawn(argv.map((a) => (a.includes(' ') ? `"${a}"` : a)).join(' '), [], {
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: true,
+          })
+        : spawn(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     child.stdout.on('data', (d) => {
       output += d;

@@ -12,7 +12,8 @@ export interface ImageStore {
 export function createImageStore(homeDir: string): ImageStore {
   const dir = join(homeDir, 'images');
   // 0o700 like the home dir itself: user work, owner's eyes only. Creation
-  // only — an existing folder keeps whatever its owner set.
+  // only — an existing folder keeps whatever its owner set. POSIX only: on
+  // Windows the mode is ignored and the profile's ACLs apply.
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const fileFor = (hash: string) => join(dir, `${hash}.png`);
   return {

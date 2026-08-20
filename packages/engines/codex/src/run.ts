@@ -51,12 +51,24 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   const spawnImpl = opts.spawnImpl ?? nodeSpawn;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
+  // codex is codex.cmd on Windows, and a .cmd only runs through a shell
+  // (CVE-2024-27980 made Node refuse it otherwise). cmd.exe does not quote
+  // arguments, so anything carrying a space is wrapped by hand before the
+  // line is joined. setup.ts already spawns its installs the same way.
+  const spawnCodex = (args: string[]) =>
+    process.platform === 'win32'
+      ? spawnImpl(['codex', ...args].map((a) => (a.includes(' ') ? `"${a}"` : a)).join(' '), [], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: true,
+        })
+      : spawnImpl('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
   /** Run `codex <args>`, resolving on exit 0; kill + reject after timeoutMs. */
   function run(args: string[], signal?: AbortSignal): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       let child: ReturnType<typeof nodeSpawn>;
       try {
-        child = spawnImpl('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        child = spawnCodex(args);
       } catch (err) {
         reject(new Error(`Failed to spawn codex: ${(err as Error).message}`));
         return;
@@ -139,7 +151,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       };
       let child: ReturnType<typeof nodeSpawn>;
       try {
-        child = spawnImpl('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        child = spawnCodex(args);
       } catch {
         done(false);
         return;

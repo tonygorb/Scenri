@@ -69,6 +69,8 @@ What happens next, in order:
    Keep this window open while Scenri is running.
    ```
 
+   On Windows the data dir reads `C:\Users\you\.scenri`: same folder, same idea.
+
 4. **Your browser opens Scenri by itself.** If it does not, copy the address from the terminal
    into your browser.
 
@@ -129,7 +131,8 @@ npx scenri
 ```
 
 Your brands, shots and settings are exactly where you left them. They live in a folder named
-`.scenri` in your home folder, as plain files you can back up like anything else.
+`.scenri` in your home folder (`%USERPROFILE%\.scenri` on Windows), as plain files you can
+back up like anything else.
 
 To stop Scenri, close the terminal window, or press Control and C in it.
 
@@ -194,10 +197,16 @@ terminal window is older than the installation. Install Node.js from
 current LTS from [nodejs.org](https://nodejs.org); it replaces the old one. Open a new terminal
 window afterwards.
 
-**`npm error EACCES: permission denied`.** Your computer keeps npm's global folder in a place
-only an administrator may write to, so the Codex CLI install is refused. Run
-`sudo npm install -g @openai/codex` in the terminal, type your computer's password when asked
-(it stays invisible while you type), then reopen the setup window in Scenri.
+**`npm error EACCES: permission denied`** (or `EPERM` on Windows)**.** Your computer keeps
+npm's global folder in a place only an administrator may write to, so the Codex CLI install is
+refused.
+
+- On macOS or Linux: run `sudo npm install -g @openai/codex` in the terminal and type your
+  computer's password when asked (it stays invisible while you type).
+- On Windows: open PowerShell as administrator (right-click Start, then "Terminal (Admin)")
+  and run `npm install -g @openai/codex` there.
+
+Then reopen the setup window in Scenri.
 
 **`Port 4747 is in use by another app.`** Some other program on your computer answers on Scenri's
 port. The message shows the fix: run the command it prints, which starts Scenri on the next port
@@ -232,6 +241,6 @@ Scenri installs nothing global. Without the terminal window running, it is not r
 
 - The downloaded copy lives in npm's cache and gets reused or replaced; there is nothing to
   uninstall.
-- Your library, the folder `.scenri` in your home folder, holds your brands, images and keys. It
-  is never deleted by Scenri. Delete that folder only if you want all of that gone, and export
+- Your library, the folder `.scenri` in your home folder (`%USERPROFILE%\.scenri` on Windows),
+  holds your brands, images and keys. It is never deleted by Scenri. Delete that folder only if you want all of that gone, and export
   anything you care about first (Settings, then Library, then Export everything).
