@@ -218,7 +218,9 @@ class ScenriFixture {
       });
     }
     for (let i = 0; i < 50 && (await version()) !== null; i++) await sleep(100);
-    if (this.home) rmSync(this.home, { recursive: true, force: true });
+    // Retries because a WAL checkpoint can refill the directory between the
+    // walk and the rmdir, which Node reports as ENOTEMPTY.
+    if (this.home) rmSync(this.home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     this.home = null;
   }
 }
