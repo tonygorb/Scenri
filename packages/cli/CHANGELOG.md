@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/tonygorb/scenri/compare/v0.2.3...v0.3.0) (2026-08-20)
+
+
+### Features
+
+* give every browser tab an intentional title ([e518396](https://github.com/tonygorb/scenri/commit/e5183961dae9f52ecd5801ae4c8cfce5fb397f3a))
+* name the product Scenri across the interface, docs and CLI ([cce242b](https://github.com/tonygorb/scenri/commit/cce242be955520569fdffb170f14f91f752d1801))
+
 ## [0.2.3](https://github.com/tonygorb/scenri/compare/v0.2.2...v0.2.3) (2026-08-20)
 
 
