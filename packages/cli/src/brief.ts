@@ -281,8 +281,15 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           chashes.forEach((chash: string, i: number) => {
             attachments.push({ role: 'character', id: c.id, label: c.name, hash: chash, essential: i === 0 });
           });
+          // Identity is named precisely, and the capture setup is released
+          // just as precisely. Every presenter's reference set is shot
+          // full-length in the same neutral off-white uniform; the old wording
+          // ("do not restyle them") read as preserve-the-photo-wholesale, and
+          // that uniform kept walking into finished commercial images.
           personDirectives.push(
-            'The attached person reference is the same person every time: hold their face, hair and build, and do not restyle them.',
+            'The attached person reference is the same person every time: match their face, facial structure, skin, hair and build exactly. ' +
+              'Their outfit, pose, background and lighting are neutral studio capture conditions, not styling direction: ' +
+              'dress and style them for this shot, to a commercial standard, following any wardrobe the direction itself specifies.',
           );
           // Presenters carry the same kind of identity metadata products do
           // (identityNotes / negativeConstraints). It used to be dropped on
@@ -416,6 +423,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     sceneCamera && !shotSpecifiesCamera(sentence) ? [`Camera for this shot: ${sceneCamera}`] : [];
 
   const guard = scene ? sceneGuardDirectives({ hasProduct: !!productId, hasPerson }) : [];
+  // Product and presenter are otherwise two independent identity locks with no
+  // stated relationship; without this line a sweater and its wearer compile as
+  // two objects to preserve side by side. One sentence, wearability left to
+  // the model — a category taxonomy here would be wrong for half the catalog.
+  const pairDirectives =
+    productId && hasPerson
+      ? [
+          'If the attached product is something a person wears, the presenter wears that exact product, with the rest of the outfit styled around it; otherwise the presenter presents or uses the product naturally.',
+        ]
+      : [];
   // The brand's rules sit between the shot's own directives and the scene
   // guards — the right neighbourhood, since a guard is the other thing here
   // whose whole job is to overrule what came before it.
@@ -423,6 +440,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const allDirectives = [
     ...productDirectives,
     ...personDirectives,
+    ...pairDirectives,
     ...otherDirectives,
     ...cameraDirectives,
     ...brandLines,
