@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2](https://github.com/tonygorb/scenri/compare/v0.2.1...v0.2.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* **deps:** patched fastify-static and sharp ([50669e5](https://github.com/tonygorb/scenri/commit/50669e596eb25252de3f2d154dd725ef4d6f2daf))
+* **deps:** patched fastify-static and sharp ([18fddd8](https://github.com/tonygorb/scenri/commit/18fddd8b5c25c7ce643798432f37cd7941af08c1))
+* **deps:** take the patched fastify-static and sharp ([d6e6c38](https://github.com/tonygorb/scenri/commit/d6e6c385f670d398006ac7f4efbaee7946711b5c))
+
 ## [0.2.1](https://github.com/tonygorb/scenri/compare/v0.2.0...v0.2.1) (2026-08-20)
 
 
