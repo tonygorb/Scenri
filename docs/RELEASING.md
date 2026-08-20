@@ -16,7 +16,9 @@ in between, because the release pull request below already plays that part.
    carry an entry for the proposed version, written by a person. A test
    (`releaseNotes.test.ts`) keeps the release PR red until it exists, on
    purpose: a release with no human sentence attached does not ship.
-4. **Merging the release PR** creates the tag and the GitHub release.
+4. **Merging the release PR** creates the tag and the GitHub release. Like
+   every runtime PR it runs the full pipeline, browser suite included, and
+   cannot merge until the required "CI gate" check is green.
 5. **Publishing** runs on the release event: the workflow rebuilds everything,
    stages the exact npm package, runs the test suite against that staged
    surface, prints the tarball's file list, and publishes to npm via trusted
