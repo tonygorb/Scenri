@@ -11,11 +11,7 @@ const ROOT = join(PKG, '..', '..');
 // it works on GitHub. The only link that survives both renderers is an
 // absolute one. Checked at the tracked sources: prepack.mjs copies the root
 // README and docs/ASSETS-LICENSE.md into the tarball verbatim.
-const SHIPPED_MD = [
-  join(ROOT, 'README.md'),
-  join(ROOT, 'docs', 'ASSETS-LICENSE.md'),
-  join(PKG, 'CHANGELOG.md'),
-];
+const SHIPPED_MD = [join(ROOT, 'README.md'), join(ROOT, 'docs', 'ASSETS-LICENSE.md'), join(PKG, 'CHANGELOG.md')];
 
 describe('the npm-facing markdown', () => {
   it('carries no relative links, which 404 on npmjs.com', () => {
