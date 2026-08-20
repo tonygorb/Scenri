@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.2.3',
+    date: '2026-08-20',
+    sections: [
+      {
+        heading: 'Security',
+        body: 'The last advisory against a build dependency is closed. Nothing about how scenri runs changes, and nothing in the published package moves.',
+      },
+    ],
+  },
+  {
     version: '0.2.2',
     date: '2026-08-20',
     sections: [
