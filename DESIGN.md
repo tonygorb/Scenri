@@ -228,8 +228,10 @@ Sentences are short.
 - **Prefer specific action labels.** "Export .brand", "Delete shots", "Add key". Never "Submit"
   or "OK".
 - **Technical terms stay technical.** HTTP 401 is HTTP 401; naming it precisely is the courtesy.
-- `packages/cli/test/copyHygiene.test.ts` guards the public markdown surface; the release-notes
-  validator in `packages/cli/src/release/notes.data.ts` guards What's New copy.
+- `packages/cli/test/copyHygiene.test.ts` guards the public markdown surface and, for the name rule
+  above, `apps/studio/src` and `packages/*/src` as well; `.githooks/pre-commit` runs the same check
+  on staged lines. The release-notes validator in `packages/cli/src/release/notes.data.ts` guards
+  What's New copy.
 
 ## 7. The mark
 
