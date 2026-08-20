@@ -56,7 +56,7 @@ export interface Candidate {
    * framing rather than centre it and render a torso.
    */
   crop?: 'top';
-  /** `brand` = the user's own upload or import; `catalog` = scenri's. */
+  /** `brand` = the user's own upload or import; `catalog` = Scenri's. */
   source: 'brand' | 'catalog';
   /** A hint from compat.ts, never a gate. Only set for scenes and presenters. */
   recommended?: boolean;
@@ -122,7 +122,7 @@ const clean = (s: string | null | undefined): string | undefined => {
 };
 
 /**
- * Whether a scene or presenter is this brand's own rather than scenri's.
+ * Whether a scene or presenter is this brand's own rather than Scenri's.
  *
  * `custom: true` is set once, by the adapters in `brandAssets.ts`, on the way
  * out of the brand document — so this asks the record instead of inferring
@@ -164,7 +164,7 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
           thumb: p.avatarUrl ?? p.previewUrl ?? null,
           crop: p.avatarUrl ? undefined : 'top',
           // This list arrives already merged (`withCustomFirst`), so it is not
-          // all scenri's. A person this brand cast for itself carries `custom`
+          // all Scenri's. A person this brand cast for itself carries `custom`
           // and is as much theirs as an uploaded product is.
           source: isOwn(p) ? 'brand' : 'catalog',
           recommended: isRecommendedPresenter(p, cat.productCategory),
@@ -216,7 +216,7 @@ function productCandidate(p: Product | DemoProduct, source: 'brand' | 'catalog',
      * The bare name, which is what the chip will say.
      *
      * `'card'` is the catalog-tile budget and prefixes the brand, which in a
-     * 92px cell spent the whole visible width on it: every card in the scenri
+     * 92px cell spent the whole visible width on it: every card in the Scenri
      * library read "Birchwood Page ...", and the chip it produced then said
      * "Leather Derby". Same object, two different words, in two surfaces a
      * click apart. A picker cell has a chip's budget, so it composes the parts
@@ -286,7 +286,7 @@ export interface PickList {
  */
 function rank(kind: IngredientKind, c: Candidate, bookmarked: ReadonlySet<string>): number {
   // Yours outranks ours, in every kind. This used to hold for products alone,
-  // which meant a *suggested* scenri presenter sorted above the person this
+  // which meant a *suggested* Scenri presenter sorted above the person this
   // brand cast for itself — a hint beating an owner. Ownership is the one
   // thing the panel never has to explain, so it leads, and the shortlist and
   // suitability order what is left.

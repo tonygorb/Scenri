@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * One scenri, one library, one spec file.
+ * One Scenri, one library, one spec file.
  *
  * The suite used to share a single home for all 172 tests, and nothing ever
  * reset it: `create-product.spec.ts` left three products behind per run,
@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
  * So each spec file gets an empty home and a server of its own, seeded from
  * scratch — the same shape every unit suite already uses (`mkdtempSync` +
  * `createCore(home)` + `rmSync`), and the one `updates.spec.ts` already runs
- * here. The server is a real scenri from source, because the behaviour under
+ * here. The server is a real Scenri from source, because the behaviour under
  * test is a real browser's.
  *
  * Costs a process start per file. Buys a fixture that is the same on the first
@@ -152,18 +152,18 @@ class ScenriFixture {
 
     let serving: string | undefined;
     for (let i = 0; i < 150 && serving === undefined; i++) {
-      if (this.child.exitCode !== null) throw new Error(`scenri exited with ${this.child.exitCode} before answering`);
+      if (this.child.exitCode !== null) throw new Error(`Scenri exited with ${this.child.exitCode} before answering`);
       serving = (await version())?.home;
       if (serving === undefined) await sleep(200);
     }
-    if (serving === undefined) throw new Error(`scenri never answered on ${BASE}`);
+    if (serving === undefined) throw new Error(`Scenri never answered on ${BASE}`);
 
-    // Prove it is *our* scenri. A port already held by another scenri is not an
+    // Prove it is *our* Scenri. A port already held by another Scenri is not an
     // error to `serve` — it hands you the running one and exits 0 (serve.ts) —
     // so without this a leftover process would quietly serve the previous
     // file's library and the isolation would be a comment rather than a fact.
     if (serving !== this.home) {
-      throw new Error(`${BASE} is serving ${serving}, not ${this.home} — a stale scenri still holds the port`);
+      throw new Error(`${BASE} is serving ${serving}, not ${this.home} — a stale Scenri still holds the port`);
     }
   }
 
@@ -226,7 +226,7 @@ class ScenriFixture {
 }
 
 /**
- * Give this spec file a scenri of its own. One call, at the top of the file.
+ * Give this spec file a Scenri of its own. One call, at the top of the file.
  *
  * Boot and seed together are well past the 20s a test gets, so the hook asks
  * for its own budget.

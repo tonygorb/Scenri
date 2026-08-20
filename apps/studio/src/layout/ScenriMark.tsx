@@ -1,7 +1,7 @@
 import type { SVGProps } from 'react';
 
 /**
- * The scenri mark: the symbol set beside the wordmark, at every width.
+ * The Scenri mark: the symbol set beside the wordmark, at every width.
  *
  * Artwork of record is apps/studio/brand/scenri-{symbol,lockup}.svg; the paths
  * below are the same geometry inlined so the mark costs no request and cannot

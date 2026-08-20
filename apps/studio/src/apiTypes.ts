@@ -28,7 +28,7 @@ export interface TreeNode {
   error: string | null;
   createdAt: string;
   /**
-   * Captions once laid over a shot. scenri makes the picture; composing type
+   * Captions once laid over a shot. Scenri makes the picture; composing type
    * onto it was a different product. Nothing writes this any more, and the
    * field stays only because shots already carry it.
    */
@@ -133,7 +133,7 @@ export interface EngineInfo {
   code: UnavailableCode | null;
   monthlySpend: number;
   cap: number | null;
-  /** Not billed per image through scenri. Not a claim that it costs nothing. */
+  /** Not billed per image through Scenri. Not a claim that it costs nothing. */
   free: boolean;
   perGeneration: number;
   generationsLeft: number | null;
@@ -212,7 +212,7 @@ export interface AssetBuildCapabilities {
   canGenerate: boolean;
   engineId: string | null;
   engineName: string | null;
-  /** Not billed per image through scenri. Codex still spends a ChatGPT plan. */
+  /** Not billed per image through Scenri. Codex still spends a ChatGPT plan. */
   free: boolean;
 }
 

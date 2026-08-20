@@ -15,7 +15,7 @@ import { isolate } from './harness.js';
  * through the real API rather than reaching into the library.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {

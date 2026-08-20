@@ -10,7 +10,7 @@ import { Confirm } from '../Confirm.js';
 
 /**
  * Connecting one provider: how a person who has never opened a terminal gets
- * scenri generating.
+ * Scenri generating.
  *
  * Two shapes of setup exist, and both live here so that connecting anything
  * feels like the same act. Codex is a local helper to install and sign into,
@@ -20,7 +20,7 @@ import { Confirm } from '../Confirm.js';
  *
  * The Codex path only ever runs official commands: `npm install -g
  * @openai/codex` and `codex login`. Sign-in happens in the user's own browser
- * and no credential passes through scenri.
+ * and no credential passes through Scenri.
  */
 
 /** How long to keep polling after `codex login` opens a browser tab. */
@@ -367,7 +367,7 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
         {(phase === 'not-installed' || phase === 'installing') && (
           <>
             <p className="sc-setup-lead">
-              scenri generates with Codex CLI, a small official helper from OpenAI that runs on this computer and uses
+              Scenri generates with Codex CLI, a small official helper from OpenAI that runs on this computer and uses
               your own ChatGPT plan. It needs to be installed once.
             </p>
             {/* The action and the way past it are one decision, so they sit on one
@@ -393,7 +393,7 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
           <>
             <p className="sc-setup-lead">
               Codex CLI is installed. Sign in with the ChatGPT account whose plan should cover your images. This opens
-              your browser, and scenri never sees your password or token.
+              your browser, and Scenri never sees your password or token.
             </p>
             <div className="sc-setup-acts">
               <button
@@ -418,7 +418,7 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
         {phase === 'ready' && (
           <>
             <p className="sc-setup-lead">
-              <Check size={15} /> Codex CLI is ready. Your images run on your own ChatGPT plan, and scenri adds nothing
+              <Check size={15} /> Codex CLI is ready. Your images run on your own ChatGPT plan, and Scenri adds nothing
               to the bill.
             </p>
             <button type="button" className="sc-btn sc-btn-primary" onClick={onDone}>

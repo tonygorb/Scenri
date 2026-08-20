@@ -131,7 +131,7 @@ describe('effectiveCategory', () => {
   /**
    * A demo product's `category` is already a real key, and it has neither a
    * productType nor tags to fall back on. The composer used to read `p.category`
-   * raw off the brand library only, so a brief built from the scenri library
+   * raw off the brand library only, so a brief built from the Scenri library
    * produced no category at all and nothing was ever recommended anywhere.
    */
   it('passes a demo product straight through, which is what makes "Suited to X" fire at all', () => {

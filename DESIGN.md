@@ -1,5 +1,5 @@
 ---
-name: scenri
+name: Scenri
 description: The open studio for brand-consistent AI visuals: dark, imagery-first, quiet chrome
 colors:
   bg: "#0d0d0d"
@@ -73,13 +73,13 @@ components:
     padding: "5px 12px"
 ---
 
-# Design System: scenri
+# Design System: Scenri
 
 ## 1. Overview
 
 **Creative North Star: "Scenri UI"**
 
-scenri is a working instrument for people doing brand-consistent AI product photography, not a marketing surface. Dark by default, near-black ground and near-white ink, so the product photography (the actual content) reads as the brightest, highest-contrast thing on any screen. Chrome (nav, filters, section headers, buttons) stays quiet: hairline borders, flat surfaces, restrained type. The system carries exactly one accent color, gold (`#f5c518`), and it is rationed hard: credits, the keeper star, and in-flight shimmer only. Nowhere else. A single serif italic voice (Playfair Display) appears at most once per screen, on a headline, never competing with the working sans.
+Scenri is a working instrument for people doing brand-consistent AI product photography, not a marketing surface. Dark by default, near-black ground and near-white ink, so the product photography (the actual content) reads as the brightest, highest-contrast thing on any screen. Chrome (nav, filters, section headers, buttons) stays quiet: hairline borders, flat surfaces, restrained type. The system carries exactly one accent color, gold (`#f5c518`), and it is rationed hard: credits, the keeper star, and in-flight shimmer only. Nowhere else. A single serif italic voice (Playfair Display) appears at most once per screen, on a headline, never competing with the working sans.
 
 This system explicitly rejects the generic-SaaS-dashboard reflex: no identical icon+heading+text card grids, no gradient-text emphasis, no hero-metric tiles, no tiny uppercase tracked eyebrows stacked above every section, no cream/beige "AI-default" palette, no colored side-stripe borders as a decoration. It is not shy of hierarchy, but the hierarchy comes from spacing, weight, and restraint, not from ornament.
 
@@ -218,6 +218,12 @@ Sentences are short.
 - **No em or en dashes in authored copy.** Use a period, comma, colon, semicolon or parentheses,
   whichever the sentence actually wants. Prompt text sent to an engine is exempt: changing a
   prompt changes generated pixels.
+- **The product is Scenri; `scenri` is an identifier.** Capitalised in every sentence a person
+  reads: docs, UI copy, CLI output, comments, release notes. Lowercase only where a machine reads
+  it and changing it changes behaviour: the npm package and its subcommands, `@scenri/*`,
+  `SCENRI_*`, `~/.scenri`, `scenri.co`, `scenri:*` keys, filenames, tags and URLs. There is no
+  third case. The app's formal name is Scenri Studio; the product is Scenri, and tab titles use
+  the short form because tab strips are tight. See §7.
 - **Avoid exclamation marks.** The work is the excitement.
 - **Prefer specific action labels.** "Export .brand", "Delete shots", "Add key". Never "Submit"
   or "OK".
@@ -227,9 +233,11 @@ Sentences are short.
 
 ## 7. The mark
 
+The name is **Scenri**, spelled the way §6 requires; the wordmark draws it in caps.
+
 The artwork of record is `apps/studio/brand/scenri-lockup.svg` and `scenri-symbol.svg`. The same
 geometry is inlined in `layout/ScenriMark.tsx` so the mark cannot arrive after the bar it sits in;
-`test/scenriMark.test.ts` fails if the two drift. Every icon scenri ships is rendered from those two
+`test/scenriMark.test.ts` fails if the two drift. Every icon Scenri ships is rendered from those two
 files by `scripts/brand-icons.mjs`, and the outputs are checked in.
 
 - **The mark is `currentColor`, never a light and dark pair.** `.sc-wordmark` sets

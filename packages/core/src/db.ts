@@ -360,7 +360,7 @@ export const SCHEMA_VERSION = 1;
 export class SchemaTooNewError extends Error {
   constructor(found: number, supported: number) {
     super(
-      `This library was written by a newer scenri (schema ${found}; this build understands ${supported}). ` +
+      `This library was written by a newer Scenri (schema ${found}; this build understands ${supported}). ` +
         'Update and retry: npx scenri@latest',
     );
     this.name = 'SchemaTooNewError';

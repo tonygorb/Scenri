@@ -114,14 +114,14 @@ async function run(): Promise<void> {
           await new Promise((r) => setTimeout(r, 300));
           continue;
         }
-        // Someone already answers on this port. If it is scenri, a second
+        // Someone already answers on this port. If it is Scenri, a second
         // start is not a failure — hand the person their running studio.
         try {
           const res = await fetch(`http://127.0.0.1:${PORT}/api/version`);
           const info = (await res.json()) as { name?: string };
           if (info.name === readMeta().name) {
             const url = `http://127.0.0.1:${PORT}`;
-            console.log(`\n  scenri is already running → ${url}\n`);
+            console.log(`\n  Scenri is already running → ${url}\n`);
             if (process.env.SCENRI_NO_OPEN !== '1') {
               try {
                 const { default: open } = await import('open');
@@ -133,7 +133,7 @@ async function run(): Promise<void> {
             process.exit(0);
           }
         } catch {
-          /* not scenri, or not answering — fall through to the real error */
+          /* not Scenri, or not answering — fall through to the real error */
         }
       }
       throw err;
@@ -146,7 +146,7 @@ async function run(): Promise<void> {
   const shutdown = (signal: NodeJS.Signals) => {
     if (closing) return;
     closing = true;
-    console.log(`\n  ${signal}: closing scenri…`);
+    console.log(`\n  ${signal}: closing Scenri…`);
     setTimeout(() => process.exit(1), 5000).unref();
     app
       .drain()
@@ -166,7 +166,7 @@ async function run(): Promise<void> {
   const query = token ? `/?t=${token}` : '';
   const localUrl = `http://127.0.0.1:${PORT}${query}`;
 
-  console.log(`\n  scenri studio → ${localUrl}`);
+  console.log(`\n  Scenri Studio → ${localUrl}`);
   for (const ip of reachableAt) console.log(`  on your network → http://${ip}:${PORT}${query}`);
   console.log(`  data dir        → ${core.home}\n`);
   if (!studioDist) console.log('  (studio UI not built, API only. Run: pnpm build)\n');

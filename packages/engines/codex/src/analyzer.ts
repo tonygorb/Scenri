@@ -1,6 +1,6 @@
 /**
  * Reference analysis: turns a person's own photos, or a pile of inspiration
- * images, into the structured record scenri's catalogs already use.
+ * images, into the structured record Scenri's catalogs already use.
  *
  * This is the half of the product the user is not asked to do. They supply the
  * evidence; this reads it into `identityNotes` / `negativeConstraints` for a

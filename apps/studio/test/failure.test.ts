@@ -43,7 +43,7 @@ describe('describeFailure', () => {
     expect(f.retryable).toBe(false);
   });
 
-  it("sends scenri's own spend cap to the budget pane, not the provider", () => {
+  it("sends Scenri's own spend cap to the budget pane, not the provider", () => {
     const f = describeFailure(REAL.spendCap, 'OpenRouter');
     expect(f.kind).toBe('budget');
     expect(f.title).toBe('This would go past your monthly cap for OpenRouter.');
@@ -112,7 +112,7 @@ describe('describeFailure', () => {
   it('says a restart lost the shot but not the brief', () => {
     const f = describeFailure(REAL.restarted, 'Codex');
     expect(f.kind).toBe('restarted');
-    expect(f.title).toBe('scenri restarted while this was rendering.');
+    expect(f.title).toBe('Scenri restarted while this was rendering.');
     expect(f.retryable).toBe(true);
     // Rows written by older builds keep the em-dash form in the DB forever.
     expect(describeFailure('interrupted — server restarted mid-generation', 'Codex').kind).toBe('restarted');

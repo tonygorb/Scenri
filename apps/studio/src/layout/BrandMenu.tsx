@@ -11,7 +11,7 @@ import { useOpenSettings } from '../app/dialogs.js';
 
 /**
  * The one identity control, at the end of the bar. The mark is the brand's own
- * logo rather than a person, because there is no person: scenri has no accounts,
+ * logo rather than a person, because there is no person: Scenri has no accounts,
  * no session and no profile, and the only identity the server knows is a machine
  * token. It carries the whole brand block, so switching client and reaching
  * Settings are one gesture instead of two controls at opposite ends of the row.
@@ -44,7 +44,7 @@ export function BrandMenu() {
   const whatsNew = useWhatsNew();
   const others = brands.filter((b) => b.id !== brand.id);
   // Gold reads as "notice", never as selection (active state is monochrome by
-  // doctrine). One dot for two reasons — a newer scenri, or notes not yet read
+  // doctrine). One dot for two reasons — a newer Scenri, or notes not yet read
   // for this one — because two dots on one control says nothing twice. The
   // rows below say which it is.
   const updateAvailable = Boolean(updates.status?.available);

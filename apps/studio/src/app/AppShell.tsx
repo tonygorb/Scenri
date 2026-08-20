@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Flex, Spinner } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo, type Presenter, type DemoProduct, type ShowcaseEntry } from '../api.js';
-import { useDocumentTitle } from '../useDocumentTitle.js';
+import { DocumentTitleCtx, useDocumentTitle } from '../useDocumentTitle.js';
 import { useScenes, type UseScenesResult } from '../useScenes.js';
 import { usePresenters } from '../usePresenters.js';
 import { useDemoProducts } from '../useDemoProducts.js';
@@ -61,7 +61,7 @@ export function useAppData(): AppData {
  * down in BrandLayout, since both of them are about a brand's projects.
  */
 export function AppShell() {
-  useDocumentTitle();
+  const publishTitle = useDocumentTitle();
   const [brands, setBrands] = useState<Brand[] | null>(null);
   const [engines, setEngines] = useState<EngineInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -128,17 +128,21 @@ export function AppShell() {
         applyBrand,
       }}
     >
-      {/* Machine-scoped, so it sits above the brand tree: an app update is
-          about this install, not about whichever brand is open. */}
-      <UpdateCenterProvider>
-        {/* Its neighbour, not its child in spirit: one says a newer scenri
-            exists, the other says what this one changed. Both are about the
-            install rather than the brand, so both live up here. */}
-        <WhatsNewProvider>
-          <ScrollRestoration />
-          <Outlet />
-        </WhatsNewProvider>
-      </UpdateCenterProvider>
+      {/* The tab is written in one place, above everything that could name
+          it, and the pages below publish through this. */}
+      <DocumentTitleCtx.Provider value={publishTitle}>
+        {/* Machine-scoped, so it sits above the brand tree: an app update is
+            about this install, not about whichever brand is open. */}
+        <UpdateCenterProvider>
+          {/* Its neighbour, not its child in spirit: one says a newer Scenri
+              exists, the other says what this one changed. Both are about the
+              install rather than the brand, so both live up here. */}
+          <WhatsNewProvider>
+            <ScrollRestoration />
+            <Outlet />
+          </WhatsNewProvider>
+        </UpdateCenterProvider>
+      </DocumentTitleCtx.Provider>
     </Ctx.Provider>
   );
 }

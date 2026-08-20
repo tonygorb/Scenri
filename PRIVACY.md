@@ -1,23 +1,23 @@
 # Privacy
 
-scenri is a local application. This page says exactly what it stores and what
+Scenri is a local application. This page says exactly what it stores and what
 it sends, so the claim "local-first" is checkable rather than decorative.
 
 ## Where your work lives
 
 Everything you make stays on your machine, in `$SCENRI_HOME` (default
 `~/.scenri`): brands, images, shot history, settings, and provider keys, in a
-SQLite database and an image folder. There is no scenri account, no scenri
+SQLite database and an image folder. There is no Scenri account, no Scenri
 server, and no copy of your work anywhere else. Deleting that folder deletes
 everything.
 
 The browser side keeps only interface state (theme, drafts, bookmarks, layout
-preferences) in localStorage. On a normal local run scenri sets no cookies. The
+preferences) in localStorage. On a normal local run Scenri sets no cookies. The
 optional LAN mode sets one strictly functional session cookie so the access
 token can leave the address bar; it identifies the session to your own server
 and nothing else.
 
-## What scenri sends on its own behalf
+## What Scenri sends on its own behalf
 
 Exactly two requests, both disclosed in the terminal the first time they run,
 and both optional:
@@ -42,7 +42,7 @@ When you generate an image, your brief (and any reference images it carries)
 goes directly from your machine to the provider you configured: OpenRouter,
 Replicate, or fal, using your own key, or the local Codex CLI, using your own
 ChatGPT session. That data is governed by that provider's terms and privacy
-policy, not by scenri. scenri never sees it, proxies it, or stores it anywhere
+policy, not by Scenri. Scenri never sees it, proxies it, or stores it anywhere
 but your own disk.
 
 The website importers (brand kit from a URL, product catalog import) fetch the
@@ -53,7 +53,7 @@ URLs you paste, directly from your machine.
 Provider keys are stored in the local database, sent only to their own
 provider, and never returned by the API: the settings endpoint answers with a
 boolean, not the value. `.brand` exports and library exports never contain
-credentials. scenri never reads or stores your ChatGPT credential; the Codex
+credentials. Scenri never reads or stores your ChatGPT credential; the Codex
 sign-in happens in your own browser with the official CLI.
 
 ## The short version

@@ -20,7 +20,7 @@ export function Budget({ engines, onSaved }: { engines: EngineInfo[]; onSaved: (
 
   if (!paid.length) {
     return (
-      <Group sub="Nothing to cap yet. Caps apply to engines you pay for per image. Codex usage counts against your ChatGPT plan, which OpenAI meters, not scenri.">
+      <Group sub="Nothing to cap yet. Caps apply to engines you pay for per image. Codex usage counts against your ChatGPT plan, which OpenAI meters, not Scenri.">
         <p className="sc-set-empty">Add a paid engine key and its cap appears here.</p>
       </Group>
     );

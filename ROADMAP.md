@@ -1,12 +1,12 @@
 # Roadmap
 
-What scenri is for, what it does today, and what comes next. This is a solo side project, so treat the ordering as intent rather than as dates.
+What Scenri is for, what it does today, and what comes next. This is a solo side project, so treat the ordering as intent rather than as dates.
 
 Have an opinion on any of it? Open an issue. The ordering below is not fixed, and what people actually hit changes it.
 
 ## The shape of the thing
 
-scenri is a **local-first** studio for brand-consistent AI visuals. Three commitments hold across every release:
+Scenri is a **local-first** studio for brand-consistent AI visuals. Three commitments hold across every release:
 
 1. **Your data stays yours.** Brands, images, and history live in `~/.scenri`, in SQLite and plain files. No account, no telemetry, no upload.
 2. **Your AI, your cost.** Generation runs on your own Codex CLI session or your own API keys, at raw provider price.

@@ -1,5 +1,5 @@
 /**
- * The seam between what you brought and what ships with scenri.
+ * The seam between what you brought and what ships with Scenri.
  *
  * A centred label with a rule running out to each edge: it reads as a change
  * of section rather than a heading for what follows, which is what this is.

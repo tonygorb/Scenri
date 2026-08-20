@@ -1,6 +1,6 @@
 {
-  "name": "scenri studio",
-  "short_name": "scenri",
+  "name": "Scenri Studio",
+  "short_name": "Scenri",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0d0d",

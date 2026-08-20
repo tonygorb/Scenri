@@ -13,7 +13,7 @@ import { isolate } from './harness.js';
  * written here never touch the library you actually use.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 const api = async (p: Page, path: string, init?: RequestInit) =>

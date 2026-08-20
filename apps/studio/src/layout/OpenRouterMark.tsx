@@ -5,7 +5,7 @@ import type { SVGProps } from 'react';
  *
  * Same reasoning as OpenAIMark: a provider row is easier to scan when it shows
  * the thing the person already recognises than when it shows a generic glyph.
- * Used referentially, to name which service a key belongs to. scenri is not
+ * Used referentially, to name which service a key belongs to. Scenri is not
  * affiliated with, endorsed by or certified by OpenRouter.
  *
  * Geometry from Simple Icons (https://simpleicons.org), CC0-1.0, reproduced

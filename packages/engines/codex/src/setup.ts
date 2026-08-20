@@ -1,7 +1,7 @@
 /**
  * Guided setup for the local Codex CLI.
  *
- * scenri's primary engine is the user's own Codex session, and most of the
+ * Scenri's primary engine is the user's own Codex session, and most of the
  * people it is for have a ChatGPT subscription but have never opened a
  * terminal. So the app runs the two setup commands for them — an install and a
  * sign-in — and polls the same probe the engine uses to know when it worked.
@@ -118,7 +118,7 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
             ok: false,
             fallbackCommand: INSTALL_COMMAND,
             docsUrl: INSTALL_DOCS_URL,
-            detail: 'Codex installed but is not on this app’s PATH yet. Restart scenri, or install it yourself.',
+            detail: 'Codex installed but is not on this app’s PATH yet. Restart Scenri, or install it yourself.',
           };
         }
         return { ok: true };

@@ -38,10 +38,10 @@ export function parseArgs(argv: string[]): Command {
 // `verify` is deliberately absent: it exists for the updater to probe a staged
 // install, not for people.
 export function helpText(): string {
-  return `scenri: local brand studio
+  return `Scenri: local brand studio
 
 Usage
-  scenri                start scenri (auto-restarts after updates)
+  scenri                start Scenri (auto-restarts after updates)
   scenri serve          start this exact build, no supervision
   scenri update         download and stage the newest version
     --check             only check, do not download

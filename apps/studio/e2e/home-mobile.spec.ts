@@ -13,7 +13,7 @@ import { isolate } from './harness.js';
  * tablet leg doubles as the ≥768px-unchanged guard.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 const dock = (p: Page) => p.locator('.sc-canvas-dock');

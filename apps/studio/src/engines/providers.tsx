@@ -50,7 +50,7 @@ export const keyProviderFor = (engineId: string): KeyProvider | undefined =>
  * `plate` and `ink` are not a palette we chose. They are sampled from each
  * owner's own icon: OpenAI's 180px favicon (white plate, black mark),
  * OpenRouter's app icon (white plate, violet mark) and Replicate's favicon
- * (red plate, white mark). Nothing is tinted, mixed or adapted to scenri, and
+ * (red plate, white mark). Nothing is tinted, mixed or adapted to Scenri, and
  * the pairs never come apart: a mark always sits on the plate its owner puts
  * it on.
  *

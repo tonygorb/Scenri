@@ -5,7 +5,7 @@ import type { SVGProps } from 'react';
  *
  * Here for the same reason as OpenAIMark and OpenRouterMark: recognition beats
  * a generic glyph in a list whose whole job is to be scanned. Used
- * referentially, to name which service a key belongs to. scenri is not
+ * referentially, to name which service a key belongs to. Scenri is not
  * affiliated with, endorsed by or certified by Replicate.
  *
  * Geometry from Simple Icons (https://simpleicons.org), CC0-1.0, reproduced

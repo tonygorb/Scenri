@@ -7,11 +7,11 @@ import { isolate } from './harness.js';
  * impossible: start a generation, stand somewhere else entirely, and still be
  * told when it lands.
  *
- * Like the other specs this runs against a real scenri server on the free Demo
+ * Like the other specs this runs against a real Scenri server on the free Demo
  * engine, and selects by the `sc-` class names the app actually ships.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 const api = async (p: Page, path: string, init?: RequestInit) =>
@@ -49,6 +49,11 @@ const rows = (p: Page) => p.locator('.sc-notif-scroll .sc-notif-row');
 
 /** Start a generation while standing somewhere the feed is not on screen. */
 async function fireAndWalkAway(p: Page, brand: string) {
+  // Let the load finish first. TaskCenter's first poll is a baseline and never
+  // a backlog, so a demo shot fired the instant after goto can be finished
+  // before that poll and is then correctly never announced. Walking away
+  // assumes you were there before the work started.
+  await p.waitForLoadState('networkidle');
   const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
   const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
   const made = (await api(

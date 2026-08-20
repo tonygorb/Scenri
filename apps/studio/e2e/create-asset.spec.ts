@@ -11,7 +11,7 @@ import { isolate } from './harness.js';
  * consumes. Same rules `?settings=` has always followed.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 /** The brand the app resolves "/" to, whatever this machine happens to hold. */

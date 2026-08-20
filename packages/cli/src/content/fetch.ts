@@ -62,7 +62,7 @@ export function createContentFetcher(deps: {
     if (!deps.store.getSetting('content.disclosed')) {
       // Same doctrine as the update check: the app's self-initiated requests
       // announce themselves once, with the off switch in the same breath.
-      log('  fetching the scenri library (~95 MB, once, cached; set SCENRI_NO_CONTENT_FETCH=1 to disable)');
+      log('  fetching the Scenri library (~95 MB, once, cached; set SCENRI_NO_CONTENT_FETCH=1 to disable)');
       deps.store.setSetting('content.disclosed', '1');
     }
     try {
@@ -103,7 +103,7 @@ export function createContentFetcher(deps: {
       } catch {
         // versionless archives are legal; the marker file is what matters
       }
-      log('  scenri library ready');
+      log('  Scenri library ready');
       return { ok: true, updated: true, error: null };
     } catch (err) {
       // Offline is a non-event: the bundled catalog and thumbnails carry the

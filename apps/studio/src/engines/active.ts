@@ -42,7 +42,7 @@ export const perImage = (usd: number): string => usd.toFixed(3).replace(/0+$/, '
 
 /**
  * The one line under a provider's name. Never the word "free": Codex costs
- * nothing through scenri, which is a different sentence from costing nothing,
+ * nothing through Scenri, which is a different sentence from costing nothing,
  * because every image spends the allowance on a ChatGPT plan the person pays
  * for themselves.
  */

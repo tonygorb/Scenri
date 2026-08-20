@@ -144,7 +144,7 @@ describe('stageVersion', () => {
   it.skipIf(!npmWorks)(
     'stages a real tarball with the real npm and the real verify hop',
     async () => {
-      // a fake scenri whose entry actually answers `verify`
+      // a fake Scenri whose entry actually answers `verify`
       const src = mkdtempSync(join(tmpdir(), 'sc-fakepkg-'));
       // npm's default cache may not be writable in a sandboxed test run
       const prevCache = process.env.npm_config_cache;

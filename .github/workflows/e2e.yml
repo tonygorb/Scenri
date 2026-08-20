@@ -53,7 +53,7 @@ jobs:
 
       # The suite drives a real server on purpose: synthetic events cannot
       # reproduce focus or caret behaviour, so there is nothing to mock. Each
-      # spec file starts and seeds a scenri of its own on an empty home
+      # spec file starts and seeds a Scenri of its own on an empty home
       # (e2e/harness.ts), so there is no library to point anywhere and nothing
       # left behind to clean up.
       - name: Run Playwright

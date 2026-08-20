@@ -40,7 +40,7 @@ export function TopBar() {
         <button
           type="button"
           className="sc-wordmark"
-          aria-label="scenri home"
+          aria-label="Scenri home"
           onClick={() => navigate(brandPath(brand))}
         >
           <ScenriLockup />

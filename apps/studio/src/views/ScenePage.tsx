@@ -4,6 +4,7 @@ import { Spinner, TextArea, TextField } from '@radix-ui/themes';
 import { api, type Scene, type ScenePatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useTitleEntity } from '../useDocumentTitle.js';
 import { customSceneById } from '../brandAssets.js';
 import { hubPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
@@ -50,6 +51,7 @@ export function ScenePage() {
   // compiler resolves them in.
   const owned = customSceneById(brand, sceneId);
   const scene = owned ?? scenes.find((s) => s.id === sceneId);
+  useTitleEntity(scene?.name);
 
   // One ask for the whole set. Probing slot by slot filled the console with
   // 404s for every scene that has no set yet.

@@ -1,7 +1,7 @@
-# How scenri updates itself
+# How Scenri updates itself
 
 `npx scenri` starts a small supervising launcher. The launcher looks in
-`~/.scenri/app/versions/` for a newer staged copy of scenri, runs the newest
+`~/.scenri/app/versions/` for a newer staged copy of Scenri, runs the newest
 one it finds (or the copy it shipped with), and restarts it when an update
 asks for a restart. Application code and your library never share a directory:
 
@@ -20,7 +20,7 @@ the next `npx scenri` rebuilds it.
 
 Once a day, the running server asks the npm registry for the latest published
 version: one GET of the dist-tags document, nothing else sent, 5 seconds max,
-silent when offline. It and the one-time library download below are scenri's
+silent when offline. It and the one-time library download below are Scenri's
 only self-initiated network requests, and each is disclosed once in the
 console (the update check also in Settings → About).
 
@@ -43,7 +43,7 @@ is downloaded once from a versioned archive on the project's GitHub releases,
 cached under `~/.scenri/content`, and never fetched again. One GET for one
 file, nothing sent, silent when offline (the next launch simply retries).
 
-- `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; scenri stays on
+- `SCENRI_NO_CONTENT_FETCH=1` skips the download entirely; Scenri stays on
   thumbnails.
 - `SCENRI_CONTENT_URL` points a fork or an airgap mirror at its own archive.
 
@@ -77,7 +77,7 @@ user-triggered: nothing installs or restarts on its own.
 
 Two different sentences, deliberately kept apart:
 
-- **Update available**: "there is a newer scenri." Comes from the check above,
+- **Update available**: "there is a newer Scenri." Comes from the check above,
   asks you to act, and lives in the floating notice and Settings → About.
 - **What's new**: "here is what changed in the version you now have." Asks for
   nothing. Comes from release notes authored by hand and shipped *inside* the
@@ -146,7 +146,7 @@ ever a description of what already happened.
 The database carries a schema version (`PRAGMA user_version`). Before an
 older database is migrated, a consistent snapshot is written to
 `~/.scenri/backups/` (the newest three are kept). A database written by a
-*newer* scenri is refused with instructions rather than half-read.
+*newer* Scenri is refused with instructions rather than half-read.
 
 ## Protocol v1 (frozen)
 

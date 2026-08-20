@@ -133,7 +133,7 @@ describe('chipOpensPicker', () => {
 });
 
 describe('buildCandidates — products', () => {
-  it('includes the scenri library, so a demo-product chip can reach its own siblings', () => {
+  it('includes the Scenri library, so a demo-product chip can reach its own siblings', () => {
     const cs = buildCandidates('product', catalog({ libraryProducts: [owned()], demoProducts: [demo()] }));
     expect(ids(cs)).toEqual(['o1', 'd1']);
     expect(cs.find((c) => c.id === 'd1')?.source).toBe('catalog');
@@ -231,7 +231,7 @@ describe('buildCandidates — presenters', () => {
 });
 
 describe('ownership', () => {
-  it('a scene this brand built reports itself as the brand’s, not scenri’s', () => {
+  it('a scene this brand built reports itself as the brand’s, not Scenri’s', () => {
     const cs = buildCandidates('scene', catalog({ scenes: [scene({ id: 'us-1', custom: true } as any)] }));
     expect(cs[0]?.source).toBe('brand');
   });
@@ -241,12 +241,12 @@ describe('ownership', () => {
     expect(cs[0]?.source).toBe('brand');
   });
 
-  it('scenri’s own still report as the catalog’s', () => {
+  it('Scenri’s own still report as the catalog’s', () => {
     expect(buildCandidates('scene', catalog({ scenes: [scene()] }))[0]?.source).toBe('catalog');
     expect(buildCandidates('presenter', catalog({ presenters: [presenter()] }))[0]?.source).toBe('catalog');
   });
 
-  it('owning products never hides the ones scenri ships', () => {
+  it('owning products never hides the ones Scenri ships', () => {
     const cs = buildCandidates(
       'product',
       catalog({ libraryProducts: [owned({ id: 'mine' })], demoProducts: [demo({ id: 'theirs' })] }),
@@ -379,7 +379,7 @@ describe('pickList', () => {
       expect(ids(pickList('presenter', cs, opts({ bookmarked: new Set(['p2']) })).items)).toEqual(['p1', 'p2']);
     });
 
-    it('products: the brand’s own before the ones scenri ships', () => {
+    it('products: the brand’s own before the ones Scenri ships', () => {
       const cs = buildCandidates(
         'product',
         catalog({ libraryProducts: [owned({ id: 'mine' })], demoProducts: [demo({ id: 'theirs' })] }),

@@ -480,7 +480,7 @@ export const BriefInput = forwardRef<
    * Everything the three catalogs offer, built once.
    *
    * The caret menu used to build its own list from the brand library alone, so
-   * `@` could not reach a scenri library product and a presenter matched only
+   * `@` could not reach a Scenri library product and a presenter matched only
    * on name and descriptor while the attach panel searched the whole casting
    * sheet. Both surfaces read this now, so neither can drift from the other.
    */

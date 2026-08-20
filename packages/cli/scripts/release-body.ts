@@ -23,7 +23,7 @@ if (!entry) process.exit(0);
 const lines: string[] = [];
 if (entry.title) lines.push(entry.title, '');
 if (entry.sections.length === 0) {
-  lines.push('Maintenance release. Nothing here changes how scenri works for you.', '');
+  lines.push('Maintenance release. Nothing here changes how Scenri works for you.', '');
 }
 for (const s of entry.sections) {
   lines.push(`### ${s.heading}`, '', s.body, '');

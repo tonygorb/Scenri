@@ -26,7 +26,7 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string): EngineAdap
       <rect width="100%" height="100%" fill="url(#g)"/>
       <circle cx="${w * (0.25 + (0.5 * ((seed * 37) % 100)) / 100)}" cy="${h * 0.38}" r="${Math.min(w, h) * 0.18}" fill="#ffffff" opacity="0.25"/>
       <text x="24" y="${h - 48}" font-family="Helvetica, Arial" font-size="${Math.max(14, Math.round(w / 42))}" fill="#ffffff" opacity="0.92">${esc(label)}</text>
-      <text x="24" y="${h - 22}" font-family="Helvetica, Arial" font-size="12" fill="#ffffff" opacity="0.6">scenri demo engine</text>
+      <text x="24" y="${h - 22}" font-family="Helvetica, Arial" font-size="12" fill="#ffffff" opacity="0.6">Scenri demo engine</text>
     </svg>`;
     return sharp(Buffer.from(svg)).png().toBuffer();
   }

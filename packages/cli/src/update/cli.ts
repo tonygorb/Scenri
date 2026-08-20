@@ -43,7 +43,7 @@ export async function runUpdateCommand(opts: { check: boolean; from?: string }):
   console.log(`  running ${meta.version}${staged ? ` · staged ${staged}` : ''} · latest ${latest}`);
 
   if (compareSemver(latest, effective) <= 0) {
-    console.log(staged ? '  the newest version is already staged. Just start scenri.' : '  already the newest.');
+    console.log(staged ? '  the newest version is already staged. Just start Scenri.' : '  already the newest.');
     return 0;
   }
   if (opts.check) {

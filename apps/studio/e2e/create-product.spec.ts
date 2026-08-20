@@ -12,7 +12,7 @@ import { isolate } from './harness.js';
  * never asks "discard your work?" — because nothing is discarded.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 /** A tiny real PNG, built in the page rather than committed as a fixture. */

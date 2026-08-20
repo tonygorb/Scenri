@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 /**
  * The update lifecycle, driven end to end against a real server and a fixture
  * npm registry. The shared e2e server runs with the check disabled, so this
- * spec boots its own scenri (tsx, from source) with SCENRI_REGISTRY pointed at
+ * spec boots its own Scenri (tsx, from source) with SCENRI_REGISTRY pointed at
  * a tiny local registry whose answer the tests control. Selects by the sc-
  * class names the app ships, like every other spec.
  */
@@ -53,7 +53,10 @@ class Fixture {
     await new Promise<void>((r) => this.registry.listen(this.regPort, '127.0.0.1', r));
 
     this.home = mkdtempSync(join(tmpdir(), 'sc-e2e-upd-'));
-    this.server = spawn('pnpm', ['exec', 'tsx', 'packages/cli/src/index.ts', 'serve'], {
+    // node directly, not `pnpm exec`: through pnpm the server is a grandchild,
+    // and a signal sent to pnpm need never reach it. stop() would then delete
+    // the home out from under a server still running in it.
+    this.server = spawn(process.execPath, ['--import', 'tsx', 'packages/cli/src/index.ts', 'serve'], {
       cwd: ROOT,
       stdio: 'ignore',
       env: {
@@ -64,6 +67,11 @@ class Fixture {
         SCENRI_NO_OPEN: '1',
         SCENRI_DEMO_ENGINE: '1',
         SCENRI_NO_UPDATE_CHECK: '0',
+        // This spec is about versions, never about the library. Left on, the
+        // boot unpacks a 95 MB archive into content.staging for the whole of a
+        // run that finishes in seconds, and teardown deletes a directory still
+        // being written into.
+        SCENRI_NO_CONTENT_FETCH: '1',
         SCENRI_REGISTRY: `http://127.0.0.1:${this.regPort}`,
       },
     });
@@ -86,12 +94,17 @@ class Fixture {
   }
 
   /**
-   * A server that has not actually let go of the library races the rmSync that
-   * takes it away, and loses: sqlite is still flushing its WAL, so the
-   * directory refills between the walk and the rmdir and Node reports
-   * ENOTEMPTY. SIGTERM alone cannot promise that, because the timeout used to
-   * resolve whether or not the process had gone. Escalate to SIGKILL like
-   * harness.ts does, and let rmSync retry the last of it.
+   * A server that has not actually let go of the home races the rmSync that
+   * takes it away, and loses: the directory refills between the walk and the
+   * rmdir, and Node reports ENOTEMPTY.
+   *
+   * Retrying the delete was the first repair and it was the wrong shape. A
+   * retry beats a directory that is momentarily locked; it cannot beat one
+   * that is still being written into, because every attempt finds new files.
+   * The two writers were the content unpack (now off, see start()) and a
+   * server that outlived the signal (now spawned as node rather than through
+   * pnpm, so the signal reaches it). SIGTERM escalating to SIGKILL, and the
+   * retries, stay as the backstop for sqlite's last WAL flush.
    */
   async stop(): Promise<void> {
     if (this.server.exitCode === null) {

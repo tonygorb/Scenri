@@ -133,7 +133,7 @@ export function registerUpdateRoutes(
     const apply = effectiveApply();
     if (apply.phase !== 'ready') return reply.status(409).send({ error: 'no staged update to restart into' });
     if (!runtime.supervised) {
-      return reply.status(409).send({ error: 'not supervised; restart scenri yourself', blockReason: 'unsupervised' });
+      return reply.status(409).send({ error: 'not supervised; restart Scenri yourself', blockReason: 'unsupervised' });
     }
     // Answer first, then go: the browser needs this reply to start its
     // reconnect overlay before the socket disappears.
@@ -158,7 +158,7 @@ export function registerUpdateRoutes(
   });
   // ---- what's new: the version this build IS, from data shipped inside it.
   // Deliberately not the update routes' business. Those answer "there is a
-  // newer scenri" and ask you to act; this one answers "here is what you got"
+  // newer Scenri" and ask you to act; this one answers "here is what you got"
   // and asks nothing. Fusing them is what made the old notes route describe a
   // version the user did not have, then vanish the moment they installed it.
   app.get('/api/release/notes', async () => {

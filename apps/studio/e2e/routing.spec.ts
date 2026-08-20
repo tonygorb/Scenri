@@ -6,12 +6,12 @@ import { isolate } from './harness.js';
  * broken before the router existed: a refresh always landed on Home, the brand
  * quietly reset to whichever came back first, and Back did nothing at all.
  *
- * Like composer.spec.ts, this runs against a real scenri server, because the
+ * Like composer.spec.ts, this runs against a real Scenri server, because the
  * behaviour under test is the browser's own: history entries, a cold load of a
  * deep path, and what the address bar says after a click.
  */
 
-// A scenri of this file's own, on an empty home, seeded from scratch.
+// A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
 const api = async (p: Page, path: string, init?: RequestInit) =>
