@@ -135,7 +135,13 @@ export async function resolvePresenterImages(
   core: Core,
   templatesRoot: string,
   presenter: Presenter,
-): Promise<{ id: string; name: string; shots: { file: string; angle: string; locked: boolean }[] } | null> {
+): Promise<{
+  id: string;
+  name: string;
+  identityNotes?: string;
+  negativeConstraints?: string[];
+  shots: { file: string; angle: string; locked: boolean }[];
+} | null> {
   const shots: { file: string; angle: string; locked: boolean }[] = [];
   for (const [slot, angle] of PRESENTER_ANGLES) {
     const path = presenterRefPath(templatesRoot, presenter.id, slot);
@@ -144,7 +150,20 @@ export async function resolvePresenterImages(
     const hash = core.images.save(png);
     shots.push({ file: `asset:${hash}`, angle, locked: true });
   }
-  return shots.length ? { id: presenter.id, name: presenter.name, shots } : null;
+  if (!shots.length) return null;
+  // The casting sheet travels with the photos. These used to be dropped here,
+  // so a curated presenter reached the compiler as a bare name and two shots
+  // while a custom one kept its notes — same compile path, thinner payload.
+  // Deliberately NOT forwarded: wardrobeDefault (the capture uniform is not a
+  // wardrobe instruction) and promptName (a curated presenter is named by
+  // `name`, which is why renaming one is a generation change).
+  return {
+    id: presenter.id,
+    name: presenter.name,
+    ...(presenter.identityNotes ? { identityNotes: presenter.identityNotes } : {}),
+    ...(presenter.negativeConstraints?.length ? { negativeConstraints: presenter.negativeConstraints } : {}),
+    shots,
+  };
 }
 
 /**

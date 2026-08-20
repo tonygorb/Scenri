@@ -73,6 +73,9 @@ describe('compileBrief', () => {
     expect(r.attachments.map((a) => a.role)).toContain('character');
     expect(r.attachments.find((a) => a.role === 'character')!.label).toBe('Marco');
     expect(r.prompt).toContain('same person every time');
+    // identity is locked by name; the reference's own wardrobe is released
+    expect(r.prompt).toMatch(/face, facial structure, skin, hair and build/);
+    expect(r.prompt).toMatch(/capture conditions, not styling direction/i);
     expect(r.warnings).toEqual([]);
   });
 

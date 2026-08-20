@@ -22,7 +22,8 @@ export type ReferenceRole = 'product' | 'character' | 'brand' | 'scene' | 'compo
  */
 export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
-  character: 'the exact person — preserve their face, hair and build faithfully; do not restyle them',
+  character:
+    'the exact person — match their face, facial structure, skin, hair and build exactly; their clothing, pose and background are capture context, not styling to reproduce',
   brand:
     "the brand's own mark — if the direction calls for the mark to appear, reproduce it exactly as drawn, same colours, letterforms and proportions; otherwise take only its colour and treatment, and never its subject, geometry or composition",
   scene: 'a reference for the environment and light only — take no subject, product or person from it',
@@ -35,7 +36,8 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
 /** The same contract, compressed for edit prompts where the source image already carries the subject. */
 export const EDIT_REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   product: 'the exact product: keep or restore its label, shape and design faithfully',
-  character: 'the exact person: keep their face, hair and build faithfully',
+  character:
+    "the exact person: keep their face, facial structure, skin, hair and build faithfully; take no clothing, pose or background from this reference, and keep the source image's existing outfit unless the instruction changes it",
   brand: "the brand's own mark: reproduce it exactly as drawn wherever it appears, never redrawn or re-lettered",
   scene: 'a reference for environment and light only',
   composition: 'a reference for framing and pose only',

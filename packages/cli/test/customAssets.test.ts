@@ -202,6 +202,11 @@ describe('custom presenters and scenes', () => {
     expect(generated[0].referenceRoles).toEqual(['character', 'character']);
     expect(generated[0].prompt).toContain('facing the camera straight-on');
     expect(generated[0].prompt).toContain('a woman in her early thirties with dark waves');
+    // The capture uniform is a contract: the compiler's wardrobe-release
+    // directive names it as neutral capture clothing, so the front frame must
+    // keep drawing exactly this outfit — a drift here would quietly desync
+    // what the release clause is releasing.
+    expect(generated[0].prompt).toContain('off-white ribbed tank');
     for (const later of generated.slice(1)) expect(later.referenceImages).toHaveLength(1);
     expect(generated[3].prompt).toContain('back view');
     expect(analyzed[0].kind).toBe('presenter');

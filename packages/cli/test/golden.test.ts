@@ -14,7 +14,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
+import {
+  createCore,
+  EDIT_REFERENCE_ROLE_DIRECTIVE,
+  REFERENCE_ROLE_DIRECTIVE,
+  type Core,
+  type EngineCapabilities,
+} from '@scenri/core';
 import { compileBrief, validateBrief, FORMATS, PRODUCT_REF_MAX, CHARACTER_REF_MAX, type Brief } from '../src/brief.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 
@@ -414,5 +420,55 @@ describe('golden: responsibility contract', () => {
       { t: 'template', id: PRODUCT_SCENE },
     ]);
     expect(r.prompt).not.toContain('Camera for this shot:');
+  });
+});
+
+/**
+ * Presenter references are identity, not wardrobe.
+ *
+ * Every presenter's reference set is shot full-length in the same neutral
+ * off-white capture uniform. A tester found that uniform leaking into final
+ * commercial images: the only directive the compiler emitted was "hold their
+ * face, hair and build, and do not restyle them", which a model reads as
+ * preserve-the-photo-wholesale — clothing included. These lock the corrected
+ * contract: the lock names what identity is, the release clause names what the
+ * reference must NOT control, and the wearable pair sentence says whose
+ * clothes the presenter is actually in when a product is attached.
+ */
+describe('golden: presenter references are identity, not wardrobe', () => {
+  it('a presenter attach locks identity and releases the capture wardrobe', () => {
+    const r = compile([{ t: 'character', id: 'c1' }]);
+    expect(r.prompt).toContain('same person every time');
+    expect(r.prompt).toMatch(/face, facial structure, skin, hair and build/);
+    expect(r.prompt).toMatch(/capture conditions, not styling direction/i);
+    // the preserve-wholesale wording is what leaked the uniform; it must not return
+    expect(r.prompt).not.toMatch(/do not restyle them/);
+  });
+
+  it('the release clause rides with a person, never with a product alone', () => {
+    const r = compile([{ t: 'product', id: 'p1' }]);
+    expect(r.prompt).not.toMatch(/capture conditions/i);
+    expect(r.prompt).not.toMatch(/styling direction/i);
+  });
+
+  it('product + presenter states the wearable relationship exactly once, and only then', () => {
+    const both = compile([
+      { t: 'product', id: 'p1' },
+      { t: 'character', id: 'c1' },
+    ]);
+    expect(both.prompt.match(/something a person wears/g)).toHaveLength(1);
+    expect(compile([{ t: 'product', id: 'p1' }]).prompt).not.toMatch(/something a person wears/);
+    expect(compile([{ t: 'character', id: 'c1' }]).prompt).not.toMatch(/something a person wears/);
+  });
+
+  it('the shared role directives carry the same contract to every adapter', () => {
+    expect(REFERENCE_ROLE_DIRECTIVE.character).toMatch(/face, facial structure, skin, hair and build/);
+    expect(REFERENCE_ROLE_DIRECTIVE.character).toMatch(/capture context, not styling to reproduce/);
+    expect(REFERENCE_ROLE_DIRECTIVE.character).not.toMatch(/do not restyle/);
+  });
+
+  it("an edit keeps the source image's outfit: the identity reference cannot re-dress it", () => {
+    expect(EDIT_REFERENCE_ROLE_DIRECTIVE.character).toMatch(/take no clothing, pose or background/);
+    expect(EDIT_REFERENCE_ROLE_DIRECTIVE.character).toMatch(/keep the source image's existing outfit/);
   });
 });

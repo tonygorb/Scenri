@@ -21,8 +21,8 @@ const base: Presenter = {
   wardrobeDefault: 'w',
   suitableCategories: ['Beauty'],
   suitableStyles: ['Editorial'],
-  identityNotes: 'n',
-  negativeConstraints: ['x'],
+  identityNotes: 'The gap tooth stays.',
+  negativeConstraints: ['never freckles'],
   width: 10,
   height: 10,
 };
@@ -188,6 +188,12 @@ describe('presenter catalog + direct-attach API', () => {
     const body = res.json();
     expect(body.prompt).toContain('Sana');
     expect(body.referenceCount).toBeGreaterThan(0);
+    // The casting sheet travels: a curated presenter's identityNotes and
+    // negativeConstraints reach the prompt exactly as a roster character's do.
+    // They used to be dropped by resolvePresenterImages, so a curated
+    // presenter contributed nothing but a name and two photos.
+    expect(body.prompt).toContain('The gap tooth stays.');
+    expect(body.prompt).toContain('Avoid: never freckles');
 
     // resolving the presenter is a read-through cache, not a roster write —
     // the brand's own characters[] stays exactly as it started
