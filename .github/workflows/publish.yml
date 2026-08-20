@@ -48,11 +48,15 @@ jobs:
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
+      # No registry-url on purpose: it writes an .npmrc with
+      # _authToken=${NODE_AUTH_TOKEN}, and with that variable unset npm treats
+      # auth as configured-but-empty and never attempts the OIDC exchange.
+      # Trusted publishing wants no auth config at all; the default registry
+      # is already npmjs.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       # Trusted publishing is an npm CLI feature and needs 11.5.1 or newer;
       # Node 22 still ships npm 10. Pinned to the 11 line rather than @latest:
@@ -105,8 +109,10 @@ jobs:
       #
       # Provenance is automatic under trusted publishing; the flag is not
       # needed and `id-token: write` above is what makes it possible.
+      # --loglevel http keeps the OIDC token exchange visible in the log, so
+      # an auth failure names itself instead of hiding behind a 404.
       - name: Publish scenri
-        run: npm publish --access public
+        run: npm publish --access public --loglevel http
         working-directory: packages/cli
 
       # The human summary already exists as the What's New record shipped in
