@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2](https://github.com/tonygorb/scenri/compare/v0.3.1...v0.3.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* suggest sudo and drop stale errors in the codex setup dialog ([da88610](https://github.com/tonygorb/scenri/commit/da886109666e9613b954a6f3d6c8299de0fdf944))
+* suggest sudo and drop stale errors in the codex setup dialog ([1283f3c](https://github.com/tonygorb/scenri/commit/1283f3c5f93a3204bff6ba9e33ebc670b6004034))
+
 ## [0.3.1](https://github.com/tonygorb/scenri/compare/v0.3.0...v0.3.1) (2026-08-20)
 
 
