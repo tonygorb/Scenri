@@ -24,6 +24,8 @@ export type ReasoningEffort = 'low' | 'high';
 export interface RunnerOptions {
   spawnImpl?: typeof nodeSpawn;
   timeoutMs?: number;
+  /** Tests pin this so the spawn contract does not fork with the CI host OS. */
+  platform?: NodeJS.Platform;
 }
 
 export interface CodexRunner {
@@ -50,13 +52,35 @@ export function execArgs(dir: string, promptText: string, effort: ReasoningEffor
 export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   const spawnImpl = opts.spawnImpl ?? nodeSpawn;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const platform = opts.platform ?? process.platform;
+
+  // codex is codex.cmd on Windows, and a .cmd only runs through a shell
+  // (CVE-2024-27980 made Node refuse it otherwise). The prompt rides in these
+  // arguments and can quote imported library text, so the line has to be
+  // injection-safe: cmd.exe cannot be defused for an embedded quote (any
+  // backslash game still toggles cmd's own quoting) or for % (expands even
+  // inside quotes), and newlines split the line. All three are prose-safe
+  // substitutions in an image prompt, so they are substituted, then every
+  // argument is quoted, which makes & | < > ^ literal to cmd.
+  const winArg = (a: string) =>
+    `"${a
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/"/g, "'")
+      .replace(/%/g, ' percent ')}"`;
+  const spawnCodex = (args: string[]) =>
+    platform === 'win32'
+      ? spawnImpl(['codex', ...args].map(winArg).join(' '), [], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: true,
+        })
+      : spawnImpl('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
   /** Run `codex <args>`, resolving on exit 0; kill + reject after timeoutMs. */
   function run(args: string[], signal?: AbortSignal): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       let child: ReturnType<typeof nodeSpawn>;
       try {
-        child = spawnImpl('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        child = spawnCodex(args);
       } catch (err) {
         reject(new Error(`Failed to spawn codex: ${(err as Error).message}`));
         return;
@@ -139,7 +163,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       };
       let child: ReturnType<typeof nodeSpawn>;
       try {
-        child = spawnImpl('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        child = spawnCodex(args);
       } catch {
         done(false);
         return;

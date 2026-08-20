@@ -61,7 +61,7 @@ function newSaveImage() {
 
 describe('capabilities / costEstimate', () => {
   it('reports the locked codex-cli capabilities', () => {
-    const engine = createCodexEngine({ saveImage: newSaveImage() });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage() });
     expect(engine.capabilities()).toEqual({
       id: 'codex-cli',
       displayName: 'Codex CLI',
@@ -73,7 +73,7 @@ describe('capabilities / costEstimate', () => {
   });
 
   it('costEstimate is always 0', async () => {
-    const engine = createCodexEngine({ saveImage: newSaveImage() });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage() });
     await expect(engine.costEstimate(genReq)).resolves.toBe(0);
   });
 });
@@ -83,7 +83,7 @@ describe('isAvailable', () => {
   // wizard switches on `code`, so these three cases are its whole contract.
   it('asks --version then login status, and reports ready when both exit 0', async () => {
     const { spawnImpl, calls } = fakeSpawn(({ child }) => child.emit('exit', 0, null));
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await expect(engine.isAvailable()).resolves.toEqual({ ok: true });
     expect(calls).toHaveLength(2);
     expect(calls[0].cmd).toBe('codex');
@@ -96,7 +96,7 @@ describe('isAvailable', () => {
       const err = Object.assign(new Error('spawn codex ENOENT'), { code: 'ENOENT' });
       child.emit('error', err);
     });
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await expect(engine.isAvailable()).resolves.toEqual({
       ok: false,
       reason: 'Codex CLI is not installed on this computer',
@@ -107,7 +107,7 @@ describe('isAvailable', () => {
 
   it('reports not-installed when --version exits nonzero', async () => {
     const { spawnImpl } = fakeSpawn(({ child }) => child.emit('exit', 1, null));
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await expect(engine.isAvailable()).resolves.toEqual({
       ok: false,
       reason: 'Codex CLI is not installed on this computer',
@@ -119,7 +119,7 @@ describe('isAvailable', () => {
     const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
       child.emit('exit', args[0] === '--version' ? 0 : 1, null);
     });
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await expect(engine.isAvailable()).resolves.toEqual({
       ok: false,
       reason: 'Codex CLI is installed but not signed in',
@@ -134,7 +134,7 @@ describe('isAvailable', () => {
     vi.stubEnv('SCENRI_NO_CODEX', '1');
     try {
       const { spawnImpl, calls } = fakeSpawn(({ child }) => child.emit('exit', 0, null));
-      const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+      const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
       await expect(engine.isAvailable()).resolves.toEqual({
         ok: false,
         reason: 'Codex CLI is not installed on this computer',
@@ -156,7 +156,7 @@ describe('generate', () => {
       child.emit('exit', 0, null);
     });
     const saveImage = newSaveImage();
-    const engine = createCodexEngine({ saveImage, spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
 
     const result = await engine.generate(genReq); // count: 2 → two parallel execs
 
@@ -192,7 +192,7 @@ describe('generate', () => {
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
       child.emit('exit', 0, null);
     });
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await engine.generate({
       ...genReq,
       count: 1,
@@ -218,7 +218,7 @@ describe('generate', () => {
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
       child.emit('exit', 0, null);
     });
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     const srcDir = mkdtempSync(join(tmpdir(), 'codex-mark-'));
     const markPath = join(srcDir, 'wordmark.png');
     writeFileSync(markPath, PNG_1);
@@ -241,7 +241,7 @@ describe('generate', () => {
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
       child.emit('exit', 0, null);
     });
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await engine.generate({
       ...genReq,
       count: 1,
@@ -266,7 +266,7 @@ describe('generate', () => {
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
       child.emit('exit', 0, null);
     });
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     // No roles supplied. Guessing "product" here is how a presenter's face ends
     // up described as a product to preserve the label and design of.
     await engine.generate({ ...genReq, count: 1, referenceImages: [refPath] });
@@ -286,13 +286,13 @@ describe('generate', () => {
         child.emit('exit', 1, null);
       }
     });
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await expect(engine.generate(genReq)).rejects.toThrow(/exited with code 1.*image tool unavailable/s);
   });
 
   it('throws a clear error when codex exits 0 without producing images', async () => {
     const { spawnImpl } = fakeSpawn(({ child }) => child.emit('exit', 0, null));
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await expect(engine.generate(genReq)).rejects.toThrow('Codex finished but produced no images');
   });
 
@@ -302,7 +302,7 @@ describe('generate', () => {
       child.emit('exit', 3, null);
     });
     const saveImage = newSaveImage();
-    const engine = createCodexEngine({ saveImage, spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
     await expect(engine.generate(genReq)).rejects.toThrow(/codex exited with code 3: not signed in/);
     expect(saveImage).not.toHaveBeenCalled();
   });
@@ -311,7 +311,7 @@ describe('generate', () => {
     const { spawnImpl, calls } = fakeSpawn(() => {
       /* never exits */
     });
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl, timeoutMs: 50 });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl, timeoutMs: 50 });
     await expect(engine.generate(genReq)).rejects.toThrow('Codex CLI timed out after 50ms');
     expect(calls[0].child.kill).toHaveBeenCalled();
   });
@@ -333,7 +333,7 @@ describe('edit', () => {
       });
     });
     const saveImage = newSaveImage();
-    const engine = createCodexEngine({ saveImage, spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
 
     const req: EditRequest = { instruction: 'make the sky teal', sourceImage, brand };
     const result = await engine.edit(req);
@@ -358,7 +358,7 @@ describe('edit', () => {
     writeFileSync(sourceImage, PNG_1);
 
     const { spawnImpl } = fakeSpawn(({ child }) => child.emit('exit', 0, null));
-    const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
     await expect(engine.edit({ instruction: 'x', sourceImage, brand })).rejects.toThrow(
       'Codex finished but produced no images',
     );

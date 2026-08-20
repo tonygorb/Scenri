@@ -19,7 +19,9 @@ describe('mock engine', () => {
     expect(e.capabilities()).toMatchObject({ id: 'demo', localOnly: false, supportsEdit: true });
   });
 
-  it('generates `count` PNG images through saveImage', async () => {
+  // 30s, not the 5s default: sharp's first render on a cold Windows CI
+  // runner loads libvips DLLs and can alone eat the default budget.
+  it('generates `count` PNG images through saveImage', { timeout: 30_000 }, async () => {
     const saved: Buffer[] = [];
     const e = createDemoEngine((b) => {
       saved.push(b);

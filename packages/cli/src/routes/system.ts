@@ -89,7 +89,10 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core })
     // holds the staged application versions, and one of them may be the code
     // answering this very request.
     for (const name of ['scenri.db', 'scenri.db-wal', 'scenri.db-shm', 'images', 'backups']) {
-      rmSync(join(core.home, name), { recursive: true, force: true });
+      // Retries are for Windows, where an open handle (a streaming image, an
+      // antivirus pass) makes unlink fail transiently; a throw here would
+      // leave the process alive with the database already closed.
+      rmSync(join(core.home, name), { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
     return { ok: true, scope };
   });

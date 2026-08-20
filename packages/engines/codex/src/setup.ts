@@ -68,6 +68,7 @@ function stateFrom(avail: EngineAvailability): CodexSetupState {
 
 export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
   const spawnImpl = opts.spawnImpl ?? nodeSpawn;
+  const platform = opts.platform ?? process.platform;
   const runner = createRunner(opts);
   const installTimeoutMs = opts.installTimeoutMs ?? DEFAULT_INSTALL_TIMEOUT_MS;
 
@@ -92,7 +93,7 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
         done({ code: null, stderr, spawnError: `${cmd} timed out after ${timeoutMs}ms` });
       }, timeoutMs);
       try {
-        child = spawnImpl(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+        child = spawnImpl(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: platform === 'win32' });
       } catch (err) {
         done({ code: null, stderr, spawnError: (err as Error).message });
         return;
@@ -129,7 +130,7 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
         }
         return { ok: true };
       }
-      if (process.platform !== 'win32' && /EACCES|permission denied/i.test(res.stderr)) {
+      if (platform !== 'win32' && /EACCES|permission denied/i.test(res.stderr)) {
         return {
           ok: false,
           fallbackCommand: INSTALL_COMMAND_SUDO,

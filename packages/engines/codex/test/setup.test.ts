@@ -38,13 +38,16 @@ function scripted(codes: { version?: number; status?: number; npm?: number; logi
 
 describe('status', () => {
   it('maps the probe onto the three states the wizard switches on', async () => {
-    const notInstalled = createCodexSetup({ spawnImpl: scripted({ version: 1 }).spawnImpl });
+    const notInstalled = createCodexSetup({ platform: 'linux', spawnImpl: scripted({ version: 1 }).spawnImpl });
     await expect(notInstalled.status()).resolves.toMatchObject({ state: 'not-installed' });
 
-    const notSignedIn = createCodexSetup({ spawnImpl: scripted({ version: 0, status: 1 }).spawnImpl });
+    const notSignedIn = createCodexSetup({
+      platform: 'linux',
+      spawnImpl: scripted({ version: 0, status: 1 }).spawnImpl,
+    });
     await expect(notSignedIn.status()).resolves.toMatchObject({ state: 'not-authenticated' });
 
-    const ready = createCodexSetup({ spawnImpl: scripted({}).spawnImpl });
+    const ready = createCodexSetup({ platform: 'linux', spawnImpl: scripted({}).spawnImpl });
     await expect(ready.status()).resolves.toEqual({ state: 'ready', reason: undefined });
   });
 });
@@ -52,14 +55,14 @@ describe('status', () => {
 describe('install', () => {
   it('runs the official global install and nothing else', async () => {
     const { spawnImpl, calls } = scripted({});
-    const setup = createCodexSetup({ spawnImpl });
+    const setup = createCodexSetup({ platform: 'linux', spawnImpl });
     await expect(setup.install()).resolves.toEqual({ ok: true });
     expect(calls[0]).toMatchObject({ cmd: 'npm', args: ['install', '-g', '@openai/codex'] });
   });
 
   it('hands back the command to run by hand when the install fails', async () => {
     const { spawnImpl } = scripted({ npm: 1, version: 1 });
-    const setup = createCodexSetup({ spawnImpl });
+    const setup = createCodexSetup({ platform: 'linux', spawnImpl });
     const res = await setup.install();
     expect(res.ok).toBe(false);
     expect(res.fallbackCommand).toBe(INSTALL_COMMAND);
@@ -77,7 +80,7 @@ describe('install', () => {
       }
       child.emit('exit', 1, null);
     });
-    const setup = createCodexSetup({ spawnImpl });
+    const setup = createCodexSetup({ platform: 'linux', spawnImpl });
     const res = await setup.install();
     expect(res.ok).toBe(false);
     expect(res.fallbackCommand).toBe('sudo npm install -g @openai/codex');
@@ -87,7 +90,7 @@ describe('install', () => {
   it('trusts the probe over the exit code: installed but not on PATH still fails', async () => {
     // npm says it worked; the binary is still not reachable from this process.
     const { spawnImpl } = scripted({ npm: 0, version: 1 });
-    const setup = createCodexSetup({ spawnImpl });
+    const setup = createCodexSetup({ platform: 'linux', spawnImpl });
     const res = await setup.install();
     expect(res.ok).toBe(false);
     expect(res.fallbackCommand).toBe(INSTALL_COMMAND);
@@ -97,14 +100,14 @@ describe('install', () => {
 describe('login', () => {
   it('runs `codex login` and reports the state it left behind', async () => {
     const { spawnImpl, calls } = scripted({});
-    const setup = createCodexSetup({ spawnImpl });
+    const setup = createCodexSetup({ platform: 'linux', spawnImpl });
     await expect(setup.login()).resolves.toEqual({ ok: true });
     expect(calls.some((c) => c.cmd === 'codex' && c.args[0] === 'login' && c.args.length === 1)).toBe(true);
   });
 
   it('offers the headless alternative when the browser flow fails', async () => {
     const { spawnImpl } = scripted({ login: 1, status: 1 });
-    const setup = createCodexSetup({ spawnImpl });
+    const setup = createCodexSetup({ platform: 'linux', spawnImpl });
     const res = await setup.login();
     expect(res.ok).toBe(false);
     expect(res.fallbackCommand).toBe('codex login --device-auth');
@@ -112,7 +115,7 @@ describe('login', () => {
 
   it('never reads or returns a credential', async () => {
     const { spawnImpl } = scripted({});
-    const setup = createCodexSetup({ spawnImpl });
+    const setup = createCodexSetup({ platform: 'linux', spawnImpl });
     const res = await setup.login();
     expect(JSON.stringify(res)).not.toMatch(/token|secret|password|api[-_]?key/i);
   });

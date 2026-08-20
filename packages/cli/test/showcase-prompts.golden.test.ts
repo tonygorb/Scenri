@@ -113,7 +113,12 @@ beforeAll(async () => {
   rows.sort((a, b) => a.id.localeCompare(b.id));
 }, 300_000);
 
-afterAll(() => rmSync(home, { recursive: true, force: true }));
+afterAll(() => {
+  // Close before removing: Windows cannot unlink a database the process
+  // still holds open, and the retries only cover external transients.
+  core?.close();
+  rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+});
 
 describe('showcase compiled prompts', () => {
   it('compiles every shipped showcase recipe', () => {
