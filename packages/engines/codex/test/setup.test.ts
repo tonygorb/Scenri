@@ -66,6 +66,24 @@ describe('install', () => {
     expect(res.docsUrl).toBeTruthy();
   });
 
+  it('suggests sudo when npm cannot write to a root-owned global folder', async () => {
+    const { spawnImpl } = fakeSpawn(({ cmd, child }) => {
+      if (cmd === 'npm') {
+        child.stderr.emit(
+          'data',
+          "npm error Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/@openai'\n",
+        );
+        return void child.emit('exit', 1, null);
+      }
+      child.emit('exit', 1, null);
+    });
+    const setup = createCodexSetup({ spawnImpl });
+    const res = await setup.install();
+    expect(res.ok).toBe(false);
+    expect(res.fallbackCommand).toBe('sudo npm install -g @openai/codex');
+    expect(res.detail).toMatch(/password/i);
+  });
+
   it('trusts the probe over the exit code: installed but not on PATH still fails', async () => {
     // npm says it worked; the binary is still not reachable from this process.
     const { spawnImpl } = scripted({ npm: 0, version: 1 });

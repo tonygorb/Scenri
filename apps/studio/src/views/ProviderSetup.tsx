@@ -289,7 +289,10 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
     setPhase('installing');
     try {
       const res = await api.installCodex();
-      if (res.ok) {
+      // The re-probe outranks the exit code: when the binary is present anyway
+      // (say a sudo install done in Terminal), the step is done and a stale
+      // error would only contradict the green check beside it.
+      if (res.ok || res.state !== 'not-installed') {
         setPhase(res.state);
         return;
       }
@@ -329,7 +332,9 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
     try {
       const res = await api.loginCodex();
       stopPolling();
-      if (res.ok) {
+      // Same rule as install: a signed-in machine needs no error, whatever
+      // the login command's exit code said.
+      if (res.ok || res.state === 'ready') {
         setPhase(res.state);
         return;
       }

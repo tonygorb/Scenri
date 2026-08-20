@@ -193,3 +193,32 @@ test('the row stays readable at a phone width', async ({ page }) => {
   const act = row(page, 'OpenRouter').getByRole('button');
   expect((await act.boundingBox())!.height).toBeGreaterThanOrEqual(32);
 });
+
+test('a failed codex install shows the way out, and a recovered machine clears it', async ({ page }) => {
+  const slug = await currentSlug(page);
+  await page.route('**/api/engines/codex/status', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '{"state":"not-installed"}' }),
+  );
+  let install = {
+    ok: false,
+    state: 'not-installed',
+    fallbackCommand: 'sudo npm install -g @openai/codex',
+    docsUrl: 'https://developers.openai.com/codex/cli',
+    detail: 'npm needs your password to install into its system folder.',
+  };
+  await page.route('**/api/engines/codex/install', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(install) }),
+  );
+
+  await page.goto(`/${slug}?setup=codex-cli`);
+  await page.getByRole('button', { name: 'Install Codex CLI' }).click();
+  await expect(page.locator('.sc-setup-problem')).toContainText('password');
+  await expect(page.locator('.sc-setup-cmd code')).toHaveText('sudo npm install -g @openai/codex');
+
+  // The user ran the command in Terminal. npm still exits non-zero on the
+  // retry, but the re-probe says the machine moved on, so the error must go.
+  install = { ...install, state: 'ready', detail: 'npm error EACCES: permission denied' };
+  await page.getByRole('button', { name: 'Install Codex CLI' }).click();
+  await expect(page.locator('.sc-setup-body')).toContainText('Codex CLI is ready');
+  await expect(page.locator('.sc-setup-problem')).toHaveCount(0);
+});
