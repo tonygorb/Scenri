@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.3.5',
+    date: '2026-08-21',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'Setting up the Codex engine on Windows no longer reports a successful install as missing, and updates can now find npm there. When npm truly is unreachable, the update command points to the one-line recovery instead of a dead end.',
+      },
+    ],
+  },
+  {
     version: '0.3.4',
     date: '2026-08-21',
     sections: [
