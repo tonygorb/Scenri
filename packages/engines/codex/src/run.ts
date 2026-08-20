@@ -159,6 +159,11 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
    * output is not a contract we can pin.
    */
   async function probe(): Promise<EngineAvailability> {
+    // Test servers set this so the machine's own codex login cannot turn a
+    // deterministic run into a real build. Answered before spawning anything.
+    if (process.env.SCENRI_NO_CODEX === '1') {
+      return { ok: false, reason: NOT_INSTALLED_REASON, code: 'not-installed' };
+    }
     if (!(await exitedZero(['--version']))) {
       return { ok: false, reason: NOT_INSTALLED_REASON, code: 'not-installed' };
     }
