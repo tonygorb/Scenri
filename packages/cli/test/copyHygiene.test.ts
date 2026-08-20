@@ -18,6 +18,7 @@ const FILES = [
   'SECURITY.md',
   'PRIVACY.md',
   'TRADEMARKS.md',
+  'docs/INSTALL.md',
   'docs/updates.md',
   'docs/RELEASING.md',
   'docs/ASSETS-LICENSE.md',
