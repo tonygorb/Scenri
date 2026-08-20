@@ -3,6 +3,10 @@
 Releases are automated; the version number is decided by commit messages, not
 by hand.
 
+`main` is the only long-lived branch. Work happens on a branch named for the
+work, which reaches `main` through a pull request; there is no staging branch
+in between, because the release pull request below already plays that part.
+
 1. **Commits** follow Conventional Commits. `fix:` bumps the patch, `feat:`
    bumps the minor (this project is pre-1.0), and a breaking change is called
    out in the footer.

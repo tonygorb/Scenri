@@ -1,10 +1,10 @@
 name: CI
 
 on:
-  # main only. A push to dev is always a push to a branch with a pull request
-  # open, and `pull_request` already covers that: keeping dev here ran the whole
-  # matrix twice for one push, under two concurrency keys that cannot cancel
-  # each other.
+  # main only. Every other branch reaches main through a pull request, and
+  # `pull_request` already covers those: naming a working branch here would run
+  # the whole matrix twice for one push, under two concurrency keys that cannot
+  # cancel each other.
   push:
     branches: [main]
   pull_request:

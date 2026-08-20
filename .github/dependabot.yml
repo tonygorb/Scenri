@@ -2,11 +2,6 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
-    # Onto dev, never main. Everything else in this repo reaches main through a
-    # dev -> main pull request, and a dependency bump is not special enough to
-    # earn its own path: main should only ever receive merges that were
-    # reviewed on dev, and dev should never fall behind main.
-    target-branch: dev
     # Monthly, not weekly. A solo maintainer reviewing five dependency PRs a
     # week reviews none of them, and an ignored PR is worse than a late one:
     # it trains you to skim past the queue where a real problem will sit.
@@ -43,7 +38,6 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
-    target-branch: dev
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
