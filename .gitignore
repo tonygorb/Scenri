@@ -43,6 +43,13 @@ coverage/
 apps/studio/test-results/
 apps/studio/playwright-report/
 .playwright-mcp/
+# Browser tooling writes a screenshot to whatever path it is handed, and a bare
+# filename lands here. Deliberate imagery lives in docs/media/ or apps/studio/,
+# so a picture at the repo root is always a stray one.
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
 # visual-regression baselines: local pixels, captured per machine, never committed
 apps/studio/visual/__screenshots__/
 
