@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.3.0',
+    date: '2026-08-20',
+    title: 'The name is Scenri.',
+    sections: [
+      {
+        heading: 'The name',
+        body: 'Written out, the product is Scenri. Every screen, every page of the documentation and every line the terminal prints now spells it that way. Lowercase stays where a machine reads it: the command you type, the folder your library lives in, and the settings that configure it are all unchanged.',
+      },
+      {
+        heading: 'Browser tabs',
+        body: "A tab now names what is open in it rather than the section it came from, so eight products in eight tabs read as eight product names. Settings and What's new say so, an open shot says Shot, and a tab whose page is still loading names its section instead of going blank.",
+      },
+    ],
+  },
+  {
     version: '0.2.3',
     date: '2026-08-20',
     sections: [
