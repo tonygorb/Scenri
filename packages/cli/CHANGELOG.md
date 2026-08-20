@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/tonygorb/scenri/compare/v0.2.0...v0.2.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* the mark that shipped was the wrong cut; carry the real one ([2c1868f](https://github.com/tonygorb/scenri/commit/2c1868f0d426f4c228c3289e14158bdc5b6499e0))
+* the real scenri mark ([5b2f786](https://github.com/tonygorb/scenri/commit/5b2f786707c036f06268ca49214433e903d15df4))
+
 ## [0.2.0](https://github.com/tonygorb/scenri/compare/v0.1.1...v0.2.0) (2026-08-19)
 
 

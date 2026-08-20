@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.2.1',
+    date: '2026-08-20',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'The mark that shipped in 0.2.0 was the wrong cut. The top bar, the app icons, and the readme now carry the real one.',
+      },
+    ],
+  },
+  {
     version: '0.2.0',
     date: '2026-08-20',
     title: 'scenri goes public.',
