@@ -55,12 +55,18 @@ export function ScenePage() {
 
   // One ask for the whole set. Probing slot by slot filled the console with
   // 404s for every scene that has no set yet.
+  //
+  // The boolean, never `owned` itself: the adapter builds a fresh object every
+  // render, and an effect keyed on that identity re-runs on every commit. With
+  // setRefs inside, that was a silent infinite commit loop that starved every
+  // router transition — the page painted, then nothing in the app responded.
+  const isOwned = !!owned;
   useEffect(() => {
     let alive = true;
     setRefs([]);
     // A scene built here carries its own images; only a curated one has a
     // reference set sitting on disk to go and ask about.
-    if (owned) return;
+    if (isOwned) return;
     void api
       .sceneFrames(sceneId)
       .then((r) => {
@@ -72,7 +78,7 @@ export function ScenePage() {
     return () => {
       alive = false;
     };
-  }, [sceneId, owned]);
+  }, [sceneId, isOwned]);
 
   /** Shots whose brief carried this scene, newest first. */
   const made = useMemo(

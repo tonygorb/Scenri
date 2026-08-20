@@ -127,6 +127,24 @@ describe('isAvailable', () => {
     });
     expect(calls.map((c) => c.args)).toEqual([['--version'], ['login', 'status']]);
   });
+
+  it('SCENRI_NO_CODEX=1 reports not-installed without spawning anything', async () => {
+    // The e2e harness sets this so a machine's real codex login can never turn
+    // a deterministic test run into a real build.
+    vi.stubEnv('SCENRI_NO_CODEX', '1');
+    try {
+      const { spawnImpl, calls } = fakeSpawn(({ child }) => child.emit('exit', 0, null));
+      const engine = createCodexEngine({ saveImage: newSaveImage(), spawnImpl });
+      await expect(engine.isAvailable()).resolves.toEqual({
+        ok: false,
+        reason: 'Codex CLI is not installed on this computer',
+        code: 'not-installed',
+      });
+      expect(calls).toHaveLength(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe('generate', () => {

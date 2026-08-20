@@ -38,12 +38,17 @@ export function PresenterPage() {
   const presenter = owned ?? presenters.find((p) => p.id === presenterId);
   useTitleEntity(presenter?.name);
 
+  // The boolean, never `owned` itself: the adapter builds a fresh object every
+  // render, and an effect keyed on that identity re-runs on every commit. With
+  // setRefs inside, that was a silent infinite commit loop that starved every
+  // router transition — the page painted, then nothing in the app responded.
+  const isOwned = !!owned;
   useEffect(() => {
     let alive = true;
     setRefs([]);
     // A person built here carries their views in the brand document; only a
     // curated one has frames sitting on disk to go and ask about.
-    if (owned) return;
+    if (isOwned) return;
     void api
       .presenterFrames(presenterId)
       .then((r) => {
@@ -55,7 +60,7 @@ export function PresenterPage() {
     return () => {
       alive = false;
     };
-  }, [presenterId, owned]);
+  }, [presenterId, isOwned]);
 
   // Older brands may still have a roster copy from before presenters attached
   // straight from the catalog — its shots used the copy's own id, not the
