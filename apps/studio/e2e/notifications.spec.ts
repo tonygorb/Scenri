@@ -49,6 +49,11 @@ const rows = (p: Page) => p.locator('.sc-notif-scroll .sc-notif-row');
 
 /** Start a generation while standing somewhere the feed is not on screen. */
 async function fireAndWalkAway(p: Page, brand: string) {
+  // Let the load finish first. TaskCenter's first poll is a baseline and never
+  // a backlog, so a demo shot fired the instant after goto can be finished
+  // before that poll and is then correctly never announced. Walking away
+  // assumes you were there before the work started.
+  await p.waitForLoadState('networkidle');
   const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
   const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
   const made = (await api(
