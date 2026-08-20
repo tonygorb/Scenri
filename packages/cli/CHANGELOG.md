@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.4](https://github.com/tonygorb/Scenri/compare/v0.3.3...v0.3.4) (2026-08-20)
+
+
+### Bug Fixes
+
+* presenter references are identity, not wardrobe ([dc372fd](https://github.com/tonygorb/Scenri/commit/dc372fd40d7e15d7d8dc72b5ec8f41993e078ae9))
+* presenter references are identity, not wardrobe ([c8bca43](https://github.com/tonygorb/Scenri/commit/c8bca431730a2d4c41d2783fb6eba2c564af5141))
+* stop custom presenter and scene pages freezing the whole app ([fcf88dd](https://github.com/tonygorb/Scenri/commit/fcf88ddbcd57d01354c833cf9f8456fa1b0b0434))
+* stop custom presenter and scene pages freezing the whole app ([8595078](https://github.com/tonygorb/Scenri/commit/859507893892cb23a7ff2f132f273db4dbd0a0f9))
+
 ## [0.3.3](https://github.com/tonygorb/Scenri/compare/v0.3.2...v0.3.3) (2026-08-20)
 
 
