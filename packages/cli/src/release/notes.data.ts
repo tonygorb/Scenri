@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.2.2',
+    date: '2026-08-20',
+    sections: [
+      {
+        heading: 'Security',
+        body: 'Two dependencies are on their patched releases. The file server that serves the studio is updated for a path traversal advisory, and the image library scenri re-encodes every upload through is updated for the libvips advisories. Nothing about how scenri works changes.',
+      },
+    ],
+  },
+  {
     version: '0.2.1',
     date: '2026-08-20',
     sections: [
