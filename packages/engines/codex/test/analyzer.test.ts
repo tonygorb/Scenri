@@ -71,7 +71,7 @@ const GOOD_SCENE = {
 describe('isAvailable', () => {
   it('reports the same absence the engine does', async () => {
     const { spawnImpl } = fakeSpawn(({ child }) => child.emit('error', new Error('spawn codex ENOENT')));
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     await expect(analyzer.isAvailable()).resolves.toEqual({
       ok: false,
       reason: 'Codex CLI is not installed on this computer',
@@ -86,7 +86,7 @@ describe('analyze — presenter', () => {
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(GOOD_PRESENTER));
       child.emit('exit', 0, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     const draft = (await analyzer.analyze({
       kind: 'presenter',
       name: 'Mara',
@@ -123,7 +123,7 @@ describe('analyze — presenter', () => {
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(body));
       child.emit('exit', 0, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     const draft = (await analyzer.analyze({
       kind: 'presenter',
       name: 'Mara',
@@ -141,7 +141,7 @@ describe('analyze — presenter', () => {
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), 'not json at all');
       child.emit('exit', 0, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     await expect(analyzer.analyze({ kind: 'presenter', name: 'Mara', imagePaths: [photo()] })).rejects.toThrow(
       /could not describe these references.*not valid JSON/s,
     );
@@ -150,7 +150,7 @@ describe('analyze — presenter', () => {
 
   it('reports the missing file when codex exits clean without writing one', async () => {
     const { spawnImpl } = fakeSpawn(({ child }) => child.emit('exit', 0, null));
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     await expect(analyzer.analyze({ kind: 'presenter', name: 'Mara', imagePaths: [photo()] })).rejects.toThrow(
       /No analysis\.json was written/,
     );
@@ -166,7 +166,7 @@ describe('analyze — presenter', () => {
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), `\`\`\`json\n${JSON.stringify(body)}\n\`\`\``);
       child.emit('exit', 0, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     const draft = (await analyzer.analyze({
       kind: 'presenter',
       name: 'Mara',
@@ -181,7 +181,7 @@ describe('analyze — presenter', () => {
       child.stderr.emit('data', 'not signed in');
       child.emit('exit', 3, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     await expect(analyzer.analyze({ kind: 'presenter', name: 'Mara', imagePaths: [photo()] })).rejects.toThrow(
       /codex exited with code 3: not signed in/,
     );
@@ -191,7 +191,7 @@ describe('analyze — presenter', () => {
     const { spawnImpl, calls } = fakeSpawn(() => {
       /* never exits */
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl, timeoutMs: 40 });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl, timeoutMs: 40 });
     await expect(analyzer.analyze({ kind: 'presenter', name: 'Mara', imagePaths: [photo()] })).rejects.toThrow(
       'Codex CLI timed out after 40ms',
     );
@@ -202,7 +202,7 @@ describe('analyze — presenter', () => {
     const { spawnImpl, calls } = fakeSpawn(() => {
       /* never exits */
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     const ctl = new AbortController();
     const p = analyzer.analyze({ kind: 'presenter', name: 'Mara', imagePaths: [photo()] }, ctl.signal);
     setTimeout(() => ctl.abort(), 10);
@@ -217,7 +217,7 @@ describe('analyze — scene', () => {
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(GOOD_SCENE));
       child.emit('exit', 0, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     const draft = (await analyzer.analyze({
       kind: 'scene',
       name: '',
@@ -244,7 +244,7 @@ describe('analyze — scene', () => {
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(GOOD_SCENE));
       child.emit('exit', 0, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     await analyzer.analyze({ kind: 'scene', name: 'Shore', imagePaths: [], instruction: 'a volcanic beach at dusk' });
     const { args } = calls[0];
     expect(args.filter((a) => a.startsWith('--image='))).toEqual([]);
@@ -258,7 +258,7 @@ describe('analyze — scene', () => {
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(body));
       child.emit('exit', 0, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     const draft = (await analyzer.analyze({ kind: 'scene', name: 'Shore', imagePaths: [photo()] })) as SceneDraft;
     expect(draft.prompt).not.toContain('{');
     expect(promptFromArgs(calls[1].args)).toContain('contained a {placeholder}');
@@ -269,7 +269,7 @@ describe('analyze — scene', () => {
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(GOOD_SCENE));
       child.emit('exit', 0, null);
     });
-    const analyzer = createCodexAnalyzer({ spawnImpl });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     await analyzer.analyze({
       kind: 'scene',
       name: 'Shore',

@@ -30,6 +30,7 @@ describe('codex adapter stdout backpressure', () => {
 
     const saved: Buffer[] = [];
     const engine = createCodexEngine({
+      platform: 'linux',
       saveImage: (b) => {
         saved.push(b);
         return `h${saved.length}`;

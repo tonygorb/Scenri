@@ -25,16 +25,14 @@ import {
   type GenerateRequest,
   type ReferenceRole,
 } from '@scenri/core';
-import { createRunner, execArgs } from './run.js';
+import { createRunner, execArgs, type RunnerOptions } from './run.js';
 
 export { createCodexAnalyzer } from './analyzer.js';
 export { createCodexSetup, INSTALL_COMMAND, type CodexSetup, type CodexSetupState } from './setup.js';
 export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
 
-export interface CodexEngineOptions {
+export interface CodexEngineOptions extends RunnerOptions {
   saveImage: (buf: Buffer) => string;
-  spawnImpl?: typeof nodeSpawn;
-  timeoutMs?: number;
 }
 
 export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {

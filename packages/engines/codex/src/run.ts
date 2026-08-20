@@ -24,6 +24,8 @@ export type ReasoningEffort = 'low' | 'high';
 export interface RunnerOptions {
   spawnImpl?: typeof nodeSpawn;
   timeoutMs?: number;
+  /** Tests pin this so the spawn contract does not fork with the CI host OS. */
+  platform?: NodeJS.Platform;
 }
 
 export interface CodexRunner {
@@ -50,14 +52,20 @@ export function execArgs(dir: string, promptText: string, effort: ReasoningEffor
 export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   const spawnImpl = opts.spawnImpl ?? nodeSpawn;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const platform = opts.platform ?? process.platform;
 
   // codex is codex.cmd on Windows, and a .cmd only runs through a shell
-  // (CVE-2024-27980 made Node refuse it otherwise). cmd.exe does not quote
-  // arguments, so anything carrying a space is wrapped by hand before the
-  // line is joined. setup.ts already spawns its installs the same way.
+  // (CVE-2024-27980 made Node refuse it otherwise). The prompt rides in these
+  // arguments and can quote imported library text, so the line has to be
+  // injection-safe: cmd.exe cannot be defused for an embedded quote (any
+  // backslash game still toggles cmd's own quoting) or for % (expands even
+  // inside quotes), and newlines split the line. All three are prose-safe
+  // substitutions in an image prompt, so they are substituted, then every
+  // argument is quoted, which makes & | < > ^ literal to cmd.
+  const winArg = (a: string) => `"${a.replace(/[\r\n]+/g, ' ').replace(/"/g, "'").replace(/%/g, ' percent ')}"`;
   const spawnCodex = (args: string[]) =>
-    process.platform === 'win32'
-      ? spawnImpl(['codex', ...args].map((a) => (a.includes(' ') ? `"${a}"` : a)).join(' '), [], {
+    platform === 'win32'
+      ? spawnImpl(['codex', ...args].map(winArg).join(' '), [], {
           stdio: ['ignore', 'pipe', 'pipe'],
           shell: true,
         })

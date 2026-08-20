@@ -8,7 +8,7 @@
  * Shared by `scenri update` and the in-app apply route. Node builtins only.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { entryOf, isValidVersionDir, pruneStaged, stagingDir, versionsDir } from './versionsDir.js';
 
@@ -23,41 +23,48 @@ export function findNpm(
     opts.canRun ??
     ((argv: string[]) => {
       try {
-        return (
-          spawnSync(argv[0], [...argv.slice(1), '--version'], {
-            stdio: 'ignore',
-            timeout: 10_000,
-            // npm is npm.cmd on Windows, and a .cmd only runs through a shell
-            // (CVE-2024-27980). Only the bare name needs it: the node fallback
-            // below is a real .exe, and a shell would not quote its path.
-            shell: process.platform === 'win32' && argv[0] === 'npm',
-          }).status === 0
-        );
+        return spawnSync(argv[0], [...argv.slice(1), '--version'], { stdio: 'ignore', timeout: 10_000 }).status === 0;
       } catch {
         return false;
       }
     });
-  if (canRun(['npm'])) return ['npm'];
+  // Bare `npm` is POSIX-only on purpose: on Windows it is npm.cmd, which only
+  // runs through a shell (CVE-2024-27980), and a shell line is a command
+  // injection surface. npm's real JS entry runs through our own node instead.
+  if (process.platform !== 'win32' && canRun(['npm'])) return ['npm'];
   // npx scenri sets npm_execpath to npx-cli.js; npm-cli.js sits beside it.
   const ep = env.npm_execpath?.replace(/npx-cli\.js$/, 'npm-cli.js');
   if (ep && /npm-cli\.js$/.test(ep) && canRun([process.execPath, ep])) return [process.execPath, ep];
+  if (process.platform === 'win32') {
+    const cli = windowsNpmCli();
+    if (cli && canRun([process.execPath, cli])) return [process.execPath, cli];
+  }
+  return null;
+}
+
+/** The npm-cli.js belonging to the npm.cmd on PATH, found without a shell:
+ *  where.exe is a real executable, and the JS entry sits at a fixed spot
+ *  beside the shim. */
+function windowsNpmCli(): string | null {
+  try {
+    const out = spawnSync('where', ['npm'], { encoding: 'utf8', timeout: 10_000 });
+    if (out.status !== 0 || !out.stdout) return null;
+    for (const line of out.stdout.split(/\r?\n/)) {
+      if (!/npm(\.cmd)?$/i.test(line.trim())) continue;
+      const cli = join(dirname(line.trim()), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+      if (existsSync(cli)) return cli;
+    }
+  } catch {
+    /* no where.exe, or an exotic PATH: the caller treats null as not found */
+  }
   return null;
 }
 
 function run(argv: string[]): Promise<{ code: number; output: string }> {
   return new Promise((resolve) => {
-    // A bare command name on Windows is a .cmd shim and needs a shell; the
-    // shell does not quote, so arguments with spaces (a --prefix under
-    // C:\Users\First Last) are wrapped by hand. Absolute paths (the node
-    // fallback from findNpm) spawn directly and keep array-argument safety.
-    const bare = !argv[0].includes('/') && !argv[0].includes('\\');
-    const child =
-      process.platform === 'win32' && bare
-        ? spawn(argv.map((a) => (a.includes(' ') ? `"${a}"` : a)).join(' '), [], {
-            stdio: ['ignore', 'pipe', 'pipe'],
-            shell: true,
-          })
-        : spawn(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'] });
+    // Array arguments, never a shell: findNpm only hands out argvs that spawn
+    // directly (bare npm on POSIX, or node running npm-cli.js everywhere).
+    const child = spawn(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     child.stdout.on('data', (d) => {
       output += d;
