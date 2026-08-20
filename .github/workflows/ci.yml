@@ -7,9 +7,16 @@ on:
   # cancel each other.
   push:
     branches: [main]
+  # The default types plus ready_for_review: draft pull requests skip the
+  # browser suite, so the flip to ready has to fire a run that includes it.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # A manual full run, browser suite included, on any branch. No PR needed.
+  workflow_dispatch:
 
-# A second push to a PR cancels the first run rather than queueing behind it.
+# A second push cancels the first run rather than queueing behind it. One group
+# covers the whole pipeline: everything in a superseded run was testing a stale
+# commit, the browser suite included.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -21,6 +28,71 @@ permissions:
   contents: read
 
 jobs:
+  # Decides whether the browser suite is owed. One binary question: does any
+  # changed file fall outside the docs-safe list below? Unknown events, API
+  # errors, empty answers and oversized diffs all answer yes. Deny by default.
+  changes:
+    name: change classifier
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      e2e: ${{ steps.classify.outputs.e2e }}
+    steps:
+      - name: Classify the changed files
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          e2e=true
+          files=""
+          case "$EVENT" in
+            pull_request)
+              files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename') || files="__ERROR__"
+              ;;
+            push)
+              # The non_fast_forward rule on main guarantees BEFORE...AFTER is
+              # a clean ancestor range.
+              files=$(gh api "repos/$REPO/compare/$BEFORE...$AFTER" --paginate --jq '.files[].filename') || files="__ERROR__"
+              ;;
+            *)
+              files="__FORCE__"
+              ;;
+          esac
+          count=$(printf '%s\n' "$files" | grep -c . || true)
+          if [ "$files" != "__ERROR__" ] && [ "$files" != "__FORCE__" ] && [ "$count" -gt 0 ] && [ "$count" -lt 300 ]; then
+            e2e=false
+            while IFS= read -r f; do
+              case "$f" in
+                # In a bash case pattern * matches "/" too, so these behave as
+                # **-globs. Anything not listed is runtime by fallthrough:
+                # code, templates, workflows, configs, the lockfile, specs.
+                *.md) ;;
+                docs/*) ;;
+                LICENSE*|NOTICE) ;;
+                .github/ISSUE_TEMPLATE/*) ;;
+                .github/CODEOWNERS) ;;
+                *) e2e=true; break ;;
+              esac
+            done <<< "$files"
+          fi
+          echo "e2e=$e2e" >> "$GITHUB_OUTPUT"
+          if [ "$e2e" = "true" ]; then
+            echo "Runtime change, full E2E required." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Change type: docs-only. E2E skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "e2e=$e2e for $count changed file(s):"
+          printf '%s\n' "$files" | head -50
+
   check:
     name: typecheck, lint, test (node ${{ matrix.node }})
     runs-on: ubuntu-latest
@@ -91,3 +163,133 @@ jobs:
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  e2e:
+    name: e2e (${{ matrix.name }})
+    needs: changes
+    # Skips only for the two intended reasons: a docs-only diff, or a draft
+    # pull request (the flip to ready re-triggers via ready_for_review). The
+    # gate refuses any other skip.
+    if: >-
+      needs.changes.outputs.e2e == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    # A healthy leg is minutes. Without this a hung browser holds a runner for
+    # GitHub's six-hour default, which is how a broken suite turns into a bill.
+    timeout-minutes: 20
+    strategy:
+      # Both legs finish, so one flaky leg does not hide the other's verdict.
+      fail-fast: false
+      matrix:
+        include:
+          # Two legs so the wall clock is the chromium leg, not the sum of all
+          # three projects. The tablet project is a real iPad, and an iPad is
+          # WebKit, so that leg installs both engines. Installing only Chromium
+          # once made every tablet test die on launch in a few milliseconds,
+          # which reads as 28 test failures rather than one missing browser.
+          - name: chromium
+            browsers: chromium
+            args: --project=chromium
+          - name: mobile-tablet
+            browsers: chromium webkit
+            args: --project=mobile --project=tablet
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        # No step pushes with git, so the token has no business sitting in
+        # .git/config while dependency install scripts and tests run.
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve the Playwright version
+        id: pw
+        run: echo "version=$(pnpm --filter @scenri/studio exec node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # The browser binaries change only when Playwright does; downloading
+      # them fresh cost about 40 seconds on every run.
+      - name: Cache the Playwright browsers
+        id: pw-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @scenri/studio exec playwright install --with-deps ${{ matrix.browsers }}
+
+      # The cache holds the binaries, not the OS packages they link against.
+      - name: Install browser OS dependencies
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @scenri/studio exec playwright install-deps ${{ matrix.browsers }}
+
+      - name: Build the studio
+        run: pnpm build
+
+      # The suite drives a real server on purpose: synthetic events cannot
+      # reproduce focus or caret behaviour, so there is nothing to mock. Each
+      # spec file starts and seeds a Scenri of its own on an empty home
+      # (e2e/harness.ts), so there is no library to point anywhere and nothing
+      # left behind to clean up.
+      - name: Run Playwright
+        run: pnpm --filter @scenri/studio exec playwright test ${{ matrix.args }}
+
+      # Traces, not playwright-report: the reporter is `list`, so no HTML
+      # report is ever written, and the trace is what shows the failing screen.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: failure()
+        with:
+          name: playwright-traces-${{ matrix.name }}
+          path: apps/studio/test-results/
+          retention-days: 7
+
+  # The one required status check on main. `always()` is load-bearing: without
+  # it a failed upstream job would leave this job "skipped", and GitHub counts
+  # a skipped required check as passing. The ruleset requires this job by its
+  # literal name, so renaming "CI gate" without updating the ruleset leaves
+  # every PR stuck waiting on a check that never reports.
+  gate:
+    name: CI gate
+    needs: [changes, check, secrets, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          # Matrix jobs aggregate: success only when every leg passed.
+          CHECK: ${{ needs.check.result }}
+          SECRETS: ${{ needs.secrets.result }}
+          E2E: ${{ needs.e2e.result }}
+          E2E_REQUIRED: ${{ needs.changes.outputs.e2e }}
+          DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
+        run: |
+          fail() { echo "::error::CI gate: $1"; exit 1; }
+          [ "$CHANGES" = "success" ] || fail "change classifier: $CHANGES"
+          [ "$CHECK" = "success" ] || fail "fast checks: $CHECK"
+          [ "$SECRETS" = "success" ] || fail "secret scan: $SECRETS"
+          case "$E2E" in
+            success) ;;
+            skipped)
+              # A skip is legitimate only when the e2e job's own condition
+              # produced it: a docs-only diff or a draft PR. A skip caused by
+              # the classifier failing is already fatal above.
+              if [ "$E2E_REQUIRED" = "true" ] && [ "$DRAFT" != "true" ]; then
+                fail "E2E was required but did not run"
+              fi
+              echo "E2E skipped (docs-only or draft), acceptable"
+              ;;
+            *)
+              fail "E2E: $E2E"
+              ;;
+          esac
+          echo "All checks green."
