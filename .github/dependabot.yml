@@ -2,6 +2,11 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    # Onto dev, never main. Everything else in this repo reaches main through a
+    # dev -> main pull request, and a dependency bump is not special enough to
+    # earn its own path: main should only ever receive merges that were
+    # reviewed on dev, and dev should never fall behind main.
+    target-branch: dev
     # Monthly, not weekly. A solo maintainer reviewing five dependency PRs a
     # week reviews none of them, and an ignored PR is worse than a late one:
     # it trains you to skim past the queue where a real problem will sit.
@@ -38,7 +43,19 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: dev
     schedule:
       interval: monthly
+    open-pull-requests-limit: 3
     commit-message:
       prefix: 'chore(ci)'
+    # Same rule as npm above, and for a sharper reason: these actions are the
+    # release machinery. release.yml pins release-please to v4 and carries a
+    # written workaround for a v4 accessor bug (googleapis/release-please#2598)
+    # that decides whether a release is created at all. A major arriving as a
+    # routine PR is a migration disguised as an upgrade, and the place it would
+    # break is the next release rather than CI. Majors here get read, tested
+    # against a dispatch run, and opened by hand.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
