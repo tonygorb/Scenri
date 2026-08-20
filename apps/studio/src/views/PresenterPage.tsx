@@ -4,6 +4,7 @@ import { TextArea, TextField } from '@radix-ui/themes';
 import { api, type PresenterPatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useTitleEntity } from '../useDocumentTitle.js';
 import { customPresenterById } from '../brandAssets.js';
 import { presenterPath, presentersPath, shotPath } from '../routes.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
@@ -35,6 +36,7 @@ export function PresenterPage() {
   // compiler resolves them in.
   const owned = customPresenterById(brand, presenterId);
   const presenter = owned ?? presenters.find((p) => p.id === presenterId);
+  useTitleEntity(presenter?.name);
 
   useEffect(() => {
     let alive = true;

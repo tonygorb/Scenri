@@ -25,6 +25,7 @@ import { CreateView } from './views/Create.js';
 import { ShotDetailRoute } from './views/ShotDetailRoute.js';
 import { FailureRow } from './layout/Failure.js';
 import { describeFailure } from './failure.js';
+import { useTitleEntity } from './useDocumentTitle.js';
 
 function RouteError() {
   const error = useRouteError() as any;
@@ -52,6 +53,7 @@ function SetRoute() {
   const navigate = useNavigate();
   const here = useMatch({ path: P.set, end: false });
   const set = sets.find((s) => s.slug === setSlug) ?? sets.find((s) => s.id === setSlug) ?? null;
+  useTitleEntity(set?.name);
 
   /**
    * A rename moves two things that live in different stores: the slug in the

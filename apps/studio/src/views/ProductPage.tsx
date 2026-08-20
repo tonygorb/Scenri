@@ -6,6 +6,7 @@ import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { useToasts } from '../toasts.js';
+import { useTitleEntity } from '../useDocumentTitle.js';
 import { productPath, productsPath, shotPath } from '../routes.js';
 import { CategoryPicker } from '../layout/CategoryPicker.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
@@ -117,6 +118,7 @@ export function ProductPage() {
     () => (product ? undefined : demoProducts.find((d) => d.id === productId)),
     [product, demoProducts, productId],
   );
+  useTitleEntity((product ?? demoProduct)?.name);
 
   const [demoFrames, setDemoFrames] = useState<{ angle: string; url: string }[]>([]);
   useEffect(() => {
