@@ -19,6 +19,8 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 npx scenri
 ```
 
+<sub>Needs [Node.js](https://nodejs.org) 22 or newer. New to any of this? The [install guide](docs/INSTALL.md) walks through every step.</sub>
+
 <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="The Scenri composer: a dollar sign opens a product picker and Selvedge Trucker is chosen, an at sign picks the presenter Maren, a slash picks the Editorial Walk scene, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
 
 <sub>Pick a product, pick a presenter, pick a scene, then write the direction. That is the brief.</sub>
@@ -55,15 +57,17 @@ The brand kit sits one gesture away in Settings and is the part that keeps outpu
 
 ## Run it
 
+Scenri runs on [Node.js](https://nodejs.org), version 22 or newer. If you are not sure you have it, or terminals are not part of your day, the **[install guide](docs/INSTALL.md)** covers every step for macOS, Windows and Linux. With Node in place:
+
 ```bash
 npx scenri
 ```
 
-That is the whole install. It opens `http://127.0.0.1:4747`.
+That is the whole install. npm asks once whether to proceed, downloads the current release, and opens `http://127.0.0.1:4747`. Keep the terminal window open while you work; closing it stops Scenri. Tomorrow the same command opens it again, with everything where you left it.
 
 Generation runs on **Codex CLI**, an official helper from OpenAI that draws on your own ChatGPT plan. No API key to paste, and Scenri never charges you. Each image draws on your plan's Codex usage. You do not have to set it up by hand: if it is missing, Scenri offers to install it and to sign you in, both from the app. No ChatGPT plan? Add your own key from an image provider in Settings instead, see [Engines](#engines).
 
-Requires **Node 22 or newer**. Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once.
+Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once. Something not starting? See [troubleshooting](docs/INSTALL.md#troubleshooting).
 
 <details>
 <summary>Run from source</summary>
