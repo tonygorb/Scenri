@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.3.2',
+    date: '2026-08-20',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'When your computer refuses the Codex CLI install, setup now offers the command that gets past it instead of repeating the one that just failed. And once a step has succeeded, an old error clears instead of lingering under the green check.',
+      },
+    ],
+  },
+  {
     version: '0.3.1',
     date: '2026-08-20',
     sections: [
