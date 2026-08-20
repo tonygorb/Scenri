@@ -51,6 +51,13 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.3.3',
+    date: '2026-08-20',
+    // Documentation only: the links on the npm package page were resolving
+    // against the package folder and 404ing. Nothing inside the app changed.
+    sections: [],
+  },
+  {
     version: '0.3.2',
     date: '2026-08-20',
     sections: [
