@@ -46,6 +46,15 @@ studio rather than source, so the build has to come first:
 pnpm build && pnpm --filter @scenri/studio test:e2e
 ```
 
+## What CI runs
+
+Every pull request runs typecheck, lint, unit tests (Node 22 and 24) and a
+secret scan. The browser (E2E) suite runs unless every changed file is
+documentation: markdown, `docs/`, LICENSE, issue templates. Code, configs,
+workflows and the lockfile always trigger it. Draft pull requests skip E2E
+until marked ready for review. The single required check is "CI gate"; it goes
+green only when everything that was supposed to run passed.
+
 ## Ground rules
 
 - Conventional commits. The released version is generated from them, so the prefix decides the bump: `fix:` is a patch, `feat:` is a minor, and `chore:`, `docs:`, `refactor:`, `test:`, `ci:` release nothing.
