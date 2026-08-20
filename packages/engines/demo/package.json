@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@scenri/core": "workspace:*",
-    "sharp": "^0.34.0"
+    "sharp": "^0.35.3"
   },
   "private": true
 }
