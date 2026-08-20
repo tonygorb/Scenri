@@ -182,14 +182,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Two legs so the wall clock is the chromium leg, not the sum of all
-          # three projects. The tablet project is a real iPad, and an iPad is
-          # WebKit, so that leg installs both engines. Installing only Chromium
-          # once made every tablet test die on launch in a few milliseconds,
-          # which reads as 28 test failures rather than one missing browser.
-          - name: chromium
+          # Legs run on separate runners so the wall clock is the slowest leg,
+          # not the sum of the projects. The chromium project is the big half,
+          # so it is sharded in two; with workers:1 a shard is a set of whole
+          # spec files, and every file boots its own server, so the split
+          # changes nothing about isolation. The tablet project is a real
+          # iPad, and an iPad is WebKit, so that leg installs both engines.
+          # Installing only Chromium once made every tablet test die on launch
+          # in a few milliseconds, which reads as 28 test failures rather than
+          # one missing browser.
+          - name: chromium-1
             browsers: chromium
-            args: --project=chromium
+            args: --project=chromium --shard=1/2
+          - name: chromium-2
+            browsers: chromium
+            args: --project=chromium --shard=2/2
           - name: mobile-tablet
             browsers: chromium webkit
             args: --project=mobile --project=tablet

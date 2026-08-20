@@ -20,8 +20,12 @@ import { canAutoOpen } from './whatsNewRules.js';
  * about whichever brand happens to be open.
  */
 
-/** Long enough that it never lands on top of a first paint or a route change. */
-const SETTLE_MS = 2500;
+/**
+ * Long enough that it never lands on top of a first paint or a route change.
+ * The e2e suite shortens it through localStorage before boot: several of its
+ * assertions are "nothing appears", and each one has to out-wait this delay.
+ */
+const SETTLE_MS = Number(window.localStorage.getItem('scenri:whatsnew-settle-ms') ?? 2500) || 2500;
 
 interface WhatsNewValue {
   /**

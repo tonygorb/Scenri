@@ -8,6 +8,11 @@ import { isolate } from './harness.js';
 
 isolate();
 
+// Both tests wait out the 2.5s auto-open settle; shorten it before boot.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('scenri:whatsnew-settle-ms', '300'));
+});
+
 const ENTRY = {
   version: '9.9.9',
   date: '2026-08-16',
