@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.3.1',
+    date: '2026-08-20',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'Starting Scenri is calmer when something is wrong. A busy port or a failed start now explains itself in plain words instead of a stack trace, and the terminal says to keep its window open while Scenri runs.',
+      },
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-08-20',
     title: 'The name is Scenri.',

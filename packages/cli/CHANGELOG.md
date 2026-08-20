@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/tonygorb/scenri/compare/v0.3.0...v0.3.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* calm boot failures and stop the silent hang on a busy port ([d04946f](https://github.com/tonygorb/scenri/commit/d04946f011b204c230473f5338f0a32f8870a1d0))
+* friendly first-run errors and the install guide ([b1782ad](https://github.com/tonygorb/scenri/commit/b1782adb4fc48807e384a208ee8894022d62d615))
+
 ## [0.3.0](https://github.com/tonygorb/scenri/compare/v0.2.3...v0.3.0) (2026-08-20)
 
 
