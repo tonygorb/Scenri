@@ -11,7 +11,7 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 
 [![CI](https://github.com/tonygorb/scenri/actions/workflows/ci.yml/badge.svg)](https://github.com/tonygorb/scenri/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/scenri)](https://www.npmjs.com/package/scenri)
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue)](https://github.com/tonygorb/scenri/blob/main/LICENSE)
 
 **Get started:** one command, no account.
 
@@ -19,7 +19,7 @@ Define a client's brand once. Then generate, branch, and art-direct on-brand ima
 npx scenri
 ```
 
-<sub>Needs [Node.js](https://nodejs.org) 22 or newer. New to any of this? The [install guide](docs/INSTALL.md) walks through every step.</sub>
+<sub>Needs [Node.js](https://nodejs.org) 22 or newer. New to any of this? The [install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md) walks through every step.</sub>
 
 <img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="The Scenri composer: a dollar sign opens a product picker and Selvedge Trucker is chosen, an at sign picks the presenter Maren, a slash picks the Editorial Walk scene, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
 
@@ -57,7 +57,7 @@ The brand kit sits one gesture away in Settings and is the part that keeps outpu
 
 ## Run it
 
-Scenri runs on [Node.js](https://nodejs.org), version 22 or newer. If you are not sure you have it, or terminals are not part of your day, the **[install guide](docs/INSTALL.md)** covers every step for macOS, Windows and Linux. With Node in place:
+Scenri runs on [Node.js](https://nodejs.org), version 22 or newer. If you are not sure you have it, or terminals are not part of your day, the **[install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md)** covers every step for macOS, Windows and Linux. With Node in place:
 
 ```bash
 npx scenri
@@ -67,7 +67,7 @@ That is the whole install. npm asks once whether to proceed, downloads the curre
 
 Generation runs on **Codex CLI**, an official helper from OpenAI that draws on your own ChatGPT plan. No API key to paste, and Scenri never charges you. Each image draws on your plan's Codex usage. You do not have to set it up by hand: if it is missing, Scenri offers to install it and to sign you in, both from the app. No ChatGPT plan? Add your own key from an image provider in Settings instead, see [Engines](#engines).
 
-Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once. Something not starting? See [troubleshooting](docs/INSTALL.md#troubleshooting).
+Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once. Something not starting? See [troubleshooting](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md#troubleshooting).
 
 <details>
 <summary>Run from source</summary>
@@ -95,7 +95,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 - **Iteration is the product.** A version tree, not a prompt box. Branch, compare, keep the winners.
 - **Your brands are files, not hostages.** `.brand` is an open, documented format under a permissive license. Email one to a client. Any tool can adopt it.
 - **Your AI, your cost.** Bring your own Codex CLI session or an API key. Experiments cost raw API price, or nothing at all on a local session. No credits that burn on a miss.
-- **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only. Scenri makes exactly two requests on its own behalf: a daily version-number check against npm so updates can announce themselves, and a one-time download of the library imagery archive, cached locally forever after. Nothing about you or your work is ever sent, and both turn off: in Settings or `SCENRI_NO_UPDATE_CHECK=1` for the first, `SCENRI_NO_CONTENT_FETCH=1` for the second ([how updates work](docs/updates.md)).
+- **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only. Scenri makes exactly two requests on its own behalf: a daily version-number check against npm so updates can announce themselves, and a one-time download of the library imagery archive, cached locally forever after. Nothing about you or your work is ever sent, and both turn off: in Settings or `SCENRI_NO_UPDATE_CHECK=1` for the first, `SCENRI_NO_CONTENT_FETCH=1` for the second ([how updates work](https://github.com/tonygorb/scenri/blob/main/docs/updates.md)).
 
 ## Engines
 
@@ -148,23 +148,23 @@ One package publishes to npm: **`scenri`**, the CLI, which bundles everything el
 
 ## Contributing
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md). Engine adapters are the friendliest surface: one file, one interface, well covered by tests.
+Start with [CONTRIBUTING.md](https://github.com/tonygorb/scenri/blob/main/CONTRIBUTING.md). Engine adapters are the friendliest surface: one file, one interface, well covered by tests.
 
-Accessibility is tracked in [docs/A11Y-BACKLOG.md](docs/A11Y-BACKLOG.md). Every Biome a11y rule runs at `error`, so the backlog is currently empty and a new defect fails CI rather than joining a list.
+Accessibility is tracked in [docs/A11Y-BACKLOG.md](https://github.com/tonygorb/scenri/blob/main/docs/A11Y-BACKLOG.md). Every Biome a11y rule runs at `error`, so the backlog is currently empty and a new defect fails CI rather than joining a list.
 
-Found a security problem? Please report it privately. See [SECURITY.md](SECURITY.md).
+Found a security problem? Please report it privately. See [SECURITY.md](https://github.com/tonygorb/scenri/blob/main/SECURITY.md).
 
 ## Status
 
-Early. The version is `0.x` and interfaces can still move. Everything documented above works today. [ROADMAP.md](ROADMAP.md) says what is next.
+Early. The version is `0.x` and interfaces can still move. Everything documented above works today. [ROADMAP.md](https://github.com/tonygorb/scenri/blob/main/ROADMAP.md) says what is next.
 
 ## License
 
-The application is [AGPL-3.0-only](LICENSE). The `.brand` format, its schema, and its validator live in [packages/brand-spec](https://github.com/tonygorb/scenri/tree/main/packages/brand-spec) under Apache-2.0, so any tool may implement or reuse them without taking on copyleft; the npm package carries that license text as `LICENSE-APACHE-2.0-brand-spec`. Contributions require a [CLA](CLA.md).
+The application is [AGPL-3.0-only](https://github.com/tonygorb/scenri/blob/main/LICENSE). The `.brand` format, its schema, and its validator live in [packages/brand-spec](https://github.com/tonygorb/scenri/tree/main/packages/brand-spec) under Apache-2.0, so any tool may implement or reuse them without taking on copyleft; the npm package carries that license text as `LICENSE-APACHE-2.0-brand-spec`. Contributions require a [CLA](https://github.com/tonygorb/scenri/blob/main/CLA.md).
 
-The bundled imagery and curated content are licensed separately under [ASSETS-LICENSE.md](docs/ASSETS-LICENSE.md): free to use within Scenri, commercial work included; no redistribution or rebundling. The npm package's `license` field describes the code; the starter imagery inside it stays under those asset terms.
+The bundled imagery and curated content are licensed separately under [ASSETS-LICENSE.md](https://github.com/tonygorb/scenri/blob/main/docs/ASSETS-LICENSE.md): free to use within Scenri, commercial work included; no redistribution or rebundling. The npm package's `license` field describes the code; the starter imagery inside it stays under those asset terms.
 
-The name and the mark are not part of the code license: [TRADEMARKS.md](TRADEMARKS.md) says what a fork may and may not call itself. What the app does and does not send anywhere is written down in [PRIVACY.md](PRIVACY.md).
+The name and the mark are not part of the code license: [TRADEMARKS.md](https://github.com/tonygorb/scenri/blob/main/TRADEMARKS.md) says what a fork may and may not call itself. What the app does and does not send anywhere is written down in [PRIVACY.md](https://github.com/tonygorb/scenri/blob/main/PRIVACY.md).
 
 ---
 
