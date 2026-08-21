@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.5](https://github.com/tonygorb/Scenri/compare/v0.3.4...v0.3.5) (2026-08-20)
+
+
+### Bug Fixes
+
+* keep untrusted text out of the Windows shell lines ([f564c35](https://github.com/tonygorb/Scenri/commit/f564c358dc018f2e7e52e00eae004122690dc2be))
+* make the Codex engine and updates work on Windows ([f94f420](https://github.com/tonygorb/Scenri/commit/f94f42069049b65920dfc95491a074cfd3617b8f))
+* make the Codex engine and updates work on Windows ([f21cb9d](https://github.com/tonygorb/Scenri/commit/f21cb9d513f291bfc64585f9f3a3f67ea5738bde))
+
+
+### Performance Improvements
+
+* cut the e2e wall clock roughly in half ([2cacbce](https://github.com/tonygorb/Scenri/commit/2cacbced34b6c58541c0b7942cd107aaa234f477))
+
 ## [0.3.4](https://github.com/tonygorb/Scenri/compare/v0.3.3...v0.3.4) (2026-08-20)
 
 
