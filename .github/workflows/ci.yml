@@ -293,13 +293,17 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
 
+      # Both install steps carry their own timeout: apt behind them once hung
+      # on a mirror for the full 20-minute job budget before any test ran.
       - name: Install browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
         run: pnpm --filter @scenri/studio exec playwright install --with-deps ${{ matrix.browsers }}
 
       # The cache holds the binaries, not the OS packages they link against.
       - name: Install browser OS dependencies
         if: steps.pw-cache.outputs.cache-hit == 'true'
+        timeout-minutes: 5
         run: pnpm --filter @scenri/studio exec playwright install-deps ${{ matrix.browsers }}
 
       - name: Build the studio
