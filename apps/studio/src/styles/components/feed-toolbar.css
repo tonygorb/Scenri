@@ -418,9 +418,16 @@
 }
 /* a coarse pointer has no hover to reveal with, so it never hides */
 @media (pointer: coarse) {
-  .sc-cell-branch,
-  .sc-cell-archive {
+  .sc-cell-branch {
     opacity: 1;
+  }
+  /* Archive stays out of the row under a finger. Long press already opens a
+     menu with Archive in it, so a permanently pinned button is a second way to
+     reach the same thing, paid for in chrome over the photograph and in the
+     width the fact chips need: with it in the row, a phone tile cut off its own
+     variant count to make room. Refine has no such second route, so it stays. */
+  .sc-cell-archive {
+    display: none;
   }
 }
 

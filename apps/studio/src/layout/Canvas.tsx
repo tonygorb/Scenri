@@ -292,13 +292,17 @@ export function Canvas({
               positioned band across the whole bottom edge, painted after this
               row and therefore on top of it, which is why the set names ran
               through the version count and under the Refine button. It is a
-              fact about the picture, so it belongs with the other facts. Many
-              sets become a count: the full list is on the title, and a tile is
-              not a place to read a list. */}
+              fact about the picture, so it belongs with the other facts.
+
+              A count rather than the names: set names are arbitrarily long, and
+              on a phone tile one of them pushed the variant count into an
+              ellipsis, which is the row cutting off a fact to make room for
+              another. The names are on the title. A tile is not a place to read
+              a list. */}
           {inSets.length > 0 && (
             <span className="sc-fact" title={inSets.map((s) => s.name).join(', ')}>
               <FolderSimple size={11} />
-              {inSets.length === 1 ? inSets[0].name : `${inSets.length} sets`}
+              {inSets.length} set{inSets.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
