@@ -351,8 +351,10 @@
     box-shadow: none;
   }
 }
+/* The brief already records the shape, so the placeholder holds it. 4/5 stays
+   as the fallback for the optimistic sending tile, which has no node yet. */
 .sc-cell[data-running] {
-  aspect-ratio: 4 / 5;
+  aspect-ratio: var(--sc-cell-ar, 4 / 5);
   cursor: default;
 }
 .sc-cell-tag {
@@ -640,10 +642,15 @@ button.sc-fact:hover {
   border-radius: var(--sc-radius-sm);
   object-fit: cover;
 }
-/* the stand-in while the version being refined is still rendering */
+/* the stand-in while the version being refined is still rendering.
+   position is load bearing: .sc-shimmer is absolutely positioned, and without
+   a containing block here it escaped to the fixed dock and swept the whole
+   composer instead of this 20px square */
 .sc-target-thumb {
   display: inline-block;
   flex: none;
+  position: relative;
+  overflow: hidden;
 }
 .sc-target-lb b {
   color: var(--sc-fg);

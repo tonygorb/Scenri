@@ -16,6 +16,8 @@ import { FailureNote } from './Failure.js';
 import { elapsedSec } from '../tasks.js';
 import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 import { RunningTag } from './canvas/RunningTag.js';
+import { FeedImage } from './canvas/FeedImage.js';
+import { aspectOfFormat } from '../composer/formats.js';
 
 /**
  * The feed: every shot the current lens admits, as a masonry tile.
@@ -134,7 +136,15 @@ export function Canvas({
           // (React warned on it), and the same nested-interactive mistake this
           // pass already fixed for SceneCard and the kept-star badge. A sibling
           // now, matching that pattern.
-          <div key={n.id} className="sc-cell" data-running="true" data-fb-node={n.id}>
+          <div
+            key={n.id}
+            className="sc-cell"
+            data-running="true"
+            data-fb-node={n.id}
+            // the shape the brief asked for, so the picture lands in the space
+            // already held for it instead of resizing its column
+            style={{ '--sc-cell-ar': aspectOfFormat(n.brief?.format) } as CSSProperties}
+          >
             <button
               type="button"
               className="sc-cell-open"
@@ -336,7 +346,7 @@ export function Canvas({
               aria-label={`Open ${nodeLabel(n)}, take ${i + 1} of ${n.images.length}`}
               onClick={() => onOpen(n.id, i)}
             >
-              <img src={imgUrl(hash)} alt="" loading="lazy" />
+              <FeedImage src={imgUrl(hash)} aspect={aspectOfFormat(n.brief?.format)} />
             </button>
             {/* An opened-out take gets the same bottom line as any other tile:
                 what it is on the left, what to do with it on the right. It used
@@ -407,7 +417,7 @@ export function Canvas({
                 aria-label={`Open ${nodeLabel(n)}`}
                 onClick={() => onOpen(n.id)}
               >
-                <img src={imgUrl(n.images[0])} alt="" loading="lazy" />
+                <FeedImage src={imgUrl(n.images[0])} aspect={aspectOfFormat(n.brief?.format)} />
               </button>
               <div className="sc-cell-bar">
                 {facts}

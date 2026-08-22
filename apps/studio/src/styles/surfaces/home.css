@@ -262,6 +262,32 @@
   width: 100%;
   display: block;
 }
+/* The one moment the app has no cached copy of a picture is the shot that just
+   finished. The wrapper keeps the brief's shape and shimmers underneath until
+   the pixels decode, so the reveal is a fade rather than a blank tile that
+   snaps. */
+.sc-cellimg {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--sc-cell-ar, auto);
+  overflow: hidden;
+}
+.sc-cellimg img {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.sc-cellimg[data-loaded] img {
+  opacity: 1;
+}
+.sc-cellimg[data-loaded] {
+  aspect-ratio: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-cellimg img {
+    transition: none;
+  }
+}
 .sc-cell:hover {
   border-color: var(--sc-line-strong);
 }
