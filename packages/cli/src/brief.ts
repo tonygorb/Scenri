@@ -286,10 +286,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // full-length in the same neutral off-white uniform; the old wording
           // ("do not restyle them") read as preserve-the-photo-wholesale, and
           // that uniform kept walking into finished commercial images.
+          // The release was still not enough on its own. In a 12 frame
+          // presenter battery the capture layer came back in four of them, so
+          // the last clause names the failure instead of only describing what
+          // the reference is, and says what to do when the direction is silent
+          // rather than leaving the model to fall back on the photograph.
           personDirectives.push(
             'The attached person reference is the same person every time: match their face, facial structure, skin, hair and build exactly. ' +
               'Their outfit, pose, background and lighting are neutral studio capture conditions, not styling direction: ' +
-              'dress and style them for this shot, to a commercial standard, following any wardrobe the direction itself specifies.',
+              'dress and style them for this shot, to a commercial standard, following any wardrobe the direction itself specifies. ' +
+              'Where the direction specifies none, dress them for the place and the occasion the frame shows, and never return them to the plain base layers they were photographed in.',
           );
           // Presenters carry the same kind of identity metadata products do
           // (identityNotes / negativeConstraints). It used to be dropped on
