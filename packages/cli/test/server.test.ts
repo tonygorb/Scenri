@@ -639,6 +639,40 @@ describe('diff + export + settings', () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  // A phone stores a portrait photo in its sensor orientation and records the
+  // turn in an EXIF tag. Encoding straight to PNG drops that tag, so without
+  // applying it first the picture lies on its side forever and nothing
+  // downstream can tell that it should not.
+  it('bakes in EXIF orientation on upload, so a phone photo is not stored sideways', async () => {
+    const sharp = (await import('sharp')).default;
+    // 40 wide by 20 tall, tagged "rotate 90" — upright it is 20 by 40.
+    const sideways = await sharp({
+      create: { width: 40, height: 20, channels: 3, background: { r: 200, g: 40, b: 40 } },
+    })
+      .withMetadata({ orientation: 6 })
+      .jpeg()
+      .toBuffer();
+
+    const boundary = '----scexif';
+    const payload = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="phone.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`,
+      ),
+      sideways,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const up = await app.inject({
+      method: 'POST',
+      url: '/api/images',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload,
+    });
+    expect(up.statusCode).toBe(200);
+
+    const stored = await sharp(core.images.read(up.json().hash)).metadata();
+    expect({ width: stored.width, height: stored.height }).toEqual({ width: 20, height: 40 });
+  });
+
   it('activity: every project in the brand, named, root excluded', async () => {
     const brand = await mkBrand();
     const other = await mkBrand();
