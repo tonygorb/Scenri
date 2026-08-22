@@ -456,6 +456,20 @@
   gap: 4px;
   min-width: 0;
 }
+/* What to do with the picture, gathered into one group at the end of the row.
+   Archive and Refine used to live in different coordinate systems, one pinned
+   to the top right corner and one inside this row, which is how a keeper star
+   and an archive button ended up negotiating for the same 24px. */
+.sc-cell-acts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  pointer-events: none;
+}
+.sc-cell-acts > * {
+  pointer-events: auto;
+}
 /* One chip. Provenance used to be a full-radius sans pill and the counts
    small-radius mono chips, which is two grammars for one kind of statement. */
 .sc-fact {
