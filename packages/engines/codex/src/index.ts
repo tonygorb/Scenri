@@ -112,15 +112,34 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
           }),
       );
       const results: string[][] = new Array(count);
+      const failures: unknown[] = [];
       let next = 0;
       const workers = Array.from({ length: Math.min(3, count) }, async () => {
         while (next < count) {
           const i = next++;
-          results[i] = await jobs[i]();
+          try {
+            results[i] = await jobs[i]();
+          } catch (err) {
+            // One variant failing used to reject the batch, so three finished
+            // images were thrown away and left orphaned in the content store.
+            // A cancel still has to propagate: the user asked for the stop.
+            if (signal?.aborted) throw err;
+            results[i] = [];
+            failures.push(err);
+          }
         }
       });
       await Promise.all(workers);
-      return { images: results.flat(), costUsd: 0 };
+      const images = results.flat();
+      // Every variant failed, so there is nothing to keep and the reason the
+      // caller needs is the first one.
+      if (!images.length && failures.length) throw failures[0];
+      if (failures.length) {
+        console.warn(
+          `codex: ${failures.length} of ${count} variants failed, keeping ${images.length}: ${String((failures[0] as Error)?.message ?? failures[0])}`,
+        );
+      }
+      return { images, costUsd: 0 };
     },
 
     async edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult> {
@@ -134,7 +153,10 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         const editRoles = req.referenceRoles ?? [];
         const refLines: string[] = [];
         for (let i = 0; i < editRefs.length; i++) {
-          const role = editRoles[i] ?? 'product';
+          // An unnamed reference is not a product. Defaulting to one told the
+          // model to preserve the "label, shape and design" of whatever it was,
+          // which is the mistake the role system exists to prevent.
+          const role = editRoles[i] ?? 'reference';
           const name = `${role}-${i + 1}.png`;
           await copyFile(editRefs[i], join(dir, name));
           refLines.push(`${name} shows ${EDIT_REFERENCE_ROLE_DIRECTIVE[role]}`);
