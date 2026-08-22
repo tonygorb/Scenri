@@ -366,7 +366,14 @@ export function DetailOverlay({
                   {/* the attributes stay as the pre-load intrinsic hint; the box
                       and the crop are the stylesheet's job, and were nobody's
                       until this rail stretched every portrait take it held */}
-                  <img src={imgUrl(h)} alt="" className="sc-thumb" data-active={i === imageIndex} width={52} height={52} />
+                  <img
+                    src={imgUrl(h)}
+                    alt=""
+                    className="sc-thumb"
+                    data-active={i === imageIndex}
+                    width={52}
+                    height={52}
+                  />
                 </button>
               ))}
             </div>

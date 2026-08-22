@@ -378,7 +378,7 @@ describe('edit', () => {
     const { cmd, args } = calls[0];
     expect(cmd).toBe('codex');
     expect(args.slice(0, 4)).toEqual(['exec', '--skip-git-repo-check', '--sandbox', 'workspace-write']);
-    expect(args[args.indexOf('-C') + 2]).toBe(
+    expect(args[args.length - 1]).toBe(
       'Edit input.png using your image generation/editing tool: make the sky teal.' +
         ' Do not browse the web or explore files. Save the result in the current directory as out-1.png' +
         ' (you may run the commands needed to save and resize it). Nothing else.',
@@ -387,6 +387,39 @@ describe('edit', () => {
     expect(saveImage).toHaveBeenCalledTimes(1);
     expect(saveImage.mock.calls[0][0].equals(PNG_2)).toBe(true);
     expect(result).toEqual({ images: ['hash-1'], costUsd: 0 });
+  });
+
+  // The edit path used to only copy the source into the working directory and
+  // mention it in prose, so whether the model ever looked at the picture
+  // depended on the skill going and finding the file. Generate has always
+  // handed its references over with --image.
+  it('hands the source over as a real image input, source first', async () => {
+    const srcDir = mkdtempSync(join(tmpdir(), 'codex-test-src-'));
+    const sourceImage = join(srcDir, 'photo.png');
+    const ref = join(srcDir, 'ref.png');
+    writeFileSync(sourceImage, PNG_1);
+    writeFileSync(ref, PNG_2);
+
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+
+    await engine.edit({
+      instruction: 'remove the cup',
+      sourceImage,
+      brand,
+      referenceImages: [ref],
+      referenceRoles: ['product'],
+    });
+
+    const images = calls[0].args.filter((a) => a.startsWith('--image='));
+    expect(images).toHaveLength(2);
+    expect(images[0]).toContain('input.png');
+    expect(images[1]).toContain('product-1.png');
+    // the prompt is still the positional tail
+    expect(calls[0].args[calls[0].args.length - 1]).toContain('Edit input.png');
   });
 
   // A reference that arrives without a role is not a product. Calling it one
@@ -406,7 +439,7 @@ describe('edit', () => {
 
     await engine.edit({ instruction: 'warmer light', sourceImage, brand, referenceImages: [ref] });
 
-    const promptText = calls[0].args[calls[0].args.indexOf('-C') + 2];
+    const promptText = calls[0].args[calls[0].args.length - 1];
     expect(promptText).toContain('reference-1.png');
     expect(promptText).not.toContain('product-1.png');
     expect(promptText).not.toContain('the exact product');

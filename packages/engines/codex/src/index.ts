@@ -166,7 +166,15 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
           (refLines.length ? ` ${refLines.join('. ')}.` : '') +
           ` Do not browse the web or explore files. Save the result in the current directory as out-1.png ` +
           `(you may run the commands needed to save and resize it). Nothing else.`;
-        await runCodex(execArgs(dir, promptText), signal);
+        // Hand the pictures over the same way generate does. The edit path only
+        // copied them into the working directory and named them in prose, so
+        // whether the model ever looked at the source depended on the skill
+        // going and finding the file. The source leads, because it is the shot.
+        const args = execArgs(dir, promptText);
+        for (const name of ['input.png', ...refLines.map((_, i) => `${editRoles[i] ?? 'reference'}-${i + 1}.png`)]) {
+          args.splice(args.length - 1, 0, `--image=${join(dir, name)}`);
+        }
+        await runCodex(args, signal);
         const images = await collectImages(dir);
         return { images, costUsd: 0 };
       });
