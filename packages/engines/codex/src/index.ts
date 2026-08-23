@@ -11,7 +11,8 @@
  * for. It must never run in a hosted service on someone else's behalf — hence
  * `localOnly: true`.
  */
-import { copyFile, readdir, readFile } from 'node:fs/promises';
+import { copyFile, readdir, readFile, stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
   EDIT_REFERENCE_ROLE_DIRECTIVE,
@@ -39,12 +40,30 @@ export interface CodexEngineOptions extends RunnerOptions {
 
 export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   const { saveImage } = opts;
+  const platform = opts.platform ?? process.platform;
   const runner = opts.runner ?? createRunner(opts);
   const runCodex = runner.run;
   const withWorkDir = runner.withWorkDir;
 
+  /**
+   * Where codex's built-in image tool saves first, before the agent moves the
+   * file into the workdir. That move is what the native Windows sandbox breaks
+   * (openai/codex#34961), so on win32 this directory is the recovery source.
+   */
+  const generatedImagesDir = () => join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'generated_images');
+
+  /** What generated_images held before a job ran; null on posix (no fallback). */
+  async function snapshotGenerated(): Promise<Set<string> | null> {
+    if (platform !== 'win32') return null;
+    try {
+      return new Set(await readdir(generatedImagesDir()));
+    } catch {
+      return new Set();
+    }
+  }
+
   /** Read out-*.png from dir (numerically sorted), save each, return hashes. */
-  async function collectImages(dir: string): Promise<string[]> {
+  async function collectImages(dir: string, before: Set<string> | null = null): Promise<string[]> {
     const entries = await readdir(dir);
     const outFiles = entries
       .filter((name) => /^out-.*\.png$/.test(name))
@@ -55,6 +74,16 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         return a.localeCompare(b);
       });
     if (outFiles.length === 0) {
+      // win32 recovery: the exec succeeded but nothing reached the workdir.
+      // Claim the newest file that appeared in generated_images during this
+      // job — one job, one image, newest first. Known imperfection: two nodes
+      // generating at the same moment could cross-attribute a recovered image;
+      // accepted for a single-user local app over forking CODEX_HOME per job,
+      // which would break auth.
+      if (before) {
+        const recovered = await recoverFromGenerated(before);
+        if (recovered) return [recovered];
+      }
       throw new Error('Codex finished but produced no images');
     }
     const hashes: string[] = [];
@@ -62,6 +91,24 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       hashes.push(saveImage(await readFile(join(dir, name))));
     }
     return hashes;
+  }
+
+  async function recoverFromGenerated(before: Set<string>): Promise<string | null> {
+    const home = generatedImagesDir();
+    let names: string[];
+    try {
+      names = (await readdir(home)).filter((n) => !before.has(n));
+    } catch {
+      return null;
+    }
+    if (!names.length) return null;
+    const stamped = await Promise.all(
+      names.map(async (n) => ({ n, mtime: (await stat(join(home, n))).mtimeMs })),
+    );
+    stamped.sort((a, b) => b.mtime - a.mtime);
+    const pick = stamped[0].n;
+    console.warn(`codex: workdir empty, recovered ${pick} from ${home}`);
+    return saveImage(await readFile(join(home, pick)));
   }
 
   return {
@@ -117,8 +164,9 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
               // positional stdin marker isn't swallowed as a second image path.
               args.splice(args.length - 1, 0, `--image=${dest}`);
             }
+            const before = await snapshotGenerated();
             await runCodex(args, inner.signal, { stdin: buildPrompt(req, i, roles) });
-            return collectImages(dir);
+            return collectImages(dir, before);
           }),
       );
       const results: string[][] = new Array(count);
@@ -198,8 +246,9 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         for (const name of ['input.png', ...refLines.map((_, i) => `${editRoles[i] ?? 'reference'}-${i + 1}.png`)]) {
           args.splice(args.length - 1, 0, `--image=${join(dir, name)}`);
         }
+        const before = await snapshotGenerated();
         await runCodex(args, signal, { stdin: promptText });
-        const images = await collectImages(dir);
+        const images = await collectImages(dir, before);
         return { images, costUsd: 0 };
       });
     },
