@@ -106,3 +106,25 @@ textarea:disabled {
 [data-radix-popper-content-wrapper] {
   z-index: var(--sc-z-popover) !important;
 }
+
+/* ---------- the press, on touch ------------------------------------------
+   Radix blooms an 8px outline under the thumb on `:active` (an 0.5em ring at
+   zero offset), which reads as the control swelling rather than responding.
+   A press is paint, not growth. Scoped off `:focus-visible` so a Space press
+   on a focused button keeps its ring, and specific enough to beat Radix's
+   `:where()`-wrapped rule despite its stylesheet loading first. */
+@media (pointer: coarse) {
+  .rt-BaseButton:active:not(:focus-visible),
+  .rt-Text:where(label):active:not(:focus-visible) {
+    outline: none;
+  }
+  /* The browser's own grey tap flash lands on top of ours and times
+     differently. One press treatment, and it is ours. */
+  .sc-btn,
+  .sc-chip,
+  .sc-icon-btn,
+  .sc-thumb,
+  .sc-pick {
+    -webkit-tap-highlight-color: transparent;
+  }
+}

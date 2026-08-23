@@ -415,7 +415,9 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-chips-sugg .sc-chip {
   color: var(--sc-fg2);
 }
-.sc-chips-sugg .sc-chip:hover {
+/* Same reason as the topbar icon button: a scoped hover out-ranks the shared
+   press fill, so it yields while the chip is held. */
+.sc-chips-sugg .sc-chip:hover:not(:active) {
   color: var(--sc-fg);
 }
 

@@ -150,11 +150,12 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **Primary:** inverse fill, ink background, page-background text (`--sc-inv-bg` / `--sc-inv-fg`). Hover: 0.88 opacity, no color shift.
 - **Ghost:** transparent fill, ink text, hairline border. Hover: raised background + stronger hairline.
 - **Danger:** transparent fill, red text and hover border, otherwise identical to ghost.
-- **Focus:** 2px solid outline in `--sc-focus` (= ink), 2px offset. No glow, no color change.
+- **Pressed:** paint only. Ghost and danger take `--sc-press` as a fill; primary steps its opacity to 0.75. No movement of any kind.
+- **Focus:** 2px solid outline in `--sc-focus` (one full step below ink), 2px offset. No glow, no color change.
 
 ### Chips / Tabs
 - **Style:** transparent fill, hairline border, muted text (`--sc-fg2`), full pill radius, 5px/12px padding, 12.5px/500 label type.
-- **Active state:** inverse fill (same ink-on-bg treatment as primary buttons) + weight bumps to 600. Never gold. Active state is a monochrome inversion, not a color change.
+- **Active state:** inverse fill (same ink-on-bg treatment as primary buttons). Never gold, and never a weight bump: a chip is laid out by its own text, so 500 to 600 moves every chip after it. Active state is a monochrome inversion, not a color change.
 - **Category tab row (`.sc-verticals`) is the exception to the pill shape:** flat text-in-a-row with an underline for the active state, not a chip. Both patterns exist in the system; don't cross them: a tab strip stays underline-style, a filter/chip cluster stays pill-style.
 
 ### Cards / Containers
@@ -192,6 +193,8 @@ A create dialog is a picture being named, not a settings panel. Empty: one large
 - **Do** let product/scene photography carry the color on any screen; keep surrounding chrome monochrome.
 - **Do** reach for the shared active inversion (`--sc-inv-bg`/`--sc-inv-fg`) for any new on/off control: the scene card's bookmark toggle is the worked example. Gold is not an on-state; it belongs to the keeper star, and one colour cannot carry two meanings.
 - **Do** give every new focusable control the system's one focus treatment: `outline: 2px solid var(--sc-focus); outline-offset: 2px`, by adding its selector to the shared list in `styles/foundations/interaction.css` (spell the geometry `var(--sc-ring-w)` / `var(--sc-ring-off)`, the tokens are authoritative), and give fields the same ring via `:focus-within` (`.sc-swap-search`, `.sc-assets-search`). The only sanctioned variation is `outline-offset: 1px` where a control sits in a tight grid or inside another control's border and 2px would collide or spill.
+
+- **Do** keep every state change paint-only: pressed controls never change geometry. Feedback is fill, opacity, border colour or inset shading, never `transform`, padding, border-width or size, so nothing moves under the cursor and a click that lands on an edge stays landed. The shared press list lives in `styles/foundations/interaction.css` alongside the focus list; a selected state follows the same rule, which is why neither chips nor settings rows bump their font-weight. If you scope a hover (`.sc-topbar .sc-icon-btn:hover`), spell it `:hover:not(:active)`, because a scoped hover out-ranks the shared press fill and the control will otherwise hold its hover tone through the press, registering nothing.
 
 ### Don't:
 - **Don't** use gradient text, hero-metric tiles, or identical icon+heading+text card grids, the generic-SaaS-dashboard pattern this system explicitly rejects.
