@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.6](https://github.com/tonygorb/Scenri/compare/v0.4.5...v0.4.6) (2026-08-23)
+
+
+### Bug Fixes
+
+* a removal leaves nothing behind, and a garment needs no invented wearer ([219c1c2](https://github.com/tonygorb/Scenri/commit/219c1c2e64636a6a836cf99ab23a75b3ad7e8a1d))
+* evidence round two, and the timing the app never records ([b1a0cd1](https://github.com/tonygorb/Scenri/commit/b1a0cd1b88dfe1937ef712380ad6ae99f7401d48))
+* record how long a shot took and what pixels it really delivered ([c9258e5](https://github.com/tonygorb/Scenri/commit/c9258e5281877beb7078ea5d87a48fa82efb9f04))
+
 ## [0.4.5](https://github.com/tonygorb/Scenri/compare/v0.4.4...v0.4.5) (2026-08-23)
 
 
