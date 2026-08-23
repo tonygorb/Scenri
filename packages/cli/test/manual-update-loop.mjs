@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * The whole update loop, live, against real artifacts: the launcher
- * supervising (the dispatch regression gate), the check against a fixture
- * registry, background auto-staging (a real npm install plus the verify hop),
- * exit-75 restart, the new version answering, and the library surviving all
- * of it. CI runs this in the update-loop job on updater-relevant changes; it
- * also stays hand-runnable:
+ * supervising (the dispatch regression gate), a release published mid-run
+ * that the periodic schedule discovers with no click and no client request,
+ * background auto-staging (a real npm install plus the verify hop), exit-75
+ * restart, the new version answering, and the library surviving all of it.
+ * CI runs this in the update-loop job on updater-relevant changes; it also
+ * stays hand-runnable:
  *
  *   node packages/cli/test/manual-update-loop.mjs
  *
@@ -59,6 +60,7 @@ ok(`packed ${tarball}`);
 // URLs inside upstream packuments point straight at npmjs, so only metadata
 // flows through the relay.
 const name = manifest.name;
+const currentVersion = JSON.parse(readFileSync(join(CLI, 'package.json'), 'utf8')).version;
 const bytes = readFileSync(tarball);
 const dist = {
   tarball: `http://127.0.0.1:${REG_PORT}/${name}/-/${name}-99.0.0.tgz`,
@@ -70,9 +72,12 @@ const json = (res, body) => {
   res.setHeader('content-type', 'application/json');
   res.end(JSON.stringify(body));
 };
+// Mutable on purpose: the release is "published" mid-run by flipping this,
+// which is the exact long-running-instance scenario the loop exists to prove.
+let latestTag = currentVersion;
 const registry = createServer((req, res) => {
   const url = req.url ?? '/';
-  if (url === `/-/package/${name}/dist-tags`) return json(res, { latest: '99.0.0' });
+  if (url === `/-/package/${name}/dist-tags`) return json(res, { latest: latestTag });
   if (url === `/${name}`) return json(res, packument);
   if (url === `/${name}/-/${name}-99.0.0.tgz`) {
     res.setHeader('content-type', 'application/octet-stream');
@@ -103,6 +108,10 @@ const env = {
   SCENRI_NO_CONTENT_FETCH: '1',
   SCENRI_DEMO_ENGINE: '1',
   SCENRI_REGISTRY: `http://127.0.0.1:${REG_PORT}`,
+  // Harness cadence: the real schedule at test speed. Clamps do not apply off
+  // the public registry, which this fixture is.
+  SCENRI_UPDATE_TICK_MS: '1000',
+  SCENRI_UPDATE_INTERVAL_MS: '2000',
 };
 delete env.SCENRI_NO_UPDATE_CHECK;
 const launcher = spawn('node', [join(CLI, 'dist', 'index.js')], { env, stdio: 'inherit' });
@@ -132,15 +141,33 @@ const seeded = await api('/api/brands', {
 if (seeded.status >= 300) fail(`brand seed failed: ${seeded.status}`);
 ok('seeded a brand');
 
-// -- 5. one forced check; staging must then happen on its own, no apply call
-const checked = await api('/api/update/check', { method: 'POST' });
-if (checked.body?.latest !== '99.0.0' || !checked.body?.available) {
-  fail(`check did not see 99.0.0: ${JSON.stringify(checked.body)}`);
+// -- 5. the long-running-instance scenario: no update exists yet, the server
+// keeps running, a release is published, and the periodic schedule discovers
+// it by itself — no forced check, no client request during the window.
+await new Promise((r) => setTimeout(r, 12_000)); // past the 10s boot check
+const quiet = (await api('/api/update/status')).body;
+if (quiet?.available || quiet?.phase !== 'idle') {
+  fail(`false positive before the release existed: ${JSON.stringify(quiet)}`);
 }
-ok('check sees 99.0.0');
-let readied = null;
+ok(`no update while the registry serves ${currentVersion}`);
+
+latestTag = '99.0.0'; // the release is published while Scenri keeps running
+ok('registry now serves 99.0.0');
+
+// Total client silence: whatever the server knows at the end of this window,
+// only its own schedule can have learned. Staging a real npm install takes
+// longer than the window, so the first status answer proving phase left idle
+// is proof the timer discovered and acted alone.
+await new Promise((r) => setTimeout(r, 20_000));
+const discovered = (await api('/api/update/status')).body;
+if (discovered?.phase === 'idle' && discovered?.stagedVersion === null) {
+  fail(`the schedule never discovered the release: ${JSON.stringify(discovered)}`);
+}
+ok(`the schedule discovered it alone (phase=${discovered.phase})`);
+
+let readied = discovered?.phase === 'ready' ? discovered : null;
 const stageDeadline = Date.now() + 240_000;
-while (Date.now() < stageDeadline) {
+while (!readied && Date.now() < stageDeadline) {
   await new Promise((r) => setTimeout(r, 1500));
   const s = (await api('/api/update/status')).body;
   if (s?.phase === 'ready') {
@@ -151,7 +178,7 @@ while (Date.now() < stageDeadline) {
 }
 if (!readied) fail('auto-staging never reached ready');
 if (readied.stagedVersion !== '99.0.0') fail(`staged the wrong version: ${readied.stagedVersion}`);
-ok('auto-staged 99.0.0 (real npm install + verify hop, no apply call)');
+ok('auto-staged 99.0.0 (real npm install + verify hop, no check click, no apply call)');
 
 // -- 6. one-click restart: exit 75, launcher respawns the staged version
 const restart = await api('/api/update/restart', { method: 'POST' });
