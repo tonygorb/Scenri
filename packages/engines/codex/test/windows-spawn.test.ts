@@ -44,11 +44,16 @@ describe('codex spawn on win32', () => {
     await runner.run(['exec', 'a b', 'say "hi" & del x', '50% cotton', 'line\nbreak']);
 
     // where.exe answered empty, so resolution fell back to the shell line.
+    // The program token stays UNQUOTED: cmd.exe only resolves %~dp0 inside a
+    // .cmd shim to the shim's own directory when the batch was invoked by its
+    // bare name. Quoting it made npm-shim installs resolve their JS against
+    // the caller's cwd and fail as module-not-found (caught by the real-spawn
+    // suite on windows-latest). The token is our constant, never user text.
     expect(calls).toHaveLength(2);
     expect(calls[0].cmd).toBe('where.exe');
     expect(calls[1].args).toEqual([]);
     expect(calls[1].opts.shell).toBe(true);
-    expect(calls[1].cmd).toBe(`"codex" "exec" "a b" "say 'hi' & del x" "50 percent  cotton" "line break"`);
+    expect(calls[1].cmd).toBe(`codex "exec" "a b" "say 'hi' & del x" "50 percent  cotton" "line break"`);
   });
 
   it('spawns a where-resolved codex.exe argv-style, no shell, no substitutions', async () => {

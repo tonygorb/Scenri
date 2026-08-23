@@ -142,9 +142,14 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       .replace(/%/g, ' percent ')}"`;
   const spawnCodex = (exe: ResolvedCodex, args: string[], stdinOpen: boolean) => {
     const stdio: ('pipe' | 'ignore')[] = [stdinOpen ? 'pipe' : 'ignore', 'pipe', 'pipe'];
+    // The program token is never quoted and never substituted: it is our own
+    // constant, and cmd.exe only gives a .cmd shim a correct %~dp0 (the dir
+    // the shim resolves its JavaScript against) when the batch is invoked by
+    // its bare, unquoted name. Quoting it shipped in 0.3.5 and silently broke
+    // every npm-shim install: the shim looked for its JS in the caller's cwd.
     return exe.direct
       ? spawnImpl(exe.command, args, { stdio })
-      : spawnImpl([exe.command, ...args].map(winArg).join(' '), [], { stdio, shell: true });
+      : spawnImpl([exe.command, ...args.map(winArg)].join(' '), [], { stdio, shell: true });
   };
 
   /** Run `codex <args>`, resolving on exit 0; kill + reject after timeoutMs. */

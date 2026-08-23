@@ -132,7 +132,7 @@ describe('probe spawn shapes on win32', () => {
     const runner = createRunner({ spawnImpl, platform: 'win32' });
     await expect(runner.probe()).resolves.toEqual({ ok: true });
     const codexCalls = calls.filter((c) => c.cmd !== 'where.exe');
-    expect(codexCalls[0].cmd).toBe('"codex" "--version"');
+    expect(codexCalls[0].cmd).toBe('codex "--version"');
     expect(codexCalls[0].opts.shell).toBe(true);
   });
 });
