@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canOneClick, floatState } from '../src/app/updateRules.js';
+import { canOneClick, floatState, floatVisible } from '../src/app/updateRules.js';
 import type { UpdateStatus } from '../src/api.js';
 
 const status = (over: Partial<UpdateStatus>): UpdateStatus => ({
@@ -39,6 +39,27 @@ describe('canOneClick', () => {
     for (const blockReason of ['dev', 'unsupervised', 'launcher-too-old'] as const) {
       expect(canOneClick(status({ phase: 'ready', stagedVersion: '0.2.0', canApply: false, blockReason }))).toBe(false);
     }
+  });
+});
+
+describe('floatVisible', () => {
+  it('shows for a published install with an update available', () => {
+    expect(floatVisible(status({}))).toBe(true);
+  });
+
+  it('never floats over a source checkout: About already tells the pull-and-rebuild story, and the only button the float could offer opens a pane with nothing to press', () => {
+    expect(floatVisible(status({ canApply: false, blockReason: 'dev' }))).toBe(false);
+  });
+
+  it('still floats for an unsupervised or launcher-blocked install, where About offers the manual command', () => {
+    expect(floatVisible(status({ canApply: false, blockReason: 'unsupervised' }))).toBe(true);
+    expect(floatVisible(status({ canApply: false, blockReason: 'launcher-too-old' }))).toBe(true);
+    expect(floatVisible(status({ canApply: false, blockReason: 'no-npm' }))).toBe(true);
+  });
+
+  it('is quiet with no status or nothing available', () => {
+    expect(floatVisible(null)).toBe(false);
+    expect(floatVisible(status({ available: false }))).toBe(false);
   });
 });
 

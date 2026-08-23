@@ -28,6 +28,17 @@ export type FloatState =
   | { kind: 'ready'; version: string }
   | { kind: 'stage-error' };
 
+/**
+ * Whether the float has any business appearing. A source checkout never
+ * self-updates and never shows an update action (the dev safety contract), so
+ * a float there could only open About onto a pane with nothing to press — a
+ * dead loop dressed as a button. Every other blocked install keeps its float:
+ * About offers those the manual command, which is a real next step.
+ */
+export function floatVisible(s: UpdateStatus | null): boolean {
+  return !!s?.available && s.blockReason !== 'dev';
+}
+
 export function floatState(s: UpdateStatus): FloatState {
   if (s.phase === 'staging') return { kind: 'downloading' };
   if (s.phase === 'ready') return { kind: 'ready', version: s.stagedVersion ?? s.latest ?? s.current };

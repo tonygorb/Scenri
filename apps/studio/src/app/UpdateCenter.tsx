@@ -4,7 +4,7 @@ import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
 import { P } from '../routes.js';
 import { useOpenSettings } from './dialogs.js';
-import { floatState } from './updateRules.js';
+import { floatState, floatVisible } from './updateRules.js';
 
 /**
  * The machine-scoped update awareness, mounted once in AppShell — deliberately
@@ -256,7 +256,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, busy, applyError }}>
       {children}
-      {busy !== 'restarting' && status?.available && !dismissed && !onSetup && <UpdateFloat />}
+      {busy !== 'restarting' && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
     </Ctx.Provider>
   );
