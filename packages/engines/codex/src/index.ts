@@ -102,9 +102,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       return null;
     }
     if (!names.length) return null;
-    const stamped = await Promise.all(
-      names.map(async (n) => ({ n, mtime: (await stat(join(home, n))).mtimeMs })),
-    );
+    const stamped = await Promise.all(names.map(async (n) => ({ n, mtime: (await stat(join(home, n))).mtimeMs })));
     stamped.sort((a, b) => b.mtime - a.mtime);
     const pick = stamped[0].n;
     console.warn(`codex: workdir empty, recovered ${pick} from ${home}`);

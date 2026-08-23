@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { effectiveEngineId, engineMeta, engineTitle, FALLBACK_ENGINE_ID, perImage, rowAction } from '../src/engines/active.js';
+import {
+  effectiveEngineId,
+  engineMeta,
+  engineTitle,
+  FALLBACK_ENGINE_ID,
+  perImage,
+  rowAction,
+} from '../src/engines/active.js';
 import { KEY_PROVIDERS, keyProviderFor } from '../src/engines/providers.js';
 
 describe('engineTitle', () => {

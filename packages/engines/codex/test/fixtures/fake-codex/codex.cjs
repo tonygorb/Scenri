@@ -68,7 +68,10 @@ function main() {
       const home = process.env.CODEX_HOME || path.join(require('node:os').homedir(), '.codex');
       const out = path.join(home, 'generated_images');
       fs.mkdirSync(out, { recursive: true });
-      fs.writeFileSync(path.join(out, `img-${Date.now()}.png`), Buffer.concat([Buffer.from('PNG'), Buffer.from(prompt)]));
+      fs.writeFileSync(
+        path.join(out, `img-${Date.now()}.png`),
+        Buffer.concat([Buffer.from('PNG'), Buffer.from(prompt)]),
+      );
       process.exit(0);
     }
     const finish = () => {

@@ -166,7 +166,9 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       }
       function onSilence(): void {
         finish(() =>
-          reject(new Error(`Codex CLI produced no output for ${Math.round(noActivityMs / 1000)}s, treating it as stuck`)),
+          reject(
+            new Error(`Codex CLI produced no output for ${Math.round(noActivityMs / 1000)}s, treating it as stuck`),
+          ),
         );
         killCodex(child);
       }

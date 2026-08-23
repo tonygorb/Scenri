@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dialog, Spinner } from '@radix-ui/themes';
-import { ArrowsClockwise, ArrowSquareOut, Check, Copy, DownloadSimple, Key, SignIn, Warning, X } from '@phosphor-icons/react';
+import {
+  ArrowsClockwise,
+  ArrowSquareOut,
+  Check,
+  Copy,
+  DownloadSimple,
+  Key,
+  SignIn,
+  Warning,
+  X,
+} from '@phosphor-icons/react';
 import { api, type CodexSetupState, type EngineInfo, type SetupPlatform } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { focusSelfOnOpen, useOpenSetup } from '../app/dialogs.js';
@@ -558,7 +568,8 @@ function Steps({ phase }: { phase: Phase }) {
   if (phase === 'no-plan') return null;
   // Update-needed means a codex IS installed, just an old one; unverified
   // claims nothing, so neither dot lights.
-  const installed = phase === 'not-authenticated' || phase === 'signing-in' || phase === 'update-needed' || phase === 'ready';
+  const installed =
+    phase === 'not-authenticated' || phase === 'signing-in' || phase === 'update-needed' || phase === 'ready';
   const signedIn = phase === 'ready';
   return (
     <ol className="sc-setup-steps">
