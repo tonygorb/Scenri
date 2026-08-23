@@ -25,6 +25,7 @@ import { inheritedIdentityTokens } from './editIdentity.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
 import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js';
 import { expandCanvas, compositeExpand } from './expand.js';
+import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
 import { registerLogoRoutes } from './routes/logos.js';
 import { registerCatalogImportRoutes } from './routes/catalogImport.js';
@@ -872,7 +873,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const plan = expandPlan;
     // editedFrom is the resolved source, which may have come from the parent
     // rather than from the request body.
-    const original = plan && editedFrom ? core.images.read(editedFrom) : null;
+    const original = editedFrom ? core.images.read(editedFrom) : null;
+    /**
+     * A targeted change keeps the rest of the photograph, by measuring what
+     * actually moved and pasting the original back around it. The engine is
+     * asked to leave the rest alone and mostly does, but mostly is not a
+     * guarantee, and the evidence gets its own vote: an edit that turns out to
+     * have moved half the frame is stored as the re-render it evidently was.
+     */
+    const localScope = kind === 'edit' && !plan && editScope === 'local' && original;
     const post = plan
       ? async (images: string[]) => {
           const out: string[] = [];
@@ -883,7 +892,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           }
           return out;
         }
-      : undefined;
+      : localScope
+        ? async (images: string[]) => {
+            const out: string[] = [];
+            for (const h of images) {
+              const { image, outcome, changed } = await preserveOutsideChange(original, core.images.read(h));
+              app.log.info({ nodeId: node.id, outcome, changed }, 'local edit');
+              out.push(outcome === 'composited' ? core.images.save(image) : h);
+            }
+            return out;
+          }
+        : undefined;
     void runNode(node.id, engine, estimate, work, expectShape, post).catch((err) =>
       app.log.error({ err }, 'node run failed'),
     );
