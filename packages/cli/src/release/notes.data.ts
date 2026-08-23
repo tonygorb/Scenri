@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.4.4',
+    date: '2026-08-23',
+    title: 'Codex setup tells the truth, and a stuck generation fails instead of running forever.',
+    sections: [
+      {
+        heading: 'Codex',
+        body: 'Setup now verifies more than a binary on the path: it checks the version, the sign-in, and says "could not verify" when it cannot tell, with a Check again button instead of a false Connected. Windows instructions say PowerShell, and Codex installed through npm works again.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A generation that goes silent now fails within minutes with a plain reason instead of running on with no news, and Cancel stops the Codex process for real, on Windows too. A signed-out or outdated Codex fails fast with the step that fixes it.',
+      },
+    ],
+  },
+  {
     version: '0.4.3',
     date: '2026-08-23',
     title: 'Controls hold still when you press them.',
