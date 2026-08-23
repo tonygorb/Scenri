@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { effectiveEngineId, engineMeta, engineTitle, FALLBACK_ENGINE_ID, perImage } from '../src/engines/active.js';
+import { effectiveEngineId, engineMeta, engineTitle, FALLBACK_ENGINE_ID, perImage, rowAction } from '../src/engines/active.js';
 import { KEY_PROVIDERS, keyProviderFor } from '../src/engines/providers.js';
 
 describe('engineTitle', () => {
@@ -33,6 +33,29 @@ describe('effectiveEngineId', () => {
   it('falls to Codex when nothing at all is connected, which is also a first run', () => {
     expect(effectiveEngineId([], 'replicate')).toBe(FALLBACK_ENGINE_ID);
     expect(effectiveEngineId([], FALLBACK_ENGINE_ID)).toBe('codex-cli');
+  });
+});
+
+describe('rowAction', () => {
+  it('keeps the key-provider verbs exactly as they were', () => {
+    expect(rowAction({ id: 'openrouter', available: true, code: null }, true)).toBe('Manage');
+    expect(rowAction({ id: 'openrouter', available: false, code: null }, true)).toBe('Connect');
+  });
+
+  it('gives a connected Codex a Manage door back into its own setup', () => {
+    expect(rowAction({ id: FALLBACK_ENGINE_ID, available: true, code: null }, false)).toBe('Manage');
+  });
+
+  it('gives a connected non-key engine that is not Codex no button at all', () => {
+    expect(rowAction({ id: 'demo', available: true, code: null }, false)).toBeNull();
+  });
+
+  it('maps every setup code to its one verb, unknown included', () => {
+    expect(rowAction({ id: FALLBACK_ENGINE_ID, available: false, code: 'not-installed' }, false)).toBe('Set up');
+    expect(rowAction({ id: FALLBACK_ENGINE_ID, available: false, code: 'not-authenticated' }, false)).toBe('Set up');
+    expect(rowAction({ id: FALLBACK_ENGINE_ID, available: false, code: 'unverified' }, false)).toBe('Set up');
+    expect(rowAction({ id: FALLBACK_ENGINE_ID, available: false, code: 'update-needed' }, false)).toBe('Update');
+    expect(rowAction({ id: 'demo', available: false, code: null }, false)).toBeNull();
   });
 });
 

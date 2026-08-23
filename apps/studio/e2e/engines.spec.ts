@@ -222,3 +222,60 @@ test('a failed codex install shows the way out, and a recovered machine clears i
   await expect(page.locator('.sc-setup-body')).toContainText('Codex CLI is ready');
   await expect(page.locator('.sc-setup-problem')).toHaveCount(0);
 });
+
+test('an unverifiable codex never says Connected, and Check again is the way out', async ({ page }) => {
+  const slug = await currentSlug(page);
+  let status = { state: 'unverified', reason: 'Could not verify Codex on this computer', platform: 'windows' };
+  await page.route('**/api/engines/codex/status', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(status) }),
+  );
+
+  await page.goto(`/${slug}?setup=codex-cli`);
+  await expect(page.locator('.sc-setup-body')).toContainText('could not verify Codex');
+  await expect(page.locator('.sc-setup-body')).toContainText('quit and reopen Scenri');
+  await expect(page.locator('.sc-setup-body')).not.toContainText('Codex CLI is ready');
+
+  // The machine came back; one press of Check again lands on ready.
+  status = { state: 'ready', reason: '', platform: 'windows' };
+  await page.getByRole('button', { name: 'Check again' }).click();
+  await expect(page.locator('.sc-setup-body')).toContainText('Codex CLI is ready');
+});
+
+test('a codex below the version floor asks for an update, with PowerShell wording on Windows', async ({ page }) => {
+  const slug = await currentSlug(page);
+  await page.route('**/api/engines/codex/status', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        state: 'update-needed',
+        reason: 'Codex CLI 0.140.0 is too old. Scenri needs 0.146.0 or newer.',
+        platform: 'windows',
+      }),
+    }),
+  );
+
+  await page.goto(`/${slug}?setup=codex-cli`);
+  await expect(page.locator('.sc-setup-body')).toContainText('too old for Scenri');
+  await expect(page.locator('.sc-setup-cmd code')).toHaveText('npm install -g @openai/codex@latest');
+  await expect(page.locator('.sc-setup-body')).toContainText('PowerShell');
+  await expect(page.locator('.sc-setup-body')).not.toContainText('Codex CLI is ready');
+});
+
+test('the pane gives an unverified codex row a button and its reason, never a Connected dot', async ({ page }) => {
+  await page.route('**/api/engines', async (route) => {
+    const real = await (await route.fetch()).json();
+    const doctored = real.map((e: { id: string }) =>
+      e.id === 'codex-cli'
+        ? { ...e, available: false, code: 'unverified', reason: 'Could not verify Codex on this computer' }
+        : e,
+    );
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(doctored) });
+  });
+
+  await openPane(page);
+  const codex = row(page, 'Codex CLI');
+  await expect(codex.getByRole('button', { name: /Set up/ })).toBeVisible();
+  await expect(codex.locator('.sc-stat-why')).toContainText('Could not verify');
+  await expect(codex.locator('.sc-stat:not(.sc-stat-why)')).toHaveCount(0);
+});

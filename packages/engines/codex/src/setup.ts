@@ -45,9 +45,12 @@ export interface CodexLoginResult {
   detail?: string;
 }
 
+/** The server's platform in the wizard's words, so copy says PowerShell where it should. */
+export type SetupPlatform = 'windows' | 'mac' | 'linux';
+
 export interface CodexSetup {
   /** Same probe the engine uses, mapped to the state the wizard switches on. */
-  status(): Promise<{ state: CodexSetupState; reason?: string }>;
+  status(): Promise<{ state: CodexSetupState; reason?: string; platform: SetupPlatform }>;
   install(): Promise<CodexInstallResult>;
   login(): Promise<CodexLoginResult>;
 }
@@ -123,7 +126,8 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
       // rides on it, so it always asks fresh rather than serving the cache.
       runner.invalidateProbe();
       const avail = await runner.probe();
-      return { state: stateFrom(avail), reason: avail.reason };
+      const setupPlatform: SetupPlatform = platform === 'win32' ? 'windows' : platform === 'darwin' ? 'mac' : 'linux';
+      return { state: stateFrom(avail), reason: avail.reason, platform: setupPlatform };
     },
 
     async install() {

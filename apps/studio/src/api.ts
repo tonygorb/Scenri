@@ -19,6 +19,7 @@ import type {
   CatalogSource,
   CodexSetupResult,
   CodexSetupState,
+  SetupPlatform,
   EngineInfo,
   Presenter,
   Product,
@@ -75,7 +76,8 @@ export const api = {
     req<{ ok: true; added: number }>('POST', `/api/sets/${id}/nodes`, { nodeIds }),
   removeFromSet: (id: string, nodeId: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}/nodes/${nodeId}`),
   engines: () => req<EngineInfo[]>('GET', '/api/engines'),
-  codexStatus: () => req<{ state: CodexSetupState; reason?: string }>('GET', '/api/engines/codex/status'),
+  codexStatus: () =>
+    req<{ state: CodexSetupState; reason?: string; platform?: SetupPlatform }>('GET', '/api/engines/codex/status'),
   installCodex: () => req<CodexSetupResult>('POST', '/api/engines/codex/install'),
   /** Resolves when the browser sign-in finishes; poll codexStatus alongside it. */
   loginCodex: () => req<CodexSetupResult>('POST', '/api/engines/codex/login'),

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dialog, Spinner } from '@radix-ui/themes';
-import { ArrowSquareOut, Check, Copy, DownloadSimple, Key, SignIn, Warning, X } from '@phosphor-icons/react';
-import { api, type CodexSetupState, type EngineInfo } from '../api.js';
+import { ArrowsClockwise, ArrowSquareOut, Check, Copy, DownloadSimple, Key, SignIn, Warning, X } from '@phosphor-icons/react';
+import { api, type CodexSetupState, type EngineInfo, type SetupPlatform } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { focusSelfOnOpen, useOpenSetup } from '../app/dialogs.js';
 import { engineTitle } from '../engines/active.js';
@@ -255,6 +255,7 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   const [phase, setPhase] = useState<Phase>('checking');
   const [problem, setProblem] = useState<{ detail?: string; command?: string; docsUrl?: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [platform, setPlatform] = useState<SetupPlatform>('mac');
   const pollRef = useRef<number | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -265,18 +266,26 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   }, []);
 
   const probe = useCallback(async () => {
-    const { state } = await api.codexStatus();
+    const { state, platform: p } = await api.codexStatus();
+    if (p) setPlatform(p);
     setPhase(state);
     return state;
   }, []);
 
-  // Re-probe on mount: the fix may have happened outside this dialog.
+  // Re-probe on mount: the fix may have happened outside this dialog. A
+  // request that itself failed is "could not verify", never "not installed".
   useEffect(() => {
     setProblem(null);
     setPhase('checking');
-    void probe().catch(() => setPhase('not-installed'));
+    void probe().catch(() => setPhase('unverified'));
     return stopPolling;
   }, [probe, stopPolling]);
+
+  const checkAgain = useCallback(() => {
+    setProblem(null);
+    setPhase('checking');
+    void probe().catch(() => setPhase('unverified'));
+  }, [probe]);
 
   // A ready engine is worth telling the rest of the app about, so the composer
   // banner and the engine picker catch up without a reload.
@@ -426,9 +435,64 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
               <Check size={15} /> Codex CLI is ready. Your images run on your own ChatGPT plan, and Scenri adds nothing
               to the bill.
             </p>
-            <button type="button" className="sc-btn sc-btn-primary" onClick={onDone}>
-              Start creating
-            </button>
+            <div className="sc-setup-acts">
+              <button type="button" className="sc-btn sc-btn-primary" onClick={onDone}>
+                Start creating
+              </button>
+              <button type="button" className="sc-btn sc-btn-ghost" onClick={checkAgain}>
+                <ArrowsClockwise size={14} /> Check again
+              </button>
+            </div>
+          </>
+        )}
+
+        {phase === 'unverified' && (
+          <>
+            <p className="sc-setup-lead">
+              Scenri could not verify Codex on this computer. Something answered too slowly or not at all, so nothing is
+              assumed to work.
+            </p>
+            <div className="sc-setup-acts">
+              <button type="button" className="sc-btn sc-btn-primary" onClick={checkAgain}>
+                <ArrowsClockwise size={15} /> Check again
+              </button>
+              <button type="button" className="sc-setup-alt" onClick={() => setPhase('no-plan')}>
+                I do not have ChatGPT
+              </button>
+            </div>
+            <p className="sc-setup-note">
+              If you just installed Codex, quit and reopen Scenri so it can see the new command.
+            </p>
+          </>
+        )}
+
+        {phase === 'update-needed' && (
+          <>
+            <p className="sc-setup-lead">
+              Codex CLI on this computer is too old for Scenri. Update it once, then check again.
+            </p>
+            <div className="sc-setup-cmd">
+              <code>npm install -g @openai/codex@latest</code>
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                onClick={() => copy('npm install -g @openai/codex@latest')}
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            {platform === 'windows' && (
+              <p className="sc-setup-note">
+                Installed with the standalone installer instead? Update it in PowerShell:{' '}
+                <code>{'irm https://chatgpt.com/codex/install.ps1 | iex'}</code>
+              </p>
+            )}
+            <div className="sc-setup-acts">
+              <button type="button" className="sc-btn sc-btn-primary" onClick={checkAgain}>
+                <ArrowsClockwise size={15} /> Check again
+              </button>
+            </div>
           </>
         )}
 
@@ -465,7 +529,9 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
             </p>
             {problem.command && (
               <>
-                <p className="sc-setup-note">Run this in Terminal, then reopen this window:</p>
+                <p className="sc-setup-note">
+                  Run this in {platform === 'windows' ? 'PowerShell' : 'Terminal'}, then reopen this window:
+                </p>
                 <div className="sc-setup-cmd">
                   <code>{problem.command}</code>
                   <button type="button" className="sc-btn sc-btn-ghost" onClick={() => copy(problem.command as string)}>
@@ -490,7 +556,9 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
 /** Two dots, because there are exactly two things to do and people count them. */
 function Steps({ phase }: { phase: Phase }) {
   if (phase === 'no-plan') return null;
-  const installed = phase === 'not-authenticated' || phase === 'signing-in' || phase === 'ready';
+  // Update-needed means a codex IS installed, just an old one; unverified
+  // claims nothing, so neither dot lights.
+  const installed = phase === 'not-authenticated' || phase === 'signing-in' || phase === 'update-needed' || phase === 'ready';
   const signedIn = phase === 'ready';
   return (
     <ol className="sc-setup-steps">

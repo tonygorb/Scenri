@@ -968,7 +968,7 @@ describe('codex setup', () => {
     return {
       seen,
       setup: {
-        status: async () => ({ state: states[Math.min(i, states.length - 1)] }),
+        status: async () => ({ state: states[Math.min(i, states.length - 1)], platform: 'mac' as const }),
         install: async () => {
           seen.install++;
           i++;
@@ -988,7 +988,7 @@ describe('codex setup', () => {
     const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
     const res = await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ state: 'not-installed' });
+    expect(res.json()).toEqual({ state: 'not-installed', platform: 'mac' });
     await local.close();
   });
 
@@ -1020,7 +1020,7 @@ describe('codex setup', () => {
       release = r;
     });
     const setup = {
-      status: async () => ({ state: 'not-installed' as const }),
+      status: async () => ({ state: 'not-installed' as const, platform: 'mac' as const }),
       install: async () => {
         await gate;
         return { ok: true };

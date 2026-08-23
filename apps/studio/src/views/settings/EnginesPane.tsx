@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { EngineInfo } from '../../api.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import { engineMeta, engineTitle, FALLBACK_ENGINE_ID } from '../../engines/active.js';
+import { engineMeta, engineTitle, FALLBACK_ENGINE_ID, rowAction } from '../../engines/active.js';
 import { EngineMark, engineTile, keyProviderFor } from '../../engines/providers.jsx';
 import { Group } from './Group.js';
 
@@ -45,9 +45,11 @@ export function EnginesPane({ engines }: { engines: EngineInfo[] }) {
         const name = engineTitle(e.displayName);
         // Codex is the only engine that reports which setup step it is missing,
         // and the only one whose connection is not a key.
-        const setupStep = e.code === 'not-installed' || e.code === 'not-authenticated';
-        const action = provider ? (e.available ? 'Manage' : 'Connect') : setupStep ? 'Set up' : null;
+        const action = rowAction(e, Boolean(provider));
         const state = e.available ? 'Connected' : null;
+        // "Could not verify" earns both its button and its own words: the
+        // button alone reads as a routine setup step, and it is not.
+        const showWhy = !state && e.reason && (!action || e.code === 'unverified');
         const tile = engineTile(e.id);
 
         return (
@@ -69,9 +71,9 @@ export function EnginesPane({ engines }: { engines: EngineInfo[] }) {
                 {state}
               </span>
             )}
-            {/* An engine that is neither connected nor fixable from here can
-                still say why, in its own words rather than ours. */}
-            {!state && !action && e.reason && <span className="sc-stat sc-stat-why">{e.reason}</span>}
+            {/* An engine that is not connected can still say why, in its own
+                words rather than ours. */}
+            {showWhy && <span className="sc-stat sc-stat-why">{e.reason}</span>}
             {action && (
               <button
                 type="button"

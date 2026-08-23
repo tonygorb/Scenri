@@ -110,9 +110,12 @@ export interface TextLayer {
   stroke?: { color: string; width: number } | null;
 }
 /** Which setup step would make an engine ready, when the engine knows. */
-export type UnavailableCode = 'not-installed' | 'not-authenticated';
+export type UnavailableCode = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified';
 
-export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'ready';
+export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified' | 'ready';
+
+/** The server's own platform, so setup copy says PowerShell where it should. */
+export type SetupPlatform = 'windows' | 'mac' | 'linux';
 
 export interface CodexSetupResult {
   ok: boolean;
