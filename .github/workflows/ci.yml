@@ -40,6 +40,7 @@ jobs:
       pull-requests: read
     outputs:
       e2e: ${{ steps.classify.outputs.e2e }}
+      updater: ${{ steps.classify.outputs.updater }}
     steps:
       - name: Classify the changed files
         id: classify
@@ -53,6 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           e2e=true
+          updater=true
           files=""
           case "$EVENT" in
             pull_request)
@@ -70,6 +72,7 @@ jobs:
           count=$(printf '%s\n' "$files" | grep -c . || true)
           if [ "$files" != "__ERROR__" ] && [ "$files" != "__FORCE__" ] && [ "$count" -gt 0 ] && [ "$count" -lt 300 ]; then
             e2e=false
+            updater=false
             while IFS= read -r f; do
               case "$f" in
                 # In a bash case pattern * matches "/" too, so these behave as
@@ -80,17 +83,32 @@ jobs:
                 LICENSE*|NOTICE) ;;
                 .github/ISSUE_TEMPLATE/*) ;;
                 .github/CODEOWNERS) ;;
-                *) e2e=true; break ;;
+                *) e2e=true ;;
               esac
+              # The update loop is expensive (a real npm install) and blind to
+              # everything outside the updater, so it runs only when the
+              # updater's own surfaces move: the CLI (launcher, staging,
+              # routes all live there), the update UI, its spec, or the two
+              # workflows that define publishing and this gate.
+              case "$f" in
+                packages/cli/*) updater=true ;;
+                apps/studio/src/app/UpdateCenter.tsx) updater=true ;;
+                apps/studio/src/app/updateRules.ts) updater=true ;;
+                apps/studio/src/views/settings/About.tsx) updater=true ;;
+                apps/studio/e2e/updates.spec.ts) updater=true ;;
+                .github/workflows/ci.yml|.github/workflows/publish.yml) updater=true ;;
+              esac
+              if [ "$e2e" = "true" ] && [ "$updater" = "true" ]; then break; fi
             done <<< "$files"
           fi
           echo "e2e=$e2e" >> "$GITHUB_OUTPUT"
+          echo "updater=$updater" >> "$GITHUB_OUTPUT"
           if [ "$e2e" = "true" ]; then
-            echo "Runtime change, full E2E required." >> "$GITHUB_STEP_SUMMARY"
+            echo "Runtime change, full E2E required (update loop: $updater)." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Change type: docs-only. E2E skipped." >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "e2e=$e2e for $count changed file(s):"
+          echo "e2e=$e2e updater=$updater for $count changed file(s):"
           printf '%s\n' "$files" | head -50
 
   check:
@@ -326,6 +344,40 @@ jobs:
           path: apps/studio/test-results/
           retention-days: 7
 
+  # The updater is release-critical and its breakage is invisible to unit
+  # tests (a tester found the dead buttons by hand). This is the real loop:
+  # launcher supervising, fixture-registry check, background auto-stage with a
+  # real npm install and the verify hop, exit-75 restart into 99.0.0, and the
+  # library surviving. Gated to updater-relevant paths by the classifier so an
+  # unrelated studio change does not pay for an npm install.
+  update-loop:
+    name: update loop
+    needs: changes
+    if: >-
+      needs.changes.outputs.updater == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the studio
+        run: pnpm build
+
+      - name: Run the update loop
+        run: node packages/cli/test/manual-update-loop.mjs
+
   # The one required status check on main. `always()` is load-bearing: without
   # it a failed upstream job would leave this job "skipped", and GitHub counts
   # a skipped required check as passing. The ruleset requires this job by its
@@ -333,7 +385,7 @@ jobs:
   # every PR stuck waiting on a check that never reports.
   gate:
     name: CI gate
-    needs: [changes, check, secrets, windows, e2e]
+    needs: [changes, check, secrets, windows, e2e, update-loop]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -346,30 +398,33 @@ jobs:
           SECRETS: ${{ needs.secrets.result }}
           WINDOWS: ${{ needs.windows.result }}
           E2E: ${{ needs.e2e.result }}
+          UPDATE_LOOP: ${{ needs.update-loop.result }}
           E2E_REQUIRED: ${{ needs.changes.outputs.e2e }}
+          UPDATER_REQUIRED: ${{ needs.changes.outputs.updater }}
           DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
         run: |
           fail() { echo "::error::CI gate: $1"; exit 1; }
           [ "$CHANGES" = "success" ] || fail "change classifier: $CHANGES"
           [ "$CHECK" = "success" ] || fail "fast checks: $CHECK"
           [ "$SECRETS" = "success" ] || fail "secret scan: $SECRETS"
-          # windows and e2e share one condition, so one rule covers both: a
-          # skip is legitimate only when the job's own condition produced it —
-          # a docs-only diff or a draft PR. A skip caused by the classifier
-          # failing is already fatal above.
-          for pair in "windows:$WINDOWS" "E2E:$E2E"; do
-            name="${pair%%:*}"; result="${pair#*:}"
-            case "$result" in
+          # A skip is legitimate only when the job's own condition produced
+          # it: its classifier output said no, or a draft PR. A skip caused by
+          # the classifier failing is already fatal above.
+          leg() { # name result required
+            case "$2" in
               success) ;;
               skipped)
-                if [ "$E2E_REQUIRED" = "true" ] && [ "$DRAFT" != "true" ]; then
-                  fail "$name was required but did not run"
+                if [ "$3" = "true" ] && [ "$DRAFT" != "true" ]; then
+                  fail "$1 was required but did not run"
                 fi
-                echo "$name skipped (docs-only or draft), acceptable"
+                echo "$1 skipped (not required or draft), acceptable"
                 ;;
               *)
-                fail "$name: $result"
+                fail "$1: $2"
                 ;;
             esac
-          done
+          }
+          leg windows "$WINDOWS" "$E2E_REQUIRED"
+          leg E2E "$E2E" "$E2E_REQUIRED"
+          leg update-loop "$UPDATE_LOOP" "$UPDATER_REQUIRED"
           echo "All checks green."
