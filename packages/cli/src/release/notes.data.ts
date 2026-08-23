@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.4.1',
+    date: '2026-08-23',
+    title: 'Updates now arrive by themselves.',
+    sections: [
+      {
+        heading: 'Updates',
+        body: 'A new version now downloads quietly in the background, verifies itself next to the running copy, and asks for a single click to restart. This is also the release that makes in-app updating truly work on macOS and Linux, where the one-click path silently never engaged. Checking by hand always answers, even when automatic checks are off, and a restart never interrupts running work.',
+      },
+      {
+        heading: 'Existing installs',
+        body: 'Copies first started with npx before this release cannot pick the fix up on their own. Run npx scenri@latest once in a terminal; every update after that arrives without it.',
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-08-23',
     title: 'Refining a shot keeps the shot.',
