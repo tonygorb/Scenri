@@ -119,6 +119,43 @@ describe('update checker', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('a forced check answers even when the env switch is off', async () => {
+    const { c, calls, store } = checker({ env: { SCENRI_NO_UPDATE_CHECK: '1' } });
+    expect((await c.check()).latest).toBeNull();
+    expect(calls).toHaveLength(0);
+    const res = await c.check(true);
+    expect(res.latest).toBe('0.2.0');
+    expect(res.checkedAt).not.toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(store.getSetting('update.checkedAt')).not.toBeNull();
+  });
+
+  it('the settings toggle gates the cadence, not the button', async () => {
+    const { c, calls, store } = checker();
+    store.setSetting('update.enabled', 'false');
+    await c.check();
+    expect(calls).toHaveLength(0);
+    expect((await c.check(true)).latest).toBe('0.2.0');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('tells its subscriber on real registry answers only', async () => {
+    const results: (string | null)[] = [];
+    let fail = false;
+    const { impl } = fetchStub(() => {
+      if (fail) throw new Error('offline');
+      return distTags('0.2.0');
+    });
+    const { c, tick } = checker({ fetchImpl: impl });
+    c.onResult((r) => results.push(r.latest));
+    await c.check(); // real fetch: fires
+    await c.check(); // cache hit: silent
+    fail = true;
+    tick(DAY + 1);
+    await c.check(); // failure: silent
+    expect(results).toEqual(['0.2.0']);
+  });
+
   it('prints the opt-out disclosure exactly once, on the first check ever', async () => {
     const lines: string[] = [];
     const { c, tick } = checker({ log: (l: string) => lines.push(l) });
