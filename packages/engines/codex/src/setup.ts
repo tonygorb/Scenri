@@ -28,7 +28,7 @@ export const INSTALL_DOCS_URL = 'https://developers.openai.com/codex/cli';
  */
 export const INSTALL_COMMAND_SUDO = 'sudo npm install -g @openai/codex';
 
-export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'ready';
+export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified' | 'ready';
 
 export interface CodexInstallResult {
   ok: boolean;
@@ -63,7 +63,14 @@ const DEFAULT_INSTALL_TIMEOUT_MS = 180_000;
 
 function stateFrom(avail: EngineAvailability): CodexSetupState {
   if (avail.ok) return 'ready';
-  return avail.code === 'not-authenticated' ? 'not-authenticated' : 'not-installed';
+  switch (avail.code) {
+    case 'not-authenticated':
+    case 'update-needed':
+    case 'unverified':
+      return avail.code;
+    default:
+      return 'not-installed';
+  }
 }
 
 export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {

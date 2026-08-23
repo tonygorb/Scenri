@@ -12,36 +12,56 @@ import { createCodexSetup } from '../src/setup.js';
  * newlines flattened.
  */
 
-type Call = { cmd: string; args: string[]; opts: Record<string, unknown> };
+type Call = {
+  cmd: string;
+  args: string[];
+  opts: Record<string, unknown>;
+  child: EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; kill: () => void };
+};
 
-function fakeSpawn(): { spawnImpl: typeof spawn; calls: Call[] } {
+function fakeSpawn(before?: (call: Call) => void): { spawnImpl: typeof spawn; calls: Call[] } {
   const calls: Call[] = [];
   const spawnImpl = ((cmd: string, args: string[], opts: Record<string, unknown>) => {
-    const child = new EventEmitter() as EventEmitter & {
-      stdout: EventEmitter;
-      stderr: EventEmitter;
-      kill: () => void;
-    };
+    const child = new EventEmitter() as Call['child'];
     child.stdout = new EventEmitter();
     child.stderr = new EventEmitter();
     child.kill = () => {};
-    calls.push({ cmd, args, opts });
-    queueMicrotask(() => child.emit('exit', 0, null));
+    const call: Call = { cmd, args, opts, child };
+    calls.push(call);
+    setTimeout(() => {
+      before?.(call);
+      child.emit('exit', 0, null);
+    }, 0);
     return child;
   }) as unknown as typeof spawn;
   return { spawnImpl, calls };
 }
 
 describe('codex spawn on win32', () => {
-  it('joins one fully quoted shell line and defuses cmd.exe metacharacters', async () => {
+  it('joins one fully quoted shell line and defuses cmd.exe metacharacters when only the shim exists', async () => {
     const { spawnImpl, calls } = fakeSpawn();
     const runner = createRunner({ spawnImpl, platform: 'win32' });
     await runner.run(['exec', 'a b', 'say "hi" & del x', '50% cotton', 'line\nbreak']);
 
-    expect(calls).toHaveLength(1);
-    expect(calls[0].args).toEqual([]);
-    expect(calls[0].opts.shell).toBe(true);
-    expect(calls[0].cmd).toBe(`"codex" "exec" "a b" "say 'hi' & del x" "50 percent  cotton" "line break"`);
+    // where.exe answered empty, so resolution fell back to the shell line.
+    expect(calls).toHaveLength(2);
+    expect(calls[0].cmd).toBe('where.exe');
+    expect(calls[1].args).toEqual([]);
+    expect(calls[1].opts.shell).toBe(true);
+    expect(calls[1].cmd).toBe(`"codex" "exec" "a b" "say 'hi' & del x" "50 percent  cotton" "line break"`);
+  });
+
+  it('spawns a where-resolved codex.exe argv-style, no shell, no substitutions', async () => {
+    const exePath = 'C:\\Program Files\\Codex\\codex.exe';
+    const { spawnImpl, calls } = fakeSpawn((call) => {
+      if (call.cmd === 'where.exe') call.child.stdout.emit('data', `${exePath}\r\n`);
+    });
+    const runner = createRunner({ spawnImpl, platform: 'win32' });
+    await runner.run(['exec', '50% cotton', 'say "hi"']);
+
+    expect(calls[1].cmd).toBe(exePath);
+    expect(calls[1].args).toEqual(['exec', '50% cotton', 'say "hi"']);
+    expect(calls[1].opts.shell).toBeUndefined();
   });
 
   it('keeps the POSIX array contract when the platform is pinned posix', async () => {
