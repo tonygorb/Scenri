@@ -48,7 +48,15 @@ describe('status', () => {
     await expect(notSignedIn.status()).resolves.toMatchObject({ state: 'not-authenticated' });
 
     const ready = createCodexSetup({ platform: 'linux', spawnImpl: scripted({}).spawnImpl });
-    await expect(ready.status()).resolves.toEqual({ state: 'ready', reason: undefined });
+    await expect(ready.status()).resolves.toEqual({ state: 'ready', reason: undefined, platform: 'linux' });
+  });
+
+  it('names the platform in the wizard words, so copy can say PowerShell', async () => {
+    const win = createCodexSetup({ platform: 'win32', spawnImpl: scripted({ version: 1 }).spawnImpl });
+    await expect(win.status()).resolves.toMatchObject({ platform: 'windows' });
+
+    const mac = createCodexSetup({ platform: 'darwin', spawnImpl: scripted({ version: 1 }).spawnImpl });
+    await expect(mac.status()).resolves.toMatchObject({ platform: 'mac' });
   });
 });
 

@@ -147,9 +147,10 @@ export interface EngineCapabilities {
  * `reason` is prose for a human; `code` is for a wizard that has to decide
  * which step to open. Only adapters with a real setup path (a local binary to
  * install and a session to sign into) set it — a missing API key is already a
- * one-step fix the Settings pane covers.
+ * one-step fix the Settings pane covers. `unverified` is the honest answer
+ * when the probe itself could not finish: unknown is never available.
  */
-export type UnavailableCode = 'not-installed' | 'not-authenticated';
+export type UnavailableCode = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified';
 
 export interface EngineAvailability {
   ok: boolean;

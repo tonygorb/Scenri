@@ -968,7 +968,7 @@ describe('codex setup', () => {
     return {
       seen,
       setup: {
-        status: async () => ({ state: states[Math.min(i, states.length - 1)] }),
+        status: async () => ({ state: states[Math.min(i, states.length - 1)], platform: 'mac' as const }),
         install: async () => {
           seen.install++;
           i++;
@@ -988,7 +988,7 @@ describe('codex setup', () => {
     const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
     const res = await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ state: 'not-installed' });
+    expect(res.json()).toEqual({ state: 'not-installed', platform: 'mac' });
     await local.close();
   });
 
@@ -1020,7 +1020,7 @@ describe('codex setup', () => {
       release = r;
     });
     const setup = {
-      status: async () => ({ state: 'not-installed' as const }),
+      status: async () => ({ state: 'not-installed' as const, platform: 'mac' as const }),
       install: async () => {
         await gate;
         return { ok: true };
@@ -1063,6 +1063,94 @@ describe('codex setup', () => {
     const local = buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))) });
     const res = await local.inject({ method: 'GET', url: '/api/engines' });
     expect(res.json()[0].code).toBeNull();
+    await local.close();
+  });
+});
+
+describe('node watchdog', () => {
+  // An engine that never answers and only honors the abort signal: the shape
+  // of a hung codex exec whose own timers have failed us.
+  const hang = (): EngineAdapter => ({
+    capabilities: () => ({
+      id: 'hang',
+      displayName: 'Hang',
+      localOnly: true,
+      supportsEdit: false,
+      supportsMask: false,
+      maxReferenceImages: 0,
+    }),
+    isAvailable: async () => ({ ok: true }),
+    costEstimate: async () => 0,
+    generate: (_req, signal) =>
+      new Promise((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new Error('engine abort')), { once: true });
+      }),
+    edit: async () => {
+      throw new Error('unsupported');
+    },
+  });
+
+  it('fails a node that outlives the cap as a timeout, not a cancel', async () => {
+    const local = buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 300 });
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'W' }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: b.json().id, name: 'w' },
+    });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'hang',
+        width: 256,
+        height: 256,
+      },
+    });
+    expect(gen.statusCode).toBe(202);
+    const node = await waitDoneOn(local, gen.json().id);
+    expect(node.status).toBe('error');
+    expect(node.error).toMatch(/timed out/i);
+    await local.close();
+  });
+
+  it('still records a user cancel as cancelled, never as a timeout', async () => {
+    const local = buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 60_000 });
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'W' }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: b.json().id, name: 'w' },
+    });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'hang',
+        width: 256,
+        height: 256,
+      },
+    });
+    const cancel = await local.inject({ method: 'POST', url: `/api/nodes/${gen.json().id}/cancel` });
+    expect(cancel.statusCode).toBe(200);
+    const node = await waitDoneOn(local, gen.json().id);
+    expect(node.status).toBe('cancelled');
     await local.close();
   });
 });

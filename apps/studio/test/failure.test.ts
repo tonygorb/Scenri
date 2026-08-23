@@ -20,6 +20,10 @@ const REAL = {
   codexEmpty: 'Codex finished but produced no images',
   restarted: 'interrupted: server restarted mid-generation',
   exitCode: 'codex exited with code 1: some unrecognised gibberish',
+  codexSignedOut: 'codex exited with code 1: Not logged in',
+  codexUnverified: 'Could not verify Codex on this computer',
+  codexTooOld: 'Codex CLI 0.140.0 is too old. Scenri needs 0.145.0 or newer.',
+  codexSilent: 'Codex CLI produced no output for 120s, treating it as stuck',
 };
 
 describe('describeFailure', () => {
@@ -107,6 +111,37 @@ describe('describeFailure', () => {
     expect(describeFailure(REAL.codexAbort, 'Codex').kind).toBe('cancelled');
     expect(describeFailure(REAL.codexEmpty, 'Codex').kind).toBe('empty');
     expect(describeFailure(REAL.codexEmpty, 'Codex').retryable).toBe(true);
+  });
+
+  it('reads a signed-out codex as a sign-in, not a mystery exit code', () => {
+    const f = describeFailure(REAL.codexSignedOut, 'Codex');
+    expect(f.kind).toBe('auth');
+    expect(f.title).toBe('Codex is signed out on this machine.');
+    expect(f.remedy).toEqual({ label: 'Sign in', opens: 'setup' });
+    expect(f.retryable).toBe(false);
+  });
+
+  it('reads an unverifiable codex as a check, with the restart hint', () => {
+    const f = describeFailure(REAL.codexUnverified, 'Codex');
+    expect(f.kind).toBe('setup');
+    expect(f.title).toBe('Scenri could not verify Codex.');
+    expect(f.fix).toContain('restart Scenri');
+    expect(f.remedy).toEqual({ label: 'Check Codex', opens: 'setup' });
+    expect(f.retryable).toBe(true);
+  });
+
+  it('reads a below-floor codex as an update, never as not installed', () => {
+    const f = describeFailure(REAL.codexTooOld, 'Codex');
+    expect(f.kind).toBe('setup');
+    expect(f.title).toBe('Codex CLI needs an update.');
+    expect(f.remedy).toEqual({ label: 'Update Codex', opens: 'setup' });
+    expect(f.retryable).toBe(false);
+  });
+
+  it('treats total codex silence as a timeout the user can retry', () => {
+    const f = describeFailure(REAL.codexSilent, 'Codex');
+    expect(f.kind).toBe('timeout');
+    expect(f.retryable).toBe(true);
   });
 
   it('says a restart lost the shot but not the brief', () => {

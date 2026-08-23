@@ -50,3 +50,31 @@ export function engineMeta(e: Pick<EngineInfo, 'free' | 'localOnly' | 'perGenera
   if (!e.free) return `$${perImage(e.perGeneration)} / image`;
   return e.localOnly ? 'Runs on your ChatGPT plan' : 'No cost per image';
 }
+
+/**
+ * The one button a provider row gets, or none.
+ *
+ * Key providers keep their Manage/Connect pair. Codex maps each unavailable
+ * code to its verb — Update for a version below the floor, Set up for
+ * everything a wizard can fix, including "could not verify", which above all
+ * must never render as Connected. A connected Codex keeps a Manage door back
+ * into its own setup: that is the re-check path, and a falsely green row
+ * without one is exactly the dead end the Windows tester hit.
+ */
+export function rowAction(
+  e: Pick<EngineInfo, 'id' | 'available' | 'code'>,
+  hasKeyProvider: boolean,
+): 'Manage' | 'Connect' | 'Set up' | 'Update' | null {
+  if (hasKeyProvider) return e.available ? 'Manage' : 'Connect';
+  if (e.available) return e.id === FALLBACK_ENGINE_ID ? 'Manage' : null;
+  switch (e.code) {
+    case 'update-needed':
+      return 'Update';
+    case 'not-installed':
+    case 'not-authenticated':
+    case 'unverified':
+      return 'Set up';
+    default:
+      return null;
+  }
+}

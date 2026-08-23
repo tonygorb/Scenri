@@ -230,6 +230,20 @@ installed, usually after a Node update. Install the current LTS from
 Providers, then **Set up**, and the in-app steps handle both. If sign-in keeps failing, the dialog
 shows the exact terminal command to run instead.
 
+**Codex on Windows.** Three things specific to Windows:
+
+- **Installed Codex while Scenri was running?** Quit Scenri (close its terminal window) and run
+  `npx scenri` again. A running program cannot always see a command installed after it started.
+- **Scenri says it could not verify Codex.** Something on the machine answered too slowly or not at
+  all. Press **Check again** in the setup dialog; if it persists, check what `where.exe codex`
+  prints in PowerShell and that `codex --version` answers there.
+- **Codex needs an update.** Scenri requires Codex CLI 0.145.0 or newer. Update with
+  `npm install -g @openai/codex@latest`, or if you used OpenAI's standalone installer, run it again:
+  `powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"`.
+
+A generation that Codex cannot finish now fails with a plain reason instead of running forever, and
+Cancel stops the Codex process for real.
+
 **A provider did not accept your API key.** Keys expire and get revoked. Create a fresh key on the
 provider's site (links above), open Settings, then Providers, and paste it again.
 

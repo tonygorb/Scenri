@@ -13,6 +13,15 @@ class FakeChild extends EventEmitter {
   kill = vi.fn(() => true);
   stdout = new EventEmitter();
   stderr = new EventEmitter();
+  stdin = {
+    written: '',
+    write(d: string | Buffer) {
+      this.written += String(d);
+      return true;
+    },
+    end: () => {},
+    on: () => {},
+  };
 }
 
 interface SpawnCall {
@@ -33,7 +42,7 @@ function fakeSpawn(onSpawn: (call: SpawnCall) => void): { spawnImpl: typeof spaw
 }
 
 const dirFromArgs = (args: string[]) => args[args.indexOf('-C') + 1];
-const promptFromArgs = (args: string[]) => args[args.length - 1];
+const promptFromArgs = (call: SpawnCall) => call.child.stdin.written; // the prompt rides stdin
 
 function photo(): string {
   const dir = mkdtempSync(join(tmpdir(), 'analyzer-src-'));
@@ -103,11 +112,11 @@ describe('analyze — presenter', () => {
     const dir = dirFromArgs(args);
     expect(args).toContain(`--image=${join(dir, 'ref-1.png')}`);
     expect(args).toContain(`--image=${join(dir, 'ref-2.png')}`);
-    expect(promptFromArgs(args)).not.toContain('--image'); // prompt stays the positional tail
+    expect(promptFromArgs(calls[0])).not.toContain('--image'); // prompt stays the positional tail
     // Reading a face is the anchor everything downstream is conditioned on.
     expect(args).toContain('model_reasoning_effort="high"');
 
-    const prompt = promptFromArgs(args);
+    const prompt = promptFromArgs(calls[0]);
     expect(prompt).toContain('2 reference images are attached');
     expect(prompt).toContain('she is our founder');
     expect(prompt).toContain('Do not name, identify, or guess who this person is');
@@ -132,8 +141,8 @@ describe('analyze — presenter', () => {
 
     expect(draft.presentation).toBe('woman');
     expect(calls).toHaveLength(2);
-    expect(promptFromArgs(calls[0].args)).not.toContain('Your last answer was rejected');
-    expect(promptFromArgs(calls[1].args)).toContain('"presentation" must be exactly "woman" or "man"');
+    expect(promptFromArgs(calls[0])).not.toContain('Your last answer was rejected');
+    expect(promptFromArgs(calls[1])).toContain('"presentation" must be exactly "woman" or "man"');
   });
 
   it('gives up after the second bad answer rather than inventing a person', async () => {
@@ -233,7 +242,7 @@ describe('analyze — scene', () => {
     expect(draft.collections).toEqual(['Editorial']);
     expect(draft.verticals).toEqual(['Beauty']);
 
-    const prompt = promptFromArgs(calls[0].args);
+    const prompt = promptFromArgs(calls[0]);
     expect(prompt).toContain('keep the rocks, less orange');
     expect(prompt).toContain('Never name or describe a brand, a logo, a product, or a person');
     expect(prompt).toContain('Choose "collections" only from this list: Editorial, Interiors');
@@ -248,7 +257,7 @@ describe('analyze — scene', () => {
     await analyzer.analyze({ kind: 'scene', name: 'Shore', imagePaths: [], instruction: 'a volcanic beach at dusk' });
     const { args } = calls[0];
     expect(args.filter((a) => a.startsWith('--image='))).toEqual([]);
-    expect(promptFromArgs(args)).toContain('You have no reference images');
+    expect(promptFromArgs(calls[0])).toContain('You have no reference images');
   });
 
   it('rejects a prompt that leaves a placeholder behind', async () => {
@@ -261,7 +270,7 @@ describe('analyze — scene', () => {
     const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
     const draft = (await analyzer.analyze({ kind: 'scene', name: 'Shore', imagePaths: [photo()] })) as SceneDraft;
     expect(draft.prompt).not.toContain('{');
-    expect(promptFromArgs(calls[1].args)).toContain('contained a {placeholder}');
+    expect(promptFromArgs(calls[1])).toContain('contained a {placeholder}');
   });
 
   it('carries the prior record and the correction into a revision', async () => {
@@ -277,7 +286,7 @@ describe('analyze — scene', () => {
       correction: 'more daylight',
       priorDraft: { prompt: 'A wet basalt shelf at low sunset light.' },
     });
-    const prompt = promptFromArgs(calls[0].args);
+    const prompt = promptFromArgs(calls[0]);
     expect(prompt).toContain('You are revising an existing record, not starting over');
     expect(prompt).toContain('A wet basalt shelf at low sunset light.');
     expect(prompt).toContain('The correction to apply: more daylight');

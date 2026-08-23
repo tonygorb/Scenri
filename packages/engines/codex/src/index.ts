@@ -11,7 +11,8 @@
  * for. It must never run in a hosted service on someone else's behalf — hence
  * `localOnly: true`.
  */
-import { copyFile, readdir, readFile } from 'node:fs/promises';
+import { copyFile, readdir, readFile, stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
   EDIT_REFERENCE_ROLE_DIRECTIVE,
@@ -24,24 +25,45 @@ import {
   type GenerateRequest,
   type ReferenceRole,
 } from '@scenri/core';
-import { createRunner, execArgs, type RunnerOptions } from './run.js';
+import { createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
 
 export { createCodexAnalyzer } from './analyzer.js';
 export { createCodexSetup, INSTALL_COMMAND, type CodexSetup, type CodexSetupState } from './setup.js';
 export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
+export { createRunner, type CodexRunner } from './run.js';
 
 export interface CodexEngineOptions extends RunnerOptions {
   saveImage: (buf: Buffer) => string;
+  /** The process-wide runner, so every caller shares one probe cache. */
+  runner?: CodexRunner;
 }
 
 export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   const { saveImage } = opts;
-  const runner = createRunner(opts);
+  const platform = opts.platform ?? process.platform;
+  const runner = opts.runner ?? createRunner(opts);
   const runCodex = runner.run;
   const withWorkDir = runner.withWorkDir;
 
+  /**
+   * Where codex's built-in image tool saves first, before the agent moves the
+   * file into the workdir. That move is what the native Windows sandbox breaks
+   * (openai/codex#34961), so on win32 this directory is the recovery source.
+   */
+  const generatedImagesDir = () => join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'generated_images');
+
+  /** What generated_images held before a job ran; null on posix (no fallback). */
+  async function snapshotGenerated(): Promise<Set<string> | null> {
+    if (platform !== 'win32') return null;
+    try {
+      return new Set(await readdir(generatedImagesDir()));
+    } catch {
+      return new Set();
+    }
+  }
+
   /** Read out-*.png from dir (numerically sorted), save each, return hashes. */
-  async function collectImages(dir: string): Promise<string[]> {
+  async function collectImages(dir: string, before: Set<string> | null = null): Promise<string[]> {
     const entries = await readdir(dir);
     const outFiles = entries
       .filter((name) => /^out-.*\.png$/.test(name))
@@ -52,6 +74,16 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         return a.localeCompare(b);
       });
     if (outFiles.length === 0) {
+      // win32 recovery: the exec succeeded but nothing reached the workdir.
+      // Claim the newest file that appeared in generated_images during this
+      // job — one job, one image, newest first. Known imperfection: two nodes
+      // generating at the same moment could cross-attribute a recovered image;
+      // accepted for a single-user local app over forking CODEX_HOME per job,
+      // which would break auth.
+      if (before) {
+        const recovered = await recoverFromGenerated(before);
+        if (recovered) return [recovered];
+      }
       throw new Error('Codex finished but produced no images');
     }
     const hashes: string[] = [];
@@ -59,6 +91,22 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       hashes.push(saveImage(await readFile(join(dir, name))));
     }
     return hashes;
+  }
+
+  async function recoverFromGenerated(before: Set<string>): Promise<string | null> {
+    const home = generatedImagesDir();
+    let names: string[];
+    try {
+      names = (await readdir(home)).filter((n) => !before.has(n));
+    } catch {
+      return null;
+    }
+    if (!names.length) return null;
+    const stamped = await Promise.all(names.map(async (n) => ({ n, mtime: (await stat(join(home, n))).mtimeMs })));
+    stamped.sort((a, b) => b.mtime - a.mtime);
+    const pick = stamped[0].n;
+    console.warn(`codex: workdir empty, recovered ${pick} from ${home}`);
+    return saveImage(await readFile(join(home, pick)));
   }
 
   return {
@@ -95,49 +143,74 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       const count = Math.max(1, req.count);
       const refs = req.referenceImages ?? [];
       const roles = req.referenceRoles ?? refs.map(() => 'reference' as const);
+      // Sibling jobs share this controller so one fatal setup failure (codex
+      // signed out, binary gone) stops the batch at once instead of letting
+      // every remaining variant run the same doomed five minutes.
+      const inner = new AbortController();
+      const onOuterAbort = () => inner.abort();
+      if (signal?.aborted) inner.abort();
+      else signal?.addEventListener('abort', onOuterAbort, { once: true });
       const jobs = Array.from(
         { length: count },
         (_, i) => async () =>
           withWorkDir(async (dir) => {
-            const args = execArgs(dir, buildPrompt(req, i, roles));
+            const args = execArgs(dir);
             for (const [idx, ref] of refs.entries()) {
               const dest = join(dir, `ref-${idx}.png`);
               await copyFile(ref, dest);
               // --image is variadic; the = form binds exactly one value so the
-              // positional prompt isn't swallowed as a second image path.
+              // positional stdin marker isn't swallowed as a second image path.
               args.splice(args.length - 1, 0, `--image=${dest}`);
             }
-            await runCodex(args, signal);
-            return collectImages(dir);
+            const before = await snapshotGenerated();
+            await runCodex(args, inner.signal, { stdin: buildPrompt(req, i, roles) });
+            return collectImages(dir, before);
           }),
       );
       const results: string[][] = new Array(count);
       const failures: unknown[] = [];
+      let fatal: unknown = null;
       let next = 0;
-      const workers = Array.from({ length: Math.min(3, count) }, async () => {
-        while (next < count) {
-          const i = next++;
-          try {
-            results[i] = await jobs[i]();
-          } catch (err) {
-            // One variant failing used to reject the batch, so three finished
-            // images were thrown away and left orphaned in the content store.
-            // A cancel still has to propagate: the user asked for the stop.
-            if (signal?.aborted) throw err;
-            results[i] = [];
-            failures.push(err);
+      try {
+        const workers = Array.from({ length: Math.min(3, count) }, async () => {
+          while (next < count && !inner.signal.aborted) {
+            const i = next++;
+            try {
+              results[i] = await jobs[i]();
+            } catch (err) {
+              // One variant failing used to reject the batch, so three finished
+              // images were thrown away and left orphaned in the content store.
+              // A cancel still has to propagate: the user asked for the stop.
+              if (signal?.aborted) throw err;
+              results[i] = [];
+              failures.push(err);
+              if (fatal == null && isFatalSetupError(err)) {
+                fatal = err;
+                inner.abort();
+                // The world changed under the cached probe: the next
+                // /api/engines and preflight must see it, not "Connected".
+                runner.invalidateProbe();
+              }
+            }
           }
-        }
-      });
-      await Promise.all(workers);
-      const images = results.flat();
-      // Every variant failed, so there is nothing to keep and the reason the
-      // caller needs is the first one.
-      if (!images.length && failures.length) throw failures[0];
+        });
+        await Promise.all(workers);
+      } finally {
+        signal?.removeEventListener('abort', onOuterAbort);
+      }
+      const images = results.filter(Boolean).flat();
+      // A fatal setup error is the reason whatever else happened around it;
+      // otherwise, with nothing to keep, the first failure is the reason.
+      if (!images.length && failures.length) throw fatal ?? failures[0];
       if (failures.length) {
         console.warn(
           `codex: ${failures.length} of ${count} variants failed, keeping ${images.length}: ${String((failures[0] as Error)?.message ?? failures[0])}`,
         );
+        return {
+          images,
+          costUsd: 0,
+          raw: { requested: count, partialFailures: failures.map((f) => String((f as Error)?.message ?? f)) },
+        };
       }
       return { images, costUsd: 0 };
     },
@@ -170,12 +243,18 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         // copied them into the working directory and named them in prose, so
         // whether the model ever looked at the source depended on the skill
         // going and finding the file. The source leads, because it is the shot.
-        const args = execArgs(dir, promptText);
+        const args = execArgs(dir);
         for (const name of ['input.png', ...refLines.map((_, i) => `${editRoles[i] ?? 'reference'}-${i + 1}.png`)]) {
           args.splice(args.length - 1, 0, `--image=${join(dir, name)}`);
         }
-        await runCodex(args, signal);
-        const images = await collectImages(dir);
+        const before = await snapshotGenerated();
+        try {
+          await runCodex(args, signal, { stdin: promptText });
+        } catch (err) {
+          if (isFatalSetupError(err)) runner.invalidateProbe();
+          throw err;
+        }
+        const images = await collectImages(dir, before);
         return { images, costUsd: 0 };
       });
     },
@@ -183,6 +262,17 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
 
   // Wording matters: codex's imagegen skill needs shell access (cp/sips) to
   // place the file — forbid browsing/exploration, but NOT running commands.
+  /**
+   * Errors that mean the machine, not this variant: the next variant would
+   * fail identically, so the batch stops. Matched on our own thrown messages
+   * plus codex's stable not-signed-in wording.
+   */
+  function isFatalSetupError(err: unknown): boolean {
+    return /failed to spawn|ENOENT|not logged in|login required|401|unauthorized/i.test(
+      String((err as Error)?.message ?? err),
+    );
+  }
+
   function buildPrompt(req: GenerateRequest, index: number, roles: ReferenceRole[]): string {
     const roleDirective = REFERENCE_ROLE_DIRECTIVE;
     const refDirectives = roles

@@ -20,7 +20,7 @@ import type { spawn as nodeSpawn } from 'node:child_process';
 import { copyFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { EngineAvailability } from '@scenri/core';
-import { createRunner, execArgs, type RunnerOptions } from './run.js';
+import { createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
 
 export interface AnalyzeRequest {
   kind: 'presenter' | 'scene';
@@ -72,12 +72,14 @@ export interface CodexAnalyzer {
 
 export interface CodexAnalyzerOptions extends RunnerOptions {
   spawnImpl?: typeof nodeSpawn;
+  /** The process-wide runner, so analysis shares the engine's probe cache. */
+  runner?: CodexRunner;
 }
 
 const OUT_FILE = 'analysis.json';
 
 export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnalyzer {
-  const runner = createRunner(opts);
+  const runner = opts.runner ?? createRunner(opts);
 
   return {
     isAvailable: () => runner.probe(),
@@ -95,13 +97,13 @@ export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnaly
         // model that cannot follow the contract, and both want a human.
         let problems: string[] = [];
         for (let attempt = 0; attempt < 2; attempt++) {
-          const args = execArgs(dir, buildPrompt(req, refs.length, problems), 'high');
+          const args = execArgs(dir, 'high');
           for (const ref of refs) {
             // --image is variadic; the = form binds exactly one value so the
-            // positional prompt isn't swallowed as a second image path.
+            // positional stdin marker isn't swallowed as a second image path.
             args.splice(args.length - 1, 0, `--image=${ref}`);
           }
-          await runner.run(args, signal);
+          await runner.run(args, signal, { stdin: buildPrompt(req, refs.length, problems) });
 
           let raw: string;
           try {

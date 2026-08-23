@@ -14,7 +14,7 @@
  */
 import { spawn as nodeSpawn } from 'node:child_process';
 import type { EngineAvailability } from '@scenri/core';
-import { createRunner, type RunnerOptions } from './run.js';
+import { createRunner, killTree, type CodexRunner, type RunnerOptions } from './run.js';
 
 /** The one command we would otherwise ask a non-developer to type. */
 export const INSTALL_COMMAND = 'npm install -g @openai/codex';
@@ -28,7 +28,7 @@ export const INSTALL_DOCS_URL = 'https://developers.openai.com/codex/cli';
  */
 export const INSTALL_COMMAND_SUDO = 'sudo npm install -g @openai/codex';
 
-export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'ready';
+export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified' | 'ready';
 
 export interface CodexInstallResult {
   ok: boolean;
@@ -45,9 +45,12 @@ export interface CodexLoginResult {
   detail?: string;
 }
 
+/** The server's platform in the wizard's words, so copy says PowerShell where it should. */
+export type SetupPlatform = 'windows' | 'mac' | 'linux';
+
 export interface CodexSetup {
   /** Same probe the engine uses, mapped to the state the wizard switches on. */
-  status(): Promise<{ state: CodexSetupState; reason?: string }>;
+  status(): Promise<{ state: CodexSetupState; reason?: string; platform: SetupPlatform }>;
   install(): Promise<CodexInstallResult>;
   login(): Promise<CodexLoginResult>;
 }
@@ -57,19 +60,28 @@ export interface CodexSetupOptions extends RunnerOptions {
   spawnImpl?: typeof nodeSpawn;
   /** How long the global npm install may take before we give up. */
   installTimeoutMs?: number;
+  /** The process-wide runner, so setup shares the engine's probe cache. */
+  runner?: CodexRunner;
 }
 
 const DEFAULT_INSTALL_TIMEOUT_MS = 180_000;
 
 function stateFrom(avail: EngineAvailability): CodexSetupState {
   if (avail.ok) return 'ready';
-  return avail.code === 'not-authenticated' ? 'not-authenticated' : 'not-installed';
+  switch (avail.code) {
+    case 'not-authenticated':
+    case 'update-needed':
+    case 'unverified':
+      return avail.code;
+    default:
+      return 'not-installed';
+  }
 }
 
 export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
   const spawnImpl = opts.spawnImpl ?? nodeSpawn;
   const platform = opts.platform ?? process.platform;
-  const runner = createRunner(opts);
+  const runner = opts.runner ?? createRunner(opts);
   const installTimeoutMs = opts.installTimeoutMs ?? DEFAULT_INSTALL_TIMEOUT_MS;
 
   /** Run a command to completion, collecting stderr for the failure detail. */
@@ -89,8 +101,10 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
       };
       let child: ReturnType<typeof nodeSpawn>;
       const timer = setTimeout(() => {
-        child?.kill();
+        // Settle first, then kill the whole tree: on Windows the child is
+        // cmd.exe, and killing it alone would orphan npm or codex login.
         done({ code: null, stderr, spawnError: `${cmd} timed out after ${timeoutMs}ms` });
+        if (child) killTree(child, platform, spawnImpl);
       }, timeoutMs);
       try {
         child = spawnImpl(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: platform === 'win32' });
@@ -110,8 +124,12 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
 
   return {
     async status() {
+      // This endpoint IS the check the wizard offers, and the sign-in poll
+      // rides on it, so it always asks fresh rather than serving the cache.
+      runner.invalidateProbe();
       const avail = await runner.probe();
-      return { state: stateFrom(avail), reason: avail.reason };
+      const setupPlatform: SetupPlatform = platform === 'win32' ? 'windows' : platform === 'darwin' ? 'mac' : 'linux';
+      return { state: stateFrom(avail), reason: avail.reason, platform: setupPlatform };
     },
 
     async install() {
@@ -119,6 +137,7 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
       if (res.code === 0) {
         // Trust the probe, not the exit code: a global install can succeed and
         // still leave the binary off this process's PATH.
+        runner.invalidateProbe();
         const avail = await runner.probe();
         if (avail.code === 'not-installed') {
           return {
@@ -149,6 +168,8 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
       // status meanwhile so a closed tab or an abandoned flow still ends
       // somewhere honest rather than hanging the request.
       const res = await run('codex', ['login'], installTimeoutMs);
+      // Whatever happened in the browser, the cached answer is stale now.
+      runner.invalidateProbe();
       if (res.code === 0) return { ok: true };
       const detail = (res.spawnError ?? res.stderr).trim().slice(0, 400) || undefined;
       return { ok: false, fallbackCommand: 'codex login --device-auth', detail };
