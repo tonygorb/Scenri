@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { classify, createUpdateChecker } from '../src/update/check.js';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { CHECK_INTERVAL_MS, classify, createUpdateChecker, JITTER_RATIO, TICK_MS } from '../src/update/check.js';
 
 const DAY = 24 * 60 * 60 * 1000;
+const INTERVAL = CHECK_INTERVAL_MS;
 
 function memStore() {
   const m = new Map<string, string>();
@@ -34,6 +35,8 @@ function checker(overrides: Partial<Parameters<typeof createUpdateChecker>[0]> =
     env: {},
     now: () => t,
     log: () => {},
+    // Jitter pinned to zero so cadence assertions are exact; jitter has its own tests.
+    random: () => 0,
     ...overrides,
   });
   return { c, store, calls, tick: (ms: number) => (t += ms) };
@@ -61,13 +64,37 @@ describe('update checker', () => {
     expect(c.enabled()).toBe(false);
   });
 
-  it('fetches once, then serves the 24h cache without a second request', async () => {
+  it('fetches once, then serves the cache until the interval has fully passed', async () => {
     const { c, calls, tick } = checker();
     expect((await c.check()).latest).toBe('0.2.0');
-    tick(DAY / 2);
+    tick(INTERVAL / 2);
     expect((await c.check()).latest).toBe('0.2.0');
     expect(calls).toHaveLength(1);
-    tick(DAY);
+    tick(INTERVAL);
+    await c.check();
+    expect(calls).toHaveLength(2);
+  });
+
+  it('fetches once per interval in steady state, never every other tick', async () => {
+    // The regression this guards: when the recheck period equaled the cache
+    // TTL, each tick found a cache written one tick ago and skipped, so the
+    // real cadence silently doubled to twice the documented interval.
+    const { c, calls, tick } = checker();
+    await c.check();
+    let fetched = 1;
+    for (let step = 0; step < (8 * INTERVAL) / TICK_MS; step++) {
+      tick(TICK_MS);
+      await c.check();
+      if (calls.length > fetched) fetched = calls.length;
+    }
+    // Eight intervals of ticking: the initial fetch plus one per interval.
+    expect(calls.length).toBe(1 + 8);
+  });
+
+  it('catches up on the first tick after a long sleep', async () => {
+    const { c, calls, tick } = checker();
+    await c.check();
+    tick(3 * DAY); // the lid was closed
     await c.check();
     expect(calls).toHaveLength(2);
   });
@@ -171,5 +198,90 @@ describe('update checker', () => {
     const { c } = checker({ fetchImpl: impl, registry: 'http://127.0.0.1:9999/reg' });
     await c.check();
     expect(calls[0]).toBe('http://127.0.0.1:9999/reg/-/package/scenri/dist-tags');
+  });
+});
+
+describe('jitter', () => {
+  it('stretches the interval by up to the jitter ratio, so a fleet cannot re-synchronize', async () => {
+    const { c, calls, tick } = checker({ random: () => 1 }); // maximum jitter
+    await c.check();
+    tick(INTERVAL + Math.floor(JITTER_RATIO * INTERVAL) - 1);
+    await c.check();
+    expect(calls).toHaveLength(1); // still inside interval + jitter
+    tick(2);
+    await c.check();
+    expect(calls).toHaveLength(2);
+  });
+
+  it('draws a fresh jitter after every real fetch', async () => {
+    const draws: number[] = [];
+    const { c, tick } = checker({
+      random: () => {
+        draws.push(1);
+        return 0.5;
+      },
+    });
+    await c.check();
+    tick(INTERVAL * 2);
+    await c.check();
+    expect(draws.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('cadence overrides for harnesses', () => {
+  it('honours the env overrides when the registry is not npmjs', async () => {
+    const { c, calls, tick } = checker({
+      registry: 'http://127.0.0.1:9999/reg',
+      env: { SCENRI_UPDATE_INTERVAL_MS: '5000' },
+    });
+    await c.check();
+    tick(5001);
+    await c.check();
+    expect(calls).toHaveLength(2);
+  });
+
+  it('clamps the overrides against the public registry, so nothing can hammer npm', async () => {
+    const { c, calls, tick } = checker({ env: { SCENRI_UPDATE_INTERVAL_MS: '1000' } });
+    await c.check();
+    tick(60 * 60 * 1000 - 1); // just under the one-hour floor
+    await c.check();
+    expect(calls).toHaveLength(1);
+    tick(2);
+    await c.check();
+    expect(calls).toHaveLength(2);
+  });
+});
+
+describe('schedule', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('a running process discovers staleness by itself: boot look, then cheap ticks that fetch only when stale', async () => {
+    vi.useFakeTimers();
+    const store = memStore();
+    const { impl, calls } = fetchStub(() => distTags('0.2.0'));
+    let t = 1_000_000;
+    const c = createUpdateChecker({
+      name: 'scenri',
+      store,
+      fetchImpl: impl,
+      env: { SCENRI_UPDATE_INTERVAL_MS: '5000', SCENRI_UPDATE_TICK_MS: '1000' },
+      registry: 'http://127.0.0.1:9999/reg',
+      now: () => t,
+      log: () => {},
+      random: () => 0,
+    });
+    c.schedule();
+
+    await vi.advanceTimersByTimeAsync(10_000); // the boot look
+    expect(calls).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(3000); // three ticks inside the interval
+    expect(calls).toHaveLength(1);
+
+    t += 5001; // the wall clock passed the interval (or the machine slept)
+    await vi.advanceTimersByTimeAsync(1000); // the very next tick fetches
+    expect(calls).toHaveLength(2);
   });
 });
