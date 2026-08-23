@@ -51,6 +51,29 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.4.0',
+    date: '2026-08-23',
+    title: 'Refining a shot keeps the shot.',
+    sections: [
+      {
+        heading: 'Refining',
+        body: 'Asking for one change now makes one change. Adding a prop or removing an object keeps the rest of the photograph exactly as it was, down to the pixel, instead of returning a fresh interpretation of the same idea. A refinement also carries the product and the presenter it started from, so identity holds through a thread of edits, and a request that genuinely affects the whole frame, like new lighting or a different time of day, is still free to change it.',
+      },
+      {
+        heading: 'Expand',
+        body: 'A finished shot can be grown into another shape. Choosing a new aspect ratio while refining extends the picture you have and generates only the new margin, so the original is kept at its own resolution rather than being replaced by a different take. Nothing is ever cropped to fit.',
+      },
+      {
+        heading: 'Presenters',
+        body: 'The plain studio layers a presenter is photographed in no longer turn up as the outfit in a finished shot. Where the direction names no wardrobe, they are dressed for the place and the occasion in the frame.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'The row of takes under a shot no longer stretches portrait and landscape images into squares. A shot card states what it is in one row, so set names no longer print over the version count and the Refine button, and the keeper star can now be used to keep a shot rather than only to un-keep one. Photos uploaded from a phone are stored the right way up. A run that loses one variant keeps the others instead of throwing all of them away, and the resolution setting no longer promises pixel counts on an engine that renders at its own size.',
+      },
+    ],
+  },
+  {
     version: '0.3.5',
     date: '2026-08-21',
     sections: [
