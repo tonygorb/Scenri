@@ -238,6 +238,7 @@ describe('auto-stage', () => {
     fixture: { latest?: string };
     stageImpl: NonNullable<Parameters<typeof registerUpdateRoutes>[1]['stageImpl']>;
     busyCount?: () => number;
+    bootLookMs?: number;
   }) {
     const a = Fastify();
     const updates = createUpdateChecker({
@@ -254,6 +255,7 @@ describe('auto-stage', () => {
       runtime: supervised,
       stageImpl: opts.stageImpl,
       busyCount: opts.busyCount ?? (() => 0),
+      bootLookMs: opts.bootLookMs,
     });
     return a;
   }
@@ -380,6 +382,24 @@ describe('auto-stage', () => {
     release();
     await untilPhase('ready');
     expect(stages).toBe(1);
+  });
+
+  it('closing the server disarms the boot look', async () => {
+    // Left armed, the deferred look outlives the closed database and
+    // detonates as an unhandled rejection; a slow Windows runner found it.
+    let stages = 0;
+    const a = updApp({
+      fixture: { latest: '0.9.9' },
+      stageImpl: async () => {
+        stages++;
+        return { ok: true, version: '0.9.9', entry: '/e' };
+      },
+      bootLookMs: 30,
+    });
+    await a.ready();
+    await a.close();
+    await new Promise((r) => setTimeout(r, 150));
+    expect(stages).toBe(0);
   });
 
   it('refuses to restart over running work', async () => {
