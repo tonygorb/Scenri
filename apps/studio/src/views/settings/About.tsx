@@ -76,7 +76,9 @@ export function About({ version }: { version: VersionInfo | null }) {
   let rowAction: 'check' | 'update' | 'downloading' | 'restart' | 'copy' | null;
   if (!s?.available) {
     rowBody =
-      s && !s.enabled ? 'Automatic checks are off. Checking here still works.' : 'New versions announce themselves here.';
+      s && !s.enabled
+        ? 'Automatic checks are off. Checking here still works.'
+        : 'New versions announce themselves here.';
     rowAction = 'check';
   } else if (version?.installKind === 'dev') {
     rowBody = "Running from source. Pull and rebuild when you're ready; nothing here touches your checkout.";
@@ -84,8 +86,8 @@ export function About({ version }: { version: VersionInfo | null }) {
   } else if (!canOneClick(s)) {
     rowBody = (
       <>
-        Run <code>{command}</code> in a terminal, then start Scenri again. Your library is not part of the app and
-        stays put.
+        Run <code>{command}</code> in a terminal, then start Scenri again. Your library is not part of the app and stays
+        put.
       </>
     );
     rowAction = 'copy';
