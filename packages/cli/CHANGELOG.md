@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.1](https://github.com/tonygorb/Scenri/compare/v0.4.0...v0.4.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* a clicked update check answers even when automatic checks are off ([a17b8e8](https://github.com/tonygorb/Scenri/commit/a17b8e83c3f006ff518a34412e918099271f27cf))
+* dispatch launch from the module's own path, not argv ([46cd5ea](https://github.com/tonygorb/Scenri/commit/46cd5ea9679ee1261eea25b215590bcdf6027a67))
+* make the local update experience actually deliver updates ([8c5aa0a](https://github.com/tonygorb/Scenri/commit/8c5aa0aa454c4713eb90e1f27bc70867ef93129f))
+* stage a discovered update in the background, ready to restart ([449b9ad](https://github.com/tonygorb/Scenri/commit/449b9ad7c775dd4a4269d1cb41a50be9d83adbe2))
+* update UI narrates the whole arc and never answers with silence ([f964213](https://github.com/tonygorb/Scenri/commit/f964213e03668c200c55dd4bc73350021165bbbe))
+
 ## [0.4.0](https://github.com/tonygorb/Scenri/compare/v0.3.5...v0.4.0) (2026-08-23)
 
 
