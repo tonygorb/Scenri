@@ -20,7 +20,7 @@ import type { spawn as nodeSpawn } from 'node:child_process';
 import { copyFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { EngineAvailability } from '@scenri/core';
-import { createRunner, execArgs, type RunnerOptions } from './run.js';
+import { createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
 
 export interface AnalyzeRequest {
   kind: 'presenter' | 'scene';
@@ -72,12 +72,14 @@ export interface CodexAnalyzer {
 
 export interface CodexAnalyzerOptions extends RunnerOptions {
   spawnImpl?: typeof nodeSpawn;
+  /** The process-wide runner, so analysis shares the engine's probe cache. */
+  runner?: CodexRunner;
 }
 
 const OUT_FILE = 'analysis.json';
 
 export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnalyzer {
-  const runner = createRunner(opts);
+  const runner = opts.runner ?? createRunner(opts);
 
   return {
     isAvailable: () => runner.probe(),

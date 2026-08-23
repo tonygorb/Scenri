@@ -446,7 +446,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   registerProjectRoutes(app, { core });
 
-  registerCodexSetupRoutes(app, { codexSetup: opts.codexSetup });
+  registerCodexSetupRoutes(app, { codexSetup: opts.codexSetup, codexRunner: engines.codexRunner });
 
   // ---- engines / caps / costs
   app.get('/api/engines', async () => {

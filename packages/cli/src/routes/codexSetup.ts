@@ -1,14 +1,17 @@
 import type { FastifyInstance } from 'fastify';
-import { createCodexSetup, type CodexSetup } from '@scenri/engine-codex';
+import { createCodexSetup, type CodexRunner, type CodexSetup } from '@scenri/engine-codex';
 
-export function registerCodexSetupRoutes(app: FastifyInstance, deps: { codexSetup?: CodexSetup }): void {
+export function registerCodexSetupRoutes(
+  app: FastifyInstance,
+  deps: { codexSetup?: CodexSetup; codexRunner?: CodexRunner },
+): void {
   // ---- codex setup (the guided path for people who have never opened a terminal)
   //
   // These run two official commands on the user's own machine: a global npm
   // install, and `codex login`, which opens their browser. No credential is
   // read, copied or stored here — the session lands in codex's own config and
   // stays there. Both are gated by the same access guard as everything else.
-  const codexSetup: CodexSetup = deps.codexSetup ?? createCodexSetup();
+  const codexSetup: CodexSetup = deps.codexSetup ?? createCodexSetup({ runner: deps.codexRunner });
   /** One install/login at a time: two concurrent npm installs fight over the same prefix. */
   let codexSetupBusy: 'install' | 'login' | null = null;
 

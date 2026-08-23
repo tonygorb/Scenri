@@ -25,11 +25,16 @@ export const PROBE_TIMEOUT_MS = 10_000;
 /** How hard codex thinks before it acts. Imagegen wants speed; reading a face wants care. */
 export type ReasoningEffort = 'low' | 'high';
 
+/** How long one probe answer stays true. Short: a sign-in can happen any time. */
+export const PROBE_TTL_MS = 30_000;
+
 export interface RunnerOptions {
   spawnImpl?: typeof nodeSpawn;
   timeoutMs?: number;
   /** Tests pin this so the probe verdicts do not take ten real seconds. */
   probeTimeoutMs?: number;
+  /** Probe cache lifetime; 0 disables the cache. Tests pass 0. */
+  probeTtlMs?: number;
   /** Tests pin this so the spawn contract does not fork with the CI host OS. */
   platform?: NodeJS.Platform;
 }
@@ -38,6 +43,8 @@ export interface CodexRunner {
   run(args: string[], signal?: AbortSignal): Promise<void>;
   withWorkDir<T>(fn: (dir: string) => Promise<T>): Promise<T>;
   probe(): Promise<EngineAvailability>;
+  /** Forget the cached probe answer: something (install, login, failure) changed the world. */
+  invalidateProbe(): void;
 }
 
 /** Shared exec args. The prompt is always the positional tail. */
@@ -59,7 +66,34 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   const spawnImpl = opts.spawnImpl ?? nodeSpawn;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const probeTimeoutMs = opts.probeTimeoutMs ?? PROBE_TIMEOUT_MS;
+  const probeTtlMs = opts.probeTtlMs ?? PROBE_TTL_MS;
   const platform = opts.platform ?? process.platform;
+
+  /**
+   * End a codex child for real. On POSIX the pid is codex itself and SIGTERM
+   * is enough. On Windows the child is usually cmd.exe wrapping the npm shim,
+   * and terminating a Windows process does not touch its children — the
+   * codex.exe grandchild would keep generating (and billing) invisibly. So
+   * taskkill /T takes the whole tree down by pid, /F because a process being
+   * killed for hanging cannot be trusted to honor a polite close.
+   */
+  function killCodex(child: ReturnType<typeof nodeSpawn>): void {
+    if (platform === 'win32' && child.pid) {
+      try {
+        const tk = spawnImpl('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+        // An unhandled 'error' event would crash the server; the plain kill
+        // below is the fallback either way.
+        tk.on('error', () => {});
+      } catch {
+        // taskkill missing or refused: same fallback.
+      }
+    }
+    try {
+      child.kill();
+    } catch {
+      // Already gone.
+    }
+  }
 
   // The probe refreshes this every time it runs, so a codex installed after
   // Scenri started is found on the next check. run() reuses the last answer
@@ -114,13 +148,15 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       });
 
       const timer = setTimeout(() => {
-        child.kill();
+        // Settle first, then kill: the kill can surface an exit event
+        // synchronously, and that exit must not outvote the timeout.
         finish(() => reject(new Error(`Codex CLI timed out after ${timeoutMs}ms`)));
+        killCodex(child);
       }, timeoutMs);
 
       const onAbort = () => {
-        child.kill();
         finish(() => reject(new Error('Codex CLI run aborted')));
+        killCodex(child);
       };
 
       function finish(fn: () => void): void {
@@ -191,7 +227,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
         // Verdict first, then kill: the kill can surface an exit event
         // synchronously, and that exit must not outvote the timeout.
         done('timeout');
-        child?.kill();
+        if (child) killCodex(child);
       }, probeTimeoutMs);
       try {
         child = spawnCodex(exe, args);
@@ -230,12 +266,26 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
    * contract we can pin (the version line is the one parse, and failing to
    * parse it is not a failure).
    */
+  let cached: { at: number; value: EngineAvailability } | null = null;
+
   async function probe(): Promise<EngineAvailability> {
     // Test servers set this so the machine's own codex login cannot turn a
     // deterministic run into a real build. Answered before spawning anything.
     if (process.env.SCENRI_NO_CODEX === '1') {
       return { ok: false, reason: NOT_INSTALLED_REASON, code: 'not-installed' };
     }
+    // One page load asks about codex several times (engines list, preflight,
+    // capabilities). One answer serves them all for a short while; anything
+    // that changes the world calls invalidateProbe.
+    if (cached && probeTtlMs > 0 && Date.now() - cached.at < probeTtlMs) {
+      return cached.value;
+    }
+    const value = await probeUncached();
+    cached = { at: Date.now(), value };
+    return value;
+  }
+
+  async function probeUncached(): Promise<EngineAvailability> {
     // Fresh every probe: an install that happened after Scenri started must be
     // found on the next check, not after a restart.
     resolved = await resolveCodex(platform, spawnImpl);
@@ -271,5 +321,10 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     return verdict({ ok: false, reason: UNVERIFIED_REASON, code: 'unverified' }, exe, version);
   }
 
-  return { run, withWorkDir, probe };
+  function invalidateProbe(): void {
+    cached = null;
+    resolved = null;
+  }
+
+  return { run, withWorkDir, probe, invalidateProbe };
 }

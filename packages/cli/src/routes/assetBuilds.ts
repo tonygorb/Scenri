@@ -35,7 +35,7 @@ export function registerAssetBuildRoutes(
   },
 ): void {
   const { core, engines, scenes, presenters } = deps;
-  const analyzer: Analyzer | null = deps.analyzer ?? createCodexAnalyzer();
+  const analyzer: Analyzer | null = deps.analyzer ?? createCodexAnalyzer({ runner: engines.codexRunner });
 
   /**
    * Which engine draws a person's studio views and a scene's preview.

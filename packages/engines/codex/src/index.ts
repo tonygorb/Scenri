@@ -24,19 +24,22 @@ import {
   type GenerateRequest,
   type ReferenceRole,
 } from '@scenri/core';
-import { createRunner, execArgs, type RunnerOptions } from './run.js';
+import { createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
 
 export { createCodexAnalyzer } from './analyzer.js';
 export { createCodexSetup, INSTALL_COMMAND, type CodexSetup, type CodexSetupState } from './setup.js';
 export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
+export { createRunner, type CodexRunner } from './run.js';
 
 export interface CodexEngineOptions extends RunnerOptions {
   saveImage: (buf: Buffer) => string;
+  /** The process-wide runner, so every caller shares one probe cache. */
+  runner?: CodexRunner;
 }
 
 export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   const { saveImage } = opts;
-  const runner = createRunner(opts);
+  const runner = opts.runner ?? createRunner(opts);
   const runCodex = runner.run;
   const withWorkDir = runner.withWorkDir;
 
