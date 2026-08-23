@@ -19,6 +19,8 @@ export function registerUpdateRoutes(
     exitImpl?: (code: number) => void;
     /** In-flight generations + imports + asset builds, for the never-over-live-work gate. */
     busyCount: () => number;
+    /** The boot look's delay; tests shorten it to prove the close hook disarms it. */
+    bootLookMs?: number;
   },
 ): void {
   const { core, meta, updates, runtime } = deps;
@@ -113,8 +115,20 @@ export function registerUpdateRoutes(
   // inside the 24h window would never hear onResult and a known update could
   // sit unstaged for a day. One deferred look at the cached answer covers it;
   // when the cache was stale after all, the subscriber fires too and the
-  // staging-phase guard makes the second call a no-op.
-  setTimeout(() => void updates.check().then(maybeAutoStage), 15_000).unref();
+  // staging-phase guard makes the second call a no-op. The timer dies with
+  // the server: left armed it outlives the closed database and detonates as
+  // an unhandled rejection (a slow Windows CI runner found exactly that),
+  // and the catch covers a close landing mid-look.
+  const bootLook = setTimeout(() => {
+    updates
+      .check()
+      .then(maybeAutoStage)
+      .catch(() => {
+        /* closing mid-look: the daily cadence owns the next attempt */
+      });
+  }, deps.bootLookMs ?? 15_000);
+  bootLook.unref();
+  app.addHook('onClose', async () => clearTimeout(bootLook));
 
   const updateStatus = async (force = false) => {
     const r = await updates.check(force);
