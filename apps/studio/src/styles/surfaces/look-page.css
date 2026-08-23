@@ -147,14 +147,12 @@
   gap: var(--sc-space-4);
   margin-bottom: calc(var(--sc-space-6) * 2);
 }
-/* Same box open as closed. `.sc-btn:active` translates 1px, which re-centers
-   the whole row the moment the menu opens. */
+/* Same box open as closed, in a centred wrapping row where any width change
+   re-centers every sibling. The `:active { transform: none }` that used to sit
+   here went with the press translate it was written to cancel. */
 .sc-catpick {
   flex: none;
   box-shadow: none;
-}
-.sc-catpick:active {
-  transform: none;
 }
 .sc-catpick[data-state="open"] {
   background: var(--sc-hover);

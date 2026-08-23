@@ -83,10 +83,11 @@
 .sc-notif-tab:hover {
   color: var(--sc-fg);
 }
+/* Fill, ink and shadow-1 carry the selection. A 550-to-650 weight step on top
+   of them only re-spaces the glyphs inside the tab. */
 .sc-notif-tab[aria-selected="true"] {
   background: var(--sc-panel);
   color: var(--sc-fg);
-  font-weight: 650;
   box-shadow: var(--sc-shadow-1);
 }
 .sc-notif-tab:focus-visible {

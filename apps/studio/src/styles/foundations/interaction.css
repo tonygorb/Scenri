@@ -42,31 +42,41 @@
 
 .sc-icon-btn,
 .sc-chip,
-.sc-btn {
-  /* Colour eases; the press does not. A press that animates *in* reads as lag,
-     so `transform` is deliberately absent from this list. */
+.sc-btn,
+.sc-thumb {
+  /* Colour eases; the press does not move. Geometry is deliberately absent
+     from this list because it is absent from the press itself. */
   transition:
     background var(--sc-dur-fast) var(--sc-ease),
     border-color var(--sc-dur-fast) var(--sc-ease),
     color var(--sc-dur-fast) var(--sc-ease),
     opacity var(--sc-dur-fast) var(--sc-ease);
 }
-/* A whole pixel, not a half: 0.5px lands between device pixels and shimmers
-   rather than depressing. The surface step is what actually reads as tactile. */
+/* Pressed controls never change geometry. The press is a paint step on the
+   surface, never a move: nothing shifts under the finger, a click that lands
+   on an edge stays landed, and a row of centred buttons does not re-centre the
+   moment one of them is held. This used to be translateY(1px), which is what
+   made every button in the app read as a mechanical key. */
 .sc-chip:active,
-.sc-btn:active,
-.sc-icon-btn:active {
-  transform: translateY(1px);
-}
-.sc-chip:active,
-.sc-icon-btn:active {
+.sc-icon-btn:active,
+.sc-btn-ghost:active,
+.sc-btn-red:active {
   background: var(--sc-press);
 }
+/* Gold keeps its own tint, one step deeper, so the urgent variant does not go
+   grey under the finger. */
+.sc-btn-ghost[data-urgent]:active {
+  background: color-mix(in srgb, var(--sc-gold) 22%, transparent);
+}
+/* An inverse fill cannot take a light press surface, so it steps its opacity
+   instead. Hover is 0.88, so the press has to land below it to read. */
 .sc-btn-primary:active {
   opacity: 0.75;
 }
+/* A thumbnail is its own image, so a background never shows through it.
+   Opacity is the only paint step it has. */
 .sc-thumb:active {
-  transform: scale(0.985);
+  opacity: 0.86;
 }
 /* Which take you are looking at. This had no selected state anywhere: the
    strip marked it with data-active and nothing in the stylesheet read it. */

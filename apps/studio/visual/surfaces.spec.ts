@@ -171,6 +171,31 @@ test('card hover', async ({ page }) => {
   await shot(page, 'card-hover');
 });
 
+/**
+ * A control while it is held.
+ *
+ * The press had no pixel coverage at all until the geometry pass of 0.4.3, which
+ * is part of why a `transform: translateY(1px)` sat in the shared button rule
+ * for as long as it did. The mouse goes down and is never released, so the shot
+ * captures `:active`; the page is thrown away straight after.
+ */
+test('button pressed', async ({ page }) => {
+  await prep(page);
+  await page.goto(`/${d.slug}?settings=brand`);
+  const btn = page.locator('.sc-btn:visible').first();
+  await btn.scrollIntoViewIfNeeded();
+  const box = await btn.boundingBox();
+  if (!box) throw new Error('no button to press on the brand pane');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await shot(page, 'button-pressed');
+  // Release somewhere else. Letting go on the control would be a click, and
+  // the first button on this pane is "Add colour": the palette would gain a
+  // swatch and every later shot in this file would be taken against it.
+  await page.mouse.move(2, 2);
+  await page.mouse.up();
+});
+
 // ---- light theme, representative subset ------------------------------------
 
 test('light: home', async ({ page }) => {

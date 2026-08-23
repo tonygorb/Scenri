@@ -215,7 +215,7 @@
   box-shadow: inset 0 0 0 1px var(--sc-line);
   transition:
     box-shadow var(--sc-dur-fast) var(--sc-ease),
-    transform var(--sc-dur-slow) var(--sc-ease-emphasis);
+    opacity var(--sc-dur-fast) var(--sc-ease);
 }
 .sc-pick-media img {
   width: 100%;
@@ -240,8 +240,10 @@
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
+/* The press dims the picture rather than nudging it. This was a half-pixel
+   translate eased over 220ms, so the card both moved and lagged. */
 .sc-pick:active .sc-pick-media {
-  transform: translateY(0.5px);
+  opacity: 0.9;
 }
 /* nothing made yet and nothing in the catalog either */
 .sc-pick-blank {
@@ -322,7 +324,7 @@
     border-radius: var(--sc-radius-lg);
   }
   .sc-pick:active {
-    background: var(--sc-raised);
+    background: var(--sc-press);
   }
   .sc-pick-media {
     grid-row: 1 / 3;
