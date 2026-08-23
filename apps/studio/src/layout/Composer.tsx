@@ -589,24 +589,26 @@ export const Composer = forwardRef<
    * the one thing a scene is defined not to be.
    */
   /**
-   * Asking for a different shape is asking for a different photograph.
+   * Asking for a different shape used to be asking for a different photograph.
    *
-   * An edit request carries no width or height at all: the engine is handed the
-   * picture and an instruction and returns one the same shape. So the aspect
-   * control could either vanish here — which left people asking how to get the
-   * same setup at 16:9, with the answer being a differently-named button two
-   * blocks away — or stay, and mean what it says by running as a new shot from
-   * this setup. It stays. This is the same rule a scene already follows, for
-   * the same reason: some changes cannot be made to a picture, only to a brief.
+   * It ran as a new shot from the same setup, so a square somebody liked, asked
+   * for at 16:9, came back as a different picture. It is an expansion now: the
+   * photograph is kept at its own resolution and only the new margin is
+   * generated, then the original is laid back over the answer, so every pixel
+   * that was already there survives exactly.
+   *
+   * A scene still starts a new shot, because that really is a different brief
+   * rather than a bigger frame.
    */
   const reshaping = !!target && !!target.brief?.format && target.brief.format !== formatId;
-  const mode: 'generation' | 'edit' = branchable && engineCanEdit && !template && !reshaping ? 'edit' : 'generation';
+  const expanding = reshaping && branchable && engineCanEdit && !template;
+  const mode: 'generation' | 'edit' = branchable && engineCanEdit && !template ? 'edit' : 'generation';
   const targetNote = !branchable
     ? null
     : template
       ? 'A scene starts a new shot.'
-      : reshaping
-        ? 'A new shape starts a new shot from this setup.'
+      : expanding
+        ? 'Expands this shot into the new shape. What is already in the picture stays exactly as it is.'
         : !engineCanEdit
           ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
           : targetPending
@@ -625,7 +627,15 @@ export const Composer = forwardRef<
     const shape = `Aspect ${f.label} ${f.hint}`;
     if (mode === 'edit') return shape;
     const r = RESOLUTIONS.find((x) => x.id === quality);
-    const size = sizingOf(engineId) === 'ratio' || !r ? null : `${r.label} ${r.edge} px`;
+    const sizing = sizingOf(engineId);
+    // Spoken aloud, "resolution High 1536 px" is a claim. On an engine that is
+    // only asked for a size it is a request, and the summary says which.
+    const size =
+      sizing === 'ratio' || !r
+        ? null
+        : sizing === 'advisory'
+          ? `${r.label}, asking for ${r.edge} px`
+          : `${r.label} ${r.edge} px`;
     return [shape, `${count} variants`, size && `resolution ${size}`].filter(Boolean).join(', ');
   }, [mode, formatId, count, quality, engineId]);
 
