@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.3](https://github.com/tonygorb/Scenri/compare/v0.4.2...v0.4.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* controls respond to a press without moving under the cursor ([b5c993b](https://github.com/tonygorb/Scenri/commit/b5c993bf75cbc8907d63f48d5be6c75cb8e300ba))
+* controls respond to a press without moving under the cursor ([62c868a](https://github.com/tonygorb/Scenri/commit/62c868a6ac539485d3cd8f8f70e245df03509e45))
+
 ## [0.4.2](https://github.com/tonygorb/Scenri/compare/v0.4.1...v0.4.2) (2026-08-23)
 
 
