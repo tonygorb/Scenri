@@ -93,11 +93,26 @@ export function killTree(
   if (platform === 'win32' && child.pid) {
     try {
       const tk = spawnImpl('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
-      // An unhandled 'error' event would crash the server; the plain kill
-      // below is the fallback either way.
-      tk.on('error', () => {});
+      // taskkill must be the ONLY killer while it works: a plain kill fired
+      // alongside it terminates the cmd.exe parent first, taskkill then walks
+      // a dead pid, finds no tree, and the grandchild survives — the exact
+      // orphan this function exists to prevent (caught by the real-spawn
+      // suite on windows-latest). The plain kill runs only when taskkill
+      // itself cannot: missing, refused, or exiting nonzero.
+      const fallback = () => {
+        try {
+          child.kill();
+        } catch {
+          // Already gone.
+        }
+      };
+      tk.on('error', fallback);
+      tk.on('exit', (code: number | null) => {
+        if (code !== 0) fallback();
+      });
+      return;
     } catch {
-      // taskkill missing or refused: same fallback.
+      // taskkill unavailable: fall through to the plain kill.
     }
   }
   try {
