@@ -24,7 +24,10 @@ and both optional:
 
 1. **A version check** against the npm registry (name and version numbers only,
    nothing about you), at most once a day, so updates can announce themselves.
-   Off switch: `SCENRI_NO_UPDATE_CHECK=1` or Settings.
+   When it finds a newer version, Scenri also downloads that release from npm
+   and stages it locally, the same request installing the package made;
+   restarting into it is always your choice. Off switch for both:
+   `SCENRI_NO_UPDATE_CHECK=1` or Settings.
 2. **A one-time download of the library imagery archive** from this
    repository's GitHub Releases, cached locally forever after. Off switch:
    `SCENRI_NO_CONTENT_FETCH=1`.
@@ -58,6 +61,7 @@ sign-in happens in your own browser with the official CLI.
 
 ## The short version
 
-Your work stays home. Two version-and-imagery requests, both disclosed and both
-switchable. Generation goes straight to the provider you chose. Nothing about
-you is collected, because there is nowhere to collect it to.
+Your work stays home. The update check with its staged download, and the
+imagery archive, both disclosed and both switchable. Generation goes straight
+to the provider you chose. Nothing about you is collected, because there is
+nowhere to collect it to.

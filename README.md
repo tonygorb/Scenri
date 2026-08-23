@@ -95,7 +95,7 @@ pnpm dev          # starts the server on 127.0.0.1:4747
 - **Iteration is the product.** A version tree, not a prompt box. Branch, compare, keep the winners.
 - **Your brands are files, not hostages.** `.brand` is an open, documented format under a permissive license. Email one to a client. Any tool can adopt it.
 - **Your AI, your cost.** Bring your own Codex CLI session or an API key. Experiments cost raw API price, or nothing at all on a local session. No credits that burn on a miss.
-- **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only. Scenri makes exactly two requests on its own behalf: a daily version-number check against npm so updates can announce themselves, and a one-time download of the library imagery archive, cached locally forever after. Nothing about you or your work is ever sent, and both turn off: in Settings or `SCENRI_NO_UPDATE_CHECK=1` for the first, `SCENRI_NO_CONTENT_FETCH=1` for the second ([how updates work](https://github.com/tonygorb/scenri/blob/main/docs/updates.md)).
+- **Local first, and it means it.** No account, no telemetry, no upload. The server binds to your machine only. Scenri makes exactly two requests on its own behalf: a daily version-number check against npm so updates can announce themselves (and, when one is found, the download of that release from npm, staged locally until you choose to restart), and a one-time download of the library imagery archive, cached locally forever after. Nothing about you or your work is ever sent, and both turn off: in Settings or `SCENRI_NO_UPDATE_CHECK=1` for the first, `SCENRI_NO_CONTENT_FETCH=1` for the second ([how updates work](https://github.com/tonygorb/scenri/blob/main/docs/updates.md)).
 
 ## Engines
 

@@ -9,12 +9,17 @@ asks for a restart. Application code and your library never share a directory:
 ~/.scenri/
   scenri.db, images/, backups/     your work, no update touches these
   app/
-    staging/<version>/             npm's workbench while an update downloads
+    staging/next/                  npm's workbench while an update downloads
     versions/<version>/            installed app versions, newest wins
 ```
 
 `rm -rf ~/.scenri/app` is always safe. It removes staged app versions only;
 the next `npx scenri` rebuilds it.
+
+Installs first run before 0.4.1 cached a launcher that never actually
+supervised on macOS and Linux (an argv symlink bug), and npx keeps reusing
+that cache. One `npx scenri@latest` replaces it; everything on this page works
+from then on.
 
 ## The update check
 
@@ -23,6 +28,12 @@ version: one GET of the dist-tags document, nothing else sent, 5 seconds max,
 silent when offline. It and the one-time library download below are Scenri's
 only self-initiated network requests, and each is disclosed once in the
 console (the update check also in Settings → About).
+
+When the check finds a newer version on a supervised install, Scenri also
+downloads that release from npm in the background and stages it next to the
+running copy, verified and waiting. The download is part of the same choice:
+the toggle and the variable below turn both off together. Restarting into the
+staged version is always yours to click, and never happens over running work.
 
 Turning it off (either works):
 
@@ -52,11 +63,12 @@ the next launch restores it.
 
 ## Applying an update
 
-- **In the app**: the Update button on the floating notice (or Settings →
-  About) downloads the new version next to the running one, verifies it
-  actually loads, and restarts into it. The browser reconnects by itself.
-  "Not now" holds the notice for the rest of the session; the next launch
-  offers it again, and updating ends it for good.
+- **In the app**: a found update downloads and verifies itself in the
+  background; the floating notice (and Settings → About) then offers one
+  click, "Restart to update", and the browser reconnects by itself. Where the
+  background download could not run, the same button does the whole job on
+  click. "Not now" holds the notice for the rest of the session; the next
+  launch offers it again, and updating ends it for good.
 - **In a terminal**: `scenri update` (with npx: `npx scenri update`) stages
   the newest version; it runs on the next start. `scenri update --check`
   only reports.
@@ -70,8 +82,10 @@ node before it is ever handed to the launcher. A version that fails
 verification is discarded, and the one that failed to boot is skipped with a
 fallback to the build that last worked.
 
-Updates never run while a generation is in flight, and they are always
-user-triggered: nothing installs or restarts on its own.
+Updates never run while a generation is in flight. Downloads happen on their
+own when checks are on (that is the point: the update is ready before anyone
+asks); restarts never do. Scenri restarts only when a person clicks, and never
+over running work.
 
 ## What's new
 
@@ -138,8 +152,8 @@ The first boot of a new home stamps `install.firstVersion` and marks the
 running version as already seen, so a brand-new install is never met with a
 modal explaining changes it has no memory of.
 
-Updates never install or restart on their own, see above. What's New is only
-ever a description of what already happened.
+Updates never restart on their own, see above. What's New is only ever a
+description of what already happened.
 
 ## Migrations and backups
 
