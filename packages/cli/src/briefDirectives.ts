@@ -57,15 +57,19 @@ export function productFidelityDirective(attached: number): string {
  * releases the shadows and reflections belonging to the change, because a new
  * object that casts nothing is its own kind of wrong.
  */
-export function editPreservationDirective(scope: 'local' | 'global'): string {
+export function editPreservationDirective(scope: 'local' | 'global', opts?: { removal?: boolean }): string {
   if (scope === 'local') {
+    const removal = opts?.removal
+      ? ' What is removed leaves nothing behind: the surface and the scene continue as if it had never been there, with no outline, silhouette, residue or ghost of it.'
+      : '';
     return (
       'This is a change to a photograph that already exists, not a new photograph. Return the same image with ' +
       'one change made. Everything the instruction does not name comes back exactly as it is now: the same framing, ' +
       'the same crop, the same camera position, the same subject placement and pose, the same lighting, the same ' +
       'colours, the same background and the same dimensions. Do not re-render, re-stage, re-light or re-compose the ' +
       'picture. Change only what was asked for, together with the shadows, reflections and contact points that move ' +
-      'with it.'
+      'with it.' +
+      removal
     );
   }
   return (
@@ -87,6 +91,27 @@ export function inheritedIdentityDirective(): string {
   return (
     'The extra attached references are the same product and the same person that are already in this picture. Use ' +
     'them to hold that identity exact while you make the change, not as a reason to re-stage the shot.'
+  );
+}
+
+/**
+ * A garment with nobody attached is a product, not an outfit.
+ *
+ * Apparel briefs that carried no presenter produced an invented wearer: a
+ * fully bodied figure with a void inside the raised hood in one battery frame,
+ * and an empty jacket floating with no support in another. Nobody asked for a
+ * person, so the model split the difference and drew most of one.
+ *
+ * One sentence, emitted only for apparel category products when no presenter
+ * is attached and only for generations: a refinement already has a picture
+ * whose staging is settled. The direction can still ask for it worn, and then
+ * its own words outrank this.
+ */
+export function garmentDisplayDirective(): string {
+  return (
+    'No person is part of this brief. Present the garment as a product, laid, hung, folded or dressed on a plain ' +
+    'form, never on a person, a partial figure or an invisible body, unless the direction above explicitly asks ' +
+    'for it worn.'
   );
 }
 

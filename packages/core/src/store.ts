@@ -29,6 +29,8 @@ export interface TreeNode {
   status: NodeStatus;
   images: string[];
   costUsd: number;
+  /** Wall time of the run in milliseconds; null for legacy and unfinished nodes. */
+  durationMs: number | null;
   kept: boolean;
   error: string | null;
   createdAt: string;
@@ -121,6 +123,7 @@ function rowToNode(r: any): TreeNode {
     status: r.status,
     images: JSON.parse(r.images),
     costUsd: r.cost_usd,
+    durationMs: r.duration_ms ?? null,
     kept: !!r.kept,
     error: r.error,
     createdAt: r.created_at,
@@ -315,10 +318,11 @@ export function createStore(db: DB) {
       );
       return this.getNode(id)!;
     },
-    completeNode(id: string, result: { images: string[]; costUsd: number }): void {
-      db.prepare("UPDATE nodes SET status='done', images=?, cost_usd=? WHERE id=?").run(
+    completeNode(id: string, result: { images: string[]; costUsd: number; durationMs?: number }): void {
+      db.prepare("UPDATE nodes SET status='done', images=?, cost_usd=?, duration_ms=? WHERE id=?").run(
         JSON.stringify(result.images),
         result.costUsd,
+        result.durationMs ?? null,
         id,
       );
     },

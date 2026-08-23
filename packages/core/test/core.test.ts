@@ -161,8 +161,12 @@ describe('version tree', () => {
       prompt: 'x',
       engineId: 'demo',
     });
-    core.store.completeNode(n.id, { images: ['a'.repeat(32)], costUsd: 0 });
+    core.store.completeNode(n.id, { images: ['a'.repeat(32)], costUsd: 0, durationMs: 74250 });
     core.store.setKept(n.id, true);
+    // The run's wall time survives completion. Everything the app could say
+    // about time used to be derived from created_at while the node was still
+    // running; a finished shot could never say how long it took.
+    expect(core.store.getNode(n.id)!.durationMs).toBe(74250);
 
     core.store.setArchived(n.id, true);
     let after = core.store.getNode(n.id)!;

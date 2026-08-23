@@ -106,6 +106,23 @@ const compile = (tokens: Brief['tokens'], max = 6) =>
   compileBrief({ tokens }, { brand: brand(), images: core.images, engineCaps: caps(max), templateById: resolveScene });
 const roles = (r: ReturnType<typeof compile>) => r.attachments.map((a) => a.role);
 
+/** The same brand with one apparel garment, for the unworn-garment guard. */
+const apparelBrand = () => {
+  const b = brand();
+  return {
+    ...b,
+    products: [
+      ...b.products,
+      {
+        id: 'g1',
+        name: 'Field Jacket',
+        category: 'apparel',
+        shots: [{ file: `asset:${frontHash}`, angle: 'front', locked: true }],
+      },
+    ],
+  };
+};
+
 /** A product-led scene and a person-led scene that really exist in the catalog. */
 const PRODUCT_SCENE = 'studio-polished-pedestal';
 const PERSON_SCENE = 'contour-key-portrait';
@@ -420,6 +437,81 @@ describe('golden: responsibility contract', () => {
       { t: 'template', id: PRODUCT_SCENE },
     ]);
     expect(r.prompt).not.toContain('Camera for this shot:');
+  });
+
+  // Apparel briefs that carried no presenter produced an invented wearer: a
+  // bodied figure with a void inside the hood, and an empty floating jacket.
+  describe('a garment with nobody attached is a product, not an outfit', () => {
+    const GARMENT = 'Present the garment as a product';
+
+    it('fires for an apparel product with no presenter', () => {
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'g1' },
+            { t: 'text', v: 'a hero shot' },
+          ],
+        },
+        { brand: apparelBrand(), images: core.images, engineCaps: caps(6), templateById: resolveScene },
+      );
+      expect(r.prompt).toContain(GARMENT);
+    });
+
+    it('stays out when a presenter is attached to wear it', () => {
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'g1' },
+            { t: 'character', id: 'c1' },
+          ],
+        },
+        { brand: apparelBrand(), images: core.images, engineCaps: caps(6), templateById: resolveScene },
+      );
+      expect(r.prompt).not.toContain(GARMENT);
+    });
+
+    it('stays out for products that are not apparel', () => {
+      const r = compile([{ t: 'product', id: 'p1' }]);
+      expect(r.prompt).not.toContain(GARMENT);
+    });
+  });
+
+  // An engine that paints a thing out tends to leave its ghost behind. The
+  // removal clause names the failure; only removal verbs earn it.
+  describe('a removal leaves nothing behind', () => {
+    const RESIDUE = 'no outline, silhouette, residue or ghost';
+
+    it('a remove instruction carries the residue clause', () => {
+      const r = compileBrief(
+        { tokens: [{ t: 'text', v: 'remove the cup on the left' }] },
+        {
+          brand: brand(),
+          images: core.images,
+          engineCaps: caps(6),
+          templateById: resolveScene,
+          mode: 'edit',
+          editScope: 'local',
+          editRemoval: true,
+        },
+      );
+      expect(r.prompt).toContain(RESIDUE);
+    });
+
+    it('an additive local edit does not', () => {
+      const r = compileBrief(
+        { tokens: [{ t: 'text', v: 'add one subtle prop' }] },
+        {
+          brand: brand(),
+          images: core.images,
+          engineCaps: caps(6),
+          templateById: resolveScene,
+          mode: 'edit',
+          editScope: 'local',
+        },
+      );
+      expect(r.prompt).toContain('Change only what was asked for');
+      expect(r.prompt).not.toContain(RESIDUE);
+    });
   });
 });
 
