@@ -187,8 +187,8 @@ export function About({ version }: { version: VersionInfo | null }) {
         <span className="txt">
           <b>Automatic updates</b>
           <small data-prose="">
-            One version check a day; new versions download in the background, and restarting is always your call. Off
-            means Scenri never calls anywhere by itself.
+            A version check every six hours; new versions download in the background, and restarting is always your
+            call. Off means Scenri never calls anywhere by itself.
           </small>
         </span>
         <button
