@@ -3,7 +3,7 @@
  * See the update flow exactly as a user does. Boots the real supervised
  * launcher on a scratch home against a mini registry that serves the current
  * source as 99.0.0, then opens the browser: the float announces, downloads in
- * the background, offers Restart to update, and clicking it really restarts
+ * the background, offers the one-click Update, and clicking it really restarts
  * into 99.0.0. Nothing touches your checkout, your library or your dev
  * server; Ctrl-C tears the whole thing down.
  *
@@ -115,7 +115,7 @@ await api('/api/update/check', { method: 'POST' }).catch(() => {});
 console.log('');
 console.log('  This is the user seat. Watch the bottom-left float:');
 console.log('  downloading, then "Scenri 99.0.0 is ready", then click');
-console.log('  Restart to update and watch it come back as 99.0.0.');
+console.log('  Update and watch it come back as 99.0.0.');
 console.log('  Settings, About shows the same states. Ctrl-C ends the demo');
 console.log('  and removes every temporary file.');
 console.log('');

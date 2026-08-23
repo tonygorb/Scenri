@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowCircleUp } from '@phosphor-icons/react';
+import { ArrowCircleUp, Gift } from '@phosphor-icons/react';
 import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
 import { P } from '../routes.js';
@@ -302,21 +302,16 @@ function UpdateFloat() {
         : st.kind === 'stage-error'
           ? "Couldn't download the update"
           : 'A new update is available';
-  const action =
-    busy === 'applying'
-      ? 'Updating…'
-      : st.kind === 'ready'
-        ? 'Restart to update'
-        : st.kind === 'stage-error'
-          ? 'Try again'
-          : 'Update';
+  // One verb everywhere: the button says Update whatever step remains; the
+  // line above it and the overlay carry the mechanics (downloaded, restarting).
+  const action = busy === 'applying' ? 'Updating…' : st.kind === 'stage-error' ? 'Try again' : 'Update';
   // One click does the whole remaining job whenever the machine can; the only
   // fallback left is pointing at About, where the manual command lives.
   const oneClick = st.kind !== 'announce' || st.oneClick;
 
   return (
     <div className="sc-upd-float" role="status">
-      <span className="sc-upd-float-dot" aria-hidden="true" />
+      <Gift className="sc-upd-float-dot" size={16} weight="fill" aria-hidden="true" />
       <span className="sc-upd-float-txt">
         {line}
         {applyError && st.kind !== 'downloading' && <small>{applyError}</small>}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api, type VersionInfo } from '../../api.js';
 import { useUpdateCenter } from '../../app/UpdateCenter.js';
 import { useWhatsNew } from '../../app/WhatsNew.js';
@@ -71,6 +71,38 @@ export function About({ version }: { version: VersionInfo | null }) {
     <span className="sc-tag">up to date</span>
   ) : null;
 
+  // The single Updates row: one sentence and at most one button per state.
+  let rowBody: ReactNode;
+  let rowAction: 'check' | 'update' | 'downloading' | 'restart' | 'copy' | null;
+  if (!s?.available) {
+    rowBody =
+      s && !s.enabled ? 'Automatic checks are off. Checking here still works.' : 'New versions announce themselves here.';
+    rowAction = 'check';
+  } else if (version?.installKind === 'dev') {
+    rowBody = "Running from source. Pull and rebuild when you're ready; nothing here touches your checkout.";
+    rowAction = null;
+  } else if (!canOneClick(s)) {
+    rowBody = (
+      <>
+        Run <code>{command}</code> in a terminal, then start Scenri again. Your library is not part of the app and
+        stays put.
+      </>
+    );
+    rowAction = 'copy';
+  } else if (s.phase === 'ready') {
+    rowBody = updates.applyError ?? `${s.stagedVersion} is downloaded and verified. Restarting finishes it.`;
+    rowAction = 'restart';
+  } else if (s.phase === 'staging') {
+    rowBody = 'Downloading in the background. Nothing interrupts your work.';
+    rowAction = 'downloading';
+  } else if (s.phase === 'error') {
+    rowBody = updates.applyError ?? s.error ?? "Couldn't download the update. Try again.";
+    rowAction = 'update';
+  } else {
+    rowBody = `You are on ${s.current}.`;
+    rowAction = 'update';
+  }
+
   return (
     <Group>
       <div className="sc-set-row">
@@ -81,19 +113,19 @@ export function About({ version }: { version: VersionInfo | null }) {
           </small>
         </span>
       </div>
+      {/* One row tells the whole story: what this is on, what exists, what is
+          happening about it, and the single action that matters now. The
+          states are mutually exclusive, so the row always carries exactly one
+          sentence and at most one button. */}
       <div className="sc-set-row">
         <span className="txt">
           <b>Updates</b>
           <small data-prose="">
-            {s?.available
-              ? `You are on ${s.current}.`
-              : s && !s.enabled
-                ? 'Automatic checks are off. Checking here still works.'
-                : 'New versions announce themselves here.'}
+            {rowBody}
             {/* What is in the version you do not have yet can only come from
                 the release page — the notes that ship inside a build describe
                 that build. One link, no fetch, no second renderer. */}
-            {s?.available && s.notesUrl && (
+            {s?.available && s.phase !== 'ready' && s.notesUrl && (
               <>
                 {' '}
                 <a href={s.notesUrl} target="_blank" rel="noreferrer">
@@ -104,10 +136,7 @@ export function About({ version }: { version: VersionInfo | null }) {
           </small>
         </span>
         {verdict}
-        {/* Once a version is on offer the check has spoken: the tag and the
-            action row below carry it, and a button offering to look again
-            would sit beside its own answer. */}
-        {!s?.available && (
+        {rowAction === 'check' && (
           <button
             type="button"
             className="sc-btn sc-btn-ghost"
@@ -115,6 +144,26 @@ export function About({ version }: { version: VersionInfo | null }) {
             onClick={() => void updates.checkNow()}
           >
             Check for updates
+          </button>
+        )}
+        {(rowAction === 'update' || rowAction === 'restart') && (
+          <button
+            type="button"
+            className="sc-btn sc-btn-primary"
+            disabled={updates.busy !== 'idle'}
+            onClick={() => void updates.apply()}
+          >
+            {updates.busy !== 'idle' ? 'Updating…' : s?.phase === 'error' ? 'Try again' : 'Update'}
+          </button>
+        )}
+        {rowAction === 'downloading' && (
+          <button type="button" className="sc-btn sc-btn-primary" disabled>
+            Downloading…
+          </button>
+        )}
+        {rowAction === 'copy' && (
+          <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void copy()}>
+            {copied ? 'Copied' : 'Copy command'}
           </button>
         )}
       </div>
@@ -132,64 +181,12 @@ export function About({ version }: { version: VersionInfo | null }) {
           Show
         </button>
       </div>
-      {s?.available &&
-        (version?.installKind === 'dev' ? (
-          <div className="sc-set-row">
-            <span className="txt">
-              <b>Update</b>
-              <small data-prose="">
-                Running from source. Pull and rebuild when you're ready. Nothing here touches your checkout.
-              </small>
-            </span>
-          </div>
-        ) : canOneClick(s) ? (
-          <div className="sc-set-row">
-            <span className="txt">
-              <b>Update</b>
-              <small data-prose="">
-                {updates.applyError ??
-                  (s.phase === 'ready'
-                    ? `${s.stagedVersion} is downloaded and verified. Restarting finishes it.`
-                    : s.phase === 'staging'
-                      ? 'Downloading in the background. Nothing interrupts your work.'
-                      : 'Downloads in the background next to the running version, verifies it loads, then asks to restart. Your library stays put.')}
-              </small>
-            </span>
-            <button
-              type="button"
-              className="sc-btn sc-btn-primary"
-              disabled={updates.busy !== 'idle' || s.phase === 'staging'}
-              onClick={() => void updates.apply()}
-            >
-              {s.phase === 'staging'
-                ? 'Downloading…'
-                : updates.busy === 'applying'
-                  ? 'Updating…'
-                  : s.phase === 'ready'
-                    ? 'Restart to update'
-                    : 'Update now'}
-            </button>
-          </div>
-        ) : (
-          <div className="sc-set-row">
-            <span className="txt">
-              <b>Update</b>
-              <small data-prose="">
-                Run <code>{command}</code> in a terminal, then start Scenri again. Your library is not part of the app
-                and stays put.
-              </small>
-            </span>
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void copy()}>
-              {copied ? 'Copied' : 'Copy command'}
-            </button>
-          </div>
-        ))}
       <div className="sc-set-row">
         <span className="txt">
-          <b>Check for updates automatically</b>
+          <b>Automatic updates</b>
           <small data-prose="">
-            One version-number request to npm, at most daily. When it finds a new version, Scenri downloads it in the
-            background; restarting is always your call. Off means Scenri never calls anywhere by itself.
+            One version check a day; new versions download in the background, and restarting is always your call. Off
+            means Scenri never calls anywhere by itself.
           </small>
         </span>
         <button

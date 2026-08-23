@@ -24,12 +24,10 @@
   color: var(--sc-fg);
   animation: sc-upd-rise var(--sc-dur-slow) ease-out both;
 }
+/* A gift, not a warning: gold, and the only accent on the row. */
 .sc-upd-float-dot {
   flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-gold);
+  color: var(--sc-gold);
 }
 .sc-upd-float-txt {
   min-width: 0;
