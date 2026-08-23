@@ -98,49 +98,70 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       const count = Math.max(1, req.count);
       const refs = req.referenceImages ?? [];
       const roles = req.referenceRoles ?? refs.map(() => 'reference' as const);
+      // Sibling jobs share this controller so one fatal setup failure (codex
+      // signed out, binary gone) stops the batch at once instead of letting
+      // every remaining variant run the same doomed five minutes.
+      const inner = new AbortController();
+      const onOuterAbort = () => inner.abort();
+      if (signal?.aborted) inner.abort();
+      else signal?.addEventListener('abort', onOuterAbort, { once: true });
       const jobs = Array.from(
         { length: count },
         (_, i) => async () =>
           withWorkDir(async (dir) => {
-            const args = execArgs(dir, buildPrompt(req, i, roles));
+            const args = execArgs(dir);
             for (const [idx, ref] of refs.entries()) {
               const dest = join(dir, `ref-${idx}.png`);
               await copyFile(ref, dest);
               // --image is variadic; the = form binds exactly one value so the
-              // positional prompt isn't swallowed as a second image path.
+              // positional stdin marker isn't swallowed as a second image path.
               args.splice(args.length - 1, 0, `--image=${dest}`);
             }
-            await runCodex(args, signal);
+            await runCodex(args, inner.signal, { stdin: buildPrompt(req, i, roles) });
             return collectImages(dir);
           }),
       );
       const results: string[][] = new Array(count);
       const failures: unknown[] = [];
+      let fatal: unknown = null;
       let next = 0;
-      const workers = Array.from({ length: Math.min(3, count) }, async () => {
-        while (next < count) {
-          const i = next++;
-          try {
-            results[i] = await jobs[i]();
-          } catch (err) {
-            // One variant failing used to reject the batch, so three finished
-            // images were thrown away and left orphaned in the content store.
-            // A cancel still has to propagate: the user asked for the stop.
-            if (signal?.aborted) throw err;
-            results[i] = [];
-            failures.push(err);
+      try {
+        const workers = Array.from({ length: Math.min(3, count) }, async () => {
+          while (next < count && !inner.signal.aborted) {
+            const i = next++;
+            try {
+              results[i] = await jobs[i]();
+            } catch (err) {
+              // One variant failing used to reject the batch, so three finished
+              // images were thrown away and left orphaned in the content store.
+              // A cancel still has to propagate: the user asked for the stop.
+              if (signal?.aborted) throw err;
+              results[i] = [];
+              failures.push(err);
+              if (fatal == null && isFatalSetupError(err)) {
+                fatal = err;
+                inner.abort();
+              }
+            }
           }
-        }
-      });
-      await Promise.all(workers);
-      const images = results.flat();
-      // Every variant failed, so there is nothing to keep and the reason the
-      // caller needs is the first one.
-      if (!images.length && failures.length) throw failures[0];
+        });
+        await Promise.all(workers);
+      } finally {
+        signal?.removeEventListener('abort', onOuterAbort);
+      }
+      const images = results.filter(Boolean).flat();
+      // A fatal setup error is the reason whatever else happened around it;
+      // otherwise, with nothing to keep, the first failure is the reason.
+      if (!images.length && failures.length) throw fatal ?? failures[0];
       if (failures.length) {
         console.warn(
           `codex: ${failures.length} of ${count} variants failed, keeping ${images.length}: ${String((failures[0] as Error)?.message ?? failures[0])}`,
         );
+        return {
+          images,
+          costUsd: 0,
+          raw: { requested: count, partialFailures: failures.map((f) => String((f as Error)?.message ?? f)) },
+        };
       }
       return { images, costUsd: 0 };
     },
@@ -173,11 +194,11 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         // copied them into the working directory and named them in prose, so
         // whether the model ever looked at the source depended on the skill
         // going and finding the file. The source leads, because it is the shot.
-        const args = execArgs(dir, promptText);
+        const args = execArgs(dir);
         for (const name of ['input.png', ...refLines.map((_, i) => `${editRoles[i] ?? 'reference'}-${i + 1}.png`)]) {
           args.splice(args.length - 1, 0, `--image=${join(dir, name)}`);
         }
-        await runCodex(args, signal);
+        await runCodex(args, signal, { stdin: promptText });
         const images = await collectImages(dir);
         return { images, costUsd: 0 };
       });
@@ -186,6 +207,17 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
 
   // Wording matters: codex's imagegen skill needs shell access (cp/sips) to
   // place the file — forbid browsing/exploration, but NOT running commands.
+  /**
+   * Errors that mean the machine, not this variant: the next variant would
+   * fail identically, so the batch stops. Matched on our own thrown messages
+   * plus codex's stable not-signed-in wording.
+   */
+  function isFatalSetupError(err: unknown): boolean {
+    return /failed to spawn|ENOENT|not logged in|login required|401|unauthorized/i.test(
+      String((err as Error)?.message ?? err),
+    );
+  }
+
   function buildPrompt(req: GenerateRequest, index: number, roles: ReferenceRole[]): string {
     const roleDirective = REFERENCE_ROLE_DIRECTIVE;
     const refDirectives = roles

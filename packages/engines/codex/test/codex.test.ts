@@ -25,6 +25,15 @@ class FakeChild extends EventEmitter {
   kill = vi.fn(() => true);
   stdout = new EventEmitter();
   stderr = new EventEmitter();
+  stdin = {
+    written: '',
+    write(d: string | Buffer) {
+      this.written += String(d);
+      return true;
+    },
+    end: () => {},
+    on: () => {},
+  };
 }
 
 interface SpawnCall {
@@ -161,17 +170,17 @@ describe('generate', () => {
     const result = await engine.generate(genReq); // count: 2 → two parallel execs
 
     expect(calls).toHaveLength(2);
-    for (const { cmd, args } of calls) {
+    for (const { cmd, args, child } of calls) {
       expect(cmd).toBe('codex');
       expect(args.slice(0, 4)).toEqual(['exec', '--skip-git-repo-check', '--sandbox', 'workspace-write']);
       expect(args).toContain('model_reasoning_effort="low"');
-      const promptText = args[args.indexOf('-C') + 2];
+      const promptText = child.stdin.written; // the prompt rides stdin, not argv
       expect(promptText).toContain('Generate one flawless, professional-grade image immediately');
       expect(promptText).toContain('640x480: a fox mascot on a teal background');
       expect(promptText).toContain('Save the image in the current directory as out-1.png');
     }
     // second run is asked for a distinct composition
-    const prompts = calls.map(({ args }) => args[args.indexOf('-C') + 2]);
+    const prompts = calls.map(({ child }) => child.stdin.written);
     expect(prompts.filter((p) => p.includes('variant 2'))).toHaveLength(1);
     // distinct workdirs, both cleaned up
     const dirs = calls.map(({ args }) => dirFromArgs(args));
@@ -206,7 +215,7 @@ describe('generate', () => {
         },
       },
     });
-    const p1 = calls[0].args[calls[0].args.indexOf('-C') + 2];
+    const p1 = calls[0].child.stdin.written;
     expect(p1).not.toContain('Brand style');
     expect(p1).not.toContain('#1F3D2B');
     expect(p1).not.toContain('Slow mornings');
@@ -228,7 +237,7 @@ describe('generate', () => {
       referenceImages: [markPath],
       referenceRoles: ['brand'],
     });
-    const p1 = calls[0].args[calls[0].args.length - 1]; // prompt is the positional tail
+    const p1 = calls[0].child.stdin.written; // the prompt rides stdin
     expect(p1).toContain("the brand's own mark");
     expect(p1).toContain('reproduce it exactly as drawn');
   });
@@ -253,8 +262,8 @@ describe('generate', () => {
     // prompt binds them by order ("Attached image 1 is ..."), not by filename,
     // and they are no longer all products.
     expect(args).toContain(`--image=${join(dirFromArgs(args), 'ref-0.png')}`);
-    expect(args[args.length - 1]).not.toContain('--image'); // prompt stays the positional tail
-    const promptText = args[args.length - 1];
+    expect(args[args.length - 1]).toBe('-'); // the stdin marker stays the positional tail
+    const promptText = calls[0].child.stdin.written;
     expect(promptText).toContain('preserve its label, shape, colors and design faithfully');
   });
 
@@ -270,7 +279,7 @@ describe('generate', () => {
     // No roles supplied. Guessing "product" here is how a presenter's face ends
     // up described as a product to preserve the label and design of.
     await engine.generate({ ...genReq, count: 1, referenceImages: [refPath] });
-    const promptText = calls[0].args[calls[0].args.length - 1];
+    const promptText = calls[0].child.stdin.written;
     expect(promptText).toContain('a reference to match in composition, lighting and treatment');
     expect(promptText).not.toContain('the exact product');
   });
@@ -378,7 +387,7 @@ describe('edit', () => {
     const { cmd, args } = calls[0];
     expect(cmd).toBe('codex');
     expect(args.slice(0, 4)).toEqual(['exec', '--skip-git-repo-check', '--sandbox', 'workspace-write']);
-    expect(args[args.length - 1]).toBe(
+    expect(calls[0].child.stdin.written).toBe(
       'Edit input.png using your image generation/editing tool: make the sky teal.' +
         ' Do not browse the web or explore files. Save the result in the current directory as out-1.png' +
         ' (you may run the commands needed to save and resize it). Nothing else.',
@@ -418,8 +427,8 @@ describe('edit', () => {
     expect(images).toHaveLength(2);
     expect(images[0]).toContain('input.png');
     expect(images[1]).toContain('product-1.png');
-    // the prompt is still the positional tail
-    expect(calls[0].args[calls[0].args.length - 1]).toContain('Edit input.png');
+    // the prompt rides stdin; the tail is the stdin marker
+    expect(calls[0].child.stdin.written).toContain('Edit input.png');
   });
 
   // A reference that arrives without a role is not a product. Calling it one
@@ -439,7 +448,7 @@ describe('edit', () => {
 
     await engine.edit({ instruction: 'warmer light', sourceImage, brand, referenceImages: [ref] });
 
-    const promptText = calls[0].args[calls[0].args.length - 1];
+    const promptText = calls[0].child.stdin.written;
     expect(promptText).toContain('reference-1.png');
     expect(promptText).not.toContain('product-1.png');
     expect(promptText).not.toContain('the exact product');

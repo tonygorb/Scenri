@@ -1066,3 +1066,91 @@ describe('codex setup', () => {
     await local.close();
   });
 });
+
+describe('node watchdog', () => {
+  // An engine that never answers and only honors the abort signal: the shape
+  // of a hung codex exec whose own timers have failed us.
+  const hang = (): EngineAdapter => ({
+    capabilities: () => ({
+      id: 'hang',
+      displayName: 'Hang',
+      localOnly: true,
+      supportsEdit: false,
+      supportsMask: false,
+      maxReferenceImages: 0,
+    }),
+    isAvailable: async () => ({ ok: true }),
+    costEstimate: async () => 0,
+    generate: (_req, signal) =>
+      new Promise((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new Error('engine abort')), { once: true });
+      }),
+    edit: async () => {
+      throw new Error('unsupported');
+    },
+  });
+
+  it('fails a node that outlives the cap as a timeout, not a cancel', async () => {
+    const local = buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 300 });
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'W' }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: b.json().id, name: 'w' },
+    });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'hang',
+        width: 256,
+        height: 256,
+      },
+    });
+    expect(gen.statusCode).toBe(202);
+    const node = await waitDoneOn(local, gen.json().id);
+    expect(node.status).toBe('error');
+    expect(node.error).toMatch(/timed out/i);
+    await local.close();
+  });
+
+  it('still records a user cancel as cancelled, never as a timeout', async () => {
+    const local = buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 60_000 });
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'W' }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: b.json().id, name: 'w' },
+    });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'hang',
+        width: 256,
+        height: 256,
+      },
+    });
+    const cancel = await local.inject({ method: 'POST', url: `/api/nodes/${gen.json().id}/cancel` });
+    expect(cancel.statusCode).toBe(200);
+    const node = await waitDoneOn(local, gen.json().id);
+    expect(node.status).toBe('cancelled');
+    await local.close();
+  });
+});

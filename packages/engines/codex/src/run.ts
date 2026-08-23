@@ -21,6 +21,12 @@ export const NOT_AVAILABLE_REASON = 'Codex CLI not found or not signed in (run: 
 export const DEFAULT_TIMEOUT_MS = 300_000;
 /** A probe answer is either quick or worthless: past this it is "could not verify". */
 export const PROBE_TIMEOUT_MS = 10_000;
+/**
+ * How long a run may produce nothing on either pipe before it counts as dead.
+ * codex streams its transcript continuously while working; total silence this
+ * long is a hang (observed upstream on Windows), not thinking.
+ */
+export const NO_ACTIVITY_TIMEOUT_MS = 120_000;
 
 /** How hard codex thinks before it acts. Imagegen wants speed; reading a face wants care. */
 export type ReasoningEffort = 'low' | 'high';
@@ -35,30 +41,39 @@ export interface RunnerOptions {
   probeTimeoutMs?: number;
   /** Probe cache lifetime; 0 disables the cache. Tests pass 0. */
   probeTtlMs?: number;
+  /** The silence window before a run counts as hung. Tests shrink it. */
+  noActivityMs?: number;
   /** Tests pin this so the spawn contract does not fork with the CI host OS. */
   platform?: NodeJS.Platform;
 }
 
 export interface CodexRunner {
-  run(args: string[], signal?: AbortSignal): Promise<void>;
+  run(args: string[], signal?: AbortSignal, opts?: { stdin?: string }): Promise<void>;
   withWorkDir<T>(fn: (dir: string) => Promise<T>): Promise<T>;
   probe(): Promise<EngineAvailability>;
   /** Forget the cached probe answer: something (install, login, failure) changed the world. */
   invalidateProbe(): void;
 }
 
-/** Shared exec args. The prompt is always the positional tail. */
-export function execArgs(dir: string, promptText: string, effort: ReasoningEffort = 'low'): string[] {
+/**
+ * Shared exec args. The positional tail is `-`, codex's own marker for "read
+ * the prompt from stdin": as an argv tail the prompt hit cmd.exe's 8191-char
+ * line limit and the win32 quoting substitutions; stdin carries exact bytes on
+ * every platform. --color never keeps the transcript free of ANSI codes.
+ */
+export function execArgs(dir: string, effort: ReasoningEffort = 'low'): string[] {
   return [
     'exec',
     '--skip-git-repo-check',
     '--sandbox',
     'workspace-write',
+    '--color',
+    'never',
     '-c',
     `model_reasoning_effort="${effort}"`,
     '-C',
     dir,
-    promptText,
+    '-',
   ];
 }
 
@@ -67,6 +82,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const probeTimeoutMs = opts.probeTimeoutMs ?? PROBE_TIMEOUT_MS;
   const probeTtlMs = opts.probeTtlMs ?? PROBE_TTL_MS;
+  const noActivityMs = opts.noActivityMs ?? NO_ACTIVITY_TIMEOUT_MS;
   const platform = opts.platform ?? process.platform;
 
   /**
@@ -118,21 +134,20 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       .replace(/[\r\n]+/g, ' ')
       .replace(/"/g, "'")
       .replace(/%/g, ' percent ')}"`;
-  const spawnCodex = (exe: ResolvedCodex, args: string[]) =>
-    exe.direct
-      ? spawnImpl(exe.command, args, { stdio: ['ignore', 'pipe', 'pipe'] })
-      : spawnImpl([exe.command, ...args].map(winArg).join(' '), [], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          shell: true,
-        });
+  const spawnCodex = (exe: ResolvedCodex, args: string[], stdinOpen: boolean) => {
+    const stdio: ('pipe' | 'ignore')[] = [stdinOpen ? 'pipe' : 'ignore', 'pipe', 'pipe'];
+    return exe.direct
+      ? spawnImpl(exe.command, args, { stdio })
+      : spawnImpl([exe.command, ...args].map(winArg).join(' '), [], { stdio, shell: true });
+  };
 
   /** Run `codex <args>`, resolving on exit 0; kill + reject after timeoutMs. */
-  async function run(args: string[], signal?: AbortSignal): Promise<void> {
+  async function run(args: string[], signal?: AbortSignal, io?: { stdin?: string }): Promise<void> {
     const exe = await resolution();
     return new Promise<void>((resolve, reject) => {
       let child: ReturnType<typeof nodeSpawn>;
       try {
-        child = spawnCodex(exe, args);
+        child = spawnCodex(exe, args, io?.stdin != null);
       } catch (err) {
         reject(new Error(`Failed to spawn codex: ${(err as Error).message}`));
         return;
@@ -140,12 +155,36 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
 
       let settled = false;
       let stderr = '';
+      // A codex that says nothing on either pipe for the whole window is hung,
+      // not thinking: the transcript streams continuously while it works. The
+      // hard cap below still bounds a run that chats forever.
+      let activityTimer = setTimeout(onSilence, noActivityMs);
+      function sawActivity(): void {
+        if (settled) return;
+        clearTimeout(activityTimer);
+        activityTimer = setTimeout(onSilence, noActivityMs);
+      }
+      function onSilence(): void {
+        finish(() =>
+          reject(new Error(`Codex CLI produced no output for ${Math.round(noActivityMs / 1000)}s, treating it as stuck`)),
+        );
+        killCodex(child);
+      }
       // codex streams its full transcript to stdout; it MUST be drained or the
       // 64KB pipe buffer fills and codex blocks forever (real hang, 2026-08-01).
-      child.stdout?.on('data', () => {});
+      child.stdout?.on('data', sawActivity);
       child.stderr?.on('data', (d: Buffer | string) => {
         stderr += String(d);
+        sawActivity();
       });
+
+      if (io?.stdin != null) {
+        // The child can die before or while the prompt is written; an
+        // unhandled EPIPE here would take the server down with it.
+        child.stdin?.on('error', () => {});
+        child.stdin?.write(io.stdin);
+        child.stdin?.end();
+      }
 
       const timer = setTimeout(() => {
         // Settle first, then kill: the kill can surface an exit event
@@ -163,6 +202,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        clearTimeout(activityTimer);
         signal?.removeEventListener('abort', onAbort);
         fn();
       }
@@ -230,7 +270,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
         if (child) killCodex(child);
       }, probeTimeoutMs);
       try {
-        child = spawnCodex(exe, args);
+        child = spawnCodex(exe, args, false);
       } catch {
         done('spawn-error');
         return;

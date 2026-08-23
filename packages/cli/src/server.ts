@@ -67,6 +67,8 @@ export interface ServerOptions {
   stageImpl?: typeof stageVersion;
   /** process.exit, injected in tests so the restart route can be observed. */
   exitImpl?: (code: number) => void;
+  /** Upper bound on one node's whole run; tests shrink it. */
+  nodeTimeoutMs?: number;
   /** Reads a brand's own references into structured records. Injected in tests. */
   analyzer?: Analyzer;
   /** Installs and signs in the local Codex CLI for the setup wizard. Injected in tests. */
@@ -550,6 +552,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
   }
 
+  /**
+   * Ten minutes bounds the worst legitimate case on the slowest engine: a
+   * multi-variant codex batch is up to three 300s waves of per-exec timeout.
+   * The tester's 500 seconds of silent nothing sat exactly in the gap this
+   * closes.
+   */
+  const NODE_TIMEOUT_MS = 600_000;
+
   async function runNode(
     nodeId: string,
     engine: EngineAdapter,
@@ -568,6 +578,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     reserved.set(engineId, (reserved.get(engineId) ?? 0) + estimate);
     const ctrl = new AbortController();
     runningGenerations.set(nodeId, ctrl);
+    // The last line of defense: whatever the engine's own timers do, no node
+    // sits in `running` past this. A multi-variant codex batch can legally
+    // outlive a single per-exec timeout, so the bound lives here, per node.
+    let watchdogFired = false;
+    const watchdog = setTimeout(() => {
+      watchdogFired = true;
+      ctrl.abort();
+    }, opts.nodeTimeoutMs ?? NODE_TIMEOUT_MS);
     try {
       const result = await work(ctrl.signal);
       result.images = await normalizePngs(result.images);
@@ -578,10 +596,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     } catch (err: any) {
       // the signal is the source of truth for "was this a cancel", not the
       // error shape, which differs across engines (fetch's AbortError, a
-      // killed child process, a stopped poll loop)
-      if (ctrl.signal.aborted) core.store.cancelNode(nodeId);
+      // killed child process, a stopped poll loop) — except the watchdog,
+      // whose abort is a failure with a name, never a user cancel.
+      if (watchdogFired) core.store.failNode(nodeId, 'generation timed out after 10 minutes');
+      else if (ctrl.signal.aborted) core.store.cancelNode(nodeId);
       else core.store.failNode(nodeId, String(err?.message ?? err));
     } finally {
+      clearTimeout(watchdog);
       runningGenerations.delete(nodeId);
       const left = (reserved.get(engineId) ?? 0) - estimate;
       if (left > 1e-9) reserved.set(engineId, left);
