@@ -22,7 +22,7 @@ const REAL = {
   exitCode: 'codex exited with code 1: some unrecognised gibberish',
   codexSignedOut: 'codex exited with code 1: Not logged in',
   codexUnverified: 'Could not verify Codex on this computer',
-  codexTooOld: 'Codex CLI 0.140.0 is too old. Scenri needs 0.146.0 or newer.',
+  codexTooOld: 'Codex CLI 0.140.0 is too old. Scenri needs 0.145.0 or newer.',
   codexSilent: 'Codex CLI produced no output for 120s, treating it as stuck',
 };
 

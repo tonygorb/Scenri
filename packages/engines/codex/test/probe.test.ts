@@ -69,7 +69,7 @@ describe('probe verdicts', () => {
     expect(avail.ok).toBe(false);
     expect(avail.code).toBe('update-needed');
     expect(avail.reason).toContain('0.140.0');
-    expect(avail.reason).toContain('0.146.0');
+    expect(avail.reason).toContain('0.145.0');
     expect(calls).toHaveLength(1);
   });
 

@@ -249,7 +249,7 @@ test('a codex below the version floor asks for an update, with PowerShell wordin
       contentType: 'application/json',
       body: JSON.stringify({
         state: 'update-needed',
-        reason: 'Codex CLI 0.140.0 is too old. Scenri needs 0.146.0 or newer.',
+        reason: 'Codex CLI 0.140.0 is too old. Scenri needs 0.145.0 or newer.',
         platform: 'windows',
       }),
     }),

@@ -12,8 +12,13 @@
  */
 import type { spawn as nodeSpawn } from 'node:child_process';
 
-/** Oldest codex the adapter is tested against: exec --json, login status, -i. */
-export const MIN_CODEX_VERSION = '0.146.0';
+/**
+ * Oldest codex whose flag surface this adapter was verified against, live:
+ * `login status` exit codes, `exec` with the stdin marker, `--color never`,
+ * `-i/--image`. Raising this cuts off working installs; raise it only after
+ * verifying the older release actually lacks something the adapter needs.
+ */
+export const MIN_CODEX_VERSION = '0.145.0';
 
 const WHERE_TIMEOUT_MS = 5_000;
 

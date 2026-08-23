@@ -237,7 +237,7 @@ shows the exact terminal command to run instead.
 - **Scenri says it could not verify Codex.** Something on the machine answered too slowly or not at
   all. Press **Check again** in the setup dialog; if it persists, check what `where.exe codex`
   prints in PowerShell and that `codex --version` answers there.
-- **Codex needs an update.** Scenri requires Codex CLI 0.146.0 or newer. Update with
+- **Codex needs an update.** Scenri requires Codex CLI 0.145.0 or newer. Update with
   `npm install -g @openai/codex@latest`, or if you used OpenAI's standalone installer, run it again:
   `powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"`.
 
