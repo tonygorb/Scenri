@@ -23,7 +23,7 @@ Exactly two requests, both disclosed in the terminal the first time they run,
 and both optional:
 
 1. **A version check** against the npm registry (name and version numbers only,
-   nothing about you), at most once a day, so updates can announce themselves.
+   nothing about you), every six hours while Scenri runs, so updates can announce themselves.
    When it finds a newer version, Scenri also downloads that release from npm
    and stages it locally, the same request installing the package made;
    restarting into it is always your choice. Off switch for both:

@@ -103,6 +103,14 @@ describe('GET /api/update/status', () => {
     const res = await app.inject({ method: 'GET', url: '/api/update/status' });
     expect(res.json()).toMatchObject({ available: false, kind: null, notesUrl: expect.any(String) });
   });
+
+  it('never builds a notes link for a latest that is not a clean release triple', async () => {
+    // A mistyped publish can put a prerelease on the latest tag. It must not
+    // stage (the triplet guard), and it must not leak into a URL either.
+    app = build(updateFetch({ latest: '1.0.0-beta.1' }).impl);
+    const res = await app.inject({ method: 'GET', url: '/api/update/status' });
+    expect(res.json()).toMatchObject({ available: false, kind: null, notesUrl: null, latest: '1.0.0-beta.1' });
+  });
 });
 
 describe('POST /api/update/check', () => {

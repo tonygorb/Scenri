@@ -44,7 +44,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     /** Abort in-flight generations, close the server, close the database. Idempotent. */
     drain(): Promise<void>;
-    /** The update checker; serve.ts starts its daily schedule after listen. */
+    /** The update checker; serve.ts starts its periodic schedule after listen. */
     updates: UpdateChecker;
     /** The one-time library download; serve.ts triggers it after listen. */
     content: ContentFetcher;

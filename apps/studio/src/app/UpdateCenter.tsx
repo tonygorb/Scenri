@@ -4,7 +4,7 @@ import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
 import { P } from '../routes.js';
 import { useOpenSettings } from './dialogs.js';
-import { floatState } from './updateRules.js';
+import { floatState, floatVisible } from './updateRules.js';
 
 /**
  * The machine-scoped update awareness, mounted once in AppShell — deliberately
@@ -12,12 +12,13 @@ import { floatState } from './updateRules.js';
  * channel, but it is keyed per brand and resets on brand switch; an app update
  * is about this machine, not about whichever brand happens to be open.
  *
- * The real check cadence lives on the server (one registry GET a day, cached
- * in the settings table). This poll only reads that cache, so its interval is
- * about how soon an already-made discovery reaches the chrome, not about
- * traffic.
+ * The real check cadence lives on the server (one registry GET every six
+ * hours, cached in the settings table). This poll only reads that cache over
+ * the local socket, so its interval is about how soon an already-made
+ * discovery reaches the chrome, not about traffic; focus and visibility
+ * changes still refresh immediately.
  */
-const POLL_MS = 6 * 60 * 60 * 1000;
+const POLL_MS = 30 * 60 * 1000;
 
 /** How long a download may run before the UI stops waiting and says try again. */
 const STAGE_DEADLINE_MS = 5 * 60 * 1000;
@@ -256,7 +257,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, busy, applyError }}>
       {children}
-      {busy !== 'restarting' && status?.available && !dismissed && !onSetup && <UpdateFloat />}
+      {busy !== 'restarting' && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
     </Ctx.Provider>
   );

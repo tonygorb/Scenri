@@ -165,7 +165,7 @@ async function run(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  // First look ~10s after listen, then daily. check() itself honours the
+  // First look ~10s after listen, then a staleness tick every few minutes. check() itself honours the
   // Settings toggle and SCENRI_NO_UPDATE_CHECK, and stays silent offline.
   app.updates.schedule();
   // The one-time library download, shortly after listen. ensure() honours

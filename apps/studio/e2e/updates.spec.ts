@@ -139,12 +139,16 @@ test.describe
       await fx.stop();
     });
 
-    test('the float announces it: one sentence, Not now, Update — plus dot and menu row', async ({ page }) => {
+    test('a source checkout gets the news without a float: dot and menu row carry it, About explains', async ({
+      page,
+    }) => {
+      // This server runs from source, so one-click can never apply here. A
+      // float would only offer a button that opens About onto a pane with
+      // nothing to press — the dead loop this spec now guards against. The
+      // quiet surfaces still tell the story.
       await page.goto(`${fx.base()}/`);
-      await expect(float(page)).toBeVisible();
-      await expect(float(page)).toContainText('A new update is available');
-      await expect(float(page).locator('.sc-btn')).toHaveText(['Update']);
-      await expect(float(page).locator('.sc-upd-float-later')).toHaveText('Not now');
+      await expect(page.locator('.sc-greet')).toBeVisible();
+      await expect(float(page)).toHaveCount(0);
       await expect(dot(page)).toBeVisible();
 
       await page.locator('.sc-org-btn').click();
@@ -185,27 +189,30 @@ test.describe
       await expect(float(page)).toHaveCount(0);
     });
 
-    test('Not now holds for this session, and asks again next launch', async ({ page, browser }) => {
+    test('the quiet surfaces persist across reloads on a checkout', async ({ page, browser }) => {
+      // The float's Not now arc is unreachable from a source spawn now that
+      // the float never appears here; the one-click float is exercised by the
+      // update-demo harness on a real staged install. What this fixture CAN
+      // hold is that the checkout stays float-free and keeps its menu row.
       await page.goto(`${fx.base()}/`);
-      await float(page).locator('.sc-upd-float-later').click();
+      await expect(page.locator('.sc-greet')).toBeVisible();
       await expect(float(page)).toHaveCount(0);
-      await expect(dot(page)).toHaveCount(0);
 
       await page.reload();
       await expect(page.locator('.sc-greet')).toBeVisible();
       await expect(float(page)).toHaveCount(0);
 
-      // the menu row stays: declined is quiet, not gone
+      // the menu row stays: quiet, not gone
       await page.locator('.sc-org-btn').click();
       await expect(page.locator('.sc-menu-item[data-update]')).toBeVisible();
       await page.keyboard.press('Escape');
 
-      // a fresh session is a fresh launch, and the offer comes back. "Not now"
-      // is a pause, not a permanent silence — only updating ends it.
+      // and a brand-new session on the same checkout stays float-free too
       const next = await browser.newContext();
       const fresh = await next.newPage();
       await fresh.goto(`${fx.base()}/`);
-      await expect(fresh.locator('.sc-upd-float')).toBeVisible();
+      await expect(fresh.locator('.sc-greet')).toBeVisible();
+      await expect(fresh.locator('.sc-upd-float')).toHaveCount(0);
       await next.close();
     });
   });

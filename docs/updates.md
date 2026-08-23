@@ -39,11 +39,12 @@ your dev server are never touched.
 
 ## The update check
 
-Once a day, the running server asks the npm registry for the latest published
-version: one GET of the dist-tags document, nothing else sent, 5 seconds max,
-silent when offline. It and the one-time library download below are Scenri's
-only self-initiated network requests, and each is disclosed once in the
-console (the update check also in Settings → About).
+Every six hours, the running server asks the npm registry for the latest
+published version: one GET of the dist-tags document, nothing else sent, 5
+seconds max, silent when offline. A laptop that slept through a check catches
+up within minutes of waking. It and the one-time library download below are
+Scenri's only self-initiated network requests, and each is disclosed once in
+the console (the update check also in Settings → About).
 
 When the check finds a newer version on a supervised install, Scenri also
 downloads that release from npm in the background and stages it next to the
