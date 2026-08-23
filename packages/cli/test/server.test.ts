@@ -451,6 +451,68 @@ describe('generation flow', () => {
     });
   });
 
+  // Asking a finished shot for a different shape used to start a new one, so a
+  // square somebody liked came back as a different picture in 16:9.
+  it('grows the frame and returns the original region untouched', async () => {
+    const brand = await mkBrand();
+    const { project } = await mkProject(brand.id);
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 256, h: 256 },
+            { t: 'text', v: 'a red field' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDone(gen.json().id);
+    const sourceHash = genNode.images[0];
+    const sharp = (await import('sharp')).default;
+    const src = core.images.read(sourceHash);
+    const srcMeta = await sharp(src).metadata();
+
+    const expand = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: sourceHash,
+        // the same setup, asked for in a wider shape
+        brief: {
+          tokens: [
+            { t: 'format', id: 'landscape', w: 456, h: 256 },
+            { t: 'text', v: 'keep going' },
+          ],
+        },
+      },
+    });
+    expect(expand.statusCode).toBe(202);
+    const out = await waitDone(expand.json().id);
+    expect(out.status).toBe('done');
+
+    const grown = await sharp(core.images.read(out.images[0])).metadata();
+    // it really did grow, and it grew sideways, keeping every row
+    expect(grown.height).toBe(srcMeta.height);
+    expect(grown.width!).toBeGreaterThan(srcMeta.width!);
+    expect(grown.width! / grown.height!).toBeCloseTo(456 / 256, 1);
+
+    // and the picture itself came back byte for byte, which is the promise
+    const left = Math.round((grown.width! - srcMeta.width!) / 2);
+    const region = { left, top: 0, width: srcMeta.width!, height: srcMeta.height! };
+    const before = await sharp(src).removeAlpha().raw().toBuffer();
+    const after = await sharp(core.images.read(out.images[0])).extract(region).removeAlpha().raw().toBuffer();
+    expect(after).toEqual(before);
+  });
+
   it('edit without parent image -> 400; unknown engine -> 400', async () => {
     const brand = await mkBrand();
     const { project, root } = await mkProject(brand.id);

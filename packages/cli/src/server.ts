@@ -23,6 +23,8 @@ import type { CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { inheritedIdentityTokens } from './editIdentity.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
+import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js';
+import { expandCanvas, compositeExpand } from './expand.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
 import { registerLogoRoutes } from './routes/logos.js';
 import { registerCatalogImportRoutes } from './routes/catalogImport.js';
@@ -553,6 +555,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     estimate: number,
     work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number }>,
     expect?: { width: number; height: number },
+    /**
+     * Runs over the engine's answer before anything is stored. Expansion uses
+     * it to lay the untouched original back over the margin the engine made,
+     * which is the only way any of this can be a guarantee: no provider we can
+     * reach promises to leave a region alone.
+     */
+    post?: (images: string[]) => Promise<string[]>,
   ) {
     const engineId = engine.capabilities().id;
     reserved.set(engineId, (reserved.get(engineId) ?? 0) + estimate);
@@ -561,6 +570,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     try {
       const result = await work(ctrl.signal);
       result.images = await normalizePngs(result.images);
+      if (post) result.images = await post(result.images);
       if (expect) await assertAspect(result.images, expect);
       core.store.completeNode(nodeId, result);
       core.ledger.recordCost(engineId, nodeId, result.costUsd);
@@ -617,6 +627,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let editScope: EditScope = 'global';
     /** Things the route itself needs to say, alongside whatever the compiler warned about. */
     const extraWarnings: string[] = [];
+    /** Set when a refinement is growing the frame rather than changing the picture. */
+    let expandPlan: ExpandPlan | null = null;
+    /** The bed handed to the engine, kept so the original can be laid back over its answer. */
+    let expandSourceHash: string | null = null;
     if (brief && Array.isArray(brief.tokens)) {
       const briefErrors = validateBrief(brief);
       if (briefErrors.length) return reply.status(400).send({ error: `invalid brief: ${briefErrors.join('; ')}` });
@@ -802,19 +816,37 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           `${engine.capabilities().displayName} cannot carry reference images, so the identity rides on the source frame alone.`,
         );
 
-      const editReq: EditRequest = {
-        instruction: finalPrompt,
-        sourceImage: core.images.pathFor(String(srcHash)),
-        brand: ctx,
-        ...(editRefs.length ? { referenceImages: editRefs.map((r) => r.path) } : {}),
-        ...(editRefs.length ? { referenceRoles: editRefs.map((r) => r.role ?? 'reference') } : {}),
-      };
       // The old comment here said an edit inherits the source's dimensions so
       // there was nothing to check against. The source IS the thing to check
       // against, and without the check a refinement returned 1402x1122 from an
       // 816x1024 frame and was stored, shown, and inherited by every later step.
-      const srcMeta = await sharp(core.images.read(String(srcHash))).metadata();
+      const srcBuf = core.images.read(String(srcHash));
+      const srcMeta = await sharp(srcBuf).metadata();
       if (srcMeta.width && srcMeta.height) expectShape = { width: srcMeta.width, height: srcMeta.height };
+
+      /**
+       * A different shape asked of a finished shot is an expansion, not a new
+       * shot. Changing the format used to start one from scratch, so a square
+       * somebody liked came back as a different picture in 16:9. Here the
+       * photograph is kept and only the margin is generated, which is the one
+       * edit whose region is known exactly rather than inferred.
+       */
+      if (srcMeta.width && srcMeta.height && compiled?.width && compiled?.height) {
+        expandPlan = planExpand({ width: srcMeta.width, height: srcMeta.height }, compiled.width / compiled.height);
+      }
+      if (expandPlan) {
+        const canvas = await expandCanvas(srcBuf, expandPlan);
+        expandSourceHash = core.images.save(canvas);
+        expectShape = { width: expandPlan.width, height: expandPlan.height };
+      }
+
+      const editReq: EditRequest = {
+        instruction: expandPlan ? expandInstruction(expandPlan, finalPrompt) : finalPrompt,
+        sourceImage: core.images.pathFor(String(expandSourceHash ?? srcHash)),
+        brand: ctx,
+        ...(editRefs.length ? { referenceImages: editRefs.map((r) => r.path) } : {}),
+        ...(editRefs.length ? { referenceRoles: editRefs.map((r) => r.role ?? 'reference') } : {}),
+      };
       estimate = await engine.costEstimate(editReq);
       work = (signal) => engine.edit(editReq, signal);
     }
@@ -834,7 +866,25 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // Fire and forget: the 202 is the answer and the node's own status carries
     // the outcome. runNode records failures itself, so a rejection here means
     // even that failed — log it, but never let it reach the process unhandled.
-    void runNode(node.id, engine, estimate, work, expectShape).catch((err) =>
+    // Expansion takes its guarantee rather than asking for it: whatever the
+    // engine returns supplies the margin, and the original photograph is laid
+    // back over it at the offset it was planned into, byte for byte.
+    const plan = expandPlan;
+    // editedFrom is the resolved source, which may have come from the parent
+    // rather than from the request body.
+    const original = plan && editedFrom ? core.images.read(editedFrom) : null;
+    const post = plan
+      ? async (images: string[]) => {
+          const out: string[] = [];
+          for (const h of images) {
+            const { image, aligned } = await compositeExpand(core.images.read(h), original!, plan);
+            if (!aligned) app.log.warn({ nodeId: node.id }, 'expand: engine frame did not align, kept the bed');
+            out.push(core.images.save(image));
+          }
+          return out;
+        }
+      : undefined;
+    void runNode(node.id, engine, estimate, work, expectShape, post).catch((err) =>
       app.log.error({ err }, 'node run failed'),
     );
     // Surface the compiler's warnings on the accepted node. These name real

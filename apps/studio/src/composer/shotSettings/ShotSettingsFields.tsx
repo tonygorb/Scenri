@@ -37,9 +37,11 @@ export function ShotSettingsFields({
   return (
     <>
       {/* The shape is always a choice, in both modes, because it is the one of
-          the three a refinement can still honour — not by editing the picture,
-          which cannot change shape, but by running the same setup again at the
-          new one. The composer says so before you send.
+          the three a refinement can still honour. It used to honour it by
+          running the same setup again at the new shape, which returned a
+          different picture; now it expands the one you have, keeping every
+          pixel already in it and generating only the new margin. The composer
+          says which before you send.
 
           It is also the one that is spatial rather than verbal, so it gets the
           full width of the surface and its answers get room to be shapes. */}

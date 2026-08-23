@@ -781,7 +781,7 @@ test('clicking the body of a chip opens its picker, not the caret menu', async (
  * The control stays now and means what it says: a new shape runs the same setup
  * again at that shape, as a new shot, and the composer says so before you send.
  */
-test('a new shape while refining runs the setup again rather than editing', async ({ page }) => {
+test('a new shape while refining expands the shot rather than replacing it', async ({ page }) => {
   const brand = new URL(page.url()).pathname.split('/')[1];
 
   /*
@@ -823,8 +823,10 @@ test('a new shape while refining runs the setup again rather than editing', asyn
   await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '16:9' }).first().click();
   await page.keyboard.press('Escape');
 
-  await expect(composer.locator('.sc-send')).toContainText('Generate');
-  await expect(composer).toContainText('A new shape starts a new shot from this setup.');
+  // it stays a refinement: the shape is reached by growing this picture, not
+  // by running the brief again and getting a different one
+  await expect(composer.locator('.sc-send')).toContainText('Refine');
+  await expect(composer).toContainText('Expands this shot into the new shape.');
 
   // the send is caught and answered here rather than allowed to make a picture
   let posted: any = null;
@@ -837,10 +839,12 @@ test('a new shape while refining runs the setup again rather than editing', asyn
   await page.keyboard.type('same setup, wider frame');
   await composer.locator('.sc-send').click();
 
-  await expect.poll(() => posted?.kind).toBe('generation');
+  await expect.poll(() => posted?.kind).toBe('edit');
   expect(posted.brief.format).toBe('landscape');
-  // and a fresh shot rather than a child of the one on screen
-  expect(posted.parentId).not.toBe(shot);
+  // a child of the shot on screen, carrying the frame it was made from: the
+  // server grows that picture rather than starting another one
+  expect(posted.parentId).toBe(shot);
+  expect(posted.sourceImage).toBeTruthy();
 });
 
 /**
