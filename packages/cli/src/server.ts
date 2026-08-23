@@ -665,6 +665,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let inheritedTokens: BriefToken[] = [];
     let inheritedAttachments: ReturnType<typeof compileBrief>['attachments'] = [];
     let editScope: EditScope = 'global';
+    let editRemoval = false;
     /** Things the route itself needs to say, alongside whatever the compiler warned about. */
     const extraWarnings: string[] = [];
     /** Set when a refinement is growing the frame rather than changing the picture. */
@@ -701,12 +702,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           );
           inheritedTokens = borrowed.filter((t) => !already.has(JSON.stringify(t)));
         }
-        editScope = scopeOfInstruction(
+        const verdict = scopeOfInstruction(
           (brief.tokens as BriefToken[])
             .filter((t): t is Extract<BriefToken, { t: 'text' }> => t.t === 'text')
             .map((t) => t.v)
             .join(' '),
-        ).scope;
+        );
+        editScope = verdict.scope;
+        editRemoval = verdict.removal ?? false;
       }
       compiled = compileBrief(brief as Brief, {
         brand: brandJson,
@@ -714,7 +717,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         engineCaps: engine.capabilities(),
         template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
         templateById: sceneById,
-        ...(kind === 'edit' ? { mode: 'edit' as const, editScope, inheritedIdentity: inheritedTokens.length > 0 } : {}),
+        ...(kind === 'edit'
+          ? { mode: 'edit' as const, editScope, editRemoval, inheritedIdentity: inheritedTokens.length > 0 }
+          : {}),
       });
       if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
 

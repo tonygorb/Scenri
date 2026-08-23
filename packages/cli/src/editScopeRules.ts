@@ -32,6 +32,9 @@ export interface ScopeVerdict {
   scope: EditScope;
   /** Which cue decided it, so a surprising call can be explained rather than guessed at. */
   matched: string[];
+  /** True when the instruction removes something, which needs its own clause:
+   * an engine that paints a thing out tends to leave its ghost behind. */
+  removal?: boolean;
 }
 
 /**
@@ -73,6 +76,8 @@ const GLOBAL_CUES: [string, RegExp][] = [
  */
 const LOCAL_VERB =
   /\b(add|remove|delete|erase|take out|get rid of|replace|swap|clean up|fix|repair|straighten|hide|cover)\b/i;
+/** The verbs whose result is an absence. */
+const REMOVAL_VERB = /\b(remove|delete|erase|take out|get rid of)\b/i;
 const DEFINITE_OBJECT = /\b(the|that|this|his|her|their|its|a|an|one)\b/i;
 
 /** Naming where in the frame is a strong local signal on its own. */
@@ -114,5 +119,5 @@ export function scopeOfInstruction(text: string): ScopeVerdict {
   if (LOCAL_VERB.test(s) && DEFINITE_OBJECT.test(s)) matched.push('verb+object');
   if (!matched.length) return { scope: 'global', matched: ['no local cue'] };
 
-  return { scope: 'local', matched };
+  return { scope: 'local', matched, removal: REMOVAL_VERB.test(s) };
 }

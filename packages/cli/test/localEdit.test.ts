@@ -109,6 +109,27 @@ describe('preserving everything the instruction did not name', () => {
     expect(await raw(image)).toEqual(await raw(src));
   });
 
+  // The ghost that started as an engine complaint and turned out to be ours.
+  // The mask pipeline, written as one sharp chain, never actually dilated:
+  // sharp applies operations in its own fixed order and a second blur replaces
+  // the first, so the mask interior sat half transparent over the removed
+  // object and the compositor blended the object's own rim back in from the
+  // source it was preserving. A clean removal must come back clean.
+  it('does not draw a ghost of a removed object out of the preserved source', async () => {
+    const src = await base();
+    const withObj = await withProp(src, 60);
+    // the engine's answer: the object cleanly gone, back to the base surface
+    const cleanRemoval = src;
+    const { image, outcome } = await preserveOutsideChange(withObj, cleanRemoval);
+    expect(outcome).toBe('composited');
+    // sample where the object stood: no residual edges of it may survive
+    const region = await raw(image, { left: 25, top: 215, width: 70, height: 70 });
+    const wanted = await raw(src, { left: 25, top: 215, width: 70, height: 70 });
+    let maxDelta = 0;
+    for (let i = 0; i < region.length; i++) maxDelta = Math.max(maxDelta, Math.abs(region[i] - wanted[i]));
+    expect(maxDelta).toBeLessThanOrEqual(2);
+  });
+
   // Post-processing is never allowed to cost somebody their picture.
   it('hands back the engine picture rather than throwing when something is wrong', async () => {
     const src = await base();

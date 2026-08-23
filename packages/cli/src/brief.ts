@@ -5,6 +5,7 @@ export {
   brandRuleDirectives,
   editPreservationDirective,
   inheritedIdentityDirective,
+  garmentDisplayDirective,
   markLabel,
   productFidelityDirective,
   sceneGuardDirectives,
@@ -14,6 +15,7 @@ import {
   brandRuleDirectives,
   editPreservationDirective,
   inheritedIdentityDirective,
+  garmentDisplayDirective,
   markLabel,
   productFidelityDirective,
   sceneGuardDirectives,
@@ -126,6 +128,8 @@ interface CompileContext {
   mode?: 'generation' | 'edit';
   /** How much of the frame the instruction is allowed to move. See editScopeRules. */
   editScope?: EditScope;
+  /** The instruction removes something, so the ghost it would leave is named. */
+  editRemoval?: boolean;
   /** True when identity references were inherited from the shot being refined. */
   inheritedIdentity?: boolean;
 }
@@ -467,9 +471,21 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const preservation =
     ctx.mode === 'edit'
       ? [
-          editPreservationDirective(ctx.editScope ?? 'global'),
+          editPreservationDirective(ctx.editScope ?? 'global', { removal: ctx.editRemoval }),
           ...(ctx.inheritedIdentity ? [inheritedIdentityDirective()] : []),
         ]
+      : [];
+  // Read the attached products' own records: only apparel earns the line, and
+  // only when nobody is attached to wear it and this is a fresh generation.
+  const apparelUnworn =
+    ctx.mode !== 'edit' &&
+    !hasPerson &&
+    attachments.some((a) => {
+      if (a.role !== 'product' || !a.id) return false;
+      const rec = (ctx.brand?.products ?? []).find((x: any) => x?.id === a.id);
+      return String(rec?.category ?? '').toLowerCase() === 'apparel';
+    })
+      ? [garmentDisplayDirective()]
       : [];
   const allDirectives = [
     ...productDirectives,
@@ -477,6 +493,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...pairDirectives,
     ...otherDirectives,
     ...cameraDirectives,
+    ...apparelUnworn,
     ...brandLines,
     ...guard,
     ...preservation,

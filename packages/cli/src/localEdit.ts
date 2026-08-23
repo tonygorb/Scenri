@@ -52,15 +52,38 @@ export async function preserveOutsideChange(source: Buffer, edited: Buffer): Pro
     // Grow, then soften. sharp has no morphology, so a blur followed by a hard
     // threshold is the dilation, and a second gentler blur is the feather that
     // keeps the seam from being a line.
+    // The dilation has to outrun the feather by a wide margin. The changed
+    // region's boundary IS the changed thing's silhouette, and the feather
+    // blends original pixels with the engine's fill along that boundary; with
+    // a tight dilation the blend band overlapped the object's own rim, so a
+    // removed shoe came back as a translucent outline of itself, drawn by this
+    // very compositor out of the pixels it was preserving. The full blur
+    // radius before the threshold pushes the mask edge far past the rim, and
+    // the feather then blends engine fill with original background only.
+    // One materialized buffer per stage, deliberately. sharp is a settings
+    // object, not a sequential chain: a second blur on the same instance
+    // replaces the first rather than composing with it, and the pipeline
+    // applies operations in its own fixed order. Written as one chain, the
+    // dilation never happened, the mask interior sat half transparent over the
+    // removed object, and the compositor drew a ghost outline of the very
+    // thing it was removing out of the source it was preserving.
     const r = dilationFor(Math.max(shape.width, shape.height));
-    const grown = await sharp(shape.mask, { raw: { width: shape.width, height: shape.height, channels: 1 } })
-      .blur(Math.max(1, r / 3))
-      .threshold(1)
+    const rawShape = { raw: { width: shape.width, height: shape.height, channels: 1 as const } };
+    // Every stage collapses back to one channel before it is read: sharp
+    // promotes even a raw single channel input to three on output, and the
+    // next stage reading a third of a scrambled buffer is how the requested
+    // change itself once vanished from the result.
+    const spread = await sharp(shape.mask, rawShape).blur(r).toColourspace('b-w').raw().toBuffer();
+    const dilated = await sharp(spread, rawShape).threshold(8).toColourspace('b-w').raw().toBuffer();
+    const feathered = await sharp(dilated, rawShape)
       .blur(Math.max(2, r / 3))
+      .toColourspace('b-w')
+      .raw()
+      .toBuffer();
+    const grown = await sharp(feathered, rawShape)
       .resize(srcMeta.width, srcMeta.height, { fit: 'fill', kernel: 'cubic' })
-      // threshold promotes a single channel to three, and joinChannel below
-      // reads this as one byte per pixel: without collapsing it back the mask
-      // is three times too long and the alpha it produces is nonsense.
+      // resize can promote the channel count, and joinChannel below reads one
+      // byte per pixel: collapse it back or the alpha is nonsense.
       .toColourspace('b-w')
       .raw()
       .toBuffer();
