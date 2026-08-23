@@ -51,6 +51,17 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.4.3',
+    date: '2026-08-23',
+    title: 'Controls hold still when you press them.',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'Pressing a button, chip or icon button no longer nudges it down. Controls answer with a change of fill or opacity instead, so nothing shifts under the cursor, and selected rows in Settings no longer re-space their labels when you pick them.',
+      },
+    ],
+  },
+  {
     version: '0.4.2',
     date: '2026-08-23',
     sections: [
