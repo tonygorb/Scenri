@@ -51,6 +51,20 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.4.6',
+    date: '2026-08-24',
+    sections: [
+      {
+        heading: 'Refining',
+        body: 'Removing something from a shot no longer leaves a faint outline of it behind. The removed object is gone and the surface continues as if it had never been there.',
+      },
+      {
+        heading: 'Shots',
+        body: 'A finished shot now says how long it took to generate, next to what it cost. Feed tiles hold the exact shape of the picture they carry, so a landing image no longer shifts its column, and a garment shot with no presenter attached leans toward a proper product display rather than inventing someone to wear it.',
+      },
+    ],
+  },
+  {
     version: '0.4.5',
     date: '2026-08-23',
     title: 'New versions find you while Scenri runs.',
