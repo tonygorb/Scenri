@@ -189,6 +189,9 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
               if (fatal == null && isFatalSetupError(err)) {
                 fatal = err;
                 inner.abort();
+                // The world changed under the cached probe: the next
+                // /api/engines and preflight must see it, not "Connected".
+                runner.invalidateProbe();
               }
             }
           }
@@ -247,7 +250,12 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
           args.splice(args.length - 1, 0, `--image=${join(dir, name)}`);
         }
         const before = await snapshotGenerated();
-        await runCodex(args, signal, { stdin: promptText });
+        try {
+          await runCodex(args, signal, { stdin: promptText });
+        } catch (err) {
+          if (isFatalSetupError(err)) runner.invalidateProbe();
+          throw err;
+        }
         const images = await collectImages(dir, before);
         return { images, costUsd: 0 };
       });
