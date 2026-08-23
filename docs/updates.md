@@ -21,6 +21,22 @@ supervised on macOS and Linux (an argv symlink bug), and npx keeps reusing
 that cache. One `npx scenri@latest` replaces it; everything on this page works
 from then on.
 
+## Seeing it as a user
+
+A source checkout deliberately never updates itself, so contributors normally
+only ever see the pull-and-rebuild row. To sit in the user's seat anyway, run
+`pnpm build` and then:
+
+```bash
+node packages/cli/test/update-demo.mjs
+```
+
+A real supervised Scenri boots on a scratch home, sees 99.0.0 on a local
+fixture registry, downloads and verifies it in the background, offers
+the one-click Update, and really restarts into it when clicked. Ctrl-C ends
+the demo and removes every temporary file; your checkout, your library and
+your dev server are never touched.
+
 ## The update check
 
 Once a day, the running server asks the npm registry for the latest published
@@ -65,7 +81,8 @@ the next launch restores it.
 
 - **In the app**: a found update downloads and verifies itself in the
   background; the floating notice (and Settings → About) then offers one
-  click, "Restart to update", and the browser reconnects by itself. Where the
+  click, "Update", which restarts into the new version, and the browser
+  reconnects by itself. Where the
   background download could not run, the same button does the whole job on
   click. "Not now" holds the notice for the rest of the session; the next
   launch offers it again, and updating ends it for good.

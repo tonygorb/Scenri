@@ -156,6 +156,8 @@ test.describe
       // straight to the brand path: the / redirect drops query params
       await page.goto(`${fx.base()}/acme?settings=about`);
       await expect(page.locator('.sc-set .sc-tag-gold')).toHaveText('0.99.0 available');
+      // the check has spoken: no button offering to look again beside its answer
+      await expect(page.locator('.sc-set button', { hasText: 'Check for updates' })).toHaveCount(0);
 
       // what is in the version you do NOT have is one link, not a second
       // renderer: the notes that ship inside a build describe that build
