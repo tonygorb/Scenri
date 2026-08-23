@@ -65,8 +65,8 @@ export function About({ version }: { version: VersionInfo | null }) {
     <span className="sc-tag">checking…</span>
   ) : s?.available ? (
     <span className="sc-tag sc-tag-gold">{s.latest} available</span>
-  ) : s?.error ? (
-    <span className="sc-tag">couldn't reach npm</span>
+  ) : updates.checkError || s?.error ? (
+    <span className="sc-tag">couldn't check for updates</span>
   ) : s?.checkedAt ? (
     <span className="sc-tag">up to date</span>
   ) : null;
@@ -85,7 +85,11 @@ export function About({ version }: { version: VersionInfo | null }) {
         <span className="txt">
           <b>Updates</b>
           <small data-prose="">
-            {s?.available ? `You are on ${s.current}.` : 'New versions announce themselves here.'}
+            {s?.available
+              ? `You are on ${s.current}.`
+              : s && !s.enabled
+                ? 'Automatic checks are off. Checking here still works.'
+                : 'New versions announce themselves here.'}
             {/* What is in the version you do not have yet can only come from
                 the release page — the notes that ship inside a build describe
                 that build. One link, no fetch, no second renderer. */}
@@ -141,16 +145,24 @@ export function About({ version }: { version: VersionInfo | null }) {
                 {updates.applyError ??
                   (s.phase === 'ready'
                     ? `${s.stagedVersion} is downloaded and verified. Restarting finishes it.`
-                    : 'Downloads next to the running version, verifies it loads, then restarts. Your library stays put.')}
+                    : s.phase === 'staging'
+                      ? 'Downloading in the background. Nothing interrupts your work.'
+                      : 'Downloads in the background next to the running version, verifies it loads, then asks to restart. Your library stays put.')}
               </small>
             </span>
             <button
               type="button"
               className="sc-btn sc-btn-primary"
-              disabled={updates.busy !== 'idle'}
+              disabled={updates.busy !== 'idle' || s.phase === 'staging'}
               onClick={() => void updates.apply()}
             >
-              {updates.busy === 'applying' ? 'Updating…' : s.phase === 'ready' ? 'Restart now' : 'Update now'}
+              {s.phase === 'staging'
+                ? 'Downloading…'
+                : updates.busy === 'applying'
+                  ? 'Updating…'
+                  : s.phase === 'ready'
+                    ? 'Restart to update'
+                    : 'Update now'}
             </button>
           </div>
         ) : (
@@ -171,7 +183,8 @@ export function About({ version }: { version: VersionInfo | null }) {
         <span className="txt">
           <b>Check for updates automatically</b>
           <small data-prose="">
-            One version-number request to npm, at most daily. Off means Scenri never calls anywhere by itself.
+            One version-number request to npm, at most daily. When it finds a new version, Scenri downloads it in the
+            background; restarting is always your call. Off means Scenri never calls anywhere by itself.
           </small>
         </span>
         <button

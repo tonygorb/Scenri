@@ -3,7 +3,9 @@
  * cached in the settings table. One of exactly two requests Scenri ever makes
  * on its own behalf (the other is the one-time library download in
  * content/fetch.ts) — keep it version-only, silent offline, and opt-out-able
- * (Settings toggle, or SCENRI_NO_UPDATE_CHECK=1).
+ * (Settings toggle, or SCENRI_NO_UPDATE_CHECK=1). The switches silence the
+ * automatic cadence only: a forced check is a person clicking a button, and a
+ * button that answers with silence reads as broken, so force still asks.
  */
 
 export type SemverKind = 'major' | 'minor' | 'patch' | null;
@@ -72,6 +74,12 @@ export interface UpdateChecker {
   check(force?: boolean): Promise<CheckResult>;
   /** First check shortly after listen, then daily. Timers unref'd: never keeps the process alive. */
   schedule(): void;
+  /**
+   * One subscriber, told after every real registry answer — the daily cadence
+   * or a forced check, never a cache hit and never a failure. This is the seam
+   * auto-staging hangs off, without the checker ever learning staging exists.
+   */
+  onResult(fn: (r: CheckResult) => void): void;
 }
 
 interface SettingsLike {
@@ -104,6 +112,7 @@ export function createUpdateChecker(deps: {
 
   let inflight: Promise<CheckResult> | null = null;
   let lastForceAt = 0;
+  let onResultFn: ((r: CheckResult) => void) | null = null;
 
   const enabled = () => env.SCENRI_NO_UPDATE_CHECK !== '1' && deps.store.getSetting('update.enabled') !== 'false';
 
@@ -120,11 +129,13 @@ export function createUpdateChecker(deps: {
     // A 404 (a fork published under no name) is a clean "no update", cached.
     deps.store.setSetting('update.latest', res.latest ?? '');
     deps.store.setSetting('update.checkedAt', String(now()));
-    return cached();
+    const result = cached();
+    onResultFn?.(result);
+    return result;
   }
 
   async function check(force = false): Promise<CheckResult> {
-    if (!enabled()) return cached();
+    if (!enabled() && !force) return cached();
     if (inflight) return inflight;
     const prior = cached();
     const fresh = prior.checkedAt !== null && now() - prior.checkedAt < CACHE_MS;
@@ -146,5 +157,12 @@ export function createUpdateChecker(deps: {
     setInterval(() => void check(), CACHE_MS).unref();
   }
 
-  return { enabled, check, schedule };
+  return {
+    enabled,
+    check,
+    schedule,
+    onResult: (fn) => {
+      onResultFn = fn;
+    },
+  };
 }

@@ -139,14 +139,18 @@ To stop Scenri, close the terminal window, or press Control and C in it.
 ## Update
 
 Scenri checks npm once a day for a newer version, and only for the version number. When there is
-one, a small notice appears in the app with an **Update** button; one click and Scenri restarts
-into the new version. You can also update from the terminal with `npx scenri update`.
+one, Scenri downloads it quietly in the background, and a small notice appears with
+**Restart to update**; one click and Scenri restarts into the new version. You can also update
+from the terminal with `npx scenri update`.
 
-If a start ever behaves oddly after an update, this always fetches the current release:
+If you first ran Scenri before version 0.4.1, run this once; it fetches the current release and
+makes in-app updates work from then on:
 
 ```bash
 npx scenri@latest
 ```
+
+The same command is the fix whenever a start behaves oddly after an update.
 
 ## Prefer a coding assistant?
 

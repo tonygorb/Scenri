@@ -50,7 +50,7 @@
      rail 20 · topbar 50 · assets backdrop 54 · assets drawer 55 · dock fade 55
      docks 60 · attach panel 70 · plus scrim 79 · plus menu 80 · detail overlay 80
      overlay winbar 90 · sheet scrim 91 · sheet 92 · dialog overlay 95
-     toasts 100 */
+     toasts 100 · update float 320 · update overlay 400 */
   --sc-z-topbar: 50;
   /* Menus and popovers float above every surface that can host their trigger,
      including the shot overlay at 80. Radix portals them to <body> with no
@@ -59,6 +59,11 @@
   --sc-z-popover: 96;
   --sc-z-sheet-scrim: 91;
   --sc-z-sheet: 92;
+  /* The update float outranks toasts (it is the one notice that must survive
+     a session), and the restart overlay outranks everything: every control
+     behind it points at a process that is gone. */
+  --sc-z-update-float: 320;
+  --sc-z-update-overlay: 400;
   /* One tile floor for every picture grid: the feed, the canvas, the look
      shelves. Grids count columns from it and stretch what is left over, so a
      tile lands near 340px at any width instead of shrinking to fit more in. */

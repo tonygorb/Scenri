@@ -23,12 +23,14 @@ class Fixture {
   port: number;
   regPort: number;
   latest: string;
+  extraEnv: Record<string, string>;
   down = false;
 
-  constructor(port: number, regPort: number, latest: string) {
+  constructor(port: number, regPort: number, latest: string, extraEnv: Record<string, string> = {}) {
     this.port = port;
     this.regPort = regPort;
     this.latest = latest;
+    this.extraEnv = extraEnv;
   }
 
   base(): string {
@@ -73,6 +75,7 @@ class Fixture {
         // being written into.
         SCENRI_NO_CONTENT_FETCH: '1',
         SCENRI_REGISTRY: `http://127.0.0.1:${this.regPort}`,
+        ...this.extraEnv,
       },
     });
     // up when /api/version answers
@@ -174,6 +177,12 @@ test.describe
       await expect(aboutRows(page).filter({ hasText: 'Update' }).first()).toBeVisible();
     });
 
+    test('first-run setup never shows the float: its fallback has nothing to open there', async ({ page }) => {
+      await page.goto(`${fx.base()}/setup`);
+      await expect(page.locator('.sc-wiz')).toBeVisible();
+      await expect(float(page)).toHaveCount(0);
+    });
+
     test('Not now holds for this session, and asks again next launch', async ({ page, browser }) => {
       await page.goto(`${fx.base()}/`);
       await float(page).locator('.sc-upd-float-later').click();
@@ -200,6 +209,30 @@ test.describe
   });
 
 test.describe
+  .serial('automatic checks are off', () => {
+    // The tester's exact dead button: with the kill switch set, clicking
+    // "Check for updates" used to be swallowed server-side and change nothing
+    // on screen. The switch silences the cadence, never the person.
+    const fx = new Fixture(4771, 4772, '0.0.1', { SCENRI_NO_UPDATE_CHECK: '1' });
+    test.beforeAll(async () => {
+      await fx.start();
+    });
+    test.afterAll(async () => {
+      await fx.stop();
+    });
+
+    test('About says checks are off, and the button still answers', async ({ page }) => {
+      await page.goto(`${fx.base()}/acme?settings=about`);
+      await expect(aboutRows(page).filter({ hasText: 'Automatic checks are off' }).first()).toBeVisible();
+      // never checked, nothing to report yet: no verdict tag at all
+      await expect(page.locator('.sc-set .sc-tag')).toHaveCount(0);
+
+      await page.locator('.sc-set button', { hasText: 'Check for updates' }).first().click();
+      await expect(page.locator('.sc-set .sc-tag', { hasText: 'up to date' })).toBeVisible();
+    });
+  });
+
+test.describe
   .serial('the registry cannot be reached', () => {
     const fx = new Fixture(4769, 4770, '0.99.0');
     test.beforeAll(async () => {
@@ -218,6 +251,6 @@ test.describe
       // straight to the brand path: the / redirect drops query params
       await page.goto(`${fx.base()}/acme?settings=about`);
       await page.locator('.sc-set button', { hasText: 'Check for updates' }).first().click();
-      await expect(page.locator('.sc-set .sc-tag', { hasText: "couldn't reach npm" })).toBeVisible();
+      await expect(page.locator('.sc-set .sc-tag', { hasText: "couldn't check for updates" })).toBeVisible();
     });
   });

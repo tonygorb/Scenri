@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canOneClick } from '../src/app/updateRules.js';
+import { canOneClick, floatState } from '../src/app/updateRules.js';
 import type { UpdateStatus } from '../src/api.js';
 
 const status = (over: Partial<UpdateStatus>): UpdateStatus => ({
@@ -39,5 +39,35 @@ describe('canOneClick', () => {
     for (const blockReason of ['dev', 'unsupervised', 'launcher-too-old'] as const) {
       expect(canOneClick(status({ phase: 'ready', stagedVersion: '0.2.0', canApply: false, blockReason }))).toBe(false);
     }
+  });
+});
+
+describe('floatState', () => {
+  it('announces an update, carrying whether one click can do the work', () => {
+    expect(floatState(status({}))).toEqual({ kind: 'announce', oneClick: true });
+    expect(floatState(status({ canApply: false, blockReason: 'dev' }))).toEqual({ kind: 'announce', oneClick: false });
+  });
+
+  it('narrates a background download', () => {
+    expect(floatState(status({ phase: 'staging', stagedVersion: '0.2.0' }))).toEqual({ kind: 'downloading' });
+  });
+
+  it('offers the restart once a version is staged and verified', () => {
+    expect(floatState(status({ phase: 'ready', stagedVersion: '0.2.0' }))).toEqual({
+      kind: 'ready',
+      version: '0.2.0',
+    });
+  });
+
+  it('names the latest when a terminal-staged version carries no stagedVersion', () => {
+    expect(floatState(status({ phase: 'ready', stagedVersion: null }))).toEqual({ kind: 'ready', version: '0.2.0' });
+  });
+
+  it('says a download failed only while an update is actually on offer', () => {
+    expect(floatState(status({ phase: 'error', error: 'boom' }))).toEqual({ kind: 'stage-error' });
+    expect(floatState(status({ phase: 'error', available: false, latest: null, kind: null }))).toEqual({
+      kind: 'announce',
+      oneClick: true,
+    });
   });
 });

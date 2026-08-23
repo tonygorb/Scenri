@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowCircleUp } from '@phosphor-icons/react';
+import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
+import { P } from '../routes.js';
 import { useOpenSettings } from './dialogs.js';
-import { canOneClick } from './updateRules.js';
+import { floatState } from './updateRules.js';
 
 /**
  * The machine-scoped update awareness, mounted once in AppShell — deliberately
@@ -16,6 +18,11 @@ import { canOneClick } from './updateRules.js';
  * traffic.
  */
 const POLL_MS = 6 * 60 * 60 * 1000;
+
+/** How long a download may run before the UI stops waiting and says try again. */
+const STAGE_DEADLINE_MS = 5 * 60 * 1000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Which latest-version the user has waved away, for this session only.
@@ -54,6 +61,8 @@ interface UpdateCenterValue {
   checking: boolean;
   /** Settings → About's "Check for updates": forces past the day cache. */
   checkNow(): Promise<void>;
+  /** The manual check could not reach the server at all; registry trouble arrives via status.error instead. */
+  checkError: string | null;
   /** Dismissed per version, for this session; next launch asks again. */
   dismissed: boolean;
   dismiss(): void;
@@ -108,10 +117,16 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const [checkError, setCheckError] = useState<string | null>(null);
   const checkNow = useCallback(async () => {
     setChecking(true);
     try {
       setStatus(await api.updateCheck());
+      setCheckError(null);
+    } catch (err) {
+      // The button must answer. A dead route or a dropped connection becomes
+      // copy, never an unhandled rejection with an unchanged screen.
+      setCheckError(String((err as Error)?.message ?? err));
     } finally {
       setChecking(false);
     }
@@ -128,14 +143,21 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
 
   const [busy, setBusy] = useState<'idle' | 'applying' | 'restarting'>('idle');
   const [applyError, setApplyError] = useState<string | null>(null);
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   const restart = useCallback(async (oldVersion: string | undefined) => {
     setBusy('restarting');
     try {
       await api.updateRestart();
-    } catch {
-      /* the socket may die mid-reply; the polls below are the real answer */
+    } catch (err) {
+      if (typeof (err as { status?: number }).status === 'number') {
+        // The server is alive and refused (work still running, nothing
+        // staged). That is an answer, not a restart: say it now instead of
+        // holding a thirty second overlay over a healthy app.
+        setBusy('idle');
+        setApplyError(String((err as Error)?.message ?? err));
+        return;
+      }
+      /* no HTTP status: the socket died mid-reply, which is the restart happening */
     }
     // the launcher is swapping processes under us: poll until a different
     // version answers, then reload into it
@@ -164,16 +186,27 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
       if (status?.phase !== 'ready') {
         setBusy('applying');
         await api.updateApply();
-        for (;;) {
+        const deadline = Date.now() + STAGE_DEADLINE_MS;
+        let staged = false;
+        while (Date.now() < deadline) {
           await sleep(1500);
           const s = await api.updateStatus();
           setStatus(s);
-          if (s.phase === 'ready') break;
+          if (s.phase === 'ready') {
+            staged = true;
+            break;
+          }
           if (s.phase === 'error') {
             setApplyError(s.error ?? 'The update could not be staged.');
             setBusy('idle');
             return;
           }
+        }
+        if (!staged) {
+          // The 6h status poll can still discover a very late 'ready'.
+          setApplyError("Couldn't download the update. Try again.");
+          setBusy('idle');
+          return;
         }
       }
       await restart(oldVersion);
@@ -183,10 +216,47 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
     }
   }, [busy, status, restart]);
 
+  // Auto-staging starts on the server without a click. While the status says
+  // staging, follow it closely so "Downloading update" becomes "ready" in
+  // seconds rather than at the next six-hour poll. The apply() loop above
+  // covers the clicked path; this one only runs while nothing else is busy.
+  const following = useRef(false);
+  useEffect(() => {
+    if (status?.phase !== 'staging' || busy !== 'idle' || following.current) return;
+    following.current = true;
+    let alive = true;
+    const deadline = Date.now() + STAGE_DEADLINE_MS;
+    const follow = async () => {
+      while (alive && Date.now() < deadline) {
+        await sleep(1500);
+        if (!alive) return;
+        try {
+          const s = await api.updateStatus();
+          if (!alive) return;
+          setStatus(s);
+          if (s.phase !== 'staging') return;
+        } catch {
+          /* server briefly away; keep trying until the deadline */
+        }
+      }
+    };
+    void follow().finally(() => {
+      following.current = false;
+    });
+    return () => {
+      alive = false;
+    };
+  }, [status?.phase, busy]);
+
+  const { pathname } = useLocation();
+  // First-run setup has no settings dialog mounted, so the float's fallback
+  // action (open About) would only write a dead URL param there.
+  const onSetup = pathname === P.setup;
+
   return (
-    <Ctx.Provider value={{ status, checking, checkNow, dismissed, dismiss, apply, busy, applyError }}>
+    <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, busy, applyError }}>
       {children}
-      {busy !== 'restarting' && status?.available && !dismissed && <UpdateFloat />}
+      {busy !== 'restarting' && status?.available && !dismissed && !onSetup && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
     </Ctx.Provider>
   );
@@ -222,25 +292,48 @@ function UpdateFloat() {
   const { status, dismiss, apply, busy, applyError } = useUpdateCenter();
   const openSettings = useOpenSettings();
   if (!status) return null;
+  const st = floatState(status);
+
+  const line =
+    st.kind === 'downloading'
+      ? 'Downloading update…'
+      : st.kind === 'ready'
+        ? `Scenri ${st.version} is ready`
+        : st.kind === 'stage-error'
+          ? "Couldn't download the update"
+          : 'A new update is available';
+  const action =
+    busy === 'applying'
+      ? 'Updating…'
+      : st.kind === 'ready'
+        ? 'Restart to update'
+        : st.kind === 'stage-error'
+          ? 'Try again'
+          : 'Update';
+  // One click does the whole remaining job whenever the machine can; the only
+  // fallback left is pointing at About, where the manual command lives.
+  const oneClick = st.kind !== 'announce' || st.oneClick;
 
   return (
     <div className="sc-upd-float" role="status">
       <span className="sc-upd-float-dot" aria-hidden="true" />
       <span className="sc-upd-float-txt">
-        A new update is available
-        {applyError && <small>{applyError}</small>}
+        {line}
+        {applyError && st.kind !== 'downloading' && <small>{applyError}</small>}
       </span>
       <button type="button" className="sc-upd-float-later" onClick={dismiss}>
-        Not now
+        {st.kind === 'ready' ? 'Later' : 'Not now'}
       </button>
-      <button
-        type="button"
-        className="sc-btn sc-btn-primary"
-        disabled={busy !== 'idle'}
-        onClick={() => (canOneClick(status) ? void apply() : openSettings('about'))}
-      >
-        {busy === 'applying' ? 'Updating…' : 'Update'}
-      </button>
+      {st.kind !== 'downloading' && (
+        <button
+          type="button"
+          className="sc-btn sc-btn-primary"
+          disabled={busy !== 'idle'}
+          onClick={() => (oneClick ? void apply() : openSettings('about'))}
+        >
+          {action}
+        </button>
+      )}
     </div>
   );
 }

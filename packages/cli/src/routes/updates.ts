@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
 import { SCHEMA_VERSION } from '@scenri/core';
-import { classify, type UpdateChecker } from '../update/check.js';
+import { classify, type CheckResult, type UpdateChecker } from '../update/check.js';
 import { findNpm, stageVersion } from '../update/stage.js';
 import { compareSemver, newestStaged } from '../update/versionsDir.js';
 import { RELEASES, isNewsworthy, releaseFor } from '../release/notes.data.js';
@@ -68,6 +68,54 @@ export function registerUpdateRoutes(
     return npmProbe ? null : 'no-npm';
   };
 
+  /** The one place staging starts. Sets the phase synchronously; the install itself runs in the background. */
+  const startStaging = (target: string): void => {
+    applyState = { phase: 'staging', version: target, error: null };
+    void (deps.stageImpl ?? stageVersion)({
+      home: core.home,
+      pkg: meta.name,
+      source: { version: target },
+      keep: new Set([meta.version]),
+    })
+      .then((res) => {
+        applyState = res.ok
+          ? { phase: 'ready', version: res.version, error: null }
+          : { phase: 'error', version: null, error: `${res.reason}: ${res.detail}` };
+      })
+      .catch((err) => {
+        applyState = { phase: 'error', version: null, error: String((err as Error)?.message ?? err) };
+      });
+  };
+
+  /**
+   * Background staging: a real registry answer naming a newer version
+   * downloads it next to the running one, so the only question left for a
+   * person is when to restart. Synchronous from guard to kickoff — no await
+   * may sit between reading applyState and writing it. A failed stage waits
+   * for the next real answer (the daily cadence, or a click in About) rather
+   * than looping. A staged-and-ready version is replaced only by something
+   * strictly newer; restarting into a just-obsoleted staged build is allowed,
+   * the next boot's check discovers the newer one.
+   */
+  const maybeAutoStage = (r: CheckResult): void => {
+    if (applyState.phase === 'error') applyState = { phase: 'idle', version: null, error: null };
+    if (!updates.enabled()) return;
+    if (!r.latest || classify(meta.version, r.latest) === null) return;
+    if (blockReason() !== null) return;
+    if (deps.busyCount() > 0) return;
+    const apply = effectiveApply();
+    if (apply.phase === 'staging') return;
+    if (apply.phase === 'ready' && compareSemver(r.latest, apply.version ?? '') <= 0) return;
+    startStaging(r.latest);
+  };
+  updates.onResult(maybeAutoStage);
+  // The daily cadence only fetches once the cache has gone stale, so a boot
+  // inside the 24h window would never hear onResult and a known update could
+  // sit unstaged for a day. One deferred look at the cached answer covers it;
+  // when the cache was stale after all, the subscriber fires too and the
+  // staging-phase guard makes the second call a no-op.
+  setTimeout(() => void updates.check().then(maybeAutoStage), 15_000).unref();
+
   const updateStatus = async (force = false) => {
     const r = await updates.check(force);
     const kind = r.latest ? classify(meta.version, r.latest) : null;
@@ -104,34 +152,36 @@ export function registerUpdateRoutes(
     const block = blockReason();
     if (block)
       return reply.status(409).send({ error: `one-click update cannot run here (${block})`, blockReason: block });
-    if (applyState.phase === 'staging') return reply.status(409).send({ error: 'an update is already staging' });
 
     const r = await updates.check();
     const kind = r.latest ? classify(meta.version, r.latest) : null;
     if (!r.latest || kind === null) return reply.status(409).send({ error: 'nothing newer to install' });
 
+    // The check above may itself have kicked off auto-staging through the
+    // subscriber. Same target: the click succeeded, the work is simply
+    // already underway (or done). A different in-flight version keeps its 409.
     const target = r.latest;
-    applyState = { phase: 'staging', version: target, error: null };
-    void (deps.stageImpl ?? stageVersion)({
-      home: core.home,
-      pkg: meta.name,
-      source: { version: target },
-      keep: new Set([meta.version]),
-    })
-      .then((res) => {
-        applyState = res.ok
-          ? { phase: 'ready', version: res.version, error: null }
-          : { phase: 'error', version: null, error: `${res.reason}: ${res.detail}` };
-      })
-      .catch((err) => {
-        applyState = { phase: 'error', version: null, error: String((err as Error)?.message ?? err) };
-      });
+    const current = effectiveApply();
+    if ((current.phase === 'staging' || current.phase === 'ready') && current.version === target) {
+      return { ok: true, staging: target };
+    }
+    if (current.phase === 'staging') return reply.status(409).send({ error: 'an update is already staging' });
+
+    startStaging(target);
     return { ok: true, staging: target };
   });
 
   app.post('/api/update/restart', async (_req, reply) => {
     const apply = effectiveApply();
     if (apply.phase !== 'ready') return reply.status(409).send({ error: 'no staged update to restart into' });
+    // Same doctrine as apply: never over live work. A restart mid-generation
+    // is the one way this system could cost someone an image.
+    const busy = deps.busyCount();
+    if (busy > 0) {
+      return reply
+        .status(409)
+        .send({ error: `work is still running (${busy} task${busy === 1 ? '' : 's'})`, blockReason: 'busy' });
+    }
     if (!runtime.supervised) {
       return reply.status(409).send({ error: 'not supervised; restart Scenri yourself', blockReason: 'unsupervised' });
     }
