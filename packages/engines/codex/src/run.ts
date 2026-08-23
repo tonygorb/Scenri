@@ -77,6 +77,36 @@ export function execArgs(dir: string, effort: ReasoningEffort = 'low'): string[]
   ];
 }
 
+/**
+ * End a spawned child for real. On POSIX the pid is the process itself and
+ * SIGTERM is enough. On Windows a shell:true child is cmd.exe wrapping the
+ * real work (codex, npm), and terminating a Windows process does not touch
+ * its children — the grandchild would keep running (and billing) invisibly.
+ * So taskkill /T takes the whole tree down by pid, /F because a process being
+ * killed for hanging cannot be trusted to honor a polite close.
+ */
+export function killTree(
+  child: ReturnType<typeof nodeSpawn>,
+  platform: NodeJS.Platform,
+  spawnImpl: typeof nodeSpawn,
+): void {
+  if (platform === 'win32' && child.pid) {
+    try {
+      const tk = spawnImpl('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      // An unhandled 'error' event would crash the server; the plain kill
+      // below is the fallback either way.
+      tk.on('error', () => {});
+    } catch {
+      // taskkill missing or refused: same fallback.
+    }
+  }
+  try {
+    child.kill();
+  } catch {
+    // Already gone.
+  }
+}
+
 export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   const spawnImpl = opts.spawnImpl ?? nodeSpawn;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -85,31 +115,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   const noActivityMs = opts.noActivityMs ?? NO_ACTIVITY_TIMEOUT_MS;
   const platform = opts.platform ?? process.platform;
 
-  /**
-   * End a codex child for real. On POSIX the pid is codex itself and SIGTERM
-   * is enough. On Windows the child is usually cmd.exe wrapping the npm shim,
-   * and terminating a Windows process does not touch its children — the
-   * codex.exe grandchild would keep generating (and billing) invisibly. So
-   * taskkill /T takes the whole tree down by pid, /F because a process being
-   * killed for hanging cannot be trusted to honor a polite close.
-   */
-  function killCodex(child: ReturnType<typeof nodeSpawn>): void {
-    if (platform === 'win32' && child.pid) {
-      try {
-        const tk = spawnImpl('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
-        // An unhandled 'error' event would crash the server; the plain kill
-        // below is the fallback either way.
-        tk.on('error', () => {});
-      } catch {
-        // taskkill missing or refused: same fallback.
-      }
-    }
-    try {
-      child.kill();
-    } catch {
-      // Already gone.
-    }
-  }
+  const killCodex = (child: ReturnType<typeof nodeSpawn>) => killTree(child, platform, spawnImpl);
 
   // The probe refreshes this every time it runs, so a codex installed after
   // Scenri started is found on the next check. run() reuses the last answer

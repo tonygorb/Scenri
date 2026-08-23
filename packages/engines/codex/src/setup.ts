@@ -14,7 +14,7 @@
  */
 import { spawn as nodeSpawn } from 'node:child_process';
 import type { EngineAvailability } from '@scenri/core';
-import { createRunner, type CodexRunner, type RunnerOptions } from './run.js';
+import { createRunner, killTree, type CodexRunner, type RunnerOptions } from './run.js';
 
 /** The one command we would otherwise ask a non-developer to type. */
 export const INSTALL_COMMAND = 'npm install -g @openai/codex';
@@ -101,8 +101,10 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
       };
       let child: ReturnType<typeof nodeSpawn>;
       const timer = setTimeout(() => {
-        child?.kill();
+        // Settle first, then kill the whole tree: on Windows the child is
+        // cmd.exe, and killing it alone would orphan npm or codex login.
         done({ code: null, stderr, spawnError: `${cmd} timed out after ${timeoutMs}ms` });
+        if (child) killTree(child, platform, spawnImpl);
       }, timeoutMs);
       try {
         child = spawnImpl(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: platform === 'win32' });
