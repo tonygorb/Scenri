@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
 import { SCHEMA_VERSION } from '@scenri/core';
-import { classify, type CheckResult, type UpdateChecker } from '../update/check.js';
+import { classify, isReleaseTriplet, type CheckResult, type UpdateChecker } from '../update/check.js';
 import { findNpm, stageVersion } from '../update/stage.js';
 import { compareSemver, newestStaged } from '../update/versionsDir.js';
 import { RELEASES, isNewsworthy, releaseFor } from '../release/notes.data.js';
@@ -33,7 +33,7 @@ export function registerUpdateRoutes(
     home: core.home,
   }));
 
-  // ---- updates: check (npm dist-tags, daily, cached) + notes (GitHub release)
+  // ---- updates: check (npm dist-tags, every six hours, cached) + notes (GitHub release)
   const ghSlug = repoSlug(meta.repository);
   /** The version a build carries before release-please has ever bumped it. */
   const UNRELEASED = '0.0.0';
@@ -94,7 +94,7 @@ export function registerUpdateRoutes(
    * downloads it next to the running one, so the only question left for a
    * person is when to restart. Synchronous from guard to kickoff — no await
    * may sit between reading applyState and writing it. A failed stage waits
-   * for the next real answer (the daily cadence, or a click in About) rather
+   * for the next real answer (the periodic cadence, or a click in About) rather
    * than looping. A staged-and-ready version is replaced only by something
    * strictly newer; restarting into a just-obsoleted staged build is allowed,
    * the next boot's check discovers the newer one.
@@ -111,9 +111,9 @@ export function registerUpdateRoutes(
     startStaging(r.latest);
   };
   updates.onResult(maybeAutoStage);
-  // The daily cadence only fetches once the cache has gone stale, so a boot
-  // inside the 24h window would never hear onResult and a known update could
-  // sit unstaged for a day. One deferred look at the cached answer covers it;
+  // The periodic cadence only fetches once the cache has gone stale, so a boot
+  // inside the interval would never hear onResult and a known update could
+  // sit unstaged for hours. One deferred look at the cached answer covers it;
   // when the cache was stale after all, the subscriber fires too and the
   // staging-phase guard makes the second call a no-op. The timer dies with
   // the server: left armed it outlives the closed database and detonates as
@@ -124,7 +124,7 @@ export function registerUpdateRoutes(
       .check()
       .then(maybeAutoStage)
       .catch(() => {
-        /* closing mid-look: the daily cadence owns the next attempt */
+        /* closing mid-look: the periodic cadence owns the next attempt */
       });
   }, deps.bootLookMs ?? 15_000);
   bootLook.unref();
@@ -144,7 +144,12 @@ export function registerUpdateRoutes(
       // (bump-minor-pre-major), so only a real major asks for attention.
       attention: kind === 'major',
       checkedAt: r.checkedAt,
-      notesUrl: r.latest && ghSlug ? `https://github.com/${ghSlug}/releases/tag/v${r.latest}` : null,
+      // Only a clean release triple becomes a URL: a stray prerelease on the
+      // latest tag must not leak into link surfaces any more than into staging.
+      notesUrl:
+        r.latest && ghSlug && isReleaseTriplet(r.latest)
+          ? `https://github.com/${ghSlug}/releases/tag/v${r.latest}`
+          : null,
       error: apply.phase === 'error' ? apply.error : r.error,
       canApply: blockReason() === null,
       blockReason: blockReason(),
