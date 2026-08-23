@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.4.5',
+    date: '2026-08-23',
+    title: 'New versions find you while Scenri runs.',
+    sections: [
+      {
+        heading: 'Updates',
+        body: 'A running Scenri now checks for new versions every six hours instead of relying on the next launch, and a laptop that slept through a check catches up within minutes of waking. Open tabs hear about a downloaded update within the half hour, or the moment you return to them.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'Running from a source checkout no longer shows a floating update notice whose button had nothing to do. The checkout keeps its quiet badge and the pull-and-rebuild note in Settings.',
+      },
+    ],
+  },
+  {
     version: '0.4.4',
     date: '2026-08-23',
     title: 'Codex setup tells the truth, and a stuck generation fails instead of running forever.',

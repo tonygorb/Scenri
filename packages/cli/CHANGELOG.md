@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.5](https://github.com/tonygorb/Scenri/compare/v0.4.4...v0.4.5) (2026-08-23)
+
+
+### Bug Fixes
+
+* check npm every six hours for real, and catch up after sleep ([9efb633](https://github.com/tonygorb/Scenri/commit/9efb6338b8a3ffbcb0c0a0f167492510f33d8bca))
+* keep the update float off a source checkout ([35d5269](https://github.com/tonygorb/Scenri/commit/35d5269f46d20044921878c2068fdc7495e6c27d))
+* keep the update float off a source checkout ([d2c129e](https://github.com/tonygorb/Scenri/commit/d2c129e4a567ea4220f503118872087f9e2516cc))
+* let an idle tab hear about a ready update within the half hour ([ea0088d](https://github.com/tonygorb/Scenri/commit/ea0088d363d8d709ddb01549717c4fed1aa06aab))
+* say every six hours everywhere the update check is disclosed ([78204c8](https://github.com/tonygorb/Scenri/commit/78204c8cfc26c3a9d856d399808f25396fe6084c))
+
 ## [0.4.4](https://github.com/tonygorb/Scenri/compare/v0.4.3...v0.4.4) (2026-08-23)
 
 
