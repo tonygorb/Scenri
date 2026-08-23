@@ -104,14 +104,19 @@ export function About({ version }: { version: VersionInfo | null }) {
           </small>
         </span>
         {verdict}
-        <button
-          type="button"
-          className="sc-btn sc-btn-ghost"
-          disabled={updates.checking}
-          onClick={() => void updates.checkNow()}
-        >
-          Check for updates
-        </button>
+        {/* Once a version is on offer the check has spoken: the tag and the
+            action row below carry it, and a button offering to look again
+            would sit beside its own answer. */}
+        {!s?.available && (
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost"
+            disabled={updates.checking}
+            onClick={() => void updates.checkNow()}
+          >
+            Check for updates
+          </button>
+        )}
       </div>
       {/* Permanent, never gated on an update being available: after you
           update is exactly when you want to read what you got. One renderer,
