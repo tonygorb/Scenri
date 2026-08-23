@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0](https://github.com/tonygorb/Scenri/compare/v0.3.5...v0.4.0) (2026-08-23)
+
+
+### Features
+
+* expand a shot into a new shape instead of replacing it ([3570fde](https://github.com/tonygorb/Scenri/commit/3570fde2f9b700e485e3ef0c567caabcbd597bda))
+* expand a shot into a new shape, and make the edit path first class ([9af4bad](https://github.com/tonygorb/Scenri/commit/9af4bad4283ee41b79f366a030b61ce4d81184e9))
+* keep the rest of the photograph when one thing was asked to change ([4cbbaf7](https://github.com/tonygorb/Scenri/commit/4cbbaf7e7448766dc090c3d6bbca578ffa586c10))
+
+
+### Bug Fixes
+
+* apply EXIF orientation when an upload is stored ([752c4e2](https://github.com/tonygorb/Scenri/commit/752c4e20696334db15b341c26fa1f3b66378ab52))
+* give a shot card one bottom row and one keeper mark ([f21b1b6](https://github.com/tonygorb/Scenri/commit/f21b1b6ab933417d41399965239cdc819894aa5d))
+* hold the shot's real shape while it renders, and reveal it when it decodes ([e814fb6](https://github.com/tonygorb/Scenri/commit/e814fb6bd0947003e5b338c08c67e4f891d0ed69))
+* keep presenter capture clothing out of the campaign frame ([c6e8c5e](https://github.com/tonygorb/Scenri/commit/c6e8c5ea3295c0cf32bde30e13f612a854a624cf))
+* keep the archive button out of a phone tile's fact row ([6de9560](https://github.com/tonygorb/Scenri/commit/6de95604b7780d64753977446e4892ac1da20092))
+* keep the variants that succeeded when one of them fails ([a72ae69](https://github.com/tonygorb/Scenri/commit/a72ae69b777c4d2e20fd88a6c24fc3aefd696e59))
+* make a refinement keep the shot it is refining ([ae9f752](https://github.com/tonygorb/Scenri/commit/ae9f7526550e141d0557225f1de9fb861643cd5e))
+* stop stretching the takes rail under the shot stage ([669e54c](https://github.com/tonygorb/Scenri/commit/669e54c167a74eff173231d84561a6ac2175a141))
+* stop the resolution setting promising pixels an engine only requests ([beba2c1](https://github.com/tonygorb/Scenri/commit/beba2c156673ae1681e2b7bc502bceb1cf57404a))
+
 ## [0.3.5](https://github.com/tonygorb/Scenri/compare/v0.3.4...v0.3.5) (2026-08-20)
 
 
