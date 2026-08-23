@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.4](https://github.com/tonygorb/Scenri/compare/v0.4.3...v0.4.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* cache the codex probe behind one shared runner and kill the whole tree on windows ([7c21235](https://github.com/tonygorb/Scenri/commit/7c212351231e4badcd49b8636f765dcb2ae0d73e))
+* classify codex auth and verification failures where the user can act on them ([83c6512](https://github.com/tonygorb/Scenri/commit/83c651224095664cf439bf9ee0ea483d307bbd0d))
+* harden the codex probe with timeouts, exe resolution and a version floor ([7c57808](https://github.com/tonygorb/Scenri/commit/7c578083b9dc665ea983cded464c0506db44ad3b))
+* honest codex states and platform-aware setup copy in studio ([672195e](https://github.com/tonygorb/Scenri/commit/672195e373ea07940a8d661ed397ecd7d7e540e3))
+* kill the whole install and login tree when a setup step times out on windows ([fa755a2](https://github.com/tonygorb/Scenri/commit/fa755a207b0cb81d53714d948867fce049a99171))
+* leave the codex program token unquoted so npm cmd shims keep their own path ([72cd69d](https://github.com/tonygorb/Scenri/commit/72cd69dc3bbba1d8312d13c3be0379ecbde25d94))
+* let taskkill own the windows kill so the process tree really dies ([340821a](https://github.com/tonygorb/Scenri/commit/340821a35d6db397ae5728047bbc5abf91a93e35))
+* make Codex on Windows honest about readiness and unable to hang ([d698d5f](https://github.com/tonygorb/Scenri/commit/d698d5f526d9365e64e170819a61803ff0162f3e))
+* recover codex images the windows sandbox could not move into the workdir ([4ce1d51](https://github.com/tonygorb/Scenri/commit/4ce1d51352d13f3afb83f190a9cb78bbc7427a0a))
+* send codex prompts over stdin and watchdog silent or runaway generations ([35a7c1b](https://github.com/tonygorb/Scenri/commit/35a7c1bad5c9eea65df338f719ecd2f66065289f))
+* set the codex version floor at the newest release verified working ([531a255](https://github.com/tonygorb/Scenri/commit/531a255b2a2e93a97b8620efa88a727cba06e43b))
+
 ## [0.4.3](https://github.com/tonygorb/Scenri/compare/v0.4.2...v0.4.3) (2026-08-23)
 
 
