@@ -586,12 +586,30 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       watchdogFired = true;
       ctrl.abort();
     }, opts.nodeTimeoutMs ?? NODE_TIMEOUT_MS);
+    const startedAt = Date.now();
     try {
       const result = await work(ctrl.signal);
       result.images = await normalizePngs(result.images);
       if (post) result.images = await post(result.images);
       if (expect) await assertAspect(result.images, expect);
-      core.store.completeNode(nodeId, result);
+      core.store.completeNode(nodeId, { ...result, durationMs: Date.now() - startedAt });
+      // What was actually delivered, next to what was asked for. The UI used
+      // to guess every tile's shape from the brief's format, which an edit can
+      // make untrue; recorded pixels end the guessing.
+      try {
+        const sizes: [number, number][] = [];
+        for (const h of result.images) {
+          const meta = await sharp(core.images.read(h)).metadata();
+          if (meta.width && meta.height) sizes.push([meta.width, meta.height]);
+        }
+        const node = core.store.getNode(nodeId);
+        if (node && sizes.length) {
+          const brief = (node.brief as object | null) ?? {};
+          core.store.setBrief(nodeId, { ...brief, rendered: { sizes } });
+        }
+      } catch {
+        /* the record is a convenience; failing to write it must not fail the run */
+      }
       core.ledger.recordCost(engineId, nodeId, result.costUsd);
     } catch (err: any) {
       // the signal is the source of truth for "was this a cancel", not the

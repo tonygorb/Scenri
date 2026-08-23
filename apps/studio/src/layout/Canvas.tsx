@@ -25,6 +25,18 @@ import { aspectOfFormat } from '../composer/formats.js';
  * Running tiles shimmer with elapsed seconds (status, never a fake percent),
  * failed tiles stay quiet and dashed, edits carry a provenance badge.
  */
+
+/**
+ * A tile's shape: recorded pixels when the run wrote them, the brief's format
+ * as the guess for everything older. The record ends the guessing, which is
+ * what lets the box hold its shape after load instead of reflowing the column.
+ */
+function aspectOfImage(n: TreeNode, i: number): { aspect: number | undefined; guess: boolean } {
+  const size = (n.brief as { rendered?: { sizes?: [number, number][] } } | null)?.rendered?.sizes?.[i];
+  if (size && size[0] > 0 && size[1] > 0) return { aspect: size[0] / size[1], guess: false };
+  return { aspect: aspectOfFormat((n.brief as { format?: string } | null)?.format), guess: true };
+}
+
 export function Canvas({
   nodes,
   selectedId,
@@ -400,7 +412,7 @@ export function Canvas({
               aria-label={`Open ${nodeLabel(n)}, take ${i + 1} of ${n.images.length}`}
               onClick={() => onOpen(n.id, i)}
             >
-              <FeedImage src={imgUrl(hash)} aspect={aspectOfFormat(n.brief?.format)} />
+              <FeedImage src={imgUrl(hash)} {...aspectOfImage(n, i)} />
             </button>
             {/* An opened-out take gets the same bottom line as any other tile:
                 what it is on the left, what to do with it on the right. It used
@@ -486,7 +498,7 @@ export function Canvas({
                 aria-label={`Open ${nodeLabel(n)}`}
                 onClick={() => onOpen(n.id)}
               >
-                <FeedImage src={imgUrl(n.images[0])} aspect={aspectOfFormat(n.brief?.format)} />
+                <FeedImage src={imgUrl(n.images[0])} {...aspectOfImage(n, 0)} />
               </button>
               <div className="sc-cell-bar">
                 {facts}

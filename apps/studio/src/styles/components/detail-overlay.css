@@ -291,6 +291,16 @@
 .sc-ovl-spend {
   color: var(--sc-fg3);
 }
+/* How long the run took, beside what it cost: the two numbers people actually
+   ask about a generator, finally both answerable after the fact. */
+.sc-ovl-took {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--sc-font-mono);
+  font-size: 11px;
+  color: var(--sc-fg3);
+}
 .sc-ovl-spend {
   display: inline-flex;
   align-items: center;

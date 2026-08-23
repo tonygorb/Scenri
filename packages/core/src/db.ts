@@ -195,11 +195,12 @@ function widenNodeStatusCheck(db: DB): void {
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         overlays TEXT NOT NULL DEFAULT '{}',
         brief TEXT,
-        archived INTEGER NOT NULL DEFAULT 0
+        archived INTEGER NOT NULL DEFAULT 0,
+        duration_ms INTEGER
       );
       INSERT INTO nodes_new
         SELECT id, project_id, parent_id, kind, prompt, engine_id, status, images, cost_usd, kept, error,
-               created_at, overlays, brief, archived
+               created_at, overlays, brief, archived, duration_ms
         FROM nodes;
       DROP TABLE nodes;
       ALTER TABLE nodes_new RENAME TO nodes;
@@ -423,6 +424,13 @@ export function openDb(homeDir: string): DB {
   }
   if (!nodeCols.includes('archived')) {
     db.exec('ALTER TABLE nodes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!nodeCols.includes('duration_ms')) {
+    // How long the engine actually took, written at completion. Everything the
+    // app could previously say about time was derived from created_at while a
+    // node was still running; a finished shot could never say how long it took,
+    // and there was no history from which to state what to expect.
+    db.exec('ALTER TABLE nodes ADD COLUMN duration_ms INTEGER');
   }
   const projectCols = (db.pragma('table_info(projects)') as { name: string }[]).map((c) => c.name);
   if (!projectCols.includes('slug')) {

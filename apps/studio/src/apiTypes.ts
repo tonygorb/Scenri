@@ -24,6 +24,8 @@ export interface TreeNode {
   status: 'running' | 'done' | 'error' | 'cancelled';
   images: string[];
   costUsd: number;
+  /** Wall time of the run in milliseconds; null for legacy and unfinished shots. */
+  durationMs: number | null;
   kept: boolean;
   error: string | null;
   createdAt: string;
@@ -57,6 +59,8 @@ export interface TreeNode {
      * and a refinement of variant three claimed a source it never touched.
      */
     sourceImage?: string;
+    /** Real delivered pixel sizes per image, recorded at completion. */
+    rendered?: { sizes: [number, number][] };
   } | null;
   archived: boolean;
 }

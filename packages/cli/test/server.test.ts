@@ -349,6 +349,13 @@ describe('generation flow', () => {
     const kept = await app.inject({ method: 'POST', url: `/api/nodes/${editNode.id}/keep`, payload: { kept: true } });
     expect(kept.json().kept).toBe(true);
 
+    // The record of what the run actually was: how long it took, and the real
+    // pixels delivered. The app used to be able to say the first only while
+    // running, and the second never, so every tile guessed its shape.
+    expect(genNode.durationMs).toBeGreaterThan(0);
+    expect((genNode.brief as any)?.rendered?.sizes?.length).toBe(2);
+    expect((genNode.brief as any).rendered.sizes[0]).toEqual([256, 256]);
+
     const tree = await app.inject({ method: 'GET', url: `/api/projects/${project.id}/tree` });
     expect(tree.json().nodes).toHaveLength(3);
   });

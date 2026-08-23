@@ -14,7 +14,23 @@ import { useCallback, useState, type CSSProperties } from 'react';
  * React attaches its onLoad, and without the `complete` check that picture
  * would never be marked loaded and never become visible.
  */
-export function FeedImage({ src, alt = '', aspect }: { src: string; alt?: string; aspect?: number }) {
+export function FeedImage({
+  src,
+  alt = '',
+  aspect,
+  guess = true,
+}: {
+  src: string;
+  alt?: string;
+  aspect?: number;
+  /**
+   * True when `aspect` came from the brief's format rather than from recorded
+   * pixels. A guessed box still hands control back to the image once it loads,
+   * so a shot whose real shape differs self-corrects; a measured box never
+   * needs to, and holding it is what keeps the column from reflowing.
+   */
+  guess?: boolean;
+}) {
   const [loaded, setLoaded] = useState(false);
   const measure = useCallback((el: HTMLImageElement | null) => {
     if (el?.complete) setLoaded(true);
@@ -23,6 +39,7 @@ export function FeedImage({ src, alt = '', aspect }: { src: string; alt?: string
     <span
       className="sc-cellimg"
       data-loaded={loaded || undefined}
+      data-guess={guess || undefined}
       style={aspect ? ({ '--sc-cell-ar': aspect } as CSSProperties) : undefined}
     >
       {!loaded && <span className="sc-shimmer" />}

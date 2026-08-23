@@ -280,7 +280,10 @@
 .sc-cellimg[data-loaded] img {
   opacity: 1;
 }
-.sc-cellimg[data-loaded] {
+.sc-cellimg[data-loaded][data-guess] {
+  /* A guessed shape hands control back to the picture once it loads, so a shot
+     whose real pixels differ self-corrects. A measured shape stays held, which
+     is the whole point of measuring: the tile never reflows its column. */
   aspect-ratio: auto;
 }
 @media (prefers-reduced-motion: reduce) {

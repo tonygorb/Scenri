@@ -408,6 +408,15 @@ export function DetailOverlay({
                 {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
               </small>
             )}
+            {/* How long the run really took. This used to be sayable only
+                while the shot was still rendering, derived from its creation
+                time; a finished shot could never answer the first question
+                people ask about a generator. */}
+            {hasImage && node.durationMs != null && (
+              <small className="sc-ovl-took" title="How long this shot took to generate">
+                {Math.max(1, Math.round(node.durationMs / 1000))}s
+              </small>
+            )}
           </div>
 
           <Ingredients brief={node.brief} brand={brand} />
