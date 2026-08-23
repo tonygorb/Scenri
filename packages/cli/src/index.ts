@@ -5,8 +5,10 @@
  * few-KB chunk of node builtins that loads instantly and cannot break when a
  * native module does.
  */
+import { fileURLToPath } from 'node:url';
 import { parseArgs, helpText } from './args.js';
 import { bootErrorLines } from './bootError.js';
+import { isBuiltEntry } from './builtEntry.js';
 
 const command = parseArgs(process.argv.slice(2));
 
@@ -36,10 +38,12 @@ try {
       break;
     }
     case 'launch': {
-      const ownEntry = process.argv[1] ?? '';
+      // The module's own path, not process.argv[1]: the loader realpaths it,
+      // argv keeps the bin symlink, and the symlink path has no dist/ segment.
+      const ownEntry = fileURLToPath(import.meta.url);
       // From a checkout (tsx, src/) there is nothing to supervise: pnpm dev and
       // the e2e webServer keep their exact old behaviour.
-      if (!/[\\/]dist[\\/]/.test(ownEntry)) {
+      if (!isBuiltEntry(ownEntry)) {
         await (await import('./serve.js')).serve();
         break;
       }
