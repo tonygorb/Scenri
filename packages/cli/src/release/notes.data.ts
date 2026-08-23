@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.4.2',
+    date: '2026-08-23',
+    sections: [
+      {
+        heading: 'Updates',
+        body: 'Settings now tells the update story in one row: what you are on, what arrived, and a single Update button for whichever step remains. The floating notice carries a small gift where the dot was.',
+      },
+    ],
+  },
+  {
     version: '0.4.1',
     date: '2026-08-23',
     title: 'Updates now arrive by themselves.',
