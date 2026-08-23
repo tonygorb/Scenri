@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.2](https://github.com/tonygorb/Scenri/compare/v0.4.1...v0.4.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* one Updates row, one Update verb, and a gift instead of a dot ([1ecf017](https://github.com/tonygorb/Scenri/commit/1ecf01711202419a06fb9f2e5e1c998c53c7d7eb))
+* the boot look dies with the server ([8f5c575](https://github.com/tonygorb/Scenri/commit/8f5c575c0363a9dbf59efbeda2f5c6ab19a35ceb))
+* the boot look dies with the server ([3c7c018](https://github.com/tonygorb/Scenri/commit/3c7c018ff177a426bc327c32704ca15ebec2c107))
+* the check button steps aside once an update is found ([2fb0400](https://github.com/tonygorb/Scenri/commit/2fb040098b31a32df617d2453f8c6756e5fb32fe))
+* the check button steps aside once an update is found ([ba37979](https://github.com/tonygorb/Scenri/commit/ba37979a2023315c94bb45e1d422c1762c574267))
+
 ## [0.4.1](https://github.com/tonygorb/Scenri/compare/v0.4.0...v0.4.1) (2026-08-23)
 
 
