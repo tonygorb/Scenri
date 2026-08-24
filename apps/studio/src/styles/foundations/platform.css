@@ -124,7 +124,12 @@ textarea:disabled {
   .sc-chip,
   .sc-icon-btn,
   .sc-thumb,
-  .sc-pick {
+  .sc-pick,
+  /* the shot tile's own controls. `.sc-pick` above is the asset-kind picker,
+     a different control with a confusingly close name, so the feed's chrome
+     was never in this list and double-flashed under a thumb: the browser's
+     grey, and then ours. */
+  .sc-cell-ctl {
     -webkit-tap-highlight-color: transparent;
   }
 }

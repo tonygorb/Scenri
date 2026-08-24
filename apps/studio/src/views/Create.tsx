@@ -854,6 +854,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const shotContext: ShotContext = {
     nodes: allNodes,
     loaded,
+    // The sets a shot is filed in. It used to be a count on the tile, which is
+    // a fact about the picture stated where there is no room to say which
+    // sets. The overlay has the room, so it says the names.
+    setsFor: (id: string) => setsByNode.get(id) ?? [],
     brand,
     engines,
     projectId,
@@ -905,7 +909,33 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   return (
     <div className="sc-work" data-assets={railOpen}>
-      <main className="sc-canvas" id="main" data-firstrun={firstRun || undefined}>
+      {/* Blank ground empties the batch: the pointer's version of the Escape
+          that already does it, and of the Clear in the picked bar. Only on
+          genuinely blank ground — the canvas itself, the feed, or a column with
+          no tile under the cursor. A click that lands on a tile, a control or
+          the toolbar has its own meaning and keeps it, because `e.target` is
+          the thing clicked rather than the thing listening. Guarded on there
+          being a batch at all, so an ordinary click on an empty canvas does
+          nothing and costs nothing. */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard path is Escape, bound on the document above, so a key handler here would be a second route to the same clear rather than a missing one */}
+      <main
+        className="sc-canvas"
+        id="main"
+        data-firstrun={firstRun || undefined}
+        onClick={(e) => {
+          if (picked.size === 0 && !selectedId) return;
+          const t = e.target as HTMLElement;
+          // Asked the other way round: not "did this land on one of the three
+          // elements I can name" but "did it land on anything that has a
+          // meaning of its own". Naming the blank elements meant the rule only
+          // held where the layout happened to put them, and missed the gaps in
+          // the toolbar strip, which to anyone using this is also outside.
+          if (t.closest('.sc-cell')) return;
+          if (t.closest('button, a, input, select, textarea, label, [role], [contenteditable]')) return;
+          setPicked(new Set());
+          setSelectedId(null);
+        }}
+      >
         {/* Was a bare Radix callout printing whatever the server threw. Same
             reading as every other failure in the app now, so the page does not
             change vocabulary depending on where the error came from. */}
@@ -964,9 +994,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           </div>
         )}
 
+        {/* `selectedId` raw, never `selected`. That memo falls back to the
+            newest usable shot so the keyboard shortcuts always have something
+            to act on with nothing clicked, which is right for `b` and `k` and
+            wrong for a ring: it drew a permanent border on whichever tile
+            happened to be newest, on a feed nobody had touched, and nothing
+            could clear it because there was nothing to clear. A ring is for a
+            shot someone chose. */}
         <Canvas
           nodes={feed}
-          selectedId={selected?.id ?? null}
+          selectedId={selectedId}
           onOpen={openShot}
           onRetry={(n) => void retry(n)}
           onCancel={(n) => void cancel(n)}
@@ -979,7 +1016,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           // Only a failed tile reads this, so it can say which engine refused
           // rather than "the engine". The ids live here; the names do not.
           engineName={(id) => engines.find((e) => e.id === id)?.displayName}
-          setsFor={(id) => setsByNode.get(id) ?? []}
           picked={picked}
           onPick={togglePick}
           sending={sending}

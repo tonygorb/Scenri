@@ -351,175 +351,6 @@
     box-shadow: none;
   }
 }
-/* The brief already records the shape, so the placeholder holds it. 4/5 stays
-   as the fallback for the optimistic sending tile, which has no node yet. */
-.sc-cell[data-running] {
-  aspect-ratio: var(--sc-cell-ar, 4 / 5);
-  cursor: default;
-}
-.sc-cell-tag {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  font-family: var(--sc-font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--sc-fg2);
-  background: var(--sc-glass);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  padding: 3px 7px;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-}
-/* Branch sits on the tile, revealed the way the pick checkbox is, because the
-   feed is where you decide a shot is nearly right.
-
-   Bottom right is the only free corner: the pick checkbox owns top left, the
-   keeper star owns top right, and the variants label owns bottom left. */
-/* The two bottom pills each get half the tile and no more. Both are absolutely
-   positioned in the same row with no width budget, so at the smallest grid size
-   the Refine pill was painted across the variants pill and took its clicks —
-   measured as a 23x21px overlap at 160px tiles. Truncation is honest; the full
-   text stays in the title. */
-.sc-cell-branch {
-  max-width: 60%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--sc-fg);
-  background: var(--sc-glass);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  padding: 4px 8px;
-  cursor: pointer;
-  /* the bar it sits in takes no clicks, so the button takes its own */
-  pointer-events: auto;
-  opacity: 0;
-  transition:
-    opacity 120ms ease,
-    border-color 120ms ease;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-}
-.sc-cell:hover .sc-cell-branch,
-.sc-cell-branch:focus-visible,
-.sc-cell-branch[data-on] {
-  opacity: 1;
-}
-.sc-cell-branch[data-on] {
-  border-color: var(--sc-sel-line);
-}
-/* a coarse pointer has no hover to reveal with, so it never hides */
-@media (pointer: coarse) {
-  .sc-cell-branch {
-    opacity: 1;
-  }
-  /* Archive stays out of the row under a finger. Long press already opens a
-     menu with Archive in it, so a permanently pinned button is a second way to
-     reach the same thing, paid for in chrome over the photograph and in the
-     width the fact chips need: with it in the row, a phone tile cut off its own
-     variant count to make room. Refine has no such second route, so it stays. */
-  .sc-cell-archive {
-    display: none;
-  }
-}
-
-/* A run that returned several images says so with a control, not a caption:
-   the count is the way into the other variants rather than a note that they
-   exist somewhere. Bottom left, where the caption used to sit. */
-/* One row for everything the tile says about its picture, in the corner the
-   Refine pill does not use. It wraps, so a narrow tile stacks its facts rather
-   than letting one of them run under the other. */
-/* The tile's bottom line: what the picture is, and the one thing to do with
-   it. They used to be two absolutely-positioned pills that both claimed
-   `bottom: 8px`, which is why each carried a `max-width: calc(50% - 12px)` to
-   stop them painting across one another — a truncation whose only job was to
-   make a collision less likely. In one row with `space-between` the collision
-   is not possible, so the cap is gone and a fact can use the room the action
-   does not. */
-.sc-cell-bar {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
-  /* the row is a container, not a target: only its chips take clicks */
-  pointer-events: none;
-}
-.sc-cell-facts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-/* What to do with the picture, gathered into one group at the end of the row.
-   Archive and Refine used to live in different coordinate systems, one pinned
-   to the top right corner and one inside this row, which is how a keeper star
-   and an archive button ended up negotiating for the same 24px. */
-.sc-cell-acts {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  pointer-events: none;
-}
-.sc-cell-acts > * {
-  pointer-events: auto;
-}
-/* One chip. Provenance used to be a full-radius sans pill and the counts
-   small-radius mono chips, which is two grammars for one kind of statement. */
-.sc-fact {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--sc-fg2);
-  background: var(--sc-glass);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  padding: 3px 7px;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  transition:
-    color 120ms ease,
-    border-color 120ms ease;
-}
-/* the two that are ways in rather than labels */
-button.sc-fact {
-  cursor: pointer;
-  pointer-events: auto;
-}
-button.sc-fact:hover {
-  color: var(--sc-fg);
-  border-color: var(--sc-line-strong);
-}
-/* a count is a number, and numbers read better in the mono face */
-.sc-cell-stack,
-.sc-cell-versions {
-  font-family: var(--sc-font-mono);
-}
-/* An opened run reads as a group: its first tile keeps the edge that the
-   stacked one had, so the eye can see where the run begins. */
-.sc-cell[data-variant][data-first] {
-  box-shadow: inset 3px 0 0 0 var(--sc-line-strong);
-}
-
 /* CompareDialog/ExportDialog relied on Escape/backdrop alone — reusing
    .sc-set-close's button (SettingsDialog) for the visual, this just places it
    since neither dialog has that dialog's own header row to sit inside. */
@@ -709,61 +540,6 @@ button.sc-fact:hover {
   background: var(--sc-raised);
 }
 
-/* The stand-in for a brief that has been sent and not yet come back. It says
-   what was asked for, because for the second or two it exists that is the only
-   thing distinguishing it from any other shot starting up. */
-.sc-cell-said {
-  position: absolute;
-  inset: auto 10px 34px 10px;
-  font-size: 11.5px;
-  line-height: 1.35;
-  color: var(--sc-fg2);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-  text-align: left;
-}
-.sc-cell[data-failed] {
-  border-style: dashed;
-  background: none;
-}
-.sc-cell[data-cancelled] {
-  border-color: var(--sc-line);
-  background: none;
-}
-/* Only a place to stand. What goes in it is a .sc-fail, which brings its own
-   type, colour and rhythm — this used to set all three and fight it. */
-.sc-cell-failed {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  /* the icon/text/button used to live inside .sc-cell-open, so a click
-     anywhere here bubbled up to "open" for free; now a sibling, so the tile
-     stays clickable everywhere except the buttons' own small hit areas */
-  pointer-events: none;
-}
-.sc-cell-retry,
-.sc-cell-failed .sc-s,
-.sc-cell-failed .sc-fail-alt {
-  pointer-events: auto;
-}
-/* .sc-cell-open's own children were absolutely positioned (shimmer, tag) or
-   have moved out entirely (Cancel/Dismiss/Try again, now siblings) — without
-   this it has no in-flow content left to size itself by and collapses to
-   zero height, taking its click-to-open area with it. */
-.sc-cell[data-running] .sc-cell-open,
-.sc-cell[data-cancelled] .sc-cell-open,
-.sc-cell[data-failed] .sc-cell-open {
-  position: absolute;
-  inset: 0;
-}
-.sc-cell[data-running] .sc-cell-retry {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-}
 .sc-feed-empty {
   padding: 60px 0 30px;
   text-align: center;
@@ -788,11 +564,6 @@ button.sc-fact:hover {
  * tiles, its "more" tile, the clear button in its search pill — where 2px
  * would collide with a neighbour or spill through the parent's edge. Nothing
  * else varies. */
-.sc-cell-branch:focus-visible,
-.sc-cell-pick:focus-visible,
-.sc-cell-archive:focus-visible,
-.sc-cell-stack:focus-visible,
-.sc-cell-versions:focus-visible,
 .sc-toolbar-btn:focus-visible,
 .sc-aadd:focus-visible,
 .sc-amore:focus-visible,
@@ -820,19 +591,5 @@ button.sc-fact:hover {
     width: 100%;
     height: var(--sc-tap);
     min-width: var(--sc-tap);
-  }
-  /* On a 175px tile the word and the facts cannot both fit: "refined from"
-     truncated to "refined fro" to make room for a label. Tapping the picture
-     is what opens a shot — Refine is the shortcut — so on a phone the
-     shortcut gives up its word and keeps its target, and the row goes back to
-     saying what the picture is. */
-  .sc-cell-branch {
-    padding: 0;
-    width: 34px;
-    height: 34px;
-    justify-content: center;
-  }
-  .sc-cell-branch .sc-cell-branch-lb {
-    display: none;
   }
 }

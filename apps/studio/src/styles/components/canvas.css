@@ -64,27 +64,487 @@
 .sc-canvas .sc-feed {
   padding-top: 0;
 }
-/* Selected, over a picture. --sc-sel-line is the one rung that is the same in
-   both themes, because what it has to stay legible against is the photograph,
-   not the page: 4.3:1 on white and 4.9:1 on black. */
-.sc-cell[data-selected="true"] {
+/* ============================================================================
+   The shot tile
+   ----------------------------------------------------------------------------
+   One rule holds all of this together: **at rest the card wears marks, on
+   hover the marks become controls.**
+
+   A mark is state you have to read while scanning a wall of shots — this one
+   is kept, this one is a stack of four. A control is a thing you do, and
+   nothing you do needs to be visible before you have chosen a card. The same
+   element plays both parts: a kept star at rest is a bare gold glyph, and
+   under the pointer it grows the puck that makes it pressable.
+
+   These rules used to live in three non-adjacent sheets (home 13,
+   feed-toolbar 14, canvas 16), which is the mechanical reason each control
+   drifted its own way: four sizes, four fills, three radii and two type sizes
+   for one card, and a row of fact chips that never hid at all, so the tile was
+   never just the picture. They are one section now. Nothing between slots 14
+   and 16 touches `.sc-cell`, so the move changed no cascade.
+
+   Legibility over an unknown photograph is one scrim per card edge, never one
+   blurred pill per control: the old chrome paid for eight `backdrop-filter`
+   layers per tile in a feed of hundreds, to buy what `.sc-lookcard-veil`
+   already buys with one gradient. Controls carry `--sc-scrim`/`--sc-scrim-fg`,
+   which are theme-neutral — `--sc-glass` follows the theme and turned this
+   chrome white-over-photograph in light mode.
+   ========================================================================= */
+.sc-cell {
+  position: relative;
+  /* break-inside is gone with multicol; the columns are real elements now */
+  margin-bottom: 14px;
+  border-radius: var(--sc-radius);
+  overflow: hidden;
+  /* Present but colourless once there are pixels, so the loading state has an
+     edge and the finished picture is its own. A card's border is none by
+     default across this system; the shot tile was the one card not following
+     it. Kept at 1px rather than removed so the selected and picked states have
+     something to colour without moving the tile. */
+  border: 1px solid var(--sc-line);
+  background: var(--sc-raised);
+  padding: 0;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  /* The control skin, stated once as three local values so hover and press are
+     one decision rather than one per button. */
+  --sc-cell-ctl-bg: var(--sc-scrim);
+  --sc-cell-ctl-bg-hover: color-mix(in srgb, var(--sc-scrim) 86%, #000);
+  --sc-cell-ctl-bg-press: color-mix(in srgb, var(--sc-scrim) 72%, #000);
+  /* What a mark wears instead of a scrim: a 1px hard halo so the glyph keeps a
+     dark edge against a white product on a white seamless, then a soft lift.
+     Stated once because three rules need exactly this and a mark that drifts
+     from its siblings is the thing this whole section exists to stop. */
+  --sc-cell-mark-shadow: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+}
+/* `:where()` so this stays a one-class rule. Bare, `:has()` takes the
+   specificity of its argument, which made this (0,3,0) — heavier than
+   `.sc-cell[data-picked]`, so a picked tile's ring lost to it and never
+   painted. A rule about whether pixels have arrived must not outrank a rule
+   about what the user chose. */
+.sc-cell:where(:has(.sc-cellimg[data-loaded])) {
+  border-color: transparent;
+  background: none;
+}
+.sc-cell img {
+  width: 100%;
+  display: block;
+}
+/* The one moment the app has no cached copy of a picture is the shot that just
+   finished. The wrapper keeps the brief's shape and shimmers underneath until
+   the pixels decode, so the reveal is a fade rather than a blank tile that
+   snaps. */
+.sc-cellimg {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--sc-cell-ar, auto);
+  overflow: hidden;
+}
+.sc-cellimg img {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.sc-cellimg[data-loaded] img {
+  opacity: 1;
+}
+.sc-cellimg[data-loaded][data-guess] {
+  /* A guessed shape hands control back to the picture once it loads, so a shot
+     whose real pixels differ self-corrects. A measured shape stays held, which
+     is the whole point of measuring: the tile never reflows its column. */
+  aspect-ratio: auto;
+}
+.sc-cell:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: -2px;
+}
+/* The tile is a div, so opening it is its own button filling the frame. */
+.sc-cell-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.sc-cell-open:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: -2px;
+}
+/* One ring, drawn once, for every reason a tile is singled out.
+
+   There were two for a while: a grey hairline for the shot the composer acts
+   on and a heavier white one for a shot picked into a batch. Two rings a few
+   pixels and a few percent grey apart is a second vocabulary for one idea —
+   *this tile, not the others* — and side by side they read as a rendering bug
+   rather than as two meanings. What separates the two states is the tick in
+   the corner, which is present, filled and countable, not the weight of a
+   line nobody can measure by eye.
+
+   It takes the inverse fill, the one on-state this system has, so a ringed
+   tile matches its own tick and every other active control in the app. Drawn
+   inside the tile's own edge, because a photograph runs to the corner and an
+   outline outside it would be clipped. */
+/* While a batch is being built a hover is a ring, not a wash. There is no rail
+   to make legible, so nothing needs darkening, and the ring is the smaller and
+   more accurate claim: the pointer is on this one. --sc-sel-line is the rung
+   tuned to stay readable against a photograph in either theme. Not on a tile
+   that is already picked, whose own ring means something stronger and keeps
+   it. */
+.sc-cell[data-batching]:not([data-picked]):hover {
   outline: 2px solid var(--sc-sel-line);
   outline-offset: -2px;
 }
-/* Provenance keeps only what makes it itself: the frame it came from. Its
-   position, surface and radius come from .sc-fact, like every other fact. The
-   rule that nudged it right to dodge the selection box is gone with the
-   collision — on a touch device that box is always on, so the badge used to
-   float off its corner permanently rather than sit in it. */
-.sc-prov {
-  padding-left: 3px;
+.sc-cell[data-selected="true"],
+.sc-cell[data-picked] {
+  outline: 2px solid var(--sc-inv-bg);
+  outline-offset: -2px;
 }
-.sc-prov img {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--sc-line);
+/* An opened run reads as a group: its first tile keeps the edge that the
+   stacked one had, so the eye can see where the run begins. */
+.sc-cell[data-variant][data-first] {
+  box-shadow: inset 3px 0 0 0 var(--sc-line-strong);
+}
+
+/* ---------- the scrim ------------------------------------------------------
+   Eased stops rather than the two-stop linear a gradient is usually written
+   as: black-to-transparent in one step reads as a grey haze with a visible
+   band across the middle of the photograph. Thirteen stops on an ease curve
+   put the weight where the rail is and nothing above it. */
+.sc-cell-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease) 100ms;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.66) 0%,
+    rgba(0, 0, 0, 0.487) 8.6%,
+    rgba(0, 0, 0, 0.357) 15.3%,
+    rgba(0, 0, 0, 0.252) 21.2%,
+    rgba(0, 0, 0, 0.184) 25.4%,
+    rgba(0, 0, 0, 0.128) 29.3%,
+    rgba(0, 0, 0, 0.083) 32.9%,
+    rgba(0, 0, 0, 0.05) 36.1%,
+    rgba(0, 0, 0, 0.028) 38.7%,
+    rgba(0, 0, 0, 0.014) 41%,
+    rgba(0, 0, 0, 0.005) 42.8%,
+    rgba(0, 0, 0, 0.001) 44.2%,
+    rgba(0, 0, 0, 0) 45%
+  );
+}
+
+/* ---------- one skin for every control on the tile -------------------------
+   Geometry and skin only, the way .sc-cardpuck is geometry only for the
+   catalog card. Behaviour classes below add position and state, never a
+   second look. 28px clears the 24px minimum target size with room; the pill
+   radius is the system's shape for anything interactive. No border: a hairline
+   over a photograph is noise, and the scrim is the edge. */
+.sc-cell-ctl {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-cell-ctl-bg);
+  color: var(--sc-scrim-fg);
+  font-size: var(--sc-text-micro);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  /* the row it sits in takes no clicks, so the button takes its own */
+  flex: none;
+  opacity: 0;
+  /* The delay lives on the resting rule, so it applies on the way out only:
+     the chrome does not flicker as the pointer crosses the gap between two
+     controls, and it does not lag on the way in. Paint only — no geometry
+     eases, because pressing one never moves it. */
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease) 100ms,
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-cell-ctl:hover {
+  background: var(--sc-cell-ctl-bg-hover);
+}
+.sc-cell-ctl:active {
+  background: var(--sc-cell-ctl-bg-press);
+}
+.sc-cell-ctl svg {
+  flex: none;
+}
+.sc-cell-ctl-n {
+  font-family: var(--sc-font-mono);
+}
+
+/* ---------- what is a mark, and what is a control --------------------------
+   Everything is a control by default and waits. The three rules below are the
+   exceptions: state you can only learn from the tile itself, so the tile keeps
+   saying it with no pointer anywhere near. */
+.sc-cell:hover .sc-cell-ctl,
+.sc-cell:focus-within .sc-cell-ctl,
+.sc-cell:hover .sc-cell-veil,
+.sc-cell:focus-within .sc-cell-veil,
+.sc-cell-ctl:focus-visible {
+  opacity: 1;
+  transition-delay: 0s;
+}
+.sc-cell-pick[data-on],
+.sc-cell-branch[data-on] {
+  opacity: 1;
+}
+/* An open menu holds its tile's chrome up: the pointer has to leave the tile
+   to reach the menu, and a rail that vanished on the way there would take its
+   own trigger with it. */
+.sc-cell:has(.sc-cell-more[data-state="open"]) .sc-cell-ctl,
+.sc-cell:has(.sc-cell-more[data-state="open"]) .sc-cell-veil {
+  opacity: 1;
+  transition-delay: 0s;
+}
+
+/* ---------- selection, top left --------------------------------------------
+   A circle in the shared skin, not a hairline square with its own white border
+   and its own black fill. Unchecked it is an empty puck, which is what a
+   photo library uses; checked it takes the one inversion this system uses for
+   every on-state, and the tile takes the selected edge with it. */
+.sc-cell-pick {
+  top: 8px;
+  left: 8px;
+}
+.sc-cell-pick:not([data-on]) svg {
+  opacity: 0.6;
+}
+.sc-cell-pick[data-on] {
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+.sc-cell-pick[data-on]:hover {
+  background: var(--sc-inv-bg);
+  opacity: 0.88;
+}
+
+/* ---------- the keeper mark, top right -------------------------------------
+   Gold means kept, and a shot that is not kept has no star at all. This is a
+   mark and never a control: it does not hover, it does not take a puck, it
+   does not take clicks. Keeping and unkeeping are lines in the shot's menu
+   like every other verb.
+
+   It used to be a button that appeared on hover in scrim ink and turned gold
+   when on, which made it the fourth thing blooming over a photograph and gave
+   the one accent in the system two jobs: "there is a star here" and "this is
+   kept". Now the accent only ever means the second. */
+.sc-cell-mark {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  pointer-events: none;
+}
+.sc-cell-star {
+  top: 10px;
+  right: 10px;
+  color: var(--sc-star);
+  filter: var(--sc-cell-mark-shadow);
+}
+
+/* ---------- the bottom rail ------------------------------------------------
+   What the tile is on the left, what to do with it on the right. The row is a
+   container and takes no clicks; only its controls do. */
+.sc-cell-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+.sc-cell-acts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  pointer-events: none;
+}
+/* the rail's own children are placed by the flex row, not by the corner */
+.sc-cell-bar .sc-cell-ctl,
+.sc-cell-acts .sc-cell-ctl {
+  position: static;
+}
+
+/* ---------- the stack mark -------------------------------------------------
+   A run that came back with four pictures is the one thing you cannot see by
+   looking at the tile, so it is the one control that stays legible at rest: a
+   glyph and a numeral, no pill and no border. Under the pointer it becomes the
+   door it always was and says the word. It used to be a chip in a row of three
+   other chips that never hid, which is how a count of takes ended up reading
+   as chrome. */
+.sc-cell-stack {
+  opacity: 1;
+  padding: 0 2px;
+  background: none;
+  filter: var(--sc-cell-mark-shadow);
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease) 100ms,
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease),
+    filter var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-cell-stack .sc-cell-ctl-lb {
+  display: none;
+}
+.sc-cell:hover .sc-cell-stack,
+.sc-cell:focus-within .sc-cell-stack {
+  padding: 0 10px;
+  background: var(--sc-cell-ctl-bg);
+  filter: none;
+}
+.sc-cell:hover .sc-cell-stack .sc-cell-ctl-lb,
+.sc-cell:focus-within .sc-cell-stack .sc-cell-ctl-lb {
+  display: inline;
+}
+
+/* ---------- archive and Refine ---------------------------------------------
+   Refine keeps its word at every width now. It used to give it up under a
+   finger because on a 175px tile the label and the fact chips could not both
+   fit, and "refined from" was truncating to "refined fro" to make room; the
+   chips are gone, so the constraint is gone. */
+.sc-cell-branch {
+  padding: 0 10px;
+  max-width: 60%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--sc-scrim-fg);
+}
+.sc-cell-branch[data-on] {
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+.sc-cell-branch[data-on]:hover {
+  background: var(--sc-inv-bg);
+  opacity: 0.88;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-cellimg img,
+  .sc-cell-veil,
+  .sc-cell-ctl,
+  .sc-cell-stack {
+    transition: none;
+  }
+}
+
+/* ---------- without a pointer ----------------------------------------------
+   A phone has no hover to reveal with and none to hide with again, so the rail
+   stays. The tick is the exception and stays hidden until it means something:
+   an unticked box pinned to every tile is permanent chrome over the
+   photographs, and there is no hover to take it away again. Starting a
+   selection is the long-press menu's Select; after that a tap on the picture
+   toggles, so no small target has to be found at all.
+
+   The controls grow for real rather than wearing a 44px `::after`: centred on
+   a control 8px from the edge of a 176px tile, that box reaches across the 8px
+   gutter and takes taps meant for the tile beside it. */
+@media (hover: none), (pointer: coarse) {
+  .sc-cell-veil,
+  .sc-cell-ctl {
+    opacity: 1;
+  }
+  .sc-cell-ctl {
+    height: 32px;
+    min-width: 32px;
+  }
+  .sc-cell-pick:not([data-on]) {
+    opacity: 0;
+  }
+}
+
+/* ---------- running, cancelled and failed ----------------------------------
+   Tiles with no picture yet, or none coming. They share the tile's shell and
+   nothing of its chrome. */
+.sc-cell[data-running] {
+  /* The brief already records the shape, so the placeholder holds it. 4/5 stays
+     as the fallback for the optimistic sending tile, which has no node yet. */
+  aspect-ratio: var(--sc-cell-ar, 4 / 5);
+  cursor: default;
+}
+.sc-cell-tag {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-micro);
+  font-weight: 500;
+  color: var(--sc-scrim-fg);
+  background: var(--sc-scrim);
+  border-radius: var(--sc-radius-full);
+  padding: 5px 10px;
+}
+/* The stand-in for a brief that has been sent and not yet come back. It says
+   what was asked for, because for the second or two it exists that is the only
+   thing distinguishing it from any other shot starting up. */
+.sc-cell-said {
+  position: absolute;
+  inset: auto 10px 34px 10px;
+  font-size: var(--sc-text-caption);
+  line-height: 1.35;
+  color: var(--sc-fg2);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  text-align: left;
+}
+.sc-cell[data-failed] {
+  border-style: dashed;
+  background: none;
+}
+.sc-cell[data-cancelled] {
+  border-color: var(--sc-line);
+  background: none;
+}
+/* Only a place to stand. What goes in it is a .sc-fail, which brings its own
+   type, colour and rhythm — this used to set all three and fight it. */
+.sc-cell-failed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  /* the icon/text/button used to live inside .sc-cell-open, so a click
+     anywhere here bubbled up to "open" for free; now a sibling, so the tile
+     stays clickable everywhere except the buttons' own small hit areas */
+  pointer-events: none;
+}
+.sc-cell-retry,
+.sc-cell-failed .sc-s,
+.sc-cell-failed .sc-fail-alt {
+  pointer-events: auto;
+}
+/* .sc-cell-open's own children were absolutely positioned (shimmer, tag) or
+   have moved out entirely (Cancel/Dismiss/Try again, now siblings) — without
+   this it has no in-flow content left to size itself by and collapses to
+   zero height, taking its click-to-open area with it. */
+.sc-cell[data-running] .sc-cell-open,
+.sc-cell[data-cancelled] .sc-cell-open,
+.sc-cell[data-failed] .sc-cell-open {
+  position: absolute;
+  inset: 0;
+}
+.sc-cell[data-running] .sc-cell-retry {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
 }
 .sc-cell-retry {
   border: 1px solid var(--sc-line);
@@ -102,6 +562,11 @@
   border-color: var(--sc-gold);
   color: var(--sc-gold);
   background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
+}
+@media (max-width: 479px) {
+  .sc-cell {
+    margin-bottom: 8px;
+  }
 }
 
 /* One scroll container, and only one. Every section below is a fixed two-row

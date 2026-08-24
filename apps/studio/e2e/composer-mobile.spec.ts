@@ -469,26 +469,30 @@ test('a short window does not shrink the shot into the middle of the stage', asy
 });
 
 /**
- * A tile says what its picture is in one row, in one corner, in one grammar.
+ * Under a finger, a tile's chrome fits the tile and reaches the thumb.
  *
- * It used to be three: provenance as a full-radius sans pill at the top left
- * (nudged right to dodge a selection box that is always on under a finger, so
- * it floated mid-air), the variant count as a small-radius mono chip at the
- * bottom left, and the version count the same chip stacked 26px above it. The
- * Refine pill claimed the same bottom line from the other side, which is why
- * both carried a max-width of half the tile — a truncation whose only job was
- * to make a collision less likely.
+ * This used to guard a row of fact chips against truncating each other:
+ * provenance, a variant count, a version count and a set count all crowded the
+ * bottom line beside Refine, and on a 175px tile one of them always lost. The
+ * facts are in the shot's own record now and the tile carries controls only,
+ * so what is worth guarding changed: every control is inside its tile, no two
+ * of them overlap, and each is big enough to hit.
+ *
+ * 32px rather than the 44px an enhanced target asks for, deliberately: a 44px
+ * box centred on a control 8px from the edge of a 176px tile reaches across
+ * the 8px gutter and takes taps meant for the tile beside it. 32 clears the
+ * 24px minimum with room and stays inside its own tile.
  */
-test('a feed tile states its facts in one row without truncating them', async ({ page }) => {
+test('a feed tile keeps its controls inside itself and thumb-sized', async ({ page }) => {
   const bars = page.locator('.sc-cell-bar');
   await expect(bars.first()).toBeAttached();
 
   const report = await page.evaluate(() => {
-    const out: { truncated: string[]; overlap: number; outside: boolean }[] = [];
-    for (const bar of document.querySelectorAll('.sc-cell-bar')) {
-      const cell = bar.closest('.sc-cell')!.getBoundingClientRect();
-      const items = [...bar.querySelectorAll('.sc-fact, .sc-cell-branch')].filter(
-        (el) => getComputedStyle(el).display !== 'none',
+    const out: { overlap: number; outside: boolean; small: string[] }[] = [];
+    for (const cell of document.querySelectorAll('.sc-cell')) {
+      const box = cell.getBoundingClientRect();
+      const items = [...cell.querySelectorAll('.sc-cell-ctl')].filter(
+        (el) => getComputedStyle(el).display !== 'none' && getComputedStyle(el).opacity !== '0',
       );
       if (!items.length) continue;
       const boxes = items.map((el) => el.getBoundingClientRect());
@@ -500,11 +504,12 @@ test('a feed tile states its facts in one row without truncating them', async ({
           if (ix > 0 && iy > 0) overlap = Math.max(overlap, Math.round(ix));
         }
       out.push({
-        truncated: [...bar.querySelectorAll('.sc-fact')]
-          .filter((el) => el.scrollWidth > el.clientWidth + 1)
-          .map((el) => el.textContent!.trim()),
         overlap,
-        outside: boxes.some((b) => b.left < cell.left - 1 || b.right > cell.right + 1),
+        outside: boxes.some((b) => b.left < box.left - 1 || b.right > box.right + 1),
+        small: items
+          .map((el, i) => ({ el, box: boxes[i] }))
+          .filter(({ box }) => box.width < 32 || box.height < 32)
+          .map(({ el }) => el.getAttribute('aria-label') ?? el.className),
       });
     }
     return out;
@@ -512,9 +517,9 @@ test('a feed tile states its facts in one row without truncating them', async ({
 
   expect(report.length).toBeGreaterThan(0);
   for (const r of report) {
-    expect(r.truncated, 'a fact was cut off to make room').toEqual([]);
-    expect(r.overlap, 'two things on the tile bar overlap').toBe(0);
-    expect(r.outside, 'something on the tile bar left the tile').toBe(false);
+    expect(r.overlap, 'two controls on the tile overlap').toBe(0);
+    expect(r.outside, 'a control left its tile').toBe(false);
+    expect(r.small, 'a control is under the thumb-sized floor').toEqual([]);
   }
 });
 

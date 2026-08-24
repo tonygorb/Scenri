@@ -1,23 +1,14 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertDialog, Button, ContextMenu, Flex } from '@radix-ui/themes';
-import {
-  Archive,
-  ArrowCounterClockwise,
-  Check,
-  ClockCounterClockwise,
-  FolderSimple,
-  PencilLine,
-  Stack,
-  Star,
-} from '@phosphor-icons/react';
-import { hasNoShots, imgUrl, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
-import { sourceImageOf } from '../briefDiff.js';
+import { hasNoShots, imgUrl, nodeLabel, type TreeNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
 import { elapsedSec } from '../tasks.js';
 import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 import { RunningTag } from './canvas/RunningTag.js';
 import { FeedImage } from './canvas/FeedImage.js';
+import { ShotChrome } from './canvas/ShotChrome.js';
+import { shotMenuItems } from './canvas/shotMenu.js';
 import { aspectOfFormat } from '../composer/formats.js';
 
 /**
@@ -46,7 +37,6 @@ export function Canvas({
   onToggleKeep,
   onArchive,
   onDeletePermanently,
-  setsFor,
   picked,
   onPick,
   empty,
@@ -77,8 +67,6 @@ export function Canvas({
   onArchive?: (node: TreeNode) => void;
   /** Permanent. Only ever offered (in the context menu) on an already-archived tile. */
   onDeletePermanently?: (node: TreeNode) => void;
-  /** The sets a shot is in, for the tile's own label. */
-  setsFor?: (id: string) => ShotSet[];
   picked?: Set<string>;
   onPick?: (id: string) => void;
   /**
@@ -117,8 +105,22 @@ export function Canvas({
   tile: number;
 }) {
   const shots = nodes.filter((n) => n.kind !== 'root');
-  const byId = new Map(nodes.map((n) => [n.id, n]));
   const picking = !!onPick;
+  /**
+   * A batch is being built, so the picture itself is a checkbox.
+   *
+   * Aiming at a 28px tick for every shot you add is a chore the moment there
+   * is more than one, and every photo library resolves it the same way: once
+   * selection is on, a tap on the tile adds or removes it. Opening a shot is
+   * still one Escape and one click away, and with nothing picked this changes
+   * nothing at all.
+   *
+   * This is the only thing selection changes. The tile's chrome does not have
+   * a selection mode, a just-cleared mode, or any other mode: hovering a tile
+   * shows the same three controls whatever else is true, which is the one rule
+   * that never surprised anyone.
+   */
+  const batching = picking && (picked?.size ?? 0) > 0;
   // one confirm dialog for the whole grid, not one per tile — the context
   // menu item just says which node it's for
   const [deleteTarget, setDeleteTarget] = useState<TreeNode | null>(null);
@@ -141,8 +143,6 @@ export function Canvas({
         ]
       : []),
     ...shots.flatMap((n) => {
-      const parent = n.parentId ? byId.get(n.parentId) : null;
-      const parentShot = parent && parent.kind !== 'root' ? parent : null;
       if (n.status === 'running') {
         return [
           // Cancel used to be a <button> inside .sc-cell-open — invalid HTML
@@ -229,167 +229,22 @@ export function Canvas({
           </div>,
         ];
       }
-      const inSets = setsFor?.(n.id) ?? [];
       const chosen = picked?.has(n.id) ?? false;
       const versions = versionsOf?.(n.id) ?? 0;
-
-      /**
-       * Refine, select and the versions pip all act on the run rather than on
-       * an image, so they are rendered once per run and stay reachable whether
-       * it is stacked or opened out. Four copies of one checkbox would not be
-       * four choices, and hiding them while a run is open made expanding it a
-       * dead end you had to undo before you could do anything.
-       */
-      const refineRun = onBranch && (
-        <button
-          type="button"
-          className="sc-cell-branch"
-          data-on={n.id === branchingFrom || undefined}
-          onClick={() => onBranch(n.id)}
-          aria-label={`Refine ${nodeLabel(n)}`}
-          title="Continue from this shot"
-        >
-          <PencilLine size={12} />
-          <span className="sc-cell-branch-lb">Refine</span>
-        </button>
-      );
-      /**
-       * What this shot IS, in one row in one corner.
-       *
-       * These three used to be three grammars in two corners: provenance was a
-       * full-radius sans pill at the top left, the variant count a small-radius
-       * mono chip at the bottom left, and the version count the same chip
-       * stacked 26px above it. Provenance also carried a rule nudging it right
-       * to dodge the selection box — which on a touch device is always on, so
-       * it permanently floated off its corner rather than sitting in it. They
-       * are facts about the same picture, so they read as one row: bottom left,
-       * one chip, wrapping when a tile is narrow.
-       */
-      const facts = (
-        // keyed only to settle the iterable check: this is built inside the
-        // callback that returns the tile array, but it is not a member of it
-        <div className="sc-cell-facts" key={`${n.id}-facts`}>
-          {parentShot?.images[0] && (
-            <span className="sc-fact sc-prov">
-              {/* the frame it was actually made from: a run holds several, and
-                  this used to show the first one on every tile */}
-              <img src={imgUrl(sourceImageOf(n, parentShot) ?? parentShot.images[0])} alt="" />
-              refined from
-            </span>
-          )}
-          {n.images.length > 1 && (
-            <button
-              type="button"
-              className="sc-fact sc-cell-stack"
-              onClick={() => onToggleExpand?.(n.id)}
-              aria-expanded="false"
-              aria-label={`Show all ${n.images.length} variants`}
-            >
-              <Stack size={12} />
-              {n.images.length} variants
-            </button>
-          )}
-          {versions > 0 && onVersions && (
-            <button
-              type="button"
-              className="sc-fact sc-cell-versions"
-              onClick={() => onVersions(n.id)}
-              aria-label={`Show the ${versions} version${versions === 1 ? '' : 's'} of this shot`}
-            >
-              <ClockCounterClockwise size={11} />
-              {versions} version{versions === 1 ? '' : 's'}
-            </button>
-          )}
-          {/* Where this shot is filed. It used to be a second absolutely
-              positioned band across the whole bottom edge, painted after this
-              row and therefore on top of it, which is why the set names ran
-              through the version count and under the Refine button. It is a
-              fact about the picture, so it belongs with the other facts.
-
-              A count rather than the names: set names are arbitrarily long, and
-              on a phone tile one of them pushed the variant count into an
-              ellipsis, which is the row cutting off a fact to make room for
-              another. The names are on the title. A tile is not a place to read
-              a list. */}
-          {inSets.length > 0 && (
-            <span className="sc-fact" title={inSets.map((s) => s.name).join(', ')}>
-              <FolderSimple size={11} />
-              {inSets.length} set{inSets.length === 1 ? '' : 's'}
-            </span>
-          )}
-        </div>
-      );
-
-      /**
-       * One brief that returned four images used to look like one image with
-       * a caption, and the other three were reachable only by opening the
-       * shot and stepping with [ and ]. Opened out, each is a tile of its
-       * own; the run's own actions stay on the first, because they act on
-       * the run and four copies of one checkbox is not four choices.
-       */
-      const runControlsWithoutRefine = picking && (
-        <button
-          type="button"
-          className="sc-cell-pick"
-          data-on={chosen || undefined}
-          aria-pressed={chosen}
-          aria-label={chosen ? 'Deselect shot' : 'Select shot'}
-          onClick={() => onPick?.(n.id)}
-        >
-          {chosen && <Check size={12} weight="bold" />}
-        </button>
-      );
-
-      /**
-       * What to do with this picture, as one group in one corner.
-       *
-       * Archive used to sit in the top right and step aside to 34px whenever the
-       * keeper star was there too, which only worked because of the order the
-       * two happened to be written in. They are different kinds of thing: the
-       * star is a judgement about the work and stays visible, archive is
-       * management and belongs with the other management action.
-       */
-      const cellActions = (
-        // keyed only to settle the iterable check, exactly as `facts` is: this
-        // is built inside the callback that returns the tile array, but it is
-        // not a member of it
-        <div className="sc-cell-acts" key={`${n.id}-acts`}>
-          {onArchive && (
-            <button
-              type="button"
-              className="sc-cell-archive"
-              onClick={() => onArchive(n)}
-              aria-label={n.archived ? 'Restore' : 'Archive'}
-              title={n.archived ? 'Restore' : 'Archive'}
-            >
-              {n.archived ? <ArrowCounterClockwise size={12} /> : <Archive size={12} />}
-            </button>
-          )}
-          {refineRun}
-        </div>
-      );
-
-      /**
-       * The keeper mark, which is now a mark you can make.
-       *
-       * It rendered only when the shot was already kept, with aria-pressed
-       * hardcoded true, so from the tile face a keeper could only ever be
-       * removed. Meanwhile the empty state told people to star a shot, which was
-       * the one thing this control could not do.
-       */
-      const keepStar = onToggleKeep && (
-        <button
-          type="button"
-          className="sc-cell-star"
-          data-on={n.kept || undefined}
-          onClick={() => onToggleKeep(n)}
-          aria-pressed={n.kept}
-          aria-label={n.kept ? 'Remove from keepers' : 'Keep'}
-          title={n.kept ? 'Remove from keepers' : 'Keep'}
-        >
-          <Star size={14} weight={n.kept ? 'fill' : 'regular'} />
-        </button>
-      );
+      /** The shot's verbs, built once so the two menus offering them agree. */
+      const menu = shotMenuItems(n, {
+        chosen,
+        batching,
+        versions,
+        onOpen,
+        onBranch,
+        onPick,
+        onVersions,
+        onToggleExpand,
+        onToggleKeep,
+        onArchive,
+        onDeletePermanently: onDeletePermanently ? (node) => setDeleteTarget(node) : undefined,
+      });
 
       if (expanded?.has(n.id) && n.images.length > 1) {
         return n.images.map((hash, i) => (
@@ -403,82 +258,39 @@ export function Canvas({
             data-fb-node={n.id}
             data-fb-variant={i}
             data-variant=""
+            data-batching={batching || undefined}
             data-first={i === 0 || undefined}
             data-selected={i === 0 && n.id === selectedId}
           >
             <button
               type="button"
               className="sc-cell-open"
-              aria-label={`Open ${nodeLabel(n)}, take ${i + 1} of ${n.images.length}`}
-              onClick={() => onOpen(n.id, i)}
+              aria-label={
+                batching
+                  ? `${chosen ? 'Deselect' : 'Select'} ${nodeLabel(n)}`
+                  : `Open ${nodeLabel(n)}, take ${i + 1} of ${n.images.length}`
+              }
+              onClick={() => (batching ? onPick?.(n.id) : onOpen(n.id, i))}
             >
               <FeedImage src={imgUrl(hash)} {...aspectOfImage(n, i)} />
             </button>
-            {/* An opened-out take gets the same bottom line as any other tile:
-                what it is on the left, what to do with it on the right. It used
-                to place these itself, and once the counts moved into that row
-                the Collapse button kept its old class without the positioning
-                that came with it — and landed on top of Refine. */}
-            <div className="sc-cell-bar">
-              <div className="sc-cell-facts">
-                <span className="sc-fact">
-                  {i + 1} of {n.images.length}
-                </span>
-                {i === 0 && (
-                  <button
-                    type="button"
-                    className="sc-fact sc-cell-stack"
-                    onClick={() => onToggleExpand?.(n.id)}
-                    aria-expanded="true"
-                    aria-label={`Collapse ${n.images.length} variants`}
-                  >
-                    <Stack size={12} />
-                    Collapse
-                  </button>
-                )}
-              </div>
-              {/* Refining is the one action that is about THIS picture rather
-                  than the run — keeping, picking and archiving all act on the
-                  whole shot, so they stay on the first tile with the run's own
-                  controls. Without this the takes you opened out to compare
-                  were inert: you could look at variant three and then only ever
-                  refine variant one. */}
-              <div className="sc-cell-acts">
-                {i === 0 && onArchive && (
-                  <button
-                    type="button"
-                    className="sc-cell-archive"
-                    onClick={() => onArchive(n)}
-                    aria-label={n.archived ? 'Restore' : 'Archive'}
-                    title={n.archived ? 'Restore' : 'Archive'}
-                  >
-                    {n.archived ? <ArrowCounterClockwise size={12} /> : <Archive size={12} />}
-                  </button>
-                )}
-                {onBranch && (
-                  <button
-                    type="button"
-                    className="sc-cell-branch"
-                    data-on={branchingFrom === n.id && branchingFromImage === hash ? '' : undefined}
-                    onClick={() => onBranch(n.id, i)}
-                    aria-label={`Refine ${i + 1} of ${n.images.length}`}
-                    title="Continue from this take"
-                  >
-                    <PencilLine size={12} />
-                    <span className="sc-cell-branch-lb">Refine</span>
-                  </button>
-                )}
-              </div>
-            </div>
-            {i === 0 && (
-              <>
-                {/* the run's own controls, without its Refine: every take now
-                    carries one that names the picture it is about. The keeper
-                    mark comes too, because opening a run out used to lose it. */}
-                {runControlsWithoutRefine}
-                {keepStar}
-              </>
-            )}
+            {/* One chrome, both tile shapes. The opened-out take used to place
+                its own bar, and once the counts moved into that row the
+                Collapse button kept its old class without the positioning that
+                came with it — and landed on top of Refine. */}
+            <ShotChrome
+              node={n}
+              take={i}
+              takeCount={n.images.length}
+              chosen={chosen}
+              picking={picking}
+              batching={batching}
+              armed={branchingFrom === n.id && branchingFromImage === hash}
+              menu={menu}
+              onPick={onPick}
+              onBranch={onBranch}
+              onToggleExpand={onToggleExpand}
+            />
           </div>
         ));
       }
@@ -490,59 +302,41 @@ export function Canvas({
               className="sc-cell"
               data-fb-node={n.id}
               data-selected={n.id === selectedId}
+              data-batching={batching || undefined}
               data-picked={chosen || undefined}
             >
               <button
                 type="button"
                 className="sc-cell-open"
-                aria-label={`Open ${nodeLabel(n)}`}
-                onClick={() => onOpen(n.id)}
+                aria-label={batching ? `${chosen ? 'Deselect' : 'Select'} ${nodeLabel(n)}` : `Open ${nodeLabel(n)}`}
+                onClick={() => (batching ? onPick?.(n.id) : onOpen(n.id))}
               >
                 <FeedImage src={imgUrl(n.images[0])} {...aspectOfImage(n, 0)} />
               </button>
-              <div className="sc-cell-bar">
-                {facts}
-                {cellActions}
-              </div>
-              {runControlsWithoutRefine}
-              {keepStar}
+              <ShotChrome
+                node={n}
+                take={null}
+                takeCount={n.images.length}
+                chosen={chosen}
+                picking={picking}
+                batching={batching}
+                armed={n.id === branchingFrom}
+                menu={menu}
+                onPick={onPick}
+                onBranch={onBranch}
+                onToggleExpand={onToggleExpand}
+              />
             </div>
           </ContextMenu.Trigger>
           <ContextMenu.Content>
-            <ContextMenu.Item onSelect={() => onOpen(n.id)}>Open</ContextMenu.Item>
-            {onBranch && <ContextMenu.Item onSelect={() => onBranch(n.id)}>Refine from this</ContextMenu.Item>}
-            {onPick && (
-              <ContextMenu.Item onSelect={() => onPick(n.id)}>
-                {chosen ? 'Deselect' : 'Select for set'}
-              </ContextMenu.Item>
-            )}
-            {versions > 0 && onVersions && (
-              <ContextMenu.Item onSelect={() => onVersions(n.id)}>
-                {versions} version{versions === 1 ? '' : 's'}
-              </ContextMenu.Item>
-            )}
-            {n.images.length > 1 && onToggleExpand && (
-              <ContextMenu.Item onSelect={() => onToggleExpand(n.id)}>Show all variants</ContextMenu.Item>
-            )}
-            {onToggleKeep && (
-              <ContextMenu.Item onSelect={() => onToggleKeep(n)}>
-                {n.kept ? 'Remove from keepers' : 'Keep'}
-              </ContextMenu.Item>
-            )}
-            {onArchive && (
-              <>
-                <ContextMenu.Separator />
-                <ContextMenu.Item onSelect={() => onArchive(n)}>{n.archived ? 'Restore' : 'Archive'}</ContextMenu.Item>
-              </>
-            )}
-            {onDeletePermanently && n.archived && (
-              <>
-                <ContextMenu.Separator />
-                <ContextMenu.Item color="red" onSelect={() => setDeleteTarget(n)}>
-                  Delete permanently
+            {menu.map((it) => (
+              <span key={it.key} style={{ display: 'contents' }}>
+                {it.separated && <ContextMenu.Separator />}
+                <ContextMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
+                  {it.label}
                 </ContextMenu.Item>
-              </>
-            )}
+              </span>
+            ))}
           </ContextMenu.Content>
         </ContextMenu.Root>,
       ];
@@ -563,12 +357,7 @@ export function Canvas({
 
   return (
     <>
-      <div
-        className="sc-feed"
-        ref={setFeedEl}
-        data-picking={picking && (picked?.size ?? 0) > 0 ? '' : undefined}
-        style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}
-      >
+      <div className="sc-feed" ref={setFeedEl} style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}>
         {Array.from({ length: cols }, (_, c) => (
           /*
            * Dealt round-robin, but counted from the OLDEST tile rather than the
