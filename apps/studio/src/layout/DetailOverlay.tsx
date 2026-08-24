@@ -18,7 +18,7 @@ import {
   XCircle,
 } from '@phosphor-icons/react';
 import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
-import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
+import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type ShotSet, type TreeNode } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
@@ -40,6 +40,7 @@ import { useLineage } from './detail/useLineage.js';
 export function DetailOverlay({
   node,
   nodes,
+  inSets,
   brand,
   engines,
   projectId,
@@ -59,6 +60,10 @@ export function DetailOverlay({
 }: {
   node: TreeNode;
   nodes: TreeNode[];
+  /** The sets this shot is filed in. The tile used to carry a bare count of
+   * these, which is a fact stated where there was no room to say which sets;
+   * here there is room, so they are named. */
+  inSets: ShotSet[];
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
@@ -416,6 +421,9 @@ export function DetailOverlay({
               <small className="sc-ovl-took" title="How long this shot took to generate">
                 {Math.max(1, Math.round(node.durationMs / 1000))}s
               </small>
+            )}
+            {inSets.length > 0 && (
+              <small className="sc-ovl-filed">Filed in {inSets.map((s) => s.name).join(', ')}</small>
             )}
           </div>
 

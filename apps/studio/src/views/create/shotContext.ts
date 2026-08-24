@@ -1,4 +1,4 @@
-import type { Brand, EngineInfo, TreeNode } from '../../api.js';
+import type { Brand, EngineInfo, ShotSet, TreeNode } from '../../api.js';
 import type { TokenNames } from '../../feedRules.js';
 
 /**
@@ -8,6 +8,8 @@ import type { TokenNames } from '../../feedRules.js';
 export interface ShotContext {
   nodes: TreeNode[];
   loaded: boolean;
+  /** The sets a shot is filed in, by name rather than by count. */
+  setsFor: (id: string) => ShotSet[];
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;

@@ -164,6 +164,71 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **Border:** none by default; the grid gap (14px) does the separation.
 - **Internal padding:** image fills the card at a fixed 4:5 aspect ratio; caption/label sits below in a fixed-height footer.
 
+### Shot tiles (the Create feed)
+
+A catalog card shows a thing you might use; a shot tile shows work you just made, and the picture
+is the whole point. So the tile follows one rule of its own: **at rest the card wears marks, on
+hover the marks become controls.**
+
+- **A mark is state you can only learn from the tile**: a kept shot (gold star), a stacked run (a
+  `Stack` glyph and a bare numeral), a selected outline, in-flight shimmer. Marks carry no pill and
+  no border, and they carry their own contrast: a 1px hard shadow halo plus a soft lift, because
+  this app generates white products on white seamless on purpose.
+- **A control is a thing you do**, and it waits: select, keep, archive, refine. They arrive together
+  with one bottom-anchored scrim on `:hover`, on `:focus-within` and on any device without hover.
+  The same element can be both, and the star is the worked example: bare gold glyph at rest, gold
+  glyph in a scrim puck under the pointer.
+- **One skin, `.sc-cell-ctl`**, geometry and skin only, the way `.sc-cardpuck` is for catalog cards.
+  28px minimum (32 on touch), full-pill radius, `--sc-scrim` fill and `--sc-scrim-fg` ink, no
+  border. Chrome over a photograph uses the scrim tokens, never `--sc-glass`: glass follows the
+  theme and turns white-over-photograph in light mode.
+- **One scrim per card edge, never one blurred pill per control.** Eight `backdrop-filter` layers
+  per tile is eight compositor surfaces in a feed of hundreds, buying what one eased gradient
+  already buys. The gradient is eased across thirteen stops, not two: a black-to-transparent linear
+  reads as a grey haze with a visible band across the picture.
+- **One ring, one weight, one ink.** Every reason a tile is singled out (the shot the composer
+  acts on, a shot picked into a batch) draws the same 2px inverse-fill ring inside the tile's edge.
+  Two rings a few pixels and a few percent grey apart are a second vocabulary for one idea, *this
+  tile and not the others*, and side by side they read as a rendering bug. What tells the states
+  apart is the tick in the corner, which is present, filled and countable.
+- **No tile is ringed by default.** A ring is drawn for a shot someone chose. The feed's `selected`
+  memo falls back to the newest shot so the keyboard shortcuts always have a target, and passing
+  that fallback to the tiles put a permanent border on an untouched feed that nothing could clear.
+  Pass the raw id.
+- **The tile carries two verbs and no more.** Refine, which is the loop this app exists for, and
+  one overflow that opens the shot's menu. Keep and Archive were buttons of their own once, which
+  put four separate things over a photograph on every hover and gave the tile under the cursor a
+  different number of them than its neighbours. Management belongs in the menu; the picture keeps
+  its corners. The menu's items are built once (`canvas/shotMenu.ts`) and rendered by both the
+  right-click menu and the overflow, because Radix gives those two different component families and
+  a hand-written second copy drifts within a release.
+- **A mark is never a button.** The keeper star is gold when kept and absent when not; it does not
+  hover, take a puck, or take clicks. Keeping is a line in the menu like every other verb. It used
+  to be a control that appeared in scrim ink and turned gold when on, which gave the one accent in
+  the system two jobs: "there is a star here" and "this is kept".
+- **Hovering a tile shows the same three controls, always.** The tick, Refine and one overflow, in
+  every situation: nothing picked, a batch half built, a batch just emptied. There is no selection
+  mode for chrome, no just-cleared mode, and no switch. Three separate mechanisms for those states
+  were built and deleted; each one fixed the case it was written for and made another one stranger,
+  because a tile that can look four ways for reasons nobody can see is worse than a tile that
+  always looks one way for a reason everybody can. The pointer is on it. That is the whole rule.
+- **While a batch is being built the tile shows its tick and nothing else.** Refine and the
+  overflow both act on one picture, and choosing which twelve go in a set is the opposite of that;
+  the menu drops `Refine from this` at the same moment, because two surfaces offering one verb must
+  agree about when it applies. The scrim goes with them: a scrim exists to make a rail legible, and
+  with no rail it darkens the photograph to protect nothing. What a hover has to say there is only
+  "the pointer is on this one", so it says it with a ring and leaves the picture alone. Nothing
+  becomes unreachable: right-click opens the same menu on any tile, at any time.
+- **Selection changes two things and no more:** what a tap means, and what the tile carries.
+- **A verb that does not apply is absent, not disabled and not hidden by a stylesheet.** Rendering
+  it and then fighting its opacity is what produced three competing mode mechanisms; leaving it out
+  of the tree gives the hover rules nothing to argue with.
+- **Blank ground clears.** Clicking the feed where there is no tile empties the picks and drops the
+  ring, the pointer's version of the Escape that already does it.
+- **Facts about a shot belong to the shot's record, not to its tile.** Provenance, version count and
+  filing live in the detail overlay, which has the room to name them; a tile that states four facts
+  in chips it never hides is a tile that is never just the picture.
+
 ### Inputs / Fields
 - **Style:** hairline border, panel background, `--sc-radius` (10px) corners.
 - **Focus:** border shifts to `--sc-focus` (ink), no glow/ring beyond the border itself, consistent with the no-decoration-at-rest posture.
@@ -191,6 +256,9 @@ A create dialog is a picture being named, not a settings panel. Empty: one large
 - **Do** treat `.sc-sec-head` as a 2-slot contract (title-group, trailing action); nest a subtitle inside the title group with its own explicit gap, never as a sibling flex item.
 - **Do** keep every interactive control (button, chip, tab, input) on the existing radius/height scale: 34px controls, full-pill chips/buttons, 10px field radius.
 - **Do** let product/scene photography carry the color on any screen; keep surrounding chrome monochrome.
+- **Do** keep chrome that sits over a photograph on `--sc-scrim` / `--sc-scrim-fg`, and give a
+  bare mark its own shadow halo. Those two tokens are theme-neutral precisely because what they
+  have to stay legible against is the picture, not the page.
 - **Do** reach for the shared active inversion (`--sc-inv-bg`/`--sc-inv-fg`) for any new on/off control: the scene card's bookmark toggle is the worked example. Gold is not an on-state; it belongs to the keeper star, and one colour cannot carry two meanings.
 - **Do** give every new focusable control the system's one focus treatment: `outline: 2px solid var(--sc-focus); outline-offset: 2px`, by adding its selector to the shared list in `styles/foundations/interaction.css` (spell the geometry `var(--sc-ring-w)` / `var(--sc-ring-off)`, the tokens are authoritative), and give fields the same ring via `:focus-within` (`.sc-swap-search`, `.sc-assets-search`). The only sanctioned variation is `outline-offset: 1px` where a control sits in a tight grid or inside another control's border and 2px would collide or spill.
 
