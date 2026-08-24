@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.7](https://github.com/tonygorb/Scenri/compare/v0.4.6...v0.4.7) (2026-08-24)
+
+
+### Bug Fixes
+
+* a shot tile wears marks at rest and its verbs under the pointer ([04937f4](https://github.com/tonygorb/Scenri/commit/04937f489ef06b97ffc2bf9273652440391321e4))
+* a shot tile wears marks at rest and its verbs under the pointer ([8f90620](https://github.com/tonygorb/Scenri/commit/8f90620db8c1640092ea7bfa205f5a8f9e45ea5c))
+
 ## [0.4.6](https://github.com/tonygorb/Scenri/compare/v0.4.5...v0.4.6) (2026-08-23)
 
 

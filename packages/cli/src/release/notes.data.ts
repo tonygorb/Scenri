@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.4.7',
+    date: '2026-08-24',
+    title: 'The feed shows the work, and the controls wait until you point at it.',
+    sections: [
+      {
+        heading: 'Create',
+        body: "A shot tile is its picture until you point at it. A kept shot and a run holding several takes still say so with small marks, and a shot's actions arrive together on hover, reading the same over a dark photograph or a bright one.",
+      },
+      {
+        heading: 'Shots',
+        body: "Where a shot came from, how many versions it has and which sets it is filed in have moved into the shot's own record, which has the room to name those sets rather than count them.",
+      },
+      {
+        heading: 'Fixes',
+        body: 'Choosing shots for a set is steadier: a tap on the picture adds or removes it, and actions that only make sense for a single shot step aside while you choose. The feed no longer marks a shot nobody picked, clicking empty space clears a selection, and the selection checkbox stops flashing twice under a thumb.',
+      },
+    ],
+  },
+  {
     version: '0.4.6',
     date: '2026-08-24',
     sections: [
