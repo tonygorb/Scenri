@@ -117,6 +117,21 @@ export function chipOpensPicker(t: SentenceToken | null | undefined): ChipPicker
   return null;
 }
 
+/**
+ * Which chip-anchored surface a TOUCH gets. Broader than `chipOpensPicker`:
+ * a reference or a mark has nothing to swap to, but on a phone it still needs
+ * a door to Remove and Move — a pointer has the drag and the keyboard has
+ * Alt+Arrow, a finger had nothing but a raised keyboard.
+ */
+export type ChipSheetKind = ChipPickerKind | 'ref' | 'mark';
+
+export function chipOpensSheet(t: SentenceToken | null | undefined): ChipSheetKind | null {
+  const kind = chipOpensPicker(t);
+  if (kind) return kind;
+  if (t?.t === 'ref' || t?.t === 'mark') return t.t;
+  return null;
+}
+
 const clean = (s: string | null | undefined): string | undefined => {
   const t = (s ?? '').trim();
   return t ? t : undefined;

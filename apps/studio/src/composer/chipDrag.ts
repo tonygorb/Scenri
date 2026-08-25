@@ -16,6 +16,11 @@ import { caretBeside, chipAt, dropUnitsAt, moveAnnouncement, moveChipToUnits } f
  * Mouse and pen only. Touch never arms: a long-press drag inside a
  * contenteditable fights the OS selection callout and the two directions this
  * surface already scrolls, so the touch path is the chip sheet's Move buttons.
+ *
+ * Sortable-list neighbor displacement (chips sliding apart to open a gap) is
+ * deliberately rejected: chips are inline atoms flowing WITH the prose, so
+ * animating them apart would reflow the sentence being edited. The animated
+ * insertion caret is the text-editor convention, and this is a text editor.
  */
 export function attachChipDrag(
   root: HTMLElement,
@@ -34,7 +39,19 @@ export function attachChipDrag(
   let ghost: HTMLElement | null = null;
   let indicator: HTMLElement | null = null;
   let lastDrop: { units: number; noop: boolean } | null = null;
+  let grab = { dx: 0, dy: 0 };
   let raf = 0;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  /** The inline positioning contract: this element can never affect layout. */
+  const fixInPlace = (el: HTMLElement) => {
+    el.style.position = 'fixed';
+    el.style.left = '0';
+    el.style.top = '0';
+    el.style.margin = '0';
+    el.style.zIndex = 'var(--sc-z-popover)';
+    el.style.pointerEvents = 'none';
+  };
 
   const suppressNextClick = () => {
     const once = (e: MouseEvent) => {
@@ -58,6 +75,7 @@ export function attachChipDrag(
     dragging = null;
     armed = null;
     root.removeAttribute('data-chip-drag');
+    document.documentElement.style.cursor = '';
     cancelAnimationFrame(raf);
   };
 
@@ -82,23 +100,40 @@ export function attachChipDrag(
   const promote = (e: PointerEvent) => {
     if (!armed) return;
     dragging = armed.chip;
-    armed = null;
     cb.onDragStart();
     window.getSelection()?.removeAllRanges();
     root.setAttribute('data-chip-drag', '');
     dragging.setAttribute('data-drag-src', '');
-
+    // the pointer keeps its grip where it landed on the chip, so the ghost
+    // never jumps out from under the fingers at pickup
     const r = dragging.getBoundingClientRect();
+    grab = { dx: armed.x - r.left, dy: armed.y - r.top };
+    armed = null;
+    // the cursor rule on the line cannot follow a window-level drag
+    document.documentElement.style.cursor = 'grabbing';
+
     ghost = dragging.cloneNode(true) as HTMLElement;
     ghost.querySelector('[data-role="remove"]')?.remove();
     ghost.className = `${dragging.className} sc-chip-ghost`;
     ghost.removeAttribute('data-drag-src');
+    // a warned chip's tooltip must not ride along on the ghost
+    ghost.removeAttribute('title');
+    /*
+     * The positioning CONTRACT is inline, not classed. The ghost wears the
+     * chip's own classes for its skin, and any later .sc-token rule at equal
+     * specificity can silently override a classed position — which is exactly
+     * how a "fixed" ghost once became an in-flow box appended after #root,
+     * grew the document, and summoned a global scrollbar mid-drag. Inline
+     * style beats any single-class rule at any cascade position.
+     */
+    fixInPlace(ghost);
     ghost.style.width = `${r.width}px`;
     ghost.style.height = `${r.height}px`;
     document.body.appendChild(ghost);
 
     indicator = document.createElement('div');
     indicator.className = 'sc-drop-caret';
+    fixInPlace(indicator);
     indicator.style.display = 'none';
     document.body.appendChild(indicator);
     follow(e);
@@ -106,7 +141,8 @@ export function attachChipDrag(
 
   const follow = (e: PointerEvent) => {
     if (!ghost || !dragging) return;
-    ghost.style.transform = `translate3d(${e.clientX + 8}px, ${e.clientY + 6}px, 0)`;
+    const lift = reducedMotion.matches ? '' : ' scale(1.03) rotate(1.5deg)';
+    ghost.style.transform = `translate3d(${e.clientX - grab.dx}px, ${e.clientY - grab.dy}px, 0)${lift}`;
     const drop = dropUnitsAt(root, dragging, e.clientX, e.clientY);
     lastDrop = drop;
     if (!indicator) return;

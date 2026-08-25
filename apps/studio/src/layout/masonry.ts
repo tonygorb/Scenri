@@ -102,32 +102,20 @@ export function masonryLayout(width: number, tile: number, phoneMode: boolean): 
  * a group of one; an expanded run is a group of N tiles in take order. A
  * tile's column is its ordinal modulo the column count.
  *
- * Ordinals count from the OLDEST tile, so a prepend never renumbers what is
- * already on screen — the property the feed's round-robin deal has always
- * existed for. The deal used to count individual tiles, which inside an
- * expanded run handed the LAST take the lowest ordinal: a four-take run over
- * three columns opened reading take 3, take 2, take 1 across the top.
+ * The ordinal is simply the flat index: the newest tile is ordinal 0 and
+ * ALWAYS lands top-left, the feed reads left to right then down, and groups
+ * stay consecutive so an expanded run reads take 1, 2, 3 across the row.
  *
- * A multi-tile group is instead aligned to a column boundary on both sides,
- * so take 1 always lands in the leftmost column and the run reads in request
- * order, wrapping row-major. The padding ordinals are simply never dealt;
- * masonry columns are independent stacks, so a skipped ordinal costs a little
- * column-height balance, not a hole. Groups of size one reproduce the old
- * deal exactly, and a prepend still renumbers nothing that already exists.
+ * This replaces a far-end deal that counted ordinals from the OLDEST tile so
+ * a prepend never renumbered what was on screen. That stability had a cost
+ * nobody accepted once they saw it: the newest work landed in whichever
+ * column its ordinal picked, so a fresh generation could open as the third
+ * cell of the grid. Now a prepend shifts every tile by one slot instead, and
+ * that happens at exactly two moments: the instant the user pressed Generate
+ * (their own action) and the instant that shot lands. A feed that answers
+ * "where is my newest shot" with "top left, always" is worth the shuffle.
  */
-export function dealOrdinals(groupSizes: number[], cols: number): number[][] {
-  const n = Math.max(1, cols);
-  const out: number[][] = groupSizes.map(() => []);
+export function dealOrdinals(groupSizes: number[]): number[][] {
   let next = 0;
-  const align = () => {
-    if (next % n !== 0) next += n - (next % n);
-  };
-  for (let g = groupSizes.length - 1; g >= 0; g--) {
-    const size = groupSizes[g];
-    if (size > 1) align();
-    out[g] = Array.from({ length: size }, (_, k) => next + k);
-    next += size;
-    if (size > 1) align();
-  }
-  return out;
+  return groupSizes.map((size) => Array.from({ length: size }, () => next++));
 }

@@ -9,6 +9,7 @@ import {
   insertShortlist,
   pickList,
   chipOpensPicker,
+  chipOpensSheet,
   pickerKind,
   type Candidate,
   type IngredientCatalog,
@@ -129,6 +130,23 @@ describe('chipOpensPicker', () => {
     expect(chipOpensPicker({ t: 'mark', imageHash: 'h' })).toBeNull();
     expect(chipOpensPicker({ t: 'text', v: 'hello' })).toBeNull();
     expect(chipOpensPicker(null)).toBeNull();
+  });
+});
+
+describe('chipOpensSheet', () => {
+  it('passes picker chips through unchanged', () => {
+    expect(chipOpensSheet({ t: 'product', id: 'x' })).toBe('product');
+    expect(chipOpensSheet({ t: 'color', hex: '#ffffff' })).toBe('color');
+  });
+
+  it('gives a reference and a mark their touch door', () => {
+    expect(chipOpensSheet({ t: 'ref', imageHash: 'h' })).toBe('ref');
+    expect(chipOpensSheet({ t: 'mark', imageHash: 'h' })).toBe('mark');
+  });
+
+  it('prose and nothing still open nothing', () => {
+    expect(chipOpensSheet({ t: 'text', v: 'hello' })).toBeNull();
+    expect(chipOpensSheet(null)).toBeNull();
   });
 });
 

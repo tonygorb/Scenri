@@ -77,6 +77,10 @@
   user-select: none;
   cursor: grabbing;
 }
+/* mid-drag, a chip under the pointer must not flip back to grab */
+.sc-brief-line[data-chip-drag] .sc-token {
+  cursor: grabbing;
+}
 .sc-chip-ghost {
   position: fixed;
   left: 0;
@@ -258,8 +262,10 @@
   padding: 14px 14px 8px;
 }
 /* ---------- chips are buttons that reopen their own menu ---------- */
+/* grab, not pointer: a chip is also the thing you pick up and move, and the
+   cursor is the one resting affordance the drag has */
 .sc-token {
-  cursor: pointer;
+  cursor: grab;
   transition:
     background 120ms ease,
     box-shadow 120ms ease;

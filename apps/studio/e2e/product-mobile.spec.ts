@@ -114,7 +114,18 @@ test('swapping a reference and starting a shot both work by touch', async ({ pag
   const shown = () => page.locator('.sc-refstage-frame img').getAttribute('src');
   const first = await shown();
 
-  await page.locator('.sc-refrail-item').nth(1).tap();
+  // The rail settles a beat after mount (lazy thumbs, overflow flags). Tap
+  // only once the target has genuinely stopped moving: two identical reads.
+  const target = page.locator('.sc-refrail-item').nth(1);
+  await expect
+    .poll(async () => {
+      const a = await target.boundingBox();
+      await page.waitForTimeout(100);
+      const b = await target.boundingBox();
+      return a && b && a.x === b.x && a.y === b.y;
+    })
+    .toBe(true);
+  await target.tap();
   await expect.poll(shown).not.toBe(first);
   await expect(page.locator('.sc-refrail-item').nth(1)).toHaveAttribute('data-on', '');
 

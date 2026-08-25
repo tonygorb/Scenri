@@ -65,36 +65,34 @@ describe('the tile stops earn their place', () => {
 
 describe('dealOrdinals', () => {
   // groups are newest-first, matching the feed; a tile's column is ordinal % cols
-  it('reproduces the classic far-end deal for all-singleton groups', () => {
-    expect(dealOrdinals([1, 1, 1, 1], 3).flat()).toEqual([3, 2, 1, 0]);
+  it('the newest tile is always ordinal 0, so it is column 0 at any width', () => {
+    const flat = dealOrdinals([1, 1, 1, 1]).flat();
+    expect(flat).toEqual([0, 1, 2, 3]);
+    for (const cols of [1, 2, 3, 4]) expect(flat[0] % cols).toBe(0);
   });
 
-  it('reads an expanded run left to right from column 0', () => {
-    const [run] = dealOrdinals([4], 3);
+  it('an expanded run reads in take order, row-major from the top left', () => {
+    const [run] = dealOrdinals([4]);
     expect(run).toEqual([0, 1, 2, 3]);
-    // take 1 owns the leftmost column; take 4 wraps back under it
+    // over 3 columns: take 1, 2, 3 across the top, take 4 under take 1
     expect(run.map((o) => o % 3)).toEqual([0, 1, 2, 0]);
   });
 
-  it('aligns a mid-feed run to a column boundary on both sides', () => {
-    // newest single, a 4-take run, then two older singles, over 3 columns
-    const ords = dealOrdinals([1, 4, 1, 1], 3);
-    expect(ords[3]).toEqual([0]);
-    expect(ords[2]).toEqual([1]);
-    expect(ords[1]).toEqual([3, 4, 5, 6]);
-    expect(ords[1].map((o) => o % 3)).toEqual([0, 1, 2, 0]);
-    expect(ords[0]).toEqual([9]);
+  it('a mid-feed run stays consecutive, so it still reads in order', () => {
+    const ords = dealOrdinals([1, 4, 1, 1]);
+    expect(ords).toEqual([[0], [1, 2, 3, 4], [5], [6]]);
   });
 
-  it('a prepend renumbers nothing that already exists', () => {
-    const before = dealOrdinals([4, 1, 1], 3);
-    const after = dealOrdinals([1, 4, 1, 1], 3);
-    expect(after.slice(1)).toEqual(before);
+  it('a prepend shifts every existing tile by the new group size, deliberately', () => {
+    // the price of "newest is always top left": see the doc comment
+    const before = dealOrdinals([4, 1, 1]);
+    const after = dealOrdinals([1, 4, 1, 1]);
+    expect(after[0]).toEqual([0]);
+    expect(after.slice(1)).toEqual(before.map((g) => g.map((o) => o + 1)));
   });
 
-  it('hands out unique, non-negative ordinals whatever the mix', () => {
-    const flat = dealOrdinals([2, 5, 1, 3, 1], 4).flat();
-    expect(new Set(flat).size).toBe(flat.length);
-    for (const o of flat) expect(o).toBeGreaterThanOrEqual(0);
+  it('hands out unique, contiguous ordinals whatever the mix', () => {
+    const flat = dealOrdinals([2, 5, 1, 3, 1]).flat();
+    expect(flat).toEqual(Array.from({ length: 12 }, (_, i) => i));
   });
 });

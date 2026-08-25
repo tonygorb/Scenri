@@ -1415,3 +1415,120 @@ test('a chip says how it is operated, and its x is chrome rather than a trap', a
   await expect(page.locator(`[id="${hintId}"]`)).toContainText('Alt plus arrow keys to move');
   await expect(chip.locator('[data-role="remove"]')).toHaveAttribute('aria-hidden', 'true');
 });
+
+test('a drag never grows the document or shifts the page', async ({ page }) => {
+  await seedReorder(page);
+  const before = await page.evaluate(() => ({
+    sw: document.documentElement.scrollWidth,
+    sh: document.documentElement.scrollHeight,
+    bw: document.body.getBoundingClientRect().width,
+    iw: window.innerWidth,
+    ih: window.innerHeight,
+  }));
+  const topbar = (await page.locator('.sc-topbar').boundingBox())!;
+
+  const box = (await chips(page).first().boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 14, box.y + box.height / 2, { steps: 3 });
+  await page.mouse.move(page.viewportSize()!.width - 60, box.y, { steps: 5 });
+
+  // mid-flight: the document is exactly the size it was, the ghost is a
+  // fixed, in-viewport box, and the chrome has not moved a pixel
+  const during = await page.evaluate(() => ({
+    sw: document.documentElement.scrollWidth,
+    sh: document.documentElement.scrollHeight,
+    bw: document.body.getBoundingClientRect().width,
+  }));
+  expect(during.sw).toBe(before.sw);
+  expect(during.sh).toBe(before.sh);
+  expect(during.bw).toBe(before.bw);
+  expect(during.sw).toBeLessThanOrEqual(before.iw);
+  expect(during.sh).toBeLessThanOrEqual(before.ih);
+  const ghost = page.locator('.sc-chip-ghost');
+  await expect(ghost).toBeVisible();
+  expect(await ghost.evaluate((el) => getComputedStyle(el).position)).toBe('fixed');
+  const gbox = (await ghost.boundingBox())!;
+  expect(gbox.x).toBeGreaterThanOrEqual(0);
+  expect(gbox.y).toBeGreaterThanOrEqual(0);
+  expect(gbox.x + gbox.width).toBeLessThanOrEqual(before.iw + 1);
+  const topbarAfter = (await page.locator('.sc-topbar').boundingBox())!;
+  expect(topbarAfter.x).toBe(topbar.x);
+  expect(topbarAfter.width).toBe(topbar.width);
+
+  // a release outside the line is a clean cancel: order intact, nothing opens
+  const sentenceBefore = await sentence(page);
+  await page.mouse.up();
+  await expect(page.locator('.sc-chip-ghost')).toHaveCount(0);
+  await expect(page.locator('.sc-drop-caret')).toHaveCount(0);
+  expect(await sentence(page)).toBe(sentenceBefore);
+  await expect(pick(page)).toHaveCount(0);
+});
+
+test('the newest work is always the top-left tile', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
+  const slug = decodeURIComponent(new URL(page.url()).pathname.split('/')[1]);
+
+  // three finished shots so the grid has history to push against
+  await page.evaluate(async () => {
+    const brands = await (await fetch('/api/brands')).json();
+    const ws = await (await fetch(`/api/brands/${brands[0].id}/workspace`)).json();
+    for (let i = 0; i < 3; i++) {
+      const r = await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: ws.project.id,
+          kind: 'generation',
+          engineId: 'demo',
+          count: 1,
+          prompt: `history shot ${i}`,
+          width: 512,
+          height: 512,
+        }),
+      });
+      const { id } = await r.json();
+      for (let t = 0; t < 60; t++) {
+        const n = await (await fetch(`/api/nodes/${id}`)).json();
+        if (n.status !== 'running') break;
+        await new Promise((res) => setTimeout(res, 100));
+      }
+    }
+  });
+
+  await page.goto(`/${slug}/create`);
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+
+  const topLeftMost = async (selector: string) => {
+    const cells = await page.locator('.sc-cell').all();
+    const boxes = [];
+    for (const c of cells) {
+      const b = await c.boundingBox();
+      if (b) boxes.push({ c, b });
+    }
+    boxes.sort((a, z) => a.b.y - z.b.y || a.b.x - z.b.x);
+    return boxes[0]?.c.evaluate((el, sel) => el.matches(sel), selector);
+  };
+
+  // send a new one from the composer: the running tile must appear top left
+  await line(page).click();
+  await page.keyboard.type('the newest shot');
+  await dock(page).locator('.sc-send').click();
+  await expect(page.locator('.sc-cell[data-running]')).toBeVisible();
+  expect(await topLeftMost('[data-running]')).toBe(true);
+
+  // and when it lands, the finished shot holds that same top-left spot
+  await expect(page.locator('.sc-cell[data-running]')).toHaveCount(0, { timeout: 30_000 });
+  const newest = await page.evaluate(async () => {
+    const brands = await (await fetch('/api/brands')).json();
+    const ws = await (await fetch(`/api/brands/${brands[0].id}/workspace`)).json();
+    const nodes = ws.nodes.filter((n: any) => n.kind !== 'root' && n.status === 'done');
+    nodes.sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+    return nodes[0].id;
+  });
+  expect(await topLeftMost(`[data-fb-node="${newest}"]`)).toBe(true);
+});

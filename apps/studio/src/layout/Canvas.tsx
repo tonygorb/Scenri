@@ -359,36 +359,22 @@ export function Canvas({
    * empty columns — the same dead space multicol left, reached the other way.
    */
   const cols = Math.max(1, Math.min(fitting, tiles.length));
-  const ordinals = dealOrdinals(
-    tileGroups.map((g) => g.length),
-    cols,
-  ).flat();
+  const ordinals = dealOrdinals(tileGroups.map((g) => g.length)).flat();
 
   return (
     <>
       <div className="sc-feed" ref={setFeedEl} style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}>
         {Array.from({ length: cols }, (_, c) => (
           /*
-           * Dealt round-robin, but counted from the OLDEST tile rather than the
-           * newest.
-           *
-           * The feed is sorted newest first, so every generation prepends. Deal
-           * on the plain index and that prepend renumbers everything: measured
-           * on a 12-shot feed, one new shot moved all 12 of the others, which
-           * is the whole page rearranging itself at the exact moment you are
-           * looking at what just arrived. Counting from the far end leaves an
-           * existing tile's ordinal — and so its column — untouched when
-           * something is added at the near end, so only the column the new shot
-           * joins shifts down.
-           *
-           * The cost is that the top row no longer reads strictly left to
-           * right; the newest tile lands in whichever column its ordinal picks.
-           * A masonry is scanned by column anyway, and a feed that holds still
-           * is worth more than a row that reads in order.
-           *
-           * The one exception is an expanded run: its takes were requested in
-           * an order, and dealOrdinals aligns that group so take 1 is always
-           * the leftmost and the rest follow row-major.
+           * Dealt round-robin on the flat index: the newest tile is ordinal 0
+           * and is ALWAYS the top-left cell, the feed reads left to right and
+           * then down, and an expanded run's takes stay consecutive so they
+           * read in request order. A prepend shifts every tile by one slot;
+           * that is deliberate and it happens only when the user's own send
+           * enters the feed and when that shot lands (see dealOrdinals for the
+           * far-end deal this replaced and why). A run stays ONE tile while it
+           * renders: a run is one card with takes inside, and its canonical
+           * newest position is the guarantee, not a cell per take.
            */
           // biome-ignore lint/suspicious/noArrayIndexKey: the index is the identity here. These are positions, not records: column 2 of 4 is column 2 of 4, and the count is in the key so a resize remounts them rather than reshuffling tiles between surviving columns.
           <div className="sc-feed-col" key={`col-${cols}-${c}`}>

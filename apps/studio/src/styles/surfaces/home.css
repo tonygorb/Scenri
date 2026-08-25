@@ -286,13 +286,6 @@
     font-size: 24px;
   }
 }
-@media (max-width: 479px) {
-  .sc-feed {
-    columns: 2;
-    column-gap: 8px;
-  }
-}
-
 /* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
