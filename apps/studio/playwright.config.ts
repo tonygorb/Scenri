@@ -10,7 +10,8 @@ import { defineConfig, devices } from '@playwright/test';
  * run. Each spec file starts its own Scenri on an empty home instead — see
  * `e2e/harness.ts` — so the suite can never read or write the library you
  * actually use, and can never quietly pass because the spec before it happened
- * to leave the right data behind.
+ * to leave the right data behind. That is also why the suite parallelises
+ * safely: the isolation is per file, not per run.
  *
  * The studio has to be built first: the CLI serves prebuilt `dist` and never
  * builds. `pnpm build`, then `pnpm --filter @scenri/studio test:e2e`.
@@ -22,10 +23,15 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 20_000,
   expect: { timeout: 5_000 },
-  // One file at a time, one worker: the per-file servers all take the same
-  // port, and take it in turn.
+  // One file at a time per worker. `fullyParallel: false` is the part that
+  // matters and it stays: a file's tests share that file's seeded library, so
+  // they must run in order. The workers are independent of that, because
+  // `e2e/harness.ts` gives each one its own port and each file its own home.
+  // Each worker is a whole Scenri process, not a browser tab, so this is
+  // deliberately below the core count: 4 on a developer machine, 2 on a CI
+  // runner that is already running three shards of this file at once.
   fullyParallel: false,
-  workers: 1,
+  workers: Number(process.env.SCENRI_E2E_WORKERS ?? (process.env.CI ? 2 : 4)),
   reporter: [['list']],
   use: {
     baseURL: BASE_URL,

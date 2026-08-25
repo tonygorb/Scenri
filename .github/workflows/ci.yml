@@ -77,12 +77,16 @@ jobs:
               case "$f" in
                 # In a bash case pattern * matches "/" too, so these behave as
                 # **-globs. Anything not listed is runtime by fallthrough:
-                # code, templates, workflows, configs, the lockfile, specs.
+                # code, templates, workflows, build configs, the lockfile,
+                # specs. Dependabot is listed because its schedule and grouping
+                # never reach the app; the workflows it opens PRs against are
+                # not listed, and still pay for themselves.
                 *.md) ;;
                 docs/*) ;;
                 LICENSE*|NOTICE) ;;
                 .github/ISSUE_TEMPLATE/*) ;;
                 .github/CODEOWNERS) ;;
+                .github/dependabot.yml) ;;
                 *) e2e=true ;;
               esac
               # The update loop is expensive (a real npm install) and blind to
