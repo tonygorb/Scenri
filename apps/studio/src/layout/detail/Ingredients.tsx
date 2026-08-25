@@ -1,9 +1,11 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { assetUrl, type Brand, type TreeNode } from '../../api.js';
+import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
+import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
 import { normalizeTint } from '../../composer/line.js';
+import { byContextOrder } from '../../contextChips.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
 import { presenterPath, productPath, scenePath } from '../../routes.js';
 
@@ -14,11 +16,19 @@ import { presenterPath, productPath, scenePath } from '../../routes.js';
 export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand | null }) {
   const { scenes, presenters, demoProducts } = useAppData();
 
-  const tokens = brief?.tokens ?? [];
+  const ownTokens: any[] = brief?.tokens ?? [];
+  // What a refinement carried from the shot it refines, recorded apart from
+  // what it asked for. Both are the shot's truth; the carried ones read quieter.
+  const carriedTokens: any[] = (brief as any)?.inherited ?? [];
+  const tokens = [
+    ...ownTokens.map((t: any) => ({ ...t, _inherited: false })),
+    ...carriedTokens.map((t: any) => ({ ...t, _inherited: true })),
+  ];
   if (!tokens.length) return null;
   const products: any[] = (brand?.json?.products ?? []) as any[];
   const cast: any[] = (brand?.json?.characters ?? []) as any[];
   const ownScenes = customScenesOf(brand);
+  const marks = attachableMarks(brand?.json);
 
   type Chip = {
     key: string;
@@ -31,8 +41,10 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
     /** Where this ingredient lives in the catalog, when it has a page at all. */
     to?: string;
     tint?: string;
+    /** Carried from the shot this one refines, not attached in its own brief. */
+    inherited?: boolean;
   };
-  const chips: Chip[] = tokens.flatMap((t: any): Chip[] => {
+  const rawChips: Chip[] = tokens.flatMap((t: any): Chip[] => {
     if (t?.t === 'product') {
       const p = products.find((x) => x.id === t.id);
       // A demo product is not in the brand's own products[] — it is resolved at
@@ -43,6 +55,7 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
         {
           key: `p${t.id}`,
           kind: 'product',
+          inherited: !!t._inherited,
           label: p?.name ?? demo?.name ?? 'product',
           thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
           // ProductPage resolves demo ids too, so a library product is as
@@ -65,6 +78,7 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
         {
           key: `h${t.id}`,
           kind: 'presenter',
+          inherited: !!t._inherited,
           label: c?.name ?? pr?.name ?? 'someone',
           thumb: av.src,
           crop: av.crop,
@@ -79,6 +93,7 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
         {
           key: `t${t.id}`,
           kind: 'scene',
+          inherited: !!t._inherited,
           label: s?.name ?? 'a scene no longer in the catalog',
           thumb: s?.previewUrl ?? null,
           to: brand && s ? scenePath(brand, s.id) : undefined,
@@ -93,13 +108,42 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
         {
           key: `c${t.hex}`,
           kind: 'color',
+          inherited: !!t._inherited,
           label: t.name ?? t.hex,
           swatch: t.hex,
         },
       ];
     }
+    // A custom reference and a brand mark are as much of the shot's truth as
+    // a product is; they used to be the two ingredients this row silently
+    // dropped, which is exactly the invisible-context report.
+    if (t?.t === 'ref') {
+      return [
+        {
+          key: `r${t.imageHash}`,
+          kind: 'ref',
+          inherited: !!t._inherited,
+          label: 'reference image',
+          thumb: imgUrl(t.imageHash),
+        },
+      ];
+    }
+    if (t?.t === 'mark') {
+      const m = marks.find((x) => x.hash === t.imageHash);
+      return [
+        {
+          key: `m${t.imageHash}`,
+          kind: 'mark',
+          inherited: !!t._inherited,
+          label: m ? markLabel(brand?.json, m) : 'brand mark',
+          thumb: imgUrl(t.imageHash),
+        },
+      ];
+    }
     return [];
   });
+  // one canonical reading order, everywhere context is shown
+  const chips = rawChips.sort(byContextOrder);
   if (!chips.length) return null;
 
   return (
@@ -116,6 +160,7 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
           </>
         );
         const style = c.tint ? ({ '--tint': c.tint } as CSSProperties) : undefined;
+        const said = c.inherited ? `Carried from the shot it refines: ${c.label}` : undefined;
         // Only the ingredients that have a catalog page become links; a colour
         // and a deleted scene stay exactly as static as they read.
         return c.to ? (
@@ -125,8 +170,9 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
             to={c.to}
             data-kind={c.kind}
             data-tinted={c.tint ? '' : undefined}
+            data-inherited={c.inherited || undefined}
             style={style}
-            title={`Open ${c.kind} ${c.label}`}
+            title={said ?? `Open ${c.kind} ${c.label}`}
           >
             {body}
           </Link>
@@ -136,8 +182,9 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
             key={c.key}
             data-kind={c.kind}
             data-tinted={c.tint ? '' : undefined}
+            data-inherited={c.inherited || undefined}
             style={style}
-            title={`${c.kind}: ${c.label}`}
+            title={said ?? `${c.kind}: ${c.label}`}
           >
             {body}
           </span>

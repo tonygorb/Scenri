@@ -1,7 +1,7 @@
 import { Flex, ScrollArea, Text } from '@radix-ui/themes';
 import type { Brand, TreeNode } from '../api.js';
 import { Confirm } from '../Confirm.js';
-import { briefProse } from '../briefDiff.js';
+import { briefProse, type ProseNames } from '../briefDiff.js';
 
 /**
  * What this shot is: its brief, its ingredients, and the things you can do to
@@ -18,6 +18,8 @@ export function Inspector(props: {
   imageIndex: number;
   onChanged: () => void;
   brand: Brand;
+  /** Display-name resolvers, so the brief reads with its nouns in place. */
+  names: ProseNames;
   onExport: () => void;
   /** Omitted rather than disabled: there's nothing to diff against without a parent shot. */
   onCompare?: () => void;
@@ -55,12 +57,22 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function InfoTab({ node, onCompare, onDelete }: { node: TreeNode; onCompare?: () => void; onDelete: () => void }) {
+function InfoTab({
+  node,
+  names,
+  onCompare,
+  onDelete,
+}: {
+  node: TreeNode;
+  names: ProseNames;
+  onCompare?: () => void;
+  onDelete: () => void;
+}) {
   return (
     <>
       <div className="sc-eyebrow">Brief</div>
       {/* What was asked for, not what the compiler made of it. */}
-      <p className="sc-brief-record">{briefProse(node) || '(none)'}</p>
+      <p className="sc-brief-record">{briefProse(node, names) || '(none)'}</p>
       {/* Export, keeper and archive are all one press away in the tools over
           the shot, and the header already says the engine and the cost. What
           was here repeated every one of them as a full-width button, so the

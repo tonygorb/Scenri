@@ -117,6 +117,15 @@
   padding: 0 10px !important;
   font-size: 12.5px !important;
 }
+/* In the 300px sidebar a second engine wrapped the control row onto two
+   lines; the engine lives inside More there instead (ShotSettingsFields'
+   engine group), so the row select hides. On a phone the refine band is
+   full width and keeps its own select — More does not exist below 768px. */
+@media (min-width: 768px) {
+  .sc-ovl-edit .sc-mini-sel {
+    display: none !important;
+  }
+}
 @media (max-width: 767px) {
   .sc-prompt-row {
     padding: 6px 12px 12px;
@@ -167,7 +176,7 @@
    because they are separate facts:
 
    - the composer itself is narrow. The refinement composer lives in the
-     overlay's 288px sidebar however wide the display is, so this is a fact
+     overlay's 300px sidebar however wide the display is, so this is a fact
      about the container, not the viewport, and `.sc-ovl-edit` names it.
    - the device is a phone or a tablet. Then it is More, and on a phone that
      More is a sheet under the thumb rather than a popover by the cursor.

@@ -48,6 +48,20 @@ describe('briefChanges', () => {
     ]);
   });
 
+  it('counts carried context as present, not removed', () => {
+    // a refinement stores the parent's mark and ref under `inherited`, not
+    // `tokens` — the change line must read them as still there
+    const from = brief({ t: 'mark', imageHash: 'm1' }, { t: 'ref', imageHash: 'r1' }, text('a serum bottle'));
+    const to = {
+      tokens: [text('warmer light')],
+      inherited: [
+        { t: 'mark', imageHash: 'm1' },
+        { t: 'ref', imageHash: 'r1' },
+      ],
+    } as TreeNode['brief'];
+    expect(briefChanges(from, to, names)).toEqual(['“warmer light”']);
+  });
+
   it('treats an unknown before as no change, not as everything changing', () => {
     // shots made before briefs existed carry null, and inventing a diff against
     // nothing would put a confident sentence under every one of them
@@ -114,21 +128,54 @@ describe('sourceImageOf', () => {
 });
 
 describe('briefProse', () => {
-  it('gives back what the person typed, not what the compiler made of it', () => {
+  const names = {
+    product: (id: string) => (id === 'p' ? 'Amber Serum' : null),
+    person: (id: string) => (id === 'c' ? 'Maren' : null),
+    scene: () => null,
+    mark: (hash: string) => (hash === 'm1' ? 'Acme wordmark' : null),
+  };
+
+  it('speaks the sentence with its nouns in place, not with holes where chips sat', () => {
     const node = {
       prompt: 'Amber bottle on rocks. The attached product images all show the exact same product...',
-      brief: { tokens: [{ t: 'product', id: 'p' }, text('on wet dark rocks at sunset')] },
+      brief: { tokens: [{ t: 'product', id: 'p' }, text(' on wet dark rocks at sunset')] },
     } as unknown as TreeNode;
-    expect(briefProse(node)).toBe('on wet dark rocks at sunset');
+    expect(briefProse(node, names)).toBe('Amber Serum on wet dark rocks at sunset');
+  });
+
+  it('names marks and references, and keeps punctuation attached to its word', () => {
+    const node = {
+      prompt: 'compiled',
+      brief: {
+        tokens: [
+          text('add this '),
+          { t: 'mark', imageHash: 'm1' },
+          text(' to the '),
+          { t: 'product', id: 'p' },
+          text(' . like '),
+          { t: 'ref', imageHash: 'r1' },
+        ],
+      },
+    } as unknown as TreeNode;
+    expect(briefProse(node, names)).toBe('add this Acme wordmark to the Amber Serum. like the attached reference');
+  });
+
+  it('speaks honest fallbacks for ids the catalogs no longer know', () => {
+    const node = {
+      prompt: 'compiled',
+      brief: {
+        tokens: [
+          { t: 'product', id: 'gone' },
+          { t: 'character', id: 'gone' },
+          { t: 'mark', imageHash: 'x' },
+        ],
+      },
+    } as unknown as TreeNode;
+    expect(briefProse(node, names)).toBe('a product a presenter the brand mark');
   });
 
   it('falls back to the compiled prompt for shots made before briefs were stored', () => {
     const node = { prompt: 'an older shot', brief: null } as unknown as TreeNode;
-    expect(briefProse(node)).toBe('an older shot');
-  });
-
-  it('falls back when the brief carried chips but no words', () => {
-    const node = { prompt: 'compiled', brief: { tokens: [{ t: 'product', id: 'p' }] } } as unknown as TreeNode;
-    expect(briefProse(node)).toBe('compiled');
+    expect(briefProse(node, names)).toBe('an older shot');
   });
 });

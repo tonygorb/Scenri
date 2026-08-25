@@ -569,6 +569,18 @@
 .sc-ingredient img[data-crop="top"] {
   object-position: 50% 12%;
 }
+/* Carried from the shot this one refines: part of the truth, said quieter.
+   Hairline outline, no fill — monochrome, never a colour. */
+.sc-ingredient[data-inherited] {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  color: var(--sc-fg2);
+}
+/* a brand mark is usually dark art on transparency: ground it in white */
+.sc-ingredient[data-kind="mark"] img {
+  background: #fff;
+  object-fit: contain;
+}
 .sc-ingredient i {
   width: 11px;
   height: 11px;

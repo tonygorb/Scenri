@@ -86,6 +86,12 @@ export interface Attachment {
    * caller should refuse rather than produce a confident wrong answer.
    */
   essential?: boolean;
+  /**
+   * Set by the edit route (never by compileBrief): this attachment was
+   * carried from the shot being refined rather than attached in this brief.
+   * The UI shows carried context in its own quieter voice.
+   */
+  inherited?: boolean;
 }
 
 export interface CompiledBrief {
@@ -302,6 +308,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           chashes.forEach((chash: string, i: number) => {
             attachments.push({ role: 'character', id: c.id, label: c.name, hash: chash, essential: i === 0 });
           });
+          // Presence first, identity second. Every other directive here is
+          // conditional on the person already being rendered ("match their
+          // face", "dress them") — nothing ever said the person must be IN
+          // the picture, and a scene's own prose could quietly compose them
+          // out. The name makes the sentence unique per presenter, so the
+          // dedupe pass never collapses two people into one claim.
+          personDirectives.push(
+            `${c.promptName ?? c.name} is in this photograph: a real person, clearly visible in the frame. ` +
+              'Do not leave them out, crop them out, or reduce them to a reflection or a shadow.',
+          );
           // Identity is named precisely, and the capture setup is released
           // just as precisely. Every presenter's reference set is shot
           // full-length in the same neutral off-white uniform; the old wording
@@ -534,27 +550,3 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
 }
 
 const dedupe = (xs: string[]) => [...new Set(xs)];
-
-/** Plain text of a brief, for node titles and lists. */
-export function briefLabel(brief: Brief, brand: any): string {
-  const products: any[] = brand?.products ?? [];
-  return brief.tokens
-    .map((t) =>
-      t.t === 'text'
-        ? t.v
-        : t.t === 'product'
-          ? (products.find((p) => p.id === t.id)?.name ?? 'product')
-          : t.t === 'character'
-            ? ((brand?.characters ?? []).find((c: any) => c.id === t.id)?.name ?? 'someone')
-            : t.t === 'color'
-              ? (t.name ?? t.hex)
-              : t.t === 'ref'
-                ? 'reference'
-                : t.t === 'template'
-                  ? ''
-                  : '',
-    )
-    .join('')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}

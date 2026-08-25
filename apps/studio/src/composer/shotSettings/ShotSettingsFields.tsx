@@ -30,12 +30,47 @@ export function ShotSettingsFields({
   onCount,
   quality,
   onQuality,
-}: ShotSettingsProps) {
+  engineChoices,
+  onEngine,
+}: ShotSettingsProps & {
+  /**
+   * Offered only by the overlay composer, whose 300px row cannot hold the
+   * engine select without wrapping: the engine moves in here instead. The
+   * hub row keeps its own select and never passes these.
+   */
+  engineChoices?: { id: string; displayName: string }[];
+  onEngine?: (id: string) => void;
+}) {
   const blocked = blockedFormats(engineId);
   const sizing = sizingOf(engineId);
 
   return (
     <>
+      {engineChoices && onEngine && engineChoices.length > 1 && (
+        <Field label="Engine">
+          <Choices
+            label="Engine"
+            className="sc-seg"
+            value={engineId}
+            ids={engineChoices.map((e) => e.id)}
+            onChange={onEngine}
+          >
+            {engineChoices.map((e) => (
+              <Choice
+                key={e.id}
+                id={e.id}
+                className="sc-seg-o"
+                on={e.id === engineId}
+                label={e.displayName}
+                onPick={() => onEngine(e.id)}
+              >
+                {e.displayName}
+              </Choice>
+            ))}
+          </Choices>
+        </Field>
+      )}
+
       {/* The shape is always a choice, in both modes, because it is the one of
           the three a refinement can still honour. It used to honour it by
           running the same setup again at the new shape, which returned a

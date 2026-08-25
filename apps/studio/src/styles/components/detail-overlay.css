@@ -394,12 +394,79 @@
 .sc-ovl-edit {
   margin-top: var(--sc-space-5);
 }
-/* names what typing below will do, now that no button points down here */
+/* names what typing below will do, now that no button points down here —
+   and, when a run holds several takes, which take the refinement works from */
 .sc-ovl-edit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: var(--sc-space-3);
+}
+.sc-ovl-edit-head small {
+  font-size: 11px;
+  color: var(--sc-fg3);
+  white-space: nowrap;
 }
 .sc-ovl-edit .sc-composer {
   width: 100%;
+}
+/* The refinement's carried context: what the thread keeps, said before the
+   send, in the same pill voice the relationship chip above already speaks.
+   Informative spans, never buttons — the brief line below is where context
+   is changed. */
+.sc-carried {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px 14px 0;
+}
+.sc-carried-lb {
+  font-size: 11px;
+  color: var(--sc-fg3);
+  margin-right: 2px;
+}
+.sc-carried-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 2px 8px 2px 3px;
+  border-radius: var(--sc-radius-full);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  font-size: 11.5px;
+  color: var(--sc-fg2);
+}
+.sc-carried-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-carried-chip img {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+/* a mark is usually dark art on transparency: ground it, letterbox it */
+.sc-carried-chip[data-kind="mark"] img {
+  background: #fff;
+  object-fit: contain;
+  border-radius: var(--sc-radius-xs);
+}
+/* At 300px the two reshape ops crowd shoulder to shoulder; a two-cell grid
+   gives each a full half and lets the labels ellipsize instead of colliding. */
+.sc-ovl-edit .sc-reshape {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.sc-ovl-edit .sc-reshape button {
+  justify-content: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 1023px) {
@@ -443,7 +510,7 @@
   padding: 11px 13px 3px;
 }
 .sc-ovl-edit .sc-attachpanel {
-  height: min(320px, 42vh);
+  height: min(380px, 48vh);
 }
 @media (max-width: 1023px) {
   .sc-ovl {
@@ -473,8 +540,9 @@
     display: block;
     overflow-y: auto;
     overscroll-behavior: contain;
-    /* room for the composer, which is pinned to the bottom of the viewport */
-    padding-bottom: calc(var(--sc-bottom-inset) + 132px);
+    /* room for the composer, which is pinned to the bottom of the viewport;
+       grown for the carried-context strip the band can now hold */
+    padding-bottom: calc(var(--sc-bottom-inset) + 168px);
   }
   /* the picture is the point, so it is contained rather than cropped */
   /* Still a column with a gap, not a bare block.
@@ -605,6 +673,17 @@
      line above it is the more expensive of the two */
   .sc-ovl-edit-head {
     display: none;
+  }
+  /* the carried strip stays, compacted to one scrolling row so the band
+     never grows past its budgeted height */
+  .sc-ovl-edit .sc-carried {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .sc-ovl-edit .sc-carried-chip > span {
+    max-width: 16ch;
   }
 }
 

@@ -574,3 +574,71 @@ describe('golden: presenter references are identity, not wardrobe', () => {
     expect(EDIT_REFERENCE_ROLE_DIRECTIVE.character).toMatch(/keep the source image's existing outfit/);
   });
 });
+
+// The reported adherence failure: an attached presenter compiled to a bare
+// name, every identity directive was conditional on the person already being
+// rendered, and a scene's own "no people" prose could compose them out.
+describe('golden: an attached presenter is IN the picture', () => {
+  it('states presence as a fact, before the identity lock', () => {
+    const r = compile([
+      { t: 'text', v: 'closeup with ' },
+      { t: 'character', id: 'c1' },
+    ]);
+    const presence = r.prompt.indexOf('is in this photograph: a real person, clearly visible in the frame');
+    const identity = r.prompt.indexOf('same person every time');
+    expect(presence).toBeGreaterThan(-1);
+    expect(identity).toBeGreaterThan(-1);
+    expect(presence).toBeLessThan(identity);
+    expect(r.prompt).toContain('Do not leave them out, crop them out');
+  });
+
+  it('overrides a scene that says the set is empty, AFTER the scene said it', () => {
+    const noPeople = {
+      ...loadScenes(defaultScenesDir()).scenes.find((s) => s.id === PRODUCT_SCENE)!,
+      id: 'test-empty-set',
+      name: 'Empty Set',
+      prompt: 'an austere gallery interior, hard morning light, no props of any kind, no people, bare walls',
+    };
+    const resolve = (id: string) => (id === 'test-empty-set' ? noPeople : resolveScene(id));
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: 'test-empty-set' },
+        ],
+      },
+      { brand: brand(), images: core.images, engineCaps: caps(6), templateById: resolve },
+    );
+    const negation = r.prompt.indexOf('no people');
+    const override = r.prompt.indexOf('describes the set, not the cast');
+    expect(negation).toBeGreaterThan(-1);
+    expect(override).toBeGreaterThan(negation);
+    expect(r.prompt).toContain('the attached person stands in this set, clearly visible');
+  });
+
+  it('a product-subject scene with a person still gets the override', () => {
+    const r = compile([
+      { t: 'character', id: 'c1' },
+      { t: 'template', id: PRODUCT_SCENE },
+    ]);
+    expect(r.prompt).toContain('describes the set, not the cast');
+    expect(r.prompt).toContain('is in this photograph');
+  });
+
+  it('presence survives the legacy templateId demotion to an Art direction clause', () => {
+    const r = compileBrief(
+      { tokens: [{ t: 'character', id: 'c1' }], templateId: PRODUCT_SCENE },
+      {
+        brand: brand(),
+        images: core.images,
+        engineCaps: caps(6),
+        template: resolveScene(PRODUCT_SCENE),
+        templateById: resolveScene,
+      },
+    );
+    const art = r.prompt.indexOf('Art direction:');
+    const presence = r.prompt.indexOf('is in this photograph');
+    expect(art).toBeGreaterThan(-1);
+    expect(presence).toBeGreaterThan(art);
+  });
+});

@@ -3,14 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
-import {
-  compileBrief,
-  briefLabel,
-  brandRuleDirectives,
-  validateBrief,
-  PRODUCT_REF_MAX,
-  type Brief,
-} from '../src/brief.js';
+import { compileBrief, brandRuleDirectives, validateBrief, PRODUCT_REF_MAX, type Brief } from '../src/brief.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 import { waitDone } from './helpers.js';
 
@@ -242,21 +235,6 @@ describe('compileBrief', () => {
 
     const gone = compileBrief({ tokens: [{ t: 'product', id: 'nope' }] }, ctx());
     expect(gone.warnings.join(' ')).toContain('no longer in the brand kit');
-  });
-
-  it('produces a readable label for lists', () => {
-    const label = briefLabel(
-      {
-        tokens: [
-          { t: 'text', v: 'hero of ' },
-          { t: 'product', id: 'p1' },
-          { t: 'text', v: ' in ' },
-          { t: 'color', hex: '#D96C3B', name: 'Terracotta' },
-        ],
-      },
-      brandWith(productHash),
-    );
-    expect(label).toBe('hero of House Blend in Terracotta');
   });
 });
 

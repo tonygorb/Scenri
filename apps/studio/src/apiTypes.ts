@@ -61,6 +61,14 @@ export interface TreeNode {
     sourceImage?: string;
     /** Real delivered pixel sizes per image, recorded at completion. */
     rendered?: { sizes: [number, number][] };
+    /** How the shape was reached, when it was asked for by name. */
+    reshape?: 'crop' | 'extend';
+    /**
+     * For a refinement: the identity tokens carried from the shot it refines,
+     * recorded apart from `tokens` so what was asked and what was inherited
+     * stay distinguishable everywhere they are shown.
+     */
+    inherited?: any[];
   } | null;
   archived: boolean;
 }
@@ -509,6 +517,8 @@ export interface BriefPreview {
     label: string;
     hash: string;
     essential?: boolean;
+    /** Carried from the shot being refined (preview with a parentId). */
+    inherited?: boolean;
   }[];
   warnings: string[];
   productId: string | null;

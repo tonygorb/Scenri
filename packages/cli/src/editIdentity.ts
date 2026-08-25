@@ -32,8 +32,14 @@ const tokensOf = (node: NodeLike | null | undefined): BriefToken[] => {
 };
 
 /**
- * The product, presenter and brand mark tokens of the nearest ancestor that
- * has any.
+ * The product, presenter, brand mark and reference tokens of the nearest
+ * ancestor that has any.
+ *
+ * References ride too: a mood image the user attached on the first
+ * generation is as much a part of the thread's identity as the product is,
+ * and a refine that silently forgot it was the reported contract failure.
+ * The attachment budget still decides what actually fits an engine's cap;
+ * this only decides what the refinement KNOWS about.
  *
  * Returns an empty list rather than throwing when the thread has none, which
  * is the ordinary case for a shot made from a bare sentence.
@@ -46,7 +52,9 @@ export function inheritedIdentityTokens(
   for (let hop = 0; hop < MAX_HOPS && id; hop++) {
     const node = getNode(id);
     if (!node || node.kind === 'root') return [];
-    const identity = tokensOf(node).filter((t) => t.t === 'product' || t.t === 'character' || t.t === 'mark');
+    const identity = tokensOf(node).filter(
+      (t) => t.t === 'product' || t.t === 'character' || t.t === 'mark' || t.t === 'ref',
+    );
     if (identity.length) return identity;
     id = node.parentId;
   }
