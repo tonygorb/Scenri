@@ -609,7 +609,18 @@ export const Composer = forwardRef<
     ? defaultReshapeOp(aspectOfFormat(target?.brief?.format), aspectOfFormat(formatId))
     : null;
   const cropping = reshapeOp === 'crop';
-  const expanding = reshapeOp === 'extend' && engineCanEdit;
+  /*
+   * Growing a shot into a bigger frame needs an engine that can paint a margin
+   * around a picture. An engine that only re-renders a whole frame from a
+   * sentence cannot: measured three times on one unchanged shot, the join came
+   * back clean, then badly broken, then clean again. That is a coin toss, and a
+   * coin toss is worse to ship than an honest absence — so this asks the
+   * engine, and offers the crop to anything that answers no.
+   */
+  const engineCanExpand = !!engine?.supportsOutpaint;
+  const expanding = reshapeOp === 'extend' && engineCanEdit && engineCanExpand;
+  /** A wider shape asked of an engine that cannot paint a margin. */
+  const cannotExpand = reshapeOp === 'extend' && !engineCanExpand;
   const targetShape = FORMATS.find((x) => x.id === formatId);
   const targetShapeLabel = targetShape ? `${targetShape.label} ${targetShape.hint}` : formatId;
 
@@ -636,13 +647,15 @@ export const Composer = forwardRef<
     ? null
     : template
       ? 'A scene starts a new shot.'
-      : cropping || expanding
-        ? null
-        : !engineCanEdit
-          ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
-          : targetPending
-            ? 'Still rendering. This can be refined the moment it lands.'
-            : null;
+      : cannotExpand
+        ? `${engine?.displayName ?? 'This engine'} cannot grow a shot into a wider frame. Pick a shape this one fits inside, or switch engines.`
+        : cropping || expanding
+          ? null
+          : !engineCanEdit
+            ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
+            : targetPending
+              ? 'Still rendering. This can be refined the moment it lands.'
+              : null;
 
   /**
    * What is currently set, so the one control can still say it out loud.
@@ -696,10 +709,17 @@ export const Composer = forwardRef<
   const aspectOnly = reshapeChoiceOpen && !hasContent;
   const cropWithWords = cropping && hasContent;
   const canGo =
-    !busy && (hasContent || aspectOnly) && !cropWithWords && !!projectId && !targetPending && (cropping || !noEngine);
+    !busy &&
+    (hasContent || aspectOnly) &&
+    !cropWithWords &&
+    !cannotExpand &&
+    !!projectId &&
+    !targetPending &&
+    (cropping || !noEngine);
   /** Why the button will not go, in the words of the thing that is blocking. */
-  const blockedReason =
-    noEngine && !cropping
+  const blockedReason = cannotExpand
+    ? `${engine?.displayName ?? 'This engine'} cannot grow a shot into a wider frame`
+    : noEngine && !cropping
       ? 'Image generation is not set up yet'
       : busy
         ? 'Working on the last one'
@@ -1073,7 +1093,7 @@ export const Composer = forwardRef<
             user to pick Crop or Extend when the geometry already decides
             (defaultReshapeOp); picking a shape is the whole gesture, and this
             line only makes the consequence predictable before Refine. */}
-        {reshapeChoiceOpen && (cropping || expanding) && (
+        {reshapeChoiceOpen && (cropping || expanding) && !cannotExpand && (
           <small className="sc-reshape-hint" aria-live="polite">
             {cropping ? 'Will crop to' : 'Will extend to'} {targetShapeLabel}
           </small>

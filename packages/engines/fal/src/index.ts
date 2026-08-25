@@ -209,6 +209,9 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
             original_image_size: [req.expand.width, req.expand.height],
             original_image_location: [req.expand.left, req.expand.top],
             ...(req.instruction.trim() ? { prompt: req.instruction } : {}),
+            // Same picture, same shape, same margin: an extend a user runs
+            // twice should not be a different picture twice.
+            ...(typeof req.seed === 'number' ? { seed: req.seed } : {}),
           },
           signal,
         );

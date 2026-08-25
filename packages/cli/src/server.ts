@@ -85,6 +85,22 @@ export interface ServerOptions {
   codexSetup?: CodexSetup;
 }
 
+/**
+ * A stable number for one picture asked for one shape.
+ *
+ * Not randomness and not a hash of the world: the same source and the same
+ * target frame must give the same seed on every machine and every run, so an
+ * expansion a user re-runs returns what it returned before.
+ */
+function seedFor(sourceHash: string, width: number, height: number): number {
+  let h = 2166136261;
+  for (const ch of `${sourceHash}:${width}x${height}`) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h) % 2_147_483_647;
+}
+
 /** Settings keys exposed via the API. Secrets are write-only: reads return booleans. */
 const SECRET_KEYS = ['openrouter_api_key', 'replicate_api_token', 'fal_key'];
 
@@ -1126,6 +1142,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
                 width: srcMeta.width ?? 0,
                 height: srcMeta.height ?? 0,
               },
+              // Derived from the picture and the shape asked for, so the same
+              // extend of the same shot is the same picture every time. Without
+              // it the margin is a fresh roll of the dice on every run, which
+              // is not something a person can iterate against — or that a test
+              // can measure.
+              seed: seedFor(String(editedFrom ?? srcHash), expandPlan.width, expandPlan.height),
             }
           : {}),
       };

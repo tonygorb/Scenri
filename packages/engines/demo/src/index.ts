@@ -39,6 +39,11 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string): EngineAdap
         localOnly: false,
         supportsEdit: true,
         supportsMask: false,
+        // It draws a placeholder for everything, expansions included, so it
+        // stands in for a capable engine rather than blocking the path in
+        // development and in the end-to-end suite. `placeholder` below is what
+        // says none of this is a real picture.
+        supportsOutpaint: true,
         maxReferenceImages: 0,
         placeholder: true,
       };

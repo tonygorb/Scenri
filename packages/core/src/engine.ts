@@ -130,6 +130,16 @@ export interface EditRequest {
     width: number;
     height: number;
   };
+  /**
+   * Makes a generation repeatable on an adapter whose provider accepts one.
+   *
+   * Without it the same request returns a different picture every time, which
+   * is not merely untidy: an expansion's seam quality was measured at 2.8, 15.1
+   * and 2.1 across three identical calls, so nothing about the margin could be
+   * tested, tuned or regressed. Adapters that have no seed ignore this, and are
+   * honest about it through `supportsOutpaint`.
+   */
+  seed?: number;
 }
 
 export interface EngineResult {

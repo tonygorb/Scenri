@@ -91,6 +91,9 @@ describe('capabilities', () => {
       localOnly: false,
       supportsEdit: true,
       supportsMask: false,
+      // bria/expand-image: an expansion is painted around the picture rather
+      // than re-rendered from a sentence
+      supportsOutpaint: true,
       maxReferenceImages: 0,
     });
   });
@@ -338,9 +341,48 @@ describe('edit', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  function editReq(): EditRequest {
-    return { instruction: 'remove the background', sourceImage, brand };
+  function editReq(over: Partial<EditRequest> = {}): EditRequest {
+    return { instruction: 'remove the background', sourceImage, brand, ...over };
   }
+
+  it('sends an expansion to the outpainting model with the canvas it belongs in', async () => {
+    const { impl, calls } = recordingFetch((url) =>
+      url.endsWith('/predictions')
+        ? mockRes({ json: { status: 'succeeded', output: ['https://cdn.example/wide.png'] } })
+        : mockRes({ bytes: new Uint8Array([8]) }),
+    );
+    const { engine } = makeEngine({ fetchImpl: impl, key: 'r8_expand' });
+
+    await engine.edit(
+      editReq({
+        instruction: '',
+        width: 1824,
+        height: 1024,
+        expand: { left: 400, top: 0, width: 1024, height: 1024 },
+        seed: 4242,
+      }),
+    );
+
+    // the expansion model, not the instruction editor
+    expect(calls[0].url).toContain('bria/expand-image');
+    const input = JSON.parse(String(calls[0].init?.body)).input;
+    expect(input.canvas_size).toEqual([1824, 1024]);
+    expect(input.original_image_size).toEqual([1024, 1024]);
+    expect(input.original_image_location).toEqual([400, 0]);
+    // the same extend of the same shot comes back the same picture
+    expect(input.seed).toBe(4242);
+  });
+
+  it('still uses the instruction editor for an ordinary refinement', async () => {
+    const { impl, calls } = recordingFetch((url) =>
+      url.endsWith('/predictions')
+        ? mockRes({ json: { status: 'succeeded', output: ['https://cdn.example/edited.png'] } })
+        : mockRes({ bytes: new Uint8Array([8]) }),
+    );
+    const { engine } = makeEngine({ fetchImpl: impl, key: 'r8_plain' });
+    await engine.edit(editReq());
+    expect(calls[0].url).toContain('flux-kontext-pro');
+  });
 
   it('POSTs to the edit model with instruction and base64 data URI', async () => {
     const { impl, calls } = recordingFetch((url) =>
