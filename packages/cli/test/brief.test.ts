@@ -671,7 +671,10 @@ describe('an extend edit drops the dimension promise', () => {
   });
 
   it('inherited identity still speaks on an extend', () => {
-    const r = compileBrief({ tokens: editTokens }, ctx({ mode: 'edit', editReshape: 'extend', inheritedIdentity: true }));
+    const r = compileBrief(
+      { tokens: editTokens },
+      ctx({ mode: 'edit', editReshape: 'extend', inheritedIdentity: true }),
+    );
     expect(r.prompt).not.toContain('the same dimensions');
     // the inherited-identity directive survives the dropped preservation line
     expect(r.prompt).toContain('the same product and the same person that are already in this picture');

@@ -9,7 +9,13 @@ import { planCrop } from '../src/cropRules.js';
  */
 async function subjectLeftImage(): Promise<Buffer> {
   const noise = await sharp({
-    create: { width: 200, height: 200, channels: 3, noise: { type: 'gaussian', mean: 128, sigma: 60 } },
+    create: {
+      width: 200,
+      height: 200,
+      channels: 3,
+      background: { r: 128, g: 128, b: 128 },
+      noise: { type: 'gaussian', mean: 128, sigma: 60 },
+    },
   })
     .png()
     .toBuffer();
@@ -56,7 +62,13 @@ describe('attention crop origin', () => {
       .composite([
         {
           input: await sharp({
-            create: { width: 180, height: 180, channels: 3, noise: { type: 'gaussian', mean: 128, sigma: 60 } },
+            create: {
+              width: 180,
+              height: 180,
+              channels: 3,
+              background: { r: 128, g: 128, b: 128 },
+              noise: { type: 'gaussian', mean: 128, sigma: 60 },
+            },
           })
             .png()
             .toBuffer(),

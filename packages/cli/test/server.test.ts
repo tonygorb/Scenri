@@ -430,7 +430,9 @@ describe('generation flow', () => {
       );
     });
 
-    it('tells a whole frame change that it may move the frame, and a local one that it may not', { timeout: 20_000 }, async () => {
+    it('tells a whole frame change that it may move the frame, and a local one that it may not', {
+      timeout: 20_000,
+    }, async () => {
       const { brand } = await seedBrand();
       const { project } = await mkProject(brand.id);
       const gen = await app.inject({

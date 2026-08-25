@@ -11,8 +11,14 @@ import { planExpand, seamBandFor, type ExpandPlan } from '../src/expandRules.js'
 const guaranteed = (plan: ExpandPlan, w: number, h: number) => {
   const n = seamBandFor({ width: w, height: h });
   return plan.axis === 'width'
-    ? { srcRegion: { left: n, top: 0, width: w - 2 * n, height: h }, outRegion: { left: plan.left + n, top: plan.top, width: w - 2 * n, height: h } }
-    : { srcRegion: { left: 0, top: n, width: w, height: h - 2 * n }, outRegion: { left: plan.left, top: plan.top + n, width: w, height: h - 2 * n } };
+    ? {
+        srcRegion: { left: n, top: 0, width: w - 2 * n, height: h },
+        outRegion: { left: plan.left + n, top: plan.top, width: w - 2 * n, height: h },
+      }
+    : {
+        srcRegion: { left: 0, top: n, width: w, height: h - 2 * n },
+        outRegion: { left: plan.left, top: plan.top + n, width: w, height: h - 2 * n },
+      };
 };
 
 /** A recognisable picture: red, with a green stripe so any shift is obvious. */
