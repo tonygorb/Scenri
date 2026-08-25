@@ -111,3 +111,21 @@ describe('merging a refinement budget', () => {
     expect(dropped.map((a) => a.hash).sort()).toEqual(['m1', 'r1']);
   });
 });
+
+describe('corroboration alternates between identities', () => {
+  it('a face keeps its second view before a product takes a third angle', () => {
+    // Cap 5: essentials board (p1, c1), the hand-attached reference gets its
+    // seat, then corroboration goes round-robin — p2, then c2. The old
+    // straight role-priority drain gave both spare slots to the product.
+    const { kept } = allocateAttachments(contested(att('reference', 'r1', { label: 'moodboard' })), 5);
+    const hashes = kept.map((a) => a.hash);
+    expect(hashes).toContain('c2');
+    expect(hashes).not.toContain('p3');
+  });
+
+  it('a roomy engine still reads every angle in the legacy order', () => {
+    const { kept, dropped } = allocateAttachments(contested(att('reference', 'r1', { label: 'moodboard' })), 12);
+    expect(kept.map((a) => a.hash)).toEqual(['p1', 'c1', 'p2', 'p3', 'c2', 'r1']);
+    expect(dropped).toEqual([]);
+  });
+});

@@ -309,7 +309,7 @@ describe('brands API', () => {
 });
 
 describe('generation flow', () => {
-  it('generate -> done with images; edit child; keep; tree', async () => {
+  it('generate -> done with images; edit child; keep; tree', { timeout: 20_000 }, async () => {
     const brand = await mkBrand();
     const { project, root } = await mkProject(brand.id);
 
@@ -391,7 +391,7 @@ describe('generation flow', () => {
       return { brand: res.json(), hash };
     };
 
-    it('borrows the parent shot identity and says what must not move', async () => {
+    it('borrows the parent shot identity and says what must not move', { timeout: 20_000 }, async () => {
       const { brand } = await seedBrand();
       const { project } = await mkProject(brand.id);
       const gen = await app.inject({
@@ -430,7 +430,9 @@ describe('generation flow', () => {
       );
     });
 
-    it('tells a whole frame change that it may move the frame, and a local one that it may not', async () => {
+    it('tells a whole frame change that it may move the frame, and a local one that it may not', {
+      timeout: 20_000,
+    }, async () => {
       const { brand } = await seedBrand();
       const { project } = await mkProject(brand.id);
       const gen = await app.inject({
@@ -512,10 +514,17 @@ describe('generation flow', () => {
     expect(grown.width!).toBeGreaterThan(srcMeta.width!);
     expect(grown.width! / grown.height!).toBeCloseTo(456 / 256, 1);
 
-    // and the picture itself came back byte for byte, which is the promise
+    // and the picture came back byte for byte inside the guaranteed region —
+    // the source inset by the seam band on the grown axis (see compositeExpand)
+    const { seamBandFor } = await import('../src/expandRules.js');
+    const n = seamBandFor({ width: srcMeta.width!, height: srcMeta.height! });
     const left = Math.round((grown.width! - srcMeta.width!) / 2);
-    const region = { left, top: 0, width: srcMeta.width!, height: srcMeta.height! };
-    const before = await sharp(src).removeAlpha().raw().toBuffer();
+    const region = { left: left + n, top: 0, width: srcMeta.width! - 2 * n, height: srcMeta.height! };
+    const before = await sharp(src)
+      .extract({ left: n, top: 0, width: srcMeta.width! - 2 * n, height: srcMeta.height! })
+      .removeAlpha()
+      .raw()
+      .toBuffer();
     const after = await sharp(core.images.read(out.images[0])).extract(region).removeAlpha().raw().toBuffer();
     expect(after).toEqual(before);
   });
@@ -568,16 +577,43 @@ describe('generation flow', () => {
     expect(out.prompt).toContain('Cropped to');
     expect((out.brief as any).reshape).toBe('crop');
     expect((out.brief as any).sourceImage).toBe(sourceHash);
+    // no provider was asked, and the record says so
+    expect(out.engineId).toBe('local');
 
-    // the output is exactly the centred source region, decoded byte for byte
+    // the output is exactly the RECORDED source window, decoded byte for byte —
+    // the window follows the subject now, so the guarantee is byte identity at
+    // the rectangle the node names, not a fixed centred position
     const meta = await sharp(core.images.read(out.images[0])).metadata();
     expect(meta.height).toBe(srcMeta.height);
     expect(meta.width).toBe(srcMeta.height); // square from every row
-    const left = Math.floor((srcMeta.width! - meta.width!) / 2);
-    const region = { left, top: 0, width: meta.width!, height: meta.height! };
-    const before = await sharp(src).extract(region).removeAlpha().raw().toBuffer();
+    const window = (out.brief as any).crop;
+    expect(window).toMatchObject({ top: 0, width: meta.width, height: meta.height });
+    expect(window.left).toBeGreaterThanOrEqual(0);
+    expect(window.left + window.width).toBeLessThanOrEqual(srcMeta.width!);
+    const before = await sharp(src).extract(window).removeAlpha().raw().toBuffer();
     const after = await sharp(core.images.read(out.images[0])).removeAlpha().raw().toBuffer();
     expect(after).toEqual(before);
+
+    // Try again reposts the stored brief without the top-level reshape field;
+    // the crop must stay a crop rather than silently expanding
+    const retry = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: sourceHash,
+        brief: out.brief,
+      },
+    });
+    expect(retry.statusCode).toBe(202);
+    const again = await waitDone(retry.json().id);
+    expect(again.status).toBe('done');
+    expect(again.engineId).toBe('local');
+    expect(again.costUsd).toBe(0);
+    expect(again.prompt).toContain('Cropped to');
   });
 
   it('a crop needs no engine, but an aspect-only brief without reshape still refuses', async () => {

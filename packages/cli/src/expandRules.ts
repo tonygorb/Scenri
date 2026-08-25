@@ -68,6 +68,23 @@ export function planExpand(source: { width: number; height: number }, targetRati
 }
 
 /**
+ * How wide the blend band at a seam edge is, in source pixels.
+ *
+ * The hard rectangular paste was the seam: the engine's own version of the
+ * interior never matches the pasted original exactly, and the discontinuity
+ * sat as a visible line exactly on the source boundary. A narrow linear ramp
+ * hides it. Bounded 8..16px and never more than a quarter of the source's
+ * short edge, so a small frame is never mostly band — everything deeper than
+ * the band stays byte-identical, which is the guarantee compositeExpand
+ * documents.
+ */
+export function seamBandFor(source: { width: number; height: number }): number {
+  const longEdge = Math.max(source.width, source.height);
+  const shortEdge = Math.min(source.width, source.height);
+  return Math.min(Math.min(16, Math.max(8, Math.round(longEdge * 0.01))), Math.max(1, Math.floor(shortEdge / 4)));
+}
+
+/**
  * What to ask the engine for, in words.
  *
  * It describes the margin rather than the picture, because the picture is
@@ -79,7 +96,8 @@ export function expandInstruction(plan: ExpandPlan, direction: string): string {
   const where = plan.axis === 'width' ? 'to the left and right' : 'above and below';
   return (
     `Extend this photograph ${where} to fill the empty margin, continuing the same scene, the same surface, the ` +
-    `same lighting and the same perspective straight out to the new edges. Do not change, move, rescale or ` +
+    `same lighting and the same perspective straight out to the new edges, matching the existing grain, depth of ` +
+    `field, shadow direction and colour temperature. Do not change, move, rescale or ` +
     `reinterpret anything already in the picture, and do not add a subject, a product or a person that is not ` +
     `already there.${direction.trim() ? ` ${direction.trim()}` : ''}`
   );

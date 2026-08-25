@@ -100,6 +100,15 @@ export interface EditRequest {
    * `reference` is the untyped legacy role.
    */
   referenceRoles?: ReferenceRole[];
+  /**
+   * The exact output size the caller will composite against, when it has one
+   * (an expansion plans its frame to the pixel). Advisory: an adapter that can
+   * ask its model for exact dimensions does, the rest ignore it — the caller's
+   * compositing pass owns the guarantee either way, this only spares a rescale
+   * when the engine complies.
+   */
+  width?: number;
+  height?: number;
 }
 
 export interface EngineResult {

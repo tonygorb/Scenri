@@ -33,6 +33,7 @@ import { inheritedIdentityTokens } from './editIdentity.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
 import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js';
 import { planCrop } from './cropRules.js';
+import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand } from './expand.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
@@ -430,7 +431,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
    * compiler's own clamp cannot see the inherited attachments and would
    * pre-drop under the wrong budget.
    */
-  async function compileEditBrief(brandId: string, parentId: string, brief: Brief, engineCaps: EngineCapabilities) {
+  async function compileEditBrief(
+    brandId: string,
+    parentId: string,
+    brief: Brief,
+    engineCaps: EngineCapabilities,
+    opts?: { reshape?: 'crop' | 'extend' },
+  ) {
     const borrowed = inheritedIdentityTokens(parentId, (id) => core.store.getNode(id));
     const already = new Set(
       (brief.tokens as BriefToken[])
@@ -473,6 +480,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
       inheritedIdentity: inheritedTokens.length > 0,
+      // Only the explicit op drops the dimension promise: an implicit legacy
+      // expansion keeps its historical prompt byte for byte.
+      ...(opts?.reshape === 'extend' ? { editReshape: 'extend' as const } : {}),
     });
     let inheritedAttachments: Attachment[] = [];
     if (inheritedTokens.length) {
@@ -535,7 +545,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // send will run, inheritance and budget included, so the context strip the
     // composer draws is the request the engine will receive.
     if (parentId && core.store.getNode(String(parentId))) {
-      const edit = await compileEditBrief(brand.id, String(parentId), brief as Brief, engine.capabilities());
+      const previewReshape = (req.body as any).reshape;
+      const edit = await compileEditBrief(brand.id, String(parentId), brief as Brief, engine.capabilities(), {
+        reshape: previewReshape === 'extend' ? 'extend' : previewReshape === 'crop' ? 'crop' : undefined,
+      });
       const { referenceImages, ...rest } = edit.compiled;
       return {
         ...rest,
@@ -785,8 +798,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      * historical behaviour (an expansion when the format differs); 'extend'
      * makes that explicit; 'crop' takes the dedicated path below.
      */
+    // The stored brief is the fallback: Try again reposts a node's brief
+    // verbatim without the top-level field, and a crop that silently re-runs
+    // as an expansion is the worst kind of surprise. Legacy briefs carry no
+    // reshape key, so the historical implicit path is untouched.
+    const rawReshape = (req.body as any).reshape ?? (req.body as any).brief?.reshape;
     const reshape: 'crop' | 'extend' | undefined =
-      (req.body as any).reshape === 'crop' ? 'crop' : (req.body as any).reshape === 'extend' ? 'extend' : undefined;
+      rawReshape === 'crop' ? 'crop' : rawReshape === 'extend' ? 'extend' : undefined;
 
     /*
      * A pure crop, before the engine gate on purpose: it is geometry, not
@@ -818,6 +836,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (!srcMeta.width || !srcMeta.height) return reply.status(400).send({ error: 'source image unreadable' });
       const plan = planCrop({ width: srcMeta.width, height: srcMeta.height }, Number(fmt.w) / Number(fmt.h));
       if (!plan) return reply.status(400).send({ error: 'the picture is already this shape' });
+      // The window follows the subject, not the center; still original pixels
+      // only — attentionCropOrigin discovers an offset and nothing else.
+      const origin = await attentionCropOrigin(srcBuf, { width: srcMeta.width, height: srcMeta.height }, plan);
+      const window = { left: origin.left, top: origin.top, width: plan.width, height: plan.height };
 
       const label = FORMATS.find((f) => f.id === fmt.id)?.label ?? `${fmt.w}x${fmt.h}`;
       const node = core.store.addNode({
@@ -825,18 +847,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         parentId: cropParentId,
         kind: 'edit',
         prompt: `Cropped to ${label}`,
-        engineId: engineId ? String(engineId) : 'local',
+        // No provider was asked; recording the engine the client HAPPENED to
+        // have selected made the overlay display a name that did nothing.
+        engineId: 'local',
       });
-      if (brief) core.store.setBrief(node.id, { ...(brief as object), sourceImage: String(srcHash), reshape: 'crop' });
+      // The brief records the window actually cut, so history and the pixel
+      // tests speak about the same rectangle the picture came from.
+      core.store.setBrief(node.id, {
+        ...((brief as object) ?? {}),
+        sourceImage: String(srcHash),
+        reshape: 'crop',
+        crop: window,
+      });
       const work = async () => ({
-        images: [
-          core.images.save(
-            await sharp(srcBuf)
-              .extract({ left: plan.left, top: plan.top, width: plan.width, height: plan.height })
-              .png()
-              .toBuffer(),
-          ),
-        ],
+        images: [core.images.save(await sharp(srcBuf).extract(window).png().toBuffer())],
         costUsd: 0,
       });
       void runNode(node.id, null, 0, work, { width: plan.width, height: plan.height }).catch((err) =>
@@ -879,7 +903,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (kind === 'edit') {
         // A refinement borrows the identity of the shot it refines, through
         // the same helper the preview route uses — one path, one truth.
-        const edit = await compileEditBrief(project.brandId, resolvedParentId, brief as Brief, engine.capabilities());
+        const edit = await compileEditBrief(project.brandId, resolvedParentId, brief as Brief, engine.capabilities(), {
+          reshape,
+        });
         compiled = edit.compiled;
         inheritedTokens = edit.inheritedTokens;
         mergedEdit = edit.merged;
@@ -1064,6 +1090,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         brand: ctx,
         ...(editRefs.length ? { referenceImages: editRefs.map((r) => r.path) } : {}),
         ...(editRefs.length ? { referenceRoles: editRefs.map((r) => r.role ?? 'reference') } : {}),
+        // An answer at the planned size lets compositeExpand skip its rescale,
+        // which is one whole class of seam misalignment gone when honored.
+        ...(expandPlan ? { width: expandPlan.width, height: expandPlan.height } : {}),
       };
       estimate = await engine.costEstimate(editReq);
       work = (signal) => engine.edit(editReq, signal);
@@ -1112,7 +1141,16 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       ? async (images: string[]) => {
           const out: string[] = [];
           for (const h of images) {
-            const { image, aligned } = await compositeExpand(core.images.read(h), original!, plan);
+            const answer = core.images.read(h);
+            // The battery reads this to measure how often the engine honors
+            // the exact-size request; a match means no rescale at all.
+            const got = await sharp(answer).metadata();
+            if (got.width !== plan.width || got.height !== plan.height)
+              app.log.info(
+                { nodeId: node.id, got: `${got.width}x${got.height}`, want: `${plan.width}x${plan.height}` },
+                'expand: engine size differs from plan',
+              );
+            const { image, aligned } = await compositeExpand(answer, original!, plan);
             if (!aligned) app.log.warn({ nodeId: node.id }, 'expand: engine frame did not align, kept the bed');
             out.push(core.images.save(image));
           }

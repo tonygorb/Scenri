@@ -15,7 +15,7 @@
  * sentence.
  */
 import sharp from 'sharp';
-import type { ExpandPlan } from './expandRules.js';
+import { seamBandFor, type ExpandPlan } from './expandRules.js';
 
 /**
  * The canvas handed to the engine: the real picture in place, and a margin made
@@ -44,7 +44,18 @@ export interface ExpandResult {
  * The engine's answer supplies the margin and nothing else. It is fitted to the
  * planned frame first, because a model asked for 1824x1024 may well return
  * something a few pixels out or a whole multiple larger, and then the source is
- * laid over it byte for byte at the offset it was planned into.
+ * laid over it at the offset it was planned into — carrying a narrow alpha ramp
+ * on its seam edges so the paste has no visible line.
+ *
+ * GUARANTEE. In the expanded frame, every source pixel at distance >= N from a
+ * seam edge is byte-identical to the original after decode, where
+ * N = seamBandFor(source) = min(16, max(8, round(longEdge / 100))), never more
+ * than a quarter of the source's short edge. Within the two N-px seam bands the
+ * result is a deterministic linear blend of original over engine margin, and
+ * the original's contribution never reaches zero inside the band. Source edges
+ * that coincide with canvas edges have no seam and are byte-identical to the
+ * last pixel. (A crop's guarantee is stronger and lives in cropRules.ts: every
+ * output pixel is an original pixel.)
  */
 export async function compositeExpand(engineImage: Buffer, source: Buffer, plan: ExpandPlan): Promise<ExpandResult> {
   const meta = await sharp(engineImage).metadata();
@@ -66,15 +77,49 @@ export async function compositeExpand(engineImage: Buffer, source: Buffer, plan:
   const sameOrientation = got > 0 && got >= 1 === want >= 1;
   const aligned = sameOrientation;
 
+  // An answer already at the planned size skips the rescale entirely — the
+  // whole point of asking the engine for exact dimensions: cover-scaling the
+  // answer shifts its texture against the pasted original at the seam.
+  const exact = meta.width === plan.width && meta.height === plan.height;
   const surround = aligned
-    ? await sharp(engineImage).resize(plan.width, plan.height, { fit: 'cover', position: 'centre' }).toBuffer()
+    ? exact
+      ? engineImage
+      : await sharp(engineImage).resize(plan.width, plan.height, { fit: 'cover', position: 'centre' }).toBuffer()
     : await expandCanvasBedOnly(source, plan);
 
   const image = await sharp(surround)
-    .composite([{ input: source, left: plan.left, top: plan.top }])
+    .composite([{ input: await featheredSource(source, plan), left: plan.left, top: plan.top }])
     .png()
     .toBuffer();
   return { image, aligned };
+}
+
+/**
+ * The source with a linear alpha ramp on its seam edges only.
+ *
+ * The geometry is exact — plan.left/top and the source's own dimensions — so
+ * the mask is written analytically as one raw channel rather than derived by
+ * blur-and-threshold the way localEdit must (its changed region has an unknown
+ * silhouette; this one is a rectangle). Alpha 255 everywhere except the last
+ * N columns (width axis) or rows (height axis) before each seam, ramping
+ * 255*(d+1)/(N+1) so the outermost source pixel still contributes.
+ */
+async function featheredSource(source: Buffer, plan: ExpandPlan): Promise<Buffer> {
+  const { data, info } = await sharp(source).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+  const n = seamBandFor({ width, height });
+  const rampAt = (d: number) => (d < n ? Math.round((255 * (d + 1)) / (n + 1)) : 255);
+  const mask = Buffer.alloc(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const d = plan.axis === 'width' ? Math.min(x, width - 1 - x) : Math.min(y, height - 1 - y);
+      mask[y * width + x] = rampAt(d);
+    }
+  }
+  return sharp(data, { raw: { width, height, channels: channels as 3 } })
+    .joinChannel(mask, { raw: { width, height, channels: 1 } })
+    .png()
+    .toBuffer();
 }
 
 /** The blurred bed on its own, for the case where the engine's frame is unusable. */
