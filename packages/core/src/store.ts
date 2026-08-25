@@ -337,7 +337,10 @@ export function createStore(db: DB) {
       return r ? rowToNode(r) : null;
     },
     treeFor(projectId: string): TreeNode[] {
-      return (db.prepare('SELECT * FROM nodes WHERE project_id=? ORDER BY created_at').all(projectId) as any[]).map(
+      // created_at is second-resolution, so same-second rows need the id
+      // tiebreak or SQLite is free to return them in a different order on
+      // every read — and the feed reshuffles between two loads of one brand.
+      return (db.prepare('SELECT * FROM nodes WHERE project_id=? ORDER BY created_at, id').all(projectId) as any[]).map(
         rowToNode,
       );
     },
@@ -363,7 +366,7 @@ export function createStore(db: DB) {
             WHERE p.brand_id = ?
               AND n.kind != 'root'
               AND (n.status = 'running' OR n.created_at >= datetime('now', '-2 days'))
-            ORDER BY n.created_at DESC
+            ORDER BY n.created_at DESC, n.id DESC
             LIMIT ?`,
         )
         .all(brandId, limit) as any[];

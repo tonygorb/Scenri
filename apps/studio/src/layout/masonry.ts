@@ -96,3 +96,38 @@ export function masonryLayout(width: number, tile: number, phoneMode: boolean): 
   const cols = phoneMode ? 2 : Math.max(1, Math.floor((width + GAP) / (tile + GAP)));
   return { tile: Math.floor((width - GAP * (cols - 1)) / cols), cols };
 }
+
+/**
+ * Column ordinals for a newest-first list of tile GROUPS. A collapsed shot is
+ * a group of one; an expanded run is a group of N tiles in take order. A
+ * tile's column is its ordinal modulo the column count.
+ *
+ * Ordinals count from the OLDEST tile, so a prepend never renumbers what is
+ * already on screen — the property the feed's round-robin deal has always
+ * existed for. The deal used to count individual tiles, which inside an
+ * expanded run handed the LAST take the lowest ordinal: a four-take run over
+ * three columns opened reading take 3, take 2, take 1 across the top.
+ *
+ * A multi-tile group is instead aligned to a column boundary on both sides,
+ * so take 1 always lands in the leftmost column and the run reads in request
+ * order, wrapping row-major. The padding ordinals are simply never dealt;
+ * masonry columns are independent stacks, so a skipped ordinal costs a little
+ * column-height balance, not a hole. Groups of size one reproduce the old
+ * deal exactly, and a prepend still renumbers nothing that already exists.
+ */
+export function dealOrdinals(groupSizes: number[], cols: number): number[][] {
+  const n = Math.max(1, cols);
+  const out: number[][] = groupSizes.map(() => []);
+  let next = 0;
+  const align = () => {
+    if (next % n !== 0) next += n - (next % n);
+  };
+  for (let g = groupSizes.length - 1; g >= 0; g--) {
+    const size = groupSizes[g];
+    if (size > 1) align();
+    out[g] = Array.from({ length: size }, (_, k) => next + k);
+    next += size;
+    if (size > 1) align();
+  }
+  return out;
+}

@@ -4,7 +4,7 @@ import { hasNoShots, imgUrl, nodeLabel, type TreeNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
 import { elapsedSec } from '../tasks.js';
-import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
+import { dealOrdinals, masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 import { RunningTag } from './canvas/RunningTag.js';
 import { FeedImage } from './canvas/FeedImage.js';
 import { ShotChrome } from './canvas/ShotChrome.js';
@@ -130,19 +130,23 @@ export function Canvas({
   const [feedEl, setFeedEl] = useState<HTMLDivElement | null>(null);
   const { tile: colWidth, cols: fitting } = masonryLayout(useElementWidth(feedEl), tile, useViewportWidth() < PHONE);
 
-  const tiles: ReactNode[] = [
+  // One inner array per shot: the deal needs to know which tiles belong to one
+  // expanded run so their columns can ascend in take order (see dealOrdinals).
+  const tileGroups: ReactNode[][] = [
     ...(sending
       ? [
-          <div key="sending" className="sc-cell" data-running="true" data-sending="true">
-            <span className="sc-shimmer" />
-            <span className="sc-cell-tag">sending</span>
-            <span className="sc-cell-said" dir="auto">
-              {sending}
-            </span>
-          </div>,
+          [
+            <div key="sending" className="sc-cell" data-running="true" data-sending="true">
+              <span className="sc-shimmer" />
+              <span className="sc-cell-tag">sending</span>
+              <span className="sc-cell-said" dir="auto">
+                {sending}
+              </span>
+            </div>,
+          ],
         ]
       : []),
-    ...shots.flatMap((n) => {
+    ...shots.map((n) => {
       if (n.status === 'running') {
         return [
           // Cancel used to be a <button> inside .sc-cell-open — invalid HTML
@@ -249,11 +253,11 @@ export function Canvas({
       if (expanded?.has(n.id) && n.images.length > 1) {
         return n.images.map((hash, i) => (
           <div
-            // the hash, not the index: images are content addressed, so this
-            // is both stable and meaningful. The run is append-only and never
-            // reordered, so the index would have worked too; this simply does
-            // not rely on that staying true.
-            key={`${n.id}:${hash}`}
+            // index AND hash: images are content addressed, so one run can
+            // legally hold the same hash twice (two takes that came out
+            // identical), and the hash alone then collides as a key.
+            // biome-ignore lint/suspicious/noArrayIndexKey: the run is append-only, so the take index is stable identity; it exists here to break the tie between duplicate hashes.
+            key={`${n.id}:${i}:${hash}`}
             className="sc-cell"
             data-fb-node={n.id}
             data-fb-variant={i}
@@ -342,6 +346,7 @@ export function Canvas({
       ];
     }),
   ];
+  const tiles = tileGroups.flat();
 
   // a first shot on a brand new brand has to have somewhere to appear, so the
   // stand-in outranks the empty state rather than waiting behind it. `shots`
@@ -354,6 +359,10 @@ export function Canvas({
    * empty columns — the same dead space multicol left, reached the other way.
    */
   const cols = Math.max(1, Math.min(fitting, tiles.length));
+  const ordinals = dealOrdinals(
+    tileGroups.map((g) => g.length),
+    cols,
+  ).flat();
 
   return (
     <>
@@ -376,10 +385,14 @@ export function Canvas({
            * right; the newest tile lands in whichever column its ordinal picks.
            * A masonry is scanned by column anyway, and a feed that holds still
            * is worth more than a row that reads in order.
+           *
+           * The one exception is an expanded run: its takes were requested in
+           * an order, and dealOrdinals aligns that group so take 1 is always
+           * the leftmost and the rest follow row-major.
            */
           // biome-ignore lint/suspicious/noArrayIndexKey: the index is the identity here. These are positions, not records: column 2 of 4 is column 2 of 4, and the count is in the key so a resize remounts them rather than reshuffling tiles between surviving columns.
           <div className="sc-feed-col" key={`col-${cols}-${c}`}>
-            {tiles.filter((_, i) => (tiles.length - 1 - i) % cols === c)}
+            {tiles.filter((_, i) => ordinals[i] % cols === c)}
           </div>
         ))}
       </div>

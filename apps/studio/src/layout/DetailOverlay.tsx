@@ -362,7 +362,10 @@ export function DetailOverlay({
               {node.images.map((h, i) => (
                 <button
                   type="button"
-                  key={h}
+                  // index too: a run can hold the same content-addressed image
+                  // twice, and the hash alone then collides as a key
+                  // biome-ignore lint/suspicious/noArrayIndexKey: the run is append-only, so the take index is stable identity; it breaks the tie between duplicate hashes.
+                  key={`${i}:${h}`}
                   className="sc-thumb-btn"
                   onClick={() => onImageIndex(i)}
                   aria-label={`Image ${i + 1}`}

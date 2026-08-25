@@ -50,6 +50,15 @@ describe('byNewest', () => {
     const recent = node({ createdAt: '2026-08-01T00:00:00Z' });
     expect([old, recent].sort(byNewest)).toEqual([recent, old]);
   });
+
+  it('breaks a same-second tie by id, whichever order the rows arrived in', () => {
+    // created_at is second-resolution on the server, so the tiebreak is what
+    // keeps the feed from reshuffling between two loads
+    const a = node({ id: 'node-aaa', createdAt: '2026-08-01T00:00:00Z' });
+    const b = node({ id: 'node-bbb', createdAt: '2026-08-01T00:00:00Z' });
+    expect([a, b].sort(byNewest).map((n) => n.id)).toEqual(['node-bbb', 'node-aaa']);
+    expect([b, a].sort(byNewest).map((n) => n.id)).toEqual(['node-bbb', 'node-aaa']);
+  });
 });
 
 describe('shotSearchText', () => {
