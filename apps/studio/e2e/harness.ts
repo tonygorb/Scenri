@@ -27,7 +27,14 @@ import { fileURLToPath } from 'node:url';
  */
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-const PORT = Number(process.env.SCENRI_E2E_PORT ?? 4757);
+// One port per worker, not one port for the suite. Isolation was never about
+// the port: every file already gets its own empty home and its own server. The
+// port was simply shared, and a shared port is what forced `workers: 1`. This
+// module is evaluated inside the worker process, so TEST_PARALLEL_INDEX is set
+// here, and it is the slot index rather than the worker index, so it stays
+// inside the range the workers actually occupy even across a worker restart.
+const WORKER = Number(process.env.TEST_PARALLEL_INDEX ?? 0);
+const PORT = Number(process.env.SCENRI_E2E_PORT ?? 4757) + WORKER;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const BRAND_NAME = 'E2E Fixture';
@@ -206,8 +213,8 @@ class ScenriFixture {
   }
 
   /**
-   * Every spec file's server takes the same port, so leaving before this one
-   * has actually let go of it hands the next file a race it cannot win. Wait
+   * Every spec file on this worker takes the same port, so leaving before this
+   * one has actually let go of it hands the next a race it cannot win. Wait
    * for the exit, then wait for the port to stop answering, and only then take
    * the library away from underneath it.
    */
@@ -240,6 +247,10 @@ class ScenriFixture {
  */
 export function isolate(opts: SeedOptions = {}): void {
   const fx = new ScenriFixture();
+
+  // The config cannot know which worker will take this file, so the baseURL is
+  // set here instead, where the port is already known.
+  test.use({ baseURL: BASE });
 
   test.beforeAll(async () => {
     test.setTimeout(120_000);

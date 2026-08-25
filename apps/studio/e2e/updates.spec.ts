@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
+import { createServer as createSocket } from 'node:net';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +16,40 @@ import { fileURLToPath } from 'node:url';
  */
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+
+// This spec brings its own servers and its own npm registries rather than using
+// the shared harness, so it has to do the same per-worker port arithmetic. Ten
+// apart, because each fixture takes a pair and this file stands up three.
+//
+// Its hooks also have to ask for their own budget, the way `isolate()` does for
+// every other spec: starting a Scenri is a cold tsx transpile of the whole CLI
+// graph, which is well past the 20s a test gets. On a busy machine that boot
+// crossed 20s and this file's `beforeAll` timed out while the shared harness's
+// identical work did not, purely because the harness asks for 120s and this
+// file never did.
+const SLOT = Number(process.env.TEST_PARALLEL_INDEX ?? 0) * 20;
+
+/**
+ * A port nothing else is holding, at or just above the preferred one, and
+ * always inside this worker's own lane so two workers cannot walk into each
+ * other.
+ *
+ * Preferring a fixed number is not enough on a developer machine. A stray
+ * `python -m http.server` orphaned days earlier was found squatting one of
+ * these, and because it answers GET it satisfied the readiness poll and then
+ * answered the seed POST with 501: a fixture that looked up but was not ours.
+ */
+async function freePort(preferred: number, span = 16): Promise<number> {
+  for (let port = preferred; port < preferred + span; port++) {
+    const free = await new Promise<boolean>((resolve) => {
+      const probe = createSocket();
+      probe.once('error', () => resolve(false));
+      probe.listen(port, '127.0.0.1', () => probe.close(() => resolve(true)));
+    });
+    if (free) return port;
+  }
+  throw new Error(`no free port in ${preferred}..${preferred + span - 1}`);
+}
 
 class Fixture {
   server!: ChildProcess;
@@ -38,6 +73,8 @@ class Fixture {
   }
 
   async start(): Promise<void> {
+    this.regPort = await freePort(this.regPort);
+    this.port = await freePort(this.port);
     this.registry = createServer((req, res) => {
       if (this.down) {
         res.statusCode = 500;
@@ -78,15 +115,25 @@ class Fixture {
         ...this.extraEnv,
       },
     });
-    // up when /api/version answers
+    // up when /api/version answers, and answers as *us*. `serve` adopts a port
+    // another Scenri already holds rather than failing, and anything else that
+    // answers GET satisfies a bare readiness poll, so the home is the proof.
+    let serving: string | undefined;
     for (let i = 0; i < 100; i++) {
       try {
         const r = await fetch(`${this.base()}/api/version`);
-        if (r.ok) break;
+        if (r.ok) {
+          serving = ((await r.json()) as { home?: string }).home;
+          break;
+        }
       } catch {
         /* not yet */
       }
       await new Promise((r) => setTimeout(r, 300));
+    }
+    if (serving === undefined) throw new Error(`Scenri never answered on ${this.base()}`);
+    if (serving !== this.home) {
+      throw new Error(`${this.base()} is serving ${serving}, not ${this.home} — something else holds the port`);
     }
     const made = await fetch(`${this.base()}/api/brands`, {
       method: 'POST',
@@ -131,11 +178,13 @@ const aboutRows = (p: Page) => p.locator('.sc-set .sc-set-row');
 
 test.describe
   .serial('an update is available', () => {
-    const fx = new Fixture(4767, 4768, '0.99.0');
+    const fx = new Fixture(4767 + SLOT, 4768 + SLOT, '0.99.0');
     test.beforeAll(async () => {
+      test.setTimeout(120_000);
       await fx.start();
     });
     test.afterAll(async () => {
+      test.setTimeout(30_000);
       await fx.stop();
     });
 
@@ -222,11 +271,13 @@ test.describe
     // The tester's exact dead button: with the kill switch set, clicking
     // "Check for updates" used to be swallowed server-side and change nothing
     // on screen. The switch silences the cadence, never the person.
-    const fx = new Fixture(4771, 4772, '0.0.1', { SCENRI_NO_UPDATE_CHECK: '1' });
+    const fx = new Fixture(4771 + SLOT, 4772 + SLOT, '0.0.1', { SCENRI_NO_UPDATE_CHECK: '1' });
     test.beforeAll(async () => {
+      test.setTimeout(120_000);
       await fx.start();
     });
     test.afterAll(async () => {
+      test.setTimeout(30_000);
       await fx.stop();
     });
 
@@ -243,12 +294,14 @@ test.describe
 
 test.describe
   .serial('the registry cannot be reached', () => {
-    const fx = new Fixture(4769, 4770, '0.99.0');
+    const fx = new Fixture(4769 + SLOT, 4770 + SLOT, '0.99.0');
     test.beforeAll(async () => {
+      test.setTimeout(120_000);
       fx.down = true;
       await fx.start();
     });
     test.afterAll(async () => {
+      test.setTimeout(30_000);
       await fx.stop();
     });
 
