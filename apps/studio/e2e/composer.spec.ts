@@ -1680,3 +1680,96 @@ test('the refine composer states what it is carrying before the send', async ({ 
   await expect(composer.locator('.sc-carried-chip').first()).toContainText('Cold brew can');
   await expect(composer.locator('.sc-carried-chip[data-kind="mark"]')).toContainText('Acme wordmark');
 });
+
+test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {
+  // prose alone: the line's height at exactly one row of its own strut
+  await line(page).click();
+  await page.keyboard.type('hero shot on marble ');
+  const bare = (await line(page).boundingBox())!.height;
+
+  // insert the chip: the row must not grow — the chip fits INSIDE the strut.
+  // Before the metric fix the chip's synthesized baseline was its bottom edge
+  // (no flex item participated in baseline alignment), so every chip rode
+  // above the text baseline and stretched its row.
+  await plusMenu(page, /products/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(1);
+  const withChip = (await line(page).boundingBox())!.height;
+  expect(Math.abs(withChip - bare)).toBeLessThanOrEqual(0.6);
+
+  // chip label and neighbouring prose share a midline on the same row
+  const mid = await line(page).evaluate((el) => {
+    const chip = el.querySelector('.sc-token') as HTMLElement;
+    const label = Array.from(chip.childNodes).find((n) => n.nodeType === Node.TEXT_NODE) as Text;
+    const lr = document.createRange();
+    lr.selectNodeContents(label);
+    const labelRect = lr.getBoundingClientRect();
+    const prose = Array.from(el.childNodes).find(
+      (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim().length > 3,
+    ) as Text;
+    const pr = document.createRange();
+    pr.setStart(prose, 1);
+    pr.setEnd(prose, Math.min(6, (prose.textContent ?? '').length));
+    const proseRect = pr.getBoundingClientRect();
+    return { label: labelRect.top + labelRect.height / 2, prose: proseRect.top + proseRect.height / 2 };
+  });
+  expect(Math.abs(mid.label - mid.prose)).toBeLessThanOrEqual(2);
+
+  // wrapped: more prose pushes to a second row of exactly one more strut
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' in the golden hour with a long clean shadow across the marble slab');
+  const wrapped = (await line(page).boundingBox())!.height;
+  const strut = await line(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize) * 1.6);
+  const grown = wrapped - bare;
+  expect(grown).toBeGreaterThan(0);
+  expect(Math.abs(grown % strut)).toBeLessThanOrEqual(1);
+});
+
+test('the drag ghost is calm, honest about size, and never covers the caret', async ({ page }) => {
+  await seedReorder(page);
+  const chip = chips(page).first();
+  const before = (await chip.boundingBox())!;
+
+  // drag left, into the prose, where an insertion point exists
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(before.x + before.width / 2 - 60, before.y + before.height / 2, { steps: 6 });
+  // let the carry ramp land
+  await page.waitForTimeout(260);
+  await page.mouse.move(before.x + before.width / 2 - 90, before.y + before.height / 2, { steps: 4 });
+  await page.waitForTimeout(120);
+
+  const ghost = page.locator('.sc-chip-ghost');
+  await expect(ghost).toBeVisible();
+  const gbox = (await ghost.boundingBox())!;
+  // preserved size: no scale jump
+  expect(Math.abs(gbox.width - before.width)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(gbox.height - before.height)).toBeLessThanOrEqual(1.5);
+  const style = await ghost.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { transform: cs.transform, opacity: cs.opacity, fontSize: cs.fontSize };
+  });
+  // translate-only: matrix(1, 0, 0, 1, x, y)
+  expect(style.transform).toMatch(/^matrix\(1, 0, 0, 1, /);
+  expect(Number(style.opacity)).toBeCloseTo(0.85, 1);
+  // the em metrics survived the move to <body>
+  expect(style.fontSize).toBe(await chip.evaluate((el) => getComputedStyle(el).fontSize));
+
+  // the insertion caret is never under the ghost
+  const caret = page.locator('.sc-drop-caret');
+  await expect(caret).toBeVisible();
+  const cbox = (await caret.boundingBox())!;
+  const overlap =
+    cbox.x < gbox.x + gbox.width && cbox.x + cbox.width > gbox.x && cbox.y < gbox.y + gbox.height && cbox.y + cbox.height > gbox.y;
+  expect(overlap).toBe(false);
+
+  // the source chip holds its exact box as a slot: zero reflow
+  const during = (await chip.boundingBox())!;
+  expect(during.x).toBe(before.x);
+  expect(during.width).toBe(before.width);
+
+  await page.keyboard.press('Escape');
+  await expect(ghost).toHaveCount(0);
+});

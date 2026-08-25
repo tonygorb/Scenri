@@ -18,9 +18,15 @@ import { caretBeside, chipAt, dropUnitsAt, moveAnnouncement, moveChipToUnits } f
  * surface already scrolls, so the touch path is the chip sheet's Move buttons.
  *
  * Sortable-list neighbor displacement (chips sliding apart to open a gap) is
- * deliberately rejected: chips are inline atoms flowing WITH the prose, so
- * animating them apart would reflow the sentence being edited. The animated
- * insertion caret is the text-editor convention, and this is a text editor.
+ * deliberately rejected, and so is any in-flow spacer standing in for a gap:
+ * chips are inline atoms flowing WITH the prose, so anything that takes
+ * inline space reflows the sentence being edited, mid-drag, under the
+ * pointer. Gap-opening is the convention for homogeneous chip LISTS; the
+ * animated insertion caret is the convention for inline token editors
+ * (ProseMirror's dropcursor, mail clients' recipient fields), and this is a
+ * text editor. The occlusion problem is solved at the ghost instead: it eases
+ * to a trailing offset below-right of the pointer so it can never cover the
+ * caret it is aiming at.
  */
 export function attachChipDrag(
   root: HTMLElement,
@@ -40,8 +46,14 @@ export function attachChipDrag(
   let indicator: HTMLElement | null = null;
   let lastDrop: { units: number; noop: boolean } | null = null;
   let grab = { dx: 0, dy: 0 };
+  let ghostSize = { w: 0, h: 0 };
+  let carryStart = 0;
+  let lastPointer = { x: 0, y: 0 };
   let raf = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  /** Where the ghost rides once the carry ramp lands: clear of the caret. */
+  const CARRY = { x: 12, y: 16 };
+  const CARRY_MS = 160;
 
   /** The inline positioning contract: this element can never affect layout. */
   const fixInPlace = (el: HTMLElement) => {
@@ -129,6 +141,13 @@ export function attachChipDrag(
     fixInPlace(ghost);
     ghost.style.width = `${r.width}px`;
     ghost.style.height = `${r.height}px`;
+    // Chip metrics are em against the line's font; on <body> they would
+    // resolve against the page font and the ghost would change size and
+    // ellipsis point mid-air. Freeze the computed value inline — the same
+    // contract as the positioning above.
+    ghost.style.fontSize = getComputedStyle(dragging).fontSize;
+    ghostSize = { w: r.width, h: r.height };
+    carryStart = performance.now();
     document.body.appendChild(ghost);
 
     indicator = document.createElement('div');
@@ -139,10 +158,28 @@ export function attachChipDrag(
     follow(e);
   };
 
-  const follow = (e: PointerEvent) => {
+  const follow = (e: { clientX: number; clientY: number }) => {
     if (!ghost || !dragging) return;
-    const lift = reducedMotion.matches ? '' : ' scale(1.03) rotate(1.5deg)';
-    ghost.style.transform = `translate3d(${e.clientX - grab.dx}px, ${e.clientY - grab.dy}px, 0)${lift}`;
+    lastPointer = { x: e.clientX, y: e.clientY };
+    /*
+     * The ghost spawns grab-anchored so pickup never jumps, then eases to a
+     * trailing hotspot below-right of the pointer so the insertion caret —
+     * which lives at the pointer's own x, spanning its row — is never under
+     * it. Presentational only: the drop still resolves at the raw pointer.
+     */
+    const t = reducedMotion.matches ? 1 : Math.min(1, (performance.now() - carryStart) / CARRY_MS);
+    const ease = 1 - (1 - t) * (1 - t);
+    const x = e.clientX - grab.dx + ease * (grab.dx + CARRY.x);
+    const y = e.clientY - grab.dy + ease * (grab.dy + CARRY.y);
+    // clamped to the viewport: the no-scrollbar guarantee includes the carry
+    const cx = Math.min(Math.max(4, x), window.innerWidth - ghostSize.w - 4);
+    const cy = Math.min(Math.max(4, y), window.innerHeight - ghostSize.h - 4);
+    ghost.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
+    // keep the ramp running even while the pointer rests
+    if (t < 1) {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => follow({ clientX: lastPointer.x, clientY: lastPointer.y }));
+    }
     const drop = dropUnitsAt(root, dragging, e.clientX, e.clientY);
     lastDrop = drop;
     if (!indicator) return;
@@ -152,8 +189,8 @@ export function attachChipDrag(
       return;
     }
     indicator.style.display = '';
-    indicator.style.transform = `translate3d(${rect.left - 1}px, ${rect.top}px, 0)`;
-    indicator.style.height = `${rect.height}px`;
+    indicator.style.transform = `translate3d(${rect.left - 1.5}px, ${rect.top - 2}px, 0)`;
+    indicator.style.height = `${rect.height + 4}px`;
   };
 
   const onPointerMove = (e: PointerEvent) => {
@@ -165,7 +202,8 @@ export function attachChipDrag(
     if (!dragging) return;
     e.preventDefault();
     cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => follow(e));
+    const { clientX, clientY } = e;
+    raf = requestAnimationFrame(() => follow({ clientX, clientY }));
   };
 
   const onPointerUp = (e: PointerEvent) => {
