@@ -6,47 +6,43 @@
 .sc-menu {
   width: 268px;
   padding: 6px;
+  /* a library of test brands must scroll, not run off the screen */
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
 }
-/* Off above 1024px, where the chip already carries the name and repeating it
-   8px below the thing you just clicked is the exact furniture the switcher list
-   avoids by listing only the other brands. Below that the trigger is a bare
-   mark, and this is the answer to "which one am I in". */
-.sc-menu-head {
-  display: none;
-  align-items: center;
-  gap: 11px;
-  padding: 8px 10px 10px;
+/* Every brand is a row, the current one checked. The old design listed only
+   the *other* brands with a display-only header for the current one, which
+   with a single brand left "Set up a brand" as the block's only clickable row
+   — one stray click from a duplicate workspace. */
+.sc-menu-brand-lb {
+  flex: 1;
   min-width: 0;
-}
-@media (max-width: 1023px) {
-  .sc-menu-head {
-    display: flex;
-    /* the hairline the removed Brand kit row used to put here: without it the
-       brand you are in and the brands you could switch to read as one list */
-    border-bottom: 1px solid var(--sc-line);
-    margin-bottom: 5px;
-  }
-}
-.sc-menu-head-txt {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: 1px;
   text-align: left;
 }
-.sc-menu-name {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--sc-fg);
-  line-height: 1.25;
+.sc-menu-brand-lb > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sc-menu-sub {
-  font-size: 11.5px;
+/* The slug line, shown only when two brands share a display name: the slug is
+   the URL, and the only visible difference between them. Quiet on purpose —
+   it is a disambiguator, not a second label. */
+.sc-menu-brand-sub {
+  font-size: 11px;
   line-height: 1.2;
-  color: var(--sc-fg2);
+  color: var(--sc-fg3);
+}
+.sc-menu-item[data-two-line] {
+  height: auto;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.sc-menu-check {
+  flex: none;
+  color: var(--sc-fg);
 }
 
 .sc-menu-sep {

@@ -564,7 +564,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     nodeId: string,
     engine: EngineAdapter,
     estimate: number,
-    work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number }>,
+    work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number; raw?: unknown }>,
     expect?: { width: number; height: number },
     /**
      * Runs over the engine's answer before anything is stored. Expansion uses
@@ -605,7 +605,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         const node = core.store.getNode(nodeId);
         if (node && sizes.length) {
           const brief = (node.brief as object | null) ?? {};
-          core.store.setBrief(nodeId, { ...brief, rendered: { sizes } });
+          // A partial codex batch reports which requested slots its surviving
+          // images came from; recorded here, next to the sizes, so "the run
+          // opens on variant 3" is at least a written fact instead of a mystery.
+          const raw = result.raw as { requested?: number; variantIndexes?: number[] } | undefined;
+          const survivors =
+            typeof raw?.requested === 'number' && Array.isArray(raw.variantIndexes)
+              ? { requested: raw.requested, variantIndexes: raw.variantIndexes }
+              : {};
+          core.store.setBrief(nodeId, { ...brief, rendered: { sizes, ...survivors } });
         }
       } catch {
         /* the record is a convenience; failing to write it must not fail the run */

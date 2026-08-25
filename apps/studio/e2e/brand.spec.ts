@@ -387,4 +387,79 @@ test.describe('brand kit', () => {
     await expect(page).toHaveURL(/[?&]vertical=/);
     await expect(page.locator('.sc-coll').first()).toBeVisible();
   });
+
+  test('the brand marks are on the attach panel All view, and a dropped mark flags its chip', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.evaluate(async (id) => {
+      const png = Uint8Array.from(
+        atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='),
+        (c) => c.charCodeAt(0),
+      );
+      const fd = new FormData();
+      fd.append('file', new Blob([png], { type: 'image/png' }), 'logo.png');
+      await fetch(`/api/brands/${id}/logos`, { method: 'POST', body: fd });
+    }, brand.id);
+
+    await page.goto(`/${brand.slug}/create?compose=1`);
+    await page.locator('.sc-attach-toggle').first().click();
+    // On the default All view, not only behind the Brand tab: the group is
+    // there with the mark in it. ("Brand colors" is a different group, so the
+    // anchor is the mark card's own label.)
+    const brandGroup = page.locator('.sc-ap-group', { hasText: 'E2E Fixture logo' });
+    await expect(brandGroup).toBeVisible();
+    await brandGroup.locator('.sc-ap-card', { hasText: 'E2E Fixture logo' }).click();
+
+    // The demo engine reads no references, and the chip says so instead of
+    // silently riding along as decoration that never arrives.
+    const markChip = page.locator('.sc-brief-line .sc-token[data-kind="mark"]');
+    await expect(markChip).toHaveCount(1);
+    await expect(markChip).toHaveAttribute('data-warn', '1');
+    await expect(markChip).toHaveAttribute('title', /cannot read the brand mark/);
+  });
+});
+
+test.describe('one brand stays one brand', () => {
+  test('selecting the brand you are already in changes nothing', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.locator('.sc-org-btn').click();
+    const row = page.locator('.sc-menu-item[data-current]');
+    await expect(row).toContainText('E2E Fixture');
+    await expect(row.locator('.sc-menu-check')).toBeVisible();
+
+    const before = page.url();
+    await row.click();
+    // the menu closes, and that is the entire event
+    await expect(page.locator('.sc-menu-item')).toHaveCount(0);
+    expect(page.url()).toBe(before);
+    expect((await api(page, '/api/brands')) as any[]).toHaveLength(1);
+    expect(((await api(page, '/api/brands')) as any[])[0].slug).toBe(brand.slug);
+  });
+
+  test('setup warns before minting a duplicate, and creating anyway stays one deliberate click', async ({ page }) => {
+    const brand = await currentBrand(page);
+
+    // Sloppy spelling of the existing name still counts as the same brand.
+    await page.goto('/setup');
+    await page.getByRole('button', { name: 'Start from scratch instead' }).click();
+    await page.locator('#sc-wiz-name').fill('e2e  FIXTURE');
+    await page.getByRole('button', { name: 'Create it' }).click();
+    await expect(page.getByText('You already have')).toBeVisible();
+    await page.getByRole('button', { name: 'Open E2E Fixture instead' }).click();
+    await page.waitForURL((u) => u.pathname === `/${brand.slug}`);
+    expect((await api(page, '/api/brands')) as any[]).toHaveLength(1);
+
+    // The warned path is a speed bump, not a wall.
+    await page.goto('/setup');
+    await page.getByRole('button', { name: 'Start from scratch instead' }).click();
+    await page.locator('#sc-wiz-name').fill('E2E Fixture');
+    await page.getByRole('button', { name: 'Create it' }).click();
+    await page.getByRole('button', { name: 'Create anyway' }).click();
+    await page.waitForURL((u) => u.pathname === `/${brand.slug}-2`);
+    expect((await api(page, '/api/brands')) as any[]).toHaveLength(2);
+
+    // Two brands, one display name: the menu tells them apart by slug.
+    await page.locator('.sc-org-btn').click();
+    await expect(page.locator('.sc-menu-item[data-two-line]')).toHaveCount(2);
+    await expect(page.locator('.sc-menu-brand-sub').first()).toContainText(brand.slug);
+  });
 });

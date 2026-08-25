@@ -1,5 +1,6 @@
 import type { EngineCapabilities, Core } from '@scenri/core';
 import { composePrompt, type Scene } from './scenes.js';
+import { allocateAttachments } from './attachmentBudget.js';
 import type { EditScope } from './editScopeRules.js';
 export {
   brandRuleDirectives,
@@ -502,38 +503,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
 
   // Attachments are useless past what the engine will actually read.
   //
-  // Order matters: the clamp below slices by position, and position used to be
-  // whatever order the user happened to drop chips into the sentence. That
-  // meant a "[presenter] [product]" brief on a low-cap engine kept two face
-  // shots and threw the PRODUCT away — silently generating the wrong object.
-  // Identity beats inspiration, always: product first, then character, then
-  // plain style references, which are the only ones safe to lose.
-  // Identity before context before direction before taste. Under a tight engine
-  // cap what survives is what the image would be *wrong* without: the product,
-  // then the person. A style reference is the first thing worth losing.
-  const ROLE_PRIORITY: Record<Attachment['role'], number> = {
-    product: 0,
-    character: 1,
-    brand: 2,
-    scene: 3,
-    composition: 4,
-    reference: 5,
-    style: 6,
-  };
-  const ordered = attachments
-    .map((a, i) => ({ a, i }))
-    .sort(
-      (x, y) =>
-        // Essential identity first, so a tight cap sheds extra product angles
-        // and style references before it sheds a subject entirely.
-        Number(!!y.a.essential) - Number(!!x.a.essential) ||
-        ROLE_PRIORITY[x.a.role] - ROLE_PRIORITY[y.a.role] ||
-        x.i - y.i,
-    )
-    .map((x) => x.a);
+  // The budget lives in attachmentBudget.ts: essentials board first, then every
+  // distinct attached thing gets one slot before any product or presenter gets
+  // a corroboration angle, then leftovers. This is what stops a second product
+  // angle evicting the reference or brand mark the user attached by hand.
   const max = ctx.engineCaps.maxReferenceImages;
-  const kept = ordered.slice(0, Math.max(0, max));
-  const dropped = ordered.slice(kept.length);
+  const { kept, dropped } = allocateAttachments(attachments, max);
   if (dropped.length) {
     // By label, not by attachment: a product contributes several angles, and
     // naming it once per dropped angle reads as three different products

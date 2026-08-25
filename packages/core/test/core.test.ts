@@ -151,6 +151,31 @@ describe('version tree', () => {
     expect(core.store.getNode(g.id)!.archived).toBe(false);
   });
 
+  it('treeFor breaks a same-second created_at tie by id, deterministically', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    // all inserted inside one wall-clock second, which is exactly the case
+    // SQLite was free to return in a different order on every read
+    const made = Array.from({ length: 6 }, (_, i) =>
+      core.store.addNode({
+        projectId: project.id,
+        parentId: root.id,
+        kind: 'generation',
+        prompt: `shot ${i}`,
+        engineId: 'demo',
+      }),
+    );
+    const got = core.store
+      .treeFor(project.id)
+      .filter((n) => n.kind !== 'root')
+      .map((n) => n.id);
+    const expected = made
+      .map((n) => core.store.getNode(n.id)!)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || (a.id < b.id ? -1 : 1))
+      .map((n) => n.id);
+    expect(got).toEqual(expected);
+  });
+
   it('archives and restores a node without deleting it, independent of kept', () => {
     const b = core.store.createBrand(brandJson as any);
     const { project, root } = core.store.createProject(b.id, 'p');

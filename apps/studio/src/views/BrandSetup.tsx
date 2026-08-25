@@ -6,6 +6,8 @@ import { api, assetUrl, type Brand } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { brandPath } from '../routes.js';
 import { flattenPalette } from '../brand/palette.js';
+import { brandName } from '../layout/nav.js';
+import { duplicateOf } from './brandDupes.js';
 
 /**
  * First run: name the brand, or hand over a website and let the scrape do it.
@@ -32,6 +34,12 @@ export function BrandSetup() {
   const [err, setErr] = useState<string | null>(null);
   /** Only ever set for the moment between "created" and "navigated". */
   const [made, setMade] = useState<Brand | null>(null);
+  /**
+   * The brand this input would duplicate, when one exists. Creating it anyway
+   * is allowed — the second click says so — but never by accident: this is
+   * the guard on the path that minted the phantom "theia-2" workspace.
+   */
+  const [dupe, setDupe] = useState<Brand | null>(null);
 
   const land = async (b: Brand) => {
     setMade(b);
@@ -39,7 +47,14 @@ export function BrandSetup() {
     navigate(brandPath(b), { replace: true });
   };
 
-  const buildFromUrl = async () => {
+  const buildFromUrl = async (force = false) => {
+    if (!force) {
+      const existing = duplicateOf(brands, { url: url.trim() });
+      if (existing) {
+        setDupe(existing);
+        return;
+      }
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -60,7 +75,14 @@ export function BrandSetup() {
     }
   };
 
-  const buildFromScratch = async () => {
+  const buildFromScratch = async (force = false) => {
+    if (!force) {
+      const existing = duplicateOf(brands, { name: scratchName });
+      if (existing) {
+        setDupe(existing);
+        return;
+      }
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -107,7 +129,10 @@ export function BrandSetup() {
                 className="sc-in"
                 placeholder="acme.com"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setDupe(null);
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && url.trim() && !busy && void buildFromUrl()}
               />
               <p className="sc-wiz-hint">We only read public pages. Nothing leaves this machine.</p>
@@ -127,7 +152,14 @@ export function BrandSetup() {
                   )}
                 </button>
                 <div>
-                  <button type="button" className="sc-wiz-skip" onClick={() => setScratch(true)}>
+                  <button
+                    type="button"
+                    className="sc-wiz-skip"
+                    onClick={() => {
+                      setScratch(true);
+                      setDupe(null);
+                    }}
+                  >
                     Start from scratch instead
                   </button>
                 </div>
@@ -141,7 +173,10 @@ export function BrandSetup() {
                 className="sc-in"
                 placeholder="Brand name"
                 value={scratchName}
-                onChange={(e) => setScratchName(e.target.value)}
+                onChange={(e) => {
+                  setScratchName(e.target.value);
+                  setDupe(null);
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && scratchName.trim() && !busy && void buildFromScratch()}
               />
               <div style={{ textAlign: 'center' }}>
@@ -160,12 +195,41 @@ export function BrandSetup() {
                   )}
                 </button>
                 <div>
-                  <button type="button" className="sc-wiz-skip" onClick={() => setScratch(false)}>
+                  <button
+                    type="button"
+                    className="sc-wiz-skip"
+                    onClick={() => {
+                      setScratch(false);
+                      setDupe(null);
+                    }}
+                  >
                     Build from a website instead
                   </button>
                 </div>
               </div>
             </>
+          )}
+          {dupe && (
+            <Callout.Root color="amber" mt="3" size="1">
+              <Callout.Text>
+                You already have {brandName(dupe)}. Creating another makes a second workspace with its own address.
+              </Callout.Text>
+              <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
+                <button type="button" className="sc-wiz-cta" onClick={() => navigate(brandPath(dupe))}>
+                  Open {brandName(dupe)} instead
+                </button>
+                <button
+                  type="button"
+                  className="sc-wiz-skip"
+                  onClick={() => {
+                    setDupe(null);
+                    void (scratch ? buildFromScratch(true) : buildFromUrl(true));
+                  }}
+                >
+                  Create anyway
+                </button>
+              </div>
+            </Callout.Root>
           )}
           {err && (
             <Callout.Root color="red" mt="3" size="1">

@@ -1218,3 +1218,54 @@ test('paste of a sigil does not open the menu', async ({ page }) => {
   await expect(page.locator('.sc-cmd')).toHaveCount(0);
   expect(await sentence(page)).toContain('@marco');
 });
+
+test('an opened run reads its takes in request order, wherever completion landed them', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
+  const slug = decodeURIComponent(new URL(page.url()).pathname.split('/')[1]);
+
+  // A real four-take demo run through the real API.
+  const made = await page.evaluate(async () => {
+    const brands = await (await fetch('/api/brands')).json();
+    const ws = await (await fetch(`/api/brands/${brands[0].id}/workspace`)).json();
+    const r = await fetch('/api/nodes', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectId: ws.project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        count: 4,
+        prompt: 'four takes in order',
+        width: 512,
+        height: 512,
+      }),
+    });
+    return (await r.json()).id as string;
+  });
+  await expect
+    .poll(() => page.evaluate(async (id) => (await (await fetch(`/api/nodes/${id}`)).json()).status, made))
+    .toBe('done');
+
+  await page.goto(`/${slug}/create`);
+  const runCell = page.locator(`.sc-cell[data-fb-node="${made}"]`).first();
+  await runCell.hover();
+  await runCell.getByRole('button', { name: 'Show all 4 variants' }).click();
+
+  const takes = page.locator(`.sc-cell[data-fb-node="${made}"][data-variant]`);
+  await expect(takes).toHaveCount(4);
+  // Visual reading order — top row left to right, then the next row — must be
+  // take 1, 2, 3, 4. The old deal handed the run out counted from its far end,
+  // so a four-take run opened reading 3, 2, 1.
+  const placed: { i: number; x: number; y: number }[] = [];
+  for (let i = 0; i < 4; i++) {
+    const box = await page.locator(`.sc-cell[data-fb-node="${made}"][data-fb-variant="${i}"]`).boundingBox();
+    if (!box) throw new Error(`take ${i} has no box`);
+    placed.push({ i, x: box.x, y: box.y });
+  }
+  const reading = [...placed].sort((a, b) => a.y - b.y || a.x - b.x).map((p) => p.i);
+  expect(reading).toEqual([0, 1, 2, 3]);
+});

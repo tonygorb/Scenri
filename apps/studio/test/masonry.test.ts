@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GAP, TILE_DEFAULT, TILE_STOPS, masonryLayout, nearestTileStop } from '../src/layout/masonry.js';
+import { dealOrdinals, GAP, TILE_DEFAULT, TILE_STOPS, masonryLayout, nearestTileStop } from '../src/layout/masonry.js';
 
 describe('nearestTileStop', () => {
   it('leaves a stop alone', () => {
@@ -60,5 +60,41 @@ describe('the tile stops earn their place', () => {
         expect(width - used).toBeLessThan(out.cols);
       }
     }
+  });
+});
+
+describe('dealOrdinals', () => {
+  // groups are newest-first, matching the feed; a tile's column is ordinal % cols
+  it('reproduces the classic far-end deal for all-singleton groups', () => {
+    expect(dealOrdinals([1, 1, 1, 1], 3).flat()).toEqual([3, 2, 1, 0]);
+  });
+
+  it('reads an expanded run left to right from column 0', () => {
+    const [run] = dealOrdinals([4], 3);
+    expect(run).toEqual([0, 1, 2, 3]);
+    // take 1 owns the leftmost column; take 4 wraps back under it
+    expect(run.map((o) => o % 3)).toEqual([0, 1, 2, 0]);
+  });
+
+  it('aligns a mid-feed run to a column boundary on both sides', () => {
+    // newest single, a 4-take run, then two older singles, over 3 columns
+    const ords = dealOrdinals([1, 4, 1, 1], 3);
+    expect(ords[3]).toEqual([0]);
+    expect(ords[2]).toEqual([1]);
+    expect(ords[1]).toEqual([3, 4, 5, 6]);
+    expect(ords[1].map((o) => o % 3)).toEqual([0, 1, 2, 0]);
+    expect(ords[0]).toEqual([9]);
+  });
+
+  it('a prepend renumbers nothing that already exists', () => {
+    const before = dealOrdinals([4, 1, 1], 3);
+    const after = dealOrdinals([1, 4, 1, 1], 3);
+    expect(after.slice(1)).toEqual(before);
+  });
+
+  it('hands out unique, non-negative ordinals whatever the mix', () => {
+    const flat = dealOrdinals([2, 5, 1, 3, 1], 4).flat();
+    expect(new Set(flat).size).toBe(flat.length);
+    for (const o of flat) expect(o).toBeGreaterThanOrEqual(0);
   });
 });

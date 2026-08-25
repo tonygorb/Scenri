@@ -198,7 +198,18 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       } finally {
         signal?.removeEventListener('abort', onOuterAbort);
       }
-      const images = results.filter(Boolean).flat();
+      // Walk the slots in request order and remember which slot each surviving
+      // image came from. filter(Boolean).flat() used to compact the holes away,
+      // so when variants 1 and 2 failed the run opened on an image whose own
+      // prompt said "variant 3" with nothing anywhere recording the loss.
+      const images: string[] = [];
+      const variantIndexes: number[] = [];
+      for (const [i, slot] of results.entries()) {
+        for (const hash of slot ?? []) {
+          images.push(hash);
+          variantIndexes.push(i);
+        }
+      }
       // A fatal setup error is the reason whatever else happened around it;
       // otherwise, with nothing to keep, the first failure is the reason.
       if (!images.length && failures.length) throw fatal ?? failures[0];
@@ -209,7 +220,11 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         return {
           images,
           costUsd: 0,
-          raw: { requested: count, partialFailures: failures.map((f) => String((f as Error)?.message ?? f)) },
+          raw: {
+            requested: count,
+            variantIndexes,
+            partialFailures: failures.map((f) => String((f as Error)?.message ?? f)),
+          },
         };
       }
       return { images, costUsd: 0 };

@@ -74,8 +74,11 @@ export function countLenses(
   };
 }
 
-/** Newest first — the ordering the feed has always used. */
-export const byNewest = (a: TreeNode, b: TreeNode): number => b.createdAt.localeCompare(a.createdAt);
+/** Newest first — the ordering the feed has always used. The id tiebreak
+ * matches the server's own (`ORDER BY created_at, id`), so two shots created
+ * in the same second land in one agreed order on every surface. */
+export const byNewest = (a: TreeNode, b: TreeNode): number =>
+  b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id);
 
 /**
  * How a haystack builder turns brief-token ids into searchable display names.

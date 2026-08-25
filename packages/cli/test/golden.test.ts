@@ -207,7 +207,7 @@ describe('golden: identity is never lost or confused', () => {
     expect(r.warnings.join(' ')).toMatch(/Marco/);
   });
 
-  it('6. product + scene + custom reference — the inspiration image cannot outrank identity', () => {
+  it('6. product + scene + custom reference — identity boards first, then the reference beats a spare angle', () => {
     const r = compile(
       [
         { t: 'ref', imageHash: inspoHash },
@@ -216,8 +216,13 @@ describe('golden: identity is never lost or confused', () => {
       ],
       3,
     );
-    expect(roles(r).every((x) => x === 'product')).toBe(true);
-    expect(r.dropped.map((d) => d.role)).toEqual(['reference']);
+    // The identity-carrying product shot is untouchable, and corroboration
+    // still fills spare room — but the image the user attached BY HAND takes
+    // a seat before the product's third angle. It used to be evicted by it,
+    // which read as the app accepting an attachment and ignoring it.
+    expect(r.attachments[0]).toMatchObject({ role: 'product', essential: true });
+    expect(roles(r)).toEqual(['product', 'product', 'reference']);
+    expect(r.dropped.map((d) => d.role)).toEqual(['product']);
     expect(r.dropped.filter((d) => d.essential)).toEqual([]);
   });
 

@@ -192,6 +192,41 @@ describe('generate', () => {
     expect(result.images.slice().sort()).toEqual(['hash-1', 'hash-2']); // parallel workers — arrival order varies
   });
 
+  it('keeps request order when variants complete out of order', async () => {
+    const { spawnImpl } = fakeSpawn(({ args, child }) => {
+      const second = child.stdin.written.includes('variant 2');
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), second ? PNG_2 : PNG_1);
+      // variant 1 finishes LAST; the slot array must not care
+      setTimeout(() => child.emit('exit', 0, null), second ? 0 : 30);
+    });
+    const saveImage = newSaveImage();
+    const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
+    const result = await engine.generate(genReq); // count: 2
+
+    // hash-1 was minted for the buffer that ARRIVED first — variant 2's
+    expect(saveImage.mock.calls[0][0]).toEqual(PNG_2);
+    // ...and the result still reads variant 1, variant 2, by requested slot
+    expect(result.images).toEqual(['hash-2', 'hash-1']);
+  });
+
+  it('records which requested slots survived a partial failure', async () => {
+    const { spawnImpl } = fakeSpawn(({ args, child }) => {
+      // variant 1's prompt carries no variant marker; it is the one that dies
+      if (!child.stdin.written.includes('variant')) {
+        child.emit('exit', 1, null);
+        return;
+      }
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    const result = await engine.generate({ ...genReq, count: 3 });
+
+    expect(result.images).toHaveLength(2);
+    // 0-based requested slots: the survivors are variants 2 and 3
+    expect(result.raw).toMatchObject({ requested: 3, variantIndexes: [1, 2] });
+  });
+
   // The adapter deliberately says nothing about the brand: compileBrief owns
   // every brand directive now, so what the composer previews is byte-for-byte
   // what the engine receives — and an off-brand shot stays off-brand, which it

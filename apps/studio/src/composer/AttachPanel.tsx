@@ -182,7 +182,9 @@ export function AttachPanel({
   const match = (c: Card) => matchesQuery(`${c.label} ${c.sub ?? ''} ${c.search ?? ''}`, q);
   const inTab = (c: Card) => tab === 'All' || c.tab === tab;
   const shown = cards.filter((c) => inTab(c) && match(c));
-  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Colors', 'Shots'];
+  // Brand sits with the other identity-ish groups: it was missing here, which
+  // made the marks reachable only by knowing to click the Brand tab.
+  const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Brand', 'Colors', 'Shots'];
 
   const card = (c: Card) => (
     <button

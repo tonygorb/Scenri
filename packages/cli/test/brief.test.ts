@@ -367,9 +367,10 @@ describe('brand mark token', () => {
     expect(r.warnings).toEqual(['A brand mark in this brief is no longer in the kit.']);
   });
 
-  // The mark is decoration, not identity: under a tight cap it must lose to the
-  // product it is meant to sit beside, and losing it must never refuse the shot.
-  it('is dropped before any product angle when the engine cap bites', () => {
+  // The mark loses to the product's identity-carrying shot, never to its spare
+  // angles: the user attached the mark by hand, so it boards before any
+  // corroboration image — and losing it must still never refuse the shot.
+  it('keeps its slot ahead of a second product angle when the engine cap bites', () => {
     const logoHash = core.images.save(Buffer.from('logo-bytes'));
     const a2 = core.images.save(Buffer.from('angle-2'));
     const brand = {
@@ -391,9 +392,42 @@ describe('brand mark token', () => {
       },
       ctx({ brand, engineCaps: caps(2) }),
     );
-    expect(r.attachments.map((a) => a.role)).toEqual(['product', 'product']);
-    expect(r.dropped.map((d) => d.role)).toEqual(['brand']);
-    expect(r.warnings.join(' ')).toContain('Acme wordmark');
+    expect(r.attachments.map((a) => a.role)).toEqual(['product', 'brand']);
+    expect(r.dropped.map((d) => d.role)).toEqual(['product']);
+    expect(r.dropped.some((d) => d.essential)).toBe(false);
+    expect(r.warnings.join(' ')).toContain('House Blend');
+  });
+
+  // The reported bug, end to end: on a four-slot engine, product angles two
+  // and three used to evict the reference the user attached by hand.
+  it('a hand-attached reference survives a contested cap ahead of spare angles', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const a2 = core.images.save(Buffer.from('angle-2'));
+    const a3 = core.images.save(Buffer.from('angle-3'));
+    const userRef = core.images.save(Buffer.from('user-reference'));
+    const brand = {
+      ...brandWithLogo(logoHash),
+      products: [
+        {
+          id: 'p1',
+          name: 'House Blend',
+          shots: [{ file: `asset:${productHash}` }, { file: `asset:${a2}` }, { file: `asset:${a3}` }],
+        },
+      ],
+    };
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'ref', imageHash: userRef },
+        ],
+      },
+      ctx({ brand, engineCaps: caps(3) }),
+    );
+    expect(r.attachments.map((a) => a.role)).toEqual(['product', 'product', 'reference']);
+    expect(r.attachments.some((a) => a.hash === userRef)).toBe(true);
+    expect(r.referenceImages).toContain(core.images.pathFor(userRef));
+    expect(r.dropped.map((d) => d.role)).toEqual(['product']);
   });
 });
 
