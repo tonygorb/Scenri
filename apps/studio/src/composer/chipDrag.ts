@@ -24,9 +24,12 @@ import { caretBeside, chipAt, dropUnitsAt, moveAnnouncement, moveChipToUnits } f
  * pointer. Gap-opening is the convention for homogeneous chip LISTS; the
  * animated insertion caret is the convention for inline token editors
  * (ProseMirror's dropcursor, mail clients' recipient fields), and this is a
- * text editor. The occlusion problem is solved at the ghost instead: it eases
- * to a trailing offset below-right of the pointer so it can never cover the
- * caret it is aiming at.
+ * text editor.
+ *
+ * The ghost follows the OS-native drag convention and nothing fancier: it is
+ * rigidly anchored at the grab point and moves 1:1 with the pointer — no
+ * easing, no trailing offset, no lag. Seeing the caret through it is what
+ * the translucency is for, exactly as a platform drag image handles it.
  */
 export function attachChipDrag(
   root: HTMLElement,
@@ -47,13 +50,7 @@ export function attachChipDrag(
   let lastDrop: { units: number; noop: boolean } | null = null;
   let grab = { dx: 0, dy: 0 };
   let ghostSize = { w: 0, h: 0 };
-  let carryStart = 0;
-  let lastPointer = { x: 0, y: 0 };
   let raf = 0;
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  /** Where the ghost rides once the carry ramp lands: clear of the caret. */
-  const CARRY = { x: 12, y: 16 };
-  const CARRY_MS = 160;
 
   /** The inline positioning contract: this element can never affect layout. */
   const fixInPlace = (el: HTMLElement) => {
@@ -147,7 +144,6 @@ export function attachChipDrag(
     // contract as the positioning above.
     ghost.style.fontSize = getComputedStyle(dragging).fontSize;
     ghostSize = { w: r.width, h: r.height };
-    carryStart = performance.now();
     document.body.appendChild(ghost);
 
     indicator = document.createElement('div');
@@ -160,26 +156,16 @@ export function attachChipDrag(
 
   const follow = (e: { clientX: number; clientY: number }) => {
     if (!ghost || !dragging) return;
-    lastPointer = { x: e.clientX, y: e.clientY };
     /*
-     * The ghost spawns grab-anchored so pickup never jumps, then eases to a
-     * trailing hotspot below-right of the pointer so the insertion caret —
-     * which lives at the pointer's own x, spanning its row — is never under
-     * it. Presentational only: the drop still resolves at the raw pointer.
+     * OS-native drag behaviour, nothing invented: the ghost is rigidly
+     * anchored at the grab point and moves 1:1 with the pointer. The caret
+     * stays legible through the ghost's translucency, the way a platform
+     * drag image handles the same overlap. Clamped to the viewport so the
+     * no-scrollbar guarantee holds at the edges.
      */
-    const t = reducedMotion.matches ? 1 : Math.min(1, (performance.now() - carryStart) / CARRY_MS);
-    const ease = 1 - (1 - t) * (1 - t);
-    const x = e.clientX - grab.dx + ease * (grab.dx + CARRY.x);
-    const y = e.clientY - grab.dy + ease * (grab.dy + CARRY.y);
-    // clamped to the viewport: the no-scrollbar guarantee includes the carry
-    const cx = Math.min(Math.max(4, x), window.innerWidth - ghostSize.w - 4);
-    const cy = Math.min(Math.max(4, y), window.innerHeight - ghostSize.h - 4);
+    const cx = Math.min(Math.max(4, e.clientX - grab.dx), window.innerWidth - ghostSize.w - 4);
+    const cy = Math.min(Math.max(4, e.clientY - grab.dy), window.innerHeight - ghostSize.h - 4);
     ghost.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
-    // keep the ramp running even while the pointer rests
-    if (t < 1) {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => follow({ clientX: lastPointer.x, clientY: lastPointer.y }));
-    }
     const drop = dropUnitsAt(root, dragging, e.clientX, e.clientY);
     lastDrop = drop;
     if (!indicator) return;

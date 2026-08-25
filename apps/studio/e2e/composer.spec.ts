@@ -1727,19 +1727,19 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   expect(Math.abs(grown % strut)).toBeLessThanOrEqual(1);
 });
 
-test('the drag ghost is calm, honest about size, and never covers the caret', async ({ page }) => {
+test('the drag ghost rides the grab point like a platform drag image', async ({ page }) => {
   await seedReorder(page);
   const chip = chips(page).first();
   const before = (await chip.boundingBox())!;
 
-  // drag left, into the prose, where an insertion point exists
-  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+  // grab at the chip's center, drag left into the prose
+  const grabX = before.x + before.width / 2;
+  const grabY = before.y + before.height / 2;
+  await page.mouse.move(grabX, grabY);
   await page.mouse.down();
-  await page.mouse.move(before.x + before.width / 2 - 60, before.y + before.height / 2, { steps: 6 });
-  // let the carry ramp land
-  await page.waitForTimeout(260);
-  await page.mouse.move(before.x + before.width / 2 - 90, before.y + before.height / 2, { steps: 4 });
-  await page.waitForTimeout(120);
+  const endX = grabX - 90;
+  await page.mouse.move(endX, grabY, { steps: 8 });
+  await page.waitForTimeout(80);
 
   const ghost = page.locator('.sc-chip-ghost');
   await expect(ghost).toBeVisible();
@@ -1747,25 +1747,24 @@ test('the drag ghost is calm, honest about size, and never covers the caret', as
   // preserved size: no scale jump
   expect(Math.abs(gbox.width - before.width)).toBeLessThanOrEqual(1.5);
   expect(Math.abs(gbox.height - before.height)).toBeLessThanOrEqual(1.5);
+  // anchored 1:1 at the grab point: the pointer sits exactly where it
+  // gripped the chip — no trailing offset, no easing lag
+  expect(Math.abs(gbox.x + before.width / 2 - endX)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(gbox.y + before.height / 2 - grabY)).toBeLessThanOrEqual(1.5);
   const style = await ghost.evaluate((el) => {
     const cs = getComputedStyle(el);
     return { transform: cs.transform, opacity: cs.opacity, fontSize: cs.fontSize };
   });
   // translate-only: matrix(1, 0, 0, 1, x, y)
   expect(style.transform).toMatch(/^matrix\(1, 0, 0, 1, /);
-  expect(Number(style.opacity)).toBeCloseTo(0.85, 1);
+  // translucent, so the insertion caret reads through it
+  expect(Number(style.opacity)).toBeCloseTo(0.8, 1);
   // the em metrics survived the move to <body>
   expect(style.fontSize).toBe(await chip.evaluate((el) => getComputedStyle(el).fontSize));
 
-  // the insertion caret is never under the ghost
-  const caret = page.locator('.sc-drop-caret');
-  await expect(caret).toBeVisible();
-  const cbox = (await caret.boundingBox())!;
-  const overlap =
-    cbox.x < gbox.x + gbox.width && cbox.x + cbox.width > gbox.x && cbox.y < gbox.y + gbox.height && cbox.y + cbox.height > gbox.y;
-  expect(overlap).toBe(false);
-
-  // the source chip holds its exact box as a slot: zero reflow
+  // the caret marks the drop, and the source chip holds its exact box as a
+  // dashed slot: zero reflow anywhere
+  await expect(page.locator('.sc-drop-caret')).toBeVisible();
   const during = (await chip.boundingBox())!;
   expect(during.x).toBe(before.x);
   expect(during.width).toBe(before.width);

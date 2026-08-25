@@ -97,7 +97,8 @@
    Specificity note: (0,4,0) on purpose — the tinted/warn skins later in this
    file are (0,2,0) and the slot must win by weight, not by file position. */
 .sc-brief-line[data-chip-drag] .sc-token[data-drag-src] {
-  background: transparent;
+  /* a whisper of fill under the dashes: reserved space, not a rendering bug */
+  background: color-mix(in srgb, var(--sc-line) 18%, transparent);
   box-shadow: none;
   color: transparent;
   outline: 1.5px dashed var(--sc-line-strong);
@@ -119,9 +120,9 @@
 .sc-brief-line[data-chip-drag] .sc-token {
   cursor: grabbing;
 }
-/* Lifted but subordinate: same size, slightly translucent, a soft two-layer
-   shadow instead of a heavy plate. The WHERE is the caret's job; the ghost
-   only answers WHAT is being dragged. */
+/* The platform drag-image treatment, no more: same size, anchored at the
+   grab point (chipDrag moves it 1:1 with the pointer), translucent enough
+   that the insertion caret reads through it, one soft lift shadow. */
 .sc-chip-ghost {
   position: fixed;
   left: 0;
@@ -129,7 +130,7 @@
   margin: 0;
   z-index: var(--sc-z-popover);
   pointer-events: none;
-  opacity: 0.85;
+  opacity: 0.8;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.1),
     0 3px 10px rgba(0, 0, 0, 0.16);
