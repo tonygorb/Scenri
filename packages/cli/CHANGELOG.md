@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.5.0](https://github.com/tonygorb/Scenri/compare/v0.4.7...v0.5.0) (2026-08-25)
+
+
+### Features
+
+* an edit may name the exact frame size, and the composite skips its rescale when honored ([a615ae8](https://github.com/tonygorb/Scenri/commit/a615ae8e62b0e5a192eebf5abb3351813964b611))
+* an engine that can truly outpaint is asked to paint the margin, not redraw the frame ([4cb35ea](https://github.com/tonygorb/Scenri/commit/4cb35eac9481b5f509ce412865cbb548fc17fe47))
+* an extended frame hides its seam in a narrow deterministic blend band ([00988cd](https://github.com/tonygorb/Scenri/commit/00988cd390937267baa56094a8eb3b81ae56a6db))
+* change a shot's shape by cropping or extending, never by redrawing it ([d24774e](https://github.com/tonygorb/Scenri/commit/d24774e7c901179504cdb56fe4f500c087bf397d))
+* change a shot's shape by cropping or extending, never by redrawing it ([b3fd894](https://github.com/tonygorb/Scenri/commit/b3fd89462d4ded70a2e8a54fd2f45ab5ed56375b))
+* only an engine that can paint a margin is offered the extend ([84dd25f](https://github.com/tonygorb/Scenri/commit/84dd25f893f0315d065397257b9e6595a5c72afb))
+* reorder the brief by dragging its chips, with keyboard and touch paths ([504fd3b](https://github.com/tonygorb/Scenri/commit/504fd3b52d15a764684245c757834444ac965c50))
+* reorder the brief by dragging its chips, with keyboard and touch paths ([5897f73](https://github.com/tonygorb/Scenri/commit/5897f7366304ffcc3ced344f34358e7cd4bf25d2))
+* the expand instruction names grain, depth of field and shadow direction ([923eb1b](https://github.com/tonygorb/Scenri/commit/923eb1b5a5855f6e8f9ae46241e0b6f31cb1b31a))
+* the shape picker decides crop or extend itself ([ebbbc74](https://github.com/tonygorb/Scenri/commit/ebbbc74a8d2f591bd5ddc7bd1da93468b8e17df0))
+
+
+### Bug Fixes
+
+* a crop stays a crop on retry, records its window, and follows the subject ([d54a76f](https://github.com/tonygorb/Scenri/commit/d54a76fc1cf7adccb0b4a421d1db622c6305e680))
+* a fallback product name drops the file extension ([f705493](https://github.com/tonygorb/Scenri/commit/f705493be942a8ef493600d82a3fa2c12ae1a5f0))
+* a grown frame is drawn twice at once and the better join kept ([6b90a4e](https://github.com/tonygorb/Scenri/commit/6b90a4e8b6a9bbaedcefd72c290e65c0eea9d5ff))
+* a grown frame whose join shows is drawn again, and the better one kept ([3ecbceb](https://github.com/tonygorb/Scenri/commit/3ecbceb0b22be8830c0e32785d935272253cae0a))
+* a presenter's avatar is measured from the figure, not from the frame ([9032da7](https://github.com/tonygorb/Scenri/commit/9032da78dc2bb36500bcb3360f4a771965aab278))
+* a same-brand click is a no-op and setup warns before a duplicate ([ee1274c](https://github.com/tonygorb/Scenri/commit/ee1274cd651769a9e710c496c7c93365268a2381))
+* a selected presenter is a hard requirement, and an extended frame hides its seams ([d9459ce](https://github.com/tonygorb/Scenri/commit/d9459ce78704909ec02dacaddc0e8d990c9acf93))
+* a shot's brief speaks its ingredients by name, not by tooltip ([5823c12](https://github.com/tonygorb/Scenri/commit/5823c120a258360a53b814d551f13361d9ca3779))
+* an attached presenter survives packshot bans, tight crops and scene prose ([bc70f54](https://github.com/tonygorb/Scenri/commit/bc70f54b060217b3869886586af3fb9265aed50a))
+* an extend request stops demanding the dimensions it exists to change ([b708891](https://github.com/tonygorb/Scenri/commit/b7088919960cd3cd4f3e8df6179823d56c679512))
+* an extended frame keeps every original pixel and meets it exactly at the join ([140b0de](https://github.com/tonygorb/Scenri/commit/140b0ded409c512139a7a348f7ff68525d10ff90))
+* an extended margin matches the tone it continues, and a crop breathes around its subject ([7555f9f](https://github.com/tonygorb/Scenri/commit/7555f9f97639cba37f74ae2c7f5966c38abcca7e))
+* ask the image tool for a margin the way its own guide says to ask ([beda166](https://github.com/tonygorb/Scenri/commit/beda1660d7198781027f81115796caa968e89d0b))
+* chips sit inside the sentence, a new shape decides itself, and a grown frame keeps every pixel ([676cbb3](https://github.com/tonygorb/Scenri/commit/676cbb3ca771104b46c2b8e98fc3890fb83edec8))
+* chips sit on the sentence baseline, and the drag ghost stays out of the way ([1ddf05a](https://github.com/tonygorb/Scenri/commit/1ddf05a23e560cc915e51e371f5ea897b894e643))
+* drag stays inside the viewport and the newest shot is always top left ([6cd7310](https://github.com/tonygorb/Scenri/commit/6cd7310a4ee26b07cfab38c60ffc52474dd4b3d4))
+* drag stays inside the viewport and the newest shot is always top left ([4fefe10](https://github.com/tonygorb/Scenri/commit/4fefe10c11904757449e739479ce9f56fdfaaf1e))
+* growing a frame needs an engine, cropping does not ([30d0da2](https://github.com/tonygorb/Scenri/commit/30d0da2923a73d016e64ca4e053a59ddf4fec157))
+* keep hand-attached references and brand marks ahead of spare angles ([0c3a55a](https://github.com/tonygorb/Scenri/commit/0c3a55a7aa7557db6926ec72c7cda5d4783d5b16))
+* presenter avatars show the actual presenter everywhere ([9180461](https://github.com/tonygorb/Scenri/commit/918046121bb93d88151aa7b9f52b82232a242b04))
+* presenter avatars show the actual presenter everywhere ([610e913](https://github.com/tonygorb/Scenri/commit/610e9130ef4cf6e18065bad78761f88e30cd1399))
+* RTL content renders and travels correctly inside the English app ([a9a60ce](https://github.com/tonygorb/Scenri/commit/a9a60ceca1bd51dea39c8011e75724e12c73c6e9))
+* run takes read in request order and feed ties stop reshuffling ([d8bb5ea](https://github.com/tonygorb/Scenri/commit/d8bb5eac0eb25bd530e7d785bf3bba25c0dc8723))
+* the drag ghost rides the grab point, and the origin keeps a dashed slot ([3e7ce03](https://github.com/tonygorb/Scenri/commit/3e7ce030d08de34adaf4d079e7c4a1bd74e5ef77))
+* two shots sent in the same second keep their send order ([5edfd69](https://github.com/tonygorb/Scenri/commit/5edfd69978627323425aca037e9c814f9c20ba41))
+* what a shot claims it used is what the engine received ([f23ae85](https://github.com/tonygorb/Scenri/commit/f23ae8534665d35accaa51ae2c81e767bcb180bc))
+* what a shot claims it used is what the engine received ([6c37450](https://github.com/tonygorb/Scenri/commit/6c37450ad8aa37b724870407867193e2e577ccee))
+* workspace identity, generation order, and attached references reach the engine ([af66af8](https://github.com/tonygorb/Scenri/commit/af66af8869868b3e64670b5f7d5b1d04fafe9a08))
+
 ## [0.4.7](https://github.com/tonygorb/Scenri/compare/v0.4.6...v0.4.7) (2026-08-24)
 
 
