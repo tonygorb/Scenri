@@ -514,17 +514,11 @@ describe('generation flow', () => {
     expect(grown.width!).toBeGreaterThan(srcMeta.width!);
     expect(grown.width! / grown.height!).toBeCloseTo(456 / 256, 1);
 
-    // and the picture came back byte for byte inside the guaranteed region —
-    // the source inset by the seam band on the grown axis (see compositeExpand)
-    const { seamBandFor } = await import('../src/expandRules.js');
-    const n = seamBandFor({ width: srcMeta.width!, height: srcMeta.height! });
+    // and the picture came back byte for byte — the WHOLE picture, no band
+    // and no exception (see compositeExpand's guarantee)
     const left = Math.round((grown.width! - srcMeta.width!) / 2);
-    const region = { left: left + n, top: 0, width: srcMeta.width! - 2 * n, height: srcMeta.height! };
-    const before = await sharp(src)
-      .extract({ left: n, top: 0, width: srcMeta.width! - 2 * n, height: srcMeta.height! })
-      .removeAlpha()
-      .raw()
-      .toBuffer();
+    const region = { left, top: 0, width: srcMeta.width!, height: srcMeta.height! };
+    const before = await sharp(src).removeAlpha().raw().toBuffer();
     const after = await sharp(core.images.read(out.images[0])).extract(region).removeAlpha().raw().toBuffer();
     expect(after).toEqual(before);
   });

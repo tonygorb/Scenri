@@ -68,23 +68,6 @@ export function planExpand(source: { width: number; height: number }, targetRati
 }
 
 /**
- * How wide the blend band at a seam edge is, in source pixels.
- *
- * The hard rectangular paste was the seam: the engine's own version of the
- * interior never matches the pasted original exactly, and the discontinuity
- * sat as a visible line exactly on the source boundary. A narrow linear ramp
- * hides it. Bounded 8..16px and never more than a quarter of the source's
- * short edge, so a small frame is never mostly band — everything deeper than
- * the band stays byte-identical, which is the guarantee compositeExpand
- * documents.
- */
-export function seamBandFor(source: { width: number; height: number }): number {
-  const longEdge = Math.max(source.width, source.height);
-  const shortEdge = Math.min(source.width, source.height);
-  return Math.min(Math.min(16, Math.max(8, Math.round(longEdge * 0.01))), Math.max(1, Math.floor(shortEdge / 4)));
-}
-
-/**
  * What to ask the engine for, in words.
  *
  * It describes the margin rather than the picture, because the picture is
