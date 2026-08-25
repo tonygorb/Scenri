@@ -1154,15 +1154,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       };
       estimate = await engine.costEstimate(editReq);
       /*
-       * An expansion is drawn again if its join comes out visibly wrong.
+       * An expansion is drawn twice, at once, and the better join is kept.
        *
        * The default engine has no seed, so the same request returns a
-       * different margin every time — good, then broken, then good, with
-       * nothing in between anyone can steer. That variance is only a problem
-       * if we accept the first answer. Looking at the join and asking for
-       * another draw when it reads as a line turns a coin toss into two, and
-       * keeps whichever landed better. One extra attempt, only when the first
-       * one failed, and never for an engine that paints margins properly.
+       * different margin every time — measured on one unchanged picture, the
+       * join came back at 2.8, then 15.1, then 2.1. Nothing in the prompt
+       * steers that. Two draws in parallel turn one coin toss into the better
+       * of two for the same wall-clock as one: a picture takes about as long
+       * as it ever did, and the odds of shipping a visible join drop with the
+       * square. Sequential retries were the obvious version of this and the
+       * wrong one — they doubled a two-and-a-half-minute wait.
+       *
+       * An engine that paints margins properly is asked once, because its
+       * answer is not a lottery.
        */
       const plan = expandPlan;
       const srcSize = { width: srcMeta.width ?? 0, height: srcMeta.height ?? 0 };
@@ -1170,22 +1174,24 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       work =
         plan && !canOutpaint
           ? async (signal) => {
-              let best: { images: string[]; costUsd: number; raw?: unknown } | null = null;
-              let bestScore = Number.POSITIVE_INFINITY;
-              for (let attempt = 0; attempt < 2; attempt++) {
-                const got = await engine.edit(editReq, signal);
-                const first = got.images[0];
-                if (!first) return got;
-                const { image } = await compositeExpand(core.images.read(first), original, plan);
-                const score = await seamScore(image, plan, srcSize);
-                if (score < bestScore) {
-                  bestScore = score;
-                  best = got;
-                }
-                if (score <= SEAM_VISIBLE) break;
-                app.log.info({ nodeId: 'pending', score: score.toFixed(2) }, 'expand: join visible, drawing again');
-              }
-              return best ?? (await engine.edit(editReq, signal));
+              const draws = await Promise.all([
+                engine.edit(editReq, signal),
+                engine.edit(editReq, signal).catch(() => null),
+              ]);
+              const scored = await Promise.all(
+                draws.map(async (got) => {
+                  const first = got?.images[0];
+                  if (!got || !first) return null;
+                  const { image } = await compositeExpand(core.images.read(first), original, plan);
+                  return { got, score: await seamScore(image, plan, srcSize) };
+                }),
+              );
+              const best = scored
+                .filter((x): x is { got: NonNullable<(typeof draws)[number]>; score: number } => x !== null)
+                .sort((a, b) => a.score - b.score)[0];
+              // Both failed to produce anything usable: let the first answer
+              // stand so the failure is the engine's own, reported as it is.
+              return best?.got ?? draws[0];
             }
           : (signal) => engine.edit(editReq, signal);
     }

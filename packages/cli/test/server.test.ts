@@ -523,7 +523,7 @@ describe('generation flow', () => {
     expect(after).toEqual(before);
   });
 
-  it('draws a grown frame again when its join comes out visible, and keeps the better one', async () => {
+  it('draws a grown frame twice at once and keeps the better join', async () => {
     const sharpLib = (await import('sharp')).default;
     const field = async (v: number, w: number, h: number) =>
       sharpLib({
@@ -541,6 +541,8 @@ describe('generation flow', () => {
     // First answer disagrees badly with the picture at the join; second one
     // continues its tone. Only the second should survive.
     let call = 0;
+    let inFlight = 0;
+    let overlapped = false;
     const moody: EngineAdapter = {
       capabilities: () => ({
         id: 'moody',
@@ -555,7 +557,13 @@ describe('generation flow', () => {
       generate: async () => ({ images: [core.images.save(await field(120, 256, 256))], costUsd: 0 }),
       edit: async () => {
         call += 1;
+        inFlight += 1;
+        if (inFlight > 1) overlapped = true;
         const tone = call === 1 ? 210 : 120;
+        // hold both open long enough that a sequential caller could not
+        // possibly show two at once
+        await new Promise((r) => setTimeout(r, 40));
+        inFlight -= 1;
         return { images: [core.images.save(await field(tone, 456, 256))], costUsd: 0 };
       },
     };
@@ -597,8 +605,10 @@ describe('generation flow', () => {
     const out = await waitDoneOn(srv, grow.json().id);
     expect(out.status).toBe('done');
 
-    // it asked twice, because the first join was visible
+    // it drew twice, and both went out together rather than one after the
+    // other: a second 150-second wait is not a price worth paying
     expect(call).toBe(2);
+    expect(overlapped).toBe(true);
     // and what it kept is the margin that matches the picture's tone
     const margin = await sharpLib(core.images.read(out.images[0]))
       .extract({ left: 4, top: 100, width: 40, height: 40 })
