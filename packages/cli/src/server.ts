@@ -213,12 +213,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // invisible bidi controls (a filename is an attack surface for them) and
       // cut by code point, not UTF-16 unit — a raw .slice can halve a
       // surrogate pair and ship a broken character into the record.
+      // The extension goes when the filename is only a fallback: the file is
+      // "serum.png", the product is "serum", in any script.
+      const explicit = part.fields?.name?.value;
+      const fromFile = String(part.filename ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
       name =
         Array.from(
-          String(part.fields?.name?.value ?? part.filename ?? spec.fallback).replace(
-            /[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g,
-            '',
-          ),
+          String(explicit ?? (fromFile || spec.fallback)).replace(/[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g, ''),
         )
           .slice(0, 80)
           .join('')
