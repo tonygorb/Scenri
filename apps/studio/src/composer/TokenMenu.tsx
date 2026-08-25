@@ -13,6 +13,8 @@ export interface MenuOption {
   hint?: string;
   search?: string;
   thumb?: string;
+  /** Pull the framing to the top of the picture — a card standing in for an avatar. */
+  crop?: 'top';
   swatch?: string;
   run: () => void;
 }
@@ -190,7 +192,7 @@ export function TokenMenu({
                 onClick={() => o.run()}
               >
                 {o.thumb ? (
-                  <img src={o.thumb} alt="" />
+                  <img src={o.thumb} alt="" data-crop={o.crop} />
                 ) : o.swatch ? (
                   <span className="sc-cmd-swatch" style={{ background: o.swatch }} />
                 ) : null}

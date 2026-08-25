@@ -56,6 +56,14 @@
   border-radius: 50%;
   object-fit: cover;
 }
+/* A 4:5 card standing in for a square avatar: centre it and the circle is a
+   torso. Pulling the framing up puts the face where a face belongs. Same
+   contract as the assets rail (canvas.css) — the flag is set by
+   presenterVisual.ts, never guessed here. */
+.sc-token img[data-crop="top"],
+.sc-cmd-row img[data-crop="top"] {
+  object-position: 50% 12%;
+}
 /* A mark is usually dark art on transparency, which is invisible on a dark
    chip — and it is a logo, so cropping it to a circle is worse than shrinking
    it. Ground it in white and letterbox instead. */

@@ -3,6 +3,7 @@ import type { Swatch } from '../brand/palette.js';
 import { isRecommendedPresenter, isRecommendedScene } from '../compat.js';
 import { productLabel, productSearchText, presenterSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
 import { matchesQuery, pageSlice } from '../layout/library/libraryRules.js';
+import { characterAvatar, presenterAvatar } from '../presenterVisual.js';
 import { normalizeTint, type SentenceToken } from './line.js';
 
 /**
@@ -152,40 +153,45 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
 
   if (kind === 'presenter') {
     return [
-      ...cat.presenters.map(
-        (p): Candidate => ({
+      ...cat.presenters.map((p): Candidate => {
+        // The canonical chain: square avatar first, else card/shot with the
+        // top-crop flag. presenterVisual.ts is the one place this lives.
+        const av = presenterAvatar(p);
+        return {
           kind: 'presenter',
           id: p.id,
           label: p.name,
           full: [p.name, clean(p.descriptor)].filter(Boolean).join(' · '),
           sub: clean(p.descriptor),
           search: presenterSearchText(p),
-          // Square first: a 1:1 box crops the head off the 4:5 casting card.
-          thumb: p.avatarUrl ?? p.previewUrl ?? null,
-          crop: p.avatarUrl ? undefined : 'top',
+          thumb: av.src,
+          crop: av.crop,
           // This list arrives already merged (`withCustomFirst`), so it is not
           // all Scenri's. A person this brand cast for itself carries `custom`
           // and is as much theirs as an uploaded product is.
           source: isOwn(p) ? 'brand' : 'catalog',
           recommended: isRecommendedPresenter(p, cat.productCategory),
           token: { t: 'character', id: p.id },
-        }),
-      ),
+        };
+      }),
       // A roster from before the presenter catalog existed. The chip already
       // resolves these first, so without them a legacy chip had no card to tick.
-      ...cat.cast.map(
-        (c): Candidate => ({
+      ...cat.cast.map((c): Candidate => {
+        // The roster row may carry a real avatar/preview crop; the raw first
+        // shot is the last resort, not the first choice.
+        const av = characterAvatar(c);
+        return {
           kind: 'presenter',
           id: c.id,
           label: c.name,
           full: c.name,
           search: c.name,
-          thumb: assetUrl(c.shots?.[0]?.file),
-          crop: 'top',
+          thumb: av.src,
+          crop: av.crop,
           source: 'brand',
           token: { t: 'character', id: c.id },
-        }),
-      ),
+        };
+      }),
     ];
   }
 
@@ -354,6 +360,8 @@ export interface InsertChoice {
   hint?: string;
   search?: string;
   thumb?: string;
+  /** The candidate's framing hint — see Candidate.crop. */
+  crop?: 'top';
   swatch?: string;
   token: SentenceToken;
 }
@@ -366,6 +374,7 @@ function fromCandidate(c: Candidate): InsertChoice {
     hint: c.sub,
     search: c.search,
     thumb: c.thumb ?? undefined,
+    crop: c.crop,
     token: c.token,
   };
 }

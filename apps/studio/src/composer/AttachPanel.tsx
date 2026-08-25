@@ -34,6 +34,9 @@ interface Card {
   /** Matched on but never shown: keywords, brand, names from before a rename. */
   search?: string;
   thumb?: string | null;
+  /** Set when `thumb` is a card/shot standing in for a square avatar — pull
+   * the framing to the top of the picture instead of centring a torso. */
+  crop?: 'top';
   swatch?: string;
   /** A hint, not a filter — see compat.ts. Only ever set for Scenes/Presenters. */
   recommended?: boolean;
@@ -136,6 +139,9 @@ export function AttachPanel({
         sub: c.sub,
         search: c.search,
         thumb: c.thumb,
+        // the candidate's framing hint used to be dropped right here, so an
+        // avatar-less presenter rendered as a centred torso in the 1:1 card
+        crop: c.crop,
         recommended: c.recommended,
         run: () => (c.kind === 'scene' ? onTemplate(c.id) : onToken(c.token)),
       }));
@@ -197,7 +203,7 @@ export function AttachPanel({
       {c.swatch ? (
         <span className="sc-ap-thumb" style={{ background: c.swatch }} />
       ) : c.thumb ? (
-        <img className="sc-ap-thumb" src={c.thumb} alt="" loading="lazy" />
+        <img className="sc-ap-thumb" src={c.thumb} alt="" loading="lazy" data-crop={c.crop} />
       ) : (
         <span className="sc-ap-thumb sc-ap-thumb-empty">
           <ImageSquare size={16} />

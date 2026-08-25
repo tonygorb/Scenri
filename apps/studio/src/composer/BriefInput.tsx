@@ -3,6 +3,7 @@ import { productLabel, sceneLabel } from '../displayName.js';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
+import { characterAvatar, presenterAvatar } from '../presenterVisual.js';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { flattenPalette, normalizeHex } from '../brand/palette.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
@@ -194,6 +195,7 @@ export const BriefInput = forwardRef<
 
       let label = '';
       let thumb: string | null = null;
+      let thumbCrop: 'top' | undefined;
       let swatch: string | null = null;
       if (token.t === 'template') {
         const t = templates.find((x) => x.id === token.id);
@@ -216,7 +218,11 @@ export const BriefInput = forwardRef<
         const c = cast.find((x) => x.id === token.id);
         const p = c ? null : presenters.find((x) => x.id === token.id);
         label = c?.name ?? p?.name ?? 'missing person';
-        thumb = c ? assetUrl(c.shots?.[0]?.file) : (p?.avatarUrl ?? p?.previewUrl ?? null);
+        // The canonical avatar chain (presenterVisual.ts). This chip used to
+        // put the raw full-length studio shot inside its 15px circle.
+        const av = c ? characterAvatar(c) : p ? presenterAvatar(p) : { src: null };
+        thumb = av.src;
+        thumbCrop = av.crop;
       } else if (token.t === 'color') {
         label = token.name ?? token.hex;
         swatch = token.hex;
@@ -233,6 +239,10 @@ export const BriefInput = forwardRef<
         const img = document.createElement('img');
         img.src = thumb;
         img.alt = '';
+        if (thumbCrop) img.dataset.crop = thumbCrop;
+        // A 404 must degrade to the chip's own label, not the browser's
+        // broken-image glyph inside a circle.
+        img.onerror = () => img.remove();
         el.appendChild(img);
       } else if (swatch) {
         const sw = document.createElement('span');
