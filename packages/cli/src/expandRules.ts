@@ -96,7 +96,8 @@ export function expandInstruction(plan: ExpandPlan, direction: string): string {
   const where = plan.axis === 'width' ? 'to the left and right' : 'above and below';
   return (
     `Extend this photograph ${where} to fill the empty margin, continuing the same scene, the same surface, the ` +
-    `same lighting and the same perspective straight out to the new edges. Do not change, move, rescale or ` +
+    `same lighting and the same perspective straight out to the new edges, matching the existing grain, depth of ` +
+    `field, shadow direction and colour temperature. Do not change, move, rescale or ` +
     `reinterpret anything already in the picture, and do not add a subject, a product or a person that is not ` +
     `already there.${direction.trim() ? ` ${direction.trim()}` : ''}`
   );
