@@ -33,6 +33,7 @@ import { inheritedIdentityTokens } from './editIdentity.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
 import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js';
 import { planCrop } from './cropRules.js';
+import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand } from './expand.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
@@ -785,8 +786,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      * historical behaviour (an expansion when the format differs); 'extend'
      * makes that explicit; 'crop' takes the dedicated path below.
      */
+    // The stored brief is the fallback: Try again reposts a node's brief
+    // verbatim without the top-level field, and a crop that silently re-runs
+    // as an expansion is the worst kind of surprise. Legacy briefs carry no
+    // reshape key, so the historical implicit path is untouched.
+    const rawReshape = (req.body as any).reshape ?? (req.body as any).brief?.reshape;
     const reshape: 'crop' | 'extend' | undefined =
-      (req.body as any).reshape === 'crop' ? 'crop' : (req.body as any).reshape === 'extend' ? 'extend' : undefined;
+      rawReshape === 'crop' ? 'crop' : rawReshape === 'extend' ? 'extend' : undefined;
 
     /*
      * A pure crop, before the engine gate on purpose: it is geometry, not
@@ -818,6 +824,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (!srcMeta.width || !srcMeta.height) return reply.status(400).send({ error: 'source image unreadable' });
       const plan = planCrop({ width: srcMeta.width, height: srcMeta.height }, Number(fmt.w) / Number(fmt.h));
       if (!plan) return reply.status(400).send({ error: 'the picture is already this shape' });
+      // The window follows the subject, not the center; still original pixels
+      // only — attentionCropOrigin discovers an offset and nothing else.
+      const origin = await attentionCropOrigin(srcBuf, { width: srcMeta.width, height: srcMeta.height }, plan);
+      const window = { left: origin.left, top: origin.top, width: plan.width, height: plan.height };
 
       const label = FORMATS.find((f) => f.id === fmt.id)?.label ?? `${fmt.w}x${fmt.h}`;
       const node = core.store.addNode({
@@ -825,18 +835,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         parentId: cropParentId,
         kind: 'edit',
         prompt: `Cropped to ${label}`,
-        engineId: engineId ? String(engineId) : 'local',
+        // No provider was asked; recording the engine the client HAPPENED to
+        // have selected made the overlay display a name that did nothing.
+        engineId: 'local',
       });
-      if (brief) core.store.setBrief(node.id, { ...(brief as object), sourceImage: String(srcHash), reshape: 'crop' });
+      // The brief records the window actually cut, so history and the pixel
+      // tests speak about the same rectangle the picture came from.
+      core.store.setBrief(node.id, {
+        ...((brief as object) ?? {}),
+        sourceImage: String(srcHash),
+        reshape: 'crop',
+        crop: window,
+      });
       const work = async () => ({
-        images: [
-          core.images.save(
-            await sharp(srcBuf)
-              .extract({ left: plan.left, top: plan.top, width: plan.width, height: plan.height })
-              .png()
-              .toBuffer(),
-          ),
-        ],
+        images: [core.images.save(await sharp(srcBuf).extract(window).png().toBuffer())],
         costUsd: 0,
       });
       void runNode(node.id, null, 0, work, { width: plan.width, height: plan.height }).catch((err) =>

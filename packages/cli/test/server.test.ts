@@ -568,16 +568,43 @@ describe('generation flow', () => {
     expect(out.prompt).toContain('Cropped to');
     expect((out.brief as any).reshape).toBe('crop');
     expect((out.brief as any).sourceImage).toBe(sourceHash);
+    // no provider was asked, and the record says so
+    expect(out.engineId).toBe('local');
 
-    // the output is exactly the centred source region, decoded byte for byte
+    // the output is exactly the RECORDED source window, decoded byte for byte —
+    // the window follows the subject now, so the guarantee is byte identity at
+    // the rectangle the node names, not a fixed centred position
     const meta = await sharp(core.images.read(out.images[0])).metadata();
     expect(meta.height).toBe(srcMeta.height);
     expect(meta.width).toBe(srcMeta.height); // square from every row
-    const left = Math.floor((srcMeta.width! - meta.width!) / 2);
-    const region = { left, top: 0, width: meta.width!, height: meta.height! };
-    const before = await sharp(src).extract(region).removeAlpha().raw().toBuffer();
+    const window = (out.brief as any).crop;
+    expect(window).toMatchObject({ top: 0, width: meta.width, height: meta.height });
+    expect(window.left).toBeGreaterThanOrEqual(0);
+    expect(window.left + window.width).toBeLessThanOrEqual(srcMeta.width!);
+    const before = await sharp(src).extract(window).removeAlpha().raw().toBuffer();
     const after = await sharp(core.images.read(out.images[0])).removeAlpha().raw().toBuffer();
     expect(after).toEqual(before);
+
+    // Try again reposts the stored brief without the top-level reshape field;
+    // the crop must stay a crop rather than silently expanding
+    const retry = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: sourceHash,
+        brief: out.brief,
+      },
+    });
+    expect(retry.statusCode).toBe(202);
+    const again = await waitDone(retry.json().id);
+    expect(again.status).toBe('done');
+    expect(again.engineId).toBe('local');
+    expect(again.costUsd).toBe(0);
+    expect(again.prompt).toContain('Cropped to');
   });
 
   it('a crop needs no engine, but an aspect-only brief without reshape still refuses', async () => {
