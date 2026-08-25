@@ -1772,3 +1772,34 @@ test('the drag ghost rides the grab point like a platform drag image', async ({ 
   await page.keyboard.press('Escape');
   await expect(ghost).toHaveCount(0);
 });
+
+test('a Hebrew brief with an English chip survives to the wire unreversed', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('צלם תמונה של ');
+  await plusMenu(page, /products/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(1);
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' על חימר סדוק באור חם');
+
+  // the chip is a bidi-isolated run with its own direction
+  expect(await chips(page).first().getAttribute('dir')).toBe('auto');
+
+  // the wire carries the LOGICAL order: Hebrew before the chip, Hebrew after,
+  // nothing reversed, nothing corrupted
+  let posted: any = null;
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posted = route.request().postDataJSON();
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
+  });
+  await dock(page).locator('.sc-send').click();
+  await expect.poll(() => posted?.kind).toBeTruthy();
+  const texts = posted.brief.tokens.filter((t: any) => t.t === 'text').map((t: any) => t.v);
+  expect(texts.join(' ')).toContain('צלם תמונה של');
+  expect(texts.join(' ')).toContain('על חימר סדוק באור חם');
+  const kinds = posted.brief.tokens.map((t: any) => t.t);
+  expect(kinds.indexOf('product')).toBeGreaterThan(kinds.indexOf('text'));
+});

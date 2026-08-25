@@ -11,10 +11,16 @@
  * found.
  */
 function fold(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
+  return (
+    s
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      // Invisible bidi controls (LRM/RLM/ALM, embeddings, isolates) ride into
+      // names pasted from RTL documents; they are formatting, not letters, and
+      // a name that carries one must still match the same name typed clean.
+      .replace(/[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g, '')
+      .toLowerCase()
+  );
 }
 
 /**

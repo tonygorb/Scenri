@@ -209,7 +209,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const part = await readImagePart(core, req, toPng);
       if ('error' in part) return reply.status(400).send({ error: part.error });
       hashes = [part.hash];
-      name = String(part.fields?.name?.value ?? part.filename ?? spec.fallback).slice(0, 80);
+      // The one place an uploaded FILENAME becomes user-visible data. Strip
+      // invisible bidi controls (a filename is an attack surface for them) and
+      // cut by code point, not UTF-16 unit — a raw .slice can halve a
+      // surrogate pair and ship a broken character into the record.
+      name =
+        Array.from(
+          String(part.fields?.name?.value ?? part.filename ?? spec.fallback).replace(
+            /[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g,
+            '',
+          ),
+        )
+          .slice(0, 80)
+          .join('')
+          .trim() || spec.fallback;
     }
 
     const id = `${spec.prefix}-${randomUUID().slice(0, 8)}`;
