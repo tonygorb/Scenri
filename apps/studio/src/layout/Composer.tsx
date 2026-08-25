@@ -621,7 +621,9 @@ export const Composer = forwardRef<
   // is asked to, and everything else gets the same shape built locally from
   // the picture's own edge — seamless by construction, identical every run,
   // and free. So this needs no engine at all, exactly like a crop.
-  const expanding = reshapeOp === 'extend';
+  // Growing a frame still needs an engine: the margin is generated, unlike a
+  // crop, which is pure geometry and needs nothing at all.
+  const expanding = reshapeOp === 'extend' && engineCanEdit;
   const targetShape = FORMATS.find((x) => x.id === formatId);
   const targetShapeLabel = targetShape ? `${targetShape.label} ${targetShape.hint}` : formatId;
 
@@ -714,10 +716,10 @@ export const Composer = forwardRef<
     !cropWithWords &&
     !!projectId &&
     !targetPending &&
-    (cropping || expanding || !noEngine);
+    (cropping || !noEngine);
   /** Why the button will not go, in the words of the thing that is blocking. */
   const blockedReason =
-    noEngine && !cropping && !expanding
+    noEngine && !cropping
       ? 'Image generation is not set up yet'
       : busy
         ? 'Working on the last one'
