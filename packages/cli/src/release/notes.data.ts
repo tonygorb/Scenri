@@ -51,6 +51,29 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.5.0',
+    date: '2026-08-26',
+    title: 'A finished shot can change shape, and a presenter you attach is a requirement rather than a suggestion.',
+    sections: [
+      {
+        heading: 'Create',
+        body: "A brief can be rearranged by hand: drag its chips into a new order, or move them with the keyboard and on touch. Chips now sit on the sentence's own baseline, so a brief reads as a line of writing rather than a row of boxes.",
+      },
+      {
+        heading: 'Shots',
+        body: 'Pick a new shape for a finished shot and Scenri works out from the geometry whether that means cropping or extending. A crop keeps every original pixel, follows the subject, costs nothing and calls no engine. An extension leaves the original untouched to the byte and paints only the new margin, and it is offered by the engines that can genuinely paint one.',
+      },
+      {
+        heading: 'Presenters',
+        body: 'A presenter you attach now survives what used to drop them from the picture: product notes written for a solo packshot, close-up framing, and scene direction that bans props. A custom presenter is cropped for their avatar the way the built-in ones are, measured from the person rather than from the frame.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'What a shot says it used is what the engine received, including references and brand marks carried into a refine. Two shots sent in the same second keep their order, the newest shot is always top left, and text in right-to-left languages renders and travels correctly through the app.',
+      },
+    ],
+  },
+  {
     version: '0.4.7',
     date: '2026-08-24',
     title: 'The feed shows the work, and the controls wait until you point at it.',
