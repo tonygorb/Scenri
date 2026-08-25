@@ -87,11 +87,105 @@ export async function compositeExpand(engineImage: Buffer, source: Buffer, plan:
       : await sharp(engineImage).resize(plan.width, plan.height, { fit: 'cover', position: 'centre' }).toBuffer()
     : await expandCanvasBedOnly(source, plan);
 
-  const image = await sharp(surround)
+  // The alpha ramp hides a texture mismatch but cannot hide a colour one: a
+  // margin the model painted a shade warmer meets the original as a straight
+  // tonal line the full length of the seam (measured on the 9:16 QA battery).
+  // Match each margin's tone to the strip of original it continues before the
+  // paste, so the ramp only has texture left to blend.
+  const matched = aligned ? await toneMatchMargins(surround, source, plan) : surround;
+
+  const image = await sharp(matched)
     .composite([{ input: await featheredSource(source, plan), left: plan.left, top: plan.top }])
     .png()
     .toBuffer();
   return { image, aligned };
+}
+
+/**
+ * Shift each generated margin's per-channel mean to the mean of the source
+ * strip it continues.
+ *
+ * Offset only, never variance: the margin is a continuation of the same
+ * surface at the seam, so its average tone should agree with the last
+ * STRIP-px of the original, while its texture stays its own. The correction
+ * is clamped to ±32 so a margin that legitimately differs (sky above a
+ * ground-level shot) is nudged, not repainted. Deterministic, no engine.
+ */
+async function toneMatchMargins(surround: Buffer, source: Buffer, plan: ExpandPlan): Promise<Buffer> {
+  const src = await sharp(source).metadata();
+  if (!src.width || !src.height) return surround;
+  const STRIP = 24;
+  const strip = Math.min(STRIP, plan.axis === 'width' ? src.width : src.height);
+
+  interface Side {
+    /** the margin to correct, in surround coordinates */
+    margin: { left: number; top: number; width: number; height: number };
+    /** the source strip it continues, in source coordinates */
+    srcStrip: { left: number; top: number; width: number; height: number };
+    /** the engine's strip just outside the seam, in surround coordinates */
+    engStrip: { left: number; top: number; width: number; height: number };
+  }
+  const sides: Side[] = [];
+  if (plan.axis === 'width') {
+    if (plan.left > 0)
+      sides.push({
+        margin: { left: 0, top: 0, width: plan.left, height: plan.height },
+        srcStrip: { left: 0, top: 0, width: strip, height: src.height },
+        engStrip: {
+          left: Math.max(0, plan.left - strip),
+          top: 0,
+          width: Math.min(strip, plan.left),
+          height: plan.height,
+        },
+      });
+    const rightAt = plan.left + src.width;
+    if (rightAt < plan.width)
+      sides.push({
+        margin: { left: rightAt, top: 0, width: plan.width - rightAt, height: plan.height },
+        srcStrip: { left: src.width - strip, top: 0, width: strip, height: src.height },
+        engStrip: { left: rightAt, top: 0, width: Math.min(strip, plan.width - rightAt), height: plan.height },
+      });
+  } else {
+    if (plan.top > 0)
+      sides.push({
+        margin: { left: 0, top: 0, width: plan.width, height: plan.top },
+        srcStrip: { left: 0, top: 0, width: src.width, height: strip },
+        engStrip: { left: 0, top: Math.max(0, plan.top - strip), width: plan.width, height: Math.min(strip, plan.top) },
+      });
+    const bottomAt = plan.top + src.height;
+    if (bottomAt < plan.height)
+      sides.push({
+        margin: { left: 0, top: bottomAt, width: plan.width, height: plan.height - bottomAt },
+        srcStrip: { left: 0, top: src.height - strip, width: src.width, height: strip },
+        engStrip: { left: 0, top: bottomAt, width: plan.width, height: Math.min(strip, plan.height - bottomAt) },
+      });
+  }
+
+  let out = surround;
+  for (const side of sides) {
+    try {
+      // stats() reads the INPUT image and ignores pipeline extract(): the
+      // strip has to be materialized first or the "strip mean" is the whole
+      // frame's mean.
+      const srcStrip = await sharp(source).extract(side.srcStrip).removeAlpha().toBuffer();
+      const engStrip = await sharp(out).extract(side.engStrip).removeAlpha().toBuffer();
+      const want = (await sharp(srcStrip).stats()).channels.map((c) => c.mean);
+      const have = (await sharp(engStrip).stats()).channels.map((c) => c.mean);
+      const delta = want.slice(0, 3).map((w, i) => Math.max(-32, Math.min(32, w - (have[i] ?? w))));
+      if (delta.every((d) => Math.abs(d) < 3)) continue;
+      const corrected = await sharp(out)
+        .extract(side.margin)
+        .removeAlpha()
+        .linear([1, 1, 1], delta as [number, number, number])
+        .toBuffer();
+      out = await sharp(out)
+        .composite([{ input: corrected, left: side.margin.left, top: side.margin.top }])
+        .toBuffer();
+    } catch {
+      // best effort: an unreadable strip leaves that margin as the engine drew it
+    }
+  }
+  return out;
 }
 
 /**

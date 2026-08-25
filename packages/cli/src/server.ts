@@ -219,7 +219,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const fromFile = String(part.filename ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
       name =
         Array.from(
-          String(explicit ?? (fromFile || spec.fallback)).replace(/[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g, ''),
+          String(explicit ?? (fromFile || spec.fallback)).replace(
+            /[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g,
+            '',
+          ),
         )
           .slice(0, 80)
           .join('')

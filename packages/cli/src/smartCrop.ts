@@ -29,8 +29,15 @@ export async function attentionCropOrigin(
     const { info } = await sharp(srcBuf)
       .resize(plan.width, plan.height, { fit: 'cover', position: 'attention' })
       .toBuffer({ resolveWithObject: true });
-    const left = typeof info.cropOffsetLeft === 'number' ? Math.abs(info.cropOffsetLeft) : plan.left;
-    const top = typeof info.cropOffsetTop === 'number' ? Math.abs(info.cropOffsetTop) : plan.top;
+    const attnLeft = typeof info.cropOffsetLeft === 'number' ? Math.abs(info.cropOffsetLeft) : plan.left;
+    const attnTop = typeof info.cropOffsetTop === 'number' ? Math.abs(info.cropOffsetTop) : plan.top;
+    // Halfway between the attention window and the centred one. Raw attention
+    // anchors hard: on the QA battery it chose the textured half of a wide
+    // frame and left the bottle 30px from the crop's edge with its shadow
+    // amputated. Splitting the difference keeps the subject bias while the
+    // composition stays a photograph's, not a detector's.
+    const left = Math.round((attnLeft + plan.left) / 2);
+    const top = Math.round((attnTop + plan.top) / 2);
     // Lock to the cut axis: the full axis never moves, and a stray offset
     // there would push the extract out of bounds.
     return plan.axis === 'width'

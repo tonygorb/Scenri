@@ -166,3 +166,47 @@ describe('expanding a frame', () => {
     expect(seamBandFor({ width: 2000, height: 40 })).toBe(10); // shortEdge/4 clamp
   });
 });
+
+describe('margin tone matching', () => {
+  it('pulls a mistinted margin to the tone of the strip it continues', async () => {
+    const src = await source(); // red 200/30/30 field
+    const plan = planExpand({ width: 256, height: 256 }, 9 / 16)!; // height axis: top+bottom margins
+    // the engine answers with margins a shade brighter than the picture
+    const answer = await sharp({
+      create: { width: plan.width, height: plan.height, channels: 3, background: { r: 240, g: 70, b: 70 } },
+    })
+      .png()
+      .toBuffer();
+    const { image } = await compositeExpand(answer, src, plan);
+    // the top margin's mean is now within a few levels of the source's edge
+    // stats() reads the INPUT image and ignores extract(): materialize first
+    const marginBuf = await sharp(image)
+      .extract({ left: 0, top: 0, width: plan.width, height: plan.top - 20 })
+      .removeAlpha()
+      .toBuffer();
+    const marginStats = await sharp(marginBuf).stats();
+    expect(Math.abs(marginStats.channels[0].mean - 200)).toBeLessThanOrEqual(10);
+    // and the guaranteed region is still byte-identical
+    const g = guaranteed(plan, 256, 256);
+    expect(await pixels(image, g.outRegion)).toEqual(await pixels(src, g.srcRegion));
+  });
+
+  it('clamps the correction so a legitimately different margin is nudged, not repainted', async () => {
+    const src = await source();
+    const plan = planExpand({ width: 256, height: 256 }, 9 / 16)!;
+    // a sky-like margin, far from the ground's tone
+    const answer = await sharp({
+      create: { width: plan.width, height: plan.height, channels: 3, background: { r: 90, g: 140, b: 230 } },
+    })
+      .png()
+      .toBuffer();
+    const { image } = await compositeExpand(answer, src, plan);
+    const marginBuf = await sharp(image)
+      .extract({ left: 0, top: 0, width: plan.width, height: plan.top - 20 })
+      .removeAlpha()
+      .toBuffer();
+    const marginStats = await sharp(marginBuf).stats();
+    // moved by at most the clamp (32) plus rounding, not to the source's red
+    expect(marginStats.channels[2].mean).toBeGreaterThan(150); // still a blue sky
+  });
+});
