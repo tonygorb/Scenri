@@ -727,6 +727,14 @@ export const Composer = forwardRef<
         // dropped the caret and left the brief untypeable
         briefRef.current?.insert({ t: 'ref', imageHash: hash });
       }
+      // the cap is fine, the silence was not: the fifth file used to vanish
+      // with nothing anywhere saying so
+      if (images.length > 4)
+        push({
+          kind: 'error',
+          title: 'Only the first 4 images were attached',
+          detail: `${images.length - 4} more ${images.length - 4 === 1 ? 'was' : 'were'} skipped. Attach ${images.length - 4 === 1 ? 'it' : 'them'} in another pick.`,
+        });
     } catch (e: any) {
       setErr(String(e.message ?? e));
       push(failureToast(e, 'Could not attach that image'));
@@ -752,6 +760,11 @@ export const Composer = forwardRef<
     if (!preview) return null;
     if (t.t === 'ref' && !preview.attachments.some((a) => a.hash === t.imageHash)) {
       return `${engine?.displayName ?? 'This engine'} cannot read this reference, so it is left out.`;
+    }
+    // The brand mark is an attachment like any other, and it used to be the
+    // one kind that could be dropped with no mark on its chip at all.
+    if (t.t === 'mark' && !preview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
+      return `${engine?.displayName ?? 'This engine'} cannot read the brand mark, so it is left out.`;
     }
     if (t.t === 'product') {
       // Demo products live in their own list, so a chip naming one resolved to
@@ -818,10 +831,16 @@ export const Composer = forwardRef<
        */
       // The compiler's own account of what it had to do without. These name
       // real fidelity risks and the server has always sent them back on the
-      // accepted shot; nothing read them, so a brief could quietly go out
-      // degraded and the first sign of it was the picture.
-      const warned = created.warnings?.[0];
-      if (warned) push({ kind: 'success', title: 'Sent, with one thing to know', detail: warned });
+      // accepted shot; only the first used to be surfaced, so a dropped
+      // reference could hide behind whatever warning happened to come first.
+      const warned = created.warnings ?? [];
+      if (warned.length === 1) push({ kind: 'success', title: 'Sent, with one thing to know', detail: warned[0] });
+      else if (warned.length > 1)
+        push({
+          kind: 'success',
+          title: `Sent, with ${warned.length} things to know`,
+          detail: warned.join(' '),
+        });
 
       briefRef.current?.setTokens(emptySentence());
       setTplFields({});
