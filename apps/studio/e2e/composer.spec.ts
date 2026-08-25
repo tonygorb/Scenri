@@ -824,8 +824,10 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   await page.keyboard.press('Escape');
 
   // it stays a refinement: the shape is reached by growing this picture, not
-  // by running the brief again and getting a different one
+  // by running the brief again and getting a different one. Extend is the
+  // preselected op for a square asked to go wide, and the choice is on screen.
   await expect(composer.locator('.sc-send')).toContainText('Refine');
+  await expect(composer.locator('.sc-reshape button[data-on]')).toContainText('Extend to Landscape 16:9');
   await expect(composer).toContainText('Expands this shot into the new shape.');
 
   // the send is caught and answered here rather than allowed to make a picture
@@ -842,9 +844,72 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   await expect.poll(() => posted?.kind).toBe('edit');
   expect(posted.brief.format).toBe('landscape');
   // a child of the shot on screen, carrying the frame it was made from: the
-  // server grows that picture rather than starting another one
+  // server grows that picture rather than starting another one — and the op
+  // rides on the wire by name, never inferred
   expect(posted.parentId).toBe(shot);
   expect(posted.sourceImage).toBeTruthy();
+  expect(posted.reshape).toBe('extend');
+});
+
+test('a squarer shape while refining offers a crop, and sends it with no words at all', async ({ page }) => {
+  const brand = new URL(page.url()).pathname.split('/')[1];
+
+  // the same trick as the expand test: the shot's recorded shape is the only
+  // input the composer needs, so the workspace response carries it
+  let shot = '';
+  await page.route('**/workspace', async (route) => {
+    const res = await route.fetch();
+    const ws = await res.json();
+    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
+    if (done) {
+      shot = done.id;
+      done.brief = { ...(done.brief ?? { tokens: [] }), format: 'landscape' };
+    }
+    await route.fulfill({ response: res, json: ws });
+  });
+
+  await page.goto(`/${brand}/create`);
+  await expect.poll(() => shot).not.toBe('');
+  await page.goto(`/${brand}/create/shots/${shot}`);
+  const composer = page.locator('.sc-ovl-edit');
+  await expect(composer.locator('.sc-brief-line')).toBeVisible();
+
+  // 16:9 asked to be 1:1 preselects the crop, and the note promises geometry
+  await composer.locator('.sc-more').click();
+  await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '1:1' }).first().click();
+  await page.keyboard.press('Escape');
+  await expect(composer.locator('.sc-reshape button[data-on]')).toContainText('Crop to Square 1:1');
+  await expect(composer).toContainText('Nothing new is drawn');
+
+  // words and a crop cannot travel together, and the block says so out loud
+  await composer.locator('.sc-brief-line').click();
+  await page.keyboard.type('and make it warmer');
+  await expect(composer.locator('.sc-send')).toHaveAttribute('aria-disabled', 'true');
+  await expect(composer.locator('.sc-send')).toHaveAttribute('title', /A crop uses no words/);
+
+  // switching to Extend takes the words along instead
+  await composer.locator('.sc-reshape button', { hasText: 'Extend to' }).click();
+  await expect(composer.locator('.sc-send')).not.toHaveAttribute('aria-disabled');
+
+  // back to the crop, words cleared: sendable with the brief exactly as empty
+  // as it stands
+  await composer.locator('.sc-reshape button', { hasText: 'Crop to' }).click();
+  await composer.locator('.sc-brief-line').click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.press('Backspace');
+  await expect(composer.locator('.sc-send')).not.toHaveAttribute('aria-disabled');
+
+  let posted: any = null;
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posted = route.request().postDataJSON();
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
+  });
+  await composer.locator('.sc-send').click();
+  await expect.poll(() => posted?.kind).toBe('edit');
+  expect(posted.reshape).toBe('crop');
+  expect(posted.brief.format).toBe('square');
+  expect(posted.parentId).toBe(shot);
 });
 
 /**

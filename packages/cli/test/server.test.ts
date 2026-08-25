@@ -520,6 +520,196 @@ describe('generation flow', () => {
     expect(after).toEqual(before);
   });
 
+  // The other reshape op: no engine, no prompt, no generation — the output is
+  // a rectangle of the original's own decoded pixels.
+  it('crops to a narrower shape deterministically, pixel for pixel, at no cost', async () => {
+    const brand = await mkBrand();
+    const { project } = await mkProject(brand.id);
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'landscape', w: 456, h: 256 },
+            { t: 'text', v: 'a wide field' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDone(gen.json().id);
+    const sourceHash = genNode.images[0];
+    const sharp = (await import('sharp')).default;
+    const src = core.images.read(sourceHash);
+    const srcMeta = await sharp(src).metadata();
+
+    // aspect-only: a crop needs no words, only the target shape
+    const crop = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: sourceHash,
+        reshape: 'crop',
+        brief: { tokens: [{ t: 'format', id: 'square', w: 256, h: 256 }] },
+      },
+    });
+    expect(crop.statusCode).toBe(202);
+    const out = await waitDone(crop.json().id);
+    expect(out.status).toBe('done');
+    expect(out.costUsd).toBe(0);
+    expect(out.kind).toBe('edit');
+    expect(out.prompt).toContain('Cropped to');
+    expect((out.brief as any).reshape).toBe('crop');
+    expect((out.brief as any).sourceImage).toBe(sourceHash);
+
+    // the output is exactly the centred source region, decoded byte for byte
+    const meta = await sharp(core.images.read(out.images[0])).metadata();
+    expect(meta.height).toBe(srcMeta.height);
+    expect(meta.width).toBe(srcMeta.height); // square from every row
+    const left = Math.floor((srcMeta.width! - meta.width!) / 2);
+    const region = { left, top: 0, width: meta.width!, height: meta.height! };
+    const before = await sharp(src).extract(region).removeAlpha().raw().toBuffer();
+    const after = await sharp(core.images.read(out.images[0])).removeAlpha().raw().toBuffer();
+    expect(after).toEqual(before);
+  });
+
+  it('a crop needs no engine, but an aspect-only brief without reshape still refuses', async () => {
+    const brand = await mkBrand();
+    const { project } = await mkProject(brand.id);
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'landscape', w: 456, h: 256 },
+            { t: 'text', v: 'a wide field' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDone(gen.json().id);
+
+    // an engine nothing here knows: a crop must not care
+    const cropped = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'not-installed-anywhere',
+        sourceImage: genNode.images[0],
+        reshape: 'crop',
+        brief: { tokens: [{ t: 'format', id: 'square', w: 256, h: 256 }] },
+      },
+    });
+    expect(cropped.statusCode).toBe(202);
+    expect((await waitDone(cropped.json().id)).status).toBe('done');
+
+    // the same aspect-only brief WITHOUT the explicit op keeps the exact
+    // pre-0.5 behaviour — the implicit expansion — so older callers change
+    // nothing, and the absence of `reshape` in the record says which era it was
+    const bare = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'format', id: 'square', w: 256, h: 256 }] },
+      },
+    });
+    expect(bare.statusCode).toBe(202);
+    const bareOut = await waitDone(bare.json().id);
+    expect(bareOut.status).toBe('done');
+    expect((bareOut.brief as any).reshape).toBeUndefined();
+
+    // a crop to the shape it already has is a caller mistake, said out loud
+    const noop = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: genNode.images[0],
+        reshape: 'crop',
+        brief: { tokens: [{ t: 'format', id: 'landscape', w: 456, h: 256 }] },
+      },
+    });
+    expect(noop.statusCode).toBe(400);
+    expect(noop.json().error).toMatch(/already this shape/);
+  });
+
+  it('an explicit extend needs no prose, and says so when there is nothing to extend', async () => {
+    const brand = await mkBrand();
+    const { project } = await mkProject(brand.id);
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 256, h: 256 },
+            { t: 'text', v: 'a red field' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDone(gen.json().id);
+
+    const extended = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: genNode.images[0],
+        reshape: 'extend',
+        brief: { tokens: [{ t: 'format', id: 'landscape', w: 456, h: 256 }] },
+      },
+    });
+    expect(extended.statusCode).toBe(202);
+    const out = await waitDone(extended.json().id);
+    expect(out.status).toBe('done');
+    expect((out.brief as any).reshape).toBe('extend');
+
+    const noop = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: genNode.images[0],
+        reshape: 'extend',
+        brief: { tokens: [{ t: 'format', id: 'square', w: 256, h: 256 }] },
+      },
+    });
+    expect(noop.statusCode).toBe(400);
+    expect(noop.json().error).toMatch(/already this shape/);
+  });
+
   it('edit without parent image -> 400; unknown engine -> 400', async () => {
     const brand = await mkBrand();
     const { project, root } = await mkProject(brand.id);

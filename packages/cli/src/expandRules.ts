@@ -31,10 +31,11 @@ export interface ExpandPlan {
 /**
  * Plan an expansion from a source's real pixels to a target aspect ratio.
  *
- * Returns null when there is nothing to do, which is both the same ratio and
- * any request that would require cropping. Growing is the whole point: a 16:9
- * asked for as 1:1 would have to lose two thirds of its width, and silently
- * throwing pixels away is not an expansion.
+ * Returns null only when there is nothing to do (the same ratio, or nonsense
+ * input). Any other ratio is reached by GROWING one axis — never by cropping:
+ * a squarer shape means a taller frame, not narrower pixels. When the user
+ * wants the other op — cut down to the new shape instead of building out to
+ * it — that is cropRules.ts, and the caller carries the choice explicitly.
  */
 export function planExpand(source: { width: number; height: number }, targetRatio: number): ExpandPlan | null {
   if (!(source.width > 0 && source.height > 0 && targetRatio > 0)) return null;
