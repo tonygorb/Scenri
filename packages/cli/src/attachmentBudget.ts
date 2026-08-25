@@ -79,3 +79,25 @@ export function allocateAttachments(
     dropped: legacyOrder.filter((x) => !kept.has(x.i)).map((x) => x.a),
   };
 }
+
+/**
+ * Fit a refinement's own attachments plus what it inherits from the shot it
+ * refines into one budget.
+ *
+ * One allocation, not a concat-and-slice: the borrowed identity used to be
+ * appended after the brief's own references and cut at the cap, which under a
+ * tight budget dropped an inherited brand mark or reference with no fairness
+ * at all. Own attachments board with their insertion order ahead of the
+ * inherited ones (the user's newest instruction outranks what is carried),
+ * and duplicates collapse to the OWN copy so re-attaching a carried image
+ * never costs a second slot.
+ */
+export function mergeEditAttachments(
+  own: Attachment[],
+  inherited: Attachment[],
+  cap: number,
+): { kept: Attachment[]; dropped: Attachment[] } {
+  const seen = new Set(own.map((a) => a.hash));
+  const borrowed = inherited.filter((a) => !seen.has(a.hash)).map((a) => ({ ...a, inherited: true }));
+  return allocateAttachments([...own, ...borrowed], cap);
+}

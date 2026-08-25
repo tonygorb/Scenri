@@ -308,14 +308,14 @@ export function createStore(db: DB) {
         if (!parent || parent.projectId !== input.projectId) throw new Error('parent node not found in project');
       }
       const id = randomUUID();
-      db.prepare('INSERT INTO nodes (id, project_id, parent_id, kind, prompt, engine_id) VALUES (?,?,?,?,?,?)').run(
-        id,
-        input.projectId,
-        input.parentId,
-        input.kind,
-        input.prompt,
-        input.engineId,
-      );
+      // Milliseconds, not the column's second-resolution default: the feed is
+      // ordered by created_at with the random id as tiebreak, so two sends
+      // inside one second landed in id order — newest anywhere but first.
+      // Same text format as datetime('now') with the fraction appended, so it
+      // compares correctly against every row already written.
+      db.prepare(
+        "INSERT INTO nodes (id, project_id, parent_id, kind, prompt, engine_id, created_at) VALUES (?,?,?,?,?,?, strftime('%Y-%m-%d %H:%M:%f','now'))",
+      ).run(id, input.projectId, input.parentId, input.kind, input.prompt, input.engineId);
       return this.getNode(id)!;
     },
     completeNode(id: string, result: { images: string[]; costUsd: number; durationMs?: number }): void {
@@ -337,9 +337,11 @@ export function createStore(db: DB) {
       return r ? rowToNode(r) : null;
     },
     treeFor(projectId: string): TreeNode[] {
-      // created_at is second-resolution, so same-second rows need the id
-      // tiebreak or SQLite is free to return them in a different order on
-      // every read — and the feed reshuffles between two loads of one brand.
+      // Rows from before addNode stamped milliseconds are second-resolution,
+      // so same-second rows need the id tiebreak or SQLite is free to return
+      // them in a different order on every read — and the feed reshuffles
+      // between two loads of one brand. New rows carry a fraction and only
+      // tie on a same-millisecond scripted burst.
       return (db.prepare('SELECT * FROM nodes WHERE project_id=? ORDER BY created_at, id').all(projectId) as any[]).map(
         rowToNode,
       );

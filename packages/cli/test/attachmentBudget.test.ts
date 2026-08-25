@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allocateAttachments } from '../src/attachmentBudget.js';
+import { allocateAttachments, mergeEditAttachments } from '../src/attachmentBudget.js';
 import type { Attachment } from '../src/brief.js';
 
 const att = (role: Attachment['role'], hash: string, extra: Partial<Attachment> = {}): Attachment => ({
@@ -81,5 +81,33 @@ describe('allocating attachments under an engine cap', () => {
       .kept.map((x) => x.hash)
       .sort();
     expect([...a].sort()).toEqual(b);
+  });
+});
+
+describe('merging a refinement budget', () => {
+  it('collapses duplicates to the own copy and boards own before inherited', () => {
+    const own = [att('reference', 'r1', { label: 'Reference shot' })];
+    const inherited = [
+      att('reference', 'r1', { label: 'Reference shot' }),
+      att('brand', 'm1', { label: 'Primary mark' }),
+    ];
+    const { kept } = mergeEditAttachments(own, inherited, 3);
+    expect(kept.map((a) => a.hash)).toEqual(['m1', 'r1']);
+    // the duplicated reference is the OWN copy, not the flagged carried one
+    expect(kept.find((a) => a.hash === 'r1')?.inherited).toBeUndefined();
+    expect(kept.find((a) => a.hash === 'm1')?.inherited).toBe(true);
+  });
+
+  it('starvation still keeps subject essentials before anything carried', () => {
+    const own: ReturnType<typeof att>[] = [];
+    const inherited = [
+      att('product', 'p1', { id: 'prod', essential: true }),
+      att('character', 'c1', { id: 'pers', essential: true }),
+      att('brand', 'm1'),
+      att('reference', 'r1'),
+    ];
+    const { kept, dropped } = mergeEditAttachments(own, inherited, 2);
+    expect(kept.map((a) => a.hash)).toEqual(['p1', 'c1']);
+    expect(dropped.map((a) => a.hash).sort()).toEqual(['m1', 'r1']);
   });
 });

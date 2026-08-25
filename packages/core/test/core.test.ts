@@ -151,6 +151,34 @@ describe('version tree', () => {
     expect(core.store.getNode(g.id)!.archived).toBe(false);
   });
 
+  it('stamps created_at with milliseconds so send order is feed order', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    const spin = () => {
+      // force at least one millisecond between inserts without sleeping async
+      const t = Date.now();
+      while (Date.now() - t < 2) {}
+    };
+    const made = Array.from({ length: 5 }, (_, i) => {
+      spin();
+      return core.store.addNode({
+        projectId: project.id,
+        parentId: root.id,
+        kind: 'generation',
+        prompt: `shot ${i}`,
+        engineId: 'demo',
+      });
+    });
+    // the fraction is present — datetime('now') alone ties inside a second and
+    // hands the order to the random id
+    for (const n of made) expect(core.store.getNode(n.id)!.createdAt).toMatch(/\.\d{3}$/);
+    const got = core.store
+      .treeFor(project.id)
+      .filter((n) => n.kind !== 'root')
+      .map((n) => n.id);
+    expect(got).toEqual(made.map((n) => n.id));
+  });
+
   it('treeFor breaks a same-second created_at tie by id, deterministically', () => {
     const b = core.store.createBrand(brandJson as any);
     const { project, root } = core.store.createProject(b.id, 'p');

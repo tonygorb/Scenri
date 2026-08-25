@@ -28,8 +28,18 @@ interface Tok {
 
 const tokens = (b: Brief): Tok[] => ((b?.tokens ?? []) as Tok[]).filter((t) => t && typeof t.t === 'string');
 
+/**
+ * A brief's whole context: its own tokens plus what it inherited from the
+ * shot it refines. The change line diffs against this, or a refinement that
+ * CARRIED the parent's mark read as "1 brand mark removed".
+ */
+const contextTokens = (b: Brief): Tok[] => [
+  ...tokens(b),
+  ...(((b as { inherited?: unknown })?.inherited ?? []) as Tok[]).filter((t) => t && typeof t.t === 'string'),
+];
+
 const idsOf = (b: Brief, kind: string): string[] =>
-  tokens(b)
+  contextTokens(b)
     .filter((t) => t.t === kind && typeof t.id === 'string')
     .map((t) => t.id as string);
 
@@ -41,7 +51,7 @@ const proseOf = (b: Brief): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const countOf = (b: Brief, kind: string): number => tokens(b).filter((t) => t.t === kind).length;
+const countOf = (b: Brief, kind: string): number => contextTokens(b).filter((t) => t.t === kind).length;
 
 /** A name if the catalog still knows it, else something honest and short. */
 const label = (id: string, resolve: (id: string) => string | null, fallback: string): string => resolve(id) ?? fallback;
@@ -138,12 +148,42 @@ export function sourceImageOf(node: TreeNode, parent: TreeNode | null | undefine
  * sentence they typed is in the brief's own text tokens; the compiled prompt is
  * the fallback for shots made before briefs were stored.
  */
-export function briefProse(node: TreeNode): string {
+export function briefProse(node: TreeNode, names: ProseNames): string {
+  // Walk the tokens in order and speak every chip by name. Keeping only the
+  // text runs left literal holes where the chips sat: "add this logo to the ."
+  // — a sentence with its nouns removed.
   const said = tokens(node.brief)
-    .filter((t) => t.t === 'text')
-    .map((t) => (typeof t.v === 'string' ? t.v : ''))
+    .map((t) => {
+      switch (t.t) {
+        case 'text':
+          return typeof t.v === 'string' ? t.v : '';
+        case 'product':
+          return names.product(String(t.id)) ?? 'a product';
+        case 'character':
+          return names.person(String(t.id)) ?? 'a presenter';
+        case 'template':
+          return names.scene(String(t.id)) ?? 'a scene';
+        case 'color':
+          return String(t.name ?? t.hex ?? '');
+        case 'ref':
+          return 'the attached reference';
+        case 'mark':
+          return names.mark?.(String(t.imageHash)) ?? 'the brand mark';
+        default:
+          return '';
+      }
+    })
     .join(' ')
     .replace(/\s+/g, ' ')
+    .replace(/\s+([.,!?;:])/g, '$1')
     .trim();
   return said || node.prompt || '';
+}
+
+/** The resolvers briefProse speaks with: TokenNames plus the brand's marks. */
+export interface ProseNames {
+  product(id: string): string | null;
+  person(id: string): string | null;
+  scene(id: string): string | null;
+  mark?(hash: string): string | null;
 }

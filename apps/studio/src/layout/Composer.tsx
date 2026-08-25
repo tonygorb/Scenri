@@ -44,6 +44,7 @@ import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
 import { aspectOfFormat } from '../composer/formats.js';
 import { defaultReshapeOp } from '../composer/reshape.js';
+import { byContextOrder } from '../contextChips.js';
 import { failureToast } from '../failure.js';
 import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.js';
 
@@ -143,6 +144,12 @@ export const Composer = forwardRef<
      * behind a branch target nobody had asked for.
      */
     persistDraft?: boolean;
+    /**
+     * Which shell this composer wears. The overlay variant is the shot
+     * detail's refine composer: 300px wide, engine select folded into More,
+     * and a "Carrying" strip stating what the refinement inherits.
+     */
+    variant?: 'dock' | 'overlay';
   }
 >(function Composer(
   {
@@ -166,6 +173,7 @@ export const Composer = forwardRef<
     onRestoreBranchId,
     setSlug,
     persistDraft = true,
+    variant = 'dock',
   },
   handleRef,
 ) {
@@ -519,22 +527,9 @@ export const Composer = forwardRef<
   }, [loaded, templateTokenId, template, push]);
 
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!hasContent) {
-      setPreview(null);
-      return;
-    }
-    if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(() => {
-      void api
-        .previewBrief(brief, engineId, brand.id)
-        .then(setPreview)
-        .catch(() => setPreview(null));
-    }, 280);
-    return () => {
-      if (debounce.current) clearTimeout(debounce.current);
-    };
-  }, [brief, engineId, brand.id, hasContent]);
+  // The preview effect itself lives further down, after `mode` exists: a
+  // refine preview must run the server's inheritance path (parentId), and
+  // whether this send IS a refine is exactly what `mode` decides.
 
   // the draft is owed to whichever brand it belongs to, not necessarily the
   // one currently in `brand.id` — see the hydrate effect above
@@ -617,6 +612,22 @@ export const Composer = forwardRef<
   const expanding = reshapeOp === 'extend' && engineCanEdit;
   const targetShape = FORMATS.find((x) => x.id === formatId);
   const targetShapeLabel = targetShape ? `${targetShape.label} ${targetShape.hint}` : formatId;
+
+  /**
+   * What this refinement carries from the shot it refines, straight from the
+   * compiler's own preview: the strip and the request cannot disagree, because
+   * they are the same allocation. Overlay only, and inherited only — new
+   * attachments already live as chips inside the brief line, and a strip that
+   * repeated them would say everything twice.
+   */
+  const carried = useMemo(() => {
+    if (variant !== 'overlay') return [];
+    const kindOf = { product: 'product', character: 'presenter', brand: 'mark', reference: 'ref' } as const;
+    return (preview?.attachments ?? [])
+      .filter((a) => a.inherited)
+      .map((a) => ({ kind: kindOf[a.role] ?? a.role, label: a.label, hash: a.hash }))
+      .sort(byContextOrder);
+  }, [variant, preview]);
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' = branchable && !template && (engineCanEdit || cropping) ? 'edit' : 'generation';
   const targetNote = !branchable
@@ -701,6 +712,31 @@ export const Composer = forwardRef<
               : !hasContent && !aspectOnly
                 ? 'Write a brief first'
                 : null;
+
+  /**
+   * The compiler's own reading of the brief, refreshed as it changes. For a
+   * refine (mode edit with a target) the parent rides along, so the server
+   * runs the same inheritance-and-budget path the send will run and the
+   * carried-context strip can never disagree with the request — and an empty
+   * refine brief still previews, because the strip must show before typing.
+   */
+  useEffect(() => {
+    const refining = mode === 'edit' && !!target;
+    if (!hasContent && !refining) {
+      setPreview(null);
+      return;
+    }
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => {
+      void api
+        .previewBrief(brief, engineId, brand.id, refining ? target.id : undefined)
+        .then(setPreview)
+        .catch(() => setPreview(null));
+    }, 280);
+    return () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    };
+  }, [brief, engineId, brand.id, hasContent, mode, target]);
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -1055,6 +1091,27 @@ export const Composer = forwardRef<
             </button>
           </fieldset>
         )}
+        {/* The refinement's carried context, stated before it is sent. New
+            attachments appear as chips in the sentence below; this strip is
+            the record of what the thread KEEPS, from the compiler's own
+            preview, so it can never disagree with the request. */}
+        {carried.length > 0 && (
+          // the visible "Carrying" word is the label; chips are informative spans
+          <div className="sc-carried">
+            <span className="sc-carried-lb">Carrying</span>
+            {carried.map((a) => (
+              <span
+                key={`${a.kind}:${a.hash}`}
+                className="sc-carried-chip"
+                data-kind={a.kind}
+                title={`Carried from the shot being refined: ${a.label}`}
+              >
+                <img src={imgUrl(a.hash)} alt="" />
+                <span dir="auto">{a.label}</span>
+              </span>
+            ))}
+          </div>
+        )}
         <BriefInput
           ref={briefRef}
           onChange={setSentence}
@@ -1182,6 +1239,11 @@ export const Composer = forwardRef<
                   onCount={setVariants}
                   quality={quality}
                   onQuality={setQualityId}
+                  // the overlay's 300px row cannot hold the engine select
+                  // without wrapping, so the engine moves in here
+                  {...(variant === 'overlay' && usable.length > 1
+                    ? { engineChoices: usable, onEngine: setEngineId }
+                    : {})}
                 />
               </Popover.Content>
             </Popover.Root>

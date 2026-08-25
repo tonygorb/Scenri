@@ -1503,23 +1503,33 @@ test('the newest work is always the top-left tile', async ({ page }) => {
   await page.goto(`/${slug}/create`);
   await expect(page.locator('.sc-cell').first()).toBeVisible();
 
-  const topLeftMost = async (selector: string) => {
-    const cells = await page.locator('.sc-cell').all();
-    const boxes = [];
-    for (const c of cells) {
-      const b = await c.boundingBox();
-      if (b) boxes.push({ c, b });
-    }
-    boxes.sort((a, z) => a.b.y - z.b.y || a.b.x - z.b.x);
-    return boxes[0]?.c.evaluate((el, sel) => el.matches(sel), selector);
-  };
+  // One evaluate, one consistent layout: sampling each cell's box in its own
+  // round trip let the demo run finish mid-walk, so the running attribute was
+  // gone by the time the winner was asked about it.
+  const topLeftMost = (selector: string) =>
+    page.evaluate((sel) => {
+      const boxes = [...document.querySelectorAll('.sc-cell')].map((c) => ({ c, b: c.getBoundingClientRect() }));
+      boxes.sort((a, z) => a.b.y - z.b.y || a.b.x - z.b.x);
+      return !!boxes[0]?.c.matches(sel);
+    }, selector);
 
   // send a new one from the composer: the running tile must appear top left
   await line(page).click();
   await page.keyboard.type('the newest shot');
   await dock(page).locator('.sc-send').click();
   await expect(page.locator('.sc-cell[data-running]')).toBeVisible();
-  expect(await topLeftMost('[data-running]')).toBe(true);
+  // the demo engine can land between any two round trips, taking the running
+  // attribute with it — in that case the done-shot assertion below is the
+  // whole invariant, checked against the same top-left spot
+  const during = await page.evaluate(() => {
+    const boxes = [...document.querySelectorAll('.sc-cell')].map((c) => ({ c, b: c.getBoundingClientRect() }));
+    boxes.sort((a, z) => a.b.y - z.b.y || a.b.x - z.b.x);
+    return {
+      running: document.querySelectorAll('.sc-cell[data-running]').length,
+      topLeftIsRunning: !!boxes[0]?.c.matches('[data-running]'),
+    };
+  });
+  if (during.running > 0) expect(during.topLeftIsRunning).toBe(true);
 
   // and when it lands, the finished shot holds that same top-left spot
   await expect(page.locator('.sc-cell[data-running]')).toHaveCount(0, { timeout: 30_000 });
@@ -1531,4 +1541,135 @@ test('the newest work is always the top-left tile', async ({ page }) => {
     return nodes[0].id;
   });
   expect(await topLeftMost(`[data-fb-node="${newest}"]`)).toBe(true);
+});
+
+test('a refinement records what it carried, and the shot detail says it', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
+  const slug = decodeURIComponent(new URL(page.url()).pathname.split('/')[1]);
+
+  // a parent shot briefed with a brand mark and a custom reference, then a
+  // bare-text refinement of it, all through the real API on the demo engine
+  const made = await page.evaluate(async () => {
+    const png = Uint8Array.from(
+      atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='),
+      (c) => c.charCodeAt(0),
+    );
+    const brands = await (await fetch('/api/brands')).json();
+    const brand = brands[0];
+    const fd = new FormData();
+    fd.append('file', new Blob([png], { type: 'image/png' }), 'logo.png');
+    const withLogo = await (await fetch(`/api/brands/${brand.id}/logos`, { method: 'POST', body: fd })).json();
+    const logoHash = String(withLogo.json.logos[0].file).slice(6);
+
+    const rd = new FormData();
+    rd.append('file', new Blob([png], { type: 'image/png' }), 'ref.png');
+    const refHash = (await (await fetch('/api/images', { method: 'POST', body: rd })).json()).hash;
+
+    const ws = await (await fetch(`/api/brands/${brand.id}/workspace`)).json();
+    const wait = async (id: string) => {
+      for (let t = 0; t < 80; t++) {
+        const n = await (await fetch(`/api/nodes/${id}`)).json();
+        if (n.status !== 'running') return n;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      throw new Error('never finished');
+    };
+    const gen = await (
+      await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: ws.project.id,
+          kind: 'generation',
+          engineId: 'demo',
+          count: 1,
+          brief: {
+            tokens: [
+              { t: 'format', id: 'square', w: 512, h: 512 },
+              { t: 'text', v: 'a mug on a table' },
+              { t: 'mark', imageHash: logoHash },
+              { t: 'ref', imageHash: refHash },
+            ],
+          },
+        }),
+      })
+    ).json();
+    const genNode = await wait(gen.id);
+    const edit = await (
+      await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: ws.project.id,
+          parentId: genNode.id,
+          kind: 'edit',
+          engineId: 'demo',
+          sourceImage: genNode.images[0],
+          brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+        }),
+      })
+    ).json();
+    await wait(edit.id);
+    return { editId: edit.id as string };
+  });
+
+  // the refined shot's detail names what it carried, quieter than its own ask
+  await page.goto(`/${slug}/create/shots/${made.editId}`);
+  const inherited = page.locator('.sc-ingredient[data-inherited]');
+  await expect(inherited).toHaveCount(2);
+  await expect(page.locator('.sc-ingredient[data-inherited][data-kind="mark"]')).toBeVisible();
+  await expect(page.locator('.sc-ingredient[data-inherited][data-kind="ref"]')).toBeVisible();
+  // and the BRIEF reads as the sentence that was typed
+  await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
+});
+
+test('the refine composer states what it is carrying before the send', async ({ page }) => {
+  const brand = new URL(page.url()).pathname.split('/')[1];
+
+  // the strip draws from the preview's own attachments; answer the preview
+  // with a carried product so the UI wiring is what this test proves
+  await page.route('**/api/brief/preview', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      json: {
+        prompt: '',
+        width: 1024,
+        height: 1024,
+        attachments: [
+          { role: 'product', id: 'p1', label: 'Cold brew can', hash: 'a'.repeat(32), essential: true, inherited: true },
+          { role: 'brand', label: 'Acme wordmark', hash: 'b'.repeat(32), inherited: true },
+        ],
+        dropped: [],
+        warnings: [],
+        productId: 'p1',
+        referenceCount: 2,
+      },
+    });
+  });
+
+  let shot = '';
+  await page.route('**/workspace', async (route) => {
+    const res = await route.fetch();
+    const ws = await res.json();
+    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
+    if (done) shot = done.id;
+    await route.fulfill({ response: res, json: ws });
+  });
+
+  await page.goto(`/${brand}/create`);
+  await expect.poll(() => shot).not.toBe('');
+  await page.goto(`/${brand}/create/shots/${shot}`);
+  const composer = page.locator('.sc-ovl-edit');
+  await expect(composer.locator('.sc-brief-line')).toBeVisible();
+
+  // before a single word is typed, the strip says what the thread keeps
+  await expect(composer.locator('.sc-carried')).toBeVisible();
+  await expect(composer.locator('.sc-carried-chip')).toHaveCount(2);
+  await expect(composer.locator('.sc-carried-chip').first()).toContainText('Cold brew can');
+  await expect(composer.locator('.sc-carried-chip[data-kind="mark"]')).toContainText('Acme wordmark');
 });

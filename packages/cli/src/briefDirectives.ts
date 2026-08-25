@@ -151,6 +151,13 @@ export function sceneGuardDirectives(opts: { hasProduct: boolean; hasPerson: boo
     out.push(
       'Disregard any wardrobe, accessory, or garment brand named in the scene direction above — dress the attached person reference only in the generic material and color terms described; do not print, stitch, or render any brand name or wordmark from the scene text onto them.',
     );
+    // A scene's prose describes a SET, and set copy is often written empty:
+    // two catalog scenes literally say "no people". Without this line that
+    // wording quietly composed an explicitly attached presenter out of their
+    // own shot — the reported adherence failure.
+    out.push(
+      'The scene direction above describes the set, not the cast. If it says the space is empty or that no people appear, disregard that: the attached person stands in this set, clearly visible.',
+    );
   }
   return out;
 }

@@ -6,10 +6,18 @@ import sharp from 'sharp';
 import { loadScenes, sceneResolver, defaultScenesDir } from './scenes.js';
 import { brandJsonWithResolvedPresenters, loadPresenters } from './presenters.js';
 import { brandJsonWithResolvedDemoProducts, loadDemoProducts, demoProductResolver } from './demoProducts.js';
-import { compileBrief, validateBrief, FORMATS, type Brief, type BriefToken } from './brief.js';
+import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type BriefToken } from './brief.js';
+import { mergeEditAttachments } from './attachmentBudget.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Core, EngineAdapter, GenerateRequest, EditRequest, ReferenceRole } from '@scenri/core';
+import type {
+  Core,
+  EngineAdapter,
+  EngineCapabilities,
+  GenerateRequest,
+  EditRequest,
+  ReferenceRole,
+} from '@scenri/core';
 import { SpendCapError, ASPECT_TOLERANCE } from '@scenri/core';
 import { readMeta } from './meta.js';
 import { createUpdateChecker, type UpdateChecker } from './update/check.js';
@@ -411,8 +419,109 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   // ---- brief compiler: the composer previews exactly what will run
   app.get('/api/formats', async () => FORMATS);
+  /**
+   * The one truth for what an edit carries: what the refinement brief attaches
+   * itself, what it inherits from the thread it refines, and which of all that
+   * survives the engine's budget with the source frame holding one slot.
+   *
+   * Both the preview route and the addNode route go through here, so the strip
+   * the composer shows before sending and the request the engine receives can
+   * never disagree. Compiles run uncapped and the ROUTE allocates, because the
+   * compiler's own clamp cannot see the inherited attachments and would
+   * pre-drop under the wrong budget.
+   */
+  async function compileEditBrief(brandId: string, parentId: string, brief: Brief, engineCaps: EngineCapabilities) {
+    const borrowed = inheritedIdentityTokens(parentId, (id) => core.store.getNode(id));
+    const already = new Set(
+      (brief.tokens as BriefToken[])
+        .filter((t) => t.t === 'product' || t.t === 'character' || t.t === 'mark' || t.t === 'ref')
+        .map((t) => JSON.stringify(t)),
+    );
+    const inheritedTokens = borrowed.filter((t) => !already.has(JSON.stringify(t)));
+    // The catalogs resolve only the ids they are shown, so a carried demo
+    // product or curated presenter must be in the token list the brand json
+    // is built against, or it compiles to "no longer in the kit".
+    const combined = [...(brief.tokens as BriefToken[]), ...inheritedTokens];
+    const brandJson = await brandJsonWithResolvedPresenters(
+      core,
+      templatesRoot,
+      presenters,
+      await brandJsonWithResolvedDemoProducts(
+        core,
+        templatesRoot,
+        demoProducts,
+        brandJsonWithCatalogProducts(core, brandId),
+        combined,
+      ),
+      combined,
+    );
+    const sceneById = sceneFor(brandJson);
+    const uncapped = { ...engineCaps, maxReferenceImages: 32 };
+    const verdict = scopeOfInstruction(
+      (brief.tokens as BriefToken[])
+        .filter((t): t is Extract<BriefToken, { t: 'text' }> => t.t === 'text')
+        .map((t) => t.v)
+        .join(' '),
+    );
+    const compiled = compileBrief(brief, {
+      brand: brandJson,
+      images: core.images,
+      engineCaps: uncapped,
+      template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
+      templateById: sceneById,
+      mode: 'edit' as const,
+      editScope: verdict.scope,
+      editRemoval: verdict.removal ?? false,
+      inheritedIdentity: inheritedTokens.length > 0,
+    });
+    let inheritedAttachments: Attachment[] = [];
+    if (inheritedTokens.length) {
+      // Compiled from a synthetic brief so the compiler stays the single
+      // definition of what a token attaches; only the attachments are kept.
+      const identity = compileBrief(
+        { tokens: inheritedTokens },
+        { brand: brandJson, images: core.images, engineCaps: uncapped, templateById: sceneById },
+      );
+      // Essentials carry the subject; a brand mark or a reference is one image
+      // each and IS the identity being carried — the old essential-only filter
+      // silently dropped an inherited logo while the prompt claimed identity
+      // was preserved. Corroboration angles are still not borrowed: the frame
+      // in hand already shows the object at the angle in play.
+      inheritedAttachments = identity.attachments
+        .filter((a) => a.essential || a.role === 'brand' || a.role === 'reference')
+        .map((a) => ({ ...a, inherited: true }));
+    }
+    const cap = Math.max(0, engineCaps.maxReferenceImages - 1);
+    const merged = mergeEditAttachments(compiled.attachments, inheritedAttachments, cap);
+    const warnings = [...compiled.warnings];
+    if (merged.dropped.length) {
+      if (engineCaps.maxReferenceImages <= 1) {
+        // An engine that carries nothing beyond the frame is not a reason to
+        // refuse: unlike a generation, the subject is already in the picture.
+        warnings.push(
+          `${engineCaps.displayName} cannot carry reference images, so the identity rides on the source frame alone.`,
+        );
+      } else {
+        const names = [...new Set(merged.dropped.map((d) => d.label))];
+        warnings.push(
+          `${engineCaps.displayName} reads ${engineCaps.maxReferenceImages} reference images and the frame being refined keeps one, so ${names.join(
+            ' and ',
+          )} ${names.length === 1 ? 'was' : 'were'} left out.`,
+        );
+      }
+    }
+    return {
+      compiled,
+      inheritedTokens,
+      merged,
+      warnings,
+      editScope: verdict.scope,
+      editRemoval: verdict.removal ?? false,
+    };
+  }
+
   app.post('/api/brief/preview', async (req, reply) => {
-    const { brief, engineId, brandId } = req.body as any;
+    const { brief, engineId, brandId, parentId } = req.body as any;
     const brand = core.store.getBrand(String(brandId));
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const engine = engines.get(String(engineId));
@@ -421,6 +530,22 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       return reply.status(400).send({ error: 'brief.tokens must be an array' });
     const briefErrors = validateBrief(brief);
     if (briefErrors.length) return reply.status(400).send({ error: `invalid brief: ${briefErrors.join('; ')}` });
+
+    // A preview WITH a parent is a refine preview: it runs the exact path the
+    // send will run, inheritance and budget included, so the context strip the
+    // composer draws is the request the engine will receive.
+    if (parentId && core.store.getNode(String(parentId))) {
+      const edit = await compileEditBrief(brand.id, String(parentId), brief as Brief, engine.capabilities());
+      const { referenceImages, ...rest } = edit.compiled;
+      return {
+        ...rest,
+        attachments: edit.merged.kept,
+        dropped: edit.merged.dropped,
+        warnings: edit.warnings,
+        referenceCount: edit.merged.kept.length,
+      };
+    }
+
     const brandJson = await brandJsonWithResolvedPresenters(
       core,
       templatesRoot,
@@ -739,9 +864,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let compiled: ReturnType<typeof compileBrief> | null = null;
     /** Identity borrowed from the shot being refined, and what it attached. */
     let inheritedTokens: BriefToken[] = [];
-    let inheritedAttachments: ReturnType<typeof compileBrief>['attachments'] = [];
+    /** For an edit: the one allocation of own plus inherited references. */
+    let mergedEdit: ReturnType<typeof mergeEditAttachments> | null = null;
     let editScope: EditScope = 'global';
-    let editRemoval = false;
     /** Things the route itself needs to say, alongside whatever the compiler warned about. */
     const extraWarnings: string[] = [];
     /** Set when a refinement is growing the frame rather than changing the picture. */
@@ -751,71 +876,42 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (brief && Array.isArray(brief.tokens)) {
       const briefErrors = validateBrief(brief);
       if (briefErrors.length) return reply.status(400).send({ error: `invalid brief: ${briefErrors.join('; ')}` });
-      const brandJson = await brandJsonWithResolvedPresenters(
-        core,
-        templatesRoot,
-        presenters,
-        await brandJsonWithResolvedDemoProducts(
+      if (kind === 'edit') {
+        // A refinement borrows the identity of the shot it refines, through
+        // the same helper the preview route uses — one path, one truth.
+        const edit = await compileEditBrief(project.brandId, resolvedParentId, brief as Brief, engine.capabilities());
+        compiled = edit.compiled;
+        inheritedTokens = edit.inheritedTokens;
+        mergedEdit = edit.merged;
+        editScope = edit.editScope;
+        extraWarnings.push(...edit.warnings.filter((w) => !compiled?.warnings.includes(w)));
+        // An explicit extension needs no prose: the instruction is the
+        // expansion's own, and the user's words are only an optional direction.
+        if (!compiled.prompt.trim() && reshape !== 'extend')
+          return reply.status(400).send({ error: 'the brief is empty' });
+      } else {
+        const brandJson = await brandJsonWithResolvedPresenters(
           core,
           templatesRoot,
-          demoProducts,
-          brandJsonWithCatalogProducts(core, project.brandId),
+          presenters,
+          await brandJsonWithResolvedDemoProducts(
+            core,
+            templatesRoot,
+            demoProducts,
+            brandJsonWithCatalogProducts(core, project.brandId),
+            brief.tokens,
+          ),
           brief.tokens,
-        ),
-        brief.tokens,
-      );
-      const sceneById = sceneFor(brandJson);
-      // A refinement borrows the identity of the shot it refines. Without this
-      // the compiler sees a bare sentence, attaches nothing, and the product in
-      // the picture has no reference to be held to.
-      if (kind === 'edit') {
-        const borrowed = inheritedIdentityTokens(resolvedParentId, (id) => core.store.getNode(id));
-        if (borrowed.length) {
-          const already = new Set(
-            (brief.tokens as BriefToken[])
-              .filter((t) => t.t === 'product' || t.t === 'character' || t.t === 'mark')
-              .map((t) => JSON.stringify(t)),
-          );
-          inheritedTokens = borrowed.filter((t) => !already.has(JSON.stringify(t)));
-        }
-        const verdict = scopeOfInstruction(
-          (brief.tokens as BriefToken[])
-            .filter((t): t is Extract<BriefToken, { t: 'text' }> => t.t === 'text')
-            .map((t) => t.v)
-            .join(' '),
         );
-        editScope = verdict.scope;
-        editRemoval = verdict.removal ?? false;
-      }
-      compiled = compileBrief(brief as Brief, {
-        brand: brandJson,
-        images: core.images,
-        engineCaps: engine.capabilities(),
-        template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
-        templateById: sceneById,
-        ...(kind === 'edit'
-          ? { mode: 'edit' as const, editScope, editRemoval, inheritedIdentity: inheritedTokens.length > 0 }
-          : {}),
-      });
-      // An explicit extension needs no prose: the instruction is the
-      // expansion's own, and the user's words are only an optional direction.
-      if (!compiled.prompt.trim() && !(kind === 'edit' && reshape === 'extend'))
-        return reply.status(400).send({ error: 'the brief is empty' });
-
-      // The identity references themselves. Compiled from a synthetic brief so
-      // the compiler stays the single definition of what a token attaches, and
-      // only its attachments are kept: merging the tokens into the sentence
-      // would put "House Blend Maren" in front of the instruction and turn the
-      // refinement back into a generation prompt.
-      if (inheritedTokens.length) {
-        const identity = compileBrief(
-          { tokens: inheritedTokens },
-          { brand: brandJson, images: core.images, engineCaps: engine.capabilities(), templateById: sceneById },
-        );
-        // The source image occupies a slot of its own on every adapter, and an
-        // edit does not need corroborating angles: the frame in hand already
-        // shows the object at the angle in play. Essential references only.
-        inheritedAttachments = identity.attachments.filter((a) => a.essential);
+        const sceneById = sceneFor(brandJson);
+        compiled = compileBrief(brief as Brief, {
+          brand: brandJson,
+          images: core.images,
+          engineCaps: engine.capabilities(),
+          template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
+          templateById: sceneById,
+        });
+        if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
       }
     }
 
@@ -925,20 +1021,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         return reply.status(400).send({ error: 'edit needs a parent node with an image (sourceImage)' });
       if (!engine.capabilities().supportsEdit)
         return reply.status(400).send({ error: 'engine does not support edits' });
-      // The source image occupies a slot on every adapter, so what is left for
-      // identity is one fewer than the engine's budget.
-      const cap = Math.max(0, engine.capabilities().maxReferenceImages - 1);
-      const own = (referenceImages ?? []).map((path, i) => ({ path, role: referenceRoles?.[i] }));
-      const borrowedRefs = inheritedAttachments
-        .map((a) => ({ path: core.images.pathFor(a.hash), role: a.role }))
-        .filter((r) => !own.some((o) => o.path === r.path));
-      const editRefs = [...own, ...borrowedRefs].slice(0, cap);
-      // An engine that carries nothing is not a reason to refuse: unlike a
-      // generation, the subject is already in the source frame. Say so instead.
-      if (cap === 0 && borrowedRefs.length)
-        extraWarnings.push(
-          `${engine.capabilities().displayName} cannot carry reference images, so the identity rides on the source frame alone.`,
-        );
+      // The one allocation of own plus inherited references, already made by
+      // compileEditBrief with the source frame holding a slot. Legacy briefs
+      // (no structured tokens) have nothing to merge and ride referenceImages.
+      const editRefs = mergedEdit
+        ? mergedEdit.kept.map((a) => ({ path: core.images.pathFor(a.hash), role: a.role }))
+        : (referenceImages ?? [])
+            .map((path, i) => ({ path, role: referenceRoles?.[i] }))
+            .slice(0, Math.max(0, engine.capabilities().maxReferenceImages - 1));
 
       // The old comment here said an edit inherits the source's dimensions so
       // there was nothing to check against. The source IS the thing to check
@@ -996,6 +1086,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ...(brief as object),
         ...(editedFrom ? { sourceImage: editedFrom } : {}),
         ...(kind === 'edit' && reshape ? { reshape } : {}),
+        // What the refinement carried, recorded apart from what it asked for:
+        // the detail view shows both, and remix reads tokens alone.
+        ...(kind === 'edit' && inheritedTokens.length ? { inherited: inheritedTokens } : {}),
       });
     // Fire and forget: the 202 is the answer and the node's own status carries
     // the outcome. runNode records failures itself, so a rejection here means

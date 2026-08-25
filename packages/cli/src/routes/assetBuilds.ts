@@ -23,6 +23,7 @@ import {
   type AssetBuildDeps,
   type CustomScene,
 } from '../customAssets.js';
+import { presenterCropMode } from '../presenterRepair.js';
 import { brandContext, COST_PROBE } from './shared.js';
 
 export function registerAssetBuildRoutes(
@@ -182,7 +183,7 @@ export function registerAssetBuildRoutes(
     const base = brandCharacters(brand.json).find((c: any) => c.id === id);
     if (!base) return reply.status(404).send({ error: 'presenter not found' });
     if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
-    const built = presenterRecordFrom(await withDerivedCrops(core, (req.body ?? {}) as any), base);
+    const built = presenterRecordFrom(await withDerivedCrops(core, (req.body ?? {}) as any, base), base);
     if (!built.ok) return reply.status(400).send({ error: built.error });
     try {
       commit(core, brand.id, (json) => {
@@ -291,13 +292,23 @@ export function registerAssetBuildRoutes(
  * A body that replaces a presenter's shots without saying what the preview and
  * avatar should be gets them derived server-side from the new first shot —
  * otherwise the old crops keep pointing at a frame that is no longer in the
- * set (or, on manual create, at nothing at all). An explicit hash always wins,
- * and the shots here are user uploads, so the saliency crop is the right mode.
+ * set (or, on manual create, at nothing at all). An explicit hash always wins.
+ * The crop mode is read off the record, not assumed: replacing shots with the
+ * source photos means saliency, an engine-drawn set means the measured
+ * studio geometry.
  */
-async function withDerivedCrops(core: Core, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function withDerivedCrops(
+  core: Core,
+  body: Record<string, unknown>,
+  base?: { sourceRefs?: { file?: string }[] },
+): Promise<Record<string, unknown>> {
   const shots = Array.isArray(body?.shotHashes) ? (body.shotHashes as unknown[]) : null;
   if (!shots?.length || (body.previewHash !== undefined && body.avatarHash !== undefined)) return body;
-  const derived = await presenterCrops(core, String(shots[0]), 'upload');
+  const firstShot = `asset:${String(shots[0])}`;
+  const firstSource = Array.isArray(body.sourceHashes)
+    ? `asset:${String((body.sourceHashes as unknown[])[0])}`
+    : base?.sourceRefs?.[0]?.file;
+  const derived = await presenterCrops(core, String(shots[0]), presenterCropMode(firstShot, firstSource));
   return {
     ...body,
     ...(body.previewHash === undefined && derived.previewHash ? { previewHash: derived.previewHash } : {}),

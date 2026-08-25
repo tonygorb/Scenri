@@ -29,6 +29,7 @@ import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
 import { briefChangeLine, sourceImageOf } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
+import { attachableMarks, markLabel } from '../brand/marks.js';
 import { Ingredients } from './detail/Ingredients.js';
 import { useLineage } from './detail/useLineage.js';
 
@@ -93,6 +94,17 @@ export function DetailOverlay({
     () => (parentShot ? briefChangeLine(parentShot.brief, node.brief, tokenNames) : null),
     [parentShot, node.brief, tokenNames],
   );
+  /** TokenNames plus the brand's marks, so the brief speaks every noun. */
+  const proseNames = useMemo(() => {
+    const marks = attachableMarks(brand.json);
+    return {
+      ...tokenNames,
+      mark: (hash: string) => {
+        const m = marks.find((x) => x.hash === hash);
+        return m ? markLabel(brand.json, m) : null;
+      },
+    };
+  }, [tokenNames, brand]);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -525,6 +537,7 @@ export function DetailOverlay({
               imageIndex={imageIndex}
               onChanged={onChanged}
               brand={brand}
+              names={proseNames}
               onExport={() => setExportOpen(true)}
               onCompare={sourceHash ? () => setCompareOpen(true) : undefined}
               onArchive={() => onArchive(node)}
@@ -545,9 +558,19 @@ export function DetailOverlay({
               a button pointing down here — the heading is the only thing that
               names what typing in this field will do. */}
             {node.status === 'done' && node.images.length > 0 && (
-              <div className="sc-eyebrow sc-ovl-edit-head">Refine this shot</div>
+              <div className="sc-ovl-edit-head">
+                <span className="sc-eyebrow">Refine this shot</span>
+                {/* refining works from the take on stage, and this is the one
+                    line that says which */}
+                {node.images.length > 1 && (
+                  <small>
+                    take {imageIndex + 1} of {node.images.length}
+                  </small>
+                )}
+              </div>
             )}
             <Composer
+              variant="overlay"
               projectId={projectId}
               brand={brand}
               engines={engines}

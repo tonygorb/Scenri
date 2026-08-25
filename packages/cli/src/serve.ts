@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { createEngineRegistry } from './engines.js';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer, type InstallKind } from './server.js';
+import { repairPresenterCrops } from './presenterRepair.js';
 import { readMeta } from './meta.js';
 import { portBusyLines } from './bootError.js';
 
@@ -89,6 +90,10 @@ async function run(): Promise<void> {
   // machine", so the URLs we print carry a token that is new on every run.
   const token = onlyThisMachine ? undefined : randomBytes(24).toString('base64url');
   const reachableAt = onlyThisMachine ? [] : HOST === '0.0.0.0' || HOST === '::' ? lanAddresses() : [HOST];
+
+  // One boot-time pass over custom presenters whose thumbnails predate the
+  // crop fix. Content-addressed, so a healthy library is a read-only walk.
+  await repairPresenterCrops(core, (line) => console.log(line));
 
   const app = buildServer({
     core,

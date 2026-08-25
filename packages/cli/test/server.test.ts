@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCore, type Core, type EngineAdapter } from '@scenri/core';
+import { createCore, type Core, type EditRequest, type EngineAdapter } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
 import { waitDone as waitDoneOn } from './helpers.js';
@@ -1348,6 +1348,165 @@ describe('node watchdog', () => {
     expect(cancel.statusCode).toBe(200);
     const node = await waitDoneOn(local, gen.json().id);
     expect(node.status).toBe('cancelled');
+    await local.close();
+  });
+});
+
+// The reported contract failure: a refinement claimed identity was preserved
+// while the inherited brand mark and reference never reached the engine, and
+// the record showed none of what was carried.
+describe('a refinement carries marks and references, not just subjects', () => {
+  const capture = (maxReferenceImages: number) => {
+    const edits: EditRequest[] = [];
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'cap-spy',
+        displayName: 'Cap Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({ images: [core.images.save(PNG_1PX)], costUsd: 0 }),
+      edit: async (req) => {
+        edits.push(req);
+        return { images: [core.images.save(PNG_1PX)], costUsd: 0 };
+      },
+    };
+    return { engine, edits };
+  };
+
+  const seed = async (local: ReturnType<typeof buildServer>) => {
+    const productHash = core.images.save(PNG_1PX);
+    const logoHash = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([1])]));
+    const refHash = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([2])]));
+    const made = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: {
+        brand: {
+          specVersion: '0.1',
+          meta: { name: 'Acme' },
+          products: [{ id: 'p1', name: 'House Blend', shots: [{ file: `asset:${productHash}`, locked: true }] }],
+          logos: [{ role: 'primary', file: `asset:${logoHash}` }],
+        },
+      },
+    });
+    const brand = made.json();
+    const ws = await local.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'cap-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 1024, h: 1024 },
+            { t: 'product', id: 'p1' },
+            { t: 'text', v: 'on a stone ledge' },
+            { t: 'mark', imageHash: logoHash },
+            { t: 'ref', imageHash: refHash },
+          ],
+        },
+      },
+    });
+    expect(gen.statusCode).toBe(202);
+    const genNode = await waitDoneOn(local, gen.json().id);
+    expect(genNode.status).toBe('done');
+    return { brand, projectId, genNode, productHash, logoHash, refHash };
+  };
+
+  it('an inherited mark and reference reach the engine, and the record says so', async () => {
+    const { engine, edits } = capture(6);
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const { brand, projectId, genNode, productHash, logoHash, refHash } = await seed(local);
+
+    const edit = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'cap-spy',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    expect(edit.statusCode).toBe(202);
+    const editNode = await waitDoneOn(local, edit.json().id);
+    expect(editNode.status).toBe('done');
+
+    // the engine received all three carried images, with their real roles
+    const req = edits[0];
+    expect(req.referenceImages).toContain(core.images.pathFor(productHash));
+    expect(req.referenceImages).toContain(core.images.pathFor(logoHash));
+    expect(req.referenceImages).toContain(core.images.pathFor(refHash));
+    expect(req.referenceRoles).toEqual(expect.arrayContaining(['product', 'brand', 'reference']));
+
+    // the record keeps what was carried apart from what was asked
+    const brief = editNode.brief as any;
+    expect(brief.tokens).toEqual([{ t: 'text', v: 'warmer light' }]);
+    expect((brief.inherited ?? []).map((t: any) => t.t).sort()).toEqual(['mark', 'product', 'ref']);
+
+    // and the preview with a parent tells the same story before sending
+    const preview = await local.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: {
+        brandId: brand.id,
+        engineId: 'cap-spy',
+        parentId: genNode.id,
+        brief: { tokens: [{ t: 'text', v: 'x' }] },
+      },
+    });
+    expect(preview.statusCode).toBe(200);
+    const atts = preview.json().attachments as any[];
+    expect(
+      atts
+        .filter((a) => a.inherited)
+        .map((a) => a.role)
+        .sort(),
+    ).toEqual(['brand', 'product', 'reference']);
+
+    // without a parent the preview is exactly what it always was
+    const bare = await local.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: { brandId: brand.id, engineId: 'cap-spy', brief: { tokens: [{ t: 'text', v: 'x' }] } },
+    });
+    expect(bare.json().attachments).toEqual([]);
+    await local.close();
+  });
+
+  it('under a tight budget the subject boards first and the loss is spoken', async () => {
+    const { engine, edits } = capture(2); // the source frame keeps one slot: one left
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const { projectId, genNode, productHash } = await seed(local);
+
+    const edit = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'cap-spy',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    expect(edit.statusCode).toBe(202);
+    expect((edit.json().warnings ?? []).join(' ')).toMatch(/left out/);
+    await waitDoneOn(local, edit.json().id);
+
+    expect(edits[0].referenceImages).toEqual([core.images.pathFor(productHash)]);
+    expect(edits[0].referenceRoles).toEqual(['product']);
     await local.close();
   });
 });
