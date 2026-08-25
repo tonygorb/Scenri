@@ -1095,9 +1095,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // not a silent plain edit with an empty instruction.
       if (reshape === 'extend' && !expandPlan)
         return reply.status(400).send({ error: 'the picture is already this shape' });
+      // A real outpainter wants the PICTURE and where it sits; everything else
+      // gets the bed, because it is going to re-render the whole frame and the
+      // bed is the only way to tell it what the margin should look like.
+      const canOutpaint = expandPlan ? engine.capabilities().supportsOutpaint === true : false;
       if (expandPlan) {
-        const canvas = await expandCanvas(srcBuf, expandPlan);
-        expandSourceHash = core.images.save(canvas);
+        if (!canOutpaint) {
+          const canvas = await expandCanvas(srcBuf, expandPlan);
+          expandSourceHash = core.images.save(canvas);
+        }
         expectShape = { width: expandPlan.width, height: expandPlan.height };
       }
 
@@ -1110,6 +1116,18 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         // An answer at the planned size lets compositeExpand skip its rescale,
         // which is one whole class of seam misalignment gone when honored.
         ...(expandPlan ? { width: expandPlan.width, height: expandPlan.height } : {}),
+        // Only an engine that can genuinely paint a margin is told where the
+        // picture sits; the rest would ignore it anyway.
+        ...(expandPlan && canOutpaint
+          ? {
+              expand: {
+                left: expandPlan.left,
+                top: expandPlan.top,
+                width: srcMeta.width ?? 0,
+                height: srcMeta.height ?? 0,
+              },
+            }
+          : {}),
       };
       estimate = await engine.costEstimate(editReq);
       work = (signal) => engine.edit(editReq, signal);

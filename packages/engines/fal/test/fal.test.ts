@@ -84,6 +84,9 @@ describe('capabilities', () => {
       localOnly: false,
       supportsEdit: true,
       supportsMask: false,
+      // fal has a real outpainting endpoint, so an expansion is served by
+      // painting the margin rather than re-rendering the whole canvas
+      supportsOutpaint: true,
       maxReferenceImages: 0,
     });
   });
@@ -282,5 +285,51 @@ describe('edit', () => {
 
     await expect(engine.edit(editReq())).rejects.toThrow(/key not set/i);
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe('expanding a frame', () => {
+  it('sends an expansion to the outpainting endpoint, with the picture and its place in the canvas', async () => {
+    const calls: { url: string; body: any }[] = [];
+    const { engine } = makeEngine({
+      fetchImpl: (async (url: any, init: any) => {
+        calls.push({ url: String(url), body: JSON.parse(String(init.body)) });
+        return new Response(JSON.stringify({ images: [{ url: 'data:image/png;base64,iVBORw0KGgo=' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }) as unknown as typeof fetch,
+    });
+
+    await engine.edit(
+      editReq({
+        instruction: 'keep going',
+        width: 1824,
+        height: 1024,
+        expand: { left: 400, top: 0, width: 1024, height: 1024 },
+      }),
+    );
+
+    expect(calls).toHaveLength(1);
+    // the outpainting model, not the general editor
+    expect(calls[0].url).toContain('bria/expand');
+    expect(calls[0].body.canvas_size).toEqual([1824, 1024]);
+    expect(calls[0].body.original_image_size).toEqual([1024, 1024]);
+    expect(calls[0].body.original_image_location).toEqual([400, 0]);
+  });
+
+  it('still uses the general editor for an ordinary refinement', async () => {
+    const calls: string[] = [];
+    const { engine } = makeEngine({
+      fetchImpl: (async (url: any) => {
+        calls.push(String(url));
+        return new Response(JSON.stringify({ images: [{ url: 'data:image/png;base64,iVBORw0KGgo=' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }) as unknown as typeof fetch,
+    });
+    await engine.edit(editReq({ instruction: 'warmer light' }));
+    expect(calls[0]).toContain('flux-kontext');
   });
 });

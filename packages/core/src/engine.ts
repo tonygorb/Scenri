@@ -109,6 +109,27 @@ export interface EditRequest {
    */
   width?: number;
   height?: number;
+  /**
+   * This edit is an EXPANSION, and where the original sits inside the frame it
+   * is growing into.
+   *
+   * An adapter with a real outpainting endpoint uses this to ask for exactly
+   * that: a model conditioned on the picture, painting only the margin. One
+   * that has none ignores it and keeps receiving the whole bed with an
+   * instruction, which is a re-render of everything and cannot be relied on to
+   * continue the picture's geometry across the join.
+   *
+   * The caller composites the original back either way, so this changes how
+   * good the margin is, never whether the picture survives.
+   */
+  expand?: {
+    /** Where the original's top-left lands in the new frame. */
+    left: number;
+    top: number;
+    /** The original's own size, unscaled. */
+    width: number;
+    height: number;
+  };
 }
 
 export interface EngineResult {
@@ -140,6 +161,14 @@ export interface EngineCapabilities {
   localOnly: boolean; // true => never available in hosted mode
   supportsEdit: boolean;
   supportsMask: boolean;
+  /**
+   * True when the adapter has a real outpainting endpoint — one that is given
+   * the picture and where it sits in a larger frame, and paints only the
+   * margin. False means an expansion is served by re-rendering the whole
+   * canvas, which preserves the picture (the caller composites it back) but
+   * cannot be relied on to continue its geometry across the join.
+   */
+  supportsOutpaint?: boolean;
   maxReferenceImages: number;
   /**
    * True for stub engines that draw placeholder art instead of calling a
