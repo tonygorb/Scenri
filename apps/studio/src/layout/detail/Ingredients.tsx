@@ -4,6 +4,7 @@ import { assetUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { customScenesOf } from '../../brandAssets.js';
 import { normalizeTint } from '../../composer/line.js';
+import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
 import { presenterPath, productPath, scenePath } from '../../routes.js';
 
 /**
@@ -24,6 +25,8 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
     kind: string;
     label: string;
     thumb?: string | null;
+    /** The thumb is a card standing in for an avatar — pull the framing up. */
+    crop?: 'top';
     swatch?: string;
     /** Where this ingredient lives in the catalog, when it has a page at all. */
     to?: string;
@@ -55,14 +58,16 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
       // from has a page. A person built here is the exception: they are a
       // roster entry that owns their page, under their own id.
       const pid = pr?.id ?? c?.presenterId ?? (c?.origin === 'custom' ? c.id : undefined);
+      // The canonical avatar chain — this row used to skip the roster's own
+      // square avatar and press the 4:5 card into its 15px circle uncorrected.
+      const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null };
       return [
         {
           key: `h${t.id}`,
           kind: 'presenter',
           label: c?.name ?? pr?.name ?? 'someone',
-          thumb: c
-            ? (assetUrl(c?.preview) ?? assetUrl(c?.shots?.[0]?.file))
-            : (pr?.avatarUrl ?? pr?.previewUrl ?? null),
+          thumb: av.src,
+          crop: av.crop,
           to: brand && pid ? presenterPath(brand, pid) : undefined,
         },
       ];
@@ -102,7 +107,11 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
       {chips.map((c) => {
         const body = (
           <>
-            {c.thumb ? <img src={c.thumb} alt="" /> : c.swatch ? <i style={{ background: c.swatch }} /> : null}
+            {c.thumb ? (
+              <img src={c.thumb} alt="" data-crop={c.crop} />
+            ) : c.swatch ? (
+              <i style={{ background: c.swatch }} />
+            ) : null}
             {c.label}
           </>
         );

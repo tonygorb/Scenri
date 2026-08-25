@@ -116,6 +116,16 @@ test.describe('a created presenter, from submit to a living page', () => {
     await expect(page.getByRole('heading', { name: 'Your presenters' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Ofira', exact: true })).toBeVisible();
 
+    // Even with no engine, the presenter ships with a real derived avatar and
+    // card crop — this path used to run studio-frame geometry over the raw
+    // upload and could produce no avatar at all.
+    const person = await page.evaluate(async () => {
+      const brands = await (await fetch('/api/brands')).json();
+      return (brands[0].json.characters ?? []).find((c: any) => c.name === 'Ofira');
+    });
+    expect(person.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
+    expect(person.preview).toMatch(/^asset:[a-f0-9]{32}$/);
+
     // The tester's route: the bell's task row is how you reach the new page.
     await page.getByRole('button', { name: /Notifications/ }).click();
     await page.getByRole('dialog').getByRole('button', { name: /Ofira/ }).first().click();

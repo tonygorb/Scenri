@@ -6,6 +6,7 @@ import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 import { customPresenterById } from '../brandAssets.js';
+import { presenterAvatar } from '../presenterVisual.js';
 import { presenterPath, presentersPath, shotPath } from '../routes.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { Confirm } from '../Confirm.js';
@@ -170,9 +171,12 @@ export function PresenterPage() {
   const visibleRefs = openAll ? refs : refs.slice(0, FRONT_ANGLES);
   const frames = owned ? ownedFrames : refs.length ? visibleRefs : presenter.previewUrl ? [presenter.previewUrl] : [];
   const others = presenters.filter((p) => p.id !== presenter.id).slice(0, 8);
-  // A real square portrait needs no cropping trickery; the 4:5 fallback still does.
-  const hasAvatar = Boolean(presenter.avatarUrl);
-  const avatarSrc = presenter.avatarUrl ?? presenter.previewUrl ?? refs[0] ?? null;
+  // A real square portrait needs no cropping trickery; the 4:5 fallback still
+  // does. The chain is the canonical one (presenterVisual.ts), plus this
+  // page's own last resort: a catalog reference frame.
+  const heroAv = presenterAvatar(owned ?? presenter);
+  const hasAvatar = Boolean(heroAv.src && !heroAv.crop);
+  const avatarSrc = heroAv.src ?? refs[0] ?? null;
 
   return (
     <ScrollPane>

@@ -221,6 +221,10 @@
 .sc-swap-thumb[data-tinted] {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 40%, var(--sc-line));
 }
+/* A 4:5 card standing in for a square avatar reads face-first, not torso-first. */
+.sc-swap-thumb[data-crop="top"] {
+  object-position: 50% 12%;
+}
 .sc-swap-cur .sc-swap-thumb {
   width: var(--swap-face);
   height: var(--swap-face);

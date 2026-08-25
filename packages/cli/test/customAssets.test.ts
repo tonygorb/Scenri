@@ -228,6 +228,50 @@ describe('custom presenters and scenes', () => {
     expect(person.promptName).toBeUndefined();
     expect(generated).toHaveLength(0);
     expect(analyzed).toHaveLength(0);
+    // This path used to run the top-anchored studio-frame geometry over an
+    // arbitrary photograph — a square of forehead as the avatar. It now
+    // derives both thumbnails saliency-first, and they always exist.
+    expect(person.preview).toMatch(/^asset:[a-f0-9]{32}$/);
+    expect(person.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
+  });
+
+  it('a manual create and a shot replacement both derive fresh thumbnails', async () => {
+    const brand = await newBrand();
+    const first = await savePhoto('#101010');
+    const made = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/presenters`,
+      payload: { name: 'Noor', shotHashes: [first] },
+    });
+    expect(made.statusCode).toBe(200);
+    const p0 = made.json().presenter;
+    // Created without a build, the presenter still gets both derived images.
+    expect(p0.preview).toMatch(/^asset:[a-f0-9]{32}$/);
+    expect(p0.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
+
+    // Replacing the shots recomputes the crops: the old avatar pointed at a
+    // frame that just left the set.
+    const replaced = await savePhoto('#f0e0d0');
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/presenters/${p0.id}`,
+      payload: { shotHashes: [replaced] },
+    });
+    expect(patched.statusCode).toBe(200);
+    const p1 = patched.json().presenter;
+    expect(p1.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
+    expect(p1.avatar).not.toBe(p0.avatar);
+    expect(p1.preview).not.toBe(p0.preview);
+
+    // An explicit hash always wins over the derivation.
+    const explicit = await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/presenters/${p0.id}`,
+      payload: { shotHashes: [first], avatarHash: first, previewHash: first },
+    });
+    expect(explicit.statusCode).toBe(200);
+    expect(explicit.json().presenter.avatar).toBe(`asset:${first}`);
+    expect(explicit.json().presenter.preview).toBe(`asset:${first}`);
   });
 
   it('files under the categories the person chose, over the ones read off the photos', async () => {

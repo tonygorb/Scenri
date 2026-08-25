@@ -252,7 +252,7 @@ function PickerBody({
           itself does nothing at all. */}
       {list.current && (
         <div className="sc-swap-cur" title={list.current.full}>
-          <Thumb src={list.current.thumb} tinted={!!list.current.tint} />
+          <Thumb src={list.current.thumb} tinted={!!list.current.tint} crop={list.current.crop} />
           <span className="sc-swap-curtext">
             <b dir="auto">{list.current.label}</b>
             {list.current.sub && <span dir="auto">{list.current.sub}</span>}
@@ -299,7 +299,7 @@ function PickerBody({
                 onPick(c);
               }}
             >
-              <Thumb src={c.thumb} tinted={!!c.tint} />
+              <Thumb src={c.thumb} tinted={!!c.tint} crop={c.crop} />
               <b dir="auto">
                 {c.bookmarked && (
                   <>
@@ -353,7 +353,7 @@ function PickerBody({
 }
 
 /** A catalog import whose image never downloaded has a product but no picture. */
-function Thumb({ src, tinted }: { src?: string | null; tinted: boolean }) {
+function Thumb({ src, tinted, crop }: { src?: string | null; tinted: boolean; crop?: 'top' }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [src]);
   if (!src || broken) {
@@ -367,6 +367,7 @@ function Thumb({ src, tinted }: { src?: string | null; tinted: boolean }) {
     <img
       className="sc-swap-thumb"
       data-tinted={tinted || undefined}
+      data-crop={crop}
       src={src}
       alt=""
       loading="lazy"

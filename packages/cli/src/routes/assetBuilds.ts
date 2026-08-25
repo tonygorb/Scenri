@@ -14,6 +14,7 @@ import {
   isCustomPresenter,
   lintSceneProse,
   listAssetBuilds,
+  presenterCrops,
   presenterRecordFrom,
   sceneRecordFrom,
   scenePreviewPrompt,
@@ -163,7 +164,7 @@ export function registerAssetBuildRoutes(
   app.post('/api/brands/:id/presenters', async (req, reply) => {
     const brand = brandOr404(req, reply);
     if (!brand) return;
-    const built = presenterRecordFrom((req.body ?? {}) as any);
+    const built = presenterRecordFrom(await withDerivedCrops(core, (req.body ?? {}) as any));
     if (!built.ok) return reply.status(400).send({ error: built.error });
     try {
       commit(core, brand.id, (json) => {
@@ -181,7 +182,7 @@ export function registerAssetBuildRoutes(
     const base = brandCharacters(brand.json).find((c: any) => c.id === id);
     if (!base) return reply.status(404).send({ error: 'presenter not found' });
     if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
-    const built = presenterRecordFrom((req.body ?? {}) as any, base);
+    const built = presenterRecordFrom(await withDerivedCrops(core, (req.body ?? {}) as any), base);
     if (!built.ok) return reply.status(400).send({ error: built.error });
     try {
       commit(core, brand.id, (json) => {
@@ -284,4 +285,22 @@ export function registerAssetBuildRoutes(
     });
     return { preview: `asset:${hash}`, brand: core.store.getBrand(brand.id) };
   });
+}
+
+/**
+ * A body that replaces a presenter's shots without saying what the preview and
+ * avatar should be gets them derived server-side from the new first shot —
+ * otherwise the old crops keep pointing at a frame that is no longer in the
+ * set (or, on manual create, at nothing at all). An explicit hash always wins,
+ * and the shots here are user uploads, so the saliency crop is the right mode.
+ */
+async function withDerivedCrops(core: Core, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const shots = Array.isArray(body?.shotHashes) ? (body.shotHashes as unknown[]) : null;
+  if (!shots?.length || (body.previewHash !== undefined && body.avatarHash !== undefined)) return body;
+  const derived = await presenterCrops(core, String(shots[0]), 'upload');
+  return {
+    ...body,
+    ...(body.previewHash === undefined && derived.previewHash ? { previewHash: derived.previewHash } : {}),
+    ...(body.avatarHash === undefined && derived.avatarHash ? { avatarHash: derived.avatarHash } : {}),
+  };
 }

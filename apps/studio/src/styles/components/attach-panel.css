@@ -133,6 +133,10 @@
 .sc-ap-card:hover .sc-ap-thumb {
   opacity: 0.85;
 }
+/* A 4:5 card standing in for a square avatar reads face-first, not torso-first. */
+.sc-ap-thumb[data-crop="top"] {
+  object-position: 50% 12%;
+}
 .sc-ap-thumb-empty {
   display: grid;
   place-items: center;

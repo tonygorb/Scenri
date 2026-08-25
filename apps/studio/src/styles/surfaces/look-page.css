@@ -565,6 +565,10 @@
   object-fit: cover;
   flex: none;
 }
+/* A 4:5 card standing in for a square avatar reads face-first, not torso-first. */
+.sc-ingredient img[data-crop="top"] {
+  object-position: 50% 12%;
+}
 .sc-ingredient i {
   width: 11px;
   height: 11px;

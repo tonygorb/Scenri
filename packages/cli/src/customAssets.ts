@@ -338,8 +338,12 @@ async function runPresenterBuild(
   if (signal.aborted) throw new Error('cancelled');
 
   patch(job, { stage: 'saving', message: null });
-  const previewHash = await cardCrop(core, shotHashes[0]);
-  const avatarHash = await avatarCrop(core, shotHashes[0]);
+  // The geometric top-anchored crops assume an engine-drawn full-length
+  // standing front view. On the no-engine path the frame is whatever the user
+  // photographed — a waist-up selfie, a landscape — and top-16% is a square
+  // of forehead or ceiling. Saliency picks the subject instead.
+  const generated = shotHashes !== hashes;
+  const { previewHash, avatarHash } = await presenterCrops(core, shotHashes[0], generated ? 'generated' : 'upload');
   const built = presenterRecordFrom({
     name: job.name,
     shotHashes,
@@ -542,6 +546,73 @@ async function avatarCrop(core: Core, hash: string | undefined): Promise<string 
     const size = Math.min(w, h, Math.round(h * 0.16));
     return { left: Math.max(0, Math.round((w - size) / 2)), top: 0, width: size, height: size };
   });
+}
+
+/**
+ * The presenter's two derived images, from one frame.
+ *
+ * `generated` frames are engine-drawn full-length standing figures by
+ * construction, so the measured geometric crops are exact and cheap. An
+ * `upload` is any photograph at all, so the crop is saliency-driven instead
+ * (sharp's `attention` position — deterministic per pinned sharp, no model
+ * spend). Either way a failed first choice falls through to the other before
+ * giving up, so a presenter no longer silently ships with no avatar at all.
+ */
+export async function presenterCrops(
+  core: Core,
+  hash: string | undefined,
+  mode: 'generated' | 'upload',
+): Promise<{ previewHash: string | undefined; avatarHash: string | undefined }> {
+  const previewHash =
+    mode === 'generated'
+      ? ((await cardCrop(core, hash)) ?? (await cardCropSmart(core, hash)))
+      : ((await cardCropSmart(core, hash)) ?? (await cardCrop(core, hash)));
+  const avatarHash =
+    mode === 'generated'
+      ? ((await avatarCrop(core, hash)) ?? (await avatarCropSmart(core, hash)))
+      : ((await avatarCropSmart(core, hash)) ?? (await avatarCrop(core, hash)));
+  return { previewHash, avatarHash };
+}
+
+/** The largest 4:5 window on the picture, placed by saliency. Best effort. */
+async function cardCropSmart(core: Core, hash: string | undefined): Promise<string | undefined> {
+  return smartCover(core, hash, (w, h) => {
+    if (w / h > 0.8) return { width: Math.round(h * 0.8), height: h };
+    return { width: w, height: Math.min(h, Math.round(w / 0.8)) };
+  });
+}
+
+/** A saliency-placed square, downsampled to avatar scale. Best effort. */
+async function avatarCropSmart(core: Core, hash: string | undefined): Promise<string | undefined> {
+  return smartCover(core, hash, (w, h) => {
+    const size = Math.min(w, h, 512);
+    return { width: size, height: size };
+  });
+}
+
+async function smartCover(
+  core: Core,
+  hash: string | undefined,
+  box: (w: number, h: number) => { width: number; height: number },
+): Promise<string | undefined> {
+  if (!hash || !core.images.has(hash)) return undefined;
+  try {
+    const buf = core.images.read(hash);
+    const meta = await sharp(buf).metadata();
+    const w = meta.width ?? 0;
+    const h = meta.height ?? 0;
+    if (!w || !h) return undefined;
+    const raw = box(w, h);
+    // however degenerate the source, an avatar beats no avatar
+    const target = { width: Math.max(1, raw.width), height: Math.max(1, raw.height) };
+    const png = await sharp(buf)
+      .resize(target.width, target.height, { fit: 'cover', position: 'attention' })
+      .png()
+      .toBuffer();
+    return core.images.save(png);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Cut a region out of a stored image and store the result. Best effort. */
