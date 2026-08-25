@@ -35,7 +35,7 @@ import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js
 import { planCrop } from './cropRules.js';
 import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand } from './expand.js';
-import { seamScore, SEAM_VISIBLE } from './seamScore.js';
+import { seamScore } from './seamScore.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
 import { registerLogoRoutes } from './routes/logos.js';
