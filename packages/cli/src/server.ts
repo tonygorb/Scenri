@@ -1090,6 +1090,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         brand: ctx,
         ...(editRefs.length ? { referenceImages: editRefs.map((r) => r.path) } : {}),
         ...(editRefs.length ? { referenceRoles: editRefs.map((r) => r.role ?? 'reference') } : {}),
+        // An answer at the planned size lets compositeExpand skip its rescale,
+        // which is one whole class of seam misalignment gone when honored.
+        ...(expandPlan ? { width: expandPlan.width, height: expandPlan.height } : {}),
       };
       estimate = await engine.costEstimate(editReq);
       work = (signal) => engine.edit(editReq, signal);
@@ -1138,7 +1141,16 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       ? async (images: string[]) => {
           const out: string[] = [];
           for (const h of images) {
-            const { image, aligned } = await compositeExpand(core.images.read(h), original!, plan);
+            const answer = core.images.read(h);
+            // The battery reads this to measure how often the engine honors
+            // the exact-size request; a match means no rescale at all.
+            const got = await sharp(answer).metadata();
+            if (got.width !== plan.width || got.height !== plan.height)
+              app.log.info(
+                { nodeId: node.id, got: `${got.width}x${got.height}`, want: `${plan.width}x${plan.height}` },
+                'expand: engine size differs from plan',
+              );
+            const { image, aligned } = await compositeExpand(answer, original!, plan);
             if (!aligned) app.log.warn({ nodeId: node.id }, 'expand: engine frame did not align, kept the bed');
             out.push(core.images.save(image));
           }

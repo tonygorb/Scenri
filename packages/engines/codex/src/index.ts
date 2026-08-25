@@ -253,7 +253,11 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
           `Edit input.png using your image generation/editing tool: ${req.instruction}.` +
           (refLines.length ? ` ${refLines.join('. ')}.` : '') +
           ` Do not browse the web or explore files. Save the result in the current directory as out-1.png ` +
-          `(you may run the commands needed to save and resize it). Nothing else.`;
+          `(you may run the commands needed to save and resize it).` +
+          // sips is already licensed by the parenthesis above; an exact-size
+          // answer lets the caller's compositing pass skip its rescale.
+          (req.width && req.height ? ` Save the result at exactly ${req.width}x${req.height} pixels.` : '') +
+          ` Nothing else.`;
         // Hand the pictures over the same way generate does. The edit path only
         // copied them into the working directory and named them in prose, so
         // whether the model ever looked at the source depended on the skill

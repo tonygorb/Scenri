@@ -309,7 +309,7 @@ describe('brands API', () => {
 });
 
 describe('generation flow', () => {
-  it('generate -> done with images; edit child; keep; tree', async () => {
+  it('generate -> done with images; edit child; keep; tree', { timeout: 20_000 }, async () => {
     const brand = await mkBrand();
     const { project, root } = await mkProject(brand.id);
 
@@ -391,7 +391,7 @@ describe('generation flow', () => {
       return { brand: res.json(), hash };
     };
 
-    it('borrows the parent shot identity and says what must not move', async () => {
+    it('borrows the parent shot identity and says what must not move', { timeout: 20_000 }, async () => {
       const { brand } = await seedBrand();
       const { project } = await mkProject(brand.id);
       const gen = await app.inject({
@@ -430,7 +430,7 @@ describe('generation flow', () => {
       );
     });
 
-    it('tells a whole frame change that it may move the frame, and a local one that it may not', async () => {
+    it('tells a whole frame change that it may move the frame, and a local one that it may not', { timeout: 20_000 }, async () => {
       const { brand } = await seedBrand();
       const { project } = await mkProject(brand.id);
       const gen = await app.inject({

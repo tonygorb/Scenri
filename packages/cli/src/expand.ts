@@ -77,8 +77,14 @@ export async function compositeExpand(engineImage: Buffer, source: Buffer, plan:
   const sameOrientation = got > 0 && got >= 1 === want >= 1;
   const aligned = sameOrientation;
 
+  // An answer already at the planned size skips the rescale entirely — the
+  // whole point of asking the engine for exact dimensions: cover-scaling the
+  // answer shifts its texture against the pasted original at the seam.
+  const exact = meta.width === plan.width && meta.height === plan.height;
   const surround = aligned
-    ? await sharp(engineImage).resize(plan.width, plan.height, { fit: 'cover', position: 'centre' }).toBuffer()
+    ? exact
+      ? engineImage
+      : await sharp(engineImage).resize(plan.width, plan.height, { fit: 'cover', position: 'centre' }).toBuffer()
     : await expandCanvasBedOnly(source, plan);
 
   const image = await sharp(surround)
