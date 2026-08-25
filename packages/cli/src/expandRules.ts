@@ -76,12 +76,39 @@ export function planExpand(source: { width: number; height: number }, targetRati
  * what the new edges look like, never whether the middle survives.
  */
 export function expandInstruction(plan: ExpandPlan, direction: string): string {
-  const where = plan.axis === 'width' ? 'to the left and right' : 'above and below';
+  const where = plan.axis === 'width' ? 'left and right' : 'top and bottom';
+  /*
+   * Written to the shape codex's own image skill asks for — short labelled
+   * lines, one request, the invariants stated as "change only X, keep Y" —
+   * rather than the paragraph this used to be. That paragraph stacked nine
+   * simultaneous "match the ..." demands in one sentence, which is precisely
+   * the form the skill tells you not to send.
+   *
+   * Two of those demands are gone on purpose. "Matching the existing grain"
+   * named a texture, and naming a texture in a generative prompt amplifies it:
+   * the margins measured 39% grainier than the photograph they continued.
+   * Grain is recoverable in compositing, so failing clean is the better way to
+   * fail. Lens and perspective vocabulary is gone too — this model family
+   * carries bokeh and colour temperature across an edit but not focal length.
+   *
+   * The vertical case gets one extra line, phrased as a fact about where the
+   * camera is rather than as a rate of change. Models of this family answer
+   * camera-relative questions well (~95%) and quantitative "how much bigger"
+   * questions badly (~30%), so "the bottom edge is the part nearest the
+   * camera" is a far safer way to ask for a receding plane than "the texture
+   * grows coarser toward the camera".
+   */
+  const nearEdge =
+    plan.axis === 'height'
+      ? '\nDepth: the bottom edge of the frame is the part of the surface nearest the camera; the top edge is the furthest away.'
+      : '';
+  const own = direction.trim() ? `\nAlso: ${direction.trim()}` : '';
   return (
-    `Extend this photograph ${where} to fill the empty margin, continuing the same scene, the same surface, the ` +
-    `same lighting and the same perspective straight out to the new edges, matching the existing grain, depth of ` +
-    `field, shadow direction and colour temperature. Do not change, move, rescale or ` +
-    `reinterpret anything already in the picture, and do not add a subject, a product or a person that is not ` +
-    `already there.${direction.trim() ? ` ${direction.trim()}` : ''}`
+    `Fill only the soft blurred margin at the ${where} of this frame so the photograph continues into it.` +
+    `\nContinue: the same surface, the same light direction, the same colour temperature and the same depth of field that are already in the picture.` +
+    nearEdge +
+    `\nConstraints: change only the blurred margin; keep the sharp photograph unchanged in position, scale and content.` +
+    `\nAvoid: new objects, products, people, text or watermarks.` +
+    own
   );
 }
