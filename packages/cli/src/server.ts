@@ -24,6 +24,7 @@ import { registerAccessGuard, type AccessOptions } from './access.js';
 import { inheritedIdentityTokens } from './editIdentity.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
 import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js';
+import { planCrop } from './cropRules.js';
 import { expandCanvas, compositeExpand } from './expand.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
@@ -562,7 +563,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   async function runNode(
     nodeId: string,
-    engine: EngineAdapter,
+    /** Null for local work that touches no provider — a pure crop. */
+    engine: EngineAdapter | null,
     estimate: number,
     work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number; raw?: unknown }>,
     expect?: { width: number; height: number },
@@ -574,7 +576,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      */
     post?: (images: string[]) => Promise<string[]>,
   ) {
-    const engineId = engine.capabilities().id;
+    const engineId = engine?.capabilities().id ?? 'local';
     reserved.set(engineId, (reserved.get(engineId) ?? 0) + estimate);
     const ctrl = new AbortController();
     runningGenerations.set(nodeId, ctrl);
@@ -652,6 +654,72 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let { width = 1024, height = 1024 } = req.body as any;
     const project = core.store.getProject(String(projectId));
     if (!project) return reply.status(404).send({ error: 'project not found' });
+
+    /**
+     * Which reshape op an edit with a new shape means. Absent keeps the
+     * historical behaviour (an expansion when the format differs); 'extend'
+     * makes that explicit; 'crop' takes the dedicated path below.
+     */
+    const reshape: 'crop' | 'extend' | undefined =
+      (req.body as any).reshape === 'crop' ? 'crop' : (req.body as any).reshape === 'extend' ? 'extend' : undefined;
+
+    /*
+     * A pure crop, before the engine gate on purpose: it is geometry, not
+     * generation. No provider is asked, no prompt is compiled, no engine needs
+     * to exist or be signed in. The output is a rectangle of the original's
+     * own decoded pixels, re-encoded lossless, run through the one node
+     * lifecycle so history, polling and failure handling stay uniform.
+     */
+    if (kind === 'edit' && reshape === 'crop') {
+      const rootForCrop = core.store.treeFor(project.id).find((n) => n.kind === 'root');
+      if (!rootForCrop) return reply.status(500).send({ error: 'project has no root node' });
+      const cropParentId = parentId ? String(parentId) : rootForCrop.id;
+      if (brief && Array.isArray(brief.tokens)) {
+        const briefErrors = validateBrief(brief);
+        if (briefErrors.length) return reply.status(400).send({ error: `invalid brief: ${briefErrors.join('; ')}` });
+      }
+      const fmt = Array.isArray(brief?.tokens)
+        ? (brief.tokens as BriefToken[]).find(
+            (t): t is Extract<BriefToken, { t: 'format' }> => t.t === 'format' && Number(t.w) > 0 && Number(t.h) > 0,
+          )
+        : undefined;
+      if (!fmt) return reply.status(400).send({ error: 'a crop needs a target format' });
+      const parent = core.store.getNode(cropParentId);
+      const srcHash = (req.body as any).sourceImage ?? parent?.images[0];
+      if (!srcHash || !core.images.has(String(srcHash)))
+        return reply.status(400).send({ error: 'edit needs a parent node with an image (sourceImage)' });
+      const srcBuf = core.images.read(String(srcHash));
+      const srcMeta = await sharp(srcBuf).metadata();
+      if (!srcMeta.width || !srcMeta.height) return reply.status(400).send({ error: 'source image unreadable' });
+      const plan = planCrop({ width: srcMeta.width, height: srcMeta.height }, Number(fmt.w) / Number(fmt.h));
+      if (!plan) return reply.status(400).send({ error: 'the picture is already this shape' });
+
+      const label = FORMATS.find((f) => f.id === fmt.id)?.label ?? `${fmt.w}x${fmt.h}`;
+      const node = core.store.addNode({
+        projectId: project.id,
+        parentId: cropParentId,
+        kind: 'edit',
+        prompt: `Cropped to ${label}`,
+        engineId: engineId ? String(engineId) : 'local',
+      });
+      if (brief) core.store.setBrief(node.id, { ...(brief as object), sourceImage: String(srcHash), reshape: 'crop' });
+      const work = async () => ({
+        images: [
+          core.images.save(
+            await sharp(srcBuf)
+              .extract({ left: plan.left, top: plan.top, width: plan.width, height: plan.height })
+              .png()
+              .toBuffer(),
+          ),
+        ],
+        costUsd: 0,
+      });
+      void runNode(node.id, null, 0, work, { width: plan.width, height: plan.height }).catch((err) =>
+        app.log.error({ err }, 'crop run failed'),
+      );
+      return reply.status(202).send(node);
+    }
+
     const engine = engines.get(String(engineId));
     if (!engine) return reply.status(400).send({ error: `unknown engine ${engineId}` });
     const avail = await engine.isAvailable();
@@ -729,7 +797,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           ? { mode: 'edit' as const, editScope, editRemoval, inheritedIdentity: inheritedTokens.length > 0 }
           : {}),
       });
-      if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
+      // An explicit extension needs no prose: the instruction is the
+      // expansion's own, and the user's words are only an optional direction.
+      if (!compiled.prompt.trim() && !(kind === 'edit' && reshape === 'extend'))
+        return reply.status(400).send({ error: 'the brief is empty' });
 
       // The identity references themselves. Compiled from a synthetic brief so
       // the compiler stays the single definition of what a token attaches, and
@@ -887,6 +958,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (srcMeta.width && srcMeta.height && compiled?.width && compiled?.height) {
         expandPlan = planExpand({ width: srcMeta.width, height: srcMeta.height }, compiled.width / compiled.height);
       }
+      // An explicit extend with nothing to extend into is a caller mistake,
+      // not a silent plain edit with an empty instruction.
+      if (reshape === 'extend' && !expandPlan)
+        return reply.status(400).send({ error: 'the picture is already this shape' });
       if (expandPlan) {
         const canvas = await expandCanvas(srcBuf, expandPlan);
         expandSourceHash = core.images.save(canvas);
@@ -914,8 +989,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       engineId: String(engineId),
     });
     // the resolved source rides along in the brief, which is already a JSON
-    // blob on the node, so the record needs no new column to be accurate
-    if (brief) core.store.setBrief(node.id, editedFrom ? { ...(brief as object), sourceImage: editedFrom } : brief);
+    // blob on the node, so the record needs no new column to be accurate —
+    // and so does the reshape op, when one was asked for by name
+    if (brief)
+      core.store.setBrief(node.id, {
+        ...(brief as object),
+        ...(editedFrom ? { sourceImage: editedFrom } : {}),
+        ...(kind === 'edit' && reshape ? { reshape } : {}),
+      });
     // Fire and forget: the 202 is the answer and the node's own status carries
     // the outcome. runNode records failures itself, so a rejection here means
     // even that failed — log it, but never let it reach the process unhandled.

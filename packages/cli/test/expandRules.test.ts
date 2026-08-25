@@ -43,10 +43,11 @@ describe('planning an expansion', () => {
     expect(planExpand({ width: 1024, height: 576 }, 16 / 9)).toBeNull();
   });
 
-  // Nothing ever has to be cropped, which is the quiet elegance of this: any
-  // ratio is reachable by growing one axis, so no request costs a single pixel.
-  // A 16:9 asked for as a square grows taller rather than losing its sides.
-  it('reaches any shape by growing, never by cropping', () => {
+  // Any ratio is reachable by growing one axis, so THIS op never costs a
+  // pixel: a 16:9 asked for as a square grows taller rather than losing its
+  // sides. Cutting down to the shape instead is the other op — cropRules.ts —
+  // and the caller chooses between them explicitly.
+  it('reaches any shape by growing; cutting down is cropRules, not this op', () => {
     const wide = planExpand({ width: 1820, height: 1024 }, 1)!;
     expect(wide.axis).toBe('height');
     expect(wide.width).toBe(1820);

@@ -93,6 +93,9 @@ export const api = {
     width?: number;
     height?: number;
     sourceImage?: string;
+    /** Edit with a new shape: cut down to it, or build out to it. Explicit,
+     * because the two ops preserve pixels in opposite ways. */
+    reshape?: 'crop' | 'extend';
     templateId?: string;
     templateFields?: Record<string, string>;
     productId?: string;

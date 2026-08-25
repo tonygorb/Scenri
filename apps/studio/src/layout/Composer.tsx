@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Popover, Select, Spinner } from '@radix-ui/themes';
-import { ArrowUp, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
+import { ArrowUp, ArrowsOutSimple, Crop, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
 import {
   api,
   imgUrl,
@@ -42,6 +42,8 @@ import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
+import { aspectOfFormat } from '../composer/formats.js';
+import { defaultReshapeOp } from '../composer/reshape.js';
 import { failureToast } from '../failure.js';
 import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.js';
 
@@ -592,28 +594,43 @@ export const Composer = forwardRef<
    * Asking for a different shape used to be asking for a different photograph.
    *
    * It ran as a new shot from the same setup, so a square somebody liked, asked
-   * for at 16:9, came back as a different picture. It is an expansion now: the
-   * photograph is kept at its own resolution and only the new margin is
-   * generated, then the original is laid back over the answer, so every pixel
-   * that was already there survives exactly.
+   * for at 16:9, came back as a different picture. It is a reshape now, and the
+   * user says which of the two honest ops they mean: CROP cuts the original
+   * down to the new shape — pure geometry, no engine, every kept pixel exactly
+   * the one they had — while EXTEND keeps the whole photograph and generates
+   * only the margin, then lays the original back over the answer.
    *
    * A scene still starts a new shot, because that really is a different brief
    * rather than a bigger frame.
    */
   const reshaping = !!target && !!target.brief?.format && target.brief.format !== formatId;
-  const expanding = reshaping && branchable && engineCanEdit && !template;
-  const mode: 'generation' | 'edit' = branchable && engineCanEdit && !template ? 'edit' : 'generation';
+  const reshapeChoiceOpen = reshaping && branchable && !template;
+  const [reshapeChoice, setReshapeChoice] = useState<'crop' | 'extend' | null>(null);
+  // the choice belongs to one target and one shape; a new target or a new
+  // shape gets the computed default again
+  useEffect(() => setReshapeChoice(null), [target?.id, formatId]);
+  const reshapeOp: 'crop' | 'extend' | null = reshapeChoiceOpen
+    ? (reshapeChoice ?? defaultReshapeOp(aspectOfFormat(target?.brief?.format), aspectOfFormat(formatId)))
+    : null;
+  const cropping = reshapeOp === 'crop';
+  const expanding = reshapeOp === 'extend' && engineCanEdit;
+  const targetShape = FORMATS.find((x) => x.id === formatId);
+  const targetShapeLabel = targetShape ? `${targetShape.label} ${targetShape.hint}` : formatId;
+  // A crop needs no engine at all, so it is an edit even when nothing can edit.
+  const mode: 'generation' | 'edit' = branchable && !template && (engineCanEdit || cropping) ? 'edit' : 'generation';
   const targetNote = !branchable
     ? null
     : template
       ? 'A scene starts a new shot.'
-      : expanding
-        ? 'Expands this shot into the new shape. What is already in the picture stays exactly as it is.'
-        : !engineCanEdit
-          ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
-          : targetPending
-            ? 'Still rendering. This can be refined the moment it lands.'
-            : null;
+      : cropping
+        ? 'Crops this shot to the new shape. Nothing new is drawn, and every pixel kept is exactly the one you had.'
+        : expanding
+          ? 'Expands this shot into the new shape. What is already in the picture stays exactly as it is.'
+          : !engineCanEdit
+            ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
+            : targetPending
+              ? 'Still rendering. This can be refined the moment it lands.'
+              : null;
 
   /**
    * What is currently set, so the one control can still say it out loud.
@@ -662,19 +679,27 @@ export const Composer = forwardRef<
   // A version still rendering also holds the button: sending now would quietly
   // make a new shot instead of continuing the one on the chip, which is the
   // exact silent substitution this composer exists not to do.
-  const canGo = !busy && hasContent && !!projectId && !targetPending && !noEngine;
+  // A reshape needs no words: the shape change IS the brief. A crop with
+  // words would silently ignore them, so it is blocked out loud instead.
+  const aspectOnly = reshapeChoiceOpen && !hasContent;
+  const cropWithWords = cropping && hasContent;
+  const canGo =
+    !busy && (hasContent || aspectOnly) && !cropWithWords && !!projectId && !targetPending && (cropping || !noEngine);
   /** Why the button will not go, in the words of the thing that is blocking. */
-  const blockedReason = noEngine
-    ? 'Image generation is not set up yet'
-    : busy
-      ? 'Working on the last one'
-      : !projectId
-        ? 'Still opening this brand'
-        : targetPending
-          ? 'Wait for this version to finish, or press X to start a new shot'
-          : !hasContent
-            ? 'Write a brief first'
-            : null;
+  const blockedReason =
+    noEngine && !cropping
+      ? 'Image generation is not set up yet'
+      : busy
+        ? 'Working on the last one'
+        : !projectId
+          ? 'Still opening this brand'
+          : targetPending
+            ? 'Wait for this version to finish, or press X to start a new shot'
+            : cropWithWords
+              ? 'A crop uses no words. Clear the brief, or switch to Extend.'
+              : !hasContent && !aspectOnly
+                ? 'Write a brief first'
+                : null;
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -820,6 +845,9 @@ export const Composer = forwardRef<
         // refine works from the picture you are looking at, not from whichever
         // one the run happens to have first
         ...(mode === 'edit' && sourceImage ? { sourceImage } : {}),
+        // the reshape op is explicit on the wire: crop and extend preserve
+        // pixels in opposite ways, and the server must never have to guess
+        ...(mode === 'edit' && reshapeOp ? { reshape: reshapeOp } : {}),
       });
       /*
        * A scene used to be able to declare text zones, and this turned them
@@ -993,6 +1021,31 @@ export const Composer = forwardRef<
             happen is a new shot rather than a change to the one on screen. */}
         {branchable && !onClearTarget && targetNote && (
           <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
+        )}
+        {/* Two honest ops, chosen out loud. Crop and extend preserve pixels in
+            opposite ways, so one implicit rule would always betray somebody:
+            the control preselects the likely intent and the note above says
+            exactly what the selected op will and will not touch. */}
+        {reshapeChoiceOpen && (
+          <fieldset className="sc-reshape">
+            <legend className="sc-vh">How to change the shape</legend>
+            <button
+              type="button"
+              aria-pressed={cropping}
+              data-on={cropping || undefined}
+              onClick={() => setReshapeChoice('crop')}
+            >
+              <Crop size={13} /> Crop to {targetShapeLabel}
+            </button>
+            <button
+              type="button"
+              aria-pressed={reshapeOp === 'extend'}
+              data-on={reshapeOp === 'extend' || undefined}
+              onClick={() => setReshapeChoice('extend')}
+            >
+              <ArrowsOutSimple size={13} /> Extend to {targetShapeLabel}
+            </button>
+          </fieldset>
         )}
         <BriefInput
           ref={briefRef}
