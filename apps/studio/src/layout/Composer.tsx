@@ -711,12 +711,7 @@ export const Composer = forwardRef<
   const aspectOnly = reshapeChoiceOpen && !hasContent;
   const cropWithWords = cropping && hasContent;
   const canGo =
-    !busy &&
-    (hasContent || aspectOnly) &&
-    !cropWithWords &&
-    !!projectId &&
-    !targetPending &&
-    (cropping || !noEngine);
+    !busy && (hasContent || aspectOnly) && !cropWithWords && !!projectId && !targetPending && (cropping || !noEngine);
   /** Why the button will not go, in the words of the thing that is blocking. */
   const blockedReason =
     noEngine && !cropping
