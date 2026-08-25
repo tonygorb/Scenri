@@ -37,7 +37,11 @@ export function DialogSheet({
 }) {
   const { sheet, grip } = useSheetDrag(onDismiss);
   const openFocus = onOpenAutoFocus ?? focusSelfOnOpen;
-  const closeFocus = onCloseAutoFocus ?? ((e: Event) => e.preventDefault());
+  // Default: let Radix restore focus to whatever opened the sheet. The old
+  // default suppressed that, so closing any sheet built on this shell dropped
+  // keyboard focus to <body>. Callers that manage a caret of their own (the
+  // composer sheets) still pass an explicit handler and are untouched.
+  const closeFocus = onCloseAutoFocus;
 
   return (
     <Primitive.Root open={open} onOpenChange={(o) => !o && onDismiss()}>

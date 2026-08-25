@@ -64,6 +64,48 @@
 .sc-cmd-row img[data-crop="top"] {
   object-position: 50% 12%;
 }
+
+/* ---------- chip drag reorder ----------------------------------------------
+   The source chip stays in flow at its own size — zero layout shift — and
+   only dims; the ghost is the thing that travels. The drop caret is a fixed
+   2px bar at the exact insertion point, the same geometry the real caret
+   would have there. */
+.sc-token[data-drag-src] {
+  opacity: 0.45;
+}
+.sc-brief-line[data-chip-drag] {
+  user-select: none;
+  cursor: grabbing;
+}
+.sc-chip-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  margin: 0;
+  z-index: var(--sc-z-popover);
+  pointer-events: none;
+  opacity: 0.92;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+.sc-drop-caret {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--sc-focus);
+  z-index: var(--sc-z-popover);
+  pointer-events: none;
+  transition:
+    transform 80ms ease,
+    height 80ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-drop-caret,
+  .sc-chip-ghost {
+    transition: none;
+  }
+}
 /* A mark is usually dark art on transparency, which is invisible on a dark
    chip — and it is a logo, so cropping it to a circle is worse than shrinking
    it. Ground it in white and letterbox instead. */

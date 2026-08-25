@@ -101,3 +101,25 @@ export function placeCaret(root: HTMLElement, node: Text, offset: number) {
 }
 
 export const lengthOf = (n: ChildNode): number => (n.nodeType === Node.TEXT_NODE ? (n.textContent ?? '').length : 1);
+
+/**
+ * A (node, offset) position as caret units, without touching the selection.
+ *
+ * The same walk `caretUnits` does over the live selection, generalized to any
+ * position — the drop math needs to measure where a point landed before
+ * anything is moved there.
+ */
+export function unitsOfPosition(root: HTMLElement, node: Node, offset: number): number {
+  if (node === root) {
+    let n = 0;
+    for (let i = 0; i < offset && i < root.childNodes.length; i++) n += lengthOf(root.childNodes[i]);
+    return n;
+  }
+  let n = 0;
+  for (const c of Array.from(root.childNodes)) {
+    if (c === node) return n + offset;
+    if (c.contains(node)) return n + 1; // inside a chip counts as just after it
+    n += lengthOf(c);
+  }
+  return n;
+}

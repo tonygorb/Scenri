@@ -190,8 +190,11 @@ export function PresenterPage() {
         </div>
 
         {avatarSrc ? (
-          <div className="sc-presenterpage-avatar" data-avatar={hasAvatar || undefined} aria-hidden>
-            <img src={avatarSrc} alt="" />
+          // the person's own portrait is content, not decoration: it was
+          // aria-hidden, so the face this page is about had no presence in
+          // the accessibility tree at all
+          <div className="sc-presenterpage-avatar" data-avatar={hasAvatar || undefined}>
+            <img src={avatarSrc} alt={presenter.name} />
           </div>
         ) : null}
 

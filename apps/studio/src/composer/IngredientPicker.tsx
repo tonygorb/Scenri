@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as Dialog from '@radix-ui/react-dialog';
-import { ArrowSquareOut, BookmarkSimple, Check, ImageSquare, MagnifyingGlass, Trash } from '@phosphor-icons/react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowSquareOut,
+  BookmarkSimple,
+  Check,
+  ImageSquare,
+  MagnifyingGlass,
+  Trash,
+} from '@phosphor-icons/react';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useSheetDrag } from '../useSheetDrag.js';
 
@@ -29,7 +38,11 @@ import { NOUN, PAGE, pickList, type Candidate, type IngredientKind } from './ing
  */
 export function IngredientPicker(props: PickerProps) {
   const phone = useMediaQuery(PHONE);
-  return phone ? <PickerSheet {...props} /> : <PickerPanel {...props} />;
+  // Move buttons ride only in the sheet: they are the TOUCH reorder path
+  // (drag never arms on touch), while a pointer has the drag and the keyboard
+  // has Alt+Arrow — and the desktop panel is anchored to a chip whose rect
+  // the move itself would shift out from under it.
+  return phone ? <PickerSheet {...props} /> : <PickerPanel {...{ ...props, onMove: undefined }} />;
 }
 
 /**
@@ -63,6 +76,8 @@ export interface PickerProps {
   onClose: (reason: CloseReason) => void;
   /** For a scene warned that it builds around a product or a person. */
   onAttachRequest?: (tab: 'Products' | 'Presenters') => void;
+  /** Step the chip through the sentence; the sheet's touch reorder path. */
+  onMove?: (dir: -1 | 1) => void;
 }
 
 /** The label on the button that empties the slot. */
@@ -96,6 +111,7 @@ function PickerBody({
   onRemove,
   onClose,
   onAttachRequest,
+  onMove,
   autoFocusSearch,
 }: PickerProps & { autoFocusSearch: boolean }) {
   const [query, setQuery] = useState('');
@@ -341,6 +357,18 @@ function PickerBody({
                 Attach a presenter
               </button>
             )}
+          </div>
+        )}
+        {onMove && (
+          <div className="sc-swap-move">
+            {/* the touch reorder path: same move, same announcement, as
+                Alt+Arrow — the sheet stays open, the chip walks the sentence */}
+            <button type="button" className="sc-btn" onClick={() => onMove(-1)}>
+              <ArrowLeft size={13} /> Move earlier
+            </button>
+            <button type="button" className="sc-btn" onClick={() => onMove(1)}>
+              Move later <ArrowRight size={13} />
+            </button>
           </div>
         )}
         <button type="button" className="sc-swap-remove" onClick={onRemove}>

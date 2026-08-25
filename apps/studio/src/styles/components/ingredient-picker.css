@@ -225,6 +225,23 @@
 .sc-swap-thumb[data-crop="top"] {
   object-position: 50% 12%;
 }
+/* The sheet's touch reorder pair. Sheet-only by construction (the desktop
+   panel never receives onMove), and full-width halves so each button clears
+   the coarse-pointer tap floor without asking. */
+.sc-swap-move {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.sc-swap-move .sc-btn {
+  flex: 1;
+  justify-content: center;
+}
+@media (pointer: coarse) {
+  .sc-swap-move .sc-btn {
+    min-height: var(--sc-tap);
+  }
+}
 .sc-swap-cur .sc-swap-thumb {
   width: var(--swap-face);
   height: var(--swap-face);

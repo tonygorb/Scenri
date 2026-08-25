@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -6,6 +6,7 @@ import { attachableMarks, markLabel } from '../brand/marks.js';
 import { characterAvatar, presenterAvatar } from '../presenterVisual.js';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { flattenPalette, normalizeHex } from '../brand/palette.js';
+import { attachChipDrag } from './chipDrag.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
 import { ColorChipMenu } from './ColorChipMenu.js';
@@ -38,6 +39,8 @@ import {
   emptySentence,
   encode,
   insertToken,
+  moveAnnouncement,
+  moveChipBy,
   normalizeLine,
   normalizeTint,
   parseBriefHtml,
@@ -136,6 +139,15 @@ export const BriefInput = forwardRef<
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement>(null);
+  /** The one live region every reorder path speaks through. */
+  const hintId = useId();
+  const [live, setLive] = useState('');
+  const announce = useCallback((msg: string) => {
+    // clear-then-set on a frame boundary so repeating the same move
+    // re-announces instead of being deduplicated by the screen reader
+    setLive('');
+    requestAnimationFrame(() => setLive(msg));
+  }, []);
   const chipCount = useRef(0);
   /**
    * Where the caret last was inside the line. Only used when focus genuinely
@@ -274,19 +286,36 @@ export const BriefInput = forwardRef<
         el.setAttribute('aria-haspopup', 'dialog');
         el.setAttribute('aria-expanded', 'false');
         el.setAttribute('aria-label', `${noun}: ${label}. Change or remove.`);
+      } else {
+        // A reference or mark opens nothing, but it can still be removed and
+        // moved, so it is as reachable as its picker-opening siblings.
+        el.tabIndex = 0;
+        el.setAttribute('role', 'button');
+        el.setAttribute(
+          'aria-label',
+          `${token.t === 'mark' ? 'brand mark' : 'reference image'}: ${label}. Remove or move.`,
+        );
       }
+      // Every chip moves the same way; the shared hint below the line says how.
+      el.setAttribute('aria-keyshortcuts', 'Alt+ArrowLeft Alt+ArrowRight');
+      el.setAttribute('aria-describedby', hintId);
+      // the browser's own node-drag of a contenteditable=false atom bypasses
+      // every rule this line has; the pointer controller replaces it
+      el.setAttribute('draggable', 'false');
 
       const x = document.createElement('button');
       x.type = 'button';
       x.tabIndex = -1;
-      // three chips all announcing "Remove" is no help to anyone
-      x.setAttribute('aria-label', `Remove ${label}`);
+      // Mouse-only by design: the keyboard remove is Delete on the chip, and a
+      // nested interactive inside a role=button chip is an AT violation — so
+      // the x is chrome, not a control, to everything but a pointer.
+      x.setAttribute('aria-hidden', 'true');
       x.dataset.role = 'remove';
       x.appendChild(closeIcon());
       el.appendChild(x);
       return el;
     },
-    [templates, products, cast, presenters, demoProducts, marks, brand, flag],
+    [templates, products, cast, presenters, demoProducts, marks, brand, flag, hintId],
   );
 
   const emit = useCallback(() => {
@@ -305,6 +334,36 @@ export const BriefInput = forwardRef<
     syncEmpty(root);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** The sheet's Move buttons: same move, same announcement, as Alt+Arrow. */
+  const moveFromSheet = useCallback(
+    (uid: string, dir: -1 | 1) => {
+      const root = rootRef.current;
+      const el = root?.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
+      if (root && el && moveChipBy(root, el, dir)) {
+        emit();
+        announce(moveAnnouncement(root, el));
+      }
+    },
+    [emit, announce],
+  );
+
+  /** Pointer-drag reordering; drops land through the same emit as every edit. */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    return attachChipDrag(root, {
+      onDragStart: () => {
+        setMenu(null);
+        setQuery('');
+      },
+      onMoved: (_chip, message) => {
+        emit();
+        announce(message);
+      },
+      onCancelled: () => announce('Reorder cancelled.'),
+    });
+  }, [emit, announce]);
 
   /** Chips are DOM nodes React never revisits (see chipFor above), so a
    * warning set at creation — "builds around a product", "cannot read this
@@ -592,6 +651,25 @@ export const BriefInput = forwardRef<
         caretBeside(root, focused, 'after');
         root?.focus({ preventScroll: true });
       };
+      // Alt+Arrow moves the chip itself; order is meaning here, so the move
+      // is a real DOM move followed by the same emit every edit takes.
+      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        if (root && moveChipBy(root, focused, e.key === 'ArrowLeft' ? -1 : 1)) {
+          // removal-and-reinsert dropped focus to body; hand it back
+          focused.focus({ preventScroll: true });
+          emit();
+          announce(moveAnnouncement(root, focused));
+        }
+        return;
+      }
+      // a plain arrow steps off the chip into the text, matching Tab/Escape
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        caretBeside(root, focused, e.key === 'ArrowLeft' ? 'before' : 'after');
+        root?.focus({ preventScroll: true });
+        return;
+      }
       if (e.key === 'Tab') {
         e.preventDefault();
         // Step off the chip into the line rather than into the next chip: one
@@ -808,6 +886,14 @@ export const BriefInput = forwardRef<
 
   return (
     <div className="sc-brief" data-drag-over={dragOver || undefined}>
+      {/* the affordances a chip cannot carry visually: read by aria-describedby */}
+      <span id={hintId} className="sc-vh">
+        Press Enter to change, Delete to remove, Alt plus arrow keys to move.
+      </span>
+      {/* every reorder path announces here — drag, Alt+Arrow, the sheet */}
+      <span className="sc-vh" role="status" aria-live="polite">
+        {live}
+      </span>
       {/* biome-ignore lint/a11y/useSemanticElements: this cannot be a <textarea> — the brief renders product and scene chips inline */}
       {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: textbox plus a listbox is the caret-menu pattern; combobox drops aria-multiline */}
       <div
@@ -897,6 +983,7 @@ export const BriefInput = forwardRef<
             const at = removeChipByUid(picker.uid);
             closePicker('remove', at);
           }}
+          onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onClose={closePicker}
         />
       ) : picker ? (
@@ -940,6 +1027,7 @@ export const BriefInput = forwardRef<
             const at = removeChipByUid(picker.uid);
             closePicker('remove', at);
           }}
+          onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onClose={closePicker}
         />
       ) : null}

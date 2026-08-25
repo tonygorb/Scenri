@@ -11,6 +11,7 @@ import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { NO_ATTACHMENTS, type AttachedIds } from '../layout/railSections.js';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
+import { generationMessages } from '../liveStatus.js';
 import {
   applyLens,
   byNewest,
@@ -270,6 +271,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * lens itself or a direct link (DetailOverlay reads from `allNodes`, not
    * this). */
   const shots = useMemo(() => [...allNodes].filter((n) => n.kind !== 'root' && !n.archived).sort(byNewest), [allNodes]);
+
+  /** What assistive technology hears about generation (see liveStatus.ts). */
+  const statusMap = useRef<Map<string, string> | null>(null);
+  const [genLive, setGenLive] = useState('');
+  useEffect(() => {
+    const { messages, next } = generationMessages(statusMap.current ?? new Map(), allNodes);
+    const firstDiff = statusMap.current === null;
+    statusMap.current = next;
+    if (!firstDiff && messages.length) setGenLive(messages.join(' '));
+  }, [allNodes]);
 
   /** Which sets each shot is in, so a cell can say so without another request. */
   const setsByNode = useMemo(() => {
@@ -936,6 +947,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           setSelectedId(null);
         }}
       >
+        {/* Generation state for assistive technology. Completion is
+            deliberately toast-silent for sighted users — the tile appearing
+            IS the signal — so without this a shot could start, land or fail
+            with no announcement at all. Transitions only, never the load. */}
+        <span className="sc-vh" role="status" aria-live="polite">
+          {genLive}
+        </span>
         {/* Was a bare Radix callout printing whatever the server threw. Same
             reading as every other failure in the app now, so the page does not
             change vocabulary depending on where the error came from. */}
