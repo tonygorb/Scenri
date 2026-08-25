@@ -642,3 +642,85 @@ describe('golden: an attached presenter is IN the picture', () => {
     expect(presence).toBeGreaterThan(art);
   });
 });
+
+describe('golden: an attached presenter is a hard requirement', () => {
+  /** The brand whose product carries the catalog's solo-packshot person ban. */
+  const packshotBrand = () => {
+    const b = brand();
+    (b.products[0] as any).negativeConstraints =
+      'Never render any text anywhere on the glass; no props, hands, or presenter in frame';
+    return b;
+  };
+  const compilePackshot = (tokens: Brief['tokens']) =>
+    compileBrief(
+      { tokens },
+      { brand: packshotBrand(), images: core.images, engineCaps: caps(6), templateById: resolveScene },
+    );
+
+  it('neutralizes a product-data person ban, AFTER the ban was stated', () => {
+    const r = compilePackshot([
+      { t: 'product', id: 'p1' },
+      { t: 'character', id: 'c1' },
+    ]);
+    const ban = r.prompt.indexOf('no props, hands, or presenter in frame');
+    const lift = r.prompt.indexOf('solo-packshot rule');
+    expect(ban).toBeGreaterThan(-1);
+    expect(lift).toBeGreaterThan(ban);
+    expect(r.prompt).toContain('the attached presenter is deliberate and must appear as directed');
+  });
+
+  it('leaves the ban standing when no presenter is attached', () => {
+    const r = compilePackshot([{ t: 'product', id: 'p1' }]);
+    expect(r.prompt).toContain('no props, hands, or presenter in frame');
+    expect(r.prompt).not.toContain('solo-packshot rule');
+  });
+
+  it('reconciles a close-up with the person instead of deleting them', () => {
+    // The reported failure's exact wording: "closeup" one word, "DOF" the
+    // abbreviation — both invisible to the old camera regex.
+    const r = compile([
+      { t: 'text', v: 'use ' },
+      { t: 'character', id: 'c1' },
+      { t: 'text', v: ' closeup zoom with DOF effect holding a ' },
+      { t: 'product', id: 'p1' },
+    ]);
+    expect(r.prompt).toContain('The tight framing includes the presenter');
+    expect(r.prompt).toContain('at least their hand in genuine contact with the product');
+  });
+
+  it('says nothing about tight framing without close-up language or without a person', () => {
+    const wide = compile([
+      { t: 'character', id: 'c1' },
+      { t: 'text', v: ' full length on a beach at dawn' },
+    ]);
+    expect(wide.prompt).not.toContain('The tight framing includes the presenter');
+    const alone = compile([
+      { t: 'product', id: 'p1' },
+      { t: 'text', v: ' extreme closeup with heavy DOF' },
+    ]);
+    expect(alone.prompt).not.toContain('The tight framing includes the presenter');
+  });
+
+  it('a scene ban on props never applies to the presenter or what they hold', () => {
+    const r = compile([
+      { t: 'character', id: 'c1' },
+      { t: 'template', id: PRODUCT_SCENE },
+    ]);
+    expect(r.prompt).toContain('never applies to the presenter or to the product in their hands');
+  });
+
+  it('closeup and DOF now read as the shot choosing its camera', () => {
+    const scene = { ...resolveScene(PRODUCT_SCENE)!, camera: '90mm at eye level, medium depth' };
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+          { t: 'text', v: ' closeup with strong DOF' },
+        ],
+      },
+      { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene },
+    );
+    expect(r.prompt).not.toContain('Camera for this shot:');
+  });
+});

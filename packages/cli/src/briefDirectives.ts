@@ -129,7 +129,9 @@ export function garmentDisplayDirective(): string {
  * a false negative would put two cameras in one prompt.
  */
 export function shotSpecifiesCamera(text: string): boolean {
-  return /\b\d{2,3}\s?mm\b|\bf\/\d|\blens\b|\bcamera\b|\bshot from\b|\beye[- ]level\b|\blow angle\b|\bhigh angle\b|\boverhead\b|\btop[- ]down\b|\bbird'?s[- ]eye\b|\bclose[- ]up\b|\bmacro\b|\bwide shot\b|\bcrop(?:ped)?\b|\bframing\b|\bdepth of field\b|\bbokeh\b|\bshallow (?:focus|depth)\b|\bdeep focus\b/i.test(
+  // "closeup" (one word) and "DOF" are how people actually type these; the
+  // reported adherence failure spelled both ways the old pattern missed.
+  return /\b\d{2,3}\s?mm\b|\bf\/\d|\blens\b|\bcamera\b|\bshot from\b|\beye[- ]level\b|\blow angle\b|\bhigh angle\b|\boverhead\b|\btop[- ]down\b|\bbird'?s[- ]eye\b|\bclose[- ]?up\b|\bmacro\b|\bwide shot\b|\bcrop(?:ped)?\b|\bframing\b|\bDOF\b|\bdepth of field\b|\bbokeh\b|\bshallow (?:focus|depth)\b|\bdeep focus\b/i.test(
     text,
   );
 }
@@ -156,7 +158,8 @@ export function sceneGuardDirectives(opts: { hasProduct: boolean; hasPerson: boo
     // wording quietly composed an explicitly attached presenter out of their
     // own shot — the reported adherence failure.
     out.push(
-      'The scene direction above describes the set, not the cast. If it says the space is empty or that no people appear, disregard that: the attached person stands in this set, clearly visible.',
+      'The scene direction above describes the set, not the cast. If it says the space is empty or that no people appear, disregard that: the attached person stands in this set, clearly visible. ' +
+        'A ban on props or extra objects in the scene direction is about set dressing only — it never applies to the presenter or to the product in their hands.',
     );
   }
   return out;

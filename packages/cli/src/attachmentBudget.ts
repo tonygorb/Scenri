@@ -32,8 +32,13 @@ export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
  *   2. one slot for each attachment group not yet represented, in role-priority
  *      order — every distinct thing the user attached gets a seat before any
  *      group gets a second one;
- *   3. whatever room remains goes back to corroboration in the old order, so a
- *      roomy engine still reads every product angle it used to.
+ *   3. whatever room remains goes back to corroboration one group at a time,
+ *      round-robin — a second product angle, then the presenter's second view,
+ *      then the product's third. The old order handed all leftovers out by role
+ *      priority, so on a four-slot engine product angle #2 AND #3 both boarded
+ *      before the presenter's second view, and the one identity that most needs
+ *      corroboration — a face — was the one that lost it. A roomy engine still
+ *      reads every angle it used to.
  *
  * A group is one chip's worth of images: a product's angles, a presenter's
  * views, a lone reference or mark. `kept` comes back re-sorted by the old rule
@@ -69,9 +74,26 @@ export function allocateAttachments(
     if (kept.size >= max) break;
     if (!kept.has(x.i) && !keptGroups.has(groupOf(x.a))) admit(x);
   }
+  // Round-robin the leftovers per group rather than draining one role first:
+  // groups take turns in legacy order, one image per turn.
+  const queues = new Map<string, { a: Attachment; i: number }[]>();
   for (const x of legacyOrder) {
-    if (kept.size >= max) break;
-    if (!kept.has(x.i)) admit(x);
+    if (kept.has(x.i)) continue;
+    const g = groupOf(x.a);
+    if (!queues.has(g)) queues.set(g, []);
+    queues.get(g)!.push(x);
+  }
+  let admitted = true;
+  while (kept.size < max && admitted) {
+    admitted = false;
+    for (const queue of queues.values()) {
+      if (kept.size >= max) break;
+      const x = queue.shift();
+      if (x) {
+        admit(x);
+        admitted = true;
+      }
+    }
   }
 
   return {

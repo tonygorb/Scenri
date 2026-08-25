@@ -474,6 +474,24 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     productId && hasPerson
       ? [
           'If the attached product is something a person wears, the presenter wears that exact product, with the rest of the outfit styled around it; otherwise the presenter presents or uses the product naturally.',
+          // A product's own notes are written for solo packshots, and several
+          // catalog records literally say "no props, hands, or presenter in
+          // frame". That data already shipped, so the override lives here in
+          // the compiler: fired only when a person is attached, worded like
+          // the mark exception — the ban stays for invented people, the
+          // attached one is deliberate.
+          'Any earlier instruction that bans props, hands, people, or a presenter from the frame is a solo-packshot rule for this product and does not apply to this shot: the attached presenter is deliberate and must appear as directed.',
+        ]
+      : [];
+  // "Closeup zoom with DOF holding the bottle" reads, to a model, like an
+  // invitation to shoot the bottle alone: the tight crop satisfies the framing
+  // and quietly deletes the person. Say the reconciliation out loud — a tight
+  // frame includes the presenter at hand level at minimum, and framing is
+  // never license to drop them.
+  const closeUpDirectives =
+    hasPerson && /\bclose[- ]?up\b|\bmacro\b|\bzoom(?:ed)?\b|\bDOF\b|\bdepth of field\b/i.test(sentence)
+      ? [
+          'The tight framing includes the presenter: keep at least their hand in genuine contact with the product, and as much more of them as the crop allows. A close-up is never a reason to leave the person out of the photograph.',
         ]
       : [];
   // The brand's rules sit between the shot's own directives and the scene
@@ -508,6 +526,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...productDirectives,
     ...personDirectives,
     ...pairDirectives,
+    ...closeUpDirectives,
     ...otherDirectives,
     ...cameraDirectives,
     ...apparelUnworn,
