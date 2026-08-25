@@ -690,3 +690,33 @@ test('the sheet is the touch reorder path, and it stays open between steps', asy
   await sheet(page).getByRole('button', { name: 'Move later' }).click();
   await expect.poll(async () => ((await line(page).textContent()) ?? '') !== mid).toBe(true);
 });
+
+/** One done shot attached as a reference chip, with prose to move through. */
+async function seedRefChip(p: Page) {
+  await line(p).click();
+  await p.keyboard.type('marble hall wide ');
+  await p.locator('.sc-canvas-dock .sc-attach-toggle').click();
+  await p.locator('.sc-ap-tabs button', { hasText: /shots/i }).click();
+  await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
+  await expect(briefChips(p)).not.toHaveCount(0);
+  await p.keyboard.press('Escape');
+}
+
+test('a reference chip gets its own touch sheet: move and remove, no keyboard', async ({ page }) => {
+  test.skip(!isPhone(page), 'the move sheet is the phone path');
+  await seedRefChip(page);
+  const before = (await line(page).textContent()) ?? '';
+
+  await tapChip(page);
+  await expect(page.locator('.sc-swapsheet[data-kind="ref"]')).toBeVisible();
+  // the tap must not have raised the keyboard by focusing the line
+  const active = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.className ?? '');
+  expect(active).not.toContain('sc-brief-line');
+
+  await page.locator('.sc-swapsheet').getByRole('button', { name: 'Move earlier' }).click();
+  await expect(page.locator('.sc-swapsheet[data-kind="ref"]')).toBeVisible();
+  await expect.poll(async () => ((await line(page).textContent()) ?? '') !== before).toBe(true);
+
+  await page.locator('.sc-swapsheet').getByRole('button', { name: 'Remove reference' }).click();
+  await expect(briefChips(page)).toHaveCount(0);
+});

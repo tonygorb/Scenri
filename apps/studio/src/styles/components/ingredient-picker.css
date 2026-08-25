@@ -225,6 +225,43 @@
 .sc-swap-thumb[data-crop="top"] {
   object-position: 50% 12%;
 }
+/* The ref/mark move sheet's header: the picture being moved, named. */
+.sc-movesheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 16px 12px;
+}
+.sc-movesheet-head img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--sc-radius);
+  border: 1px solid var(--sc-line);
+}
+/* a mark is usually dark art on transparency: ground it, letterbox it */
+.sc-swapsheet[data-kind="mark"] .sc-movesheet-head img {
+  background: #fff;
+  object-fit: contain;
+}
+.sc-movesheet-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sc-movesheet-txt b {
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-movesheet-txt span {
+  font-size: 11.5px;
+  color: var(--sc-fg3);
+}
+
 /* The sheet's touch reorder pair. Sheet-only by construction (the desktop
    panel never receives onMove), and full-width halves so each button clears
    the coarse-pointer tap floor without asking. */

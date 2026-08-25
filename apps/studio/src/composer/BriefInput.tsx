@@ -7,6 +7,7 @@ import { characterAvatar, presenterAvatar } from '../presenterVisual.js';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { flattenPalette, normalizeHex } from '../brand/palette.js';
 import { attachChipDrag } from './chipDrag.js';
+import { ChipMoveSheet } from './ChipMoveSheet.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
 import { ColorChipMenu } from './ColorChipMenu.js';
@@ -15,9 +16,10 @@ import {
   NOUN,
   buildCandidates,
   chipOpensPicker,
+  chipOpensSheet,
   insertShortlist,
   type Candidate,
-  type ChipPickerKind,
+  type ChipSheetKind,
   type IngredientKind,
   type InsertSigil,
 } from './ingredientOptions.js';
@@ -170,7 +172,7 @@ export const BriefInput = forwardRef<
   /** The open chip picker. Never both this and `menu`. */
   const [picker, setPicker] = useState<{
     uid: string;
-    kind: ChipPickerKind;
+    kind: ChipSheetKind;
     anchor: HTMLElement;
     /** Where the caret was when it opened, so closing can put it back. */
     caret: number | null;
@@ -465,11 +467,13 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
-  const openPicker = useCallback((chip: HTMLElement, kind: ChipPickerKind, caret: number | null, touch: boolean) => {
+  const openPicker = useCallback((chip: HTMLElement, kind: ChipSheetKind, caret: number | null, touch: boolean) => {
     const uid = chip.dataset.uid;
     if (!uid) return;
     chip.dataset.open = '';
-    chip.setAttribute('aria-expanded', 'true');
+    // ref/mark chips deliberately carry no aria-haspopup (nothing to swap
+    // to on desktop), so they must not grow a lying aria-expanded either
+    if (chip.hasAttribute('aria-haspopup')) chip.setAttribute('aria-expanded', 'true');
     setMenu(null);
     setQuery('');
     setPicker({ uid, kind, anchor: chip, caret, touch });
@@ -490,7 +494,7 @@ export const BriefInput = forwardRef<
     const chip = root?.querySelector<HTMLElement>(`[data-uid="${CSS.escape(p.uid)}"]`);
     if (chip) {
       delete chip.dataset.open;
-      chip.setAttribute('aria-expanded', 'false');
+      if (chip.hasAttribute('aria-haspopup')) chip.setAttribute('aria-expanded', 'false');
     }
     const at = caretOverride !== undefined ? caretOverride : p.caret;
     // Opened by a thumb: the line was never focused, and focusing it now is
@@ -630,7 +634,9 @@ export const BriefInput = forwardRef<
     if (!chip) return; // prose still focuses, and still raises the keyboard
     const box = chip.getBoundingClientRect();
     if (e.clientX - box.left <= EDGE || box.right - e.clientX <= EDGE) return;
-    const kind = chipOpensPicker(decode(chip.dataset.tok ?? ''));
+    // the SHEET set, not the picker set: on touch a ref/mark chip opens its
+    // move/remove sheet, where a desktop click would only place the caret
+    const kind = chipOpensSheet(decode(chip.dataset.tok ?? ''));
     if (!kind) return;
     if (chip.dataset.uid && picker?.uid === chip.dataset.uid) return;
     e.preventDefault();
@@ -957,7 +963,20 @@ export const BriefInput = forwardRef<
         />
       )}
 
-      {picker?.kind === 'color' ? (
+      {picker?.kind === 'ref' || picker?.kind === 'mark' ? (
+        <ChipMoveSheet
+          key={picker.uid}
+          kind={picker.kind}
+          label={chipLabel(picker.anchor)}
+          thumb={picker.anchor.querySelector('img')?.src ?? null}
+          onMove={(dir) => moveFromSheet(picker.uid, dir)}
+          onRemove={() => {
+            const at = removeChipByUid(picker.uid);
+            closePicker('remove', at);
+          }}
+          onClose={closePicker}
+        />
+      ) : picker?.kind === 'color' ? (
         <ColorChipMenu
           key={picker.uid}
           anchor={picker.anchor}

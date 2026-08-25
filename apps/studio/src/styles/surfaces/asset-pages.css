@@ -468,10 +468,11 @@
   /* Leave a slot for the pinned add tile so it never scrolls away. */
   max-width: calc(100% - var(--sc-ref-thumb));
 }
-.sc-refrail-shell[data-overflow-right] {
-  /* The fade, not a gap, is what separates the last thumb from the add. */
-  gap: 0;
-}
+/* The overflow flags may not change geometry. A [data-overflow-right] rule
+   used to collapse the shell gap here, which widened the track, which cleared
+   the very overflow that set the flag, which restored the gap: a layout
+   oscillation that jittered the rail on borderline widths and made every
+   touch target permanently "unstable". The fade markers are paint-only. */
 .sc-refrail {
   display: flex;
   /* One row that pages, at every width. A store product can carry twenty-odd
@@ -483,7 +484,10 @@
   flex-wrap: nowrap;
   justify-content: safe center;
   overflow-x: hidden;
-  scroll-snap-type: x mandatory;
+  /* proximity, not mandatory: the rail's overflow flags and lazy thumbs can
+     shift the track a frame after mount, and a mandatory snap re-yanks it
+     under the finger mid-tap. Proximity keeps the paging feel at rest. */
+  scroll-snap-type: x proximity;
   scrollbar-width: none;
   gap: var(--sc-space-5);
   max-width: 100%;
