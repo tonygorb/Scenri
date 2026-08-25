@@ -30,6 +30,22 @@ under `~/.scenri/content`:
 pnpm exec tsx packages/cli/scripts/pull-content.mts
 ```
 
+## Working on the UI
+
+The command above serves the studio the CLI has already built, so a source edit
+only shows up after another `pnpm build`. For design work, run the Vite server
+alongside it and iterate there instead:
+
+```bash
+pnpm dev        # the backend and your real library, on http://127.0.0.1:4747
+pnpm dev:ui     # the studio with hot reload, on http://127.0.0.1:5173
+```
+
+Port 5173 proxies every `/api` call through to 4747, so it is the same app and
+the same data, with CSS and components hot swapping in about a tenth of a second.
+Build and reload on 4747 only when you need what the browser suites need: the E2E
+run, `pnpm test:visual`, or a video capture.
+
 ## Before you open a pull request
 
 ```bash
@@ -39,19 +55,23 @@ pnpm typecheck && pnpm exec biome ci . && pnpm test
 Use `biome ci`, not `biome lint`. Only the first checks formatting, and CI will
 fail on a file that is merely unformatted.
 
-If you touched `apps/studio`, run the browser suite too. It serves the built
-studio rather than source, so the build has to come first:
+If you changed how the studio behaves, run the browser suite too. It serves the
+built studio rather than source, so the build has to come first:
 
 ```bash
 pnpm build && pnpm --filter @scenri/studio test:e2e
 ```
 
+While a change is still visual, the closest single spec is usually enough
+(`pnpm --filter @scenri/studio exec playwright test e2e/composer.spec.ts`). The
+full suite is what the pull request runs for you.
+
 ## What CI runs
 
 Every pull request runs typecheck, lint, unit tests (Node 22 and 24) and a
 secret scan. The browser (E2E) suite runs unless every changed file is
-documentation: markdown, `docs/`, LICENSE, issue templates. Code, configs,
-workflows and the lockfile always trigger it. Draft pull requests skip E2E
+documentation: markdown, `docs/`, LICENSE, issue templates, the Dependabot
+config. Code, workflows, build configs and the lockfile always trigger it. Draft pull requests skip E2E
 until marked ready for review. The single required check is "CI gate"; it goes
 green only when everything that was supposed to run passed.
 
