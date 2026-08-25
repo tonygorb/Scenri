@@ -431,7 +431,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
    * compiler's own clamp cannot see the inherited attachments and would
    * pre-drop under the wrong budget.
    */
-  async function compileEditBrief(brandId: string, parentId: string, brief: Brief, engineCaps: EngineCapabilities) {
+  async function compileEditBrief(
+    brandId: string,
+    parentId: string,
+    brief: Brief,
+    engineCaps: EngineCapabilities,
+    opts?: { reshape?: 'crop' | 'extend' },
+  ) {
     const borrowed = inheritedIdentityTokens(parentId, (id) => core.store.getNode(id));
     const already = new Set(
       (brief.tokens as BriefToken[])
@@ -474,6 +480,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
       inheritedIdentity: inheritedTokens.length > 0,
+      // Only the explicit op drops the dimension promise: an implicit legacy
+      // expansion keeps its historical prompt byte for byte.
+      ...(opts?.reshape === 'extend' ? { editReshape: 'extend' as const } : {}),
     });
     let inheritedAttachments: Attachment[] = [];
     if (inheritedTokens.length) {
@@ -536,7 +545,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // send will run, inheritance and budget included, so the context strip the
     // composer draws is the request the engine will receive.
     if (parentId && core.store.getNode(String(parentId))) {
-      const edit = await compileEditBrief(brand.id, String(parentId), brief as Brief, engine.capabilities());
+      const previewReshape = (req.body as any).reshape;
+      const edit = await compileEditBrief(brand.id, String(parentId), brief as Brief, engine.capabilities(), {
+        reshape: previewReshape === 'extend' ? 'extend' : previewReshape === 'crop' ? 'crop' : undefined,
+      });
       const { referenceImages, ...rest } = edit.compiled;
       return {
         ...rest,
@@ -891,7 +903,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (kind === 'edit') {
         // A refinement borrows the identity of the shot it refines, through
         // the same helper the preview route uses — one path, one truth.
-        const edit = await compileEditBrief(project.brandId, resolvedParentId, brief as Brief, engine.capabilities());
+        const edit = await compileEditBrief(project.brandId, resolvedParentId, brief as Brief, engine.capabilities(), {
+          reshape,
+        });
         compiled = edit.compiled;
         inheritedTokens = edit.inheritedTokens;
         mergedEdit = edit.merged;

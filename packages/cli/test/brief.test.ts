@@ -654,3 +654,26 @@ describe('brief through the API', () => {
     expect(out.prompt.toLowerCase()).not.toContain('graphic-design');
   });
 });
+
+describe('an extend edit drops the dimension promise', () => {
+  const editTokens = [{ t: 'text', v: 'golden light' }] as any;
+
+  it('the global preservation directive demands the same dimensions on a plain edit', () => {
+    const r = compileBrief({ tokens: editTokens }, ctx({ mode: 'edit' }));
+    expect(r.prompt).toContain('the same dimensions');
+  });
+
+  it('an explicit extend compiles without it, keeping the rest of the edit prompt', () => {
+    const r = compileBrief({ tokens: editTokens }, ctx({ mode: 'edit', editReshape: 'extend' }));
+    expect(r.prompt).not.toContain('the same dimensions');
+    expect(r.prompt).not.toContain('This is a change to a photograph');
+    expect(r.prompt).toContain('golden light');
+  });
+
+  it('inherited identity still speaks on an extend', () => {
+    const r = compileBrief({ tokens: editTokens }, ctx({ mode: 'edit', editReshape: 'extend', inheritedIdentity: true }));
+    expect(r.prompt).not.toContain('the same dimensions');
+    // the inherited-identity directive survives the dropped preservation line
+    expect(r.prompt).toContain('the same product and the same person that are already in this picture');
+  });
+});

@@ -139,6 +139,14 @@ interface CompileContext {
   editRemoval?: boolean;
   /** True when identity references were inherited from the shot being refined. */
   inheritedIdentity?: boolean;
+  /**
+   * The edit grows the canvas. The global preservation directive promises
+   * "the same dimensions", which is the one thing an extend must break —
+   * expandInstruction carries its own preservation language for the region
+   * that matters, so the contradictory sentence is dropped rather than argued
+   * with.
+   */
+  editReshape?: 'extend';
 }
 
 const assetHash = (ref: unknown): string | null => {
@@ -506,7 +514,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const preservation =
     ctx.mode === 'edit'
       ? [
-          editPreservationDirective(ctx.editScope ?? 'global', { removal: ctx.editRemoval }),
+          ...(ctx.editReshape === 'extend'
+            ? []
+            : [editPreservationDirective(ctx.editScope ?? 'global', { removal: ctx.editRemoval })]),
           ...(ctx.inheritedIdentity ? [inheritedIdentityDirective()] : []),
         ]
       : [];
