@@ -35,6 +35,7 @@ import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js
 import { planCrop } from './cropRules.js';
 import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand } from './expand.js';
+import { seamScore } from './seamScore.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
 import { registerLogoRoutes } from './routes/logos.js';
@@ -83,6 +84,22 @@ export interface ServerOptions {
   analyzer?: Analyzer;
   /** Installs and signs in the local Codex CLI for the setup wizard. Injected in tests. */
   codexSetup?: CodexSetup;
+}
+
+/**
+ * A stable number for one picture asked for one shape.
+ *
+ * Not randomness and not a hash of the world: the same source and the same
+ * target frame must give the same seed on every machine and every run, so an
+ * expansion a user re-runs returns what it returned before.
+ */
+function seedFor(sourceHash: string, width: number, height: number): number {
+  let h = 2166136261;
+  for (const ch of `${sourceHash}:${width}x${height}`) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h) % 2_147_483_647;
 }
 
 /** Settings keys exposed via the API. Secrets are write-only: reads return booleans. */
@@ -209,7 +226,24 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const part = await readImagePart(core, req, toPng);
       if ('error' in part) return reply.status(400).send({ error: part.error });
       hashes = [part.hash];
-      name = String(part.fields?.name?.value ?? part.filename ?? spec.fallback).slice(0, 80);
+      // The one place an uploaded FILENAME becomes user-visible data. Strip
+      // invisible bidi controls (a filename is an attack surface for them) and
+      // cut by code point, not UTF-16 unit — a raw .slice can halve a
+      // surrogate pair and ship a broken character into the record.
+      // The extension goes when the filename is only a fallback: the file is
+      // "serum.png", the product is "serum", in any script.
+      const explicit = part.fields?.name?.value;
+      const fromFile = String(part.filename ?? '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
+      name =
+        Array.from(
+          String(explicit ?? (fromFile || spec.fallback)).replace(
+            /[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g,
+            '',
+          ),
+        )
+          .slice(0, 80)
+          .join('')
+          .trim() || spec.fallback;
     }
 
     const id = `${spec.prefix}-${randomUUID().slice(0, 8)}`;
@@ -1078,9 +1112,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // not a silent plain edit with an empty instruction.
       if (reshape === 'extend' && !expandPlan)
         return reply.status(400).send({ error: 'the picture is already this shape' });
+      // A real outpainter wants the PICTURE and where it sits; everything else
+      // gets the bed, because it is going to re-render the whole frame and the
+      // bed is the only way to tell it what the margin should look like.
+      const canOutpaint = expandPlan ? engine.capabilities().supportsOutpaint === true : false;
       if (expandPlan) {
-        const canvas = await expandCanvas(srcBuf, expandPlan);
-        expandSourceHash = core.images.save(canvas);
+        if (!canOutpaint) {
+          const canvas = await expandCanvas(srcBuf, expandPlan);
+          expandSourceHash = core.images.save(canvas);
+        }
         expectShape = { width: expandPlan.width, height: expandPlan.height };
       }
 
@@ -1093,9 +1133,67 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         // An answer at the planned size lets compositeExpand skip its rescale,
         // which is one whole class of seam misalignment gone when honored.
         ...(expandPlan ? { width: expandPlan.width, height: expandPlan.height } : {}),
+        // Only an engine that can genuinely paint a margin is told where the
+        // picture sits; the rest would ignore it anyway.
+        ...(expandPlan && canOutpaint
+          ? {
+              expand: {
+                left: expandPlan.left,
+                top: expandPlan.top,
+                width: srcMeta.width ?? 0,
+                height: srcMeta.height ?? 0,
+              },
+              // Derived from the picture and the shape asked for, so the same
+              // extend of the same shot is the same picture every time. Without
+              // it the margin is a fresh roll of the dice on every run, which
+              // is not something a person can iterate against — or that a test
+              // can measure.
+              seed: seedFor(String(editedFrom ?? srcHash), expandPlan.width, expandPlan.height),
+            }
+          : {}),
       };
       estimate = await engine.costEstimate(editReq);
-      work = (signal) => engine.edit(editReq, signal);
+      /*
+       * An expansion is drawn twice, at once, and the better join is kept.
+       *
+       * The default engine has no seed, so the same request returns a
+       * different margin every time — measured on one unchanged picture, the
+       * join came back at 2.8, then 15.1, then 2.1. Nothing in the prompt
+       * steers that. Two draws in parallel turn one coin toss into the better
+       * of two for the same wall-clock as one: a picture takes about as long
+       * as it ever did, and the odds of shipping a visible join drop with the
+       * square. Sequential retries were the obvious version of this and the
+       * wrong one — they doubled a two-and-a-half-minute wait.
+       *
+       * An engine that paints margins properly is asked once, because its
+       * answer is not a lottery.
+       */
+      const plan = expandPlan;
+      const srcSize = { width: srcMeta.width ?? 0, height: srcMeta.height ?? 0 };
+      const original = srcBuf;
+      work =
+        plan && !canOutpaint
+          ? async (signal) => {
+              const draws = await Promise.all([
+                engine.edit(editReq, signal),
+                engine.edit(editReq, signal).catch(() => null),
+              ]);
+              const scored = await Promise.all(
+                draws.map(async (got) => {
+                  const first = got?.images[0];
+                  if (!got || !first) return null;
+                  const { image } = await compositeExpand(core.images.read(first), original, plan);
+                  return { got, score: await seamScore(image, plan, srcSize) };
+                }),
+              );
+              const best = scored
+                .filter((x): x is { got: NonNullable<(typeof draws)[number]>; score: number } => x !== null)
+                .sort((a, b) => a.score - b.score)[0];
+              // Both failed to produce anything usable: let the first answer
+              // stand so the failure is the engine's own, reported as it is.
+              return best?.got ?? draws[0];
+            }
+          : (signal) => engine.edit(editReq, signal);
     }
 
     // throws 402 via handler; include estimates of everything still in flight

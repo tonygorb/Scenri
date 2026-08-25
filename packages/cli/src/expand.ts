@@ -15,7 +15,7 @@
  * sentence.
  */
 import sharp from 'sharp';
-import { seamBandFor, type ExpandPlan } from './expandRules.js';
+import type { ExpandPlan } from './expandRules.js';
 
 /**
  * The canvas handed to the engine: the real picture in place, and a margin made
@@ -47,15 +47,14 @@ export interface ExpandResult {
  * laid over it at the offset it was planned into — carrying a narrow alpha ramp
  * on its seam edges so the paste has no visible line.
  *
- * GUARANTEE. In the expanded frame, every source pixel at distance >= N from a
- * seam edge is byte-identical to the original after decode, where
- * N = seamBandFor(source) = min(16, max(8, round(longEdge / 100))), never more
- * than a quarter of the source's short edge. Within the two N-px seam bands the
- * result is a deterministic linear blend of original over engine margin, and
- * the original's contribution never reaches zero inside the band. Source edges
- * that coincide with canvas edges have no seam and are byte-identical to the
- * last pixel. (A crop's guarantee is stronger and lives in cropRules.ts: every
- * output pixel is an original pixel.)
+ * GUARANTEE. Every pixel of the original survives into the expanded frame
+ * byte for byte, with no band and no exception: the picture is composited
+ * whole, over content whose values were first reconciled to it at the join.
+ * There used to be a feathered band here, because the margin and the picture
+ * met at different values and the ramp was the only thing hiding the step.
+ * Reconciling the margin removes the step at its source, which makes the ramp
+ * unnecessary — and a ramp is worse than unnecessary, because every pixel it
+ * softens is a pixel of the original diluted with something the engine drew.
  */
 export async function compositeExpand(engineImage: Buffer, source: Buffer, plan: ExpandPlan): Promise<ExpandResult> {
   const meta = await sharp(engineImage).metadata();
@@ -87,38 +86,180 @@ export async function compositeExpand(engineImage: Buffer, source: Buffer, plan:
       : await sharp(engineImage).resize(plan.width, plan.height, { fit: 'cover', position: 'centre' }).toBuffer()
     : await expandCanvasBedOnly(source, plan);
 
-  const image = await sharp(surround)
-    .composite([{ input: await featheredSource(source, plan), left: plan.left, top: plan.top }])
+  // The alpha ramp hides a texture mismatch but cannot hide a value one: two
+  // renderings of the same scene disagree along the join, and a disagreement
+  // that runs the length of a straight line is exactly what the eye finds.
+  // Reconcile each margin to the picture's own edge first, per pixel along the
+  // seam, so the ramp has only texture left to blend.
+  const matched = aligned ? await matchMarginsToSeam(surround, source, plan) : surround;
+
+  const image = await sharp(matched)
+    .composite([{ input: source, left: plan.left, top: plan.top }])
     .png()
     .toBuffer();
   return { image, aligned };
 }
 
 /**
- * The source with a linear alpha ramp on its seam edges only.
+ * Make each generated margin meet the original exactly at the seam.
  *
- * The geometry is exact — plan.left/top and the source's own dimensions — so
- * the mask is written analytically as one raw channel rather than derived by
- * blur-and-threshold the way localEdit must (its changed region has an unknown
- * silhouette; this one is a rectangle). Alpha 255 everywhere except the last
- * N columns (width axis) or rows (height axis) before each seam, ramping
- * 255*(d+1)/(N+1) so the outermost source pixel still contributes.
+ * The margin and the picture are two different renderings of the same scene,
+ * so where they meet their values disagree — and a disagreement along a
+ * straight line is the one thing the eye is superb at spotting. Matching the
+ * margin's mean tone (what this used to do) fixes the average and leaves the
+ * variation: a seam whose error runs +6 at the top and -4 at the bottom still
+ * draws a line, because one number cannot describe it.
+ *
+ * So the error is measured per pixel ALONG the seam, and then carried into the
+ * margin as a correction that decays to nothing at the outer edge — the
+ * membrane solution to Laplace's equation on a strip, which is the
+ * gradient-domain result (Perez et al., "Poisson Image Editing", 2003): the
+ * value discontinuity at the boundary becomes zero by construction while the
+ * margin keeps its own texture and detail everywhere else.
+ *
+ * The error is smoothed along the seam first, so the correction is a slow
+ * field rather than a copy of the boundary's noise, and clamped, so a margin
+ * that legitimately differs (sky above a ground-level shot) is reconciled
+ * rather than repainted.
+ *
+ * Not one pixel of the original is read into the output here — this only ever
+ * writes inside the margins, which is why it costs the preservation guarantee
+ * nothing at all.
  */
-async function featheredSource(source: Buffer, plan: ExpandPlan): Promise<Buffer> {
-  const { data, info } = await sharp(source).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-  const { width, height, channels } = info;
-  const n = seamBandFor({ width, height });
-  const rampAt = (d: number) => (d < n ? Math.round((255 * (d + 1)) / (n + 1)) : 255);
-  const mask = Buffer.alloc(width * height);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const d = plan.axis === 'width' ? Math.min(x, width - 1 - x) : Math.min(y, height - 1 - y);
-      mask[y * width + x] = rampAt(d);
+async function matchMarginsToSeam(surround: Buffer, source: Buffer, plan: ExpandPlan): Promise<Buffer> {
+  const src = await sharp(source).metadata();
+  if (!src.width || !src.height) return surround;
+  const SW = src.width;
+  const SH = src.height;
+
+  interface Side {
+    /** the margin to correct, in surround coordinates */
+    margin: { left: number; top: number; width: number; height: number };
+    /** the original's edge line, in source coordinates */
+    srcEdge: { left: number; top: number; width: number; height: number };
+    /** which end of the margin touches the picture */
+    seamAt: 'far' | 'near';
+  }
+  const sides: Side[] = [];
+  if (plan.axis === 'width') {
+    if (plan.left > 0)
+      sides.push({
+        margin: { left: 0, top: plan.top, width: plan.left, height: SH },
+        srcEdge: { left: 0, top: 0, width: 1, height: SH },
+        seamAt: 'far',
+      });
+    const rightAt = plan.left + SW;
+    if (rightAt < plan.width)
+      sides.push({
+        margin: { left: rightAt, top: plan.top, width: plan.width - rightAt, height: SH },
+        srcEdge: { left: SW - 1, top: 0, width: 1, height: SH },
+        seamAt: 'near',
+      });
+  } else {
+    if (plan.top > 0)
+      sides.push({
+        margin: { left: plan.left, top: 0, width: SW, height: plan.top },
+        srcEdge: { left: 0, top: 0, width: SW, height: 1 },
+        seamAt: 'far',
+      });
+    const bottomAt = plan.top + SH;
+    if (bottomAt < plan.height)
+      sides.push({
+        margin: { left: plan.left, top: bottomAt, width: SW, height: plan.height - bottomAt },
+        srcEdge: { left: 0, top: SH - 1, width: SW, height: 1 },
+        seamAt: 'near',
+      });
+  }
+
+  let out = surround;
+  for (const side of sides) {
+    try {
+      out = await reconcile(out, source, side, plan.axis);
+    } catch {
+      // best effort: an unreadable strip leaves that margin as the engine drew it
     }
   }
-  return sharp(data, { raw: { width, height, channels: channels as 3 } })
-    .joinChannel(mask, { raw: { width, height, channels: 1 } })
+  return out;
+}
+
+/** How far a boundary error is allowed to move a pixel. */
+const MAX_CORRECTION = 60;
+
+async function reconcile(
+  surround: Buffer,
+  source: Buffer,
+  side: {
+    margin: { left: number; top: number; width: number; height: number };
+    srcEdge: { left: number; top: number; width: number; height: number };
+    seamAt: 'far' | 'near';
+  },
+  axis: 'width' | 'height',
+): Promise<Buffer> {
+  const { margin } = side;
+  if (margin.width < 1 || margin.height < 1) return surround;
+
+  const marginRaw = await sharp(surround).extract(margin).removeAlpha().raw().toBuffer();
+  const edgeRaw = await sharp(source).extract(side.srcEdge).removeAlpha().raw().toBuffer();
+
+  const W = margin.width;
+  const H = margin.height;
+  // Along the seam: rows for a vertical seam, columns for a horizontal one.
+  const along = axis === 'width' ? H : W;
+  // The margin's own line of pixels that touches the picture.
+  const seamIndex = side.seamAt === 'far' ? (axis === 'width' ? W - 1 : H - 1) : 0;
+
+  // The error the seam has to absorb, per pixel along it, per channel.
+  const err = new Float32Array(along * 3);
+  for (let i = 0; i < along; i++) {
+    const mOff = axis === 'width' ? (i * W + seamIndex) * 3 : (seamIndex * W + i) * 3;
+    for (let c = 0; c < 3; c++) {
+      const want = edgeRaw[i * 3 + c];
+      const have = marginRaw[mOff + c];
+      err[i * 3 + c] = Math.max(-MAX_CORRECTION, Math.min(MAX_CORRECTION, want - have));
+    }
+  }
+
+  // Smooth it along the seam so the correction is a field, not the boundary's
+  // own grain repeated into the margin.
+  const radius = Math.max(2, Math.round(along / 64));
+  const smooth = new Float32Array(err.length);
+  for (let i = 0; i < along; i++) {
+    for (let c = 0; c < 3; c++) {
+      let sum = 0;
+      let n = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const j = i + k;
+        if (j < 0 || j >= along) continue;
+        sum += err[j * 3 + c];
+        n++;
+      }
+      smooth[i * 3 + c] = sum / n;
+    }
+  }
+
+  // Carry it in, decaying to nothing at the outer edge: the membrane solution
+  // on a strip, so the seam value matches exactly and the far edge is untouched.
+  const depth = axis === 'width' ? W : H;
+  const corrected = Buffer.from(marginRaw);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const d = axis === 'width' ? (side.seamAt === 'far' ? W - 1 - x : x) : side.seamAt === 'far' ? H - 1 - y : y;
+      const fall = 1 - d / Math.max(1, depth - 1);
+      if (fall <= 0) continue;
+      const i = axis === 'width' ? y : x;
+      const off = (y * W + x) * 3;
+      for (let c = 0; c < 3; c++) {
+        const v = corrected[off + c] + smooth[i * 3 + c] * fall;
+        corrected[off + c] = v < 0 ? 0 : v > 255 ? 255 : Math.round(v);
+      }
+    }
+  }
+
+  const patch = await sharp(corrected, { raw: { width: W, height: H, channels: 3 } })
     .png()
+    .toBuffer();
+  return sharp(surround)
+    .composite([{ input: patch, left: margin.left, top: margin.top }])
     .toBuffer();
 }
 

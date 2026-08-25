@@ -30,17 +30,33 @@
   line-height: 1.6;
 }
 
+/* Chip metrics are em, resolved against the line the chip sits in, so the
+   composer (15px) and the overlay refine composer (13.5px) keep the SAME
+   chip-to-sentence relationship instead of one fixed chip that overflows the
+   smaller line box. 0.8333em computes to the historical 12.5px at the default
+   15px line. line-height 1.4 is the one deliberate value change: it brings
+   the chip's box inside the line's 1.6 strut, so a chip never grows its row
+   and wrapped rows all keep one height.
+
+   align-items is baseline, with the media opted out below: an inline-flex
+   box's exported baseline comes from its first baseline-aligned item, and
+   when that was the avatar image the chip aligned to the image's bottom edge
+   — chips rode high and the sentence read bottom-heavy. With the media on
+   align-self:center, the label text is the only baseline participant, so the
+   chip's baseline IS the label's and the sentence and its chips share one
+   real baseline. The ghost clone lives on <body> and would resolve em against
+   the wrong font: chipDrag freezes its computed font-size inline. */
 .sc-token {
   display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px 2px 4px;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: 0.16em 0.64em 0.16em 0.32em;
   border-radius: 8px;
   border: none;
   background: var(--sc-raised);
-  font-size: 12.5px;
+  font-size: 0.8333em;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 1.4;
   white-space: nowrap;
   /* `nowrap` with no cap made a long name one unbreakable chip that pushed the
      whole prompt line sideways. Names are short now, but a user's own uploaded
@@ -51,10 +67,17 @@
   text-overflow: ellipsis;
 }
 .sc-token img {
-  width: 15px;
-  height: 15px;
+  width: 1.2em;
+  height: 1.2em;
   border-radius: 50%;
   object-fit: cover;
+}
+/* The media are centered in the chip while the label text carries the
+   baseline out — see the align-items note above. */
+.sc-token > img,
+.sc-token > svg,
+.sc-token > .sc-token-swatch {
+  align-self: center;
 }
 /* A 4:5 card standing in for a square avatar: centre it and the circle is a
    torso. Pulling the framing up puts the face where a face belongs. Same
@@ -66,12 +89,28 @@
 }
 
 /* ---------- chip drag reorder ----------------------------------------------
-   The source chip stays in flow at its own size — zero layout shift — and
-   only dims; the ghost is the thing that travels. The drop caret is a fixed
-   2px bar at the exact insertion point, the same geometry the real caret
-   would have there. */
-.sc-token[data-drag-src] {
-  opacity: 0.45;
+   The source chip stays in flow at its exact box — zero layout shift — but
+   empties into a hollow dashed slot: unmistakably "this space is held", and
+   never confusable with the traveling ghost. The drop caret is a fixed bar at
+   the exact insertion point, the same geometry the real caret would have
+   there, with a soft halo so it reads over busy prose and dark chips.
+   Specificity note: (0,4,0) on purpose — the tinted/warn skins later in this
+   file are (0,2,0) and the slot must win by weight, not by file position. */
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] {
+  /* a whisper of fill under the dashes: reserved space, not a rendering bug */
+  background: color-mix(in srgb, var(--sc-line) 18%, transparent);
+  box-shadow: none;
+  color: transparent;
+  outline: 1.5px dashed var(--sc-line-strong);
+  outline-offset: -1.5px;
+}
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > img,
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > svg,
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > .sc-token-swatch {
+  visibility: hidden;
+}
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > button {
+  opacity: 0;
 }
 .sc-brief-line[data-chip-drag] {
   user-select: none;
@@ -81,6 +120,9 @@
 .sc-brief-line[data-chip-drag] .sc-token {
   cursor: grabbing;
 }
+/* The platform drag-image treatment, no more: same size, anchored at the
+   grab point (chipDrag moves it 1:1 with the pointer), translucent enough
+   that the insertion caret reads through it, one soft lift shadow. */
 .sc-chip-ghost {
   position: fixed;
   left: 0;
@@ -88,16 +130,19 @@
   margin: 0;
   z-index: var(--sc-z-popover);
   pointer-events: none;
-  opacity: 0.92;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  opacity: 0.8;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 3px 10px rgba(0, 0, 0, 0.16);
 }
 .sc-drop-caret {
   position: fixed;
   left: 0;
   top: 0;
-  width: 2px;
-  border-radius: 1px;
+  width: 3px;
+  border-radius: 1.5px;
   background: var(--sc-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sc-focus) 22%, transparent);
   z-index: var(--sc-z-popover);
   pointer-events: none;
   transition:
@@ -136,8 +181,8 @@
   color: var(--sc-fg);
 }
 .sc-token-swatch {
-  width: 11px;
-  height: 11px;
+  width: 0.88em;
+  height: 0.88em;
   border-radius: 4px;
   border: 1px solid var(--sc-line-strong);
 }
@@ -307,7 +352,7 @@
    the whole sentence reflowed. It now sits on top, behind a soft fade. */
 .sc-token {
   position: relative;
-  padding-right: 10px;
+  padding-right: 0.8em;
 }
 .sc-token > button {
   position: absolute;

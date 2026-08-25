@@ -374,14 +374,18 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     // would be unsearchable by its name without this.
     const ownScenes = catalog.scenes;
     return {
+      // 'chip', not 'tooltip': these names get SPOKEN — briefProse inlines
+      // them into the sentence and briefChanges into the change line — and
+      // the tooltip form put "Cracked Clay · Raking low-angle golden-hour
+      // light" in the middle of a sentence a person reads.
       product: (id) => {
         const p = library.find((x) => x.id === id) ?? demoProducts.find((x) => x.id === id);
-        return p ? productLabel(p, 'tooltip') : null;
+        return p ? productLabel(p, 'chip') : null;
       },
       person: (id) => cast.find((x) => x.id === id)?.name ?? presenters.find((x) => x.id === id)?.name ?? null,
       scene: (id) => {
         const t = ownScenes.find((x) => x.id === id);
-        return t ? sceneLabel(t, 'tooltip') : null;
+        return t ? sceneLabel(t, 'chip') : null;
       },
     };
   }, [products, demoProducts, brand, presenters, catalog.scenes]);

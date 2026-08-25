@@ -13,6 +13,8 @@ import type { EditRequest, EngineAdapter, EngineCapabilities, EngineResult, Gene
 const API_BASE = 'https://api.replicate.com/v1';
 const DEFAULT_MODEL = 'black-forest-labs/flux-schnell';
 const DEFAULT_EDIT_MODEL = 'black-forest-labs/flux-kontext-pro';
+/** The expansion model: given a picture and a canvas, it paints only the margin. */
+const DEFAULT_EXPAND_MODEL = 'bria/expand-image';
 const DEFAULT_POLL_INTERVAL_MS = 1500;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const GENERATE_COST_PER_IMAGE_USD = 0.003;
@@ -24,6 +26,8 @@ export interface ReplicateEngineOptions {
   fetchImpl?: typeof fetch;
   model?: string;
   editModel?: string;
+  /** Outpainting model slug, used when an edit is an expansion. */
+  expandModel?: string;
   pollIntervalMs?: number;
   timeoutMs?: number;
 }
@@ -107,6 +111,7 @@ export function createReplicateEngine(opts: ReplicateEngineOptions): EngineAdapt
     fetchImpl = globalThis.fetch,
     model = DEFAULT_MODEL,
     editModel = DEFAULT_EDIT_MODEL,
+    expandModel = DEFAULT_EXPAND_MODEL,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
     timeoutMs = DEFAULT_TIMEOUT_MS,
   } = opts;
@@ -215,6 +220,8 @@ export function createReplicateEngine(opts: ReplicateEngineOptions): EngineAdapt
         localOnly: false,
         supportsEdit: true,
         supportsMask: false,
+        // bria/expand-image: the picture plus the canvas it belongs in.
+        supportsOutpaint: true,
         // 0, deliberately — see the same note in the fal adapter. generate()
         // sends only prompt/num_outputs/aspect_ratio, so a declared capacity
         // of 1 was a promise this adapter never kept.
@@ -257,12 +264,37 @@ export function createReplicateEngine(opts: ReplicateEngineOptions): EngineAdapt
     async edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult> {
       const key = requireKey();
       const file = await readFile(req.sourceImage);
+      const dataUri = `data:image/png;base64,${file.toString('base64')}`;
+      /*
+       * An expansion is its own operation, not an instruction. The editor this
+       * adapter otherwise uses re-renders the whole frame from a sentence,
+       * which is exactly the path that cannot be relied on to continue a
+       * picture across a join; the expand model is handed the picture and the
+       * canvas it belongs in, and paints only what is missing.
+       */
+      if (req.expand && req.width && req.height) {
+        const started = await createPrediction(
+          key,
+          expandModel,
+          {
+            image_url: dataUri,
+            canvas_size: [req.width, req.height],
+            original_image_size: [req.expand.width, req.expand.height],
+            original_image_location: [req.expand.left, req.expand.top],
+            ...(req.instruction.trim() ? { prompt: req.instruction } : {}),
+            ...(typeof req.seed === 'number' ? { seed: req.seed } : {}),
+          },
+          signal,
+        );
+        const done = await waitForCompletion(key, started, signal);
+        return { images: await downloadOutputs(done, signal), costUsd: EDIT_COST_USD, raw: done };
+      }
       const created = await createPrediction(
         key,
         editModel,
         {
           prompt: req.instruction,
-          input_image: `data:image/png;base64,${file.toString('base64')}`,
+          input_image: dataUri,
         },
         signal,
       );

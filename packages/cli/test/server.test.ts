@@ -514,19 +514,108 @@ describe('generation flow', () => {
     expect(grown.width!).toBeGreaterThan(srcMeta.width!);
     expect(grown.width! / grown.height!).toBeCloseTo(456 / 256, 1);
 
-    // and the picture came back byte for byte inside the guaranteed region —
-    // the source inset by the seam band on the grown axis (see compositeExpand)
-    const { seamBandFor } = await import('../src/expandRules.js');
-    const n = seamBandFor({ width: srcMeta.width!, height: srcMeta.height! });
+    // and the picture came back byte for byte — the WHOLE picture, no band
+    // and no exception (see compositeExpand's guarantee)
     const left = Math.round((grown.width! - srcMeta.width!) / 2);
-    const region = { left: left + n, top: 0, width: srcMeta.width! - 2 * n, height: srcMeta.height! };
-    const before = await sharp(src)
-      .extract({ left: n, top: 0, width: srcMeta.width! - 2 * n, height: srcMeta.height! })
-      .removeAlpha()
-      .raw()
-      .toBuffer();
+    const region = { left, top: 0, width: srcMeta.width!, height: srcMeta.height! };
+    const before = await sharp(src).removeAlpha().raw().toBuffer();
     const after = await sharp(core.images.read(out.images[0])).extract(region).removeAlpha().raw().toBuffer();
     expect(after).toEqual(before);
+  });
+
+  it('draws a grown frame twice at once and keeps the better join', async () => {
+    const sharpLib = (await import('sharp')).default;
+    const field = async (v: number, w: number, h: number) =>
+      sharpLib({
+        create: {
+          width: w,
+          height: h,
+          channels: 3,
+          background: { r: v, g: v, b: v },
+          noise: { type: 'gaussian', mean: v, sigma: 12 },
+        },
+      })
+        .png()
+        .toBuffer();
+
+    // First answer disagrees badly with the picture at the join; second one
+    // continues its tone. Only the second should survive.
+    let call = 0;
+    let inFlight = 0;
+    let overlapped = false;
+    const moody: EngineAdapter = {
+      capabilities: () => ({
+        id: 'moody',
+        displayName: 'Moody',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 0,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({ images: [core.images.save(await field(120, 256, 256))], costUsd: 0 }),
+      edit: async () => {
+        call += 1;
+        inFlight += 1;
+        if (inFlight > 1) overlapped = true;
+        const tone = call === 1 ? 210 : 120;
+        // hold both open long enough that a sequential caller could not
+        // possibly show two at once
+        await new Promise((r) => setTimeout(r, 40));
+        inFlight -= 1;
+        return { images: [core.images.save(await field(tone, 456, 256))], costUsd: 0 };
+      },
+    };
+    const srv = buildServer({ core, engines: registryWith(moody) });
+    const brand = await mkBrand();
+    const proj = await srv.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } });
+    const projectId = proj.json().project.id;
+    const gen = await srv.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'moody',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 256, h: 256 },
+            { t: 'text', v: 'a field' },
+          ],
+        },
+      },
+    });
+    const base = await waitDoneOn(srv, gen.json().id);
+
+    const grow = await srv.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: base.id,
+        kind: 'edit',
+        engineId: 'moody',
+        sourceImage: base.images[0],
+        reshape: 'extend',
+        brief: { tokens: [{ t: 'format', id: 'landscape', w: 456, h: 256 }] },
+      },
+    });
+    expect(grow.statusCode).toBe(202);
+    const out = await waitDoneOn(srv, grow.json().id);
+    expect(out.status).toBe('done');
+
+    // it drew twice, and both went out together rather than one after the
+    // other: a second 150-second wait is not a price worth paying
+    expect(call).toBe(2);
+    expect(overlapped).toBe(true);
+    // and what it kept is the margin that matches the picture's tone
+    const margin = await sharpLib(core.images.read(out.images[0]))
+      .extract({ left: 4, top: 100, width: 40, height: 40 })
+      .removeAlpha()
+      .stats();
+    expect(margin.channels[0].mean).toBeLessThan(170);
+    await srv.close();
   });
 
   // The other reshape op: no engine, no prompt, no generation — the output is

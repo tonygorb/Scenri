@@ -12,10 +12,17 @@ export interface FalEngineOptions {
   model?: string;
   /** Edit model slug. Defaults to 'fal-ai/flux-kontext/dev'. */
   editModel?: string;
+  /**
+   * Outpainting model slug, used when an edit is an expansion. Defaults to
+   * 'fal-ai/bria/expand', which takes the picture plus where it sits in the
+   * new canvas and paints only the margin around it.
+   */
+  expandModel?: string;
 }
 
 const DEFAULT_MODEL = 'fal-ai/flux/schnell';
 const DEFAULT_EDIT_MODEL = 'fal-ai/flux-kontext/dev';
+const DEFAULT_EXPAND_MODEL = 'fal-ai/bria/expand';
 const GENERATE_COST_PER_IMAGE_USD = 0.003;
 const EDIT_COST_USD = 0.025;
 
@@ -74,6 +81,7 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
   const model = opts.model ?? DEFAULT_MODEL;
   const editModel = opts.editModel ?? DEFAULT_EDIT_MODEL;
+  const expandModel = opts.expandModel ?? DEFAULT_EXPAND_MODEL;
 
   function requireKey(): string {
     const key = opts.getKey();
@@ -138,6 +146,8 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
         localOnly: false,
         supportsEdit: true,
         supportsMask: false,
+        // bria/expand: the picture plus where it sits, margin only.
+        supportsOutpaint: true,
         // 0, deliberately. This adapter's generate() sends only prompt/size/
         // count — it has never forwarded a reference image to the model. It
         // previously advertised 1, so compileBrief would resolve a product
@@ -180,6 +190,35 @@ export function createFalEngine(opts: FalEngineOptions): EngineAdapter {
     async edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult> {
       const key = requireKey();
       const imageUrl = await sourceImageToDataUri(req.sourceImage);
+      /*
+       * An expansion goes to the outpainting endpoint rather than the general
+       * editor. The difference is not cosmetic: a general image editor is
+       * handed a whole canvas and re-renders all of it, so its idea of the
+       * scene has to be pasted over and the two versions disagree along the
+       * join. An outpainting model is given the picture and told where it sits
+       * in the larger frame, and paints only what is missing — which is the
+       * one thing that makes the geometry continue across the seam.
+       */
+      if (req.expand && req.width && req.height) {
+        const json = await postJson(
+          expandModel,
+          key,
+          {
+            image_url: imageUrl,
+            canvas_size: [req.width, req.height],
+            original_image_size: [req.expand.width, req.expand.height],
+            original_image_location: [req.expand.left, req.expand.top],
+            ...(req.instruction.trim() ? { prompt: req.instruction } : {}),
+            // Same picture, same shape, same margin: an extend a user runs
+            // twice should not be a different picture twice.
+            ...(typeof req.seed === 'number' ? { seed: req.seed } : {}),
+          },
+          signal,
+        );
+        const urls = extractImageUrls(json);
+        const images = await saveAll(urls, signal);
+        return { images, costUsd: EDIT_COST_USD, raw: json };
+      }
       const json = await postJson(editModel, key, { prompt: req.instruction, image_url: imageUrl }, signal);
       const urls = extractImageUrls(json);
       const images = await saveAll(urls, signal);

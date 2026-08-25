@@ -1,25 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import sharp from 'sharp';
 import { expandCanvas, compositeExpand } from '../src/expand.js';
-import { planExpand, seamBandFor, type ExpandPlan } from '../src/expandRules.js';
+import { planExpand, type ExpandPlan } from '../src/expandRules.js';
 
 /**
- * The guaranteed region: the source inset by the seam band on the seam-axis
- * edges only. Everything in here must be byte-identical; the band outside it
- * is a deterministic blend and is asserted separately.
+ * The guaranteed region: the whole of the source. There is no band and no
+ * exception — the picture is composited whole over a reconciled margin.
  */
-const guaranteed = (plan: ExpandPlan, w: number, h: number) => {
-  const n = seamBandFor({ width: w, height: h });
-  return plan.axis === 'width'
-    ? {
-        srcRegion: { left: n, top: 0, width: w - 2 * n, height: h },
-        outRegion: { left: plan.left + n, top: plan.top, width: w - 2 * n, height: h },
-      }
-    : {
-        srcRegion: { left: 0, top: n, width: w, height: h - 2 * n },
-        outRegion: { left: plan.left, top: plan.top + n, width: w, height: h - 2 * n },
-      };
-};
+const guaranteed = (plan: ExpandPlan, w: number, h: number) => ({
+  srcRegion: { left: 0, top: 0, width: w, height: h },
+  outRegion: { left: plan.left, top: plan.top, width: w, height: h },
+});
 
 /** A recognisable picture: red, with a green stripe so any shift is obvious. */
 const source = async (w = 256, h = 256) =>
@@ -142,27 +133,57 @@ describe('expanding a frame', () => {
       await pixels(src, { left: 20, top: 254, width: 64, height: 2 }),
     );
   });
+});
 
-  it('the seam band is a real blend: neither pure source nor pure engine', async () => {
+describe('the margin meets the picture exactly at the seam', () => {
+  /** The 1px luminance step straight across a horizontal seam. */
+  const seamStep = async (image: Buffer, y: number, width: number) => {
+    const above = await pixels(image, { left: 0, top: y - 1, width, height: 1 });
+    const below = await pixels(image, { left: 0, top: y, width, height: 1 });
+    let sum = 0;
+    for (let i = 0; i < above.length; i++) sum += Math.abs(above[i] - below[i]);
+    return sum / above.length;
+  };
+
+  it('drives the boundary discontinuity to nothing, whatever tone the engine used', async () => {
     const src = await source();
-    const plan = planExpand({ width: 256, height: 256 }, 16 / 9)!;
-    const answer = await engineAnswer(plan.width, plan.height); // flat blue
+    const plan = planExpand({ width: 256, height: 256 }, 9 / 16)!;
+    // the engine's margin is a long way off the picture's tone
+    const answer = await sharp({
+      create: { width: plan.width, height: plan.height, channels: 3, background: { r: 240, g: 70, b: 70 } },
+    })
+      .png()
+      .toBuffer();
     const { image } = await compositeExpand(answer, src, plan);
-    // outermost source column: red 200 blended toward the engine's 40
-    const edge = await pixels(image, { left: plan.left, top: 8, width: 1, height: 1 });
-    expect(edge[0]).toBeGreaterThan(45); // not pure engine
-    expect(edge[0]).toBeLessThan(195); // not pure source
-    // and one band-width in, the source is exact again
-    const n = seamBandFor({ width: 256, height: 256 });
-    const inside = await pixels(image, { left: plan.left + n, top: 8, width: 1, height: 1 });
-    const srcInside = await pixels(src, { left: n, top: 8, width: 1, height: 1 });
-    expect(inside).toEqual(srcInside);
+
+    // across the top seam the two sides now agree: no line to see
+    expect(await seamStep(image, plan.top, plan.width)).toBeLessThanOrEqual(6);
+
+    // and the guaranteed region is still byte-identical
+    const g = guaranteed(plan, 256, 256);
+    expect(await pixels(image, g.outRegion)).toEqual(await pixels(src, g.srcRegion));
   });
 
-  it('seamBandFor keeps its bounds', () => {
-    expect(seamBandFor({ width: 800, height: 600 })).toBe(8); // 1% of 800 = 8
-    expect(seamBandFor({ width: 2400, height: 1600 })).toBe(16); // capped
-    expect(seamBandFor({ width: 1000, height: 1000 })).toBe(10); // the 1% rule
-    expect(seamBandFor({ width: 2000, height: 40 })).toBe(10); // shortEdge/4 clamp
+  it('reconciles at the join without repainting the far margin', async () => {
+    const src = await source();
+    const plan = planExpand({ width: 256, height: 256 }, 9 / 16)!;
+    // a sky-like margin: legitimately unlike the ground it sits above
+    const answer = await sharp({
+      create: { width: plan.width, height: plan.height, channels: 3, background: { r: 90, g: 140, b: 230 } },
+    })
+      .png()
+      .toBuffer();
+    const { image } = await compositeExpand(answer, src, plan);
+
+    // the outer edge keeps the engine's own colour — the correction decays to
+    // nothing there rather than dragging the whole margin to the ground's tone
+    const far = await pixels(image, { left: 0, top: 0, width: plan.width, height: 2 });
+    let blue = 0;
+    let red = 0;
+    for (let i = 0; i < far.length; i += 3) {
+      red += far[i];
+      blue += far[i + 2];
+    }
+    expect(blue).toBeGreaterThan(red);
   });
 });

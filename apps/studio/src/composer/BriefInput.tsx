@@ -203,6 +203,12 @@ export const BriefInput = forwardRef<
       const el = document.createElement('span');
       el.className = CHIP;
       el.contentEditable = 'false';
+      // A bidi-isolated run with its own direction: an LTR product name inside
+      // a Hebrew sentence (or the reverse) renders its own way without letting
+      // the browser reorder it against the surrounding prose. dir=auto implies
+      // unicode-bidi:isolate, so the LOGICAL token order — the one the
+      // compiler reads — is never what the bidi algorithm rearranges.
+      el.dir = 'auto';
       el.dataset.kind = token.t;
       el.dataset.tok = encode(token);
       el.dataset.uid = uid ?? `u${uidSeq.current++}`;

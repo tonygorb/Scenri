@@ -78,18 +78,40 @@ describe('what the engine is asked for', () => {
   it('describes the margin, and forbids touching the picture', () => {
     const plan = planExpand(SQUARE, 16 / 9)!;
     const text = expandInstruction(plan, '');
-    expect(text).toContain('to the left and right');
-    expect(text).toContain('Do not change, move, rescale or reinterpret anything already in the picture');
-    expect(text).toContain('do not add a subject, a product or a person');
+    expect(text).toContain('left and right');
+    expect(text).toContain('change only the blurred margin');
+    expect(text).toContain('keep the sharp photograph unchanged');
+    expect(text).toContain('Avoid: new objects, products, people');
   });
 
   it('names the other axis when the frame grows the other way', () => {
     const plan = planExpand(SQUARE, 9 / 16)!;
-    expect(expandInstruction(plan, '')).toContain('above and below');
+    expect(expandInstruction(plan, '')).toContain('top and bottom');
   });
 
   it('carries the user own words when they gave any', () => {
     const plan = planExpand(SQUARE, 16 / 9)!;
     expect(expandInstruction(plan, 'more of the same stone ledge')).toContain('more of the same stone ledge');
+    // and never names a texture: naming grain is what made the margins grainier
+    expect(expandInstruction(plan, '')).not.toContain('grain');
+  });
+});
+
+describe('the expansion instruction names the geometry it is asking for', () => {
+  it('tells a vertical growth which way the plane runs', () => {
+    const plan = planExpand(SQUARE, 9 / 16)!;
+    const text = expandInstruction(plan, '');
+    expect(text).toContain('top and bottom');
+    // camera-relative, not a rate of change: this model family answers where
+    // the camera is far better than how much bigger something gets
+    expect(text).toContain('nearest the camera');
+    expect(text).toContain('furthest away');
+  });
+
+  it('says nothing about receding planes when the frame grows sideways', () => {
+    const plan = planExpand(SQUARE, 16 / 9)!;
+    const text = expandInstruction(plan, '');
+    expect(text).toContain('left and right');
+    expect(text).not.toContain('nearest the camera');
   });
 });

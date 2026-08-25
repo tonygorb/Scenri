@@ -115,3 +115,19 @@ describe('bookmarkedFirst', () => {
     expect(bookmarkedFirst([], () => true)).toEqual([]);
   });
 });
+
+describe('unicode search robustness', () => {
+  it('matches Hebrew and Arabic names as typed', () => {
+    expect(matchesQuery('סרום ענבר לפנים', 'סרום')).toBe(true);
+    expect(matchesQuery('منتج العناية بالبشرة', 'منتج')).toBe(true);
+  });
+
+  it('ignores invisible bidi controls a pasted name carries', () => {
+    // U+200F RLM + U+2066 LRI wrapped around a name copied from an RTL document
+    const pasted = '‏סרום⁦ Aurelia⁩';
+    expect(matchesQuery(pasted, 'סרום')).toBe(true);
+    expect(matchesQuery(pasted, 'aurelia')).toBe(true);
+    // and the reverse: a query pasted with controls still finds a clean name
+    expect(matchesQuery('Aurelia serum', '‎Aurelia')).toBe(true);
+  });
+});

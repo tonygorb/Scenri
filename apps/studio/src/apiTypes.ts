@@ -143,6 +143,12 @@ export interface EngineInfo {
   displayName: string;
   localOnly: boolean;
   supportsEdit: boolean;
+  /**
+   * True when the engine can paint a margin around a picture rather than
+   * re-render the whole frame from a sentence. Only these can grow a shot into
+   * a new shape; the rest are offered the crop instead.
+   */
+  supportsOutpaint?: boolean;
   available: boolean;
   reason: string | null;
   code: UnavailableCode | null;

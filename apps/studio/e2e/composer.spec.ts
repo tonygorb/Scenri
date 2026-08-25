@@ -824,11 +824,13 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   await page.keyboard.press('Escape');
 
   // it stays a refinement: the shape is reached by growing this picture, not
-  // by running the brief again and getting a different one. Extend is the
-  // preselected op for a square asked to go wide, and the choice is on screen.
+  // by running the brief again and getting a different one. The op is
+  // INFERRED from the geometry — no buttons, no tutorial copy — and the two
+  // word state line makes the consequence predictable before Refine.
   await expect(composer.locator('.sc-send')).toContainText('Refine');
-  await expect(composer.locator('.sc-reshape button[data-on]')).toContainText('Extend to Landscape 16:9');
-  await expect(composer).toContainText('Expands this shot into the new shape.');
+  await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
+  await expect(composer.locator('.sc-reshape')).toHaveCount(0);
+  await expect(composer).not.toContainText('Expands this shot');
 
   // the send is caught and answered here rather than allowed to make a picture
   let posted: any = null;
@@ -851,7 +853,7 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   expect(posted.reshape).toBe('extend');
 });
 
-test('a squarer shape while refining offers a crop, and sends it with no words at all', async ({ page }) => {
+test('a squarer shape while refining infers a crop, and sends it with no words at all', async ({ page }) => {
   const brand = new URL(page.url()).pathname.split('/')[1];
 
   // the same trick as the expand test: the shot's recorded shape is the only
@@ -874,26 +876,31 @@ test('a squarer shape while refining offers a crop, and sends it with no words a
   const composer = page.locator('.sc-ovl-edit');
   await expect(composer.locator('.sc-brief-line')).toBeVisible();
 
-  // 16:9 asked to be 1:1 preselects the crop, and the note promises geometry
+  // 16:9 asked to be 1:1 infers the crop, and says so in two words
   await composer.locator('.sc-more').click();
   await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '1:1' }).first().click();
   await page.keyboard.press('Escape');
-  await expect(composer.locator('.sc-reshape button[data-on]')).toContainText('Crop to Square 1:1');
-  await expect(composer).toContainText('Nothing new is drawn');
+  await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will crop to Square 1:1');
+  await expect(composer).not.toContainText('Nothing new is drawn');
 
   // words and a crop cannot travel together, and the block says so out loud
   await composer.locator('.sc-brief-line').click();
   await page.keyboard.type('and make it warmer');
   await expect(composer.locator('.sc-send')).toHaveAttribute('aria-disabled', 'true');
-  await expect(composer.locator('.sc-send')).toHaveAttribute('title', /A crop uses no words/);
+  await expect(composer.locator('.sc-send')).toHaveAttribute('title', /a crop uses no words/);
 
-  // switching to Extend takes the words along instead
-  await composer.locator('.sc-reshape button', { hasText: 'Extend to' }).click();
+  // the honest escape hatch: keep the current shape and the words send as a
+  // plain refine again
+  await composer.locator('.sc-more').click();
+  await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '16:9' }).first().click();
+  await page.keyboard.press('Escape');
   await expect(composer.locator('.sc-send')).not.toHaveAttribute('aria-disabled');
 
   // back to the crop, words cleared: sendable with the brief exactly as empty
   // as it stands
-  await composer.locator('.sc-reshape button', { hasText: 'Crop to' }).click();
+  await composer.locator('.sc-more').click();
+  await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '1:1' }).first().click();
+  await page.keyboard.press('Escape');
   await composer.locator('.sc-brief-line').click();
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.press('Backspace');
@@ -1672,4 +1679,127 @@ test('the refine composer states what it is carrying before the send', async ({ 
   await expect(composer.locator('.sc-carried-chip')).toHaveCount(2);
   await expect(composer.locator('.sc-carried-chip').first()).toContainText('Cold brew can');
   await expect(composer.locator('.sc-carried-chip[data-kind="mark"]')).toContainText('Acme wordmark');
+});
+
+test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {
+  // prose alone: the line's height at exactly one row of its own strut
+  await line(page).click();
+  await page.keyboard.type('hero shot on marble ');
+  const bare = (await line(page).boundingBox())!.height;
+
+  // insert the chip: the row must not grow — the chip fits INSIDE the strut.
+  // Before the metric fix the chip's synthesized baseline was its bottom edge
+  // (no flex item participated in baseline alignment), so every chip rode
+  // above the text baseline and stretched its row.
+  await plusMenu(page, /products/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(1);
+  const withChip = (await line(page).boundingBox())!.height;
+  expect(Math.abs(withChip - bare)).toBeLessThanOrEqual(0.6);
+
+  // chip label and neighbouring prose share a midline on the same row
+  const mid = await line(page).evaluate((el) => {
+    const chip = el.querySelector('.sc-token') as HTMLElement;
+    const label = Array.from(chip.childNodes).find((n) => n.nodeType === Node.TEXT_NODE) as Text;
+    const lr = document.createRange();
+    lr.selectNodeContents(label);
+    const labelRect = lr.getBoundingClientRect();
+    const prose = Array.from(el.childNodes).find(
+      (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim().length > 3,
+    ) as Text;
+    const pr = document.createRange();
+    pr.setStart(prose, 1);
+    pr.setEnd(prose, Math.min(6, (prose.textContent ?? '').length));
+    const proseRect = pr.getBoundingClientRect();
+    return { label: labelRect.top + labelRect.height / 2, prose: proseRect.top + proseRect.height / 2 };
+  });
+  expect(Math.abs(mid.label - mid.prose)).toBeLessThanOrEqual(2);
+
+  // wrapped: more prose pushes to a second row of exactly one more strut
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' in the golden hour with a long clean shadow across the marble slab');
+  const wrapped = (await line(page).boundingBox())!.height;
+  const strut = await line(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize) * 1.6);
+  const grown = wrapped - bare;
+  expect(grown).toBeGreaterThan(0);
+  expect(Math.abs(grown % strut)).toBeLessThanOrEqual(1);
+});
+
+test('the drag ghost rides the grab point like a platform drag image', async ({ page }) => {
+  await seedReorder(page);
+  const chip = chips(page).first();
+  const before = (await chip.boundingBox())!;
+
+  // grab at the chip's center, drag left into the prose
+  const grabX = before.x + before.width / 2;
+  const grabY = before.y + before.height / 2;
+  await page.mouse.move(grabX, grabY);
+  await page.mouse.down();
+  const endX = grabX - 90;
+  await page.mouse.move(endX, grabY, { steps: 8 });
+  await page.waitForTimeout(80);
+
+  const ghost = page.locator('.sc-chip-ghost');
+  await expect(ghost).toBeVisible();
+  const gbox = (await ghost.boundingBox())!;
+  // preserved size: no scale jump
+  expect(Math.abs(gbox.width - before.width)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(gbox.height - before.height)).toBeLessThanOrEqual(1.5);
+  // anchored 1:1 at the grab point: the pointer sits exactly where it
+  // gripped the chip — no trailing offset, no easing lag
+  expect(Math.abs(gbox.x + before.width / 2 - endX)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(gbox.y + before.height / 2 - grabY)).toBeLessThanOrEqual(1.5);
+  const style = await ghost.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { transform: cs.transform, opacity: cs.opacity, fontSize: cs.fontSize };
+  });
+  // translate-only: matrix(1, 0, 0, 1, x, y)
+  expect(style.transform).toMatch(/^matrix\(1, 0, 0, 1, /);
+  // translucent, so the insertion caret reads through it
+  expect(Number(style.opacity)).toBeCloseTo(0.8, 1);
+  // the em metrics survived the move to <body>
+  expect(style.fontSize).toBe(await chip.evaluate((el) => getComputedStyle(el).fontSize));
+
+  // the caret marks the drop, and the source chip holds its exact box as a
+  // dashed slot: zero reflow anywhere
+  await expect(page.locator('.sc-drop-caret')).toBeVisible();
+  const during = (await chip.boundingBox())!;
+  expect(during.x).toBe(before.x);
+  expect(during.width).toBe(before.width);
+
+  await page.keyboard.press('Escape');
+  await expect(ghost).toHaveCount(0);
+});
+
+test('a Hebrew brief with an English chip survives to the wire unreversed', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('צלם תמונה של ');
+  await plusMenu(page, /products/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(1);
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' על חימר סדוק באור חם');
+
+  // the chip is a bidi-isolated run with its own direction
+  expect(await chips(page).first().getAttribute('dir')).toBe('auto');
+
+  // the wire carries the LOGICAL order: Hebrew before the chip, Hebrew after,
+  // nothing reversed, nothing corrupted
+  let posted: any = null;
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posted = route.request().postDataJSON();
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
+  });
+  await dock(page).locator('.sc-send').click();
+  await expect.poll(() => posted?.kind).toBeTruthy();
+  const texts = posted.brief.tokens.filter((t: any) => t.t === 'text').map((t: any) => t.v);
+  expect(texts.join(' ')).toContain('צלם תמונה של');
+  expect(texts.join(' ')).toContain('על חימר סדוק באור חם');
+  const kinds = posted.brief.tokens.map((t: any) => t.t);
+  expect(kinds.indexOf('product')).toBeGreaterThan(kinds.indexOf('text'));
 });
