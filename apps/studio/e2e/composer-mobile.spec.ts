@@ -661,3 +661,32 @@ test('a phone docks the insert menu to the composer, not the caret', async ({ pa
   const row = (await page.locator('.sc-cmd-row').first().boundingBox())!;
   expect(row.height).toBeGreaterThanOrEqual(40);
 });
+
+/** Prose plus one product chip: something for a move to walk through. */
+async function seedMovable(p: Page) {
+  await line(p).click();
+  await p.keyboard.type('marble hall wide ');
+  await p.locator('.sc-canvas-dock .sc-attach-toggle').click();
+  await p.locator('.sc-ap-tabs button', { hasText: /products/i }).click();
+  await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
+  await expect(briefChips(p)).not.toHaveCount(0);
+  await p.keyboard.press('Escape');
+}
+
+test('the sheet is the touch reorder path, and it stays open between steps', async ({ page }) => {
+  test.skip(!isPhone(page), 'the Move pair rides only in the phone sheet');
+  await seedMovable(page);
+  const before = (await line(page).textContent()) ?? '';
+  await tapChip(page);
+  await expect(sheet(page)).toBeVisible();
+
+  await sheet(page).getByRole('button', { name: 'Move earlier' }).click();
+  // the sheet holds its ground so the next step is one more tap
+  await expect(sheet(page)).toBeVisible();
+  await expect.poll(async () => ((await line(page).textContent()) ?? '') !== before).toBe(true);
+
+  // and the move can walk back
+  const mid = (await line(page).textContent()) ?? '';
+  await sheet(page).getByRole('button', { name: 'Move later' }).click();
+  await expect.poll(async () => ((await line(page).textContent()) ?? '') !== mid).toBe(true);
+});

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Check, Plus, Trash } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, Check, Plus, Trash } from '@phosphor-icons/react';
 import { nextHex, normalizeHex, type Swatch } from '../brand/palette.js';
 import { ColorPicker } from '../layout/ColorPicker.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
@@ -22,6 +22,8 @@ export interface ColorChipMenuProps {
   onPick: (token: Extract<SentenceToken, { t: 'color' }>, opts?: { live?: boolean }) => void;
   onRemove: () => void;
   onClose: (reason: CloseReason) => void;
+  /** Step the chip through the sentence; the sheet's touch reorder path. */
+  onMove?: (dir: -1 | 1) => void;
 }
 
 /**
@@ -33,7 +35,8 @@ export interface ColorChipMenuProps {
  */
 export function ColorChipMenu(props: ColorChipMenuProps) {
   const phone = useMediaQuery(PHONE);
-  return phone ? <ColorSheet {...props} /> : <ColorPanel {...props} />;
+  // Move buttons are the sheet's touch reorder path; a pointer has the drag.
+  return phone ? <ColorSheet {...props} /> : <ColorPanel {...{ ...props, onMove: undefined }} />;
 }
 
 function sameHex(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -42,7 +45,7 @@ function sameHex(a: string | null | undefined, b: string | null | undefined): bo
   return !!left && left === right;
 }
 
-function ColorBody({ currentHex, currentName, palette, onPick, onRemove, onClose }: ColorChipMenuProps) {
+function ColorBody({ currentHex, currentName, palette, onPick, onRemove, onClose, onMove }: ColorChipMenuProps) {
   const rows = useMemo(() => {
     const seen = new Set<string>();
     const out: Swatch[] = [];
@@ -199,6 +202,16 @@ function ColorBody({ currentHex, currentName, palette, onPick, onRemove, onClose
           <Plus size={12} />
           <b>Custom colour</b>
         </ColorPicker>
+        {onMove && (
+          <div className="sc-swap-move">
+            <button type="button" className="sc-btn" onClick={() => onMove(-1)}>
+              <ArrowLeft size={13} /> Move earlier
+            </button>
+            <button type="button" className="sc-btn" onClick={() => onMove(1)}>
+              Move later <ArrowRight size={13} />
+            </button>
+          </div>
+        )}
         <button type="button" className="sc-swap-remove" onClick={onRemove}>
           <Trash size={13} />
           Remove colour

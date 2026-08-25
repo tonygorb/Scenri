@@ -140,6 +140,36 @@ export function caretFromPoint(root: HTMLElement | null, x: number, y: number): 
   return true;
 }
 
+/**
+ * Resolve a pointer position to a place in the line, without moving anything.
+ *
+ * The same row-pull and chip-band rules `caretFromPoint` applies before it
+ * places the caret, handed back as data: the drag's drop indicator needs to
+ * know where a drop WOULD land on every pointermove, and moving the live
+ * caret that often would fight the browser. A point on or beside a chip
+ * resolves to the chip's own edge; anything else is asked of the browser at
+ * the row-corrected point.
+ */
+export function pointToLinePosition(
+  root: HTMLElement | null,
+  x: number,
+  y: number,
+): { node: Node; offset: number } | { beside: HTMLElement; side: 'before' | 'after' } | null {
+  if (!root) return null;
+  const row = nearestRow(rowRects(root), y);
+  if (!row) return null;
+  const cy = row.top + row.height / 2;
+  for (const chip of Array.from(root.querySelectorAll<HTMLElement>(CHIP_SELECTOR))) {
+    const r = chip.getBoundingClientRect();
+    if (r.bottom < row.top || r.top > row.bottom) continue;
+    if (x < r.left - CHIP_GAP || x > r.right + CHIP_GAP) continue;
+    return { beside: chip, side: x < r.left + r.width / 2 ? 'before' : 'after' };
+  }
+  const at = caretRangeFromPoint(x, cy);
+  if (!at || !root.contains(at.node)) return null;
+  return { node: at.node, offset: at.offset };
+}
+
 /** caretRangeFromPoint is Chromium and WebKit; Firefox spells it differently. */
 function caretRangeFromPoint(x: number, y: number): { node: Node; offset: number } | null {
   const doc = document as Document & {

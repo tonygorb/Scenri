@@ -29,7 +29,16 @@ export {
   unitsBeforeChip,
   collapseDoubleSpaceAtCaret,
 } from './line/insert.js';
-export { textBeforeCaret, caretRect, caretBeside, caretFromPoint } from './line/query.js';
+export { textBeforeCaret, caretRect, caretBeside, caretFromPoint, pointToLinePosition } from './line/query.js';
+export {
+  moveSlots,
+  moveSlotsFor,
+  snapToSlot,
+  moveChipToUnits,
+  moveChipBy,
+  dropUnitsAt,
+  moveAnnouncement,
+} from './line/reorder.js';
 export { keepCaret } from './line/focus.js';
 export { serializeSelection, chipLabel, parseBriefHtml } from './line/clipboard.js';
 export type { ColorToken } from './line/chips.js';

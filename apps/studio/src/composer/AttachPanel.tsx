@@ -53,6 +53,7 @@ export function AttachPanel({
   shots,
   initialTab = 'All',
   activeProductCategory,
+  id,
   onToken,
   onTemplate,
   onUpload,
@@ -61,6 +62,8 @@ export function AttachPanel({
   brand: Brand;
   shots: TreeNode[];
   initialTab?: AttachTab;
+  /** For the opener's aria-controls. */
+  id?: string;
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
   activeProductCategory?: string | null;
   onToken: (t: SentenceToken) => void;
@@ -215,7 +218,22 @@ export function AttachPanel({
   );
 
   return (
-    <div className="sc-attachpanel" role="dialog" aria-label="Attach to brief" onMouseDownCapture={keepCaret}>
+    // Non-modal on purpose — it stays open for multi-attach and the brief
+    // stays editable behind it — so no focus trap and no aria-modal. Escape
+    // still closes it from anywhere inside; the opener restores focus.
+    <div
+      className="sc-attachpanel"
+      role="dialog"
+      id={id}
+      aria-label="Attach to brief"
+      onMouseDownCapture={keepCaret}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+    >
       <div className="sc-ap-head">
         <div className="sc-ap-tabs">
           {TABS.map((t) => (

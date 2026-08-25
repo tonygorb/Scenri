@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Popover, Select, Spinner } from '@radix-ui/themes';
 import { ArrowUp, ArrowsOutSimple, Crop, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
 import {
@@ -240,6 +240,7 @@ export const Composer = forwardRef<
   const briefRef = useRef<BriefInputHandle>(null);
   const attachRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const attachPanelId = useId();
 
   // per-brand draft persistence: an unsent brief must survive a navigation, a
   // brand switch, or a closed tab, none of which reliably unmount this component
@@ -932,10 +933,17 @@ export const Composer = forwardRef<
           activeProductCategory={activeProductCategory}
           shots={shots}
           initialTab={attachTab}
+          id={attachPanelId}
           onUpload={() => fileRef.current?.click()}
           onToken={(t) => briefRef.current?.insert(t)}
           onTemplate={(id) => applyScene(id)}
-          onClose={() => setAttachOpen(false)}
+          onClose={() => {
+            // A close issued from inside the panel (Escape, the X) would drop
+            // keyboard focus to body with the panel; hand it to the opener.
+            const wasInside = !!document.activeElement?.closest?.('.sc-attachpanel');
+            setAttachOpen(false);
+            if (wasInside) attachRef.current?.focus();
+          }}
         />
       )}
       {/* A refusal is written for a person to act on — which engine cannot carry
@@ -1093,6 +1101,7 @@ export const Composer = forwardRef<
               ref={attachRef}
               className="sc-icon-btn sc-attach-toggle"
               aria-expanded={attachOpen}
+              aria-controls={attachOpen ? attachPanelId : undefined}
               aria-label="Attach"
               title="Attach a product, a scene, a colour or an image"
               onClick={() => (attachOpen ? setAttachOpen(false) : openAttach('All'))}

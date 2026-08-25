@@ -1334,3 +1334,84 @@ test('an opened run reads its takes in request order, wherever completion landed
   const reading = [...placed].sort((a, b) => a.y - b.y || a.x - b.x).map((p) => p.i);
   expect(reading).toEqual([0, 1, 2, 3]);
 });
+
+/* ---------------------------------------------------------------- reorder */
+
+/** Prose plus one product chip at the end: the reorder fixture. */
+async function seedReorder(page: Page) {
+  await line(page).click();
+  await page.keyboard.type('hero shot on marble ');
+  await plusMenu(page, /products/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape'); // close the attach panel
+  await expect(chips(page)).toHaveCount(1);
+}
+
+test('a chip drags between words, and the drop is the same truth the compiler reads', async ({ page }) => {
+  await seedReorder(page);
+  const chipBox = (await chips(page).first().boundingBox())!;
+  const lineBox = (await line(page).boundingBox())!;
+
+  await page.mouse.move(chipBox.x + chipBox.width / 2, chipBox.y + chipBox.height / 2);
+  await page.mouse.down();
+  // cross the 5px threshold, then aim at the very start of the sentence
+  await page.mouse.move(chipBox.x + chipBox.width / 2 + 12, chipBox.y + chipBox.height / 2, { steps: 3 });
+  await page.mouse.move(lineBox.x + 3, lineBox.y + lineBox.height / 2, { steps: 6 });
+  await expect(page.locator('.sc-drop-caret')).toBeVisible();
+  await page.mouse.up();
+
+  // the chip now leads the sentence, and the click after the drop opened nothing
+  expect(await sentence(page)).toMatch(/^Cold brew can\s+hero shot on marble/);
+  await expect(pick(page)).toHaveCount(0);
+  // the move is a real edit: the draft round-trips it across a reload
+  await page.reload();
+  await line(page).waitFor();
+  expect(await sentence(page)).toMatch(/^Cold brew can\s+hero shot on marble/);
+});
+
+test('a press without movement is still a click, and Escape abandons a drag', async ({ page }) => {
+  await seedReorder(page);
+  const before = await sentence(page);
+  const box = (await chips(page).first().boundingBox())!;
+
+  // sub-threshold press: the picker opens exactly as it always did
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(pick(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(pick(page)).toHaveCount(0);
+
+  // a drag abandoned with Escape moves nothing and leaves no furniture
+  const again = (await chips(page).first().boundingBox())!;
+  await page.mouse.move(again.x + again.width / 2, again.y + again.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(again.x + 60, again.y + again.height / 2, { steps: 4 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect(page.locator('.sc-chip-ghost')).toHaveCount(0);
+  await expect(page.locator('.sc-drop-caret')).toHaveCount(0);
+  expect(await sentence(page)).toBe(before);
+});
+
+test('Alt plus an arrow moves a focused chip, and the move is announced', async ({ page }) => {
+  await seedReorder(page);
+  await chips(page).first().focus();
+  await page.keyboard.press('Alt+ArrowLeft');
+  expect(await sentence(page)).toMatch(/^hero shot on\s+Cold brew can\s+marble/);
+  // the same chip kept focus, so the next press keeps walking
+  await expect(chips(page).first()).toBeFocused();
+  await expect(page.locator('.sc-brief [role="status"]')).toContainText('Moved Cold brew can');
+  await page.keyboard.press('Alt+ArrowRight');
+  expect(await sentence(page)).toMatch(/^hero shot on marble\s+Cold brew can/);
+});
+
+test('a chip says how it is operated, and its x is chrome rather than a trap', async ({ page }) => {
+  await seedReorder(page);
+  const chip = chips(page).first();
+  await expect(chip).toHaveAttribute('aria-keyshortcuts', 'Alt+ArrowLeft Alt+ArrowRight');
+  const hintId = await chip.getAttribute('aria-describedby');
+  expect(hintId).toBeTruthy();
+  await expect(page.locator(`[id="${hintId}"]`)).toContainText('Alt plus arrow keys to move');
+  await expect(chip.locator('[data-role="remove"]')).toHaveAttribute('aria-hidden', 'true');
+});
