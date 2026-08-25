@@ -35,6 +35,7 @@ import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js
 import { planCrop } from './cropRules.js';
 import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand } from './expand.js';
+import { seamScore, SEAM_VISIBLE } from './seamScore.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
 import { registerLogoRoutes } from './routes/logos.js';
@@ -1152,7 +1153,41 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           : {}),
       };
       estimate = await engine.costEstimate(editReq);
-      work = (signal) => engine.edit(editReq, signal);
+      /*
+       * An expansion is drawn again if its join comes out visibly wrong.
+       *
+       * The default engine has no seed, so the same request returns a
+       * different margin every time — good, then broken, then good, with
+       * nothing in between anyone can steer. That variance is only a problem
+       * if we accept the first answer. Looking at the join and asking for
+       * another draw when it reads as a line turns a coin toss into two, and
+       * keeps whichever landed better. One extra attempt, only when the first
+       * one failed, and never for an engine that paints margins properly.
+       */
+      const plan = expandPlan;
+      const srcSize = { width: srcMeta.width ?? 0, height: srcMeta.height ?? 0 };
+      const original = srcBuf;
+      work =
+        plan && !canOutpaint
+          ? async (signal) => {
+              let best: { images: string[]; costUsd: number; raw?: unknown } | null = null;
+              let bestScore = Number.POSITIVE_INFINITY;
+              for (let attempt = 0; attempt < 2; attempt++) {
+                const got = await engine.edit(editReq, signal);
+                const first = got.images[0];
+                if (!first) return got;
+                const { image } = await compositeExpand(core.images.read(first), original, plan);
+                const score = await seamScore(image, plan, srcSize);
+                if (score < bestScore) {
+                  bestScore = score;
+                  best = got;
+                }
+                if (score <= SEAM_VISIBLE) break;
+                app.log.info({ nodeId: 'pending', score: score.toFixed(2) }, 'expand: join visible, drawing again');
+              }
+              return best ?? (await engine.edit(editReq, signal));
+            }
+          : (signal) => engine.edit(editReq, signal);
     }
 
     // throws 402 via handler; include estimates of everything still in flight

@@ -523,6 +523,91 @@ describe('generation flow', () => {
     expect(after).toEqual(before);
   });
 
+  it('draws a grown frame again when its join comes out visible, and keeps the better one', async () => {
+    const sharpLib = (await import('sharp')).default;
+    const field = async (v: number, w: number, h: number) =>
+      sharpLib({
+        create: {
+          width: w,
+          height: h,
+          channels: 3,
+          background: { r: v, g: v, b: v },
+          noise: { type: 'gaussian', mean: v, sigma: 12 },
+        },
+      })
+        .png()
+        .toBuffer();
+
+    // First answer disagrees badly with the picture at the join; second one
+    // continues its tone. Only the second should survive.
+    let call = 0;
+    const moody: EngineAdapter = {
+      capabilities: () => ({
+        id: 'moody',
+        displayName: 'Moody',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 0,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({ images: [core.images.save(await field(120, 256, 256))], costUsd: 0 }),
+      edit: async () => {
+        call += 1;
+        const tone = call === 1 ? 210 : 120;
+        return { images: [core.images.save(await field(tone, 456, 256))], costUsd: 0 };
+      },
+    };
+    const srv = buildServer({ core, engines: registryWith(moody) });
+    const brand = await mkBrand();
+    const proj = await srv.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } });
+    const projectId = proj.json().project.id;
+    const gen = await srv.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'moody',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 256, h: 256 },
+            { t: 'text', v: 'a field' },
+          ],
+        },
+      },
+    });
+    const base = await waitDoneOn(srv, gen.json().id);
+
+    const grow = await srv.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: base.id,
+        kind: 'edit',
+        engineId: 'moody',
+        sourceImage: base.images[0],
+        reshape: 'extend',
+        brief: { tokens: [{ t: 'format', id: 'landscape', w: 456, h: 256 }] },
+      },
+    });
+    expect(grow.statusCode).toBe(202);
+    const out = await waitDoneOn(srv, grow.json().id);
+    expect(out.status).toBe('done');
+
+    // it asked twice, because the first join was visible
+    expect(call).toBe(2);
+    // and what it kept is the margin that matches the picture's tone
+    const margin = await sharpLib(core.images.read(out.images[0]))
+      .extract({ left: 4, top: 100, width: 40, height: 40 })
+      .removeAlpha()
+      .stats();
+    expect(margin.channels[0].mean).toBeLessThan(170);
+    await srv.close();
+  });
+
   // The other reshape op: no engine, no prompt, no generation — the output is
   // a rectangle of the original's own decoded pixels.
   it('crops to a narrower shape deterministically, pixel for pixel, at no cost', async () => {
