@@ -824,11 +824,13 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   await page.keyboard.press('Escape');
 
   // it stays a refinement: the shape is reached by growing this picture, not
-  // by running the brief again and getting a different one. Extend is the
-  // preselected op for a square asked to go wide, and the choice is on screen.
+  // by running the brief again and getting a different one. The op is
+  // INFERRED from the geometry — no buttons, no tutorial copy — and the two
+  // word state line makes the consequence predictable before Refine.
   await expect(composer.locator('.sc-send')).toContainText('Refine');
-  await expect(composer.locator('.sc-reshape button[data-on]')).toContainText('Extend to Landscape 16:9');
-  await expect(composer).toContainText('Expands this shot into the new shape.');
+  await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
+  await expect(composer.locator('.sc-reshape')).toHaveCount(0);
+  await expect(composer).not.toContainText('Expands this shot');
 
   // the send is caught and answered here rather than allowed to make a picture
   let posted: any = null;
@@ -851,7 +853,7 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   expect(posted.reshape).toBe('extend');
 });
 
-test('a squarer shape while refining offers a crop, and sends it with no words at all', async ({ page }) => {
+test('a squarer shape while refining infers a crop, and sends it with no words at all', async ({ page }) => {
   const brand = new URL(page.url()).pathname.split('/')[1];
 
   // the same trick as the expand test: the shot's recorded shape is the only
@@ -874,26 +876,31 @@ test('a squarer shape while refining offers a crop, and sends it with no words a
   const composer = page.locator('.sc-ovl-edit');
   await expect(composer.locator('.sc-brief-line')).toBeVisible();
 
-  // 16:9 asked to be 1:1 preselects the crop, and the note promises geometry
+  // 16:9 asked to be 1:1 infers the crop, and says so in two words
   await composer.locator('.sc-more').click();
   await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '1:1' }).first().click();
   await page.keyboard.press('Escape');
-  await expect(composer.locator('.sc-reshape button[data-on]')).toContainText('Crop to Square 1:1');
-  await expect(composer).toContainText('Nothing new is drawn');
+  await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will crop to Square 1:1');
+  await expect(composer).not.toContainText('Nothing new is drawn');
 
   // words and a crop cannot travel together, and the block says so out loud
   await composer.locator('.sc-brief-line').click();
   await page.keyboard.type('and make it warmer');
   await expect(composer.locator('.sc-send')).toHaveAttribute('aria-disabled', 'true');
-  await expect(composer.locator('.sc-send')).toHaveAttribute('title', /A crop uses no words/);
+  await expect(composer.locator('.sc-send')).toHaveAttribute('title', /a crop uses no words/);
 
-  // switching to Extend takes the words along instead
-  await composer.locator('.sc-reshape button', { hasText: 'Extend to' }).click();
+  // the honest escape hatch: keep the current shape and the words send as a
+  // plain refine again
+  await composer.locator('.sc-more').click();
+  await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '16:9' }).first().click();
+  await page.keyboard.press('Escape');
   await expect(composer.locator('.sc-send')).not.toHaveAttribute('aria-disabled');
 
   // back to the crop, words cleared: sendable with the brief exactly as empty
   // as it stands
-  await composer.locator('.sc-reshape button', { hasText: 'Crop to' }).click();
+  await composer.locator('.sc-more').click();
+  await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '1:1' }).first().click();
+  await page.keyboard.press('Escape');
   await composer.locator('.sc-brief-line').click();
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.press('Backspace');

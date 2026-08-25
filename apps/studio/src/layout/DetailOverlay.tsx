@@ -414,8 +414,15 @@ export function DetailOverlay({
             <small>
               {node.images.length > 1 ? `${imageIndex + 1} of ${node.images.length} variants` : nodeLabel(node)}
             </small>
-            <span className="sc-ovl-meta-sep" aria-hidden />
-            <small className="sc-ovl-eng">{node.engineId}</small>
+            {/* A crop calls no provider, so it shows no provider: older crop
+                nodes recorded the client's selected engine, which displayed a
+                name that did nothing — the brief.reshape check covers them. */}
+            {node.engineId !== 'local' && node.brief?.reshape !== 'crop' && (
+              <>
+                <span className="sc-ovl-meta-sep" aria-hidden />
+                <small className="sc-ovl-eng">{node.engineId}</small>
+              </>
+            )}
             {/* Only where something was actually made. A shot that came back
                 with nothing was still announcing a gold coin and the word
                 "Free", which reads as a feature of the failure. */}

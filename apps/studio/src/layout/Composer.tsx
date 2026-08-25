@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Popover, Select, Spinner } from '@radix-ui/themes';
-import { ArrowUp, ArrowsOutSimple, Crop, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
+import { ArrowUp, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
 import {
   api,
   imgUrl,
@@ -601,12 +601,12 @@ export const Composer = forwardRef<
    */
   const reshaping = !!target && !!target.brief?.format && target.brief.format !== formatId;
   const reshapeChoiceOpen = reshaping && branchable && !template;
-  const [reshapeChoice, setReshapeChoice] = useState<'crop' | 'extend' | null>(null);
-  // the choice belongs to one target and one shape; a new target or a new
-  // shape gets the computed default again
-  useEffect(() => setReshapeChoice(null), [target?.id, formatId]);
+  // The op is inferred, never asked: pick a target shape and the geometry
+  // decides (toward square = crop, away = extend — defaultReshapeOp). The two
+  // override buttons this used to render made the user resolve a question the
+  // classifier already answers; nothing runs until Refine either way.
   const reshapeOp: 'crop' | 'extend' | null = reshapeChoiceOpen
-    ? (reshapeChoice ?? defaultReshapeOp(aspectOfFormat(target?.brief?.format), aspectOfFormat(formatId)))
+    ? defaultReshapeOp(aspectOfFormat(target?.brief?.format), aspectOfFormat(formatId))
     : null;
   const cropping = reshapeOp === 'crop';
   const expanding = reshapeOp === 'extend' && engineCanEdit;
@@ -630,19 +630,19 @@ export const Composer = forwardRef<
   }, [variant, preview]);
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' = branchable && !template && (engineCanEdit || cropping) ? 'edit' : 'generation';
+  // No reshape tutorial here anymore: the op is inferred, and the whole
+  // explanation is the two-word state line rendered beside the shape picker.
   const targetNote = !branchable
     ? null
     : template
       ? 'A scene starts a new shot.'
-      : cropping
-        ? 'Crops this shot to the new shape. Nothing new is drawn, and every pixel kept is exactly the one you had.'
-        : expanding
-          ? 'Expands this shot into the new shape. What is already in the picture stays exactly as it is.'
-          : !engineCanEdit
-            ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
-            : targetPending
-              ? 'Still rendering. This can be refined the moment it lands.'
-              : null;
+      : cropping || expanding
+        ? null
+        : !engineCanEdit
+          ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
+          : targetPending
+            ? 'Still rendering. This can be refined the moment it lands.'
+            : null;
 
   /**
    * What is currently set, so the one control can still say it out loud.
@@ -708,7 +708,7 @@ export const Composer = forwardRef<
           : targetPending
             ? 'Wait for this version to finish, or press X to start a new shot'
             : cropWithWords
-              ? 'A crop uses no words. Clear the brief, or switch to Extend.'
+              ? 'This shape is reached by cropping, and a crop uses no words. Clear the brief, or keep the current shape.'
               : !hasContent && !aspectOnly
                 ? 'Write a brief first'
                 : null;
@@ -722,7 +722,10 @@ export const Composer = forwardRef<
    */
   useEffect(() => {
     const refining = mode === 'edit' && !!target;
-    if (!hasContent && !refining) {
+    // A crop compiles nothing and calls no engine: previewing the compile
+    // that will never run would show carried-context claims for a pure
+    // geometry operation.
+    if (cropping || (!hasContent && !refining)) {
       setPreview(null);
       return;
     }
@@ -736,7 +739,7 @@ export const Composer = forwardRef<
     return () => {
       if (debounce.current) clearTimeout(debounce.current);
     };
-  }, [brief, engineId, brand.id, hasContent, mode, target]);
+  }, [brief, engineId, brand.id, hasContent, mode, target, cropping]);
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -1066,30 +1069,14 @@ export const Composer = forwardRef<
         {branchable && !onClearTarget && targetNote && (
           <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
-        {/* Two honest ops, chosen out loud. Crop and extend preserve pixels in
-            opposite ways, so one implicit rule would always betray somebody:
-            the control preselects the likely intent and the note above says
-            exactly what the selected op will and will not touch. */}
-        {reshapeChoiceOpen && (
-          <fieldset className="sc-reshape">
-            <legend className="sc-vh">How to change the shape</legend>
-            <button
-              type="button"
-              aria-pressed={cropping}
-              data-on={cropping || undefined}
-              onClick={() => setReshapeChoice('crop')}
-            >
-              <Crop size={13} /> Crop to {targetShapeLabel}
-            </button>
-            <button
-              type="button"
-              aria-pressed={reshapeOp === 'extend'}
-              data-on={reshapeOp === 'extend' || undefined}
-              onClick={() => setReshapeChoice('extend')}
-            >
-              <ArrowsOutSimple size={13} /> Extend to {targetShapeLabel}
-            </button>
-          </fieldset>
+        {/* The inferred op, stated in two words. The old fieldset asked the
+            user to pick Crop or Extend when the geometry already decides
+            (defaultReshapeOp); picking a shape is the whole gesture, and this
+            line only makes the consequence predictable before Refine. */}
+        {reshapeChoiceOpen && (cropping || expanding) && (
+          <small className="sc-reshape-hint" aria-live="polite">
+            {cropping ? 'Will crop to' : 'Will extend to'} {targetShapeLabel}
+          </small>
         )}
         {/* The refinement's carried context, stated before it is sent. New
             attachments appear as chips in the sentence below; this strip is

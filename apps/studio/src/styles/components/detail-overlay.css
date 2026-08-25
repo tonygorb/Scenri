@@ -456,19 +456,6 @@
   object-fit: contain;
   border-radius: var(--sc-radius-xs);
 }
-/* At 300px the two reshape ops crowd shoulder to shoulder; a two-cell grid
-   gives each a full half and lets the labels ellipsize instead of colliding. */
-.sc-ovl-edit .sc-reshape {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-.sc-ovl-edit .sc-reshape button {
-  justify-content: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (max-width: 1023px) {
   .sc-ovl {
     grid-template-columns: 1fr;

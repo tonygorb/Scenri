@@ -524,38 +524,15 @@
   display: block;
   padding: 10px 14px 0;
 }
-/* The reshape choice: two honest ops, one selected. Monochrome selection per
-   doctrine — the filled state is the answer, never a colour. */
-.sc-reshape {
-  display: flex;
-  gap: 6px;
+/* The inferred reshape op, said in two words. Quiet by design: this is a
+   state readout beside the shape picker, never a warning and never a second
+   control — the buttons that used to sit here asked the user to answer a
+   question the geometry already decides. */
+.sc-reshape-hint {
+  display: block;
   padding: 8px 14px 0;
-  /* it is a fieldset only for its legend; the chrome is the two buttons */
-  margin: 0;
-  border: none;
-}
-.sc-reshape button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 10px;
-  font-size: 11.5px;
-  color: var(--sc-fg2);
-  background: none;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  cursor: pointer;
-}
-.sc-reshape button:hover {
-  background: var(--sc-hover);
-  color: var(--sc-fg);
-}
-.sc-reshape button[data-on] {
-  color: var(--sc-fg);
-  border-color: var(--sc-line-strong);
-  background: var(--sc-raised);
-  font-weight: 500;
+  font-size: 11px;
+  color: var(--sc-fg3);
 }
 .sc-target-x {
   display: inline-grid;
