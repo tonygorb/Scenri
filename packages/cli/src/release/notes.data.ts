@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.5.1',
+    date: '2026-08-26',
+    sections: [
+      {
+        heading: 'Shots',
+        body: 'An extended shot keeps its subject where it was composed, so a product standing near one edge stays near that edge in the wider frame rather than drifting to the middle. The new margin now meets the picture across the whole join instead of only at the seam, so a difference in tone or light no longer survives out at the frame edge. Where a connected engine can paint a margin directly, an extension is handed to it.',
+      },
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-08-26',
     title: 'A finished shot can change shape, and a presenter you attach is a requirement rather than a suggestion.',

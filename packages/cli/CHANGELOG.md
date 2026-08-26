@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/tonygorb/Scenri/compare/v0.5.0...v0.5.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* a grown frame keeps its subject's place and solves its own seam ([9d2108b](https://github.com/tonygorb/Scenri/commit/9d2108b2e5af29e1a6efdd531b82b647ec1c58ad))
+* a grown frame keeps its subject's place and solves its own seam ([d45bf73](https://github.com/tonygorb/Scenri/commit/d45bf73d4760573af863b2f4533983382b16795c))
+
 ## [0.5.0](https://github.com/tonygorb/Scenri/compare/v0.4.7...v0.5.0) (2026-08-25)
 
 
