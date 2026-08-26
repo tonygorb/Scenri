@@ -111,9 +111,37 @@ jobs:
       # needed and `id-token: write` above is what makes it possible.
       # --loglevel http keeps the OIDC token exchange visible in the log, so
       # an auth failure names itself instead of hiding behind a 404.
+      #
+      # The publish is checked against the registry rather than trusted to its
+      # own exit code. v0.5.1 published successfully and then reported failure:
+      # the PUT was accepted, the connection dropped before the response came
+      # back (ECONNRESET), and npm retried with the same OIDC token. Those are
+      # single use, so the retry returned 401 "token is invalid" and the job
+      # exited 1 on a version that was already on the registry. The steps after
+      # this one never ran, so the release page lost its written notes.
+      #
+      # Asking the registry what it actually holds covers both directions: a
+      # dispatch retry of an already-published tag skips instead of failing,
+      # and a publish that landed despite an error is not reported as red.
       - name: Publish Scenri
-        run: npm publish --access public --loglevel http
         working-directory: packages/cli
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          published() { npm view "scenri@$version" version >/dev/null 2>&1; }
+          if published; then
+            echo "scenri@$version is already on the registry, nothing to publish"
+            exit 0
+          fi
+          if npm publish --access public --loglevel http; then
+            exit 0
+          fi
+          echo "npm publish reported a failure, asking the registry what it holds"
+          if published; then
+            echo "scenri@$version is on the registry after all, continuing"
+            exit 0
+          fi
+          echo "scenri@$version is not on the registry: the publish genuinely failed"
+          exit 1
 
       # The human summary already exists as the What's New record shipped in
       # the build. Prepend it rather than writing the same sentences twice.
@@ -128,5 +156,12 @@ jobs:
             exit 0
           fi
           gh release view "$TAG" --json body --jq .body > generated.md
+          # This step can now run twice for one tag, because a dispatch retry
+          # skips an already-published version and carries on to here. Prepending
+          # a second copy of the same prose is worse than doing nothing.
+          if [ "$(head -1 generated.md)" = "$(printf '%s' "$written" | head -1)" ]; then
+            echo "the written record is already on the release page"
+            exit 0
+          fi
           { printf '%s\n\n---\n\n' "$written"; cat generated.md; } > body.md
           gh release edit "$TAG" --notes-file body.md
