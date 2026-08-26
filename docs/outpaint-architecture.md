@@ -354,9 +354,22 @@ Two things worth carrying:
    guide question is answered the way it is.
 4. **The other three hard sources**, which quota cut short.
 
-- **The reference policy for an extend.** Identity references helped on one shot
-  (0.78 to 0.95) and were catastrophic on another (0.98 to 0.28). Not resolved,
-  and left as it was rather than changed on a split result.
+- **The reference policy for an extend.** Identity references are mildly
+  positive on most shots and rarely catastrophic, and the mean is entirely the
+  catastrophe: +0.18 on `studio`, +0.13 on `logo`, +0.07 on `pair`, ~0 on
+  `lowkey`, -0.08 on `clay`, and **-0.70 on `presenter`**. Mean -0.07, spread
+  0.32.
+
+  The hypothesis the failure suggests is specific rather than "references are
+  bad": `presenter` is a tight crop with the subject's head cut off above the
+  frame, and its reference shows a face. Handed both, the model pulled the
+  camera back far enough to show one. So the risk looks like a reference whose
+  FRAMING contradicts the source's framing, not identity reinforcement as such.
+
+  Left exactly as it was, because n=1 on the shot that carries the whole result.
+  The next battery should test it directly: several sources whose subject is
+  cropped at the frame edge, with and without a reference that shows the subject
+  whole.
 - **The other ratios.** The battery ran 1:1 to 16:9 only. 9:16, 4:5 and the
   chains (extend, extend again, refine) are unmeasured.
 
