@@ -17,6 +17,7 @@ import type {
   GenerateRequest,
   EditRequest,
   ReferenceRole,
+  EngineResult,
 } from '@scenri/core';
 import { SpendCapError, ASPECT_TOLERANCE } from '@scenri/core';
 import { readMeta } from './meta.js';
@@ -31,13 +32,15 @@ import type { CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { inheritedIdentityTokens } from './editIdentity.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
-import { planExpand, expandInstruction, type ExpandPlan } from './expandRules.js';
+import { planExpand, expandInstruction, reframeInstruction, type ExpandPlan } from './expandRules.js';
 import { planCrop } from './cropRules.js';
 import { attentionCropOrigin } from './smartCrop.js';
-import { expandCanvas, compositeExpand } from './expand.js';
+import { expandCanvas, compositeExpand, reframeExpand } from './expand.js';
 import { seamScore } from './seamScore.js';
 import { seamPenalty, seamResidual } from './outpaint/score.js';
 import { placeExpand, subjectFraction } from './outpaint/place.js';
+import { conditioningCanvas } from './outpaint/conditioning.js';
+import { chooseExpand, type ExpandDecision } from './outpaint/choose.js';
 import { type OutpaintMethod, resolveOutpaintRoute } from './outpaint/route.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
@@ -1041,6 +1044,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      */
     let runEngine = engine;
     let expandMethod: OutpaintMethod | null = null;
+    /**
+     * Which of the two assemblies won, filled in by the draw itself.
+     *
+     * Read back after the run so the log carries the node it belongs to: the
+     * choice is the one thing about an expansion that is not visible from the
+     * request, and the battery reads it to check the rule against the pictures.
+     */
+    let expandDecision: ExpandDecision | null = null;
 
     if (compiled) {
       finalPrompt = compiled.prompt;
@@ -1152,10 +1163,28 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         expandMethod = route.method;
       }
       const canOutpaint = expandMethod === 'outpaint';
+      /*
+       * The route with no mask draws twice, and the two draws are shown
+       * different things on purpose.
+       *
+       * The BED is the picture magnified to fill the new frame and blurred,
+       * with the sharp original laid back on top. Handed that and told to
+       * change only the margin, the model leaves the middle alone almost
+       * exactly, which is what makes the original safe to composite back over
+       * its answer. The PADDED frame is the picture at its own scale with the
+       * new area carrying nothing but its own border colours, which tells no
+       * lie about texture scale and is what a coherent whole frame is drawn
+       * from.
+       *
+       * Neither is better everywhere. Which one ships is decided per shot,
+       * after both have been assembled and the join measured — see
+       * outpaint/choose.ts.
+       */
+      let reframeSourceHash: string | undefined;
       if (expandPlan) {
         if (!canOutpaint) {
-          const canvas = await expandCanvas(srcBuf, expandPlan);
-          expandSourceHash = core.images.save(canvas);
+          expandSourceHash = core.images.save(await expandCanvas(srcBuf, expandPlan));
+          reframeSourceHash = core.images.save(await conditioningCanvas(srcBuf, expandPlan, 'edge'));
         }
         expectShape = { width: expandPlan.width, height: expandPlan.height };
       }
@@ -1190,52 +1219,87 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       };
       estimate = await runEngine.costEstimate(editReq);
       /*
-       * An expansion is drawn twice, at once, and the better join is kept.
+       * An expansion with no mask is drawn twice, at once, and the frame that
+       * ships is chosen after both have been assembled.
        *
-       * The default engine has no seed, so the same request returns a
-       * different margin every time — measured on one unchanged picture, the
-       * join came back at 2.8, then 15.1, then 2.1. Nothing in the prompt
-       * steers that. Two draws in parallel turn one coin toss into the better
-       * of two for the same wall-clock as one: a picture takes about as long
-       * as it ever did, and the odds of shipping a visible join drop with the
-       * square. Sequential retries were the obvious version of this and the
-       * wrong one — they doubled a two-and-a-half-minute wait.
+       * This used to be two identical draws ranked by their join, because the
+       * default engine has no seed and the same request came back at 2.8, then
+       * 15.1, then 2.1. Two draws still cost one wall clock, but ranking two
+       * tries of the same idea only ever buys the luckier roll. The battery of
+       * 2026-08-26 measured something better to spend the second draw on.
        *
-       * An engine that paints margins properly is asked once, because its
-       * answer is not a lottery.
+       * The two candidates fail in opposite directions. Compositing the
+       * original back is exact by construction and sometimes shows a join —
+       * measured invisible on five of six shots and 7.65 on the sixth, against
+       * a threshold of 2.2. Keeping the model's own frame has no join to show
+       * and is no longer exactly the photograph. So the choice is made per
+       * shot, on evidence, rather than fixed in advance: exact pixels whenever
+       * they cost nothing visible, and only otherwise given up.
+       *
+       * An engine that paints margins properly is still asked once, because its
+       * answer is not a lottery and its middle was never at risk.
        */
       const plan = expandPlan;
       const srcSize = { width: srcMeta.width ?? 0, height: srcMeta.height ?? 0 };
       const original = srcBuf;
+      const reframeReq: EditRequest | null =
+        plan && !canOutpaint && reframeSourceHash
+          ? {
+              ...editReq,
+              instruction: reframeInstruction(plan, srcSize, finalPrompt),
+              sourceImage: core.images.pathFor(reframeSourceHash),
+            }
+          : null;
       work =
-        plan && !canOutpaint
+        plan && !canOutpaint && reframeReq
           ? async (signal) => {
-              const draws = await Promise.all([
+              // Either draw may die on its own — a codex run times out around
+              // one time in eight — and one survivor is still a whole answer,
+              // because the two are alternatives rather than halves. Only a
+              // pair of failures is a failure, and then the engine's own error
+              // is what surfaces rather than a manufactured one.
+              const [bedDraw, paddedDraw] = await Promise.allSettled([
                 runEngine.edit(editReq, signal),
-                runEngine.edit(editReq, signal).catch(() => null),
+                runEngine.edit(reframeReq, signal),
               ]);
-              const scored = await Promise.all(
-                draws.map(async (got) => {
-                  const first = got?.images[0];
-                  if (!got || !first) return null;
-                  const { image } = await compositeExpand(core.images.read(first), original, plan);
-                  // Two measurements, because they fail in opposite directions:
-                  // the grain ratio gives up on a flat sweep, and the level
-                  // difference forgives a busy surface. A draw has to be
-                  // acceptable on both to win.
-                  const [score, residual] = await Promise.all([
-                    seamScore(image, plan, srcSize),
-                    seamResidual(image, plan, srcSize),
-                  ]);
-                  return { got, penalty: seamPenalty(score, residual) };
-                }),
-              );
-              const best = scored
-                .filter((x): x is { got: NonNullable<(typeof draws)[number]>; penalty: number } => x !== null)
-                .sort((a, b) => a.penalty - b.penalty)[0];
-              // Both failed to produce anything usable: let the first answer
-              // stand so the failure is the engine's own, reported as it is.
-              return best?.got ?? draws[0];
+              const bed = bedDraw.status === 'fulfilled' ? bedDraw.value : null;
+              const padded = paddedDraw.status === 'fulfilled' ? paddedDraw.value : null;
+              if (!bed && !padded) {
+                throw bedDraw.status === 'rejected' ? bedDraw.reason : (paddedDraw as PromiseRejectedResult).reason;
+              }
+
+              // The original composited back over the bed answer: every source
+              // pixel byte for byte, and a join whose visibility is the thing
+              // that decides whether it ships.
+              let preserved: { image: Buffer; seam: number } | null = null;
+              const bedImage = bed?.images[0];
+              if (bedImage) {
+                const { image } = await compositeExpand(core.images.read(bedImage), original, plan);
+                const [score, residual] = await Promise.all([
+                  seamScore(image, plan, srcSize),
+                  seamResidual(image, plan, srcSize),
+                ]);
+                preserved = { image, seam: seamPenalty(score, residual) };
+              }
+
+              // The model's own frame, only ever resized to the planned pixels.
+              let reframed: { image: Buffer } | null = null;
+              const paddedImage = padded?.images[0];
+              if (paddedImage) {
+                const frame = await reframeExpand(core.images.read(paddedImage), plan);
+                if (frame) reframed = { image: frame };
+              }
+
+              const decision = chooseExpand({ preserved, reframed });
+              // Both draws returned, and neither could be assembled into a
+              // frame: let the engine's own answer stand and be reported as
+              // whatever it is, rather than inventing a result for it.
+              if (!decision) return (bed ?? padded) as EngineResult;
+              expandDecision = decision;
+              return {
+                images: [core.images.save(decision.image)],
+                costUsd: (bed?.costUsd ?? 0) + (padded?.costUsd ?? 0),
+              };
             }
           : (signal) => runEngine.edit(editReq, signal);
     }
@@ -1296,25 +1360,44 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      * have moved half the frame is stored as the re-render it evidently was.
      */
     const localScope = kind === 'edit' && !plan && editScope === 'local' && original;
+    /*
+     * Only a real outpainter's answer is composited here. The route with no
+     * mask assembled and chose inside the draw itself, because the choice needs
+     * both candidates in hand and only one of them survives into the result.
+     */
     const post = plan
-      ? async (images: string[]) => {
-          const out: string[] = [];
-          for (const h of images) {
-            const answer = core.images.read(h);
-            // The battery reads this to measure how often the engine honors
-            // the exact-size request; a match means no rescale at all.
-            const got = await sharp(answer).metadata();
-            if (got.width !== plan.width || got.height !== plan.height)
-              app.log.info(
-                { nodeId: node.id, got: `${got.width}x${got.height}`, want: `${plan.width}x${plan.height}` },
-                'expand: engine size differs from plan',
-              );
-            const { image, aligned } = await compositeExpand(answer, original!, plan);
-            if (!aligned) app.log.warn({ nodeId: node.id }, 'expand: engine frame did not align, kept the bed');
-            out.push(core.images.save(image));
+      ? expandMethod === 'outpaint'
+        ? async (images: string[]) => {
+            const out: string[] = [];
+            for (const h of images) {
+              const answer = core.images.read(h);
+              // The battery reads this to measure how often the engine honors
+              // the exact-size request; a match means no rescale at all.
+              const got = await sharp(answer).metadata();
+              if (got.width !== plan.width || got.height !== plan.height)
+                app.log.info(
+                  { nodeId: node.id, got: `${got.width}x${got.height}`, want: `${plan.width}x${plan.height}` },
+                  'expand: engine size differs from plan',
+                );
+              const { image, aligned } = await compositeExpand(answer, original!, plan);
+              if (!aligned) app.log.warn({ nodeId: node.id }, 'expand: engine frame did not align, kept the bed');
+              out.push(core.images.save(image));
+            }
+            return out;
           }
-          return out;
-        }
+        : async (images: string[]) => {
+            if (expandDecision)
+              app.log.info(
+                {
+                  nodeId: node.id,
+                  choice: expandDecision.choice,
+                  reason: expandDecision.reason,
+                  seam: expandDecision.seam,
+                },
+                'expand: chose which frame to keep',
+              );
+            return images;
+          }
       : localScope
         ? async (images: string[]) => {
             const out: string[] = [];

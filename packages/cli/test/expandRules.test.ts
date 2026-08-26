@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { planExpand, expandInstruction } from '../src/expandRules.js';
+import {
+  planExpand,
+  expandInstruction,
+  ratioLabel,
+  reframeInstruction,
+  continueInstruction,
+} from '../src/expandRules.js';
 
 const SQUARE = { width: 1024, height: 1024 };
 
@@ -113,5 +119,139 @@ describe('the expansion instruction names the geometry it is asking for', () => 
     const text = expandInstruction(plan, '');
     expect(text).toContain('left and right');
     expect(text).not.toContain('nearest the camera');
+  });
+});
+
+describe('ratioLabel', () => {
+  it('names the shapes a person picked', () => {
+    expect(ratioLabel(1824, 1024)).toBe('16:9');
+    expect(ratioLabel(1024, 1824)).toBe('9:16');
+    expect(ratioLabel(1024, 1280)).toBe('4:5');
+    expect(ratioLabel(1024, 1024)).toBe('1:1');
+  });
+
+  it('reduces anything it cannot name', () => {
+    expect(ratioLabel(1000, 700)).toBe('10:7');
+  });
+});
+
+describe('reframeInstruction', () => {
+  const src = { width: 1024, height: 1024 };
+
+  it('names the shape, because the codex path cannot request a size', () => {
+    const plan = planExpand(src, 16 / 9);
+    if (!plan) throw new Error('expected a plan');
+    const text = reframeInstruction(plan, src, '');
+    expect(text).toContain('16:9');
+    expect(text).toContain('wider');
+    expect(text).toContain('to the left and to the right');
+  });
+
+  it('says where the supplied photograph sits in the result', () => {
+    const plan = planExpand(src, 16 / 9);
+    if (!plan) throw new Error('expected a plan');
+    const text = reframeInstruction(plan, src, '');
+    // 1024 of 1824 is 56%: stated as a place, not as a growth factor.
+    expect(text).toContain("the middle 56% of the new frame's width");
+  });
+
+  it('never tells the model to zoom out, which shrinks the subject', () => {
+    for (const ratio of [16 / 9, 9 / 16, 4 / 5]) {
+      const plan = planExpand(src, ratio);
+      if (!plan) continue;
+      const text = reframeInstruction(plan, src, '').toLowerCase();
+      expect(text).not.toContain('zoom');
+      expect(text).not.toContain('pull back');
+      expect(text).not.toContain('further away');
+    }
+  });
+
+  it('does not name grain or a lens, the two amplifiers already measured', () => {
+    const plan = planExpand(src, 16 / 9);
+    if (!plan) throw new Error('expected a plan');
+    const text = reframeInstruction(plan, src, '').toLowerCase();
+    expect(text).not.toContain('grain');
+    expect(text).not.toContain('mm');
+    expect(text).not.toContain('focal');
+    expect(text).not.toContain('perspective');
+  });
+
+  it('keeps the depth fact only for a frame that grew taller', () => {
+    const tall = planExpand(src, 9 / 16);
+    const wide = planExpand(src, 16 / 9);
+    if (!tall || !wide) throw new Error('expected plans');
+    expect(reframeInstruction(tall, src, '')).toContain('nearest the camera');
+    expect(reframeInstruction(wide, src, '')).not.toContain('nearest the camera');
+  });
+
+  it("carries the user's own words without a doubled full stop", () => {
+    const plan = planExpand(src, 16 / 9);
+    if (!plan) throw new Error('expected a plan');
+    expect(reframeInstruction(plan, src, '. keep the logo legible')).toContain('\nAlso: keep the logo legible');
+    expect(reframeInstruction(plan, src, '   ')).not.toContain('Also:');
+  });
+});
+
+describe('continueInstruction', () => {
+  const src = { width: 1024, height: 1024 };
+
+  it('asks for the empty area, not a blurred one, and protects the picture', () => {
+    const plan = planExpand(src, 16 / 9);
+    if (!plan) throw new Error('expected a plan');
+    const text = continueInstruction(plan, '');
+    expect(text).toContain('Fill the empty area at the left and right');
+    expect(text).toContain('change only the empty area');
+    expect(text).toContain('unchanged in position, scale and content');
+    // The bed's wording would be a lie about a padded canvas.
+    expect(text).not.toContain('blurred');
+  });
+
+  it('keeps the depth fact only for a frame that grew taller', () => {
+    const tall = planExpand(src, 9 / 16);
+    const wide = planExpand(src, 16 / 9);
+    if (!tall || !wide) throw new Error('expected plans');
+    expect(continueInstruction(tall, '')).toContain('nearest the camera');
+    expect(continueInstruction(wide, '')).not.toContain('nearest the camera');
+  });
+
+  it('does not name grain or a lens', () => {
+    const plan = planExpand(src, 16 / 9);
+    if (!plan) throw new Error('expected a plan');
+    const text = continueInstruction(plan, '').toLowerCase();
+    expect(text).not.toContain('grain');
+    expect(text).not.toContain('focal');
+  });
+
+  it('states the unchanged axis as a fact about the frame, only when asked', () => {
+    const wide = planExpand(src, 16 / 9);
+    if (!wide) throw new Error('expected a plan');
+    expect(continueInstruction(wide, '')).not.toContain('Geometry:');
+
+    const anchored = continueInstruction(wide, '', { anchorUnchangedAxis: true });
+    // A wider frame keeps every row, so the vertical edges are the same edges.
+    expect(anchored).toContain("the photograph's top and bottom edges are already the top and bottom edges");
+    expect(anchored).toContain('nothing in it becomes smaller');
+    expect(anchored).toContain('gains width only');
+  });
+
+  it('anchors the other axis when the frame grew taller', () => {
+    const tall = planExpand(src, 9 / 16);
+    if (!tall) throw new Error('expected a plan');
+    const anchored = continueInstruction(tall, '', { anchorUnchangedAxis: true });
+    expect(anchored).toContain("the photograph's left and right edges are already");
+    expect(anchored).toContain('gains height only');
+  });
+
+  it('the anchor it states is true of the plan it was given', () => {
+    // The claim is only safe because planExpand never scales the source: it
+    // keeps one axis exactly and grows the other. Guard that here, so the
+    // wording cannot outlive the geometry it describes.
+    const wide = planExpand(src, 16 / 9);
+    const tall = planExpand(src, 9 / 16);
+    if (!wide || !tall) throw new Error('expected plans');
+    expect(wide.height).toBe(src.height);
+    expect(wide.top).toBe(0);
+    expect(tall.width).toBe(src.width);
+    expect(tall.left).toBe(0);
   });
 });

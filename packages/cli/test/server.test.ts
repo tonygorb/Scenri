@@ -529,10 +529,19 @@ describe('generation flow', () => {
     expect(after).toEqual(before);
   });
 
-  it('draws a grown frame twice at once and keeps the better join', async () => {
-    const sharpLib = (await import('sharp')).default;
+  /*
+   * The route with no mask draws twice and the two draws are shown different
+   * things: the blurred bed, whose answer the original can be composited back
+   * over, and the padded frame, whose answer ships whole. Which one survives is
+   * decided per shot by whether the composite's join can be seen.
+   */
+  const twoDrawEngine = (marginTone: (bed: boolean) => number) => {
+    const seen: string[] = [];
+    let inFlight = 0;
+    let overlapped = false;
+    const sharpLib = () => import('sharp').then((m) => m.default);
     const field = async (v: number, w: number, h: number) =>
-      sharpLib({
+      (await sharpLib())({
         create: {
           width: w,
           height: h,
@@ -543,13 +552,7 @@ describe('generation flow', () => {
       })
         .png()
         .toBuffer();
-
-    // First answer disagrees badly with the picture at the join; second one
-    // continues its tone. Only the second should survive.
-    let call = 0;
-    let inFlight = 0;
-    let overlapped = false;
-    const moody: EngineAdapter = {
+    const engine: EngineAdapter = {
       capabilities: () => ({
         id: 'moody',
         displayName: 'Moody',
@@ -561,19 +564,23 @@ describe('generation flow', () => {
       isAvailable: async () => ({ ok: true }),
       costEstimate: async () => 0,
       generate: async () => ({ images: [core.images.save(await field(120, 256, 256))], costUsd: 0 }),
-      edit: async () => {
-        call += 1;
+      edit: async (req) => {
+        // Told apart by what each was asked for, not by arrival order: both go
+        // out at once, so a counter cannot say which is which.
+        const bed = req.instruction.includes('blurred margin');
+        seen.push(bed ? 'bed' : 'reframe');
         inFlight += 1;
         if (inFlight > 1) overlapped = true;
-        const tone = call === 1 ? 210 : 120;
-        // hold both open long enough that a sequential caller could not
-        // possibly show two at once
         await new Promise((r) => setTimeout(r, 40));
         inFlight -= 1;
-        return { images: [core.images.save(await field(tone, 456, 256))], costUsd: 0 };
+        return { images: [core.images.save(await field(marginTone(bed), 456, 256))], costUsd: 0 };
       },
     };
-    const srv = buildServer({ core, engines: registryWith(moody) });
+    return { engine, seen: () => seen, overlapped: () => overlapped };
+  };
+
+  const growWith = async (engine: EngineAdapter) => {
+    const srv = buildServer({ core, engines: registryWith(engine) });
     const brand = await mkBrand();
     const proj = await srv.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } });
     const projectId = proj.json().project.id;
@@ -593,7 +600,6 @@ describe('generation flow', () => {
       },
     });
     const base = await waitDoneOn(srv, gen.json().id);
-
     const grow = await srv.inject({
       method: 'POST',
       url: '/api/nodes',
@@ -610,17 +616,157 @@ describe('generation flow', () => {
     expect(grow.statusCode).toBe(202);
     const out = await waitDoneOn(srv, grow.json().id);
     expect(out.status).toBe('done');
+    return { srv, base, out };
+  };
 
-    // it drew twice, and both went out together rather than one after the
-    // other: a second 150-second wait is not a price worth paying
-    expect(call).toBe(2);
-    expect(overlapped).toBe(true);
-    // and what it kept is the margin that matches the picture's tone
-    const margin = await sharpLib(core.images.read(out.images[0]))
-      .extract({ left: 4, top: 100, width: 40, height: 40 })
-      .removeAlpha()
-      .stats();
-    expect(margin.channels[0].mean).toBeLessThan(170);
+  it('shows the two draws different frames, and sends them at once', async () => {
+    const moody = twoDrawEngine(() => 120);
+    const { srv } = await growWith(moody.engine);
+    // One asked to fill a blurred margin, one asked for the whole frame again.
+    // Ranking two tries of the same request only ever buys the luckier roll.
+    expect(moody.seen().sort()).toEqual(['bed', 'reframe']);
+    // And both went out together: a second 150-second wait is not a price
+    // worth paying.
+    expect(moody.overlapped()).toBe(true);
+    await srv.close();
+  });
+
+  it('keeps the picture byte for byte when the join does not show', async () => {
+    // The margin continues the picture's tone, so compositing the original back
+    // leaves nothing for the eye to find — and exact pixels cost nothing.
+    const moody = twoDrawEngine(() => 120);
+    const { srv, base, out } = await growWith(moody.engine);
+    const sharpLib = (await import('sharp')).default;
+    const src = core.images.read(base.images[0]);
+    const meta = await sharpLib(src).metadata();
+    const placed = (out.brief as { expand: { left: number; top: number } }).expand;
+    const region = { left: placed.left, top: placed.top, width: meta.width!, height: meta.height! };
+    const before = await sharpLib(src).removeAlpha().raw().toBuffer();
+    const after = await sharpLib(core.images.read(out.images[0])).extract(region).removeAlpha().raw().toBuffer();
+    expect(after).toEqual(before);
+    await srv.close();
+  });
+
+  it('ships the whole-frame draw when the composite could not be built at all', async () => {
+    /*
+     * The two draws are alternatives, not halves, so one survivor is a whole
+     * answer. Here the bed draw dies and only the frame drawn from the padded
+     * canvas comes back — which is also the branch that ships when the join
+     * would have shown, and the branch that makes no byte-for-byte claim.
+     *
+     * The seam threshold that normally decides between them is unit-tested in
+     * outpaint/choose.test.ts against the real measured numbers. Reproducing a
+     * visibly bad join here is not possible with flat fields, because
+     * reconciling the margin removes a purely tonal disagreement outright — the
+     * shot that failed in the battery failed structurally, not tonally.
+     */
+    const sharpLib = (await import('sharp')).default;
+    const field = async (v: number, w: number, h: number) =>
+      sharpLib({
+        create: {
+          width: w,
+          height: h,
+          channels: 3,
+          background: { r: v, g: v, b: v },
+          noise: { type: 'gaussian', mean: v, sigma: 12 },
+        },
+      })
+        .png()
+        .toBuffer();
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'moody',
+        displayName: 'Moody',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 0,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({ images: [core.images.save(await field(120, 256, 256))], costUsd: 0 }),
+      edit: async (req) => {
+        if (req.instruction.includes('blurred margin')) throw new Error('bed draw timed out');
+        return { images: [core.images.save(await field(200, 456, 256))], costUsd: 0 };
+      },
+    };
+    const { srv, base, out } = await growWith(engine);
+    // The node succeeded on one draw.
+    expect(out.status).toBe('done');
+    const meta = await sharpLib(core.images.read(base.images[0])).metadata();
+    const grown = await sharpLib(core.images.read(out.images[0])).metadata();
+    expect(grown.height).toBe(meta.height);
+    expect(grown.width!).toBeGreaterThan(meta.width!);
+    // Nothing was pasted, so nothing is claimed: the frame is the model's own.
+    const placed = (out.brief as { expand: { left: number; top: number } }).expand;
+    const region = { left: placed.left, top: placed.top, width: meta.width!, height: meta.height! };
+    const before = await sharpLib(core.images.read(base.images[0])).removeAlpha().raw().toBuffer();
+    const after = await sharpLib(core.images.read(out.images[0])).extract(region).removeAlpha().raw().toBuffer();
+    expect(after).not.toEqual(before);
+    await srv.close();
+  });
+
+  it("fails the node only when both draws fail, and reports the engine's own error", async () => {
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'moody',
+        displayName: 'Moody',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 0,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => {
+        const sharpLib = (await import('sharp')).default;
+        const buf = await sharpLib({
+          create: { width: 256, height: 256, channels: 3, background: { r: 120, g: 120, b: 120 } },
+        })
+          .png()
+          .toBuffer();
+        return { images: [core.images.save(buf)], costUsd: 0 };
+      },
+      edit: async () => {
+        throw new Error('codex exited with code 3: rate limited');
+      },
+    };
+    const srv = buildServer({ core, engines: registryWith(engine) });
+    const brand = await mkBrand();
+    const proj = await srv.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } });
+    const projectId = proj.json().project.id;
+    const gen = await srv.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'moody',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 256, h: 256 },
+            { t: 'text', v: 'a field' },
+          ],
+        },
+      },
+    });
+    const base = await waitDoneOn(srv, gen.json().id);
+    const grow = await srv.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: base.id,
+        kind: 'edit',
+        engineId: 'moody',
+        sourceImage: base.images[0],
+        reshape: 'extend',
+        brief: { tokens: [{ t: 'format', id: 'landscape', w: 456, h: 256 }] },
+      },
+    });
+    const out = await waitDoneOn(srv, grow.json().id);
+    expect(out.status).toBe('error');
+    expect(out.error).toContain('rate limited');
     await srv.close();
   });
 
