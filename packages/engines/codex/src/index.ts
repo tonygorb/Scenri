@@ -117,14 +117,27 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         localOnly: true, // OSS-local only: the user's own session, on the user's own machine
         supportsEdit: true,
         supportsMask: false,
-        // The underlying `codex` binary's --image flag is genuinely variadic
-        // ("-i, --image <FILE>...", re-confirmed via `codex exec --help`), so
-        // this number is a product decision, not a binary constraint. It is
-        // sized to hold a full identity payload without eviction:
-        // PRODUCT_REF_MAX (3 angles) + CHARACTER_REF_MAX (2 views) + one
-        // style reference = 6. Below this, compileBrief's role-priority clamp
-        // starts dropping real identity information.
-        maxReferenceImages: 6,
+        /*
+         * Five, and it is a hard constraint of the image tool, not a product
+         * choice.
+         *
+         * The `codex` binary's --image flag really is variadic, which is why
+         * this used to be 6 — one style reference on top of PRODUCT_REF_MAX (3)
+         * plus CHARACTER_REF_MAX (2). But the flag only puts pictures into the
+         * conversation; the thing that consumes them is codex's built-in
+         * image_gen tool, and that caps at five either way it is called:
+         * `referenced_image_paths` longer than five is a hard tool error, and
+         * `num_last_images_to_include` is validated to 1..=5
+         * (codex-rs/ext/image-generation/src/tool.rs, MAX_EDIT_IMAGES = 5).
+         *
+         * Six was therefore not a generous budget, it was an eviction. On the
+         * context route `recent_images` walks the history BACKWARDS and keeps
+         * the last five, so the sixth image to be dropped is the FIRST one
+         * attached — and on an edit the first one attached is `input.png`, the
+         * shot being edited. A refine carrying a full identity payload was
+         * silently editing nothing at all.
+         */
+        maxReferenceImages: 5,
       };
     },
 
