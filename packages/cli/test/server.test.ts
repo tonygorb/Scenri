@@ -515,9 +515,15 @@ describe('generation flow', () => {
     expect(grown.width! / grown.height!).toBeCloseTo(456 / 256, 1);
 
     // and the picture came back byte for byte — the WHOLE picture, no band
-    // and no exception (see compositeExpand's guarantee)
-    const left = Math.round((grown.width! - srcMeta.width!) / 2);
-    const region = { left, top: 0, width: srcMeta.width!, height: srcMeta.height! };
+    // and no exception (see compositeExpand's guarantee). Where it sits is read
+    // from the record rather than assumed: placement follows the subject now,
+    // so the picture is not always centred in the frame it grew into.
+    const placed = (out.brief as any).expand;
+    expect(placed.method).toBe('outpaint');
+    const left = placed.left as number;
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(left + srcMeta.width!).toBeLessThanOrEqual(grown.width!);
+    const region = { left, top: placed.top as number, width: srcMeta.width!, height: srcMeta.height! };
     const before = await sharp(src).removeAlpha().raw().toBuffer();
     const after = await sharp(core.images.read(out.images[0])).extract(region).removeAlpha().raw().toBuffer();
     expect(after).toEqual(before);

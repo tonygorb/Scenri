@@ -36,6 +36,9 @@ import { planCrop } from './cropRules.js';
 import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand } from './expand.js';
 import { seamScore } from './seamScore.js';
+import { seamPenalty, seamResidual } from './outpaint/score.js';
+import { placeExpand, subjectFraction } from './outpaint/place.js';
+import { type OutpaintMethod, resolveOutpaintRoute } from './outpaint/route.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
 import { registerLogoRoutes } from './routes/logos.js';
@@ -1030,6 +1033,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let expectShape: { width: number; height: number } | undefined;
     /** For an edit, which image of the parent run it was made from. */
     let editedFrom: string | null = null;
+    /*
+     * Growing a frame may be handed to a different engine than the one that
+     * made the shot, so cost, the spend cap and the provenance badge all have
+     * to follow the engine that actually ran rather than the one that was
+     * asked for.
+     */
+    let runEngine = engine;
+    let expandMethod: OutpaintMethod | null = null;
 
     if (compiled) {
       finalPrompt = compiled.prompt;
@@ -1112,10 +1123,35 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // not a silent plain edit with an empty instruction.
       if (reshape === 'extend' && !expandPlan)
         return reply.status(400).send({ error: 'the picture is already this shape' });
-      // A real outpainter wants the PICTURE and where it sits; everything else
-      // gets the bed, because it is going to re-render the whole frame and the
-      // bed is the only way to tell it what the margin should look like.
-      const canOutpaint = expandPlan ? engine.capabilities().supportsOutpaint === true : false;
+      /*
+       * Where the picture sits in the frame it grew into.
+       *
+       * planExpand centres unconditionally, which is the open finding from the
+       * August marathon: Scenri adapts the box, not the picture. Keeping the
+       * subject at the relative position it already held costs nothing, moves
+       * no source pixel, and stops a bottle composed against one edge from
+       * landing in the middle of a frame it was never shot for.
+       */
+      if (expandPlan && srcMeta.width && srcMeta.height) {
+        const size = { width: srcMeta.width, height: srcMeta.height };
+        expandPlan = placeExpand(expandPlan, size, await subjectFraction(srcBuf, size, expandPlan.axis));
+      }
+      /*
+       * A real outpainter wants the PICTURE and where it sits; everything else
+       * gets the bed, because it is going to re-render the whole frame and the
+       * bed is the only way to tell it what the margin should look like.
+       *
+       * The margin may go to a different engine than the shot did. An extend
+       * needs no identity references, because the Product and the Presenter sit
+       * inside the protected region and are composited back untouched, so the
+       * usual reason never to switch provider does not apply.
+       */
+      if (expandPlan) {
+        const route = await resolveOutpaintRoute(engines.all(), engine);
+        runEngine = route.engine;
+        expandMethod = route.method;
+      }
+      const canOutpaint = expandMethod === 'outpaint';
       if (expandPlan) {
         if (!canOutpaint) {
           const canvas = await expandCanvas(srcBuf, expandPlan);
@@ -1152,7 +1188,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             }
           : {}),
       };
-      estimate = await engine.costEstimate(editReq);
+      estimate = await runEngine.costEstimate(editReq);
       /*
        * An expansion is drawn twice, at once, and the better join is kept.
        *
@@ -1175,35 +1211,44 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         plan && !canOutpaint
           ? async (signal) => {
               const draws = await Promise.all([
-                engine.edit(editReq, signal),
-                engine.edit(editReq, signal).catch(() => null),
+                runEngine.edit(editReq, signal),
+                runEngine.edit(editReq, signal).catch(() => null),
               ]);
               const scored = await Promise.all(
                 draws.map(async (got) => {
                   const first = got?.images[0];
                   if (!got || !first) return null;
                   const { image } = await compositeExpand(core.images.read(first), original, plan);
-                  return { got, score: await seamScore(image, plan, srcSize) };
+                  // Two measurements, because they fail in opposite directions:
+                  // the grain ratio gives up on a flat sweep, and the level
+                  // difference forgives a busy surface. A draw has to be
+                  // acceptable on both to win.
+                  const [score, residual] = await Promise.all([
+                    seamScore(image, plan, srcSize),
+                    seamResidual(image, plan, srcSize),
+                  ]);
+                  return { got, penalty: seamPenalty(score, residual) };
                 }),
               );
               const best = scored
-                .filter((x): x is { got: NonNullable<(typeof draws)[number]>; score: number } => x !== null)
-                .sort((a, b) => a.score - b.score)[0];
+                .filter((x): x is { got: NonNullable<(typeof draws)[number]>; penalty: number } => x !== null)
+                .sort((a, b) => a.penalty - b.penalty)[0];
               // Both failed to produce anything usable: let the first answer
               // stand so the failure is the engine's own, reported as it is.
               return best?.got ?? draws[0];
             }
-          : (signal) => engine.edit(editReq, signal);
+          : (signal) => runEngine.edit(editReq, signal);
     }
 
     // throws 402 via handler; include estimates of everything still in flight
-    core.ledger.assertUnderCap(engine.capabilities().id, estimate + (reserved.get(engine.capabilities().id) ?? 0));
+    const billedId = runEngine.capabilities().id;
+    core.ledger.assertUnderCap(billedId, estimate + (reserved.get(billedId) ?? 0));
     const node = core.store.addNode({
       projectId: project.id,
       parentId: resolvedParentId,
       kind,
       prompt: finalPrompt,
-      engineId: String(engineId),
+      engineId: billedId,
     });
     // the resolved source rides along in the brief, which is already a JSON
     // blob on the node, so the record needs no new column to be accurate —
@@ -1213,6 +1258,22 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ...(brief as object),
         ...(editedFrom ? { sourceImage: editedFrom } : {}),
         ...(kind === 'edit' && reshape ? { reshape } : {}),
+        // How the margin was actually made, and by whom. An extend may be
+        // handed to a different engine than the shot used, and a record that
+        // does not say so cannot be read back later.
+        ...(expandMethod && expandPlan
+          ? {
+              expand: {
+                method: expandMethod,
+                engineId: billedId,
+                // Where the protected picture sits in the frame it grew into.
+                // Placement is no longer always centred, so a reader that
+                // assumes it is would be looking in the wrong place.
+                left: expandPlan.left,
+                top: expandPlan.top,
+              },
+            }
+          : {}),
         // What the refinement carried, recorded apart from what it asked for:
         // the detail view shows both, and remix reads tokens alone.
         ...(kind === 'edit' && inheritedTokens.length ? { inherited: inheritedTokens } : {}),
@@ -1265,7 +1326,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             return out;
           }
         : undefined;
-    void runNode(node.id, engine, estimate, work, expectShape, post).catch((err) =>
+    void runNode(node.id, runEngine, estimate, work, expectShape, post).catch((err) =>
       app.log.error({ err }, 'node run failed'),
     );
     // Surface the compiler's warnings on the accepted node. These name real
