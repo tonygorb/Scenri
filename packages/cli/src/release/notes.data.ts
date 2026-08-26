@@ -51,6 +51,20 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.0',
+    date: '2026-08-26',
+    sections: [
+      {
+        heading: 'Shots',
+        body: 'Changing a shot to a wider or taller shape now keeps the original photograph wherever that can be done without a visible join, and rebuilds the frame as one coherent picture where it cannot. Scenri draws the new frame two ways, looks at both joins, and keeps the one you cannot find.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A refinement carrying a full set of product and presenter references now reaches the engine with the shot itself attached. Codex reads five pictures at most, and a sixth was quietly displacing the frame being refined.',
+      },
+    ],
+  },
+  {
     version: '0.5.1',
     date: '2026-08-26',
     sections: [
