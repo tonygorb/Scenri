@@ -16,6 +16,7 @@
  */
 import sharp from 'sharp';
 import type { ExpandPlan } from './expandRules.js';
+import { solveMembrane } from './outpaint/membrane.js';
 
 /**
  * The canvas handed to the engine: the real picture in place, and a margin made
@@ -237,19 +238,46 @@ async function reconcile(
     }
   }
 
-  // Carry it in, decaying to nothing at the outer edge: the membrane solution
-  // on a strip, so the seam value matches exactly and the far edge is untouched.
-  const depth = axis === 'width' ? W : H;
+  // Split off the part of the boundary data whose continuation is already
+  // known, and carry that across the whole margin rather than letting it decay.
+  //
+  // A plane - a constant plus a slope along the seam - satisfies Laplace
+  // exactly, so it is a legitimate correction at any depth. The solver would
+  // still bleed it away, because the zero-gradient condition at the ends of the
+  // strip is a boundary the picture does not actually have. A bulk tone
+  // difference and a lighting falloff along the join are both planes, and both
+  // are properties of the whole margin, not of its edge.
+  //
+  // Fitted through the medians of the two halves rather than by least squares,
+  // so a dark object standing against part of the frame edge tilts nothing.
+  const half = Math.max(1, Math.floor(along / 2));
+  const centreLo = (half - 1) / 2;
+  const centreHi = half + (along - half - 1) / 2;
+  const span = Math.max(1, centreHi - centreLo);
+  const base = [0, 0, 0];
+  const slope = [0, 0, 0];
+  for (let c = 0; c < 3; c++) {
+    const lo = medianOf(smooth, c, 0, half);
+    const hi = medianOf(smooth, c, half, along);
+    slope[c] = (hi - lo) / span;
+    base[c] = lo - slope[c] * centreLo;
+    for (let i = 0; i < along; i++) smooth[i * 3 + c] -= base[c] + slope[c] * i;
+  }
+
+  // Carry the rest in as a harmonic field rather than as a ramp. The ramp was
+  // separable - one profile along the seam, scaled down with depth - so an
+  // error that stepped halfway along the join stayed a step all the way to the
+  // outer edge. A solved membrane diffuses sideways as it travels inward, which
+  // is what makes the correction disappear instead of becoming a band.
+  const field = solveMembrane({ width: W, height: H, axis, seamAt: side.seamAt, seam: smooth });
+
   const corrected = Buffer.from(marginRaw);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const d = axis === 'width' ? (side.seamAt === 'far' ? W - 1 - x : x) : side.seamAt === 'far' ? H - 1 - y : y;
-      const fall = 1 - d / Math.max(1, depth - 1);
-      if (fall <= 0) continue;
       const i = axis === 'width' ? y : x;
       const off = (y * W + x) * 3;
       for (let c = 0; c < 3; c++) {
-        const v = corrected[off + c] + smooth[i * 3 + c] * fall;
+        const v = corrected[off + c] + base[c] + slope[c] * i + field[off + c];
         corrected[off + c] = v < 0 ? 0 : v > 255 ? 255 : Math.round(v);
       }
     }
@@ -269,4 +297,14 @@ async function expandCanvasBedOnly(source: Buffer, plan: ExpandPlan): Promise<Bu
     .resize(plan.width, plan.height, { fit: 'cover', position: 'centre' })
     .blur(Math.max(8, Math.round(Math.max(plan.width, plan.height) / 40)))
     .toBuffer();
+}
+
+/** Median of one channel of a run of RGB triples, over [from, to). */
+function medianOf(rgb: Float32Array, channel: number, from: number, to: number): number {
+  const n = to - from;
+  if (n < 1) return 0;
+  const values = new Float64Array(n);
+  for (let i = 0; i < n; i++) values[i] = rgb[(from + i) * 3 + channel];
+  values.sort();
+  return n % 2 ? values[(n - 1) / 2] : (values[n / 2 - 1] + values[n / 2]) / 2;
 }

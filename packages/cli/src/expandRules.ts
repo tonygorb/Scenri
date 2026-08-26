@@ -102,7 +102,13 @@ export function expandInstruction(plan: ExpandPlan, direction: string): string {
     plan.axis === 'height'
       ? '\nDepth: the bottom edge of the frame is the part of the surface nearest the camera; the top edge is the furthest away.'
       : '';
-  const own = direction.trim() ? `\nAlso: ${direction.trim()}` : '';
+  /*
+   * The compiler hands this the whole compiled prompt, and an inherited
+   * identity directive arrives with a leading full stop already attached, so
+   * the tail used to read "Also: . The extra attached references are ...".
+   */
+  const extra = direction.trim().replace(/^[.\s]+/, '');
+  const own = extra ? `\nAlso: ${extra}` : '';
   return (
     `Fill only the soft blurred margin at the ${where} of this frame so the photograph continues into it.` +
     `\nContinue: the same surface, the same light direction, the same colour temperature and the same depth of field that are already in the picture.` +
