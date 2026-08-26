@@ -77,8 +77,26 @@ describe('capabilities / costEstimate', () => {
       localOnly: true,
       supportsEdit: true,
       supportsMask: false,
-      maxReferenceImages: 6,
+      maxReferenceImages: 5,
     });
+  });
+
+  /*
+   * A guard on the number itself, because the failure it prevents is silent.
+   * codex's image_gen tool takes at most five pictures (MAX_EDIT_IMAGES in
+   * codex-rs/ext/image-generation/src/tool.rs): more than five
+   * `referenced_image_paths` is a tool error, and the conversation route keeps
+   * only the last five, dropping the FIRST attachment — which on an edit is
+   * `input.png`, the picture being edited. Raising this back to 6 does not buy
+   * a sixth reference, it throws the shot away.
+   */
+  it('never asks codex for more pictures than its image tool will read', () => {
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage() });
+    const max = engine.capabilities().maxReferenceImages;
+    expect(max).toBeLessThanOrEqual(5);
+    // And an edit spends one of those on the source frame, so the identity
+    // payload a refine can carry is what is left.
+    expect(max - 1).toBe(4);
   });
 
   it('costEstimate is always 0', async () => {
