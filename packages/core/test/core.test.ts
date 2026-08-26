@@ -154,10 +154,25 @@ describe('version tree', () => {
   it('stamps created_at with milliseconds so send order is feed order', () => {
     const b = core.store.createBrand(brandJson as any);
     const { project, root } = core.store.createProject(b.id, 'p');
+    /**
+     * Wait for the system clock to actually tick, twice.
+     *
+     * created_at comes from SQLite's strftime('%Y-%m-%d %H:%M:%f','now'), which
+     * reads the same system clock this does. Spinning a fixed two milliseconds
+     * assumed that clock advances at least that often, and on the Windows
+     * runner its granularity is nearer sixteen. Two inserts then shared a
+     * stamp, the deterministic id tie-break decided their order instead, and
+     * this test failed about half the time there while never failing on darwin.
+     *
+     * Waiting on the clock itself needs no per-platform number: one tick is
+     * enough for the stamps to differ, and the second is margin against a read
+     * that lands on a tick boundary.
+     */
     const spin = () => {
-      // force at least one millisecond between inserts without sleeping async
-      const t = Date.now();
-      while (Date.now() - t < 2) {}
+      for (let ticks = 0; ticks < 2; ticks++) {
+        const t = Date.now();
+        while (Date.now() === t) {}
+      }
     };
     const made = Array.from({ length: 5 }, (_, i) => {
       spin();
@@ -172,6 +187,11 @@ describe('version tree', () => {
     // the fraction is present — datetime('now') alone ties inside a second and
     // hands the order to the random id
     for (const n of made) expect(core.store.getNode(n.id)!.createdAt).toMatch(/\.\d{3}$/);
+    // and the stamps are actually distinct, which is what the ordering below
+    // depends on. Asserted separately so a clock too coarse to tell two inserts
+    // apart says so, instead of surfacing as an unexplained array mismatch.
+    const stamps = made.map((n) => core.store.getNode(n.id)!.createdAt);
+    expect(new Set(stamps).size).toBe(stamps.length);
     const got = core.store
       .treeFor(project.id)
       .filter((n) => n.kind !== 'root')
