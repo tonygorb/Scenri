@@ -28,3 +28,33 @@ export function aspectOfFormat(formatId: string | undefined): number {
   const f = FORMATS.find((x) => x.id === formatId);
   return f ? f.w / f.h : 1;
 }
+
+/**
+ * The shape a shot already IS, as one of the four ids, or undefined when
+ * nothing on the shot says.
+ *
+ * A refinement's shape belongs to the picture being refined, so this is what
+ * the refine composer opens at. The recorded format comes first and the
+ * delivered pixels only stand in for it: engines drift from what they were
+ * asked for (codex answers a 4:5 request with 2:3), and matching those pixels
+ * to the nearest id would read that drift as "you asked for Story" and claim a
+ * reshape nobody wanted. The pixel path exists for briefs written before
+ * formats were stored, which have no recorded shape to prefer.
+ *
+ * Nearest is by |log ratio|, the same distance `defaultReshapeOp` compares, so
+ * a shape sits with the id it is closest to proportionally rather than
+ * arithmetically.
+ */
+export function formatOfShot(
+  brief: { format?: string; rendered?: { sizes?: [number, number][] } } | null | undefined,
+  imageIndex = 0,
+): string | undefined {
+  const recorded = FORMATS.find((f) => f.id === brief?.format);
+  if (recorded) return recorded.id;
+  const size = brief?.rendered?.sizes?.[imageIndex];
+  if (!size || !(size[0] > 0) || !(size[1] > 0)) return undefined;
+  const ratio = Math.log(size[0] / size[1]);
+  return FORMATS.reduce((best, f) =>
+    Math.abs(Math.log(f.w / f.h) - ratio) < Math.abs(Math.log(best.w / best.h) - ratio) ? f : best,
+  ).id;
+}
