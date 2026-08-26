@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/tonygorb/Scenri/compare/v0.6.0...v0.6.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* refine aspect ratio belongs to the generation being refined ([1177f95](https://github.com/tonygorb/Scenri/commit/1177f955a926eca917096b328e8ec4fd86f913a2))
+* refine aspect ratio belongs to the generation being refined ([2ef201c](https://github.com/tonygorb/Scenri/commit/2ef201c079a8a1c07fdbc18e43f4962d8689a41d))
+
 ## [0.6.0](https://github.com/tonygorb/Scenri/compare/v0.5.1...v0.6.0) (2026-08-26)
 
 

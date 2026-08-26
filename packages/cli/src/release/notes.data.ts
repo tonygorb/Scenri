@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.1',
+    date: '2026-08-26',
+    sections: [
+      {
+        heading: 'Shots',
+        body: "Refining a shot now opens at that picture's own shape. The aspect ratio belongs to the shot in front of you rather than to the last one you touched, so refining a portrait shot no longer quietly reframes it to whatever shape a different shot was set to, and two shots open side by side can each hold their own.",
+      },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-08-26',
     sections: [
