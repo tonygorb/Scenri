@@ -40,7 +40,7 @@ import { seamScore } from './seamScore.js';
 import { seamPenalty, seamResidual } from './outpaint/score.js';
 import { placeExpand, subjectFraction } from './outpaint/place.js';
 import { conditioningCanvas } from './outpaint/conditioning.js';
-import { chooseExpand, type ExpandDecision } from './outpaint/choose.js';
+import { chooseExpand, type ExpandDecision, type PreservedCandidate } from './outpaint/choose.js';
 import { type OutpaintMethod, resolveOutpaintRoute } from './outpaint/route.js';
 import { preserveOutsideChange } from './localEdit.js';
 import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
@@ -1268,21 +1268,33 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
                 throw bedDraw.status === 'rejected' ? bedDraw.reason : (paddedDraw as PromiseRejectedResult).reason;
               }
 
-              // The original composited back over the bed answer: every source
-              // pixel byte for byte, and a join whose visibility is the thing
-              // that decides whether it ships.
-              let preserved: { image: Buffer; seam: number } | null = null;
-              const bedImage = bed?.images[0];
-              if (bedImage) {
-                const { image } = await compositeExpand(core.images.read(bedImage), original, plan);
+              /*
+               * The original composited back over BOTH answers, not just the
+               * bed's. Every composite is byte-for-byte exact in the middle, so
+               * they differ only in how well the margin meets the picture — and
+               * the two conditionings disagree about which shots they can carry.
+               * On the hardest one the bed answer joins at 7.65 and the padded
+               * answer at 1.68, so compositing only the bed would surrender a
+               * photograph that did not need surrendering. A second local
+               * composite costs no draw and no quota.
+               */
+              const preserved: PreservedCandidate[] = [];
+              for (const [from, draw] of [
+                ['bed', bed],
+                ['padded', padded],
+              ] as const) {
+                const hash = draw?.images[0];
+                if (!hash) continue;
+                const { image } = await compositeExpand(core.images.read(hash), original, plan);
                 const [score, residual] = await Promise.all([
                   seamScore(image, plan, srcSize),
                   seamResidual(image, plan, srcSize),
                 ]);
-                preserved = { image, seam: seamPenalty(score, residual) };
+                preserved.push({ image, seam: seamPenalty(score, residual), from });
               }
 
               // The model's own frame, only ever resized to the planned pixels.
+              // The fallback for the shot where neither composite can carry it.
               let reframed: { image: Buffer } | null = null;
               const paddedImage = padded?.images[0];
               if (paddedImage) {
@@ -1393,6 +1405,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
                   choice: expandDecision.choice,
                   reason: expandDecision.reason,
                   seam: expandDecision.seam,
+                  from: expandDecision.from,
                 },
                 'expand: chose which frame to keep',
               );

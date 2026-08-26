@@ -297,10 +297,32 @@ original's perspective — is where compositing shows, and where the model's own
 frame scored 0.95 fidelity at a seam of 0.74.
 
 So the two draws stopped being two tries at one request and became two
-candidates: one shown the bed and composited back, one shown the padded frame
-and kept whole, the join measured, exact pixels kept unless they can be seen.
-Applied to the battery: **0.991 mean fidelity, no visible join anywhere** —
-better than either fixed assembly. `packages/cli/src/outpaint/choose.ts`.
+candidates. And then BOTH get composited, which is the part that was nearly
+missed: compositing had only ever been measured on the bed-conditioned answer.
+Run over the padded answers already on disk — no quota, they were already drawn
+— the two conditionings turn out to disagree about which shots they can carry.
+On `presenter`, the shot that fails worst, the bed answer joins at **7.65** and
+the padded answer at **1.68**. Invisible. Side by side the difference is not
+subtle: one has a washed-out band with the table edge stepping across it, the
+other continues the table, the window frame and the cabinets.
+
+Overall the bed answer composites better (1.71 mean against 2.61), so it is not
+that the padded answer is simply better to paste — it is that they fail on
+different shots, and taking the better of the two joins costs one local
+composite and no draw.
+
+The rule is therefore: composite every draw, rank by the join, keep the exact
+pixels unless **neither** composite can hide it, and only then fall back to the
+model's own frame. Over the six shots that keeps the photograph byte for byte on
+every one of them with nothing visible anywhere — where ranking the bed
+composite alone would have surrendered the picture on one shot in six.
+`packages/cli/src/outpaint/choose.ts`,
+`packages/cli/test/manual-extend-onedraw.mts`.
+
+One draw does not serve both candidates, which was the other question this
+answered. The bed's blurred margin is what makes an answer composite cleanly;
+the padded frame's honest scale is what makes one stand alone. Asking for both
+is the cost of having both.
 
 ### The shared failure mode of every no-mask arm
 
@@ -335,9 +357,6 @@ Two things worth carrying:
 - **The reference policy for an extend.** Identity references helped on one shot
   (0.78 to 0.95) and were catastrophic on another (0.98 to 0.28). Not resolved,
   and left as it was rather than changed on a split result.
-- **Whether one draw can serve both candidates.** Compositing onto a
-  padded-conditioned answer was never measured; if its join is invisible on the
-  easy shots, an extend needs one draw rather than two.
 - **The other ratios.** The battery ran 1:1 to 16:9 only. 9:16, 4:5 and the
   chains (extend, extend again, refine) are unmeasured.
 

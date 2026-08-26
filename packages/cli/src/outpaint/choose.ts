@@ -32,9 +32,21 @@ import { SEAM_VISIBLE } from '../seamScore.js';
 
 export type ExpandChoice = 'preserved' | 'reframed';
 
+export interface PreservedCandidate {
+  image: Buffer;
+  /** How visible the join is. Lower is better; 2.2 is where the eye finds it. */
+  seam: number;
+  /** Which conditioning the answer under this composite came from. */
+  from: 'bed' | 'padded';
+}
+
 export interface ExpandCandidates {
-  /** The original composited back. Null when that assembly could not be built. */
-  preserved: { image: Buffer; seam: number } | null;
+  /**
+   * The original composited back over each draw. Every entry is byte-for-byte
+   * exact in the middle and differs only in how well its margin meets the
+   * picture, so the best join among them is simply the best.
+   */
+  preserved: PreservedCandidate[];
   /** The engine's own frame. Null when it was unusable or was never drawn. */
   reframed: { image: Buffer } | null;
 }
@@ -45,6 +57,8 @@ export interface ExpandDecision {
   /** For the record on the node, and for the battery to read back. */
   reason: 'join-invisible' | 'join-visible' | 'only-candidate';
   seam: number | null;
+  /** Which conditioning won, when a composite did. */
+  from?: 'bed' | 'padded';
 }
 
 /**
@@ -54,29 +68,38 @@ export interface ExpandDecision {
  */
 export function chooseExpand(candidates: ExpandCandidates): ExpandDecision | null {
   const { preserved, reframed } = candidates;
-  if (!preserved && !reframed) return null;
-  if (!preserved && reframed) {
+  // Every composite preserves the picture exactly, so the only thing to rank
+  // them by is the join, and the best join is the best available answer.
+  const best = preserved.reduce<PreservedCandidate | null>(
+    (winner, c) => (winner === null || c.seam < winner.seam ? c : winner),
+    null,
+  );
+  if (!best && !reframed) return null;
+  if (!best && reframed) {
     return { choice: 'reframed', image: reframed.image, reason: 'only-candidate', seam: null };
   }
-  if (preserved && !reframed) {
-    return { choice: 'preserved', image: preserved.image, reason: 'only-candidate', seam: preserved.seam };
-  }
-  // Both present. `seamScore` returns 1 on a surface too flat to judge, which
-  // is "no evidence of a join" and therefore keeps the exact pixels — the right
-  // way for an undecidable measurement to fail on this path.
-  const seam = (preserved as { seam: number }).seam;
-  if (seam < SEAM_VISIBLE) {
+  const won = best as PreservedCandidate;
+  if (!reframed) {
     return {
       choice: 'preserved',
-      image: (preserved as { image: Buffer }).image,
-      reason: 'join-invisible',
-      seam,
+      image: won.image,
+      reason: 'only-candidate',
+      seam: won.seam,
+      from: won.from,
     };
   }
-  return {
-    choice: 'reframed',
-    image: (reframed as { image: Buffer }).image,
-    reason: 'join-visible',
-    seam,
-  };
+  // `seamScore` returns 1 on a surface too flat to judge, which is "no evidence
+  // of a join" and therefore keeps the exact pixels — the right way for an
+  // undecidable measurement to fail on this path.
+  if (won.seam < SEAM_VISIBLE) {
+    return {
+      choice: 'preserved',
+      image: won.image,
+      reason: 'join-invisible',
+      seam: won.seam,
+      from: won.from,
+    };
+  }
+  // Neither composite can carry the join: only now is the photograph given up.
+  return { choice: 'reframed', image: reframed.image, reason: 'join-visible', seam: won.seam };
 }

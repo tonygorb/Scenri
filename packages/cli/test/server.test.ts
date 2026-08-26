@@ -647,18 +647,19 @@ describe('generation flow', () => {
     await srv.close();
   });
 
-  it('ships the whole-frame draw when the composite could not be built at all', async () => {
+  it('still keeps the picture when one of the two draws dies', async () => {
     /*
      * The two draws are alternatives, not halves, so one survivor is a whole
-     * answer. Here the bed draw dies and only the frame drawn from the padded
-     * canvas comes back — which is also the branch that ships when the join
-     * would have shown, and the branch that makes no byte-for-byte claim.
+     * answer — and the survivor is still composited. The bed draw dies here and
+     * the padded answer carries the whole job: the picture comes back byte for
+     * byte anyway, because every composite is exact in the middle and the
+     * padded one had a join nobody could see.
      *
-     * The seam threshold that normally decides between them is unit-tested in
-     * outpaint/choose.test.ts against the real measured numbers. Reproducing a
-     * visibly bad join here is not possible with flat fields, because
-     * reconciling the margin removes a purely tonal disagreement outright — the
-     * shot that failed in the battery failed structurally, not tonally.
+     * The threshold that decides when the photograph is given up instead is
+     * unit-tested in outpaint/choose.test.ts against the measured numbers.
+     * Reproducing a visibly bad join here is not possible with flat fields:
+     * reconciling the margin removes a purely tonal disagreement outright, and
+     * the shot that failed in the battery failed structurally, not tonally.
      */
     const sharpLib = (await import('sharp')).default;
     const field = async (v: number, w: number, h: number) =>
@@ -697,12 +698,13 @@ describe('generation flow', () => {
     const grown = await sharpLib(core.images.read(out.images[0])).metadata();
     expect(grown.height).toBe(meta.height);
     expect(grown.width!).toBeGreaterThan(meta.width!);
-    // Nothing was pasted, so nothing is claimed: the frame is the model's own.
+    // And the surviving draw was composited, not merely kept: the photograph is
+    // still there byte for byte.
     const placed = (out.brief as { expand: { left: number; top: number } }).expand;
     const region = { left: placed.left, top: placed.top, width: meta.width!, height: meta.height! };
     const before = await sharpLib(core.images.read(base.images[0])).removeAlpha().raw().toBuffer();
     const after = await sharpLib(core.images.read(out.images[0])).extract(region).removeAlpha().raw().toBuffer();
-    expect(after).not.toEqual(before);
+    expect(after).toEqual(before);
     await srv.close();
   });
 
