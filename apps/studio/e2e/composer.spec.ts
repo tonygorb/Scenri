@@ -920,6 +920,106 @@ test('a squarer shape while refining infers a crop, and sends it with no words a
 });
 
 /**
+ * A shape chosen while refining belongs to the shot it was chosen on.
+ *
+ * It used to belong to the machine: one localStorage pref, shared by the dock,
+ * by this composer inside every open shot, and by every tab. So asking one shot
+ * for 16:9 made 16:9 the shape the NEXT shot opened at — and because the
+ * composer reads a shape that differs from the shot's own as a reshape, a
+ * refinement nobody had asked to reframe went out as an extend of a 4:5 picture
+ * into 16:9. The shape now comes from the shot in front of you.
+ */
+test('a shape chosen while refining one shot does not follow you to the next', async ({ page }) => {
+  const brand = new URL(page.url()).pathname.split('/')[1];
+
+  /*
+   * Two shots of different shapes, from the one the harness seeded: the shape
+   * the composer reads is the shape the workspace reports, so the second shot
+   * is that answer with a new id and a different recorded format. Routed on the
+   * CONTEXT rather than the page, so the second tab below is answered too.
+   */
+  let a = '';
+  let b = '';
+  await page.context().route('**/workspace', async (route) => {
+    const res = await route.fetch();
+    const ws = await res.json();
+    const nodes = ws.nodes ?? [];
+    const i = nodes.findIndex((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
+    if (i >= 0) {
+      const shot = nodes[i];
+      a = shot.id;
+      b = `${shot.id}-b`;
+      shot.brief = { ...(shot.brief ?? { tokens: [] }), format: 'square' };
+      // a sibling, so the overlay's own Next version steps between the two
+      // without a reload: the bug's worst case is one mounted composer walking
+      // from shot to shot, which no amount of remounting would have caught
+      nodes.splice(i + 1, 0, { ...shot, id: b, brief: { ...shot.brief, format: 'portrait' } });
+    }
+    await route.fulfill({ response: res, json: ws });
+  });
+
+  await page.goto(`/${brand}/create`);
+  await expect.poll(() => a).not.toBe('');
+
+  await page.goto(`/${brand}/create/shots/${a}`);
+  const composer = page.locator('.sc-ovl-edit');
+  await expect(composer.locator('.sc-brief-line')).toBeVisible();
+  // it opens on the shape the shot already is, not on whatever was last picked
+  await expect(composer.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Square 1:1');
+  await expect(composer.locator('.sc-reshape-hint')).toHaveCount(0);
+
+  // ask THIS shot for a wider frame
+  await composer.locator('.sc-more').click();
+  await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '16:9' }).first().click();
+  await page.keyboard.press('Escape');
+  await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
+
+  // step to the 4:5 shot, in the same mounted composer
+  await page.locator('.sc-ovl-bar [aria-label="Next version"]').click();
+  await expect(page).toHaveURL(new RegExp(`/shots/${b}$`));
+  await expect(composer.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Portrait 4:5');
+  // and nothing is being reshaped, because nothing was asked of this one
+  await expect(composer.locator('.sc-reshape-hint')).toHaveCount(0);
+
+  // what it sends is its own shape, and no reshape op at all
+  let posted: any = null;
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posted = route.request().postDataJSON();
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
+  });
+  await composer.locator('.sc-brief-line').click();
+  await page.keyboard.type('warmer light');
+  await composer.locator('.sc-send').click();
+  await expect.poll(() => posted?.kind).toBe('edit');
+  expect(posted.brief.format).toBe('portrait');
+  expect(posted.reshape).toBeUndefined();
+  expect(posted.parentId).toBe(b);
+
+  // back to the first shot: its own 16:9 is still there, unmoved by the second
+  await page.locator('.sc-ovl-bar [aria-label="Previous version"]').click();
+  await expect(page).toHaveURL(new RegExp(`/shots/${a}$`));
+  await expect(composer.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Landscape 16:9');
+  await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
+
+  // the machine's own default is still the default, which is the whole cause:
+  // a refine that writes the pref is a refine every later brief and every
+  // later tab inherits. (The key exists because the dock's own composer wrote
+  // the fallback on mount; what matters is that 16:9 never reached it.)
+  expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"square"');
+
+  // so a second tab, sharing that storage, opens the 4:5 shot at 4:5 while this
+  // one still holds 16:9 on the first
+  const tab2 = await page.context().newPage();
+  await tab2.goto(`/${brand}/create/shots/${b}`);
+  const composer2 = tab2.locator('.sc-ovl-edit');
+  await expect(composer2.locator('.sc-brief-line')).toBeVisible();
+  await expect(composer2.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Portrait 4:5');
+  await expect(composer.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Landscape 16:9');
+  await tab2.close();
+});
+
+/**
  * Changing an ingredient that is already in the brief.
  *
  * The chip used to open the caret menu in a "replace" mode that had no query

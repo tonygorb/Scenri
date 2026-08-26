@@ -42,7 +42,7 @@ import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
-import { aspectOfFormat } from '../composer/formats.js';
+import { aspectOfFormat, formatOfShot } from '../composer/formats.js';
 import { defaultReshapeOp } from '../composer/reshape.js';
 import { byContextOrder } from '../contextChips.js';
 import { failureToast } from '../failure.js';
@@ -234,7 +234,36 @@ export const Composer = forwardRef<
 
   const [sentence, setSentence] = useState<SentenceToken[]>(emptySentence());
   const [seedTokens, setSeedTokens] = useState<SentenceToken[] | undefined>(undefined);
-  const [formatId, setFormatId, borrowFormat] = useRecipeSetting(PREF.format, 'square');
+  const [prefFormat, setPrefFormat, borrowFormat] = useRecipeSetting(PREF.format, 'square');
+  /**
+   * A refinement's shape belongs to the picture being refined, never to the
+   * machine.
+   *
+   * It used to be the machine's: one localStorage pref, read by the dock, by
+   * this same composer inside an open shot, and by every other tab. So asking
+   * one shot for 16:9 became the shape every later brief opened at — and the
+   * next shot opened on a shape it had never been, which the composer then read
+   * as a reshape and sent as a crop or an extend nobody had asked for.
+   *
+   * Kept in memory and keyed by node id: the pref stays the default for new
+   * shots, a refine starts from what the shot already is, and a choice made
+   * while refining belongs to that shot alone. Nothing is written to
+   * localStorage, which is what lets two tabs hold two different shapes.
+   */
+  const [refineFormats, setRefineFormats] = useState<Record<string, string>>({});
+  const refineTarget = target && target.kind !== 'root' ? target : null;
+  /** What the shot on the chip already is, and the shape a reshape is measured from. */
+  const sourceFormat = refineTarget
+    ? formatOfShot(refineTarget.brief, Math.max(0, refineTarget.images.indexOf(sourceImage ?? '')))
+    : undefined;
+  const formatId = refineTarget ? (refineFormats[refineTarget.id] ?? sourceFormat ?? prefFormat) : prefFormat;
+  // Derived rather than seeded by an effect on purpose: the overlay reuses one
+  // mounted composer as you walk from shot to shot, so a new target has to
+  // resolve to its own shape on the very same render.
+  const setFormatId = (id: string) => {
+    if (refineTarget) setRefineFormats((m) => ({ ...m, [refineTarget.id]: id }));
+    else setPrefFormat(id);
+  };
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
   const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, 2);
   const [busy, setBusy] = useState(false);
@@ -599,14 +628,16 @@ export const Composer = forwardRef<
    * A scene still starts a new shot, because that really is a different brief
    * rather than a bigger frame.
    */
-  const reshaping = !!target && !!target.brief?.format && target.brief.format !== formatId;
+  // One reading of the shot's own shape for both halves: the shape this opens
+  // at and the shape a reshape is measured against cannot disagree.
+  const reshaping = !!refineTarget && !!sourceFormat && sourceFormat !== formatId;
   const reshapeChoiceOpen = reshaping && branchable && !template;
   // The op is inferred, never asked: pick a target shape and the geometry
   // decides (toward square = crop, away = extend — defaultReshapeOp). The two
   // override buttons this used to render made the user resolve a question the
   // classifier already answers; nothing runs until Refine either way.
   const reshapeOp: 'crop' | 'extend' | null = reshapeChoiceOpen
-    ? defaultReshapeOp(aspectOfFormat(target?.brief?.format), aspectOfFormat(formatId))
+    ? defaultReshapeOp(aspectOfFormat(sourceFormat), aspectOfFormat(formatId))
     : null;
   const cropping = reshapeOp === 'crop';
   /*
@@ -929,6 +960,9 @@ export const Composer = forwardRef<
       setTplFields({});
       // the borrowed settings belonged to the brief that just left the screen
       borrowFormat(null);
+      // and so did a shape chosen while refining: the chip moves onto the
+      // version this just made, which carries a recorded shape of its own
+      setRefineFormats({});
       borrowCount(null);
       borrowQuality(null);
       if (persistDraft) clearDraft(brand.id);
