@@ -308,3 +308,36 @@ function medianOf(rgb: Float32Array, channel: number, from: number, to: number):
   values.sort();
   return n % 2 ? values[(n - 1) / 2] : (values[n / 2 - 1] + values[n / 2]) / 2;
 }
+
+/**
+ * Keep the engine's own frame, and only make it the planned size.
+ *
+ * The other assembly in this file puts the original back, which is right for a
+ * provider that painted a margin around it. An engine with no mask did not do
+ * that: it redrew the whole frame, and its answer is internally consistent in a
+ * way a composite cannot be — the light, the surface and the depth of field
+ * agree across the whole picture because they were drawn at once.
+ *
+ * So nothing is pasted and nothing is reconciled. The frame is only ever
+ * resized to the pixels that were planned, and only when the engine did not
+ * already deliver them: `fill` when the shape it chose already matches, because
+ * that resamples without cropping, and `cover` when it does not, because
+ * shearing a photograph is worse than losing a little of its edge.
+ *
+ * Returns null when the answer cannot be used at all — an answer in the
+ * opposite orientation has nothing of the frame in it, and the caller has a
+ * better candidate to fall back to.
+ */
+export async function reframeExpand(engineImage: Buffer, plan: ExpandPlan): Promise<Buffer | null> {
+  const meta = await sharp(engineImage).metadata();
+  if (!(meta.width && meta.height)) return null;
+  const want = plan.width / plan.height;
+  const got = meta.width / meta.height;
+  if (got >= 1 !== want >= 1) return null;
+  if (meta.width === plan.width && meta.height === plan.height) return engineImage;
+  const straight = Math.abs(got - want) / want <= 0.02;
+  return sharp(engineImage)
+    .resize(plan.width, plan.height, { fit: straight ? 'fill' : 'cover', position: 'centre' })
+    .png()
+    .toBuffer();
+}
