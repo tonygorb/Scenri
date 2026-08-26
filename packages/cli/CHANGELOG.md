@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/tonygorb/Scenri/compare/v0.5.1...v0.6.0) (2026-08-26)
+
+
+### Features
+
+* an extend keeps the exact picture unless the join would show ([af6d8ba](https://github.com/tonygorb/Scenri/commit/af6d8baecbe6b524e7333ad0b63663f73c213642))
+* an extend keeps the exact picture unless the join would show ([bb48b52](https://github.com/tonygorb/Scenri/commit/bb48b52c77dcc1fc62f0ffc35cd26a81934f9423))
+* composite both draws and keep the better join ([8bbada7](https://github.com/tonygorb/Scenri/commit/8bbada70cf84268c347166bdeb768767b99386df))
+
+
+### Bug Fixes
+
+* codex reads at most five images, and the sixth was the shot itself ([91fe75e](https://github.com/tonygorb/Scenri/commit/91fe75e017c25313f64b79fb4d4b32cfc628838a))
+* codex reads at most five images, and the sixth was the shot itself ([3e3c430](https://github.com/tonygorb/Scenri/commit/3e3c4307df355cf7091a905b5416f5eabbb88504))
+
 ## [0.5.1](https://github.com/tonygorb/Scenri/compare/v0.5.0...v0.5.1) (2026-08-26)
 
 
