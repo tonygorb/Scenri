@@ -41,7 +41,8 @@ import { planExpand, expandInstruction, reframeInstruction, continueInstruction 
 import { placeExpand, subjectFraction } from '../src/outpaint/place.js';
 import { conditioningCanvas, type MarginFill } from '../src/outpaint/conditioning.js';
 import { centralFidelity, centralRegion } from '../src/outpaint/fidelity.js';
-import { expandCanvas, compositeExpand } from '../src/expand.js';
+import { chooseExpand, type PreservedCandidate } from '../src/outpaint/choose.js';
+import { expandCanvas, compositeExpand, reframeExpand } from '../src/expand.js';
 import { seamScore } from '../src/seamScore.js';
 import { seamPenalty, seamResidual } from '../src/outpaint/score.js';
 
@@ -121,14 +122,14 @@ const SOURCES: Source[] = [
   },
 ];
 
-type ArmId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
+type ArmId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'SHIP';
 interface Arm {
   id: ArmId;
   what: string;
   input: 'bed' | 'padded' | 'source';
   fill?: MarginFill;
   prompt: 'margin' | 'reframe' | 'continue';
-  assembly: 'paste' | 'keep';
+  assembly: 'paste' | 'keep' | 'choose';
   identity: boolean;
   /** State the axis that did not grow as a fact about the frame's edges. */
   anchor?: boolean;
@@ -189,6 +190,21 @@ const ARMS: Arm[] = [
     identity: false,
   },
   /*
+   * SHIP is not a candidate strategy. It is the pipeline as it actually runs:
+   * both draws, both composited, ranked by the join, the photograph kept unless
+   * neither composite can hide it. Stage 2 measures THIS across the ratios and
+   * the shots the bake-off never reached, so what is reported is what a person
+   * would get rather than what an arm scored.
+   */
+  {
+    id: 'SHIP',
+    what: 'the shipped decision: both draws, both composited, better join wins',
+    input: 'bed',
+    prompt: 'margin',
+    assembly: 'choose',
+    identity: false,
+  },
+  /*
    * H exists because every reframe arm failed the same way: the model widened
    * its field of view and shrank the subject to suit the new shape. F says
    * "keep the photograph unchanged", which is a request. H adds the geometry
@@ -217,7 +233,16 @@ const ARMS: Arm[] = [
   },
 ];
 
-const TARGET = { label: '16:9', ratio: 16 / 9 };
+const RATIOS: Record<string, number> = {
+  '16:9': 16 / 9,
+  '9:16': 9 / 16,
+  '4:5': 4 / 5,
+  '5:4': 5 / 4,
+  '1:1': 1,
+};
+const TARGET_LABEL = process.env.TARGET || '16:9';
+if (!RATIOS[TARGET_LABEL]) throw new Error(`unknown TARGET ${TARGET_LABEL}; try ${Object.keys(RATIOS).join(', ')}`);
+const TARGET = { label: TARGET_LABEL, ratio: RATIOS[TARGET_LABEL] };
 const REPEATS = Number(process.env.REPEATS || 3);
 
 // ---------------------------------------------------------------- engine
@@ -252,7 +277,7 @@ if (existsSync(LEDGER)) {
   }
 }
 
-interface Record {
+interface RunRecord {
   key: string;
   /** Wall clock at completion, so throughput is measurable after the fact. */
   at?: string;
@@ -271,9 +296,11 @@ interface Record {
   fidelity?: { overall: number; luma: number; edges: number; colour: number; contrast: number };
   /** Only meaningful on the pasting arm: there is no join on the others. */
   seam?: number;
+  /** What the shipped decision picked, and from which conditioning. */
+  choice?: string;
 }
 
-const record = (r: Record) => {
+const record = (r: RunRecord) => {
   appendFileSync(LEDGER, `${JSON.stringify(r)}\n`);
   const f = r.fidelity;
   const shape = r.delivered ? `${r.delivered[0]}x${r.delivered[1]}` : '-';
@@ -292,7 +319,7 @@ async function run(arm: Arm, source: Source, repeat: number): Promise<void> {
   const key = `${source.key}-${TARGET.label.replace(':', 'x')}-${arm.id}-r${repeat}`;
   if (done.has(key)) return;
   const started = Date.now();
-  const base: Record = { key, arm: arm.id, source: source.key, target: TARGET.label, repeat, ok: false, ms: 0 };
+  const base: RunRecord = { key, arm: arm.id, source: source.key, target: TARGET.label, repeat, ok: false, ms: 0 };
 
   try {
     const original = readFileSync(img(source.hash));
@@ -314,6 +341,68 @@ async function run(arm: Arm, source: Source, repeat: number): Promise<void> {
 
     const instruction = arm.prompt === 'margin' ? expandInstruction(plan, '') : reframeInstruction(plan, size, '');
     const refs = arm.identity ? source.refs : [];
+
+    /*
+     * The shipped arm is not one request. It is the pair the server makes, both
+     * composited and ranked, which is the only way to measure what a person
+     * actually receives rather than what a strategy scores.
+     */
+    if (arm.assembly === 'choose') {
+      const bedFrame = await expandCanvas(original, plan);
+      const padFrame = await conditioningCanvas(original, plan, 'edge');
+      const bedPath = join(OUT, 'out', `${key}-input-bed.png`);
+      const padPath = join(OUT, 'out', `${key}-input-padded.png`);
+      writeFileSync(bedPath, bedFrame);
+      writeFileSync(padPath, padFrame);
+      const [bedDraw, padDraw] = await Promise.allSettled([
+        engine.edit({
+          instruction: expandInstruction(plan, ''),
+          sourceImage: bedPath,
+          width: plan.width,
+          height: plan.height,
+        } as never),
+        engine.edit({
+          instruction: reframeInstruction(plan, size, ''),
+          sourceImage: padPath,
+          width: plan.width,
+          height: plan.height,
+        } as never),
+      ]);
+      const answerOf = (r: PromiseSettledResult<{ images: string[] }>) => {
+        if (r.status !== 'fulfilled') return null;
+        const h = r.value.images[0];
+        return h ? (store.get(h) ?? null) : null;
+      };
+      const bedAnswer = answerOf(bedDraw);
+      const padAnswer = answerOf(padDraw);
+      if (!bedAnswer && !padAnswer) throw new Error('both draws failed');
+      const preserved: PreservedCandidate[] = [];
+      for (const [from, answer] of [
+        ['bed', bedAnswer],
+        ['padded', padAnswer],
+      ] as const) {
+        if (!answer) continue;
+        const { image } = await compositeExpand(answer, original, plan);
+        const [sc, res] = await Promise.all([seamScore(image, plan, size), seamResidual(image, plan, size)]);
+        preserved.push({ image, seam: seamPenalty(sc, res), from });
+      }
+      const frame = padAnswer ? await reframeExpand(padAnswer, plan) : null;
+      const decision = chooseExpand({ preserved, reframed: frame ? { image: frame } : null });
+      if (!decision) throw new Error('no decision');
+      writeFileSync(join(OUT, 'out', `${key}-final.png`), decision.image);
+      writeFileSync(join(OUT, 'out', `${key}-crop.png`), await centralRegion(decision.image, plan, size));
+      const got2 = await sharp(decision.image).metadata();
+      base.delivered = [got2.width ?? 0, got2.height ?? 0];
+      base.refit = decision.choice === 'preserved' ? 'exact' : 'fill';
+      base.seam = decision.seam ?? undefined;
+      base.choice = `${decision.choice}${decision.from ? `:${decision.from}` : ''}`;
+      base.fidelity = await centralFidelity(decision.image, original, plan);
+      base.ok = true;
+      base.ms = Date.now() - started;
+      base.at = new Date().toISOString();
+      record(base);
+      return;
+    }
 
     const result = await engine.edit({
       instruction,
