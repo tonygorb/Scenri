@@ -248,6 +248,79 @@ another, which is itself the point rather than a hedge.
   that actually ran, and the brief records the method, the engine and where the
   protected picture sits.
 
+## The 2026-08-26 battery, and the rule it produced
+
+Sixty-four real codex runs, six shots, eight strategies, one ratio (1:1 to 16:9).
+Driver: `packages/cli/test/manual-extend-battery.mts`. Report and every
+artifact, failures included: `scenri-ops/extend-bakeoff-2026-08-26/`.
+
+### The capability question, settled first-hand
+
+Codex's built-in `image_gen` takes `{prompt, referenced_image_paths,
+num_last_images_to_include}` and nothing else. No mask. No seed. `size`,
+`quality` and `background` are hardcoded to `auto` in the request builder and
+unreachable from the tool arguments
+(`codex-rs/ext/image-generation/src/tool.rs`). Verified against 89 real tool
+calls in `~/.codex/sessions`.
+
+The BYOK Images API does expose a `mask` — and documents it as "prompt-based…
+may not follow its exact shape with complete precision". So there is no tier
+where a provider hands back an untouched region. **Pixel identity on any path we
+can reach comes from our own compositing, never from the provider.**
+
+`MAX_EDIT_IMAGES` is 5, which is why `maxReferenceImages` is 5 and not 6: the
+sixth attachment is not a sixth reference, it is an eviction of the first, and
+on an edit the first is the shot itself.
+
+### Conditioning and wording are not the lever
+
+Eight arms. Padded frames at native scale, edge fills, transparent fills,
+preservation wording, reframe wording, an explicit unchanged-axis geometric
+anchor, identity references, and today's blurred bed. Every padded arm landed
+between **0.66 and 0.72** fidelity, inside one standard deviation (~0.21) of
+each other. Only dropping the padding entirely was clearly worse (0.53).
+
+This is the same answer Phase A gave from the other direction, and the two
+together should be treated as settled: **you cannot prompt or condition your way
+out of this on a route with no mask.** Do not spend another battery on wording.
+
+### The assembly is the lever, and it separates per shot
+
+| assembly | fidelity | seam |
+|---|---|---|
+| composite the original back | 1.000 | 0.77, 0.79, 0.79, 0.86, 1.19 — and **7.65** |
+| keep the model's own frame | 0.66-0.72 | 0.60-0.67, invisible everywhere |
+
+Five shots of six cost nothing to preserve exactly. The sixth — a tight crop of
+a room, where the margin has to invent architecture that lines up with the
+original's perspective — is where compositing shows, and where the model's own
+frame scored 0.95 fidelity at a seam of 0.74.
+
+So the two draws stopped being two tries at one request and became two
+candidates: one shown the bed and composited back, one shown the padded frame
+and kept whole, the join measured, exact pixels kept unless they can be seen.
+Applied to the battery: **0.991 mean fidelity, no visible join anywhere** —
+better than either fixed assembly. `packages/cli/src/outpaint/choose.ts`.
+
+### The shared failure mode of every no-mask arm
+
+Not identity drift, not text drift, not hallucination. The model **widens the
+lens**: it keeps the world and re-shoots it from further back. Products stay
+themselves, logos stay legible — the tech shell's mark came back as readable
+"NOVARA / FIELD SUPPLY" every time — and everything gets smaller. On a source
+whose subject is cropped at the frame edge it is dramatic: a tight torso crop
+came back as a full room with the whole face visible.
+
+Two things worth carrying:
+
+- An identity reference can **argue with the framing**. The worst fidelity in
+  the batch was a presenter shot whose reference shows a face and whose source
+  crops the head off; the model pulled back far enough to show one.
+- The fidelity number is for ranking, not grading. It cannot tell an
+  unacceptable product drift from an acceptable regenerated texture, and a
+  visually excellent result scored 0.59 on marble. Every finalist gets looked
+  at, which is what the `-crop.png` artifact is for.
+
 ## What is still open
 
 1. **A masked model.** This is the only lever left standing. `fal-ai/bria/expand`
@@ -258,6 +331,15 @@ another, which is itself the point rather than a hedge.
    take; executing more than one is not built, and cannot be validated while the
    guide question is answered the way it is.
 4. **The other three hard sources**, which quota cut short.
+
+- **The reference policy for an extend.** Identity references helped on one shot
+  (0.78 to 0.95) and were catastrophic on another (0.98 to 0.28). Not resolved,
+  and left as it was rather than changed on a split result.
+- **Whether one draw can serve both candidates.** Compositing onto a
+  padded-conditioned answer was never measured; if its join is invisible on the
+  easy shots, an extend needs one draw rather than two.
+- **The other ratios.** The battery ran 1:1 to 16:9 only. 9:16, 4:5 and the
+  chains (extend, extend again, refine) are unmeasured.
 
 ## Already tried, do not repeat
 
