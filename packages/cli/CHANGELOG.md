@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.2](https://github.com/tonygorb/Scenri/compare/v0.6.1...v0.6.2) (2026-08-28)
+
+
+### Bug Fixes
+
+* a custom scene keeps the figure and treatment its references show ([667cede](https://github.com/tonygorb/Scenri/commit/667cedeb4ebac53bf3d7c5cbcf0f8f80745c7431))
+* a custom scene keeps the figure and treatment its references show ([b6532c9](https://github.com/tonygorb/Scenri/commit/b6532c9b47c404243a3ad0994bda4dd634e109e7))
+
 ## [0.6.1](https://github.com/tonygorb/Scenri/compare/v0.6.0...v0.6.1) (2026-08-26)
 
 
