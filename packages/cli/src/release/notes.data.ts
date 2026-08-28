@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.3',
+    date: '2026-08-28',
+    title: 'Your logo stays your logo, and every page opens like a page.',
+    sections: [
+      {
+        heading: 'Brand',
+        body: 'A brand mark attached to a shot is carried faithfully everywhere the shot goes: a refinement keeps it, Reuse setup rebuilds the brief with it, and when the logo has since left the kit, Scenri says so instead of quietly dropping it. The kit holds one primary logo at a time, every screen agrees which one it is, and the composer says before sending when an engine cannot carry the mark as an image.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'Anything that opens a page is a real link now. Middle click, Cmd or Ctrl click and copy link work on the navigation, cards, shots, crumbs and notifications, each opening in its own tab, while a plain click stays as fast as before.',
+      },
+    ],
+  },
+  {
     version: '0.6.2',
     date: '2026-08-28',
     title: 'Scenes keep what makes them distinctive.',
