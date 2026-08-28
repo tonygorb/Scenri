@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.4](https://github.com/tonygorb/Scenri/compare/v0.6.3...v0.6.4) (2026-08-28)
+
+
+### Bug Fixes
+
+* a create draft lives no longer than the attempt that made it ([5bace21](https://github.com/tonygorb/Scenri/commit/5bace21d251159371c4ded381e44b1824aed08b3))
+* a create draft lives no longer than the attempt that made it ([8e4bc62](https://github.com/tonygorb/Scenri/commit/8e4bc62ff98e053d851681ec1e64fb8be259a0f6))
+
 ## [0.6.3](https://github.com/tonygorb/Scenri/compare/v0.6.2...v0.6.3) (2026-08-28)
 
 
