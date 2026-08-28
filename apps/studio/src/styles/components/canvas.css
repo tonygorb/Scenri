@@ -159,7 +159,7 @@
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
-/* The tile is a div, so opening it is its own button filling the frame. */
+/* The tile is a div, so opening it is its own link filling the frame. */
 .sc-cell-open {
   display: block;
   width: 100%;
@@ -167,6 +167,8 @@
   border: 0;
   background: none;
   cursor: pointer;
+  color: inherit;
+  text-decoration: none;
 }
 .sc-cell-open:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);

@@ -59,6 +59,7 @@
   border-radius: var(--sc-radius-full);
   border: 1px solid transparent;
   cursor: pointer;
+  text-decoration: none;
 }
 .sc-btn:disabled,
 .sc-btn[aria-disabled="true"] {

@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { useMainNav } from './nav.js';
 
 /**
@@ -15,15 +16,10 @@ export function TabBar() {
       <ul>
         {items.map((item) => (
           <li key={item.key}>
-            <button
-              type="button"
-              data-on={item.active || undefined}
-              aria-current={item.active ? 'page' : undefined}
-              onClick={item.go}
-            >
+            <Link to={item.to} data-on={item.active || undefined} aria-current={item.active ? 'page' : undefined}>
               <span className="sc-tab-ic">{item.icon}</span>
               <span className="sc-tab-lb">{item.label}</span>
-            </button>
+            </Link>
           </li>
         ))}
       </ul>

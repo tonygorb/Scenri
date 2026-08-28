@@ -117,7 +117,7 @@ const postJson = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-const activeNav = (p: Page) => p.locator('.sc-nav button[data-active="true"]');
+const activeNav = (p: Page) => p.locator('.sc-nav a[data-active="true"]');
 
 test('every screen cold-loads from its own URL', async ({ page }) => {
   const brand = await currentBrand(page);
@@ -400,14 +400,14 @@ test('Create is never inert, wherever it is pressed from', async ({ page }) => {
   // it used to do nothing at all whenever a project was already open, and to
   // open a picker otherwise. It now lands the caret in the brief either way.
   await page.goto(`/${brand.slug}/scenes`);
-  await page.locator('.sc-nav button', { hasText: 'Create' }).click();
+  await page.locator('.sc-nav a', { hasText: 'Create' }).click();
   await page.waitForURL(new RegExp(`/${brand.slug}/create`));
   await expect(activeNav(page)).toHaveText('Create');
   await expect(page.locator('.sc-canvas-dock [contenteditable="true"]')).toBeFocused();
 
   // and again from the hub itself, where there is no journey left to make
   await page.locator('.sc-canvas').click({ position: { x: 5, y: 5 } });
-  await page.locator('.sc-nav button', { hasText: 'Create' }).click();
+  await page.locator('.sc-nav a', { hasText: 'Create' }).click();
   await expect(page.locator('.sc-canvas-dock [contenteditable="true"]')).toBeFocused();
 });
 
@@ -600,4 +600,52 @@ test('a scene chip says "scene" the same way in the brief line and on the shot',
   // said twice on purpose: the regression was a ring, not a colour
   expect(overlay.shadow).toBe('none');
   expect(overlay.border).toBe('0px');
+});
+
+/**
+ * Route navigation is real anchors now: a middle click, a Cmd click and "Copy
+ * link address" have to work anywhere a click means "go somewhere". These four
+ * are the representatives - the nav, a catalog card, a crumb, a feed tile -
+ * asserted by href, because the href IS the feature.
+ */
+test('navigation surfaces are real anchors with canonical hrefs', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const { nodeId } = await seedShot(page, brand.id);
+
+  await page.goto(`/${brand.slug}/products`);
+  await expect(page.locator('.sc-nav a', { hasText: 'Products' })).toHaveAttribute('href', `/${brand.slug}/products`);
+  await expect(page.locator('a.sc-lookcard-open').first()).toHaveAttribute(
+    'href',
+    `/${brand.slug}/products/cold-brew-can`,
+  );
+
+  await page.goto(`/${brand.slug}/products/cold-brew-can`);
+  await expect(page.locator('.sc-lookpage-crumb a')).toHaveAttribute('href', `/${brand.slug}/products`);
+
+  await page.goto(`/${brand.slug}/create`);
+  await expect(page.locator(`.sc-cell[data-fb-node="${nodeId}"] a.sc-cell-open`)).toHaveAttribute(
+    'href',
+    `/${brand.slug}/create/shots/${nodeId}`,
+  );
+});
+
+test('a modified click opens the shot in its own tab, leaving this one in place', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const { nodeId } = await seedShot(page, brand.id);
+
+  await page.goto(`/${brand.slug}/create`);
+  const tile = page.locator(`.sc-cell[data-fb-node="${nodeId}"] a.sc-cell-open`);
+  await expect(tile).toBeVisible();
+  const [popup] = await Promise.all([
+    page.context().waitForEvent('page'),
+    tile.click({ modifiers: ['ControlOrMeta'] }),
+  ]);
+  // the new tab cold-loads the deep link on its own. A popup boot is a full
+  // app cold start, and under the suite's four parallel servers it can take
+  // well past the default expect window.
+  await popup.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`, { timeout: 30_000 });
+  await expect(popup.locator('.sc-ovl')).toBeVisible({ timeout: 30_000 });
+  // and the original page went nowhere
+  expect(new URL(page.url()).pathname).toBe(`/${brand.slug}/create`);
+  await popup.close();
 });

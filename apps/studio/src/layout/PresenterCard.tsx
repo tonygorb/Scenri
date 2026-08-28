@@ -17,6 +17,7 @@ export function PresenterCard({
   variant,
   onOpen,
   onUse,
+  href,
   selected,
   onToggle,
   size = 'grid',
@@ -26,6 +27,8 @@ export function PresenterCard({
   onOpen?: (id: string) => void;
   /** `use` only: the fast-path action, shown as a sibling button when `onOpen` is present. */
   onUse?: (id: string) => void;
+  /** Forwarded to CatalogCard: the open surface's real route (see CatalogCard.href). */
+  href?: string;
   /** `select` only. */
   selected?: boolean;
   onToggle?: (id: string) => void;
@@ -43,6 +46,7 @@ export function PresenterCard({
       variant={variant}
       onOpen={onOpen}
       onUse={onUse}
+      href={href}
       selected={selected}
       onToggle={onToggle}
       size={size}

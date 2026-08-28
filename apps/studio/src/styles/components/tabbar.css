@@ -23,7 +23,7 @@
 .sc-tabbar li {
   display: flex;
 }
-.sc-tabbar button {
+.sc-tabbar :is(button, a) {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -35,13 +35,14 @@
   background: none;
   color: var(--sc-fg3);
   cursor: pointer;
+  text-decoration: none;
   padding: 0 2px;
   transition: color 120ms ease;
 }
-.sc-tabbar button:hover {
+.sc-tabbar :is(button, a):hover {
   color: var(--sc-fg2);
 }
-.sc-tabbar button[data-on] {
+.sc-tabbar :is(button, a)[data-on] {
   color: var(--sc-fg);
 }
 .sc-tab-ic {
@@ -59,7 +60,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sc-tabbar button:focus-visible {
+.sc-tabbar :is(button, a):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
   border-radius: var(--sc-radius-sm);

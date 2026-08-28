@@ -193,6 +193,7 @@ export function ProductsView() {
                   variant="use"
                   size="grid"
                   onOpen={openProduct}
+                  href={productPath(brand, p.id)}
                   onUse={applyProduct}
                 />
               ))}
@@ -251,6 +252,7 @@ export function ProductsView() {
                 size="grid"
                 onUse={applyProduct}
                 onOpen={openProduct}
+                href={productPath(brand, p.id)}
               />
             ))}
           </div>

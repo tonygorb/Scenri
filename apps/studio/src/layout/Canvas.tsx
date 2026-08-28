@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { AlertDialog, Button, ContextMenu, Flex } from '@radix-ui/themes';
 import { hasNoShots, imgUrl, nodeLabel, type TreeNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
@@ -32,6 +33,7 @@ export function Canvas({
   nodes,
   selectedId,
   onOpen,
+  shotHref,
   onRetry,
   onCancel,
   onToggleKeep,
@@ -55,6 +57,12 @@ export function Canvas({
   selectedId: string | null;
   /** The variant index is how a stacked run opens on the one you clicked. */
   onOpen: (id: string, imageIndex?: number) => void;
+  /**
+   * The shot's real URL, take-aware. Tiles render it as a Link so middle click
+   * and Cmd click open the overlay in its own tab; plain click stays SPA (and
+   * stays "pick" while a batch is being built).
+   */
+  shotHref: (id: string, imageIndex?: number) => string;
   onRetry: (node: TreeNode) => void;
   onCancel?: (node: TreeNode) => void;
   /** The star badge looked like a toggle and wasn't one — `k` and the overlay
@@ -162,15 +170,10 @@ export function Canvas({
             // already held for it instead of resizing its column
             style={{ '--sc-cell-ar': aspectOfFormat(n.brief?.format) } as CSSProperties}
           >
-            <button
-              type="button"
-              className="sc-cell-open"
-              aria-label={`Open ${nodeLabel(n)}, still rendering`}
-              onClick={() => onOpen(n.id)}
-            >
+            <Link className="sc-cell-open" to={shotHref(n.id)} aria-label={`Open ${nodeLabel(n)}, still rendering`}>
               <span className="sc-shimmer" />
               <RunningTag since={n.createdAt} />
-            </button>
+            </Link>
             {onCancel && (
               <button
                 type="button"
@@ -204,12 +207,7 @@ export function Canvas({
             data-failed={!cancelled || undefined}
             data-selected={n.id === selectedId}
           >
-            <button
-              type="button"
-              className="sc-cell-open"
-              onClick={() => onOpen(n.id)}
-              aria-label={`Open ${nodeLabel(n)}`}
-            />
+            <Link className="sc-cell-open" to={shotHref(n.id)} aria-label={`Open ${nodeLabel(n)}`} />
             <span className="sc-cell-failed">
               <FailureNote
                 failure={failure}
@@ -241,6 +239,7 @@ export function Canvas({
         batching,
         versions,
         onOpen,
+        shotHref,
         onBranch,
         onPick,
         onVersions,
@@ -266,18 +265,25 @@ export function Canvas({
             data-first={i === 0 || undefined}
             data-selected={i === 0 && n.id === selectedId}
           >
-            <button
-              type="button"
+            <Link
               className="sc-cell-open"
+              to={shotHref(n.id, i)}
               aria-label={
                 batching
                   ? `${chosen ? 'Deselect' : 'Select'} ${nodeLabel(n)}`
                   : `Open ${nodeLabel(n)}, take ${i + 1} of ${n.images.length}`
               }
-              onClick={() => (batching ? onPick?.(n.id) : onOpen(n.id, i))}
+              onClick={(e) => {
+                // While a batch is being built a plain click means "pick",
+                // not "open" - the one case the anchor's default is stopped.
+                if (batching) {
+                  e.preventDefault();
+                  onPick?.(n.id);
+                }
+              }}
             >
               <FeedImage src={imgUrl(hash)} {...aspectOfImage(n, i)} />
-            </button>
+            </Link>
             {/* One chrome, both tile shapes. The opened-out take used to place
                 its own bar, and once the counts moved into that row the
                 Collapse button kept its old class without the positioning that
@@ -309,14 +315,19 @@ export function Canvas({
               data-batching={batching || undefined}
               data-picked={chosen || undefined}
             >
-              <button
-                type="button"
+              <Link
                 className="sc-cell-open"
+                to={shotHref(n.id)}
                 aria-label={batching ? `${chosen ? 'Deselect' : 'Select'} ${nodeLabel(n)}` : `Open ${nodeLabel(n)}`}
-                onClick={() => (batching ? onPick?.(n.id) : onOpen(n.id))}
+                onClick={(e) => {
+                  if (batching) {
+                    e.preventDefault();
+                    onPick?.(n.id);
+                  }
+                }}
               >
                 <FeedImage src={imgUrl(n.images[0])} {...aspectOfImage(n, 0)} />
-              </button>
+              </Link>
               <ShotChrome
                 node={n}
                 take={null}

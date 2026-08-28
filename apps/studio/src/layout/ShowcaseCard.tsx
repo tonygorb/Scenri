@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router';
 import type { ShowcaseEntry } from '../api.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize } from './CatalogCard.js';
 import { useWallDensitySize } from './DensityControl.js';
@@ -27,7 +28,8 @@ type Credit = {
   name: string;
   previewUrl?: string | null;
   linked: boolean;
-  onOpen?: () => void;
+  /** The credit's own page. A real destination: the chip renders as a Link. */
+  href?: string;
 };
 
 /**
@@ -61,9 +63,9 @@ export function ShowcaseCard({
   scenePreviewUrl,
   sceneId,
   onOpen,
-  onOpenProduct,
-  onOpenPresenter,
-  onOpenScene,
+  productHref,
+  presenterHref,
+  sceneHref,
   active,
   hideRecipe,
   decorative,
@@ -82,12 +84,12 @@ export function ShowcaseCard({
   scenePreviewUrl?: string | null;
   sceneId?: string | null;
   onOpen?: (id: string) => void;
-  /** Opens the product's own page. Omit to keep the chip a plain credit. */
-  onOpenProduct?: (productId: string) => void;
-  /** Opens the presenter's own page. Omit to keep the badge a plain credit. */
-  onOpenPresenter?: (presenterId: string) => void;
-  /** Opens the scene's own page. Omit to keep the chip a plain credit. */
-  onOpenScene?: (sceneId: string) => void;
+  /** The product's own page, as a route builder. Omit to keep the chip a plain credit. */
+  productHref?: (productId: string) => string;
+  /** The presenter's own page. Omit to keep the badge a plain credit. */
+  presenterHref?: (presenterId: string) => string;
+  /** The scene's own page. Omit to keep the chip a plain credit. */
+  sceneHref?: (sceneId: string) => string;
   /** This recipe is the one currently sitting in the brief, waiting to send. */
   active?: boolean;
   /** Drop the second caption line. The credits above already name the recipe. */
@@ -103,8 +105,8 @@ export function ShowcaseCard({
         key: 'presenter',
         name: presenterName,
         previewUrl: presenterPreviewUrl,
-        linked: !!(onOpenPresenter && presenterId),
-        onOpen: onOpenPresenter && presenterId ? () => onOpenPresenter(presenterId) : undefined,
+        linked: !!(presenterHref && presenterId),
+        href: presenterHref && presenterId ? presenterHref(presenterId) : undefined,
       }
     : null;
   const product: Credit | null =
@@ -113,8 +115,8 @@ export function ShowcaseCard({
           key: 'product',
           name: productName,
           previewUrl: productPreviewUrl,
-          linked: !!(onOpenProduct && productId),
-          onOpen: onOpenProduct && productId ? () => onOpenProduct(productId) : undefined,
+          linked: !!(productHref && productId),
+          href: productHref && productId ? productHref(productId) : undefined,
         }
       : null;
   const scene: Credit | null =
@@ -123,8 +125,8 @@ export function ShowcaseCard({
           key: 'scene',
           name: sceneName,
           previewUrl: scenePreviewUrl,
-          linked: !!(onOpenScene && sceneId),
-          onOpen: onOpenScene && sceneId ? () => onOpenScene(sceneId) : undefined,
+          linked: !!(sceneHref && sceneId),
+          href: sceneHref && sceneId ? sceneHref(sceneId) : undefined,
         }
       : null;
 
@@ -301,29 +303,24 @@ function CreditTip({
   );
 }
 
-function stopCardClick(e: MouseEvent, onOpen?: () => void) {
-  // The credit sits on top of the card's own open handler; without this the
-  // click would start a recipe instead of opening the credit's page.
-  e.stopPropagation();
-  e.preventDefault();
-  onOpen?.();
-}
-
 /** Product / scene: bare circular thumb. */
 function roundChip({ credit, step }: { credit: Credit; step: 1 | 2 }): ReactNode {
-  const { name, previewUrl, linked, onOpen } = credit;
-  if (linked) {
+  const { name, previewUrl, linked, href } = credit;
+  if (linked && href) {
     return (
-      <button
-        type="button"
+      <Link
         className="sc-showcase-chip"
+        to={href}
         data-link
         data-step={step}
         aria-label={`See ${name}`}
-        onClick={(e) => stopCardClick(e, onOpen)}
+        // The credit sits on top of the card's own open handler; without this
+        // the click would also start a recipe. The Link's own navigation stays:
+        // stop the bubble, never the default, or modified clicks die with it.
+        onClick={(e) => e.stopPropagation()}
       >
         {previewUrl ? <img src={previewUrl} alt="" /> : null}
-      </button>
+      </Link>
     );
   }
   // Not interactive, so there is no role to hang an aria-label on: the name
@@ -338,19 +335,19 @@ function roundChip({ credit, step }: { credit: Credit; step: 1 | 2 }): ReactNode
 
 /** Presenter: its own glass pill (avatar + name). */
 function presenterPill(credit: Credit): ReactNode {
-  const { name, previewUrl, linked, onOpen } = credit;
-  if (linked) {
+  const { name, previewUrl, linked, href } = credit;
+  if (linked && href) {
     return (
-      <button
-        type="button"
+      <Link
         className="sc-showcase-badge"
+        to={href}
         data-link
         aria-label={`See ${name}`}
-        onClick={(e) => stopCardClick(e, onOpen)}
+        onClick={(e) => e.stopPropagation()}
       >
         {previewUrl ? <img src={previewUrl} alt="" /> : null}
         <span className="sc-showcase-badge-name">{name}</span>
-      </button>
+      </Link>
     );
   }
   return (

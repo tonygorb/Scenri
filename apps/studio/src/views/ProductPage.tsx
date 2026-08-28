@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { api, assetUrl, addProductShot, deleteProduct, type DemoProduct, type Product } from '../api.js';
 import { Confirm } from '../Confirm.js';
 import { useAppData } from '../app/AppShell.js';
@@ -231,9 +231,9 @@ export function ProductPage() {
           <h1>This product isn't here anymore</h1>
           <p className="sc-lookpage-lede">It may have been removed, or the link is out of date.</p>
           <div className="sc-lookpage-acts">
-            <button type="button" className="sc-btn sc-btn-primary" onClick={() => navigate(productsPath(brand))}>
+            <Link className="sc-btn sc-btn-primary" to={productsPath(brand)}>
               Browse products
-            </button>
+            </Link>
           </div>
         </main>
       </ScrollPane>
@@ -318,9 +318,7 @@ export function ProductPage() {
     <ScrollPane>
       <main className="sc-lookpage sc-productpage" id="main">
         <div className="sc-lookpage-crumb">
-          <button type="button" onClick={() => navigate(productsPath(brand))}>
-            Products
-          </button>
+          <Link to={productsPath(brand)}>Products</Link>
           <span>/</span>
           <span>{demoProduct ? 'Scenri library' : isManual ? 'Yours' : 'From your store'}</span>
         </div>
@@ -374,7 +372,7 @@ export function ProductPage() {
         {made.length > 0 && (
           <Slider label={`Shots featuring ${subject.name}`}>
             {made.map((s) => (
-              <ShotThumb key={s.id} node={s} onClick={() => navigate(shotPath(brand, null, s.id))} />
+              <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
             ))}
           </Slider>
         )}
@@ -389,6 +387,7 @@ export function ProductPage() {
                   variant="navigate"
                   size="slider"
                   onOpen={(pid) => navigate(productPath(brand, pid))}
+                  href={productPath(brand, p.id)}
                 />
               ) : (
                 <ProductCard
@@ -397,6 +396,7 @@ export function ProductPage() {
                   variant="navigate"
                   size="slider"
                   onOpen={(pid) => navigate(productPath(brand, pid))}
+                  href={productPath(brand, p.id)}
                 />
               ),
             )}

@@ -1,4 +1,4 @@
-import { useMatch, useNavigate } from 'react-router';
+import { Link, useMatch } from 'react-router';
 import { BrandMenu } from './BrandMenu.js';
 import { NewAssetButton } from '../create/NewAssetButton.js';
 import { NotificationsButton } from './Notifications.js';
@@ -19,7 +19,6 @@ import { P, brandPath } from '../routes.js';
  */
 export function TopBar() {
   const { brand } = useBrand();
-  const navigate = useNavigate();
   const set = useMatch({ path: P.set, end: false });
   // taken unconditionally: a hook behind || is a hook that only sometimes runs,
   // and React counts them by position
@@ -37,14 +36,9 @@ export function TopBar() {
         {/* The lockup at every width. The nav drops to the bottom TabBar below
             768px, which leaves the middle of this bar empty: 155px of clear run
             even at 320, against the 79px the mark asks for. */}
-        <button
-          type="button"
-          className="sc-wordmark"
-          aria-label="Scenri home"
-          onClick={() => navigate(brandPath(brand))}
-        >
+        <Link className="sc-wordmark" aria-label="Scenri home" to={brandPath(brand)}>
           <ScenriLockup />
-        </button>
+        </Link>
       </div>
       <MainNav />
       <div className="sc-topbar-end">
@@ -72,14 +66,9 @@ function MainNav() {
       <ul>
         {items.map((item) => (
           <li key={item.key}>
-            <button
-              type="button"
-              data-active={item.active || undefined}
-              aria-current={item.active ? 'page' : undefined}
-              onClick={item.go}
-            >
+            <Link to={item.to} data-active={item.active || undefined} aria-current={item.active ? 'page' : undefined}>
               {item.label}
-            </button>
+            </Link>
           </li>
         ))}
       </ul>

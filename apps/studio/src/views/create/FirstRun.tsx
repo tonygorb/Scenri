@@ -25,17 +25,17 @@ export function FirstRun({
   catalogs,
   stagedId,
   onUse,
-  onOpenProduct,
-  onOpenPresenter,
-  onOpenScene,
+  productHref,
+  presenterHref,
+  sceneHref,
 }: {
   entries: ShowcaseEntry[];
   catalogs: Catalogs;
   stagedId: string | null;
   onUse: (entry: ShowcaseEntry) => void;
-  onOpenProduct: (id: string) => void;
-  onOpenPresenter: (id: string) => void;
-  onOpenScene: (id: string) => void;
+  productHref: (id: string) => string;
+  presenterHref: (id: string) => string;
+  sceneHref: (id: string) => string;
 }) {
   // A different handful, in a different order, every time the page is opened:
   // the wall is a gallery of what the tool can do, not a ranked list.
@@ -79,9 +79,9 @@ export function FirstRun({
                   decorative={copy !== 1}
                   active={stagedId === e.id}
                   onOpen={() => onUse(e)}
-                  onOpenProduct={onOpenProduct}
-                  onOpenPresenter={onOpenPresenter}
-                  onOpenScene={onOpenScene}
+                  productHref={productHref}
+                  presenterHref={presenterHref}
+                  sceneHref={sceneHref}
                   {...recipeProps(e, catalogs)}
                 />
               )),

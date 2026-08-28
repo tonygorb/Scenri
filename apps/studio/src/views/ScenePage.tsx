@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { Spinner, TextArea, TextField } from '@radix-ui/themes';
 import { api, type Scene, type ScenePatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
@@ -228,21 +228,24 @@ export function ScenePage() {
           <h1>This scene isn't here anymore</h1>
           <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
           <div className="sc-lookpage-acts">
-            <button
-              type="button"
-              className="sc-btn sc-btn-primary"
-              onClick={() => navigate(`${hubPath(brand)}?compose=1`)}
-            >
+            <Link className="sc-btn sc-btn-primary" to={`${hubPath(brand)}?compose=1`}>
               Start from scratch
-            </button>
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => navigate(scenesPath(brand))}>
+            </Link>
+            <Link className="sc-btn sc-btn-ghost" to={scenesPath(brand)}>
               Browse all scenes
-            </button>
+            </Link>
           </div>
           {recovery.length > 0 && (
             <Slider label="You might like">
               {recovery.map((s) => (
-                <SceneCard key={s.id} scene={s} variant="navigate" size="slider" onOpen={openScene} />
+                <SceneCard
+                  key={s.id}
+                  scene={s}
+                  variant="navigate"
+                  size="slider"
+                  onOpen={openScene}
+                  href={scenePath(brand, s.id)}
+                />
               ))}
             </Slider>
           )}
@@ -272,9 +275,7 @@ export function ScenePage() {
     <ScrollPane>
       <main className="sc-lookpage" id="main">
         <div className="sc-lookpage-crumb">
-          <button type="button" onClick={() => navigate(scenesPath(brand))}>
-            Scenes
-          </button>
+          <Link to={scenesPath(brand)}>Scenes</Link>
           <span>/</span>
           <span>{owned ? 'Yours' : scene.collections[0]}</span>
         </div>
@@ -466,7 +467,7 @@ export function ScenePage() {
         {made.length > 0 && (
           <Slider label="Your shots in this scene">
             {made.map((s) => (
-              <ShotThumb key={s.id} node={s} onClick={() => navigate(shotPath(brand, null, s.id))} />
+              <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
             ))}
           </Slider>
         )}
@@ -474,7 +475,14 @@ export function ScenePage() {
         {near.length > 0 && (
           <Slider label="Other scenes, similar light">
             {near.map((s) => (
-              <SceneCard key={s.id} scene={s} variant="navigate" size="slider" onOpen={openScene} />
+              <SceneCard
+                key={s.id}
+                scene={s}
+                variant="navigate"
+                size="slider"
+                onOpen={openScene}
+                href={scenePath(brand, s.id)}
+              />
             ))}
           </Slider>
         )}

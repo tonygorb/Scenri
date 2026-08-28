@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { productLabel, sceneLabel, showcaseSearchText } from '../displayName.js';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Badge } from '@radix-ui/themes';
 import { Aperture, Mountains, Package, User } from '@phosphor-icons/react';
 import { assetUrl, type ShowcaseEntry } from '../api.js';
@@ -364,9 +364,9 @@ export function HomeView() {
                     entry={s}
                     size="grid"
                     onOpen={openShowcase}
-                    onOpenProduct={(id) => navigate(productPath(brand, id))}
-                    onOpenPresenter={(id) => navigate(presenterPath(brand, id))}
-                    onOpenScene={(id) => navigate(scenePath(brand, id))}
+                    productHref={(id) => productPath(brand, id)}
+                    presenterHref={(id) => presenterPath(brand, id)}
+                    sceneHref={(id) => scenePath(brand, id)}
                     {...recipeOf(s)}
                   />
                 ))}
@@ -398,9 +398,9 @@ export function HomeView() {
           <>
             <div className="sc-sec-head">
               <span className="sc-sec-title">Presenters</span>
-              <button type="button" className="sc-sec-more" onClick={() => navigate(presentersPath(brand))}>
+              <Link className="sc-sec-more" to={presentersPath(brand)}>
                 Browse presenters
-              </button>
+              </Link>
             </div>
             <div className="sc-masonry">
               {presenters.slice(0, 8).map((p) => (
@@ -420,9 +420,9 @@ export function HomeView() {
           <>
             <div className="sc-sec-head">
               <span className="sc-sec-title">Scenes</span>
-              <button type="button" className="sc-sec-more" onClick={() => navigate(scenesPath(brand))}>
+              <Link className="sc-sec-more" to={scenesPath(brand)}>
                 Browse scenes
-              </button>
+              </Link>
             </div>
             <div className="sc-masonry">
               {shelfScenes.map((s) => (

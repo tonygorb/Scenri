@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useLocation, useMatch, useNavigate } from 'react-router';
+import { useLocation, useMatch } from 'react-router';
 import { FilmSlate, House, IdentificationBadge, Package, PlusCircle } from '@phosphor-icons/react';
 import { assetUrl, type Brand } from '../api.js';
 import { primaryMark } from '../brand/marks.js';
@@ -16,7 +16,11 @@ export interface NavItem {
   label: string;
   icon: ReactNode;
   active: boolean;
-  go: () => void;
+  /**
+   * A real destination, not a handler: the bars render it as a Link, so a
+   * middle click, a Cmd click and the context menu all behave like the web.
+   */
+  to: string;
 }
 
 /**
@@ -31,7 +35,6 @@ export interface NavItem {
 export function useMainNav(iconSize: number): NavItem[] {
   const { brand } = useBrand();
   const { pathname } = useLocation();
-  const navigate = useNavigate();
 
   // Asking the router where we are, rather than slicing the pathname against a
   // string built from the brand's slug. That comparison had to reconcile a
@@ -59,7 +62,7 @@ export function useMainNav(iconSize: number): NavItem[] {
       label: 'Home',
       icon: <House size={iconSize} weight={w(home)} />,
       active: home,
-      go: () => navigate(brandPath(brand)),
+      to: brandPath(brand),
     },
     {
       key: 'create',
@@ -67,28 +70,28 @@ export function useMainNav(iconSize: number): NavItem[] {
       icon: <PlusCircle size={iconSize} weight={w(create)} />,
       active: create,
       // already there: put the caret in the brief rather than reload the screen
-      go: () => navigate(create ? `${pathname}?compose=1` : `${hubPath(brand)}?compose=1`),
+      to: create ? `${pathname}?compose=1` : `${hubPath(brand)}?compose=1`,
     },
     {
       key: 'products',
       label: 'Products',
       icon: <Package size={iconSize} weight={w(products)} />,
       active: products,
-      go: () => navigate(productsPath(brand)),
+      to: productsPath(brand),
     },
     {
       key: 'presenters',
       label: 'Presenters',
       icon: <IdentificationBadge size={iconSize} weight={w(presenters)} />,
       active: presenters,
-      go: () => navigate(presentersPath(brand)),
+      to: presentersPath(brand),
     },
     {
       key: 'scenes',
       label: 'Scenes',
       icon: <FilmSlate size={iconSize} weight={w(scenes)} />,
       active: scenes,
-      go: () => navigate(scenesPath(brand)),
+      to: scenesPath(brand),
     },
   ];
 }

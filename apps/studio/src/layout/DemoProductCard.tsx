@@ -19,6 +19,7 @@ export function DemoProductCard({
   variant,
   onOpen,
   onUse,
+  href,
   selected,
   onToggle,
   size = 'grid',
@@ -26,6 +27,8 @@ export function DemoProductCard({
   product: DemoProduct;
   onOpen?: (id: string) => void;
   onUse?: (id: string) => void;
+  /** Forwarded to CatalogCard: the open surface's real route (see CatalogCard.href). */
+  href?: string;
   selected?: boolean;
   onToggle?: (id: string) => void;
   variant: DemoProductCardVariant;
@@ -43,6 +46,7 @@ export function DemoProductCard({
       variant={variant}
       onOpen={onOpen}
       onUse={onUse}
+      href={href}
       selected={selected}
       onToggle={onToggle}
       size={size}

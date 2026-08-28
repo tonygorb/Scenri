@@ -51,12 +51,19 @@
   cursor: pointer;
   color: inherit;
   font: inherit;
+  text-decoration: none;
 }
 .sc-lookcard-open {
   position: relative;
   display: block;
   width: 100%;
   text-align: left;
+}
+/* The card body as a real link (feed shot thumbs): same quiet ink as the
+   button form it replaces. */
+a.sc-lookcard {
+  color: inherit;
+  text-decoration: none;
 }
 .sc-lookcard-open:focus-visible,
 .sc-lookcard-use:focus-visible,
@@ -737,6 +744,11 @@
 .sc-showcase-chip[data-link]:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.85);
   outline-offset: 2px;
+}
+/* The credits as real links: the base rules above already carry their ink. */
+a.sc-showcase-badge,
+a.sc-showcase-chip {
+  text-decoration: none;
 }
 
 /* Large wall: same credit hierarchy, one step up. Tips follow data-size. */

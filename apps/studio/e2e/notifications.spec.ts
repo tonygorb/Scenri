@@ -159,7 +159,7 @@ test('the panel does not follow you to the next screen', async ({ page }) => {
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
 
-  await page.locator('.sc-nav button', { hasText: 'Scenes' }).click();
+  await page.locator('.sc-nav a', { hasText: 'Scenes' }).click();
   await page.waitForURL(/\/scenes$/);
   await expect(pop(page)).toHaveCount(0);
 });

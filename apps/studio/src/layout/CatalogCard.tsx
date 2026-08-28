@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { ContextMenu } from '@radix-ui/themes';
 import { BookmarkSimple, Check, ImageSquare } from '@phosphor-icons/react';
 
@@ -29,6 +30,7 @@ export function CatalogCard({
   variant,
   onOpen,
   onUse,
+  href,
   selected,
   onToggle,
   bookmarked,
@@ -44,6 +46,15 @@ export function CatalogCard({
   variant: CatalogCardVariant;
   onOpen?: (id: string) => void;
   onUse?: (id: string) => void;
+  /**
+   * The open surface's real route, opt-in. Present: the open target renders as
+   * a Link, so middle click, Cmd click and copy-link behave like the web while
+   * a plain click still SPA-navigates; `onOpen` is then NOT called on click
+   * (the Link already navigates) and remains only the context menu's Open.
+   * Absent: the open target stays a button. Callers whose `onOpen` applies the
+   * card to the brief rather than navigating (the Home shelves) pass no href.
+   */
+  href?: string;
   selected?: boolean;
   onToggle?: (id: string) => void;
   /**
@@ -156,10 +167,34 @@ export function CatalogCard({
       data-armed={armed || undefined}
     >
       <div className="sc-lookcard-media">
-        <button type="button" className="sc-lookcard-open" onClick={handleOpen} aria-label={title}>
-          {preview}
-          <span className="sc-lookcard-veil" aria-hidden />
-        </button>
+        {href ? (
+          <Link
+            className="sc-lookcard-open"
+            to={href}
+            aria-label={title}
+            onClick={(e) => {
+              // Touch: first tap ≈ hover (reveal Use); second tap follows the
+              // link. The arming tap must not navigate, so it is the one case
+              // where the anchor's default is suppressed.
+              if (showUseButton && touchUi) {
+                if (!armed) {
+                  e.preventDefault();
+                  setArmed(true);
+                  return;
+                }
+                setArmed(false);
+              }
+            }}
+          >
+            {preview}
+            <span className="sc-lookcard-veil" aria-hidden />
+          </Link>
+        ) : (
+          <button type="button" className="sc-lookcard-open" onClick={handleOpen} aria-label={title}>
+            {preview}
+            <span className="sc-lookcard-veil" aria-hidden />
+          </button>
+        )}
         {showUseButton && (
           <button type="button" className="sc-lookcard-use" onClick={handleUse}>
             {useLabel}
@@ -186,13 +221,17 @@ export function CatalogCard({
     </div>
   );
 
-  if (!onOpen && !onUse) return card;
+  if (!onOpen && !onUse && !href) return card;
   if (touchUi) return card;
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger>{card}</ContextMenu.Trigger>
       <ContextMenu.Content>
         {onOpen && <ContextMenu.Item onSelect={() => onOpen(id)}>Open</ContextMenu.Item>}
+        {/* Radix swallows the native contextmenu, so the browser's own "Open
+            link in new tab" can never appear on a card; this item stands in
+            for it. Middle click and Cmd click reach the anchor natively. */}
+        {href && <ContextMenu.Item onSelect={() => window.open(href, '_blank')}>Open in new tab</ContextMenu.Item>}
         {showUseButton && <ContextMenu.Item onSelect={() => onUse?.(id)}>{useLabel}</ContextMenu.Item>}
         {onBookmark && (
           <ContextMenu.Item onSelect={() => onBookmark(id)}>
