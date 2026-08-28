@@ -22,7 +22,15 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 export default defineConfig({
   testDir: './e2e',
   timeout: 20_000,
-  expect: { timeout: 5_000 },
+  // 10s, not the 5s default: the assertions here wait on a real app booting
+  // and painting, and on a loaded runner (a shared CI box, a dev machine with
+  // servers beside the suite) a first paint measured over 5s has failed runs
+  // whose code was fine. The per-test timeout above still bounds a real hang.
+  expect: { timeout: 10_000 },
+  // One retry on CI turns a runner hiccup into "flaky" instead of a red run
+  // (the report still names it, so a pattern stays visible). Locally zero:
+  // a developer machine should feel a real regression on the first run.
+  retries: process.env.CI ? 1 : 0,
   // One file at a time per worker. `fullyParallel: false` is the part that
   // matters and it stays: a file's tests share that file's seeded library, so
   // they must run in order. The workers are independent of that, because
