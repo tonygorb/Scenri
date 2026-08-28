@@ -156,6 +156,12 @@ test('the brand menu carries it permanently, and marks it unread without relying
 });
 
 test('the unread marker is spoken as well as shown', async ({ page }) => {
+  // The dot is only assertable BEFORE the auto-open acks the version, and the
+  // file-wide 300ms settle makes reaching the menu first a race this test has
+  // lost on a loaded machine. This test is about the menu's marker, not the
+  // auto-dialog, so push the settle out of reach instead of racing it. The
+  // init script registers after the beforeEach one, so its value wins.
+  await page.addInitScript(() => localStorage.setItem('scenri:whatsnew-settle-ms', '60000'));
   await stubUnread(page);
   await page.goto('/');
   await menuTrigger(page).click();
