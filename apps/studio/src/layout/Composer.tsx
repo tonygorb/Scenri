@@ -76,6 +76,8 @@ export const Composer = forwardRef<
       tokens: BriefToken[];
       templateId?: string;
       templateFields?: Record<string, string>;
+      /** Context the source shot carried; "reuse setup" rebuilds it as chips. */
+      inherited?: BriefToken[];
       /** A curated example's own settings; absent on an ordinary remix. */
       variants?: number;
       quality?: QualityId;
@@ -730,6 +732,13 @@ export const Composer = forwardRef<
   // The phrase is the compiler's, from packages/cli/src/brief.ts: change the
   // wording there and this stops matching, with nothing to say it has.
   const blocking = preview?.warnings.filter((w) => w.includes('built around a product')) ?? [];
+  // Identity the engine cap left out, stated BEFORE send. Structural data from
+  // the compiler's own preview (never prose-matched warnings), the same source
+  // the carried strip uses. Scene refs degrade quietly by design.
+  const lostRefs = useMemo(() => {
+    const dropped = (preview?.dropped ?? []).filter((d) => d.role !== 'scene');
+    return [...new Set(dropped.map((d) => d.label))];
+  }, [preview]);
   // the workspace arrives a beat after the screen does, and typing is faster
   // than a round trip: without this the first brief of a cold load could be sent
   // into nothing and come back as an error the user did nothing to cause.
@@ -1147,6 +1156,15 @@ export const Composer = forwardRef<
               </span>
             ))}
           </div>
+        )}
+        {/* What the engine cap leaves out, said before the money is spent. The
+            chip tooltip and the post-send toast already say it; this is the
+            card-level line so the loss is never only behind a hover. */}
+        {lostRefs.length > 0 && (
+          <small className="sc-reshape-hint" data-kind="dropped-refs" aria-live="polite">
+            {engineLabel} cannot carry {lostRefs.join(' and ')} as {lostRefs.length === 1 ? 'an image' : 'images'}, so{' '}
+            {lostRefs.length === 1 ? 'it rides' : 'they ride'} as text only.
+          </small>
         )}
         <BriefInput
           ref={briefRef}

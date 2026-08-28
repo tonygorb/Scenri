@@ -531,4 +531,17 @@ export interface BriefPreview {
   warnings: string[];
   productId: string | null;
   referenceCount: number;
+  /**
+   * Attachments the engine's reference budget left out (the kept ones are
+   * `attachments`). The server has always sent this; declaring it lets the
+   * composer state a loss structurally instead of prose-matching `warnings`.
+   */
+  dropped: {
+    role: 'product' | 'character' | 'brand' | 'scene' | 'reference';
+    id?: string;
+    label: string;
+    hash: string;
+    essential?: boolean;
+    inherited?: boolean;
+  }[];
 }

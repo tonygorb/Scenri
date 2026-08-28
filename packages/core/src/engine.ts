@@ -63,6 +63,11 @@ export interface BrandContext {
    * that the composer's preview and the engine's input can never disagree about
    * what was sent. To put a logo in front of a model, attach it as a `brand`
    * reference (see the `mark` brief token), not from here.
+   *
+   * Kept only because this is the public adapter contract and every engine
+   * fixture constructs it; scheduled for removal in a minor release. Do not
+   * make an adapter read it in the meantime — that would put a second,
+   * role-less path to a logo beside the one the budget governs.
    */
   assetPaths: Record<string, string>;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { marksOf, attachableMarks, markLabel } from '../src/brand/marks.js';
+import { marksOf, attachableMarks, markLabel, primaryOf, primaryMark } from '../src/brand/marks.js';
 
 const HASH_A = 'a'.repeat(32);
 const HASH_B = 'b'.repeat(32);
@@ -59,5 +59,38 @@ describe('markLabel', () => {
   });
   it('falls back when the brand has no name yet', () => {
     expect(markLabel({}, { role: 'mark' })).toBe('Brand mark');
+  });
+});
+
+// Every surface that asks "which is THE logo" resolves it here, so the nav
+// avatar, the setup confirmation and Settings can never disagree again.
+describe('primaryOf / primaryMark', () => {
+  it('the primary tag wins over stored order', () => {
+    const tagged = {
+      meta: { name: 'Acme Coffee' },
+      logos: [
+        { role: 'wordmark', file: `asset:${HASH_B}` },
+        { role: 'primary', file: `asset:${HASH_A}` },
+      ],
+    };
+    expect(primaryMark(tagged)?.hash).toBe(HASH_A);
+  });
+  it('falls back to the first mark when nothing is tagged primary', () => {
+    const untagged = { logos: [{ role: 'wordmark', file: `asset:${HASH_B}` }] };
+    expect(primaryMark(untagged)?.hash).toBe(HASH_B);
+  });
+  it('is null on an empty kit', () => {
+    expect(primaryMark({})).toBeNull();
+    expect(primaryOf([])).toBeNull();
+  });
+  it('returns a non-attachable https primary, which is displayable', () => {
+    const scraped = { logos: [{ role: 'primary', file: 'https://cdn.acme.coffee/mark.svg' }] };
+    const m = primaryMark(scraped);
+    expect(m?.file).toBe('https://cdn.acme.coffee/mark.svg');
+    expect(m?.attachable).toBe(false);
+  });
+  it('returns the same object marksOf produced, so identity filters keep working', () => {
+    const marks = marksOf(kit);
+    expect(primaryOf(marks)).toBe(marks[0]);
   });
 });

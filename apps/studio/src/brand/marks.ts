@@ -74,6 +74,21 @@ export function attachableMarks(json: any): Mark[] {
   return marksOf(json).filter((m) => m.attachable);
 }
 
+/**
+ * The kit's one canonical mark: the entry tagged `primary` when there is one,
+ * else the first in stored order. Every surface that asks "which is THE logo"
+ * goes through here, so re-tagging a mark moves the answer everywhere at once
+ * instead of the nav and Settings disagreeing about it.
+ */
+export function primaryOf(marks: Mark[]): Mark | null {
+  return marks.find((m) => m.role === 'primary') ?? marks[0] ?? null;
+}
+
+/** The canonical mark straight from a brand document. */
+export function primaryMark(json: any): Mark | null {
+  return primaryOf(marksOf(json));
+}
+
 /** Display name for one mark, e.g. "Acme Coffee wordmark". Matches the compiler's label. */
 export function markLabel(json: any, mark: Pick<Mark, 'role'>): string {
   const kind: Record<MarkRole, string> = {

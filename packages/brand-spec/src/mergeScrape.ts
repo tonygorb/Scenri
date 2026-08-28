@@ -65,7 +65,20 @@ export function mergeScrape(existing: unknown, scraped: unknown): MergeScrapeRes
   if (scrapedLogos.length) {
     const have = new Set(arr(cur.logos).map((l: any) => hashOf(l?.file)));
     const added = scrapedLogos.filter((l: any) => !have.has(hashOf(l?.file)));
-    if (added.length) brand.logos = [...arr(cur.logos), ...added];
+    if (added.length) {
+      // A scrape may call its find "primary", but the kit holds one primary at
+      // a time and the user's standing choice outranks a crawler's guess: an
+      // incoming primary lands as an alternate whenever one already exists,
+      // counting earlier additions in this same merge.
+      let hasPrimary = arr(cur.logos).some((l: any) => l?.role === 'primary');
+      const demoted = added.map((l: any) => {
+        if (l?.role !== 'primary') return l;
+        if (hasPrimary) return { ...l, role: 'alternate' };
+        hasPrimary = true;
+        return l;
+      });
+      brand.logos = [...arr(cur.logos), ...demoted];
+    }
   }
 
   return { brand, suggestions: { palette: suggestions } };

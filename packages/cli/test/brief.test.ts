@@ -376,6 +376,22 @@ describe('brand mark token', () => {
     expect(r.warnings.join(' ')).toContain('House Blend');
   });
 
+  // "reads 0 reference images" was technically true and read like a bug. The
+  // loss itself is deliberate: a cap-0 engine still runs, and the words are
+  // the only thing carrying the mark, so the warning has to say that plainly.
+  it('says an engine that reads no references left the mark out, in words written for that case', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const r = compileBrief(
+      { tokens: [{ t: 'mark', imageHash: logoHash }] },
+      ctx({ brand: brandWithLogo(logoHash), engineCaps: caps(0, 'Seedream') }),
+    );
+    expect(r.attachments).toEqual([]);
+    expect(r.dropped.map((d) => d.role)).toEqual(['brand']);
+    expect(r.warnings.join(' ')).toContain('Seedream reads no reference images');
+    expect(r.warnings.join(' ')).toContain('Acme wordmark');
+    expect(r.warnings.join(' ')).not.toContain('reads 0');
+  });
+
   // The reported bug, end to end: on a four-slot engine, product angles two
   // and three used to evict the reference the user attached by hand.
   it('a hand-attached reference survives a contested cap ahead of spare angles', () => {
@@ -771,6 +787,42 @@ describe('compileBrief: a world built around a figure', () => {
     // "Invent" was read as "vary": a real mark in the reference came back with a
     // word bolted onto it, which is the same brand wearing a hat.
     expect(r.prompt).toContain('do not borrow, extend or re-spell a name that appears in any attached reference');
+  });
+
+  // The fictional-brands rule and an attached mark were in direct conflict:
+  // "resembling no existing brand" read as an instruction to mutate the one
+  // real mark the user deliberately attached.
+  it('carves the attached brand mark out of the fictional-brands rule', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const brand = { ...brandWith(productHash), logos: [{ role: 'wordmark', file: `asset:${logoHash}` }] };
+    const scene = { ...base, figureTreatment: 'the face entirely covered in overlapping printed stickers' };
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'mark', imageHash: logoHash },
+          { t: 'template', id: base.id },
+        ],
+      },
+      ctx({ templateById: (id: string) => (id === base.id ? scene : undefined), brand }),
+    );
+    expect(r.prompt).toContain('plausible but fictional, resembling no existing brand');
+    expect(r.prompt).toContain('The one exception is the attached brand mark');
+    expect(r.prompt).toContain('the fictional-brands rule above does not apply to it');
+  });
+
+  it('keeps the fictional-brands rule absolute when no mark is attached', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene({ figureTreatment: 'the face entirely covered in overlapping printed stickers' }),
+    );
+    expect(r.prompt).toContain('plausible but fictional, resembling no existing brand');
+    expect(r.prompt).not.toContain('The one exception is the attached brand mark');
   });
 
   it('says an obscured figure is still in the photograph', () => {

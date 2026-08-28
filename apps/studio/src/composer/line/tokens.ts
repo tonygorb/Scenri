@@ -21,9 +21,27 @@ export const emptySentence = (): SentenceToken[] => [{ t: 'text', v: '' }];
  * the Composer's own initialBrief hydration and by anything that needs to
  * write a brief into the persisted per-brand draft using the exact same rules.
  */
-export function briefTokens(brief: { tokens: BriefToken[]; templateId?: string }): SentenceToken[] {
-  const carried = (brief.tokens ?? []).filter(isSentence);
-  const body = carried.length ? carried : emptySentence();
+export function briefTokens(brief: {
+  tokens: BriefToken[];
+  templateId?: string;
+  inherited?: BriefToken[];
+}): SentenceToken[] {
+  const own = (brief.tokens ?? []).filter(isSentence);
+  // Carried context is part of the setup. The detail view lists an inherited
+  // mark or reference as an ingredient of the shot, so "reuse setup" has to
+  // rebuild the brief with it or the two disagree about what the shot was.
+  // Keyed on the token's canonical identity; a product's angle is not identity
+  // here, the same product carried at another angle is still the same chip.
+  const keyOf = (t: SentenceToken): string => (t.t === 'product' ? `p:${t.id}` : encode(t));
+  const seen = new Set(own.map(keyOf));
+  const carried = (brief.inherited ?? []).filter(isSentence).filter((t) => {
+    const k = keyOf(t);
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  const all = [...own, ...carried];
+  const body = all.length ? all : emptySentence();
   const hasTemplateToken = body.some((t) => t.t === 'template');
   return brief.templateId && !hasTemplateToken ? [{ t: 'template', id: brief.templateId }, ...body] : body;
 }

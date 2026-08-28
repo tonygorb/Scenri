@@ -525,13 +525,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       ...(opts?.reshape === 'extend' ? { editReshape: 'extend' as const } : {}),
     });
     let inheritedAttachments: Attachment[] = [];
+    let identityWarnings: string[] = [];
     if (inheritedTokens.length) {
       // Compiled from a synthetic brief so the compiler stays the single
-      // definition of what a token attaches; only the attachments are kept.
+      // definition of what a token attaches.
       const identity = compileBrief(
         { tokens: inheritedTokens },
         { brand: brandJson, images: core.images, engineCaps: uncapped, templateById: sceneById },
       );
+      // The synthetic compile runs uncapped, so any warning it raises is a
+      // resolution failure - a carried mark whose logo left the kit, an image
+      // missing from the store. Discarding these meant a refine could shed the
+      // brand mark the detail view still lists, with nothing said to anyone.
+      identityWarnings = identity.warnings;
       // Essentials carry the subject; a brand mark or a reference is one image
       // each and IS the identity being carried — the old essential-only filter
       // silently dropped an inherited logo while the prompt claimed identity
@@ -543,7 +549,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
     const cap = Math.max(0, engineCaps.maxReferenceImages - 1);
     const merged = mergeEditAttachments(compiled.attachments, inheritedAttachments, cap);
-    const warnings = [...compiled.warnings];
+    const warnings = [...compiled.warnings, ...identityWarnings.filter((w) => !compiled.warnings.includes(w))];
     if (merged.dropped.length) {
       if (engineCaps.maxReferenceImages <= 1) {
         // An engine that carries nothing beyond the frame is not a reason to

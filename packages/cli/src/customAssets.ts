@@ -295,6 +295,11 @@ const STUDIO_SET =
   'against a solid seamless white studio background, eye-level camera with gentle 85mm-equivalent portrait compression and a soft shallow depth of field, one large soft key light with gentle fill producing even, flattering, true-to-life beauty light, while keeping fine natural skin texture at pore scale and true-to-life proportions, the complexion even and uniform in tone across face, neck and shoulders, never airbrushed, plastic, or synthetic-looking, a calm quietly confident expression, true-to-life color grade with minimal retouch';
 
 function studioPrompt(subject: string): string {
+  // "No logos" here is deliberate, not a gap: a built asset is neutral raw
+  // material, and a brand mark enters a shot exactly one way, as the mark chip
+  // the user places (see docs/brand-marks.md). Baking a logo into an asset
+  // would put a second uncontrolled copy of it into every future shot.
+  //
   // The clause that arrives first wins, so the full-bleed instruction leads:
   // without it the backdrop stops short and leaves flat bands down the sides.
   return (

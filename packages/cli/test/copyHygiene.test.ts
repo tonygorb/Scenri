@@ -23,6 +23,7 @@ const FILES = [
   'docs/RELEASING.md',
   'docs/ASSETS-LICENSE.md',
   'docs/A11Y-BACKLOG.md',
+  'docs/brand-marks.md',
   'docs/media/README.md',
   'templates/previews/README.md',
   'packages/brand-spec/SPEC.md',
