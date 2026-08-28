@@ -173,15 +173,21 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * asked to branch from, both vanished the moment you opened anything. The
    * variant index is the one part of it this owns.
    */
-  const openShot = useCallback(
-    (id: string, i = 0, replace = false) => {
+  const shotHref = useCallback(
+    (id: string, i = 0) => {
       const p = new URLSearchParams(params);
       if (i > 0) p.set('i', String(i));
       else p.delete('i');
       const q = p.toString();
-      navigate(`${base}/shots/${id}${q ? `?${q}` : ''}`, { replace });
+      return `${base}/shots/${id}${q ? `?${q}` : ''}`;
     },
-    [base, navigate, params],
+    [base, params],
+  );
+  // Built on shotHref so the tile's real href and the programmatic open can
+  // never disagree about what URL a shot lives at.
+  const openShot = useCallback(
+    (id: string, i = 0, replace = false) => navigate(shotHref(id, i), { replace }),
+    [navigate, shotHref],
   );
   const closeShot = useCallback(() => {
     const p = new URLSearchParams(params);
@@ -844,9 +850,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       entries={showcase}
       catalogs={{ demoProducts, presenters, scenes: templates }}
       stagedId={stagedId}
-      onOpenProduct={(id) => navigate(productPath(brand, id))}
-      onOpenPresenter={(id) => navigate(presenterPath(brand, id))}
-      onOpenScene={(id) => navigate(scenePath(brand, id))}
+      productHref={(id) => productPath(brand, id)}
+      presenterHref={(id) => presenterPath(brand, id)}
+      sceneHref={(id) => scenePath(brand, id)}
       onUse={(e) => {
         setStagedId(e.id);
         setRemixBrief(showcaseBrief(e));
@@ -1027,6 +1033,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           nodes={feed}
           selectedId={selectedId}
           onOpen={openShot}
+          shotHref={shotHref}
           onRetry={(n) => void retry(n)}
           onCancel={(n) => void cancel(n)}
           onToggleKeep={(n) => void keep(n)}

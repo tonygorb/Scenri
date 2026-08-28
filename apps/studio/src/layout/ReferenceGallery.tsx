@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { Spinner } from '@radix-ui/themes';
 import { CaretLeft, CaretRight, ImageSquare, Plus } from '@phosphor-icons/react';
 import { imgUrl, nodeLabel, type TreeNode } from '../api.js';
@@ -78,10 +79,10 @@ export function EmptyRefFrame() {
 }
 
 /** One shot in a "made/featuring this" slider — same broken-image fallback. */
-export function ShotThumb({ node, onClick }: { node: TreeNode; onClick: () => void }) {
+export function ShotThumb({ node, to }: { node: TreeNode; to: string }) {
   const [broken, setBroken] = useState(false);
   return (
-    <button type="button" className="sc-lookcard" aria-label={`Open ${nodeLabel(node)}`} onClick={onClick}>
+    <Link className="sc-lookcard" aria-label={`Open ${nodeLabel(node)}`} to={to}>
       {broken ? (
         <span className="sc-lookcard-blank">
           <ImageSquare size={20} />
@@ -89,7 +90,7 @@ export function ShotThumb({ node, onClick }: { node: TreeNode; onClick: () => vo
       ) : (
         <img src={imgUrl(node.images[0])} alt="" loading="lazy" onError={() => setBroken(true)} />
       )}
-    </button>
+    </Link>
   );
 }
 

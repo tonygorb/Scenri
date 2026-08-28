@@ -114,7 +114,7 @@ test.describe('a created presenter, from submit to a living page', () => {
     // The build lands (no engine: the photo becomes the shots) and the
     // library refetch shows the new presenter as the brand's own.
     await expect(page.getByRole('heading', { name: 'Your presenters' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('button', { name: 'Ofira', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Ofira', exact: true })).toBeVisible();
 
     // Even with no engine, the presenter ships with a real derived avatar and
     // card crop — this path used to run studio-frame geometry over the raw
@@ -128,7 +128,7 @@ test.describe('a created presenter, from submit to a living page', () => {
 
     // The tester's route: the bell's task row is how you reach the new page.
     await page.getByRole('button', { name: /Notifications/ }).click();
-    await page.getByRole('dialog').getByRole('button', { name: /Ofira/ }).first().click();
+    await page.getByRole('dialog').getByRole('link', { name: /Ofira/ }).first().click();
     await expect(page).toHaveURL(new RegExp(`/${slug}/presenters/[^/]+$`));
     await expect(page.locator('input[aria-label="Their name"]')).toHaveValue('Ofira');
 
@@ -137,13 +137,13 @@ test.describe('a created presenter, from submit to a living page', () => {
     expect(await commitRate(page)).toBeLessThan(50);
 
     // The shell is alive: the logo leaves, Back returns.
-    await page.getByRole('button', { name: 'Scenri home' }).click();
+    await page.getByRole('link', { name: 'Scenri home' }).click();
     await expect(page).toHaveURL(new RegExp(`/${slug}$`));
     await page.goBack();
     await expect(page.locator('input[aria-label="Their name"]')).toHaveValue('Ofira');
 
     // The main nav works from here.
-    await page.getByRole('button', { name: 'Products', exact: true }).click();
+    await page.getByRole('link', { name: 'Products', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/${slug}/products$`));
     await page.goBack();
 
@@ -187,7 +187,7 @@ test.describe('a created presenter, from submit to a living page', () => {
 
     // Quiet, and alive.
     expect(await commitRate(page)).toBeLessThan(50);
-    await page.getByRole('button', { name: 'Scenri home' }).click();
+    await page.getByRole('link', { name: 'Scenri home' }).click();
     await expect(page).toHaveURL(new RegExp(`/${slug}$`));
   });
 });

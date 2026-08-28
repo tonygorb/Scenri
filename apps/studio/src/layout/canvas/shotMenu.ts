@@ -39,12 +39,15 @@ export function shotMenuItems(
     onToggleKeep,
     onArchive,
     onDeletePermanently,
+    shotHref,
   }: {
     chosen: boolean;
     /** A batch is being built, so single-shot work is not what is happening. */
     batching: boolean;
     versions: number;
     onOpen: (id: string) => void;
+    /** The shot's real URL. Present: the menu offers "Open in new tab". */
+    shotHref?: (id: string) => string;
     onBranch?: (id: string, imageIndex?: number) => void;
     onPick?: (id: string) => void;
     onVersions?: (id: string) => void;
@@ -55,6 +58,12 @@ export function shotMenuItems(
   },
 ): ShotMenuItem[] {
   const items: ShotMenuItem[] = [{ key: 'open', label: `Open ${nodeLabel(node)}`, onSelect: () => onOpen(node.id) }];
+  // Radix swallows the native contextmenu on the tile, so the browser's own
+  // "Open link in new tab" can never appear there; this item stands in for it,
+  // on both surfaces that render this list.
+  if (shotHref) {
+    items.push({ key: 'open-tab', label: 'Open in new tab', onSelect: () => window.open(shotHref(node.id), '_blank') });
+  }
 
   // Not while a batch is being built: refining starts a new piece of work from
   // one picture, which is the opposite of what choosing a group is for. The

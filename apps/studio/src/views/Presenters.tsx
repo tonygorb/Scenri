@@ -191,6 +191,7 @@ export function PresentersView() {
                   variant="use"
                   size="grid"
                   onOpen={openPresenter}
+                  href={presenterPath(brand, p.id)}
                   onUse={applyPresenter}
                 />
               ))}
@@ -254,6 +255,7 @@ export function PresentersView() {
                 variant="use"
                 size="grid"
                 onOpen={openPresenter}
+                href={presenterPath(brand, p.id)}
                 onUse={applyPresenter}
               />
             ))}

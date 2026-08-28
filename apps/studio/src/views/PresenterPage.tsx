@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { TextArea, TextField } from '@radix-ui/themes';
 import { api, type PresenterPatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
@@ -158,9 +158,9 @@ export function PresenterPage() {
           <h1>This presenter isn't here anymore</h1>
           <p className="sc-lookpage-lede">They may have been removed from the catalog, or the link is out of date.</p>
           <div className="sc-lookpage-acts">
-            <button type="button" className="sc-btn sc-btn-primary" onClick={() => navigate(presentersPath(brand))}>
+            <Link className="sc-btn sc-btn-primary" to={presentersPath(brand)}>
               Browse presenters
-            </button>
+            </Link>
           </div>
         </main>
       </ScrollPane>
@@ -182,9 +182,7 @@ export function PresenterPage() {
     <ScrollPane>
       <main className="sc-lookpage sc-presenterpage" id="main">
         <div className="sc-lookpage-crumb">
-          <button type="button" onClick={() => navigate(presentersPath(brand))}>
-            Presenters
-          </button>
+          <Link to={presentersPath(brand)}>Presenters</Link>
           <span>/</span>
           <span>{owned ? 'Yours' : (presenter.suitableStyles[0] ?? presenter.presentation)}</span>
         </div>
@@ -310,7 +308,7 @@ export function PresenterPage() {
         {made.length > 0 && (
           <Slider label={`Shots featuring ${presenter.name}`}>
             {made.map((s) => (
-              <ShotThumb key={s.id} node={s} onClick={() => navigate(shotPath(brand, null, s.id))} />
+              <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
             ))}
           </Slider>
         )}
@@ -324,6 +322,7 @@ export function PresenterPage() {
                 variant="navigate"
                 size="slider"
                 onOpen={(id) => navigate(presenterPath(brand, id))}
+                href={presenterPath(brand, p.id)}
               />
             ))}
           </Slider>

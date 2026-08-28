@@ -127,6 +127,7 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
+  text-decoration: none;
 }
 .sc-notif-row:hover {
   background: var(--sc-hover);

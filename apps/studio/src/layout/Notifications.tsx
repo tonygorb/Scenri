@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { Popover } from '@radix-ui/themes';
 import {
   Bell,
@@ -123,7 +123,6 @@ function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
 function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
   const { tasks, feed, unread, clearFeed } = useTaskCenter();
   const { brand } = useBrand();
-  const navigate = useNavigate();
   const { push } = useToasts();
   const [tab, setTab] = useState<TabKey>('tasks');
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -151,11 +150,6 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
   useEffect(() => {
     if (tab === 'feed') onSeen();
   }, [tab, onSeen]);
-
-  const open = (href: string) => {
-    navigate(href);
-    onClose();
-  };
 
   // left/right move between the two; up/down stay free to scroll the list
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -195,12 +189,12 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
           tasks.length === 0 ? (
             <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
           ) : (
-            tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onOpen={open} onCancel={cancelTask} />)
+            tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onNavigate={onClose} onCancel={cancelTask} />)
           )
         ) : feed.length === 0 ? (
           <p className="sc-notif-empty">You have no notifications yet.</p>
         ) : (
-          feed.map((n) => <FeedRow key={n.id} item={n} now={now} onOpen={open} />)
+          feed.map((n) => <FeedRow key={n.id} item={n} now={now} onNavigate={onClose} />)
         )}
       </div>
 
@@ -261,12 +255,13 @@ function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'
 function TaskRow({
   task,
   now,
-  onOpen,
+  onNavigate,
   onCancel,
 }: {
   task: Task;
   now: number;
-  onOpen: (href: string) => void;
+  /** The row is a real Link; this only closes the panel behind it. */
+  onNavigate: () => void;
   onCancel: (taskId: string) => void;
 }) {
   const running = task.state === 'running';
@@ -275,32 +270,50 @@ function TaskRow({
   // past 60s, the cancel control is the one thing on this row worth making
   // louder than the rest, since it is the only way out of a stuck run
   const urgent = running && elapsedSec(task.startedAt, now) >= 60;
+  const body = (
+    <>
+      <span className="sc-notif-thumb">
+        <Thumb task={task} />
+      </span>
+      <span className="sc-notif-txt">
+        <b dir="auto">{task.title}</b>
+        <small dir="auto">{task.subtitle}</small>
+        {running && task.percent !== null ? (
+          <span className="sc-notif-meter">
+            <div style={{ width: `${task.percent}%` }} />
+          </span>
+        ) : null}
+      </span>
+      <span className="sc-notif-time">
+        {running ? elapsedLabel(task.startedAt, now) : agoLabel(task.startedAt, now)}
+      </span>
+    </>
+  );
   return (
     <div className="sc-notif-row-wrap">
-      <button
-        type="button"
-        className="sc-notif-row"
-        data-state={task.state}
-        data-running={running || undefined}
-        disabled={!task.href}
-        onClick={() => task.href && onOpen(task.href)}
-      >
-        <span className="sc-notif-thumb">
-          <Thumb task={task} />
-        </span>
-        <span className="sc-notif-txt">
-          <b dir="auto">{task.title}</b>
-          <small dir="auto">{task.subtitle}</small>
-          {running && task.percent !== null ? (
-            <span className="sc-notif-meter">
-              <div style={{ width: `${task.percent}%` }} />
-            </span>
-          ) : null}
-        </span>
-        <span className="sc-notif-time">
-          {running ? elapsedLabel(task.startedAt, now) : agoLabel(task.startedAt, now)}
-        </span>
-      </button>
+      {task.href ? (
+        // A real Link: the row's destination survives middle click and Cmd
+        // click; a plain click still closes the panel behind the navigation.
+        <Link
+          className="sc-notif-row"
+          data-state={task.state}
+          data-running={running || undefined}
+          to={task.href}
+          onClick={onNavigate}
+        >
+          {body}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className="sc-notif-row"
+          data-state={task.state}
+          data-running={running || undefined}
+          disabled
+        >
+          {body}
+        </button>
+      )}
       {running && stoppable && (
         <button
           type="button"
@@ -318,15 +331,9 @@ function TaskRow({
   );
 }
 
-function FeedRow({ item, now, onOpen }: { item: NotificationItem; now: number; onOpen: (href: string) => void }) {
-  return (
-    <button
-      type="button"
-      className="sc-notif-row"
-      data-state={item.state}
-      disabled={!item.href}
-      onClick={() => item.href && onOpen(item.href)}
-    >
+function FeedRow({ item, now, onNavigate }: { item: NotificationItem; now: number; onNavigate: () => void }) {
+  const body = (
+    <>
       <span className="sc-notif-thumb">
         <Thumb task={item} />
       </span>
@@ -335,6 +342,18 @@ function FeedRow({ item, now, onOpen }: { item: NotificationItem; now: number; o
         <small dir="auto">{item.subtitle}</small>
       </span>
       <span className="sc-notif-time">{agoLabel(item.at, now)}</span>
+    </>
+  );
+  if (item.href) {
+    return (
+      <Link className="sc-notif-row" data-state={item.state} to={item.href} onClick={onNavigate}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" className="sc-notif-row" data-state={item.state} disabled>
+      {body}
     </button>
   );
 }

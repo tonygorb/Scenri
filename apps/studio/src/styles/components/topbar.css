@@ -45,6 +45,7 @@
   padding: 0 6px 0 0;
   cursor: pointer;
   color: var(--sc-fg);
+  text-decoration: none;
   flex: none;
 }
 /* The mark inherits the ink from the line above, which is the whole reason
@@ -68,13 +69,14 @@
   padding: 0;
   list-style: none;
 }
-.sc-nav button {
+.sc-nav :is(button, a) {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   border: none;
   background: none;
   cursor: pointer;
+  text-decoration: none;
   padding: 8px 16px;
   border-radius: var(--sc-radius-full);
   font-size: 14px;
@@ -86,16 +88,16 @@
     color 120ms cubic-bezier(0.3, 0, 0.2, 1),
     background 120ms cubic-bezier(0.3, 0, 0.2, 1);
 }
-.sc-nav button:hover {
+.sc-nav :is(button, a):hover {
   color: var(--sc-fg);
   background: var(--sc-hover);
 }
-.sc-nav button[data-active="true"] {
+.sc-nav :is(button, a)[data-active="true"] {
   color: var(--sc-fg);
   background: var(--sc-chip);
 }
 @media (max-width: 960px) {
-  .sc-nav button {
+  .sc-nav :is(button, a) {
     padding: 8px 12px;
   }
 }

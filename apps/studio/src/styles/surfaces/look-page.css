@@ -79,15 +79,16 @@
      navigation, and it should read as sitting outside what it labels. */
   margin-bottom: var(--sc-space-7);
 }
-.sc-lookpage-crumb button {
+.sc-lookpage-crumb :is(button, a) {
   border: none;
   background: none;
   padding: 0;
   color: var(--sc-fg3);
   font: inherit;
   cursor: pointer;
+  text-decoration: none;
 }
-.sc-lookpage-crumb button:hover {
+.sc-lookpage-crumb :is(button, a):hover {
   color: var(--sc-fg);
 }
 /* Presenter lookpage: face crop above the name (full-length thumbs, top-pinned). */

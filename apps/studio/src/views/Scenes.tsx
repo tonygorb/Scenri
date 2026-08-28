@@ -209,6 +209,7 @@ export function ScenesView() {
           variant="use"
           size="grid"
           onOpen={openScene}
+          href={scenePath(brand, s.id)}
           onUse={applyScene}
           bookmarked={marks.includes(s.id)}
           onBookmark={bookmark}
@@ -270,7 +271,15 @@ export function ScenesView() {
                 />
               ))}
               {mineShown.map((s) => (
-                <SceneCard key={s.id} scene={s} variant="use" size="grid" onOpen={openScene} onUse={applyScene} />
+                <SceneCard
+                  key={s.id}
+                  scene={s}
+                  variant="use"
+                  size="grid"
+                  onOpen={openScene}
+                  href={scenePath(brand, s.id)}
+                  onUse={applyScene}
+                />
               ))}
             </div>
           </section>

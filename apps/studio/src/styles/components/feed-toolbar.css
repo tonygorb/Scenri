@@ -580,7 +580,7 @@
 .sc-s:focus-visible,
 .sc-ap-card:focus-visible,
 .sc-mainnav button:focus-visible,
-.sc-nav button:focus-visible {
+.sc-nav :is(button, a):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
