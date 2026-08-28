@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.4',
+    date: '2026-08-29',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Adding a product, presenter or scene starts from an empty form. Photos and words belonging to something you already made no longer turn up in a new one, in a second tab, or after a restart. Closing the dialog still keeps what you were working on until you leave, and a build that fails still hands it all back so you can pick up where you were.',
+      },
+    ],
+  },
+  {
     version: '0.6.3',
     date: '2026-08-28',
     title: 'Your logo stays your logo, and every page opens like a page.',
