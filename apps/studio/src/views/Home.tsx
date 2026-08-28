@@ -11,6 +11,7 @@ import { showcaseBrief, useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
+import { customScenesOf, withCustomFirst } from '../brandAssets.js';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
@@ -206,8 +207,15 @@ export function HomeView() {
    * up. */
   const shelfScenes = useMemo(() => {
     const marks = bookmarkedScenes(brand.id);
-    return bookmarkedFirst(templates, (s) => marks.includes(s.id)).slice(0, 8);
-  }, [templates, brand.id]);
+    // A brand's own scenes lead here, exactly as they do in the picker and in
+    // the library. This shelf used to read the catalog alone, so a scene someone
+    // had just built was correctly created and structurally invisible on the one
+    // page they were most likely to be looking at.
+    return withCustomFirst(
+      customScenesOf(brand),
+      bookmarkedFirst(templates, (s) => marks.includes(s.id)),
+    ).slice(0, 8);
+  }, [templates, brand]);
 
   /** Curated create-strip heroes — preferred showcase/scene ids in quality
    * order. Claimed uniquely so the row never repeats a still. */

@@ -244,7 +244,9 @@ describe('analyze — scene', () => {
 
     const prompt = promptFromArgs(calls[0]);
     expect(prompt).toContain('keep the rocks, less orange');
-    expect(prompt).toContain('Never name or describe a brand, a logo, a product, or a person');
+    // Identity is still refused outright, and now says so about people too.
+    expect(prompt).toContain('Never name or describe a brand, a logo, a product model or a wordmark');
+    expect(prompt).toContain('do not use any proper name anywhere in your answer');
     expect(prompt).toContain('Choose "collections" only from this list: Editorial, Interiors');
   });
 
@@ -290,5 +292,168 @@ describe('analyze — scene', () => {
     expect(prompt).toContain('You are revising an existing record, not starting over');
     expect(prompt).toContain('A wet basalt shelf at low sunset light.');
     expect(prompt).toContain('The correction to apply: more daylight');
+  });
+});
+
+// The reported failure: "leave it out completely" was read, correctly, as an
+// instruction to describe an empty room, so a world built around a person came
+// back as bare architecture. Identity is what a scene must drop; presence is not.
+describe('analyze — scene: presence without identity', () => {
+  const scenePrompt = async (over: Record<string, unknown> = {}) => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify({ ...GOOD_SCENE, ...over }));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'darwin', spawnImpl });
+    const draft = (await analyzer.analyze({ kind: 'scene', name: '', imagePaths: [photo()] })) as SceneDraft;
+    return { draft, prompt: promptFromArgs(calls[0]) };
+  };
+
+  it('asks for a figure by role, and refuses one by identity', async () => {
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('What you leave out is identity, not presence');
+    expect(prompt).toContain('recorded only as a figure');
+    expect(prompt).toMatch(/scale in the frame.*distance.*posture/s);
+    expect(prompt).toContain('Never their face, hair, age, wardrobe');
+    expect(prompt).toContain('never as a particular person');
+    // The instruction that caused the erasure is gone.
+    expect(prompt).not.toContain('leave it out completely');
+    expect(prompt).not.toContain('not what is standing in it');
+  });
+
+  it('asks for the axes a generic description flattens', async () => {
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('Name materials rather than colours');
+    expect(prompt).toContain('foreground through middle ground to background');
+    expect(prompt).toContain('reflective or transmissive');
+    expect(prompt).toContain('typographic texture');
+    expect(prompt).toContain('never transcribe the words');
+  });
+
+  it('keeps camera out of the set prose, where the shot could not outrank it', async () => {
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('Camera belongs here and never in "prompt"');
+  });
+
+  it('reconciles several references by what they share', async () => {
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('the world is what they share');
+    expect(prompt).toContain('appears in only one of them is a visitor');
+  });
+
+  it('separates "is the frame built around a body" from "who does this world flatter"', async () => {
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('This is a different question from "subject"');
+  });
+
+  it('keeps a staged position, collapsed to one line', async () => {
+    const { draft } = await scenePrompt({
+      figure: '  someone is seated at the stone ledge,\n  mid-ground, at human scale  ',
+    });
+    expect(draft.figure).toBe('someone is seated at the stone ledge, mid-ground, at human scale');
+  });
+
+  it('drops a staged position rather than burning the retry on it', async () => {
+    // A placeholder, an absent key and a wrong type are all non-blocking: the one
+    // retry exists for a broken contract, not for an optional field.
+    expect((await scenePrompt({ figure: 'beside the {product_name}' })).draft.figure).toBeUndefined();
+    expect((await scenePrompt({ figure: undefined })).draft.figure).toBeUndefined();
+    expect((await scenePrompt({ figure: 42 })).draft.figure).toBeUndefined();
+  });
+
+  it('caps a staged position before it can become a pose', async () => {
+    const { draft } = await scenePrompt({ figure: 'x'.repeat(400) });
+    expect(draft.figure!.length).toBeLessThanOrEqual(120);
+  });
+
+  it('carries at most two coverage notes, the way a presenter does', async () => {
+    const { draft } = await scenePrompt({ coverage: ['One.', 'Two.', 'Three.'] });
+    expect(draft.coverage).toEqual(['One.', 'Two.']);
+    expect((await scenePrompt({ coverage: undefined })).draft.coverage).toEqual([]);
+  });
+});
+
+// A figure can BE the concept. A close portrait whose whole art direction is
+// what was done to the face used to be excluded by name - "a portrait that
+// happens to have a background" - so a sticker-covered face came back as an
+// empty room.
+describe('analyze — scene: a figure can be the concept', () => {
+  const run = async (over: Record<string, unknown> = {}) => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify({ ...GOOD_SCENE, ...over }));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'darwin', spawnImpl });
+    const draft = (await analyzer.analyze({
+      kind: 'scene',
+      name: '',
+      imagePaths: [photo()],
+      instruction: over.__instruction as string | undefined,
+    })) as SceneDraft;
+    return { draft, prompt: promptFromArgs(calls[0]) };
+  };
+
+  it('no longer excludes a portrait from being a scene', async () => {
+    const { prompt } = await run();
+    expect(prompt).not.toContain('portrait that happens to have a background');
+    expect(prompt).toContain('A portrait counts');
+    expect(prompt).toContain('however much of the frame they occupy');
+  });
+
+  it('asks for what was done to the figure, printing included', async () => {
+    const { prompt } = await run();
+    expect(prompt).toContain('the figure IS the world');
+    expect(prompt).toMatch(/covered in stickers.*painted skin.*veil.*mask/s);
+    expect(prompt).toContain('Record what was done; never who it was done to');
+    // The sticker sheet is covered in real marks, and the graphic character is
+    // the concept. Asking for the material alone produced blank pastel paper, so
+    // the printing is wanted and only the real brands are refused.
+    expect(prompt).toContain('the character of any printing on it');
+    expect(prompt).toContain('graphic character is');
+    expect(prompt).toContain('without naming a real company from the references');
+    // Faithful to these pictures, not to the idea of them.
+    expect(prompt).toContain('how much of the surface is covered and how much is left bare');
+    expect(prompt).toContain('glossy vinyl, matte paper, foil, fabric');
+    expect(prompt).toContain('give the range rather than picking one');
+    // Reach is asked for separately from amount: sparse and full-face are not
+    // the same thing, and conflating them massed everything on one cheek.
+    expect(prompt).toContain('how far they reach across the form');
+    expect(prompt).toContain('sparse and still cover the whole face');
+  });
+
+  it('keeps poster faces, statues and reflections out of the figure slot', async () => {
+    const { prompt } = await run();
+    expect(prompt).toMatch(/mannequin, a statue, a face on a poster/);
+    expect(prompt).toContain('describe it in the set, not as a figure');
+  });
+
+  it('treats only the composed-around person as the figure, so a crowd is not cloned', async () => {
+    const { prompt } = await run();
+    expect(prompt).toContain('only the one the composition is built around is the figure');
+  });
+
+  it('carries a figure and its treatment through', async () => {
+    const { draft } = await run({
+      figure: 'one person at close portrait range, squared to camera, filling the frame',
+      figureTreatment: 'the face entirely covered in overlapping printed stickers',
+    });
+    expect(draft.figure).toContain('close portrait range');
+    expect(draft.figureTreatment).toBe('the face entirely covered in overlapping printed stickers');
+  });
+
+  it('never keeps a treatment with no figure to apply it to', async () => {
+    const { draft } = await run({ figure: '', figureTreatment: 'face covered in stickers' });
+    expect(draft.figure).toBeUndefined();
+    expect(draft.figureTreatment).toBeUndefined();
+  });
+
+  it('lets the direction outrank the pictures', async () => {
+    const { prompt } = await run({ __instruction: 'The stickers on the face are the whole point.' });
+    expect(prompt).toContain('The stickers on the face are the whole point.');
+    expect(prompt).toContain('Treat that as the deciding word');
+    expect(prompt).toContain('essential even if only one reference shows it');
+    expect(prompt).toContain('stays out even if every reference contains it');
+    // The old wording made it a wish with no authority to settle anything.
+    expect(prompt).not.toContain('What the person wants from it');
   });
 });

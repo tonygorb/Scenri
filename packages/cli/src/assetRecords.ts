@@ -45,6 +45,21 @@ export interface CustomScene extends Scene {
   refs?: { file: string }[];
   preview?: string;
   instruction?: string;
+  /**
+   * The figure this concept depends on, when it depends on one.
+   *
+   * A role, never a person: "one person at close portrait range, filling the
+   * frame". Absent means the concept survives with nobody in it; ambient human
+   * presence lives in `prompt` with the rest of the set. The compiler binds this
+   * to an attached presenter, which is the one thing prose cannot do.
+   */
+  figure?: string;
+  /**
+   * What is applied to that figure - stickers over the face, paint, a veil, a
+   * silhouette. Scene owns the treatment; the presenter owns the identity under
+   * it, and nothing here is ever written back to a presenter record.
+   */
+  figureTreatment?: string;
 }
 
 export const PRESENTER_ID_PREFIX = 'up';
@@ -115,6 +130,8 @@ export interface SceneInput {
   verticals?: unknown;
   keywords?: unknown;
   instruction?: unknown;
+  figure?: unknown;
+  figureTreatment?: unknown;
   refHashes?: unknown;
   previewHash?: unknown;
 }
@@ -168,8 +185,24 @@ export function sceneRecordFrom(
   if (camera) scene.camera = camera;
   const keywords = has('keywords') ? strList(input.keywords, 12, 40) : base?.keywords;
   if (keywords?.length) scene.keywords = keywords;
-  const instruction = has('instruction') ? str(input.instruction, 400) : base?.instruction;
+  // An empty string is not an instruction to forget one. `runSceneBuild` always
+  // passes this key, so a re-read carrying no new direction arrived here as ''
+  // and, because the record is rebuilt from scratch, silently dropped whatever
+  // the user had written. Blank falls back to what is already stored; clearing
+  // it on purpose is what DELETE and a fresh build are for.
+  const written = has('instruction') ? str(input.instruction, 400) : '';
+  const instruction = written || base?.instruction;
   if (instruction) scene.instruction = instruction;
+  // Through `has()` like every other field: the scene page PATCHes prompt and
+  // lighting alone on each keystroke, so anything read unconditionally from
+  // `input` would be erased by an edit that never mentioned it.
+  const figure = has('figure') ? str(input.figure, 120).replace(/\s+/g, ' ') : base?.figure;
+  if (figure && !/\{[^}]*\}/.test(figure)) scene.figure = figure;
+  const treatment = has('figureTreatment')
+    ? str(input.figureTreatment, 160).replace(/\s+/g, ' ')
+    : base?.figureTreatment;
+  // A treatment with no figure to sit on describes nobody.
+  if (scene.figure && treatment && !/\{[^}]*\}/.test(treatment)) scene.figureTreatment = treatment;
   if (refs?.length) scene.refs = refs;
   if (previewRef) scene.preview = previewRef;
   return { ok: true, scene };
@@ -254,7 +287,8 @@ export function presenterRecordFrom(
  * fight every product ever staged in it.
  */
 export function lintSceneProse(brandJson: any, scene: CustomScene): string[] {
-  const haystack = `${scene.prompt} ${scene.description}`.toLowerCase();
+  const haystack =
+    `${scene.prompt} ${scene.description} ${scene.figure ?? ''} ${scene.figureTreatment ?? ''}`.toLowerCase();
   const named = new Set<string>();
   const consider = (raw: unknown) => {
     const n = String(raw ?? '').trim();

@@ -171,7 +171,7 @@ test.describe('a created presenter, from submit to a living page', () => {
     await page.getByLabel('Name', { exact: true }).fill('Low Terrace');
     // With no analyzer behind the harness, a scene built from photos alone
     // fails by design; a sentence of the user's own words is the other path.
-    await page.getByLabel('Notes', { exact: true }).fill('A stone terrace in low evening sun.');
+    await page.getByLabel('Direction', { exact: true }).fill('A stone terrace in low evening sun.');
     await page.locator('.sc-dlg-go').click();
     await expectShellUnlocked(page);
 

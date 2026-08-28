@@ -228,6 +228,9 @@ export const api = {
   /** Redraw a scene's example. One generation, always asked for out loud. */
   generateScenePreview: (brandId: string, sceneId: string) =>
     req<{ preview: string; brand: Brand }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/preview`),
+  /** Read a scene's own references again, in place. One analysis, asked for out loud. */
+  rereadScene: (brandId: string, sceneId: string, correction?: string) =>
+    req<{ jobId: string }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/reread`, { correction }),
 };
 
 /**

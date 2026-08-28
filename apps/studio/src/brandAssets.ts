@@ -21,10 +21,14 @@ export interface CustomPresenter extends Presenter {
 
 export interface CustomScene extends Scene {
   custom: true;
-  /** The user's own inspiration images. Display only. */
+  /** The user's own inspiration images. Read into words, and drawn from for the preview. */
   refs: string[];
   /** What they asked for in their own words when it was built. */
   instruction?: string;
+  /** The figure this concept depends on, if it depends on one. A role, never a person. */
+  figure?: string;
+  /** What has been applied to that figure: stickers, paint, a veil, a silhouette. */
+  figureTreatment?: string;
 }
 
 const urls = (rows: unknown): string[] =>
@@ -111,6 +115,8 @@ function toScene(s: any): CustomScene {
     custom: true,
     refs,
     instruction: s.instruction ? String(s.instruction) : undefined,
+    figure: s.figure ? String(s.figure) : undefined,
+    figureTreatment: s.figureTreatment ? String(s.figureTreatment) : undefined,
   };
 }
 

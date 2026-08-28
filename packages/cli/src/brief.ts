@@ -1,4 +1,5 @@
 import type { EngineCapabilities, Core } from '@scenri/core';
+import type { CustomScene } from './assetRecords.js';
 import { composePrompt, type Scene } from './scenes.js';
 import { allocateAttachments } from './attachmentBudget.js';
 import type { EditScope } from './editScopeRules.js';
@@ -10,6 +11,7 @@ export {
   markLabel,
   productFidelityDirective,
   sceneGuardDirectives,
+  sceneFigureDirectives,
   shotSpecifiesCamera,
 } from './briefDirectives.js';
 import {
@@ -20,6 +22,7 @@ import {
   markLabel,
   productFidelityDirective,
   sceneGuardDirectives,
+  sceneFigureDirectives,
   shotSpecifiesCamera,
 } from './briefDirectives.js';
 
@@ -57,6 +60,13 @@ export interface Brief {
 
 export const PRODUCT_REF_MAX = 3;
 export const CHARACTER_REF_MAX = 2;
+/**
+ * One. A scene reference is context, never identity, and the budget it spends
+ * has to come out of something. At the codex cap of five with a product and a
+ * presenter attached, the allocator pays for this out of the product's third
+ * angle and leaves both identities whole.
+ */
+export const SCENE_REF_MAX = 1;
 
 export interface Attachment {
   /**
@@ -118,14 +128,24 @@ export const FORMATS: { id: FormatId; label: string; w: number; h: number }[] = 
   { id: 'portrait', label: 'Portrait 4:5', w: 1024, h: 1280 },
 ];
 
+/**
+ * What the compiler may read off a scene.
+ *
+ * `brandSceneById` hands a `CustomScene` back typed as `Scene`, so `staging` is
+ * there at runtime and invisible to the types. Widening here rather than adding
+ * a custom-only field to the catalog `Scene` interface, which 72 shipped files
+ * and a loader validator answer to.
+ */
+type CompilableScene = Scene & Pick<CustomScene, 'figure' | 'figureTreatment' | 'refs'>;
+
 interface CompileContext {
   brand: any;
   images: Core['images'];
   engineCaps: EngineCapabilities;
   /** Legacy single scene (brief.templateId). Frames the whole prompt. */
-  template?: Scene;
+  template?: CompilableScene;
   /** Lookup for inline scene tokens, which compile where they sit. */
-  templateById?: (id: string) => Scene | undefined;
+  templateById?: (id: string) => CompilableScene | undefined;
   /**
    * Refinements compile through this same function, and they need one thing a
    * generation must never carry: a statement that a photograph already exists
@@ -221,7 +241,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
 
   const products: any[] = ctx.brand?.products ?? [];
   const characters: any[] = ctx.brand?.characters ?? [];
-  const inlineTemplates: Scene[] = [];
+  const inlineTemplates: CompilableScene[] = [];
   let hasPerson = false;
   let sentence = '';
   // Tokens compile independently and never know what text preceded them, so
@@ -403,6 +423,32 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         inlineTemplates.push(t);
         // the surrounding sentence is the art direction, so notes stay empty here
         append(composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' }));
+
+        /*
+         * A figure-led scene sends a picture, because its prose cannot carry it.
+         *
+         * Measured, not assumed. A scene whose whole art direction is a dense
+         * graphic treatment - a face tiled with printed stickers - compiled to
+         * words came back as blank pastel paper every time, because three
+         * separate rules in this prompt argue about lettering and the treatment
+         * loses. The same brief with the reference attached produced the
+         * treatment correctly, kept the presenter's face, and invented its own
+         * graphics. That is the same mechanism a hand-attached reference already
+         * uses, and it is why one of those "just works".
+         *
+         * Only when the scene names a figure: an environment compiles to prose
+         * perfectly well, and every catalog scene stays byte-identical. Never on
+         * an edit, where the source frame already holds the world and the budget
+         * is one slot smaller. Not essential, so it degrades instead of refusing.
+         */
+        if (ctx.mode !== 'edit' && t.figure) {
+          for (const r of (t.refs ?? []).slice(0, SCENE_REF_MAX)) {
+            const h = assetHash(r?.file);
+            if (h && ctx.images.has(h)) {
+              attachments.push({ role: 'scene', id: t.id, label: t.name, hash: h, essential: false });
+            }
+          }
+        }
         break;
       }
 
@@ -491,6 +537,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           'Any earlier instruction that bans props, hands, people, or a presenter from the frame is a solo-packshot rule for this product and does not apply to this shot: the attached presenter is deliberate and must appear as directed.',
         ]
       : [];
+  // After the pair line, which is the other directive whose job is to relate two
+  // attached things to each other, and before the guards, which must keep the
+  // last word on cast (briefDirectives.ts: a scene composing an attached
+  // presenter out of their own shot was a real reported failure).
+  const figureDirectives = scene?.figure
+    ? sceneFigureDirectives({ figure: scene.figure, treatment: scene.figureTreatment, hasPerson })
+    : [];
+
   // "Closeup zoom with DOF holding the bottle" reads, to a model, like an
   // invitation to shoot the bottle alone: the tight crop satisfies the framing
   // and quietly deletes the person. Say the reconciliation out loud — a tight
@@ -536,6 +590,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...productDirectives,
     ...personDirectives,
     ...pairDirectives,
+    ...figureDirectives,
     ...closeUpDirectives,
     ...otherDirectives,
     ...cameraDirectives,
@@ -554,11 +609,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // angle evicting the reference or brand mark the user attached by hand.
   const max = ctx.engineCaps.maxReferenceImages;
   const { kept, dropped } = allocateAttachments(attachments, max);
-  if (dropped.length) {
+  if (dropped.some((d) => d.role !== 'scene')) {
     // By label, not by attachment: a product contributes several angles, and
     // naming it once per dropped angle reads as three different products
     // having been lost.
-    const names = [...new Set(dropped.map((d) => d.label))];
+    // Never name a dropped scene reference. This warning exists to tell someone
+    // an identity they attached will not be shown; a scene ref is context that
+    // degrades quietly, and naming it here reads as though their scene failed.
+    const names = [...new Set(dropped.filter((d) => d.role !== 'scene').map((d) => d.label))];
     warnings.push(
       `${ctx.engineCaps.displayName} reads ${max} reference image${max === 1 ? '' : 's'}, so ${names.join(
         ' and ',

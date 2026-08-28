@@ -137,7 +137,103 @@ export function shotSpecifiesCamera(text: string): boolean {
 }
 
 /**
- * A scene only ever contributes text, never an image, but its prose can
+ * A figure the concept needs, bound to whoever is actually attached.
+ *
+ * Only a custom scene carries `figure`, and only when its references showed a
+ * person the concept depends on - so every catalog scene emits nothing here and
+ * every compiled prompt in the golden fixture is untouched by this existing.
+ *
+ * There is deliberately no attempt to detect whether the shot wants people. The
+ * shot's own words sit at the head of the prompt and every directive follows
+ * them, so a directive always outranks them positionally; guessing when to stay
+ * quiet would mean guessing at negation in free text, and a false positive kills
+ * the feature silently. The house answer to this is `garmentDisplayDirective`:
+ * state the rule, and carry the escape clause inside the same sentence.
+ */
+export function sceneFigureDirectives(opts: { figure: string; treatment?: string; hasPerson: boolean }): string[] {
+  const figure = opts.figure.trim().replace(/[.\s]+$/, '');
+  if (!figure) return [];
+  const treatment = (opts.treatment ?? '').trim().replace(/[.\s]+$/, '');
+  const out: string[] = [];
+
+  if (opts.hasPerson) {
+    // Presence is already a fact by the time this is read: personDirectives says
+    // the presenter is in the photograph. This only says WHAT PART they play,
+    // and re-anchors identity so a figure the scene described is never a second
+    // person.
+    out.push(
+      `This world is built around one figure: ${figure}. The attached presenter is that figure. ` +
+        'Any person the scene direction describes IS the presenter and never a second person, and their identity comes ' +
+        'from their own attached photograph alone, never from anything the scene direction says about a body.',
+    );
+  } else {
+    out.push(
+      `This world is built around one figure: ${figure}. Someone fills that role in the frame, and they are nobody in ` +
+        'particular: an anonymous person invented for this photograph only, with no recognisable identity to preserve ' +
+        'and nothing about them carried anywhere else. Show them unless the direction above asks for no people.',
+    );
+  }
+
+  if (treatment) {
+    // The reconciliation, said out loud, in the shape pairDirectives uses for
+    // the packshot bans: name the scope of the earlier instruction rather than
+    // contradicting it. A presenter's directives lock "their face, facial
+    // structure, skin, hair and build", and 19 of 21 curated presenters carry
+    // notes saying a feature "must survive every generation". Both stay true:
+    // they are claims about WHO the person is, and a treatment is a layer over
+    // that person, not a different person.
+    const who = opts.hasPerson
+      ? 'The face and body underneath are still exactly theirs - same structure, same proportions, same build - and any ' +
+        'earlier instruction that their features must survive unchanged is a rule about who they are, which this does not alter. '
+      : '';
+    out.push(
+      `The art direction of this world is what has been done to that figure: ${treatment}. ` +
+        'Render it as a real physical treatment, following the shape of the face and body it sits on rather than floating ' +
+        'in the frame. ' +
+        // Density is not distribution. "Scattered, loosely spaced" was read as
+        // a dozen pieces massed on one cheek: correct spacing, wrong spread.
+        // Where it reaches has to be said separately from how much there is.
+        'Spread it across the whole form the way the reference does, reaching every part it covers there - brow, ' +
+        'forehead, nose, both cheeks, jaw - instead of massing it in one area and leaving the rest untouched. ' +
+        // Reaching wide and staying light are not in tension, but asking for
+        // reach alone was read as permission to fill: spread went right and
+        // the count tripled. How far it goes and how much there is have to be
+        // stated as two separate things, or fixing one breaks the other.
+        'Reaching wide is not the same as covering more: keep the number of pieces and the bare surface between ' +
+        'them exactly as the description says, so a sparse treatment stays sparse while still touching every part ' +
+        'of the form. ' +
+        'Each piece sits on the plane beneath it, curving and catching light with the surface it is stuck to. ' +
+        `${who}` +
+        'The figure is bodily present and in shot: where the treatment covers or hides them, that is the photograph working ' +
+        'as intended and never a reason to leave them out, crop them away, or reduce them to a shadow. ' +
+        // The treatment is the art direction, not a property of the person. Ask
+        // for this world with no people in it and the stickers should still be
+        // there, on whatever the frame does hold - that IS the scene. Suppressing
+        // them left a plain product on a plinth with nothing of the scene in it.
+        'If no person appears in this shot, the treatment does not go with them: it is what this world looks like, so ' +
+        'it applies to whatever the frame does hold - the product, the surfaces, the set - as real pieces resting on ' +
+        'those things. Applied on top, never redesigning them: the product keeps the exact form, colour, material and ' +
+        'its own printed label that its reference shows, with the treatment sitting over it. ' +
+        // Two failures were fixed here in turn. Banning all printing produced
+        // bare pastel paper; demanding unreadable lettering then produced
+        // scribble. Neither is brand safety, they are just bad graphics. What
+        // this needs is print that looks designed, belonging to companies that
+        // do not exist.
+        'Where the treatment carries printing, render it as genuinely designed print: real letterforms, readable words, ' +
+        'numerals, illustration and colour, at the quality of commercial label artwork. Invent the companies - every ' +
+        'name, logotype and piece of packaging artwork must be plausible but fictional, resembling no existing brand. ' +
+        // "Invent" was read as "vary": a real mark visible in the reference
+        // came back with a word bolted on, which is the same brand wearing a hat.
+        'That includes near-misses: do not borrow, extend or re-spell a name that appears in any attached reference, ' +
+        'and use ordinary words for the produce itself rather than any company that sells it.',
+    );
+  }
+  return out;
+}
+
+/**
+ * A scene contributes text to a shot, never an image - its own references are
+ * spent on its preview card and never attached here. But its prose can
  * still name a product or wardrobe brand of its own (for demo purposes). When
  * a real product or presenter is attached alongside it, these directives are
  * appended last so they outrank whatever the scene's own text described.
