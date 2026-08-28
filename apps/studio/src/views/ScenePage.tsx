@@ -11,7 +11,7 @@ import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { ArrowClockwise, BookmarkSimple } from '@phosphor-icons/react';
+import { ArrowClockwise, BookmarkSimple, Eye } from '@phosphor-icons/react';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -122,6 +122,7 @@ export function ScenePage() {
   const [draftPrompt, setDraftPrompt] = useState(owned?.prompt ?? '');
   const [err, setErr] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
+  const [rereading, setRereading] = useState(false);
   const [busy, setBusy] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -159,6 +160,26 @@ export function ScenePage() {
       setErr(String(e.message ?? e));
     } finally {
       setDrawing(false);
+    }
+  };
+
+  // The analyzer already knows how to revise rather than restart; this is the
+  // only thing that was missing, and without it a scene built before it learned
+  // to read human presence could never be brought forward.
+  const rereadRefs = async () => {
+    if (!owned || rereading) return;
+    setRereading(true);
+    setErr(null);
+    try {
+      await api.rereadScene(brand.id, owned.id);
+      // Deliberately stays disabled. This call returns a job id the moment the
+      // work starts, not when it finishes, so releasing the button here would
+      // offer a second analyzer run over the same record while the first is
+      // still going - two real Codex calls racing to write one scene. Progress
+      // shows in the bell, the same as any other build.
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+      setRereading(false);
     }
   };
 
@@ -316,6 +337,17 @@ export function ScenePage() {
               <span>{owned.previewUrl ? 'Redraw the example' : 'Draw an example'}</span>
             </button>
           )}
+          {owned && owned.refs.length > 0 && (
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              disabled={rereading}
+              onClick={() => void rereadRefs()}
+            >
+              {rereading ? <Spinner size="1" /> : <Eye size={13} />}
+              <span>{rereading ? 'Reading the references' : 'Read the references again'}</span>
+            </button>
+          )}
         </div>
         {err && <p className="sc-assetform-err">{err}</p>}
 
@@ -331,7 +363,9 @@ export function ScenePage() {
             )}
             {owned && (
               <p className="sc-lookpage-note">
-                The place with nothing staged in it. Whatever you attach to a shot goes here.
+                {owned?.figure
+                  ? 'An example of this scene. The person in it is nobody: attach a presenter and they take the role.'
+                  : 'The place with nothing staged in it. Whatever you attach to a shot goes here.'}
               </p>
             )}
             {!owned && refs.length > collapsedCap && (
@@ -353,14 +387,27 @@ export function ScenePage() {
               <section>
                 <p className="sc-bandhead">Your references</p>
                 <p className="sc-ownedbits-note">
-                  What this scene was read from. Kept here to look at: a scene reaches a shot as words, never as pixels,
-                  so nothing in these images can turn up in a render on its own.
+                  What this scene was read from, and what its example above was drawn from.
+                  {owned.figure
+                    ? ' Because this scene is built around a figure, one of these also goes to the shot as reference for the world and the treatment. The people, products and marks in it are never copied.'
+                    : ' A scene reaches a shot as words, never as pixels, so nothing staged in these images can turn up in a render on its own.'}
                 </p>
                 <div className="sc-lookpage-refs">
                   {owned.refs.map((src) => (
                     <RefFrame key={src} src={src} />
                   ))}
                 </div>
+              </section>
+            )}
+
+            {owned.figure && (
+              <section>
+                <p className="sc-bandhead">Who it is built around</p>
+                <p className="sc-ownedbits-note">
+                  {owned.figure}
+                  {owned.figureTreatment ? `, and ${owned.figureTreatment}` : ''}. A role, not a person: attach a
+                  presenter and they play it. Their own face stays theirs underneath.
+                </p>
               </section>
             )}
 
@@ -387,7 +434,21 @@ export function ScenePage() {
                   patch({ lighting: e.target.value });
                 }}
               />
-              {owned.instruction && <p className="sc-ownedbits-note">You asked for: {owned.instruction}</p>}
+            </section>
+
+            <section>
+              <p className="sc-bandhead">Direction</p>
+              <p className="sc-ownedbits-note">
+                What matters in these references, and what to ignore. Read again to apply it.
+              </p>
+              <textarea
+                className="sc-in"
+                rows={3}
+                maxLength={400}
+                placeholder="What matters in these references, and what to ignore"
+                defaultValue={owned.instruction ?? ''}
+                onChange={(e) => patch({ instruction: e.target.value })}
+              />
             </section>
 
             <div className="sc-lookpage-acts">

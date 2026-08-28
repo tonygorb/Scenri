@@ -49,6 +49,7 @@ import {
   strList,
   ASSET_WIDTH,
   brandCharacters,
+  brandSceneById,
   brandScenes,
   commit,
   lintSceneProse,
@@ -78,6 +79,8 @@ export interface AssetBuild {
   coverage: string[];
   /** The facet values the person chose when they filed it. */
   facets: string[];
+  /** Set when this build is re-reading an existing scene rather than making one. */
+  sceneId: string | null;
   error: string | null;
   startedAt: string;
   finished: boolean;
@@ -122,6 +125,14 @@ export interface StartBuildInput {
    * when nobody says. What a person chose always wins over what it guessed.
    */
   facets?: string[];
+  /**
+   * Re-read a scene that already exists, instead of adding another one.
+   *
+   * Its stored references are the evidence, its current record is the prior
+   * draft, and the result replaces it in place - same id, so every brief and
+   * every shot that already names this scene keeps resolving.
+   */
+  sceneId?: string;
 }
 
 const builds = new Map<string, AssetBuild>();
@@ -167,7 +178,13 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
   const brand = core.store.getBrand(input.brandId);
   if (!brand) throw Object.assign(new Error('brand not found'), { statusCode: 404 });
 
-  const hashes = input.imageHashes.filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h));
+  const prior = input.sceneId ? brandSceneById(brand.json, input.sceneId) : undefined;
+  if (input.sceneId && !prior) throw Object.assign(new Error('scene not found'), { statusCode: 404 });
+  // A re-read is filed with no new uploads: its evidence is what it was built from.
+  const supplied = input.imageHashes.length
+    ? input.imageHashes
+    : ((prior as CustomScene | undefined)?.refs ?? []).map((r) => String(r?.file ?? '').replace(/^asset:/, ''));
+  const hashes = supplied.filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h));
   if (input.kind === 'presenter' && !hashes.length) {
     throw Object.assign(new Error('add at least one photo of this person'), { statusCode: 400 });
   }
@@ -189,6 +206,7 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
     warnings: [],
     coverage: [],
     facets: strList(input.facets, 8, 40),
+    sceneId: input.sceneId ?? null,
     error: null,
     startedAt: new Date().toISOString(),
     finished: false,
@@ -698,15 +716,22 @@ async function runSceneBuild(
   signal: AbortSignal,
 ): Promise<void> {
   const { core } = deps;
+  // A re-read revises the record it already has, so a scene built before the
+  // analyzer learned to see people can be brought forward without losing its id,
+  // its name, or the shots that already name it.
+  const prior = job.sceneId
+    ? (brandSceneById(core.store.getBrand(job.brandId)?.json ?? {}, job.sceneId) as CustomScene | undefined)
+    : undefined;
   let draft: SceneDraft | null = null;
   if (deps.analyzer) {
-    patch(job, { stage: 'analyzing', message: 'Reading the references' });
+    patch(job, { stage: 'analyzing', message: prior ? 'Reading the references again' : 'Reading the references' });
     draft = (await deps.analyzer.analyze(
       {
         kind: 'scene',
         imagePaths: hashes.map((h) => core.images.pathFor(h)),
         name: job.name,
         instruction: instruction || undefined,
+        ...(prior ? { priorDraft: prior, correction: instruction || undefined } : {}),
         vocabulary: deps.vocabulary,
       },
       signal,
@@ -716,30 +741,53 @@ async function runSceneBuild(
   }
   if (signal.aborted) throw new Error('cancelled');
 
-  const built = sceneRecordFrom({
-    name: job.name || draft?.name || 'New scene',
-    promptName: draft?.promptName,
-    lighting: draft?.lighting,
-    description: draft?.description ?? instruction,
-    subject: draft?.subject ?? 'either',
-    prompt: draft?.prompt ?? instruction,
-    camera: draft?.camera,
-    collections: draft?.collections,
-    verticals: job.facets.length ? job.facets : draft?.verticals,
-    keywords: draft?.keywords,
-    instruction,
-    refHashes: hashes,
-  });
+  const built = sceneRecordFrom(
+    {
+      name: job.name || draft?.name || 'New scene',
+      promptName: draft?.promptName,
+      lighting: draft?.lighting,
+      description: draft?.description ?? instruction,
+      subject: draft?.subject ?? 'either',
+      prompt: draft?.prompt ?? instruction,
+      camera: draft?.camera,
+      figure: draft?.figure,
+      figureTreatment: draft?.figureTreatment,
+      collections: draft?.collections,
+      verticals: job.facets.length ? job.facets : draft?.verticals,
+      keywords: draft?.keywords,
+      instruction,
+      refHashes: hashes,
+    },
+    prior,
+  );
   if (!built.ok) throw new Error(built.error);
   const scene = built.scene;
+  // The channel already exists, is already rendered by AssetBuildCard, and until
+  // now only the presenter path ever filled it. This is where a scene says its
+  // references look like different places, or are a portrait with no world in it.
+  if (draft?.coverage?.length) patch(job, { coverage: draft.coverage });
 
   let previewHash: string | null = null;
   if (deps.engine) {
     patch(job, { stage: 'building', steps: 1, message: 'Drawing the place' });
     try {
+      // The one place a scene's own references can be spent for free: this draw
+      // has the engine's whole reference budget to itself, and what it produces
+      // is a card thumbnail, never a customer's shot. So the world gets read
+      // from pixels here, while a shot still only ever gets the words.
+      const previewRefs = hashes
+        .slice(0, deps.engine.capabilities().maxReferenceImages)
+        .map((h) => core.images.pathFor(h));
       previewHash = await trimEdgeBars(
         core,
-        await draw(deps, { prompt: scenePreviewPrompt(scene), brandId: job.brandId, signal }),
+        await draw(deps, {
+          prompt: scenePreviewPrompt(scene),
+          brandId: job.brandId,
+          ...(previewRefs.length
+            ? { referenceImages: previewRefs, referenceRoles: previewRefs.map(() => 'scene' as const) }
+            : {}),
+          signal,
+        }),
       );
       scene.preview = `asset:${previewHash}`;
       patch(job, { step: 1, previewHash });
@@ -754,7 +802,10 @@ async function runSceneBuild(
   const brand = core.store.getBrand(job.brandId);
   const warnings = [...job.warnings, ...lintSceneProse(brand?.json ?? {}, scene)];
   commit(core, job.brandId, (json) => {
-    json.scenes = [...brandScenes(json), scene];
+    const rows = brandScenes(json);
+    const at = rows.findIndex((s) => s?.id === scene.id);
+    // Same id in the same slot on a re-read; appended when it is genuinely new.
+    json.scenes = at >= 0 ? rows.map((s, i) => (i === at ? scene : s)) : [...rows, scene];
   });
   patch(job, {
     stage: 'done',
@@ -774,10 +825,28 @@ async function runSceneBuild(
  * the stand-in instead of the place.
  */
 export function scenePreviewPrompt(scene: CustomScene): string {
+  // The card has to be a picture of the concept.
+  //
+  // Drawn empty, a world whose whole art direction is what was done to a person
+  // becomes a photograph of a bare wall - which is not a modest version of that
+  // scene, it is a different one. So when the concept needs a figure, the card
+  // shows one. Anonymity is the thing to protect, not absence.
+  //
+  // The source references are attached to this draw, which is new: without the
+  // refusal below the card would happily come back as the person in them.
+  const body = scene.figure
+    ? `A figure is in this photograph: ${scene.figure.replace(/[.\s]+$/, '')}. ` +
+      (scene.figureTreatment
+        ? `The art direction is what has been done to them: ${scene.figureTreatment.replace(/[.\s]+$/, '')}, ` +
+          'rendered as a real physical treatment that follows the shape it sits on. '
+        : '') +
+      'They are nobody in particular: do not reproduce any person from the attached reference images, and give them no ' +
+      'recognisable identity. No product, no logos, no watermarks, and no readable words anywhere in the frame.'
+    : 'The set is empty: no product, no person, no hands, no text, no logos, no watermarks anywhere in the frame.';
   return (
     'Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. ' +
     `${scene.prompt} ${scene.lighting ? `${scene.lighting}. ` : ''}` +
-    'The set is empty: no product, no person, no hands, no text, no logos, no watermarks anywhere in the frame.'
+    body
   );
 }
 
@@ -820,4 +889,21 @@ async function draw(
 /** How many asset builds are mid-flight — the update path refuses to restart over one. */
 export function runningAssetBuildCount(): number {
   return running.size;
+}
+
+/**
+ * Is a build already reading this scene?
+ *
+ * A re-read returns its job id the moment the work starts, not when it ends, so
+ * anything that re-enables its control on that response leaves a button that
+ * looks ready while an analyzer is still running. Pressing it again used to
+ * start a second analysis over the same record: two real Codex calls, two
+ * writes racing for the same id, and the later one silently winning. The button
+ * is fixed too, but the refusal belongs here, where the API can enforce it.
+ */
+export function sceneBuildRunning(brandId: string, sceneId: string): boolean {
+  for (const b of builds.values()) {
+    if (b.brandId === brandId && b.sceneId === sceneId && !b.finished) return true;
+  }
+  return false;
 }

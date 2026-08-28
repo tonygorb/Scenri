@@ -105,6 +105,9 @@ describe('custom presenters and scenes', () => {
             keywords: ['volcanic', 'shore'],
             prompt: 'A wet dark basalt shelf at low sunset light.',
             camera: 'low three-quarter',
+            figure: 'someone stands at the tide line, mid-ground, at human scale',
+            figureTreatment: 'the face wrapped in translucent fabric',
+            coverage: ['A wider frame would pin down how the shelf sits in the bay.'],
           };
     },
   });
@@ -161,6 +164,16 @@ describe('custom presenters and scenes', () => {
     for (let i = 0; i < 200; i++) {
       const job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/asset-builds/${jobId}` })).json();
       if (job.finished) return { started, job };
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error('build never finished');
+  };
+
+  /** Wait out a build started by something other than runBuild. */
+  const settle = async (brandId: string, jobId: string) => {
+    for (let i = 0; i < 200; i++) {
+      const job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/asset-builds/${jobId}` })).json();
+      if (job.finished) return job;
       await new Promise((r) => setTimeout(r, 5));
     }
     throw new Error('build never finished');
@@ -406,7 +419,7 @@ describe('custom presenters and scenes', () => {
     expect(scene.subject).toBe('product');
     expect(scene.prompt).toContain('basalt');
     expect(scene.instruction).toBe('keep the rocks, less orange');
-    // The user's references are kept for looking at, never as generation input.
+    // The user's references are kept, and are the evidence a shot never sees.
     expect(scene.refs.map((r: any) => r.file)).toEqual(refs.map((h) => `asset:${h}`));
     expect(scene.preview).toMatch(/^asset:[a-f0-9]{32}$/);
     expect(scene.width).toBe(1024);
@@ -415,8 +428,136 @@ describe('custom presenters and scenes', () => {
     expect(analyzed[0].vocabulary.collections).toContain('Studio');
     // A preview shows the world, not a stand-in product it would have to invent.
     expect(generated).toHaveLength(1);
-    expect(generated[0].prompt).toContain('The set is empty');
-    expect(generated[0].referenceImages).toBeUndefined();
+    expect(generated[0].prompt).toContain('A figure is in this photograph');
+    // The one draw with the whole reference budget to itself, and an output that
+    // is a card rather than a customer's shot. So the world is read from pixels
+    // here, and a shot still only ever gets the words.
+    expect(generated[0].referenceImages).toHaveLength(refs.length);
+    expect(generated[0].referenceRoles).toEqual(refs.map(() => 'scene'));
+  });
+
+  it('records the figure and its treatment, and never who it is', async () => {
+    const brand = await newBrand();
+    const { job } = await runBuild(brand.id, {
+      kind: 'scene',
+      name: 'Wet Basalt Shore',
+      imageHashes: [await savePhoto('#223344')],
+    });
+    expect(job.stage).toBe('done');
+    const scene = brandJson(brand.id).scenes[0];
+    // The whole point: a person in a reference survives as a POSITION.
+    expect(scene.figure).toBe('someone stands at the tide line, mid-ground, at human scale');
+    expect(scene.figureTreatment).toBe('the face wrapped in translucent fabric');
+    // Nothing about the record identifies anyone. Anatomy words are fair game -
+    // a treatment has to say what surface it sits on - so this checks for the
+    // language that would pin it to a particular person instead.
+    expect(JSON.stringify(scene)).not.toMatch(/\bwoman\b|\bman\b|\bgirl\b|\bboy\b|\bhis\b|\bher\b|\byear[- ]old\b/i);
+  });
+
+  it('says what another reference would buy, through the channel presenters already use', async () => {
+    const brand = await newBrand();
+    const { job } = await runBuild(brand.id, {
+      kind: 'scene',
+      name: 'Wet Basalt Shore',
+      imageHashes: [await savePhoto('#556677')],
+    });
+    expect(job.coverage).toEqual(['A wider frame would pin down how the shelf sits in the bay.']);
+    // Advice is not a record: it is read once and never persisted.
+    expect(brandJson(brand.id).scenes[0].coverage).toBeUndefined();
+  });
+
+  it('draws the staged position empty rather than pretending people do not occur', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, {
+      kind: 'scene',
+      name: 'Wet Basalt Shore',
+      imageHashes: [await savePhoto('#778899')],
+    });
+    const prompt = generated[0].prompt;
+    expect(prompt).toContain('A figure is in this photograph: someone stands at the tide line');
+    expect(prompt).toContain('the face wrapped in translucent fabric');
+    // The source references are attached to this draw, so the card would happily
+    // come back as the person in them without this.
+    expect(prompt).toContain('do not reproduce any person from the attached reference images');
+  });
+
+  it('keeps the staged position when an edit touches only the prompt', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, {
+      kind: 'scene',
+      name: 'Wet Basalt Shore',
+      imageHashes: [await savePhoto('#99aabb')],
+    });
+    const id = brandJson(brand.id).scenes[0].id;
+    // The scene page PATCHes prompt alone on every keystroke.
+    const r = await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/scenes/${id}`,
+      payload: { prompt: 'A wet dark basalt shelf, colder now.' },
+    });
+    expect(r.statusCode).toBe(200);
+    expect(brandJson(brand.id).scenes[0].figure).toBe('someone stands at the tide line, mid-ground, at human scale');
+  });
+
+  it('reads an existing scene again in place, keeping its id', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, {
+      kind: 'scene',
+      name: 'Wet Basalt Shore',
+      imageHashes: [await savePhoto('#bbccdd')],
+    });
+    const before = brandJson(brand.id).scenes[0];
+    analyzed = [];
+
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/scenes/${before.id}/reread`,
+      payload: {},
+    });
+    expect(r.statusCode).toBe(200);
+    await settle(brand.id, JSON.parse(r.body).jobId);
+
+    const rows = brandJson(brand.id).scenes;
+    // Revised, never appended: every shot that already names this scene resolves.
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(before.id);
+    // Its own stored references are the evidence, and it revises rather than restarts.
+    expect(analyzed[0].imagePaths).toHaveLength(1);
+    expect(analyzed[0].priorDraft.id).toBe(before.id);
+  });
+
+  it('refuses a second read while the first is still running', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, {
+      kind: 'scene',
+      name: 'Wet Basalt Shore',
+      imageHashes: [await savePhoto('#ddeeff')],
+    });
+    const id = brandJson(brand.id).scenes[0].id;
+    const url = `/api/brands/${brand.id}/scenes/${id}/reread`;
+
+    // The route hands back a job id the moment the work starts, never when it
+    // ends. Anything that treats that as "done" - a button re-enabling on the
+    // response - would spend a second analyzer call racing the first to write
+    // the same record, and the later write would silently win.
+    const first = await app.inject({ method: 'POST', url, payload: {} });
+    expect(first.statusCode).toBe(200);
+    const second = await app.inject({ method: 'POST', url, payload: {} });
+    expect(second.statusCode).toBe(409);
+    expect(JSON.parse(second.body).error).toMatch(/already being read again/);
+
+    await settle(brand.id, JSON.parse(first.body).jobId);
+    // Once it is over, asking again is allowed.
+    expect((await app.inject({ method: 'POST', url, payload: {} })).statusCode).toBe(200);
+  });
+
+  it('refuses to read again a scene that was written from words', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, { kind: 'scene', name: 'Shore', instruction: 'a volcanic beach', imageHashes: [] });
+    const id = brandJson(brand.id).scenes[0].id;
+    const r = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes/${id}/reread`, payload: {} });
+    expect(r.statusCode).toBe(400);
+    expect(JSON.parse(r.body).error).toMatch(/nothing to read again/);
   });
 
   it('builds a scene from words alone', async () => {

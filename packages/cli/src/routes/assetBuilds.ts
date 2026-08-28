@@ -16,6 +16,7 @@ import {
   listAssetBuilds,
   presenterCrops,
   presenterRecordFrom,
+  sceneBuildRunning,
   sceneRecordFrom,
   scenePreviewPrompt,
   startAssetBuild,
@@ -260,6 +261,41 @@ export function registerAssetBuildRoutes(
   });
 
   /** Redraw a scene's example. One generation, asked for explicitly. */
+  /**
+   * Read an existing scene's references again.
+   *
+   * The same build job a new scene runs, pointed at a record that already
+   * exists: same progress card, same cancel, same warnings. It is a button
+   * rather than a migration because every run of it spends a real analyzer
+   * call, and nobody should be charged for one they did not ask for.
+   */
+  app.post('/api/brands/:id/scenes/:sceneId/reread', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).sceneId);
+    const scene = brandScenes(brand.json).find((s) => s.id === id) as CustomScene | undefined;
+    if (!scene) return reply.status(404).send({ error: 'scene not found' });
+    if (!(scene.refs ?? []).length)
+      return reply.status(400).send({ error: 'this scene was written from words, so there is nothing to read again' });
+    // One at a time: a second read would spend another analyzer call and race
+    // the first one for the same record.
+    if (sceneBuildRunning(brand.id, id))
+      return reply.status(409).send({ error: 'this scene is already being read again' });
+    const body = (req.body ?? {}) as any;
+    try {
+      return startAssetBuild(await buildDeps(), {
+        brandId: brand.id,
+        kind: 'scene',
+        sceneId: id,
+        name: scene.name,
+        instruction: body.correction == null ? undefined : String(body.correction),
+        imageHashes: [],
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'could not start' });
+    }
+  });
+
   app.post('/api/brands/:id/scenes/:sceneId/preview', async (req, reply) => {
     const brand = brandOr404(req, reply);
     if (!brand) return;
@@ -268,9 +304,17 @@ export function registerAssetBuildRoutes(
     if (!scene) return reply.status(404).send({ error: 'scene not found' });
     const engine = await buildEngine();
     if (!engine) return reply.status(400).send({ error: 'no engine here can draw a preview' });
+    // Same evidence the build draws from: this frame has the whole reference
+    // budget to itself and produces a card, never a customer's shot.
+    const refs = ((scene as CustomScene).refs ?? [])
+      .map((r) => String(r?.file ?? '').replace(/^asset:/, ''))
+      .filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h))
+      .slice(0, engine.capabilities().maxReferenceImages)
+      .map((h) => core.images.pathFor(h));
     const request = {
       prompt: scenePreviewPrompt(scene as CustomScene),
       brand: brandContext(core, brand.id),
+      ...(refs.length ? { referenceImages: refs, referenceRoles: refs.map(() => 'scene' as const) } : {}),
       width: scene.width,
       height: scene.height,
       count: 1,

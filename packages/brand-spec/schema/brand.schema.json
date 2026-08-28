@@ -417,6 +417,20 @@
             "type": "string",
             "description": "What the user asked for in their own words when this scene was built. Kept so a later refinement has the original intent."
           },
+          "figure": {
+            "type": "string",
+            "not": {
+              "pattern": "\\{[^}]*\\}"
+            },
+            "description": "The figure this concept depends on, when it depends on one: \"one person at close portrait range, squared to camera, filling the frame\". A role, never a person - it names the part a body plays in this world, never whose body. Absent means the concept survives with nobody in it; passing human presence belongs in prompt with the rest of the set. A brief binds this to an attached presenter, so a world built around a body and a real presenter never compile as two people."
+          },
+          "figureTreatment": {
+            "type": "string",
+            "not": {
+              "pattern": "\\{[^}]*\\}"
+            },
+            "description": "What has been applied to that figure, when something has: stickers over the face, paint, a veil, fabric, reduction to a silhouette. This is art direction, not identity - the scene owns the treatment and the presenter owns the face underneath it, and nothing here is ever written back to a presenter. Names the material and its form, never the words or artwork printed on it. Meaningless without figure."
+          },
           "refs": {
             "type": "array",
             "items": {
@@ -429,7 +443,7 @@
                 }
               }
             },
-            "description": "The user's inspiration images. Display only: a scene contributes text to a generation, never pixels, so these are never sent to a generator as references."
+            "description": "The user's inspiration images. Used to read this scene into words, to draw its preview card, and - only when the scene is built around a figure - one of them is attached to a shot as environment reference. That exception exists because a dense figure treatment cannot survive being described in words. Where it applies, the reference is marked as scene context: the environment and treatment are taken from it, the people, products and marks in it are not."
           },
           "preview": {
             "$ref": "#/$defs/assetRef",

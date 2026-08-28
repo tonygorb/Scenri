@@ -63,6 +63,34 @@ export interface SceneDraft {
   keywords: string[];
   prompt: string;
   camera?: string;
+  /**
+   * The figure the concept depends on, when it depends on one.
+   *
+   * Not "where a body goes". A world can be built around a person so completely
+   * that the person IS the concept - a close portrait whose whole art direction
+   * is what has been done to the face. Recording only a position throws that
+   * away, which is exactly how a sticker-covered portrait came back as an empty
+   * room. What it never carries is who they are.
+   *
+   * Absent means no intrinsic figure. Softer, ambient human presence - someone
+   * crossing the far end of a lobby, worn seats, a table laid for two - stays in
+   * `prompt` with the rest of the set, the way the shipped catalog writes it.
+   */
+  figure?: string;
+  /**
+   * What is applied TO that figure: stickers over the face, paint, a veil, a
+   * mask, fabric, reduction to a silhouette.
+   *
+   * Separate from `figure` because it collides with something `figure` does not.
+   * A presenter's directives lock "their face, facial structure, skin, hair and
+   * build" and 19 of the 21 curated presenters carry notes saying as much. The
+   * compiler reconciles that by scope rather than by contradiction - identity is
+   * what sits under the treatment, the treatment is the layer over it - and it
+   * can only say so if the treatment arrives as its own field.
+   */
+  figureTreatment?: string;
+  /** Non-blocking notes on what another reference would buy. Mirrors PresenterDraft. */
+  coverage: string[];
 }
 
 export interface CodexAnalyzer {
@@ -172,7 +200,17 @@ function presenterBody(req: AnalyzeRequest, refCount: number): string {
 }
 
 function sceneBody(req: AnalyzeRequest): string {
-  const ask = req.instruction ? ` What the person wants from it: ${req.instruction}.` : '';
+  // The user's own direction, and it outranks the pictures.
+  //
+  // This used to read "What the person wants from it: X" - a wish, with no
+  // authority to settle anything. With one reference the pictures are often
+  // ambiguous about what is the concept and what merely happened to be in the
+  // frame, and the person who chose them is the only one who knows.
+  const ask = req.instruction
+    ? ` The person who chose these references says what matters in them: ${req.instruction}.` +
+      ' Treat that as the deciding word: whatever it calls essential IS essential even if only one reference shows it,' +
+      ' and whatever it tells you to ignore stays out even if every reference contains it.'
+    : '';
   const collections = req.vocabulary?.collections?.length
     ? ` Choose "collections" only from this list: ${req.vocabulary.collections.join(', ')}.`
     : '';
@@ -181,18 +219,74 @@ function sceneBody(req: AnalyzeRequest): string {
     : '';
   return (
     `These are references for a place, not a picture to copy.${ask}` +
-    ' Extract the reusable visual world behind them: environment, architecture, surfaces and materials, the character of the light, atmosphere, palette, depth, and the photographic language.' +
-    ' Never name or describe a brand, a logo, a product, or a person. If a reference contains a bottle, a garment, a model or a mark, that thing is a visitor, not part of the world: leave it out completely, because something else will be staged here later.' +
-    ' Describe where a photograph happens, not what is standing in it. Use no placeholders of any kind.' +
+    ' Extract the reusable visual world behind them: environment, architecture, surfaces and materials,' +
+    ' the character of the light, atmosphere, palette, depth, and the photographic language.' +
+    // The old prompt asked for "materials" and "depth" in the abstract and got
+    // "a modern room" back. These four are the axes that actually came back thin.
+    ' Name materials rather than colours - travertine, cracked clay, waxed canvas, brushed steel, raw concrete -' +
+    ' and say how the space layers from foreground through middle ground to background.' +
+    ' Say so when a surface is reflective or transmissive: a mirror, a wet floor, chrome, glass, still water.' +
+    ' Those govern how everything in the frame is lit, and they are the first thing lost to a generic description.' +
+    ' Treat signage and lettering as typographic texture belonging to the environment: say that it is there and what it is made of,' +
+    ' and never transcribe the words or name the brand.' +
+    // The correction this prompt exists to make. "Leave it out completely" was
+    // read, correctly, as an instruction to describe an empty room.
+    ' What you leave out is identity, not presence.' +
+    ' Never name or describe a brand, a logo, a product model or a wordmark, and do not use any proper name anywhere in your answer.' +
+    ' A person in a reference is recorded only as a figure: their scale in the frame, their distance, their posture,' +
+    ' the kind of act the space is arranged around, and how a body catches this light.' +
+    ' Never their face, hair, age, wardrobe, or anything that would identify them, and never as a particular person -' +
+    ' "a figure at the water\'s edge", never "a woman in a red coat".' +
+    // The correction this revision exists to make. A figure can BE the concept.
+    ' A figure is not always something standing in a world. Sometimes the figure IS the world:' +
+    ' a close portrait whose entire art direction is what has been done to the person - a face covered in stickers,' +
+    ' painted skin, a veil, a mask, fabric wrapped over the head, a body reduced to a silhouette.' +
+    ' When that is what the reference is, the treatment is the single most important thing to record, not a detail to drop' +
+    ' along with the identity. Record what was done; never who it was done to.' +
+    ' Only a living person counts as a figure. A mannequin, a statue, a face on a poster, a billboard or a screen,' +
+    ' a reflection with nobody outside it, or a cast shadow is a thing in the environment: describe it in the set, not as a figure.' +
+    ' Where several people appear, only the one the composition is built around is the figure;' +
+    ' the rest are crowd, and belong in the set with everything else.' +
+    ' A product, garment or mark staged in a reference is a visitor: leave the object itself out,' +
+    ' but keep what it tells you about the place - the surface it sat on, the scale it implies, how densely the space is dressed.' +
+    ' Where several references are attached, the world is what they share; whatever appears in only one of them is a visitor.' +
+    ' Use no placeholders of any kind.' +
     ` ${OUT_FILE} must be a JSON object with exactly these keys:` +
     ' "name": two or three words a person would call this place, such as "Wet Basalt Shore";' +
     ' "promptName": the same place named for a generator, at most six words;' +
     ' "lighting": a short phrase naming the light, such as "Low directional sunset, long shadows across wet stone";' +
     ' "description": one sentence a person reads on a card;' +
     ' "subject": "product" if this world suits a staged object, "person" if it suits someone photographed in it, "either" when it truly suits both;' +
-    ' "prompt": three or four sentences describing the set itself, in the present tense, naming nothing that is staged in it;' +
-    ' "camera": the camera tendency of this world in a short phrase, or an empty string when it has none;' +
+    ' "prompt": four or five sentences describing the set itself, in the present tense, naming nothing branded and nobody identifiable.' +
+    ' Ambient human presence belongs here, written the way the rest of the set is written - a figure far off in the frame, worn seats, a table dressed for two;' +
+    ' "figure": when this concept depends on a person being in it, one short phrase for the role they play -' +
+    ' their framing, their scale, and what they are doing - such as "someone is seated at the stone ledge, mid-ground, at human scale"' +
+    ' or "one person at close portrait range, squared to camera, filling the frame".' +
+    ' A portrait counts. If the reference is built around a person and would stop being this concept without one, that is a figure,' +
+    ' however much of the frame they occupy. Use an empty string only when the concept genuinely survives with nobody in it,' +
+    ' or when the people present are passers-by rather than the point - describe those in "prompt" with the rest of the set instead.' +
+    ' This is a different question from "subject": "subject" is who this world flatters, "figure" is whether the concept needs a body at all;' +
+    ' "figureTreatment": what has been done TO that figure, when something has - one short phrase, such as' +
+    ' "the face entirely covered in overlapping printed stickers" or "the head and shoulders wrapped in translucent fabric".' +
+    ' Describe the treatment, what it is made of, and the character of any printing on it - the kind of label or' +
+    ' product it imitates, its typographic style, illustration and colour - because that graphic character is' +
+    ' usually the point. Say what kind of thing the printing is without naming a real company from the references.' +
+    // Faithful to THESE references, not to the idea of them. Two pictures of
+    // the same treatment can differ in how much of the face is covered and in
+    // what the pieces are made of, and flattening that to "densely covered"
+    // loses the thing the user chose these particular pictures for.
+    ' Be specific to what is actually in front of you rather than to the general idea: how much of the surface is' +
+    ' covered and how much is left bare, the material and finish - glossy vinyl, matte paper, foil, fabric - the' +
+    ' size of the pieces, and - separately from how many there are - how far they reach across the form and which' +
+    ' parts they land on, since a treatment can be sparse and still cover the whole face.' +
+    ' If the references disagree about how heavy it is, give the range rather than picking one.' +
+    ' Use an empty string when nothing has been done to them. Leave it empty too when "figure" is empty;' +
+    ' "camera": the camera tendency of this world in a short phrase - height, distance, lens feel, depth of field - or an empty string when it has none.' +
+    ' Camera belongs here and never in "prompt";' +
     ' "keywords": five to ten single words someone might search for;' +
+    ' "coverage": an array of at most two short sentences naming what another reference would buy, such as' +
+    ' "A wider frame would pin down how the room is laid out." Say so here if these references look like different places,' +
+    ' or if they are mostly a person or a packshot with too little environment to build a world from. Use an empty array when they are good;' +
     ` "collections": one or two themed groupings;${collections}` +
     ` "verticals": the industries this world flatters.${verticals}`
   );
@@ -264,6 +358,11 @@ function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResul
   }
   if (problems.length) return { ok: false, problems };
   const camera = cap(str(o.camera), 200);
+  // Non-blocking, exactly like `camera`: a model that omits or fumbles these
+  // must not burn the single retry that exists for a broken contract.
+  const figure = oneLine(o.figure, 120);
+  // A treatment without a figure describes nothing, so it never survives alone.
+  const figureTreatment = figure ? oneLine(o.figureTreatment, 160) : '';
   return {
     ok: true,
     draft: {
@@ -277,11 +376,29 @@ function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResul
       keywords: list(o.keywords, 10, 40),
       prompt: cap(prompt, 2000),
       camera: camera || undefined,
+      figure: figure || undefined,
+      figureTreatment: figureTreatment || undefined,
+      coverage: list(o.coverage, 2, 160),
     },
   };
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+/**
+ * One short line, or nothing.
+ *
+ * Short on purpose: a figure phrase long enough to hold a pose would make every
+ * generation the same photograph, which is the failure a scene exists to avoid.
+ * Newlines are collapsed because this is spliced into a single prompt sentence,
+ * and a `{placeholder}` drops the field rather than rejecting the whole draft -
+ * the set may never name what is staged in it, but that is not worth a retry.
+ */
+function oneLine(v: unknown, max: number): string {
+  const one = str(v).replace(/\s+/g, ' ');
+  if (!one || /\{[^}]*\}/.test(one)) return '';
+  return cap(one, max);
+}
 const cap = (v: string, max: number): string => (v.length > max ? v.slice(0, max).trim() : v);
 
 function list(v: unknown, max: number, each: number): string[] {

@@ -282,6 +282,8 @@ export interface ScenePatch {
   verticals?: string[];
   keywords?: string[];
   instruction?: string;
+  figure?: string;
+  figureTreatment?: string;
   refHashes?: string[];
 }
 

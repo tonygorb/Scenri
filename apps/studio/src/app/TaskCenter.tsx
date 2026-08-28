@@ -85,6 +85,11 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [builds, setBuilds] = useState<AssetBuild[]>([]);
+  // `pull` is memoised on [brandId, brand], so the builds it closes over are the
+  // ones from whichever render created it. Same reason every other cross-tick
+  // value in this file is a ref.
+  const buildsRef = useRef<AssetBuild[]>([]);
+  buildsRef.current = builds;
   const [feed, setFeed] = useState<NotificationItem[]>(() => loadFeed(brandId));
   const [seenAt, setSeenAt] = useState<string | null>(() => loadSeen(brandId));
   const [panelOpen, setPanelOpen] = useState(false);
@@ -149,15 +154,24 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       // the bell is not worth an error state; the next tick will tell the truth
       return;
     }
-    setBuilds(liveBuilds);
-
     // A build writes straight into the brand document, so the moment one lands
     // the brand this app is holding is a version behind.
     const landed = liveBuilds.filter((b) => b.finished && b.assetId && !brandPulledRef.current.has(b.id));
-    if (landed.length) {
+    // A build that was running and is now simply GONE is the same problem wearing
+    // a disguise. The registry is an in-memory Map, pruned at twelve per brand and
+    // emptied by a server restart, so a row can vanish between two polls with its
+    // scene already written to disk. Watching only for rows that land left that
+    // scene invisible until a full page reload.
+    const live = new Set(liveBuilds.map((b) => b.id));
+    const vanished = buildsRef.current.some((b) => !b.finished && !live.has(b.id));
+    if (landed.length || vanished) {
       for (const b of landed) brandPulledRef.current.add(b.id);
       await refreshBrandsRef.current();
     }
+    // After the pull, never before: setBuilds is what removes the in-progress
+    // card, and doing it first left a frame where the card was gone and the
+    // finished scene had not arrived yet.
+    setBuilds(liveBuilds);
 
     const arrivals = settled(prevRef.current, next);
     prevRef.current = new Map(next.map((t) => [t.id, t]));

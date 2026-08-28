@@ -26,7 +26,14 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
     'the exact person — match their face, facial structure, skin, hair and build exactly; their clothing, pose and background are capture context, not styling to reproduce',
   brand:
     "the brand's own mark — if the direction calls for the mark to appear, reproduce it exactly as drawn, same colours, letterforms and proportions; otherwise take only its colour and treatment, and never its subject, geometry or composition",
-  scene: 'a reference for the environment and light only — take no subject, product or person from it',
+  // Only a figure-led scene attaches one of these now, so this says what that
+  // case actually needs. It used to read "environment and light only - take no
+  // subject or person from it", which handed the model a photograph of a face
+  // treatment and told it to ignore the treatment. A hand-attached reference
+  // says "match ... treatment" and works; this now says the same thing, with the
+  // identity carve-out a scene needs and a lone reference does not.
+  scene:
+    'a reference for this world and for the treatment applied to the figure in it — match the environment, the light, and the material, density, scale, finish and spread of that treatment, including which parts of the form it covers and how far it reaches; take no identity from the person in it, and no product or brand',
   composition:
     'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
   style: 'a reference for overall treatment and mood only — take no composition, subject or product detail from it',

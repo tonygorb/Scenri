@@ -24,7 +24,7 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
   const f = useAssetFields(brand.id, 'scene', { max: MAX_REFS, pendingState });
 
   const ready = Boolean(f.fields.name.trim()) && (f.fields.imageHashes.length > 0 || !!f.fields.instruction.trim());
-  const blocked = ready ? undefined : 'Add a name, and a photo or a note';
+  const blocked = ready ? undefined : 'Add a name, and a photo or a line of direction';
 
   const start = async () => {
     setBusy(true);
@@ -99,14 +99,15 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
             />
           </div>
           <div className="sc-assetform-field">
-            <label className="sc-newdlg-seclabel" htmlFor="sc-scene-notes">
-              Notes
+            <label className="sc-newdlg-seclabel" htmlFor="sc-scene-direction">
+              Direction
             </label>
             <textarea
-              id="sc-scene-notes"
+              id="sc-scene-direction"
               className="sc-in"
-              placeholder="What matters here, in your words"
+              placeholder="What matters in these references, and what to ignore"
               rows={3}
+              maxLength={400}
               value={f.fields.instruction}
               onChange={(e) => f.set({ instruction: e.target.value })}
               onKeyDown={submitOnMetaEnter}

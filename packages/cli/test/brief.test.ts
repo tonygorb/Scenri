@@ -680,3 +680,240 @@ describe('an extend edit drops the dimension promise', () => {
     expect(r.prompt).toContain('the same product and the same person that are already in this picture');
   });
 });
+
+// A custom scene can be built around a figure - sometimes so completely that the
+// figure IS the concept and the art direction is what has been done to them.
+// Scene owns the role and the treatment; the presenter owns the face underneath.
+describe('compileBrief: a world built around a figure', () => {
+  const base = {
+    id: 'us-figure',
+    name: 'Sticker Face',
+    promptName: 'Sticker Face',
+    lighting: 'Flat even frontal light',
+    description: 'A close portrait on a seamless ground.',
+    subject: 'person' as const,
+    collections: [],
+    verticals: [],
+    prompt: 'A seamless warm grey studio ground, flat and shadowless.',
+    figure: 'one person at close portrait range, squared to camera, filling the frame',
+    width: 1024,
+    height: 1280,
+  };
+  const withScene = (over: Record<string, unknown> = {}) => {
+    const scene = { ...base, ...over };
+    return ctx({ templateById: (id: string) => (id === base.id ? scene : undefined) });
+  };
+
+  it('makes the attached presenter the figure, and refuses a second person', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene(),
+    );
+    expect(r.prompt).toContain('This world is built around one figure: one person at close portrait range');
+    expect(r.prompt).toContain('IS the presenter and never a second person');
+    // Presence is personDirectives' job and already stated; this only adds the role.
+    expect(r.prompt.indexOf('is in this photograph')).toBeLessThan(
+      r.prompt.indexOf('This world is built around one figure'),
+    );
+  });
+
+  it('with nobody attached, fills the role with an anonymous person rather than an empty room', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene(),
+    );
+    // The old behaviour left the space deliberately empty, which turned a
+    // figure-led scene into a photograph of a bare wall.
+    expect(r.prompt).toContain('Someone fills that role in the frame, and they are nobody in particular');
+    expect(r.prompt).toContain('no recognisable identity to preserve');
+    expect(r.prompt).toContain('Show them unless the direction above asks for no people');
+    expect(r.prompt).not.toContain('nobody is invented to fill it');
+  });
+
+  it('applies the treatment to the presenter without unmaking them', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene({ figureTreatment: 'the face entirely covered in overlapping printed stickers' }),
+    );
+    expect(r.prompt).toContain(
+      'what has been done to that figure: the face entirely covered in overlapping printed stickers',
+    );
+    // The reconciliation, in the shape pairDirectives uses: name the scope of the
+    // earlier lock rather than contradicting it.
+    expect(r.prompt).toContain('The face and body underneath are still exactly theirs');
+    expect(r.prompt).toContain('a rule about who they are, which this does not alter');
+    // Printed, but invented. Banning all printing produced blank pastel paper;
+    // the graphics are the concept, only the real brands must go.
+    expect(r.prompt).toContain('Spread it across the whole form');
+    expect(r.prompt).toContain('instead of massing it in one area');
+    // Reach and amount are stated separately: asking only for reach tripled the
+    // count, so fixing the spread quietly broke the sparseness.
+    expect(r.prompt).toContain('Reaching wide is not the same as covering more');
+    expect(r.prompt).toContain('render it as genuinely designed print');
+    expect(r.prompt).toContain('readable words');
+    // Invented companies, not gibberish: unreadable lettering was just bad print.
+    expect(r.prompt).toContain('plausible but fictional, resembling no existing brand');
+    // "Invent" was read as "vary": a real mark in the reference came back with a
+    // word bolted onto it, which is the same brand wearing a hat.
+    expect(r.prompt).toContain('do not borrow, extend or re-spell a name that appears in any attached reference');
+  });
+
+  it('says an obscured figure is still in the photograph', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene({ figureTreatment: 'reduced to a flat silhouette against the ground' }),
+    );
+    // personDirectives says "do not reduce them to a reflection or a shadow";
+    // an obscuring treatment has to be reconciled with that, not left to fight it.
+    expect(r.prompt).toContain('The figure is bodily present and in shot');
+    expect(r.prompt).toContain('never a reason to leave them out');
+  });
+
+  it('keeps the treatment when the people go, because the treatment is the scene', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene({ figureTreatment: 'the face covered in printed vinyl labels' }),
+    );
+    // A sticker-face scene asked for without people is still a sticker scene.
+    // Suppressing the treatment left a plain product with none of the world in it.
+    expect(r.prompt).toContain('the treatment does not go with them');
+    expect(r.prompt).toContain('applies to whatever the frame does hold');
+    // On top of the product, never redesigning it.
+    expect(r.prompt).toContain('its own printed label that its reference shows');
+  });
+
+  it('treats the figure with nobody attached too', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene({ figureTreatment: 'the face entirely covered in overlapping printed stickers' }),
+    );
+    expect(r.prompt).toContain('the face entirely covered in overlapping printed stickers');
+    // No presenter, so there is no identity to reconcile and no claim about one.
+    expect(r.prompt).not.toContain('still exactly theirs');
+  });
+
+  it('ranks after the pair line and before the scene guards', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene({ figureTreatment: 'the face entirely covered in overlapping printed stickers' }),
+    );
+    const pair = r.prompt.indexOf('If the attached product is something a person wears');
+    const figure = r.prompt.indexOf('This world is built around one figure');
+    const guard = r.prompt.indexOf('describes the set, not the cast');
+    expect(pair).toBeGreaterThan(-1);
+    expect(guard).toBeGreaterThan(-1);
+    expect(pair).toBeLessThan(figure);
+    expect(figure).toBeLessThan(guard);
+  });
+
+  it('a scene with no figure says nothing at all', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene({ figure: undefined, figureTreatment: undefined }),
+    );
+    expect(r.prompt).not.toContain('built around one figure');
+  });
+
+  // Prose cannot carry a dense graphic treatment: compiled to words it came back
+  // as blank paper every time, because three rules in the prompt argue about
+  // lettering and the treatment loses. The picture settles it.
+  const refd = (over: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) =>
+    ctx({
+      templateById: (id: string) =>
+        id === base.id ? { ...base, refs: [{ file: `asset:${productHash}` }], ...over } : undefined,
+      ...extra,
+    });
+
+  it('sends a picture when the scene is built around a figure', () => {
+    const r = compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd());
+    const scene = r.attachments.filter((a) => a.role === 'scene');
+    expect(scene).toHaveLength(1);
+    expect(scene[0].essential).toBeFalsy();
+  });
+
+  it('sends nothing when the scene is only an environment', () => {
+    const r = compileBrief(
+      { tokens: [{ t: 'template', id: base.id }] },
+      refd({ figure: undefined, figureTreatment: undefined }),
+    );
+    expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+  });
+
+  it('sends nothing on a refinement, where the source frame already holds the world', () => {
+    const r = compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd({}, { mode: 'edit' as const }));
+    expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+  });
+
+  it('pays for it out of corroboration, never out of an identity', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd({}, { engineCaps: caps(5) }),
+    );
+    const kept = r.attachments.map((a) => a.role);
+    expect(kept).toContain('scene');
+    expect(kept).toContain('product');
+    expect(kept).toContain('character');
+    expect(r.dropped.every((d) => !d.essential)).toBe(true);
+  });
+
+  it('a dropped scene reference never tells someone their scene was left out', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd({}, { engineCaps: caps(2) }),
+    );
+    expect(r.warnings.join(' ')).not.toContain(base.name);
+  });
+});
