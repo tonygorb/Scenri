@@ -44,7 +44,13 @@ export function registerLogoRoutes(app: FastifyInstance, deps: { core: Core }): 
     const entry = { role, file: `asset:${part.hash}`, background };
     if (existing !== -1) logos[existing] = entry;
     else logos.push(entry);
-    json.logos = logos;
+    // One primary at a time. The studio, the nav avatar and the setup screen
+    // all ask "which is THE logo", and two entries answering it differently is
+    // how the wrong mark reaches a prompt. Promoting one demotes the incumbent.
+    json.logos =
+      role === 'primary'
+        ? logos.map((l) => (l !== entry && l?.role === 'primary' ? { ...l, role: 'alternate' } : l))
+        : logos;
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     return core.store.updateBrand(brand.id, json);
@@ -76,7 +82,9 @@ export function registerLogoRoutes(app: FastifyInstance, deps: { core: Core }): 
       if (cs) patch.clearSpace = cs;
     }
     json.logos = readLogos(json).map((l, i) => {
-      if (i !== idx) return l;
+      // Promoting this mark to primary demotes the incumbent: the kit holds
+      // one primary at a time (see the POST above for why).
+      if (i !== idx) return patch.role === 'primary' && l?.role === 'primary' ? { ...l, role: 'alternate' } : l;
       const next = { ...l, ...patch };
       if ('clearSpace' in body && !patch.clearSpace) delete next.clearSpace;
       return next;

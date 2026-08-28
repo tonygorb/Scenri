@@ -176,6 +176,28 @@ describe('buildFromUrl', () => {
     expect(warnings).toEqual([]);
   });
 
+  // og:image is usually a marketing photograph, not a mark. It is still saved
+  // so the brand has a face, but "primary" is what the compiler asks a model
+  // to reproduce exactly as drawn, and a share image must never be that.
+  it('an og:image fallback is saved as an alternate, never called the primary', async () => {
+    const ogOnly = (async (input: any) => {
+      const url = String(input);
+      if (url.endsWith('/share.jpg')) return new Response(PNG, { status: 200 });
+      return new Response(
+        '<html><head><title>OgOnly</title><meta property="og:image" content="/share.jpg"></head><body></body></html>',
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const { brand, warnings } = await buildFromUrl('https://og.example/', {
+      fetchImpl: ogOnly,
+      saveAsset: async () => 'asset:cafecafe',
+    });
+    const b = brand as any;
+    expect(b.logos[0]).toEqual({ role: 'alternate', file: 'asset:cafecafe' });
+    expect(warnings.join(' ')).toContain('social share image');
+    expect(validateBrand(brand).valid).toBe(true);
+  });
+
   it('degrades gracefully: no colors, no logo saver', async () => {
     const bare = (async () =>
       new Response('<html><head><title>Plain</title></head><body></body></html>', {

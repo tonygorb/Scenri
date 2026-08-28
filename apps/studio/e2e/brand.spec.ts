@@ -415,6 +415,13 @@ test.describe('brand kit', () => {
     await expect(markChip).toHaveCount(1);
     await expect(markChip).toHaveAttribute('data-warn', '1');
     await expect(markChip).toHaveAttribute('title', /cannot read the brand mark/);
+
+    // And the loss is stated at card level before sending, not only behind a
+    // hover: the composer's own line names the mark that will ride as text.
+    const dropNote = page.locator('.sc-reshape-hint[data-kind="dropped-refs"]');
+    await expect(dropNote).toBeVisible();
+    await expect(dropNote).toContainText('E2E Fixture logo');
+    await expect(dropNote).toContainText('text only');
   });
 });
 

@@ -150,7 +150,12 @@ export function shotSpecifiesCamera(text: string): boolean {
  * the feature silently. The house answer to this is `garmentDisplayDirective`:
  * state the rule, and carry the escape clause inside the same sentence.
  */
-export function sceneFigureDirectives(opts: { figure: string; treatment?: string; hasPerson: boolean }): string[] {
+export function sceneFigureDirectives(opts: {
+  figure: string;
+  treatment?: string;
+  hasPerson: boolean;
+  hasMark?: boolean;
+}): string[] {
   const figure = opts.figure.trim().replace(/[.\s]+$/, '');
   if (!figure) return [];
   const treatment = (opts.treatment ?? '').trim().replace(/[.\s]+$/, '');
@@ -225,7 +230,17 @@ export function sceneFigureDirectives(opts: { figure: string; treatment?: string
         // "Invent" was read as "vary": a real mark visible in the reference
         // came back with a word bolted on, which is the same brand wearing a hat.
         'That includes near-misses: do not borrow, extend or re-spell a name that appears in any attached reference, ' +
-        'and use ordinary words for the produce itself rather than any company that sells it.',
+        'and use ordinary words for the produce itself rather than any company that sells it.' +
+        // The fictional-brands rule and an attached brand mark are in direct
+        // conflict without this: "resembling no existing brand" reads as an
+        // instruction to mutate the one real mark the user deliberately
+        // attached. Same shape as pairDirectives' packshot override - name the
+        // scope of the earlier rule, carry the exception in the same breath.
+        (opts.hasMark
+          ? " The one exception is the attached brand mark: it is this brand's own real mark, deliberately attached, " +
+            'so the fictional-brands rule above does not apply to it. Where the direction asks for that mark to appear, ' +
+            'it appears exactly as drawn - never redrawn, re-lettered or fictionalised.'
+          : ''),
     );
   }
   return out;

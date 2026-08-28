@@ -6,6 +6,7 @@ import { api, assetUrl, type Brand } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { brandPath } from '../routes.js';
 import { flattenPalette } from '../brand/palette.js';
+import { primaryMark } from '../brand/marks.js';
 import { brandName } from '../layout/nav.js';
 import { duplicateOf } from './brandDupes.js';
 
@@ -96,7 +97,7 @@ export function BrandSetup() {
   const cancel = () => navigate('/', { replace: true });
 
   const palette = made ? flattenPalette(made.json?.palette) : [];
-  const logo = made ? assetUrl(made.json?.logos?.[0]?.file) : null;
+  const logo = made ? assetUrl(primaryMark(made.json)?.file) : null;
 
   return (
     <div className="sc-wiz">

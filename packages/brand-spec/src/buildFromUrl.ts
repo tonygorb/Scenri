@@ -123,12 +123,17 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
   const palette = pickPalette(colorSources);
   if (!palette.primary) warnings.push('No confident palette found. Set colors manually.');
 
-  // logo: largest icon, else og:image
+  // logo: largest icon, else og:image. The og:image fallback is usually a
+  // marketing photograph, not a mark: it is still saved so the brand has a
+  // face, but never called the primary logo, because "primary" is what the
+  // compiler asks a model to reproduce exactly as drawn.
   let logoRef: string | undefined;
-  const iconHref =
-    $('link[rel="apple-touch-icon"]').attr('href') ||
-    $('link[rel~="icon"]').attr('href') ||
-    $('meta[property="og:image"]').attr('content');
+  let logoFromOg = false;
+  let iconHref = $('link[rel="apple-touch-icon"]').attr('href') || $('link[rel~="icon"]').attr('href');
+  if (!iconHref) {
+    iconHref = $('meta[property="og:image"]').attr('content');
+    logoFromOg = Boolean(iconHref);
+  }
   if (iconHref && opts.saveAsset) {
     try {
       const iconRes = await fetchImpl(new URL(iconHref, origin).toString(), { redirect: 'follow' });
@@ -141,6 +146,10 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
     }
   }
   if (!logoRef) warnings.push('No logo captured. Add one manually.');
+  else if (logoFromOg)
+    warnings.push(
+      'No site icon was found; the social share image was saved as an alternate mark. Check it before treating it as the logo.',
+    );
 
   const brand: Record<string, unknown> = {
     specVersion: '0.1',
@@ -167,7 +176,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
           },
         }
       : {}),
-    ...(logoRef ? { logos: [{ role: 'primary', file: logoRef }] } : {}),
+    ...(logoRef ? { logos: [{ role: logoFromOg ? 'alternate' : 'primary', file: logoRef }] } : {}),
   };
   return { brand, warnings };
 }

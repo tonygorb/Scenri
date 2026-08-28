@@ -57,6 +57,23 @@ describe('mergeScrape', () => {
     expect((twice.brand as any).logos).toHaveLength(2);
   });
 
+  // The kit holds one primary at a time, and the user's standing choice
+  // outranks a crawler's guess: refresh-from-url used to append a second
+  // favicon-derived "primary" beside the real one.
+  it('a scraped primary defers to the primary the kit already has', () => {
+    const existing = { specVersion: '0.1', meta: { name: 'Acme' }, logos: [{ role: 'primary', file: 'asset:bbbb' }] };
+    const { brand } = mergeScrape(existing, scraped);
+    expect((brand as any).logos).toEqual([
+      { role: 'primary', file: 'asset:bbbb' },
+      { role: 'alternate', file: 'asset:aaaa' },
+    ]);
+  });
+
+  it('a scraped primary stays primary when the kit has none', () => {
+    const { brand } = mergeScrape({ specVersion: '0.1', meta: { name: 'Acme' } }, scraped);
+    expect((brand as any).logos).toEqual([{ role: 'primary', file: 'asset:aaaa' }]);
+  });
+
   it('never removes a mark a scrape failed to find', () => {
     const existing = { specVersion: '0.1', meta: { name: 'Acme' }, logos: [{ role: 'mark', file: 'asset:bbbb' }] };
     const { brand } = mergeScrape(existing, { specVersion: '0.1', meta: { name: 'Acme' } });

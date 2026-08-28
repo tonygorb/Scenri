@@ -1,4 +1,4 @@
-import type { EngineCapabilities, Core } from '@scenri/core';
+import type { EngineCapabilities, Core, ReferenceRole } from '@scenri/core';
 import type { CustomScene } from './assetRecords.js';
 import { composePrompt, type Scene } from './scenes.js';
 import { allocateAttachments } from './attachmentBudget.js';
@@ -76,7 +76,7 @@ export interface Attachment {
    * composition reference must not recolour the product. `reference` is kept as
    * the untyped legacy role for briefs authored before roles were split.
    */
-  role: 'product' | 'character' | 'brand' | 'scene' | 'composition' | 'style' | 'reference';
+  role: ReferenceRole;
   /**
    * The id of the product or presenter this image came from, when it came from
    * one. Callers correlate a compiled attachment back to the chip that asked
@@ -542,7 +542,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // last word on cast (briefDirectives.ts: a scene composing an attached
   // presenter out of their own shot was a real reported failure).
   const figureDirectives = scene?.figure
-    ? sceneFigureDirectives({ figure: scene.figure, treatment: scene.figureTreatment, hasPerson })
+    ? sceneFigureDirectives({
+        figure: scene.figure,
+        treatment: scene.figureTreatment,
+        hasPerson,
+        // The treatment's fictional-brands rule needs to know a real mark is
+        // deliberately in play; attachments are fully collected by this point.
+        hasMark: attachments.some((a) => a.role === 'brand'),
+      })
     : [];
 
   // "Closeup zoom with DOF holding the bottle" reads, to a model, like an
@@ -617,10 +624,11 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // an identity they attached will not be shown; a scene ref is context that
     // degrades quietly, and naming it here reads as though their scene failed.
     const names = [...new Set(dropped.filter((d) => d.role !== 'scene').map((d) => d.label))];
+    // "reads 0 reference images" is technically true and reads like a bug; an
+    // engine that takes none deserves a sentence written for that case.
+    const reads = max === 0 ? 'reads no reference images' : `reads ${max} reference image${max === 1 ? '' : 's'}`;
     warnings.push(
-      `${ctx.engineCaps.displayName} reads ${max} reference image${max === 1 ? '' : 's'}, so ${names.join(
-        ' and ',
-      )} ${names.length === 1 ? 'was' : 'were'} left out.`,
+      `${ctx.engineCaps.displayName} ${reads}, so ${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out.`,
     );
   }
 

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCore, type Core, type EditRequest, type EngineAdapter } from '@scenri/core';
+import { createCore, type Core, type EditRequest, type EngineAdapter, type GenerateRequest } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
 import { waitDone as waitDoneOn } from './helpers.js';
@@ -107,6 +107,27 @@ describe('brand marks', () => {
     });
     expect(third.statusCode).toBe(400);
     expect(third.json().error).toMatch(/not an image/);
+  });
+
+  // "Which is THE logo" must have one answer: the nav avatar, the setup screen
+  // and Settings all resolve the primary, and two entries claiming it is how
+  // the wrong mark reaches a prompt.
+  it('holds one primary at a time: promoting a mark demotes the incumbent', async () => {
+    const brand = await mkBrand();
+    await uploadLogo(brand.id); // first mark becomes the primary
+    const second = await uploadLogo(brand.id, { role: 'primary' }, PNG_1PX);
+    expect(second.statusCode).toBe(200);
+    expect(second.json().json.logos.map((l: any) => l.role)).toEqual(['alternate', 'primary']);
+
+    // and the same through PATCH: re-promoting the first demotes the second
+    const firstHash = second.json().json.logos[0].file.slice(6);
+    const promoted = await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/logos/${firstHash}`,
+      payload: { role: 'primary' },
+    });
+    expect(promoted.statusCode).toBe(200);
+    expect(promoted.json().json.logos.map((l: any) => l.role)).toEqual(['primary', 'alternate']);
   });
 
   it('rejects an unknown role rather than writing a document the schema will refuse', async () => {
@@ -1760,6 +1781,81 @@ describe('a refinement carries marks and references, not just subjects', () => {
       payload: { brandId: brand.id, engineId: 'cap-spy', brief: { tokens: [{ t: 'text', v: 'x' }] } },
     });
     expect(bare.json().attachments).toEqual([]);
+    await local.close();
+  });
+
+  // The synthetic identity compile's warnings used to be discarded, so a mark
+  // whose logo left the kit between the shot and its refine dropped with
+  // nothing said to anyone - the silent brand-fidelity loss, fixed here.
+  it('a refine says when a carried mark has since left the kit', async () => {
+    const { engine } = capture(6);
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const { brand, projectId, genNode, logoHash } = await seed(local);
+
+    const del = await local.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/logos/${logoHash}` });
+    expect(del.statusCode).toBe(200);
+
+    // the preview with a parent says it before anything is spent
+    const preview = await local.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: {
+        brandId: brand.id,
+        engineId: 'cap-spy',
+        parentId: genNode.id,
+        brief: { tokens: [{ t: 'text', v: 'x' }] },
+      },
+    });
+    expect(preview.statusCode).toBe(200);
+    expect((preview.json().warnings ?? []).join(' ')).toContain('no longer in the kit');
+
+    // and the send repeats it on the 202
+    const edit = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'cap-spy',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    expect(edit.statusCode).toBe(202);
+    expect((edit.json().warnings ?? []).join(' ')).toContain('no longer in the kit');
+    await waitDoneOn(local, edit.json().id);
+    await local.close();
+  });
+
+  // The edit path's wire payload is asserted above; this is the generation
+  // path's: the mark reaches the engine as the original stored PNG, with the
+  // brand role at the matching index.
+  it('a generation sends the original stored mark with the brand role at its index', async () => {
+    const gens: GenerateRequest[] = [];
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'cap-spy',
+        displayName: 'Cap Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 5,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async (req) => {
+        gens.push(req);
+        return { images: [core.images.save(PNG_1PX)], costUsd: 0 };
+      },
+      edit: async () => ({ images: [core.images.save(PNG_1PX)], costUsd: 0 }),
+    };
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const { logoHash } = await seed(local);
+    const req = gens[0];
+    const idx = req.referenceImages?.indexOf(core.images.pathFor(logoHash)) ?? -1;
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(req.referenceRoles?.[idx]).toBe('brand');
     await local.close();
   });
 

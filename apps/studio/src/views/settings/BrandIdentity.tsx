@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, TrashSimple, UploadSimple } from '@phosphor-icons/react';
 import { api, imgUrl, uploadLogo, type Brand } from '../../api.js';
-import { MARK_BACKGROUNDS, MARK_ROLES, MARK_ROLE_LABEL, marksOf, type Mark } from '../../brand/marks.js';
+import { MARK_BACKGROUNDS, MARK_ROLES, MARK_ROLE_LABEL, marksOf, primaryOf, type Mark } from '../../brand/marks.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { useToasts } from '../../toasts.js';
 import type { BrandDoc } from './useBrandDoc.js';
@@ -27,7 +27,7 @@ export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
   const meta = json.meta ?? {};
   const name: string = meta.name ?? brand.slug;
   const marks = marksOf(json);
-  const primary = marks.find((m) => m.role === 'primary') ?? marks[0];
+  const primary = primaryOf(marks) ?? undefined;
   const rest = marks.filter((m) => m !== primary);
 
   const writeMeta = (fields: Record<string, string>) => {
