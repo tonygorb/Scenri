@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.3](https://github.com/tonygorb/Scenri/compare/v0.6.2...v0.6.3) (2026-08-28)
+
+
+### Bug Fixes
+
+* brand mark carriage is consistent and honest end to end ([3ebd733](https://github.com/tonygorb/Scenri/commit/3ebd7337615a390215c3da297ecfb6f21074acdf))
+* brand mark carriage is consistent and honest end to end ([bf1927e](https://github.com/tonygorb/Scenri/commit/bf1927e0ae95a86cf1666c4efb70306b7c4e2d6b))
+* route-navigation surfaces are real links ([1c8c331](https://github.com/tonygorb/Scenri/commit/1c8c3311c7e7caa88bdbb2190f1bd37445d44444))
+* route-navigation surfaces are real links ([816cf8c](https://github.com/tonygorb/Scenri/commit/816cf8c1485879c50fb4b7e9a85cf67aced152b1))
+
 ## [0.6.2](https://github.com/tonygorb/Scenri/compare/v0.6.1...v0.6.2) (2026-08-28)
 
 
