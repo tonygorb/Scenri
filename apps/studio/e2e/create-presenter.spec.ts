@@ -191,3 +191,111 @@ test.describe('a created presenter, from submit to a living page', () => {
     await expect(page).toHaveURL(new RegExp(`/${slug}$`));
   });
 });
+
+/**
+ * One creation attempt owns one draft.
+ *
+ * The draft exists so the dialog can close without asking, and so Try again
+ * after a failed build does not ask for the photographs a second time. It used
+ * to live in localStorage for thirty days and was never spent on success, so a
+ * finished presenter's photographs, name and categories came back in the next
+ * "New presenter" — which is how somebody casts a presenter from the previous
+ * presenter's face. It is session-scoped now, and a landed build clears it.
+ */
+test.describe('the create draft lives exactly as long as the attempt', () => {
+  const open = (p: Page, slug: string) => p.goto(`/${slug}/presenters?new=presenter`);
+  const refs = (p: Page) => p.locator('.sc-assetform-ref');
+  const name = (p: Page) => p.getByLabel('Name', { exact: true });
+
+  const upload = async (p: Page, files: string[]) => {
+    await p
+      .locator('.sc-newdlg input[type="file"]')
+      .setInputFiles(files.map((n) => ({ name: n, mimeType: 'image/png', buffer: PNG })));
+    // content-addressed, so identical bytes dedupe to one thumbnail
+    await expect(refs(p)).toHaveCount(1);
+  };
+
+  test('a presenter that was actually created leaves nothing behind', async ({ page }) => {
+    test.setTimeout(90_000);
+    const slug = await currentBrand(page);
+
+    await open(page, slug);
+    await upload(page, ['a.png']);
+    await name(page).fill('Spent Draft');
+    await page.locator('.sc-dlg-go').click();
+
+    // success is the build landing, not the job queuing: the presenter does
+    // not exist until it is written, and that is when the draft is spent
+    await expect(page.getByRole('link', { name: 'Spent Draft', exact: true })).toBeVisible({ timeout: 30_000 });
+
+    await open(page, slug);
+    await expect(refs(page)).toHaveCount(0);
+    await expect(name(page)).toHaveValue('');
+  });
+
+  test('dismissing keeps it in this tab, and only this tab', async ({ page, context }) => {
+    const slug = await currentBrand(page);
+
+    await open(page, slug);
+    await upload(page, ['d.png']);
+    await name(page).fill('Dismissed');
+    // past the 400ms debounce, so the write has actually happened
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-newdlg')).toHaveCount(0);
+    // there is no confirm, and adding one is not the answer here
+    await expect(page.locator('[role="alertdialog"]')).toHaveCount(0);
+
+    // same tab: your work is where you left it
+    await open(page, slug);
+    await expect(refs(page)).toHaveCount(1);
+    await expect(name(page)).toHaveValue('Dismissed');
+    await page.keyboard.press('Escape');
+
+    // another tab of the same browser shares localStorage but not the session,
+    // so nothing of this attempt reaches it
+    const other = await context.newPage();
+    await open(other, slug);
+    await expect(other.locator('.sc-newdlg')).toBeVisible();
+    await expect(other.locator('.sc-assetform-ref')).toHaveCount(0);
+    await expect(other.getByLabel('Name', { exact: true })).toHaveValue('');
+    await other.close();
+  });
+
+  test('a submit that fails hands the work back', async ({ page }) => {
+    const slug = await currentBrand(page);
+    await page.route('**/asset-builds', (route) =>
+      route.request().method() === 'POST'
+        ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"engine fell over"}' })
+        : route.continue(),
+    );
+
+    await open(page, slug);
+    await upload(page, ['e.png']);
+    await name(page).fill('Retry Me');
+    await page.locator('.sc-dlg-go').click();
+
+    // the dialog stays, says what went wrong, and keeps everything: this is
+    // the case the draft was built for
+    await expect(page.locator('.sc-newdlg')).toBeVisible();
+    await expect(refs(page)).toHaveCount(1);
+    await expect(name(page)).toHaveValue('Retry Me');
+  });
+
+  test('what you upload for one brand never appears in another', async ({ page }) => {
+    const slug = await currentBrand(page);
+    const other = await page.evaluate(async () => {
+      const brands = await (await fetch('/api/brands')).json();
+      return brands.length > 1 ? brands[1].slug : null;
+    });
+    test.skip(!other, 'this home holds a single brand');
+
+    await open(page, slug);
+    await upload(page, ['a.png']);
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Escape');
+
+    await open(page, other as string);
+    await expect(refs(page)).toHaveCount(0);
+  });
+});

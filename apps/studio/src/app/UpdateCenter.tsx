@@ -3,6 +3,7 @@ import { ArrowCircleUp, Gift } from '@phosphor-icons/react';
 import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
 import { P } from '../routes.js';
+import { session } from '../storage.js';
 import { useOpenSettings } from './dialogs.js';
 import { floatState, floatVisible } from './updateRules.js';
 
@@ -40,21 +41,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 const DISMISS_KEY = 'scenri:update-dismissed';
 
-function readDismissed(): string | null {
-  try {
-    return sessionStorage.getItem(DISMISS_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeDismissed(version: string): void {
-  try {
-    sessionStorage.setItem(DISMISS_KEY, version);
-  } catch {
-    /* private mode */
-  }
-}
+const readDismissed = (): string | null => session.get(DISMISS_KEY);
+const writeDismissed = (version: string): void => session.set(DISMISS_KEY, version);
 
 interface UpdateCenterValue {
   status: UpdateStatus | null;

@@ -1,17 +1,29 @@
 /**
  * What someone typed into the create dialog but has not sent yet, kept per
- * brand and per kind.
+ * brand and per kind, for as long as the tab lives.
  *
  * This is what lets the dialog close without asking. A confirm ("discard your
- * work?") is the wrong answer to a problem you can just not have: nothing is
- * lost, so there is nothing to warn about. It is also the fix for Try again,
- * which used to reopen a blank form and ask the person to re-upload the photos
- * the failed build had already read.
+ * work?") is the wrong answer to a problem you can just not have: step away
+ * mid-thought and it is all still there when you come back. It is also the fix
+ * for Try again, which used to reopen a blank form and ask the person to
+ * re-upload the photos the failed build had already read.
  *
- * Sibling of draft.ts and held to the same rules: no React import, so the
- * bookkeeping half — the half that goes wrong in ways nobody notices for a
- * week — sits where a test can reach it. (vitest only globs `.ts` under test/.)
+ * It lives in sessionStorage, and that is the whole lifetime rule: one creation
+ * attempt owns one draft, and the attempt ends when the asset exists or when
+ * the tab does. Photographs from last week quietly refilling a form headed
+ * "New presenter" is how somebody casts a presenter from the previous
+ * presenter's face. UpdateCenter reached the same conclusion about its own
+ * dismissal, for the same reason.
+ *
+ * Sibling of draft.ts, which stays in localStorage on purpose: a brief you are
+ * still writing is work to come back to, not an attempt in flight.
+ *
+ * Held to draft.ts's other rule too: no React import, so the bookkeeping half —
+ * the half that goes wrong in ways nobody notices for a week — sits where a
+ * test can reach it. (vitest only globs `.ts` under test/.)
  */
+
+import { STALE_MS, local, session } from './storage.js';
 
 export type CreateKind = 'product' | 'presenter' | 'scene';
 
@@ -41,35 +53,21 @@ export interface AssetDraft {
   pending: string | null;
 }
 
-/** Same window as the composer draft: a month-old unsent form is not a draft. */
-const STALE_MS = 30 * 24 * 60 * 60 * 1000;
-
 /** brandId, not slug — renaming a brand must not orphan what you were typing. */
 export const assetDraftKey = (brandId: string, kind: CreateKind): string => `scenri:new-${brandId}-${kind}`;
 
-/** Private-mode browsers throw on localStorage; a missing draft is not an error. */
-function read(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-function write(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* the draft is nice to have, not worth an exception */
-  }
-}
-function remove(key: string): void {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    /* nothing to clean up if we cannot reach it anyway */
-  }
-}
+const read = (key: string): string | null => session.get(key);
+const write = (key: string, value: string): void => session.set(key, value);
 
+/**
+ * Also evicts the localStorage key of the same name. Drafts lived there until
+ * this became session-scoped, and one nobody reads any more is still a key
+ * holding somebody's photographs — this is the only chance we get to drop it.
+ */
+function remove(key: string): void {
+  session.del(key);
+  local.del(key);
+}
 export interface DraftFields {
   name?: string;
   instruction?: string;
@@ -162,6 +160,23 @@ export function saveAssetDraft(
 
 export function clearAssetDraft(brandId: string, kind: CreateKind): void {
   remove(assetDraftKey(brandId, kind));
+}
+
+/**
+ * The build this draft was sent as has landed, so the draft is spent.
+ *
+ * A presenter does not exist when its job is queued; it exists when the build
+ * writes it. Until then the draft is held on purpose, marked with the job, so a
+ * failure can hand the photographs back. This is the other end of that: the
+ * asset arrived, the attempt is over, and nothing it was made from should be
+ * waiting in the next form someone opens.
+ *
+ * Keyed on the job id rather than clearing whatever is there, because by the
+ * time a build lands the person may already be typing the next one.
+ */
+export function spendAssetDraft(brandId: string, kind: CreateKind, jobId: string): void {
+  const draft = loadAssetDraft(brandId, kind);
+  if (draft?.pending === jobId) clearAssetDraft(brandId, kind);
 }
 
 /**

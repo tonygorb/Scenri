@@ -1,4 +1,5 @@
 import type { SentenceToken } from './composer/line.js';
+import { STALE_MS, local } from './storage.js';
 
 /**
  * The composer's in-progress brief, kept per brand so a typed-but-unsent shot
@@ -18,32 +19,16 @@ export interface PersistedDraft {
   setSlug: string | null;
 }
 
-const STALE_MS = 30 * 24 * 60 * 60 * 1000;
-
 export const draftKey = (brandId: string): string => `scenri:draft-${brandId}`;
 
-/** Private-mode browsers throw on localStorage; a missing draft is not an error. */
-function read(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-function write(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* the draft is nice to have, not worth an exception */
-  }
-}
-function remove(key: string): void {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    /* nothing to clean up if we cannot reach it anyway */
-  }
-}
+/*
+ * The local lane, where createDraft.ts takes the session one, and the
+ * difference is the point: a brief someone is part way through writing is work
+ * to come back to tomorrow, not one creation attempt in flight.
+ */
+const read = (key: string): string | null => local.get(key);
+const write = (key: string, value: string): void => local.set(key, value);
+const remove = (key: string): void => local.del(key);
 
 /** A blank composer is not worth a write: nothing typed, no attachment, no branch target. */
 export function isNonTrivial(

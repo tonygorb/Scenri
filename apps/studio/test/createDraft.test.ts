@@ -6,6 +6,7 @@ import {
   loadAssetDraft,
   saveAssetDraft,
   shouldHydrate,
+  spendAssetDraft,
   type AssetDraft,
   type PendingState,
 } from '../src/createDraft.js';
@@ -13,6 +14,7 @@ import {
 const BRAND = 'b-1234';
 
 beforeEach(() => {
+  sessionStorage.clear();
   localStorage.clear();
 });
 
@@ -106,38 +108,38 @@ describe('rejection removes the key as well as returning null', () => {
       importUrl: '',
       pending: null,
     };
-    localStorage.setItem(assetDraftKey(BRAND, 'scene'), JSON.stringify({ ...base, ...over }));
+    sessionStorage.setItem(assetDraftKey(BRAND, 'scene'), JSON.stringify({ ...base, ...over }));
   };
 
   it('drops an unparseable value', () => {
-    localStorage.setItem(assetDraftKey(BRAND, 'scene'), '{not json');
+    sessionStorage.setItem(assetDraftKey(BRAND, 'scene'), '{not json');
     expect(loadAssetDraft(BRAND, 'scene')).toBeNull();
-    expect(localStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
+    expect(sessionStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
   });
 
   it('drops a version it does not know', () => {
     stored({ v: 2 as any });
     expect(loadAssetDraft(BRAND, 'scene')).toBeNull();
-    expect(localStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
+    expect(sessionStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
   });
 
   it('drops a draft written for another brand', () => {
     stored({ brandId: 'b-other' });
     expect(loadAssetDraft(BRAND, 'scene')).toBeNull();
-    expect(localStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
+    expect(sessionStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
   });
 
   it('drops a draft written for another kind', () => {
     stored({ kind: 'presenter' });
     expect(loadAssetDraft(BRAND, 'scene')).toBeNull();
-    expect(localStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
+    expect(sessionStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
   });
 
   it('drops one older than thirty days, and keeps one just inside', () => {
     const day = 24 * 60 * 60 * 1000;
     stored({ updatedAt: new Date(Date.now() - 31 * day).toISOString() });
     expect(loadAssetDraft(BRAND, 'scene')).toBeNull();
-    expect(localStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
+    expect(sessionStorage.getItem(assetDraftKey(BRAND, 'scene'))).toBeNull();
 
     stored({ updatedAt: new Date(Date.now() - 29 * day).toISOString() });
     expect(loadAssetDraft(BRAND, 'scene')?.name).toBe('Shore');
@@ -191,6 +193,68 @@ describe('shouldHydrate', () => {
   it('stays blank while that build is still running or already landed', () => {
     expect(shouldHydrate(draft('ab-1'), 'running')).toBe(false);
     expect(shouldHydrate(draft('ab-1'), 'done')).toBe(false);
+  });
+});
+
+describe('the session lane', () => {
+  it('writes where the tab ends, not where the browser does', () => {
+    saveAssetDraft(BRAND, 'presenter', { name: 'Ofira' });
+    expect(sessionStorage.getItem(assetDraftKey(BRAND, 'presenter'))).toContain('Ofira');
+    expect(localStorage.getItem(assetDraftKey(BRAND, 'presenter'))).toBeNull();
+  });
+
+  it('ignores a draft an older build left in localStorage', () => {
+    localStorage.setItem(
+      assetDraftKey(BRAND, 'presenter'),
+      JSON.stringify({
+        v: 1,
+        brandId: BRAND,
+        kind: 'presenter',
+        updatedAt: new Date().toISOString(),
+        name: 'Last week',
+        instruction: '',
+        facets: [],
+        imageHashes: ['a'.repeat(32)],
+        importUrl: '',
+        pending: null,
+      }),
+    );
+    expect(loadAssetDraft(BRAND, 'presenter')).toBeNull();
+  });
+
+  it('evicts that older key rather than leaving the photographs sitting in it', () => {
+    localStorage.setItem(assetDraftKey(BRAND, 'presenter'), '{"v":1}');
+    clearAssetDraft(BRAND, 'presenter');
+    expect(localStorage.getItem(assetDraftKey(BRAND, 'presenter'))).toBeNull();
+  });
+});
+
+describe('spendAssetDraft', () => {
+  const sent = (jobId: string | null) =>
+    saveAssetDraft(BRAND, 'presenter', { name: 'Ofira', imageHashes: ['a'.repeat(32)], pending: jobId });
+
+  it('clears the draft the landed build was sent as', () => {
+    sent('job-1');
+    spendAssetDraft(BRAND, 'presenter', 'job-1');
+    expect(loadAssetDraft(BRAND, 'presenter')).toBeNull();
+  });
+
+  it('leaves a draft tagged with another job alone: you may be typing the next one already', () => {
+    sent('job-2');
+    spendAssetDraft(BRAND, 'presenter', 'job-1');
+    expect(loadAssetDraft(BRAND, 'presenter')?.name).toBe('Ofira');
+  });
+
+  it('leaves an unsent draft alone', () => {
+    sent(null);
+    spendAssetDraft(BRAND, 'presenter', 'job-1');
+    expect(loadAssetDraft(BRAND, 'presenter')?.name).toBe('Ofira');
+  });
+
+  it('does not reach across into another kind', () => {
+    saveAssetDraft(BRAND, 'scene', { name: 'Shore', pending: 'job-1' });
+    spendAssetDraft(BRAND, 'presenter', 'job-1');
+    expect(loadAssetDraft(BRAND, 'scene')?.name).toBe('Shore');
   });
 });
 
