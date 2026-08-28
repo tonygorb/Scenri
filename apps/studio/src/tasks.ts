@@ -1,5 +1,6 @@
 import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel } from './api.js';
 import { kitPath, presenterPath, scenePath, shotPath } from './routes.js';
+import { local } from './storage.js';
 
 /**
  * The model behind the notifications bell.
@@ -277,21 +278,10 @@ export function unreadCount(feed: NotificationItem[], seenAt: string | null): nu
 const feedKey = (brandId: string) => `scenri:notifications-${brandId}`;
 const seenKey = (brandId: string) => `scenri:notifications-seen-${brandId}`;
 
-/** Private-mode browsers throw on localStorage; a missing record is not an error. */
-function read(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-function write(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* history is nice to have, not worth an exception */
-  }
-}
+/* The local lane: what the bell keeps is a record, and one that empties when
+ * the tab closes is not a record. */
+const read = (key: string): string | null => local.get(key);
+const write = (key: string, value: string): void => local.set(key, value);
 
 export function loadFeed(brandId: string): NotificationItem[] {
   const raw = read(feedKey(brandId));

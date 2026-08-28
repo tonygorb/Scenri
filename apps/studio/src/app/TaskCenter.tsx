@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { api, type AssetBuild, type Brand } from '../api.js';
+import { spendAssetDraft } from '../createDraft.js';
 import { useToasts } from '../toasts.js';
 import { hubPath } from '../routes.js';
 import { useAppData } from './AppShell.js';
@@ -165,7 +166,14 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
     const live = new Set(liveBuilds.map((b) => b.id));
     const vanished = buildsRef.current.some((b) => !b.finished && !live.has(b.id));
     if (landed.length || vanished) {
-      for (const b of landed) brandPulledRef.current.add(b.id);
+      for (const b of landed) {
+        brandPulledRef.current.add(b.id);
+        // The asset exists now, so the attempt that made it is over. Its draft
+        // was kept past the submit for one reason — a failure handing the
+        // photographs back — and that reason is spent. Left alone, it refills
+        // the next New presenter with the last one's face.
+        spendAssetDraft(brandId, b.kind, b.id);
+      }
       await refreshBrandsRef.current();
     }
     // After the pull, never before: setBuilds is what removes the in-progress
