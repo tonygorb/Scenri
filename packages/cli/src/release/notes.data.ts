@@ -51,6 +51,29 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.2',
+    date: '2026-08-28',
+    title: 'Scenes keep what makes them distinctive.',
+    sections: [
+      {
+        heading: 'Scenes',
+        body: 'A scene built from references that are about a person now keeps that person as part of its art direction: where they sit in the composition, and what has been done to them, whether that is a face covered in stickers or a figure behind fabric. Before, a reference like that was read as an empty room and the idea was lost.',
+      },
+      {
+        heading: 'Create',
+        body: 'Attach a presenter to a scene like that and they take the role, wearing their own face under the treatment. Attach nobody and the person stays anonymous. Ask for no people and the treatment stays on whatever is left in the frame.',
+      },
+      {
+        heading: 'Building a scene',
+        body: 'The notes field is now Direction, and it decides how your references are read. Say what matters in them and what to ignore, and it carries more weight than the pictures alone. You can edit it later from the scene page.',
+      },
+      {
+        heading: 'Fixes',
+        body: "Reading a scene's references again no longer clears the direction you wrote. Scenes you build yourself now appear on the home shelf beside the built-in ones, and a scene that finishes while you are looking at the library no longer stays hidden until you reload.",
+      },
+    ],
+  },
+  {
     version: '0.6.1',
     date: '2026-08-26',
     sections: [
