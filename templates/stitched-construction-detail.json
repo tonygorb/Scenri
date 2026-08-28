@@ -4,12 +4,12 @@
   "promptName": "Stitched Construction Detail",
   "legacyNames": ["Stitched Construction Detail"],
   "keywords": ["stitch", "seam", "construction", "macro", "leather", "welt", "craft", "detail", "thread"],
-  "description": "Extreme macro on a product's genuine hand-stitched construction seam — the welt where a boot's leather upper meets its sole — raking light revealing real thread, leather, and layered structure as proof of craftsmanship.",
+  "description": "Extreme macro on the subject's genuine hand-stitched construction seam — raking light revealing real thread and layered structure as proof of craftsmanship.",
   "lighting": "Single raking light, genuine stitch shadow",
   "subject": "product",
   "collections": ["Detail"],
   "verticals": ["Footwear", "Accessories"],
-  "prompt": "extreme macro on the welted sole seam of a leather boot, genuine hand-stitched thread crossing the welt with real leather grain and layered construction visible, a single raking light held low across the seam so every stitch casts a genuine tiny shadow, razor-shallow depth of field, a plain neutral surface behind that never competes with the construction detail, no CGI-smooth surfaces, no props beyond the boot, immaculate commercial-render clarity",
+  "prompt": "extreme macro on the subject's construction seam, genuine hand-stitched thread crossing the seam with real material grain and layered construction visible, a single raking light held low across the seam so every stitch casts a genuine tiny shadow, razor-shallow depth of field, a plain neutral surface behind that never competes with the construction detail, no CGI-smooth surfaces, no props beyond the subject, immaculate commercial-render clarity",
   "width": 1024,
   "height": 1280
 }

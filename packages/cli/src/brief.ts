@@ -519,7 +519,27 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const cameraDirectives =
     sceneCamera && !shotSpecifiesCamera(sentence) ? [`Camera for this shot: ${sceneCamera}`] : [];
 
-  const guard = scene ? sceneGuardDirectives({ hasProduct: !!productId, hasPerson }) : [];
+  // Attachments are useless past what the engine will actually read.
+  //
+  // The budget lives in attachmentBudget.ts: essentials board first, then every
+  // distinct attached thing gets one slot before any product or presenter gets
+  // a corroboration angle, then leftovers. This is what stops a second product
+  // angle evicting the reference or brand mark the user attached by hand.
+  //
+  // Allocated here, before the guards are written: a guard about "the scene's
+  // own photograph" may only be said when that photograph survived the budget —
+  // a directive about an image the engine never received is the composer lying
+  // about what was sent.
+  const max = ctx.engineCaps.maxReferenceImages;
+  const { kept, dropped } = allocateAttachments(attachments, max);
+
+  const guard = scene
+    ? sceneGuardDirectives({
+        hasProduct: !!productId,
+        hasPerson,
+        hasScenePhoto: kept.some((a) => a.role === 'scene'),
+      })
+    : [];
   // Product and presenter are otherwise two independent identity locks with no
   // stated relationship; without this line a sweater and its wearer compile as
   // two objects to preserve side by side. One sentence, wearability left to
@@ -608,14 +628,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   ];
   if (allDirectives.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${dedupe(allDirectives).join(' ')}`;
 
-  // Attachments are useless past what the engine will actually read.
-  //
-  // The budget lives in attachmentBudget.ts: essentials board first, then every
-  // distinct attached thing gets one slot before any product or presenter gets
-  // a corroboration angle, then leftovers. This is what stops a second product
-  // angle evicting the reference or brand mark the user attached by hand.
-  const max = ctx.engineCaps.maxReferenceImages;
-  const { kept, dropped } = allocateAttachments(attachments, max);
   if (dropped.some((d) => d.role !== 'scene')) {
     // By label, not by attachment: a product contributes several angles, and
     // naming it once per dropped angle reads as three different products

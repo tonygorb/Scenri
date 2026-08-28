@@ -156,6 +156,18 @@ describe('golden: identity is never lost or confused', () => {
     expect(roles(r)).toEqual(['product', 'product', 'product']);
   });
 
+  it('2b. a catalog scene sends no photograph, so the photo guard stays unsaid', () => {
+    // The photo guard exists for a figure-led custom scene's attached
+    // reference; a catalog scene compiles to text alone and must not carry a
+    // directive about a photograph that was never sent.
+    const r = compile([
+      { t: 'product', id: 'p1' },
+      { t: 'template', id: PRODUCT_SCENE },
+    ]);
+    expect(roles(r)).not.toContain('scene');
+    expect(r.prompt).not.toContain("the scene's own photograph");
+  });
+
   it('3. product + presenter + scene — both identities attach, product first', () => {
     const r = compile([
       { t: 'product', id: 'p1' },
@@ -567,6 +579,15 @@ describe('golden: presenter references are identity, not wardrobe', () => {
     expect(REFERENCE_ROLE_DIRECTIVE.character).toMatch(/face, facial structure, skin, hair and build/);
     expect(REFERENCE_ROLE_DIRECTIVE.character).toMatch(/capture context, not styling to reproduce/);
     expect(REFERENCE_ROLE_DIRECTIVE.character).not.toMatch(/do not restyle/);
+  });
+
+  it('a scene reference lends the world and its treatment, never an identity or an object', () => {
+    // The 2026-08 leak: "no product or brand" was a bare prohibition, and the
+    // staged demo object stayed in frame because the model had nowhere to put
+    // what the photograph showed. A stand-in has a place for it to go.
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/match the environment, the light/);
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/take no identity from the person in it/);
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/stand-in whose place the attached subject takes/);
   });
 
   it("an edit keeps the source image's outfit: the identity reference cannot re-dress it", () => {

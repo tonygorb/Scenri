@@ -9,7 +9,7 @@
   "subject": "product",
   "collections": ["Colored backgrounds"],
   "verticals": ["Beauty", "Fragrance", "Accessories"],
-  "prompt": "a squat ceramic-lidded jar in matte stoneware with a rounded domed lid, nested within the widest fissure of a sun-dried terracotta clay surface, a deep radiating crack network spreading outward from it, a single raking low-angle directional light emphasizing the crack network's real depth and texture, warm golden-hour color temperature, fine dry clay dust settled naturally at the fissure's edge, shallow depth of field keeping the jar and immediate crack texture crisp while the wider field softens toward the edges of frame, warm terracotta and burnt-sienna palette throughout, no second product, no props beyond the clay, immaculate commercial-render clarity",
+  "prompt": "the subject nested within the widest fissure of a sun-dried terracotta clay surface, a deep radiating crack network spreading outward from it, a single raking low-angle directional light emphasizing the crack network's real depth and texture, warm golden-hour color temperature, fine dry clay dust settled naturally at the fissure's edge, shallow depth of field keeping the subject and immediate crack texture crisp while the wider field softens toward the edges of frame, warm terracotta and burnt-sienna palette throughout, no second product, no props beyond the clay, immaculate commercial-render clarity",
   "width": 1024,
   "height": 1280
 }

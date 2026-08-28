@@ -82,6 +82,24 @@ describe('scene loader + composer', () => {
     expect(offenders.map((s) => s.id)).toEqual([]);
   });
 
+  it('a scene stages no object in the subject slot — the brief supplies the subject', () => {
+    const { scenes } = loadScenes(defaultScenesDir());
+    // The 2026-08 leak: thirty prompts opened on a literal staged object ("a
+    // low-profile sand-toned suede-and-mesh trail shoe…") and the vivid head
+    // description beat the tail guard — the demo object rendered beside the
+    // selected product. A scene is a place; its subject arrives with the brief.
+    // These are the portable staged-object nouns from that audit. Deliberately
+    // absent: "phone" (the mirror-OOTD selfie device is that scene's intrinsic
+    // figure prop), "pendant" (rain-glass-night-city's pendant drops are
+    // water), "ring" and "band" (water rings, gas rings, bands of light),
+    // "lamp" and "tube" (practicals and neon are environment). "head to shoe"
+    // is an idiom, not an object, hence the lookbehind.
+    const STAGED =
+      /\b(?:(?<!head to )shoes?|sneakers?|trainers?|boots?|bottles?|jars?|flacons?|vials?|serums?|hoodies?|sweaters?|turtlenecks?|jackets?|necklaces?|earrings?|handbags?|totes?|sunglasses|notebooks?|perfumes?|headphones|earbuds|wristwatch(?:es)?)\b/i;
+    const offenders = scenes.filter((s) => STAGED.test(s.prompt));
+    expect(offenders.map((s) => s.id)).toEqual([]);
+  });
+
   it('rejects a scene whose prompt still names the product', () => {
     const dir = mkdtempSync(join(tmpdir(), 'sc-scene-'));
     writeFileSync(

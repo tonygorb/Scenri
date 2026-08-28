@@ -31,9 +31,12 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   // subject or person from it", which handed the model a photograph of a face
   // treatment and told it to ignore the treatment. A hand-attached reference
   // says "match ... treatment" and works; this now says the same thing, with the
-  // identity carve-out a scene needs and a lone reference does not.
+  // identity carve-out a scene needs and a lone reference does not. The tail
+  // names staged objects as stand-ins rather than just "no product": a bare
+  // prohibition still left the demo object in the frame, because the model had
+  // nowhere to put what the photograph so vividly showed.
   scene:
-    'a reference for this world and for the treatment applied to the figure in it — match the environment, the light, and the material, density, scale, finish and spread of that treatment, including which parts of the form it covers and how far it reaches; take no identity from the person in it, and no product or brand',
+    'a reference for this world and for the treatment applied to the figure in it — match the environment, the light, and the material, density, scale, finish and spread of that treatment, including which parts of the form it covers and how far it reaches; take no identity from the person in it, and treat any product, garment or prop staged in it as a stand-in whose place the attached subject takes — never an object to reproduce',
   composition:
     'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
   style: 'a reference for overall treatment and mood only — take no composition, subject or product detail from it',

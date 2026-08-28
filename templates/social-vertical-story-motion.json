@@ -4,12 +4,12 @@
   "promptName": "Vertical Story Motion",
   "legacyNames": ["Vertical Story Motion"],
   "keywords": ["story", "vertical", "motion", "mid-step", "saturated", "social", "reels", "bold"],
-  "description": "A full-height model caught mid-step in hard directional light against a bold saturated vertical color field, styled with the kinetic energy of a genuine Stories/Reels paid-social ad rather than a static feed post cropped tall. The same technical zip jacket and identity-locked model carry through every frame, with a clean reserved zone for headline text.",
+  "description": "A full-height model caught mid-step in hard directional light against a bold saturated vertical color field, styled with the kinetic energy of a genuine Stories/Reels paid-social ad rather than a static feed post cropped tall. The same identity-locked model carries through every frame, with a clean reserved zone for headline text.",
   "lighting": "Hard directional light, motion-freeze contrast",
   "subject": "person",
   "collections": ["Social"],
   "verticals": ["Apparel", "Accessories", "Food & drink"],
-  "prompt": "a person wearing a matte black technical zip jacket with reflective teal-and-orange trim tape down the zip line, full-height vertical composition, hard directional light, genuine kinetic motion caught mid-step with real fabric movement and crisp hard-edged motion-freeze shadows, set against a fixed saturated vertical color field of deep magenta falling into clean falloff toward the edges, shallow depth of field keeping the model sharp, real specular highlights catching the jacket's technical fabric, a clean, genuinely empty zone reserved in the upper third for headline text, no rendered text, no logos, no watermarks, no second model anywhere in the frame, genuine paid-social advertising finish",
+  "prompt": "a person, full-height vertical composition, hard directional light, genuine kinetic motion caught mid-step with real fabric movement and crisp hard-edged motion-freeze shadows, set against a fixed saturated vertical color field of deep magenta falling into clean falloff toward the edges, shallow depth of field keeping the model sharp, real specular highlights catching the clothing's fabric, a clean, genuinely empty zone reserved in the upper third for headline text, no rendered text, no logos, no watermarks, no second model anywhere in the frame, genuine paid-social advertising finish",
   "width": 1024,
   "height": 1280
 }
