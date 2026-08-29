@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { spawn } from 'node:child_process';
 import type { BrandContext, EditRequest, GenerateRequest } from '@scenri/core';
-import { CODEX_POOL, codexNodeBudgetMs, createCodexEngine } from '../src/index.js';
+import { CODEX_POOL, codexNativeSize, codexNodeBudgetMs, createCodexEngine } from '../src/index.js';
 
 const PNG_1 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 1, 1]);
 const PNG_2 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 2, 2, 2]);
@@ -186,6 +186,16 @@ describe('isAvailable', () => {
   });
 });
 
+describe('codexNativeSize', () => {
+  it('reproduces every grid point the probe recovered from the tool itself', () => {
+    // all measured native outputs share one pixel budget at any ratio
+    expect(codexNativeSize(1024, 1024)).toEqual({ width: 1254, height: 1254 });
+    expect(codexNativeSize(1024, 1280)).toEqual({ width: 1122, height: 1402 });
+    expect(codexNativeSize(1080, 1920)).toEqual({ width: 941, height: 1672 });
+    expect(codexNativeSize(1600, 900)).toEqual({ width: 1672, height: 941 });
+  });
+});
+
 describe('generate', () => {
   it('runs one codex exec per image with low reasoning, collects hashes in order', async () => {
     let n = 0;
@@ -208,7 +218,7 @@ describe('generate', () => {
       expect(promptText).toContain('Generate one professional-grade image immediately');
       // the frame arrives as pixels AND ratio language, and the save
       // instruction bans the shell resize the old license invited
-      expect(promptText).toContain('composed as a 640x480 frame (4:3 landscape): a fox mascot on a teal background');
+      expect(promptText).toContain('composed as a 1448x1086 frame (4:3 landscape): a fox mascot on a teal background');
       expect(promptText).toContain("Save the tool's output in the current directory as out-1.png");
       expect(promptText).toContain('never resize, scale, stretch, pad, crop or re-encode');
       expect(promptText).not.toContain('you may run the commands needed to save and resize it');
@@ -587,7 +597,7 @@ describe('edit', () => {
 
     await engine.edit({ instruction: 'make it warmer', sourceImage, brand, width: 640, height: 800 });
     const promptText = calls[0].child.stdin.written;
-    expect(promptText).toContain("Keep the edited frame at input.png's own 4:5 shape.");
+    expect(promptText).toContain("Keep the edited frame at input.png's own 4:5 shape, 1122x1402.");
     expect(promptText).not.toContain('Save the result at exactly');
     expect(promptText).toContain('never resize, scale, stretch, pad, crop or re-encode');
   });

@@ -66,3 +66,4 @@ docs/product/
 
 # shape-probe output (manual-shape-probe.mts writes beside its cwd)
 packages/cli/shape-probe-out/
+packages/cli/probe-pinned.mts

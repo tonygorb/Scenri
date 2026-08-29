@@ -62,6 +62,31 @@ function orientationOf(width: number, height: number): string {
 }
 
 /**
+ * The image tool's own pixel budget, measured, not documented.
+ *
+ * Every native output the probe recovered from generated_images shares one
+ * pixel count at any ratio: 1254x1254, 1122x1402, 941x1672, 1672x941 and the
+ * off-ratio 1003x1568 all land within rounding of 1,572,864 pixels - 1.5 x
+ * 2^20. The tool takes no size parameter, so the only sizes it can be honest
+ * about are the ones on this grid: asking for our nominal 1024x1280 left the
+ * model to reconcile a size it could not produce, and sometimes it re-decided
+ * the RATIO while it was at it (the 1003x1568 wall). Asking for the grid
+ * point the ratio actually maps to makes the ask and the answer the same
+ * numbers: consistent native pixels, nothing to crop, nothing to resample.
+ */
+const CODEX_PIXEL_BUDGET = 1_572_864;
+
+/** The tool's native frame for a requested shape: same ratio, its own budget. */
+export function codexNativeSize(width: number, height: number): { width: number; height: number } {
+  const ratio = width / height;
+  if (!(ratio > 0) || !Number.isFinite(ratio)) return { width, height };
+  return {
+    width: Math.round(Math.sqrt(CODEX_PIXEL_BUDGET * ratio)),
+    height: Math.round(Math.sqrt(CODEX_PIXEL_BUDGET / ratio)),
+  };
+}
+
+/**
  * Reference filenames by role, with per-role 1-based counters:
  * character-1.png, character-2.png, scene-1.png. Per-role rather than the
  * edit path's global numbering so two views of one person read as a pair.
@@ -344,7 +369,8 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
           // pass (enforceEditCanvas) owns size now, with one uniform lanczos
           // only when actually needed.
           (req.width && req.height
-            ? ` Keep the edited frame at input.png's own ${ratioLabel(req.width, req.height)} shape.`
+            ? ` Keep the edited frame at input.png's own ${ratioLabel(req.width, req.height)} shape, ` +
+              `${codexNativeSize(req.width, req.height).width}x${codexNativeSize(req.width, req.height).height}.`
             : '') +
           ` Do not browse the web or explore files. Save the tool's output in the current directory as out-1.png, ` +
           `byte-for-byte unchanged: you may run the commands needed to copy or move the file, but never resize, ` +
@@ -397,6 +423,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     const names = refFileNames(roles, roles.length);
     const refDirectives = roles.map((role, i) => `${names[i]} shows ${roleDirective[role]}.`).join(' ');
     const count = Math.max(1, req.count);
+    const native = codexNativeSize(req.width, req.height);
     return (
       // "professional-grade", not "flawless": the audit of the waxy-presenter
       // report traced part of the plastic, over-perfected rendering to that
@@ -404,7 +431,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // wrapper also generates graphic assets. Independently revertible on
       // render evidence.
       `Generate one professional-grade image immediately using your image generation tool, ` +
-      `composed as a ${req.width}x${req.height} frame (${ratioLabel(req.width, req.height)} ${orientationOf(req.width, req.height)}): ${req.prompt}.` +
+      `composed as a ${native.width}x${native.height} frame (${ratioLabel(req.width, req.height)} ${orientationOf(req.width, req.height)}): ${req.prompt}.` +
       (refDirectives ? ` ${refDirectives}` : '') +
       // The save instruction bans what the old one licensed. "you may run the
       // commands needed to save and resize it" invited sips -z, which
