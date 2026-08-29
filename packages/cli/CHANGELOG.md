@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.6](https://github.com/tonygorb/Scenri/compare/v0.6.5...v0.6.6) (2026-08-29)
+
+
+### Bug Fixes
+
+* composer chip removal is deterministic ([11246fc](https://github.com/tonygorb/Scenri/commit/11246fc64e26be522631f0fd6927210d6b5759b5))
+* composer chip removal is deterministic ([29b9a4b](https://github.com/tonygorb/Scenri/commit/29b9a4bffaee289d5066bf15b52254d030547d97))
+* presenter avatars frame head and shoulders like a real portrait ([3edb693](https://github.com/tonygorb/Scenri/commit/3edb69360755280af822380bd7cf3f65297aa258))
+* presenter avatars frame head and shoulders like a real portrait ([1e4040c](https://github.com/tonygorb/Scenri/commit/1e4040c6c07858994ccde2a862927a6047b02062))
+* stop killing healthy codex runs and classify what actually failed ([0d7888b](https://github.com/tonygorb/Scenri/commit/0d7888bcb3da875775ab125797cdf0b3fc7dec0c))
+* stop killing healthy codex runs and classify what actually failed ([87e4df3](https://github.com/tonygorb/Scenri/commit/87e4df3ee680ad7673fad73351b1f36c07dacba6))
+
 ## [0.6.5](https://github.com/tonygorb/Scenri/compare/v0.6.4...v0.6.5) (2026-08-29)
 
 
