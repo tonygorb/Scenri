@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.5](https://github.com/tonygorb/Scenri/compare/v0.6.4...v0.6.5) (2026-08-29)
+
+
+### Bug Fixes
+
+* a scene stages a subject slot, never its own demo object ([471981a](https://github.com/tonygorb/Scenri/commit/471981a89f7b3bb62cd4e5f7aec795b468e0aa15))
+* a scene stages a subject slot, never its own demo object ([04e2afe](https://github.com/tonygorb/Scenri/commit/04e2afe7da67af13df32d854d2fd861597e6025e))
+
 ## [0.6.4](https://github.com/tonygorb/Scenri/compare/v0.6.3...v0.6.4) (2026-08-28)
 
 
