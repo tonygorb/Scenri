@@ -955,6 +955,40 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.dropped.every((d) => !d.essential)).toBe(true);
   });
 
+  // The first-reference contract, pinned now that it is documented: exactly
+  // ONE image conditions a figure-led generation and it is refs[0], the first
+  // upload. References 2..N reach only the analyzer, as prose. A tester asked
+  // whether reference order secretly weights a scene - this is the honest
+  // answer, held in place.
+  it('conditions on refs[0] alone, however many references the scene holds', () => {
+    const second = core.images.save(Buffer.from('second-scene-ref'));
+    const r = compileBrief(
+      { tokens: [{ t: 'template', id: base.id }] },
+      ctx({
+        templateById: (id: string) =>
+          id === base.id
+            ? { ...base, refs: [{ file: `asset:${productHash}` }, { file: `asset:${second}` }] }
+            : undefined,
+      }),
+    );
+    const scene = r.attachments.filter((a) => a.role === 'scene');
+    expect(scene).toHaveLength(1);
+    expect(scene[0].hash).toBe(productHash);
+  });
+
+  it('a vanished refs[0] attaches nothing and keeps the photo guard unsaid', () => {
+    const r = compileBrief(
+      { tokens: [{ t: 'template', id: base.id }] },
+      ctx({
+        templateById: (id: string) =>
+          id === base.id ? { ...base, refs: [{ file: 'asset:0000000000000000000000000000dead' }] } : undefined,
+      }),
+    );
+    expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+    // the guard describes an image the engine received; without one it is a lie
+    expect(r.prompt).not.toContain("the scene's own photograph");
+  });
+
   it('a dropped scene reference never tells someone their scene was left out', () => {
     const r = compileBrief(
       {

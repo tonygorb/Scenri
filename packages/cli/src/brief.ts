@@ -463,6 +463,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * perfectly well, and every catalog scene stays byte-identical. Never on
          * an edit, where the source frame already holds the world and the budget
          * is one slot smaller. Not essential, so it degrades instead of refusing.
+         *
+         * THE FIRST-REFERENCE CONTRACT, deliberate and pinned by tests: exactly
+         * one image conditions the generation and it is refs[0], the first
+         * upload. References 2..N reach only the analyzer, which is instructed
+         * to build order-neutral consensus, so they shape the scene's PROSE and
+         * never its pixels. The scene card happens to fall back to refs[0] as
+         * its thumbnail too, so in that case the card shows exactly the image a
+         * generation would attach.
          */
         if (ctx.mode !== 'edit' && t.figure) {
           for (const r of (t.refs ?? []).slice(0, SCENE_REF_MAX)) {
