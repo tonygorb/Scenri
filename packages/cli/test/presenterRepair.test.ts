@@ -86,11 +86,26 @@ describe('repairPresenterCrops', () => {
     expect(fixed.preview).toMatch(/^asset:/);
   });
 
-  it('skips curated roster rows, shotless records and broken image refs', async () => {
+  it('repairs a legacy roster row that predates the origin marker', async () => {
+    // The real Bree/Astrid shape: a valid first shot, no origin field, no
+    // avatar. Gating repair on origin === 'custom' left exactly these rows
+    // stuck with no derived avatar forever.
+    const hash = core.images.save(await png('#446622'));
+    const brand = seedBrand([{ id: 'c-legacy77', name: 'Bree', shots: [{ file: `asset:${hash}`, locked: true }] }]);
+    const { repaired } = await repairPresenterCrops(core);
+    expect(repaired).toBe(1);
+    const fixed = charOf(brand.id);
+    expect(fixed.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
+    expect(fixed.preview).toMatch(/^asset:[a-f0-9]{32}$/);
+    expect(fixed.shots[0].file).toBe(`asset:${hash}`);
+  });
+
+  it('skips rows with nothing to read: shotless, id-less or broken image refs', async () => {
     seedBrand([
       { id: 'legacy-1', name: 'Old Cast', shots: [{ file: 'asset:deadbeef' }] },
       { id: 'up-nophoto', name: 'Ghost', origin: 'custom' },
       { id: 'up-broken1', name: 'Torn', origin: 'custom', shots: [{ file: `asset:${'f'.repeat(32)}` }] },
+      { name: 'No Id', shots: [{ file: 'asset:deadbeef' }] },
     ]);
     const { repaired } = await repairPresenterCrops(core);
     expect(repaired).toBe(0);

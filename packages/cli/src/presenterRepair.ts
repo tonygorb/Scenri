@@ -1,5 +1,5 @@
 import type { Core } from '@scenri/core';
-import { brandCharacters, commit, isCustomPresenter, presenterCrops } from './customAssets.js';
+import { brandCharacters, commit, presenterCrops } from './customAssets.js';
 
 /**
  * One-time repair of custom presenter thumbnails, run at boot.
@@ -33,7 +33,12 @@ export async function repairPresenterCrops(
   let repaired = 0;
   for (const brand of core.store.listBrands()) {
     for (const c of brandCharacters(brand.json)) {
-      if (!isCustomPresenter(c)) continue;
+      // Structural, not origin-gated: legacy roster rows predate the
+      // `origin: 'custom'` marker but carry the same shots and render through
+      // the same avatar chain, and requiring the marker left exactly those
+      // presenters stuck with no derived avatar at all. Anything without an
+      // id to commit against or an asset-ref first shot is skipped below.
+      if (!c?.id) continue;
       try {
         const firstShot = c.shots?.[0]?.file;
         const hash = typeof firstShot === 'string' && firstShot.startsWith('asset:') ? firstShot.slice(6) : null;
