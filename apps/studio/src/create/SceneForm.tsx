@@ -1,11 +1,12 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useCallback, useState, type KeyboardEvent } from 'react';
 import { api } from '../api.js';
+import { customScenesOf } from '../brandAssets.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { AssetCreateShell } from './AssetCreateShell.js';
 import { RefStrip } from './RefStrip.js';
 import { useAssetFields } from './useAssetFields.js';
-import type { FlowProps } from './flow.js';
+import { named, type FlowProps } from './flow.js';
 
 const MAX_REFS = 4;
 
@@ -21,7 +22,10 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: F
   const { brand } = useBrand();
   const { verticals } = useAppData();
   const [busy, setBusy] = useState(false);
-  const f = useAssetFields(brand.id, 'scene', { max: MAX_REFS, pendingState });
+  // What this brand has already built, so a draft whose build the server has
+  // forgotten is not mistaken for one that never finished.
+  const exists = useCallback((n: string) => named(customScenesOf(brand), n), [brand]);
+  const f = useAssetFields(brand.id, 'scene', { max: MAX_REFS, pendingState, exists });
 
   const ready = Boolean(f.fields.name.trim()) && (f.fields.imageHashes.length > 0 || !!f.fields.instruction.trim());
   const blocked = ready ? undefined : 'Add a name, and a photo or a line of direction';

@@ -32,7 +32,19 @@ const EMPTY: AssetFields = { name: '', instruction: '', facets: [], imageHashes:
 export function useAssetFields(
   brandId: string,
   kind: CreateKind,
-  opts: { max: number; pendingState: (jobId: string) => PendingState },
+  opts: {
+    max: number;
+    pendingState: (jobId: string) => PendingState;
+    /**
+     * Whether the brand already holds something of this kind by that name.
+     *
+     * Only consulted for a build the server can no longer account for, where it
+     * is the difference between "it landed before the registry forgot it" and
+     * "it never finished". Kinds that never submit a pending draft do not need
+     * one.
+     */
+    exists?: (name: string) => boolean;
+  },
 ) {
   const [fields, setFields] = useState<AssetFields>(EMPTY);
   const [uploading, setUploading] = useState(false);
@@ -41,12 +53,37 @@ export function useAssetFields(
   const pendingRef = useRef<string | null>(null);
   const pendingStateRef = useRef(opts.pendingState);
   pendingStateRef.current = opts.pendingState;
+  const existsRef = useRef(opts.exists);
+  existsRef.current = opts.exists;
+  // How full the strip is right now, for the one reader that runs after an
+  // await and so cannot trust what it captured.
+  const countRef = useRef(0);
+  countRef.current = fields.imageHashes.length;
 
   // Read once, on mount. The host mounts a form only while its kind is the one
   // showing, so mounting and opening are the same moment.
   useEffect(() => {
     const draft = loadAssetDraft(brandId, kind);
     const state = draft?.pending ? pendingStateRef.current(draft.pending) : null;
+    /*
+     * A build the server cannot account for is the one ambiguous case, and the
+     * library settles it.
+     *
+     * The registry is an in-memory Map, so a restart between a scene landing
+     * and the next poll loses the row while the scene it already wrote stays on
+     * disk. Nothing then spends the draft, `unknown` means hand the work back,
+     * and a finished scene's references and Direction refill the next New scene
+     * — the exact contamination the session lane was introduced to stop.
+     *
+     * So before refilling, ask whether what this draft was sent to make is
+     * already there. Only for `unknown`: a build the server reports as failed
+     * or cancelled has a definite answer, and Try again still deserves its
+     * photographs back.
+     */
+    if (draft?.pending && state === 'unknown' && existsRef.current?.(draft.name)) {
+      clearAssetDraft(brandId, kind);
+      return;
+    }
     if (draft && shouldHydrate(draft, state)) {
       pendingRef.current = draft.pending;
       setFields({
@@ -71,10 +108,19 @@ export function useAssetFields(
     [brandId, kind],
   );
 
+  /**
+   * Takes an updater as well as a patch, and everything that edits a list uses
+   * the updater form.
+   *
+   * A patch built from `fields` read at call time is a snapshot, and an upload
+   * puts an `await` between reading it and writing it back. Nothing in the
+   * dialog is disabled while that upload runs, so a reference removed in the
+   * middle of one used to come back when it landed.
+   */
   const set = useCallback(
-    (patch: Partial<AssetFields>) => {
+    (patch: Partial<AssetFields> | ((cur: AssetFields) => Partial<AssetFields>)) => {
       setFields((cur) => {
-        const next = { ...cur, ...patch };
+        const next = { ...cur, ...(typeof patch === 'function' ? patch(cur) : patch) };
         remember(next);
         return next;
       });
@@ -105,32 +151,33 @@ export function useAssetFields(
       setUploading(true);
       setErr(null);
       try {
-        const room = opts.max - fields.imageHashes.length;
+        const room = opts.max - countRef.current;
         const added: string[] = [];
         // Sequential: a handful of small uploads is quick, and a failed one
         // should not leave half a set with no way to tell which half.
         for (const f of files.slice(0, room)) added.push(await uploadImage(f));
         // Content-addressed, so the same picture twice is the same hash — drop
-        // the twin rather than showing one image in two slots.
-        set({ imageHashes: [...new Set([...fields.imageHashes, ...added])].slice(0, opts.max) });
+        // the twin rather than showing one image in two slots. Merged against
+        // the set as it stands now, not as it stood when the upload began.
+        set((cur) => ({ imageHashes: [...new Set([...cur.imageHashes, ...added])].slice(0, opts.max) }));
       } catch (e: any) {
         setErr(String(e.message ?? e));
       } finally {
         setUploading(false);
       }
     },
-    [fields.imageHashes, opts.max, set],
+    [opts.max, set],
   );
 
   const removeHash = useCallback(
-    (h: string) => set({ imageHashes: fields.imageHashes.filter((x) => x !== h) }),
-    [fields.imageHashes, set],
+    (h: string) => set((cur) => ({ imageHashes: cur.imageHashes.filter((x) => x !== h) })),
+    [set],
   );
 
   const toggleFacet = useCallback(
     (v: string) =>
-      set({ facets: fields.facets.includes(v) ? fields.facets.filter((x) => x !== v) : [...fields.facets, v] }),
-    [fields.facets, set],
+      set((cur) => ({ facets: cur.facets.includes(v) ? cur.facets.filter((x) => x !== v) : [...cur.facets, v] })),
+    [set],
   );
 
   /**

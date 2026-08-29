@@ -2062,3 +2062,75 @@ test('a Hebrew brief with an English chip survives to the wire unreversed', asyn
   const kinds = posted.brief.tokens.map((t: any) => t.t);
   expect(kinds.indexOf('product')).toBeGreaterThan(kinds.indexOf('text'));
 });
+
+/**
+ * Selecting text with the mouse.
+ *
+ * A drag that selects text ends in a click on the same element, and the line
+ * resolves every click itself — so it placed a caret at the release point and
+ * collapsed the selection the drag had just made. From the outside the text
+ * highlighted and then let go on its own, in every brief, every time.
+ */
+test('a drag selects text and the selection survives the mouse coming up', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('the quick brown fox jumps over the lazy dog');
+
+  const box = (await line(page).boundingBox())!;
+  const x0 = Math.round(box.x);
+  // Integer coordinates, and a walk rather than a jump: Chromium grows no
+  // selection at all from fractional points or from one long move, which would
+  // make this report "nothing selected" for a line that is behaving.
+  const y = Math.round(box.y + box.height / 2);
+  await page.mouse.move(x0 + 20, y);
+  await page.mouse.down();
+  for (let x = 50; x <= 250; x += 40) {
+    await page.mouse.move(x0 + x, y);
+    await page.waitForTimeout(40);
+  }
+  const during = await selectedText(page);
+  await page.mouse.up();
+
+  expect(during.length).toBeGreaterThan(0);
+  // the release must not take it away, now or a beat later
+  expect(await selectedText(page)).toBe(during);
+  await page.waitForTimeout(300);
+  expect(await selectedText(page)).toBe(during);
+});
+
+test('a double click keeps the word it took, and a plain click still places the caret', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('the quick brown fox');
+
+  const at = await charPoint(page, 6);
+  await page.mouse.dblclick(at.x, at.y);
+  expect(await selectedText(page)).toBe('quick');
+
+  // A click that selects nothing is still asking for a caret, which is what
+  // the guard must not break: type, and the letter lands where it was clicked.
+  const end = await charPoint(page, 3);
+  await page.mouse.click(end.x, end.y);
+  expect(await selectedText(page)).toBe('');
+  await page.keyboard.type('X');
+  expect(await sentence(page)).toContain('theX quick');
+});
+
+/**
+ * The viewport point of one character in the line's first text node.
+ *
+ * Rounded, and that is not cosmetic: Chromium does not grow a selection from
+ * fractional coordinates, so a test driven with them reports "nothing was
+ * selected" for a line that behaves perfectly by hand.
+ */
+async function charPoint(p: Page, offset: number): Promise<{ x: number; y: number }> {
+  return p.evaluate((off) => {
+    const el = document.querySelector('.sc-brief-line')!;
+    const node = el.childNodes[0];
+    const r = document.createRange();
+    r.setStart(node, off);
+    r.setEnd(node, off + 1);
+    const b = r.getBoundingClientRect();
+    return { x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) };
+  }, offset);
+}
+
+const selectedText = (p: Page) => p.evaluate(() => window.getSelection()?.toString() ?? '');

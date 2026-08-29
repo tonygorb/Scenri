@@ -90,6 +90,22 @@ export function tailText(root: HTMLElement): Text {
   return t;
 }
 
+/**
+ * Whether something in the line is selected, rather than a caret sitting in it.
+ *
+ * A drag that selects text ends in a click on the same element, so a click
+ * handler cannot treat every click as "put the caret here" — doing that wipes
+ * the selection the drag just made, which looked like text refusing to stay
+ * selected at all.
+ */
+export function hasSelectionIn(root: HTMLElement | null): boolean {
+  if (!root) return false;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+  const r = sel.getRangeAt(0);
+  return root.contains(r.startContainer) && root.contains(r.endContainer);
+}
+
 export function placeCaret(root: HTMLElement, node: Text, offset: number) {
   const sel = window.getSelection();
   const r = document.createRange();

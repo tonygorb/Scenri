@@ -18,7 +18,7 @@
 export type { SentenceToken, FormatToken, BriefToken } from './line/tokens.js';
 export { isSentence, emptySentence, briefTokens, CHIP, encode, decode, groupOf } from './line/tokens.js';
 export { readLine, renderLine } from './line/render.js';
-export { caretUnits, setCaretUnits, caretToEnd, tailText } from './line/caret.js';
+export { caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, tailText } from './line/caret.js';
 export { normalizeLine, isBlankLine, syncEmpty } from './line/invariants.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
 export {
