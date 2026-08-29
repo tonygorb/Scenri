@@ -33,7 +33,14 @@ import { codexNodeBudgetMs } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { inheritedIdentityTokens } from './editIdentity.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
-import { planExpand, expandInstruction, reframeInstruction, type ExpandPlan } from './expandRules.js';
+import {
+  planExpand,
+  expandInstruction,
+  reframeInstruction,
+  wantsImplicitReshape,
+  type ExpandPlan,
+} from './expandRules.js';
+import { judgeEditSize } from './editSizeRules.js';
 import { planCrop } from './cropRules.js';
 import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand, reframeExpand } from './expand.js';
@@ -1161,8 +1168,31 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
        * somebody liked came back as a different picture in 16:9. Here the
        * photograph is kept and only the margin is generated, which is the one
        * edit whose region is known exactly rather than inferred.
+       *
+       * "Different shape ASKED" is judged against the thread's nominal format,
+       * not against delivered pixels: an engine that drifted the ratio used to
+       * flip every later plain refine into a silent outpaint of its own drift.
+       * See wantsImplicitReshape.
        */
-      if (srcMeta.width && srcMeta.height && compiled?.width && compiled?.height) {
+      const parentFormat = (
+        (parent?.brief as { tokens?: unknown } | null)?.tokens as Array<Record<string, unknown>> | undefined
+      )?.find((t) => t?.t === 'format');
+      const parentNominal =
+        parentFormat && Number(parentFormat.w) > 0 && Number(parentFormat.h) > 0
+          ? { width: Number(parentFormat.w), height: Number(parentFormat.h) }
+          : null;
+      const reshapeIntended =
+        reshape === 'extend' ||
+        (reshape === undefined &&
+          !!srcMeta.width &&
+          !!srcMeta.height &&
+          !!compiled?.width &&
+          !!compiled?.height &&
+          wantsImplicitReshape({ width: compiled.width, height: compiled.height }, parentNominal, {
+            width: srcMeta.width,
+            height: srcMeta.height,
+          }));
+      if (reshapeIntended && srcMeta.width && srcMeta.height && compiled?.width && compiled?.height) {
         expandPlan = planExpand({ width: srcMeta.width, height: srcMeta.height }, compiled.width / compiled.height);
       }
       // An explicit extend with nothing to extend into is a caller mistake,
@@ -1231,8 +1261,16 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ...(editRefs.length ? { referenceImages: editRefs.map((r) => r.path) } : {}),
         ...(editRefs.length ? { referenceRoles: editRefs.map((r) => r.role ?? 'reference') } : {}),
         // An answer at the planned size lets compositeExpand skip its rescale,
-        // which is one whole class of seam misalignment gone when honored.
-        ...(expandPlan ? { width: expandPlan.width, height: expandPlan.height } : {}),
+        // which is one whole class of seam misalignment gone when honored. A
+        // plain refine states the source's own pixels for the same reason:
+        // engines given no size answered at whatever size they liked, the
+        // shrunken answer was stored, and the next refinement inherited it —
+        // the chain that walked shots down to thumbnails.
+        ...(expandPlan
+          ? { width: expandPlan.width, height: expandPlan.height }
+          : srcMeta.width && srcMeta.height
+            ? { width: srcMeta.width, height: srcMeta.height }
+            : {}),
         // Only an engine that can genuinely paint a margin is told where the
         // picture sits; the rest would ignore it anyway.
         ...(expandPlan && canOutpaint
@@ -1407,6 +1445,49 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      * have moved half the frame is stored as the re-render it evidently was.
      */
     const localScope = kind === 'edit' && !plan && editScope === 'local' && original;
+    /**
+     * The canvas contract for a plain refinement: a same-shape answer at a
+     * drifted size is resampled back onto the exact source canvas, and an
+     * answer below the floor fails the node. Runs after the local-scope
+     * composite (whose composited output is already at source size and passes
+     * through untouched) and before assertAspect. See editSizeRules.
+     */
+    const enforceEditCanvas = async (images: string[]): Promise<string[]> => {
+      const srcMeta = await sharp(original!).metadata();
+      if (!srcMeta.width || !srcMeta.height) return images;
+      const out: string[] = [];
+      for (const h of images) {
+        const meta = await sharp(core.images.read(h)).metadata();
+        const got = { width: meta.width ?? 0, height: meta.height ?? 0 };
+        const verdict = judgeEditSize({ width: srcMeta.width, height: srcMeta.height }, got);
+        if (verdict.action === 'reject')
+          throw new Error(
+            `engine returned ${got.width}x${got.height} for a ${srcMeta.width}x${srcMeta.height} frame: ` +
+              'too little of the picture came back to keep at this resolution',
+          );
+        if (verdict.action === 'resize') {
+          app.log.info(
+            { nodeId: node.id, got: `${got.width}x${got.height}`, want: `${srcMeta.width}x${srcMeta.height}` },
+            'edit: normalized the answer to the source canvas',
+          );
+          out.push(
+            core.images.save(
+              await sharp(core.images.read(h)).resize(srcMeta.width, srcMeta.height, { fit: 'fill' }).png().toBuffer(),
+            ),
+          );
+          // What the engine actually answered with, next to the sizes runNode
+          // records after this: the resample is a fact worth being able to read.
+          try {
+            const fresh = core.store.getNode(node.id);
+            const b = (fresh?.brief as object | null) ?? {};
+            core.store.setBrief(node.id, { ...b, resizedFrom: [got.width, got.height] });
+          } catch {
+            /* the record is a convenience; failing to write it must not fail the run */
+          }
+        } else out.push(h);
+      }
+      return out;
+    };
     /*
      * Only a real outpainter's answer is composited here. The route with no
      * mask assembled and chose inside the draw itself, because the choice needs
@@ -1446,15 +1527,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
               );
             return images;
           }
-      : localScope
+      : kind === 'edit' && original
         ? async (images: string[]) => {
-            const out: string[] = [];
-            for (const h of images) {
-              const { image, outcome, changed } = await preserveOutsideChange(original, core.images.read(h));
-              app.log.info({ nodeId: node.id, outcome, changed }, 'local edit');
-              out.push(outcome === 'composited' ? core.images.save(image) : h);
+            let staged = images;
+            if (localScope) {
+              const out: string[] = [];
+              for (const h of staged) {
+                const { image, outcome, changed } = await preserveOutsideChange(original, core.images.read(h));
+                app.log.info({ nodeId: node.id, outcome, changed }, 'local edit');
+                out.push(outcome === 'composited' ? core.images.save(image) : h);
+              }
+              staged = out;
             }
-            return out;
+            return enforceEditCanvas(staged);
           }
         : undefined;
     // A codex generation's legal duration is its wave count, not a flat ten

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import sharp from 'sharp';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -1886,5 +1887,209 @@ describe('a refinement carries marks and references, not just subjects', () => {
     expect(edits[0].referenceImages).toEqual([core.images.pathFor(productHash)]);
     expect(edits[0].referenceRoles).toEqual(['product']);
     await local.close();
+  });
+});
+
+// The reported decay: engines given no size on a plain refine answered at
+// whatever size they liked, the shrunken answer was stored, and the next
+// refinement inherited it. And once an engine drifted the ratio, every later
+// plain refine compared those pixels against the unchanged nominal format and
+// silently became an outpaint of the drift.
+describe('a refinement keeps its canvas', () => {
+  const png = (w: number, h: number) =>
+    sharp({ create: { width: w, height: h, channels: 3, background: { r: 120, g: 130, b: 140 } } })
+      .png()
+      .toBuffer();
+
+  const sizeSpy = () => {
+    const edits: EditRequest[] = [];
+    const state = {
+      genSize: { width: 320, height: 400 },
+      // null answers at the requested size, the honest engine
+      editSize: null as { width: number; height: number } | null,
+    };
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'size-spy',
+        displayName: 'Size Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 5,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({
+        images: [core.images.save(await png(state.genSize.width, state.genSize.height))],
+        costUsd: 0,
+      }),
+      edit: async (req) => {
+        edits.push(req);
+        const size = state.editSize ?? { width: req.width ?? 64, height: req.height ?? 64 };
+        return { images: [core.images.save(await png(size.width, size.height))], costUsd: 0 };
+      },
+    };
+    return { engine, edits, state };
+  };
+
+  const seed = async (local: FastifyInstance, format: { w: number; h: number }, text = 'a bottle on a ledge') => {
+    const made = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' }, palette: { primary: { hex: '#1F3D2B' } } } },
+    });
+    const brand = made.json();
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: brand.id, name: 'c' },
+    });
+    const project = proj.json().project;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        kind: 'generation',
+        engineId: 'size-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'portrait', w: format.w, h: format.h },
+            { t: 'text', v: text },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDoneOn(local, gen.json().id);
+    expect(genNode.status).toBe('done');
+    return { project, genNode };
+  };
+
+  const refine = (local: FastifyInstance, project: any, genNode: any, format: { w: number; h: number }, text: string) =>
+    local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'size-spy',
+        sourceImage: genNode.images[0],
+        brief: {
+          tokens: [
+            { t: 'format', id: 'portrait', w: format.w, h: format.h },
+            { t: 'text', v: text },
+          ],
+        },
+      },
+    });
+
+  it('states the source pixels to the engine, and ratio drift never becomes an outpaint', {
+    timeout: 20_000,
+  }, async () => {
+    const { engine, edits, state } = sizeSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      // The engine drifts the 4:5 request to 3:4 pixels, inside the aspect
+      // tolerance; the thread's nominal format stays 4:5.
+      state.genSize = { width: 360, height: 480 };
+      const { project, genNode } = await seed(local, { w: 320, h: 400 });
+
+      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
+      expect(edit.statusCode).toBe(202);
+      const editNode = await waitDoneOn(local, edit.json().id);
+
+      expect(editNode.status).toBe('done');
+      // One plain draw at the source's real pixels: no bed, no reframe pair.
+      expect(edits).toHaveLength(1);
+      expect(edits[0].width).toBe(360);
+      expect(edits[0].height).toBe(480);
+      expect(edits[0].instruction).toContain('make it warmer');
+      expect(edits[0].instruction).not.toContain('blurred margin');
+      expect(edits[0].instruction).not.toContain('Redraw this photograph');
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('resamples a same-shape shrunken answer back onto the source canvas, and says so', {
+    timeout: 20_000,
+  }, async () => {
+    const { engine, state } = sizeSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      state.genSize = { width: 320, height: 400 };
+      const { project, genNode } = await seed(local, { w: 320, h: 400 });
+
+      state.editSize = { width: 288, height: 360 }; // 90%, same shape
+      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
+      const editNode = await waitRenderedOn(local, edit.json().id);
+
+      expect(editNode.status).toBe('done');
+      const meta = await sharp(core.images.read(editNode.images[0])).metadata();
+      expect([meta.width, meta.height]).toEqual([320, 400]);
+      expect(editNode.brief?.resizedFrom).toEqual([288, 360]);
+      expect(editNode.brief?.rendered?.sizes?.[0]).toEqual([320, 400]);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('fails an answer below the floor rather than shrinking the thread', { timeout: 20_000 }, async () => {
+    const { engine, state } = sizeSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      state.genSize = { width: 320, height: 400 };
+      const { project, genNode } = await seed(local, { w: 320, h: 400 });
+
+      state.editSize = { width: 160, height: 200 }; // 50%, same shape
+      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
+      const editNode = await waitDoneOn(local, edit.json().id);
+
+      expect(editNode.status).toBe('error');
+      expect(String(editNode.error)).toContain('too little of the picture');
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('an exact answer is stored untouched', { timeout: 20_000 }, async () => {
+    const { engine, state } = sizeSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      state.genSize = { width: 320, height: 400 };
+      const { project, genNode } = await seed(local, { w: 320, h: 400 });
+
+      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
+      const editNode = await waitDoneOn(local, edit.json().id);
+
+      expect(editNode.status).toBe('done');
+      const meta = await sharp(core.images.read(editNode.images[0])).metadata();
+      expect([meta.width, meta.height]).toEqual([320, 400]);
+      expect(editNode.brief?.resizedFrom).toBeUndefined();
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('a genuinely different format is still an implicit expansion', { timeout: 20_000 }, async () => {
+    const { engine, edits, state } = sizeSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      state.genSize = { width: 320, height: 400 };
+      const { project, genNode } = await seed(local, { w: 320, h: 400 });
+
+      const edit = await refine(local, project, genNode, { w: 512, h: 288 }, 'more of the ledge');
+      expect(edit.statusCode).toBe(202);
+      // The no-mask route draws twice at once: the bed and the reframe.
+      await expect.poll(() => edits.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
+      const texts = edits.map((e) => e.instruction).join('\n---\n');
+      expect(texts).toContain('so the photograph continues into it');
+      expect(texts).toContain('Redraw this photograph');
+      // Drain before teardown, whatever the assembled outcome is.
+      await waitDoneOn(local, edit.json().id);
+    } finally {
+      await local.close();
+    }
   });
 });

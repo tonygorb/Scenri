@@ -64,7 +64,15 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string): EngineAdap
     },
     async edit(req: EditRequest): Promise<EngineResult> {
       const colors = paletteOf(req);
-      const buf = await render(colors, `edit: ${req.instruction}`, 1024, 1024, req.instruction.length);
+      // The requested canvas, when the server states one: a hardcoded square
+      // made every demo edit of a non-square shot fail the aspect check.
+      const buf = await render(
+        colors,
+        `edit: ${req.instruction}`,
+        req.width ?? 1024,
+        req.height ?? 1024,
+        req.instruction.length,
+      );
       return { images: [saveImage(buf)], costUsd: 0 };
     },
   };

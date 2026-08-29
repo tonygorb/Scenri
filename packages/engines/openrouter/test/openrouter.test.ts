@@ -264,6 +264,19 @@ describe('edit', () => {
         { type: 'text', text: 'make it blue' },
         { type: 'image_url', image_url: { url: `data:image/png;base64,${PNG_B64}` } },
       ]);
+      // Given no size there is no shape to promise, and none is sent.
+      expect(body.image_config).toBeUndefined();
+    });
+  });
+
+  it('carries the requested shape when the edit states one', async () => {
+    // Mirrors generate: an edit given no shape answered at whatever ratio the
+    // model felt like, and the drift compounded down refine chains.
+    await withSourceImage(async (sourcePath) => {
+      const { engine, fetchImpl } = makeEngine();
+      await engine.edit({ instruction: 'warmer', sourceImage: sourcePath, brand, width: 1024, height: 768 });
+      const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
+      expect(body.image_config).toEqual({ aspect_ratio: '4:3' });
     });
   });
 
