@@ -806,10 +806,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   /**
    * The furthest a delivered frame may drift from the asked ratio and still be
-   * conformable by an attention-placed crop. Beyond it the answer is a bucket
-   * substitution (a square for a 4:5 is 25% off) and fails the node instead.
+   * conformable by an attention-placed crop.
+   *
+   * 0.35, calibrated on live failures rather than on doctrine. The neutral
+   * probe measured 0.1% drift, but real briefs full of scene prose pull the
+   * tool to its own grid: a figure-led 4:5 ask repeatedly came back 1003x1568,
+   * 20.04% off, and the first cap of 0.20 missed it by four hundredths of a
+   * point - a wall of failed draws on release night. A 35% crop trims at most
+   * about a quarter of one axis with attention placement choosing the strip,
+   * which is a usable photograph; a failed node is spent quota and nothing.
+   * Even a square answered for a 4:5 (25%) is better cropped than refused.
+   * Past this, the shape is unrelated to the ask and the node still fails.
    */
-  const CROPPABLE_DRIFT = 0.2;
+  const CROPPABLE_DRIFT = 0.35;
 
   /**
    * Conform a drifted frame to the asked ratio by CROPPING, never scaling.

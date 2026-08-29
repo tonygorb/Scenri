@@ -2356,6 +2356,36 @@ describe('engine images are validated, oriented, and conformed before storing', 
     }
   });
 
+  it('the real-world tail: a 20 percent drifted answer is cropped, not failed', { timeout: 20_000 }, async () => {
+    const { engine, state } = shapedSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      // the release-night wall: figure prompts pulled the tool to 1003x1568
+      // for a 1024x1280 ask, 20.04 percent off - inside the net now
+      state.genBuf = await png(1003, 1568);
+      const { genNode } = await seedShaped(local, { w: 1024, h: 1280 });
+      expect(genNode.status).toBe('done');
+      expect(genNode.brief?.croppedFrom).toEqual([1003, 1568]);
+      const meta = await sharp(core.images.read(genNode.images[0])).metadata();
+      expect(Math.abs((meta.width ?? 0) / (meta.height ?? 1) - 1024 / 1280)).toBeLessThan(0.02);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('an unrelated shape still fails the node', { timeout: 20_000 }, async () => {
+    const { engine, state } = shapedSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      state.genBuf = await png(500, 320); // landscape for a portrait ask, ~95 percent off
+      const { genNode } = await seedShaped(local, { w: 1024, h: 1280 });
+      expect(genNode.status).toBe('error');
+      expect(String(genNode.error)).toContain('cannot produce the requested aspect ratio');
+    } finally {
+      await local.close();
+    }
+  });
+
   it('undecodable engine output fails the node with a clear message', { timeout: 20_000 }, async () => {
     const { engine, state } = shapedSpy();
     const local = buildServer({ core, engines: registryWith(engine) });
