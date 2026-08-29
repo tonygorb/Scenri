@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import {
   EDIT_REFERENCE_ROLE_DIRECTIVE,
   REFERENCE_ROLE_DIRECTIVE,
+  ratioLabel,
   type EditRequest,
   type EngineAdapter,
   type EngineAvailability,
@@ -53,6 +54,36 @@ export interface CodexEngineOptions extends RunnerOptions {
   saveImage: (buf: Buffer) => string;
   /** The process-wide runner, so every caller shares one probe cache. */
   runner?: CodexRunner;
+}
+
+/** The orientation word beside the ratio, so "4:5 portrait" reads as one ask. */
+function orientationOf(width: number, height: number): string {
+  return width === height ? 'square' : width > height ? 'landscape' : 'portrait';
+}
+
+/**
+ * The image tool's own pixel budget, measured, not documented.
+ *
+ * Every native output the probe recovered from generated_images shares one
+ * pixel count at any ratio: 1254x1254, 1122x1402, 941x1672, 1672x941 and the
+ * off-ratio 1003x1568 all land within rounding of 1,572,864 pixels - 1.5 x
+ * 2^20. The tool takes no size parameter, so the only sizes it can be honest
+ * about are the ones on this grid: asking for our nominal 1024x1280 left the
+ * model to reconcile a size it could not produce, and sometimes it re-decided
+ * the RATIO while it was at it (the 1003x1568 wall). Asking for the grid
+ * point the ratio actually maps to makes the ask and the answer the same
+ * numbers: consistent native pixels, nothing to crop, nothing to resample.
+ */
+const CODEX_PIXEL_BUDGET = 1_572_864;
+
+/** The tool's native frame for a requested shape: same ratio, its own budget. */
+export function codexNativeSize(width: number, height: number): { width: number; height: number } {
+  const ratio = width / height;
+  if (!(ratio > 0) || !Number.isFinite(ratio)) return { width, height };
+  return {
+    width: Math.round(Math.sqrt(CODEX_PIXEL_BUDGET * ratio)),
+    height: Math.round(Math.sqrt(CODEX_PIXEL_BUDGET / ratio)),
+  };
 }
 
 /**
@@ -121,7 +152,12 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     }
     const hashes: string[] = [];
     for (const name of outFiles) {
-      hashes.push(saveImage(await readFile(join(dir, name))));
+      const buf = await readFile(join(dir, name));
+      // A zero-byte out file is a save that never happened; storing it would
+      // fail far away from here. Real decode validation is the server's
+      // (normalizePngs) - this package stays sharp-free.
+      if (buf.length === 0) throw new Error(`codex: ${name} is empty`);
+      hashes.push(saveImage(buf));
     }
     return hashes;
   }
@@ -324,12 +360,21 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         const promptText =
           `Edit input.png using your image generation/editing tool: ${req.instruction}.` +
           (refLines.length ? ` ${refLines.join('. ')}.` : '') +
-          ` Do not browse the web or explore files. Save the result in the current directory as out-1.png ` +
-          `(you may run the commands needed to save and resize it).` +
-          // sips is already licensed by the parenthesis above; an exact-size
-          // answer lets the caller's compositing pass skip its rescale.
-          (req.width && req.height ? ` Save the result at exactly ${req.width}x${req.height} pixels.` : '') +
-          ` Nothing else.`;
+          // The old tail licensed "the commands needed to save and resize it"
+          // and then asked for exactly WxH pixels - which the model honoured
+          // with sips -z, a force-fit of BOTH axes. Every refine hop was a
+          // cheap-kernel shell resample of freshly generated pixels, and when
+          // the tool had drifted the shape it was a shear: the reported
+          // crushed faces and the deep-chain mush. The server's own canvas
+          // pass (enforceEditCanvas) owns size now, with one uniform lanczos
+          // only when actually needed.
+          (req.width && req.height
+            ? ` Keep the edited frame at input.png's own ${ratioLabel(req.width, req.height)} shape, ` +
+              `${codexNativeSize(req.width, req.height).width}x${codexNativeSize(req.width, req.height).height}.`
+            : '') +
+          ` Do not browse the web or explore files. Save the tool's output in the current directory as out-1.png, ` +
+          `byte-for-byte unchanged: you may run the commands needed to copy or move the file, but never resize, ` +
+          `scale, stretch, pad, crop or re-encode it — deliver the tool's own pixels at the tool's own size. Nothing else.`;
         // Hand the pictures over the same way generate does. The edit path only
         // copied them into the working directory and named them in prose, so
         // whether the model ever looked at the source depended on the skill
@@ -351,8 +396,11 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     },
   };
 
-  // Wording matters: codex's imagegen skill needs shell access (cp/sips) to
+  // Wording matters: codex's imagegen skill needs shell access (cp/mv) to
   // place the file — forbid browsing/exploration, but NOT running commands.
+  // sips is the documented shear vector and both prompts now ban resizing by
+  // name; the copy/move license stays because the win32 recovery path moves
+  // files out of generated_images.
   /**
    * Errors that mean the machine, not this variant: the next variant would
    * fail identically, so the batch stops. Matched on our own thrown messages
@@ -375,6 +423,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     const names = refFileNames(roles, roles.length);
     const refDirectives = roles.map((role, i) => `${names[i]} shows ${roleDirective[role]}.`).join(' ');
     const count = Math.max(1, req.count);
+    const native = codexNativeSize(req.width, req.height);
     return (
       // "professional-grade", not "flawless": the audit of the waxy-presenter
       // report traced part of the plastic, over-perfected rendering to that
@@ -382,10 +431,17 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // wrapper also generates graphic assets. Independently revertible on
       // render evidence.
       `Generate one professional-grade image immediately using your image generation tool, ` +
-      `${req.width}x${req.height}: ${req.prompt}.` +
+      `composed as a ${native.width}x${native.height} frame (${ratioLabel(req.width, req.height)} ${orientationOf(req.width, req.height)}): ${req.prompt}.` +
       (refDirectives ? ` ${refDirectives}` : '') +
-      ` Do not browse the web or explore files. Save the image in the current directory as out-1.png ` +
-      `(you may run the commands needed to save and resize it). Nothing else.` +
+      // The save instruction bans what the old one licensed. "you may run the
+      // commands needed to save and resize it" invited sips -z, which
+      // force-fits BOTH axes: the model drew at one shape, sheared the pixels
+      // to the requested one, and the aspect check passed BECAUSE of the shear
+      // - the reported crushed faces. Copy/move stays licensed because the
+      // win32 recovery path moves files out of generated_images.
+      ` Do not browse the web or explore files. Save the tool's output in the current directory as out-1.png, ` +
+      `byte-for-byte unchanged: you may run the commands needed to copy or move the file, but never resize, ` +
+      `scale, stretch, pad, crop or re-encode it — deliver the tool's own pixels at the tool's own size. Nothing else.` +
       // Every take in a batch gets the SAME-shaped clause. Take 1 used to get
       // nothing - so the first output was literally asked for the most
       // reference-faithful decode - and later takes were licensed to a

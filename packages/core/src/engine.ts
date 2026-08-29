@@ -180,6 +180,39 @@ export interface EngineResult {
  */
 export const ASPECT_TOLERANCE = 0.15;
 
+/**
+ * Common shapes, so a frame can be named rather than described in pixels.
+ *
+ * A model composes for "16:9" far more readily than for "1824 by 1024", and
+ * codex's image tool takes no size parameter at all — the shape has to arrive
+ * as language or the frame is composed at whatever the tool felt like. Moved
+ * here from the CLI's expandRules so the codex engine can name shapes in its
+ * own prompts; aspect language is this module's jurisdiction.
+ */
+const NAMED_RATIOS: Array<[string, number]> = [
+  ['1:1', 1],
+  ['4:5', 4 / 5],
+  ['5:4', 5 / 4],
+  ['2:3', 2 / 3],
+  ['3:2', 3 / 2],
+  ['3:4', 3 / 4],
+  ['4:3', 4 / 3],
+  ['9:16', 9 / 16],
+  ['16:9', 16 / 9],
+  ['2:1', 2],
+  ['1:2', 0.5],
+];
+
+export function ratioLabel(width: number, height: number): string {
+  const ratio = width / height;
+  for (const [label, value] of NAMED_RATIOS) {
+    if (Math.abs(ratio - value) / value < 0.02) return label;
+  }
+  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+  const d = gcd(width, height) || 1;
+  return `${Math.round(width / d)}:${Math.round(height / d)}`;
+}
+
 export interface EngineCapabilities {
   id: string; // "codex-cli" | "openrouter" | ...
   displayName: string;
