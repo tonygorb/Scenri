@@ -306,12 +306,31 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       child.on('exit', (code: number | null) => {
         if (code === 0) {
           finish('ok', resolve);
-        } else {
-          const snippet = stderr.trim().slice(0, 200);
-          finish(`exit-${code ?? 'unknown'}`, () =>
-            reject(new Error(`codex exited with code ${code ?? 'unknown'}${snippet ? `: ${snippet}` : ''}`)),
-          );
+          return;
         }
+        // Codex prints its usage-limit refusal AFTER the session banner, so
+        // the head-of-stderr snippet below showed users a workdir listing
+        // instead of the one fact that mattered. Keyed on the CLI's real
+        // wording, captured live on 2026-08-29 (v0.145.0):
+        //   ERROR: You've hit your usage limit. Upgrade to Pro (...), visit
+        //   ... or try again at Aug 30th, 2026 12:41 AM.
+        const limit = /You've hit your usage limit\.(?:[^\n]*?\btry again at ([^.\n]+)\.)?/.exec(stderr);
+        if (limit) {
+          const when = limit[1]?.trim();
+          finish(`exit-${code ?? 'unknown'}`, () =>
+            reject(
+              new Error(
+                `Your Codex plan's usage limit is used up${when ? ` until ${when}` : ''}. ` +
+                  'Generation resumes on its own then, or add credits from your Codex account.',
+              ),
+            ),
+          );
+          return;
+        }
+        const snippet = stderr.trim().slice(0, 200);
+        finish(`exit-${code ?? 'unknown'}`, () =>
+          reject(new Error(`codex exited with code ${code ?? 'unknown'}${snippet ? `: ${snippet}` : ''}`)),
+        );
       });
     });
   }
