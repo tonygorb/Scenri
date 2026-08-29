@@ -95,6 +95,70 @@ export function inheritedIdentityDirective(): string {
 }
 
 /**
+ * The facts a product record states about itself, byte for byte as the
+ * compiler has always emitted them — lifted out of the token loop so a
+ * refinement can state the same facts about an identity it inherited. The
+ * golden showcase fixture is the proof the lift moved nothing.
+ */
+export function productFactDirectives(p: any): string[] {
+  const out: string[] = [];
+  if (p.preservationNotes) out.push(String(p.preservationNotes));
+  if (p.negativeConstraints) out.push(`Avoid: ${p.negativeConstraints}`);
+  // Two spellings reach here: demo products ship `materials` /
+  // `primaryColors` as descriptive prose, catalog imports supply a
+  // singular `material`. Read both rather than silently honouring one.
+  const materials = p.materials ?? p.material;
+  if (materials) out.push(`Its materials and finish: ${materials}.`);
+  if (p.primaryColors) out.push(`Its actual colors: ${p.primaryColors}.`);
+  if (p.dimensions)
+    out.push(`Its real-world size is ${p.dimensions} — keep it at true scale relative to everything else in frame.`);
+  return out;
+}
+
+/** Same lift for a presenter's own identity metadata. */
+export function characterFactDirectives(c: any): string[] {
+  const out: string[] = [];
+  if (c.identityNotes) out.push(String(c.identityNotes));
+  if (c.negativeConstraints?.length) out.push(`Avoid: ${[].concat(c.negativeConstraints).join(', ')}`);
+  return out;
+}
+
+/**
+ * What a refinement's inherited references are FOR, named per identity.
+ *
+ * The generic inherited-identity sentence says the references are the same
+ * product and person; nothing said what must hold. The generation-tier
+ * fidelity language never reached a refine — measured as the fidelity drop
+ * the file header of editIdentity.ts records — so refinements state the
+ * contract themselves, in edit terms: the photograph is the composition, the
+ * references are what the identity must stay true to.
+ */
+export function productEditFidelityDirective(name: string): string {
+  return (
+    `Every attached product reference shows ${name}, the exact product already in this photograph: hold its label, ` +
+    'shape, colours and proportions to what the references and the photograph agree on while you make the change, ' +
+    'and never treat an extra angle as a second product. Any face of it no reference shows stays exactly as the ' +
+    'photograph already has it.'
+  );
+}
+
+export function characterEditIdentityDirective(name: string): string {
+  return (
+    `${name} is the person in this photograph: keep them present and clearly visible. Match their face, facial ` +
+    "structure, skin, hair and build to the attached person reference exactly. The reference's plain outfit and " +
+    'studio backdrop are capture conditions, not direction: keep the styling this photograph already has unless the ' +
+    'instruction itself changes it, and never return them to the plain base layers they were photographed in.'
+  );
+}
+
+export function markEditDirective(): string {
+  return (
+    "The attached brand mark is this brand's own mark: wherever the logo appears or the instruction asks for it, " +
+    'reproduce it exactly as drawn — same colours, letterforms and proportions — never redrawn or re-lettered.'
+  );
+}
+
+/**
  * A garment with nobody attached is a product, not an outfit.
  *
  * Apparel briefs that carried no presenter produced an invented wearer: a
