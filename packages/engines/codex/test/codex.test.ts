@@ -223,11 +223,29 @@ describe('generate', () => {
   });
 
   it('keeps request order when variants complete out of order', async () => {
+    /**
+     * Variant 1 finishes LAST; the slot array must not care.
+     *
+     * Gated on variant 2's exit rather than raced against it by a timer. The
+     * head start used to be `setTimeout(..., second ? 0 : 30)`, and thirty
+     * milliseconds is under two ticks of the Windows clock: on a loaded runner
+     * the two timers landed in the wrong order, variant 1 arrived first, and
+     * this failed on Windows while never failing on darwin. A promise says
+     * "after that one" without asking how long that takes.
+     */
+    let variantTwoExited!: () => void;
+    const afterVariantTwo = new Promise<void>((resolve) => {
+      variantTwoExited = resolve;
+    });
     const { spawnImpl } = fakeSpawn(({ args, child }) => {
       const second = child.stdin.written.includes('variant 2');
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), second ? PNG_2 : PNG_1);
-      // variant 1 finishes LAST; the slot array must not care
-      setTimeout(() => child.emit('exit', 0, null), second ? 0 : 30);
+      if (second) {
+        child.emit('exit', 0, null);
+        variantTwoExited();
+      } else {
+        void afterVariantTwo.then(() => child.emit('exit', 0, null));
+      }
     });
     const saveImage = newSaveImage();
     const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
