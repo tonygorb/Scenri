@@ -555,23 +555,43 @@ async function cardCrop(core: Core, hash: string | undefined): Promise<string | 
 }
 
 /**
+ * The avatar's framing, in figure proportions rather than frame pixels.
+ *
+ * A standing adult is about 7.5 heads tall, so the head is ~0.133 of figure
+ * height (measured on a real generated frame: chin at 0.133 exactly) and the
+ * shoulder line sits at ~0.17-0.18. The curated roster's own portraits frame
+ * "just above the top of the head down to the collarbone", which spans about
+ * figure-Y -0.02 to 0.20 — a square of 0.22 of the figure height with 10% of
+ * itself as headroom. That puts the eye line at ~40% of the square (portrait
+ * convention) and the head at ~60% of its height. The old 0.27 square ended
+ * at the armpits: a bust, not a portrait, with the face reading at half size.
+ * Tall hair is tolerated automatically — the box top IS the hair top, and the
+ * square scales with the whole figure, not with the head.
+ */
+const AVATAR_FIGURE_FRACTION = 0.22;
+const AVATAR_HEADROOM = 0.1;
+/**
+ * Stored avatar cap. The largest render is the presenter page's 88px hero
+ * circle — 264px at 3x — so 512 covers every surface with margin; a smaller
+ * native crop is stored as-is rather than inflated into blur.
+ */
+const AVATAR_MAX_PX = 512;
+/**
+ * Backdrop trim passes, in order. 12 reads a seamless white sweep; some
+ * generated frames stand on a soft gray gradient that 12 cannot tell from
+ * subject (it trims only left/right and reports a degenerate full-height
+ * box), and a second pass at 25 recovers the true figure on those.
+ */
+const FIGURE_TRIM_THRESHOLDS = [12, 25];
+
+/**
  * A square head-and-shoulders crop of the same frame, for round and small
  * surfaces.
  *
  * A 4:5 card crop of a standing figure reads as a torso once a circle is cut
  * out of it, which is what an avatar is. So this is measured from the FIGURE,
- * never from the frame. The previous rule — a square of 16% of the frame
- * height, pinned to the top edge — assumed the head both starts at y=0 and
- * fits inside that square. On a real generated frame neither held: the figure
- * stood 28px below the top edge and its head alone ran 185px of the 205px
- * box, so every custom avatar spent 14% of itself on empty backdrop and then
- * ended at the mouth, chin cut off, while the curated roster's own portraits
- * show head, neck and shoulders.
- *
- * `figureBox` gives the standing figure's own bounds, so the square is placed
- * against the person: a little headroom above the hair, and enough height to
- * reach the shoulders. 0.27 of the figure's height puts the eye line at ~38%
- * of the square, which is where the curated portraits put it.
+ * never from the frame: `figureBox` gives the standing figure's own bounds,
+ * and the square is placed against the person by the proportions above.
  */
 async function avatarCrop(core: Core, hash: string | undefined): Promise<string | undefined> {
   if (!hash || !core.images.has(hash)) return undefined;
@@ -581,21 +601,26 @@ async function avatarCrop(core: Core, hash: string | undefined): Promise<string 
   } catch {
     box = null;
   }
-  return crop(core, hash, (w, h) => {
-    // No readable figure (a backdrop that is not seamless, a frame that is all
-    // subject): keep the old top-anchored square rather than guess.
-    if (!box) {
-      const size = Math.min(w, h, Math.round(h * 0.16));
-      return { left: Math.max(0, Math.round((w - size) / 2)), top: 0, width: size, height: size };
-    }
-    const size = Math.min(w, h, Math.max(16, Math.round(box.height * 0.27)));
-    // The head sits under a little air, the way a portrait is framed.
-    const top = Math.min(Math.max(0, Math.round(box.top - size * 0.08)), h - size);
-    // Centred on the person, not on the frame: a figure standing off-centre
-    // used to put its own face off-centre in its avatar.
-    const left = Math.min(Math.max(0, Math.round(box.left + box.width / 2 - size / 2)), w - size);
-    return { left, top, width: size, height: size };
-  });
+  return crop(
+    core,
+    hash,
+    (w, h) => {
+      // No readable figure (a backdrop no trim pass can read, a frame that is
+      // all subject): keep the old top-anchored square rather than guess.
+      if (!box) {
+        const size = Math.min(w, h, Math.round(h * 0.16));
+        return { left: Math.max(0, Math.round((w - size) / 2)), top: 0, width: size, height: size };
+      }
+      const size = Math.min(w, h, Math.max(16, Math.round(box.height * AVATAR_FIGURE_FRACTION)));
+      // The head sits under a little air, the way a portrait is framed.
+      const top = Math.min(Math.max(0, Math.round(box.top - size * AVATAR_HEADROOM)), h - size);
+      // Centred on the person, not on the frame: a figure standing off-centre
+      // used to put its own face off-centre in its avatar.
+      const left = Math.min(Math.max(0, Math.round(box.left + box.width / 2 - size / 2)), w - size);
+      return { left, top, width: size, height: size };
+    },
+    AVATAR_MAX_PX,
+  );
 }
 
 /**
@@ -611,18 +636,21 @@ async function figureBox(buf: Buffer): Promise<{ left: number; top: number; widt
   const W = meta.width ?? 0;
   const H = meta.height ?? 0;
   if (!W || !H) return null;
-  const { info } = await sharp(buf).trim({ threshold: 12 }).toBuffer({ resolveWithObject: true });
-  const left = Math.abs(info.trimOffsetLeft ?? 0);
-  const top = Math.abs(info.trimOffsetTop ?? 0);
-  const width = info.width ?? 0;
-  const height = info.height ?? 0;
-  if (!width || !height) return null;
-  // Nothing was trimmed, so nothing was learned.
-  if (width >= W && height >= H) return null;
-  // A sliver, or a figure taller than the frame it came from: not a standing
-  // person on a backdrop.
-  if (height < H * 0.3 || width < W * 0.05) return null;
-  return { left, top, width, height };
+  for (const threshold of FIGURE_TRIM_THRESHOLDS) {
+    const { info } = await sharp(buf).trim({ threshold }).toBuffer({ resolveWithObject: true });
+    const left = Math.abs(info.trimOffsetLeft ?? 0);
+    const top = Math.abs(info.trimOffsetTop ?? 0);
+    const width = info.width ?? 0;
+    const height = info.height ?? 0;
+    if (!width || !height) continue;
+    // Degenerate on either axis means this pass read backdrop as subject
+    // (a soft gradient under threshold): try the next pass, never trust it.
+    if (width >= W || height >= H) continue;
+    // A sliver is not a standing person on a backdrop.
+    if (height < H * 0.3 || width < W * 0.05) continue;
+    return { left, top, width, height };
+  }
+  return null;
 }
 
 /**
@@ -692,11 +720,16 @@ async function smartCover(
   }
 }
 
-/** Cut a region out of a stored image and store the result. Best effort. */
+/**
+ * Cut a region out of a stored image and store the result. Best effort.
+ * `cap` bounds the stored size, downscale-only: the extract is already square
+ * when a cap is passed, so no resize here can ever distort.
+ */
 async function crop(
   core: Core,
   hash: string | undefined,
   region: (w: number, h: number) => { left: number; top: number; width: number; height: number },
+  cap?: number,
 ): Promise<string | undefined> {
   if (!hash || !core.images.has(hash)) return undefined;
   try {
@@ -704,7 +737,9 @@ async function crop(
     const w = meta.width ?? 0;
     const h = meta.height ?? 0;
     if (!w || !h) return undefined;
-    const png = await sharp(core.images.read(hash)).extract(region(w, h)).png().toBuffer();
+    let pipeline = sharp(core.images.read(hash)).extract(region(w, h));
+    if (cap) pipeline = pipeline.resize(cap, cap, { fit: 'inside', withoutEnlargement: true });
+    const png = await pipeline.png().toBuffer();
     return core.images.save(png);
   } catch {
     return undefined;
