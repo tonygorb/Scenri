@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.5',
+    date: '2026-08-29',
+    sections: [
+      {
+        heading: 'Scenes',
+        body: 'A Scene no longer brings its own demo object into your shots. The product and presenter you select take the place of whatever its reference or preview happened to stage, while the environment, the light and any figure treatment carry over as before. Editing the Direction and pressing Read again now applies the Direction you wrote instead of quietly ignoring it.',
+      },
+    ],
+  },
+  {
     version: '0.6.4',
     date: '2026-08-29',
     sections: [
