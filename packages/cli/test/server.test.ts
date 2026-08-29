@@ -1995,6 +1995,13 @@ describe('a refinement keeps its canvas', () => {
       state.genSize = { width: 360, height: 480 };
       const { project, genNode } = await seed(local, { w: 320, h: 400 });
 
+      // The drifted 3:4 answer to a 4:5 ask is conformed at the generation:
+      // an attention CROP to the asked ratio at the frame's own scale - never
+      // a resample, never a shear - recorded as croppedFrom.
+      expect(genNode.brief?.croppedFrom).toEqual([360, 480]);
+      expect(genNode.brief?.rendered?.sizes?.[0]).toEqual([360, 450]);
+      expect(genNode.brief?.rendered?.requestedSize).toEqual([320, 400]);
+
       const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
       expect(edit.statusCode).toBe(202);
       const editNode = await waitDoneOn(local, edit.json().id);
@@ -2003,7 +2010,7 @@ describe('a refinement keeps its canvas', () => {
       // One plain draw at the source's real pixels: no bed, no reframe pair.
       expect(edits).toHaveLength(1);
       expect(edits[0].width).toBe(360);
-      expect(edits[0].height).toBe(480);
+      expect(edits[0].height).toBe(450);
       expect(edits[0].instruction).toContain('make it warmer');
       expect(edits[0].instruction).not.toContain('blurred margin');
       expect(edits[0].instruction).not.toContain('Redraw this photograph');
@@ -2249,6 +2256,155 @@ describe('a refinement chain keeps the whole identity record', () => {
       expect(edits[0].referenceImages).toContain(core.images.pathFor(refHash));
       expect(edits[0].referenceImages).not.toContain(core.images.pathFor(angleHash));
       expect(warnings.join(' ')).not.toContain('House Blend');
+    } finally {
+      await local.close();
+    }
+  });
+});
+
+// PR-C: validation, orientation, and the crop-to-canvas fallback.
+describe('engine images are validated, oriented, and conformed before storing', () => {
+  const png = (w: number, h: number) =>
+    sharp({ create: { width: w, height: h, channels: 3, background: { r: 90, g: 110, b: 130 } } })
+      .png()
+      .toBuffer();
+
+  const shapedSpy = () => {
+    const state = {
+      genSize: { width: 320, height: 400 },
+      genBuf: null as Buffer | null,
+      editSize: null as { width: number; height: number } | null,
+    };
+    const edits: EditRequest[] = [];
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'shape-spy',
+        displayName: 'Shape Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 5,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({
+        images: [core.images.save(state.genBuf ?? (await png(state.genSize.width, state.genSize.height)))],
+        costUsd: 0,
+      }),
+      edit: async (req) => {
+        edits.push(req);
+        const size = state.editSize ?? { width: req.width ?? 64, height: req.height ?? 64 };
+        return { images: [core.images.save(await png(size.width, size.height))], costUsd: 0 };
+      },
+    };
+    return { engine, edits, state };
+  };
+
+  const seedShaped = async (local: FastifyInstance, format: { w: number; h: number }, text = 'a bottle on a ledge') => {
+    const made = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' }, palette: { primary: { hex: '#1F3D2B' } } } },
+    });
+    const brand = made.json();
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: brand.id, name: 'c' },
+    });
+    const project = proj.json().project;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        kind: 'generation',
+        engineId: 'shape-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'portrait', w: format.w, h: format.h },
+            { t: 'text', v: text },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDoneOn(local, gen.json().id);
+    return { project, genNode };
+  };
+
+  it('an orientation-tagged answer is stored upright, and a clean PNG passes hash-identical', {
+    timeout: 20_000,
+  }, async () => {
+    const { engine, state } = shapedSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      // landscape pixels tagged to display portrait: after normalization the
+      // stored file must MEASURE portrait, so every surface agrees with sharp
+      state.genBuf = await sharp({
+        create: { width: 400, height: 320, channels: 3, background: { r: 90, g: 110, b: 130 } },
+      })
+        .withMetadata({ orientation: 6 })
+        .png()
+        .toBuffer();
+      const { genNode } = await seedShaped(local, { w: 320, h: 400 });
+      expect(genNode.status).toBe('done');
+      const meta = await sharp(core.images.read(genNode.images[0])).metadata();
+      expect([meta.width, meta.height]).toEqual([320, 400]);
+      expect((meta.orientation ?? 1) === 1).toBe(true);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('undecodable engine output fails the node with a clear message', { timeout: 20_000 }, async () => {
+    const { engine, state } = shapedSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      state.genBuf = Buffer.from('this is not an image at all');
+      const { genNode } = await seedShaped(local, { w: 320, h: 400 });
+      expect(genNode.status).toBe('error');
+      expect(String(genNode.error)).toContain('undecodable');
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('a global refine whose answer drifted shape is cropped, then finished by the canvas pass', {
+    timeout: 20_000,
+  }, async () => {
+    const { engine, state, edits } = shapedSpy();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      const { project, genNode } = await seedShaped(local, { w: 320, h: 400 });
+      expect(genNode.status).toBe('done');
+      // engine answers the 4:5 refine at 3:4 and larger: crop to 4:5 at its
+      // own scale (360x450), then one lanczos down onto the 320x400 canvas
+      state.editSize = { width: 360, height: 480 };
+      const edit = await local.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: {
+          projectId: project.id,
+          parentId: genNode.id,
+          kind: 'edit',
+          engineId: 'shape-spy',
+          sourceImage: genNode.images[0],
+          brief: {
+            tokens: [
+              { t: 'format', id: 'portrait', w: 320, h: 400 },
+              { t: 'text', v: 'make it warmer' },
+            ],
+          },
+        },
+      });
+      const editNode = await waitRenderedOn(local, edit.json().id);
+      expect(editNode.status).toBe('done');
+      const meta = await sharp(core.images.read(editNode.images[0])).metadata();
+      expect([meta.width, meta.height]).toEqual([320, 400]);
+      expect(editNode.brief?.croppedFrom).toEqual([360, 480]);
+      expect(editNode.brief?.resizedFrom).toEqual([360, 450]);
+      expect(editNode.brief?.resampledHops).toBe(1);
+      expect(edits).toHaveLength(1);
     } finally {
       await local.close();
     }
