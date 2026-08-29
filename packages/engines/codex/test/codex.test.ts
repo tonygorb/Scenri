@@ -226,28 +226,34 @@ describe('generate', () => {
     /**
      * Variant 1 finishes LAST; the slot array must not care.
      *
-     * Gated on variant 2's exit rather than raced against it by a timer. The
-     * head start used to be `setTimeout(..., second ? 0 : 30)`, and thirty
-     * milliseconds is under two ticks of the Windows clock: on a loaded runner
-     * the two timers landed in the wrong order, variant 1 arrived first, and
-     * this failed on Windows while never failing on darwin. A promise says
-     * "after that one" without asking how long that takes.
+     * The gate is variant 2's **save**, not its exit, and that distinction is
+     * the whole bug. Between a worker's exit and its `saveImage` call the
+     * engine still has a `readdir` and an `await readFile` to get through, and
+     * nothing orders that I/O across workers. So on Windows variant 2 could
+     * exit first and still reach `saveImage` second: a thirty millisecond head
+     * start failed there, and so did gating on the exit event, while both
+     * passed on darwin where the reads happen to keep up.
+     *
+     * Waiting on the call this test actually asserts about is what makes
+     * arrival order a fact rather than a hope. Variant 1 cannot exit until a
+     * buffer has been saved, and only variant 2 can have saved it.
      */
-    let variantTwoExited!: () => void;
-    const afterVariantTwo = new Promise<void>((resolve) => {
-      variantTwoExited = resolve;
+    let firstSaved!: () => void;
+    const afterFirstSave = new Promise<void>((resolve) => {
+      firstSaved = resolve;
+    });
+    let minted = 0;
+    const saveImage = vi.fn((_buf: Buffer) => {
+      const hash = `hash-${++minted}`;
+      firstSaved();
+      return hash;
     });
     const { spawnImpl } = fakeSpawn(({ args, child }) => {
       const second = child.stdin.written.includes('variant 2');
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), second ? PNG_2 : PNG_1);
-      if (second) {
-        child.emit('exit', 0, null);
-        variantTwoExited();
-      } else {
-        void afterVariantTwo.then(() => child.emit('exit', 0, null));
-      }
+      if (second) child.emit('exit', 0, null);
+      else void afterFirstSave.then(() => child.emit('exit', 0, null));
     });
-    const saveImage = newSaveImage();
     const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
     const result = await engine.generate(genReq); // count: 2
 
