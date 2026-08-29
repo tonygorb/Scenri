@@ -42,8 +42,8 @@ export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
  *
  * A group is one chip's worth of images: a product's angles, a presenter's
  * views, a lone reference or mark. `kept` comes back re-sorted by the old rule
- * so downstream consumers (role directives, codex's positional ref naming) see
- * the ordering discipline they always have.
+ * so downstream consumers (role directives, codex's per-role ref naming and
+ * its counters) see the ordering discipline they always have.
  */
 export function allocateAttachments(
   attachments: Attachment[],

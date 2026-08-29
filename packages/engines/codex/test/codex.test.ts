@@ -209,9 +209,13 @@ describe('generate', () => {
       expect(promptText).toContain('640x480: a fox mascot on a teal background');
       expect(promptText).toContain('Save the image in the current directory as out-1.png');
     }
-    // second run is asked for a distinct composition
+    // EVERY take carries the same-shaped clause: take 1 used to get nothing,
+    // which literally asked the first output for the most reference-faithful
+    // decode while later ones were licensed to a "different composition".
     const prompts = calls.map(({ child }) => child.stdin.written);
-    expect(prompts.filter((p) => p.includes('variant 2'))).toHaveLength(1);
+    expect(prompts.filter((p) => p.includes('take 1 of 2'))).toHaveLength(1);
+    expect(prompts.filter((p) => p.includes('take 2 of 2'))).toHaveLength(1);
+    expect(prompts.join(' ')).not.toContain('different composition');
     // distinct workdirs, both cleaned up
     const dirs = calls.map(({ args }) => dirFromArgs(args));
     expect(new Set(dirs).size).toBe(2);
@@ -249,7 +253,7 @@ describe('generate', () => {
       return hash;
     });
     const { spawnImpl } = fakeSpawn(({ args, child }) => {
-      const second = child.stdin.written.includes('variant 2');
+      const second = child.stdin.written.includes('take 2 of');
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), second ? PNG_2 : PNG_1);
       if (second) child.emit('exit', 0, null);
       else void afterFirstSave.then(() => child.emit('exit', 0, null));
@@ -265,8 +269,8 @@ describe('generate', () => {
 
   it('records which requested slots survived a partial failure', async () => {
     const { spawnImpl } = fakeSpawn(({ args, child }) => {
-      // variant 1's prompt carries no variant marker; it is the one that dies
-      if (!child.stdin.written.includes('variant')) {
+      // take 1 is the one that dies
+      if (child.stdin.written.includes('take 1 of')) {
         child.emit('exit', 1, null);
         return;
       }
@@ -347,13 +351,85 @@ describe('generate', () => {
       referenceRoles: ['product'],
     });
     const args = calls[0].args;
-    // References are copied under a neutral, positional name: the generate
-    // prompt binds them by order ("Attached image 1 is ..."), not by filename,
-    // and they are no longer all products.
-    expect(args).toContain(`--image=${join(dirFromArgs(args), 'ref-0.png')}`);
+    // References are copied under ROLE names and the prompt binds each by its
+    // filename ("product-1.png shows ..."): codex's image tool surfaces
+    // pictures in an order this adapter does not control, and an ordinal
+    // binding pointed the identity claim at whichever picture came up first.
+    expect(args).toContain(`--image=${join(dirFromArgs(args), 'product-1.png')}`);
     expect(args[args.length - 1]).toBe('-'); // the stdin marker stays the positional tail
     const promptText = calls[0].child.stdin.written;
+    expect(promptText).toContain('product-1.png shows');
+    expect(promptText).not.toContain('Attached image');
     expect(promptText).toContain('preserve its label, shape, colors and design faithfully');
+  });
+
+  it('binds mixed-role references by filename, in compile order', async () => {
+    const srcDir = mkdtempSync(join(tmpdir(), 'codex-mixed-'));
+    const c1 = join(srcDir, 'c1.png');
+    const c2 = join(srcDir, 'c2.png');
+    const s1 = join(srcDir, 's1.png');
+    for (const p of [c1, c2, s1]) writeFileSync(p, PNG_1);
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    const req: GenerateRequest = {
+      ...genReq,
+      count: 1,
+      referenceImages: [c1, c2, s1],
+      referenceRoles: ['character', 'character', 'scene'],
+    };
+    Object.freeze(req.referenceImages);
+    Object.freeze(req.referenceRoles);
+    await engine.generate(req);
+
+    const args = calls[0].args;
+    const dir = dirFromArgs(args);
+    const imageArgs = args.filter((a) => a.startsWith('--image='));
+    expect(imageArgs).toEqual([
+      `--image=${join(dir, 'character-1.png')}`,
+      `--image=${join(dir, 'character-2.png')}`,
+      `--image=${join(dir, 'scene-1.png')}`,
+    ]);
+    const promptText = calls[0].child.stdin.written;
+    expect(promptText).toContain('character-1.png shows the exact person');
+    expect(promptText).toContain('character-2.png shows the exact person');
+    expect(promptText).toContain('scene-1.png shows a reference for this world');
+    expect(promptText).toContain('take no identity from the person in it');
+    expect(promptText).not.toContain('Attached image');
+    // the frozen arrays prove generate() never mutates its request
+    expect(req.referenceImages).toEqual([c1, c2, s1]);
+    expect(req.referenceRoles).toEqual(['character', 'character', 'scene']);
+  });
+
+  it('every take in a batch receives identical semantics, differing only by its take counter', async () => {
+    const srcDir = mkdtempSync(join(tmpdir(), 'codex-batch-'));
+    const refPath = join(srcDir, 'product.png');
+    writeFileSync(refPath, PNG_1);
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await engine.generate({
+      ...genReq,
+      count: 3,
+      referenceImages: [refPath],
+      referenceRoles: ['product'],
+    });
+
+    expect(calls).toHaveLength(3);
+    const prompts = calls.map(({ child }) => child.stdin.written);
+    const normalized = prompts.map((p) => p.replace(/take \d of 3/, 'take N of 3'));
+    expect(new Set(normalized).size).toBe(1);
+    for (let i = 0; i < 3; i++) expect(prompts.some((p) => p.includes(`take ${i + 1} of 3`))).toBe(true);
+    // identical reference basenames in every exec
+    const basenames = calls.map(({ args }) =>
+      args.filter((a) => a.startsWith('--image=')).map((a) => a.split('/').pop()),
+    );
+    expect(basenames[1]).toEqual(basenames[0]);
+    expect(basenames[2]).toEqual(basenames[0]);
   });
 
   it('describes a role-less reference neutrally rather than claiming it is the product', async () => {
