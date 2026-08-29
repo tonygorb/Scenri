@@ -257,14 +257,15 @@ function ColorPanel(props: ColorChipMenuProps) {
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (rootRef.current?.contains(t)) return;
-      if (t.closest?.('.sc-token')) return;
+      // Only the anchor chip is a toggle; any other chip is an outside click.
+      if (anchor.contains(t)) return;
       // ColorPicker portals its popover; a drag on the hue strip is not "outside".
       if (t.closest?.('.sc-cp')) return;
       onClose('outside');
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [onClose]);
+  }, [onClose, anchor]);
 
   if (!pos) return null;
   return createPortal(

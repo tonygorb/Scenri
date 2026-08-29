@@ -593,8 +593,9 @@ export const BriefInput = forwardRef<
       e.preventDefault();
       const chip = chipAt(target);
       if (picker && chip?.dataset.uid === picker.uid) closePicker('remove');
-      removeChip(root, chip);
-      emit();
+      // one transition for every button-driven removal: the same uid lookup,
+      // seam measure and emit that the keyboard and sheet paths use
+      if (chip?.dataset.uid) removeChipByUid(chip.dataset.uid);
       setMenu(null);
       return;
     }

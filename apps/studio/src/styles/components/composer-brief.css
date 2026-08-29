@@ -386,8 +386,8 @@
 }
 /* ---------- chips, final pass (5.3) ----------
    One language for every chip: same surface, thumbnail, no border, no ring.
-   The X floats over the right edge and only exists once it is visible, so
-   clicking anywhere on a chip opens its menu instead of deleting the token. */
+   The X floats over the right edge, revealed on hover but hit-testable
+   regardless on mouse devices — see the pointer-events note further down. */
 .sc-token {
   background: var(--sc-chip);
   border: none;
@@ -434,9 +434,14 @@
    behind the chip's own background, so the label showed straight through the X.
    The hit area is the glyph, not the fade: at 30px it covered a third of the
    chip, so aiming just inside the right edge to put the caret there deleted the
-   token instead. The gradient now runs to the LEFT of the button, outside it. */
+   token instead. The gradient now runs to the LEFT of the button, outside it.
+   With a mouse the button stays hit-testable even while invisible: it used to
+   be pointer-events:none until :hover, but Chromium drops :hover when a
+   removal or reorder detaches the node under a stationary pointer and does not
+   recompute until the pointer moves, so the next X click fell through to the
+   chip and opened the picker instead. Touch keeps the button inert below, so a
+   tap reaches the chip and opens the sheet, which owns removal there. */
 .sc-token > button {
-  pointer-events: none;
   width: 18px;
   background: var(--sc-chip-hover);
 }
@@ -450,9 +455,10 @@
   background: linear-gradient(to right, transparent, var(--sc-chip-hover));
   pointer-events: none;
 }
-.sc-token:hover > button,
-.sc-token:focus-within > button {
-  pointer-events: auto;
+@media (hover: none) {
+  .sc-token > button {
+    pointer-events: none;
+  }
 }
 .sc-token[data-tinted] > button {
   background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));

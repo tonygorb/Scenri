@@ -342,6 +342,80 @@ describe('removing a chip', () => {
     expect(text()).toBe('on marble');
   });
 
+  it('removes the middle chip of three and merges the seam to one space', () => {
+    renderLine(
+      root,
+      [
+        { t: 'text', v: 'shoot ' },
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' with ' },
+        { t: 'color', hex: '#ff0000', name: 'red' },
+        { t: 'text', v: ' in ' },
+        { t: 'product', id: 'p2' },
+        { t: 'text', v: ' light' },
+      ],
+      chipFor,
+    );
+    removeChip(root, chips()[1]);
+    expect(chips().length).toBe(2);
+    expect(text()).toBe('shoot P:p1 with in P:p2 light');
+    expect(caretUnits(root)).toBe(13);
+  });
+
+  it('removes the first and the last chip of a multi-chip line', () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' and ' },
+        { t: 'product', id: 'p2' },
+        { t: 'text', v: ' after' },
+      ],
+      chipFor,
+    );
+    removeChip(root, chips()[1]);
+    expect(text()).toBe('P:p1 and after');
+    removeChip(root, chips()[0]);
+    expect(text()).toBe('and after');
+  });
+
+  it('takes chips out one after another without disturbing the prose', () => {
+    renderLine(
+      root,
+      [
+        { t: 'text', v: 'a ' },
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' b ' },
+        { t: 'color', hex: '#00ff00', name: 'green' },
+        { t: 'text', v: ' c ' },
+        { t: 'product', id: 'p2' },
+        { t: 'text', v: ' d' },
+      ],
+      chipFor,
+    );
+    removeChip(root, chips()[0]);
+    removeChip(root, chips()[0]);
+    removeChip(root, chips()[0]);
+    expect(chips().length).toBe(0);
+    expect(text()).toBe('a b c d');
+  });
+
+  it('no-ops on a missing or detached target', () => {
+    renderLine(
+      root,
+      [
+        { t: 'text', v: 'shoot ' },
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' x' },
+      ],
+      chipFor,
+    );
+    removeChip(root, null);
+    removeChip(root, chipFor({ t: 'product', id: 'zz' }));
+    expect(chips().length).toBe(1);
+    expect(text()).toBe('shoot P:p1 x');
+  });
+
   it('closes the double space a Backspace over a chip leaves', () => {
     root.append(document.createTextNode('shoot  in light'));
     const t = root.firstChild as Text;

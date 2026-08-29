@@ -1572,6 +1572,122 @@ test('a drag never grows the document or shifts the page', async ({ page }) => {
   await expect(pick(page)).toHaveCount(0);
 });
 
+/* ---------------------------------------------------------------- removal */
+
+/** Prose with three chips of different kinds: the removal fixture. */
+async function seedRemovable(page: Page) {
+  await line(page).click();
+  await page.keyboard.type('shoot ');
+  await page.keyboard.type('$');
+  await page.locator('.sc-cmd-row').first().waitFor();
+  await page.keyboard.press('Enter');
+  await page.keyboard.type(' with ');
+  await page.keyboard.type('@');
+  await page.locator('.sc-cmd-row').first().waitFor();
+  await page.keyboard.press('Enter');
+  await page.keyboard.type(' in #f5c518 light');
+  await expect(chips(page)).toHaveCount(3);
+}
+
+const removeX = (p: Page, index: number) => chips(p).nth(index).locator('[data-role="remove"]').click();
+
+test('every chip removes independently by its x: middle, then first, then last', async ({ page }) => {
+  await seedRemovable(page);
+  await removeX(page, 1);
+  await expect(chips(page)).toHaveCount(2);
+  await removeX(page, 0);
+  await expect(chips(page)).toHaveCount(1);
+  await removeX(page, 0);
+  await expect(chips(page)).toHaveCount(0);
+  const text = await sentence(page);
+  expect(text).toMatch(/shoot\s+with\s+in\s+light/);
+  expect(text).not.toMatch(/ {2}/);
+  // the x removed; it never opened a picker or menu
+  await expect(pick(page)).toHaveCount(0);
+  await expect(page.locator('.sc-cmd')).toHaveCount(0);
+});
+
+test('rapid x clicks remove every chip without a miss', async ({ page }) => {
+  await seedRemovable(page);
+  await removeX(page, 0);
+  await removeX(page, 0);
+  await removeX(page, 0);
+  await expect(chips(page)).toHaveCount(0);
+});
+
+test('the x keeps working under a pointer that never moves', async ({ page }) => {
+  // two typed hex chips have identical labels, so after the first removal the
+  // second chip's x lands exactly under the unmoved pointer — the reflow that
+  // used to strand :hover and make the second click fall through to the chip
+  await line(page).click();
+  await page.keyboard.type('a #f5c518 #f5c518 c');
+  await expect(chips(page)).toHaveCount(2);
+  const b0 = (await chips(page).nth(0).boundingBox())!;
+  const b1 = (await chips(page).nth(1).boundingBox())!;
+  expect(Math.abs(b0.width - b1.width)).toBeLessThan(2);
+  await page.mouse.move(b0.x + b0.width - 9, b0.y + b0.height / 2);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(chips(page)).toHaveCount(1);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(chips(page)).toHaveCount(0);
+  await expect(pick(page)).toHaveCount(0);
+});
+
+test('a chip removes cleanly right after a drag reorder', async ({ page }) => {
+  await seedReorder(page);
+  const chipBox = (await chips(page).first().boundingBox())!;
+  const lineBox = (await line(page).boundingBox())!;
+  await page.mouse.move(chipBox.x + chipBox.width / 2, chipBox.y + chipBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(chipBox.x + chipBox.width / 2 + 12, chipBox.y + chipBox.height / 2, { steps: 3 });
+  await page.mouse.move(lineBox.x + 3, lineBox.y + lineBox.height / 2, { steps: 6 });
+  await page.mouse.up();
+  expect(await sentence(page)).toMatch(/^Cold brew can/);
+  // the very next gesture is the x — the post-drag click suppressor must let it through
+  await removeX(page, 0);
+  await expect(chips(page)).toHaveCount(0);
+  expect(await sentence(page)).toMatch(/hero shot on marble/);
+});
+
+test('pressing the x never starts a drag, and drift inside it still removes', async ({ page }) => {
+  await seedReorder(page);
+  const box = (await chips(page).first().boundingBox())!;
+  const x = box.x + box.width - 9;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  // past the 5px drag threshold, still inside the x band
+  await page.mouse.move(x - 8, y, { steps: 2 });
+  await expect(page.locator('.sc-chip-ghost')).toHaveCount(0);
+  await page.mouse.up();
+  await expect(chips(page)).toHaveCount(0);
+  await expect(page.locator('.sc-drop-caret')).toHaveCount(0);
+});
+
+test('removing another chip while a picker is open closes the picker first', async ({ page }) => {
+  await seedRemovable(page);
+  await openPicker(page, 0);
+  await removeX(page, 1);
+  await expect(chips(page)).toHaveCount(2);
+  await expect(pick(page)).toHaveCount(0);
+  await expect(page.locator('.sc-token[data-open]')).toHaveCount(0);
+});
+
+test('backspace among three chips removes only the nearest', async ({ page }) => {
+  await seedRemovable(page);
+  await page.keyboard.press('End');
+  for (let i = 0; i < ' light'.length; i++) await page.keyboard.press('Backspace');
+  // an atomic chip takes two presses: Chromium selects it first, then deletes
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(2);
+  expect(await chips(page).nth(0).getAttribute('data-tok')).toMatch(/^p:/);
+  expect(await chips(page).nth(1).getAttribute('data-tok')).toMatch(/^h:/);
+  expect(await sentence(page)).not.toMatch(/ {2}/);
+});
+
 test('the newest work is always the top-left tile', async ({ page }) => {
   await page.goto('/');
   await page.waitForURL((u) => {

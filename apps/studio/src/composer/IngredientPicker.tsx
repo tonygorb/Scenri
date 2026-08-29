@@ -455,14 +455,16 @@ function PickerPanel(props: PickerProps) {
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (rootRef.current?.contains(t)) return;
-      // Clicking the chip again is a toggle, and the chip's own handler owns
-      // it — closing here too would close and immediately reopen.
-      if (t.closest?.('.sc-token')) return;
+      // Clicking the anchor chip again is a toggle, and the chip's own handler
+      // owns it — closing here too would close and immediately reopen. Any
+      // other chip is an outside click: the panel must not float over a line
+      // that is being edited under it.
+      if (anchor.contains(t)) return;
       onClose('outside');
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [onClose]);
+  }, [onClose, anchor]);
 
   if (!pos) return null;
   return createPortal(
