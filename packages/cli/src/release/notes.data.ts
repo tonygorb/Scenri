@@ -51,6 +51,20 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.8',
+    date: '2026-08-29',
+    sections: [
+      {
+        heading: 'Create dialogs',
+        body: 'A new product, presenter or scene starts from an empty form, every time. Closing one now ends it rather than keeping what you typed for later, so nothing you walked away from can turn up in the next one, and the message that says so offers Undo if you did not mean to close it. A build that fails still hands everything back, photographs included, so trying again never asks for them twice. A reference you remove stays removed, even when another upload was still running, and a scene that was built while the app was restarting no longer leaves its references waiting in the next form.',
+      },
+      {
+        heading: 'Create',
+        body: 'Selecting text in the brief with the mouse holds, instead of clearing the moment you let go.',
+      },
+    ],
+  },
+  {
     version: '0.6.7',
     date: '2026-08-29',
     sections: [

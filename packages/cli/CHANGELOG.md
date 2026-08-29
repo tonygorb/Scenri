@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.8](https://github.com/tonygorb/Scenri/compare/v0.6.7...v0.6.8) (2026-08-29)
+
+
+### Bug Fixes
+
+* a created scene never refills the next one, and text stays selected ([10d518f](https://github.com/tonygorb/Scenri/commit/10d518f8cc8ba8600f2ad31f72a0c2aea196a530))
+* a created scene never refills the next one, and text stays selected ([3707774](https://github.com/tonygorb/Scenri/commit/3707774dbd1f981919ed96dbf2788f4dc5a316d5))
+* closing a creation ends it, and one Undo brings it back ([24f43ba](https://github.com/tonygorb/Scenri/commit/24f43ba5bcfeb5359e99b5e82a806e5224765462))
+
 ## [0.6.7](https://github.com/tonygorb/Scenri/compare/v0.6.6...v0.6.7) (2026-08-29)
 
 
