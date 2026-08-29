@@ -94,7 +94,7 @@ test.describe('a new product', () => {
     await expect(page).toHaveURL(/\/create$/);
   });
 
-  test('closing keeps what you typed, and sending clears it', async ({ page }) => {
+  test('closing ends the attempt, and so does sending', async ({ page }) => {
     const brand = await currentBrand(page);
     const typed = `Draft Tin ${Date.now()}`;
 
@@ -104,13 +104,15 @@ test.describe('a new product', () => {
     // the debounce is 400ms; give the write a beat before pulling the rug
     await page.waitForTimeout(600);
 
-    // no confirm, ever — there is nothing to lose, so nothing to warn about
+    // no confirm, ever — leaving is allowed to just work
     await page.keyboard.press('Escape');
     await expect(page.locator('.sc-newdlg')).toHaveCount(0);
     await expect(page.locator('[role="alertdialog"]')).toHaveCount(0);
 
+    // A form nobody sent is not a draft: the next one opens clean.
     await page.goto(`/${brand.slug}/products?new=product`);
-    await expect(field()).toHaveValue(typed);
+    await expect(field()).toHaveValue('');
+    await field().fill(typed);
 
     // send it, and the draft is spent
     await page

@@ -79,7 +79,7 @@ const refHash = async (p: Page, i: number): Promise<string> => {
 };
 
 test.describe('a scene creation draft lives exactly as long as the attempt', () => {
-  test('a dismissed attempt is still yours when you come back', async ({ page }) => {
+  test('a dismissed attempt is gone when you come back', async ({ page }) => {
     const slug = await currentBrand(page);
 
     await open(page, slug);
@@ -95,20 +95,57 @@ test.describe('a scene creation draft lives exactly as long as the attempt', () 
     const hasFacets = (await chip.count()) > 0;
     if (hasFacets) await chip.click();
 
-    // past the 400ms debounce, so the write has actually happened
+    // Past the 400ms debounce, so anything that wanted to write has written.
     await page.waitForTimeout(600);
     await page.keyboard.press('Escape');
     await expect(dlg(page)).toHaveCount(0);
-    // there is no confirm, and adding one is not the answer here
+    // leaving is allowed to just work: no "discard your work?" in the way
     await expect(page.locator('[role="alertdialog"]')).toHaveCount(0);
 
-    // This is the deliberate half of the contract: step away mid-thought and
-    // the photographs you already uploaded are not gone.
+    // A new scene has to feel new. Nothing of the attempt that was abandoned
+    // comes back, least of all the references and the Direction, which are read
+    // as art direction and would quietly change what the next scene is built from.
     await open(page, slug);
+    await expect(refs(page)).toHaveCount(0);
+    await expect(nameField(page)).toHaveValue('');
+    await expect(direction(page)).toHaveValue('');
+    if (hasFacets) await expect(chip).not.toHaveAttribute('aria-pressed', 'true');
+  });
+
+  /**
+   * Ending the attempt on close is what makes a new scene feel new, and the
+   * price of it is the accident: an Escape aimed at something else and four
+   * uploaded photographs are gone. That is bought back after the fact rather
+   * than with a confirm on every deliberate close.
+   */
+  test('an accidental dismissal can be undone, once', async ({ page }) => {
+    const slug = await currentBrand(page);
+
+    await open(page, slug);
+    await picker(page).setInputFiles([file('yard.png', A), file('wall.png', B)]);
     await expect(refs(page)).toHaveCount(2);
-    await expect(nameField(page)).toHaveValue('Dismissed Terrace');
+    await nameField(page).fill('Undo Me');
+    await direction(page).fill('A stone terrace in low evening sun.');
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Escape');
+
+    const toast = page.locator('.sc-toast', { hasText: 'Scene discarded' });
+    await expect(toast).toBeVisible();
+    await toast.getByRole('button', { name: 'Undo' }).click();
+
+    // everything, photographs included: re-uploading is the thing this avoids
+    await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
+    await expect(refs(page)).toHaveCount(2);
+    await expect(nameField(page)).toHaveValue('Undo Me');
     await expect(direction(page)).toHaveValue('A stone terrace in low evening sun.');
-    if (hasFacets) await expect(chip).toHaveAttribute('aria-pressed', 'true');
+
+    // The offer was for that one closing. Leaving again and opening the flow
+    // by hand starts from nothing, or this is the old bug wearing a button.
+    await page.keyboard.press('Escape');
+    await open(page, slug);
+    await expect(refs(page)).toHaveCount(0);
+    await expect(nameField(page)).toHaveValue('');
+    await expect(direction(page)).toHaveValue('');
   });
 
   test('a scene that was actually created leaves nothing behind', async ({ page }) => {
@@ -157,33 +194,7 @@ test.describe('a scene creation draft lives exactly as long as the attempt', () 
     await expect(direction(page)).toHaveValue('A stone terrace in low evening sun.');
   });
 
-  test('dismissing keeps it in this tab, and only this tab', async ({ page, context }) => {
-    const slug = await currentBrand(page);
-
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A)]);
-    await expect(refs(page)).toHaveCount(1);
-    await nameField(page).fill('This Tab Only');
-    await direction(page).fill('A stone terrace in low evening sun.');
-    await page.waitForTimeout(600);
-    await page.keyboard.press('Escape');
-    await expect(dlg(page)).toHaveCount(0);
-
-    await open(page, slug);
-    await expect(refs(page)).toHaveCount(1);
-    await page.keyboard.press('Escape');
-
-    // Another tab of the same browser shares localStorage but not the session,
-    // so nothing of this attempt reaches it.
-    const other = await context.newPage();
-    await open(other, slug);
-    await expect(other.locator('.sc-assetform-ref')).toHaveCount(0);
-    await expect(other.getByLabel('Name', { exact: true })).toHaveValue('');
-    await expect(other.getByLabel('Direction', { exact: true })).toHaveValue('');
-    await other.close();
-  });
-
-  test('what you stage for one brand never appears in another', async ({ page }) => {
+  test('a dismissal leaves nothing behind in another tab or another brand', async ({ page, context }) => {
     const slug = await currentBrand(page);
 
     // A second brand of this file's own, so the isolation is actually exercised
@@ -201,14 +212,29 @@ test.describe('a scene creation draft lives exactly as long as the attempt', () 
     await open(page, slug);
     await picker(page).setInputFiles([file('yard.png', A)]);
     await expect(refs(page)).toHaveCount(1);
+    await nameField(page).fill('Abandoned');
     await direction(page).fill('A stone terrace in low evening sun.');
     await page.waitForTimeout(600);
     await page.keyboard.press('Escape');
+    await expect(dlg(page)).toHaveCount(0);
 
-    // The draft is keyed by brand id, so the other brand's form is its own.
+    // not in the brand it was staged for
+    await open(page, slug);
+    await expect(refs(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    // not in another brand, which is keyed separately
     await open(page, otherSlug as string);
     await expect(refs(page)).toHaveCount(0);
     await expect(direction(page)).toHaveValue('');
+    await page.keyboard.press('Escape');
+
+    // and not in another tab, which has a session of its own
+    const other = await context.newPage();
+    await open(other, slug);
+    await expect(other.locator('.sc-assetform-ref')).toHaveCount(0);
+    await expect(other.getByLabel('Name', { exact: true })).toHaveValue('');
+    await other.close();
   });
 
   test('a removed reference is gone from the form and from what gets sent', async ({ page }) => {

@@ -23,6 +23,10 @@ export interface FlowProps {
   capsNote: (whenKnown: string) => ReactNode;
   /** How a build the draft was submitted as is doing, for the Try-again refill. */
   pendingState: (jobId: string) => PendingState;
+  /** This opening is an Undo, so the flow takes back what was abandoned. */
+  restore?: boolean;
+  /** Work was abandoned; the host offers it back in the toast that says so. */
+  onDiscarded: () => void;
 }
 
 /**

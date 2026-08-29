@@ -1,19 +1,23 @@
 /**
- * What someone typed into the create dialog but has not sent yet, kept per
- * brand and per kind, for as long as the tab lives.
+ * What one creation attempt was SENT as, kept per brand and per kind, for as
+ * long as the tab lives.
  *
- * This is what lets the dialog close without asking. A confirm ("discard your
- * work?") is the wrong answer to a problem you can just not have: step away
- * mid-thought and it is all still there when you come back. It is also the fix
- * for Try again, which used to reopen a blank form and ask the person to
- * re-upload the photos the failed build had already read.
+ * It exists for exactly one job: Try again. A build that fails must reopen with
+ * the photographs and the words still in it, rather than asking the person to
+ * re-upload what the failed build had already read.
  *
- * It lives in sessionStorage, and that is the whole lifetime rule: one creation
- * attempt owns one draft, and the attempt ends when the asset exists or when
- * the tab does. Photographs from last week quietly refilling a form headed
- * "New presenter" is how somebody casts a presenter from the previous
- * presenter's face. UpdateCenter reached the same conclusion about its own
- * dismissal, for the same reason.
+ * It is deliberately not a record of what someone is typing. A form nobody has
+ * sent lives in React state and dies with the dialog, because a new creation
+ * has to feel new: a dismissed scene walking back into the next "New scene"
+ * with its references and its Direction reads as the app ignoring the fact that
+ * you left, and for a scene it is worse than untidy — the references and the
+ * Direction are read as art direction, so the wrong ones quietly change what
+ * gets built.
+ *
+ * So the lifetime rule is one line: a draft is written when an attempt is sent,
+ * and it ends when the asset exists, when the attempt is abandoned, or when the
+ * tab does. Photographs from last week refilling a form headed "New presenter"
+ * is how somebody casts a presenter from the previous presenter's face.
  *
  * Sibling of draft.ts, which stays in localStorage on purpose: a brief you are
  * still writing is work to come back to, not an attempt in flight.

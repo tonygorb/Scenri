@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.js';
+import { stashDiscarded, takeDiscarded } from './discarded.js';
 import {
   clearAssetDraft,
   isNonTrivial,
@@ -44,8 +45,13 @@ export function useAssetFields(
      * one.
      */
     exists?: (name: string) => boolean;
+    /** This opening is an Undo, so it takes back what the last one abandoned. */
+    restore?: boolean;
+    /** Something was abandoned with work in it, and can still be offered back. */
+    onDiscarded?: () => void;
   },
 ) {
+  const restore = opts.restore ?? false;
   const [fields, setFields] = useState<AssetFields>(EMPTY);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -55,14 +61,25 @@ export function useAssetFields(
   pendingStateRef.current = opts.pendingState;
   const existsRef = useRef(opts.exists);
   existsRef.current = opts.exists;
-  // How full the strip is right now, for the one reader that runs after an
-  // await and so cannot trust what it captured.
-  const countRef = useRef(0);
-  countRef.current = fields.imageHashes.length;
+  const discardedRef = useRef(opts.onDiscarded);
+  discardedRef.current = opts.onDiscarded;
+  // The fields as they stand right now, for the readers that run after an await
+  // or during teardown and so cannot trust what they captured.
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
 
   // Read once, on mount. The host mounts a form only while its kind is the one
   // showing, so mounting and opening are the same moment.
   useEffect(() => {
+    // An Undo is the one opening that is allowed to arrive full, and it spends
+    // the offer: pressing it twice does not bring the same work back twice.
+    if (restore) {
+      const back = takeDiscarded(brandId, kind);
+      if (back) {
+        setFields(back);
+        return;
+      }
+    }
     const draft = loadAssetDraft(brandId, kind);
     const state = draft?.pending ? pendingStateRef.current(draft.pending) : null;
     /*
@@ -84,6 +101,17 @@ export function useAssetFields(
       clearAssetDraft(brandId, kind);
       return;
     }
+    /*
+     * A draft that was never sent cannot be written any more, so one found here
+     * is a leftover from when closing the dialog kept your typing. Drop it
+     * rather than refilling from it once before the new rule takes hold: the
+     * first "New scene" after an update is exactly the one that must not open
+     * holding the last one's references.
+     */
+    if (draft && !draft.pending) {
+      clearAssetDraft(brandId, kind);
+      return;
+    }
     if (draft && shouldHydrate(draft, state)) {
       pendingRef.current = draft.pending;
       setFields({
@@ -94,15 +122,23 @@ export function useAssetFields(
         importUrl: draft.importUrl,
       });
     }
-  }, [brandId, kind]);
+  }, [brandId, kind, restore]);
 
-  /** Debounced, and never writes an empty shell — a blank form is not a draft. */
+  /**
+   * Debounced, and only ever for an attempt that is actually in flight.
+   *
+   * A form nobody has sent is not a draft: it is what someone is typing, and it
+   * lives in React state where typing belongs. Persisting it is what made a
+   * dismissed scene walk back into the next "New scene" with its references and
+   * its Direction, which reads as the app ignoring the fact that you left.
+   */
   const remember = useCallback(
     (next: AssetFields) => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        if (isNonTrivial(next)) saveAssetDraft(brandId, kind, { ...next, pending: pendingRef.current });
-        else clearAssetDraft(brandId, kind);
+        if (pendingRef.current && isNonTrivial(next)) {
+          saveAssetDraft(brandId, kind, { ...next, pending: pendingRef.current });
+        } else clearAssetDraft(brandId, kind);
       }, 400);
     },
     [brandId, kind],
@@ -128,14 +164,28 @@ export function useAssetFields(
     [remember],
   );
 
-  /** Write now rather than in 400ms — the dialog is closing under us. */
+  /**
+   * The dialog is closing under us, so settle the draft now rather than in
+   * 400ms.
+   *
+   * Closing without sending ends the attempt, and ending it takes the draft
+   * with it. Only a build already in flight leaves anything behind, because
+   * only that has a failure to hand the photographs back from.
+   */
   const flush = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
-    setFields((cur) => {
-      if (isNonTrivial(cur)) saveAssetDraft(brandId, kind, { ...cur, pending: pendingRef.current });
-      else clearAssetDraft(brandId, kind);
-      return cur;
-    });
+    const cur = fieldsRef.current;
+    if (pendingRef.current && isNonTrivial(cur)) {
+      saveAssetDraft(brandId, kind, { ...cur, pending: pendingRef.current });
+      return;
+    }
+    clearAssetDraft(brandId, kind);
+    // Abandoned with something in it: hold it in memory just long enough for
+    // the toast to offer it back.
+    if (isNonTrivial(cur)) {
+      stashDiscarded(brandId, kind, cur);
+      discardedRef.current?.();
+    }
   }, [brandId, kind]);
 
   useEffect(() => {
@@ -151,7 +201,7 @@ export function useAssetFields(
       setUploading(true);
       setErr(null);
       try {
-        const room = opts.max - countRef.current;
+        const room = opts.max - fieldsRef.current.imageHashes.length;
         const added: string[] = [];
         // Sequential: a handful of small uploads is quick, and a failed one
         // should not leave half a set with no way to tell which half.

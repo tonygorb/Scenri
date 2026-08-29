@@ -18,14 +18,14 @@ const MAX_REFS = 4;
  * then kept as evidence; whatever was staged in them is deliberately dropped.
  * So either a picture or a sentence will do, and both is better than either.
  */
-export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState }: FlowProps) {
+export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState, restore, onDiscarded }: FlowProps) {
   const { brand } = useBrand();
   const { verticals } = useAppData();
   const [busy, setBusy] = useState(false);
   // What this brand has already built, so a draft whose build the server has
   // forgotten is not mistaken for one that never finished.
   const exists = useCallback((n: string) => named(customScenesOf(brand), n), [brand]);
-  const f = useAssetFields(brand.id, 'scene', { max: MAX_REFS, pendingState, exists });
+  const f = useAssetFields(brand.id, 'scene', { max: MAX_REFS, pendingState, exists, restore, onDiscarded });
 
   const ready = Boolean(f.fields.name.trim()) && (f.fields.imageHashes.length > 0 || !!f.fields.instruction.trim());
   const blocked = ready ? undefined : 'Add a name, and a photo or a line of direction';

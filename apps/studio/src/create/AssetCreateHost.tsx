@@ -31,6 +31,8 @@ import type { Created } from './flow.js';
  */
 
 const CHOOSER = '1';
+/** What each flow is called in a sentence about what just happened. */
+const LABEL: Record<CreateKind, string> = { product: 'Product', presenter: 'Presenter', scene: 'Scene' };
 const KINDS = ['product', 'presenter', 'scene'] as const;
 const isKind = (v: string | null): v is CreateKind => !!v && (KINDS as readonly string[]).includes(v);
 
@@ -66,6 +68,9 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   // Whether a chooser is behind the open flow. Only then does a back arrow make
   // sense — one pointing at a screen you never saw implies history that is not there.
   const [cameFromChooser, setCameFromChooser] = useState(false);
+  // Set only by Undo, so an ordinary opening can never arrive holding the last
+  // attempt. Cleared as soon as the flow is gone.
+  const [restore, setRestore] = useState(false);
   const createdRef = useRef<{ kind: CreateKind; fn: (made: Created) => void } | null>(null);
   /*
    * Who opened this, so focus can go back to them.
@@ -86,6 +91,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       createdRef.current = kind === 'choose' || !opts?.onCreated ? null : { kind, fn: opts.onCreated };
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setCameFromChooser(kind === 'choose');
+      setRestore(false);
       openParam(kind === 'choose' ? CHOOSER : kind);
     },
     [openParam],
@@ -96,6 +102,38 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
     setCameFromChooser(false);
     closeParam();
   }, [closeParam]);
+
+  /**
+   * Closing a creation ends it, so the way back is offered here rather than
+   * bought with a confirm on every deliberate close.
+   *
+   * Only fires when there was something to lose — a name, a line, a photograph
+   * — and never after a send, which keeps its own draft for Try again.
+   */
+  const onDiscarded = useCallback(
+    (k: CreateKind) => {
+      push({
+        kind: 'success',
+        title: `${LABEL[k]} discarded`,
+        detail: 'Nothing was saved.',
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            setRestore(true);
+            setCameFromChooser(false);
+            openParam(k);
+          },
+        },
+      });
+    },
+    [openParam, push],
+  );
+
+  // The offer belongs to one closing. Once the flow is gone and the toast with
+  // it, a later opening starts from nothing.
+  useEffect(() => {
+    if (value === null) setRestore(false);
+  }, [value]);
 
   /*
    * Focus goes home once the dialog is actually gone — an effect rather than a
@@ -200,6 +238,8 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
     caps,
     capsNote,
     pendingState,
+    restore,
+    onDiscarded: () => kind && onDiscarded(kind),
   };
 
   return (

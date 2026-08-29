@@ -19,13 +19,13 @@ const MAX_REFS = 4;
  * photographs on the server, so nobody here is asked to write a negative prompt
  * or pick a reference weight.
  */
-export function PresenterForm({ onBack, onStarted, caps, capsNote, pendingState }: FlowProps) {
+export function PresenterForm({ onBack, onStarted, caps, capsNote, pendingState, restore, onDiscarded }: FlowProps) {
   const { brand } = useBrand();
   const { presenterCategories } = useAppData();
   const [busy, setBusy] = useState(false);
   // See SceneForm: a build the registry has lost is settled by the library.
   const exists = useCallback((n: string) => named(customPresentersOf(brand), n), [brand]);
-  const f = useAssetFields(brand.id, 'presenter', { max: MAX_REFS, pendingState, exists });
+  const f = useAssetFields(brand.id, 'presenter', { max: MAX_REFS, pendingState, exists, restore, onDiscarded });
 
   const ready = Boolean(f.fields.name.trim()) && f.fields.imageHashes.length > 0;
   const blocked = ready ? undefined : 'Add a name and at least one photo';
