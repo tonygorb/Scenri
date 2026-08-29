@@ -314,14 +314,21 @@ export const Composer = forwardRef<
       // abandoned.
       if (!persistDraft) return;
       const c = contentRef.current;
+      // A targeted composer is a refine conversation, and that conversation is
+      // the URL's to keep, not the draft's. Persisting it made a month-old
+      // refine hijack every later fresh Create into edit mode; saving OR
+      // clearing here would also trample the create draft the user parked
+      // before branching, so while a target is set the draft is simply left
+      // alone.
+      if (c.branchId) return;
       // Restoring is deliberately silent. It used to announce itself in a row
       // above the brief, on every return to Create, which is a notice about
       // something already on screen in the user's own words. Everything that
       // notice offered is reachable without it: emptying the brief clears the
-      // stored draft on this very line, a restored branch target arrives as the
-      // Refining chip with its own X, and a scene's fields belong to the scene
-      // chip you can remove.
-      if (isNonTrivial(c.tokens, c.tplFields, c.branchId)) saveDraft(brandId, { ...c, setSlug });
+      // stored draft on this very line, and a scene's fields belong to the
+      // scene chip you can remove.
+      if (isNonTrivial(c.tokens, c.tplFields))
+        saveDraft(brandId, { tokens: c.tokens, tplFields: c.tplFields, setSlug });
       else clearDraft(brandId);
     },
     [setSlug, persistDraft],
@@ -384,14 +391,12 @@ export const Composer = forwardRef<
     const firstRunForBrand = prior !== brand.id;
     let tokens: SentenceToken[] | null = null;
     let tplFieldsToApply: Record<string, string> | null = null;
-    let branchIdToApply: string | null = null;
 
     if (!hasExplicitSeed && firstRunForBrand) {
       const draft = loadDraft(brand.id);
-      if (draft && isNonTrivial(draft.tokens, draft.tplFields, draft.branchId)) {
+      if (draft && isNonTrivial(draft.tokens, draft.tplFields)) {
         tokens = draft.tokens;
         tplFieldsToApply = draft.tplFields;
-        branchIdToApply = draft.branchId;
       }
     }
 
@@ -405,19 +410,13 @@ export const Composer = forwardRef<
       const base = tokens ?? emptySentence();
       const existingTok = base.find((t) => t.t === 'template') as Extract<SentenceToken, { t: 'template' }> | undefined;
       const existingSceneId = existingTok?.id ?? null;
-      const priorBranchId = branchIdToApply;
       const sceneName = templates.find((t) => t.id === startScene)?.name ?? 'this scene';
-      const branchNode = priorBranchId ? shots.find((s) => s.id === priorBranchId) : null;
-      const result = resolveSceneSwitch(
-        existingSceneId,
-        startScene,
-        sceneName,
-        priorBranchId,
-        branchNode ? nodeLabel(branchNode) : null,
-      );
+      // A restored draft never carries a refine target any more (the URL owns
+      // it, and this effect only runs on a fresh, target-less mount), so the
+      // seed path resolves against no branch at all.
+      const result = resolveSceneSwitch(existingSceneId, startScene, sceneName, null, null);
       if (result.changed) {
         tokens = [{ t: 'template', id: startScene }, ...base.filter((t) => t.t !== 'template')];
-        if (result.toast?.branchWasCleared) branchIdToApply = null;
         if (result.toast) {
           const toast = result.toast;
           push({
@@ -428,7 +427,6 @@ export const Composer = forwardRef<
               onClick: () => {
                 if (toast.prevSceneId) briefRef.current?.insert({ t: 'template', id: toast.prevSceneId });
                 else briefRef.current?.removeTemplate();
-                if (toast.branchWasCleared && priorBranchId) onRestoreBranchId?.(priorBranchId);
               },
             },
           });
@@ -461,7 +459,6 @@ export const Composer = forwardRef<
     if (tokens) {
       setSeedTokens(tokens);
       setTplFields(tplFieldsToApply ?? {});
-      if (branchIdToApply) onRestoreBranchId?.(branchIdToApply);
     }
     if (seedApplied) onSeedsSpent?.();
     draftBrandIdRef.current = brand.id;

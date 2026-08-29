@@ -15,7 +15,6 @@ export interface PersistedDraft {
   updatedAt: string;
   tokens: SentenceToken[];
   tplFields: Record<string, string>;
-  branchId: string | null;
   setSlug: string | null;
 }
 
@@ -31,7 +30,7 @@ const write = (key: string, value: string): void => local.set(key, value);
 const remove = (key: string): void => local.del(key);
 
 /**
- * A blank composer is not worth a write: nothing typed, no attachment, no branch target.
+ * A blank composer is not worth a write: nothing typed, no attachment.
  *
  * A scene chip on its own does not count either, and that exclusion is the point rather than an
  * oversight. Every other chip is something the user went and attached; a scene arrives on its own
@@ -39,27 +38,27 @@ const remove = (key: string): void => local.del(key);
  * scene and nothing else is a seed that was never built on, not work to come back to. Storing it
  * meant a scene nobody chose was restored silently on every later cold load, for thirty days.
  *
+ * A refine target does not count at all, and is not even a field here any more. The target lives
+ * in the URL (`?branch=`) for exactly as long as that conversation is open; persisting it meant a
+ * month-old refine session hijacked every later fresh Create into edit mode, across tabs. And an
+ * instruction typed FOR a target ("make it warmer") restored WITHOUT its target says the opposite
+ * of what was typed, so a stored draft that carries one is discarded whole on load. Refining any
+ * shot again later needs none of this: the shot itself, and the identity its thread inherits, are
+ * in the database forever.
+ *
  * Read as well as write goes through here, so a draft already storing a bare scene is dropped the
  * next time it is loaded, and a real half-written brief is untouched.
  */
-export function isNonTrivial(
-  tokens: SentenceToken[],
-  tplFields: Record<string, string>,
-  branchId: string | null,
-): boolean {
+export function isNonTrivial(tokens: SentenceToken[], tplFields: Record<string, string>): boolean {
   return (
     tokens.some((t) => (t.t === 'text' ? !!t.v.trim() : t.t !== 'template')) ||
-    Object.values(tplFields).some((v) => !!v.trim()) ||
-    !!branchId
+    Object.values(tplFields).some((v) => !!v.trim())
   );
 }
 
 /**
  * The stored draft for a brand, or null if there is none, it failed to parse,
  * it belongs to a different brand, it predates this shape, or it is stale.
- * Never validates branchId against a node list: this module has no access to
- * one, and the caller already has an existing "target no longer resolves"
- * path to fall back on.
  */
 export function loadDraft(brandId: string): PersistedDraft | null {
   const raw = read(draftKey(brandId));
@@ -71,7 +70,7 @@ export function loadDraft(brandId: string): PersistedDraft | null {
     return null;
   }
   if (typeof parsed !== 'object' || parsed === null) return null;
-  const d = parsed as Partial<PersistedDraft>;
+  const d = parsed as Partial<PersistedDraft> & { branchId?: string | null };
   if (
     d.v !== 1 ||
     d.brandId !== brandId ||
@@ -79,6 +78,13 @@ export function loadDraft(brandId: string): PersistedDraft | null {
     typeof d.tplFields !== 'object' ||
     !d.tplFields
   ) {
+    remove(draftKey(brandId));
+    return null;
+  }
+  // A draft written before refine targets stopped being persisted. Its text
+  // was typed for that target, so neither half survives alone — see the
+  // isNonTrivial comment. One-time, on the first load after the update.
+  if (d.branchId) {
     remove(draftKey(brandId));
     return null;
   }
@@ -93,7 +99,6 @@ export function loadDraft(brandId: string): PersistedDraft | null {
     updatedAt: d.updatedAt as string,
     tokens: d.tokens as SentenceToken[],
     tplFields: d.tplFields as Record<string, string>,
-    branchId: d.branchId ?? null,
     setSlug: d.setSlug ?? null,
   };
 }
@@ -104,7 +109,6 @@ export function saveDraft(
   data: {
     tokens: SentenceToken[];
     tplFields: Record<string, string>;
-    branchId: string | null;
     setSlug?: string | null;
   },
 ): void {
@@ -114,7 +118,6 @@ export function saveDraft(
     updatedAt: new Date().toISOString(),
     tokens: data.tokens,
     tplFields: data.tplFields,
-    branchId: data.branchId,
     setSlug: data.setSlug ?? null,
   };
   write(draftKey(brandId), JSON.stringify(draft));

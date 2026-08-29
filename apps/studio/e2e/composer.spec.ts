@@ -105,11 +105,11 @@ test.beforeEach(async ({ page }) => {
   });
   await page.goto(`${new URL(page.url()).pathname}/create`);
   await line(page).waitFor();
-  // Start from a clean brief whatever the last run left behind — including a
-  // refine target, which now survives in the saved draft on purpose and would
-  // otherwise arrive as a chip nobody in this test asked for.
-  const chipX = page.locator('.sc-target-x');
-  if (await chipX.isVisible().catch(() => false)) await chipX.click();
+  // A fresh, param-less /create must never open in refine mode. The draft no
+  // longer persists a branch target, so a chip here could only be a
+  // regression — this used to be a defensive dismissal, now it is the lock.
+  await expect(page.locator('.sc-target')).toHaveCount(0);
+  // Typed text still restores on purpose; clear whatever the last test left.
   await line(page).click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('Backspace');
@@ -304,6 +304,51 @@ test('refining points at the version it just made, not the one it started from',
   // the chip stays, and points at the new version rather than the old shot
   await expect.poll(() => new URL(page.url()).searchParams.get('branch'), { timeout: 10_000 }).toBe(REFINED);
   await expect(chip).toBeVisible();
+});
+
+test('a refine target does not follow you to a fresh Create', async ({ page }) => {
+  // The target and the instruction typed for it are one conversation, held by
+  // the URL. Persisting them meant a refine parked weeks ago hijacked every
+  // later fresh Create into edit mode, across tabs, for thirty days.
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().hover();
+  await page.locator('.sc-cell-branch').first().click();
+  await expect(page.locator('.sc-target')).toBeVisible();
+
+  await line(page).click();
+  await page.keyboard.type('make it warmer');
+  // outlive the 500ms draft debounce: this is exactly when the old code wrote
+  // the target into localStorage
+  await page.waitForTimeout(700);
+
+  // leave the conversation, then start a genuinely fresh Create
+  await page.goto('/');
+  await page.waitForURL((u) => u.pathname.split('/').filter(Boolean).length === 1);
+  await page.goto(`${new URL(page.url()).pathname}/create`);
+  await line(page).waitFor();
+
+  await expect(page.locator('.sc-target')).toHaveCount(0);
+  expect(await sentence(page)).not.toContain('make it warmer');
+});
+
+test('a reload mid-refine keeps the target, not the unsent instruction', async ({ page }) => {
+  // The URL owns the conversation: "branch, go look at something, come back"
+  // survives a reload because `?branch=` does. The half-typed instruction is
+  // session work and starts over.
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().hover();
+  await page.locator('.sc-cell-branch').first().click();
+  await expect(page.locator('.sc-target')).toBeVisible();
+
+  await line(page).click();
+  await page.keyboard.type('tighten the crop');
+  await page.waitForTimeout(700);
+
+  await page.reload();
+  await line(page).waitFor();
+
+  await expect(page.locator('.sc-target')).toBeVisible();
+  expect(await sentence(page)).not.toContain('tighten the crop');
 });
 
 test('a version still rendering holds the button rather than making a new shot', async ({ page }) => {
