@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createCore, type Core, type EditRequest, type EngineAdapter, type GenerateRequest } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
-import { waitDone as waitDoneOn } from './helpers.js';
+import { waitDone as waitDoneOn, waitRendered as waitRenderedOn } from './helpers.js';
 import type { FastifyInstance } from 'fastify';
 
 let home: string;
@@ -374,8 +374,11 @@ describe('generation flow', () => {
     // pixels delivered. The app used to be able to say the first only while
     // running, and the second never, so every tile guessed its shape.
     expect(genNode.durationMs).toBeGreaterThan(0);
-    expect((genNode.brief as any)?.rendered?.sizes?.length).toBe(2);
-    expect((genNode.brief as any).rendered.sizes[0]).toEqual([256, 256]);
+    // Re-read rather than reuse the waitDone snapshot: the record is written
+    // after the status flips, so that snapshot can predate it. See waitRendered.
+    const recorded = await waitRenderedOn(app, genNode.id);
+    expect((recorded.brief as any)?.rendered?.sizes?.length).toBe(2);
+    expect((recorded.brief as any).rendered.sizes[0]).toEqual([256, 256]);
 
     const tree = await app.inject({ method: 'GET', url: `/api/projects/${project.id}/tree` });
     expect(tree.json().nodes).toHaveLength(3);
