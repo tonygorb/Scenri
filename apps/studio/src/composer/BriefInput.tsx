@@ -8,6 +8,8 @@ import { bookmarkedScenes } from '../bookmarks.js';
 import { flattenPalette, normalizeHex } from '../brand/palette.js';
 import { attachChipDrag } from './chipDrag.js';
 import { ChipMoveSheet } from './ChipMoveSheet.js';
+import { ChipPreview, isPreviewKind } from './ChipPreview.js';
+import { useHoverPreview } from './useHoverPreview.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
 import { ColorChipMenu } from './ColorChipMenu.js';
@@ -18,6 +20,7 @@ import {
   chipOpensPicker,
   chipOpensSheet,
   insertShortlist,
+  previewHashOf,
   type Candidate,
   type ChipSheetKind,
   type IngredientKind,
@@ -77,6 +80,15 @@ export interface BriefInputHandle {
   /** Drop the current template chip, if any: it no longer resolves against the catalog. */
   removeTemplate: () => void;
   focus: () => void;
+  /**
+   * Put the caret back where a chip-opened surface found it.
+   *
+   * The same contract `closePicker` keeps, for the one surface the composer
+   * does not own: a dialog hands focus back to whatever opened it, and what
+   * opened this was a chip. Focus left sitting on a chip turns the next
+   * Backspace into a removal, so the caret has to come home instead.
+   */
+  restoreCaret: () => void;
 }
 
 /**
@@ -107,6 +119,12 @@ export const BriefInput = forwardRef<
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
+    /**
+     * A chip whose identity is an image was opened. The composer owns the
+     * lightbox, so there is one per composer rather than one per surface that
+     * can ask for it.
+     */
+    onInspect?: (image: { hash: string; kind: 'ref' | 'mark'; label: string | null }) => void;
     /** The category of whichever product the brief already holds, for the
      * picker's "Suited to X" lift. A hint, never a gate — see compat.ts. */
     activeProductCategory?: string | null;
@@ -134,6 +152,7 @@ export const BriefInput = forwardRef<
     placeholder,
     placeholderSm,
     flag,
+    onInspect,
     activeProductCategory,
     onAttachRequest,
     onSubmit,
@@ -180,10 +199,21 @@ export const BriefInput = forwardRef<
     /** Opened by touch: closing must not re-focus, or the keyboard springs up. */
     touch: boolean;
   } | null>(null);
+  /**
+   * The chip being peeked at. Never a committed surface: a picker, a menu and
+   * a drag all own the chip while they are up, and this yields to all three.
+   */
+  const hover = useHoverPreview<{ uid: string; anchor: HTMLElement }>();
+  const { shown: hovered, closeNow: closeHover } = hover;
   const pickerRef = useRef(picker);
   useEffect(() => {
     pickerRef.current = picker;
   }, [picker]);
+  /** The live `flag`, for the close path that has to put a chip's title back. */
+  const flagRef = useRef(flag);
+  useEffect(() => {
+    flagRef.current = flag;
+  }, [flag]);
   const [query, setQuery] = useState('');
   const [activeOptionId, setActiveOptionId] = useState<string | null>(null);
   const pasted = useRef(false);
@@ -296,13 +326,16 @@ export const BriefInput = forwardRef<
         el.setAttribute('aria-expanded', 'false');
         el.setAttribute('aria-label', `${noun}: ${label}. Change or remove.`);
       } else {
-        // A reference or mark opens nothing, but it can still be removed and
-        // moved, so it is as reachable as its picker-opening siblings.
+        // A reference or a mark has no catalog to swap from, but its identity
+        // IS a picture: hovering peeks at it and opening shows it full size.
+        // Same button, same popup, a different verb.
         el.tabIndex = 0;
         el.setAttribute('role', 'button');
+        el.setAttribute('aria-haspopup', 'dialog');
+        el.setAttribute('aria-expanded', 'false');
         el.setAttribute(
           'aria-label',
-          `${token.t === 'mark' ? 'brand mark' : 'reference image'}: ${label}. Remove or move.`,
+          `${token.t === 'mark' ? 'brand mark' : 'reference image'}: ${label}. Open, remove or move.`,
         );
       }
       // Every chip moves the same way; the shared hint below the line says how.
@@ -388,13 +421,14 @@ export const BriefInput = forwardRef<
       const token = decode(chip.dataset.tok ?? '');
       if (!token) continue;
       const warning = flag?.(token) ?? null;
-      if (warning) {
-        chip.title = warning;
-        chip.dataset.warn = '1';
-      } else {
-        chip.removeAttribute('title');
-        delete chip.dataset.warn;
-      }
+      if (warning) chip.dataset.warn = '1';
+      else delete chip.dataset.warn;
+      // A chip with a surface open says its warning inside that surface, so the
+      // native tooltip would be the same words a second time, hovering over the
+      // picture the panel exists to show. `openPicker` takes the title off and
+      // `closePicker` puts it back; this only has to agree with them.
+      if (warning && !('open' in chip.dataset)) chip.title = warning;
+      else chip.removeAttribute('title');
     }
   }, [flag]);
 
@@ -474,13 +508,41 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
+  /**
+   * Open the picture a chip IS, full size.
+   *
+   * The hash comes off the token, so what the lightbox shows is the same
+   * `imageHash` the compiler attaches. A peek is dismissed first: leaving a
+   * card floating over a dialog is exactly the tooltip-over-panel problem this
+   * feature had to solve in the first place.
+   */
+  const inspectChip = useCallback(
+    (chip: HTMLElement): boolean => {
+      const token = decode(chip.dataset.tok ?? '');
+      if (!token || (token.t !== 'ref' && token.t !== 'mark')) return false;
+      // Where to come back to. A click already placed the caret beside the
+      // chip; a keyboard activation never moved it, so read it either way
+      // before the dialog takes focus off the line.
+      const root = rootRef.current;
+      const at = root ? caretUnits(root) : null;
+      if (at != null) lastCaret.current = at;
+      closeHover();
+      onInspect?.({ hash: token.imageHash, kind: token.t, label: token.t === 'mark' ? chipLabel(chip) : null });
+      return true;
+    },
+    [onInspect, closeHover],
+  );
+
   const openPicker = useCallback((chip: HTMLElement, kind: ChipSheetKind, caret: number | null, touch: boolean) => {
     const uid = chip.dataset.uid;
     if (!uid) return;
     chip.dataset.open = '';
-    // ref/mark chips deliberately carry no aria-haspopup (nothing to swap
-    // to on desktop), so they must not grow a lying aria-expanded either
+    // Every chip that opens a surface carries aria-haspopup; the guard is only
+    // so a chip that somehow has none cannot grow a lying aria-expanded.
     if (chip.hasAttribute('aria-haspopup')) chip.setAttribute('aria-expanded', 'true');
+    // The warning is about to be said inside the surface. Leaving the title on
+    // would float the same sentence over it on the next hover.
+    chip.removeAttribute('title');
     setMenu(null);
     setQuery('');
     setPicker({ uid, kind, anchor: chip, caret, touch });
@@ -502,6 +564,11 @@ export const BriefInput = forwardRef<
     if (chip) {
       delete chip.dataset.open;
       if (chip.hasAttribute('aria-haspopup')) chip.setAttribute('aria-expanded', 'false');
+      // Re-derived rather than stashed: the compiler may have re-flagged this
+      // chip while the surface was open.
+      const token = decode(chip.dataset.tok ?? '');
+      const warning = token ? (flagRef.current?.(token) ?? null) : null;
+      if (warning) chip.title = warning;
     }
     const at = caretOverride !== undefined ? caretOverride : p.caret;
     // Opened by a thumb: the line was never focused, and focusing it now is
@@ -532,6 +599,34 @@ export const BriefInput = forwardRef<
     closePicker('outside');
   }, [picker, closePicker]);
 
+  /**
+   * The chip being peeked at was removed, reordered into a new element, or
+   * replaced wholesale by `setTokens`. Either way the card points at nothing.
+   */
+  useEffect(() => {
+    if (!hovered) return;
+    if (rootRef.current?.contains(hovered.anchor)) return;
+    closeHover();
+  }, [hovered, closeHover]);
+
+  /**
+   * A chip with a card up says its warning inside that card, so the native
+   * tooltip would be the same sentence again, floating over the picture. Put
+   * back on the way out, and the title re-sync effect agrees by skipping any
+   * chip that is marked open.
+   */
+  useEffect(() => {
+    const el = hovered?.anchor;
+    if (!el) return;
+    el.dataset.open = '';
+    const title = el.getAttribute('title');
+    if (title) el.removeAttribute('title');
+    return () => {
+      delete el.dataset.open;
+      if (title) el.setAttribute('title', title);
+    };
+  }, [hovered]);
+
   useImperativeHandle(ref, () => ({
     insert: (t) => placeRef.current(t),
     setTokens: (t) => {
@@ -554,6 +649,16 @@ export const BriefInput = forwardRef<
       setMenu({ anchor });
     },
     focus: () => caretToEnd(rootRef.current),
+    restoreCaret: () => {
+      const root = rootRef.current;
+      if (!root) return;
+      // focus first: setCaretUnits places a range but does not focus, and
+      // Chromium only re-establishes an editing caret on a genuine transition
+      root.focus({ preventScroll: true });
+      const at = lastCaret.current;
+      if (at != null) setCaretUnits(root, at);
+      else caretToEnd(root);
+    },
   }));
 
   /**
@@ -634,14 +739,64 @@ export const BriefInput = forwardRef<
       return;
     }
     const kind = chipOpensPicker(decode(chip.dataset.tok ?? ''));
-    // A reference or a brand mark is not a catalog to swap. The caret is
-    // already where the click landed; replace by deleting and inserting
-    // again, the same way those chips were made. A colour opens its own menu.
-    if (!kind) return;
+    // A reference or a brand mark is not a catalog to swap — replace one by
+    // deleting and inserting again, the way it was made — so what a click on
+    // its body asks for is the only thing it has: that picture, properly.
+    //
+    // Clicking a chip body is already how every other chip opens its surface,
+    // and the competing meaning is already handled a few lines up: the outer
+    // EDGE pixels of every chip are reserved for reaching the caret, so a
+    // click that got this far was aimed at the chip and nothing else.
+    if (!kind) {
+      inspectChip(chip);
+      return;
+    }
     // The caret was just placed by caretFromPoint above, while the line still
     // has focus — so this is an exact reading, and it is the one the picker
     // hands back when it closes.
     openPicker(chip, kind, caretUnits(root), false);
+  };
+
+  /**
+   * Peeking, delegated from the line.
+   *
+   * `pointerover` rather than enter, because the chips are DOM nodes React
+   * never rendered: there is nothing to attach a per-chip handler to without
+   * the line handing it out. It only ever sets state — no preventDefault, no
+   * focus, no caret — so nothing here can reach the selection or the editor.
+   */
+  const onPointerOver = (e: React.PointerEvent) => {
+    // A finger gets the sheet, and a pen mid-drag is drawing, not peeking.
+    if (e.pointerType !== 'mouse') return;
+    const root = rootRef.current;
+    // A picker, the insert menu and a drag each own the chip while they run.
+    if (picker || menu || (root && 'chipDrag' in root.dataset)) return;
+    const chip = chipAt(e.target as HTMLElement);
+    const uid = chip?.dataset.uid;
+    if (!chip || !uid || !previewHashOf(decode(chip.dataset.tok ?? ''))) {
+      hover.close();
+      return;
+    }
+    if (hovered?.uid === uid) {
+      hover.keep();
+      return;
+    }
+    hover.open({ uid, anchor: chip });
+  };
+
+  /**
+   * Focus is the keyboard's hover.
+   *
+   * Only `:focus-visible`, so the focus a mouse click leaves on a chip does not
+   * re-open the card the click just dismissed on its way to the lightbox.
+   */
+  const onFocusIn = (e: React.FocusEvent) => {
+    const chip = chipAt(e.target as HTMLElement);
+    const uid = chip?.dataset.uid;
+    if (!chip || !uid || picker || menu) return;
+    if (!previewHashOf(decode(chip.dataset.tok ?? ''))) return;
+    if (!chip.matches(':focus-visible')) return;
+    hover.open({ uid, anchor: chip });
   };
 
   /**
@@ -659,8 +814,8 @@ export const BriefInput = forwardRef<
     if (!chip) return; // prose still focuses, and still raises the keyboard
     const box = chip.getBoundingClientRect();
     if (e.clientX - box.left <= EDGE || box.right - e.clientX <= EDGE) return;
-    // the SHEET set, not the picker set: on touch a ref/mark chip opens its
-    // move/remove sheet, where a desktop click would only place the caret
+    // The same surface set a click resolves; `touch` is what decides that a
+    // ref/mark opens the move/remove sheet here rather than the preview panel.
     const kind = chipOpensSheet(decode(chip.dataset.tok ?? ''));
     if (!kind) return;
     if (chip.dataset.uid && picker?.uid === chip.dataset.uid) return;
@@ -713,6 +868,11 @@ export const BriefInput = forwardRef<
         e.preventDefault();
         const kind = chipOpensPicker(decode(focused.dataset.tok ?? ''));
         if (kind && root) openPicker(focused, kind, unitsBeforeChip(root, focused) + 1, false);
+        // The same two steps a pointer takes, in the keyboard's own terms:
+        // focusing the chip already put its card on screen, and Enter is the
+        // deliberate second act that opens it. Unlike a click in a sentence,
+        // pressing Enter on a focused chip can only have meant this.
+        else inspectChip(focused);
         return;
       }
       if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -915,11 +1075,28 @@ export const BriefInput = forwardRef<
     });
   }, []);
 
+  /**
+   * What the open surface is anchored to, read back off the chip itself.
+   *
+   * The hash comes from the token, never from the rendered `<img>` and never
+   * from a position in the line: it is the same `imageHash` the compiler turns
+   * into an attachment, so a preview cannot show one picture while the engine
+   * receives another.
+   */
+  const anchorToken = picker ? decode(picker.anchor.dataset.tok ?? '') : null;
+  const previewHash = previewHashOf(anchorToken);
+  const anchorWarning = anchorToken ? (flag?.(anchorToken) ?? null) : null;
+
+  const hoveredToken = hovered ? decode(hovered.anchor.dataset.tok ?? '') : null;
+  const hoveredHash = previewHashOf(hoveredToken);
+  const hoveredKind = hoveredToken && isPreviewKind(hoveredToken.t) ? hoveredToken.t : null;
+  const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
+
   return (
     <div className="sc-brief" data-drag-over={dragOver || undefined}>
       {/* the affordances a chip cannot carry visually: read by aria-describedby */}
       <span id={hintId} className="sc-vh">
-        Press Enter to change, Delete to remove, Alt plus arrow keys to move.
+        Press Enter to open, Delete to remove, Alt plus arrow keys to move.
       </span>
       {/* every reorder path announces here — drag, Alt+Arrow, the sheet */}
       <span className="sc-vh" role="status" aria-live="polite">
@@ -944,6 +1121,9 @@ export const BriefInput = forwardRef<
         {...(placeholderSm ? { 'data-ph-sm': placeholderSm } : {})}
         onClick={onClick}
         onPointerDown={onPointerDown}
+        onPointerOver={onPointerOver}
+        onPointerLeave={(e) => e.pointerType === 'mouse' && hover.close()}
+        onFocusCapture={onFocusIn}
         onKeyDown={onKeyDown}
         onInput={onInput}
         onCopy={onCopy}
@@ -988,12 +1168,33 @@ export const BriefInput = forwardRef<
         />
       )}
 
+      {hovered && hoveredHash && hoveredKind && (
+        <ChipPreview
+          key={hovered.uid}
+          anchor={hovered.anchor}
+          kind={hoveredKind}
+          src={imgUrl(hoveredHash)}
+          // A mark has a name worth repeating; a hand-attached reference's
+          // label is the word "reference", which the card already says.
+          label={hoveredKind === 'mark' ? chipLabel(hovered.anchor) : null}
+          warning={hoveredWarning}
+          onOpen={() => inspectChip(hovered.anchor)}
+          onHoverIn={hover.keep}
+          onHoverOut={hover.close}
+          onClose={closeHover}
+        />
+      )}
+
       {picker?.kind === 'ref' || picker?.kind === 'mark' ? (
+        // The touch door, and only that. A finger has neither the drag nor
+        // Alt+Arrow and needs somewhere to move and remove from; a pointer has
+        // both already, and peeks and opens instead.
         <ChipMoveSheet
           key={picker.uid}
           kind={picker.kind}
           label={chipLabel(picker.anchor)}
-          thumb={picker.anchor.querySelector('img')?.src ?? null}
+          thumb={previewHash ? imgUrl(previewHash) : null}
+          onInspect={() => inspectChip(picker.anchor)}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onRemove={() => {
             const at = removeChipByUid(picker.uid);
@@ -1041,7 +1242,7 @@ export const BriefInput = forwardRef<
           candidates={candidatesFor(picker.kind)}
           brandId={brand.id}
           brandSlug={brand.slug}
-          warning={picker.anchor.title || null}
+          warning={anchorWarning}
           onAttachRequest={
             onAttachRequest
               ? (tab) => {

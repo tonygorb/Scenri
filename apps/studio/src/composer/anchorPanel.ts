@@ -16,6 +16,13 @@
 export const PANEL_W = 440;
 /** Taller than this stops being a quick pick and starts being a library page. */
 export const PANEL_MAX_H = 460;
+/**
+ * A preview is one square picture and a two-line caption, so it is a fraction
+ * of a picker: a glance at what a chip is holding, never a panel over the
+ * composer. The face itself is 132px, and this is that plus the panel's inset
+ * on both sides.
+ */
+export const PREVIEW_W = 156;
 /** Chip to panel. */
 const GAP = 8;
 /** Never flush against a viewport edge. */

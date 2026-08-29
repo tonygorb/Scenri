@@ -413,8 +413,9 @@
 }
 /* The refinement's carried context: what the thread keeps, said before the
    send, in the same pill voice the relationship chip above already speaks.
-   Informative spans, never buttons — the brief line below is where context
-   is changed. */
+   Never where context is CHANGED — the brief line below is — but each one is
+   a picture the refinement is carrying, so it opens that picture and nothing
+   else. */
 .sc-carried {
   display: flex;
   align-items: center;
@@ -433,6 +434,11 @@
   gap: 5px;
   max-width: 100%;
   padding: 2px 8px 2px 3px;
+  /* The previewable ones are real buttons, so the pill has to say all of this
+     itself rather than inherit a span's defaults. */
+  border: 0;
+  background: none;
+  font: inherit;
   border-radius: var(--sc-radius-full);
   box-shadow: inset 0 0 0 1px var(--sc-line);
   font-size: 11.5px;
@@ -455,6 +461,15 @@
   background: #fff;
   object-fit: contain;
   border-radius: var(--sc-radius-xs);
+}
+/* Paint only, like every other open-state in the composer: no size, no
+   transform, no border-width, so opening a preview cannot move the strip. */
+button.sc-carried-chip {
+  cursor: pointer;
+}
+.sc-carried-chip[data-open] {
+  background: var(--sc-chip-hover);
+  color: var(--sc-fg);
 }
 @media (max-width: 1023px) {
   .sc-ovl {
