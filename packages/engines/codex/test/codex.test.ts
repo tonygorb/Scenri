@@ -206,8 +206,12 @@ describe('generate', () => {
       expect(args).toContain('model_reasoning_effort="low"');
       const promptText = child.stdin.written; // the prompt rides stdin, not argv
       expect(promptText).toContain('Generate one professional-grade image immediately');
-      expect(promptText).toContain('640x480: a fox mascot on a teal background');
-      expect(promptText).toContain('Save the image in the current directory as out-1.png');
+      // the frame arrives as pixels AND ratio language, and the save
+      // instruction bans the shell resize the old license invited
+      expect(promptText).toContain('composed as a 640x480 frame (4:3 landscape): a fox mascot on a teal background');
+      expect(promptText).toContain("Save the tool's output in the current directory as out-1.png");
+      expect(promptText).toContain('never resize, scale, stretch, pad, crop or re-encode');
+      expect(promptText).not.toContain('you may run the commands needed to save and resize it');
     }
     // EVERY take carries the same-shaped clause: take 1 used to get nothing,
     // which literally asked the first output for the most reference-faithful
@@ -554,8 +558,9 @@ describe('edit', () => {
     expect(args.slice(0, 4)).toEqual(['exec', '--skip-git-repo-check', '--sandbox', 'workspace-write']);
     expect(calls[0].child.stdin.written).toBe(
       'Edit input.png using your image generation/editing tool: make the sky teal.' +
-        ' Do not browse the web or explore files. Save the result in the current directory as out-1.png' +
-        ' (you may run the commands needed to save and resize it). Nothing else.',
+        " Do not browse the web or explore files. Save the tool's output in the current directory as out-1.png," +
+        ' byte-for-byte unchanged: you may run the commands needed to copy or move the file, but never resize,' +
+        " scale, stretch, pad, crop or re-encode it — deliver the tool's own pixels at the tool's own size. Nothing else.",
     );
     expect(inputBytes?.equals(PNG_1)).toBe(true);
     expect(saveImage).toHaveBeenCalledTimes(1);
@@ -563,10 +568,11 @@ describe('edit', () => {
     expect(result).toEqual({ images: ['hash-1'], costUsd: 0 });
   });
 
-  it('states the exact answer size when the request carries one', async () => {
-    // A plain refine now states the source's own pixels, so the prompt must
-    // carry them: given no size, codex likes to answer the same shape smaller,
-    // and the shrunken answer became the next refinement's source.
+  it('asks for the shape in ratio language and never for exact pixels', async () => {
+    // "Save the result at exactly WxH pixels" is gone on purpose: the model
+    // honoured it with sips, a force-fit of both axes that sheared drifted
+    // frames and cheap-resampled every refine hop. The server's canvas pass
+    // owns size; the prompt only names the shape to keep.
     const srcDir = mkdtempSync(join(tmpdir(), 'codex-test-src-'));
     const sourceImage = join(srcDir, 'photo.png');
     writeFileSync(sourceImage, PNG_1);
@@ -579,7 +585,22 @@ describe('edit', () => {
     const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
 
     await engine.edit({ instruction: 'make it warmer', sourceImage, brand, width: 640, height: 800 });
-    expect(calls[0].child.stdin.written).toContain('Save the result at exactly 640x800 pixels.');
+    const promptText = calls[0].child.stdin.written;
+    expect(promptText).toContain("Keep the edited frame at input.png's own 4:5 shape.");
+    expect(promptText).not.toContain('Save the result at exactly');
+    expect(promptText).toContain('never resize, scale, stretch, pad, crop or re-encode');
+  });
+
+  it('refuses an empty out file instead of storing it', async () => {
+    const srcDir = mkdtempSync(join(tmpdir(), 'codex-test-src-'));
+    const sourceImage = join(srcDir, 'photo.png');
+    writeFileSync(sourceImage, PNG_1);
+    const { spawnImpl } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), Buffer.alloc(0));
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await expect(engine.edit({ instruction: 'x', sourceImage, brand })).rejects.toThrow(/out-1\.png is empty/);
   });
 
   // The edit path used to only copy the source into the working directory and

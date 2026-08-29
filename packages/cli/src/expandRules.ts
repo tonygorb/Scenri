@@ -146,37 +146,11 @@ export function expandInstruction(plan: ExpandPlan, direction: string): string {
   );
 }
 
-/**
- * Common shapes, so the frame can be named rather than described in pixels.
- *
- * A model composes for "16:9" far more readily than for "1824 by 1024", and the
- * Codex path cannot request a size at all — its image tool pins `size` to
- * `auto` and the agent resizes the artifact afterwards. So the SHAPE has to
- * arrive as language, or the frame is composed square and squeezed later.
- */
-const NAMED_RATIOS: Array<[string, number]> = [
-  ['1:1', 1],
-  ['4:5', 4 / 5],
-  ['5:4', 5 / 4],
-  ['2:3', 2 / 3],
-  ['3:2', 3 / 2],
-  ['3:4', 3 / 4],
-  ['4:3', 4 / 3],
-  ['9:16', 9 / 16],
-  ['16:9', 16 / 9],
-  ['2:1', 2],
-  ['1:2', 0.5],
-];
-
-export function ratioLabel(width: number, height: number): string {
-  const ratio = width / height;
-  for (const [label, value] of NAMED_RATIOS) {
-    if (Math.abs(ratio - value) / value < 0.02) return label;
-  }
-  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
-  const d = gcd(width, height) || 1;
-  return `${Math.round(width / d)}:${Math.round(height / d)}`;
-}
+// Common shapes, so a frame can be named rather than described in pixels.
+// Lives in core beside ASPECT_TOLERANCE now: the codex engine names shapes in
+// its own prompts, and aspect language is core's jurisdiction.
+import { ratioLabel } from '@scenri/core';
+export { ratioLabel };
 
 /**
  * What to ask an engine that will redraw the whole frame.
