@@ -811,10 +811,13 @@ async function runSceneBuild(
   if (deps.engine) {
     patch(job, { stage: 'building', steps: 1, message: 'Drawing the place' });
     try {
-      // The one place a scene's own references can be spent for free: this draw
-      // has the engine's whole reference budget to itself, and what it produces
-      // is a card thumbnail, never a customer's shot. So the world gets read
-      // from pixels here, while a shot still only ever gets the words.
+      // The one place a scene's own references can be spent for free: this
+      // draw has the engine's whole reference budget to itself. What it
+      // produces is the card thumbnail AND, for a figure-led scene, the
+      // identity-neutral plate a generation conditions on: drawn with "they
+      // are nobody in particular", it can lend the world and the treatment
+      // but never a face - which the raw upload, a full-bleed photograph of a
+      // real person, demonstrably did.
       const previewRefs = hashes
         .slice(0, deps.engine.capabilities().maxReferenceImages)
         .map((h) => core.images.pathFor(h));
