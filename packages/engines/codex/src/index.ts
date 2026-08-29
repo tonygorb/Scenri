@@ -55,6 +55,22 @@ export interface CodexEngineOptions extends RunnerOptions {
   runner?: CodexRunner;
 }
 
+/**
+ * Reference filenames by role, with per-role 1-based counters:
+ * character-1.png, character-2.png, scene-1.png. Per-role rather than the
+ * edit path's global numbering so two views of one person read as a pair.
+ * Disk names and prompt prose both come from here, so they cannot diverge.
+ */
+export function refFileNames(roles: readonly ReferenceRole[], count: number): string[] {
+  const perRole = new Map<string, number>();
+  return Array.from({ length: count }, (_, i) => {
+    const role = roles[i] ?? 'reference';
+    const n = (perRole.get(role) ?? 0) + 1;
+    perRole.set(role, n);
+    return `${role}-${n}.png`;
+  });
+}
+
 export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   const { saveImage } = opts;
   const platform = opts.platform ?? process.platform;
@@ -153,6 +169,11 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
          * attached — and on an edit the first one attached is `input.png`, the
          * shot being edited. A refine carrying a full identity payload was
          * silently editing nothing at all.
+         *
+         * That same backwards walk is why every reference is bound to its role
+         * by FILENAME (refFileNames) on both paths: the tool decides which
+         * pictures it surfaces and in what order, so an ordinal "Attached
+         * image N" binding pointed identity claims at the wrong picture.
          */
         maxReferenceImages: 5,
         /*
@@ -196,8 +217,14 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
           withWorkDir(async (dir) => {
             const args = execArgs(dir);
             let refBytes = 0;
+            // Role-named files, exactly like the edit path: the prompt binds
+            // each picture by its FILENAME, because binding by ordinal
+            // ("Attached image 3 is...") broke the moment codex's image tool
+            // chose its own presentation order - a scene reference could be
+            // read as "the exact person" and a presenter as set dressing.
+            const names = refFileNames(roles, refs.length);
             for (const [idx, ref] of refs.entries()) {
-              const dest = join(dir, `ref-${idx}.png`);
+              const dest = join(dir, names[idx]);
               await copyFile(ref, dest);
               refBytes += (await stat(dest)).size;
               // --image is variadic; the = form binds exactly one value so the
@@ -339,13 +366,15 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
 
   function buildPrompt(req: GenerateRequest, index: number, roles: ReferenceRole[]): string {
     const roleDirective = REFERENCE_ROLE_DIRECTIVE;
-    const refDirectives = roles
-      .map((role, i) =>
-        roles.length > 1
-          ? `Attached image ${i + 1} is ${roleDirective[role]}.`
-          : `The attached image is ${roleDirective[role]}.`,
-      )
-      .join(' ');
+    // Filenames carry the binding, never ordinals: codex's image tool selects
+    // pictures from conversation history in an order this adapter does not
+    // control, so "Attached image 1 is the exact person" could end up pointing
+    // at whatever picture the tool happened to surface first. A name travels
+    // with its file whatever the order. Same contract the edit path has
+    // carried since the character-1.png fix.
+    const names = refFileNames(roles, roles.length);
+    const refDirectives = roles.map((role, i) => `${names[i]} shows ${roleDirective[role]}.`).join(' ');
+    const count = Math.max(1, req.count);
     return (
       // "professional-grade", not "flawless": the audit of the waxy-presenter
       // report traced part of the plastic, over-perfected rendering to that
@@ -357,7 +386,15 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       (refDirectives ? ` ${refDirectives}` : '') +
       ` Do not browse the web or explore files. Save the image in the current directory as out-1.png ` +
       `(you may run the commands needed to save and resize it). Nothing else.` +
-      (index > 0 ? ` (variant ${index + 1} — same brief, different composition)` : '')
+      // Every take in a batch gets the SAME-shaped clause. Take 1 used to get
+      // nothing - so the first output was literally asked for the most
+      // reference-faithful decode - and later takes were licensed to a
+      // "different composition", which read as permission to drift from the
+      // directives. Reported as: output #1 copies the scene reference, output
+      // #2 mixes identities. A single generation stays byte-stable.
+      (count > 1
+        ? ` (take ${index + 1} of ${count} — same brief, same identities and constraints, a naturally different moment and framing of the same shoot)`
+        : '')
     );
   }
 }
