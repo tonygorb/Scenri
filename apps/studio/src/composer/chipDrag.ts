@@ -64,9 +64,12 @@ export function attachChipDrag(
 
   const suppressNextClick = () => {
     const once = (e: MouseEvent) => {
+      window.removeEventListener('click', once, true);
+      // a click on a chip's X is unambiguous intent, never the stray
+      // caret/picker click this suppressor exists to eat
+      if ((e.target as HTMLElement).closest?.('[data-role="remove"]')) return;
       e.stopPropagation();
       e.preventDefault();
-      window.removeEventListener('click', once, true);
     };
     window.addEventListener('click', once, true);
     // a drag that ends off the line produces no click at all; do not let the

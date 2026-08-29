@@ -9,6 +9,7 @@ import {
   moveSlots,
   moveSlotsFor,
   readLine,
+  removeChip,
   renderLine,
   snapToSlot,
   type SentenceToken,
@@ -147,6 +148,40 @@ describe('moveChipToUnits', () => {
     const texts = readLine(root).filter((t): t is Extract<SentenceToken, { t: 'text' }> => t.t === 'text');
     for (const t of texts) expect(t.v).not.toMatch(/ {2}/);
     expect(order()).toEqual(['"a "', '<product:p1>', '" marble hall "']);
+  });
+});
+
+describe('reorder then remove', () => {
+  it('removes the chip that just moved, not a neighbour', () => {
+    seed([
+      { t: 'text', v: 'a b ' },
+      { t: 'product', id: 'p1' },
+      { t: 'text', v: ' c ' },
+      { t: 'character', id: 'c1' },
+    ]);
+    const c = chips()[1];
+    expect(moveChipToUnits(root, c, 0)).toBe(true);
+    expect(order()[0]).toBe('<character:c1>');
+    removeChip(root, c);
+    expect(order().filter((s) => s.startsWith('<'))).toEqual(['<product:p1>']);
+    const texts = readLine(root).filter((t): t is Extract<SentenceToken, { t: 'text' }> => t.t === 'text');
+    for (const t of texts) expect(t.v).not.toMatch(/ {2}/);
+  });
+
+  it('keeps a moved chip in place when another chip is removed', () => {
+    seed([
+      { t: 'product', id: 'p1' },
+      { t: 'text', v: ' beside ' },
+      { t: 'character', id: 'c1' },
+      { t: 'text', v: ' end' },
+    ]);
+    const [p, c] = chips();
+    const total = readLine(root).reduce((n, t) => n + (t.t === 'text' ? t.v.length : 1), 0);
+    expect(moveChipToUnits(root, p, total)).toBe(true);
+    removeChip(root, c);
+    expect(order().filter((s) => s.startsWith('<'))).toEqual(['<product:p1>']);
+    // the survivor is the same node that moved, never a rebuilt copy
+    expect(chips()).toContain(p);
   });
 });
 

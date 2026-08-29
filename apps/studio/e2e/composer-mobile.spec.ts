@@ -720,3 +720,13 @@ test('a reference chip gets its own touch sheet: move and remove, no keyboard', 
   await page.locator('.sc-swapsheet').getByRole('button', { name: 'Remove reference' }).click();
   await expect(briefChips(page)).toHaveCount(0);
 });
+
+test('a tap on the right edge of a chip opens the sheet, never removes', async ({ page }) => {
+  test.skip(!isPhone(page), 'the sheet is the phone path');
+  // the x band is inert to touch (hover: none), so the tap reaches the chip
+  await seedMovable(page);
+  const box = (await briefChips(page).first().boundingBox())!;
+  await page.touchscreen.tap(box.x + box.width - 9, box.y + box.height / 2);
+  await expect(sheet(page)).toBeVisible();
+  await expect(briefChips(page)).toHaveCount(1);
+});
