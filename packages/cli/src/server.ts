@@ -47,7 +47,7 @@ import {
   wantsImplicitReshape,
   type ExpandPlan,
 } from './expandRules.js';
-import { judgeEditSize } from './editSizeRules.js';
+import { judgeEditSize, SAME_SHAPE_TOL } from './editSizeRules.js';
 import { planCrop } from './cropRules.js';
 import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand, reframeExpand } from './expand.js';
@@ -782,9 +782,96 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const out: string[] = [];
     for (const h of images) {
       const buf = core.images.read(h);
-      out.push(buf.subarray(0, 8).equals(PNG_SIG) ? h : core.images.save(await sharp(buf).png().toBuffer()));
+      // metadata() is the validation AND the orientation sniff in one header
+      // read: garbage that is not an image throws here with a message that
+      // names the real failure, instead of far away in a resize or a browser.
+      const meta = await sharp(buf)
+        .metadata()
+        .catch(() => null);
+      if (!meta?.width || !meta.height) throw new Error('engine returned an undecodable image');
+      // Bake in EXIF orientation the way the upload path always has
+      // (routes/images.ts): a tagged file measures one way in sharp and
+      // renders another way in the browser, which is a rotated feed tile
+      // nothing in the metadata explains. Untagged PNGs pass through
+      // hash-identical - no re-encode cost on the common path.
+      const oriented = (meta.orientation ?? 1) !== 1;
+      out.push(
+        buf.subarray(0, 8).equals(PNG_SIG) && !oriented
+          ? h
+          : core.images.save(await sharp(buf).rotate().png().toBuffer()),
+      );
     }
     return out;
+  }
+
+  /**
+   * The furthest a delivered frame may drift from the asked ratio and still be
+   * conformable by an attention-placed crop.
+   *
+   * 0.35, calibrated on live failures rather than on doctrine. The neutral
+   * probe measured 0.1% drift, but real briefs full of scene prose pull the
+   * tool to its own grid: a figure-led 4:5 ask repeatedly came back 1003x1568,
+   * 20.04% off, and the first cap of 0.20 missed it by four hundredths of a
+   * point - a wall of failed draws on release night. A 35% crop trims at most
+   * about a quarter of one axis with attention placement choosing the strip,
+   * which is a usable photograph; a failed node is spent quota and nothing.
+   * Even a square answered for a 4:5 (25%) is better cropped than refused.
+   * Past this, the shape is unrelated to the ask and the node still fails.
+   */
+  const CROPPABLE_DRIFT = 0.35;
+
+  /**
+   * Conform a drifted frame to the asked ratio by CROPPING, never scaling.
+   *
+   * Codex's image tool honours a requested ratio closely but not exactly, and
+   * it cannot be handed a pixel size at all - the old answer was letting the
+   * model shell-resize, which sheared the picture (the crushed-faces report).
+   * A crop keeps every surviving pixel at its own scale: one axis is kept
+   * whole, the other trimmed, with sharp's attention positioning deciding
+   * which strip survives. Within SAME_SHAPE_TOL nothing is touched (that band
+   * belongs to the canvas pass), and beyond CROPPABLE_DRIFT nothing is
+   * touched either - assertAspect owns the refusal.
+   *
+   * Returns the images, and records croppedFrom on the brief when it acted.
+   */
+  function conformToCanvas(nodeId: string, want: { width: number; height: number }) {
+    return async (images: string[]): Promise<string[]> => {
+      const target = want.width / want.height;
+      const out: string[] = [];
+      for (const h of images) {
+        const buf = core.images.read(h);
+        const meta = await sharp(buf).metadata();
+        if (!meta.width || !meta.height) {
+          out.push(h);
+          continue;
+        }
+        const got = meta.width / meta.height;
+        const drift = Math.abs(got - target) / target;
+        if (drift <= SAME_SHAPE_TOL || drift > CROPPABLE_DRIFT) {
+          out.push(h);
+          continue;
+        }
+        // One axis stays whole; the other is trimmed to the asked ratio at
+        // the frame's own scale, so this is a placement decision, not a
+        // resample.
+        const w = got > target ? Math.round(meta.height * target) : meta.width;
+        const hpx = got > target ? meta.height : Math.round(meta.width / target);
+        const cropped = await sharp(buf).resize(w, hpx, { fit: 'cover', position: 'attention' }).png().toBuffer();
+        app.log.info(
+          { nodeId, got: `${meta.width}x${meta.height}`, want: `${w}x${hpx}` },
+          'canvas: cropped a drifted frame to the asked ratio',
+        );
+        out.push(core.images.save(cropped));
+        try {
+          const fresh = core.store.getNode(nodeId);
+          const b = (fresh?.brief as object | null) ?? {};
+          core.store.setBrief(nodeId, { ...b, croppedFrom: [meta.width, meta.height] });
+        } catch {
+          /* the record is a convenience; failing to write it must not fail the run */
+        }
+      }
+      return out;
+    };
   }
 
   /**
@@ -884,7 +971,25 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             typeof raw?.requested === 'number' && Array.isArray(raw.variantIndexes)
               ? { requested: raw.requested, variantIndexes: raw.variantIndexes }
               : {};
-          core.store.setBrief(nodeId, { ...brief, rendered: { sizes, ...survivors } });
+          // The request beside the delivery, so requested-vs-actual is a
+          // readable fact rather than a reconstruction from the format token.
+          const asked = expect ? { requestedSize: [expect.width, expect.height] } : {};
+          core.store.setBrief(nodeId, { ...brief, rendered: { sizes, ...survivors, ...asked } });
+          // Codex's image tool cannot be handed a pixel size, so a non-square
+          // generation landing EXACTLY on the requested pixels is the
+          // signature of a forbidden shell resize. A log line, never a
+          // reject: the native menu is not contractually known.
+          if (
+            node.kind === 'generation' &&
+            engineId === 'codex-cli' &&
+            expect &&
+            expect.width !== expect.height &&
+            sizes.some(([w, h]) => w === expect.width && h === expect.height)
+          )
+            app.log.warn(
+              { nodeId },
+              'codex delivered exactly the requested pixels; its image tool cannot pin size - suggests a forbidden shell resize',
+            );
         }
       } catch {
         /* the record is a convenience; failing to write it must not fail the run */
@@ -1535,11 +1640,21 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             ),
           );
           // What the engine actually answered with, next to the sizes runNode
-          // records after this: the resample is a fact worth being able to read.
+          // records after this - and a resample counter carried down the
+          // thread, so "hop five is mush" is a readable fact instead of an
+          // eyeball claim. Every hop's pixels are freshly generated, so the
+          // counter measures exposure, not accumulation on one image.
           try {
             const fresh = core.store.getNode(node.id);
             const b = (fresh?.brief as object | null) ?? {};
-            core.store.setBrief(node.id, { ...b, resizedFrom: [got.width, got.height] });
+            const parentBrief = (core.store.getNode(resolvedParentId)?.brief ?? {}) as {
+              resampledHops?: number;
+            };
+            core.store.setBrief(node.id, {
+              ...b,
+              resizedFrom: [got.width, got.height],
+              resampledHops: (parentBrief.resampledHops ?? 0) + 1,
+            });
           } catch {
             /* the record is a convenience; failing to write it must not fail the run */
           }
@@ -1597,10 +1712,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
                 out.push(outcome === 'composited' ? core.images.save(image) : h);
               }
               staged = out;
+            } else if (expectShape) {
+              // A global refine whose answer drifted shape is conformed by an
+              // attention crop first, so the canvas pass below sees a
+              // same-shape frame and finishes the job with one uniform
+              // lanczos. Local scope stays strict: a targeted edit that came
+              // back a different shape has failed its brief, and cropping it
+              // would quietly void the outside-preservation guarantee.
+              staged = await conformToCanvas(node.id, expectShape)(staged);
             }
             return enforceEditCanvas(staged);
           }
-        : undefined;
+        : kind === 'generation' && compiled?.width && compiled?.height
+          ? conformToCanvas(node.id, { width: compiled.width, height: compiled.height })
+          : undefined;
     // A codex generation's legal duration is its wave count, not a flat ten
     // minutes: eight variants are four 300s waves. Other engines and edits
     // keep the default bound.
