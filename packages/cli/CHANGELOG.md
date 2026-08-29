@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.12](https://github.com/tonygorb/Scenri/compare/v0.6.11...v0.6.12) (2026-08-29)
+
+
+### Bug Fixes
+
+* **composer:** a reference chip shows the image it holds ([c73b29c](https://github.com/tonygorb/Scenri/commit/c73b29cd2d43bf057138294936a2db4ec9fc1026))
+* **composer:** a reference chip shows the image it holds ([364b4d4](https://github.com/tonygorb/Scenri/commit/364b4d4effe6288190cf41df80379ea7a2eb4dfa))
+
 ## [0.6.11](https://github.com/tonygorb/Scenri/compare/v0.6.10...v0.6.11) (2026-08-29)
 
 
