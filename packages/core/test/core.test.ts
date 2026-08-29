@@ -155,21 +155,35 @@ describe('version tree', () => {
     const b = core.store.createBrand(brandJson as any);
     const { project, root } = core.store.createProject(b.id, 'p');
     /**
-     * Wait for the system clock to actually tick, twice.
+     * Wait until the clock the stamps come from has actually moved.
      *
-     * created_at comes from SQLite's strftime('%Y-%m-%d %H:%M:%f','now'), which
-     * reads the same system clock this does. Spinning a fixed two milliseconds
-     * assumed that clock advances at least that often, and on the Windows
-     * runner its granularity is nearer sixteen. Two inserts then shared a
-     * stamp, the deterministic id tie-break decided their order instead, and
-     * this test failed about half the time there while never failing on darwin.
+     * created_at is SQLite's `strftime('%Y-%m-%d %H:%M:%f','now')`, which samples
+     * the system clock rather than the one `Date.now()` reads, and on Windows
+     * those two do not tick together: `Date.now()` advances every millisecond
+     * while the system clock holds still for nearer sixteen. Spinning on
+     * `Date.now()` ticks therefore proved nothing, two inserts shared a stamp,
+     * the deterministic id tie-break decided their order instead, and this
+     * failed on Windows while never failing on darwin.
      *
-     * Waiting on the clock itself needs no per-platform number: one tick is
-     * enough for the stamps to differ, and the second is margin against a read
-     * that lands on a tick boundary.
+     * So ask the store itself, which is the only thing that can answer, and give
+     * the probe rows a project of their own where they cannot reach the tree
+     * asserted below. One JS tick between probes keeps a coarse clock from
+     * costing thousands of inserts to wait out.
      */
+    const clock = core.store.createProject(b.id, 'clock-probe');
+    const stamp = (): string => {
+      const n = core.store.addNode({
+        projectId: clock.project.id,
+        parentId: clock.root.id,
+        kind: 'generation',
+        prompt: 'probe',
+        engineId: 'demo',
+      });
+      return core.store.getNode(n.id)!.createdAt;
+    };
     const spin = () => {
-      for (let ticks = 0; ticks < 2; ticks++) {
+      const before = stamp();
+      while (stamp() === before) {
         const t = Date.now();
         while (Date.now() === t) {}
       }

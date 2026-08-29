@@ -223,13 +223,37 @@ describe('generate', () => {
   });
 
   it('keeps request order when variants complete out of order', async () => {
+    /**
+     * Variant 1 finishes LAST; the slot array must not care.
+     *
+     * The gate is variant 2's **save**, not its exit, and that distinction is
+     * the whole bug. Between a worker's exit and its `saveImage` call the
+     * engine still has a `readdir` and an `await readFile` to get through, and
+     * nothing orders that I/O across workers. So on Windows variant 2 could
+     * exit first and still reach `saveImage` second: a thirty millisecond head
+     * start failed there, and so did gating on the exit event, while both
+     * passed on darwin where the reads happen to keep up.
+     *
+     * Waiting on the call this test actually asserts about is what makes
+     * arrival order a fact rather than a hope. Variant 1 cannot exit until a
+     * buffer has been saved, and only variant 2 can have saved it.
+     */
+    let firstSaved!: () => void;
+    const afterFirstSave = new Promise<void>((resolve) => {
+      firstSaved = resolve;
+    });
+    let minted = 0;
+    const saveImage = vi.fn((_buf: Buffer) => {
+      const hash = `hash-${++minted}`;
+      firstSaved();
+      return hash;
+    });
     const { spawnImpl } = fakeSpawn(({ args, child }) => {
       const second = child.stdin.written.includes('variant 2');
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), second ? PNG_2 : PNG_1);
-      // variant 1 finishes LAST; the slot array must not care
-      setTimeout(() => child.emit('exit', 0, null), second ? 0 : 30);
+      if (second) child.emit('exit', 0, null);
+      else void afterFirstSave.then(() => child.emit('exit', 0, null));
     });
-    const saveImage = newSaveImage();
     const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
     const result = await engine.generate(genReq); // count: 2
 
