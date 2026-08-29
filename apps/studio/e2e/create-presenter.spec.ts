@@ -193,14 +193,18 @@ test.describe('a created presenter, from submit to a living page', () => {
 });
 
 /**
- * One creation attempt owns one draft.
+ * One creation attempt owns one draft, and only once it has been sent.
  *
- * The draft exists so the dialog can close without asking, and so Try again
- * after a failed build does not ask for the photographs a second time. It used
- * to live in localStorage for thirty days and was never spent on success, so a
- * finished presenter's photographs, name and categories came back in the next
- * "New presenter" — which is how somebody casts a presenter from the previous
- * presenter's face. It is session-scoped now, and a landed build clears it.
+ * The draft exists for Try again: a failed build must reopen holding the
+ * photographs it already read, rather than asking for them a second time. It
+ * used to live in localStorage for thirty days and was never spent on success,
+ * so a finished presenter's photographs, name and categories came back in the
+ * next "New presenter" — which is how somebody casts a presenter from the
+ * previous presenter's face.
+ *
+ * A form nobody sent is not a draft at all now: it dies with the dialog, so
+ * casting the next person starts from nothing. The accident that costs is
+ * bought back by the Undo in the toast, not by a confirm on every close.
  */
 test.describe('the create draft lives exactly as long as the attempt', () => {
   const open = (p: Page, slug: string) => p.goto(`/${slug}/presenters?new=presenter`);

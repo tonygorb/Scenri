@@ -9,7 +9,8 @@ import { isolate } from './harness.js';
  * product is in the library before the dialog has closed.
  *
  * It is also where the draft contract is cheapest to prove. Closing this dialog
- * never asks "discard your work?" — because nothing is discarded.
+ * ends the attempt and never asks first: the way back from an accident is the
+ * Undo offered afterwards, which costs nothing on the closes you meant.
  */
 
 // A Scenri of this file's own, on an empty home, seeded from scratch.
