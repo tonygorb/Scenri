@@ -23,4 +23,21 @@ export interface FlowProps {
   capsNote: (whenKnown: string) => ReactNode;
   /** How a build the draft was submitted as is doing, for the Try-again refill. */
   pendingState: (jobId: string) => PendingState;
+  /** This opening is an Undo, so the flow takes back what was abandoned. */
+  restore?: boolean;
+  /** Work was abandoned; the host offers it back in the toast that says so. */
+  onDiscarded: () => void;
 }
+
+/**
+ * Whether a list already holds something by this name, compared the way a
+ * person would: trimmed, and without caring about case.
+ *
+ * Used to tell a build that quietly landed from one that never finished, so it
+ * only has to be as exact as the name someone typed into the form it was sent
+ * from.
+ */
+export const named = (rows: { name: string }[], name: string): boolean => {
+  const want = name.trim().toLowerCase();
+  return want.length > 0 && rows.some((r) => r.name.trim().toLowerCase() === want);
+};

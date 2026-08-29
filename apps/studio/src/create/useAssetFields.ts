@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.js';
+import { stashDiscarded, takeDiscarded } from './discarded.js';
 import {
   clearAssetDraft,
   isNonTrivial,
@@ -32,8 +33,25 @@ const EMPTY: AssetFields = { name: '', instruction: '', facets: [], imageHashes:
 export function useAssetFields(
   brandId: string,
   kind: CreateKind,
-  opts: { max: number; pendingState: (jobId: string) => PendingState },
+  opts: {
+    max: number;
+    pendingState: (jobId: string) => PendingState;
+    /**
+     * Whether the brand already holds something of this kind by that name.
+     *
+     * Only consulted for a build the server can no longer account for, where it
+     * is the difference between "it landed before the registry forgot it" and
+     * "it never finished". Kinds that never submit a pending draft do not need
+     * one.
+     */
+    exists?: (name: string) => boolean;
+    /** This opening is an Undo, so it takes back what the last one abandoned. */
+    restore?: boolean;
+    /** Something was abandoned with work in it, and can still be offered back. */
+    onDiscarded?: () => void;
+  },
 ) {
+  const restore = opts.restore ?? false;
   const [fields, setFields] = useState<AssetFields>(EMPTY);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -41,12 +59,59 @@ export function useAssetFields(
   const pendingRef = useRef<string | null>(null);
   const pendingStateRef = useRef(opts.pendingState);
   pendingStateRef.current = opts.pendingState;
+  const existsRef = useRef(opts.exists);
+  existsRef.current = opts.exists;
+  const discardedRef = useRef(opts.onDiscarded);
+  discardedRef.current = opts.onDiscarded;
+  // The fields as they stand right now, for the readers that run after an await
+  // or during teardown and so cannot trust what they captured.
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
 
   // Read once, on mount. The host mounts a form only while its kind is the one
   // showing, so mounting and opening are the same moment.
   useEffect(() => {
+    // An Undo is the one opening that is allowed to arrive full, and it spends
+    // the offer: pressing it twice does not bring the same work back twice.
+    if (restore) {
+      const back = takeDiscarded(brandId, kind);
+      if (back) {
+        setFields(back);
+        return;
+      }
+    }
     const draft = loadAssetDraft(brandId, kind);
     const state = draft?.pending ? pendingStateRef.current(draft.pending) : null;
+    /*
+     * A build the server cannot account for is the one ambiguous case, and the
+     * library settles it.
+     *
+     * The registry is an in-memory Map, so a restart between a scene landing
+     * and the next poll loses the row while the scene it already wrote stays on
+     * disk. Nothing then spends the draft, `unknown` means hand the work back,
+     * and a finished scene's references and Direction refill the next New scene
+     * — the exact contamination the session lane was introduced to stop.
+     *
+     * So before refilling, ask whether what this draft was sent to make is
+     * already there. Only for `unknown`: a build the server reports as failed
+     * or cancelled has a definite answer, and Try again still deserves its
+     * photographs back.
+     */
+    if (draft?.pending && state === 'unknown' && existsRef.current?.(draft.name)) {
+      clearAssetDraft(brandId, kind);
+      return;
+    }
+    /*
+     * A draft that was never sent cannot be written any more, so one found here
+     * is a leftover from when closing the dialog kept your typing. Drop it
+     * rather than refilling from it once before the new rule takes hold: the
+     * first "New scene" after an update is exactly the one that must not open
+     * holding the last one's references.
+     */
+    if (draft && !draft.pending) {
+      clearAssetDraft(brandId, kind);
+      return;
+    }
     if (draft && shouldHydrate(draft, state)) {
       pendingRef.current = draft.pending;
       setFields({
@@ -57,24 +122,41 @@ export function useAssetFields(
         importUrl: draft.importUrl,
       });
     }
-  }, [brandId, kind]);
+  }, [brandId, kind, restore]);
 
-  /** Debounced, and never writes an empty shell — a blank form is not a draft. */
+  /**
+   * Debounced, and only ever for an attempt that is actually in flight.
+   *
+   * A form nobody has sent is not a draft: it is what someone is typing, and it
+   * lives in React state where typing belongs. Persisting it is what made a
+   * dismissed scene walk back into the next "New scene" with its references and
+   * its Direction, which reads as the app ignoring the fact that you left.
+   */
   const remember = useCallback(
     (next: AssetFields) => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        if (isNonTrivial(next)) saveAssetDraft(brandId, kind, { ...next, pending: pendingRef.current });
-        else clearAssetDraft(brandId, kind);
+        if (pendingRef.current && isNonTrivial(next)) {
+          saveAssetDraft(brandId, kind, { ...next, pending: pendingRef.current });
+        } else clearAssetDraft(brandId, kind);
       }, 400);
     },
     [brandId, kind],
   );
 
+  /**
+   * Takes an updater as well as a patch, and everything that edits a list uses
+   * the updater form.
+   *
+   * A patch built from `fields` read at call time is a snapshot, and an upload
+   * puts an `await` between reading it and writing it back. Nothing in the
+   * dialog is disabled while that upload runs, so a reference removed in the
+   * middle of one used to come back when it landed.
+   */
   const set = useCallback(
-    (patch: Partial<AssetFields>) => {
+    (patch: Partial<AssetFields> | ((cur: AssetFields) => Partial<AssetFields>)) => {
       setFields((cur) => {
-        const next = { ...cur, ...patch };
+        const next = { ...cur, ...(typeof patch === 'function' ? patch(cur) : patch) };
         remember(next);
         return next;
       });
@@ -82,14 +164,28 @@ export function useAssetFields(
     [remember],
   );
 
-  /** Write now rather than in 400ms — the dialog is closing under us. */
+  /**
+   * The dialog is closing under us, so settle the draft now rather than in
+   * 400ms.
+   *
+   * Closing without sending ends the attempt, and ending it takes the draft
+   * with it. Only a build already in flight leaves anything behind, because
+   * only that has a failure to hand the photographs back from.
+   */
   const flush = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
-    setFields((cur) => {
-      if (isNonTrivial(cur)) saveAssetDraft(brandId, kind, { ...cur, pending: pendingRef.current });
-      else clearAssetDraft(brandId, kind);
-      return cur;
-    });
+    const cur = fieldsRef.current;
+    if (pendingRef.current && isNonTrivial(cur)) {
+      saveAssetDraft(brandId, kind, { ...cur, pending: pendingRef.current });
+      return;
+    }
+    clearAssetDraft(brandId, kind);
+    // Abandoned with something in it: hold it in memory just long enough for
+    // the toast to offer it back.
+    if (isNonTrivial(cur)) {
+      stashDiscarded(brandId, kind, cur);
+      discardedRef.current?.();
+    }
   }, [brandId, kind]);
 
   useEffect(() => {
@@ -105,32 +201,33 @@ export function useAssetFields(
       setUploading(true);
       setErr(null);
       try {
-        const room = opts.max - fields.imageHashes.length;
+        const room = opts.max - fieldsRef.current.imageHashes.length;
         const added: string[] = [];
         // Sequential: a handful of small uploads is quick, and a failed one
         // should not leave half a set with no way to tell which half.
         for (const f of files.slice(0, room)) added.push(await uploadImage(f));
         // Content-addressed, so the same picture twice is the same hash — drop
-        // the twin rather than showing one image in two slots.
-        set({ imageHashes: [...new Set([...fields.imageHashes, ...added])].slice(0, opts.max) });
+        // the twin rather than showing one image in two slots. Merged against
+        // the set as it stands now, not as it stood when the upload began.
+        set((cur) => ({ imageHashes: [...new Set([...cur.imageHashes, ...added])].slice(0, opts.max) }));
       } catch (e: any) {
         setErr(String(e.message ?? e));
       } finally {
         setUploading(false);
       }
     },
-    [fields.imageHashes, opts.max, set],
+    [opts.max, set],
   );
 
   const removeHash = useCallback(
-    (h: string) => set({ imageHashes: fields.imageHashes.filter((x) => x !== h) }),
-    [fields.imageHashes, set],
+    (h: string) => set((cur) => ({ imageHashes: cur.imageHashes.filter((x) => x !== h) })),
+    [set],
   );
 
   const toggleFacet = useCallback(
     (v: string) =>
-      set({ facets: fields.facets.includes(v) ? fields.facets.filter((x) => x !== v) : [...fields.facets, v] }),
-    [fields.facets, set],
+      set((cur) => ({ facets: cur.facets.includes(v) ? cur.facets.filter((x) => x !== v) : [...cur.facets, v] })),
+    [set],
   );
 
   /**

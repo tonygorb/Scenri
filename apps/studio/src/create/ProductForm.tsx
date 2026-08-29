@@ -23,12 +23,12 @@ const USED_IN_SHOTS = 3;
  * are about to spend, which is what makes them read as one family rather than
  * one fast form and two slow ones.
  */
-export function ProductForm({ onBack, onStarted }: FlowProps) {
+export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowProps) {
   const { brand } = useBrand();
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const f = useAssetFields(brand.id, 'product', { max: MAX_REFS, pendingState: () => 'unknown' });
+  const f = useAssetFields(brand.id, 'product', { max: MAX_REFS, pendingState: () => 'unknown', restore, onDiscarded });
 
   const ready = f.fields.imageHashes.length > 0;
   const blocked = ready ? undefined : 'Add at least one photo';
