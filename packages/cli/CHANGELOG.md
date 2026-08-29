@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.11](https://github.com/tonygorb/Scenri/compare/v0.6.10...v0.6.11) (2026-08-29)
+
+
+### Bug Fixes
+
+* **engine-codex:** say what a usage limit means instead of quoting the banner ([f769d81](https://github.com/tonygorb/Scenri/commit/f769d812675e8671c46959c6b2007808cb3fa97e))
+* **engine-codex:** say what a usage limit means instead of quoting the banner ([edd2155](https://github.com/tonygorb/Scenri/commit/edd2155fe1bf6592376feef9ab9871e1c51ca3b1))
+
 ## [0.6.10](https://github.com/tonygorb/Scenri/compare/v0.6.9...v0.6.10) (2026-08-29)
 
 
