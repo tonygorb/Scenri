@@ -192,11 +192,13 @@ export function HomeView() {
    * chain in Create from there. The most recently bookmarked scene wins:
    * bookmarks are stored in the order they were given, and the newest one is
    * the closest thing to what this brand is shooting right now. Nothing
-   * bookmarked, or nothing bookmarked that survived the catalog, falls back to
-   * the first scene. */
+   * bookmarked, or nothing bookmarked that survived the catalog, and the brief
+   * starts empty. It used to fall back to the first scene in the catalog, which
+   * is alphabetical order and so meant every brand with no bookmarks opened
+   * Create with the same arbitrary scene chip already in the sentence. */
   const startCompose = () => {
     const marks = bookmarkedScenes(brand.id);
-    const sceneId = [...marks].reverse().find((id) => templates.some((t) => t.id === id)) ?? templates[0]?.id;
+    const sceneId = [...marks].reverse().find((id) => templates.some((t) => t.id === id));
     toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
 

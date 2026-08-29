@@ -30,14 +30,25 @@ const read = (key: string): string | null => local.get(key);
 const write = (key: string, value: string): void => local.set(key, value);
 const remove = (key: string): void => local.del(key);
 
-/** A blank composer is not worth a write: nothing typed, no attachment, no branch target. */
+/**
+ * A blank composer is not worth a write: nothing typed, no attachment, no branch target.
+ *
+ * A scene chip on its own does not count either, and that exclusion is the point rather than an
+ * oversight. Every other chip is something the user went and attached; a scene arrives on its own
+ * from a link — `?scene=` from the Scenes page, from Home's compose card — so a brief that is one
+ * scene and nothing else is a seed that was never built on, not work to come back to. Storing it
+ * meant a scene nobody chose was restored silently on every later cold load, for thirty days.
+ *
+ * Read as well as write goes through here, so a draft already storing a bare scene is dropped the
+ * next time it is loaded, and a real half-written brief is untouched.
+ */
 export function isNonTrivial(
   tokens: SentenceToken[],
   tplFields: Record<string, string>,
   branchId: string | null,
 ): boolean {
   return (
-    tokens.some((t) => (t.t === 'text' ? !!t.v.trim() : true)) ||
+    tokens.some((t) => (t.t === 'text' ? !!t.v.trim() : t.t !== 'template')) ||
     Object.values(tplFields).some((v) => !!v.trim()) ||
     !!branchId
   );

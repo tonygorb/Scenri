@@ -32,6 +32,84 @@ describe('isNonTrivial', () => {
   it('is true for a branch target alone, with nothing typed', () => {
     expect(isNonTrivial(tokens(), {}, 'n1')).toBe(true);
   });
+
+  // A scene is the one chip that arrives on its own, from a link. On its own it
+  // is a seed nobody built on, and storing it meant it came back silently on
+  // every later cold load.
+  it('is false for a scene chip alone', () => {
+    expect(
+      isNonTrivial(
+        tokens([
+          { t: 'text', v: '' },
+          { t: 'template', id: 'action-motion-freeze' },
+        ]),
+        {},
+        null,
+      ),
+    ).toBe(false);
+  });
+  it('is false for a scene chip with only whitespace typed around it', () => {
+    expect(
+      isNonTrivial(
+        tokens([
+          { t: 'text', v: '  ' },
+          { t: 'template', id: 'action-motion-freeze' },
+          { t: 'text', v: '\n' },
+        ]),
+        {},
+        null,
+      ),
+    ).toBe(false);
+  });
+  it('is true for a scene chip once something was typed', () => {
+    expect(
+      isNonTrivial(
+        tokens([
+          { t: 'text', v: 'mid-pour' },
+          { t: 'template', id: 'action-motion-freeze' },
+        ]),
+        {},
+        null,
+      ),
+    ).toBe(true);
+  });
+  it('is true for a scene chip beside another ingredient', () => {
+    expect(
+      isNonTrivial(
+        tokens([
+          { t: 'text', v: '' },
+          { t: 'template', id: 'action-motion-freeze' },
+          { t: 'product', id: 'p1' },
+        ]),
+        {},
+        null,
+      ),
+    ).toBe(true);
+  });
+  it('is true for a scene chip whose fields were filled in', () => {
+    expect(
+      isNonTrivial(
+        tokens([
+          { t: 'text', v: '' },
+          { t: 'template', id: 'action-motion-freeze' },
+        ]),
+        { headline: 'Sale' },
+        null,
+      ),
+    ).toBe(true);
+  });
+  it('is true for a scene chip with a branch target', () => {
+    expect(
+      isNonTrivial(
+        tokens([
+          { t: 'text', v: '' },
+          { t: 'template', id: 'action-motion-freeze' },
+        ]),
+        {},
+        'n1',
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('draftKey', () => {

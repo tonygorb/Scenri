@@ -87,12 +87,11 @@ test.describe('a new product', () => {
     await expect(toast.getByRole('button', { name: 'Use in a shot' })).toBeVisible();
 
     await toast.getByRole('button', { name: 'Use in a shot' }).click();
-    // `compose=1` rides along to focus the brief and Create deletes it on
-    // arrival (Create.tsx), so asserting it here was a race against that
-    // effect — green or red depending on how fast the machine was. The product
-    // is the part of the address that has to survive, and it does until the
-    // shot is queued.
-    await expect(page).toHaveURL(/\/create\?product=p-[a-f0-9]{8}/);
+    // Both seeds are spent on arrival now (Create.tsx): `compose=1` focuses the
+    // brief, `product=` is applied to it, and neither is left in the address for
+    // the next mount to apply a second time. So what this asserts is the
+    // destination, not a param that is on its way out.
+    await expect(page).toHaveURL(/\/create$/);
   });
 
   test('closing keeps what you typed, and sending clears it', async ({ page }) => {

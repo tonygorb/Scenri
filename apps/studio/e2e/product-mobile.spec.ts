@@ -130,5 +130,8 @@ test('swapping a reference and starting a shot both work by touch', async ({ pag
   await expect(page.locator('.sc-refrail-item').nth(1)).toHaveAttribute('data-on', '');
 
   await page.locator('.sc-lookpage-acts .sc-btn-primary').tap();
-  await expect(page).toHaveURL(new RegExp(`/create\\?product=${id}`));
+  // the product lands in the brief and its seed leaves the address behind, so a
+  // reload cannot re-attach what was just taken out
+  await expect(page.locator('.sc-token, [data-token]').filter({ hasText: 'Thumbs up' })).toHaveCount(1);
+  await expect(page).toHaveURL(/\/create$/);
 });
