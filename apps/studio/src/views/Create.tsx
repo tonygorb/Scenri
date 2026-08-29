@@ -946,8 +946,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       // durable against a reload landing between this click and the hub
       // Composer actually consuming the live prop above: the same persisted
       // per-brand draft record loadDraft() already restores from on mount
-      if (n.brief)
-        saveDraft(brand.id, { tokens: briefTokens(n.brief), tplFields: n.brief.templateFields ?? {}, branchId: null });
+      if (n.brief) saveDraft(brand.id, { tokens: briefTokens(n.brief), tplFields: n.brief.templateFields ?? {} });
       closeShot();
     },
     // branching closes the overlay on purpose: the next thing you do is judge

@@ -6,10 +6,10 @@ const tokens = (over: SentenceToken[] = [{ t: 'text', v: '' }]): SentenceToken[]
 
 describe('isNonTrivial', () => {
   it('is false for an untouched composer', () => {
-    expect(isNonTrivial(tokens(), {}, null)).toBe(false);
+    expect(isNonTrivial(tokens(), {})).toBe(false);
   });
   it('is true for typed text', () => {
-    expect(isNonTrivial(tokens([{ t: 'text', v: 'golden hour' }]), {}, null)).toBe(true);
+    expect(isNonTrivial(tokens([{ t: 'text', v: 'golden hour' }]), {})).toBe(true);
   });
   it('is true for a blank line plus an attached token, even with no text', () => {
     expect(
@@ -19,18 +19,14 @@ describe('isNonTrivial', () => {
           { t: 'product', id: 'p1' },
         ]),
         {},
-        null,
       ),
     ).toBe(true);
   });
   it('is true for a filled template field alone', () => {
-    expect(isNonTrivial(tokens(), { headline: 'Sale' }, null)).toBe(true);
+    expect(isNonTrivial(tokens(), { headline: 'Sale' })).toBe(true);
   });
   it('ignores a template field that is only whitespace', () => {
-    expect(isNonTrivial(tokens(), { headline: '   ' }, null)).toBe(false);
-  });
-  it('is true for a branch target alone, with nothing typed', () => {
-    expect(isNonTrivial(tokens(), {}, 'n1')).toBe(true);
+    expect(isNonTrivial(tokens(), { headline: '   ' })).toBe(false);
   });
 
   // A scene is the one chip that arrives on its own, from a link. On its own it
@@ -44,7 +40,6 @@ describe('isNonTrivial', () => {
           { t: 'template', id: 'action-motion-freeze' },
         ]),
         {},
-        null,
       ),
     ).toBe(false);
   });
@@ -57,7 +52,6 @@ describe('isNonTrivial', () => {
           { t: 'text', v: '\n' },
         ]),
         {},
-        null,
       ),
     ).toBe(false);
   });
@@ -69,7 +63,6 @@ describe('isNonTrivial', () => {
           { t: 'template', id: 'action-motion-freeze' },
         ]),
         {},
-        null,
       ),
     ).toBe(true);
   });
@@ -82,7 +75,6 @@ describe('isNonTrivial', () => {
           { t: 'product', id: 'p1' },
         ]),
         {},
-        null,
       ),
     ).toBe(true);
   });
@@ -94,19 +86,6 @@ describe('isNonTrivial', () => {
           { t: 'template', id: 'action-motion-freeze' },
         ]),
         { headline: 'Sale' },
-        null,
-      ),
-    ).toBe(true);
-  });
-  it('is true for a scene chip with a branch target', () => {
-    expect(
-      isNonTrivial(
-        tokens([
-          { t: 'text', v: '' },
-          { t: 'template', id: 'action-motion-freeze' },
-        ]),
-        {},
-        'n1',
       ),
     ).toBe(true);
   });
@@ -123,7 +102,7 @@ describe('saveDraft / loadDraft / clearDraft', () => {
   beforeEach(() => localStorage.clear());
 
   it('round-trips per brand and does not leak across brands', () => {
-    saveDraft('b1', { tokens: tokens([{ t: 'text', v: 'hello' }]), tplFields: {}, branchId: null });
+    saveDraft('b1', { tokens: tokens([{ t: 'text', v: 'hello' }]), tplFields: {} });
     const loaded = loadDraft('b1');
     expect(loaded?.tokens).toEqual([{ t: 'text', v: 'hello' }]);
     expect(loaded?.brandId).toBe('b1');
@@ -131,25 +110,23 @@ describe('saveDraft / loadDraft / clearDraft', () => {
   });
 
   it('clears on demand', () => {
-    saveDraft('b1', { tokens: tokens([{ t: 'text', v: 'hi' }]), tplFields: {}, branchId: null });
+    saveDraft('b1', { tokens: tokens([{ t: 'text', v: 'hi' }]), tplFields: {} });
     clearDraft('b1');
     expect(loadDraft('b1')).toBeNull();
   });
 
-  it('carries branchId and setSlug through', () => {
-    saveDraft('b1', { tokens: tokens(), tplFields: {}, branchId: 'n1', setSlug: 'spring' });
-    const loaded = loadDraft('b1');
-    expect(loaded?.branchId).toBe('n1');
-    expect(loaded?.setSlug).toBe('spring');
+  it('carries setSlug through', () => {
+    saveDraft('b1', { tokens: tokens(), tplFields: {}, setSlug: 'spring' });
+    expect(loadDraft('b1')?.setSlug).toBe('spring');
   });
 
   it('defaults setSlug to null when omitted', () => {
-    saveDraft('b1', { tokens: tokens(), tplFields: {}, branchId: null });
+    saveDraft('b1', { tokens: tokens(), tplFields: {} });
     expect(loadDraft('b1')?.setSlug).toBeNull();
   });
 
   it('rejects a draft written for a different brand', () => {
-    saveDraft('b1', { tokens: tokens([{ t: 'text', v: 'hi' }]), tplFields: {}, branchId: null });
+    saveDraft('b1', { tokens: tokens([{ t: 'text', v: 'hi' }]), tplFields: {} });
     // simulate a copy/paste of the wrong key onto another brand's slot
     const raw = localStorage.getItem(draftKey('b1'));
     if (raw) localStorage.setItem(draftKey('b2'), raw);
@@ -163,12 +140,42 @@ describe('saveDraft / loadDraft / clearDraft', () => {
       updatedAt: new Date().toISOString(),
       tokens: tokens(),
       tplFields: {},
-      branchId: null,
       setSlug: null,
     };
     localStorage.setItem(draftKey('b1'), JSON.stringify(bad));
     expect(loadDraft('b1')).toBeNull();
     expect(localStorage.getItem(draftKey('b1'))).toBeNull();
+  });
+
+  // Drafts written before refine targets stopped being persisted. The typed
+  // text was an instruction FOR that target, so the whole record goes, once.
+  it('discards a legacy draft carrying a refine target, text and all, and removes the key', () => {
+    const legacy = {
+      v: 1,
+      brandId: 'b1',
+      updatedAt: new Date().toISOString(),
+      tokens: tokens([{ t: 'text', v: 'make it warmer' }]),
+      tplFields: {},
+      branchId: 'n1',
+      setSlug: null,
+    };
+    localStorage.setItem(draftKey('b1'), JSON.stringify(legacy));
+    expect(loadDraft('b1')).toBeNull();
+    expect(localStorage.getItem(draftKey('b1'))).toBeNull();
+  });
+
+  it('still restores a legacy draft whose branchId is null', () => {
+    const legacy = {
+      v: 1,
+      brandId: 'b1',
+      updatedAt: new Date().toISOString(),
+      tokens: tokens([{ t: 'text', v: 'kept' }]),
+      tplFields: {},
+      branchId: null,
+      setSlug: null,
+    };
+    localStorage.setItem(draftKey('b1'), JSON.stringify(legacy));
+    expect(loadDraft('b1')?.tokens).toEqual([{ t: 'text', v: 'kept' }]);
   });
 
   it('survives malformed json and a non-object payload', () => {
@@ -185,7 +192,6 @@ describe('saveDraft / loadDraft / clearDraft', () => {
       updatedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString(),
       tokens: tokens([{ t: 'text', v: 'old' }]),
       tplFields: {},
-      branchId: null,
       setSlug: null,
     };
     localStorage.setItem(draftKey('b1'), JSON.stringify(stale));
@@ -199,7 +205,6 @@ describe('saveDraft / loadDraft / clearDraft', () => {
       updatedAt: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString(),
       tokens: tokens([{ t: 'text', v: 'still good' }]),
       tplFields: {},
-      branchId: null,
       setSlug: null,
     };
     localStorage.setItem(draftKey('b1'), JSON.stringify(fresh));
@@ -214,7 +219,7 @@ describe('saveDraft / loadDraft / clearDraft', () => {
         throw new Error('denied');
       },
     });
-    expect(() => saveDraft('b1', { tokens: tokens(), tplFields: {}, branchId: null })).not.toThrow();
+    expect(() => saveDraft('b1', { tokens: tokens(), tplFields: {} })).not.toThrow();
     expect(loadDraft('b1')).toBeNull();
     expect(() => clearDraft('b1')).not.toThrow();
     if (real) Object.defineProperty(window, 'localStorage', real);
