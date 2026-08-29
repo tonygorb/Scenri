@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.7',
+    date: '2026-08-29',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'The brief starts empty. A scene you never picked could turn up in it, come back on every later load, and reappear after you removed it and reloaded. Create an image no longer stands a scene in for one you have not shortlisted, and a scene that arrives from a link is spent once it lands rather than waiting in the address to be applied again. Briefs you were part way through writing still come back as they always have.',
+      },
+    ],
+  },
+  {
     version: '0.6.6',
     date: '2026-08-29',
     sections: [

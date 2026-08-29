@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.7](https://github.com/tonygorb/Scenri/compare/v0.6.6...v0.6.7) (2026-08-29)
+
+
+### Bug Fixes
+
+* a scene nobody chose never lands in the brief, or comes back ([db00c8f](https://github.com/tonygorb/Scenri/commit/db00c8f73845a3fab2a453c97acec3e79f846b5c))
+* a scene nobody chose never lands in the brief, or comes back ([1fa34d3](https://github.com/tonygorb/Scenri/commit/1fa34d37699addda945ef31543fe643774e6afb6))
+
 ## [0.6.6](https://github.com/tonygorb/Scenri/compare/v0.6.5...v0.6.6) (2026-08-29)
 
 
