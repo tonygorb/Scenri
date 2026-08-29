@@ -44,6 +44,21 @@ describe('mock engine', () => {
     expect(saved).toHaveLength(1);
   });
 
+  it('edit answers at the requested canvas, not a hardcoded square', async () => {
+    // The server states the source's own pixels on a plain refine; a fixed
+    // 1024x1024 answer made every demo edit of a non-square shot fail the
+    // aspect check.
+    const saved: Buffer[] = [];
+    const e = createDemoEngine((b) => {
+      saved.push(b);
+      return 'h1';
+    });
+    await e.edit({ instruction: 'warmer', sourceImage: '/nope.png', brand, width: 96, height: 128 });
+    // PNG IHDR: width and height are the first two big-endian words after byte 16.
+    expect(saved[0].readUInt32BE(16)).toBe(96);
+    expect(saved[0].readUInt32BE(20)).toBe(128);
+  });
+
   it('falls back to neutral palette when brand has none', async () => {
     const e = createDemoEngine(() => 'h');
     const res = await e.generate({

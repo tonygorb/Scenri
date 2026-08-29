@@ -220,6 +220,9 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
             ],
           },
         ],
+        // Mirrors generate: an edit given no shape answered at whatever ratio
+        // the model felt like, and the drift compounded down refine chains.
+        ...(req.width && req.height ? { image_config: { aspect_ratio: aspectRatioFor(req.width, req.height) } } : {}),
       };
 
       const json = await post(key, body, signal);

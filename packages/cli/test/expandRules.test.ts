@@ -5,6 +5,7 @@ import {
   ratioLabel,
   reframeInstruction,
   continueInstruction,
+  wantsImplicitReshape,
 } from '../src/expandRules.js';
 
 const SQUARE = { width: 1024, height: 1024 };
@@ -253,5 +254,32 @@ describe('continueInstruction', () => {
     expect(wide.top).toBe(0);
     expect(tall.width).toBe(src.width);
     expect(tall.left).toBe(0);
+  });
+});
+
+describe('wantsImplicitReshape', () => {
+  const four5 = { width: 1024, height: 1280 };
+  const two3 = { width: 1024, height: 1536 };
+  const wide = { width: 1536, height: 864 };
+
+  it('a plain refine at the thread nominal shape is never an expansion, whatever the pixels drifted to', () => {
+    // The reported chain: codex answered a 4:5 request with 2:3 pixels, and
+    // every later "make it warmer" compared those pixels against the unchanged
+    // 4:5 brief and silently took the expand branch.
+    expect(wantsImplicitReshape(four5, four5, two3)).toBe(false);
+  });
+
+  it('asking for a genuinely different shape than the thread is an implicit expansion', () => {
+    expect(wantsImplicitReshape(wide, four5, four5)).toBe(true);
+  });
+
+  it('a legacy parent with no format token falls back to the source pixels', () => {
+    expect(wantsImplicitReshape(wide, null, four5)).toBe(true);
+    expect(wantsImplicitReshape(four5, null, four5)).toBe(false);
+  });
+
+  it('unjudgeable dimensions never reshape', () => {
+    expect(wantsImplicitReshape({ width: 0, height: 0 }, four5, four5)).toBe(false);
+    expect(wantsImplicitReshape(four5, { width: 0, height: 0 }, { width: 0, height: 0 })).toBe(false);
   });
 });

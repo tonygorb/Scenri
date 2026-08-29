@@ -487,6 +487,25 @@ describe('edit', () => {
     expect(result).toEqual({ images: ['hash-1'], costUsd: 0 });
   });
 
+  it('states the exact answer size when the request carries one', async () => {
+    // A plain refine now states the source's own pixels, so the prompt must
+    // carry them: given no size, codex likes to answer the same shape smaller,
+    // and the shrunken answer became the next refinement's source.
+    const srcDir = mkdtempSync(join(tmpdir(), 'codex-test-src-'));
+    const sourceImage = join(srcDir, 'photo.png');
+    writeFileSync(sourceImage, PNG_1);
+
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      const dir = dirFromArgs(args);
+      writeFileSync(join(dir, 'out-1.png'), PNG_2);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+
+    await engine.edit({ instruction: 'make it warmer', sourceImage, brand, width: 640, height: 800 });
+    expect(calls[0].child.stdin.written).toContain('Save the result at exactly 640x800 pixels.');
+  });
+
   // The edit path used to only copy the source into the working directory and
   // mention it in prose, so whether the model ever looked at the picture
   // depended on the skill going and finding the file. Generate has always

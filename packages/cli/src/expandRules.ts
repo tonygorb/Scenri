@@ -68,6 +68,33 @@ export function planExpand(source: { width: number; height: number }, targetRati
 }
 
 /**
+ * Whether an edit with no explicit reshape op should be treated as an implicit
+ * expansion.
+ *
+ * Only when the refinement asks for a nominal shape different from the shape
+ * the THREAD nominally is — never merely because the engine drifted. The
+ * composer always sends the thread's own format token, so when an engine
+ * answered a 4:5 request with 2:3 pixels, every later plain "make it warmer"
+ * used to compare those drifted pixels against the unchanged 4:5 brief, take
+ * the expand branch, and hand the engine a blurred bed instead of the
+ * photograph. The parent's own format token is the thread's nominal shape;
+ * against it, a plain refine stays a plain refine, at the source's real
+ * pixels. A legacy parent with no format token falls back to comparing the
+ * source's pixels, which is exactly the historical behavior.
+ */
+export function wantsImplicitReshape(
+  requested: { width: number; height: number },
+  parentNominal: { width: number; height: number } | null,
+  sourcePixels: { width: number; height: number },
+): boolean {
+  const base = parentNominal ?? sourcePixels;
+  if (!(requested.width > 0 && requested.height > 0 && base.width > 0 && base.height > 0)) return false;
+  const want = requested.width / requested.height;
+  const have = base.width / base.height;
+  return Math.abs(want - have) / have > 0.01;
+}
+
+/**
  * What to ask the engine for, in words.
  *
  * It describes the margin rather than the picture, because the picture is
