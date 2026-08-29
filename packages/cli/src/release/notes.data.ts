@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.9',
+    date: '2026-08-29',
+    title: 'Refinements keep the shot.',
+    sections: [
+      {
+        heading: 'Refine',
+        body: 'Refining a shot no longer wears it down. Every refinement keeps the original resolution, an answer that comes back too small is restored to the frame or refused rather than quietly shrinking the thread, and a plain refinement stays a plain refinement instead of silently rebuilding the frame when an engine drifted its shape. The product, the presenter, the brand mark and your references now travel down the whole chain, together with what must hold about each of them, so the tenth refinement knows the shot as well as the first.',
+      },
+      {
+        heading: 'Presenters',
+        body: 'People render with real photographed skin: natural texture and fine lines stay, and the waxy, over-retouched gloss goes. Light still behaves like light, so a hard flash can genuinely shine. Products hold their real-world size in the frame, and a held product sits in a real grip instead of floating beside the hand. Asking for something surreal still wins.',
+      },
+      {
+        heading: 'Create',
+        body: 'Starting a fresh shot always starts fresh: a refinement you left open days ago can no longer greet you as the thing you are about to make. Refining any older shot still works exactly as before, whenever you come back to it. Around the chips, text selects, double-clicks and keyboard selection behave like any editor, and clicking a chip while text is selected opens its picker.',
+      },
+    ],
+  },
+  {
     version: '0.6.8',
     date: '2026-08-29',
     sections: [

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.6.9](https://github.com/tonygorb/Scenri/compare/v0.6.8...v0.6.9) (2026-08-29)
+
+
+### Bug Fixes
+
+* a chip click with text selected still opens the picker ([34ea025](https://github.com/tonygorb/Scenri/commit/34ea0257d59920ed0a3abe93771329d75217162b))
+* a chip click with text selected still opens the picker ([1f85306](https://github.com/tonygorb/Scenri/commit/1f85306ef4f19734208921e7c3167acb8596b89b))
+* a refine target never follows you into a fresh Create ([43d32d5](https://github.com/tonygorb/Scenri/commit/43d32d58c3ab679015d800bdbb5b0c02c0444013))
+* a refine target never follows you into a fresh Create ([7e15714](https://github.com/tonygorb/Scenri/commit/7e157141f820ae86a0281f3b949262797baed96a))
+* a refinement chain carries the whole identity record ([4688f0f](https://github.com/tonygorb/Scenri/commit/4688f0f934294789f8fa9222fdc39becba4f0ce8))
+* a refinement chain carries the whole identity record ([f174480](https://github.com/tonygorb/Scenri/commit/f174480c552347d20e110ad2dfc206f70d800aa9))
+* a refinement edits at the source's real shape and holds its resolution ([ccd9be1](https://github.com/tonygorb/Scenri/commit/ccd9be16b2fd609824b5332335c66cf5cc7c06bb))
+* a refinement edits at the source's real shape and holds its resolution ([d2b56af](https://github.com/tonygorb/Scenri/commit/d2b56affead40c51fe7f57bd073b07e8f1e7088d))
+* **codex:** drop 'flawless' from the generation wrapper ([3190495](https://github.com/tonygorb/Scenri/commit/319049580bc97f07d85ddb9cb298451c247cf339))
+* **codex:** drop 'flawless' from the generation wrapper ([7e07836](https://github.com/tonygorb/Scenri/commit/7e078363a0298972944e3b2f2877b6fcc36b992a))
+* photographic skin, real product scale, real hands ([96b8729](https://github.com/tonygorb/Scenri/commit/96b87290a711f0ab250473e116e728493790e155))
+* photographic skin, real product scale, real hands ([51ff91e](https://github.com/tonygorb/Scenri/commit/51ff91e9a71740ab93301a3a4a76216a4734f916))
+* two portrait scenes stop commanding retouch ([58c6542](https://github.com/tonygorb/Scenri/commit/58c6542aeb1bba3e7ca73366a9ed60ecc788bbf3))
+* two portrait scenes stop commanding retouch ([ca92794](https://github.com/tonygorb/Scenri/commit/ca92794636bc7bbe74454d6c37122a16989ed784))
+
 ## [0.6.8](https://github.com/tonygorb/Scenri/compare/v0.6.7...v0.6.8) (2026-08-29)
 
 
