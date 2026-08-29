@@ -63,3 +63,6 @@ docs/product/
 
 # disposable local bundles, rebuilt on demand, never committed
 .context/
+
+# shape-probe output (manual-shape-probe.mts writes beside its cwd)
+packages/cli/shape-probe-out/

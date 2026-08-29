@@ -424,9 +424,10 @@ describe('generate', () => {
     const normalized = prompts.map((p) => p.replace(/take \d of 3/, 'take N of 3'));
     expect(new Set(normalized).size).toBe(1);
     for (let i = 0; i < 3; i++) expect(prompts.some((p) => p.includes(`take ${i + 1} of 3`))).toBe(true);
-    // identical reference basenames in every exec
+    // identical reference basenames in every exec (split on either
+    // separator: the workdirs are Windows paths on the smoke runner)
     const basenames = calls.map(({ args }) =>
-      args.filter((a) => a.startsWith('--image=')).map((a) => a.split('/').pop()),
+      args.filter((a) => a.startsWith('--image=')).map((a) => a.split(/[\\/]/).pop()),
     );
     expect(basenames[1]).toEqual(basenames[0]);
     expect(basenames[2]).toEqual(basenames[0]);
