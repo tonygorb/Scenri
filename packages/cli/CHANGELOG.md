@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.10](https://github.com/tonygorb/Scenri/compare/v0.6.9...v0.6.10) (2026-08-29)
+
+
+### Bug Fixes
+
+* **engine-codex:** ask for the tool's own grid point, not our nominal pixels ([a0cc518](https://github.com/tonygorb/Scenri/commit/a0cc518c2e79702f728bc7d00edddf874d3b2dc3))
+* **engine-codex:** bind references by role-named files and give every take the same instruction ([2e645b2](https://github.com/tonygorb/Scenri/commit/2e645b2d34dc7006f23792cad04ad9170f3bae28))
+* **engine-codex:** bind references by role-named files and give every take the same instruction ([416999d](https://github.com/tonygorb/Scenri/commit/416999d85ad984e8e5ee4df06e12a6edf09ed84a))
+* **engine-codex:** never let the model resize; the frame rides as ratio language ([a5907a0](https://github.com/tonygorb/Scenri/commit/a5907a0a2a247eb5e369d3eae94884880cdb6cc3))
+* **engine-codex:** never let the model resize; the frame rides as ratio language ([063316a](https://github.com/tonygorb/Scenri/commit/063316ad15fe01000d112cf240ad10a6e5707ccf))
+* validate and orient engine images before storing; crop drifted frames to the asked ratio ([b88c039](https://github.com/tonygorb/Scenri/commit/b88c0392ff97a103301617ad23ddfcb500303e90))
+* validate and orient engine images before storing; crop drifted frames to the asked ratio ([3cbd462](https://github.com/tonygorb/Scenri/commit/3cbd462df35b322cd55c1e3b6e8c47b767ee4880))
+* widen the crop net to the drift real briefs actually produce ([491aa3c](https://github.com/tonygorb/Scenri/commit/491aa3c9f03e1511188a3fc71a2de817a9aff289))
+
 ## [0.6.9](https://github.com/tonygorb/Scenri/compare/v0.6.8...v0.6.9) (2026-08-29)
 
 
