@@ -1,7 +1,7 @@
 {
   "name": "scenri-monorepo",
   "private": true,
-  "version": "0.6.9",
+  "version": "0.6.10",
   "license": "AGPL-3.0-only",
   "author": "Tony Gorb <hello@scenri.co>",
   "packageManager": "pnpm@9.15.0",
