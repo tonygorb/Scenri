@@ -479,6 +479,56 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     );
   }, [setParams]);
 
+  /**
+   * Drop params, gathering everything asked for in one tick into one write.
+   *
+   * A functional `setParams` updater is handed the params react-router already
+   * holds, not a queued value, so two calls around the same commit can both
+   * start from the same string and the second silently discards the first. That
+   * is the hazard `clearTarget` and `branchFrom` each avoid by writing both of
+   * their halves at once; this is the same rule for writes that come from
+   * different places. A composer spending its seeds is a child effect and
+   * `?compose=` clearing itself is this screen's own, so the two land together:
+   * measured on the dev server, where StrictMode runs both effects twice, the
+   * compose write put `?scene=` straight back after the composer had taken it
+   * out. The production build happens to order them harmlessly, which is worth
+   * neither relying on nor leaving as the only thing standing between a spent
+   * seed and the URL it was supposed to leave.
+   */
+  const pendingDrops = useRef<Set<string> | null>(null);
+  const dropParams = useCallback(
+    (...keys: string[]) => {
+      if (pendingDrops.current) {
+        for (const k of keys) pendingDrops.current.add(k);
+        return;
+      }
+      const drops = new Set(keys);
+      pendingDrops.current = drops;
+      // after the commit, so everything this tick wanted gone is in `drops`
+      queueMicrotask(() => {
+        pendingDrops.current = null;
+        setParams(
+          (cur) => {
+            const p = new URLSearchParams(cur);
+            for (const k of drops) p.delete(k);
+            return p;
+          },
+          { replace: true },
+        );
+      });
+    },
+    [setParams],
+  );
+
+  /**
+   * The seeds have landed in the sentence, so they leave the URL. A seed left
+   * behind is re-applied by the next mount, which is why removing a scene chip
+   * and reloading used to hand the same chip straight back. `attach` stays: it
+   * opens a panel rather than putting anything in the brief, and `onQueued`
+   * clears it along with the rest once something is actually sent.
+   */
+  const spendSeeds = useCallback(() => dropParams('scene', 'presenter', 'product'), [dropParams]);
+
   // a target that has stopped being one is dropped, and said so: a chip that
   // silently stops meaning anything is worse than no chip
   useEffect(() => {
@@ -579,15 +629,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   useEffect(() => {
     if (params.get('compose') === null) return;
     compose();
-    setParams(
-      (cur) => {
-        const p = new URLSearchParams(cur);
-        p.delete('compose');
-        return p;
-      },
-      { replace: true },
-    );
-  }, [params, compose, setParams]);
+    dropParams('compose');
+  }, [params, compose, dropParams]);
 
   // A homepage gallery tile carries `?showcase=<id>` instead of the lighter
   // `?scene=`/`?presenter=`/`?product=` seeds: it's a full recipe, so it
@@ -1136,6 +1179,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           startScene={params.get('scene') ?? undefined}
           startPresenter={params.get('presenter') ?? undefined}
           startProduct={params.get('product') ?? undefined}
+          onSeedsSpent={spendSeeds}
           openAttachTab={
             params.get('attach') === 'scenes' ? 'Scenes' : params.get('attach') === 'products' ? 'Products' : undefined
           }

@@ -650,6 +650,49 @@ test('a second scene swaps in place instead of stacking', async ({ page }) => {
   expect(await sentence(page)).toMatch(/^mood: /); // it kept its slot
 });
 
+/**
+ * A scene is the one ingredient that arrives on its own, from a link. On its
+ * own it is a seed nobody built on, so it is not a draft: it used to be saved
+ * and then restored silently on every later cold load, which is how a scene
+ * nobody had chosen turned up in the composer days later.
+ */
+test('a scene on its own is not a draft to come back to', async ({ page }) => {
+  await plusMenu(page, /scenes/i);
+  await pickCard(page, 0);
+  await expect(chips(page)).toHaveCount(1);
+
+  await page.reload();
+  await line(page).waitFor();
+  await expect(chips(page)).toHaveCount(0);
+});
+
+/**
+ * And the `?scene=` it arrived from is spent once it lands. It used to sit in
+ * the address bar until something was sent, so the next mount re-applied it:
+ * removing the chip and reloading handed the same chip straight back.
+ *
+ * Arrives on the whole URL Home's compose card builds rather than the seed
+ * alone, because `?compose=` clears itself in a second param write beside this
+ * one, and the two have to agree about what is left.
+ */
+test('a seeded scene leaves the URL behind, and stays removed', async ({ page }) => {
+  const base = new URL(page.url()).pathname;
+  await page.goto(`${base}?scene=action-motion-freeze&attach=products&compose=1`);
+  await line(page).waitFor();
+  await expect(chips(page)).toHaveCount(1);
+  await expect.poll(() => new URL(page.url()).searchParams.get('scene')).toBeNull();
+  await expect.poll(() => new URL(page.url()).searchParams.get('compose')).toBeNull();
+
+  await line(page).click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(0);
+
+  await page.reload();
+  await line(page).waitFor();
+  await expect(chips(page)).toHaveCount(0);
+});
+
 test('clicking a chip puts the caret beside it, never inside it', async ({ page }) => {
   await page.keyboard.type('AAAA ');
   await plusMenu(page, /product/i);

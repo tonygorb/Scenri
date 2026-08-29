@@ -97,6 +97,13 @@ export const Composer = forwardRef<
     startPresenter?: string;
     /** A product picked from its own page, seeded the same way as a scene. */
     startProduct?: string;
+    /**
+     * One of the three seeds above has landed in the sentence, so whoever put
+     * it in the URL should take it back out. A seed left in the address bar is
+     * re-applied by the next mount, which is how removing a scene chip and
+     * reloading used to put the same chip straight back.
+     */
+    onSeedsSpent?: () => void;
     /** Open the attach panel on this tab as soon as the composer mounts. */
     openAttachTab?: AttachTab;
     /**
@@ -165,6 +172,7 @@ export const Composer = forwardRef<
     startScene,
     startPresenter,
     startProduct,
+    onSeedsSpent,
     openAttachTab,
     onQueued,
     onSending,
@@ -367,11 +375,18 @@ export const Composer = forwardRef<
 
     // a composer that does not own the draft does not restore one either
     const hasExplicitSeed = !!initialBrief || !!suppressDraftRestore || !persistDraft;
+    // A restore is a once-per-brand event, which is what the dependency comment
+    // at the bottom of this effect has always claimed. The effect itself re-runs
+    // whenever a seed prop takes a new value, and re-reading the draft on those
+    // runs reads storage the 500ms debounce has not caught up with yet: a seed
+    // spent and cleared from the URL came back through here as the *previous*
+    // sentence, overwriting the chip that had just been applied.
+    const firstRunForBrand = prior !== brand.id;
     let tokens: SentenceToken[] | null = null;
     let tplFieldsToApply: Record<string, string> | null = null;
     let branchIdToApply: string | null = null;
 
-    if (!hasExplicitSeed) {
+    if (!hasExplicitSeed && firstRunForBrand) {
       const draft = loadDraft(brand.id);
       if (draft && isNonTrivial(draft.tokens, draft.tplFields, draft.branchId)) {
         tokens = draft.tokens;
@@ -380,8 +395,13 @@ export const Composer = forwardRef<
       }
     }
 
+    // Set by any of the three seed blocks below, so the owner of the URL can
+    // take the spent param back out of it.
+    let seedApplied = false;
+
     if (startScene && startScene !== lastAppliedStartScene.current) {
       lastAppliedStartScene.current = startScene;
+      seedApplied = true;
       const base = tokens ?? emptySentence();
       const existingTok = base.find((t) => t.t === 'template') as Extract<SentenceToken, { t: 'template' }> | undefined;
       const existingSceneId = existingTok?.id ?? null;
@@ -425,12 +445,14 @@ export const Composer = forwardRef<
     // already carries.
     if (startPresenter && startPresenter !== lastAppliedStartPresenter.current) {
       lastAppliedStartPresenter.current = startPresenter;
+      seedApplied = true;
       const base = tokens ?? emptySentence();
       const already = base.some((t) => t.t === 'character' && t.id === startPresenter);
       if (!already) tokens = [...base, { t: 'character', id: startPresenter }];
     }
     if (startProduct && startProduct !== lastAppliedStartProduct.current) {
       lastAppliedStartProduct.current = startProduct;
+      seedApplied = true;
       const base = tokens ?? emptySentence();
       const already = base.some((t) => t.t === 'product' && t.id === startProduct);
       if (!already) tokens = [...base, { t: 'product', id: startProduct }];
@@ -441,6 +463,7 @@ export const Composer = forwardRef<
       setTplFields(tplFieldsToApply ?? {});
       if (branchIdToApply) onRestoreBranchId?.(branchIdToApply);
     }
+    if (seedApplied) onSeedsSpent?.();
     draftBrandIdRef.current = brand.id;
     // deliberately keyed on brand.id + the three seed props: this must run
     // once per brand, and again whenever any of them takes on a new value

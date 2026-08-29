@@ -151,11 +151,12 @@ test.describe('a product and its references', () => {
 
     await page.locator('.sc-lookpage-acts .sc-btn-primary').click();
 
-    // `compose=1` rides along to focus the brief and is spent on arrival, so the
-    // product is the part of the address that has to survive
-    await expect(page).toHaveURL(new RegExp(`/create\\?product=${id}`));
     // the chip carries the product's own name, so the brief says what it is
     await expect(page.locator('.sc-token, [data-token]').filter({ hasText: 'Straight to work' })).toHaveCount(1);
+    // and the seed is spent on arrival, `compose=1` along with it: a seed left
+    // in the address is re-applied by the next mount, so a product taken back
+    // out of the brief used to come straight back on a reload
+    await expect(page).toHaveURL(/\/create$/);
   });
 
   test('renaming from the heading reaches the library', async ({ page }) => {
