@@ -121,6 +121,15 @@ describe('resolveDemoProductImages', () => {
     const resolved = await resolveDemoProductImages(core, templatesDir, { ...base, id: 'no-photo' });
     expect(resolved).toBeNull();
   });
+
+  it('forwards description and category, the scale and apparel-guard inputs', async () => {
+    // description is the only size-carrying text a demo product has, and
+    // category is what arms the compiler's apparel guard; both were dropped
+    // here, which is the giant-cream-jar mechanism.
+    const resolved = await resolveDemoProductImages(core, templatesDir, base);
+    expect(resolved?.description).toBe('d');
+    expect(resolved?.category).toBe('beauty');
+  });
 });
 
 describe('demo product catalog + brief resolution', () => {

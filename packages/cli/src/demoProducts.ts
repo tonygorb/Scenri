@@ -167,6 +167,8 @@ export async function resolveDemoProductImages(
   negativeConstraints?: string;
   materials?: string;
   primaryColors?: string;
+  description?: string;
+  category?: string;
 } | null> {
   const angles = PRODUCT_ANGLES_BY_CATEGORY[product.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
   const shots: { file: string; angle: string; locked: boolean }[] = [];
@@ -193,6 +195,13 @@ export async function resolveDemoProductImages(
     // dropped here, so the compiler never saw them.
     ...(product.materials ? { materials: product.materials } : {}),
     ...(product.primaryColors ? { primaryColors: product.primaryColors } : {}),
+    // The description is the only text a demo product has that carries scale
+    // ("sized for a facial serum or treatment oil") - dropping it here is why
+    // a cream jar could render the size of a basketball. And category is what
+    // arms the compiler's apparel guard; without it no demo garment ever
+    // earned the "present it as a product" line.
+    ...(product.description ? { description: product.description } : {}),
+    ...(product.category ? { category: product.category } : {}),
   };
 }
 

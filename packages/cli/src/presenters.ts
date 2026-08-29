@@ -140,6 +140,7 @@ export async function resolvePresenterImages(
   name: string;
   identityNotes?: string;
   negativeConstraints?: string[];
+  skin?: string;
   shots: { file: string; angle: string; locked: boolean }[];
 } | null> {
   const shots: { file: string; angle: string; locked: boolean }[] = [];
@@ -154,14 +155,20 @@ export async function resolvePresenterImages(
   // The casting sheet travels with the photos. These used to be dropped here,
   // so a curated presenter reached the compiler as a bare name and two shots
   // while a custom one kept its notes — same compile path, thinner payload.
-  // Deliberately NOT forwarded: wardrobeDefault (the capture uniform is not a
-  // wardrobe instruction) and promptName (a curated presenter is named by
-  // `name`, which is why renaming one is a generation change).
+  // `skin` rides too: it is rendering behavior the reference pixels cannot
+  // enforce at generation time ("faint natural lines, minimal retouch"), and
+  // dropping it here is part of why presenters came back airbrushed.
+  // Deliberately NOT forwarded: `facial`, `hair` and `build` (geometry the
+  // four reference photographs already lock), wardrobeDefault (the capture
+  // uniform is not a wardrobe instruction) and promptName (a curated
+  // presenter is named by `name`, which is why renaming one is a generation
+  // change).
   return {
     id: presenter.id,
     name: presenter.name,
     ...(presenter.identityNotes ? { identityNotes: presenter.identityNotes } : {}),
     ...(presenter.negativeConstraints?.length ? { negativeConstraints: presenter.negativeConstraints } : {}),
+    ...(presenter.skin ? { skin: presenter.skin } : {}),
     shots,
   };
 }
