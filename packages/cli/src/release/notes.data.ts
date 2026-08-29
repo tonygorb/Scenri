@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.12',
+    date: '2026-08-29',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Hovering a reference image in the brief shows what it is, and opening one shows it at a size you can read. The same holds for a brand mark, and for the references a refinement is carrying.',
+      },
+    ],
+  },
+  {
     version: '0.6.11',
     date: '2026-08-29',
     sections: [
