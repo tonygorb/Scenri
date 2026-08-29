@@ -51,6 +51,20 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.6',
+    date: '2026-08-29',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Removing a chip from the brief now works on the first click, every time, including right after dragging chips around. Codex generations no longer fail as timeouts while they are still working, and when a run does fail, the message says what actually happened instead of suggesting a second try.',
+      },
+      {
+        heading: 'Presenters',
+        body: 'Custom presenter avatars are cropped like real profile photos, head and shoulders from the front reference. Presenters you made earlier are reframed automatically, including ones that never got an avatar at all.',
+      },
+    ],
+  },
+  {
     version: '0.6.5',
     date: '2026-08-29',
     sections: [
