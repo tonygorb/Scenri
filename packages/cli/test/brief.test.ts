@@ -967,5 +967,78 @@ describe('compileBrief: a world built around a figure', () => {
       refd({}, { engineCaps: caps(2) }),
     );
     expect(r.warnings.join(' ')).not.toContain(base.name);
+    // And the prompt keeps quiet about a photograph the cap forced out: a
+    // directive about an image the engine never received is the composer lying.
+    expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+    expect(r.prompt).not.toContain("the scene's own photograph");
+  });
+
+  // The 2026-08 leak: the scene photograph showed a staged demo object and the
+  // prose guards only disowned "the scene direction" — the words, never the
+  // picture. The picture gets its own disowning, and it names the replacements.
+  it('tells the model the scene photograph stages stand-ins, and who replaces them', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd(),
+    );
+    expect(r.attachments.map((a) => a.role)).toContain('scene');
+    expect(r.prompt).toContain("One attached reference is the scene's own photograph");
+    expect(r.prompt).toContain('The product in the scene photograph is not in this shot');
+    expect(r.prompt).toContain('Any person in the scene photograph lends their role, never their face');
+    // The prose guards keep their rank; the photo guard is the most specific
+    // word and comes after them, and after the figure directives it must not
+    // argue with.
+    const cast = r.prompt.indexOf('describes the set, not the cast');
+    const photo = r.prompt.indexOf("the scene's own photograph");
+    const figure = r.prompt.indexOf('This world is built around one figure');
+    expect(cast).toBeGreaterThan(-1);
+    expect(figure).toBeGreaterThan(-1);
+    expect(cast).toBeLessThan(photo);
+    expect(figure).toBeLessThan(photo);
+  });
+
+  it('the photo guard names only what is attached', () => {
+    const productOnly = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd(),
+    );
+    expect(productOnly.prompt).toContain('The product in the scene photograph is not in this shot');
+    expect(productOnly.prompt).not.toContain('Any person in the scene photograph');
+    const personOnly = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd(),
+    );
+    expect(personOnly.prompt).toContain('Any person in the scene photograph');
+    expect(personOnly.prompt).not.toContain('The product in the scene photograph');
+  });
+
+  it('keeps quiet about the photograph on an edit, where none is sent', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd({}, { mode: 'edit' as const }),
+    );
+    expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+    expect(r.prompt).not.toContain("the scene's own photograph");
   });
 });

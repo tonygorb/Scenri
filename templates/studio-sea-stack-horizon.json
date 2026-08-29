@@ -8,7 +8,7 @@
   "subject": "product",
   "collections": ["Studio"],
   "verticals": ["Footwear", "Accessories", "Fragrance"],
-  "prompt": "a lace-up leather boot with a rugged lugged sole, wedged in a natural gap between two wind-and-wave-carved sea-stack rocks, a vivid golden-hour sunset gradient sky filling the background — deep coral-orange low fading to dusky blue-violet high, warm rim light tracing the rock's weathered edges, genuine mineral rock texture, shallow depth of field keeping the boot and immediate rock crisp while the wider formation softens toward the edges of frame, no props beyond the rock, immaculate commercial-render clarity",
+  "prompt": "the subject wedged in a natural gap between two wind-and-wave-carved sea-stack rocks, a vivid golden-hour sunset gradient sky filling the background — deep coral-orange low fading to dusky blue-violet high, warm rim light tracing the rock's weathered edges, genuine mineral rock texture, shallow depth of field keeping the subject and immediate rock crisp while the wider formation softens toward the edges of frame, no props beyond the rock, immaculate commercial-render clarity",
   "width": 1024,
   "height": 1280
 }

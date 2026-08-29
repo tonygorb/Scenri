@@ -9,7 +9,7 @@
   "subject": "product",
   "collections": ["Colored backgrounds"],
   "verticals": ["Food & drink", "Beauty", "Fragrance"],
-  "prompt": "a glass beverage bottle, resting on the corner of a minimalist geometric ledge combining real wood grain and terracotta surface texture, a warm taupe gradient field extending behind it, soft diffused light with genuinely shadowless transitions — no hard shadow edge anywhere, true material texture on the ledge, shallow depth of field keeping the bottle and immediate ledge surface crisp, no props beyond the ledge, immaculate commercial-render clarity",
+  "prompt": "the subject resting on the corner of a minimalist geometric ledge combining real wood grain and terracotta surface texture, a warm taupe gradient field extending behind it, soft diffused light with genuinely shadowless transitions — no hard shadow edge anywhere, true material texture on the ledge, shallow depth of field keeping the subject and immediate ledge surface crisp, no props beyond the ledge, immaculate commercial-render clarity",
   "width": 1024,
   "height": 1280
 }

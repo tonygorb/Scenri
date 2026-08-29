@@ -4,12 +4,12 @@
   "promptName": "Volcanic Ash Field",
   "legacyNames": ["Volcanic Ash Field"],
   "keywords": ["volcanic", "ash", "black rock", "dusk", "smoldering", "geological", "grey", "dramatic"],
-  "description": "A garment posed on cooled black volcanic rock beneath a smoldering orange horizon, fine grey ash drifting through the cool dusk air. Raw, elemental, and quietly dangerous — no flame in sight, just the horizon's afterglow.",
+  "description": "The subject posed on cooled black volcanic rock beneath a smoldering orange horizon, fine grey ash drifting through the cool dusk air. Raw, elemental, and quietly dangerous — no flame in sight, just the horizon's afterglow.",
   "lighting": "Smoldering horizon glow, cool dusk shadow",
   "subject": "product",
   "collections": ["Studio"],
   "verticals": ["Apparel", "Sport", "Accessories", "Footwear"],
-  "prompt": "a muted slate-grey technical hiking jacket displayed upright on a slim stand on a field of cooled black volcanic rock, matte fractured rock texture underfoot, near-black stone beneath a smoldering orange horizon glow low across the skyline — the only warm light source, everything else settling into cool dusk shadow, the jacket's muted slate-grey shell the sole color accent in frame, fine grey ash drifting slowly through the air and catching the glow, mid-distance framing with tall dramatic negative space above, deep focus holding the rock field and horizon equally sharp, true dusk color temperature with no visible flame or lava, no other people or props in frame, cinematic elemental realism",
+  "prompt": "the subject set on a field of cooled black volcanic rock, matte fractured rock texture underfoot, near-black stone beneath a smoldering orange horizon glow low across the skyline — the only warm light source, everything else settling into cool dusk shadow, the subject the sole color accent in frame, fine grey ash drifting slowly through the air and catching the glow, mid-distance framing with tall dramatic negative space above, deep focus holding the rock field and horizon equally sharp, true dusk color temperature with no visible flame or lava, no other people or props in frame, cinematic elemental realism",
   "width": 1024,
   "height": 1280
 }

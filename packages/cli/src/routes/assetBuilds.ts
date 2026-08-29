@@ -288,7 +288,11 @@ export function registerAssetBuildRoutes(
         kind: 'scene',
         sceneId: id,
         name: scene.name,
-        instruction: body.correction == null ? undefined : String(body.correction),
+        // A plain re-read used to drop the Direction on the floor: body.correction
+        // was the only source, so the analyzer's deciding-word preamble never
+        // fired and whatever the Direction excluded came straight back. No new
+        // word means the stored word.
+        instruction: String(body.correction ?? '').trim() || scene.instruction || undefined,
         imageHashes: [],
       });
     } catch (err: any) {

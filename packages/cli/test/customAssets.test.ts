@@ -526,6 +526,56 @@ describe('custom presenters and scenes', () => {
     expect(analyzed[0].priorDraft.id).toBe(before.id);
   });
 
+  it('a re-read carries the direction the scene was built with', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, {
+      kind: 'scene',
+      name: 'Wet Basalt Shore',
+      instruction: 'keep the rocks, less orange',
+      imageHashes: [await savePhoto('#4455aa')],
+    });
+    const before = brandJson(brand.id).scenes[0];
+    analyzed = [];
+
+    // A plain re-read used to drop the Direction on the floor: the analyzer's
+    // deciding-word preamble never fired, and whatever the Direction excluded
+    // came straight back into the record.
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/scenes/${before.id}/reread`,
+      payload: {},
+    });
+    expect(r.statusCode).toBe(200);
+    await settle(brand.id, JSON.parse(r.body).jobId);
+
+    expect(analyzed[0].instruction).toBe('keep the rocks, less orange');
+    expect(analyzed[0].correction).toBe('keep the rocks, less orange');
+    expect(brandJson(brand.id).scenes[0].instruction).toBe('keep the rocks, less orange');
+  });
+
+  it('a fresh correction outranks the stored direction', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, {
+      kind: 'scene',
+      name: 'Wet Basalt Shore',
+      instruction: 'keep the rocks, less orange',
+      imageHashes: [await savePhoto('#5566bb')],
+    });
+    const before = brandJson(brand.id).scenes[0];
+    analyzed = [];
+
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/scenes/${before.id}/reread`,
+      payload: { correction: 'colder, no people' },
+    });
+    expect(r.statusCode).toBe(200);
+    await settle(brand.id, JSON.parse(r.body).jobId);
+
+    expect(analyzed[0].instruction).toBe('colder, no people');
+    expect(brandJson(brand.id).scenes[0].instruction).toBe('colder, no people');
+  });
+
   it('refuses a second read while the first is still running', async () => {
     const brand = await newBrand();
     await runBuild(brand.id, {

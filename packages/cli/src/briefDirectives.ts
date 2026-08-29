@@ -247,13 +247,19 @@ export function sceneFigureDirectives(opts: {
 }
 
 /**
- * A scene contributes text to a shot, never an image - its own references are
- * spent on its preview card and never attached here. But its prose can
- * still name a product or wardrobe brand of its own (for demo purposes). When
- * a real product or presenter is attached alongside it, these directives are
- * appended last so they outrank whatever the scene's own text described.
+ * A scene contributes text to a shot - and, when it is built around a figure,
+ * one reference photograph too (brief.ts). Its prose can still name a product
+ * or wardrobe brand of its own (for demo purposes), and its photograph can
+ * still show one. When a real product or presenter is attached alongside it,
+ * these directives are appended last so they outrank whatever the scene's own
+ * text described - and, when the scene's photograph survived the attachment
+ * budget, whatever that photograph stages.
  */
-export function sceneGuardDirectives(opts: { hasProduct: boolean; hasPerson: boolean }): string[] {
+export function sceneGuardDirectives(opts: {
+  hasProduct: boolean;
+  hasPerson: boolean;
+  hasScenePhoto?: boolean;
+}): string[] {
   const out: string[] = [];
   if (opts.hasProduct) {
     out.push(
@@ -272,6 +278,27 @@ export function sceneGuardDirectives(opts: { hasProduct: boolean; hasPerson: boo
       'The scene direction above describes the set, not the cast. If it says the space is empty or that no people appear, disregard that: the attached person stands in this set, clearly visible. ' +
         'A ban on props or extra objects in the scene direction is about set dressing only — it never applies to the presenter or to the product in their hands.',
     );
+  }
+  // A figure-led scene attaches one photograph (brief.ts), and a photograph of
+  // a staged demo is more vivid than any prose about it. The guards above are
+  // scoped to "the scene direction" — a model reads that as the words, never
+  // the picture — so the picture needs its own disowning, said about the
+  // photograph by name. The treatment carve-out rides in the same breath so
+  // this can never argue with the figure directives above it.
+  if (opts.hasScenePhoto && (opts.hasProduct || opts.hasPerson)) {
+    out.push(
+      "One attached reference is the scene's own photograph. It shows this world — the set, the light, and any treatment this world applies — never a cast: any product, garment, prop or person visible in it is a stand-in, demonstrating where the subject sits, how large it stands in the frame, and what has been done to it.",
+    );
+    if (opts.hasProduct) {
+      out.push(
+        "The product in the scene photograph is not in this shot. The attached product photo is the only source of product identity: that exact product takes the stand-in's position, at the placement and scale the scene photograph demonstrates, keeping its own shape, label and colours.",
+      );
+    }
+    if (opts.hasPerson) {
+      out.push(
+        'Any person in the scene photograph lends their role, never their face: the attached presenter takes their place, wearing whatever treatment this world applies, with their identity drawn from their own photographs alone.',
+      );
+    }
   }
   return out;
 }
