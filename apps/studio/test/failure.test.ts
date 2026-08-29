@@ -24,6 +24,11 @@ const REAL = {
   codexUnverified: 'Could not verify Codex on this computer',
   codexTooOld: 'Codex CLI 0.140.0 is too old. Scenri needs 0.145.0 or newer.',
   codexSilent: 'Codex CLI produced no output for 120s, treating it as stuck',
+  codexNeverStarted: 'Codex CLI produced no output for 60s after launch, treating it as stuck',
+  codexAuthMidJob: 'codex exited with code 1: ERROR: unexpected status 401 Unauthorized',
+  codexExitSaysTimeout: 'codex exited with code 124: timeout',
+  nodeBudget: 'generation timed out after 11 minutes',
+  replicateTimeout: 'Replicate prediction timed out after 300000ms',
 };
 
 describe('describeFailure', () => {
@@ -113,6 +118,33 @@ describe('describeFailure', () => {
     expect(describeFailure(REAL.codexEmpty, 'Codex').retryable).toBe(true);
   });
 
+  it('names which budget was blown instead of one generic "took too long"', () => {
+    const cap = describeFailure(REAL.codexTimeout, 'Codex');
+    expect(cap.kind).toBe('timeout');
+    expect(cap.title).toBe('Codex ran out of time on this shot.');
+    const guard = describeFailure(REAL.codexNeverStarted, 'Codex');
+    expect(guard.kind).toBe('timeout');
+    expect(guard.title).toBe('Codex never started answering.');
+    const node = describeFailure(REAL.nodeBudget, 'Codex');
+    expect(node.kind).toBe('timeout');
+    expect(node.title).toBe('This run hit the overall time limit.');
+    // other engines keep the generic copy
+    const rep = describeFailure(REAL.replicateTimeout, 'Replicate');
+    expect(rep.kind).toBe('timeout');
+    expect(rep.title).toBe('Replicate took too long to answer.');
+  });
+
+  it('reads a mid-job 401 as a sign-in, not as an API-key problem', () => {
+    const f = describeFailure(REAL.codexAuthMidJob, 'Codex');
+    expect(f.kind).toBe('auth');
+    expect(f.title).toBe('Codex is signed out on this machine.');
+    expect(f.remedy).toEqual({ label: 'Sign in', opens: 'setup' });
+  });
+
+  it('does not read the word "timeout" in codex stderr as our own timeout', () => {
+    expect(describeFailure(REAL.codexExitSaysTimeout, 'Codex').kind).toBe('unknown');
+  });
+
   it('reads a signed-out codex as a sign-in, not a mystery exit code', () => {
     const f = describeFailure(REAL.codexSignedOut, 'Codex');
     expect(f.kind).toBe('auth');
@@ -138,9 +170,11 @@ describe('describeFailure', () => {
     expect(f.retryable).toBe(false);
   });
 
-  it('treats total codex silence as a timeout the user can retry', () => {
+  it('treats codex silence as a timeout the user can retry, old records included', () => {
+    // The pre-0.6.6 inactivity-kill wording still lives in stored failures.
     const f = describeFailure(REAL.codexSilent, 'Codex');
     expect(f.kind).toBe('timeout');
+    expect(f.title).toBe('Codex never started answering.');
     expect(f.retryable).toBe(true);
   });
 

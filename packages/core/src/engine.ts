@@ -196,6 +196,14 @@ export interface EngineCapabilities {
   supportsOutpaint?: boolean;
   maxReferenceImages: number;
   /**
+   * The longest edge, in pixels, a reference image is worth handing to this
+   * engine. When set, the server downscales reference copies to fit before a
+   * job (stored originals are untouched); absent means send as-is. Engines
+   * that read references at reduced resolution server-side set this so a
+   * full-resolution phone photo does not ride the uplink for nothing.
+   */
+  maxReferenceEdge?: number;
+  /**
    * True for stub engines that draw placeholder art instead of calling a
    * model (the offline demo engine). Fidelity guarantees do not apply — the
    * output is obviously not a real photograph — so identity guards that would

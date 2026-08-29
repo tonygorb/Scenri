@@ -118,6 +118,59 @@ describe('real spawn: generation lifecycle', () => {
     expect(saved[0].toString()).toContain('a red apple');
   }, 20_000);
 
+  it('a healthy run that goes quiet after announcing still finishes', async () => {
+    // The user-hitting shape, scaled down: one line at launch, then a silent
+    // image_gen round-trip three times the first-output window, then the file.
+    // The old rolling silence watchdog killed exactly this run.
+    useFakeCodex('exec-announce-then-silent', { FAKE_CODEX_SILENT_MS: '1200' });
+    const saved: Buffer[] = [];
+    const engine = createCodexEngine({
+      probeTtlMs: 0,
+      firstOutputMs: 400,
+      saveImage: (buf) => {
+        saved.push(buf);
+        return `hash-${saved.length}`;
+      },
+    });
+    const res = await engine.generate({ prompt: 'quiet but healthy', brand, width: 640, height: 480, count: 1 });
+    expect(res.images).toEqual(['hash-1']);
+  }, 20_000);
+
+  it('a run that wedges after its banner hits the hard cap, and dies for real', async () => {
+    const pidFile = join(scratchDir(), 'pid');
+    useFakeCodex('exec-banner-then-hang', { FAKE_CODEX_PID_FILE: pidFile });
+    const engine = createCodexEngine({
+      probeTtlMs: 0,
+      firstOutputMs: 60_000,
+      timeoutMs: 1_500,
+      saveImage: () => 'unused',
+    });
+    await expect(engine.generate({ prompt: 'wedged', brand, width: 640, height: 480, count: 1 })).rejects.toThrow(
+      /timed out after 1500ms/,
+    );
+    const pid = Number(readFileSync(pidFile, 'utf8'));
+    expect(await waitFor(() => processGone(pid), 8_000)).toBe(true);
+  }, 30_000);
+
+  it.skipIf(process.platform === 'win32')(
+    'a timeout kill takes codex descendants down too',
+    async () => {
+      // POSIX group kill: the detached exec is a process-group leader, so its
+      // own children die with it. taskkill /T owns this on Windows.
+      const pidFile = join(scratchDir(), 'pid');
+      const childPidFile = join(scratchDir(), 'child-pid');
+      useFakeCodex('spawn-grandchild', { FAKE_CODEX_PID_FILE: pidFile, FAKE_CODEX_CHILD_PID_FILE: childPidFile });
+      const engine = createCodexEngine({ probeTtlMs: 0, timeoutMs: 1_500, saveImage: () => 'unused' });
+      await expect(engine.generate({ prompt: 'tree', brand, width: 640, height: 480, count: 1 })).rejects.toThrow(
+        /timed out/,
+      );
+      const pid = Number(readFileSync(pidFile, 'utf8'));
+      const kid = Number(readFileSync(childPidFile, 'utf8'));
+      expect(await waitFor(() => processGone(pid) && processGone(kid), 8_000)).toBe(true);
+    },
+    30_000,
+  );
+
   it('cancelling a running generation really kills the codex process', async () => {
     const pidFile = join(scratchDir(), 'pid');
     useFakeCodex('exec-hang', { FAKE_CODEX_PID_FILE: pidFile });

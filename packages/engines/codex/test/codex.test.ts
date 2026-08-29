@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { spawn } from 'node:child_process';
 import type { BrandContext, EditRequest, GenerateRequest } from '@scenri/core';
-import { createCodexEngine } from '../src/index.js';
+import { CODEX_POOL, codexNodeBudgetMs, createCodexEngine } from '../src/index.js';
 
 const PNG_1 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 1, 1]);
 const PNG_2 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 2, 2, 2]);
@@ -68,6 +68,17 @@ function newSaveImage() {
   return vi.fn((_buf: Buffer) => `hash-${++n}`);
 }
 
+describe('codexNodeBudgetMs', () => {
+  it('derives the node bound from waves of the per-exec hard cap', () => {
+    expect(CODEX_POOL).toBe(2);
+    expect(codexNodeBudgetMs(1)).toBe(360_000);
+    expect(codexNodeBudgetMs(4)).toBe(660_000);
+    // eight variants were 900s of legal work under the old flat 600s watchdog
+    expect(codexNodeBudgetMs(8)).toBe(1_260_000);
+    expect(codexNodeBudgetMs(0)).toBe(360_000);
+  });
+});
+
 describe('capabilities / costEstimate', () => {
   it('reports the locked codex-cli capabilities', () => {
     const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage() });
@@ -78,6 +89,7 @@ describe('capabilities / costEstimate', () => {
       supportsEdit: true,
       supportsMask: false,
       maxReferenceImages: 5,
+      maxReferenceEdge: 2048,
     });
   });
 
