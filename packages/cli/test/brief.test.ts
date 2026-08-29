@@ -976,6 +976,30 @@ describe('compileBrief: a world built around a figure', () => {
     expect(scene[0].hash).toBe(productHash);
   });
 
+  it('prefers the drawn plate over the raw upload, and falls back when there is none', () => {
+    const plate = core.images.save(Buffer.from('identity-neutral-plate'));
+    const withPlate = compileBrief(
+      { tokens: [{ t: 'template', id: base.id }] },
+      ctx({
+        templateById: (id: string) =>
+          id === base.id ? { ...base, preview: `asset:${plate}`, refs: [{ file: `asset:${productHash}` }] } : undefined,
+      }),
+    );
+    const scene = withPlate.attachments.filter((a) => a.role === 'scene');
+    expect(scene).toHaveLength(1);
+    expect(scene[0].hash).toBe(plate);
+
+    // engine-less scenes have no preview and keep the historical fallback
+    const withoutPlate = compileBrief(
+      { tokens: [{ t: 'template', id: base.id }] },
+      ctx({
+        templateById: (id: string) =>
+          id === base.id ? { ...base, refs: [{ file: `asset:${productHash}` }] } : undefined,
+      }),
+    );
+    expect(withoutPlate.attachments.filter((a) => a.role === 'scene')[0]?.hash).toBe(productHash);
+  });
+
   it('a vanished refs[0] attaches nothing and keeps the photo guard unsaid', () => {
     const r = compileBrief(
       { tokens: [{ t: 'template', id: base.id }] },

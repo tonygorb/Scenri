@@ -464,17 +464,24 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * an edit, where the source frame already holds the world and the budget
          * is one slot smaller. Not essential, so it degrades instead of refusing.
          *
-         * THE FIRST-REFERENCE CONTRACT, deliberate and pinned by tests: exactly
-         * one image conditions the generation and it is refs[0], the first
-         * upload. References 2..N reach only the analyzer, which is instructed
-         * to build order-neutral consensus, so they shape the scene's PROSE and
-         * never its pixels. The scene card happens to fall back to refs[0] as
-         * its thumbnail too, so in that case the card shows exactly the image a
-         * generation would attach.
+         * THE CONDITIONING IMAGE, deliberate and pinned by tests: exactly one
+         * image conditions the generation - the scene's own drawn preview
+         * when one exists, else refs[0], the first upload. The preview is the
+         * identity-neutral plate ("they are nobody in particular",
+         * scenePreviewPrompt): it lends the world and the treatment but never
+         * a face, where the raw upload is a full-bleed photograph of a real
+         * person the model demonstrably borrowed. References 2..N reach only
+         * the analyzer, which is instructed to build order-neutral consensus,
+         * so they shape the scene's PROSE and never its pixels. The card
+         * shows the same preview, so what the user sees IS what conditions.
          */
         if (ctx.mode !== 'edit' && t.figure) {
-          for (const r of (t.refs ?? []).slice(0, SCENE_REF_MAX)) {
-            const h = assetHash(r?.file);
+          const plate = assetHash((t as { preview?: unknown }).preview);
+          const candidates =
+            plate && ctx.images.has(plate)
+              ? [plate]
+              : (t.refs ?? []).slice(0, SCENE_REF_MAX).map((r) => assetHash(r?.file));
+          for (const h of candidates) {
             if (h && ctx.images.has(h)) {
               attachments.push({ role: 'scene', id: t.id, label: t.name, hash: h, essential: false });
             }
