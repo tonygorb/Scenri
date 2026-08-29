@@ -205,7 +205,7 @@ describe('generate', () => {
       expect(args.slice(0, 4)).toEqual(['exec', '--skip-git-repo-check', '--sandbox', 'workspace-write']);
       expect(args).toContain('model_reasoning_effort="low"');
       const promptText = child.stdin.written; // the prompt rides stdin, not argv
-      expect(promptText).toContain('Generate one flawless, professional-grade image immediately');
+      expect(promptText).toContain('Generate one professional-grade image immediately');
       expect(promptText).toContain('640x480: a fox mascot on a teal background');
       expect(promptText).toContain('Save the image in the current directory as out-1.png');
     }

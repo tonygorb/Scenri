@@ -347,7 +347,12 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       )
       .join(' ');
     return (
-      `Generate one flawless, professional-grade image immediately using your image generation tool, ` +
+      // "professional-grade", not "flawless": the audit of the waxy-presenter
+      // report traced part of the plastic, over-perfected rendering to that
+      // one unconditional word. Still "image", never "photograph" - this
+      // wrapper also generates graphic assets. Independently revertible on
+      // render evidence.
+      `Generate one professional-grade image immediately using your image generation tool, ` +
       `${req.width}x${req.height}: ${req.prompt}.` +
       (refDirectives ? ` ${refDirectives}` : '') +
       ` Do not browse the web or explore files. Save the image in the current directory as out-1.png ` +
