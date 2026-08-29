@@ -501,6 +501,25 @@ describe('generate', () => {
     expect(saveImage).not.toHaveBeenCalled();
   });
 
+  it('says what a usage limit means instead of quoting the session banner', async () => {
+    // The refusal arrives AFTER the banner, past the old 200-char snippet, so
+    // the user was shown a workdir listing. Fixture is the CLI's real stderr
+    // shape, captured live on v0.145.0.
+    const realStderr =
+      'OpenAI Codex v0.145.0\n--------\nworkdir: /tmp/scenri-codex-x\nmodel: gpt-5.6-sol\nprovider: openai\n' +
+      'approval: never\nsandbox: workspace-write [workdir, /tmp]\nreasoning effort: high\n--------\nuser\n...\n' +
+      "ERROR: You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit " +
+      'https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Aug 30th, 2026 12:41 AM.\n';
+    const { spawnImpl } = fakeSpawn(({ child }) => {
+      child.stderr.emit('data', Buffer.from(realStderr));
+      child.emit('exit', 1, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await expect(engine.generate(genReq)).rejects.toThrow(
+      /Your Codex plan's usage limit is used up until Aug 30th, 2026 12:41 AM\. Generation resumes on its own then/,
+    );
+  });
+
   // A four variant run that lost one image used to lose all four: the failed
   // worker rejected the batch while the finished pictures were already in the
   // content store, orphaned and unreachable.
