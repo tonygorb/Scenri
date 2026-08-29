@@ -600,24 +600,32 @@ export const BriefInput = forwardRef<
       setMenu(null);
       return;
     }
-    /*
-     * A drag that selects text ends in a click on the line, and every click
-     * used to place a caret — which collapsed the selection the drag had just
-     * made, so text appeared to deselect itself the instant the mouse came up.
-     * A click that leaves something selected is not asking for a caret, and
-     * that includes the double click that takes a word and the triple that
-     * takes the line.
-     */
-    if (hasSelectionIn(root)) return;
-    // Every click in the line is resolved by the line, not by the browser:
-    // beside a chip, or in the padding, the browser's answer is wrong.
-    caretFromPoint(root, e.clientX, e.clientY);
-
+    // What was clicked decides what the click means, so it is resolved before
+    // the selection guard: a chip's body is an interaction, everything else is
+    // a caret ask. The outer few pixels of a chip are for reaching the caret,
+    // not for opening the menu, so they count as prose.
     const chip = chipAt(target);
-    if (!chip) return; // a click in the prose: the caret is already right
-    // the outer few pixels are for reaching the caret, not for opening the menu
-    const box = chip.getBoundingClientRect();
-    if (e.clientX - box.left <= EDGE || box.right - e.clientX <= EDGE) return;
+    const box = chip?.getBoundingClientRect();
+    const inChipBody = !!chip && !!box && e.clientX - box.left > EDGE && box.right - e.clientX > EDGE;
+    if (!inChipBody) {
+      /*
+       * A drag that selects text ends in a click on the line, and every click
+       * used to place a caret — which collapsed the selection the drag had
+       * just made, so text appeared to deselect itself the instant the mouse
+       * came up. A click that leaves something selected is not asking for a
+       * caret, and that includes the double click that takes a word and the
+       * triple that takes the line.
+       */
+      if (hasSelectionIn(root)) return;
+      // Every click in the line is resolved by the line, not by the browser:
+      // beside a chip, or in the padding, the browser's answer is wrong.
+      caretFromPoint(root, e.clientX, e.clientY);
+      return;
+    }
+    // A chip-body click is asking for the picker, never for a caret, so it
+    // runs whatever is selected: clicking an atom leaves the selection, the
+    // way clicking a button would. The guard above must not swallow it.
+    caretFromPoint(root, e.clientX, e.clientY);
     const uid = chip.dataset.uid ?? null;
     // The touch path already opened it on pointerdown, before the browser
     // could focus the line; this would close what that just opened.
