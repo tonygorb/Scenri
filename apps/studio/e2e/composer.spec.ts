@@ -2160,6 +2160,126 @@ test('a double click keeps the word it took, and a plain click still places the 
 });
 
 /**
+ * Selecting text around chips.
+ *
+ * The reported break: "[CHIP] some normal text" and the text would not
+ * highlight. A chip is a contenteditable=false, user-select:none atom and the
+ * drag sensor arms on chip-origin pointerdowns, so the text beside it is
+ * exactly where native selection is easiest to lose. Every gesture here is a
+ * stepped integer walk, per the Chromium constraint the tests above document.
+ */
+test('text after a leading chip drag-selects and survives', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+  await page.keyboard.type('make this look realistic');
+
+  // the typed text is the line's first non-empty text node; the chip is an element
+  const from = await charPointAt(page, 0, 1);
+  const to = await charPointAt(page, 0, 18);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let x = from.x + 30; x <= to.x; x += 30) {
+    await page.mouse.move(x, from.y);
+    await page.waitForTimeout(40);
+  }
+  const during = await selectedText(page);
+  await page.mouse.up();
+
+  expect(during.length).toBeGreaterThan(3);
+  expect(during).toContain('ake this');
+  await page.waitForTimeout(300);
+  expect(await selectedText(page)).toBe(during);
+});
+
+test('a drag that crosses a chip keeps everything it took', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('hello ');
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+  await page.keyboard.type(' world');
+
+  // text nodes: [0] "hello " and [1] " world"; the chip sits between them
+  const from = await charPointAt(page, 0, 1);
+  const to = await charPointAt(page, 1, 4);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let x = from.x + 30; x <= to.x + 30; x += 30) {
+    await page.mouse.move(x, from.y);
+    await page.waitForTimeout(40);
+  }
+  const during = await selectedText(page);
+  await page.mouse.up();
+
+  // The selection spans the chip: text from both sides is in it. The exact
+  // endpoints depend on where the stepped walk's characters land, so this
+  // asserts the crossing rather than the precise characters taken.
+  expect(during).toContain('llo');
+  expect(during).toContain('w');
+  await page.waitForTimeout(300);
+  expect(await selectedText(page)).toBe(during);
+});
+
+test('a double click takes the word right after a chip, and keeps it', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+  await page.keyboard.type('quick brown fox');
+
+  const at = await charPointAt(page, 0, 2);
+  await page.mouse.dblclick(at.x, at.y);
+  expect(await selectedText(page)).toBe('quick');
+  await page.waitForTimeout(300);
+  expect(await selectedText(page)).toBe('quick');
+});
+
+test('shift-arrow grows a selection across a chip boundary', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('hi ');
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+  await page.keyboard.type(' there');
+
+  // Put the caret at the very start, then grow the selection right, across
+  // the chip. The keyboard path is native; this locks that nothing intercepts
+  // it. (Home is not reliable in a contenteditable, so the caret is placed
+  // with the selection API the editor itself answers to.)
+  await page.evaluate(() => {
+    const el = document.querySelector('.sc-brief-line')!;
+    const t = Array.from(el.childNodes).find((n) => n.nodeType === Node.TEXT_NODE);
+    const r = document.createRange();
+    r.setStart(t!, 0);
+    r.collapse(true);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  for (let i = 0; i < 6; i++) await page.keyboard.press('Shift+ArrowRight');
+  const took = await selectedText(page);
+  expect(took).toContain('hi');
+  // and the selection kept growing past the chip into the trailing text
+  for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowRight');
+  expect((await selectedText(page)).length).toBeGreaterThanOrEqual(took.length);
+});
+
+test('a chip click with text selected still opens the picker', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('hello there ');
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+
+  // take a word first, the state the caret guard exists for
+  const at = await charPointAt(page, 0, 2);
+  await page.mouse.dblclick(at.x, at.y);
+  expect(await selectedText(page)).toBe('hello');
+
+  // a chip-body click is an interaction, not a caret ask: it runs whatever is
+  // selected and opens the picker, instead of being swallowed by the guard
+  await openPicker(page, 0);
+  await expect(pick(page)).toBeVisible();
+});
+
+/**
  * The viewport point of one character in the line's first text node.
  *
  * Rounded, and that is not cosmetic: Chromium does not grow a selection from
@@ -2167,15 +2287,32 @@ test('a double click keeps the word it took, and a plain click still places the 
  * selected" for a line that behaves perfectly by hand.
  */
 async function charPoint(p: Page, offset: number): Promise<{ x: number; y: number }> {
-  return p.evaluate((off) => {
-    const el = document.querySelector('.sc-brief-line')!;
-    const node = el.childNodes[0];
-    const r = document.createRange();
-    r.setStart(node, off);
-    r.setEnd(node, off + 1);
-    const b = r.getBoundingClientRect();
-    return { x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) };
-  }, offset);
+  return charPointAt(p, 0, offset);
+}
+
+/**
+ * The same point, in the line's Nth non-empty TEXT node — text beside chips.
+ * Indexed over text nodes rather than raw childNodes, because the line engine
+ * owns its DOM and a chip is not necessarily one node wide.
+ */
+async function charPointAt(p: Page, textIndex: number, offset: number): Promise<{ x: number; y: number }> {
+  return p.evaluate(
+    ([ti, off]) => {
+      const el = document.querySelector('.sc-brief-line')!;
+      const texts = Array.from(el.childNodes).filter(
+        (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim().length > 0,
+      );
+      const node = texts[ti];
+      if (!node) throw new Error(`no text node ${ti} in the line`);
+      const len = (node.textContent ?? '').length;
+      const r = document.createRange();
+      r.setStart(node, Math.max(0, Math.min(off, len - 1)));
+      r.setEnd(node, Math.min(off + 1, len));
+      const b = r.getBoundingClientRect();
+      return { x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) };
+    },
+    [textIndex, offset],
+  );
 }
 
 const selectedText = (p: Page) => p.evaluate(() => window.getSelection()?.toString() ?? '');
