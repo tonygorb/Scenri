@@ -9,7 +9,7 @@
   "subject": "person",
   "collections": ["Portrait"],
   "verticals": ["Apparel", "Accessories", "Jewelry"],
-  "prompt": "standing in a three-quarter turn against a deep charcoal-black seamless studio cyc, chest-up to waist-up crop centered in frame, one hard side key light cutting a graphic line down the face and body, the unlit side falling close to true black rather than a lifted grey, poised fashion-plate posture, chin lifted, tack-sharp editorial retouch, magazine-plate finish",
+  "prompt": "standing in a three-quarter turn against a deep charcoal-black seamless studio cyc, chest-up to waist-up crop centered in frame, one hard side key light cutting a graphic line down the face and body, the unlit side falling close to true black rather than a lifted grey, poised fashion-plate posture, chin lifted, the hard key rendering skin as real skin: visible pore structure along the lit side, a genuine specular edge where the light grazes the cheekbone, natural fine lines left intact, never smoothed or waxy, finished like a printed fashion editorial rather than a render",
   "width": 1024,
   "height": 1280
 }
