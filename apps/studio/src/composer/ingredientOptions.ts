@@ -122,6 +122,9 @@ export function chipOpensPicker(t: SentenceToken | null | undefined): ChipPicker
  * a reference or a mark has nothing to swap to, but on a phone it still needs
  * a door to Remove and Move — a pointer has the drag and the keyboard has
  * Alt+Arrow, a finger had nothing but a raised keyboard.
+ *
+ * A pointer answers "which picture is this?" a different way, and never
+ * through here: hover shows the preview, a click opens it full size.
  */
 export type ChipSheetKind = ChipPickerKind | 'ref' | 'mark';
 
@@ -130,6 +133,22 @@ export function chipOpensSheet(t: SentenceToken | null | undefined): ChipSheetKi
   if (kind) return kind;
   if (t?.t === 'ref' || t?.t === 'mark') return t.t;
   return null;
+}
+
+/**
+ * The image a chip IS, for the two chips whose identity is an image hash.
+ *
+ * This is the whole rule behind hovering and opening a chip: a product, a
+ * presenter and a scene are named things that happen to have a picture, and
+ * they open their catalog. A reference and a mark ARE the picture, and there
+ * is nothing to swap them for — so they answer with it.
+ *
+ * Read off the token, never off the rendered `<img>` and never by position:
+ * this is the same `imageHash` the compiler turns into an attachment, so what
+ * a preview shows and what the engine receives cannot drift apart.
+ */
+export function previewHashOf(t: SentenceToken | null | undefined): string | null {
+  return t?.t === 'ref' || t?.t === 'mark' ? t.imageHash : null;
 }
 
 const clean = (s: string | null | undefined): string | undefined => {

@@ -18,6 +18,7 @@ export function ChipMoveSheet({
   kind,
   label,
   thumb,
+  onInspect,
   onMove,
   onRemove,
   onClose,
@@ -25,6 +26,8 @@ export function ChipMoveSheet({
   kind: 'ref' | 'mark';
   label: string;
   thumb: string | null;
+  /** Tapping the picture opens it full size: a finger's way to the lightbox. */
+  onInspect: () => void;
   onMove: (dir: -1 | 1) => void;
   onRemove: () => void;
   onClose: (reason: CloseReason) => void;
@@ -58,7 +61,14 @@ export function ChipMoveSheet({
             <Dialog.Title className="sc-vh">Move or remove {noun}</Dialog.Title>
           </div>
           <div className="sc-movesheet-head">
-            {thumb && <img src={thumb} alt="" />}
+            {/* The src is the token's own hash, so a 404 here means the image
+                is genuinely gone: drop to the label rather than let the browser
+                draw its broken-image glyph, which is what the chip does too. */}
+            {thumb && (
+              <button type="button" className="sc-movesheet-face" onClick={onInspect} aria-label={`Open ${noun}`}>
+                <img src={thumb} alt="" onError={(e) => e.currentTarget.remove()} />
+              </button>
+            )}
             <span className="sc-movesheet-txt">
               <b dir="auto">{label || noun}</b>
               <span>{noun}</span>

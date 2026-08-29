@@ -22,6 +22,9 @@ import {
   type SentenceToken,
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
+import { ChipPreview, isPreviewKind, type PreviewKind } from '../composer/ChipPreview.js';
+import { ImageLightbox } from '../composer/ImageLightbox.js';
+import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
 import {
   openOnGroup,
@@ -695,6 +698,37 @@ export const Composer = forwardRef<
       .map((a) => ({ kind: kindOf[a.role] ?? a.role, label: a.label, hash: a.hash }))
       .sort(byContextOrder);
   }, [variant, preview]);
+
+  /**
+   * Which carried image is being peeked at, and which one is open full size.
+   *
+   * Both ephemeral by construction: local state, never a draft, never storage,
+   * so a reload or a navigation simply has neither. The lightbox lives here
+   * rather than inside each surface that can ask for one, so there is exactly
+   * one per composer — the brief line asks through `onInspect`.
+   */
+  const carriedHover = useHoverPreview<{
+    key: string;
+    hash: string;
+    kind: PreviewKind;
+    label: string;
+    el: HTMLElement;
+  }>();
+  const { shown: carriedPeek, closeNow: closeCarriedPeek } = carriedHover;
+  const [lightbox, setLightbox] = useState<{ hash: string; kind: PreviewKind; label: string | null } | null>(null);
+  // A new preview re-allocates the strip, so the element the card is anchored
+  // to can stop existing while it is up.
+  useEffect(() => {
+    if (carriedPeek && !carried.some((a) => `${a.kind}:${a.hash}` === carriedPeek.key)) closeCarriedPeek();
+  }, [carried, carriedPeek, closeCarriedPeek]);
+
+  const inspectCarried = useCallback(
+    (a: { hash: string; kind: PreviewKind; label: string }) => {
+      closeCarriedPeek();
+      setLightbox({ hash: a.hash, kind: a.kind, label: a.label });
+    },
+    [closeCarriedPeek],
+  );
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' =
     branchable && !template && (engineCanEdit || cropping || expanding) ? 'edit' : 'generation';
@@ -1044,6 +1078,19 @@ export const Composer = forwardRef<
         onChange={(e) => void pickFiles(e.target.files)}
       />
 
+      {/* One lightbox for the whole composer: the brief line asks for it
+          through onInspect, the carried strip through its own click, and only
+          one can ever be up because it is a modal. */}
+      {lightbox && (
+        <ImageLightbox
+          src={imgUrl(lightbox.hash)}
+          kind={lightbox.kind}
+          label={lightbox.label}
+          onRestoreFocus={() => briefRef.current?.restoreCaret()}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+
       {attachOpen && (
         <AttachPanel
           brand={brand}
@@ -1161,21 +1208,68 @@ export const Composer = forwardRef<
             the record of what the thread KEEPS, from the compiler's own
             preview, so it can never disagree with the request. */}
         {carried.length > 0 && (
-          // the visible "Carrying" word is the label; chips are informative spans
+          // the visible "Carrying" word is the label; a chip names one image
+          // and, because that image is the whole point of the strip, opens it
           <div className="sc-carried">
             <span className="sc-carried-lb">Carrying</span>
-            {carried.map((a) => (
-              <span
-                key={`${a.kind}:${a.hash}`}
-                className="sc-carried-chip"
-                data-kind={a.kind}
-                title={`Carried from the shot being refined: ${a.label}`}
-              >
-                <img src={imgUrl(a.hash)} alt="" />
-                <span dir="auto">{a.label}</span>
-              </span>
-            ))}
+            {carried.map((a) => {
+              const key = `${a.kind}:${a.hash}`;
+              const open = carriedPeek?.key === key;
+              const face = (
+                <>
+                  <img src={imgUrl(a.hash)} alt="" />
+                  <span dir="auto">{a.label}</span>
+                </>
+              );
+              const carriedFrom = `Carried from the shot being refined: ${a.label}`;
+              const kind = a.kind;
+              // A real button, not a span with a role: Enter and Space come
+              // free, and there is nothing interactive inside it to nest.
+              return isPreviewKind(kind) ? (
+                <button
+                  key={key}
+                  type="button"
+                  className="sc-carried-chip"
+                  data-kind={kind}
+                  data-open={open || undefined}
+                  // The tooltip and the card would otherwise say the same thing
+                  // twice, with the tooltip on top of the picture.
+                  title={open ? undefined : carriedFrom}
+                  aria-haspopup="dialog"
+                  aria-label={`${a.label}, carried from the shot being refined. Open it.`}
+                  onPointerEnter={(e) =>
+                    e.pointerType === 'mouse' &&
+                    carriedHover.open({ key, hash: a.hash, kind, label: a.label, el: e.currentTarget })
+                  }
+                  onPointerLeave={(e) => e.pointerType === 'mouse' && carriedHover.close()}
+                  onFocus={(e) =>
+                    e.currentTarget.matches(':focus-visible') &&
+                    carriedHover.open({ key, hash: a.hash, kind, label: a.label, el: e.currentTarget })
+                  }
+                  onClick={() => inspectCarried({ hash: a.hash, kind, label: a.label })}
+                >
+                  {face}
+                </button>
+              ) : (
+                <span key={key} className="sc-carried-chip" data-kind={kind} title={carriedFrom}>
+                  {face}
+                </span>
+              );
+            })}
           </div>
+        )}
+        {carriedPeek && (
+          <ChipPreview
+            key={carriedPeek.key}
+            anchor={carriedPeek.el}
+            kind={carriedPeek.kind}
+            src={imgUrl(carriedPeek.hash)}
+            label={carriedPeek.label}
+            onOpen={() => inspectCarried(carriedPeek)}
+            onHoverIn={carriedHover.keep}
+            onHoverOut={carriedHover.close}
+            onClose={closeCarriedPeek}
+          />
         )}
         {/* What the engine cap leaves out, said before the money is spent. The
             chip tooltip and the post-send toast already say it; this is the
@@ -1196,6 +1290,7 @@ export const Composer = forwardRef<
           demoProducts={demoProducts}
           onTemplatePick={applyScene}
           flag={flagToken}
+          onInspect={(image) => setLightbox(image)}
           onAttachRequest={(tab) => openAttach(tab)}
           activeProductCategory={activeProductCategory}
           placeholder={

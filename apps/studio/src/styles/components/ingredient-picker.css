@@ -24,7 +24,8 @@
    settings sheet carrying the same body, and every one of these resolved to
    nothing there. */
 .sc-swap,
-.sc-swapsheet {
+.sc-swapsheet,
+.sc-chip-preview {
   --swap-inset: var(--sc-space-5);
   --swap-step: var(--sc-space-3);
   /* Heights, not spacing: the search and the remove button are the same
@@ -445,4 +446,204 @@
 .sc-swapsheet[data-kind="color"] .sc-swap-remove {
   justify-content: center;
   width: 100%;
+}
+
+/* ------------------------------------------------------------------ preview
+
+   The picture a chip holds, anchored to the chip. Same panel shell as
+   `.sc-swap` and the same card language inside it — plate, name, kind — because
+   this IS the picker's card, said big enough to recognise. What it does not
+   borrow is `cover`: a card crops to a square to make a grid line up, and this
+   exists specifically to show the whole reference. */
+.sc-chip-preview {
+  /* Big enough to recognise a photograph, small enough to stay a glance. */
+  --preview-face: 132px;
+  position: fixed;
+  z-index: var(--sc-z-popover);
+  display: flex;
+  flex-direction: column;
+  padding: var(--swap-inset);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-3);
+  color: var(--sc-fg);
+}
+/* One square, every time. A plate that changed shape with the picture made the
+   panel jump around the composer as you stepped along a row of chips; a fixed
+   square is a place. The picture fills it from the centre, the way every other
+   thumbnail in the app does — letterboxing a reference on a dark plate read as
+   a broken image rather than as a tall photograph. */
+.sc-chip-preview-plate {
+  display: block;
+  width: var(--preview-face);
+  height: var(--preview-face);
+  object-fit: cover;
+  object-position: center;
+  /* the one gap inside a card: picture to the words about it */
+  margin-bottom: var(--swap-step);
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+/* The one exception to filling the square: a mark is a wordmark as often as a
+   glyph, and cropping one makes it unreadable. Ground it and letterbox it, the
+   way the chip, the sheet and the brand avatar already do. There is no
+   checkerboard in this system. */
+.sc-chip-preview[data-kind="mark"] .sc-chip-preview-plate {
+  object-fit: contain;
+  background: #fff;
+}
+.sc-chip-preview b,
+.sc-chip-preview-hit > span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+.sc-chip-preview b {
+  font-size: var(--sc-text-caption);
+  font-weight: 550;
+}
+.sc-chip-preview-hit > span {
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+}
+.sc-chip-preview .sc-swap-warn {
+  margin-top: var(--swap-step);
+  font-size: var(--sc-text-micro);
+}
+.sc-chip-preview-blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-2);
+  text-align: center;
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-micro);
+}
+
+/* A reference and a mark are the two sheets whose subject IS the picture, so
+   their face is big enough to recognise rather than a 44px identifier. The
+   head keeps its shipped row — picture, then the words beside it — because
+   centring a column here broke the rhythm the rest of the sheet is built on. */
+.sc-swapsheet[data-kind="ref"] .sc-movesheet-head img,
+.sc-swapsheet[data-kind="mark"] .sc-movesheet-head img {
+  width: 96px;
+  height: 96px;
+  object-position: center;
+}
+/* A wordmark cropped is a wordmark unreadable: ground it and letterbox it. */
+.sc-swapsheet[data-kind="mark"] .sc-movesheet-head img {
+  object-fit: contain;
+  background: #fff;
+}
+
+/* The card is a shortcut to the same thing the chip does, so it says so. The
+   hit area is a button carrying no chrome of its own: the card is the frame. */
+.sc-chip-preview-hit {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+/* The card is the affordance, so it has to look like one under a pointer —
+   quietly. Paint only: the card must not resize under the cursor that is
+   travelling towards it. */
+.sc-chip-preview-hit:hover .sc-chip-preview-plate {
+  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+}
+
+/* The sheet's face is a button on touch, for the same reason the card is
+   clickable with a pointer: it is the way to the picture at full size. */
+.sc-movesheet-face {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--sc-radius);
+  cursor: pointer;
+}
+
+/* ----------------------------------------------------------------- lightbox
+
+   Looking at the reference properly. Built on `.sc-newdlg` — the app's own
+   dialog shell, which already carries the scrim, Escape, the drag-to-dismiss
+   and the sheet-or-card responsive rule — rather than a black full-bleed
+   viewer, which is a convention from photo sites and from nothing in Scenri.
+
+   `contain` here, unlike the 132px card: a thumbnail crops to stay a tidy
+   square in a row of chips, but the whole point of opening one is to see all
+   of it. */
+.sc-lightbox-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+  /* Hug the picture. A plate stretched to the dialog's width put 200px of
+     empty well either side of a portrait, which reads as a mistake rather than
+     as framing. */
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+.sc-lightbox-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: min(68dvh, 620px);
+  object-fit: contain;
+}
+/* art on transparency, grounded — the same white plate as everywhere else */
+.sc-lightbox-frame[data-kind="mark"] {
+  background: #fff;
+}
+.sc-lightbox-blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-3);
+  height: 220px;
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-caption);
+}
+.sc-lightbox-cap {
+  margin: var(--sc-space-4) 0 0;
+  text-align: center;
+}
+.sc-lightbox-cap b {
+  display: block;
+  font-size: var(--sc-text-caption);
+  font-weight: 550;
+  line-height: 1.35;
+}
+.sc-lightbox-cap span {
+  display: block;
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+  line-height: 1.35;
+}
+
+/* And the card hugs the plate, rather than every picture arriving in the same
+   880px box whatever shape it is. Below 768 the shell is a bottom sheet and
+   full width is right, so this is the desktop half only. */
+@media (min-width: 768px) {
+  .sc-newdlg.sc-lightbox {
+    width: fit-content;
+    max-width: min(var(--sc-newdlg-max), calc(100vw - 48px));
+  }
 }

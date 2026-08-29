@@ -11,6 +11,7 @@ import {
   chipOpensPicker,
   chipOpensSheet,
   pickerKind,
+  previewHashOf,
   type Candidate,
   type IngredientCatalog,
 } from '../src/composer/ingredientOptions.js';
@@ -136,6 +137,8 @@ describe('chipOpensPicker', () => {
 describe('chipOpensSheet', () => {
   it('passes picker chips through unchanged', () => {
     expect(chipOpensSheet({ t: 'product', id: 'x' })).toBe('product');
+    expect(chipOpensSheet({ t: 'character', id: 'x' })).toBe('presenter');
+    expect(chipOpensSheet({ t: 'template', id: 'x' })).toBe('scene');
     expect(chipOpensSheet({ t: 'color', hex: '#ffffff' })).toBe('color');
   });
 
@@ -147,6 +150,30 @@ describe('chipOpensSheet', () => {
   it('prose and nothing still open nothing', () => {
     expect(chipOpensSheet({ t: 'text', v: 'hello' })).toBeNull();
     expect(chipOpensSheet(null)).toBeNull();
+  });
+});
+
+describe('previewHashOf', () => {
+  it('answers with the token\u2019s own hash, for the chips that are an image', () => {
+    expect(previewHashOf({ t: 'ref', imageHash: 'abc123' })).toBe('abc123');
+    expect(previewHashOf({ t: 'mark', imageHash: 'def456' })).toBe('def456');
+  });
+
+  it('distinguishes two references by hash, never by position', () => {
+    const first = { t: 'ref', imageHash: 'aaa' } as const;
+    const second = { t: 'ref', imageHash: 'bbb' } as const;
+    // The order they are asked in cannot change either answer: this is what
+    // keeps a reordered brief previewing the right picture.
+    expect([second, first].map(previewHashOf)).toEqual(['bbb', 'aaa']);
+  });
+
+  it('is null for every chip whose identity is a catalog id, and for nothing', () => {
+    expect(previewHashOf({ t: 'product', id: 'p1' })).toBeNull();
+    expect(previewHashOf({ t: 'character', id: 'c1' })).toBeNull();
+    expect(previewHashOf({ t: 'template', id: 's1' })).toBeNull();
+    expect(previewHashOf({ t: 'color', hex: '#ffffff' })).toBeNull();
+    expect(previewHashOf({ t: 'text', v: 'hello' })).toBeNull();
+    expect(previewHashOf(null)).toBeNull();
   });
 });
 

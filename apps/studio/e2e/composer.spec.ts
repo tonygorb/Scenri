@@ -2316,3 +2316,228 @@ async function charPointAt(p: Page, textIndex: number, offset: number): Promise<
 }
 
 const selectedText = (p: Page) => p.evaluate(() => window.getSelection()?.toString() ?? '');
+
+/* ------------------------------------------------------- reference preview */
+
+/**
+ * A reference chip shows a 15px circle of a photograph, which is enough to
+ * remember that you attached something and not enough to remember what.
+ *
+ * Two answers, the way the showcase wall already answers the same question
+ * about its credits: hovering peeks at the picture, and opening shows it at a
+ * size you can actually read. These cases are the seam between those and the
+ * three things a chip could already do — drag, remove, and hold its place in
+ * the sentence.
+ *
+ * Seeded through the composer's own file input rather than a raw fetch: the
+ * upload path from a picked file to a `ref` chip had never been walked by a
+ * spec at all.
+ */
+
+/** Two 1x1 PNGs that differ, so the content-addressed store keeps them apart. */
+const REF_A = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+const REF_B = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+const upload = (name: string, buffer: Buffer) => ({ name, mimeType: 'image/png', buffer });
+
+/** The hover card. */
+const peek = (p: Page) => p.locator('.sc-chip-preview');
+const peekSrc = (p: Page) => peek(p).locator('img').getAttribute('src');
+/** The picture at full size, on the app's own dialog shell. */
+const lightbox = (p: Page) => p.locator('.sc-lightbox');
+const lightboxSrc = (p: Page) => lightbox(p).locator('img').getAttribute('src');
+/** What a chip actually holds, read off its token rather than off its position. */
+const chipHash = async (p: Page, i: number) => ((await chips(p).nth(i).getAttribute('data-tok')) ?? '').slice(2);
+const tokens = (p: Page) => chips(p).evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.tok));
+
+/** Prose plus n reference images, attached the way a person attaches them. */
+async function seedRefs(page: Page, n: number) {
+  await line(page).click();
+  await page.keyboard.type('make this more editorial ');
+  await page
+    .locator('.sc-composer input[type="file"]')
+    .first()
+    .setInputFiles([upload('one.png', REF_A), upload('two.png', REF_B)].slice(0, n));
+  await expect(chips(page)).toHaveCount(n);
+}
+
+test('hovering a reference chip peeks at the picture that chip is holding', async ({ page }) => {
+  await seedRefs(page, 1);
+  const hash = await chipHash(page, 0);
+  await chips(page).first().hover();
+  await expect(peek(page)).toBeVisible();
+  // the token's own hash, which is the one the compiler attaches
+  expect(await peekSrc(page)).toBe(`/api/images/${hash}`);
+});
+
+test('the peek goes when the pointer leaves, and on Escape', async ({ page }) => {
+  await seedRefs(page, 1);
+  await chips(page).first().hover();
+  await expect(peek(page)).toBeVisible();
+  await page.locator('.sc-composer').hover({ position: { x: 4, y: 4 } });
+  await expect(peek(page)).toHaveCount(0);
+
+  await chips(page).first().hover();
+  await expect(peek(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(peek(page)).toHaveCount(0);
+});
+
+test('hovering a second reference switches the peek to itself, and only one is up', async ({ page }) => {
+  await seedRefs(page, 2);
+  const [first, second] = [await chipHash(page, 0), await chipHash(page, 1)];
+  expect(first).not.toBe(second);
+
+  await chips(page).nth(0).hover();
+  await expect(peek(page)).toBeVisible();
+  expect(await peekSrc(page)).toBe(`/api/images/${first}`);
+  await chips(page).nth(1).hover();
+  await expect(peek(page)).toHaveCount(1);
+  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${second}`);
+});
+
+test('a chip body opens its picture, and its caret gutter still takes the caret', async ({ page }) => {
+  await seedRefs(page, 2);
+  const second = await chipHash(page, 1);
+
+  // the body: the same gesture that opens every other chip's surface
+  await chips(page).nth(1).click();
+  await expect(lightbox(page)).toBeVisible();
+  expect(await lightboxSrc(page)).toBe(`/api/images/${second}`);
+  await page.keyboard.press('Escape');
+  await expect(lightbox(page)).toHaveCount(0);
+
+  // and the outer EDGE pixels are still prose: aiming at the seam beside a
+  // chip has to reach the caret, or writing around a reference stops working
+  const box = (await chips(page).nth(1).boundingBox())!;
+  await page.mouse.click(Math.round(box.x + 2), Math.round(box.y + box.height / 2));
+  await expect(lightbox(page)).toHaveCount(0);
+  await page.keyboard.type('X');
+  expect(await sentence(page)).toContain('X');
+});
+
+test('closing the picture puts the caret back, so the next key is not a removal', async ({ page }) => {
+  await seedRefs(page, 2);
+  await chips(page).nth(1).click();
+  await expect(lightbox(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(lightbox(page)).toHaveCount(0);
+
+  // A dialog hands focus back to what opened it, and what opened this was a
+  // chip — where Backspace means "remove me". The caret has to come home.
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(2);
+  await page.keyboard.type('ok');
+  expect(await sentence(page)).toContain('ok');
+});
+
+test('clicking the peek opens that picture full size, and Escape closes it', async ({ page }) => {
+  await seedRefs(page, 1);
+  const hash = await chipHash(page, 0);
+  await chips(page).first().hover();
+  await expect(peek(page)).toBeVisible();
+  await peek(page).click();
+  await expect(lightbox(page)).toBeVisible();
+  expect(await lightboxSrc(page)).toBe(`/api/images/${hash}`);
+  // the card does not stay floating over the dialog it just opened
+  await expect(peek(page)).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(lightbox(page)).toHaveCount(0);
+});
+
+test('a reordered brief still peeks at each reference by identity, never by position', async ({ page }) => {
+  await seedRefs(page, 2);
+  const [first, second] = [await chipHash(page, 0), await chipHash(page, 1)];
+
+  // walk the second chip in front of the first, the keyboard way
+  await chips(page).nth(1).focus();
+  await page.keyboard.press('Alt+ArrowLeft');
+  await expect.poll(() => chipHash(page, 0)).toBe(second);
+
+  await chips(page).nth(0).hover();
+  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${second}`);
+  await chips(page).nth(1).hover();
+  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${first}`);
+});
+
+test('the x removes a reference and never opens a picture', async ({ page }) => {
+  await seedRefs(page, 2);
+  await chips(page).nth(0).locator('[data-role="remove"]').click();
+  await expect(chips(page)).toHaveCount(1);
+  await expect(lightbox(page)).toHaveCount(0);
+  await chips(page).nth(0).locator('[data-role="remove"]').click();
+  await expect(chips(page)).toHaveCount(0);
+  await expect(lightbox(page)).toHaveCount(0);
+  await expect(peek(page)).toHaveCount(0);
+});
+
+test('removing the reference being peeked at takes its card with it', async ({ page }) => {
+  await seedRefs(page, 2);
+  await chips(page).nth(1).hover();
+  await expect(peek(page)).toBeVisible();
+  await chips(page).nth(1).locator('[data-role="remove"]').click();
+  await expect(chips(page)).toHaveCount(1);
+  // no orphan card left pointing at a chip that stopped existing
+  await expect(peek(page)).toHaveCount(0);
+});
+
+test('dragging a reference reorders it and does not open a picture on the drop', async ({ page }) => {
+  await seedRefs(page, 2);
+  const moved = await chipHash(page, 1);
+  const chipBox = (await chips(page).nth(1).boundingBox())!;
+  const lineBox = (await line(page).boundingBox())!;
+
+  await page.mouse.move(Math.round(chipBox.x + chipBox.width / 2), Math.round(chipBox.y + chipBox.height / 2));
+  await page.mouse.down();
+  await page.mouse.move(Math.round(chipBox.x + chipBox.width / 2 + 12), Math.round(chipBox.y + chipBox.height / 2), {
+    steps: 3,
+  });
+  await page.mouse.move(Math.round(lineBox.x + 3), Math.round(lineBox.y + lineBox.height / 2), { steps: 6 });
+  await expect(page.locator('.sc-drop-caret')).toBeVisible();
+  await page.mouse.up();
+
+  await expect.poll(() => chipHash(page, 0)).toBe(moved);
+  // the click that ends every drag is eaten, so nothing opened behind it
+  await expect(lightbox(page)).toHaveCount(0);
+});
+
+test('the keyboard takes the same two steps: focus shows the card, Enter opens it', async ({ page }) => {
+  await seedRefs(page, 1);
+  const hash = await chipHash(page, 0);
+  await chips(page).first().focus();
+  await page.keyboard.press('Enter');
+  await expect(lightbox(page)).toBeVisible();
+  expect(await lightboxSrc(page)).toBe(`/api/images/${hash}`);
+  await page.keyboard.press('Escape');
+  await expect(lightbox(page)).toHaveCount(0);
+});
+
+test('peeking and opening change nothing the compiler reads, and leave prose selectable', async ({ page }) => {
+  await seedRefs(page, 2);
+  await page.keyboard.type(' hello world');
+  const before = await tokens(page);
+
+  await chips(page).nth(0).hover();
+  await expect(peek(page)).toBeVisible();
+  await peek(page).click();
+  await expect(lightbox(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(lightbox(page)).toHaveCount(0);
+
+  // same tokens, same order: looking at one is not an edit
+  expect(await tokens(page)).toEqual(before);
+
+  // and the words around the chips still select the way they did
+  await page
+    .locator('.sc-brief-line')
+    .first()
+    .click({ position: { x: 6, y: 6 } });
+  await page.keyboard.press('ControlOrMeta+a');
+  const picked = await page.evaluate(() => window.getSelection()?.toString() ?? '');
+  expect(picked).toContain('hello world');
+});
