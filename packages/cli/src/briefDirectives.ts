@@ -159,6 +159,57 @@ export function markEditDirective(): string {
 }
 
 /**
+ * The rendering floor for every person in every frame.
+ *
+ * Presenters came back waxy, plastic, or HDR-glossy often enough to be a
+ * reported class of failure, and the audit found why it was "sometimes": 24
+ * catalog scenes ask for "immaculate commercial-render clarity" and its
+ * variants (written for products, harmless there), two portrait scenes
+ * commanded editorial retouch outright, and nothing anywhere stated what skin
+ * must look like. This is that statement, adapted from the STUDIO_SET
+ * paragraph that already governs presenter reference synthesis
+ * (customAssets.ts) - deliberately duplicated rather than shared, because
+ * that prompt is frozen and moving it would move every future presenter.
+ *
+ * Emitted whenever a person is in frame, and only then, so the product scenes
+ * keep their render-crisp language for the frames that are actually renders
+ * of objects. Physically grounded on purpose: a hard flash MAY shine on skin.
+ * The last clause is the escape hatch every compiler directive carries -
+ * explicit direction wins, so a deliberately stylised person stays possible.
+ */
+export function personSkinDirective(): string {
+  return (
+    'Every person in this photograph has real photographed skin: fine natural texture at pore scale, faint lines ' +
+    'and natural asymmetry left intact, true-to-life proportions, never airbrushed, waxy, plastic or ' +
+    'synthetic-looking. Light behaves physically on it: a hard flash or a specular key may genuinely shine on skin, ' +
+    'but the surface underneath stays living skin in a photograph, never gloss, never a render. Any retouch, ' +
+    'clarity or sharpness language in the direction above is about finish and focus, never a licence to smooth skin ' +
+    'beyond what a professional photograph holds; if the direction above explicitly asks for a stylised or ' +
+    'non-photographic treatment of the person, that explicit request wins.'
+  );
+}
+
+/**
+ * How a person and a product physically meet.
+ *
+ * No anatomy or contact language existed anywhere in the compiler, and the
+ * reported failures are the classic set: products floating beside hands,
+ * fingers passing through packaging, a cream jar at basketball scale in a
+ * palm. One positive statement of real handling, emitted with the existing
+ * pair directives (product AND person attached) - never a negative-prompt
+ * boilerplate list, and with the same explicit-direction escape hatch, so a
+ * surreal brief that wants the bottle floating still gets it.
+ */
+export function productHandlingDirective(): string {
+  return (
+    'Where the presenter touches the product, they handle it the way a real person handles an object of exactly ' +
+    'that size and weight: a natural grip, fingers wrapping in genuine contact with its surface, hand and wrist at ' +
+    'anatomically real angles, the product supported by that grip rather than floating. If the direction above ' +
+    'explicitly stages the product away from their hands or in an impossible way, that explicit direction wins.'
+  );
+}
+
+/**
  * A garment with nobody attached is a product, not an outfit.
  *
  * Apparel briefs that carried no presenter produced an invented wearer: a

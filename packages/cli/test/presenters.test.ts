@@ -194,6 +194,9 @@ describe('presenter catalog + direct-attach API', () => {
     // presenter contributed nothing but a name and two photos.
     expect(body.prompt).toContain('The gap tooth stays.');
     expect(body.prompt).toContain('Avoid: never freckles');
+    // The record's own skin truth rides too - it was dropped here, which is
+    // half of the airbrushed-presenter report.
+    expect(body.prompt).toContain("Sana's skin, exactly as the reference photographs show it: s.");
 
     // resolving the presenter is a read-through cache, not a roster write —
     // the brand's own characters[] stays exactly as it started

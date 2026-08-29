@@ -745,3 +745,58 @@ describe('golden: an attached presenter is a hard requirement', () => {
     expect(r.prompt).not.toContain('Camera for this shot:');
   });
 });
+
+describe('golden: photographic skin, real scale, real hands', () => {
+  const FLOOR = 'Every person in this photograph has real photographed skin';
+  const HANDLING = 'Where the presenter touches the product';
+  const SCALE = 'What this object physically is:';
+
+  const compileWith = (b: any, tokens: Brief['tokens']) =>
+    compileBrief({ tokens }, { brand: b, images: core.images, engineCaps: caps(6), templateById: resolveScene });
+
+  it('a person in frame earns the skin floor; a product alone never does', () => {
+    const withPerson = compile([{ t: 'character', id: 'c1' }]);
+    expect(withPerson.prompt).toContain(FLOOR);
+    // once, however the sentence competes with scene prose
+    expect(withPerson.prompt.indexOf(FLOOR)).toBe(withPerson.prompt.lastIndexOf(FLOOR));
+    const productOnly = compile([{ t: 'product', id: 'p1' }]);
+    expect(productOnly.prompt).not.toContain(FLOOR);
+  });
+
+  it("a presenter record's own skin line rides name-prefixed; a skinless cast entry gets only the floor", () => {
+    const b = brand();
+    (b.characters[0] as any).skin = 'light warm-beige, natural texture, minimal retouch';
+    const withSkin = compileWith(b, [{ t: 'character', id: 'c1' }]);
+    expect(withSkin.prompt).toContain(
+      "Marco's skin, exactly as the reference photographs show it: light warm-beige, natural texture, minimal retouch.",
+    );
+    // the shipped custom-cast shape has no skin field and must not invent one
+    const without = compile([{ t: 'character', id: 'c1' }]);
+    expect(without.prompt).not.toContain("Marco's skin,");
+    expect(without.prompt).toContain(FLOOR);
+  });
+
+  it('the handling directive fires only for product plus person', () => {
+    const pair = compile([
+      { t: 'product', id: 'p1' },
+      { t: 'character', id: 'c1' },
+    ]);
+    expect(pair.prompt).toContain(HANDLING);
+    expect(compile([{ t: 'product', id: 'p1' }]).prompt).not.toContain(HANDLING);
+    expect(compile([{ t: 'character', id: 'c1' }]).prompt).not.toContain(HANDLING);
+  });
+
+  it('a description anchors scale exactly when dimensions do not', () => {
+    const b = brand();
+    (b.products[1] as any).description = 'A slender amber-glass dropper bottle, sized for a facial serum.';
+    const p2 = compileWith(b, [{ t: 'product', id: 'p2' }]);
+    expect(p2.prompt).toContain(
+      `${SCALE} A slender amber-glass dropper bottle, sized for a facial serum. Keep it at that real size relative to hands, faces, furniture and everything else in frame.`,
+    );
+    // p1 states real dimensions, which outrank a prose description
+    (b.products[0] as any).description = 'A ceramic jar.';
+    const p1 = compileWith(b, [{ t: 'product', id: 'p1' }]);
+    expect(p1.prompt).toContain('true scale');
+    expect(p1.prompt).not.toContain(SCALE);
+  });
+});

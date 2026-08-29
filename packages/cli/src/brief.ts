@@ -10,8 +10,10 @@ export {
   inheritedIdentityDirective,
   garmentDisplayDirective,
   markLabel,
+  personSkinDirective,
   productFactDirectives,
   productFidelityDirective,
+  productHandlingDirective,
   sceneGuardDirectives,
   sceneFigureDirectives,
   shotSpecifiesCamera,
@@ -23,8 +25,10 @@ import {
   inheritedIdentityDirective,
   garmentDisplayDirective,
   markLabel,
+  personSkinDirective,
   productFactDirectives,
   productFidelityDirective,
+  productHandlingDirective,
   sceneGuardDirectives,
   sceneFigureDirectives,
   shotSpecifiesCamera,
@@ -308,6 +312,15 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // available. Shared with the refine path, which states the same
           // facts about an inherited identity.
           productDirectives.push(...productFactDirectives(p));
+          // No product record has ever carried `dimensions` in practice, so
+          // the true-scale line above was dead and a cream jar could render
+          // at basketball scale. The description is the one text that states
+          // what the object IS ("sized for a facial serum"), so it anchors
+          // scale whenever explicit dimensions do not.
+          if (p.description && !p.dimensions)
+            productDirectives.push(
+              `What this object physically is: ${String(p.description).replace(/\.\s*$/, '')}. Keep it at that real size relative to hands, faces, furniture and everything else in frame.`,
+            );
         } else {
           warnings.push(`${p.name} has no usable photo, so it is named but not attached.`);
         }
@@ -370,6 +383,15 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // instructions never reached the model while a product's did.
           // Shared with the refine path, like the product facts above.
           personDirectives.push(...characterFactDirectives(c));
+          // The record's own skin truth, name-prefixed so the dedupe pass can
+          // never collapse two presenters' skin into one claim. Every curated
+          // presenter states one ("faint natural lines, minimal retouch");
+          // it was dropped by the resolver until now, which is half of the
+          // airbrushed-presenter report - the floor below is the other half.
+          if (c.skin)
+            personDirectives.push(
+              `${c.promptName ?? c.name}'s skin, exactly as the reference photographs show it: ${c.skin}.`,
+            );
         } else {
           warnings.push(`${c.name} has no usable photo, so they are named but not attached.`);
         }
@@ -556,6 +578,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // the mark exception — the ban stays for invented people, the
           // attached one is deliberate.
           'Any earlier instruction that bans props, hands, people, or a presenter from the frame is a solo-packshot rule for this product and does not apply to this shot: the attached presenter is deliberate and must appear as directed.',
+          productHandlingDirective(),
         ]
       : [];
   // After the pair line, which is the other directive whose job is to relate two
@@ -578,6 +601,13 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // and quietly deletes the person. Say the reconciliation out loud — a tight
   // frame includes the presenter at hand level at minimum, and framing is
   // never license to drop them.
+  // The skin floor, decided after the token loop because a character token can
+  // follow a product token and `hasPerson` is only settled here. One emission
+  // however many presenters are in frame (the identical string dedupes), in
+  // the person group so it travels with the identity lock. It fires in edit
+  // mode too - a refinement is exactly where the waxy look compounds - and
+  // the preservation block still lands after it, per the ordering contract.
+  if (hasPerson) personDirectives.push(personSkinDirective());
   const closeUpDirectives =
     hasPerson && /\bclose[- ]?up\b|\bmacro\b|\bzoom(?:ed)?\b|\bDOF\b|\bdepth of field\b/i.test(sentence)
       ? [
