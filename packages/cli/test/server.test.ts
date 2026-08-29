@@ -2093,3 +2093,164 @@ describe('a refinement keeps its canvas', () => {
     }
   });
 });
+
+// The chain decay: identity survived exactly one refine well. The walk died
+// silently at 8 hops, corroboration angles never rode, and the record's own
+// facts (dimensions, preservation notes, the identity lock) vanished from
+// every refinement while its prompt claimed identity was preserved.
+describe('a refinement chain keeps the whole identity record', () => {
+  const capture = (maxReferenceImages: number) => {
+    const edits: EditRequest[] = [];
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'chain-spy',
+        displayName: 'Chain Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({ images: [core.images.save(PNG_1PX)], costUsd: 0 }),
+      edit: async (req) => {
+        edits.push(req);
+        return { images: [core.images.save(PNG_1PX)], costUsd: 0 };
+      },
+    };
+    return { engine, edits };
+  };
+
+  const seedChain = async (local: FastifyInstance, shots: 1 | 2, withMarkAndRef = false) => {
+    const productHash = core.images.save(PNG_1PX);
+    const angleHash = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([9])]));
+    const logoHash = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([1])]));
+    const refHash = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([2])]));
+    const made = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: {
+        brand: {
+          specVersion: '0.1',
+          meta: { name: 'Acme' },
+          products: [
+            {
+              id: 'p1',
+              name: 'House Blend',
+              dimensions: '66mm across, 115mm tall',
+              shots: [
+                { file: `asset:${productHash}`, angle: 'front', locked: true },
+                ...(shots === 2 ? [{ file: `asset:${angleHash}`, angle: 'back', locked: true }] : []),
+              ],
+            },
+          ],
+          ...(withMarkAndRef ? { logos: [{ role: 'primary', file: `asset:${logoHash}` }] } : {}),
+        },
+      },
+    });
+    const brand = made.json();
+    const ws = await local.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'chain-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 1024, h: 1024 },
+            { t: 'product', id: 'p1' },
+            { t: 'text', v: 'on a stone ledge' },
+            ...(withMarkAndRef
+              ? [
+                  { t: 'mark', imageHash: logoHash },
+                  { t: 'ref', imageHash: refHash },
+                ]
+              : []),
+          ],
+        },
+      },
+    });
+    const genNode = await waitDoneOn(local, gen.json().id);
+    expect(genNode.status).toBe('done');
+    return { projectId, genNode, productHash, angleHash, logoHash, refHash };
+  };
+
+  const refineOf = async (local: FastifyInstance, projectId: string, parent: any, text: string) => {
+    const res = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: parent.id,
+        kind: 'edit',
+        engineId: 'chain-spy',
+        sourceImage: parent.images[0],
+        brief: { tokens: [{ t: 'text', v: text }] },
+      },
+    });
+    expect(res.statusCode).toBe(202);
+    const node = await waitDoneOn(local, res.json().id);
+    return { node, warnings: res.json().warnings ?? [] };
+  };
+
+  it('the third refinement still carries the product, and states its facts', { timeout: 30_000 }, async () => {
+    const { engine, edits } = capture(6);
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      const { projectId, genNode, productHash } = await seedChain(local, 1);
+      const { node: e1 } = await refineOf(local, projectId, genNode, 'warmer light');
+      const { node: e2 } = await refineOf(local, projectId, e1, 'softer background');
+      const { node: e3 } = await refineOf(local, projectId, e2, 'clean up the hand');
+
+      for (const [i, node] of [e1, e2, e3].entries()) {
+        expect(node.status).toBe('done');
+        // The engine received the canonical product reference at every hop.
+        expect(edits[i].referenceImages).toContain(core.images.pathFor(productHash));
+        // The identity contract is stated in edit terms, with the record's
+        // own facts beside it, not just a generic "same product" sentence.
+        expect(node.prompt).toContain('the exact product already in this photograph');
+        expect(node.prompt).toContain('Its real-world size is 66mm across, 115mm tall');
+        // And each refinement re-records the union for the next one.
+        expect(((node.brief as any).inherited ?? []).map((t: any) => t.t)).toContain('product');
+      }
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('a product borrows one corroboration angle when the budget has room', { timeout: 20_000 }, async () => {
+    const { engine, edits } = capture(6);
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      const { projectId, genNode, productHash, angleHash } = await seedChain(local, 2);
+      await refineOf(local, projectId, genNode, 'warmer light');
+      expect(edits[0].referenceImages).toContain(core.images.pathFor(productHash));
+      expect(edits[0].referenceImages).toContain(core.images.pathFor(angleHash));
+      expect(edits[0].referenceRoles?.filter((r) => r === 'product')).toHaveLength(2);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('a full frame on a tight budget degrades the extra angle quietly', { timeout: 20_000 }, async () => {
+    // Four images total, the source frame keeps one: product essential, mark
+    // and reference are seated, the corroboration angle is not - and the
+    // warning must not read as though the product itself was left out.
+    const { engine, edits } = capture(4);
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      const { projectId, genNode, productHash, angleHash, logoHash, refHash } = await seedChain(local, 2, true);
+      const { warnings } = await refineOf(local, projectId, genNode, 'warmer light');
+      expect(edits[0].referenceImages).toContain(core.images.pathFor(productHash));
+      expect(edits[0].referenceImages).toContain(core.images.pathFor(logoHash));
+      expect(edits[0].referenceImages).toContain(core.images.pathFor(refHash));
+      expect(edits[0].referenceImages).not.toContain(core.images.pathFor(angleHash));
+      expect(warnings.join(' ')).not.toContain('House Blend');
+    } finally {
+      await local.close();
+    }
+  });
+});

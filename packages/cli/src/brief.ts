@@ -5,10 +5,12 @@ import { allocateAttachments } from './attachmentBudget.js';
 import type { EditScope } from './editScopeRules.js';
 export {
   brandRuleDirectives,
+  characterFactDirectives,
   editPreservationDirective,
   inheritedIdentityDirective,
   garmentDisplayDirective,
   markLabel,
+  productFactDirectives,
   productFidelityDirective,
   sceneGuardDirectives,
   sceneFigureDirectives,
@@ -16,10 +18,12 @@ export {
 } from './briefDirectives.js';
 import {
   brandRuleDirectives,
+  characterFactDirectives,
   editPreservationDirective,
   inheritedIdentityDirective,
   garmentDisplayDirective,
   markLabel,
+  productFactDirectives,
   productFidelityDirective,
   sceneGuardDirectives,
   sceneFigureDirectives,
@@ -167,6 +171,13 @@ interface CompileContext {
    * with.
    */
   editReshape?: 'extend';
+  /**
+   * What the inherited identities are and what must hold about each, built by
+   * the edit route from the records its inherited tokens resolve to. Emitted
+   * inside the edit-only preservation block, so a generation prompt can never
+   * carry them.
+   */
+  inheritedDirectives?: string[];
 }
 
 const assetHash = (ref: unknown): string | null => {
@@ -290,22 +301,13 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
             attachments.push({ role: 'product', id: p.id, label: p.name, hash: h, essential: i === 0 });
           });
           productDirectives.push(productFidelityDirective(phashes.length));
-          if (p.preservationNotes) productDirectives.push(String(p.preservationNotes));
-          if (p.negativeConstraints) productDirectives.push(`Avoid: ${p.negativeConstraints}`);
-          // Real-world scale and material, when the product record knows them.
-          // A model given no size cue will happily render a watch the size of
-          // a dinner plate in a wide shot; stating the physical facts is the
-          // cheapest correction available.
-          // Two spellings reach here: demo products ship `materials` /
-          // `primaryColors` as descriptive prose, catalog imports supply a
-          // singular `material`. Read both rather than silently honouring one.
-          const materials = p.materials ?? p.material;
-          if (materials) productDirectives.push(`Its materials and finish: ${materials}.`);
-          if (p.primaryColors) productDirectives.push(`Its actual colors: ${p.primaryColors}.`);
-          if (p.dimensions)
-            productDirectives.push(
-              `Its real-world size is ${p.dimensions} — keep it at true scale relative to everything else in frame.`,
-            );
+          // Real-world scale, material and the record's own preservation
+          // notes, when the product record knows them. A model given no size
+          // cue will happily render a watch the size of a dinner plate in a
+          // wide shot; stating the physical facts is the cheapest correction
+          // available. Shared with the refine path, which states the same
+          // facts about an inherited identity.
+          productDirectives.push(...productFactDirectives(p));
         } else {
           warnings.push(`${p.name} has no usable photo, so it is named but not attached.`);
         }
@@ -366,9 +368,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // (identityNotes / negativeConstraints). It used to be dropped on
           // the floor, so a presenter's own "never change this about them"
           // instructions never reached the model while a product's did.
-          if (c.identityNotes) personDirectives.push(String(c.identityNotes));
-          if (c.negativeConstraints?.length)
-            personDirectives.push(`Avoid: ${[].concat(c.negativeConstraints).join(', ')}`);
+          // Shared with the refine path, like the product facts above.
+          personDirectives.push(...characterFactDirectives(c));
         } else {
           warnings.push(`${c.name} has no usable photo, so they are named but not attached.`);
         }
@@ -599,6 +600,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
             ? []
             : [editPreservationDirective(ctx.editScope ?? 'global', { removal: ctx.editRemoval })]),
           ...(ctx.inheritedIdentity ? [inheritedIdentityDirective()] : []),
+          ...(ctx.inheritedDirectives ?? []),
         ]
       : [];
   // Read the attached products' own records: only apparel earns the line, and

@@ -32,6 +32,13 @@ import type { CodexSetup } from '@scenri/engine-codex';
 import { codexNodeBudgetMs } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { inheritedIdentityTokens } from './editIdentity.js';
+import {
+  characterEditIdentityDirective,
+  characterFactDirectives,
+  markEditDirective,
+  productEditFidelityDirective,
+  productFactDirectives,
+} from './briefDirectives.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
 import {
   planExpand,
@@ -494,7 +501,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     engineCaps: EngineCapabilities,
     opts?: { reshape?: 'crop' | 'extend' },
   ) {
-    const borrowed = inheritedIdentityTokens(parentId, (id) => core.store.getNode(id));
+    const inherited = inheritedIdentityTokens(parentId, (id) => core.store.getNode(id));
+    const borrowed = inherited.tokens;
     const already = new Set(
       (brief.tokens as BriefToken[])
         .filter((t) => t.t === 'product' || t.t === 'character' || t.t === 'mark' || t.t === 'ref')
@@ -526,6 +534,36 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         .map((t) => t.v)
         .join(' '),
     );
+    /*
+     * What must hold about each inherited identity, in words. The synthetic
+     * compile below carries only attachments, so the record's own facts —
+     * preservation notes, materials, dimensions, the identity lock — used to
+     * vanish from every refinement while its prompt claimed identity was
+     * preserved. Built from the same resolved records the attachments come
+     * from, and emitted inside the edit-only preservation block.
+     */
+    const inheritedDirectives: string[] = [];
+    let inheritedMark = false;
+    for (const tok of inheritedTokens) {
+      if (tok.t === 'product') {
+        const rec = (brandJson?.products ?? []).find((x: any) => x?.id === (tok as any).id);
+        if (rec)
+          inheritedDirectives.push(
+            productEditFidelityDirective(rec.promptName ?? rec.name),
+            ...productFactDirectives(rec),
+          );
+      } else if (tok.t === 'character') {
+        const rec = (brandJson?.characters ?? []).find((x: any) => x?.id === (tok as any).id);
+        if (rec)
+          inheritedDirectives.push(
+            characterEditIdentityDirective(rec.promptName ?? rec.name),
+            ...characterFactDirectives(rec),
+          );
+      } else if (tok.t === 'mark' && !inheritedMark) {
+        inheritedMark = true;
+        inheritedDirectives.push(markEditDirective());
+      }
+    }
     const compiled = compileBrief(brief, {
       brand: brandJson,
       images: core.images,
@@ -536,6 +574,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
       inheritedIdentity: inheritedTokens.length > 0,
+      inheritedDirectives,
       // Only the explicit op drops the dimension promise: an implicit legacy
       // expansion keeps its historical prompt byte for byte.
       ...(opts?.reshape === 'extend' ? { editReshape: 'extend' as const } : {}),
@@ -557,15 +596,29 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // Essentials carry the subject; a brand mark or a reference is one image
       // each and IS the identity being carried — the old essential-only filter
       // silently dropped an inherited logo while the prompt claimed identity
-      // was preserved. Corroboration angles are still not borrowed: the frame
-      // in hand already shows the object at the angle in play.
+      // was preserved. A product borrows one corroboration angle beyond its
+      // essential: a label edit needs the face the frame does not show, and
+      // the allocator only seats the extra angle after every distinct identity
+      // has a seat, so a full frame on a tight budget is unchanged. A
+      // presenter stays at one view — the face in play is already in the
+      // frame, and their second reference competes with the product's label.
+      const productAngles = new Map<string, number>();
       inheritedAttachments = identity.attachments
-        .filter((a) => a.essential || a.role === 'brand' || a.role === 'reference')
+        .filter((a) => {
+          if (a.role === 'product') {
+            const n = (productAngles.get(String(a.id ?? a.hash)) ?? 0) + 1;
+            productAngles.set(String(a.id ?? a.hash), n);
+            return n <= 2;
+          }
+          return a.essential || a.role === 'brand' || a.role === 'reference';
+        })
         .map((a) => ({ ...a, inherited: true }));
     }
     const cap = Math.max(0, engineCaps.maxReferenceImages - 1);
     const merged = mergeEditAttachments(compiled.attachments, inheritedAttachments, cap);
     const warnings = [...compiled.warnings, ...identityWarnings.filter((w) => !compiled.warnings.includes(w))];
+    if (inherited.truncated)
+      warnings.push('This thread is deeper than 64 steps, so identity attached before that could not be carried.');
     if (merged.dropped.length) {
       if (engineCaps.maxReferenceImages <= 1) {
         // An engine that carries nothing beyond the frame is not a reason to
@@ -574,12 +627,18 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           `${engineCaps.displayName} cannot carry reference images, so the identity rides on the source frame alone.`,
         );
       } else {
-        const names = [...new Set(merged.dropped.map((d) => d.label))];
-        warnings.push(
-          `${engineCaps.displayName} reads ${engineCaps.maxReferenceImages} reference images and the frame being refined keeps one, so ${names.join(
-            ' and ',
-          )} ${names.length === 1 ? 'was' : 'were'} left out.`,
-        );
+        // Name an identity only when ALL of it was dropped: a shed
+        // corroboration angle whose essential survived degrades quietly, the
+        // same way a dropped scene reference does — naming it here read as
+        // though the product itself had been left out.
+        const keptLabels = new Set(merged.kept.map((a) => a.label));
+        const names = [...new Set(merged.dropped.map((d) => d.label))].filter((l) => !keptLabels.has(l));
+        if (names.length)
+          warnings.push(
+            `${engineCaps.displayName} reads ${engineCaps.maxReferenceImages} reference images and the frame being refined keeps one, so ${names.join(
+              ' and ',
+            )} ${names.length === 1 ? 'was' : 'were'} left out.`,
+          );
       }
     }
     return {
