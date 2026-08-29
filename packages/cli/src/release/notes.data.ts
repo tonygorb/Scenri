@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.10',
+    date: '2026-08-29',
+    title: 'Pictures keep their shape.',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Images can no longer come back crushed or stretched: Scenri now works with the exact frame sizes the Codex image tool actually produces, and an answer that drifts off the requested shape is trimmed to it rather than distorted or refused. The wave of failed shots saying the engine could not produce the requested aspect ratio is gone with it, and refining an image over and over keeps its full sharpness at every step.',
+      },
+      {
+        heading: 'Scenes',
+        body: 'When a scene built from photographs of one person is used with a chosen presenter, every output now shows the chosen presenter. Each reference image travels with a name that says what it is, so a scene photograph can lend its world and its styling without lending anyone a face, and asking for several variations gives every variation the same instructions rather than letting the first one copy the reference.',
+      },
+    ],
+  },
+  {
     version: '0.6.9',
     date: '2026-08-29',
     title: 'Refinements keep the shot.',
