@@ -11,8 +11,10 @@ import { createRunner, execArgs } from '../src/run.js';
  * The prompt rides stdin, on every platform. As an argv tail it hit cmd.exe's
  * 8191-character line limit and the winArg substitutions mangled its quotes,
  * percents and newlines on Windows; stdin carries the exact bytes everywhere.
- * And a codex that goes silent is a codex being watched: no output for the
- * activity window means the run is dead, however long the hard cap has left.
+ * And the silence contract: a codex that never says anything never started
+ * (the first-output guard kills it fast), while silence after the first byte
+ * is normal work — the image_gen round-trip is quiet — bounded only by the
+ * hard cap.
  */
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 9, 9, 9]);
@@ -88,27 +90,45 @@ describe('stdin transport', () => {
   });
 });
 
-describe('activity watchdog', () => {
-  it('fails a run that goes completely silent, well before the hard cap', async () => {
+describe('first-output guard', () => {
+  it('fails a run that never says anything, well before the hard cap', async () => {
     const { spawnImpl, calls } = scriptedSpawn(() => {});
-    const runner = createRunner({ spawnImpl, platform: 'linux', timeoutMs: 60_000, noActivityMs: 80 });
-    await expect(runner.run(execArgs('/tmp/x'), undefined, { stdin: 'p' })).rejects.toThrow(/no output/);
+    const runner = createRunner({ spawnImpl, platform: 'linux', timeoutMs: 60_000, firstOutputMs: 80 });
+    await expect(runner.run(execArgs('/tmp/x'), undefined, { stdin: 'p' })).rejects.toThrow(
+      /no output for \d+s after launch/,
+    );
     expect(calls[0].child.killed).toBe(true);
   });
 
-  it('lets a slow but chatty run finish', async () => {
+  it('disarms on the first byte: long silence after the banner is normal work', async () => {
+    // The banner arrives, then nothing for far longer than the guard window —
+    // the exact shape of a healthy image_gen round-trip, which the old rolling
+    // silence watchdog used to kill about one time in eight.
     const { spawnImpl } = scriptedSpawn((call) => {
-      let ticks = 0;
-      const t = setInterval(() => {
-        call.child.stderr.emit('data', '.');
-        if (++ticks >= 6) {
-          clearInterval(t);
-          call.child.emit('exit', 0, null);
-        }
-      }, 40);
+      call.child.stdout.emit('data', 'banner\n');
+      setTimeout(() => call.child.emit('exit', 0, null), 300);
     });
-    const runner = createRunner({ spawnImpl, platform: 'linux', noActivityMs: 120 });
+    const runner = createRunner({ spawnImpl, platform: 'linux', firstOutputMs: 60 });
     await expect(runner.run(execArgs('/tmp/x'), undefined, { stdin: 'p' })).resolves.toBeUndefined();
+  });
+
+  it('a run that wedges after its banner is bounded by the hard cap', async () => {
+    const { spawnImpl, calls } = scriptedSpawn((call) => {
+      call.child.stdout.emit('data', 'banner\n');
+    });
+    const runner = createRunner({ spawnImpl, platform: 'linux', firstOutputMs: 40, timeoutMs: 150 });
+    await expect(runner.run(execArgs('/tmp/x'), undefined, { stdin: 'p' })).rejects.toThrow(/timed out after 150ms/);
+    expect(calls[0].child.killed).toBe(true);
+  });
+
+  it('a per-call timeout overrides the runner default', async () => {
+    const { spawnImpl } = scriptedSpawn((call) => {
+      call.child.stdout.emit('data', 'banner\n');
+    });
+    const runner = createRunner({ spawnImpl, platform: 'linux', firstOutputMs: 40, timeoutMs: 60_000 });
+    await expect(runner.run(execArgs('/tmp/x'), undefined, { stdin: 'p', timeoutMs: 120 })).rejects.toThrow(
+      /timed out after 120ms/,
+    );
   });
 });
 
@@ -147,10 +167,9 @@ describe('generate over stdin, failing fast', () => {
     });
     const engine = createCodexEngine({ spawnImpl, platform: 'linux', saveImage, probeTtlMs: 0 });
     await expect(engine.generate(req(4))).rejects.toThrow(/Not logged in/i);
-    // three workers dequeued, the fourth job never started
-    expect(calls).toHaveLength(3);
+    // two workers dequeued, the third and fourth jobs never started
+    expect(calls).toHaveLength(2);
     expect(calls[1].child.killed).toBe(true);
-    expect(calls[2].child.killed).toBe(true);
   });
 
   it('keeps the survivors and reports the casualties on raw', async () => {

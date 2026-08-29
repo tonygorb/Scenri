@@ -131,7 +131,10 @@ export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnaly
             // positional stdin marker isn't swallowed as a second image path.
             args.splice(args.length - 1, 0, `--image=${ref}`);
           }
-          await runner.run(args, signal, { stdin: buildPrompt(req, refs.length, problems) });
+          await runner.run(args, signal, {
+            stdin: buildPrompt(req, refs.length, problems),
+            label: `analyze refs=${refs.length} attempt=${attempt + 1}`,
+          });
 
           let raw: string;
           try {

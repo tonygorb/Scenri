@@ -25,12 +25,29 @@ import {
   type GenerateRequest,
   type ReferenceRole,
 } from '@scenri/core';
-import { createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
+import { DEFAULT_TIMEOUT_MS, createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
 
 export { createCodexAnalyzer } from './analyzer.js';
 export { createCodexSetup, INSTALL_COMMAND, type CodexSetup, type CodexSetupState } from './setup.js';
 export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
 export { createRunner, type CodexRunner } from './run.js';
+
+/**
+ * How many execs one node runs at once. Two halves the upload contention of
+ * the old pool of three while a four-variant batch still takes the same two
+ * waves; one would double typical batch latency for no reliability gain.
+ */
+export const CODEX_POOL = 2;
+
+/**
+ * The overall bound a codex generation node legally needs: its waves of
+ * per-exec hard cap, plus a post-processing margin. The old flat ten-minute
+ * node watchdog was arithmetically wrong for large batches — eight variants
+ * are four waves of up to 300s each, 1200s of legitimate work.
+ */
+export function codexNodeBudgetMs(count: number): number {
+  return Math.ceil(Math.max(1, count) / CODEX_POOL) * DEFAULT_TIMEOUT_MS + 60_000;
+}
 
 export interface CodexEngineOptions extends RunnerOptions {
   saveImage: (buf: Buffer) => string;
@@ -138,6 +155,14 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
          * silently editing nothing at all.
          */
         maxReferenceImages: 5,
+        /*
+         * The longest edge a reference is worth sending at. codex's image_gen
+         * reads references at reduced resolution server-side either way, but
+         * the bytes still ride the user's uplink inside the exec's own time
+         * budget — a full-resolution phone-photo PNG is tens of megabytes that
+         * buy nothing. Same cap as brand marks (MARK_MAX_EDGE).
+         */
+        maxReferenceEdge: 2048,
       };
     },
 
@@ -150,9 +175,11 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     },
 
     async generate(req: GenerateRequest, signal?: AbortSignal): Promise<EngineResult> {
-      // One codex exec per image, run concurrently (cap 3): a single serial
-      // batch regularly blew the per-run timeout, and parallel runs make the
-      // timeout apply per image instead of per batch.
+      // One codex exec per image, run concurrently (CODEX_POOL): each exec
+      // carries its own timers, so the pool trades total batch latency
+      // against upload contention — every worker uploads the same reference
+      // set over the same uplink, and the more that run at once the closer
+      // each one sails to its own hard cap.
       const count = Math.max(1, req.count);
       const refs = req.referenceImages ?? [];
       const roles = req.referenceRoles ?? refs.map(() => 'reference' as const);
@@ -168,15 +195,20 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         (_, i) => async () =>
           withWorkDir(async (dir) => {
             const args = execArgs(dir);
+            let refBytes = 0;
             for (const [idx, ref] of refs.entries()) {
               const dest = join(dir, `ref-${idx}.png`);
               await copyFile(ref, dest);
+              refBytes += (await stat(dest)).size;
               // --image is variadic; the = form binds exactly one value so the
               // positional stdin marker isn't swallowed as a second image path.
               args.splice(args.length - 1, 0, `--image=${dest}`);
             }
             const before = await snapshotGenerated();
-            await runCodex(args, inner.signal, { stdin: buildPrompt(req, i, roles) });
+            await runCodex(args, inner.signal, {
+              stdin: buildPrompt(req, i, roles),
+              label: `gen v${i + 1}/${count} refs=${refs.length} refKB=${Math.round(refBytes / 1024)}`,
+            });
             return collectImages(dir, before);
           }),
       );
@@ -185,7 +217,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       let fatal: unknown = null;
       let next = 0;
       try {
-        const workers = Array.from({ length: Math.min(3, count) }, async () => {
+        const workers = Array.from({ length: Math.min(CODEX_POOL, count) }, async () => {
           while (next < count && !inner.signal.aborted) {
             const i = next++;
             try {
@@ -281,7 +313,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         }
         const before = await snapshotGenerated();
         try {
-          await runCodex(args, signal, { stdin: promptText });
+          await runCodex(args, signal, { stdin: promptText, label: `edit refs=${editRefs.length}` });
         } catch (err) {
           if (isFatalSetupError(err)) runner.invalidateProbe();
           throw err;

@@ -29,6 +29,7 @@ import type { EngineRegistry } from './engines.js';
 import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
 import { brandSceneById, runningAssetBuildCount, type Analyzer } from './customAssets.js';
 import type { CodexSetup } from '@scenri/engine-codex';
+import { codexNodeBudgetMs } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { inheritedIdentityTokens } from './editIdentity.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
@@ -43,7 +44,15 @@ import { conditioningCanvas } from './outpaint/conditioning.js';
 import { chooseExpand, type ExpandDecision, type PreservedCandidate } from './outpaint/choose.js';
 import { type OutpaintMethod, resolveOutpaintRoute } from './outpaint/route.js';
 import { preserveOutsideChange } from './localEdit.js';
-import { brandContext, joinNames, PNG_SIG, readImagePart, toMarkPng, toPng } from './routes/shared.js';
+import {
+  brandContext,
+  capReferenceEdge,
+  joinNames,
+  PNG_SIG,
+  readImagePart,
+  toMarkPng,
+  toPng,
+} from './routes/shared.js';
 import { registerLogoRoutes } from './routes/logos.js';
 import { registerCatalogImportRoutes } from './routes/catalogImport.js';
 import { registerSceneRoutes } from './routes/scenes.js';
@@ -738,10 +747,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   }
 
   /**
-   * Ten minutes bounds the worst legitimate case on the slowest engine: a
-   * multi-variant codex batch is up to three 300s waves of per-exec timeout.
-   * The tester's 500 seconds of silent nothing sat exactly in the gap this
-   * closes.
+   * The default node bound, for engines and edits with no derived budget of
+   * their own. Codex generations pass a per-batch budget instead (see
+   * codexNodeBudgetMs at the runNode call site): a flat ten minutes was
+   * arithmetically wrong for large batches — eight variants are four 300s
+   * waves. The tester's 500 seconds of silent nothing still sits inside
+   * whichever bound applies.
    */
   const NODE_TIMEOUT_MS = 600_000;
 
@@ -759,6 +770,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      * reach promises to leave a region alone.
      */
     post?: (images: string[]) => Promise<string[]>,
+    /** Overrides the default bound — derived per engine and batch by the caller. */
+    timeoutMs?: number,
   ) {
     const engineId = engine?.capabilities().id ?? 'local';
     reserved.set(engineId, (reserved.get(engineId) ?? 0) + estimate);
@@ -767,14 +780,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // The last line of defense: whatever the engine's own timers do, no node
     // sits in `running` past this. A multi-variant codex batch can legally
     // outlive a single per-exec timeout, so the bound lives here, per node.
+    const bound = opts.nodeTimeoutMs ?? timeoutMs ?? NODE_TIMEOUT_MS;
     let watchdogFired = false;
     const watchdog = setTimeout(() => {
       watchdogFired = true;
       ctrl.abort();
-    }, opts.nodeTimeoutMs ?? NODE_TIMEOUT_MS);
+    }, bound);
     const startedAt = Date.now();
     try {
       const result = await work(ctrl.signal);
+      // The watchdog bounds the engine, not the local post-processing. Left
+      // armed past this point, a slow normalize/post/aspect pass could cross
+      // the mark and its own failure would then be reported as a timeout —
+      // a SUCCESSFUL generation labelled "took too long".
+      clearTimeout(watchdog);
       result.images = await normalizePngs(result.images);
       if (post) result.images = await post(result.images);
       if (expect) await assertAspect(result.images, expect);
@@ -810,7 +829,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // error shape, which differs across engines (fetch's AbortError, a
       // killed child process, a stopped poll loop) — except the watchdog,
       // whose abort is a failure with a name, never a user cancel.
-      if (watchdogFired) core.store.failNode(nodeId, 'generation timed out after 10 minutes');
+      if (watchdogFired)
+        core.store.failNode(nodeId, `generation timed out after ${Math.round(bound / 60_000)} minutes`);
       else if (ctrl.signal.aborted) core.store.cancelNode(nodeId);
       else core.store.failNode(nodeId, String(err?.message ?? err));
     } finally {
@@ -1084,13 +1104,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           error: `${engine.capabilities().displayName} cannot carry enough reference images, so ${names} would be named in the prompt but never shown. The result would not be your ${kindWord}. Choose an engine that supports reference images, or remove ${names} from the brief.`,
         });
       }
+      // Downscale reference copies to what the engine will actually read;
+      // stored originals are untouched, engines with no cap get them as-is.
+      const maxEdge = engine.capabilities().maxReferenceEdge;
+      const keptRefs = referenceImages && cap > 0 ? referenceImages.slice(0, cap) : undefined;
+      const sentRefs =
+        keptRefs && maxEdge ? await Promise.all(keptRefs.map((p) => capReferenceEdge(core, p, maxEdge))) : keptRefs;
       const genReq: GenerateRequest = {
         prompt: finalPrompt,
         brand: ctx,
         width: Number(width),
         height: Number(height),
         count: Math.min(Math.max(1, Number(count)), 8),
-        ...(referenceImages && cap > 0 ? { referenceImages: referenceImages.slice(0, cap) } : {}),
+        ...(sentRefs ? { referenceImages: sentRefs } : {}),
         ...(referenceRoles && cap > 0 ? { referenceRoles: referenceRoles.slice(0, cap) } : {}),
       };
       estimate = await engine.costEstimate(genReq);
@@ -1117,6 +1143,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         : (referenceImages ?? [])
             .map((path, i) => ({ path, role: referenceRoles?.[i] }))
             .slice(0, Math.max(0, engine.capabilities().maxReferenceImages - 1));
+      // References only — never the source frame, which keeps its pixels.
+      const editEdge = engine.capabilities().maxReferenceEdge;
+      if (editEdge) for (const r of editRefs) r.path = await capReferenceEdge(core, r.path, editEdge);
 
       // The old comment here said an edit inherits the source's dimensions so
       // there was nothing to check against. The source IS the thing to check
@@ -1428,7 +1457,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             return out;
           }
         : undefined;
-    void runNode(node.id, runEngine, estimate, work, expectShape, post).catch((err) =>
+    // A codex generation's legal duration is its wave count, not a flat ten
+    // minutes: eight variants are four 300s waves. Other engines and edits
+    // keep the default bound.
+    const nodeBudgetMs =
+      kind === 'generation' && runEngine.capabilities().id === 'codex-cli'
+        ? codexNodeBudgetMs(Math.min(Math.max(1, Number(count)), 8))
+        : undefined;
+    void runNode(node.id, runEngine, estimate, work, expectShape, post, nodeBudgetMs).catch((err) =>
       app.log.error({ err }, 'node run failed'),
     );
     // Surface the compiler's warnings on the accepted node. These name real

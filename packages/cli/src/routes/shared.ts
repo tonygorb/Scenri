@@ -69,6 +69,38 @@ export const toMarkPng = (buf: Buffer): Promise<Buffer> =>
     .toBuffer();
 
 /**
+ * A reference copy no larger than the engine wants to read.
+ *
+ * Engines that declare `maxReferenceEdge` read references at reduced
+ * resolution anyway; the full-size bytes only slow the upload that runs
+ * inside the exec's own time budget. The stored original is untouched — the
+ * downscaled copy goes back into the content-addressed store (same source,
+ * same derived hash every run) and is memoised so repeats skip the re-encode.
+ * A source already inside the cap is handed back as-is.
+ */
+const cappedRefs = new Map<string, string>();
+export async function capReferenceEdge(core: Core, path: string, maxEdge: number): Promise<string> {
+  const key = `${path}#${maxEdge}`;
+  const hit = cappedRefs.get(key);
+  if (hit) return hit;
+  let out = path;
+  try {
+    const meta = await sharp(path).metadata();
+    if ((meta.width ?? 0) > maxEdge || (meta.height ?? 0) > maxEdge) {
+      const buf = await sharp(path)
+        .resize({ width: maxEdge, height: maxEdge, fit: 'inside', withoutEnlargement: true })
+        .png()
+        .toBuffer();
+      out = core.images.pathFor(core.images.save(buf));
+    }
+  } catch {
+    // An unreadable reference is the engine's error to surface, not ours to eat here.
+  }
+  cappedRefs.set(key, out);
+  return out;
+}
+
+/**
  * The half of an upload every asset route shares: read the multipart file,
  * reject the empty and the unreadable, and store the normalized bytes.
  *

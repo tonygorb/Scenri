@@ -9,6 +9,12 @@
  *   exec-fail-auth        exec fails with a not-logged-in stderr
  *   slow-then-write       exec chats on stderr, then writes out-1.png
  *   exec-writes-elsewhere exec writes into $CODEX_HOME/generated_images instead
+ *   exec-announce-then-silent  exec prints one line, is silent for
+ *                         FAKE_CODEX_SILENT_MS, then writes out-1.png and
+ *                         exits 0 — the healthy image_gen round-trip shape
+ *   exec-banner-then-hang exec prints one line, then never exits
+ *   spawn-grandchild      exec spawns a hanging grandchild (pid to
+ *                         FAKE_CODEX_CHILD_PID_FILE), prints, never exits
  * FAKE_CODEX_PID_FILE: where to record this process's pid, so a test can prove
  * the process is actually dead after a kill. FAKE_CODEX_VERSION overrides the
  * healthy version string.
@@ -78,6 +84,24 @@ function main() {
       fs.writeFileSync(path.join(dir, 'out-1.png'), Buffer.concat([Buffer.from('PNG'), Buffer.from(prompt)]));
       process.exit(0);
     };
+    if (mode === 'exec-banner-then-hang') {
+      process.stdout.write('banner\n');
+      return hangForever();
+    }
+    if (mode === 'exec-announce-then-silent') {
+      process.stdout.write('tool call: image_gen\n');
+      return setTimeout(finish, Number(process.env.FAKE_CODEX_SILENT_MS || 500));
+    }
+    if (mode === 'spawn-grandchild') {
+      const kid = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(()=>{},1<<30)'], {
+        stdio: 'ignore',
+      });
+      if (process.env.FAKE_CODEX_CHILD_PID_FILE) {
+        fs.writeFileSync(process.env.FAKE_CODEX_CHILD_PID_FILE, String(kid.pid));
+      }
+      process.stdout.write('banner\n');
+      return hangForever();
+    }
     if (mode === 'slow-then-write') {
       let ticks = 0;
       const t = setInterval(() => {

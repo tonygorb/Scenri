@@ -76,6 +76,18 @@ interface Rule {
 
 const RULES: Rule[] = [
   // ---- the key ----
+  // Codex first: its session is a ChatGPT sign-in, not an API key, and its
+  // mid-job auth failures surface as a bare 401/unauthorized inside "codex
+  // exited with code N: ..." — the generic key rule below would claim those
+  // with the wrong remedy.
+  {
+    re: /codex.*(not logged in|login required|\b401\b|unauthorized|token.*expired)/i,
+    kind: 'auth',
+    title: () => 'Codex is signed out on this machine.',
+    fix: 'Sign in with your ChatGPT account, then run this again.',
+    remedy: { label: 'Sign in', opens: 'setup' },
+    retryable: false,
+  },
   {
     re: /HTTP 401\b|missing authentication|no auth credentials|invalid api key|unauthorized/i,
     kind: 'auth',
@@ -168,14 +180,6 @@ const RULES: Rule[] = [
     retryable: false,
   },
   {
-    re: /codex.*(not logged in|login required)/i,
-    kind: 'auth',
-    title: () => 'Codex is signed out on this machine.',
-    fix: 'Sign in with your ChatGPT account, then run this again.',
-    remedy: { label: 'Sign in', opens: 'setup' },
-    retryable: false,
-  },
-  {
     re: /could not verify codex/i,
     kind: 'setup',
     title: () => 'Scenri could not verify Codex.',
@@ -198,11 +202,35 @@ const RULES: Rule[] = [
     fix: 'The brief is kept. Run it again whenever.',
     retryable: true,
   },
+  // Three different blown budgets, three different stories — collapsed into
+  // one "took too long" they read as one flaky thing instead of naming which
+  // timer fired. Specific codex shapes first, then the generic rule.
   {
-    re: /timed out|\btimeout\b|ETIMEDOUT|produced no output/i,
+    re: /produced no output for \d+s/i,
+    kind: 'timeout',
+    title: () => 'Codex never started answering.',
+    fix: 'Try again. If it keeps happening, run Codex once in a terminal to check it still works.',
+    retryable: true,
+  },
+  {
+    re: /Codex CLI timed out after/i,
+    kind: 'timeout',
+    title: () => 'Codex ran out of time on this shot.',
+    fix: 'Try again. Fewer variants or fewer reference photos finish faster.',
+    retryable: true,
+  },
+  {
+    re: /generation timed out after \d+ minutes?/i,
+    kind: 'timeout',
+    title: () => 'This run hit the overall time limit.',
+    fix: 'Try again, with fewer variants if it repeats.',
+    retryable: true,
+  },
+  {
+    re: /timed out|ETIMEDOUT/i,
     kind: 'timeout',
     title: (e) => `${cap(e)} took too long to answer.`,
-    fix: 'Try again. A long brief sometimes needs a second run.',
+    fix: 'Try again.',
     retryable: true,
   },
   {
