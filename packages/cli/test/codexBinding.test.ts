@@ -142,7 +142,7 @@ describe('compileBrief order survives into codex filenames and prose', () => {
     });
 
     const args = calls[0].args;
-    const basenames = args.filter((a) => a.startsWith('--image=')).map((a) => a.split('/').pop());
+    const basenames = args.filter((a) => a.startsWith('--image=')).map((a) => a.split(/[\\/]/).pop());
     expect(basenames).toEqual(['character-1.png', 'character-2.png', 'scene-1.png']);
     const prompt = calls[0].child.stdin.written;
     expect(prompt).toContain('character-1.png shows the exact person');
@@ -183,7 +183,7 @@ describe('compileBrief order survives into codex filenames and prose', () => {
       referenceImages: compiled.referenceImages,
       referenceRoles: compiled.attachments.map((a) => a.role),
     });
-    const basenames = calls[0].args.filter((a) => a.startsWith('--image=')).map((a) => a.split('/').pop());
+    const basenames = calls[0].args.filter((a) => a.startsWith('--image=')).map((a) => a.split(/[\\/]/).pop());
     expect(basenames).toEqual(['product-1.png', 'character-1.png', 'character-2.png', 'scene-1.png']);
   });
 });
