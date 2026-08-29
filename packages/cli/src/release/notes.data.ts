@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.11',
+    date: '2026-08-29',
+    sections: [
+      {
+        heading: 'Create',
+        body: "Hitting your Codex plan's usage limit now says so in plain words, with the time it comes back, instead of a technical session listing.",
+      },
+    ],
+  },
+  {
     version: '0.6.10',
     date: '2026-08-29',
     title: 'Pictures keep their shape.',
