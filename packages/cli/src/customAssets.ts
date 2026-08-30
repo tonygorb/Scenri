@@ -877,6 +877,13 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   //
   // The source references are attached to this draw, which is new: without the
   // refusal below the card would happily come back as the person in them.
+  //
+  // The word ban is scoped to what the treatment needs. The plate is the
+  // conditioning image for a figure-led generation now, and a blanket "no
+  // readable words" contradicted the figure-treatment doctrine's demand for
+  // genuinely designed print - a sticker-treatment plate drawn print-free
+  // conditioned the treatment away. Print inside the treatment follows the
+  // fictional-brands doctrine word for word; everywhere else stays clean.
   const body = scene.figure
     ? `A figure is in this photograph: ${scene.figure.replace(/[.\s]+$/, '')}. ` +
       (scene.figureTreatment
@@ -884,7 +891,13 @@ export function scenePreviewPrompt(scene: CustomScene): string {
           'rendered as a real physical treatment that follows the shape it sits on. '
         : '') +
       'They are nobody in particular: do not reproduce any person from the attached reference images, and give them no ' +
-      'recognisable identity. No product, no logos, no watermarks, and no readable words anywhere in the frame.'
+      'recognisable identity. ' +
+      (scene.figureTreatment
+        ? 'No product and no watermarks. Where the treatment itself carries printing, render it as genuinely designed ' +
+          'print - real letterforms, readable words, numerals and label-quality artwork - belonging to companies that ' +
+          'are plausible but fictional, resembling no existing brand, and borrowing, extending or re-spelling no name ' +
+          'that appears in any attached reference. Everywhere outside the treatment, no logos and no readable words.'
+        : 'No product, no logos, no watermarks, and no readable words anywhere in the frame.')
     : 'The set is empty: no product, no person, no hands, no text, no logos, no watermarks anywhere in the frame.';
   return (
     'Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. ' +

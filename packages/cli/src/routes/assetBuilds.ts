@@ -20,6 +20,7 @@ import {
   sceneRecordFrom,
   scenePreviewPrompt,
   startAssetBuild,
+  trimEdgeBars,
   type Analyzer,
   type AssetBuildDeps,
   type CustomScene,
@@ -329,10 +330,14 @@ export function registerAssetBuildRoutes(
     core.ledger.recordCost(engineId, null, result.costUsd);
     const hash = result.images[0];
     if (!hash) return reply.status(500).send({ error: 'the engine returned no image' });
+    // Same trim the build path applies. The plate is a conditioning image
+    // now, and a redrawn card with baked-in letterbox bars would be
+    // faithfully reproduced into customer shots.
+    const trimmed = await trimEdgeBars(core, hash);
     commit(core, brand.id, (json) => {
-      json.scenes = brandScenes(json).map((s) => (s.id === id ? { ...s, preview: `asset:${hash}` } : s));
+      json.scenes = brandScenes(json).map((s) => (s.id === id ? { ...s, preview: `asset:${trimmed}` } : s));
     });
-    return { preview: `asset:${hash}`, brand: core.store.getBrand(brand.id) };
+    return { preview: `asset:${trimmed}`, brand: core.store.getBrand(brand.id) };
   });
 }
 
