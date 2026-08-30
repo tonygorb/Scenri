@@ -117,10 +117,16 @@ export function presenterRefPath(templatesRoot: string, id: string, slot: string
 }
 
 /**
- * The square head-and-shoulders portrait, for UI surfaces that render a presenter
- * small or square. Deliberately outside PRESENTER_ANGLES: it is a display asset,
- * not part of the identity plan sent to the engine, so `resolvePresenterImages`
- * never picks it up and no brief's output changes because it exists.
+ * The square head-and-shoulders portrait.
+ *
+ * It sits outside PRESENTER_ANGLES because it is not one of the four standing
+ * views, not because it is decoration. It used to be excluded from the
+ * identity plan on the grounds that it is a display asset, and that was a
+ * measured mistake: it is 1024x1024 of head and shoulders, so the face is
+ * around 450px brow to chin, while ref-01 is a 1024x1280 full-length frame
+ * whose face is about 105px. Roughly eighteen times the facial pixels were
+ * shipping with every curated presenter and never leaving the disk, which is
+ * why four outputs of one brief came back with four different jaws.
  */
 export function presenterAvatarPath(templatesRoot: string, id: string): string {
   return contentFile(templatesRoot, 'previews', 'presenters', id, 'avatar.jpg');
@@ -141,9 +147,20 @@ export async function resolvePresenterImages(
   identityNotes?: string;
   negativeConstraints?: string[];
   skin?: string;
+  facial?: string;
+  build?: string;
   shots: { file: string; angle: string; locked: boolean }[];
 } | null> {
   const shots: { file: string; angle: string; locked: boolean }[] = [];
+  // The portrait leads, because that is the order a brief attaches: shots[0]
+  // is the essential character reference, and a face is what an identity is.
+  // The standing views still ride behind it and still carry build, proportion
+  // and the capture wardrobe the release clause names.
+  const avatar = presenterAvatarPath(templatesRoot, presenter.id);
+  if (existsSync(avatar)) {
+    const png = await sharp(readFileSync(avatar)).png().toBuffer();
+    shots.push({ file: `asset:${core.images.save(png)}`, angle: 'portrait', locked: true });
+  }
   for (const [slot, angle] of PRESENTER_ANGLES) {
     const path = presenterRefPath(templatesRoot, presenter.id, slot);
     if (!existsSync(path)) continue;

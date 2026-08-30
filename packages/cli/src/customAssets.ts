@@ -401,6 +401,7 @@ async function runPresenterBuild(
   const built = presenterRecordFrom({
     name: job.name,
     shotHashes,
+    shotAngles,
     sourceHashes: hashes,
     previewHash,
     avatarHash,
@@ -690,6 +691,13 @@ const IDENTITY_ASPECT = 0.66;
  */
 const IDENTITY_TARGET_HEIGHT = 1280;
 const IDENTITY_MAX_UPSCALE = 3;
+/**
+ * How much taller than wide a figure box has to be before it counts as a
+ * standing full-length figure rather than a portrait already. Measured: a
+ * curated standing frame is 1176 by 312, so 3.8; a head-and-shoulders crop
+ * lands near 1. Anything between is ambiguous and is left alone.
+ */
+const STANDING_FIGURE_RATIO = 2.2;
 
 /**
  * A head-and-shoulders crop of a presenter's front frame, for conditioning.
@@ -730,6 +738,12 @@ export async function identityCrop(core: Core, hash: string | undefined): Promis
   // identity reference. Fall back to the full frame, which is today's
   // behaviour.
   if (!box) return undefined;
+  // And only ever crop a STANDING FIGURE. This whole geometry is measured in
+  // figure heights off a full-length frame; run it on a picture that is
+  // already a head-and-shoulders portrait and it carves a forehead out of a
+  // face. A standing figure is far taller than it is wide (a real curated
+  // frame measures 1176 by 312, so 3.8); a portrait's box is near square.
+  if (box.height / Math.max(1, box.width) < STANDING_FIGURE_RATIO) return undefined;
   let nativeHeight = 0;
   const out = await crop(core, hash, (w, h) => {
     const height = Math.min(h, Math.max(16, Math.round(box.height * IDENTITY_FIGURE_FRACTION)));
@@ -784,6 +798,11 @@ export async function brandJsonWithIdentityCrops(core: Core, json: any, characte
   const characters = await Promise.all(
     roster.map(async (c) => {
       if (!wanted.has(c?.id) || !c?.shots?.length) return c;
+      // A presenter who already leads with a real portrait needs nothing from
+      // here. The curated roster ships one (avatar.jpg, 1024x1024) and every
+      // presenter built since the studio set grew one draws its own; this
+      // stands in only for the casts that predate both.
+      if (c.shots[0]?.angle === 'portrait') return c;
       const front = String(c.shots[0]?.file ?? '').replace(/^asset:/, '') || null;
       const cropped = await identityCrop(core, front ?? undefined);
       if (!cropped) return c;
