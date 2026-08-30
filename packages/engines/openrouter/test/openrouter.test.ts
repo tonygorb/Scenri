@@ -153,6 +153,33 @@ describe('generate request shape', () => {
     await engine.generate(genReq(), controller.signal);
     expect(fetchImpl.mock.calls[0][1].signal).toBe(controller.signal);
   });
+
+  // Ordinal binding says each image's role once, before the pictures. When a
+  // person reference rides beside a scene or mood image, the identity
+  // carve-out is repeated AFTER the image list - the last words the model
+  // reads about the pictures it was just handed.
+  it('repeats the identity carve-out after the images when a person rides with a scene or reference', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scenri-or-'));
+    const a = path.join(dir, 'a.png');
+    const b = path.join(dir, 'b.png');
+    fs.writeFileSync(a, PNG_BYTES);
+    fs.writeFileSync(b, PNG_BYTES);
+    try {
+      const { engine, fetchImpl } = makeEngine();
+      await engine.generate(genReq({ referenceImages: [a, b], referenceRoles: ['character', 'scene'] }));
+      const content = JSON.parse(fetchImpl.mock.calls[0][1].body).messages[0].content;
+      const last = content[content.length - 1];
+      expect(last.type).toBe('text');
+      expect(last.text).toContain('take no face or likeness from them');
+
+      // and nothing to guard: no trailing text part
+      await engine.generate(genReq({ referenceImages: [a], referenceRoles: ['product'] }));
+      const clean = JSON.parse(fetchImpl.mock.calls[1][1].body).messages[0].content;
+      expect(clean[clean.length - 1].type).toBe('image_url');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('generate success parsing', () => {
