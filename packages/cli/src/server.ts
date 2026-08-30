@@ -35,6 +35,7 @@ import { identityTokenKey, inheritedIdentityTokens } from './editIdentity.js';
 import {
   characterEditIdentityDirective,
   characterFactDirectives,
+  inheritedRefDirective,
   markEditDirective,
   productEditFidelityDirective,
   productFactDirectives,
@@ -571,6 +572,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      */
     const inheritedDirectives: string[] = [];
     let inheritedMark = false;
+    let inheritedRef = false;
     for (const tok of inheritedTokens) {
       if (tok.t === 'product') {
         const rec = (brandJson?.products ?? []).find((x: any) => x?.id === (tok as any).id);
@@ -589,6 +591,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       } else if (tok.t === 'mark' && !inheritedMark) {
         inheritedMark = true;
         inheritedDirectives.push(markEditDirective());
+      } else if (tok.t === 'ref' && !inheritedRef) {
+        // The one inherited kind that had no scoping sentence: the generic
+        // identity claim called a carried mood image "the same person" while
+        // the adapter called it composition-only. Say what it is for, once.
+        inheritedRef = true;
+        inheritedDirectives.push(inheritedRefDirective());
       }
     }
     const compiled = compileBrief(brief, {
@@ -600,7 +608,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       mode: 'edit' as const,
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
-      inheritedIdentity: inheritedTokens.length > 0,
+      // Kinds, not a count: the identity claim speaks only about the kinds
+      // that actually ride. A mark-only or ref-only inheritance emits no
+      // generic claim - markEditDirective and inheritedRefDirective speak
+      // for themselves.
+      inheritedIdentity: (() => {
+        const product = inheritedTokens.some((t) => t.t === 'product');
+        const person = inheritedTokens.some((t) => t.t === 'character');
+        return product || person ? { product, person } : false;
+      })(),
       inheritedDirectives,
       // Only the explicit op drops the dimension promise: an implicit legacy
       // expansion keeps its historical prompt byte for byte.

@@ -1463,3 +1463,37 @@ describe('the drop warning names only what was fully lost', () => {
     expect(r.warnings[0]).not.toContain('House Blend');
   });
 });
+
+// The identity claim names only the kinds that rode. It used to say "the same
+// product and the same person" about every inheritance - including a carried
+// mood image containing a stranger, whose face the sentence then handed to
+// the picture, and product-only threads with no person at all.
+describe('the inherited-identity claim covers only what rides', () => {
+  const editTokens: Brief['tokens'] = [{ t: 'text', v: 'warmer light' }];
+
+  it('product and person: the legacy sentence, byte for byte', () => {
+    const r = compileBrief(
+      { tokens: editTokens },
+      ctx({ mode: 'edit', inheritedIdentity: { product: true, person: true } }),
+    );
+    expect(r.prompt).toContain('the same product and the same person that are already in this picture');
+  });
+
+  it('product only: no person is claimed', () => {
+    const r = compileBrief(
+      { tokens: editTokens },
+      ctx({ mode: 'edit', inheritedIdentity: { product: true, person: false } }),
+    );
+    expect(r.prompt).toContain('the same product that is already in this picture');
+    expect(r.prompt).not.toContain('and the same person');
+  });
+
+  it('person only: no product is claimed', () => {
+    const r = compileBrief(
+      { tokens: editTokens },
+      ctx({ mode: 'edit', inheritedIdentity: { product: false, person: true } }),
+    );
+    expect(r.prompt).toContain('the same person who is already in this picture');
+    expect(r.prompt).not.toContain('the same product and');
+  });
+});

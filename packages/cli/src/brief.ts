@@ -170,8 +170,12 @@ interface CompileContext {
   editScope?: EditScope;
   /** The instruction removes something, so the ghost it would leave is named. */
   editRemoval?: boolean;
-  /** True when identity references were inherited from the shot being refined. */
-  inheritedIdentity?: boolean;
+  /**
+   * Which identity KINDS were inherited from the shot being refined, so the
+   * claim speaks only about what actually rides. Legacy `true` means both -
+   * the historical sentence, byte for byte.
+   */
+  inheritedIdentity?: boolean | { product: boolean; person: boolean };
   /**
    * The edit grows the canvas. The global preservation directive promises
    * "the same dimensions", which is the one thing an extend must break —
@@ -700,7 +704,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           ...(ctx.editReshape === 'extend'
             ? []
             : [editPreservationDirective(ctx.editScope ?? 'global', { removal: ctx.editRemoval })]),
-          ...(ctx.inheritedIdentity ? [inheritedIdentityDirective()] : []),
+          ...(ctx.inheritedIdentity
+            ? [inheritedIdentityDirective(ctx.inheritedIdentity === true ? undefined : ctx.inheritedIdentity)]
+            : []),
           ...(ctx.inheritedDirectives ?? []),
         ]
       : [];

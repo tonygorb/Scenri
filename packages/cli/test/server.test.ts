@@ -454,8 +454,11 @@ describe('generation flow', () => {
       expect(editNode.prompt).toContain('This is a change to a photograph that already exists');
       expect(editNode.prompt).toContain('Change only what was asked for');
       // Identity came along, and it is named as identity rather than as a
-      // reason to build a new composition.
-      expect(editNode.prompt).toContain('the same product and the same person that are already in this picture');
+      // reason to build a new composition - and the claim covers only what
+      // rode: this thread inherited a product and no person, and the old
+      // sentence claimed a person anyway.
+      expect(editNode.prompt).toContain('the same product that is already in this picture');
+      expect(editNode.prompt).not.toContain('and the same person');
       // And the product name is not prepended onto the instruction.
       expect(editNode.prompt.indexOf('remove the cup')).toBeLessThan(
         editNode.prompt.indexOf('This is a change to a photograph'),
@@ -1764,6 +1767,13 @@ describe('a refinement carries marks and references, not just subjects', () => {
     const brief = editNode.brief as any;
     expect(brief.tokens).toEqual([{ t: 'text', v: 'warmer light' }]);
     expect((brief.inherited ?? []).map((t: any) => t.t).sort()).toEqual(['mark', 'product', 'ref']);
+
+    // the carried mood image is scoped, not claimed as the subject: the
+    // identity sentence names only the product (no person rode), and the ref
+    // gets its own composition-only sentence
+    expect(editNode.prompt).toContain('the same product that is already in this picture');
+    expect(editNode.prompt).not.toContain('and the same person');
+    expect(editNode.prompt).toContain('The carried reference is attached for composition, lighting and treatment only');
 
     // and the preview with a parent tells the same story before sending
     const preview = await local.inject({
