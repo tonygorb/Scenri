@@ -65,6 +65,31 @@ export function productFidelityDirective(attached: number): string {
  * releases the shadows and reflections belonging to the change, because a new
  * object that casts nothing is its own kind of wrong.
  */
+/**
+ * What may not move when the FRAME is what changes.
+ *
+ * The extend path used to drop `editPreservationDirective` entirely, on the
+ * argument that its "same framing, same crop, same dimensions" lines
+ * contradict a frame that is deliberately growing. True — but it left the one
+ * refine that redraws every pixel (the reframe arm has no mask) with no
+ * language protecting the presenter, the product, the wardrobe or the light,
+ * and identity references were measured pulling the camera back to match
+ * their own framing when nothing pushed against them. This variant names what
+ * stays without ever claiming the frame does.
+ *
+ * The vocabulary rules of the expand instructions apply: grain is never
+ * named, no lens or focal-length words, and nothing invites a recomposition.
+ */
+export function extendPreservationDirective(): string {
+  return (
+    'This grows the frame of a photograph that already exists; it does not restage it. The photograph in hand is ' +
+    'the shot: the same person with the same face and the same clothing, the same product with the same label, ' +
+    'geometry and colour, each at the same size, in the same place, under the same light. New area only continues ' +
+    'the same scene past the original edges. Do not redesign the product, replace the person, change what anyone ' +
+    'wears, or move the camera nearer or further away.'
+  );
+}
+
 export function editPreservationDirective(scope: 'local' | 'global', opts?: { removal?: boolean }): string {
   if (scope === 'local') {
     const removal = opts?.removal

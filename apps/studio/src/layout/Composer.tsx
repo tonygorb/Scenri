@@ -46,7 +46,7 @@ import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
 import { aspectOfFormat, formatOfShot } from '../composer/formats.js';
-import { defaultReshapeOp } from '../composer/reshape.js';
+import { reshapeOpFor } from '../composer/reshape.js';
 import { byContextOrder } from '../contextChips.js';
 import { failureToast } from '../failure.js';
 import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.js';
@@ -658,11 +658,12 @@ export const Composer = forwardRef<
   const reshaping = !!refineTarget && !!sourceFormat && sourceFormat !== formatId;
   const reshapeChoiceOpen = reshaping && branchable && !template;
   // The op is inferred, never asked: pick a target shape and the geometry
-  // decides (toward square = crop, away = extend — defaultReshapeOp). The two
+  // decides (toward square = crop, away = extend, and an extend past the
+  // growth bound is a crop wearing its honest name — reshapeOpFor). The two
   // override buttons this used to render made the user resolve a question the
   // classifier already answers; nothing runs until Refine either way.
   const reshapeOp: 'crop' | 'extend' | null = reshapeChoiceOpen
-    ? defaultReshapeOp(aspectOfFormat(sourceFormat), aspectOfFormat(formatId))
+    ? reshapeOpFor(aspectOfFormat(sourceFormat), aspectOfFormat(formatId))
     : null;
   const cropping = reshapeOp === 'crop';
   /*

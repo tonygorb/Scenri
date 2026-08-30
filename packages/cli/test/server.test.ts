@@ -931,9 +931,11 @@ describe('generation flow', () => {
     expect(cropped.statusCode).toBe(202);
     expect((await waitDone(cropped.json().id)).status).toBe('done');
 
-    // the same aspect-only brief WITHOUT the explicit op keeps the exact
-    // pre-0.5 behaviour — the implicit expansion — so older callers change
-    // nothing, and the absence of `reshape` in the record says which era it was
+    // the same aspect-only brief WITHOUT the explicit op is classified by the
+    // server now: a squarer target is a crop, never a silent expansion. It
+    // used to take the implicit extend path and grow the other axis, which is
+    // exactly the op nobody asked for when the target is tighter than the
+    // source. The record carries the op the geometry chose.
     const bare = await app.inject({
       method: 'POST',
       url: '/api/nodes',
@@ -949,7 +951,10 @@ describe('generation flow', () => {
     expect(bare.statusCode).toBe(202);
     const bareOut = await waitDone(bare.json().id);
     expect(bareOut.status).toBe('done');
-    expect((bareOut.brief as any).reshape).toBeUndefined();
+    expect((bareOut.brief as any).reshape).toBe('crop');
+    // pure geometry: no provider was asked and nothing was billed
+    expect(bareOut.engineId).toBe('local');
+    expect(bareOut.costUsd).toBe(0);
 
     // a crop to the shape it already has is a caller mistake, said out loud
     const noop = await app.inject({
@@ -2964,5 +2969,230 @@ describe('grade-only refines keep the original pixels', () => {
     const namedNode = await waitRenderedOn(local, named.json().id);
     expect((namedNode.brief as any).gradeComposited).toBeUndefined();
     await local.close();
+  });
+});
+
+// The reshape geometry contract, end to end on toy engines: the server
+// classifies the op, an extend is planned at the engine's own pixel budget,
+// and nothing on the path is ever upscaled. This is the pin on the 0.7.2
+// ratio-refine hardening: the measured failure was a 1122x1402 shot asked for
+// 16:9 planning a 2496x1402 frame, 2.2x what codex can draw, and the native
+// answer upscaled 1.49x to fill it.
+describe('a reshape is classified by the server and planned at the engine budget', () => {
+  const budgetEngine = () => {
+    const edits: EditRequest[] = [];
+    const png = (w: number, h: number) =>
+      sharp({ create: { width: w, height: h, channels: 3, background: '#557799' } })
+        .png()
+        .toBuffer();
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'reshape-spy',
+        displayName: 'Reshape Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 4,
+        editPixelBudget: 6400, // 80x80 - a toy codex
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async (req) => ({ images: [core.images.save(await png(req.width, req.height))], costUsd: 0 }),
+      // the edit honours the exact requested frame, like codex after the fit
+      edit: async (req) => {
+        edits.push(req);
+        return { images: [core.images.save(await png(req.width ?? 64, req.height ?? 64))], costUsd: 0 };
+      },
+    };
+    return { engine, edits };
+  };
+
+  const seedOn = async (local: Awaited<ReturnType<typeof buildServer>>, w: number, h: number, id = 'square') => {
+    const brand = (
+      await local.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json();
+    const ws = await local.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'reshape-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id, w, h },
+            { t: 'text', v: 'a mug' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDoneOn(local, gen.json().id);
+    return { projectId, genNode };
+  };
+
+  it('an over-budget extend is fitted, drawn native, and never upscaled', async () => {
+    const { engine, edits } = budgetEngine();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      const { projectId, genNode } = await seedOn(local, 100, 100);
+
+      const edit = await local.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: {
+          projectId,
+          parentId: genNode.id,
+          kind: 'edit',
+          engineId: 'reshape-spy',
+          sourceImage: genNode.images[0],
+          reshape: 'extend',
+          brief: { tokens: [{ t: 'format', id: 'landscape', w: 176, h: 100 }] },
+        },
+      });
+      expect(edit.statusCode).toBe(202);
+      expect((edit.json().warnings ?? []).join(' ')).toContain('Nothing is upscaled');
+
+      const editNode = await waitRenderedOn(local, edit.json().id);
+      expect(editNode.status).toBe('done');
+
+      // both draws (bed and padded) were asked inside the budget
+      expect(edits.length).toBe(2);
+      for (const req of edits) {
+        expect((req.width ?? 0) * (req.height ?? 0)).toBeLessThanOrEqual(6400 * 1.02);
+        // and the conditioning canvas they were shown is at that same frame
+        const sent = await sharp(req.sourceImage).metadata();
+        expect([sent.width, sent.height]).toEqual([req.width, req.height]);
+      }
+
+      // the stored answer is the fitted frame itself: no upscale anywhere
+      const stored = await sharp(core.images.read(editNode.images[0])).metadata();
+      expect([stored.width, stored.height]).toEqual([edits[0].width, edits[0].height]);
+      const brief = editNode.brief as any;
+      expect(brief.reshape).toBe('extend');
+      expect(brief.expand.frame).toEqual([edits[0].width, edits[0].height]);
+      // the photograph rides inside the frame at its fitted size, ratio kept
+      const [sw, sh] = brief.expand.source;
+      expect(sw * sh).toBeLessThan(6400);
+      expect(Math.abs(sw / sh - 1)).toBeLessThan(0.05);
+      expect(brief.rendered?.requestedSize).toEqual([edits[0].width, edits[0].height]);
+
+      // an explicit extend carries the extend preservation language
+      expect(edits[0].instruction).toContain('does not restage it');
+
+      // the next refine reads the extended image at its true size: no
+      // step-down, no warning, no size laundering on the following hop
+      const again = await local.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: {
+          projectId,
+          parentId: editNode.id,
+          kind: 'edit',
+          engineId: 'reshape-spy',
+          sourceImage: editNode.images[0],
+          brief: { tokens: [{ t: 'text', v: 'a more editorial and cinematic feel' }] },
+        },
+      });
+      expect((again.json().warnings ?? []).join(' ')).not.toContain('continues');
+      const againNode = await waitRenderedOn(local, again.json().id);
+      expect([edits[2].width, edits[2].height]).toEqual([edits[0].width, edits[0].height]);
+      const storedAgain = await sharp(core.images.read(againNode.images[0])).metadata();
+      expect([storedAgain.width, storedAgain.height]).toEqual([edits[0].width, edits[0].height]);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('growth past the bound becomes a crop when nothing was asked by name, and refuses an explicit extend', async () => {
+    const { engine, edits } = budgetEngine();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      const { projectId, genNode } = await seedOn(local, 176, 100, 'landscape');
+
+      // implicit: a 16:9 shot asked for 9:16 is a 3.16x growth, past the
+      // bound even after crop assist; the honest op is a crop and it is free
+      const implicit = await local.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: {
+          projectId,
+          parentId: genNode.id,
+          kind: 'edit',
+          engineId: 'reshape-spy',
+          sourceImage: genNode.images[0],
+          brief: { tokens: [{ t: 'format', id: 'story', w: 90, h: 160 }] },
+        },
+      });
+      expect(implicit.statusCode).toBe(202);
+      expect((implicit.json().warnings ?? []).join(' ')).toContain('cropped to it instead');
+      const cropNode = await waitDoneOn(local, implicit.json().id);
+      expect(cropNode.engineId).toBe('local');
+      expect((cropNode.brief as any).reshape).toBe('crop');
+      const stored = await sharp(core.images.read(cropNode.images[0])).metadata();
+      expect(Math.abs(stored.width! / stored.height! - 90 / 160)).toBeLessThan(0.02);
+      expect(edits.length).toBe(0); // no engine was asked
+
+      // explicit: the same geometry asked for by name is refused out loud
+      const explicit = await local.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: {
+          projectId,
+          parentId: genNode.id,
+          kind: 'edit',
+          engineId: 'reshape-spy',
+          sourceImage: genNode.images[0],
+          reshape: 'extend',
+          brief: { tokens: [{ t: 'format', id: 'story', w: 90, h: 160 }] },
+        },
+      });
+      expect(explicit.statusCode).toBe(400);
+      expect(explicit.json().error).toMatch(/crop instead/);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('growth just past the assist threshold gives up a capped slice and records it', async () => {
+    const { engine, edits } = budgetEngine();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      const { projectId, genNode } = await seedOn(local, 100, 125, 'portrait');
+
+      // 4:5 to 16:9 is a 2.22x growth: crop assist takes about ten percent of
+      // the height so the effective growth lands on the bound, and the extend
+      // proceeds inside it
+      const edit = await local.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: {
+          projectId,
+          parentId: genNode.id,
+          kind: 'edit',
+          engineId: 'reshape-spy',
+          sourceImage: genNode.images[0],
+          reshape: 'extend',
+          brief: { tokens: [{ t: 'format', id: 'landscape', w: 176, h: 99 }] },
+        },
+      });
+      expect(edit.statusCode).toBe(202);
+      const editNode = await waitRenderedOn(local, edit.json().id);
+      expect(editNode.status).toBe('done');
+      const brief = editNode.brief as any;
+      // the assist window: full width, about ninety percent of the height
+      expect(brief.expand.assist[0]).toBe(100);
+      expect(brief.expand.assist[1]).toBeGreaterThanOrEqual(110);
+      expect(brief.expand.assist[1]).toBeLessThan(125);
+      // and the request still fits the budget
+      expect((edits[0].width ?? 0) * (edits[0].height ?? 0)).toBeLessThanOrEqual(6400 * 1.02);
+    } finally {
+      await local.close();
+    }
   });
 });
