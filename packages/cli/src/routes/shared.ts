@@ -119,7 +119,12 @@ export async function capReferenceEdge(core: Core, path: string, maxEdge: number
       out = core.images.pathFor(core.images.save(buf));
     }
   } catch {
-    // An unreadable reference is the engine's error to surface, not ours to eat here.
+    // An unreadable reference is the engine's error to surface, not ours to eat
+    // here — but it is NOT a result worth remembering. Memoising the fallback
+    // pinned the full-resolution original for that key for the life of the
+    // process, so one transient sharp failure quietly degraded every later run
+    // that touched the same reference. Return it, do not record it.
+    return path;
   }
   cappedRefs.set(key, out);
   return out;

@@ -56,6 +56,10 @@ describe('capabilities', () => {
       supportsEdit: true,
       supportsMask: false,
       maxReferenceImages: 4,
+      // N sequential calls, one image each: the server budgets the node by
+      // that shape rather than spending one flat bound across the whole run.
+      perImageTimeoutMs: 300_000,
+      imageConcurrency: 1,
     });
   });
 });
@@ -147,11 +151,18 @@ describe('generate request shape', () => {
     }
   });
 
-  it('passes the abort signal through to fetch', async () => {
+  it("passes the abort signal through to fetch, merged with the call's own bound", async () => {
+    // Not the caller's signal by identity any more: each call carries its own
+    // timeout so a later image in a run is never starved by an earlier one.
+    // What must survive is that the caller can still stop it.
     const { engine, fetchImpl } = makeEngine();
     const controller = new AbortController();
     await engine.generate(genReq(), controller.signal);
-    expect(fetchImpl.mock.calls[0][1].signal).toBe(controller.signal);
+    const passed = fetchImpl.mock.calls[0][1].signal as AbortSignal;
+    expect(passed).toBeInstanceOf(AbortSignal);
+    expect(passed.aborted).toBe(false);
+    controller.abort();
+    expect(passed.aborted).toBe(true);
   });
 
   // Ordinal binding says each image's role once, before the pictures. When a
@@ -197,6 +208,44 @@ describe('generate success parsing', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(saveImage).toHaveBeenCalledTimes(3);
     expect(result.images).toEqual(['hash-1', 'hash-2', 'hash-3']);
+  });
+
+  it('gives each image its own slot of the variation plan, and nothing else differs', async () => {
+    /*
+     * This path used to send the identical body N times: nothing asked the run
+     * to hold together and nothing asked it to differ, so four images were four
+     * unrelated samples of one prompt. The plan is the set contract, and it
+     * arrives index-aligned with the output slots.
+     */
+    const { engine, fetchImpl } = makeEngine();
+    const variations = ['SLOT-A locked.', 'SLOT-B locked.', 'SLOT-C locked.'];
+    Object.freeze(variations);
+    await engine.generate(genReq({ count: 3, variations }));
+
+    const bodies = (fetchImpl as unknown as { mock: { calls: [string, { body: string }][] } }).mock.calls.map(
+      ([, init]) => JSON.parse(init.body),
+    );
+    expect(bodies).toHaveLength(3);
+    for (const [i, body] of bodies.entries()) {
+      const texts = body.messages[0].content.filter((c: { type: string }) => c.type === 'text');
+      expect(texts.at(-1).text).toBe(variations[i]);
+    }
+    // strip the slot clause and the three requests are the same request
+    const stripped = bodies.map((b) => {
+      const content = b.messages[0].content.slice(0, -1);
+      return JSON.stringify({ ...b, messages: [{ role: 'user', content }] });
+    });
+    expect(new Set(stripped).size).toBe(1);
+    expect(variations).toEqual(['SLOT-A locked.', 'SLOT-B locked.', 'SLOT-C locked.']);
+  });
+
+  it('sends one identical request per image when there is no plan', async () => {
+    const { engine, fetchImpl } = makeEngine();
+    await engine.generate(genReq({ count: 2 }));
+    const bodies = (fetchImpl as unknown as { mock: { calls: [string, { body: string }][] } }).mock.calls.map(
+      ([, init]) => init.body,
+    );
+    expect(new Set(bodies).size).toBe(1);
   });
 
   it('sums usage.cost across responses when present', async () => {

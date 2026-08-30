@@ -82,6 +82,18 @@ export interface BrandContext {
   assetPaths: Record<string, string>;
 }
 
+/**
+ * Abort reason meaning "the caller's time budget ran out", as distinct from
+ * "the user pressed cancel".
+ *
+ * The difference is not cosmetic. A cancel is an instruction: the user no
+ * longer wants the run, and throwing away what is finished is correct. A
+ * budget abort is the caller giving up on the REST of the run, and an adapter
+ * that treats the two alike discards images that already exist — a four-image
+ * run whose last image ran long lost the three that had landed.
+ */
+export const BUDGET_EXHAUSTED = 'scenri:budget-exhausted';
+
 export interface GenerateRequest {
   prompt: string;
   brand: BrandContext;
@@ -97,6 +109,18 @@ export interface GenerateRequest {
   width: number;
   height: number;
   count: number;
+  /**
+   * One clause per requested image, index-aligned with the output slots: the
+   * photographic move that image explores, plus the locks every image in the
+   * run shares. Built once by the caller from the one canonical compile, so a
+   * multi-image run is a coherent SET rather than N independent readings of the
+   * same brief. Empty or absent for a single image.
+   *
+   * Adapters that fan out per image append `variations[i]` to that image's
+   * prompt. An adapter that hands the count to the provider instead (fal,
+   * replicate) cannot honour it and ignores it.
+   */
+  variations?: string[];
 }
 
 export interface EditRequest {
@@ -259,6 +283,19 @@ export interface EngineCapabilities {
    * refuse a real engine must skip these.
    */
   placeholder?: boolean;
+  /**
+   * Wall clock one image of a multi-image run may legally take, for an adapter
+   * that fans out per image rather than handing the count to the provider.
+   *
+   * Set it and the server bounds the whole node by wave count instead of a flat
+   * default. Left unset, a sequential fan-out engine spends one flat node
+   * budget across every image, so the last image of a run genuinely has less
+   * time than the first — the run then dies mid-batch and the finished images
+   * go with it.
+   */
+  perImageTimeoutMs?: number;
+  /** How many of those images the adapter runs at once. Defaults to 1. */
+  imageConcurrency?: number;
 }
 
 /**
