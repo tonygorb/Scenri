@@ -2779,3 +2779,60 @@ describe('a formatless edit brief never reshapes', () => {
     await local.close();
   });
 });
+
+// The waxy look compounds exactly where the skin floor never fired: a refine
+// brief has no character token, so compileBrief's hasPerson gate stayed cold
+// on every hop of a presenter thread. The inherited person now carries it.
+describe('the skin floor rides refines of presenter threads', () => {
+  it('a bare-text refine of a presenter shot states real photographed skin', async () => {
+    const castShot = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([11])]));
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            characters: [{ id: 'c1', name: 'Astrid', shots: [{ file: `asset:${castShot}`, locked: true }] }],
+          },
+        },
+      })
+    ).json();
+    const ws = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'demo',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 512, h: 512 },
+            { t: 'character', id: 'c1' },
+            { t: 'text', v: 'editorial portrait' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDone(gen.json().id);
+    const edit = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    const editNode = await waitDone(edit.json().id);
+    expect(editNode.prompt).toContain('real photographed skin');
+    // and the re-render texture floor rides every edit
+    expect(editNode.prompt).toContain('Every surface keeps the texture it already has');
+  });
+});

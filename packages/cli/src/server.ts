@@ -37,6 +37,7 @@ import {
   characterFactDirectives,
   inheritedRefDirective,
   markEditDirective,
+  personSkinDirective,
   productEditFidelityDirective,
   productFactDirectives,
 } from './briefDirectives.js';
@@ -583,6 +584,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const inheritedDirectives: string[] = [];
     let inheritedMark = false;
     let inheritedRef = false;
+    const inheritedProduct = inheritedTokens.some((t) => t.t === 'product');
+    const inheritedPerson = inheritedTokens.some((t) => t.t === 'character');
     for (const tok of inheritedTokens) {
       if (tok.t === 'product') {
         const rec = (brandJson?.products ?? []).find((x: any) => x?.id === (tok as any).id);
@@ -609,6 +612,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         inheritedDirectives.push(inheritedRefDirective());
       }
     }
+    // The skin floor is gated on a character TOKEN inside compileBrief, and a
+    // refine brief carries none - so the one place the waxy look compounds
+    // (five consecutive re-renders) was the one place the floor never fired.
+    // The inherited person is a person in frame; the floor rides with them.
+    if (inheritedPerson) inheritedDirectives.push(personSkinDirective());
     const compiled = compileBrief(brief, {
       brand: brandJson,
       images: core.images,
@@ -622,11 +630,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // that actually ride. A mark-only or ref-only inheritance emits no
       // generic claim - markEditDirective and inheritedRefDirective speak
       // for themselves.
-      inheritedIdentity: (() => {
-        const product = inheritedTokens.some((t) => t.t === 'product');
-        const person = inheritedTokens.some((t) => t.t === 'character');
-        return product || person ? { product, person } : false;
-      })(),
+      inheritedIdentity:
+        inheritedProduct || inheritedPerson ? { product: inheritedProduct, person: inheritedPerson } : false,
       inheritedDirectives,
       // Only the explicit op drops the dimension promise: an implicit legacy
       // expansion keeps its historical prompt byte for byte.

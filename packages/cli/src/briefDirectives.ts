@@ -76,15 +76,21 @@ export function editPreservationDirective(scope: 'local' | 'global', opts?: { re
       'the same crop, the same camera position, the same subject placement and pose, the same lighting, the same ' +
       'colours, the same background and the same dimensions. Do not re-render, re-stage, re-light or re-compose the ' +
       'picture. Change only what was asked for, together with the shadows, reflections and contact points that move ' +
-      'with it.' +
+      'with it. Every surface keeps the texture it already has: no invented pattern, grain, weave or embossing on ' +
+      'fabric, skin or walls that the photograph does not carry now.' +
       removal
     );
   }
+  // The texture line exists because refinement chains measured it: by the
+  // fifth consecutive global refine a plain dress had grown an embossed
+  // pattern no hop asked for, and skin had hardened a step per hop. A full
+  // re-render invents texture unless told the surfaces are already finished.
   return (
     'This is a change to a photograph that already exists, not a new photograph. Apply the instruction to the image ' +
     'you were given and keep what it does not name: the same subject and the same face, the same product with the ' +
     'same label, geometry and colour, and the same dimensions. Do not replace the subject and do not redesign the ' +
-    'product.'
+    'product. Every surface keeps the texture it already has: no invented pattern, grain, weave or embossing on ' +
+    'fabric, skin or walls that the photograph does not carry now.'
   );
 }
 
