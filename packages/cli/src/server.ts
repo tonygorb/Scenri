@@ -19,7 +19,7 @@ import type {
   ReferenceRole,
   EngineResult,
 } from '@scenri/core';
-import { SpendCapError, ASPECT_TOLERANCE, budgetSize } from '@scenri/core';
+import { SpendCapError, ASPECT_TOLERANCE, BUDGET_EXHAUSTED, budgetSize } from '@scenri/core';
 import { readMeta } from './meta.js';
 import { createUpdateChecker, type UpdateChecker } from './update/check.js';
 import { createContentFetcher, type ContentFetcher } from './content/fetch.js';
@@ -29,7 +29,6 @@ import type { EngineRegistry } from './engines.js';
 import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
 import { brandSceneById, runningAssetBuildCount, type Analyzer } from './customAssets.js';
 import type { CodexSetup } from '@scenri/engine-codex';
-import { codexNodeBudgetMs } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { identityTokenKey, inheritedIdentityTokens } from './editIdentity.js';
 import {
@@ -40,7 +39,9 @@ import {
   personSkinDirective,
   productEditFidelityDirective,
   productFactDirectives,
+  shotSpecifiesCamera,
 } from './briefDirectives.js';
+import { variationPlan } from './variationPlan.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
 import { gradeComposite, isGradeOnlyInstruction } from './gradeTransfer.js';
 import {
@@ -964,12 +965,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   }
 
   /**
-   * The default node bound, for engines and edits with no derived budget of
-   * their own. Codex generations pass a per-batch budget instead (see
-   * codexNodeBudgetMs at the runNode call site): a flat ten minutes was
-   * arithmetically wrong for large batches — eight variants are four 300s
-   * waves. The tester's 500 seconds of silent nothing still sits inside
-   * whichever bound applies.
+   * The default node bound, for edits and for engines that make a single
+   * provider call however many images are asked for. An engine that fans out
+   * per image declares `perImageTimeoutMs` and gets a wave-scaled budget at the
+   * runNode call site instead: a flat ten minutes was arithmetically wrong for
+   * large batches — eight variants are four 300s waves. The tester's 500
+   * seconds of silent nothing still sits inside whichever bound applies.
    */
   const NODE_TIMEOUT_MS = 600_000;
 
@@ -1001,7 +1002,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let watchdogFired = false;
     const watchdog = setTimeout(() => {
       watchdogFired = true;
-      ctrl.abort();
+      // Named, so an adapter can tell the caller giving up on the rest of a run
+      // from the user cancelling it, and keep whatever already landed.
+      ctrl.abort(BUDGET_EXHAUSTED);
     }, bound);
     const startedAt = Date.now();
     try {
@@ -1338,6 +1341,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
     if (kind === 'generation') {
       const cap = engine.capabilities().maxReferenceImages;
+      // One clamp for the whole request: the engine count, the variation plan
+      // and the node watchdog must agree on how many images were asked for.
+      const wantedCount = Math.min(Math.max(1, Number(count)), 8);
       // An identity reference that cannot be transmitted is not a degraded
       // generation, it is a wrong one: the model invents a product or a face
       // and returns it with full confidence. Refuse instead. Style references
@@ -1359,14 +1365,44 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const keptRefs = referenceImages && cap > 0 ? referenceImages.slice(0, cap) : undefined;
       const sentRefs =
         keptRefs && maxEdge ? await Promise.all(keptRefs.map((p) => capReferenceEdge(core, p, maxEdge))) : keptRefs;
+      const sentRoles = referenceRoles && cap > 0 ? referenceRoles.slice(0, cap) : (referenceRoles ?? []);
+      /*
+       * One recipe, N photographs.
+       *
+       * The plan is built HERE, once, from the same compile every output
+       * shares, and is never recomputed per image: the whole point of the set
+       * contract is that nothing downstream may re-decide what the run is of.
+       * It reads the roles that are actually being SENT, not the ones the
+       * compiler produced, so a reference the engine cap forced out is never
+       * locked in prose that no picture backs.
+       *
+       * The camera envelope comes from the user's own words rather than the
+       * compiled prompt: a scene's prose routinely names a lens, and reading
+       * that as "the direction chose the camera" would narrow every set built
+       * on a descriptive scene. Same reasoning as shotSpecifiesCamera's
+       * existing use against `sentence`.
+       */
+      const briefText = Array.isArray((brief as any)?.tokens)
+        ? (brief as any).tokens
+            .filter((t: any) => t?.t === 'text')
+            .map((t: any) => String(t?.v ?? ''))
+            .join(' ')
+        : String(prompt ?? '');
+      const variations = variationPlan(wantedCount, {
+        hasPresenter: sentRoles.includes('character'),
+        hasProduct: sentRoles.includes('product'),
+        hasMark: sentRoles.includes('brand'),
+        cameraFixed: shotSpecifiesCamera(briefText),
+      });
       const genReq: GenerateRequest = {
         prompt: finalPrompt,
         brand: ctx,
         width: Number(width),
         height: Number(height),
-        count: Math.min(Math.max(1, Number(count)), 8),
+        count: wantedCount,
         ...(sentRefs ? { referenceImages: sentRefs } : {}),
-        ...(referenceRoles && cap > 0 ? { referenceRoles: referenceRoles.slice(0, cap) } : {}),
+        ...(sentRoles.length && cap > 0 ? { referenceRoles: sentRoles } : {}),
+        ...(variations.length ? { variations } : {}),
       };
       estimate = await engine.costEstimate(genReq);
       work = (signal) => engine.generate(genReq, signal);
@@ -1902,12 +1938,22 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         : kind === 'generation' && compiled?.width && compiled?.height
           ? conformToCanvas(node.id, { width: compiled.width, height: compiled.height })
           : undefined;
-    // A codex generation's legal duration is its wave count, not a flat ten
-    // minutes: eight variants are four 300s waves. Other engines and edits
-    // keep the default bound.
+    /*
+     * A generation that fans out per image is bounded by its WAVE COUNT, not by
+     * a flat ten minutes: eight codex variants are four 300s waves, and four
+     * sequential openrouter calls are four calls' worth of time.
+     *
+     * Declared by the engine rather than named here, because the alternative
+     * was a chain of engine ids in the server. An engine that hands the count
+     * to the provider in one call declares nothing and keeps the default: it
+     * only ever makes one request, so there is no later image to starve.
+     */
+    const runCaps = runEngine.capabilities();
     const nodeBudgetMs =
-      kind === 'generation' && runEngine.capabilities().id === 'codex-cli'
-        ? codexNodeBudgetMs(Math.min(Math.max(1, Number(count)), 8))
+      kind === 'generation' && runCaps.perImageTimeoutMs
+        ? Math.ceil(Math.min(Math.max(1, Number(count)), 8) / Math.max(1, runCaps.imageConcurrency ?? 1)) *
+            runCaps.perImageTimeoutMs +
+          60_000
         : undefined;
     void runNode(node.id, runEngine, estimate, work, expectShape, post, nodeBudgetMs).catch((err) =>
       app.log.error({ err }, 'node run failed'),

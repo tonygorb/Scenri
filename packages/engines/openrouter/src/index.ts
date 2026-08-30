@@ -11,6 +11,9 @@ import {
 } from '@scenri/core';
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+/** One image's own wall clock, so a later image in a run is never starved. */
+const PER_IMAGE_TIMEOUT_MS = 300_000;
+
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image';
 const DEFAULT_COST_PER_IMAGE_USD = 0.04;
 
@@ -74,8 +77,17 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
     return key;
   }
 
-  /** POST one chat/completions request and return the parsed JSON body. */
+  /**
+   * POST one chat/completions request and return the parsed JSON body.
+   *
+   * The call carries its OWN bound. This adapter fans a multi-image run out
+   * into N sequential calls, and with only the node-level watchdog above them
+   * the images shared one flat budget: three slow calls left the fourth a few
+   * seconds, and when it lost the race the abort took the three finished
+   * images with it. A per-call bound makes every image's allowance the same.
+   */
   async function post(key: string, body: unknown, signal?: AbortSignal): Promise<any> {
+    const bound = AbortSignal.timeout(PER_IMAGE_TIMEOUT_MS);
     const res = await fetchImpl(ENDPOINT, {
       method: 'POST',
       headers: {
@@ -83,7 +95,7 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
-      signal,
+      signal: signal ? AbortSignal.any([signal, bound]) : bound,
     });
     const text = await res.text();
     if (!res.ok) {
@@ -130,6 +142,10 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
         supportsEdit: true,
         supportsMask: false,
         maxReferenceImages: 4,
+        // N sequential calls, one image each: the server budgets the node by
+        // that shape instead of handing the whole run one flat ten minutes.
+        perImageTimeoutMs: PER_IMAGE_TIMEOUT_MS,
+        imageConcurrency: 1,
       };
     },
 
@@ -192,7 +208,24 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
       let sawReportedCost = false;
 
       for (let i = 0; i < req.count; i++) {
-        const json = await post(key, body, signal);
+        /*
+         * The set clause for this slot, last, after the pictures and after the
+         * identity coda — the final words the model reads.
+         *
+         * This path used to send the identical body N times and take whatever
+         * came back, which is not a set either: nothing asked the run to be
+         * consistent and nothing asked it to differ, so four images were four
+         * unrelated samples. A fresh object per call, never a mutation of the
+         * shared one, so no slot can inherit another slot's text.
+         */
+        const variation = req.variations?.[i];
+        const json = await post(
+          key,
+          variation
+            ? { ...body, messages: [{ role: 'user', content: [...content, { type: 'text', text: variation }] }] }
+            : body,
+          signal,
+        );
         raws.push(json);
         for (const buf of extractImages(json)) hashes.push(opts.saveImage(buf));
         if (typeof json?.usage?.cost === 'number') {

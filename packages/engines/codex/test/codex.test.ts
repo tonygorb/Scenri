@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { spawn } from 'node:child_process';
 import type { BrandContext, EditRequest, GenerateRequest } from '@scenri/core';
+import { BUDGET_EXHAUSTED } from '@scenri/core';
 import { CODEX_POOL, codexNativeSize, codexNodeBudgetMs, createCodexEngine } from '../src/index.js';
 
 const PNG_1 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 1, 1]);
@@ -90,6 +91,9 @@ describe('capabilities / costEstimate', () => {
       supportsMask: false,
       maxReferenceImages: 5,
       maxReferenceEdge: 2048,
+      // the fan-out shape the server turns into the node bound
+      perImageTimeoutMs: 300_000,
+      imageConcurrency: 2,
       // the measured image-tool draw size; the server's step-down reads it
       editPixelBudget: 1_572_864,
     });
@@ -225,13 +229,15 @@ describe('generate', () => {
       expect(promptText).toContain('never resize, scale, stretch, pad, crop or re-encode');
       expect(promptText).not.toContain('you may run the commands needed to save and resize it');
     }
-    // EVERY take carries the same-shaped clause: take 1 used to get nothing,
-    // which literally asked the first output for the most reference-faithful
-    // decode while later ones were licensed to a "different composition".
+    // No counter reaches the model at all. Take 1 used to get nothing, which
+    // literally asked the first output for the most reference-faithful decode;
+    // then every take got the same-shaped clause and only the NUMBER moved,
+    // which still read as a licence to deviate that grew with the index.
     const prompts = calls.map(({ child }) => child.stdin.written);
-    expect(prompts.filter((p) => p.includes('take 1 of 2'))).toHaveLength(1);
-    expect(prompts.filter((p) => p.includes('take 2 of 2'))).toHaveLength(1);
+    expect(prompts.join(' ')).not.toMatch(/take \d+ of \d+/);
     expect(prompts.join(' ')).not.toContain('different composition');
+    // with no plan supplied, an unplanned batch is uniform
+    expect(new Set(prompts).size).toBe(1);
     // distinct workdirs, both cleaned up
     const dirs = calls.map(({ args }) => dirFromArgs(args));
     expect(new Set(dirs).size).toBe(2);
@@ -269,13 +275,15 @@ describe('generate', () => {
       return hash;
     });
     const { spawnImpl } = fakeSpawn(({ args, child }) => {
-      const second = child.stdin.written.includes('take 2 of');
+      // The variation plan is what tells the slots apart now, which is also the
+      // proof it arrives index-aligned with the output slots.
+      const second = child.stdin.written.includes('SLOT-2');
       writeFileSync(join(dirFromArgs(args), 'out-1.png'), second ? PNG_2 : PNG_1);
       if (second) child.emit('exit', 0, null);
       else void afterFirstSave.then(() => child.emit('exit', 0, null));
     });
     const engine = createCodexEngine({ platform: 'linux', saveImage, spawnImpl });
-    const result = await engine.generate(genReq); // count: 2
+    const result = await engine.generate({ ...genReq, variations: ['SLOT-1', 'SLOT-2'] }); // count: 2
 
     // hash-1 was minted for the buffer that ARRIVED first — variant 2's
     expect(saveImage.mock.calls[0][0]).toEqual(PNG_2);
@@ -285,8 +293,8 @@ describe('generate', () => {
 
   it('records which requested slots survived a partial failure', async () => {
     const { spawnImpl } = fakeSpawn(({ args, child }) => {
-      // take 1 is the one that dies
-      if (child.stdin.written.includes('take 1 of')) {
+      // slot 1 is the one that dies
+      if (child.stdin.written.includes('SLOT-1')) {
         child.emit('exit', 1, null);
         return;
       }
@@ -294,7 +302,7 @@ describe('generate', () => {
       child.emit('exit', 0, null);
     });
     const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
-    const result = await engine.generate({ ...genReq, count: 3 });
+    const result = await engine.generate({ ...genReq, count: 3, variations: ['SLOT-1', 'SLOT-2', 'SLOT-3'] });
 
     expect(result.images).toHaveLength(2);
     // 0-based requested slots: the survivors are variants 2 and 3
@@ -419,7 +427,7 @@ describe('generate', () => {
     expect(req.referenceRoles).toEqual(['character', 'character', 'scene']);
   });
 
-  it('every take in a batch receives identical semantics, differing only by its take counter', async () => {
+  it('every take in a batch receives identical semantics, differing only by its own variation clause', async () => {
     const srcDir = mkdtempSync(join(tmpdir(), 'codex-batch-'));
     const refPath = join(srcDir, 'product.png');
     writeFileSync(refPath, PNG_1);
@@ -428,18 +436,29 @@ describe('generate', () => {
       child.emit('exit', 0, null);
     });
     const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    const variations = ['SLOT-A locked.', 'SLOT-B locked.', 'SLOT-C locked.'];
+    Object.freeze(variations);
     await engine.generate({
       ...genReq,
       count: 3,
       referenceImages: [refPath],
       referenceRoles: ['product'],
+      variations,
     });
 
     expect(calls).toHaveLength(3);
     const prompts = calls.map(({ child }) => child.stdin.written);
-    const normalized = prompts.map((p) => p.replace(/take \d of 3/, 'take N of 3'));
+    // Each slot got its own clause, and only that clause differs.
+    const normalized = prompts.map((p) => p.replace(/SLOT-[ABC] locked\./, 'SLOT locked.'));
     expect(new Set(normalized).size).toBe(1);
-    for (let i = 0; i < 3; i++) expect(prompts.some((p) => p.includes(`take ${i + 1} of 3`))).toBe(true);
+    for (const v of variations) expect(prompts.some((p) => p.endsWith(` ${v}`))).toBe(true);
+    // No counter reaches the model. A rising take number reads as a licence to
+    // deviate that grows with the output index, which is the drift this whole
+    // contract exists to remove.
+    for (const p of prompts) {
+      expect(p).not.toMatch(/take \d+ of \d+/);
+      expect(p).not.toMatch(/variant \d+/);
+    }
     // identical reference basenames in every exec (split on either
     // separator: the workdirs are Windows paths on the smoke runner)
     const basenames = calls.map(({ args }) =>
@@ -447,6 +466,27 @@ describe('generate', () => {
     );
     expect(basenames[1]).toEqual(basenames[0]);
     expect(basenames[2]).toEqual(basenames[0]);
+  });
+
+  it('a batch with no plan is still uniform, and a single image is untouched', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await engine.generate({ ...genReq, count: 2 });
+    const [a, b] = calls.map(({ child }) => child.stdin.written);
+    expect(a).toBe(b);
+
+    const solo = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_2);
+      child.emit('exit', 0, null);
+    });
+    const one = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl: solo.spawnImpl });
+    await one.generate({ ...genReq, count: 1 });
+    // A single generation is byte-identical to a take of an unplanned batch:
+    // nothing about asking for more images may change what one image is.
+    expect(solo.calls[0].child.stdin.written).toBe(a);
   });
 
   it('describes a role-less reference neutrally rather than claiming it is the product', async () => {
@@ -484,6 +524,46 @@ describe('generate', () => {
     const result = await engine.generate(genReq);
     expect(result.images).toEqual(['hash-1']);
     expect(result.costUsd).toBe(0);
+  });
+
+  // A cancel and a budget abort are not the same instruction. The user pressing
+  // cancel means throw it away; the server's node watchdog firing means the
+  // caller gave up on the REST of the run. Treating them alike threw away the
+  // images that had already landed, so a slow last variant cost the good ones.
+  it('keeps the images that arrived when the caller runs out of budget', async () => {
+    const ctrl = new AbortController();
+    let n = 0;
+    const { spawnImpl } = fakeSpawn(({ args, child }) => {
+      if (n++ === 0) {
+        writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
+        child.emit('exit', 0, null);
+      } else {
+        ctrl.abort(BUDGET_EXHAUSTED);
+        child.stderr.emit('data', 'Codex CLI run aborted');
+        child.emit('exit', 1, null);
+      }
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    const result = await engine.generate({ ...genReq, count: 2 }, ctrl.signal);
+    expect(result.images).toEqual(['hash-1']);
+    expect((result.raw as { requested: number }).requested).toBe(2);
+  });
+
+  it('still discards the run when the user cancels it', async () => {
+    const ctrl = new AbortController();
+    let n = 0;
+    const { spawnImpl } = fakeSpawn(({ args, child }) => {
+      if (n++ === 0) {
+        writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
+        child.emit('exit', 0, null);
+      } else {
+        ctrl.abort();
+        child.stderr.emit('data', 'Codex CLI run aborted');
+        child.emit('exit', 1, null);
+      }
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await expect(engine.generate({ ...genReq, count: 2 }, ctrl.signal)).rejects.toThrow();
   });
 
   it('throws a clear error when codex exits 0 without producing images', async () => {
