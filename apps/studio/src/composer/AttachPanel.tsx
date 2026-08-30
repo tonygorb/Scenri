@@ -102,6 +102,16 @@ export function AttachPanel({
       applyBrand(row);
       const hash = (row as { logoHash?: string }).logoHash;
       if (hash) onToken({ t: 'mark', imageHash: hash });
+      // Under the warn edge the mark rides, but its fine lettering is already
+      // subpixel; the chip will flag it too, this just says it at the moment
+      // of upload, when re-exporting is one step away.
+      const edge = (row as { logoEdge?: number | null }).logoEdge;
+      if (edge && edge < 512)
+        push({
+          kind: 'success',
+          title: 'Logo added, but it is small',
+          detail: `Only ${edge}px across. Fine lettering may not survive generation. Export it larger, or as SVG.`,
+        });
     } catch (e) {
       push(failureToast(e, 'Could not upload that logo'));
     } finally {

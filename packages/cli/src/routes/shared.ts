@@ -61,12 +61,37 @@ export const COST_PROBE = {
  * reads at that resolution, and every attachment is copied per generation.
  */
 export const MARK_MAX_EDGE = 2048;
-export const toMarkPng = (buf: Buffer): Promise<Buffer> =>
-  sharp(buf, { density: 384 })
+/**
+ * The floor. The cap above was the only rule, so a 300px logo export stayed
+ * 300px silently, its fine lettering subpixel before any provider saw it —
+ * measured as the small-type mutation testers reported. A source in
+ * [TINY, MIN) is upscaled to MIN on its long edge (lanczos3, shapes kept, no
+ * invented detail; deterministic, so the content-addressed dedupe holds).
+ * Below TINY the bytes stay as they are: upscaling a favicon only launders a
+ * hopeless source into a plausible-looking file, and the small size is the
+ * honest signal the warning surfaces read. WARN is where those surfaces
+ * start speaking — above the tiny class, below what survives generation.
+ */
+export const MARK_MIN_EDGE = 1024;
+export const MARK_TINY_EDGE = 256;
+export const MARK_WARN_EDGE = 512;
+export const toMarkPng = async (buf: Buffer): Promise<Buffer> => {
+  const out = await sharp(buf, { density: 384 })
     .rotate()
     .resize({ width: MARK_MAX_EDGE, height: MARK_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
     .png()
     .toBuffer();
+  // Measure the OUTPUT: rotate() above has already resolved any EXIF swap.
+  const meta = await sharp(out).metadata();
+  const edge = Math.max(meta.width ?? 0, meta.height ?? 0);
+  if (edge >= MARK_TINY_EDGE && edge < MARK_MIN_EDGE) {
+    return sharp(out)
+      .resize({ width: MARK_MIN_EDGE, height: MARK_MIN_EDGE, fit: 'inside', kernel: 'lanczos3' })
+      .png()
+      .toBuffer();
+  }
+  return out;
+};
 
 /**
  * A reference copy no larger than the engine wants to read.

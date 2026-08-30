@@ -25,7 +25,7 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   character:
     'the exact person — match their face, facial structure, skin, hair and build exactly; their clothing, pose and background are capture context, not styling to reproduce',
   brand:
-    "the brand's own mark — if the direction calls for the mark to appear, reproduce it exactly as drawn, same colours, letterforms and proportions; otherwise take only its colour and treatment, and never its subject, geometry or composition",
+    "the brand's own mark — if the direction calls for the mark to appear, reproduce it exactly as drawn, same colours, letterforms and proportions, every character down to the smallest secondary lettering, in its original script and reading direction, never translated, transliterated or re-spelled; otherwise take only its colour and treatment, and never its subject, geometry or composition",
   // Only a figure-led scene attaches one of these now, so this says what that
   // case actually needs. It used to read "environment and light only - take no
   // subject or person from it", which handed the model a photograph of a face
@@ -48,7 +48,8 @@ export const EDIT_REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   product: 'the exact product: keep or restore its label, shape and design faithfully',
   character:
     "the exact person: keep their face, facial structure, skin, hair and build faithfully; take no clothing, pose or background from this reference, and keep the source image's existing outfit unless the instruction changes it",
-  brand: "the brand's own mark: reproduce it exactly as drawn wherever it appears, never redrawn or re-lettered",
+  brand:
+    "the brand's own mark: reproduce it exactly as drawn wherever it appears — every character down to the smallest secondary lettering, in its original script and reading direction — never redrawn, re-lettered, translated or transliterated",
   scene: 'a reference for environment and light only',
   composition: 'a reference for framing and pose only',
   style: 'a reference for treatment and mood only',

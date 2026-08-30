@@ -233,6 +233,13 @@ textarea.sc-edit[data-variant="lede"] {
   color: var(--sc-red);
   border-color: var(--sc-red);
 }
+/* the small-source note beside a mark well: quiet, and only when it applies */
+.sc-mark-small {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--sc-fg3);
+  max-width: 190px;
+}
 .sc-well {
   display: grid;
   place-items: center;

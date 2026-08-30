@@ -169,7 +169,9 @@ export function characterEditIdentityDirective(name: string): string {
 export function markEditDirective(): string {
   return (
     "The attached brand mark is this brand's own mark: wherever the logo appears or the instruction asks for it, " +
-    'reproduce it exactly as drawn — same colours, letterforms and proportions — never redrawn or re-lettered.'
+    'reproduce it exactly as drawn — same colours, letterforms and proportions — never redrawn or re-lettered. ' +
+    'Every character it carries stays intact, including the smallest secondary lettering, in its original script ' +
+    'and reading direction — never translated, transliterated or re-spelled.'
   );
 }
 
@@ -369,7 +371,8 @@ export function sceneFigureDirectives(opts: {
         (opts.hasMark
           ? " The one exception is the attached brand mark: it is this brand's own real mark, deliberately attached, " +
             'so the fictional-brands rule above does not apply to it. Where the direction asks for that mark to appear, ' +
-            'it appears exactly as drawn - never redrawn, re-lettered or fictionalised.'
+            'it appears exactly as drawn - every character, including the smallest lettering, in its original script - ' +
+            'never redrawn, re-lettered, translated or fictionalised.'
           : ''),
     );
   }

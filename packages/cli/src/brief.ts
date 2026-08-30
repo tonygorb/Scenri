@@ -2,6 +2,7 @@ import type { EngineCapabilities, Core, ReferenceRole } from '@scenri/core';
 import type { CustomScene } from './assetRecords.js';
 import { composePrompt, type Scene } from './scenes.js';
 import { allocateAttachments } from './attachmentBudget.js';
+import { MARK_WARN_EDGE } from './routes/shared.js';
 import type { EditScope } from './editScopeRules.js';
 export {
   brandRuleDirectives,
@@ -441,8 +442,24 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         // made for this shot, so it ranks with the shot-specific directives
         // rather than with the kit's standing instructions.
         attachments.push({ role: 'brand', label: markLabel(ctx.brand, logo), hash: tok.imageHash });
+        // Every stored blob is a PNG by construction, and a PNG's IHDR
+        // carries its size at bytes 16-23. Under the warn edge fine lettering
+        // is subpixel before any provider sees it, so the chip says so before
+        // the money is spent rather than the render saying it after. Legacy
+        // small marks minted before the resolution floor trip this too, which
+        // retroactively explains their broken lettering.
+        try {
+          const head = ctx.images.read(tok.imageHash);
+          const edge = Math.max(head.readUInt32BE(16), head.readUInt32BE(20));
+          if (edge < MARK_WARN_EDGE)
+            warnings.push(
+              `${markLabel(ctx.brand, logo)} is only ${edge}px across, so fine lettering will not survive generation. Export it larger, or as SVG.`,
+            );
+        } catch {
+          // an unreadable header is not a compile failure
+        }
         otherDirectives.push(
-          "The attached brand mark is this brand's own mark. If the direction asks for the logo to appear, reproduce it exactly as drawn — same colours, letterforms and proportions, never redrawn or re-lettered. Otherwise take only its colour and treatment from it.",
+          "The attached brand mark is this brand's own mark. If the direction asks for the logo to appear, reproduce it exactly as drawn — same colours, letterforms and proportions, never redrawn or re-lettered. Every character it carries appears intact, including the smallest secondary lettering, in its original script and reading direction — never translated, transliterated or re-spelled. Otherwise take only its colour and treatment from it.",
         );
         break;
       }

@@ -971,6 +971,13 @@ export const Composer = forwardRef<
     if (t.t === 'mark' && !preview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
       return `${engine?.displayName ?? 'This engine'} cannot read the brand mark, so it is left out.`;
     }
+    // A tiny mark rides, but its fine lettering is already subpixel: the
+    // compiler measured the stored file and said so (the 'px across' phrase
+    // is the contract, same pattern as 'built around a person' above).
+    if (t.t === 'mark') {
+      const small = preview.warnings.find((w) => w.includes('px across'));
+      if (small) return small;
+    }
     if (t.t === 'product') {
       // Demo products live in their own list, so a chip naming one resolved to
       // nothing here and silently skipped the check — exactly the products the

@@ -56,7 +56,20 @@ export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
     }
   };
 
-  const upload = (files: File[]) => void run('Could not upload that mark', () => uploadLogo(brand.id, files[0]));
+  const upload = (files: File[]) =>
+    void run('Could not upload that mark', async () => {
+      const row = await uploadLogo(brand.id, files[0]);
+      // The route answers with the stored long edge; under the warn edge the
+      // mark rides, but its fine lettering will not survive generation.
+      const edge = (row as { logoEdge?: number | null }).logoEdge;
+      if (edge && edge < 512)
+        push({
+          kind: 'success',
+          title: 'Logo added, but it is small',
+          detail: `Only ${edge}px across. Fine lettering may not survive generation. Export it larger, or as SVG.`,
+        });
+      return row;
+    });
   const { dropProps } = useFileDrop({
     onFiles: upload,
     onReject: () => push({ kind: 'error', title: 'That is not an image', detail: 'Drop a PNG, SVG or JPG.' }),
@@ -224,12 +237,29 @@ function MarkWell({
   busy: boolean;
   onUpload: (files: File[]) => void;
 }) {
+  // The stored file's own size, read off the rendered img: under the warn
+  // edge, fine lettering is subpixel before any provider sees it, and this is
+  // the one place a legacy small mark can say so without a new API.
+  const [smallEdge, setSmallEdge] = useState<number | null>(null);
   if (mark) {
     const src = mark.hash ? imgUrl(mark.hash) : mark.file;
     return (
-      <span className="sc-well" data-bg={mark.background}>
-        <img src={src} alt={`${name} logo`} />
-      </span>
+      <>
+        <span className="sc-well" data-bg={mark.background}>
+          <img
+            src={src}
+            alt={`${name} logo`}
+            onLoad={(e) => {
+              const el = e.currentTarget;
+              const edge = Math.max(el.naturalWidth, el.naturalHeight);
+              setSmallEdge(edge > 0 && edge < 512 ? edge : null);
+            }}
+          />
+        </span>
+        {smallEdge !== null && (
+          <small className="sc-mark-small">Only {smallEdge}px across. Fine lettering may not survive generation.</small>
+        )}
+      </>
     );
   }
   return (

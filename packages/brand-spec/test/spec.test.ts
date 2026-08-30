@@ -198,6 +198,31 @@ describe('buildFromUrl', () => {
     expect(validateBrand(brand).valid).toBe(true);
   });
 
+  // "Primary" is what the compiler promises to reproduce exactly as drawn,
+  // and 32px of favicon cannot say what to reproduce. Real onboardings used
+  // to crown one anyway, which is where broken scraped logos began.
+  it('a favicon-sized icon is saved as an alternate, with the size named', async () => {
+    const { brand, warnings } = await buildFromUrl('https://acme.coffee/', {
+      fetchImpl,
+      saveAsset: async () => 'asset:beefbeef',
+      probeLongEdge: async () => 32,
+    });
+    const b = brand as any;
+    expect(b.logos[0]).toEqual({ role: 'alternate', file: 'asset:beefbeef' });
+    expect(warnings.join(' ')).toContain('favicon-sized (32px)');
+    expect(validateBrand(brand).valid).toBe(true);
+  });
+
+  it('a real-sized icon keeps its primary crown under the same probe', async () => {
+    const { brand, warnings } = await buildFromUrl('https://acme.coffee/', {
+      fetchImpl,
+      saveAsset: async () => 'asset:beefbeef',
+      probeLongEdge: async () => 1024,
+    });
+    expect((brand as any).logos[0].role).toBe('primary');
+    expect(warnings).toEqual([]);
+  });
+
   it('degrades gracefully: no colors, no logo saver', async () => {
     const bare = (async () =>
       new Response('<html><head><title>Plain</title></head><body></body></html>', {
