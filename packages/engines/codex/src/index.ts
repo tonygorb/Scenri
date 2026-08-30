@@ -15,6 +15,7 @@ import { copyFile, readdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
+  BUDGET_EXHAUSTED,
   budgetSize,
   EDIT_REFERENCE_ROLE_DIRECTIVE,
   REFERENCE_ROLE_DIRECTIVE,
@@ -123,7 +124,11 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   }
 
   /** Read out-*.png from dir (numerically sorted), save each, return hashes. */
-  async function collectImages(dir: string, before: Set<string> | null = null): Promise<string[]> {
+  async function collectImages(
+    dir: string,
+    before: Set<string> | null = null,
+    claimed?: Set<string>,
+  ): Promise<string[]> {
     const entries = await readdir(dir);
     const outFiles = entries
       .filter((name) => /^out-.*\.png$/.test(name))
@@ -141,7 +146,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // accepted for a single-user local app over forking CODEX_HOME per job,
       // which would break auth.
       if (before) {
-        const recovered = await recoverFromGenerated(before);
+        const recovered = await recoverFromGenerated(before, claimed);
         if (recovered) return [recovered];
       }
       throw new Error('Codex finished but produced no images');
@@ -158,11 +163,17 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     return hashes;
   }
 
-  async function recoverFromGenerated(before: Set<string>): Promise<string | null> {
+  async function recoverFromGenerated(before: Set<string>, claimed?: Set<string>): Promise<string | null> {
     const home = generatedImagesDir();
     let names: string[];
     try {
-      names = (await readdir(home)).filter((n) => !before.has(n));
+      // `claimed` is this run's own ledger. The takes of one batch run
+      // concurrently against a single shared generated_images, and each takes
+      // its `before` snapshot at its own moment, so an early take's snapshot
+      // does not know about a later take's file. Without the ledger two takes
+      // recovering at once could pick the SAME picture and the run would ship
+      // a duplicate as if it were a second variation.
+      names = (await readdir(home)).filter((n) => !before.has(n) && !claimed?.has(n));
     } catch {
       return null;
     }
@@ -170,6 +181,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     const stamped = await Promise.all(names.map(async (n) => ({ n, mtime: (await stat(join(home, n))).mtimeMs })));
     stamped.sort((a, b) => b.mtime - a.mtime);
     const pick = stamped[0].n;
+    claimed?.add(pick);
     console.warn(`codex: workdir empty, recovered ${pick} from ${home}`);
     return saveImage(await readFile(join(home, pick)));
   }
@@ -220,6 +232,11 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
          * buy nothing. Same cap as brand marks (MARK_MAX_EDGE).
          */
         maxReferenceEdge: 2048,
+        // One exec per image at CODEX_POOL at a time, each carrying its own
+        // full timer. The server turns these two numbers into the node bound,
+        // which is the same arithmetic codexNodeBudgetMs states above.
+        perImageTimeoutMs: DEFAULT_TIMEOUT_MS,
+        imageConcurrency: CODEX_POOL,
       };
     },
 
@@ -244,8 +261,12 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // signed out, binary gone) stops the batch at once instead of letting
       // every remaining variant run the same doomed five minutes.
       const inner = new AbortController();
-      const onOuterAbort = () => inner.abort();
-      if (signal?.aborted) inner.abort();
+      /** win32 only: which recovered files this run's takes have already taken. */
+      const claimed = new Set<string>();
+      // The reason travels with the abort: a budget abort and a cancel look the
+      // same to a signal that was re-raised without one.
+      const onOuterAbort = () => inner.abort(signal?.reason);
+      if (signal?.aborted) inner.abort(signal.reason);
       else signal?.addEventListener('abort', onOuterAbort, { once: true });
       const jobs = Array.from(
         { length: count },
@@ -272,7 +293,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
               stdin: buildPrompt(req, i, roles),
               label: `gen v${i + 1}/${count} refs=${refs.length} refKB=${Math.round(refBytes / 1024)}`,
             });
-            return collectImages(dir, before);
+            return collectImages(dir, before, claimed);
           }),
       );
       const results: string[][] = new Array(count);
@@ -289,7 +310,14 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
               // One variant failing used to reject the batch, so three finished
               // images were thrown away and left orphaned in the content store.
               // A cancel still has to propagate: the user asked for the stop.
-              if (signal?.aborted) throw err;
+              //
+              // A budget abort is not a cancel. The server's node watchdog fires
+              // on the run taking too long, which is the caller giving up on the
+              // REST of the batch — and taking this branch for it threw away the
+              // images that had already landed, so a slow fourth variant cost
+              // the user the three good ones. Those survive now; the run
+              // completes as a partial, which is what the machinery below is for.
+              if (signal?.aborted && signal.reason !== BUDGET_EXHAUSTED) throw err;
               results[i] = [];
               failures.push(err);
               if (fatal == null && isFatalSetupError(err)) {
@@ -413,6 +441,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
   }
 
   function buildPrompt(req: GenerateRequest, index: number, roles: ReferenceRole[]): string {
+    const variation = req.variations?.[index] ?? '';
     const roleDirective = REFERENCE_ROLE_DIRECTIVE;
     // Filenames carry the binding, never ordinals: codex's image tool selects
     // pictures from conversation history in an order this adapter does not
@@ -422,7 +451,6 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
     // carried since the character-1.png fix.
     const names = refFileNames(roles, roles.length);
     const refDirectives = roles.map((role, i) => `${names[i]} shows ${roleDirective[role]}.`).join(' ');
-    const count = Math.max(1, req.count);
     const native = codexNativeSize(req.width, req.height);
     return (
       // "professional-grade", not "flawless": the audit of the waxy-presenter
@@ -442,15 +470,19 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       ` Do not browse the web or explore files. Save the tool's output in the current directory as out-1.png, ` +
       `byte-for-byte unchanged: you may run the commands needed to copy or move the file, but never resize, ` +
       `scale, stretch, pad, crop or re-encode it — deliver the tool's own pixels at the tool's own size. Nothing else.` +
-      // Every take in a batch gets the SAME-shaped clause. Take 1 used to get
-      // nothing - so the first output was literally asked for the most
-      // reference-faithful decode - and later takes were licensed to a
-      // "different composition", which read as permission to drift from the
-      // directives. Reported as: output #1 copies the scene reference, output
-      // #2 mixes identities. A single generation stays byte-stable.
-      (count > 1
-        ? ` (take ${index + 1} of ${count} — same brief, same identities and constraints, a naturally different moment and framing of the same shoot)`
-        : '')
+      // The set clause, built once by the server for the whole run and handed
+      // over index-aligned with the output slots. It carries the photographic
+      // move this frame explores and the locks every frame shares.
+      //
+      // What used to be here was a COUNTER — "take 3 of 4". Every take got the
+      // same-shaped sentence, so this was already the hardened version, and the
+      // drift survived it: a rising take number is not neutral text. In shoot
+      // language it reads as "we have already done that, go further", a licence
+      // to deviate that grows with the output index, which is precisely the
+      // reported shape (output 1 holds the presenter, 2 and 3 and 4 drift). No
+      // frame is described in terms of any other frame now, and no number
+      // reaches the model at all.
+      (variation ? ` ${variation}` : '')
     );
   }
 }
