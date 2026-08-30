@@ -117,10 +117,16 @@ export function presenterRefPath(templatesRoot: string, id: string, slot: string
 }
 
 /**
- * The square head-and-shoulders portrait, for UI surfaces that render a presenter
- * small or square. Deliberately outside PRESENTER_ANGLES: it is a display asset,
- * not part of the identity plan sent to the engine, so `resolvePresenterImages`
- * never picks it up and no brief's output changes because it exists.
+ * The square head-and-shoulders portrait.
+ *
+ * It sits outside PRESENTER_ANGLES because it is not one of the four standing
+ * views, not because it is decoration. It used to be excluded from the
+ * identity plan on the grounds that it is a display asset, and that was a
+ * measured mistake: it is 1024x1024 of head and shoulders, so the face is
+ * around 450px brow to chin, while ref-01 is a 1024x1280 full-length frame
+ * whose face is about 105px. Roughly eighteen times the facial pixels were
+ * shipping with every curated presenter and never leaving the disk, which is
+ * why four outputs of one brief came back with four different jaws.
  */
 export function presenterAvatarPath(templatesRoot: string, id: string): string {
   return contentFile(templatesRoot, 'previews', 'presenters', id, 'avatar.jpg');
@@ -131,6 +137,26 @@ export function presenterAvatarPath(templatesRoot: string, id: string): string {
  * hashing each on first use. A read-through cache, not a write to any
  * brand's data — nothing here touches `characters[]`.
  */
+/**
+ * Decoded once per process, keyed by source file.
+ *
+ * Every compile that names a curated presenter used to re-read and re-encode
+ * their reference JPEGs, and the store is content-addressed so the work was
+ * thrown away every time. That is per preview keystroke as well as per
+ * generation, and the portrait made it five files instead of four.
+ */
+const resolvedRefs = new Map<string, string>();
+
+async function refHash(core: Core, path: string): Promise<string> {
+  const hit = resolvedRefs.get(path);
+  // Verified before it is trusted: a hash is only valid for the store that
+  // holds it, and tests build a fresh core per case.
+  if (hit && core.images.has(hit)) return hit;
+  const hash = core.images.save(await sharp(readFileSync(path)).png().toBuffer());
+  resolvedRefs.set(path, hash);
+  return hash;
+}
+
 export async function resolvePresenterImages(
   core: Core,
   templatesRoot: string,
@@ -141,15 +167,21 @@ export async function resolvePresenterImages(
   identityNotes?: string;
   negativeConstraints?: string[];
   skin?: string;
+  facial?: string;
+  build?: string;
   shots: { file: string; angle: string; locked: boolean }[];
 } | null> {
   const shots: { file: string; angle: string; locked: boolean }[] = [];
+  // The portrait leads, because that is the order a brief attaches: shots[0]
+  // is the essential character reference, and a face is what an identity is.
+  // The standing views still ride behind it and still carry build, proportion
+  // and the capture wardrobe the release clause names.
+  const avatar = presenterAvatarPath(templatesRoot, presenter.id);
+  if (existsSync(avatar)) shots.push({ file: `asset:${await refHash(core, avatar)}`, angle: 'portrait', locked: true });
   for (const [slot, angle] of PRESENTER_ANGLES) {
     const path = presenterRefPath(templatesRoot, presenter.id, slot);
     if (!existsSync(path)) continue;
-    const png = await sharp(readFileSync(path)).png().toBuffer();
-    const hash = core.images.save(png);
-    shots.push({ file: `asset:${hash}`, angle, locked: true });
+    shots.push({ file: `asset:${await refHash(core, path)}`, angle, locked: true });
   }
   if (!shots.length) return null;
   // The casting sheet travels with the photos. These used to be dropped here,
@@ -158,17 +190,29 @@ export async function resolvePresenterImages(
   // `skin` rides too: it is rendering behavior the reference pixels cannot
   // enforce at generation time ("faint natural lines, minimal retouch"), and
   // dropping it here is part of why presenters came back airbrushed.
-  // Deliberately NOT forwarded: `facial`, `hair` and `build` (geometry the
-  // four reference photographs already lock), wardrobeDefault (the capture
-  // uniform is not a wardrobe instruction) and promptName (a curated
-  // presenter is named by `name`, which is why renaming one is a generation
-  // change).
+  //
+  // `facial` and `build` ride now as well. They were held back on the stated
+  // grounds that they are "geometry the four reference photographs already
+  // lock", and that turned out to be false: the four photographs are
+  // full-length by construction, so the face is about 105px brow to chin,
+  // and nothing in them pins a jaw. Measured 2026-08-30 against the reported
+  // failure of four outputs of one brief coming back with four different
+  // jaws. All 21 curated presenters carry a facial descriptor and none of it
+  // was reaching the model.
+  //
+  // Still deliberately NOT forwarded: `hair` (a direction legitimately
+  // restyles it, and identityNotes already asserts what must survive),
+  // wardrobeDefault (the capture uniform is not a wardrobe instruction) and
+  // promptName (a curated presenter is named by `name`, which is why renaming
+  // one is a generation change).
   return {
     id: presenter.id,
     name: presenter.name,
     ...(presenter.identityNotes ? { identityNotes: presenter.identityNotes } : {}),
     ...(presenter.negativeConstraints?.length ? { negativeConstraints: presenter.negativeConstraints } : {}),
     ...(presenter.skin ? { skin: presenter.skin } : {}),
+    ...(presenter.facial ? { facial: presenter.facial } : {}),
+    ...(presenter.build ? { build: presenter.build } : {}),
     shots,
   };
 }

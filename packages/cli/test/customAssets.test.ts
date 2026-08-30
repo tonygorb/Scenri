@@ -207,31 +207,43 @@ describe('custom presenters and scenes', () => {
     expect(person.identityNotes).toContain('wide-set eyes');
     // Filed under a tab that already exists, so they are reachable from it.
     expect(person.suitableCategories).toEqual(['Beauty']);
-    // The four normalized views are what a brief attaches.
-    expect(person.shots).toHaveLength(4);
+    // The five normalized views are what a brief attaches, and the portrait
+    // leads: shots[0] is the essential character reference, and every other
+    // view is full-length, which carries build and proportion and about 105px
+    // of face. Four outputs of one brief came back with four different jaws.
+    expect(person.shots).toHaveLength(5);
     expect(person.shots.every((s: any) => s.locked)).toBe(true);
     // The photographs are the evidence and are never replaced by a drawing.
     expect(person.sourceRefs.map((r: any) => r.file)).toEqual(photos.map((h) => `asset:${h}`));
-    // Both thumbnails are crops of the first view, never pictures of their own,
-    // so neither can show a different person than the references do.
+    // Both thumbnails are crops of the full-length FRONT view, never pictures
+    // of their own, so neither can show a different person than the references
+    // do. Not shots[0] any more: that seat belongs to the portrait, and the
+    // crops are geometric off a standing figure.
     expect(person.preview).toMatch(/^asset:[a-f0-9]{32}$/);
-    expect(person.preview).not.toBe(person.shots[0].file);
+    expect(person.preview).not.toBe(person.shots[1].file);
     expect(person.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
     expect(person.avatar).not.toBe(person.preview);
 
-    // The front view is drawn from the photographs; every other view chains off it.
-    expect(generated).toHaveLength(4);
-    expect(generated[0].referenceImages).toHaveLength(2);
-    expect(generated[0].referenceRoles).toEqual(['character', 'character']);
-    expect(generated[0].prompt).toContain('facing the camera straight-on');
-    expect(generated[0].prompt).toContain('a woman in her early thirties with dark waves');
+    // The portrait and the front view are both drawn from the photographs -
+    // the only real face evidence in the system - and every other view chains
+    // off the front.
+    expect(generated).toHaveLength(5);
+    expect(generated[0].prompt).toContain('head-and-shoulders portrait framing');
+    expect(generated[0].prompt).toContain('down to the collarbone');
+    expect(generated[1].referenceImages).toHaveLength(2);
+    expect(generated[1].referenceRoles).toEqual(['character', 'character']);
+    expect(generated[1].prompt).toContain('facing the camera straight-on');
+    expect(generated[1].prompt).toContain('a woman in her early thirties with dark waves');
     // The capture uniform is a contract: the compiler's wardrobe-release
     // directive names it as neutral capture clothing, so the front frame must
     // keep drawing exactly this outfit — a drift here would quietly desync
     // what the release clause is releasing.
-    expect(generated[0].prompt).toContain('off-white ribbed tank');
-    for (const later of generated.slice(1)) expect(later.referenceImages).toHaveLength(1);
-    expect(generated[3].prompt).toContain('back view');
+    expect(generated[1].prompt).toContain('off-white ribbed tank');
+    // Both source-drawn frames read the photographs; only the chained ones
+    // stand on a single anchor.
+    expect(generated[0].referenceImages).toHaveLength(2);
+    for (const later of generated.slice(2)) expect(later.referenceImages).toHaveLength(1);
+    expect(generated[4].prompt).toContain('back view');
     expect(analyzed[0].kind).toBe('presenter');
     expect(analyzed[0].imagePaths).toHaveLength(2);
   });
@@ -370,7 +382,7 @@ describe('custom presenters and scenes', () => {
     expect(person.name).toBe('Mara Vance');
     expect(person.descriptor).toBe('Quiet, editorial');
     expect(person.promptName).toBe('a woman in her early thirties with dark waves'); // frozen
-    expect(person.shots).toHaveLength(4); // untouched by a field edit
+    expect(person.shots).toHaveLength(5); // untouched by a field edit
 
     const legacy = await app.inject({
       method: 'PATCH',

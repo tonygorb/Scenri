@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -61,6 +61,7 @@ describe('presenter loader', () => {
 
 describe('presenter catalog + direct-attach API', () => {
   let templatesDir: string;
+  let refDir: string;
   let home: string;
   let core: Core;
   let app: FastifyInstance;
@@ -85,15 +86,19 @@ describe('presenter catalog + direct-attach API', () => {
     mkdirSync(join(templatesDir, 'presenters'), { recursive: true });
     writeFileSync(join(templatesDir, 'presenters', 'sana.json'), JSON.stringify({ ...base, id: 'sana', name: 'Sana' }));
 
-    const refDir = join(templatesDir, 'previews', 'presenters', 'sana');
+    refDir = join(templatesDir, 'previews', 'presenters', 'sana');
     mkdirSync(refDir, { recursive: true });
-    const jpg = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#334455' } })
-      .jpeg()
-      .toBuffer();
-    writeFileSync(join(refDir, 'ref-01.jpg'), jpg);
-    writeFileSync(join(refDir, 'ref-02.jpg'), jpg);
-    writeFileSync(join(refDir, 'avatar.jpg'), jpg);
-    writeFileSync(join(templatesDir, 'previews', 'presenters', 'sana.jpg'), jpg);
+    // Distinct bytes per file. The store is content-addressed, so identical
+    // fixtures collapse to one hash and any assertion about WHICH view rides,
+    // or in what order, would pass on a single picture.
+    const jpg = async (tint: string) =>
+      sharp({ create: { width: 4, height: 4, channels: 3, background: tint } })
+        .jpeg()
+        .toBuffer();
+    writeFileSync(join(refDir, 'ref-01.jpg'), await jpg('#334455'));
+    writeFileSync(join(refDir, 'ref-02.jpg'), await jpg('#445566'));
+    writeFileSync(join(refDir, 'avatar.jpg'), await jpg('#556677'));
+    writeFileSync(join(templatesDir, 'previews', 'presenters', 'sana.jpg'), await jpg('#667788'));
 
     home = mkdtempSync(join(tmpdir(), 'sc-presenter-home-'));
     core = createCore(home);
@@ -187,7 +192,26 @@ describe('presenter catalog + direct-attach API', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.prompt).toContain('Sana');
-    expect(body.referenceCount).toBeGreaterThan(0);
+    /*
+     * The portrait leads the identity plan.
+     *
+     * avatar.jpg is 1024x1024 of head and shoulders, so the face is around
+     * 450px brow to chin; ref-01 is a 1024x1280 full-length frame whose face
+     * is about 105px. It used to be excluded from generation as "a display
+     * asset", which meant roughly eighteen times the facial pixels shipped
+     * with every curated presenter and never left the disk. Four outputs of
+     * one brief came back with four different jaws.
+     */
+    // This engine carries two references, so this also pins what survives a
+    // tight budget: the face, then the standing view.
+    expect(body.attachments.map((a: { role: string }) => a.role)).toEqual(['character', 'character']);
+    expect(body.attachments[0].essential).toBe(true);
+    const avatarHash = core.images.save(
+      await sharp(readFileSync(join(refDir, 'avatar.jpg')))
+        .png()
+        .toBuffer(),
+    );
+    expect(body.attachments[0].hash).toBe(avatarHash);
     // The casting sheet travels: a curated presenter's identityNotes and
     // negativeConstraints reach the prompt exactly as a roster character's do.
     // They used to be dropped by resolvePresenterImages, so a curated
@@ -197,6 +221,15 @@ describe('presenter catalog + direct-attach API', () => {
     // The record's own skin truth rides too - it was dropped here, which is
     // half of the airbrushed-presenter report.
     expect(body.prompt).toContain("Sana's skin, exactly as the reference photographs show it: s.");
+    // And the face. `facial` and `build` were held back on the grounds that
+    // they are geometry the four reference photographs already lock; the
+    // photographs are full-length, so the face lands at about 105px and locks
+    // nothing. Four outputs of one brief came back with four different jaws.
+    expect(body.prompt).toContain("Sana's face, which must survive every generation unchanged: f.");
+    expect(body.prompt).toContain("Sana's build: b.");
+    // `hair` still does not ride: a direction legitimately restyles it, and
+    // identityNotes already asserts whatever must survive.
+    expect(body.prompt).not.toContain("Sana's hair");
 
     // resolving the presenter is a read-through cache, not a roster write —
     // the brand's own characters[] stays exactly as it started

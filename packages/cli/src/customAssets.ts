@@ -264,6 +264,27 @@ const STUDIO_FRAMES: {
   from: 'sources' | 'front' | 'left-profile';
   subject: (who: string) => string;
 }[] = [
+  /*
+   * The identity frame, and it comes first because that is the order a brief
+   * attaches: `shots[0]` is the essential character reference.
+   *
+   * Every other frame here is full-length head-to-toe, which is right for
+   * build, proportion and wardrobe and useless for a face — in a 1024x1280
+   * full-length frame the face is about 105px brow to chin, while a portrait
+   * output renders it at four times that. Measured 2026-08-30 against the
+   * reported failure: four outputs of one brief, four different jaws, and
+   * drift that tracked nothing but how big the face was in the output.
+   *
+   * Drawn `from: 'sources'` rather than chained off the front view, because
+   * the user's own photographs are the only real face evidence in the system
+   * and a chain would just enlarge the same 105px.
+   */
+  {
+    angle: 'portrait',
+    from: 'sources',
+    subject: (who) =>
+      `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`,
+  },
   {
     angle: 'front',
     from: 'sources',
@@ -349,12 +370,15 @@ async function runPresenterBuild(
   // Without an engine the photographs are the presenter: fewer views than a
   // curated one has, but a working person rather than a blocked flow.
   let shotHashes = hashes;
+  let shotAngles: string[] = [];
   const warnings: string[] = [];
   if (deps.engine) {
     patch(job, { stage: 'building', steps: STUDIO_FRAMES.length, message: 'Building the studio views' });
     const built = await generateStudioSet(deps, job, whoIs(job.name, draft), sourcePaths, signal);
-    if (built.length) shotHashes = built;
-    else warnings.push('The studio views could not be drawn, so the photos are being used directly.');
+    if (built.hashes.length) {
+      shotHashes = built.hashes;
+      shotAngles = built.angles;
+    } else warnings.push('The studio views could not be drawn, so the photos are being used directly.');
   } else {
     warnings.push('No engine could draw the studio views, so the photos are being used directly.');
   }
@@ -366,10 +390,18 @@ async function runPresenterBuild(
   // photographed — a waist-up selfie, a landscape — and top-16% is a square
   // of forehead or ceiling. Saliency picks the subject instead.
   const generated = shotHashes !== hashes;
-  const { previewHash, avatarHash } = await presenterCrops(core, shotHashes[0], generated ? 'generated' : 'upload');
+  // The card crops are geometric and measured from a STANDING FIGURE, so they
+  // come off the full-length front view by name. They used to read shots[0],
+  // which was the same picture until the portrait frame took that seat: fed a
+  // head-and-shoulders frame, `figureBox` would have found a head where it
+  // expected a body and cropped an avatar out of a forehead.
+  const frontIndex = shotAngles.indexOf('front');
+  const cardSource = frontIndex === -1 ? shotHashes[0] : shotHashes[frontIndex];
+  const { previewHash, avatarHash } = await presenterCrops(core, cardSource, generated ? 'generated' : 'upload');
   const built = presenterRecordFrom({
     name: job.name,
     shotHashes,
+    shotAngles,
     sourceHashes: hashes,
     previewHash,
     avatarHash,
@@ -392,7 +424,7 @@ async function runPresenterBuild(
     stage: 'done',
     step: job.steps,
     assetId: built.presenter.id,
-    previewHash: previewHash ?? shotHashes[0] ?? null,
+    previewHash: previewHash ?? cardSource ?? null,
     warnings: [...job.warnings, ...warnings],
     finished: true,
   });
@@ -410,11 +442,11 @@ async function generateStudioSet(
   who: string,
   sourcePaths: string[],
   signal: AbortSignal,
-): Promise<string[]> {
+): Promise<{ hashes: string[]; angles: string[] }> {
   const engine = deps.engine;
-  if (!engine) return [];
+  if (!engine) return { hashes: [], angles: [] };
   const caps = engine.capabilities();
-  if (!caps.maxReferenceImages) return [];
+  if (!caps.maxReferenceImages) return { hashes: [], angles: [] };
   const byAngle = new Map<string, string>();
 
   for (const frame of STUDIO_FRAMES) {
@@ -445,11 +477,14 @@ async function generateStudioSet(
     } catch (err: any) {
       if (signal.aborted) throw err;
       // The front view is the anchor; without it there is nothing to chain from.
+      // The portrait anchors nothing, so losing it costs face conditioning and
+      // not the build.
       if (frame.angle === 'front') throw err;
       patch(job, { warnings: [...job.warnings, `The ${frame.angle} view could not be drawn.`] });
     }
   }
-  return STUDIO_FRAMES.map((f) => byAngle.get(f.angle)).filter((h): h is string => !!h);
+  const kept = STUDIO_FRAMES.filter((f) => byAngle.get(f.angle));
+  return { hashes: kept.map((f) => byAngle.get(f.angle) as string), angles: kept.map((f) => f.angle) };
 }
 
 /**
@@ -621,6 +656,169 @@ async function avatarCrop(core: Core, hash: string | undefined): Promise<string 
     },
     AVATAR_MAX_PX,
   );
+}
+
+/**
+ * The identity crop's framing, in figure proportions.
+ *
+ * Same measurement as the avatar above, opened up: the avatar is a 0.22 square
+ * because a circle gets cut out of it, and a reference has no circle. This is
+ * 0.32 of figure height at 4:5 — head, shoulders and upper chest — which is
+ * the framing the curated roster's own portraits use.
+ */
+const IDENTITY_FIGURE_FRACTION = 0.26;
+const IDENTITY_HEADROOM = 0.08;
+const IDENTITY_ASPECT = 0.66;
+/**
+ * Measured on the first render battery: at 0.32 of figure height and 4:5, the
+ * crop was 48% white studio sweep, and that sweep walked into the finished
+ * pictures — a scene whose backdrop sat at a steady taupe across twelve
+ * control frames came back near-white in one output of every four, and lighter
+ * in the rest. The reference is the leading, essential character image, so its
+ * background is not neutral evidence however clearly the role directive says
+ * capture context is not styling.
+ *
+ * 0.26 at 2:3 is 39% sweep and roughly triples the face's share of the
+ * picture. Both numbers move the right way at once, which is the only reason
+ * to prefer it: less backdrop to copy, more face to read.
+ */
+/**
+ * The height the crop is stored at, and the ceiling on how far it is inflated
+ * to get there. There is no new detail in an upscale — what the crop buys is
+ * the face arriving at reference SCALE rather than as a detail of a figure —
+ * so past about 3x the only thing added is blur, and a blurred face is a worse
+ * reference than a small sharp one.
+ */
+const IDENTITY_TARGET_HEIGHT = 1280;
+const IDENTITY_MAX_UPSCALE = 3;
+/**
+ * How much taller than wide a figure box has to be before it counts as a
+ * standing full-length figure rather than a portrait already. Measured: a
+ * curated standing frame is 1176 by 312, so 3.8; a head-and-shoulders crop
+ * lands near 1. Anything between is ambiguous and is left alone.
+ */
+const STANDING_FIGURE_RATIO = 2.2;
+
+/**
+ * A head-and-shoulders crop of a presenter's front frame, for conditioning.
+ *
+ * Why this exists at all, measured 2026-08-30 against the reported failure
+ * (four outputs of one Generate 4, four different jaws):
+ *
+ * Every presenter reference frame is full-length head-to-toe — that is what
+ * STUDIO_FRAMES asks for, and the curated roster is shot the same way. In a
+ * 1024x1280 full-length frame the face is about 105px brow to chin, and only
+ * one of the attached angles is frontal. A tight portrait renders that face at
+ * around 450px. So the payload fixes the person's type, colouring, hair and
+ * build, and says almost nothing about bone structure — and every take then
+ * reconstructs the jaw, chin and brow from the prior and lands somewhere
+ * else. Drift tracked face size in the output across six batches: full-body
+ * runs were consistent, tight portraits were four different people of one
+ * casting type.
+ *
+ * The crop does not add detail that was never captured. It puts the face in
+ * the conditioning at a scale the model reads as the subject.
+ */
+export async function identityCrop(core: Core, hash: string | undefined): Promise<string | undefined> {
+  if (!hash || !core.images.has(hash)) return undefined;
+  // Verified before it is trusted. The memo is keyed by SOURCE hash, but the
+  // value it holds is a hash in one store; handing it to a different store
+  // yields a reference the compiler then silently drops on its `has` check,
+  // which is a presenter arriving with no face and no error anywhere.
+  const hit = identityCrops.get(hash);
+  if (hit && core.images.has(hit)) return hit;
+  let box: Awaited<ReturnType<typeof figureBox>> = null;
+  try {
+    box = await figureBox(core.images.read(hash));
+  } catch {
+    box = null;
+  }
+  // No readable figure means no trustworthy place to put the box. A wrong
+  // crop is worse than none: it would attach a chest or a backdrop as the
+  // identity reference. Fall back to the full frame, which is today's
+  // behaviour.
+  if (!box) return undefined;
+  // And only ever crop a STANDING FIGURE. This whole geometry is measured in
+  // figure heights off a full-length frame; run it on a picture that is
+  // already a head-and-shoulders portrait and it carves a forehead out of a
+  // face. A standing figure is far taller than it is wide (a real curated
+  // frame measures 1176 by 312, so 3.8); a portrait's box is near square.
+  if (box.height / Math.max(1, box.width) < STANDING_FIGURE_RATIO) return undefined;
+  let nativeHeight = 0;
+  const out = await crop(core, hash, (w, h) => {
+    const height = Math.min(h, Math.max(16, Math.round(box.height * IDENTITY_FIGURE_FRACTION)));
+    const width = Math.min(w, Math.max(16, Math.round(height * IDENTITY_ASPECT)));
+    nativeHeight = height;
+    const top = Math.min(Math.max(0, Math.round(box.top - height * IDENTITY_HEADROOM)), h - height);
+    const left = Math.min(Math.max(0, Math.round(box.left + box.width / 2 - width / 2)), w - width);
+    return { left, top, width, height };
+  });
+  if (!out) return undefined;
+  // Up to reference scale, then stored under its own hash.
+  try {
+    const height =
+      Math.min(IDENTITY_TARGET_HEIGHT, Math.round(nativeHeight * IDENTITY_MAX_UPSCALE)) || IDENTITY_TARGET_HEIGHT;
+    const png = await sharp(core.images.read(out))
+      .resize({ height, fit: 'inside', kernel: 'lanczos3', withoutEnlargement: false })
+      .png()
+      .toBuffer();
+    const scaled = core.images.save(png);
+    identityCrops.set(hash, scaled);
+    return scaled;
+  } catch {
+    // The crop itself is still an improvement on the full-length frame.
+    identityCrops.set(hash, out);
+    return out;
+  }
+}
+
+/**
+ * Derived once per source image, for the life of the process. Only successes
+ * are remembered: memoising a failure pins the degraded answer forever, which
+ * is the bug capReferenceEdge carried.
+ */
+const identityCrops = new Map<string, string>();
+
+/**
+ * The brand json a brief compiles against, with every referenced presenter
+ * led by a head-and-shoulders crop of their own front frame.
+ *
+ * Runs BEFORE compileBrief, never inside it: the compiler is deterministic and
+ * synchronous by contract, and this needs sharp. The crop is prepended rather
+ * than appended, so it takes the `essential` slot the front angle used to hold
+ * and the third full-length angle falls off the end of CHARACTER_REF_MAX. The
+ * reference COUNT is unchanged, which keeps the engine budget and every
+ * eviction rule exactly where they were.
+ */
+export async function brandJsonWithIdentityCrops(core: Core, json: any, characterIds: string[]): Promise<any> {
+  const wanted = new Set(characterIds);
+  const roster: any[] = json?.characters ?? [];
+  if (!wanted.size || !roster.length) return json;
+  let changed = false;
+  const characters = await Promise.all(
+    roster.map(async (c) => {
+      if (!wanted.has(c?.id) || !c?.shots?.length) return c;
+      // A presenter who already leads with a real portrait needs nothing from
+      // here. The curated roster ships one (avatar.jpg, 1024x1024) and every
+      // presenter built since the studio set grew one draws its own; the
+      // derived crop below stands in only for the casts that predate both.
+      //
+      // The portrait is attached exactly as shipped, sweep and all. A trim
+      // that boxed it tighter was built and measured (3 batches either way):
+      // identity held 12/12 both times, and the occasional light-backdrop
+      // frame appeared at the same rate trimmed or not — while the control's
+      // refs were 85% sweep and never leaked once. The leak is not the
+      // sweep's share of the reference; it is the portrait's FRAMING matching
+      // the output's, which no crop changes. So the pixels ship untouched.
+      if (c.shots[0]?.angle === 'portrait') return c;
+      const front = String(c.shots[0]?.file ?? '').replace(/^asset:/, '') || null;
+      const cropped = await identityCrop(core, front ?? undefined);
+      if (!cropped) return c;
+      changed = true;
+      return { ...c, shots: [{ file: `asset:${cropped}`, angle: 'identity', locked: true }, ...c.shots] };
+    }),
+  );
+  return changed ? { ...json, characters } : json;
 }
 
 /**

@@ -218,8 +218,10 @@ export interface PresenterInput {
   identityNotes?: unknown;
   negativeConstraints?: unknown;
   suitableCategories?: unknown;
-  /** Ordered: the first two are the views a brief attaches. */
+  /** Ordered: the leading views are the ones a brief attaches. */
   shotHashes?: unknown;
+  /** Parallel to shotHashes. Lets a stored portrait stay recognisable as one. */
+  shotAngles?: unknown;
   sourceHashes?: unknown;
   previewHash?: unknown;
   avatarHash?: unknown;
@@ -232,11 +234,15 @@ export function presenterRecordFrom(
   const has = (k: keyof PresenterInput) => input[k] !== undefined;
   const name = has('name') ? str(input.name, 60) : (base?.name ?? '');
   if (!name) return { ok: false, error: 'a presenter needs a name' };
+  // Angles ride with the files when the caller knows them. Without this the
+  // portrait frame is indistinguishable from a standing view once stored, and
+  // the identity crop would happily carve a forehead out of it.
+  const angles = has('shotAngles') ? strList(input.shotAngles, 8, 32) : [];
   const shots = has('shotHashes')
     ? strList(input.shotHashes, 8, 64)
         .map((h) => assetRef(h))
         .filter((f): f is string => !!f)
-        .map((file) => ({ file, locked: true }))
+        .map((file, i) => (angles[i] ? { file, angle: angles[i], locked: true } : { file, locked: true }))
     : (base?.shots ?? []);
   if (!shots.length) return { ok: false, error: 'a presenter needs at least one photo' };
   const sources = has('sourceHashes')

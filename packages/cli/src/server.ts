@@ -27,7 +27,7 @@ import type { stageVersion } from './update/stage.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
 import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
-import { brandSceneById, runningAssetBuildCount, type Analyzer } from './customAssets.js';
+import { brandJsonWithIdentityCrops, brandSceneById, runningAssetBuildCount, type Analyzer } from './customAssets.js';
 import type { CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { identityTokenKey, inheritedIdentityTokens } from './editIdentity.js';
@@ -555,18 +555,26 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // product or curated presenter must be in the token list the brand json
     // is built against, or it compiles to "no longer in the kit".
     const combined = [...(brief.tokens as BriefToken[]), ...inheritedTokens];
-    const brandJson = await brandJsonWithResolvedPresenters(
+    // A refinement conditions on the same faces a generation does. The
+    // identity chain is the one place fidelity compounds -- five consecutive
+    // re-renders of the same person -- so this is the last place that should
+    // be handed the weaker payload.
+    const brandJson = await brandJsonWithIdentityCrops(
       core,
-      templatesRoot,
-      presenters,
-      await brandJsonWithResolvedDemoProducts(
+      await brandJsonWithResolvedPresenters(
         core,
         templatesRoot,
-        demoProducts,
-        brandJsonWithCatalogProducts(core, brandId),
+        presenters,
+        await brandJsonWithResolvedDemoProducts(
+          core,
+          templatesRoot,
+          demoProducts,
+          brandJsonWithCatalogProducts(core, brandId),
+          combined,
+        ),
         combined,
       ),
-      combined,
+      combined.filter((t): t is Extract<BriefToken, { t: 'character' }> => t.t === 'character').map((t) => t.id),
     );
     const sceneById = sceneFor(brandJson);
     const uncapped = { ...engineCaps, maxReferenceImages: 32 };
@@ -745,18 +753,27 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       };
     }
 
-    const brandJson = await brandJsonWithResolvedPresenters(
+    // Identity crops here too, and for the reason the file header gives: what
+    // the composer previews and what the engine receives can never drift. The
+    // preview is the same compile, so it has to be handed the same roster.
+    const brandJson = await brandJsonWithIdentityCrops(
       core,
-      templatesRoot,
-      presenters,
-      await brandJsonWithResolvedDemoProducts(
+      await brandJsonWithResolvedPresenters(
         core,
         templatesRoot,
-        demoProducts,
-        brandJsonWithCatalogProducts(core, brand.id),
+        presenters,
+        await brandJsonWithResolvedDemoProducts(
+          core,
+          templatesRoot,
+          demoProducts,
+          brandJsonWithCatalogProducts(core, brand.id),
+          brief.tokens,
+        ),
         brief.tokens,
       ),
-      brief.tokens,
+      ((brief.tokens as BriefToken[] | undefined) ?? [])
+        .filter((t): t is Extract<BriefToken, { t: 'character' }> => t.t === 'character')
+        .map((t) => t.id),
     );
     const sceneById = sceneFor(brandJson);
     const compiled = compileBrief(brief as Brief, {
@@ -1234,18 +1251,35 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         if (!compiled.prompt.trim() && reshape !== 'extend')
           return reply.status(400).send({ error: 'the brief is empty' });
       } else {
-        const brandJson = await brandJsonWithResolvedPresenters(
+        /*
+         * The last link in the chain, and it must be last: it reads the roster
+         * the presenter and product resolvers have finished assembling, and
+         * leads every referenced presenter with a head-and-shoulders crop of
+         * their own front frame.
+         *
+         * The reference frames are full-length by construction, so the face
+         * arrives at roughly 105px while a tight portrait renders it at 450.
+         * That is why four outputs of one brief came back with four different
+         * jaws. See identityCrop for the measurement.
+         */
+        const brandJson = await brandJsonWithIdentityCrops(
           core,
-          templatesRoot,
-          presenters,
-          await brandJsonWithResolvedDemoProducts(
+          await brandJsonWithResolvedPresenters(
             core,
             templatesRoot,
-            demoProducts,
-            brandJsonWithCatalogProducts(core, project.brandId),
+            presenters,
+            await brandJsonWithResolvedDemoProducts(
+              core,
+              templatesRoot,
+              demoProducts,
+              brandJsonWithCatalogProducts(core, project.brandId),
+              brief.tokens,
+            ),
             brief.tokens,
           ),
-          brief.tokens,
+          ((brief.tokens as BriefToken[] | undefined) ?? [])
+            .filter((t): t is Extract<BriefToken, { t: 'character' }> => t.t === 'character')
+            .map((t) => t.id),
         );
         const sceneById = sceneFor(brandJson);
         compiled = compileBrief(brief as Brief, {

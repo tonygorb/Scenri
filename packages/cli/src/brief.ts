@@ -122,6 +122,13 @@ export interface Attachment {
    * The UI shows carried context in its own quieter voice.
    */
   inherited?: boolean;
+  /**
+   * Which catalogued view this picture is (front, portrait, left-profile...),
+   * when its record knows. The golden fixture records it, because role, id and
+   * essential alone cannot see a change of WHICH image leads: every presenter
+   * recipe once swapped its leading reference and the fixture stayed green.
+   */
+  angle?: string;
 }
 
 export interface CompiledBrief {
@@ -323,17 +330,25 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         // (it is the one the recipe cares about), then up to PRODUCT_REF_MAX-1
         // further distinct angles for corroboration.
         const orderedShots = [primary, ...(p.shots ?? []).filter((s: any) => s && s !== primary)];
-        const phashes: string[] = [];
+        const pshots: { h: string; angle?: string }[] = [];
         for (const s of orderedShots) {
-          if (phashes.length >= PRODUCT_REF_MAX) break;
+          if (pshots.length >= PRODUCT_REF_MAX) break;
           const h = assetHash(s?.file);
-          if (h && ctx.images.has(h) && !phashes.includes(h)) phashes.push(h);
+          if (h && ctx.images.has(h) && !pshots.some((x) => x.h === h))
+            pshots.push({ h, ...(s?.angle ? { angle: String(s.angle) } : {}) });
         }
-        if (phashes.length) {
-          phashes.forEach((h, i) => {
-            attachments.push({ role: 'product', id: p.id, label: p.name, hash: h, essential: i === 0 });
+        if (pshots.length) {
+          pshots.forEach(({ h, angle }, i) => {
+            attachments.push({
+              role: 'product',
+              id: p.id,
+              label: p.name,
+              hash: h,
+              essential: i === 0,
+              ...(angle ? { angle } : {}),
+            });
           });
-          productDirectives.push(productFidelityDirective(phashes.length));
+          productDirectives.push(productFidelityDirective(pshots.length));
           // Real-world scale, material and the record's own preservation
           // notes, when the product record knows them. A model given no size
           // cue will happily render a watch the size of a dinner plate in a
@@ -372,13 +387,20 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         // Up to 2 angles per person (front + one more, if available): a face
         // benefits from multiple views for identity lock, unlike a labeled
         // product, which a single well-matched reference fully specifies.
-        const chashes = (c.shots ?? [])
+        const cshots = (c.shots ?? [])
           .slice(0, CHARACTER_REF_MAX)
-          .map((s: any) => assetHash(s?.file))
-          .filter((h: string | null): h is string => !!h && ctx.images.has(h));
-        if (chashes.length) {
-          chashes.forEach((chash: string, i: number) => {
-            attachments.push({ role: 'character', id: c.id, label: c.name, hash: chash, essential: i === 0 });
+          .map((s: any) => ({ h: assetHash(s?.file), angle: s?.angle ? String(s.angle) : undefined }))
+          .filter((x: { h: string | null }): x is { h: string; angle?: string } => !!x.h && ctx.images.has(x.h));
+        if (cshots.length) {
+          cshots.forEach(({ h, angle }: { h: string; angle?: string }, i: number) => {
+            attachments.push({
+              role: 'character',
+              id: c.id,
+              label: c.name,
+              hash: h,
+              essential: i === 0,
+              ...(angle ? { angle } : {}),
+            });
           });
           // Presence first, identity second. Every other directive here is
           // conditional on the person already being rendered ("match their
@@ -421,6 +443,19 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
             personDirectives.push(
               `${c.promptName ?? c.name}'s skin, exactly as the reference photographs show it: ${c.skin}.`,
             );
+          // Bone structure, in words, because the pictures cannot carry it.
+          // The reference frames are full-length, so the face arrives at
+          // roughly 105px brow to chin while a portrait renders it at four
+          // times that: the payload fixes type and colouring and leaves the
+          // jaw, brow and cheekbones to the prior, which is why one brief
+          // returned four different faces of one casting type. Named the same
+          // way skin is, so the dedupe pass can never merge two presenters'
+          // faces into one claim.
+          if (c.facial)
+            personDirectives.push(
+              `${c.promptName ?? c.name}'s face, which must survive every generation unchanged: ${c.facial}.`,
+            );
+          if (c.build) personDirectives.push(`${c.promptName ?? c.name}'s build: ${c.build}.`);
         } else {
           warnings.push(`${c.name} has no usable photo, so they are named but not attached.`);
         }
