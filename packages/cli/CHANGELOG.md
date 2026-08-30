@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.13](https://github.com/tonygorb/Scenri/compare/v0.6.12...v0.6.13) (2026-08-30)
+
+
+### Bug Fixes
+
+* **brief:** the first product image owns colour, and imports state their own words ([26c67d1](https://github.com/tonygorb/Scenri/commit/26c67d15c90f0d8f53c51ee63a533787b08440cd))
+* **brief:** the first product image owns colour, and imports state their own words ([0c201ed](https://github.com/tonygorb/Scenri/commit/0c201ed60ef19b25f58738fcce1af24f6cd0daa6))
+* **composer:** attach your own logo from the Brand tab ([37f511e](https://github.com/tonygorb/Scenri/commit/37f511e06f853c8c13c0a628beaa9fe79eb7b1bc))
+* **composer:** attach your own logo from the Brand tab ([c4c96e4](https://github.com/tonygorb/Scenri/commit/c4c96e4f541c58803db2aa5c6d9fdaee7f0ee8c9))
+* **composer:** the carrying strip counts a product once, and names the world ([2bac1a7](https://github.com/tonygorb/Scenri/commit/2bac1a70658eda582aa35e1305eae4da3e5310c0))
+* **composer:** the carrying strip counts a product once, and names the world ([839d483](https://github.com/tonygorb/Scenri/commit/839d4838a13f42cb1d7c8142738f454e0ca71294))
+* **images:** a brand mark keeps its size, script and smallest lettering ([b6b9ed5](https://github.com/tonygorb/Scenri/commit/b6b9ed57fd7d1511ab843cb19a2e8387be91f61a))
+* **images:** a brand mark keeps its size, script and smallest lettering ([6dfaa6c](https://github.com/tonygorb/Scenri/commit/6dfaa6c3066448ce79b6aaf3ed34c3b2731bdfaa))
+* **server:** a retried brief carries inputs, not run records ([f1e5042](https://github.com/tonygorb/Scenri/commit/f1e50427784b8099ca2562860194f549f4d8c5fc))
+* **server:** a retried brief carries inputs, not run records ([8ba1f50](https://github.com/tonygorb/Scenri/commit/8ba1f50187f5bed34a740018fa20253913b9fe96))
+* **studio:** the shot record reads each ingredient once, and names its world ([d1767e8](https://github.com/tonygorb/Scenri/commit/d1767e855b0c1e395ecbbd5a0603ad9061a50741))
+* **studio:** the shot record reads each ingredient once, and names its world ([57bcd13](https://github.com/tonygorb/Scenri/commit/57bcd1387d6e0240b079526915c49ad3dc8d018a))
+
 ## [0.6.12](https://github.com/tonygorb/Scenri/compare/v0.6.11...v0.6.12) (2026-08-29)
 
 
