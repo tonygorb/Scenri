@@ -36,11 +36,19 @@ export function productFidelityDirective(attached: number): string {
       'product from the view the reference gives.'
     );
   }
+  // No angle claim either: an imported product routinely stores one image per
+  // COLORWAY, and "the same product from different angles" told the model the
+  // colour differences were lighting — measured as a black render of a product
+  // sold in green, blue and purple. The first image is the identity authority
+  // (the curation copy already teaches "use first"), so it owns the colour.
   return (
-    'The attached product images all show the exact same product from different angles: preserve its label, shape ' +
-    'and colors faithfully, do not redesign it, and do not treat the extra angles as additional products. ' +
-    'Any face not visible in them is unknown — keep it plain and consistent with the visible materials, and do not ' +
-    'invent detail on it.'
+    'The attached product images all show the exact product to feature: preserve its label, shape and proportions ' +
+    'faithfully, do not redesign it, and never treat an extra image as an additional product. The first product ' +
+    'image is the authority for its color, finish and material. Where another image differs in color or finish, it ' +
+    'shows the same product in another colorway — never blend colorways, and render the one the first image shows. ' +
+    'Any face not visible in them is unknown — keep it plain and consistent with the materials the first image ' +
+    'shows, and do not invent detail on it. If the direction above explicitly asks for more than one colorway, ' +
+    'that explicit request wins.'
   );
 }
 
@@ -110,6 +118,13 @@ export function productFactDirectives(p: any): string[] {
   const materials = p.materials ?? p.material;
   if (materials) out.push(`Its materials and finish: ${materials}.`);
   if (p.primaryColors) out.push(`Its actual colors: ${p.primaryColors}.`);
+  // An imported product that sells in several colours names them, so the
+  // model knows a colour difference between references is a colorway and not
+  // lighting — and which one this shot renders.
+  if (Array.isArray(p.colorways) && p.colorways.length)
+    out.push(
+      `It is sold in these colorways: ${p.colorways.join(', ')}. The one in this shot is the colorway the first product image shows.`,
+    );
   if (p.dimensions)
     out.push(`Its real-world size is ${p.dimensions} — keep it at true scale relative to everything else in frame.`);
   return out;

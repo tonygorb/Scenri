@@ -372,9 +372,13 @@ describe('golden: responsibility contract', () => {
     expect(r.prompt).not.toContain('from different angles');
   });
 
-  it('a multi-reference product gets the multi-angle directive instead', () => {
+  it('a multi-reference product names the first image as the colour authority', () => {
     const r = compile([{ t: 'product', id: 'p1' }]);
-    expect(r.prompt).toContain('all show the exact same product from different angles');
+    // No angle claim: an imported product routinely stores one image per
+    // colorway, and calling those "different angles" licensed colour blending.
+    expect(r.prompt).not.toContain('from different angles');
+    expect(r.prompt).toContain('The first product image is the authority for its color, finish and material');
+    expect(r.prompt).toContain('never blend colorways');
     expect(r.prompt).not.toContain('the only view of this product that exists');
     // three stored views is not full coverage, so it still guards the unseen face
     expect(r.prompt).toMatch(/Any face not visible in them is unknown/i);
@@ -392,6 +396,23 @@ describe('golden: responsibility contract', () => {
    * the store sold. The branch is gone; a big set is told exactly what a small
    * one is told.
    */
+  it('a product that declares its own words and colorways states both', () => {
+    const b = brand();
+    const p1 = b.products[0] as any;
+    p1.description = 'A cork-backed yoga mat sized for travel';
+    p1.colorways = ['Forest green', 'Sky blue', 'Plum'];
+    // the description is the scale anchor only where dimensions are absent
+    delete p1.dimensions;
+    const r = compileBrief(
+      { tokens: [{ t: 'product', id: 'p1' }] },
+      { brand: b, images: core.images, engineCaps: caps(6), templateById: resolveScene },
+    );
+    expect(r.prompt).toContain(
+      'It is sold in these colorways: Forest green, Sky blue, Plum. The one in this shot is the colorway the first product image shows.',
+    );
+    expect(r.prompt).toContain('What this object physically is: A cork-backed yoga mat sized for travel');
+  });
+
   it('a big set earns no claim about coverage it cannot support', () => {
     const b = brand();
     b.products[0].shots.push({ file: `asset:${inspoHash}`, angle: 'back', locked: true });

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { createCore, type EngineAdapter } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
+import { brandJsonWithCatalogProducts } from '../src/catalogImport.js';
 
 function registryWith(...adapters: EngineAdapter[]) {
   const byId = new Map(adapters.map((a) => [a.capabilities().id, a]));
@@ -33,7 +34,20 @@ function shopifyFetch(input: any) {
               vendor: 'Acme',
               product_type: 'Coffee',
               tags: 'flagship',
-              variants: [{ id: 11, title: 'Default', sku: 'HB', price: '18.00', available: true }],
+              // sold in three colours, the way a real store declares them
+              options: [{ name: 'Color' }],
+              variants: [
+                {
+                  id: 11,
+                  title: 'Forest green',
+                  sku: 'HB-G',
+                  price: '18.00',
+                  available: true,
+                  option1: 'Forest green',
+                },
+                { id: 12, title: 'Sky blue', sku: 'HB-B', price: '18.00', available: true, option1: 'Sky blue' },
+                { id: 13, title: 'Plum', sku: 'HB-P', price: '18.00', available: true, option1: 'Plum' },
+              ],
               images: [{ src: 'https://cdn.example/blend.jpg', position: 1 }],
             },
             {
@@ -127,5 +141,40 @@ describe('catalog import API', () => {
     }
     const lib2 = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
     expect(lib2.json().products).toHaveLength(2);
+  });
+
+  // The compile projection used to forward nothing the store said about
+  // itself: no description (so nothing anchored scale) and no colour
+  // options (so a colorway spread read as lighting). Both now ride.
+  it('projects the store description and declared colorways for the compiler', async () => {
+    const brand = await app.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Acme', website: 'https://shop.example' } } },
+    });
+    const brandId = brand.json().id;
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://shop.example' },
+    });
+    const jobId = start.json().jobId;
+    let job: any;
+    for (let i = 0; i < 80; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      const res = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` });
+      job = res.json();
+      if (job.finishedAt || job.stage === 'completed' || job.stage === 'partial' || job.stage === 'failed') break;
+    }
+    expect(['completed', 'partial']).toContain(job.stage);
+
+    const json = brandJsonWithCatalogProducts(core, brandId);
+    const blend = json.products.find((p: any) => p.name === 'House Blend');
+    expect(blend.description).toBe('coffee');
+    expect(blend.colorways).toEqual(['Forest green', 'Sky blue', 'Plum']);
+    // one variant with no colour option is not a colorway story
+    const espresso = json.products.find((p: any) => p.name === 'Espresso');
+    expect(espresso.colorways).toBeUndefined();
+    expect(espresso.description).toBe('shot');
   });
 });

@@ -239,25 +239,78 @@ export function resolveLibraryProduct(
   return library.find((p) => p.id === productId) ?? null;
 }
 
+/** The store's HTML description, flattened to prompt-safe prose. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** The opening sentence, or a clean truncation when the first one runs long. */
+function firstSentence(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const stop = text.slice(0, max + 1).search(/[.!?](\s|$)/);
+  if (stop > 40) return text.slice(0, stop + 1);
+  const cut = text.lastIndexOf(' ', max);
+  return `${text.slice(0, cut > 40 ? cut : max).trimEnd()}\u2026`;
+}
+
+/**
+ * The distinct colour names a product's variants declare, in store order.
+ * Only meaningful from two up: one colour is not a colorway story, and a
+ * store with no colour option contributes nothing.
+ */
+function colorwaysOf(variants: { options?: Record<string, string> }[] | undefined): string[] {
+  const seen: string[] = [];
+  for (const v of variants ?? []) {
+    const key = Object.keys(v.options ?? {}).find((k) => /colou?r/i.test(k));
+    const val = key ? String((v.options as Record<string, string>)[key]).trim() : '';
+    if (val && !seen.includes(val)) seen.push(val);
+    if (seen.length >= 12) break;
+  }
+  return seen.length >= 2 ? seen : [];
+}
+
 export function brandJsonWithCatalogProducts(core: Core, brandId: string): any {
   const brand = core.store.getBrand(brandId);
   if (!brand) return null;
   const json = { ...(brand.json as any) };
   const library = core.catalog.listLibraryProducts(brandId, brand.json);
   // Present catalog + manual as products[] for brief compilation
-  json.products = library.map((p) => ({
-    id: p.id,
-    name: p.name,
-    shots: p.shots,
-    notes: p.url ?? undefined,
-    // Forwarded so the compiler can state real-world material and size. These
-    // were dropped here, which is part of why a watch could render plate-sized:
-    // nothing downstream ever knew how big the object actually is.
-    ...(p.category ? { category: p.category } : {}),
-    ...(p.variant ? { variant: p.variant } : {}),
-    ...(p.material ? { material: p.material } : {}),
-    ...(p.dimensions ? { dimensions: p.dimensions } : {}),
-  }));
+  json.products = library.map((p) => {
+    const colorways = colorwaysOf((p as any).variants);
+    return {
+      id: p.id,
+      name: p.name,
+      shots: p.shots,
+      notes: p.url ?? undefined,
+      // Forwarded so the compiler can state real-world material and size. These
+      // were dropped here, which is part of why a watch could render plate-sized:
+      // nothing downstream ever knew how big the object actually is.
+      ...(p.category ? { category: p.category } : {}),
+      ...(p.variant ? { variant: p.variant } : {}),
+      ...(p.material ? { material: p.material } : {}),
+      ...(p.dimensions ? { dimensions: p.dimensions } : {}),
+      // The store's own words, the way the 0.6.9 fix gave demo products
+      // theirs: the description is what anchors scale when dimensions are
+      // absent, and imported products shipped with neither.
+      ...((p as any).descriptionHtml
+        ? { description: firstSentence(stripHtml(String((p as any).descriptionHtml)), 300) }
+        : {}),
+      // The declared colorways, so the compiler can say a colour difference
+      // between references is a colorway rather than lighting.
+      ...(colorways.length ? { colorways } : {}),
+    };
+  });
   return json;
 }
 
