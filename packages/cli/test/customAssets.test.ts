@@ -50,6 +50,8 @@ describe('custom presenters and scenes', () => {
   let analyzed: any[];
   /** Swap in to simulate an install with no codex and no engine that draws. */
   let engineAvailable: boolean;
+  /** One-shot bytes the spy engine answers with, then clears. */
+  let nextGenerated: Buffer | null = null;
 
   const png = (tint: string) =>
     sharp({ create: { width: 64, height: 80, channels: 3, background: tint } })
@@ -69,6 +71,13 @@ describe('custom presenters and scenes', () => {
     costEstimate: async () => 0,
     generate: async (req) => {
       generated.push(req);
+      // A one-shot override so a single test can make the engine answer
+      // specific bytes (the redraw-trim case needs a barred frame back).
+      if (nextGenerated) {
+        const buf = nextGenerated;
+        nextGenerated = null;
+        return { images: [core.images.save(buf)], costUsd: 0 };
+      }
       // A distinct image per call: the export rewriter writes identical bytes
       // once and shares the path, which would hide a naming bug behind dedupe.
       const shade = (0x20 + generated.length * 0x11).toString(16).padStart(2, '0');
@@ -127,6 +136,7 @@ describe('custom presenters and scenes', () => {
     generated = [];
     analyzed = [];
     engineAvailable = true;
+    nextGenerated = null;
     templatesDir = mkdtempSync(join(tmpdir(), 'sc-custom-templates-'));
     mkdirSync(join(templatesDir, 'presenters'), { recursive: true });
     writeFileSync(join(templatesDir, `${CATALOG_SCENE.id}.json`), JSON.stringify(CATALOG_SCENE));
@@ -737,6 +747,38 @@ describe('custom presenters and scenes', () => {
     expect(res.json().warnings.join(' ')).toContain('no longer installed');
   });
 
+  // The plate is a conditioning image now: a redrawn card with baked-in bars
+  // would be faithfully reproduced into customer shots, so the redraw route
+  // trims exactly the way the build path always has.
+  it('a redrawn preview goes through the edge-bar trim before it is stored', async () => {
+    const brand = await newBrand();
+    const scene = (
+      await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes`, payload: SCENE_BODY })
+    ).json().scene;
+
+    const W = 200;
+    const H = 250;
+    const raw = Buffer.alloc(W * H * 3);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const bar = x < 20 || x >= W - 20;
+        const v = bar ? 250 : 120 + Math.round(40 * Math.sin((x / W) * Math.PI)) + (y % 7);
+        raw.fill(v, (y * W + x) * 3, (y * W + x) * 3 + 3);
+      }
+    }
+    const barredPng = await sharp(raw, { raw: { width: W, height: H, channels: 3 } })
+      .png()
+      .toBuffer();
+    const barredHash = core.images.save(barredPng);
+
+    nextGenerated = barredPng;
+    const res = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes/${scene.id}/preview` });
+    expect(res.statusCode).toBe(200);
+    const stored = String(brandJson(brand.id).scenes[0].preview).slice(6);
+    expect(stored).not.toBe(barredHash);
+    expect(stored).toBe(await trimEdgeBars(core, barredHash));
+  });
+
   it('cuts a baked-in edge bar off a frame, and leaves a clean one alone', async () => {
     // A lit sweep with flat bands down both sides: the exact failure the
     // anti-border clause in the prompt does not reliably prevent.
@@ -772,6 +814,30 @@ describe('custom presenters and scenes', () => {
     expect(prompt).toContain('A basalt shelf.');
     expect(prompt).toContain('Low sun');
     expect(prompt).toMatch(/no product, no person/);
+  });
+
+  // The plate conditions figure-led generations now. A blanket word ban drew
+  // typographic treatments print-free, which conditioned the treatment away;
+  // print inside the treatment follows the fictional-brands doctrine, and
+  // everywhere else stays clean.
+  it('a treatment plate may carry fictional print; a plain figure plate stays word-free', () => {
+    const treated = scenePreviewPrompt({
+      prompt: 'A close portrait world.',
+      figure: 'one figure at close range',
+      figureTreatment: 'the face tiled with printed stickers',
+    } as CustomScene);
+    expect(treated).toContain('nobody in particular');
+    expect(treated).toContain('plausible but fictional, resembling no existing brand');
+    expect(treated).toContain('Everywhere outside the treatment, no logos and no readable words');
+    expect(treated).not.toContain('no readable words anywhere in the frame');
+
+    const plain = scenePreviewPrompt({
+      prompt: 'A close portrait world.',
+      figure: 'one figure at close range',
+    } as CustomScene);
+    expect(plain).toContain('nobody in particular');
+    expect(plain).toContain('no readable words anywhere in the frame');
+    expect(plain).not.toContain('plausible but fictional');
   });
 
   /* ------------------------------------------------------ around the edges */
