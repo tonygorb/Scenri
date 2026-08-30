@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.7.0',
+    date: '2026-08-30',
+    title: 'Your presenter stays your presenter.',
+    sections: [
+      {
+        heading: 'Scenes',
+        body: 'A scene lends its world, its light and its treatment, never a face. Generation now conditions on the scene’s own drawn card instead of your raw upload, so the person you selected is the person in the shot. Scenes made before this release render printed treatments best after a one-tap redraw from the scene’s page.',
+      },
+      {
+        heading: 'Refine',
+        body: 'Refining light and mood no longer wears a shot down: a tonal refinement keeps the photograph’s own pixels and changes only the grade, so the tenth adjustment is as sharp as the first. High-resolution refinements state their working size honestly instead of inflating it, and refining an extended shot works again.',
+      },
+      {
+        heading: 'Presenters',
+        body: 'A presenter’s identity rides with three of their views. A reference you attach cannot lend anyone its face while a presenter is selected, and a mood image carried into a refinement is never mistaken for the person in the picture.',
+      },
+    ],
+  },
+  {
     version: '0.6.13',
     date: '2026-08-30',
     sections: [
