@@ -137,6 +137,26 @@ export function presenterAvatarPath(templatesRoot: string, id: string): string {
  * hashing each on first use. A read-through cache, not a write to any
  * brand's data — nothing here touches `characters[]`.
  */
+/**
+ * Decoded once per process, keyed by source file.
+ *
+ * Every compile that names a curated presenter used to re-read and re-encode
+ * their reference JPEGs, and the store is content-addressed so the work was
+ * thrown away every time. That is per preview keystroke as well as per
+ * generation, and the portrait made it five files instead of four.
+ */
+const resolvedRefs = new Map<string, string>();
+
+async function refHash(core: Core, path: string): Promise<string> {
+  const hit = resolvedRefs.get(path);
+  // Verified before it is trusted: a hash is only valid for the store that
+  // holds it, and tests build a fresh core per case.
+  if (hit && core.images.has(hit)) return hit;
+  const hash = core.images.save(await sharp(readFileSync(path)).png().toBuffer());
+  resolvedRefs.set(path, hash);
+  return hash;
+}
+
 export async function resolvePresenterImages(
   core: Core,
   templatesRoot: string,
@@ -157,16 +177,11 @@ export async function resolvePresenterImages(
   // The standing views still ride behind it and still carry build, proportion
   // and the capture wardrobe the release clause names.
   const avatar = presenterAvatarPath(templatesRoot, presenter.id);
-  if (existsSync(avatar)) {
-    const png = await sharp(readFileSync(avatar)).png().toBuffer();
-    shots.push({ file: `asset:${core.images.save(png)}`, angle: 'portrait', locked: true });
-  }
+  if (existsSync(avatar)) shots.push({ file: `asset:${await refHash(core, avatar)}`, angle: 'portrait', locked: true });
   for (const [slot, angle] of PRESENTER_ANGLES) {
     const path = presenterRefPath(templatesRoot, presenter.id, slot);
     if (!existsSync(path)) continue;
-    const png = await sharp(readFileSync(path)).png().toBuffer();
-    const hash = core.images.save(png);
-    shots.push({ file: `asset:${hash}`, angle, locked: true });
+    shots.push({ file: `asset:${await refHash(core, path)}`, angle, locked: true });
   }
   if (!shots.length) return null;
   // The casting sheet travels with the photos. These used to be dropped here,
