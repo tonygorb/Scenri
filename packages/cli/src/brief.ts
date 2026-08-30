@@ -69,7 +69,14 @@ export interface Brief {
  */
 
 export const PRODUCT_REF_MAX = 3;
-export const CHARACTER_REF_MAX = 2;
+/**
+ * Three, up from two. A face is the identity that most needs corroboration,
+ * and curated presenters carry four studio views; capping at two threw the
+ * third away even on a roomy engine with slots to spare. The budget still
+ * arbitrates when it is tight - the third view is round-robin corroboration,
+ * boarding after every identity's essential and every hand-attached thing.
+ */
+export const CHARACTER_REF_MAX = 3;
 /**
  * One. A scene reference is context, never identity, and the budget it spends
  * has to come out of something. At the codex cap of five with a product and a

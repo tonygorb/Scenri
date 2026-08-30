@@ -37,10 +37,12 @@ import {
   characterFactDirectives,
   inheritedRefDirective,
   markEditDirective,
+  personSkinDirective,
   productEditFidelityDirective,
   productFactDirectives,
 } from './briefDirectives.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
+import { gradeComposite, isGradeOnlyInstruction } from './gradeTransfer.js';
 import {
   planExpand,
   expandInstruction,
@@ -522,6 +524,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       resizedFrom,
       resampledHops,
       steppedDown,
+      gradeComposited,
       expand,
       crop,
       sourceImage,
@@ -583,6 +586,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const inheritedDirectives: string[] = [];
     let inheritedMark = false;
     let inheritedRef = false;
+    const inheritedProduct = inheritedTokens.some((t) => t.t === 'product');
+    const inheritedPerson = inheritedTokens.some((t) => t.t === 'character');
     for (const tok of inheritedTokens) {
       if (tok.t === 'product') {
         const rec = (brandJson?.products ?? []).find((x: any) => x?.id === (tok as any).id);
@@ -609,6 +614,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         inheritedDirectives.push(inheritedRefDirective());
       }
     }
+    // The skin floor is gated on a character TOKEN inside compileBrief, and a
+    // refine brief carries none - so the one place the waxy look compounds
+    // (five consecutive re-renders) was the one place the floor never fired.
+    // The inherited person is a person in frame; the floor rides with them.
+    if (inheritedPerson) inheritedDirectives.push(personSkinDirective());
     const compiled = compileBrief(brief, {
       brand: brandJson,
       images: core.images,
@@ -622,11 +632,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // that actually ride. A mark-only or ref-only inheritance emits no
       // generic claim - markEditDirective and inheritedRefDirective speak
       // for themselves.
-      inheritedIdentity: (() => {
-        const product = inheritedTokens.some((t) => t.t === 'product');
-        const person = inheritedTokens.some((t) => t.t === 'character');
-        return product || person ? { product, person } : false;
-      })(),
+      inheritedIdentity:
+        inheritedProduct || inheritedPerson ? { product: inheritedProduct, person: inheritedPerson } : false,
       inheritedDirectives,
       // Only the explicit op drops the dimension promise: an implicit legacy
       // expansion keeps its historical prompt byte for byte.
@@ -1185,6 +1192,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     /** For an edit: the one allocation of own plus inherited references. */
     let mergedEdit: ReturnType<typeof mergeEditAttachments> | null = null;
     let editScope: EditScope = 'global';
+    let gradeOnlyAsk = false;
+    let budgetSourceHash: string | undefined;
+    let sentSize: { width: number; height: number } | undefined;
     /** Things the route itself needs to say, alongside whatever the compiler warned about. */
     const extraWarnings: string[] = [];
     /** Set when a refinement is growing the frame rather than changing the picture. */
@@ -1204,6 +1214,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         inheritedTokens = edit.inheritedTokens;
         mergedEdit = edit.merged;
         editScope = edit.editScope;
+        // A pure-grade global ask ships the original's pixels wearing the
+        // model's grade (gradeTransfer); decided from the user's own words,
+        // conservatively - anything naming a thing falls through unchanged.
+        gradeOnlyAsk =
+          editScope === 'global' &&
+          isGradeOnlyInstruction(
+            ((brief?.tokens as BriefToken[] | undefined) ?? [])
+              .filter((t): t is Extract<BriefToken, { t: 'text' }> => t.t === 'text')
+              .map((t) => t.v)
+              .join(' '),
+          );
         extraWarnings.push(...edit.warnings.filter((w) => !compiled?.warnings.includes(w)));
         // An explicit extension needs no prose: the instruction is the
         // expansion's own, and the user's words are only an optional direction.
@@ -1496,8 +1517,6 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
        * step-down on the brief. Local-scope edits still composite at the
        * original's size, so their untouched pixels never shrink.
        */
-      let budgetSourceHash: string | undefined;
-      let sentSize: { width: number; height: number } | undefined;
       const editPixelBudget = runEngine.capabilities().editPixelBudget;
       if (
         !expandPlan &&
@@ -1513,11 +1532,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             .png()
             .toBuffer(),
         );
-        extraWarnings.push(
-          `${runEngine.capabilities().displayName} refines at about ${(editPixelBudget / 1_000_000).toFixed(1)} megapixels, ` +
-            `so this ${srcMeta.width}x${srcMeta.height} frame continues at ${sentSize.width}x${sentSize.height} from here on. ` +
-            'The picture is unchanged; the stored size is now the size the engine truly drew.',
-        );
+        // A grade-only ask usually ends at the ORIGINAL's own size (the
+        // composite grades the original, not the engine's frame), so the
+        // step-down note would be a lie there; when the evidence gate falls
+        // through to the engine's frame, the accept verdict still records
+        // steppedDown on the brief.
+        if (!gradeOnlyAsk)
+          extraWarnings.push(
+            `${runEngine.capabilities().displayName} refines at about ${(editPixelBudget / 1_000_000).toFixed(1)} megapixels, ` +
+              `so this ${srcMeta.width}x${srcMeta.height} frame continues at ${sentSize.width}x${sentSize.height} from here on. ` +
+              'The picture is unchanged; the stored size is now the size the engine truly drew.',
+          );
       }
 
       const editReq: EditRequest = {
@@ -1829,6 +1854,32 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       : kind === 'edit' && original
         ? async (images: string[]) => {
             let staged = images;
+            if (gradeOnlyAsk && !expandPlan) {
+              // A pure-grade ask ships the photograph's own pixels wearing
+              // the model's grade: texture, skin and resolution are frozen
+              // from the shot the user approved, so a chain of tonal
+              // refinements loses nothing, however long it runs. The model's
+              // frame ships only when its answer was more than a grade.
+              const sent = budgetSourceHash ? core.images.read(budgetSourceHash) : original;
+              const out: string[] = [];
+              for (const h of staged) {
+                const g = await gradeComposite(original, sent, core.images.read(h));
+                if (g) {
+                  app.log.info(
+                    { nodeId: node.id, residual: Number(g.residual.toFixed(2)) },
+                    'edit: shipped the original pixels wearing the grade',
+                  );
+                  out.push(core.images.save(g.image));
+                  try {
+                    const fresh = core.store.getNode(node.id);
+                    core.store.setBrief(node.id, { ...((fresh?.brief as object | null) ?? {}), gradeComposited: true });
+                  } catch {
+                    /* the record is a convenience; failing to write it must not fail the run */
+                  }
+                } else out.push(h);
+              }
+              staged = out;
+            }
             if (localScope) {
               const out: string[] = [];
               for (const h of staged) {

@@ -248,7 +248,9 @@ describe('golden: identity is never lost or confused', () => {
 
   it('8. presenter only — valid, no product required anywhere', () => {
     const r = compile([{ t: 'character', id: 'c1' }]);
-    expect(roles(r)).toEqual(['character', 'character']);
+    // three views since the likeness bump: a face is the identity that most
+    // needs corroboration, and the fixture presenter carries three
+    expect(roles(r)).toEqual(['character', 'character', 'character']);
     expect(r.productId).toBeNull();
     expect(r.warnings).toEqual([]);
   });

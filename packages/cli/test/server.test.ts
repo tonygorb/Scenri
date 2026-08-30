@@ -2019,7 +2019,7 @@ describe('a refinement keeps its canvas', () => {
       expect(genNode.brief?.rendered?.sizes?.[0]).toEqual([360, 450]);
       expect(genNode.brief?.rendered?.requestedSize).toEqual([320, 400]);
 
-      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
+      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'a more editorial and cinematic feel');
       expect(edit.statusCode).toBe(202);
       const editNode = await waitDoneOn(local, edit.json().id);
 
@@ -2028,7 +2028,7 @@ describe('a refinement keeps its canvas', () => {
       expect(edits).toHaveLength(1);
       expect(edits[0].width).toBe(360);
       expect(edits[0].height).toBe(450);
-      expect(edits[0].instruction).toContain('make it warmer');
+      expect(edits[0].instruction).toContain('a more editorial and cinematic feel');
       expect(edits[0].instruction).not.toContain('blurred margin');
       expect(edits[0].instruction).not.toContain('Redraw this photograph');
     } finally {
@@ -2046,7 +2046,7 @@ describe('a refinement keeps its canvas', () => {
       const { project, genNode } = await seed(local, { w: 320, h: 400 });
 
       state.editSize = { width: 288, height: 360 }; // 90%, same shape
-      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
+      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'a more editorial and cinematic feel');
       const editNode = await waitRenderedOn(local, edit.json().id);
 
       expect(editNode.status).toBe('done');
@@ -2067,7 +2067,7 @@ describe('a refinement keeps its canvas', () => {
       const { project, genNode } = await seed(local, { w: 320, h: 400 });
 
       state.editSize = { width: 160, height: 200 }; // 50%, same shape
-      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
+      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'a more editorial and cinematic feel');
       const editNode = await waitDoneOn(local, edit.json().id);
 
       expect(editNode.status).toBe('error');
@@ -2084,7 +2084,7 @@ describe('a refinement keeps its canvas', () => {
       state.genSize = { width: 320, height: 400 };
       const { project, genNode } = await seed(local, { w: 320, h: 400 });
 
-      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'make it warmer');
+      const edit = await refine(local, project, genNode, { w: 320, h: 400 }, 'a more editorial and cinematic feel');
       const editNode = await waitDoneOn(local, edit.json().id);
 
       expect(editNode.status).toBe('done');
@@ -2225,7 +2225,7 @@ describe('a refinement chain keeps the whole identity record', () => {
     const local = buildServer({ core, engines: registryWith(engine) });
     try {
       const { projectId, genNode, productHash } = await seedChain(local, 1);
-      const { node: e1 } = await refineOf(local, projectId, genNode, 'warmer light');
+      const { node: e1 } = await refineOf(local, projectId, genNode, 'a more editorial and cinematic feel');
       const { node: e2 } = await refineOf(local, projectId, e1, 'softer background');
       const { node: e3 } = await refineOf(local, projectId, e2, 'clean up the hand');
 
@@ -2250,7 +2250,7 @@ describe('a refinement chain keeps the whole identity record', () => {
     const local = buildServer({ core, engines: registryWith(engine) });
     try {
       const { projectId, genNode, productHash, angleHash } = await seedChain(local, 2);
-      await refineOf(local, projectId, genNode, 'warmer light');
+      await refineOf(local, projectId, genNode, 'a more editorial and cinematic feel');
       expect(edits[0].referenceImages).toContain(core.images.pathFor(productHash));
       expect(edits[0].referenceImages).toContain(core.images.pathFor(angleHash));
       expect(edits[0].referenceRoles?.filter((r) => r === 'product')).toHaveLength(2);
@@ -2267,7 +2267,7 @@ describe('a refinement chain keeps the whole identity record', () => {
     const local = buildServer({ core, engines: registryWith(engine) });
     try {
       const { projectId, genNode, productHash, angleHash, logoHash, refHash } = await seedChain(local, 2, true);
-      const { warnings } = await refineOf(local, projectId, genNode, 'warmer light');
+      const { warnings } = await refineOf(local, projectId, genNode, 'a more editorial and cinematic feel');
       expect(edits[0].referenceImages).toContain(core.images.pathFor(productHash));
       expect(edits[0].referenceImages).toContain(core.images.pathFor(logoHash));
       expect(edits[0].referenceImages).toContain(core.images.pathFor(refHash));
@@ -2439,7 +2439,7 @@ describe('engine images are validated, oriented, and conformed before storing', 
           brief: {
             tokens: [
               { t: 'format', id: 'portrait', w: 320, h: 400 },
-              { t: 'text', v: 'make it warmer' },
+              { t: 'text', v: 'a more editorial and cinematic feel' },
             ],
           },
         },
@@ -2531,7 +2531,7 @@ describe('refines on a pixel-budget engine step down honestly', () => {
         kind: 'edit',
         engineId: 'budget-spy',
         sourceImage: genNode.images[0],
-        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+        brief: { tokens: [{ t: 'text', v: 'a more editorial and cinematic feel' }] },
       },
     });
     expect(edit.statusCode).toBe(202);
@@ -2564,7 +2564,7 @@ describe('refines on a pixel-budget engine step down honestly', () => {
         kind: 'edit',
         engineId: 'budget-spy',
         sourceImage: editNode.images[0],
-        brief: { tokens: [{ t: 'text', v: 'cooler light' }] },
+        brief: { tokens: [{ t: 'text', v: 'a flatter, more clinical feel' }] },
       },
     });
     expect((edit2.json().warnings ?? []).join(' ')).not.toContain('continues at');
@@ -2583,7 +2583,7 @@ describe('refines on a pixel-budget engine step down honestly', () => {
         kind: 'edit',
         engineId: 'budget-spy',
         sourceImage: genNode.images[0],
-        brief: { ...(editNode.brief as object), tokens: [{ t: 'text', v: 'warmer light' }] },
+        brief: { ...(editNode.brief as object), tokens: [{ t: 'text', v: 'a more editorial and cinematic feel' }] },
       },
     });
     const retryNode = await waitDoneOn(local, retry.json().id);
@@ -2684,7 +2684,7 @@ describe('a refinement never re-sends scene imagery', () => {
         kind: 'edit',
         engineId: 'scene-spy',
         sourceImage: genNode.images[0],
-        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+        brief: { tokens: [{ t: 'text', v: 'a more editorial and cinematic feel' }] },
       },
     });
     const editNode = await waitDoneOn(local, edit.json().id);
@@ -2776,6 +2776,193 @@ describe('a formatless edit brief never reshapes', () => {
     expect(edits[0].expand).toBeUndefined();
     expect((editNode.brief as any).expand).toBeUndefined();
     expect((editNode.brief as any).rendered?.sizes?.[0]).toEqual([800, 1000]);
+    await local.close();
+  });
+});
+
+// The waxy look compounds exactly where the skin floor never fired: a refine
+// brief has no character token, so compileBrief's hasPerson gate stayed cold
+// on every hop of a presenter thread. The inherited person now carries it.
+describe('the skin floor rides refines of presenter threads', () => {
+  it('a bare-text refine of a presenter shot states real photographed skin', async () => {
+    const castShot = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([11])]));
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            characters: [{ id: 'c1', name: 'Astrid', shots: [{ file: `asset:${castShot}`, locked: true }] }],
+          },
+        },
+      })
+    ).json();
+    const ws = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'demo',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 512, h: 512 },
+            { t: 'character', id: 'c1' },
+            { t: 'text', v: 'editorial portrait' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDone(gen.json().id);
+    const edit = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    const editNode = await waitDone(edit.json().id);
+    expect(editNode.prompt).toContain('real photographed skin');
+    // and the re-render texture floor rides every edit
+    expect(editNode.prompt).toContain('Every surface keeps the texture it already has');
+  });
+});
+
+// A pure-grade refinement ships the original's pixels wearing the model's
+// grade: texture and resolution frozen, tone moved. The model's frame ships
+// only when its answer was more than a grade, or the ask named a thing.
+describe('grade-only refines keep the original pixels', () => {
+  const gradeEngine = () => {
+    const edits: EditRequest[] = [];
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'grade-spy',
+        displayName: 'Grade Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 4,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => {
+        // a textured card, not a flat colour: the grade fit needs tonal spread
+        const w = 320;
+        const h = 400;
+        const raw = Buffer.alloc(w * h * 3);
+        for (let y = 0; y < h; y++)
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 3;
+            const g = Math.round((x / w) * 200) + ((x * 7 + y * 13) % 17);
+            raw[i] = g;
+            raw[i + 1] = g;
+            raw[i + 2] = g;
+          }
+        return {
+          images: [
+            core.images.save(
+              await sharp(raw, { raw: { width: w, height: h, channels: 3 } })
+                .png()
+                .toBuffer(),
+            ),
+          ],
+          costUsd: 0,
+        };
+      },
+      // the model's answer: the source, warmed - a true grade
+      edit: async (req) => {
+        edits.push(req);
+        const warmedBuf = await sharp(req.sourceImage).modulate({ brightness: 1.1 }).tint('#ffd9b0').png().toBuffer();
+        return { images: [core.images.save(warmedBuf)], costUsd: 0 };
+      },
+    };
+    return { engine, edits };
+  };
+
+  it('ships graded original pixels and records it; a thing-naming ask bypasses', async () => {
+    const { engine } = gradeEngine();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const brand = (
+      await local.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json();
+    const ws = await local.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'grade-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'portrait', w: 320, h: 400 },
+            { t: 'text', v: 'a mug' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDoneOn(local, gen.json().id);
+    const srcHash = genNode.images[0];
+
+    const graded = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'grade-spy',
+        sourceImage: srcHash,
+        brief: {
+          tokens: [
+            { t: 'format', id: 'portrait', w: 320, h: 400 },
+            { t: 'text', v: 'slightly warmer light' },
+          ],
+        },
+      },
+    });
+    const gradedNode = await waitRenderedOn(local, graded.json().id);
+    expect(gradedNode.status).toBe('done');
+    expect((gradedNode.brief as any).gradeComposited).toBe(true);
+    // warmer than the source: the grade landed on the original's own pixels
+    const mean = async (h: string) => (await sharp(core.images.read(h)).stats()).channels.map((c) => c.mean);
+    const [sr, , sb] = await mean(srcHash);
+    const [gr, , gb] = await mean(gradedNode.images[0]);
+    expect(gr - gb).toBeGreaterThan(sr - sb);
+
+    const named = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'grade-spy',
+        sourceImage: srcHash,
+        brief: {
+          tokens: [
+            { t: 'format', id: 'portrait', w: 320, h: 400 },
+            { t: 'text', v: 'remove the cup on the left' },
+          ],
+        },
+      },
+    });
+    const namedNode = await waitRenderedOn(local, named.json().id);
+    expect((namedNode.brief as any).gradeComposited).toBeUndefined();
     await local.close();
   });
 });

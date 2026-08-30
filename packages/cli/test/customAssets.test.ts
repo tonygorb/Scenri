@@ -329,7 +329,7 @@ describe('custom presenters and scenes', () => {
     expect(res.json().error).toMatch(/at least one photo/);
   });
 
-  it('reaches a brief by promptName, attaching the first two views only', async () => {
+  it('reaches a brief by promptName, attaching the identity views only', async () => {
     const brand = await newBrand();
     const photos = [await savePhoto()];
     await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: photos });
@@ -345,7 +345,8 @@ describe('custom presenters and scenes', () => {
     expect(compiled.prompt).not.toContain('Mara');
     expect(compiled.prompt).toContain('the wide-set eyes must survive');
     expect(compiled.prompt).toContain('Avoid: no straightened hair');
-    expect(compiled.attachments.filter((a: any) => a.role === 'character')).toHaveLength(2);
+    // three of the four studio views since the likeness bump (CHARACTER_REF_MAX)
+    expect(compiled.attachments.filter((a: any) => a.role === 'character')).toHaveLength(3);
     expect(compiled.attachments[0].essential).toBe(true);
   });
 
