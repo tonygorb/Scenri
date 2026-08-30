@@ -693,10 +693,18 @@ export const Composer = forwardRef<
   const carried = useMemo(() => {
     if (variant !== 'overlay') return [];
     const kindOf = { product: 'product', character: 'presenter', brand: 'mark', reference: 'ref' } as const;
-    return (preview?.attachments ?? [])
-      .filter((a) => a.inherited)
-      .map((a) => ({ kind: kindOf[a.role] ?? a.role, label: a.label, hash: a.hash }))
-      .sort(byContextOrder);
+    // One chip per THING, not per image. A product can ride with a second
+    // corroboration angle, and two chips wearing the same name read as two
+    // products. The first attachment of a group is its identity image — the
+    // budget boards essentials first — so it owns the thumb.
+    const byEntity = new Map<string, { kind: string; label: string; hash: string }>();
+    for (const a of preview?.attachments ?? []) {
+      if (!a.inherited) continue;
+      const kind = kindOf[a.role] ?? a.role;
+      const key = `${kind}:${a.id ?? a.hash}`;
+      if (!byEntity.has(key)) byEntity.set(key, { kind, label: a.label, hash: a.hash });
+    }
+    return [...byEntity.values()].sort(byContextOrder);
   }, [variant, preview]);
 
   /**
@@ -732,6 +740,29 @@ export const Composer = forwardRef<
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' =
     branchable && !template && (engineCanEdit || cropping || expanding) ? 'edit' : 'generation';
+  /**
+   * The world this thread was shot in. A refinement never re-sends scene
+   * references — the photograph being refined carries its world — so the
+   * strip stayed silent about the one ingredient every refine keeps, and the
+   * missing scene chip read as a loss. Display only, read from the nearest
+   * shot up the thread that named a scene; the compile allocation above is
+   * untouched.
+   */
+  const worldScene = useMemo(() => {
+    if (variant !== 'overlay' || !refineTarget || mode !== 'edit') return null;
+    const byId = new Map(shots.map((n) => [n.id, n]));
+    let cur: TreeNode | null | undefined = refineTarget;
+    while (cur && cur.kind !== 'root') {
+      const tid: string | undefined =
+        cur.brief?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? cur.brief?.templateId;
+      if (tid) {
+        const s = templates.find((x) => x.id === tid);
+        return s ? { name: s.name, thumb: s.previewUrl ?? null } : null;
+      }
+      cur = cur.parentId ? byId.get(cur.parentId) : null;
+    }
+    return null;
+  }, [variant, refineTarget, mode, shots, templates]);
   // No reshape tutorial here anymore: the op is inferred, and the whole
   // explanation is the two-word state line rendered beside the shape picker.
   const targetNote = !branchable
@@ -1207,7 +1238,7 @@ export const Composer = forwardRef<
             attachments appear as chips in the sentence below; this strip is
             the record of what the thread KEEPS, from the compiler's own
             preview, so it can never disagree with the request. */}
-        {carried.length > 0 && (
+        {(carried.length > 0 || worldScene) && (
           // the visible "Carrying" word is the label; a chip names one image
           // and, because that image is the whole point of the strip, opens it
           <div className="sc-carried">
@@ -1256,6 +1287,20 @@ export const Composer = forwardRef<
                 </span>
               );
             })}
+            {worldScene && (
+              // The thread's world, said quieter: it rides inside the photo,
+              // not as a reference, so this chip is a statement and never a
+              // control — nothing to remove, nothing re-sent.
+              <span
+                className="sc-carried-chip"
+                data-kind="scene"
+                data-world=""
+                title={`The world this thread was shot in: ${worldScene.name}. It stays in the picture through the photo being refined — nothing is sent again.`}
+              >
+                {worldScene.thumb && <img src={worldScene.thumb} alt="" />}
+                <span dir="auto">{worldScene.name}</span>
+              </span>
+            )}
           </div>
         )}
         {carriedPeek && (
