@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.1](https://github.com/tonygorb/Scenri/compare/v0.7.0...v0.7.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* condition a presenter on their face, not only on their figure ([b556b91](https://github.com/tonygorb/Scenri/commit/b556b91403e53ee424ceb0c937d5d0f968cc77fe))
+* condition a presenter on their face, not only on their figure ([4f1e02b](https://github.com/tonygorb/Scenri/commit/4f1e02b9a0512bf588c7f8b46f7d469f22ecae67))
+* decode a presenter's references once, and let one e2e test finish ([e862212](https://github.com/tonygorb/Scenri/commit/e862212898d96a46148f5bf3cb6106a624bfcf67))
+* draw presenters a portrait frame, and stop the crop copying the sweep ([a41eb27](https://github.com/tonygorb/Scenri/commit/a41eb271c03a3130085637ac88d030034d552d3e))
+* make a multi-image run one coherent set ([a463074](https://github.com/tonygorb/Scenri/commit/a463074c6fe28e048b95d5848e660146f5c6b9f9))
+* make a multi-image run one coherent set ([d4ae447](https://github.com/tonygorb/Scenri/commit/d4ae4479965f779b18c41d4d518b84c5a69428a9))
+* preview the same identity payload a generation sends ([15a8d30](https://github.com/tonygorb/Scenri/commit/15a8d304807e271c21f28929976551b8bee914f4))
+* record which view every attachment is, and settle the portrait untouched ([9f1a1a4](https://github.com/tonygorb/Scenri/commit/9f1a1a4bff8b5237f7e322ab6fcffd62a6d836b9))
+* send the presenter portrait that was already on disk ([bbd3def](https://github.com/tonygorb/Scenri/commit/bbd3defbfd936cd0bc672e0e66b5399637ec2d89))
+
 ## [0.7.0](https://github.com/tonygorb/Scenri/compare/v0.6.13...v0.7.0) (2026-08-30)
 
 
