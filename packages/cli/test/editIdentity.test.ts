@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { inheritedIdentityTokens, type NodeLike } from '../src/editIdentity.js';
+import { identityTokenKey, inheritedIdentityTokens, type NodeLike } from '../src/editIdentity.js';
 import type { BriefToken } from '../src/brief.js';
 
 const product: BriefToken = { t: 'product', id: 'p1' } as BriefToken;
@@ -68,6 +68,13 @@ describe('inheritedIdentityTokens', () => {
     expect(inheritedIdentityTokens('e1', get).tokens).toEqual([product]);
   });
 
+  it('a product carried at another angle is the same product, not a second one', () => {
+    const angled = { t: 'product', id: 'p1', angle: 'detail' } as BriefToken;
+    const get = nodes([root, gen('g', [angled]), refine('e1', 'g', { tokens: [product], inherited: [angled] })]);
+    // own copy first, angle twin collapsed — raw stringify used to keep both
+    expect(inheritedIdentityTokens('e1', get).tokens).toEqual([product]);
+  });
+
   it('a legacy chain deeper than the cap reports truncation instead of silence', () => {
     const chain: NodeLike[] = [root, gen('g', [product])];
     for (let i = 1; i <= 70; i++) chain.push(refine(`e${i}`, i === 1 ? 'g' : `e${i - 1}`));
@@ -87,5 +94,22 @@ describe('inheritedIdentityTokens', () => {
     const b = refine('b', 'a');
     const get = nodes([a, b]);
     expect(inheritedIdentityTokens('a', get)).toEqual({ tokens: [], truncated: false });
+  });
+});
+
+describe('identityTokenKey', () => {
+  it('a product keys on its id alone, angle ignored — the studio rule', () => {
+    expect(identityTokenKey({ t: 'product', id: 'p1', angle: 'detail' } as BriefToken)).toBe(
+      identityTokenKey({ t: 'product', id: 'p1' } as BriefToken),
+    );
+    expect(identityTokenKey({ t: 'product', id: 'p1' } as BriefToken)).not.toBe(
+      identityTokenKey({ t: 'product', id: 'p2' } as BriefToken),
+    );
+  });
+
+  it('every other kind keys on its full shape', () => {
+    expect(identityTokenKey({ t: 'mark', imageHash: 'h1' } as unknown as BriefToken)).not.toBe(
+      identityTokenKey({ t: 'ref', imageHash: 'h1' } as unknown as BriefToken),
+    );
   });
 });

@@ -582,6 +582,129 @@ describe('brief through the API', () => {
     await app.close();
   });
 
+  // Try again posts a stored brief back verbatim, and a stored brief carries
+  // the run record of the run that made it. Persisting that record onto the
+  // retry described a run that never happened.
+  it('a retried brief keeps its inputs and sheds the old run record', async () => {
+    const { buildServer } = await import('../src/server.js');
+    const { createDemoEngine } = await import('@scenri/engine-demo');
+    const mock = createDemoEngine((b) => core.images.save(b));
+    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            products: [{ id: 'p1', name: 'House Blend', shots: [{ file: `asset:${productHash}`, locked: true }] }],
+          },
+        },
+      })
+    ).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        count: 1,
+        brief: {
+          tokens: [
+            { t: 'text', v: 'hero shot of ' },
+            { t: 'product', id: 'p1' },
+          ],
+          // the stale run record a Try-again drags along
+          inherited: [{ t: 'mark', imageHash: 'f'.repeat(32) }],
+          rendered: { sizes: [[7, 7]] },
+          croppedFrom: [9, 9],
+          resizedFrom: [9, 9],
+          resampledHops: 99,
+          expand: { method: 'model', engineId: 'x', left: 1, top: 1 },
+          crop: { left: 0, top: 0, width: 1, height: 1 },
+          // a declared INPUT, not a record: it must survive the wash
+          quality: 'high',
+        },
+      },
+    });
+    expect(created.statusCode).toBe(202);
+    const node = await waitDone(app, created.json().id);
+    expect(node.brief.inherited).toBeUndefined();
+    expect(node.brief.croppedFrom).toBeUndefined();
+    expect(node.brief.resizedFrom).toBeUndefined();
+    expect(node.brief.resampledHops).toBeUndefined();
+    expect(node.brief.expand).toBeUndefined();
+    expect(node.brief.crop).toBeUndefined();
+    // rendered is this run's own record, never the stale [7,7]
+    expect(node.brief.rendered?.sizes?.[0]).not.toEqual([7, 7]);
+    expect(node.brief.quality).toBe('high');
+    expect(node.brief.tokens).toHaveLength(2);
+    await app.close();
+  });
+
+  // Re-attaching a carried product at another token shape (an angle, or none)
+  // is still the same product: the inherited record must not keep a twin.
+  it('an edit re-asking for the carried product records it once', async () => {
+    const { buildServer } = await import('../src/server.js');
+    const { createDemoEngine } = await import('@scenri/engine-demo');
+    const mock = createDemoEngine((b) => core.images.save(b));
+    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            products: [{ id: 'p1', name: 'House Blend', shots: [{ file: `asset:${productHash}`, locked: true }] }],
+          },
+        },
+      })
+    ).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        count: 1,
+        brief: { tokens: [{ t: 'product', id: 'p1', angle: 'detail' }] },
+      },
+    });
+    const genNode = await waitDone(app, gen.json().id);
+    const edit = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'demo',
+        sourceImage: genNode.images[0],
+        brief: {
+          tokens: [
+            { t: 'text', v: 'warmer light ' },
+            { t: 'product', id: 'p1' },
+          ],
+        },
+      },
+    });
+    const editNode = await waitDone(app, edit.json().id);
+    // the angled twin collapsed into the own copy: nothing product-shaped rides inherited
+    expect((editNode.brief.inherited ?? []).filter((t: any) => t.t === 'product')).toHaveLength(0);
+    await app.close();
+  });
+
   it('rejects an empty brief', async () => {
     const { buildServer } = await import('../src/server.js');
     const { createDemoEngine } = await import('@scenri/engine-demo');

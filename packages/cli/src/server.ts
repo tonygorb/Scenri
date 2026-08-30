@@ -31,7 +31,7 @@ import { brandSceneById, runningAssetBuildCount, type Analyzer } from './customA
 import type { CodexSetup } from '@scenri/engine-codex';
 import { codexNodeBudgetMs } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
-import { inheritedIdentityTokens } from './editIdentity.js';
+import { identityTokenKey, inheritedIdentityTokens } from './editIdentity.js';
 import {
   characterEditIdentityDirective,
   characterFactDirectives,
@@ -494,6 +494,21 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
    * compiler's own clamp cannot see the inherited attachments and would
    * pre-drop under the wrong budget.
    */
+  /**
+   * A brief posted to the server can be a stored brief coming back verbatim —
+   * Try again re-sends `node.brief` whole — and a stored brief carries the RUN
+   * RECORD of the run that made it: what it inherited, the delivered pixel
+   * sizes, crop and resize provenance, the expand plan. Those are outputs,
+   * written by each run after it happens; spreading them onto a new node
+   * persists a record describing a different run. Only the inputs survive
+   * here. `reshape` stays: it is a declared input, read back above.
+   */
+  function briefInputsOnly(brief: object): object {
+    const { inherited, rendered, croppedFrom, resizedFrom, resampledHops, expand, crop, sourceImage, ...inputs } =
+      brief as Record<string, unknown>;
+    return inputs;
+  }
+
   async function compileEditBrief(
     brandId: string,
     parentId: string,
@@ -503,12 +518,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   ) {
     const inherited = inheritedIdentityTokens(parentId, (id) => core.store.getNode(id));
     const borrowed = inherited.tokens;
+    // The studio's own identity rule: a product keys on its id, so re-asking
+    // for a carried product at another angle never records it twice.
     const already = new Set(
       (brief.tokens as BriefToken[])
         .filter((t) => t.t === 'product' || t.t === 'character' || t.t === 'mark' || t.t === 'ref')
-        .map((t) => JSON.stringify(t)),
+        .map(identityTokenKey),
     );
-    const inheritedTokens = borrowed.filter((t) => !already.has(JSON.stringify(t)));
+    const inheritedTokens = borrowed.filter((t) => !already.has(identityTokenKey(t)));
     // The catalogs resolve only the ids they are shown, so a carried demo
     // product or curated presenter must be in the token list the brand json
     // is built against, or it compiles to "no longer in the kit".
@@ -1091,7 +1108,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // The brief records the window actually cut, so history and the pixel
       // tests speak about the same rectangle the picture came from.
       core.store.setBrief(node.id, {
-        ...((brief as object) ?? {}),
+        ...briefInputsOnly((brief as object) ?? {}),
         sourceImage: String(srcHash),
         reshape: 'crop',
         crop: window,
@@ -1568,7 +1585,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // and so does the reshape op, when one was asked for by name
     if (brief)
       core.store.setBrief(node.id, {
-        ...(brief as object),
+        ...briefInputsOnly(brief as object),
         ...(editedFrom ? { sourceImage: editedFrom } : {}),
         ...(kind === 'edit' && reshape ? { reshape } : {}),
         // How the margin was actually made, and by whom. An extend may be
