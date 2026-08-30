@@ -231,4 +231,57 @@ describe('a generation conditions on the face', () => {
     // The full-length angles still ride behind it, in their own order.
     expect(refs.slice(1)).toEqual([core.images.pathFor(front), core.images.pathFor(second)]);
   });
+
+  it('previews exactly what it will send', async () => {
+    /*
+     * The house rule: what the composer previews and what the engine receives
+     * can never drift. Wiring the crop into the generation path and not into
+     * the preview would have shown the user one set of references and sent
+     * another, silently. Nothing in the UI would have said so.
+     */
+    const front = core.images.save(await studioFrame());
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            characters: [{ id: 'c1', name: 'One', shots: [{ file: `asset:${front}` }] }],
+          },
+        },
+      })
+    ).json();
+    const project = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json().project;
+    const brief = {
+      tokens: [
+        { t: 'format', id: 'portrait', w: 816, h: 1024 },
+        { t: 'character', id: 'c1' },
+        { t: 'text', v: 'a portrait' },
+      ],
+    };
+
+    const preview = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brief/preview',
+        payload: { brandId: brand.id, engineId: 'spy', brief },
+      })
+    ).json();
+    await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: project.id, kind: 'generation', engineId: 'spy', count: 1, brief },
+    });
+    for (let i = 0; i < 80 && !sent.length; i++) await new Promise((r) => setTimeout(r, 25));
+
+    expect(preview.referenceCount).toBe(sent[0].referenceImages?.length);
+    expect(preview.attachments.map((a: { hash: string }) => core.images.pathFor(a.hash))).toEqual(
+      sent[0].referenceImages,
+    );
+    expect(preview.prompt).toBe(sent[0].prompt);
+  });
 });

@@ -554,18 +554,26 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // product or curated presenter must be in the token list the brand json
     // is built against, or it compiles to "no longer in the kit".
     const combined = [...(brief.tokens as BriefToken[]), ...inheritedTokens];
-    const brandJson = await brandJsonWithResolvedPresenters(
+    // A refinement conditions on the same faces a generation does. The
+    // identity chain is the one place fidelity compounds -- five consecutive
+    // re-renders of the same person -- so this is the last place that should
+    // be handed the weaker payload.
+    const brandJson = await brandJsonWithIdentityCrops(
       core,
-      templatesRoot,
-      presenters,
-      await brandJsonWithResolvedDemoProducts(
+      await brandJsonWithResolvedPresenters(
         core,
         templatesRoot,
-        demoProducts,
-        brandJsonWithCatalogProducts(core, brandId),
+        presenters,
+        await brandJsonWithResolvedDemoProducts(
+          core,
+          templatesRoot,
+          demoProducts,
+          brandJsonWithCatalogProducts(core, brandId),
+          combined,
+        ),
         combined,
       ),
-      combined,
+      combined.filter((t): t is Extract<BriefToken, { t: 'character' }> => t.t === 'character').map((t) => t.id),
     );
     const sceneById = sceneFor(brandJson);
     const uncapped = { ...engineCaps, maxReferenceImages: 32 };
@@ -744,18 +752,27 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       };
     }
 
-    const brandJson = await brandJsonWithResolvedPresenters(
+    // Identity crops here too, and for the reason the file header gives: what
+    // the composer previews and what the engine receives can never drift. The
+    // preview is the same compile, so it has to be handed the same roster.
+    const brandJson = await brandJsonWithIdentityCrops(
       core,
-      templatesRoot,
-      presenters,
-      await brandJsonWithResolvedDemoProducts(
+      await brandJsonWithResolvedPresenters(
         core,
         templatesRoot,
-        demoProducts,
-        brandJsonWithCatalogProducts(core, brand.id),
+        presenters,
+        await brandJsonWithResolvedDemoProducts(
+          core,
+          templatesRoot,
+          demoProducts,
+          brandJsonWithCatalogProducts(core, brand.id),
+          brief.tokens,
+        ),
         brief.tokens,
       ),
-      brief.tokens,
+      ((brief.tokens as BriefToken[] | undefined) ?? [])
+        .filter((t): t is Extract<BriefToken, { t: 'character' }> => t.t === 'character')
+        .map((t) => t.id),
     );
     const sceneById = sceneFor(brandJson);
     const compiled = compileBrief(brief as Brief, {
