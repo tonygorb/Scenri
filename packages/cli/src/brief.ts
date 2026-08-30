@@ -421,6 +421,19 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
             personDirectives.push(
               `${c.promptName ?? c.name}'s skin, exactly as the reference photographs show it: ${c.skin}.`,
             );
+          // Bone structure, in words, because the pictures cannot carry it.
+          // The reference frames are full-length, so the face arrives at
+          // roughly 105px brow to chin while a portrait renders it at four
+          // times that: the payload fixes type and colouring and leaves the
+          // jaw, brow and cheekbones to the prior, which is why one brief
+          // returned four different faces of one casting type. Named the same
+          // way skin is, so the dedupe pass can never merge two presenters'
+          // faces into one claim.
+          if (c.facial)
+            personDirectives.push(
+              `${c.promptName ?? c.name}'s face, which must survive every generation unchanged: ${c.facial}.`,
+            );
+          if (c.build) personDirectives.push(`${c.promptName ?? c.name}'s build: ${c.build}.`);
         } else {
           warnings.push(`${c.name} has no usable photo, so they are named but not attached.`);
         }

@@ -197,6 +197,15 @@ describe('presenter catalog + direct-attach API', () => {
     // The record's own skin truth rides too - it was dropped here, which is
     // half of the airbrushed-presenter report.
     expect(body.prompt).toContain("Sana's skin, exactly as the reference photographs show it: s.");
+    // And the face. `facial` and `build` were held back on the grounds that
+    // they are geometry the four reference photographs already lock; the
+    // photographs are full-length, so the face lands at about 105px and locks
+    // nothing. Four outputs of one brief came back with four different jaws.
+    expect(body.prompt).toContain("Sana's face, which must survive every generation unchanged: f.");
+    expect(body.prompt).toContain("Sana's build: b.");
+    // `hair` still does not ride: a direction legitimately restyles it, and
+    // identityNotes already asserts whatever must survive.
+    expect(body.prompt).not.toContain("Sana's hair");
 
     // resolving the presenter is a read-through cache, not a roster write —
     // the brand's own characters[] stays exactly as it started

@@ -624,6 +624,123 @@ async function avatarCrop(core: Core, hash: string | undefined): Promise<string 
 }
 
 /**
+ * The identity crop's framing, in figure proportions.
+ *
+ * Same measurement as the avatar above, opened up: the avatar is a 0.22 square
+ * because a circle gets cut out of it, and a reference has no circle. This is
+ * 0.32 of figure height at 4:5 — head, shoulders and upper chest — which is
+ * the framing the curated roster's own portraits use.
+ */
+const IDENTITY_FIGURE_FRACTION = 0.32;
+const IDENTITY_HEADROOM = 0.08;
+/**
+ * The long edge the crop is stored at. Matched to the reference frames it
+ * rides beside so it does not read as the small picture in the set; there is
+ * no new detail in the upscale, and there does not need to be — what it buys
+ * is the face arriving at reference SCALE instead of as a detail of a figure.
+ */
+const IDENTITY_LONG_EDGE = 1280;
+
+/**
+ * A head-and-shoulders crop of a presenter's front frame, for conditioning.
+ *
+ * Why this exists at all, measured 2026-08-30 against the reported failure
+ * (four outputs of one Generate 4, four different jaws):
+ *
+ * Every presenter reference frame is full-length head-to-toe — that is what
+ * STUDIO_FRAMES asks for, and the curated roster is shot the same way. In a
+ * 1024x1280 full-length frame the face is about 105px brow to chin, and only
+ * one of the attached angles is frontal. A tight portrait renders that face at
+ * around 450px. So the payload fixes the person's type, colouring, hair and
+ * build, and says almost nothing about bone structure — and every take then
+ * reconstructs the jaw, chin and brow from the prior and lands somewhere
+ * else. Drift tracked face size in the output across six batches: full-body
+ * runs were consistent, tight portraits were four different people of one
+ * casting type.
+ *
+ * The crop does not add detail that was never captured. It puts the face in
+ * the conditioning at a scale the model reads as the subject.
+ */
+export async function identityCrop(core: Core, hash: string | undefined): Promise<string | undefined> {
+  if (!hash || !core.images.has(hash)) return undefined;
+  // Verified before it is trusted. The memo is keyed by SOURCE hash, but the
+  // value it holds is a hash in one store; handing it to a different store
+  // yields a reference the compiler then silently drops on its `has` check,
+  // which is a presenter arriving with no face and no error anywhere.
+  const hit = identityCrops.get(hash);
+  if (hit && core.images.has(hit)) return hit;
+  let box: Awaited<ReturnType<typeof figureBox>> = null;
+  try {
+    box = await figureBox(core.images.read(hash));
+  } catch {
+    box = null;
+  }
+  // No readable figure means no trustworthy place to put the box. A wrong
+  // crop is worse than none: it would attach a chest or a backdrop as the
+  // identity reference. Fall back to the full frame, which is today's
+  // behaviour.
+  if (!box) return undefined;
+  const out = await crop(core, hash, (w, h) => {
+    const height = Math.min(h, Math.max(16, Math.round(box.height * IDENTITY_FIGURE_FRACTION)));
+    const width = Math.min(w, Math.max(16, Math.round(height * 0.8)));
+    const top = Math.min(Math.max(0, Math.round(box.top - height * IDENTITY_HEADROOM)), h - height);
+    const left = Math.min(Math.max(0, Math.round(box.left + box.width / 2 - width / 2)), w - width);
+    return { left, top, width, height };
+  });
+  if (!out) return undefined;
+  // Up to reference scale, then stored under its own hash.
+  try {
+    const png = await sharp(core.images.read(out))
+      .resize({ height: IDENTITY_LONG_EDGE, fit: 'inside', kernel: 'lanczos3' })
+      .png()
+      .toBuffer();
+    const scaled = core.images.save(png);
+    identityCrops.set(hash, scaled);
+    return scaled;
+  } catch {
+    // The crop itself is still an improvement on the full-length frame.
+    identityCrops.set(hash, out);
+    return out;
+  }
+}
+
+/**
+ * Derived once per source image, for the life of the process. Only successes
+ * are remembered: memoising a failure pins the degraded answer forever, which
+ * is the bug capReferenceEdge carried.
+ */
+const identityCrops = new Map<string, string>();
+
+/**
+ * The brand json a brief compiles against, with every referenced presenter
+ * led by a head-and-shoulders crop of their own front frame.
+ *
+ * Runs BEFORE compileBrief, never inside it: the compiler is deterministic and
+ * synchronous by contract, and this needs sharp. The crop is prepended rather
+ * than appended, so it takes the `essential` slot the front angle used to hold
+ * and the third full-length angle falls off the end of CHARACTER_REF_MAX. The
+ * reference COUNT is unchanged, which keeps the engine budget and every
+ * eviction rule exactly where they were.
+ */
+export async function brandJsonWithIdentityCrops(core: Core, json: any, characterIds: string[]): Promise<any> {
+  const wanted = new Set(characterIds);
+  const roster: any[] = json?.characters ?? [];
+  if (!wanted.size || !roster.length) return json;
+  let changed = false;
+  const characters = await Promise.all(
+    roster.map(async (c) => {
+      if (!wanted.has(c?.id) || !c?.shots?.length) return c;
+      const front = String(c.shots[0]?.file ?? '').replace(/^asset:/, '') || null;
+      const cropped = await identityCrop(core, front ?? undefined);
+      if (!cropped) return c;
+      changed = true;
+      return { ...c, shots: [{ file: `asset:${cropped}`, angle: 'identity', locked: true }, ...c.shots] };
+    }),
+  );
+  return changed ? { ...json, characters } : json;
+}
+
+/**
  * Where the standing figure actually is, against the seamless backdrop.
  *
  * `trim` reports how much uniform border it would remove, which on a studio

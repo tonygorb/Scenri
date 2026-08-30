@@ -158,17 +158,29 @@ export async function resolvePresenterImages(
   // `skin` rides too: it is rendering behavior the reference pixels cannot
   // enforce at generation time ("faint natural lines, minimal retouch"), and
   // dropping it here is part of why presenters came back airbrushed.
-  // Deliberately NOT forwarded: `facial`, `hair` and `build` (geometry the
-  // four reference photographs already lock), wardrobeDefault (the capture
-  // uniform is not a wardrobe instruction) and promptName (a curated
-  // presenter is named by `name`, which is why renaming one is a generation
-  // change).
+  //
+  // `facial` and `build` ride now as well. They were held back on the stated
+  // grounds that they are "geometry the four reference photographs already
+  // lock", and that turned out to be false: the four photographs are
+  // full-length by construction, so the face is about 105px brow to chin,
+  // and nothing in them pins a jaw. Measured 2026-08-30 against the reported
+  // failure of four outputs of one brief coming back with four different
+  // jaws. All 21 curated presenters carry a facial descriptor and none of it
+  // was reaching the model.
+  //
+  // Still deliberately NOT forwarded: `hair` (a direction legitimately
+  // restyles it, and identityNotes already asserts what must survive),
+  // wardrobeDefault (the capture uniform is not a wardrobe instruction) and
+  // promptName (a curated presenter is named by `name`, which is why renaming
+  // one is a generation change).
   return {
     id: presenter.id,
     name: presenter.name,
     ...(presenter.identityNotes ? { identityNotes: presenter.identityNotes } : {}),
     ...(presenter.negativeConstraints?.length ? { negativeConstraints: presenter.negativeConstraints } : {}),
     ...(presenter.skin ? { skin: presenter.skin } : {}),
+    ...(presenter.facial ? { facial: presenter.facial } : {}),
+    ...(presenter.build ? { build: presenter.build } : {}),
     shots,
   };
 }
