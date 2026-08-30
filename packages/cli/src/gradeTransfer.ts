@@ -165,8 +165,9 @@ const applyAffine = (raw: Raw, T: ChannelAffine[]): void => {
   const d = raw.data;
   for (let i = 0; i < d.length; i += 3) {
     const peak = Math.max(d[i], d[i + 1], d[i + 2]);
-    // full strength to 240, fading to none at 255
-    const w = peak <= 240 ? 1 : Math.max(0, (255 - peak) / 15);
+    // full strength to 225, fading to none at 255: a wide band, so texture
+    // sitting right at the roll-off blends smoothly instead of mottling
+    const w = peak <= 225 ? 1 : Math.max(0, (255 - peak) / 30);
     const lab = toLab(d[i], d[i + 1], d[i + 2]);
     const out = fromLab(
       (lab[0] - T[0].mi) * T[0].k + T[0].mo,
