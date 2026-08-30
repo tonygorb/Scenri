@@ -161,12 +161,23 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
             : `The attached image is ${roleDirective[role]}.`;
         })
         .join(' ');
+      // Ordinal binding leaves the identity contract stated once, before the
+      // images. On this path there are no filenames to bind to (codex names
+      // its files), so when a person reference rides beside a scene or mood
+      // image the carve-out is repeated AFTER the image list — the last words
+      // the model reads about the pictures it was just handed.
+      const identityCoda =
+        roles.includes('character') && roles.some((r) => r === 'scene' || r === 'reference')
+          ? 'Identity check: the person in this image comes only from the character reference image(s); the scene ' +
+            'and reference images lend world, composition, lighting and treatment — take no face or likeness from them.'
+          : null;
       const content: unknown[] = [
         { type: 'text', text: refDirectives ? `${req.prompt} ${refDirectives}` : req.prompt },
         ...refs.map((p) => ({
           type: 'image_url',
           image_url: { url: dataUrl(p) },
         })),
+        ...(identityCoda ? [{ type: 'text', text: identityCoda }] : []),
       ];
       const body = {
         model: opts.model ?? DEFAULT_MODEL,
