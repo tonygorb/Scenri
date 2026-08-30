@@ -67,6 +67,34 @@ describe('gradeComposite', () => {
     expect(rg - bg).toBeGreaterThan(ro - bo);
   });
 
+  it('a blown highlight stays white through a strong warm grade', async () => {
+    const original = await card(640, 800);
+    // burn a clipped white window into the original
+    const withWindow = await sharp(original)
+      .composite([
+        {
+          input: await sharp({ create: { width: 120, height: 200, channels: 3, background: '#ffffff' } })
+            .png()
+            .toBuffer(),
+          left: 8,
+          top: 100,
+        },
+      ])
+      .png()
+      .toBuffer();
+    const modelInput = await sharp(withWindow).resize(320, 400).png().toBuffer();
+    const modelOutput = await warmed(modelInput);
+    const r = await gradeComposite(withWindow, modelInput, modelOutput);
+    expect(r).not.toBeNull();
+    // sample the window region of the graded original: still near-neutral.
+    // (extract must be materialized first - sharp's stats() reads the INPUT
+    // image and ignores chained operations.)
+    const windowPng = await sharp(r!.image).extract({ left: 20, top: 150, width: 80, height: 100 }).png().toBuffer();
+    const region = await sharp(windowPng).stats();
+    const [mr, , mb] = region.channels.map((c) => c.mean);
+    expect(Math.abs(mr - mb)).toBeLessThan(8);
+  });
+
   it('refuses a grade fitted to an unrelated frame', async () => {
     const original = await card(640, 800);
     const modelInput = await sharp(original).resize(320, 400).png().toBuffer();
