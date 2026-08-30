@@ -75,7 +75,9 @@ describe('briefTokens', () => {
 
 describe('identityKeyOf', () => {
   it('a product keys on its id alone: the angle is presentation, not identity', () => {
-    expect(identityKeyOf({ t: 'product', id: 'p1', angle: 'material-closeup' })).toBe(identityKeyOf({ t: 'product', id: 'p1' }));
+    expect(identityKeyOf({ t: 'product', id: 'p1', angle: 'material-closeup' })).toBe(
+      identityKeyOf({ t: 'product', id: 'p1' }),
+    );
     expect(identityKeyOf({ t: 'product', id: 'p1' })).not.toBe(identityKeyOf({ t: 'product', id: 'p2' }));
   });
 
