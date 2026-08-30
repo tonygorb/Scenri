@@ -41,6 +41,17 @@ const IDENTITY_KINDS = new Set(['product', 'character', 'mark', 'ref']);
 const identityOf = (list: unknown): BriefToken[] =>
   Array.isArray(list) ? (list as BriefToken[]).filter((t) => IDENTITY_KINDS.has(t?.t)) : [];
 
+/**
+ * The one identity key for server-side token dedupe, matching the studio's
+ * rule (composer line/tokens.ts `identityKeyOf`): a product keys on its id
+ * alone — its angle is presentation, so an angled token and its plain twin
+ * are the same product, never two — and every other kind on its full shape.
+ * Raw JSON.stringify was the old rule, and it silently disagreed with the
+ * studio the moment a product token carried an angle.
+ */
+export const identityTokenKey = (t: BriefToken): string =>
+  t?.t === 'product' ? `p:${(t as { id: string }).id}` : JSON.stringify(t);
+
 export interface InheritedIdentity {
   tokens: BriefToken[];
   /** The walk hit the ceiling with tokens possibly still above it. */
@@ -79,7 +90,7 @@ export function inheritedIdentityTokens(
       const seen = new Set<string>();
       const tokens: BriefToken[] = [];
       for (const t of [...own, ...carried]) {
-        const key = JSON.stringify(t);
+        const key = identityTokenKey(t);
         if (seen.has(key)) continue;
         seen.add(key);
         tokens.push(t);
