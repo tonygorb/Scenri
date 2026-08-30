@@ -22,6 +22,7 @@ import {
   type EngineCapabilities,
 } from '@scenri/core';
 import { compileBrief, validateBrief, FORMATS, PRODUCT_REF_MAX, CHARACTER_REF_MAX, type Brief } from '../src/brief.js';
+import { markEditDirective } from '../src/briefDirectives.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 
 let home: string;
@@ -799,4 +800,51 @@ describe('golden: photographic skin, real scale, real hands', () => {
     expect(p1.prompt).toContain('true scale');
     expect(p1.prompt).not.toContain(SCALE);
   });
+});
+
+/**
+ * The brand-mark contract, locked at every layer it is spoken: the shared
+ * role directives every adapter forwards, the compiled brief's own sentence,
+ * the refine-tier directive, and the figure-scene carve-out. None of these
+ * were golden-locked before this suite, which is how "letterforms" stayed
+ * the ceiling while testers' small non-Latin lettering was being re-spelled.
+ */
+describe('golden: the brand mark keeps its script, direction and smallest lettering', () => {
+  const lockPhrases = (s: string) => {
+    expect(s).toMatch(/smallest secondary lettering/);
+    expect(s).toMatch(/original script and reading direction/);
+    expect(s).toMatch(/exactly as drawn/);
+  };
+
+  it('both engine-side role directives carry the contract', () => {
+    const { REFERENCE_ROLE_DIRECTIVE: gen, EDIT_REFERENCE_ROLE_DIRECTIVE: edit } = {
+      REFERENCE_ROLE_DIRECTIVE,
+      EDIT_REFERENCE_ROLE_DIRECTIVE,
+    };
+    lockPhrases(gen.brand);
+    lockPhrases(edit.brand);
+    expect(gen.brand).toMatch(/never translated, transliterated or re-spelled/);
+    expect(edit.brand).toMatch(/never redrawn, re-lettered, translated or transliterated/);
+  });
+
+  it('a compiled mark brief states it in the prompt', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const b = { ...brand(), logos: [{ role: 'primary', file: `asset:${logoHash}` }] } as any;
+    const r = compileBrief(
+      { tokens: [{ t: 'mark', imageHash: logoHash }] },
+      { brand: b, images: core.images, engineCaps: caps(6), templateById: resolveScene },
+    );
+    expect(r.prompt).toContain('Every character it carries appears intact, including the smallest secondary lettering');
+    expect(r.prompt).toContain('in its original script and reading direction');
+    expect(r.prompt).toContain('never translated, transliterated or re-spelled');
+  });
+
+  it('the refine-tier directive states it too', () => {
+    expect(markEditDirective()).toContain('Every character it carries stays intact');
+    expect(markEditDirective()).toContain('original script and reading direction');
+  });
+
+  // The figure-treatment carve-out fires only from a custom scene with
+  // treatment printing; its lock lives beside that machinery in brief.test
+  // ('carves the attached brand mark out of the fictional-brands rule').
 });

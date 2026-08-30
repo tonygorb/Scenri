@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
 import { compileBrief, brandRuleDirectives, validateBrief, PRODUCT_REF_MAX, type Brief } from '../src/brief.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
@@ -343,6 +344,32 @@ describe('brand mark token', () => {
     const r = compileBrief({ tokens: [{ t: 'mark', imageHash: logoHash }] }, ctx({ brand: brandWith(productHash) }));
     expect(r.attachments).toEqual([]);
     expect(r.warnings).toEqual(['A brand mark in this brief is no longer in the kit.']);
+  });
+
+  // The floor keeps new uploads out of this class, but legacy marks minted
+  // before it exist, and the compiler is the one place every path funnels
+  // through — so it measures the stored file and says so on the chip.
+  it('a small stored mark warns that its fine lettering will not survive', async () => {
+    const tiny = await sharp({
+      create: { width: 100, height: 40, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } },
+    })
+      .png()
+      .toBuffer();
+    const logoHash = core.images.save(tiny);
+    const r = compileBrief({ tokens: [{ t: 'mark', imageHash: logoHash }] }, ctx({ brand: brandWithLogo(logoHash) }));
+    expect(r.attachments.map((a) => a.role)).toEqual(['brand']);
+    expect(r.warnings.join(' ')).toMatch(/only 100px across/);
+  });
+
+  it('a comfortable mark rides with no size warning', async () => {
+    const ok = await sharp({
+      create: { width: 600, height: 600, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } },
+    })
+      .png()
+      .toBuffer();
+    const logoHash = core.images.save(ok);
+    const r = compileBrief({ tokens: [{ t: 'mark', imageHash: logoHash }] }, ctx({ brand: brandWithLogo(logoHash) }));
+    expect(r.warnings).toEqual([]);
   });
 
   // The same artwork under both roles is one contradiction, not two chips:
@@ -845,6 +872,9 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.prompt).toContain('plausible but fictional, resembling no existing brand');
     expect(r.prompt).toContain('The one exception is the attached brand mark');
     expect(r.prompt).toContain('the fictional-brands rule above does not apply to it');
+    // and the exception speaks the script contract: small non-Latin lettering
+    // is exactly what kept being re-spelled under the old wording
+    expect(r.prompt).toContain('every character, including the smallest lettering, in its original script');
   });
 
   it('keeps the fictional-brands rule absolute when no mark is attached', () => {

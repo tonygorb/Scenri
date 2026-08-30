@@ -190,6 +190,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // about its own format — broken in the marks grid, and mislabelled to any
       // engine it is later attached to.
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
+      // Measured as stored (post-toMarkPng), so the scrape judges the same
+      // pixels the compiler will one day attach.
+      probeLongEdge: async (buf) => {
+        const m = await sharp(await toMarkPng(buf)).metadata();
+        return Math.max(m.width ?? 0, m.height ?? 0) || null;
+      },
       createdWith: `${meta.name}/${meta.version}`,
     });
     const row = core.store.createBrand(brand as any);
@@ -318,6 +324,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const { brand: scraped, warnings } = await buildFromUrl(url, {
       fetchImpl: opts.fetchImpl,
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
+      probeLongEdge: async (buf) => {
+        const m = await sharp(await toMarkPng(buf)).metadata();
+        return Math.max(m.width ?? 0, m.height ?? 0) || null;
+      },
       createdWith: `${meta.name}/${meta.version}`,
     });
     const { brand: merged, suggestions } = mergeScrape(brand.json, scraped);

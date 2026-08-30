@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import type { Core } from '@scenri/core';
 import { driftDiff } from '../diff.js';
+import { toMarkPng } from './shared.js';
 import { buildExportZip, EXPORT_PRESETS } from '../exportPack.js';
 import { buildBrandBundle } from '../exportBrand.js';
 
@@ -26,7 +27,18 @@ export function registerImageRoutes(app: FastifyInstance, deps: { core: Core }):
     // on a phone is stored in its sensor orientation and lies on its side for
     // the rest of its life, because nothing downstream can recover the tag.
     // catalogImport does it in this order for the same reason.
-    const png = await sharp(buf).rotate().png().toBuffer(); // normalize any input format
+    //
+    // An SVG takes the mark path instead: this generic route rasterized
+    // vectors at their intrinsic viewBox (density 72), so an SVG logo dropped
+    // in the composer arrived as a thumbnail-resolution reference while the
+    // brand-kit route rendered the same file at density 384. Photos keep the
+    // byte-identical old path.
+    const fmt = (
+      await sharp(buf)
+        .metadata()
+        .catch(() => null)
+    )?.format;
+    const png = fmt === 'svg' ? await toMarkPng(buf) : await sharp(buf).rotate().png().toBuffer();
     return { hash: core.images.save(png) };
   });
 

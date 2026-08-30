@@ -7,6 +7,13 @@ export interface BuildOptions {
   saveAsset?: (buf: Buffer, kind: 'logo' | 'image') => Promise<string>;
   /** Tool stamp for meta.createdWith, e.g. "scenri/0.2.0". The caller knows its version; this package does not. */
   createdWith?: string;
+  /**
+   * Long edge of the image as it will be STORED, injected by the caller (this
+   * package stays sharp-free). Lets the scrape refuse to crown a favicon: a
+   * 32px icon saved as the primary mark is a logo the compiler will promise
+   * to reproduce exactly from pixels that cannot say what it looks like.
+   */
+  probeLongEdge?: (buf: Buffer) => Promise<number | null>;
 }
 
 export interface BuildResult {
@@ -129,6 +136,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
   // compiler asks a model to reproduce exactly as drawn.
   let logoRef: string | undefined;
   let logoFromOg = false;
+  let logoTiny = false;
   let iconHref = $('link[rel="apple-touch-icon"]').attr('href') || $('link[rel~="icon"]').attr('href');
   if (!iconHref) {
     iconHref = $('meta[property="og:image"]').attr('content');
@@ -139,7 +147,21 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
       const iconRes = await fetchImpl(new URL(iconHref, origin).toString(), { redirect: 'follow' });
       if (iconRes.ok) {
         const buf = Buffer.from(await iconRes.arrayBuffer());
-        if (buf.length > 0) logoRef = await opts.saveAsset(buf, 'logo');
+        if (buf.length > 0) {
+          logoRef = await opts.saveAsset(buf, 'logo');
+          // A favicon-sized icon must never be crowned the primary mark: the
+          // compiler asks a model to reproduce the primary exactly as drawn,
+          // and 32px of pixels cannot say what to reproduce.
+          if (!logoFromOg && opts.probeLongEdge) {
+            const edge = await opts.probeLongEdge(buf).catch(() => null);
+            if (edge !== null && edge < 256) {
+              logoTiny = true;
+              warnings.push(
+                `The site icon is favicon-sized (${edge}px), so it was saved as an alternate mark, not the logo. Upload your real logo in Settings.`,
+              );
+            }
+          }
+        }
       }
     } catch {
       warnings.push('Logo download failed.');
@@ -176,7 +198,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
           },
         }
       : {}),
-    ...(logoRef ? { logos: [{ role: logoFromOg ? 'alternate' : 'primary', file: logoRef }] } : {}),
+    ...(logoRef ? { logos: [{ role: logoFromOg || logoTiny ? 'alternate' : 'primary', file: logoRef }] } : {}),
   };
   return { brand, warnings };
 }
