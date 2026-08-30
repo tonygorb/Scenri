@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2](https://github.com/tonygorb/Scenri/compare/v0.7.1...v0.7.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* a reshape is planned at the engine budget, never upscaled ([a580adc](https://github.com/tonygorb/Scenri/commit/a580adce27c85ae31b9071d9ff5411cb9d06bdaa))
+* a reshape is planned at the engine budget, never upscaled ([2325779](https://github.com/tonygorb/Scenri/commit/2325779b32bdb83687135a21758953a1e3465eb2))
+
 ## [0.7.1](https://github.com/tonygorb/Scenri/compare/v0.7.0...v0.7.1) (2026-08-30)
 
 
