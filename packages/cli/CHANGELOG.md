@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0](https://github.com/tonygorb/Scenri/compare/v0.6.13...v0.7.0) (2026-08-30)
+
+
+### Features
+
+* a pure-grade refinement keeps the photograph's own pixels ([7daf442](https://github.com/tonygorb/Scenri/commit/7daf442a7949a3dec0acbcb510ed9100863937e0))
+
+
+### Bug Fixes
+
+* **brief:** a shed corroboration angle no longer reads as a lost identity ([d4830f7](https://github.com/tonygorb/Scenri/commit/d4830f7940f8cc596f013000e4159da4459d6a60))
+* **brief:** identity has one source - the carve-out leads the scene directive, and the presenter outranks a reference ([9c97fad](https://github.com/tonygorb/Scenri/commit/9c97fada04934e27f54e439d78511f12d7d775d0))
+* **brief:** the drawn plate conditions a figure-led scene, and the raw upload never rides beside a presenter ([c0766da](https://github.com/tonygorb/Scenri/commit/c0766da479a36677bc4ad66762b55d1daa4a8eb1))
+* carried mood references stop claiming to be the subject on refines ([a0d3c40](https://github.com/tonygorb/Scenri/commit/a0d3c408156ae2da9579e97a220848c5591fd68d))
+* **openrouter:** repeat the identity carve-out after the image list ([dc2cf93](https://github.com/tonygorb/Scenri/commit/dc2cf93f3fa36af76a67f4a85c0f9676a1e4bf4c))
+* refines on pixel-budget engines step down honestly instead of upscaling ([1fa419d](https://github.com/tonygorb/Scenri/commit/1fa419d191fa5201b2a78fe29fa6f4123955411c))
+* **scenes:** a treatment plate may carry fictional print, and a redraw trims its bars ([8f5c0a2](https://github.com/tonygorb/Scenri/commit/8f5c0a2bc77433b8a46dca6f985768fd7e13d940))
+* **server:** a formatless edit brief never reshapes ([253804f](https://github.com/tonygorb/Scenri/commit/253804ffedc6164c5dbc46e5f19e942b424a6ad9))
+* the edit identity compile declares edit mode at the scene seam ([40cb845](https://github.com/tonygorb/Scenri/commit/40cb84596ca77b74f1626c3cfeed68cf1b8f44d2))
+
 ## [0.6.13](https://github.com/tonygorb/Scenri/compare/v0.6.12...v0.6.13) (2026-08-30)
 
 
