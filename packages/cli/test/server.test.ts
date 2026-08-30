@@ -2699,3 +2699,83 @@ describe('a refinement never re-sends scene imagery', () => {
     await local.close();
   });
 });
+
+// A shape is only an ask when the brief carries one. A formatless edit brief
+// compiles at the default canvas, and the implicit-reshape gate used to read
+// that default as "reshape to square" - an API caller's plain refine became
+// an expansion with invented margins.
+describe('a formatless edit brief never reshapes', () => {
+  it('a plain refine of a portrait stays a portrait', async () => {
+    const edits: EditRequest[] = [];
+    const png = (w: number, h: number) =>
+      sharp({ create: { width: w, height: h, channels: 3, background: '#335544' } })
+        .png()
+        .toBuffer();
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'shape-spy',
+        displayName: 'Shape Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 4,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({ images: [core.images.save(await png(800, 1000))], costUsd: 0 }),
+      // the spy answers at whatever size it was asked for
+      edit: async (req) => {
+        edits.push(req);
+        return { images: [core.images.save(await png(req.width ?? 800, req.height ?? 1000))], costUsd: 0 };
+      },
+    };
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const brand = (
+      await local.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json();
+    const ws = await local.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'shape-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'portrait', w: 800, h: 1000 },
+            { t: 'text', v: 'a mug' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDoneOn(local, gen.json().id);
+
+    const edit = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'shape-spy',
+        sourceImage: genNode.images[0],
+        // no format token: the shape is not an ask, the source's shape holds
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    const editNode = await waitRenderedOn(local, edit.json().id);
+    expect(editNode.status).toBe('done');
+    // the engine was asked for the source's own pixels, not a square plan
+    expect([edits[0].width, edits[0].height]).toEqual([800, 1000]);
+    expect(edits[0].expand).toBeUndefined();
+    expect((editNode.brief as any).expand).toBeUndefined();
+    expect((editNode.brief as any).rendered?.sizes?.[0]).toEqual([800, 1000]);
+    await local.close();
+  });
+});

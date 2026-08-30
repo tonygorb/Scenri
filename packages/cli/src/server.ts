@@ -1402,9 +1402,18 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         parentFormat && Number(parentFormat.w) > 0 && Number(parentFormat.h) > 0
           ? { width: Number(parentFormat.w), height: Number(parentFormat.h) }
           : null;
+      // A shape is only an ask when the brief actually carries one. An edit
+      // brief with no format token compiles at the DEFAULT canvas, and
+      // reading that default as "please reshape to square" silently turned an
+      // API caller's plain refine into an expansion with invented margins
+      // (measured live: a 4:5 portrait came back as a square letterboxed in
+      // black). The studio always sends the source's format token, so this
+      // gate changes nothing it produces; it protects every other caller.
+      const briefNamesShape = ((brief?.tokens as BriefToken[] | undefined) ?? []).some((t) => t?.t === 'format');
       const reshapeIntended =
         reshape === 'extend' ||
         (reshape === undefined &&
+          briefNamesShape &&
           !!srcMeta.width &&
           !!srcMeta.height &&
           !!compiled?.width &&
