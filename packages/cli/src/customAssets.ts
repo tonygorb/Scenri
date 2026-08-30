@@ -264,6 +264,27 @@ const STUDIO_FRAMES: {
   from: 'sources' | 'front' | 'left-profile';
   subject: (who: string) => string;
 }[] = [
+  /*
+   * The identity frame, and it comes first because that is the order a brief
+   * attaches: `shots[0]` is the essential character reference.
+   *
+   * Every other frame here is full-length head-to-toe, which is right for
+   * build, proportion and wardrobe and useless for a face — in a 1024x1280
+   * full-length frame the face is about 105px brow to chin, while a portrait
+   * output renders it at four times that. Measured 2026-08-30 against the
+   * reported failure: four outputs of one brief, four different jaws, and
+   * drift that tracked nothing but how big the face was in the output.
+   *
+   * Drawn `from: 'sources'` rather than chained off the front view, because
+   * the user's own photographs are the only real face evidence in the system
+   * and a chain would just enlarge the same 105px.
+   */
+  {
+    angle: 'portrait',
+    from: 'sources',
+    subject: (who) =>
+      `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`,
+  },
   {
     angle: 'front',
     from: 'sources',
@@ -349,12 +370,15 @@ async function runPresenterBuild(
   // Without an engine the photographs are the presenter: fewer views than a
   // curated one has, but a working person rather than a blocked flow.
   let shotHashes = hashes;
+  let shotAngles: string[] = [];
   const warnings: string[] = [];
   if (deps.engine) {
     patch(job, { stage: 'building', steps: STUDIO_FRAMES.length, message: 'Building the studio views' });
     const built = await generateStudioSet(deps, job, whoIs(job.name, draft), sourcePaths, signal);
-    if (built.length) shotHashes = built;
-    else warnings.push('The studio views could not be drawn, so the photos are being used directly.');
+    if (built.hashes.length) {
+      shotHashes = built.hashes;
+      shotAngles = built.angles;
+    } else warnings.push('The studio views could not be drawn, so the photos are being used directly.');
   } else {
     warnings.push('No engine could draw the studio views, so the photos are being used directly.');
   }
@@ -366,7 +390,14 @@ async function runPresenterBuild(
   // photographed — a waist-up selfie, a landscape — and top-16% is a square
   // of forehead or ceiling. Saliency picks the subject instead.
   const generated = shotHashes !== hashes;
-  const { previewHash, avatarHash } = await presenterCrops(core, shotHashes[0], generated ? 'generated' : 'upload');
+  // The card crops are geometric and measured from a STANDING FIGURE, so they
+  // come off the full-length front view by name. They used to read shots[0],
+  // which was the same picture until the portrait frame took that seat: fed a
+  // head-and-shoulders frame, `figureBox` would have found a head where it
+  // expected a body and cropped an avatar out of a forehead.
+  const frontIndex = shotAngles.indexOf('front');
+  const cardSource = frontIndex === -1 ? shotHashes[0] : shotHashes[frontIndex];
+  const { previewHash, avatarHash } = await presenterCrops(core, cardSource, generated ? 'generated' : 'upload');
   const built = presenterRecordFrom({
     name: job.name,
     shotHashes,
@@ -392,7 +423,7 @@ async function runPresenterBuild(
     stage: 'done',
     step: job.steps,
     assetId: built.presenter.id,
-    previewHash: previewHash ?? shotHashes[0] ?? null,
+    previewHash: previewHash ?? cardSource ?? null,
     warnings: [...job.warnings, ...warnings],
     finished: true,
   });
@@ -410,11 +441,11 @@ async function generateStudioSet(
   who: string,
   sourcePaths: string[],
   signal: AbortSignal,
-): Promise<string[]> {
+): Promise<{ hashes: string[]; angles: string[] }> {
   const engine = deps.engine;
-  if (!engine) return [];
+  if (!engine) return { hashes: [], angles: [] };
   const caps = engine.capabilities();
-  if (!caps.maxReferenceImages) return [];
+  if (!caps.maxReferenceImages) return { hashes: [], angles: [] };
   const byAngle = new Map<string, string>();
 
   for (const frame of STUDIO_FRAMES) {
@@ -445,11 +476,14 @@ async function generateStudioSet(
     } catch (err: any) {
       if (signal.aborted) throw err;
       // The front view is the anchor; without it there is nothing to chain from.
+      // The portrait anchors nothing, so losing it costs face conditioning and
+      // not the build.
       if (frame.angle === 'front') throw err;
       patch(job, { warnings: [...job.warnings, `The ${frame.angle} view could not be drawn.`] });
     }
   }
-  return STUDIO_FRAMES.map((f) => byAngle.get(f.angle)).filter((h): h is string => !!h);
+  const kept = STUDIO_FRAMES.filter((f) => byAngle.get(f.angle));
+  return { hashes: kept.map((f) => byAngle.get(f.angle) as string), angles: kept.map((f) => f.angle) };
 }
 
 /**
@@ -631,15 +665,31 @@ async function avatarCrop(core: Core, hash: string | undefined): Promise<string 
  * 0.32 of figure height at 4:5 — head, shoulders and upper chest — which is
  * the framing the curated roster's own portraits use.
  */
-const IDENTITY_FIGURE_FRACTION = 0.32;
+const IDENTITY_FIGURE_FRACTION = 0.26;
 const IDENTITY_HEADROOM = 0.08;
+const IDENTITY_ASPECT = 0.66;
 /**
- * The long edge the crop is stored at. Matched to the reference frames it
- * rides beside so it does not read as the small picture in the set; there is
- * no new detail in the upscale, and there does not need to be — what it buys
- * is the face arriving at reference SCALE instead of as a detail of a figure.
+ * Measured on the first render battery: at 0.32 of figure height and 4:5, the
+ * crop was 48% white studio sweep, and that sweep walked into the finished
+ * pictures — a scene whose backdrop sat at a steady taupe across twelve
+ * control frames came back near-white in one output of every four, and lighter
+ * in the rest. The reference is the leading, essential character image, so its
+ * background is not neutral evidence however clearly the role directive says
+ * capture context is not styling.
+ *
+ * 0.26 at 2:3 is 39% sweep and roughly triples the face's share of the
+ * picture. Both numbers move the right way at once, which is the only reason
+ * to prefer it: less backdrop to copy, more face to read.
  */
-const IDENTITY_LONG_EDGE = 1280;
+/**
+ * The height the crop is stored at, and the ceiling on how far it is inflated
+ * to get there. There is no new detail in an upscale — what the crop buys is
+ * the face arriving at reference SCALE rather than as a detail of a figure —
+ * so past about 3x the only thing added is blur, and a blurred face is a worse
+ * reference than a small sharp one.
+ */
+const IDENTITY_TARGET_HEIGHT = 1280;
+const IDENTITY_MAX_UPSCALE = 3;
 
 /**
  * A head-and-shoulders crop of a presenter's front frame, for conditioning.
@@ -680,9 +730,11 @@ export async function identityCrop(core: Core, hash: string | undefined): Promis
   // identity reference. Fall back to the full frame, which is today's
   // behaviour.
   if (!box) return undefined;
+  let nativeHeight = 0;
   const out = await crop(core, hash, (w, h) => {
     const height = Math.min(h, Math.max(16, Math.round(box.height * IDENTITY_FIGURE_FRACTION)));
-    const width = Math.min(w, Math.max(16, Math.round(height * 0.8)));
+    const width = Math.min(w, Math.max(16, Math.round(height * IDENTITY_ASPECT)));
+    nativeHeight = height;
     const top = Math.min(Math.max(0, Math.round(box.top - height * IDENTITY_HEADROOM)), h - height);
     const left = Math.min(Math.max(0, Math.round(box.left + box.width / 2 - width / 2)), w - width);
     return { left, top, width, height };
@@ -690,8 +742,10 @@ export async function identityCrop(core: Core, hash: string | undefined): Promis
   if (!out) return undefined;
   // Up to reference scale, then stored under its own hash.
   try {
+    const height =
+      Math.min(IDENTITY_TARGET_HEIGHT, Math.round(nativeHeight * IDENTITY_MAX_UPSCALE)) || IDENTITY_TARGET_HEIGHT;
     const png = await sharp(core.images.read(out))
-      .resize({ height: IDENTITY_LONG_EDGE, fit: 'inside', kernel: 'lanczos3' })
+      .resize({ height, fit: 'inside', kernel: 'lanczos3', withoutEnlargement: false })
       .png()
       .toBuffer();
     const scaled = core.images.save(png);

@@ -81,6 +81,47 @@ describe('identityCrop', () => {
     expect(now).toBeGreaterThan(before * 3);
   });
 
+  it('does not hand the scene a white studio sweep to copy', async () => {
+    /*
+     * Measured on the first render battery. At 0.32 of figure height and 4:5
+     * the crop was 48% backdrop, and that backdrop walked into the finished
+     * pictures: a scene sitting at a steady taupe across twelve control frames
+     * came back near-white in one output of every four. The reference is the
+     * leading, essential character image, so its background is never neutral
+     * evidence — however clearly the role directive says otherwise.
+     */
+    const source = core.images.save(await studioFrame());
+    const cropped = (await identityCrop(core, source)) as string;
+    const { data, info } = await sharp(core.images.read(cropped))
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    let sweep = 0;
+    for (let i = 0; i < data.length; i += info.channels)
+      if (data[i] > 235 && data[i + 1] > 235 && data[i + 2] > 235) sweep++;
+    const share = sweep / (info.width * info.height);
+    const full = await sharp(core.images.read(source)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    let fullSweep = 0;
+    for (let i = 0; i < full.data.length; i += full.info.channels)
+      if (full.data[i] > 235 && full.data[i + 1] > 235 && full.data[i + 2] > 235) fullSweep++;
+    const fullShare = fullSweep / (full.info.width * full.info.height);
+    // Strictly less backdrop than the full-length frame it replaces at the
+    // head of the list, and never a majority of the picture.
+    expect(share).toBeLessThan(fullShare);
+    expect(share).toBeLessThan(0.5);
+  });
+
+  it('never inflates a crop into blur', async () => {
+    // An upscale adds no detail. Past about 3x the only thing it adds is blur,
+    // and a blurred face is a worse reference than a small sharp one.
+    const source = core.images.save(await studioFrame());
+    const cropped = (await identityCrop(core, source)) as string;
+    const after = await sharp(core.images.read(cropped)).metadata();
+    // the crop is 0.26 of a 1090px figure, so the stored height is bounded by
+    // three times that rather than by the 1280 target
+    expect(after.height!).toBeLessThanOrEqual(3 * Math.round(1090 * 0.26) + 2);
+  });
+
   it('is content-addressed, so the same frame derives once', async () => {
     const source = core.images.save(await studioFrame());
     const a = await identityCrop(core, source);
