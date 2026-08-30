@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.7.1',
+    date: '2026-08-30',
+    title: 'Four images from one brief are one set.',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Asking for two, three or four images returns variations of one shot rather than four readings of it. The presenter, the product, the scene and the brand hold across the set, and so does the wardrobe. What changes is the photography: each frame explores a different camera position, crop or pose within the brief you wrote.',
+      },
+      {
+        heading: 'Presenters',
+        body: 'A selected presenter now reaches generation as a portrait, not only as full-length views, so their face carries into every image of a run instead of being rebuilt each time. Presenters built in Scenri gain a head-and-shoulders reference of their own, and their casting notes reach the shot.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A run that takes too long keeps the images that already finished instead of throwing them away with the rest. Refining a shot conditions on the same presenter portrait the generation used.',
+      },
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-08-30',
     title: 'Your presenter stays your presenter.',
