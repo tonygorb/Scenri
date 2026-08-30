@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
 import { imgUrl, type Brand, type TreeNode } from '../api.js';
+import { uploadLogo } from '../apiUploads.js';
+import { useAppData } from '../app/AppShell.js';
+import { useToasts } from '../toasts.js';
+import { failureToast } from '../failure.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { flattenPalette } from '../brand/palette.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
@@ -79,6 +83,31 @@ export function AttachPanel({
   const catalog = useIngredientCatalog(activeProductCategory);
   const bookmarked = useMemo(() => new Set(bookmarkedScenes(brand.id)), [brand.id]);
   const createAsset = useCreateAsset();
+  const { applyBrand } = useAppData();
+  const { push } = useToasts();
+  const [logoBusy, setLogoBusy] = useState(false);
+  /**
+   * The declared-intent channel for a logo. A logo dragged into the composer
+   * lands as a plain reference — a drop declares no intent — and a reference
+   * logotype is deliberately treated as mood, which is exactly how testers'
+   * logos came back fictionalised. This tile mints a real kit mark through
+   * the same route Settings uses (first mark becomes THE logo, later ones
+   * variants) and drops the chip in, so the compiler's whole mark contract
+   * applies.
+   */
+  const addLogo = async (file: File) => {
+    setLogoBusy(true);
+    try {
+      const row = await uploadLogo(brand.id, file);
+      applyBrand(row);
+      const hash = (row as { logoHash?: string }).logoHash;
+      if (hash) onToken({ t: 'mark', imageHash: hash });
+    } catch (e) {
+      push(failureToast(e, 'Could not upload that logo'));
+    } finally {
+      setLogoBusy(false);
+    }
+  };
   // The creation dialog lives in the URL now, so "is something stacked on top
   // of me" is a question the URL answers rather than a boolean this panel has
   // to remember to keep in sync.
@@ -316,6 +345,33 @@ export function AttachPanel({
                   </span>
                   <b>Add product</b>
                 </button>
+              )}
+              {tab === 'Brand' && (
+                // A label over a hidden input, the same gesture BrandIdentity's
+                // variant-add uses: one click, a file, and the mark is in the
+                // kit AND in the brief.
+                <label
+                  className="sc-ap-card sc-ap-add"
+                  title="Add your logo to the brand kit"
+                  aria-label="Add your logo to the brand kit"
+                  data-busy={logoBusy || undefined}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    disabled={logoBusy}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) void addLogo(file);
+                    }}
+                  />
+                  <span className="sc-ap-thumb sc-ap-thumb-empty">
+                    <Plus size={16} />
+                  </span>
+                  <b>Add logo</b>
+                </label>
               )}
               {shown.slice(0, TAB_CAP).map(card)}
             </div>

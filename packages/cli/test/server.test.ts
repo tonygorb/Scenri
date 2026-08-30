@@ -90,6 +90,13 @@ describe('brand marks', () => {
     expect(json.palette.primary.hex).toBe('#1F3D2B');
     expect(json.products).toBeUndefined();
 
+    // The answer names the mark it just made: the client cannot compute the
+    // normalized content hash itself, and the composer's add-logo tile drops
+    // the chip in straight from this response. The long edge rides for the
+    // tiny-source warning.
+    expect(res.json().logoHash).toBe(json.logos[0].file.slice(6));
+    expect(res.json().logoEdge).toBe(1);
+
     const served = await app.inject({ method: 'GET', url: `/api/images/${json.logos[0].file.slice(6)}` });
     expect(served.statusCode).toBe(200);
     expect(served.headers['content-type']).toBe('image/png');
