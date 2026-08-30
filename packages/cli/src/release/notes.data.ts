@@ -51,6 +51,24 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.6.13',
+    date: '2026-08-30',
+    sections: [
+      {
+        heading: 'Products',
+        body: 'A product sold in several colours renders the colour its first photo shows, instead of blending them. Imported products now carry their own description and colour list into every shot, so scale and colourway stay true.',
+      },
+      {
+        heading: 'Brand',
+        body: 'Attach your own logo straight from the Brand tab when composing; it joins the kit and rides the shot. Small logo files are raised to a workable resolution, the smallest lettering and its script are now part of the contract, and a logo too small to survive says so before you spend.',
+      },
+      {
+        heading: 'Create',
+        body: 'The refine strip counts each product once and names the scene a thread keeps. A retried shot carries your recipe, never leftovers from the previous run.',
+      },
+    ],
+  },
+  {
     version: '0.6.12',
     date: '2026-08-29',
     sections: [
