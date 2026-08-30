@@ -15,6 +15,7 @@ import { copyFile, readdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
+  budgetSize,
   EDIT_REFERENCE_ROLE_DIRECTIVE,
   REFERENCE_ROLE_DIRECTIVE,
   ratioLabel,
@@ -74,16 +75,11 @@ function orientationOf(width: number, height: number): string {
  * point the ratio actually maps to makes the ask and the answer the same
  * numbers: consistent native pixels, nothing to crop, nothing to resample.
  */
-const CODEX_PIXEL_BUDGET = 1_572_864;
+export const CODEX_PIXEL_BUDGET = 1_572_864;
 
 /** The tool's native frame for a requested shape: same ratio, its own budget. */
 export function codexNativeSize(width: number, height: number): { width: number; height: number } {
-  const ratio = width / height;
-  if (!(ratio > 0) || !Number.isFinite(ratio)) return { width, height };
-  return {
-    width: Math.round(Math.sqrt(CODEX_PIXEL_BUDGET * ratio)),
-    height: Math.round(Math.sqrt(CODEX_PIXEL_BUDGET / ratio)),
-  };
+  return budgetSize(width, height, CODEX_PIXEL_BUDGET);
 }
 
 /**
@@ -186,6 +182,10 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         localOnly: true, // OSS-local only: the user's own session, on the user's own machine
         supportsEdit: true,
         supportsMask: false,
+        // The image tool draws at this fixed pixel count (measured, the
+        // native-size probe): an edit of a larger source steps down honestly
+        // instead of being upscaled back into pixels the tool never drew.
+        editPixelBudget: CODEX_PIXEL_BUDGET,
         /*
          * Five, and it is a hard constraint of the image tool, not a product
          * choice.

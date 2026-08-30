@@ -28,17 +28,32 @@ export const SAME_SHAPE_TOL = 0.01;
  */
 export const SHRINK_FLOOR = 0.8;
 
+/**
+ * How far from the engine's declared pixel budget a native answer may land
+ * and still be accepted as the budget. The probe found every native answer
+ * within rounding of the budget; this absorbs grid rounding and mild drift
+ * while a genuinely broken half-size answer still falls through the floor.
+ */
+export const BUDGET_TOL = 0.1;
+
 export type EditSizeVerdict =
   /** Exact match, unjudgeable input, or a different shape (the aspect check's jurisdiction). */
   | { action: 'keep' }
   /** Same shape, drifted size: resample onto the exact source canvas. */
   | { action: 'resize'; scale: number }
+  /**
+   * Same shape, shrunk to the engine's own measured pixel budget: keep the
+   * engine's native pixels rather than fabricating a third of them. The
+   * thread steps down once, honestly, and every later hop is scale 1.0.
+   */
+  | { action: 'accept'; scale: number }
   /** Same shape, below the floor: fail the edit loudly. */
   | { action: 'reject'; scale: number };
 
 export function judgeEditSize(
   src: { width: number; height: number },
   got: { width: number; height: number },
+  opts?: { pixelBudget?: number },
 ): EditSizeVerdict {
   if (!(src.width > 0 && src.height > 0 && got.width > 0 && got.height > 0)) return { action: 'keep' };
   if (got.width === src.width && got.height === src.height) return { action: 'keep' };
@@ -48,6 +63,15 @@ export function judgeEditSize(
   if (Math.abs(have - want) / want > SAME_SHAPE_TOL) return { action: 'keep' };
 
   const scale = Math.max(got.width, got.height) / Math.max(src.width, src.height);
+  // An over-budget source cannot come back at its own size from a
+  // fixed-budget tool. An answer at the tool's real size is the honest one:
+  // accepted as-is, never inflated back to a number the pixels cannot fill.
+  const budget = opts?.pixelBudget;
+  if (budget && src.width * src.height > budget) {
+    const gotPx = got.width * got.height;
+    if (gotPx <= src.width * src.height && Math.abs(gotPx - budget) / budget <= BUDGET_TOL)
+      return { action: 'accept', scale };
+  }
   if (scale < SHRINK_FLOOR) return { action: 'reject', scale };
   // Larger answers are normalized down too: the thread's canvas is a contract,
   // and "free" pixels the model synthesized past it would make the next
