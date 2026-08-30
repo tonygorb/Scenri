@@ -1,0 +1,95 @@
+import { describe, it, expect } from 'vitest';
+import sharp from 'sharp';
+import { gradeComposite, isGradeOnlyInstruction, GRADE_GATE_MEAN_DELTA } from '../src/gradeTransfer.js';
+
+// A textured test card: gradient + noise, so a grade is measurable and
+// geometry changes are distinguishable from tone changes.
+const card = async (w: number, h: number, tint = 0) => {
+  const raw = Buffer.alloc(w * h * 3);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 3;
+      const g = Math.round((x / w) * 200) + ((x * 7 + y * 13) % 17);
+      raw[i] = Math.min(255, g + tint);
+      raw[i + 1] = Math.min(255, g);
+      raw[i + 2] = Math.min(255, Math.max(0, g - tint));
+    }
+  return sharp(raw, { raw: { width: w, height: h, channels: 3 } })
+    .png()
+    .toBuffer();
+};
+
+/** The same card graded warmer through sharp itself: a true global grade. */
+const warmed = (png: Buffer) =>
+  sharp(png).modulate({ brightness: 1.1, saturation: 1.15 }).tint('#ffd9b0').png().toBuffer();
+
+describe('isGradeOnlyInstruction', () => {
+  it('accepts the tonal sentences a drill actually uses', () => {
+    for (const t of [
+      'slightly warmer light',
+      'cooler, overcast light',
+      'deeper shadows',
+      'a touch more contrast',
+      'make the lighting slightly softer',
+      'warmer light again',
+    ])
+      expect(isGradeOnlyInstruction(t), t).toBe(true);
+  });
+  it('refuses anything that names a thing or an action on one', () => {
+    for (const t of [
+      'remove the cup on the left',
+      'warmer light and fix the collar',
+      'make the skin more natural',
+      'move her hand',
+      'add rain',
+      '',
+    ])
+      expect(isGradeOnlyInstruction(t), t).toBe(false);
+  });
+});
+
+describe('gradeComposite', () => {
+  it('recovers a true grade and ships the original pixels at full size', async () => {
+    const original = await card(640, 800);
+    const modelInput = await sharp(original).resize(320, 400).png().toBuffer();
+    const modelOutput = await warmed(modelInput);
+    const r = await gradeComposite(original, modelInput, modelOutput);
+    expect(r).not.toBeNull();
+    expect(r!.residual).toBeLessThan(GRADE_GATE_MEAN_DELTA);
+    const meta = await sharp(r!.image).metadata();
+    // the ORIGINAL's size, not the model input's - a stepped-down chain gets
+    // its full resolution back on a grade hop
+    expect([meta.width, meta.height]).toEqual([640, 800]);
+    // and it is genuinely warmer than the original
+    const stats = async (b: Buffer) => (await sharp(b).stats()).channels.map((c) => c.mean);
+    const [ro, , bo] = await stats(original);
+    const [rg, , bg] = await stats(r!.image);
+    expect(rg - bg).toBeGreaterThan(ro - bo);
+  });
+
+  it('refuses an answer that moved geometry, so the model frame ships', async () => {
+    const original = await card(640, 800);
+    const modelInput = await sharp(original).resize(320, 400).png().toBuffer();
+    // flip = same histogram, different geometry? a flip matches histograms
+    // exactly - use a rotation with fill instead, which relocates mass
+    const moved = await sharp(modelInput).rotate(180).modulate({ brightness: 1.3 }).png().toBuffer();
+    // rotation alone can still histogram-match; add a hard geometric change:
+    // black out a quadrant the LUT cannot explain
+    const w = 320;
+    const h = 400;
+    const withBlock = await sharp(moved)
+      .composite([
+        {
+          input: await sharp({ create: { width: 160, height: 200, channels: 3, background: '#000000' } })
+            .png()
+            .toBuffer(),
+          left: 0,
+          top: 0,
+        },
+      ])
+      .png()
+      .toBuffer();
+    const r = await gradeComposite(original, modelInput, withBlock);
+    expect(r).toBeNull();
+  });
+});

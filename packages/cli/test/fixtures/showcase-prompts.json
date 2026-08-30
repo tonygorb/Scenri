@@ -53,6 +53,11 @@
         "role": "character",
         "id": "kenji",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "kenji",
+        "essential": false
       }
     ],
     "warnings": []
@@ -81,6 +86,11 @@
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "theo",
         "essential": false
       },
       {
@@ -187,6 +197,11 @@
       {
         "role": "product",
         "id": "ashwell-kin-ribbed-table-lamp",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "elin",
         "essential": false
       },
       {
@@ -971,6 +986,11 @@
         "role": "character",
         "id": "julien",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "julien",
+        "essential": false
       }
     ],
     "warnings": []
@@ -999,6 +1019,11 @@
       {
         "role": "product",
         "id": "wavelength-studio-headphones",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "kenji",
         "essential": false
       },
       {
@@ -1039,6 +1064,11 @@
         "role": "character",
         "id": "julien",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "julien",
+        "essential": false
       }
     ],
     "warnings": []
@@ -1067,6 +1097,11 @@
       {
         "role": "product",
         "id": "kestrel-waxed-field-jacket",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "otis",
         "essential": false
       },
       {
@@ -1227,6 +1262,11 @@
         "role": "character",
         "id": "maren",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "maren",
+        "essential": false
       }
     ],
     "warnings": []
@@ -1255,6 +1295,11 @@
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "mateo",
         "essential": false
       },
       {
@@ -1439,6 +1484,11 @@
         "role": "character",
         "id": "jun",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "jun",
+        "essential": false
       }
     ],
     "warnings": []
@@ -1467,6 +1517,11 @@
       {
         "role": "product",
         "id": "nordhavn-canvas-over-ear-headphones",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "wen",
         "essential": false
       },
       {
@@ -1627,6 +1682,11 @@
         "role": "character",
         "id": "priya",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "priya",
+        "essential": false
       }
     ],
     "warnings": []
@@ -1679,6 +1739,11 @@
       {
         "role": "product",
         "id": "perihelion-pebble-earbuds",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "astrid",
         "essential": false
       },
       {
@@ -1743,6 +1808,11 @@
         "role": "character",
         "id": "rafael",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "rafael",
+        "essential": false
       }
     ],
     "warnings": []
@@ -1801,6 +1871,11 @@
         "role": "character",
         "id": "sasha",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "sasha",
+        "essential": false
       }
     ],
     "warnings": []
@@ -1829,6 +1904,11 @@
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "itai",
         "essential": false
       },
       {
@@ -1887,6 +1967,11 @@
       {
         "role": "product",
         "id": "solenne-mineral-pressed-cream",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "bree",
         "essential": false
       },
       {
@@ -1999,6 +2084,11 @@
         "role": "character",
         "id": "soraya",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "soraya",
+        "essential": false
       }
     ],
     "warnings": []
@@ -2027,6 +2117,11 @@
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "tallulah",
         "essential": false
       },
       {
@@ -2403,6 +2498,11 @@
         "role": "character",
         "id": "soraya",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "soraya",
+        "essential": false
       }
     ],
     "warnings": []
@@ -2485,6 +2585,11 @@
         "role": "character",
         "id": "sasha",
         "essential": false
+      },
+      {
+        "role": "character",
+        "id": "sasha",
+        "essential": false
       }
     ],
     "warnings": []
@@ -2537,6 +2642,11 @@
       {
         "role": "product",
         "id": "meridian-pulse-smartwatch",
+        "essential": false
+      },
+      {
+        "role": "character",
+        "id": "wen",
         "essential": false
       },
       {
