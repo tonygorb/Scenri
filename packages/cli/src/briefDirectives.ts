@@ -166,6 +166,28 @@ export function characterEditIdentityDirective(name: string): string {
   );
 }
 
+/**
+ * Presenter over reference, for identity.
+ *
+ * A hand-attached reference with no presenter may deliberately carry a person
+ * ("use the person from this reference") and the neutral role directive keeps
+ * that case working. The moment a presenter is attached, the structured
+ * selection is the identity authority and a reference goes back to being what
+ * its role says: composition, lighting, treatment. Nothing else in the prompt
+ * said this, so "match their face exactly" (the presenter) and "match this
+ * image" (the reference) rode side by side with nothing disowning the face in
+ * the reference. Prompt-side only; the escape is removing the presenter chip,
+ * at which point this is never emitted.
+ */
+export function referenceIdentityGuard(): string {
+  return (
+    'A reference shot lends its composition, lighting and treatment, never its cast: the attached presenter is ' +
+    'the only source of person identity in this shot, and any person visible in a reference shot is a stand-in ' +
+    'whose place the presenter takes. This holds even where the direction asks to use someone from a reference — ' +
+    'the attached presenter is that someone.'
+  );
+}
+
 export function markEditDirective(): string {
   return (
     "The attached brand mark is this brand's own mark: wherever the logo appears or the instruction asks for it, " +

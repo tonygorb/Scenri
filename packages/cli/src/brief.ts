@@ -30,6 +30,7 @@ import {
   productFactDirectives,
   productFidelityDirective,
   productHandlingDirective,
+  referenceIdentityGuard,
   sceneGuardDirectives,
   sceneFigureDirectives,
   shotSpecifiesCamera,
@@ -715,6 +716,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     })
       ? [garmentDisplayDirective()]
       : [];
+  // Presenter over reference, for identity - said only about images that
+  // actually rode (same honesty rule as the photo guard), and only on a
+  // generation: an edit's identity rides the source frame.
+  const refGuard =
+    ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
+
   const allDirectives = [
     ...productDirectives,
     ...personDirectives,
@@ -726,6 +733,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...apparelUnworn,
     ...brandLines,
     ...guard,
+    ...refGuard,
     ...preservation,
   ];
   if (allDirectives.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${dedupe(allDirectives).join(' ')}`;
