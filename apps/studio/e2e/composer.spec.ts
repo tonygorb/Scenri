@@ -1007,6 +1007,47 @@ test('a squarer shape while refining infers a crop, and sends it with no words a
   expect(posted.parentId).toBe(shot);
 });
 
+test('an orientation flip is further than one extend can reach, and the hint says crop', async ({ page }) => {
+  const brand = new URL(page.url()).pathname.split('/')[1];
+
+  let shot = '';
+  await page.route('**/workspace', async (route) => {
+    const res = await route.fetch();
+    const ws = await res.json();
+    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
+    if (done) {
+      shot = done.id;
+      done.brief = { ...(done.brief ?? { tokens: [] }), format: 'landscape' };
+    }
+    await route.fulfill({ response: res, json: ws });
+  });
+
+  await page.goto(`/${brand}/create`);
+  await expect.poll(() => shot).not.toBe('');
+  await page.goto(`/${brand}/create/shots/${shot}`);
+  const composer = page.locator('.sc-ovl-edit');
+  await expect(composer.locator('.sc-brief-line')).toBeVisible();
+
+  // 16:9 asked to be 9:16 is a 3.16x growth, past what one extend can draw;
+  // the classifier answers crop and the hint promises exactly what the
+  // server will do, instead of an extend that could only come back as mush
+  await composer.locator('.sc-more').click();
+  await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '9:16' }).first().click();
+  await page.keyboard.press('Escape');
+  await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will crop to Story 9:16');
+
+  let posted: any = null;
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posted = route.request().postDataJSON();
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
+  });
+  await composer.locator('.sc-send').click();
+  await expect.poll(() => posted?.kind).toBe('edit');
+  expect(posted.reshape).toBe('crop');
+  expect(posted.brief.format).toBe('story');
+});
+
 /**
  * A shape chosen while refining belongs to the shot it was chosen on.
  *

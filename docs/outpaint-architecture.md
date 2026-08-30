@@ -56,12 +56,19 @@ printed across the margin at the far edge, merely fainter, and the ramp forced
 the correction to zero at the frame border, which left a flat tonal difference
 entirely uncorrected out there. Fixed, see below.
 
-**2. The margin arrives at the wrong texture scale.** Measured and then withdrawn.
-The reasoning was that codex returns its own native size and `compositeExpand`
-cover-rescales it. Counted on 2026-08-26 across two beds and four scenes, codex
-0.145.0 honoured the exact requested size **eight times out of eight**, so the
-rescale never fires and there was nothing to correct. Scale registration was
-planned and is cancelled.
+**2. The margin arrives at the wrong texture scale.** Measured, withdrawn, and
+then reinstated with a different mechanism (2026-08-30). The 8-of-8
+honoured-size count was real but predates the model-resize ban (`063316a`):
+those exact sizes were the model force-fitting its answer with a shell resize,
+which is the behaviour the ban removed. Post-ban codex delivers its native
+~1.57-megapixel grid, and nothing bounded the PLAN: a 1122x1402 shot asked for
+16:9 planned 2496x1402, 2.2x the budget, and the assembly upscaled the native
+answer 1.49x to fill it (node d2aef33c, 2026-08-30) — soft margins against a
+byte-exact centre on the composite arm, a globally resampled photograph on the
+reframe arm. Fixed structurally: `reshapeRules.ts` fits the whole planned
+geometry to the engine's `editPixelBudget` before anything is drawn, the
+source steps down once by our lanczos, and the exact-size branch of the
+assembly fires instead of its rescale. Nothing on the path upscales any more.
 
 **3. The candidate selector was blind.** `seamScore` divides the step at the
 join by the picture's own grain. It cannot see texture scale, depth of field,
@@ -74,7 +81,21 @@ of eight, mirroring the Product into the sky. Partly fixed, see below.
 unconditionally, which is the open finding from the August quality marathon:
 Scenri adapts the box, not the picture. And `defaultReshapeOp` routes 16:9 to
 9:16 down the extend path as a single pass that grows one axis by 3.16x, against
-a published reliable band of 25 to 50 percent per pass. Open.
+a published reliable band of 25 to 50 percent per pass. Placement was closed by
+`outpaint/place.ts`; growth closed 2026-08-30 by `reshapeRules.ts`:
+`classifyReshape` owns crop versus extend on the server, growth past 2.35x
+takes a capped crop assist, growth still past 2.0x effective becomes a crop
+(refused out loud when the extend was asked for by name), and the composer's
+`reshapeOpFor` twin makes the hint promise the op the server will run. The
+flagship 1.78x reshapes (1:1 to 16:9 and back) stay single-pass extends, which
+the 2026-08-26 battery measured acceptable; the bound deliberately sits at 2.0
+effective rather than SINGLE_PASS_MAX because staged growth is not built.
+
+**One consequence worth stating plainly:** when the budget fit fires, the
+preservation guarantee is byte-exact against a uniform lanczos resample of the
+original at the sent size, not against the stored original. Geometry-exact
+always, never sheared, recorded on the brief (`expand.frame`, `expand.source`,
+`expand.assist`), and said to the user in the 202 warning.
 
 ## What was surveyed
 

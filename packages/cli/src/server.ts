@@ -53,6 +53,7 @@ import {
 } from './expandRules.js';
 import { judgeEditSize, SAME_SHAPE_TOL } from './editSizeRules.js';
 import { planCrop } from './cropRules.js';
+import { classifyReshape, fitExpandToBudget } from './reshapeRules.js';
 import { attentionCropOrigin } from './smartCrop.js';
 import { expandCanvas, compositeExpand, reframeExpand } from './expand.js';
 import { seamScore } from './seamScore.js';
@@ -1128,11 +1129,60 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       rawReshape === 'crop' ? 'crop' : rawReshape === 'extend' ? 'extend' : undefined;
 
     /*
+     * The local crop, shared by its two entries: the explicit reshape below,
+     * and the classifier inside the edit branch when the geometry says a crop
+     * is the honest op. Pure geometry, no provider, no cost — the output is a
+     * rectangle of the original's own decoded pixels, re-encoded lossless, run
+     * through the one node lifecycle so history, polling and failure handling
+     * stay uniform.
+     */
+    const runCropNode = async (args: {
+      parentId: string;
+      fmt: { id?: unknown; w: unknown; h: unknown };
+      srcHash: string;
+      srcBuf: Buffer;
+      srcSize: { width: number; height: number };
+      note?: string;
+    }) => {
+      const plan = planCrop(args.srcSize, Number(args.fmt.w) / Number(args.fmt.h));
+      if (!plan) return reply.status(400).send({ error: 'the picture is already this shape' });
+      // The window follows the subject, not the center; still original pixels
+      // only — attentionCropOrigin discovers an offset and nothing else.
+      const origin = await attentionCropOrigin(args.srcBuf, args.srcSize, plan);
+      const window = { left: origin.left, top: origin.top, width: plan.width, height: plan.height };
+
+      const label = FORMATS.find((f) => f.id === args.fmt.id)?.label ?? `${args.fmt.w}x${args.fmt.h}`;
+      const node = core.store.addNode({
+        projectId: project.id,
+        parentId: args.parentId,
+        kind: 'edit',
+        prompt: `Cropped to ${label}`,
+        // No provider was asked; recording the engine the client HAPPENED to
+        // have selected made the overlay display a name that did nothing.
+        engineId: 'local',
+      });
+      // The brief records the window actually cut, so history and the pixel
+      // tests speak about the same rectangle the picture came from.
+      core.store.setBrief(node.id, {
+        ...briefInputsOnly((brief as object) ?? {}),
+        sourceImage: args.srcHash,
+        reshape: 'crop',
+        crop: window,
+      });
+      const work = async () => ({
+        images: [core.images.save(await sharp(args.srcBuf).extract(window).png().toBuffer())],
+        costUsd: 0,
+      });
+      void runNode(node.id, null, 0, work, { width: plan.width, height: plan.height }).catch((err) =>
+        app.log.error({ err }, 'crop run failed'),
+      );
+      return reply.status(202).send(args.note ? { ...node, warnings: [args.note] } : node);
+    };
+
+    /*
      * A pure crop, before the engine gate on purpose: it is geometry, not
      * generation. No provider is asked, no prompt is compiled, no engine needs
-     * to exist or be signed in. The output is a rectangle of the original's
-     * own decoded pixels, re-encoded lossless, run through the one node
-     * lifecycle so history, polling and failure handling stay uniform.
+     * to exist or be signed in.
      */
     if (kind === 'edit' && reshape === 'crop') {
       const rootForCrop = core.store.treeFor(project.id).find((n) => n.kind === 'root');
@@ -1155,39 +1205,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const srcBuf = core.images.read(String(srcHash));
       const srcMeta = await sharp(srcBuf).metadata();
       if (!srcMeta.width || !srcMeta.height) return reply.status(400).send({ error: 'source image unreadable' });
-      const plan = planCrop({ width: srcMeta.width, height: srcMeta.height }, Number(fmt.w) / Number(fmt.h));
-      if (!plan) return reply.status(400).send({ error: 'the picture is already this shape' });
-      // The window follows the subject, not the center; still original pixels
-      // only — attentionCropOrigin discovers an offset and nothing else.
-      const origin = await attentionCropOrigin(srcBuf, { width: srcMeta.width, height: srcMeta.height }, plan);
-      const window = { left: origin.left, top: origin.top, width: plan.width, height: plan.height };
-
-      const label = FORMATS.find((f) => f.id === fmt.id)?.label ?? `${fmt.w}x${fmt.h}`;
-      const node = core.store.addNode({
-        projectId: project.id,
+      return runCropNode({
         parentId: cropParentId,
-        kind: 'edit',
-        prompt: `Cropped to ${label}`,
-        // No provider was asked; recording the engine the client HAPPENED to
-        // have selected made the overlay display a name that did nothing.
-        engineId: 'local',
+        fmt,
+        srcHash: String(srcHash),
+        srcBuf,
+        srcSize: { width: srcMeta.width, height: srcMeta.height },
       });
-      // The brief records the window actually cut, so history and the pixel
-      // tests speak about the same rectangle the picture came from.
-      core.store.setBrief(node.id, {
-        ...briefInputsOnly((brief as object) ?? {}),
-        sourceImage: String(srcHash),
-        reshape: 'crop',
-        crop: window,
-      });
-      const work = async () => ({
-        images: [core.images.save(await sharp(srcBuf).extract(window).png().toBuffer())],
-        costUsd: 0,
-      });
-      void runNode(node.id, null, 0, work, { width: plan.width, height: plan.height }).catch((err) =>
-        app.log.error({ err }, 'crop run failed'),
-      );
-      return reply.status(202).send(node);
     }
 
     const engine = engines.get(String(engineId));
@@ -1219,6 +1243,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const extraWarnings: string[] = [];
     /** Set when a refinement is growing the frame rather than changing the picture. */
     let expandPlan: ExpandPlan | null = null;
+    // What the engine was actually shown for an expansion: the source's sent
+    // size after crop assist and the budget fit, and the assist window when
+    // one was taken. Recorded on the brief so the run can be read back.
+    let expandSent: { width: number; height: number } | null = null;
+    let expandAssist: { width: number; height: number } | null = null;
+    // The exact buffer the plan's offsets refer to — assisted and fitted —
+    // which is what a real outpainter's answer is composited against. The
+    // stored original is untouched and editedFrom keeps the true hash.
+    let expandWorkHash: string | null = null;
     /** The bed handed to the engine, kept so the original can be laid back over its answer. */
     let expandSourceHash: string | null = null;
     if (brief && Array.isArray(brief.tokens)) {
@@ -1513,8 +1546,61 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             width: srcMeta.width,
             height: srcMeta.height,
           }));
-      if (reshapeIntended && srcMeta.width && srcMeta.height && compiled?.width && compiled?.height) {
-        expandPlan = planExpand({ width: srcMeta.width, height: srcMeta.height }, compiled.width / compiled.height);
+      /*
+       * The server classifies the reshape; the wire op is a hint. It used to
+       * be the authority, and an absent op always meant extend — so an API
+       * caller asking a 16:9 shot for 9:16 got a single pass growing one axis
+       * 3.16x, which no engine on this path can draw. Now: an explicit crop
+       * took the dedicated path above; an explicit extend is honoured inside
+       * the growth bound and refused plainly outside it; an absent op falls
+       * to the same geometry the composer preselects with, so caller and
+       * server agree by construction.
+       *
+       * Crop assist and the budget fit both act on WORKING copies. The stored
+       * original is never touched, and editedFrom keeps the true hash.
+       */
+      let workBuf = srcBuf;
+      let workSize = srcMeta.width && srcMeta.height ? { width: srcMeta.width, height: srcMeta.height } : null;
+      if (reshapeIntended && workSize && compiled?.width && compiled?.height) {
+        const targetRatio = compiled.width / compiled.height;
+        const decision = classifyReshape(workSize, targetRatio, reshape);
+        if (decision.op === 'crop') {
+          if (reshape === 'extend')
+            return reply.status(400).send({
+              error:
+                `growing a ${workSize.width}x${workSize.height} frame to this shape would invent more of the ` +
+                'photograph than it keeps; crop instead',
+            });
+          const fmt = ((brief?.tokens as BriefToken[] | undefined) ?? []).find(
+            (t): t is Extract<BriefToken, { t: 'format' }> => t.t === 'format' && Number(t.w) > 0 && Number(t.h) > 0,
+          );
+          if (fmt)
+            return runCropNode({
+              parentId: resolvedParentId,
+              fmt,
+              srcHash: String(srcHash),
+              srcBuf,
+              srcSize: workSize,
+              note: decision.forced
+                ? 'That shape is further than one extend can reach, so the picture was cropped to it instead.'
+                : undefined,
+            });
+        } else if (decision.op === 'extend') {
+          if (decision.assist) {
+            /*
+             * Crop assist: growth past the bound gives up a capped slice of
+             * the axis that is not growing, so the engine invents less and
+             * the photograph keeps more of its resolution under the budget
+             * fit below. Centred by design — placement decides where the
+             * picture sits, and a crop that also moved the subject would be
+             * two decisions wearing one name (see outpaint/growth.ts).
+             */
+            expandAssist = { width: decision.assist.width, height: decision.assist.height };
+            workBuf = await sharp(srcBuf).extract(decision.assist).png().toBuffer();
+            workSize = { width: decision.assist.width, height: decision.assist.height };
+          }
+          expandPlan = planExpand(workSize, targetRatio);
+        }
       }
       // An explicit extend with nothing to extend into is a caller mistake,
       // not a silent plain edit with an empty instruction.
@@ -1529,9 +1615,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
        * no source pixel, and stops a bottle composed against one edge from
        * landing in the middle of a frame it was never shot for.
        */
-      if (expandPlan && srcMeta.width && srcMeta.height) {
-        const size = { width: srcMeta.width, height: srcMeta.height };
-        expandPlan = placeExpand(expandPlan, size, await subjectFraction(srcBuf, size, expandPlan.axis));
+      if (expandPlan && workSize) {
+        expandPlan = placeExpand(expandPlan, workSize, await subjectFraction(workBuf, workSize, expandPlan.axis));
       }
       /*
        * A real outpainter wants the PICTURE and where it sits; everything else
@@ -1549,6 +1634,36 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         expandMethod = route.method;
       }
       const canOutpaint = expandMethod === 'outpaint';
+      /*
+       * The frame is planned at the engine's own pixel budget, never above
+       * it. This is the fix for the reshape mush: a 1122x1402 shot asked for
+       * 16:9 used to plan a 2496x1402 frame — 2.2x what codex can draw — and
+       * the engine's native answer was then upscaled to fill it, soft margins
+       * against a sharp centre on the composite arm and a globally resampled
+       * photograph on the reframe arm. Fitting the whole geometry down once,
+       * uniformly, by our lanczos, makes the ask, the prompt's stated size
+       * and the assembly frame the same numbers: the exact-size branch fires
+       * and nothing on the path is upscaled. The preserved centre may carry
+       * less linear resolution when the geometry forces it, and the warning
+       * below says so rather than faking pixels the engine never drew.
+       */
+      if (expandPlan && workSize) {
+        const fit = fitExpandToBudget(expandPlan, workSize, runEngine.capabilities().editPixelBudget);
+        if (fit.scale < 1) {
+          expandPlan = fit.plan;
+          workBuf = await sharp(workBuf)
+            .resize(fit.source.width, fit.source.height, { fit: 'fill', kernel: 'lanczos3' })
+            .png()
+            .toBuffer();
+          workSize = fit.source;
+          extraWarnings.push(
+            `${runEngine.capabilities().displayName} draws about ${((runEngine.capabilities().editPixelBudget ?? 0) / 1_000_000).toFixed(1)} megapixels, ` +
+              `so this shape continues as a ${fit.plan.width}x${fit.plan.height} frame with the photograph riding inside it at ${fit.source.width}x${fit.source.height}. ` +
+              'Nothing is upscaled; the stored size is the size the engine truly drew.',
+          );
+        }
+        expandSent = workSize;
+      }
       /*
        * The route with no mask draws twice, and the two draws are shown
        * different things on purpose.
@@ -1569,8 +1684,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       let reframeSourceHash: string | undefined;
       if (expandPlan) {
         if (!canOutpaint) {
-          expandSourceHash = core.images.save(await expandCanvas(srcBuf, expandPlan));
-          reframeSourceHash = core.images.save(await conditioningCanvas(srcBuf, expandPlan, 'edge'));
+          expandSourceHash = core.images.save(await expandCanvas(workBuf, expandPlan));
+          reframeSourceHash = core.images.save(await conditioningCanvas(workBuf, expandPlan, 'edge'));
+        } else {
+          // A real outpainter is sent the working copy itself, and its answer
+          // is composited against that same buffer in post.
+          expandWorkHash = core.images.save(workBuf);
         }
         expectShape = { width: expandPlan.width, height: expandPlan.height };
       }
@@ -1617,7 +1736,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
       const editReq: EditRequest = {
         instruction: expandPlan ? expandInstruction(expandPlan, finalPrompt) : finalPrompt,
-        sourceImage: core.images.pathFor(String(expandSourceHash ?? budgetSourceHash ?? srcHash)),
+        sourceImage: core.images.pathFor(String(expandSourceHash ?? expandWorkHash ?? budgetSourceHash ?? srcHash)),
         brand: ctx,
         ...(editRefs.length ? { referenceImages: editRefs.map((r) => r.path) } : {}),
         ...(editRefs.length ? { referenceRoles: editRefs.map((r) => r.role ?? 'reference') } : {}),
@@ -1641,8 +1760,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
               expand: {
                 left: expandPlan.left,
                 top: expandPlan.top,
-                width: srcMeta.width ?? 0,
-                height: srcMeta.height ?? 0,
+                // The sent copy's own size: after crop assist and the budget
+                // fit these are the pixels the offsets actually refer to.
+                width: workSize?.width ?? srcMeta.width ?? 0,
+                height: workSize?.height ?? srcMeta.height ?? 0,
               },
               // Derived from the picture and the shape asked for, so the same
               // extend of the same shot is the same picture every time. Without
@@ -1676,8 +1797,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
        * answer is not a lottery and its middle was never at risk.
        */
       const plan = expandPlan;
-      const srcSize = { width: srcMeta.width ?? 0, height: srcMeta.height ?? 0 };
-      const original = srcBuf;
+      // The composite pastes the copy the plan was made for: assisted and
+      // budget-fitted. Against anything else the offsets would lie.
+      const srcSize = workSize ?? { width: srcMeta.width ?? 0, height: srcMeta.height ?? 0 };
+      const original = workBuf;
       const reframeReq: EditRequest | null =
         plan && !canOutpaint && reframeSourceHash
           ? {
@@ -1783,6 +1906,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
                 // assumes it is would be looking in the wrong place.
                 left: expandPlan.left,
                 top: expandPlan.top,
+                // The planned frame and the size the photograph was sent at,
+                // so requested-versus-drawn is a readable fact — and the
+                // assist window when a slice of the other axis was given up.
+                frame: [expandPlan.width, expandPlan.height],
+                ...(expandSent ? { source: [expandSent.width, expandSent.height] } : {}),
+                ...(expandAssist ? { assist: [expandAssist.width, expandAssist.height] } : {}),
               },
             }
           : {}),
@@ -1901,7 +2030,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
                   { nodeId: node.id, got: `${got.width}x${got.height}`, want: `${plan.width}x${plan.height}` },
                   'expand: engine size differs from plan',
                 );
-              const { image, aligned } = await compositeExpand(answer, original!, plan);
+              // The pasted copy is the one the plan's offsets refer to: the
+              // assisted, budget-fitted buffer the engine was sent — not the
+              // stored original, whose size the plan no longer describes.
+              const pasted = expandWorkHash ? core.images.read(expandWorkHash) : original!;
+              const { image, aligned } = await compositeExpand(answer, pasted, plan);
               if (!aligned) app.log.warn({ nodeId: node.id }, 'expand: engine frame did not align, kept the bed');
               out.push(core.images.save(image));
             }

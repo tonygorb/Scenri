@@ -8,6 +8,7 @@ export {
   brandRuleDirectives,
   characterFactDirectives,
   editPreservationDirective,
+  extendPreservationDirective,
   inheritedIdentityDirective,
   garmentDisplayDirective,
   markLabel,
@@ -23,6 +24,7 @@ import {
   brandRuleDirectives,
   characterFactDirectives,
   editPreservationDirective,
+  extendPreservationDirective,
   inheritedIdentityDirective,
   garmentDisplayDirective,
   markLabel,
@@ -743,8 +745,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const preservation =
     ctx.mode === 'edit'
       ? [
+          // An extend gets its own preservation language: the global
+          // directive's "same framing, same dimensions" lines contradict a
+          // frame that is deliberately growing, but dropping preservation
+          // altogether left the redrawn-frame arm with nothing protecting
+          // the person, the product or the wardrobe. See
+          // extendPreservationDirective.
           ...(ctx.editReshape === 'extend'
-            ? []
+            ? [extendPreservationDirective()]
             : [editPreservationDirective(ctx.editScope ?? 'global', { removal: ctx.editRemoval })]),
           ...(ctx.inheritedIdentity
             ? [inheritedIdentityDirective(ctx.inheritedIdentity === true ? undefined : ctx.inheritedIdentity)]
