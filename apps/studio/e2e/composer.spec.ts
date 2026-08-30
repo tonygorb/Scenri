@@ -1881,6 +1881,7 @@ test('a refinement records what it carried, and the shot detail says it', async 
     const refHash = (await (await fetch('/api/images', { method: 'POST', body: rd })).json()).hash;
 
     const ws = await (await fetch(`/api/brands/${brand.id}/workspace`)).json();
+    const scenes = ((await (await fetch('/api/scenes')).json()).scenes ?? []) as { id: string; name: string }[];
     const wait = async (id: string) => {
       for (let t = 0; t < 80; t++) {
         const n = await (await fetch(`/api/nodes/${id}`)).json();
@@ -1902,6 +1903,7 @@ test('a refinement records what it carried, and the shot detail says it', async 
             tokens: [
               { t: 'format', id: 'square', w: 512, h: 512 },
               { t: 'text', v: 'a mug on a table' },
+              { t: 'template', id: scenes[0].id },
               { t: 'mark', imageHash: logoHash },
               { t: 'ref', imageHash: refHash },
             ],
@@ -1925,7 +1927,7 @@ test('a refinement records what it carried, and the shot detail says it', async 
       })
     ).json();
     await wait(edit.id);
-    return { editId: edit.id as string };
+    return { editId: edit.id as string, sceneName: scenes[0].name as string };
   });
 
   // the refined shot's detail names what it carried, quieter than its own ask
@@ -1936,6 +1938,12 @@ test('a refinement records what it carried, and the shot detail says it', async 
   await expect(page.locator('.sc-ingredient[data-inherited][data-kind="ref"]')).toBeVisible();
   // and the BRIEF reads as the sentence that was typed
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
+  // the refine composer's strip also names the world the thread was shot in:
+  // a scene never rides a refine as a reference — the photo carries it — and
+  // the strip used to stay silent about the one thing every refine keeps
+  const world = page.locator('.sc-ovl-edit .sc-carried-chip[data-world]');
+  await expect(world).toBeVisible();
+  await expect(world).toContainText(made.sceneName);
 });
 
 test('the refine composer states what it is carrying before the send', async ({ page }) => {
@@ -1952,13 +1960,17 @@ test('the refine composer states what it is carrying before the send', async ({ 
         width: 1024,
         height: 1024,
         attachments: [
+          // two images of ONE product: the identity shot and a corroboration
+          // angle. The strip counts things, not images — one chip, wearing
+          // the identity image — or the same name reads as two products.
           { role: 'product', id: 'p1', label: 'Cold brew can', hash: 'a'.repeat(32), essential: true, inherited: true },
+          { role: 'product', id: 'p1', label: 'Cold brew can', hash: 'c'.repeat(32), inherited: true },
           { role: 'brand', label: 'Acme wordmark', hash: 'b'.repeat(32), inherited: true },
         ],
         dropped: [],
         warnings: [],
         productId: 'p1',
-        referenceCount: 2,
+        referenceCount: 3,
       },
     });
   });
@@ -1978,10 +1990,16 @@ test('the refine composer states what it is carrying before the send', async ({ 
   const composer = page.locator('.sc-ovl-edit');
   await expect(composer.locator('.sc-brief-line')).toBeVisible();
 
-  // before a single word is typed, the strip says what the thread keeps
+  // before a single word is typed, the strip says what the thread keeps:
+  // one chip per thing, so the two product images collapse to one chip
+  // wearing the identity image (a world chip, if the thread has one, is a
+  // separate statement and not counted here)
   await expect(composer.locator('.sc-carried')).toBeVisible();
-  await expect(composer.locator('.sc-carried-chip')).toHaveCount(2);
-  await expect(composer.locator('.sc-carried-chip').first()).toContainText('Cold brew can');
+  await expect(composer.locator('.sc-carried-chip:not([data-world])')).toHaveCount(2);
+  const productChip = composer.locator('.sc-carried-chip[data-kind="product"]');
+  await expect(productChip).toHaveCount(1);
+  await expect(productChip).toContainText('Cold brew can');
+  await expect(productChip.locator('img')).toHaveAttribute('src', new RegExp('a'.repeat(32)));
   await expect(composer.locator('.sc-carried-chip[data-kind="mark"]')).toContainText('Acme wordmark');
 });
 

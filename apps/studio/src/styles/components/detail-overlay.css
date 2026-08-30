@@ -462,6 +462,15 @@
   object-fit: contain;
   border-radius: var(--sc-radius-xs);
 }
+/* The thread's world rides inside the photo, not as a reference: same pill,
+   quieter voice, dashed edge so it never claims to be a sent attachment. */
+.sc-carried-chip[data-world] {
+  /* an outline, not a border: the pill keeps its siblings' exact geometry */
+  box-shadow: none;
+  outline: 1px dashed var(--sc-line);
+  outline-offset: -1px;
+  color: var(--sc-fg3);
+}
 /* Paint only, like every other open-state in the composer: no size, no
    transform, no border-width, so opening a preview cannot move the strip. */
 button.sc-carried-chip {
