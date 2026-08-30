@@ -4,7 +4,7 @@ import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
-import { normalizeTint } from '../../composer/line.js';
+import { identityKeyOf, normalizeTint } from '../../composer/line.js';
 import { byContextOrder } from '../../contextChips.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
 import { presenterPath, productPath, scenePath } from '../../routes.js';
@@ -13,18 +13,42 @@ import { presenterPath, productPath, scenePath } from '../../routes.js';
  * What went into the shot, named. A brief already stores its tokens, so the
  * ingredients are a read of the record rather than a guess from the pixels.
  */
-export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand: Brand | null }) {
+export function Ingredients({
+  brief,
+  brand,
+  worldTemplateId,
+}: {
+  brief: TreeNode['brief'];
+  brand: Brand | null;
+  /**
+   * The scene the thread was shot in, for a refinement whose own brief names
+   * none: a refine keeps its world through the photograph, never as a token,
+   * so without this the record was silent about the one ingredient every
+   * refine keeps. Display only, resolved by the caller from the lineage.
+   */
+  worldTemplateId?: string | null;
+}) {
   const { scenes, presenters, demoProducts } = useAppData();
 
   const ownTokens: any[] = brief?.tokens ?? [];
   // What a refinement carried from the shot it refines, recorded apart from
   // what it asked for. Both are the shot's truth; the carried ones read quieter.
   const carriedTokens: any[] = (brief as any)?.inherited ?? [];
+  // One chip per thing: a token that appears both asked-for and carried (or
+  // carried at another angle) is the same ingredient, and rendering it twice
+  // also collided React keys. Own copies win, so the louder voice survives.
+  const seen = new Set<string>();
   const tokens = [
     ...ownTokens.map((t: any) => ({ ...t, _inherited: false })),
     ...carriedTokens.map((t: any) => ({ ...t, _inherited: true })),
-  ];
-  if (!tokens.length) return null;
+  ].filter((t: any) => {
+    const k = identityKeyOf(t);
+    if (!k) return true;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (!tokens.length && !worldTemplateId) return null;
   const products: any[] = (brand?.json?.products ?? []) as any[];
   const cast: any[] = (brand?.json?.characters ?? []) as any[];
   const ownScenes = customScenesOf(brand);
@@ -43,6 +67,8 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
     tint?: string;
     /** Carried from the shot this one refines, not attached in its own brief. */
     inherited?: boolean;
+    /** The thread's world, kept through the photograph rather than any token. */
+    world?: boolean;
   };
   const rawChips: Chip[] = tokens.flatMap((t: any): Chip[] => {
     if (t?.t === 'product') {
@@ -142,6 +168,23 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
     }
     return [];
   });
+  // The world the thread was shot in, when the caller resolved one: same
+  // scene chip, quieter voice, never a token of this brief.
+  if (worldTemplateId) {
+    const s = ownScenes.find((x) => x.id === worldTemplateId) ?? scenes.find((x) => x.id === worldTemplateId);
+    if (s) {
+      // No tint: the world chip speaks in the quiet monochrome voice, and a
+      // scene colour would out-shout the brief's own asked-for ingredients.
+      rawChips.push({
+        key: `w${worldTemplateId}`,
+        kind: 'scene',
+        world: true,
+        label: s.name,
+        thumb: s.previewUrl ?? null,
+        to: brand ? scenePath(brand, s.id) : undefined,
+      });
+    }
+  }
   // one canonical reading order, everywhere context is shown
   const chips = rawChips.sort(byContextOrder);
   if (!chips.length) return null;
@@ -160,7 +203,11 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
           </>
         );
         const style = c.tint ? ({ '--tint': c.tint } as CSSProperties) : undefined;
-        const said = c.inherited ? `Carried from the shot it refines: ${c.label}` : undefined;
+        const said = c.world
+          ? `The world this thread was shot in: ${c.label}. A refine keeps it in the picture without asking for it again.`
+          : c.inherited
+            ? `Carried from the shot it refines: ${c.label}`
+            : undefined;
         // Only the ingredients that have a catalog page become links; a colour
         // and a deleted scene stay exactly as static as they read.
         return c.to ? (
@@ -171,6 +218,7 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
             data-kind={c.kind}
             data-tinted={c.tint ? '' : undefined}
             data-inherited={c.inherited || undefined}
+            data-world={c.world || undefined}
             style={style}
             title={said ?? `Open ${c.kind} ${c.label}`}
           >
@@ -183,6 +231,7 @@ export function Ingredients({ brief, brand }: { brief: TreeNode['brief']; brand:
             data-kind={c.kind}
             data-tinted={c.tint ? '' : undefined}
             data-inherited={c.inherited || undefined}
+            data-world={c.world || undefined}
             style={style}
             title={said ?? `${c.kind}: ${c.label}`}
           >

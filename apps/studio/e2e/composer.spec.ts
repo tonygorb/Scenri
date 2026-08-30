@@ -2559,3 +2559,86 @@ test('peeking and opening change nothing the compiler reads, and leave prose sel
   const picked = await page.evaluate(() => window.getSelection()?.toString() ?? '');
   expect(picked).toContain('hello world');
 });
+
+test('the shot record reads each ingredient once, and names the world it keeps', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
+  const slug = decodeURIComponent(new URL(page.url()).pathname.split('/')[1]);
+
+  // a generation asking for a product at a named angle inside a scene, then a
+  // refinement that re-attaches the SAME product with no angle: the two token
+  // shapes differ, so the server records it both asked-for and carried
+  const made = await page.evaluate(async () => {
+    const brands = await (await fetch('/api/brands')).json();
+    const ws = await (await fetch(`/api/brands/${brands[0].id}/workspace`)).json();
+    const scenes = ((await (await fetch('/api/scenes')).json()).scenes ?? []) as { id: string; name: string }[];
+    const wait = async (id: string) => {
+      for (let t = 0; t < 80; t++) {
+        const n = await (await fetch(`/api/nodes/${id}`)).json();
+        if (n.status !== 'running') return n;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      throw new Error('never finished');
+    };
+    const gen = await (
+      await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: ws.project.id,
+          kind: 'generation',
+          engineId: 'demo',
+          count: 1,
+          brief: {
+            tokens: [
+              { t: 'format', id: 'square', w: 512, h: 512 },
+              { t: 'text', v: 'on a stone ledge' },
+              { t: 'product', id: 'cold-brew-can', angle: 'detail' },
+              { t: 'template', id: scenes[0].id },
+            ],
+          },
+        }),
+      })
+    ).json();
+    const genNode = await wait(gen.id);
+    const edit = await (
+      await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: ws.project.id,
+          parentId: genNode.id,
+          kind: 'edit',
+          engineId: 'demo',
+          sourceImage: genNode.images[0],
+          brief: {
+            tokens: [
+              { t: 'text', v: 'warmer light' },
+              { t: 'product', id: 'cold-brew-can' },
+            ],
+          },
+        }),
+      })
+    ).json();
+    const editNode = await wait(edit.id);
+    return {
+      editId: edit.id as string,
+      sceneName: scenes[0].name as string,
+      inherited: (editNode.brief?.inherited ?? []) as { t: string }[],
+    };
+  });
+
+  await page.goto(`/${slug}/create/shots/${made.editId}`);
+  // one product chip, however many token shapes recorded it: the asked-for
+  // copy wins, the carried angle twin collapses into it
+  await expect(page.locator('.sc-ingredient[data-kind="product"]')).toHaveCount(1);
+  await expect(page.locator('.sc-ingredient[data-kind="product"]')).not.toHaveAttribute('data-inherited', /.*/);
+  // and the record names the world the thread was shot in, quieter than a
+  // token: the refine never re-sends the scene, the photograph carries it
+  const world = page.locator('.sc-ingredient[data-world]');
+  await expect(world).toBeVisible();
+  await expect(world).toContainText(made.sceneName);
+});

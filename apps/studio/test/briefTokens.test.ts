@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { briefTokens, type BriefToken } from '../src/composer/line.js';
+import { briefTokens, identityKeyOf, type BriefToken } from '../src/composer/line.js';
 
 const HASH_A = 'a'.repeat(32);
 const HASH_B = 'b'.repeat(32);
@@ -70,5 +70,20 @@ describe('briefTokens', () => {
       inherited: [{ t: 'mark', imageHash: HASH_A }],
     });
     expect(r.map((t) => t.t)).toEqual(['template', 'text', 'mark']);
+  });
+});
+
+describe('identityKeyOf', () => {
+  it('a product keys on its id alone: the angle is presentation, not identity', () => {
+    expect(identityKeyOf({ t: 'product', id: 'p1', angle: 'material-closeup' })).toBe(
+      identityKeyOf({ t: 'product', id: 'p1' }),
+    );
+    expect(identityKeyOf({ t: 'product', id: 'p1' })).not.toBe(identityKeyOf({ t: 'product', id: 'p2' }));
+  });
+
+  it('every other kind keys on its full encoded form, and text keys to nothing', () => {
+    expect(identityKeyOf({ t: 'mark', imageHash: HASH_A })).not.toBe(identityKeyOf({ t: 'ref', imageHash: HASH_A }));
+    expect(identityKeyOf({ t: 'template', id: 's1' })).not.toBe(identityKeyOf({ t: 'character', id: 's1' }));
+    expect(identityKeyOf({ t: 'text', v: 'anything' })).toBe('');
   });
 });

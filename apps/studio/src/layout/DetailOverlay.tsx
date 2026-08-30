@@ -90,6 +90,23 @@ export function DetailOverlay({
   const { push } = useToasts();
   /** The image this refinement was made from, not merely the run's first. */
   const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
+  /**
+   * The scene this thread was shot in, for a refinement that names none of
+   * its own: a refine keeps its world through the photograph, never as a
+   * token, so the record said nothing about the one ingredient every refine
+   * keeps. Nearest ancestor wins — a deeper re-scene overrides the original.
+   */
+  const worldTemplateId = useMemo(() => {
+    if (node.kind !== 'edit') return null;
+    const tplOf = (b: TreeNode['brief']) =>
+      b?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? b?.templateId ?? null;
+    if (tplOf(node.brief)) return null;
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+      const tid = tplOf(ancestors[i].brief);
+      if (tid) return tid;
+    }
+    return null;
+  }, [node, ancestors]);
   const changeLine = useMemo(
     () => (parentShot ? briefChangeLine(parentShot.brief, node.brief, tokenNames) : null),
     [parentShot, node.brief, tokenNames],
@@ -449,7 +466,7 @@ export function DetailOverlay({
             )}
           </div>
 
-          <Ingredients brief={node.brief} brand={brand} />
+          <Ingredients brief={node.brief} brand={brand} worldTemplateId={worldTemplateId} />
 
           {parentShot && (
             <div className="sc-ctx">

@@ -21,6 +21,14 @@ export const emptySentence = (): SentenceToken[] => [{ t: 'text', v: '' }];
  * the Composer's own initialBrief hydration and by anything that needs to
  * write a brief into the persisted per-brand draft using the exact same rules.
  */
+/**
+ * A token's canonical identity, for collapsing own and carried context into
+ * one chip per thing. A product's angle is presentation, not identity — the
+ * same product carried at another angle is still the same chip — and every
+ * other kind keys on its full encoded form. Text and format key to nothing.
+ */
+export const identityKeyOf = (t: SentenceToken): string => (t.t === 'product' ? `p:${t.id}` : encode(t));
+
 export function briefTokens(brief: {
   tokens: BriefToken[];
   templateId?: string;
@@ -30,12 +38,9 @@ export function briefTokens(brief: {
   // Carried context is part of the setup. The detail view lists an inherited
   // mark or reference as an ingredient of the shot, so "reuse setup" has to
   // rebuild the brief with it or the two disagree about what the shot was.
-  // Keyed on the token's canonical identity; a product's angle is not identity
-  // here, the same product carried at another angle is still the same chip.
-  const keyOf = (t: SentenceToken): string => (t.t === 'product' ? `p:${t.id}` : encode(t));
-  const seen = new Set(own.map(keyOf));
+  const seen = new Set(own.map(identityKeyOf));
   const carried = (brief.inherited ?? []).filter(isSentence).filter((t) => {
-    const k = keyOf(t);
+    const k = identityKeyOf(t);
     if (!k || seen.has(k)) return false;
     seen.add(k);
     return true;
