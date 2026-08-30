@@ -629,7 +629,14 @@ test('navigation surfaces are real anchors with canonical hrefs', async ({ page 
   );
 });
 
-test('a modified click opens the shot in its own tab, leaving this one in place', async ({ page }) => {
+// The popup cold-boots the whole app on its own, and the waits below allow 30s
+// for it. The default 20s test budget could never cover them, so this only ever
+// passed when the boot happened to be fast: it timed out at 20s in a loaded
+// suite and passed in 657ms alone. The test timeout has to exceed the waits it
+// contains.
+test('a modified click opens the shot in its own tab, leaving this one in place', { timeout: 90_000 }, async ({
+  page,
+}) => {
   const brand = await currentBrand(page);
   const { nodeId } = await seedShot(page, brand.id);
 
