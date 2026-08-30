@@ -13,10 +13,11 @@ const MAX_REFS = 4;
 /**
  * Building a place.
  *
- * The one flow where words alone are enough, because a scene never contributes
- * pixels to a generation — only prose. Its references are read, described, and
- * then kept as evidence; whatever was staged in them is deliberately dropped.
- * So either a picture or a sentence will do, and both is better than either.
+ * Words carry an environment; a figure-led scene also sends one picture — its
+ * own drawn card, the identity-neutral plate — so a dense treatment survives
+ * compilation. The references are read, described, and kept as evidence;
+ * whoever was in them never rides. So either a picture or a sentence will do,
+ * and both is better than either.
  */
 export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState, restore, onDiscarded }: FlowProps) {
   const { brand } = useBrand();

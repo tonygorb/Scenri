@@ -1098,11 +1098,20 @@ describe('compileBrief: a world built around a figure', () => {
 
   // Prose cannot carry a dense graphic treatment: compiled to words it came back
   // as blank paper every time, because three rules in the prompt argue about
-  // lettering and the treatment loses. The picture settles it.
+  // lettering and the treatment loses. The picture settles it. The fixture
+  // scene carries a drawn plate, the shape every engine-built scene has: the
+  // plate is what conditions, and the raw upload is evidence for the analyzer.
   const refd = (over: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) =>
     ctx({
       templateById: (id: string) =>
-        id === base.id ? { ...base, refs: [{ file: `asset:${productHash}` }], ...over } : undefined,
+        id === base.id
+          ? {
+              ...base,
+              preview: `asset:${core.images.save(Buffer.from('scene-plate'))}`,
+              refs: [{ file: `asset:${productHash}` }],
+              ...over,
+            }
+          : undefined,
       ...extra,
     });
 
@@ -1144,12 +1153,12 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.dropped.every((d) => !d.essential)).toBe(true);
   });
 
-  // The first-reference contract, pinned now that it is documented: exactly
-  // ONE image conditions a figure-led generation and it is refs[0], the first
-  // upload. References 2..N reach only the analyzer, as prose. A tester asked
-  // whether reference order secretly weights a scene - this is the honest
-  // answer, held in place.
-  it('conditions on refs[0] alone, however many references the scene holds', () => {
+  // The conditioning-image contract, pinned: exactly ONE image conditions a
+  // figure-led generation - the drawn plate when one exists, else refs[0],
+  // the first upload. References 2..N reach only the analyzer, as prose. A
+  // tester asked whether reference order secretly weights a scene - this is
+  // the honest answer, held in place.
+  it('with no plate, conditions on refs[0] alone, however many references the scene holds', () => {
     const second = core.images.save(Buffer.from('second-scene-ref'));
     const r = compileBrief(
       { tokens: [{ t: 'template', id: base.id }] },
@@ -1187,6 +1196,58 @@ describe('compileBrief: a world built around a figure', () => {
       }),
     );
     expect(withoutPlate.attachments.filter((a) => a.role === 'scene')[0]?.hash).toBe(productHash);
+  });
+
+  // The raw upload is an identity hazard the moment a presenter is selected:
+  // it may be a full-bleed photograph of a real person nobody chose. With a
+  // plate the question never arises; without one, the scene degrades to
+  // prose rather than ship a competing face - and with nobody attached the
+  // upload still rides, because there is no selected identity to protect.
+  it('with no plate and a presenter attached, the raw upload never rides', () => {
+    const noPlate = (tokens: Brief['tokens']) =>
+      compileBrief(
+        { tokens },
+        ctx({
+          templateById: (id: string) =>
+            id === base.id ? { ...base, refs: [{ file: `asset:${productHash}` }] } : undefined,
+        }),
+      );
+    const withPresenter = noPlate([
+      { t: 'character', id: 'c1' },
+      { t: 'template', id: base.id },
+    ]);
+    expect(withPresenter.attachments.map((a) => a.role)).not.toContain('scene');
+    expect(withPresenter.prompt).not.toContain("the scene's own photograph");
+    // quiet degrade: never tell someone their scene was left out
+    expect(withPresenter.warnings.join(' ')).not.toContain(base.name);
+
+    const productOnly = noPlate([
+      { t: 'product', id: 'p1' },
+      { t: 'template', id: base.id },
+    ]);
+    expect(productOnly.attachments.filter((a) => a.role === 'scene')[0]?.hash).toBe(productHash);
+  });
+
+  it('a vanished plate with a presenter attached also degrades to prose', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      ctx({
+        templateById: (id: string) =>
+          id === base.id
+            ? {
+                ...base,
+                preview: 'asset:0000000000000000000000000000dead',
+                refs: [{ file: `asset:${productHash}` }],
+              }
+            : undefined,
+      }),
+    );
+    expect(r.attachments.map((a) => a.role)).not.toContain('scene');
   });
 
   it('a vanished refs[0] attaches nothing and keeps the photo guard unsaid', () => {
