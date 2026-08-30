@@ -94,11 +94,47 @@ export function editPreservationDirective(scope: 'local' | 'global', opts?: { re
  * Without this the model has been handed the picture plus two more photographs
  * of things already in it, which reads as an invitation to build a new
  * composition out of all three.
+ *
+ * Keyed on what actually rides. The old string claimed "the same product and
+ * the same person" about EVERY inherited reference - including a carried mood
+ * image that may contain a stranger, whose face the sentence then handed to
+ * the picture, and including product-only threads with no person at all. The
+ * legacy no-argument call keeps the both-kinds sentence byte for byte.
  */
-export function inheritedIdentityDirective(): string {
+export function inheritedIdentityDirective(kinds?: { product?: boolean; person?: boolean }): string {
+  const product = kinds?.product ?? true;
+  const person = kinds?.person ?? true;
+  if (product && person)
+    return (
+      'The attached product and person references are the same product and the same person that are already in ' +
+      'this picture. Use them to hold that identity exact while you make the change, not as a reason to re-stage the shot.'
+    );
+  if (product)
+    return (
+      'The attached product references show the same product that is already in this picture. Use them to hold ' +
+      'its identity exact while you make the change, not as a reason to re-stage the shot.'
+    );
   return (
-    'The extra attached references are the same product and the same person that are already in this picture. Use ' +
-    'them to hold that identity exact while you make the change, not as a reason to re-stage the shot.'
+    'The attached person reference shows the same person who is already in this picture. Use it to hold their ' +
+    'identity exact while you make the change, not as a reason to re-stage the shot.'
+  );
+}
+
+/**
+ * What a carried mood reference is for on a refinement.
+ *
+ * A ref token inherited from the original generation rides the edit
+ * (editIdentity.ts), but the per-identity loop had no branch for it: the
+ * generic inherited-identity sentence called it "the same person" while the
+ * adapter called it composition-only - two claims about one image that may
+ * contain a stranger's face. This states the scope once, in the compiler's
+ * own voice, after the identity claim so it wins positionally.
+ */
+export function inheritedRefDirective(): string {
+  return (
+    'The carried reference is attached for composition, lighting and treatment only. Any person or product ' +
+    'visible in it lends mood, never identity — nobody and nothing in this photograph takes a face, a body or ' +
+    'a design from it.'
   );
 }
 
