@@ -14,28 +14,35 @@
  * except the tone curve".
  *
  * Two guards keep it honest. The instruction gate is a conservative
- * allowlist: only a sentence made entirely of tonal vocabulary engages the
- * path, so "warmer light" qualifies and "remove the cup" or "warmer light and
- * fix the collar" never do. And the evidence gate measures whether the fitted
- * grade actually explains the model's answer: where it does not - the model
- * moved a shadow's geometry, re-lit a face directionally - the model's own
- * frame ships, exactly as before. Wrong never means worse than today.
+ * allowlist and carries the semantics: only a sentence made entirely of
+ * tonal vocabulary engages the path, so "warmer light" qualifies and
+ * "remove the cup" or "warmer light and fix the collar" never do. The
+ * residual gate is a catastrophe guard only - it exists to refuse a grade
+ * fitted to an unrelated frame, never to referee how the model interpreted
+ * a tonal ask, because the model's unrequested extras are exactly what this
+ * path is built to discard. Wrong never means worse than today.
  */
 import sharp from 'sharp';
 
-/** The fit and the gate both run at this thumbnail edge: grade is a global
- * property, and 160px of it is as measurable as 1600. */
+/** The fit runs at this thumbnail edge: grade is a global property, and
+ * 160px of it is as measurable as 1600. */
 const FIT_EDGE = 160;
+/** The gate judges far blurrier, where a re-render's pixel misalignment
+ * averages away and only structural difference survives. */
+const GATE_EDGE = 32;
 
 /**
- * Mean per-pixel, per-channel error (0-255) the fitted grade may leave
- * against the model's own answer and still count as "the answer was a grade".
- * Above it, the model did something a tone curve cannot say, and its frame
- * ships. 12 is deliberately forgiving of the model's texture noise (which the
- * composite is built to discard) while catching real geometry: a moved
- * shadow, a re-lit face, a repainted garment all measure well past it.
+ * The gate is a catastrophe guard, not a fidelity referee. Measured on real
+ * codex re-renders (2026-08-30): genuine tonal hops leave a 10-25 mean
+ * residual at the gate edge purely from generative micro-shift, and a small
+ * content edit measures in the same band - pixel space cannot tell them
+ * apart, and does not need to: the instruction gate already guarantees the
+ * user asked only for tone, so the model's unrequested extras are exactly
+ * what the composite exists to discard. What must never ship is a grade
+ * fitted to an unrelated frame - a different scene measured 80. The
+ * threshold sits between the bands.
  */
-export const GRADE_GATE_MEAN_DELTA = 12;
+export const GRADE_GATE_MEAN_DELTA = 40;
 
 /** Words that talk about tone, light quality, or overall mood. */
 const TONAL_WORD =
@@ -146,11 +153,13 @@ export async function gradeComposite(
     const smallOut = await rawAt(modelOutputPng, FIT_EDGE);
     const luts = fitLuts(smallIn, smallOut);
 
-    // The evidence gate: grade the small input and measure what is left
-    // unexplained against the small output.
-    const graded = { data: Buffer.from(smallIn.data), width: smallIn.width, height: smallIn.height };
+    // The catastrophe gate, judged blurry: grade the gate-size input and
+    // measure what no tone curve could explain against the gate-size output.
+    const gateIn = await rawAt(modelInputPng, GATE_EDGE);
+    const gateOut = await rawAt(modelOutputPng, GATE_EDGE);
+    const graded = { data: Buffer.from(gateIn.data), width: gateIn.width, height: gateIn.height };
     applyLuts(graded, luts);
-    const residual = meanDelta(graded, smallOut);
+    const residual = meanDelta(graded, gateOut);
     if (residual > GRADE_GATE_MEAN_DELTA) return null;
 
     const full = await rawAt(originalPng);

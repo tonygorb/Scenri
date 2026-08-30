@@ -67,29 +67,13 @@ describe('gradeComposite', () => {
     expect(rg - bg).toBeGreaterThan(ro - bo);
   });
 
-  it('refuses an answer that moved geometry, so the model frame ships', async () => {
+  it('refuses a grade fitted to an unrelated frame', async () => {
     const original = await card(640, 800);
     const modelInput = await sharp(original).resize(320, 400).png().toBuffer();
-    // flip = same histogram, different geometry? a flip matches histograms
-    // exactly - use a rotation with fill instead, which relocates mass
-    const moved = await sharp(modelInput).rotate(180).modulate({ brightness: 1.3 }).png().toBuffer();
-    // rotation alone can still histogram-match; add a hard geometric change:
-    // black out a quadrant the LUT cannot explain
-    const w = 320;
-    const h = 400;
-    const withBlock = await sharp(moved)
-      .composite([
-        {
-          input: await sharp({ create: { width: 160, height: 200, channels: 3, background: '#000000' } })
-            .png()
-            .toBuffer(),
-          left: 0,
-          top: 0,
-        },
-      ])
-      .png()
-      .toBuffer();
-    const r = await gradeComposite(original, modelInput, withBlock);
+    // an unrelated frame: inverted, rotated, structurally different - the
+    // catastrophe class the gate exists for (measured 80 vs tonal hops 10-25)
+    const unrelated = await sharp(modelInput).negate().rotate(90).resize(320, 400, { fit: 'fill' }).png().toBuffer();
+    const r = await gradeComposite(original, modelInput, unrelated);
     expect(r).toBeNull();
   });
 });
