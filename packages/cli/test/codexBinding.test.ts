@@ -23,6 +23,7 @@ let productHash: string;
 let faceA: string;
 let faceB: string;
 let sceneRef: string;
+let scenePlate: string;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'sc-bind-'));
@@ -31,6 +32,7 @@ beforeEach(() => {
   faceA = core.images.save(Buffer.from('face-a'));
   faceB = core.images.save(Buffer.from('face-b'));
   sceneRef = core.images.save(Buffer.from('scene-portrait-of-person-a'));
+  scenePlate = core.images.save(Buffer.from('scene-drawn-plate-nobody-in-it'));
 });
 afterEach(() => {
   core.close();
@@ -124,7 +126,9 @@ describe('compileBrief order survives into codex filenames and prose', () => {
         images: core.images,
         engineCaps: CAPS,
         templateById: (id: string) =>
-          id === 'us-portrait' ? { ...scene, refs: [{ file: `asset:${sceneRef}` }] } : undefined,
+          id === 'us-portrait'
+            ? { ...scene, preview: `asset:${scenePlate}`, refs: [{ file: `asset:${sceneRef}` }] }
+            : undefined,
       },
     );
     expect(compiled.attachments.map((a) => a.role)).toEqual(['character', 'character', 'scene']);
@@ -167,7 +171,9 @@ describe('compileBrief order survives into codex filenames and prose', () => {
         images: core.images,
         engineCaps: CAPS,
         templateById: (id: string) =>
-          id === 'us-portrait' ? { ...scene, refs: [{ file: `asset:${sceneRef}` }] } : undefined,
+          id === 'us-portrait'
+            ? { ...scene, preview: `asset:${scenePlate}`, refs: [{ file: `asset:${sceneRef}` }] }
+            : undefined,
       },
     );
     expect(compiled.attachments.map((a) => a.role)).toEqual(['product', 'character', 'character', 'scene']);
@@ -185,5 +191,48 @@ describe('compileBrief order survives into codex filenames and prose', () => {
     });
     const basenames = calls[0].args.filter((a) => a.startsWith('--image=')).map((a) => a.split(/[\\/]/).pop());
     expect(basenames).toEqual(['product-1.png', 'character-1.png', 'character-2.png', 'scene-1.png']);
+  });
+
+  // The plate is what conditions, and its bytes prove it: the payload carries
+  // the drawn card's file, never the raw upload's.
+  it('the scene slot carries the plate bytes, and without a plate a presenter shot ships no scene at all', async () => {
+    const withPlate = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: 'us-portrait' },
+        ],
+      },
+      {
+        brand: brand(),
+        images: core.images,
+        engineCaps: CAPS,
+        templateById: (id: string) =>
+          id === 'us-portrait'
+            ? { ...scene, preview: `asset:${scenePlate}`, refs: [{ file: `asset:${sceneRef}` }] }
+            : undefined,
+      },
+    );
+    const sceneAttach = withPlate.attachments.find((a) => a.role === 'scene');
+    expect(sceneAttach?.hash).toBe(scenePlate);
+    expect(withPlate.referenceImages).toContain(core.images.pathFor(scenePlate));
+    expect(withPlate.referenceImages).not.toContain(core.images.pathFor(sceneRef));
+
+    const noPlate = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: 'us-portrait' },
+        ],
+      },
+      {
+        brand: brand(),
+        images: core.images,
+        engineCaps: CAPS,
+        templateById: (id: string) =>
+          id === 'us-portrait' ? { ...scene, refs: [{ file: `asset:${sceneRef}` }] } : undefined,
+      },
+    );
+    expect(noPlate.attachments.map((a) => a.role)).not.toContain('scene');
   });
 });

@@ -73,7 +73,10 @@ export const CHARACTER_REF_MAX = 2;
  * One. A scene reference is context, never identity, and the budget it spends
  * has to come out of something. At the codex cap of five with a product and a
  * presenter attached, the allocator pays for this out of the product's third
- * angle and leaves both identities whole.
+ * angle. When a brand mark also rides, the mark takes that seat instead and
+ * the presenter's second view is what pays - both identities keep their
+ * essential first image, and the loss is corroboration, named honestly in
+ * the generation warning.
  */
 export const SCENE_REF_MAX = 1;
 
@@ -145,7 +148,7 @@ export const FORMATS: { id: FormatId; label: string; w: number; h: number }[] = 
  * a custom-only field to the catalog `Scene` interface, which 72 shipped files
  * and a loader validator answer to.
  */
-type CompilableScene = Scene & Pick<CustomScene, 'figure' | 'figureTreatment' | 'refs'>;
+type CompilableScene = Scene & Pick<CustomScene, 'figure' | 'figureTreatment' | 'refs' | 'preview'>;
 
 interface CompileContext {
   brand: any;
@@ -248,6 +251,8 @@ export function validateBrief(brief: unknown): string[] {
 export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const warnings: string[] = [];
   const attachments: Attachment[] = [];
+  /** Scene attachments that are the RAW upload (no plate drawn) - see below. */
+  const rawSceneFallback: Attachment[] = [];
   const productDirectives: string[] = [];
   const personDirectives: string[] = [];
   const otherDirectives: string[] = [];
@@ -496,19 +501,30 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * an edit, where the source frame already holds the world and the budget
          * is one slot smaller. Not essential, so it degrades instead of refusing.
          *
-         * THE FIRST-REFERENCE CONTRACT, deliberate and pinned by tests: exactly
-         * one image conditions the generation and it is refs[0], the first
-         * upload. References 2..N reach only the analyzer, which is instructed
-         * to build order-neutral consensus, so they shape the scene's PROSE and
-         * never its pixels. The scene card happens to fall back to refs[0] as
-         * its thumbnail too, so in that case the card shows exactly the image a
-         * generation would attach.
+         * THE CONDITIONING IMAGE, deliberate and pinned by tests: exactly one
+         * image conditions the generation - the scene's own drawn preview
+         * when one exists, else refs[0], the first upload. The preview is the
+         * identity-neutral plate ("they are nobody in particular",
+         * scenePreviewPrompt): it lends the world and the treatment but never
+         * a face, where the raw upload is a full-bleed photograph of a real
+         * person the model demonstrably borrowed. References 2..N reach only
+         * the analyzer, which is instructed to build order-neutral consensus,
+         * so they shape the scene's PROSE and never its pixels. The card
+         * shows the same preview, so what the user sees IS what conditions.
          */
         if (ctx.mode !== 'edit' && t.figure) {
-          for (const r of (t.refs ?? []).slice(0, SCENE_REF_MAX)) {
-            const h = assetHash(r?.file);
+          const plate = assetHash(t.preview);
+          const hasPlate = !!plate && ctx.images.has(plate);
+          const candidates = hasPlate ? [plate] : (t.refs ?? []).slice(0, SCENE_REF_MAX).map((r) => assetHash(r?.file));
+          for (const h of candidates) {
             if (h && ctx.images.has(h)) {
-              attachments.push({ role: 'scene', id: t.id, label: t.name, hash: h, essential: false });
+              const a: Attachment = { role: 'scene', id: t.id, label: t.name, hash: h, essential: false };
+              attachments.push(a);
+              // The raw upload may be a photograph of a real person. Whether
+              // it can ride depends on who else is in the brief, and that is
+              // only known after the whole token loop - so it is remembered
+              // here and judged there.
+              if (!hasPlate) rawSceneFallback.push(a);
             }
           }
         }
@@ -593,6 +609,20 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // own photograph" may only be said when that photograph survived the budget —
   // a directive about an image the engine never received is the composer lying
   // about what was sent.
+  // No plate exists for this scene, so its conditioning image would be the
+  // raw upload - possibly a full-bleed photograph of a real person nobody
+  // selected. With a presenter attached that is a competing identity in the
+  // payload, and identity is the one thing a scene must never lend: the scene
+  // degrades to prose, quietly, the same way a budget-dropped scene ref does.
+  // With nobody attached the upload still rides: a dense treatment compiled
+  // to words alone came back as blank paper (measured, see the scene case),
+  // and there is no selected identity to protect.
+  if (hasPerson && rawSceneFallback.length) {
+    for (const a of rawSceneFallback) {
+      const i = attachments.indexOf(a);
+      if (i !== -1) attachments.splice(i, 1);
+    }
+  }
   const max = ctx.engineCaps.maxReferenceImages;
   const { kept, dropped } = allocateAttachments(attachments, max);
 
