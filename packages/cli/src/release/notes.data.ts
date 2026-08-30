@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.7.2',
+    date: '2026-08-30',
+    title: 'Changing a shot to a new shape keeps the photograph.',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Refining a shot into a different aspect ratio no longer costs it quality. The frame is planned at the size the engine can genuinely draw, so nothing is enlarged afterwards to fill a canvas its pixels could not reach. The presenter, the product, the wardrobe, the light and the subject scale carry across the new shape, and the stored size is now the size that was really drawn.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A target shape that is tighter than the shot now crops it, instantly and without a generation, instead of building out around it. A shape too far from the current one to reach in a single step crops as well, and says so, rather than attempting a stretch that could not work. The composer tells you which of the two will happen before you run it.',
+      },
+    ],
+  },
+  {
     version: '0.7.1',
     date: '2026-08-30',
     title: 'Four images from one brief are one set.',
