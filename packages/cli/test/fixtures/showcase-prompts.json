@@ -8,17 +8,20 @@
       {
         "role": "product",
         "id": "aldergate-frost-field-watch",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "aldergate-frost-field-watch",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "aldergate-frost-field-watch",
-        "essential": false
+        "essential": false,
+        "angle": "detail"
       }
     ],
     "warnings": []
@@ -32,32 +35,38 @@
       {
         "role": "product",
         "id": "aldergate-frost-field-watch",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "kenji",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "aldergate-frost-field-watch",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "aldergate-frost-field-watch",
-        "essential": false
+        "essential": false,
+        "angle": "detail"
       },
       {
         "role": "character",
         "id": "kenji",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "kenji",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -71,32 +80,38 @@
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "theo",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": false
+        "essential": false,
+        "angle": "lateral-side"
       },
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": false
+        "essential": false,
+        "angle": "medial-side"
       },
       {
         "role": "character",
         "id": "theo",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "theo",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -110,17 +125,20 @@
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -134,17 +152,20 @@
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -158,17 +179,20 @@
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "amble-roasting-co-ethiopia-light-roast",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -182,32 +206,38 @@
       {
         "role": "product",
         "id": "ashwell-kin-ribbed-table-lamp",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "elin",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "ashwell-kin-ribbed-table-lamp",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "ashwell-kin-ribbed-table-lamp",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       },
       {
         "role": "character",
         "id": "elin",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "elin",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -221,17 +251,20 @@
       {
         "role": "product",
         "id": "aurelia-amber-serum",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "aurelia-amber-serum",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "aurelia-amber-serum",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -245,17 +278,20 @@
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -269,17 +305,20 @@
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -293,17 +332,20 @@
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "basalt-bloom-sparkling-mineral-water",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -317,17 +359,20 @@
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -341,17 +386,20 @@
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -365,17 +413,20 @@
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "birch-hollow-stoneware-vase",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -389,17 +440,20 @@
       {
         "role": "product",
         "id": "birchwood-page-leather-derby",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "birchwood-page-leather-derby",
-        "essential": false
+        "essential": false,
+        "angle": "lateral-side"
       },
       {
         "role": "product",
         "id": "birchwood-page-leather-derby",
-        "essential": false
+        "essential": false,
+        "angle": "medial-side"
       }
     ],
     "warnings": []
@@ -413,17 +467,20 @@
       {
         "role": "product",
         "id": "birchwood-page-leather-derby",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "birchwood-page-leather-derby",
-        "essential": false
+        "essential": false,
+        "angle": "lateral-side"
       },
       {
         "role": "product",
         "id": "birchwood-page-leather-derby",
-        "essential": false
+        "essential": false,
+        "angle": "medial-side"
       }
     ],
     "warnings": []
@@ -437,17 +494,20 @@
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -461,17 +521,20 @@
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -485,17 +548,20 @@
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "cairn-mineral-sun-stick",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -509,17 +575,20 @@
       {
         "role": "product",
         "id": "calder-vane-boucle-two-seater",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "calder-vane-boucle-two-seater",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "calder-vane-boucle-two-seater",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -533,17 +602,20 @@
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -557,17 +629,20 @@
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -581,17 +656,20 @@
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "cypress-row-olive-oil",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -605,17 +683,20 @@
       {
         "role": "product",
         "id": "fenwick-slade-open-shelving",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "fenwick-slade-open-shelving",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "fenwick-slade-open-shelving",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -629,17 +710,20 @@
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -653,17 +737,20 @@
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -677,17 +764,20 @@
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "fernweg-wanderlust-oil",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -701,17 +791,20 @@
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -725,17 +818,20 @@
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -749,17 +845,20 @@
       {
         "role": "product",
         "id": "fieldnote-rangefinder-camera",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "fieldnote-rangefinder-camera",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "fieldnote-rangefinder-camera",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       }
     ],
     "warnings": []
@@ -773,17 +872,20 @@
       {
         "role": "product",
         "id": "halcyon-aura-speaker",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "halcyon-aura-speaker",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "halcyon-aura-speaker",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       }
     ],
     "warnings": []
@@ -797,17 +899,20 @@
       {
         "role": "product",
         "id": "harlow-made-woven-rattan-basket",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "harlow-made-woven-rattan-basket",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "harlow-made-woven-rattan-basket",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -821,17 +926,20 @@
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -845,17 +953,20 @@
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -869,17 +980,20 @@
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "hollow-reed-wildflower-honey",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -893,17 +1007,20 @@
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -917,17 +1034,20 @@
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -941,17 +1061,20 @@
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "holloway-stacked-band-set",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -965,32 +1088,38 @@
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "julien",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": false
+        "essential": false,
+        "angle": "lateral-side"
       },
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": false
+        "essential": false,
+        "angle": "medial-side"
       },
       {
         "role": "character",
         "id": "julien",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "julien",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1004,32 +1133,38 @@
       {
         "role": "product",
         "id": "wavelength-studio-headphones",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "kenji",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "wavelength-studio-headphones",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "wavelength-studio-headphones",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "character",
         "id": "kenji",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "kenji",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1043,32 +1178,38 @@
       {
         "role": "product",
         "id": "kestrel-waxed-field-jacket",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "julien",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "kestrel-waxed-field-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "kestrel-waxed-field-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       },
       {
         "role": "character",
         "id": "julien",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "julien",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1082,32 +1223,38 @@
       {
         "role": "product",
         "id": "kestrel-waxed-field-jacket",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "otis",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "kestrel-waxed-field-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "kestrel-waxed-field-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       },
       {
         "role": "character",
         "id": "otis",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "otis",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1121,17 +1268,20 @@
       {
         "role": "product",
         "id": "keystone-works-low-profile-keyboard",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "keystone-works-low-profile-keyboard",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "keystone-works-low-profile-keyboard",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       }
     ],
     "warnings": []
@@ -1145,17 +1295,20 @@
       {
         "role": "product",
         "id": "keystone-works-low-profile-keyboard",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "keystone-works-low-profile-keyboard",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "keystone-works-low-profile-keyboard",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       }
     ],
     "warnings": []
@@ -1169,17 +1322,20 @@
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -1193,17 +1349,20 @@
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -1217,17 +1376,20 @@
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "lumen-co-signet-ring",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -1241,32 +1403,38 @@
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "maren",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       },
       {
         "role": "character",
         "id": "maren",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "maren",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1280,32 +1448,38 @@
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "mateo",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       },
       {
         "role": "character",
         "id": "mateo",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "mateo",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1319,17 +1493,20 @@
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "marden-cole-selvedge-denim-jacket",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       }
     ],
     "warnings": []
@@ -1343,17 +1520,20 @@
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -1367,17 +1547,20 @@
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -1391,17 +1574,20 @@
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": false
+        "essential": false,
+        "angle": "detail"
       }
     ],
     "warnings": []
@@ -1415,17 +1601,20 @@
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "marrow-vale-nocturne",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -1439,17 +1628,20 @@
       {
         "role": "product",
         "id": "moss-larkin-sling-lounge-chair",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "moss-larkin-sling-lounge-chair",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "moss-larkin-sling-lounge-chair",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -1463,32 +1655,38 @@
       {
         "role": "product",
         "id": "nordhavn-canvas-over-ear-headphones",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "jun",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "nordhavn-canvas-over-ear-headphones",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "nordhavn-canvas-over-ear-headphones",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "character",
         "id": "jun",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "jun",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1502,32 +1700,38 @@
       {
         "role": "product",
         "id": "nordhavn-canvas-over-ear-headphones",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "wen",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "nordhavn-canvas-over-ear-headphones",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "nordhavn-canvas-over-ear-headphones",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "character",
         "id": "wen",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "wen",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1541,17 +1745,20 @@
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": false
+        "essential": false,
+        "angle": "detail"
       }
     ],
     "warnings": []
@@ -1565,17 +1772,20 @@
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "northward-vacuum-flask",
-        "essential": false
+        "essential": false,
+        "angle": "detail"
       }
     ],
     "warnings": []
@@ -1589,17 +1799,20 @@
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -1613,17 +1826,20 @@
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -1637,17 +1853,20 @@
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "orchard-oat-cold-pressed-juice",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -1661,32 +1880,38 @@
       {
         "role": "product",
         "id": "orla-mackenzie-cashmere-turtleneck",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "priya",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "orla-mackenzie-cashmere-turtleneck",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "orla-mackenzie-cashmere-turtleneck",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       },
       {
         "role": "character",
         "id": "priya",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "priya",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1700,17 +1925,20 @@
       {
         "role": "product",
         "id": "orla-mackenzie-cashmere-turtleneck",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "orla-mackenzie-cashmere-turtleneck",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "orla-mackenzie-cashmere-turtleneck",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       }
     ],
     "warnings": []
@@ -1724,32 +1952,38 @@
       {
         "role": "product",
         "id": "perihelion-pebble-earbuds",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "astrid",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "perihelion-pebble-earbuds",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "perihelion-pebble-earbuds",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "character",
         "id": "astrid",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "astrid",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1763,17 +1997,20 @@
       {
         "role": "product",
         "id": "perihelion-pebble-earbuds",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "perihelion-pebble-earbuds",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "perihelion-pebble-earbuds",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       }
     ],
     "warnings": []
@@ -1787,32 +2024,38 @@
       {
         "role": "product",
         "id": "aurelia-amber-serum",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "rafael",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "aurelia-amber-serum",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "aurelia-amber-serum",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       },
       {
         "role": "character",
         "id": "rafael",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "rafael",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1826,17 +2069,20 @@
       {
         "role": "product",
         "id": "rowan-ash-leather-tote",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "rowan-ash-leather-tote",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "rowan-ash-leather-tote",
-        "essential": false
+        "essential": false,
+        "angle": "detail"
       }
     ],
     "warnings": []
@@ -1850,32 +2096,38 @@
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "sasha",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       },
       {
         "role": "character",
         "id": "sasha",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "sasha",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1889,32 +2141,38 @@
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "itai",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       },
       {
         "role": "character",
         "id": "itai",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "itai",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1928,17 +2186,20 @@
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": true
+        "essential": true,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "product",
         "id": "slate-harbor-tech-shell",
-        "essential": false
+        "essential": false,
+        "angle": "detail-fabric"
       }
     ],
     "warnings": []
@@ -1952,32 +2213,38 @@
       {
         "role": "product",
         "id": "solenne-mineral-pressed-cream",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "bree",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "solenne-mineral-pressed-cream",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "solenne-mineral-pressed-cream",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       },
       {
         "role": "character",
         "id": "bree",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "bree",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -1991,17 +2258,20 @@
       {
         "role": "product",
         "id": "solenne-mineral-pressed-cream",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "solenne-mineral-pressed-cream",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "solenne-mineral-pressed-cream",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -2015,17 +2285,20 @@
       {
         "role": "product",
         "id": "solstice-titanium-aviators",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "solstice-titanium-aviators",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "solstice-titanium-aviators",
-        "essential": false
+        "essential": false,
+        "angle": "detail"
       }
     ],
     "warnings": []
@@ -2039,17 +2312,20 @@
       {
         "role": "product",
         "id": "solstice-titanium-aviators",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "solstice-titanium-aviators",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "solstice-titanium-aviators",
-        "essential": false
+        "essential": false,
+        "angle": "detail"
       }
     ],
     "warnings": []
@@ -2063,32 +2339,38 @@
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "soraya",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       },
       {
         "role": "character",
         "id": "soraya",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "soraya",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -2102,32 +2384,38 @@
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "tallulah",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "ferro-sons-yuzu-soda",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       },
       {
         "role": "character",
         "id": "tallulah",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "tallulah",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -2141,17 +2429,20 @@
       {
         "role": "product",
         "id": "tanner-fielding-single-origin-bar",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "tanner-fielding-single-origin-bar",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "tanner-fielding-single-origin-bar",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -2165,17 +2456,20 @@
       {
         "role": "product",
         "id": "tanner-fielding-single-origin-bar",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "tanner-fielding-single-origin-bar",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "tanner-fielding-single-origin-bar",
-        "essential": false
+        "essential": false,
+        "angle": "packaging-label"
       }
     ],
     "warnings": []
@@ -2189,17 +2483,20 @@
       {
         "role": "product",
         "id": "thornebury-pedestal-dining-table",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "thornebury-pedestal-dining-table",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "thornebury-pedestal-dining-table",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -2213,17 +2510,20 @@
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -2237,17 +2537,20 @@
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -2261,17 +2564,20 @@
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "tidewater-grapefruit-seltzer",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -2285,17 +2591,20 @@
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -2309,17 +2618,20 @@
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verity-stone-gold-hoop-earrings",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -2333,17 +2645,20 @@
       {
         "role": "product",
         "id": "verity-stone-pearl-drop-necklace",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "verity-stone-pearl-drop-necklace",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verity-stone-pearl-drop-necklace",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -2357,17 +2672,20 @@
       {
         "role": "product",
         "id": "verity-stone-pearl-drop-necklace",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "verity-stone-pearl-drop-necklace",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verity-stone-pearl-drop-necklace",
-        "essential": false
+        "essential": false,
+        "angle": "clasp-detail"
       }
     ],
     "warnings": []
@@ -2381,17 +2699,20 @@
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -2405,17 +2726,20 @@
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -2429,17 +2753,20 @@
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verlaine-lumiere",
-        "essential": false
+        "essential": false,
+        "angle": "side"
       }
     ],
     "warnings": []
@@ -2453,17 +2780,20 @@
       {
         "role": "product",
         "id": "verse-beauty-sheer-bloom",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "verse-beauty-sheer-bloom",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verse-beauty-sheer-bloom",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       }
     ],
     "warnings": []
@@ -2477,32 +2807,38 @@
       {
         "role": "product",
         "id": "verse-beauty-sheer-bloom",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "soraya",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "verse-beauty-sheer-bloom",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "verse-beauty-sheer-bloom",
-        "essential": false
+        "essential": false,
+        "angle": "label"
       },
       {
         "role": "character",
         "id": "soraya",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "soraya",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -2516,17 +2852,20 @@
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": false
+        "essential": false,
+        "angle": "lateral-side"
       },
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": false
+        "essential": false,
+        "angle": "medial-side"
       }
     ],
     "warnings": []
@@ -2540,17 +2879,20 @@
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": false
+        "essential": false,
+        "angle": "lateral-side"
       },
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": false
+        "essential": false,
+        "angle": "medial-side"
       }
     ],
     "warnings": []
@@ -2564,32 +2906,38 @@
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "sasha",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": false
+        "essential": false,
+        "angle": "lateral-side"
       },
       {
         "role": "product",
         "id": "voss-rowe-trail-runner",
-        "essential": false
+        "essential": false,
+        "angle": "medial-side"
       },
       {
         "role": "character",
         "id": "sasha",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "sasha",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []
@@ -2603,17 +2951,20 @@
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": false
+        "essential": false,
+        "angle": "lateral-side"
       },
       {
         "role": "product",
         "id": "almanac-supply-canvas-low-top",
-        "essential": false
+        "essential": false,
+        "angle": "medial-side"
       }
     ],
     "warnings": []
@@ -2627,32 +2978,38 @@
       {
         "role": "product",
         "id": "meridian-pulse-smartwatch",
-        "essential": true
+        "essential": true,
+        "angle": "three-quarter"
       },
       {
         "role": "character",
         "id": "wen",
-        "essential": true
+        "essential": true,
+        "angle": "portrait"
       },
       {
         "role": "product",
         "id": "meridian-pulse-smartwatch",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "product",
         "id": "meridian-pulse-smartwatch",
-        "essential": false
+        "essential": false,
+        "angle": "back"
       },
       {
         "role": "character",
         "id": "wen",
-        "essential": false
+        "essential": false,
+        "angle": "front"
       },
       {
         "role": "character",
         "id": "wen",
-        "essential": false
+        "essential": false,
+        "angle": "left-profile"
       }
     ],
     "warnings": []

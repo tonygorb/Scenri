@@ -175,6 +175,32 @@ describe('brandJsonWithIdentityCrops', () => {
     expect(await brandJsonWithIdentityCrops(core, { characters: [] }, ['c1'])).toEqual({ characters: [] });
   });
 
+  it('leaves a presenter who already leads with a portrait exactly as they were', async () => {
+    /*
+     * The portrait ships untouched, sweep and all. A trim that boxed it
+     * tighter was built and measured over three batches each way: identity
+     * held 12/12 both times and the occasional light-backdrop frame appeared
+     * at the same rate trimmed or not, while the control's references were
+     * 85% sweep and never leaked once. The leak is the portrait's framing
+     * matching the output's, which no crop changes — so no derivation runs.
+     */
+    const portrait = core.images.save(await studioFrame());
+    const standing = core.images.save(await studioFrame({ r: 180, g: 178, b: 172 }));
+    const json = {
+      characters: [
+        {
+          id: 'c1',
+          name: 'One',
+          shots: [
+            { file: `asset:${portrait}`, angle: 'portrait' },
+            { file: `asset:${standing}`, angle: 'front' },
+          ],
+        },
+      ],
+    };
+    expect(await brandJsonWithIdentityCrops(core, json, ['c1'])).toBe(json);
+  });
+
   it('leaves a presenter whose frame has no readable figure exactly as they were', async () => {
     const flat = core.images.save(
       await sharp({ create: { width: 512, height: 512, channels: 3, background: { r: 90, g: 90, b: 90 } } })

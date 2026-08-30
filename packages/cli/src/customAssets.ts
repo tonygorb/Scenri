@@ -800,8 +800,16 @@ export async function brandJsonWithIdentityCrops(core: Core, json: any, characte
       if (!wanted.has(c?.id) || !c?.shots?.length) return c;
       // A presenter who already leads with a real portrait needs nothing from
       // here. The curated roster ships one (avatar.jpg, 1024x1024) and every
-      // presenter built since the studio set grew one draws its own; this
-      // stands in only for the casts that predate both.
+      // presenter built since the studio set grew one draws its own; the
+      // derived crop below stands in only for the casts that predate both.
+      //
+      // The portrait is attached exactly as shipped, sweep and all. A trim
+      // that boxed it tighter was built and measured (3 batches either way):
+      // identity held 12/12 both times, and the occasional light-backdrop
+      // frame appeared at the same rate trimmed or not — while the control's
+      // refs were 85% sweep and never leaked once. The leak is not the
+      // sweep's share of the reference; it is the portrait's FRAMING matching
+      // the output's, which no crop changes. So the pixels ship untouched.
       if (c.shots[0]?.angle === 'portrait') return c;
       const front = String(c.shots[0]?.file ?? '').replace(/^asset:/, '') || null;
       const cropped = await identityCrop(core, front ?? undefined);

@@ -53,7 +53,7 @@ interface Row {
   prompt: string;
   width: number;
   height: number;
-  attachments: { role: string; id?: string; essential: boolean }[];
+  attachments: { role: string; id?: string; essential: boolean; angle?: string }[];
   warnings: string[];
 }
 
@@ -101,10 +101,16 @@ beforeAll(async () => {
       prompt: compiled.prompt,
       width: compiled.width,
       height: compiled.height,
+      // `angle` says WHICH catalogued view rides, not just whose. Role, id and
+      // essential alone cannot see a change of leading image: every presenter
+      // recipe once swapped its essential reference from a full-length front
+      // to a portrait and this fixture stayed green. Hashes would say it too,
+      // but they are sharp re-encodes and not byte-stable across platforms.
       attachments: compiled.attachments.map((a) => ({
         role: a.role,
         ...(a.id ? { id: a.id } : {}),
         essential: !!a.essential,
+        ...(a.angle ? { angle: a.angle } : {}),
       })),
       warnings: compiled.warnings,
     });
