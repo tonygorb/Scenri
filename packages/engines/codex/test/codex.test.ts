@@ -90,6 +90,8 @@ describe('capabilities / costEstimate', () => {
       supportsMask: false,
       maxReferenceImages: 5,
       maxReferenceEdge: 2048,
+      // the measured image-tool draw size; the server's step-down reads it
+      editPixelBudget: 1_572_864,
     });
   });
 

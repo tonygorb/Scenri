@@ -2457,3 +2457,139 @@ describe('engine images are validated, oriented, and conformed before storing', 
     }
   });
 });
+
+// A fixed-budget engine cannot answer an over-budget source at its own size.
+// The old contract upscaled its native answer back - a stored size the pixels
+// could not fill, re-laundered on every hop. The thread now steps down once,
+// honestly: the engine gets a deterministic downscale at its own budget, its
+// native answer is kept, and the record says so.
+describe('refines on a pixel-budget engine step down honestly', () => {
+  const budgetEngine = () => {
+    const edits: EditRequest[] = [];
+    const png = (w: number, h: number) =>
+      sharp({ create: { width: w, height: h, channels: 3, background: '#446688' } })
+        .png()
+        .toBuffer();
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'budget-spy',
+        displayName: 'Budget Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 4,
+        editPixelBudget: 6400, // 80x80 - a toy codex
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      // generations come back oversized on purpose: a 100x100 source
+      generate: async () => ({ images: [core.images.save(await png(100, 100))], costUsd: 0 }),
+      // the edit answers at its true budget size, whatever it was sent
+      edit: async (req) => {
+        edits.push(req);
+        return { images: [core.images.save(await png(80, 80))], costUsd: 0 };
+      },
+    };
+    return { engine, edits };
+  };
+
+  it('sends the budget-size source, keeps the native answer, and records the step-down once', async () => {
+    const { engine, edits } = budgetEngine();
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const brand = (
+      await local.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json();
+    const ws = await local.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'budget-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 100, h: 100 },
+            { t: 'text', v: 'a mug' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDoneOn(local, gen.json().id);
+
+    const edit = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'budget-spy',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    expect(edit.statusCode).toBe(202);
+    // the 202 says it out loud, once, with real numbers
+    expect((edit.json().warnings ?? []).join(' ')).toContain('continues at 80x80 from here on');
+
+    const editNode = await waitRenderedOn(local, edit.json().id);
+    expect(editNode.status).toBe('done');
+
+    // the engine was sent the deterministic downscale, not the full frame
+    const sent = await sharp(edits[0].sourceImage).metadata();
+    expect([sent.width, sent.height]).toEqual([80, 80]);
+    expect([edits[0].width, edits[0].height]).toEqual([80, 80]);
+
+    // the native answer was stored untouched - not inflated back to 100
+    const stored = await sharp(core.images.read(editNode.images[0])).metadata();
+    expect([stored.width, stored.height]).toEqual([80, 80]);
+    const brief = editNode.brief as any;
+    expect(brief.steppedDown).toEqual([100, 100]);
+    expect(brief.resampledHops).toBeUndefined();
+    expect(brief.rendered?.sizes?.[0]).toEqual([80, 80]);
+
+    // the next hop is already at budget: no second step-down, no warning
+    const edit2 = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: editNode.id,
+        kind: 'edit',
+        engineId: 'budget-spy',
+        sourceImage: editNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'cooler light' }] },
+      },
+    });
+    expect((edit2.json().warnings ?? []).join(' ')).not.toContain('continues at');
+    const edit2Node = await waitRenderedOn(local, edit2.json().id);
+    expect((edit2Node.brief as any).steppedDown).toBeUndefined();
+    const stored2 = await sharp(core.images.read(edit2Node.images[0])).metadata();
+    expect([stored2.width, stored2.height]).toEqual([80, 80]);
+
+    // and a retry never re-persists the run record
+    const retry = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'budget-spy',
+        sourceImage: genNode.images[0],
+        brief: { ...(editNode.brief as object), tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    const retryNode = await waitDoneOn(local, retry.json().id);
+    // its own run steps down again (same oversized source), but the STALE
+    // steppedDown from the copied brief never rode in as an input
+    expect((retryNode.brief as any).steppedDown).toEqual([100, 100]);
+    await local.close();
+  });
+});

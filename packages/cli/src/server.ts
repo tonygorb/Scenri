@@ -19,7 +19,7 @@ import type {
   ReferenceRole,
   EngineResult,
 } from '@scenri/core';
-import { SpendCapError, ASPECT_TOLERANCE } from '@scenri/core';
+import { SpendCapError, ASPECT_TOLERANCE, budgetSize } from '@scenri/core';
 import { readMeta } from './meta.js';
 import { createUpdateChecker, type UpdateChecker } from './update/check.js';
 import { createContentFetcher, type ContentFetcher } from './content/fetch.js';
@@ -515,8 +515,18 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
    * here. `reshape` stays: it is a declared input, read back above.
    */
   function briefInputsOnly(brief: object): object {
-    const { inherited, rendered, croppedFrom, resizedFrom, resampledHops, expand, crop, sourceImage, ...inputs } =
-      brief as Record<string, unknown>;
+    const {
+      inherited,
+      rendered,
+      croppedFrom,
+      resizedFrom,
+      resampledHops,
+      steppedDown,
+      expand,
+      crop,
+      sourceImage,
+      ...inputs
+    } = brief as Record<string, unknown>;
     return inputs;
   }
 
@@ -1461,9 +1471,45 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         expectShape = { width: expandPlan.width, height: expandPlan.height };
       }
 
+      /*
+       * A fixed-budget engine cannot answer an over-budget source at its own
+       * size. Sending the full frame made the tool downscale it invisibly,
+       * and the old resize-back then inflated the answer to a size its pixels
+       * could not fill - on every hop. The source now steps down ONCE,
+       * deterministically (our lanczos, not the model's resample), the ask
+       * and the answer become the same numbers, and every later hop is scale
+       * 1.0. The stored original is untouched and editedFrom keeps the true
+       * hash; enforceEditCanvas accepts the native answer and records the
+       * step-down on the brief. Local-scope edits still composite at the
+       * original's size, so their untouched pixels never shrink.
+       */
+      let budgetSourceHash: string | undefined;
+      let sentSize: { width: number; height: number } | undefined;
+      const editPixelBudget = runEngine.capabilities().editPixelBudget;
+      if (
+        !expandPlan &&
+        editPixelBudget &&
+        srcMeta.width &&
+        srcMeta.height &&
+        srcMeta.width * srcMeta.height > editPixelBudget
+      ) {
+        sentSize = budgetSize(srcMeta.width, srcMeta.height, editPixelBudget);
+        budgetSourceHash = core.images.save(
+          await sharp(srcBuf)
+            .resize(sentSize.width, sentSize.height, { fit: 'fill', kernel: 'lanczos3' })
+            .png()
+            .toBuffer(),
+        );
+        extraWarnings.push(
+          `${runEngine.capabilities().displayName} refines at about ${(editPixelBudget / 1_000_000).toFixed(1)} megapixels, ` +
+            `so this ${srcMeta.width}x${srcMeta.height} frame continues at ${sentSize.width}x${sentSize.height} from here on. ` +
+            'The picture is unchanged; the stored size is now the size the engine truly drew.',
+        );
+      }
+
       const editReq: EditRequest = {
         instruction: expandPlan ? expandInstruction(expandPlan, finalPrompt) : finalPrompt,
-        sourceImage: core.images.pathFor(String(expandSourceHash ?? srcHash)),
+        sourceImage: core.images.pathFor(String(expandSourceHash ?? budgetSourceHash ?? srcHash)),
         brand: ctx,
         ...(editRefs.length ? { referenceImages: editRefs.map((r) => r.path) } : {}),
         ...(editRefs.length ? { referenceRoles: editRefs.map((r) => r.role ?? 'reference') } : {}),
@@ -1475,9 +1521,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         // the chain that walked shots down to thumbnails.
         ...(expandPlan
           ? { width: expandPlan.width, height: expandPlan.height }
-          : srcMeta.width && srcMeta.height
-            ? { width: srcMeta.width, height: srcMeta.height }
-            : {}),
+          : sentSize
+            ? sentSize
+            : srcMeta.width && srcMeta.height
+              ? { width: srcMeta.width, height: srcMeta.height }
+              : {}),
         // Only an engine that can genuinely paint a margin is told where the
         // picture sits; the rest would ignore it anyway.
         ...(expandPlan && canOutpaint
@@ -1666,7 +1714,28 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       for (const h of images) {
         const meta = await sharp(core.images.read(h)).metadata();
         const got = { width: meta.width ?? 0, height: meta.height ?? 0 };
-        const verdict = judgeEditSize({ width: srcMeta.width, height: srcMeta.height }, got);
+        const verdict = judgeEditSize({ width: srcMeta.width, height: srcMeta.height }, got, {
+          pixelBudget: runEngine.capabilities().editPixelBudget,
+        });
+        if (verdict.action === 'accept') {
+          // The engine's own native answer to an over-budget source: kept
+          // as-is, never inflated back into pixels it never drew. The thread
+          // steps down once; the next hop is scale 1.0. Recorded apart from
+          // resampledHops, because nothing was resampled.
+          app.log.info(
+            { nodeId: node.id, got: `${got.width}x${got.height}`, src: `${srcMeta.width}x${srcMeta.height}` },
+            'edit: kept the engine-native answer (pixel-budget step-down)',
+          );
+          try {
+            const fresh = core.store.getNode(node.id);
+            const b = (fresh?.brief as object | null) ?? {};
+            core.store.setBrief(node.id, { ...b, steppedDown: [srcMeta.width, srcMeta.height] });
+          } catch {
+            /* the record is a convenience; failing to write it must not fail the run */
+          }
+          out.push(h);
+          continue;
+        }
         if (verdict.action === 'reject')
           throw new Error(
             `engine returned ${got.width}x${got.height} for a ${srcMeta.width}x${srcMeta.height} frame: ` +

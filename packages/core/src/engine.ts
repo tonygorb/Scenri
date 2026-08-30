@@ -244,12 +244,36 @@ export interface EngineCapabilities {
    */
   maxReferenceEdge?: number;
   /**
+   * The fixed pixel count this engine's image tool draws at — measured, not
+   * documented. When set, an edit of a source above the budget steps down
+   * honestly: the server sends a deterministic downscale of the source at
+   * `budgetSize`, and keeps the engine-native answer instead of upscaling it
+   * back into pixels the engine never drew. Absent means the engine honors
+   * arbitrary sizes.
+   */
+  editPixelBudget?: number;
+  /**
    * True for stub engines that draw placeholder art instead of calling a
    * model (the offline demo engine). Fidelity guarantees do not apply — the
    * output is obviously not a real photograph — so identity guards that would
    * refuse a real engine must skip these.
    */
   placeholder?: boolean;
+}
+
+/**
+ * The grid point a fixed-budget image tool actually draws for a requested
+ * shape: same ratio, its own pixel count. One formula shared by the adapters
+ * (what to ask for) and the server (what to send an edit's source at), so the
+ * ask, the input and the answer are the same numbers.
+ */
+export function budgetSize(width: number, height: number, pixelBudget: number): { width: number; height: number } {
+  const ratio = width / height;
+  if (!(ratio > 0) || !Number.isFinite(ratio) || !(pixelBudget > 0)) return { width, height };
+  return {
+    width: Math.round(Math.sqrt(pixelBudget * ratio)),
+    height: Math.round(Math.sqrt(pixelBudget / ratio)),
+  };
 }
 
 /**
