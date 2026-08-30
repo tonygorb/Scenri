@@ -637,9 +637,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (inheritedTokens.length) {
       // Compiled from a synthetic brief so the compiler stays the single
       // definition of what a token attaches.
+      // mode 'edit' is belt and braces here: the walk never inherits a
+      // template token (IDENTITY_KINDS), but if that Set ever grows one, the
+      // compiler's own edit gate is what keeps a scene photograph from
+      // re-entering every refinement through this synthetic compile.
       const identity = compileBrief(
         { tokens: inheritedTokens },
-        { brand: brandJson, images: core.images, engineCaps: uncapped, templateById: sceneById },
+        { brand: brandJson, images: core.images, engineCaps: uncapped, templateById: sceneById, mode: 'edit' as const },
       );
       // The synthetic compile runs uncapped, so any warning it raises is a
       // resolution failure - a carried mark whose logo left the kit, an image

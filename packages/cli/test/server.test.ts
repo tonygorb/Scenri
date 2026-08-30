@@ -2593,3 +2593,109 @@ describe('refines on a pixel-budget engine step down honestly', () => {
     await local.close();
   });
 });
+
+// The scene-photograph gate on refines, pinned at the route level: a thread
+// whose generation was conditioned on a figure-led custom scene must never
+// re-expose that scene's image on an edit - the photograph being refined
+// carries its world. Two layers hold this (IDENTITY_KINDS excludes template;
+// the synthetic identity compile declares edit mode); this test fails if
+// BOTH ever give way.
+describe('a refinement never re-sends scene imagery', () => {
+  it('the edit request of a custom-scene thread carries no scene role', async () => {
+    const edits: EditRequest[] = [];
+    const engine: EngineAdapter = {
+      capabilities: () => ({
+        id: 'scene-spy',
+        displayName: 'Scene Spy',
+        localOnly: false,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 6,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async () => ({ images: [core.images.save(PNG_1PX)], costUsd: 0 }),
+      edit: async (req) => {
+        edits.push(req);
+        return { images: [core.images.save(PNG_1PX)], costUsd: 0 };
+      },
+    };
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const sceneRef = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([7])]));
+    const plate = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([8])]));
+    const castShot = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([9])]));
+    const brand = (
+      await local.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            characters: [{ id: 'c1', name: 'Astrid', shots: [{ file: `asset:${castShot}`, locked: true }] }],
+            scenes: [
+              {
+                id: 'portrait-world',
+                name: 'Portrait World',
+                lighting: 'Hard side key',
+                description: 'A close portrait world.',
+                subject: 'person',
+                prompt: 'A close portrait against deep charcoal.',
+                width: 1024,
+                height: 1280,
+                figure: 'one figure at close range',
+                refs: [{ file: `asset:${sceneRef}` }],
+                preview: `asset:${plate}`,
+              },
+            ],
+          },
+        },
+      })
+    ).json();
+    const ws = await local.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'scene-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 512, h: 512 },
+            { t: 'character', id: 'c1' },
+            { t: 'template', id: 'portrait-world' },
+          ],
+        },
+      },
+    });
+    expect(gen.statusCode).toBe(202);
+    const genNode = await waitDoneOn(local, gen.json().id);
+    expect(genNode.status).toBe('done');
+
+    const edit = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'scene-spy',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    const editNode = await waitDoneOn(local, edit.json().id);
+    expect(editNode.status).toBe('done');
+
+    const req = edits[0];
+    expect(req.referenceRoles ?? []).not.toContain('scene');
+    expect(req.referenceImages ?? []).not.toContain(core.images.pathFor(plate));
+    expect(req.referenceImages ?? []).not.toContain(core.images.pathFor(sceneRef));
+    // the presenter's identity still rides
+    expect(req.referenceImages ?? []).toContain(core.images.pathFor(castShot));
+    await local.close();
+  });
+});

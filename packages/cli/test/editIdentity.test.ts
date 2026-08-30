@@ -113,3 +113,14 @@ describe('identityTokenKey', () => {
     );
   });
 });
+
+// The one Set entry standing between refines and re-exposed scene imagery:
+// 'template' must never be an identity kind. The server-side belt is the
+// synthetic compile's edit mode; this pins the braces.
+describe('a scene is never inherited identity', () => {
+  it('a parent generation with a template token lends everything but the scene', () => {
+    const template = { t: 'template', id: 's1' } as unknown as BriefToken;
+    const get = nodes([root, gen('g', [product, template, person])]);
+    expect(inheritedIdentityTokens('g', get).tokens).toEqual([product, person]);
+  });
+});
