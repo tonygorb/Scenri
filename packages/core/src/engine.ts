@@ -35,8 +35,14 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   // names staged objects as stand-ins rather than just "no product": a bare
   // prohibition still left the demo object in the frame, because the model had
   // nowhere to put what the photograph so vividly showed.
+  //
+  // The carve-out leads. It used to sit forty words in, one subordinate
+  // clause after a paragraph of "match this" - and the tester case (a close
+  // portrait as the scene image beside a selected presenter) showed which
+  // half the model heard. Every treatment clause is retained word for word;
+  // only the order and the register of the identity refusal changed.
   scene:
-    'a reference for this world and for the treatment applied to the figure in it — match the environment, the light, and the material, density, scale, finish and spread of that treatment, including which parts of the form it covers and how far it reaches; take no identity from the person in it, and treat any product, garment or prop staged in it as a stand-in whose place the attached subject takes — never an object to reproduce',
+    'a reference for this world, never for a person: take no identity from the person in it — not their face, not their likeness — they are an anonymous stand-in whose place the attached subject takes. Match the environment, the light, and the material, density, scale, finish and spread of the treatment applied to the figure, including which parts of the form it covers and how far it reaches; treat any product, garment or prop staged in it as the same kind of stand-in, demonstrating placement and scale — never an object to reproduce',
   composition:
     'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
   style: 'a reference for overall treatment and mood only — take no composition, subject or product detail from it',
@@ -50,7 +56,7 @@ export const EDIT_REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
     "the exact person: keep their face, facial structure, skin, hair and build faithfully; take no clothing, pose or background from this reference, and keep the source image's existing outfit unless the instruction changes it",
   brand:
     "the brand's own mark: reproduce it exactly as drawn wherever it appears — every character down to the smallest secondary lettering, in its original script and reading direction — never redrawn, re-lettered, translated or transliterated",
-  scene: 'a reference for environment and light only',
+  scene: 'a reference for environment, light and treatment only — take no identity from any person in it',
   composition: 'a reference for framing and pose only',
   style: 'a reference for treatment and mood only',
   reference: 'a reference for composition, lighting and treatment only',

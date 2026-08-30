@@ -1350,3 +1350,64 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.prompt).not.toContain("the scene's own photograph");
   });
 });
+
+// Presenter over reference, for identity: nothing used to relate the two, so
+// "match their face exactly" (the presenter) and "match this image" (a ref
+// that may contain a stranger) rode side by side. The guard is conditional -
+// a lone reference deliberately carrying a person keeps working.
+describe('the presenter outranks a reference for identity', () => {
+  it('presenter + reference: the guard rides, after the reference directive', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx(),
+    );
+    expect(r.prompt).toContain('the attached presenter is the only source of person identity');
+    expect(r.prompt).toContain('the attached presenter is that someone');
+    const refDirective = r.prompt.indexOf('Match the composition, lighting and treatment');
+    const guard = r.prompt.indexOf('the only source of person identity');
+    expect(refDirective).toBeGreaterThan(-1);
+    expect(guard).toBeGreaterThan(refDirective);
+  });
+
+  it('a lone reference stays neutral: no presenter, no guard', () => {
+    const r = compileBrief({ tokens: [{ t: 'ref', imageHash: refHash }] }, ctx());
+    expect(r.prompt).not.toContain('only source of person identity');
+  });
+
+  it('a presenter with no reference has nothing to guard against', () => {
+    const r = compileBrief({ tokens: [{ t: 'character', id: 'c1' }] }, ctx());
+    expect(r.prompt).not.toContain('only source of person identity');
+  });
+
+  it('an edit never emits it: the source frame carries identity there', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx({ mode: 'edit' as const }),
+    );
+    expect(r.prompt).not.toContain('only source of person identity');
+  });
+
+  it('a reference the cap forced out is not guarded against', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx({ engineCaps: caps(1) }),
+    );
+    expect(r.attachments.map((a) => a.role)).not.toContain('reference');
+    expect(r.prompt).not.toContain('only source of person identity');
+  });
+});

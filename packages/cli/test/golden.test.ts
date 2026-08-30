@@ -607,9 +607,15 @@ describe('golden: presenter references are identity, not wardrobe', () => {
     // The 2026-08 leak: "no product or brand" was a bare prohibition, and the
     // staged demo object stayed in frame because the model had nowhere to put
     // what the photograph showed. A stand-in has a place for it to go.
-    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/match the environment, the light/);
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/match the environment, the light/i);
     expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/take no identity from the person in it/);
     expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/stand-in whose place the attached subject takes/);
+    // The carve-out LEADS. It used to sit forty words in as a subordinate
+    // clause, and the tester case showed which half the model heard.
+    expect(REFERENCE_ROLE_DIRECTIVE.scene.indexOf('take no identity')).toBeLessThan(
+      REFERENCE_ROLE_DIRECTIVE.scene.toLowerCase().indexOf('match the environment'),
+    );
+    expect(EDIT_REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/take no identity from any person in it/);
   });
 
   it("an edit keeps the source image's outfit: the identity reference cannot re-dress it", () => {
