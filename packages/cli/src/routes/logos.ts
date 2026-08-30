@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import sharp from 'sharp';
 import type { Core } from '@scenri/core';
 import { validateBrand } from '@scenri/brand';
 import { brandRuleDirectives } from '../brief.js';
@@ -53,7 +54,16 @@ export function registerLogoRoutes(app: FastifyInstance, deps: { core: Core }): 
         : logos;
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
-    return core.store.updateBrand(brand.id, json);
+    const row = core.store.updateBrand(brand.id, json);
+    // The client cannot compute the normalized content hash itself — the
+    // stored PNG is the upload after toMarkPng — so the answer names the mark
+    // it just made, riding beside the row the way `productId` does elsewhere.
+    // The long edge rides too, so the caller can warn about a tiny source.
+    const meta = await sharp(core.images.read(part.hash))
+      .metadata()
+      .catch(() => null);
+    const logoEdge = meta ? Math.max(meta.width ?? 0, meta.height ?? 0) || null : null;
+    return { ...row, logoHash: part.hash, logoEdge };
   });
 
   app.patch('/api/brands/:id/logos/:hash', async (req, reply) => {

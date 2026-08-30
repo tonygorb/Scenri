@@ -267,6 +267,17 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     sentence += (sentence && !sentence.endsWith(' ') ? ' ' : '') + s;
   };
 
+  // A reference that is byte-identical to a mark that will attach would ship
+  // the same artwork twice under two contradictory contracts: reproduce it
+  // exactly (the mark) and match its composition (the ref). It rides once, as
+  // the mark; different artwork under both roles stays legitimate.
+  const attachingMarkHashes = new Set(
+    (brief.tokens as any[])
+      .filter((t) => t?.t === 'mark')
+      .map((t) => t.imageHash as string)
+      .filter((h) => (ctx.brand?.logos ?? []).some((l: any) => assetHash(l?.file) === h) && ctx.images.has(h)),
+  );
+
   for (const tok of brief.tokens) {
     switch (tok.t) {
       case 'text':
@@ -406,6 +417,10 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
       }
 
       case 'ref': {
+        if (attachingMarkHashes.has(tok.imageHash)) {
+          warnings.push('That reference is the same image as your brand mark, so it rides once, as the mark.');
+          break;
+        }
         if (!ctx.images.has(tok.imageHash)) {
           warnings.push('A reference shot is missing and was skipped.');
           break;

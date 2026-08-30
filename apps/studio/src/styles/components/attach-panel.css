@@ -120,6 +120,12 @@
   border: 1px dashed var(--sc-line);
   border-radius: var(--sc-radius);
 }
+/* the add-logo tile is a label over a file input; while its upload runs it
+   goes quiet instead of accepting a second file */
+.sc-ap-add[data-busy] {
+  opacity: 0.6;
+  pointer-events: none;
+}
 .sc-ap-thumb {
   display: block;
   width: 100%;

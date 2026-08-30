@@ -345,6 +345,42 @@ describe('brand mark token', () => {
     expect(r.warnings).toEqual(['A brand mark in this brief is no longer in the kit.']);
   });
 
+  // The same artwork under both roles is one contradiction, not two chips:
+  // "reproduce exactly" (mark) and "match its composition" (ref) cannot both
+  // hold, and shipping both burned a budget seat on the conflict.
+  it('a reference that is byte-identical to the mark rides once, as the mark', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'mark', imageHash: logoHash },
+          { t: 'ref', imageHash: logoHash },
+        ],
+      },
+      ctx({ brand: brandWithLogo(logoHash) }),
+    );
+    expect(r.attachments).toEqual([{ role: 'brand', label: 'Acme wordmark', hash: logoHash }]);
+    expect(r.prompt).not.toContain('Match the composition, lighting and treatment');
+    expect(r.warnings).toEqual(['That reference is the same image as your brand mark, so it rides once, as the mark.']);
+  });
+
+  // …but only for artwork that is actually the mark: a distinct reference
+  // beside a mark is the legitimate mark + composition-ref combination.
+  it('a different reference beside the mark still rides as a reference', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'mark', imageHash: logoHash },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx({ brand: brandWithLogo(logoHash) }),
+    );
+    expect(r.attachments.map((a) => a.role).sort()).toEqual(['brand', 'reference']);
+    expect(r.prompt).toContain('Match the composition, lighting and treatment');
+  });
+
   // The mark loses to the product's identity-carrying shot, never to its spare
   // angles: the user attached the mark by hand, so it boards before any
   // corroboration image — and losing it must still never refuse the shot.

@@ -470,3 +470,55 @@ test.describe('one brand stays one brand', () => {
     await expect(page.locator('.sc-menu-brand-sub').first()).toContainText(brand.slug);
   });
 });
+
+test.describe('the composer attaches your own logo', () => {
+  test('the Brand tab mints a kit mark from a file and drops the chip in', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/create`);
+    const dock = page.locator('.sc-canvas-dock').first();
+    await dock.locator('.sc-attach-toggle').click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Brand' }).click();
+
+    // the tile is the declared-intent channel: a dragged logo stays a plain
+    // reference, this is the one gesture that says "this is my logo"
+    const tile = page.locator('label.sc-ap-add');
+    await expect(tile).toBeVisible();
+    await tile.locator('input[type="file"]').setInputFiles({
+      name: 'logo.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+        'base64',
+      ),
+    });
+
+    // the chip lands in the sentence without another click
+    await expect(page.locator('.sc-brief-line .sc-token')).toHaveCount(1);
+
+    // and the kit really holds it: first mark of an empty kit becomes THE logo
+    const logos = await page.evaluate(async (id) => {
+      const brands = await (await fetch('/api/brands')).json();
+      return brands.find((b: any) => b.id === id).json.logos ?? [];
+    }, brand.id);
+    expect(logos).toHaveLength(1);
+    expect(logos[0].role).toBe('primary');
+
+    // the brief the chip describes really ships the mark, on an engine that reads refs
+    const hash = String(logos[0].file).slice(6);
+    const preview = (await api(page, '/api/brief/preview', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        brandId: brand.id,
+        engineId: 'codex-cli',
+        brief: {
+          tokens: [
+            { t: 'text', v: 'a mug' },
+            { t: 'mark', imageHash: hash },
+          ],
+        },
+      }),
+    })) as { attachments: { role: string }[] };
+    expect(preview.attachments.map((a) => a.role)).toContain('brand');
+  });
+});
