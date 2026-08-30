@@ -1035,10 +1035,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       result.images = await normalizePngs(result.images);
       if (post) result.images = await post(result.images);
       if (expect) await assertAspect(result.images, expect);
-      core.store.completeNode(nodeId, { ...result, durationMs: Date.now() - startedAt });
       // What was actually delivered, next to what was asked for. The UI used
       // to guess every tile's shape from the brief's format, which an edit can
       // make untrue; recorded pixels end the guessing.
+      //
+      // Written BEFORE completeNode, because `done` is what everything else
+      // waits on: the studio polls until a node is done and then reads
+      // rendered.sizes for the tile's shape. Measuring the pixels takes a
+      // sharp metadata read per image, so between the two calls there was a
+      // real window where a node reported done with no record — the tile
+      // guessed its shape from the format token for a frame, and a test that
+      // waited on done read `rendered` as undefined (CI, 2026-08-30).
+      // Completion is the last thing that happens, so it cannot promise a
+      // record that is not there yet.
       try {
         const sizes: [number, number][] = [];
         for (const h of result.images) {
@@ -1079,6 +1088,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       } catch {
         /* the record is a convenience; failing to write it must not fail the run */
       }
+      core.store.completeNode(nodeId, { ...result, durationMs: Date.now() - startedAt });
       core.ledger.recordCost(engineId, nodeId, result.costUsd);
     } catch (err: any) {
       // the signal is the source of truth for "was this a cancel", not the
