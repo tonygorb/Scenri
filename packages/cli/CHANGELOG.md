@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.3](https://github.com/tonygorb/Scenri/compare/v0.7.2...v0.7.3) (2026-08-30)
+
+
+### Bug Fixes
+
+* a node is done only after its rendered record exists ([88fbfb7](https://github.com/tonygorb/Scenri/commit/88fbfb7b53001e6f4bda12cc61258dbb21e353a4))
+* a node is done only after its rendered record exists ([2e31d09](https://github.com/tonygorb/Scenri/commit/2e31d098ab78a22138e99aa463cae41199e51b6d))
+
 ## [0.7.2](https://github.com/tonygorb/Scenri/compare/v0.7.1...v0.7.2) (2026-08-30)
 
 

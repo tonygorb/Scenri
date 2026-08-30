@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.7.3',
+    date: '2026-08-31',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'A finished shot now reports done only after its delivered size is on record, so a tile can no longer guess its shape for a moment while the record catches up.',
+      },
+    ],
+  },
+  {
     version: '0.7.2',
     date: '2026-08-30',
     title: 'Changing a shot to a new shape keeps the photograph.',
