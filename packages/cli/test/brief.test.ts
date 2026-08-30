@@ -436,7 +436,9 @@ describe('brand mark token', () => {
     expect(r.attachments.map((a) => a.role)).toEqual(['product', 'brand']);
     expect(r.dropped.map((d) => d.role)).toEqual(['product']);
     expect(r.dropped.some((d) => d.essential)).toBe(false);
-    expect(r.warnings.join(' ')).toContain('House Blend');
+    // The shed image is the product's SECOND angle; its identity boarded, so
+    // the warning stays quiet - it used to claim House Blend was left out.
+    expect(r.warnings.join(' ')).not.toContain('House Blend');
   });
 
   // "reads 0 reference images" was technically true and read like a bug. The
@@ -1409,5 +1411,55 @@ describe('the presenter outranks a reference for identity', () => {
     );
     expect(r.attachments.map((a) => a.role)).not.toContain('reference');
     expect(r.prompt).not.toContain('only source of person identity');
+  });
+});
+
+// A shed corroboration angle whose essential survived is a quiet degrade, not
+// a lost identity: the refine path has filtered dropped names against kept
+// labels since 0.6.9, and the generation path used to say the presenter "was
+// left out" while their first image had in fact boarded.
+describe('the drop warning names only what was fully lost', () => {
+  const twoAngles = () => ({
+    ...brandWith(productHash),
+    products: [
+      {
+        id: 'p1',
+        name: 'House Blend',
+        shots: [
+          { file: `asset:${productHash}`, locked: true },
+          { file: `asset:${core.images.save(Buffer.from('angle-two'))}`, locked: true },
+        ],
+      },
+    ],
+  });
+
+  it('a shed second angle stays quiet while the identity rode', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx({ brand: twoAngles(), engineCaps: caps(3) }),
+    );
+    // p1 essential + c1 essential + ref boarded; p2's second angle dropped
+    expect(r.dropped.map((d) => d.label)).toContain('House Blend');
+    expect(r.warnings.join(' ')).not.toContain('House Blend');
+  });
+
+  it('an identity dropped whole is still named', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx({ engineCaps: caps(1, 'Codex CLI') }),
+    );
+    expect(r.warnings[0]).toContain('Reference shot');
+    expect(r.warnings[0]).not.toContain('House Blend');
   });
 });

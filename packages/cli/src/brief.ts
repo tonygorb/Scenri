@@ -745,13 +745,23 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // Never name a dropped scene reference. This warning exists to tell someone
     // an identity they attached will not be shown; a scene ref is context that
     // degrades quietly, and naming it here reads as though their scene failed.
-    const names = [...new Set(dropped.filter((d) => d.role !== 'scene').map((d) => d.label))];
-    // "reads 0 reference images" is technically true and reads like a bug; an
-    // engine that takes none deserves a sentence written for that case.
-    const reads = max === 0 ? 'reads no reference images' : `reads ${max} reference image${max === 1 ? '' : 's'}`;
-    warnings.push(
-      `${ctx.engineCaps.displayName} ${reads}, so ${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out.`,
+    // And name an identity only when ALL of it was dropped: a shed
+    // corroboration angle whose essential survived degrades quietly - the
+    // refine path has said this since 0.6.9, and the generation path used to
+    // tell someone their presenter "was left out" when its first image had in
+    // fact boarded.
+    const keptLabels = new Set(kept.map((a) => a.label));
+    const names = [...new Set(dropped.filter((d) => d.role !== 'scene').map((d) => d.label))].filter(
+      (l) => !keptLabels.has(l),
     );
+    if (names.length) {
+      // "reads 0 reference images" is technically true and reads like a bug; an
+      // engine that takes none deserves a sentence written for that case.
+      const reads = max === 0 ? 'reads no reference images' : `reads ${max} reference image${max === 1 ? '' : 's'}`;
+      warnings.push(
+        `${ctx.engineCaps.displayName} ${reads}, so ${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out.`,
+      );
+    }
   }
 
   return {
