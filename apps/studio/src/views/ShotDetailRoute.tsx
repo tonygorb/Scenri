@@ -82,8 +82,6 @@ export function ShotDetailRoute() {
       brand={ctx.brand}
       engines={ctx.engines}
       projectId={ctx.projectId}
-      imageIndex={ctx.imageIndex}
-      onImageIndex={ctx.setImageIndex}
       onClose={ctx.close}
       onSelect={ctx.select}
       onRetry={ctx.retry}

@@ -157,8 +157,8 @@ test('the settings ride along with the brief, so a shot can be run again as itse
   await page.keyboard.type('a shot whose recipe must survive');
   // On a desktop the three settings are pills in the row; a narrow composer
   // collapses the same three behind More, and a phone opens them as a sheet.
-  await dock(page).locator('.sc-prompt-pills [aria-label="2 variants"]').click();
-  await page.locator('.sc-setpop').getByRole('radio', { name: '3 variants' }).click();
+  await dock(page).locator('.sc-prompt-pills [aria-label="2 shots"]').click();
+  await page.locator('.sc-setpop').getByRole('radio', { name: '3 shots' }).click();
   await dock(page).locator('.sc-send').click();
   await expect(page.locator('.sc-toast', { hasText: 'That did not send' })).toBeVisible();
 

@@ -13,8 +13,6 @@ export interface ShotContext {
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
-  imageIndex: number;
-  setImageIndex: (i: number) => void;
   close: () => void;
   select: (id: string) => void;
   retry: (node: TreeNode) => void;

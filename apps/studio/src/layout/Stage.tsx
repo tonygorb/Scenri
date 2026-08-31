@@ -14,13 +14,11 @@ function aspectOf(node: TreeNode): number {
 
 export function StageFrame({
   node,
-  imageIndex,
   onRetry,
   onCancel,
   engineName,
 }: {
   node: TreeNode;
-  imageIndex: number;
   onRetry?: () => void;
   onCancel?: () => void;
   /** What the engine that ran this is called, so a failure can name it. */
@@ -142,11 +140,11 @@ export function StageFrame({
   return (
     <Flex justify="center">
       <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
-        {node.status === 'done' && node.images[imageIndex] && (
+        {node.status === 'done' && node.images[0] && (
           <Box position="relative" style={{ lineHeight: 0 }}>
             <img
               ref={setImgEl}
-              src={imgUrl(node.images[imageIndex])}
+              src={imgUrl(node.images[0])}
               alt={node.prompt}
               // the cap itself lives in CSS, where it can know whether a row of
               // takes sits under the shot: a percentage cannot, because nothing

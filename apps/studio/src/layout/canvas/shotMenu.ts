@@ -35,7 +35,6 @@ export function shotMenuItems(
     onBranch,
     onPick,
     onVersions,
-    onToggleExpand,
     onToggleKeep,
     onArchive,
     onDeletePermanently,
@@ -48,10 +47,9 @@ export function shotMenuItems(
     onOpen: (id: string) => void;
     /** The shot's real URL. Present: the menu offers "Open in new tab". */
     shotHref?: (id: string) => string;
-    onBranch?: (id: string, imageIndex?: number) => void;
+    onBranch?: (id: string) => void;
     onPick?: (id: string) => void;
     onVersions?: (id: string) => void;
-    onToggleExpand?: (id: string) => void;
     onToggleKeep?: (node: TreeNode) => void;
     onArchive?: (node: TreeNode) => void;
     onDeletePermanently?: (node: TreeNode) => void;
@@ -85,8 +83,6 @@ export function shotMenuItems(
       label: `${versions} version${versions === 1 ? '' : 's'}`,
       onSelect: () => onVersions(node.id),
     });
-  if (node.images.length > 1 && onToggleExpand)
-    items.push({ key: 'expand', label: 'Show all variants', onSelect: () => onToggleExpand(node.id) });
   if (onArchive)
     items.push({
       key: 'archive',

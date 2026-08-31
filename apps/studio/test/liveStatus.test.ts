@@ -14,7 +14,7 @@ describe('generationMessages', () => {
     state = generationMessages(state.next, [node('a', 'running')]);
     expect(state.messages).toEqual(['Generating shot.']);
     state = generationMessages(state.next, [node('a', 'done', ['h1', 'h2'])]);
-    expect(state.messages).toEqual(['Shot ready, 2 images.']);
+    expect(state.messages).toEqual(['Shot ready.']);
     state = generationMessages(state.next, [node('a', 'done', ['h1', 'h2']), node('b', 'running')]);
     expect(state.messages).toEqual(['Generating shot.']);
     state = generationMessages(state.next, [node('a', 'done', ['h1', 'h2']), node('b', 'error', [], 'rate limited')]);
@@ -29,11 +29,11 @@ describe('generationMessages', () => {
     expect(state.messages).toEqual([]);
   });
 
-  it('announces a cancel as a cancel, singular image grammar holds', () => {
+  it('announces a cancel as a cancel, and a landing as ready', () => {
     let state = generationMessages(new Map(), [node('a', 'running')]);
     state = generationMessages(state.next, [node('a', 'cancelled')]);
     expect(state.messages).toEqual(['Shot cancelled.']);
     state = generationMessages(new Map([['b', 'running']]), [node('b', 'done', ['h1'])]);
-    expect(state.messages).toEqual(['Shot ready, 1 image.']);
+    expect(state.messages).toEqual(['Shot ready.']);
   });
 });

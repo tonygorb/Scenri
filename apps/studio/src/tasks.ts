@@ -122,13 +122,14 @@ export function catalogPercent(j: CatalogImportJob | null): number {
  * into localStorage and read back after an upgrade, so the one thing they must
  * not do is spell a route by hand.
  */
-export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Date.now()): Task {
+export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Date.now(), batchSize = 1): Task {
   // A shot in no set is the ordinary case now, so the row says what happened
   // and stops. Naming the container was worth a column back when every shot had
   // one; saying "Workspace" on all of them would be furniture, not information.
   const where = n.setNames.length > 0 ? `${n.setNames.join(', ')} · ` : '';
-  // the elapsed count lives in the time column; saying it twice in one row was
-  // the kind of thing that reads as detail and lands as noise
+  // One row per request: a batch says how many shots it is making, a single
+  // shot says nothing about counts at all — one is the ordinary case.
+  const made = batchSize > 1 ? `${batchSize} shots` : 'ready';
   const subtitle =
     n.status === 'running'
       ? `${where}${runningPhrase(n.createdAt, now)}`
@@ -136,7 +137,7 @@ export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Dat
         ? `${where}${n.error ?? 'failed'}`
         : n.status === 'cancelled'
           ? `${where}cancelled`
-          : `${where}${n.images.length} image${n.images.length === 1 ? '' : 's'}`;
+          : `${where}${made}`;
   return {
     id: `node:${n.id}`,
     kind: n.kind === 'edit' ? 'edit' : 'generation',

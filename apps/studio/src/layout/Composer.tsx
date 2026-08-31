@@ -119,7 +119,7 @@ export const Composer = forwardRef<
      * Cleared here only on failure: on success the caller clears it once the
      * real shot has actually landed, or the tile would blink out and back in.
      */
-    onSending?: (text: string | null) => void;
+    onSending?: (sending: { said: string; count: number } | null) => void;
     /**
      * Which assets the brief holds, published whenever that set changes.
      *
@@ -264,9 +264,7 @@ export const Composer = forwardRef<
   const [refineFormats, setRefineFormats] = useState<Record<string, string>>({});
   const refineTarget = target && target.kind !== 'root' ? target : null;
   /** What the shot on the chip already is, and the shape a reshape is measured from. */
-  const sourceFormat = refineTarget
-    ? formatOfShot(refineTarget.brief, Math.max(0, refineTarget.images.indexOf(sourceImage ?? '')))
-    : undefined;
+  const sourceFormat = refineTarget ? formatOfShot(refineTarget.brief) : undefined;
   const formatId = refineTarget ? (refineFormats[refineTarget.id] ?? sourceFormat ?? prefFormat) : prefFormat;
   // Derived rather than seeded by an effect on purpose: the overlay reuses one
   // mounted composer as you walk from shot to shot, so a new target has to
@@ -729,7 +727,7 @@ export const Composer = forwardRef<
         : sizing === 'advisory'
           ? `${r.label}, asking for ${r.edge} px`
           : `${r.label} ${r.edge} px`;
-    return [shape, `${count} variants`, size && `resolution ${size}`].filter(Boolean).join(', ');
+    return [shape, `${count} shot${count === 1 ? '' : 's'}`, size && `resolution ${size}`].filter(Boolean).join(', ');
   }, [mode, formatId, count, quality, engineId]);
 
   /**
@@ -945,7 +943,9 @@ export const Composer = forwardRef<
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
-    onSending?.(said || 'Your shot');
+    // one stand-in tile per expected sibling: a generation asks for `count`
+    // shots, an edit always comes back as one
+    onSending?.({ said: said || 'Your shot', count: mode === 'generation' ? count : 1 });
     try {
       // the brand's workspace always exists by the time a brief can be run; a
       // missing one is a load that has not landed, not a container to invent

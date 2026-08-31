@@ -45,8 +45,6 @@ export function DetailOverlay({
   brand,
   engines,
   projectId,
-  imageIndex,
-  onImageIndex,
   onClose,
   onSelect,
   onRetry,
@@ -64,8 +62,6 @@ export function DetailOverlay({
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
-  imageIndex: number;
-  onImageIndex: (i: number) => void;
   onClose: () => void;
   onSelect: (id: string) => void;
   onRetry: (n: TreeNode) => void;
@@ -141,7 +137,7 @@ export function DetailOverlay({
   /** Hover peek over a version frame: the picture at a readable size before
    *  committing the panel to it. */
   const framePeek = useHoverPreview<{ key: string; src: string; label: string; el: HTMLElement; id: string }>();
-  const hash = node.images[imageIndex] ?? node.images[0];
+  const hash = node.images[0];
   const baseName =
     node.prompt
       .slice(0, 40)
@@ -338,7 +334,6 @@ export function DetailOverlay({
         className="sc-ovl"
         data-fb="shot-overlay"
         data-fb-node={node.id}
-        data-fb-variant={imageIndex}
         role="dialog"
         aria-modal="true"
         aria-label={nodeLabel(node)}
@@ -455,48 +450,13 @@ export function DetailOverlay({
           </AlertDialog.Content>
         </AlertDialog.Root>
 
-        <div
-          className="sc-ovl-stage"
-          // the shot is capped so the row of takes below it always has room;
-          // the cap has to know whether that row is there
-          data-takes={node.status === 'done' && node.images.length > 1 ? '' : undefined}
-        >
+        <div className="sc-ovl-stage">
           <StageFrame
             node={node}
-            imageIndex={imageIndex}
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
           />
-          {node.status === 'done' && node.images.length > 1 && (
-            <div className="sc-thumbs">
-              {node.images.map((h, i) => (
-                <button
-                  type="button"
-                  // index too: a run can hold the same content-addressed image
-                  // twice, and the hash alone then collides as a key
-                  // biome-ignore lint/suspicious/noArrayIndexKey: the run is append-only, so the take index is stable identity; it breaks the tie between duplicate hashes.
-                  key={`${i}:${h}`}
-                  className="sc-thumb-btn"
-                  onClick={() => onImageIndex(i)}
-                  aria-label={`Image ${i + 1}`}
-                  aria-pressed={i === imageIndex}
-                >
-                  {/* the attributes stay as the pre-load intrinsic hint; the box
-                      and the crop are the stylesheet's job, and were nobody's
-                      until this rail stretched every portrait take it held */}
-                  <img
-                    src={imgUrl(h)}
-                    alt=""
-                    className="sc-thumb"
-                    data-active={i === imageIndex}
-                    width={52}
-                    height={52}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <aside className="sc-ovl-meta">
@@ -509,13 +469,6 @@ export function DetailOverlay({
           <div className="sc-ovl-head">
             <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
             {node.archived && <small className="sc-ovl-flag">archived</small>}
-            {/* which take of the run is on stage — refining works from it,
-                and the ringed thumb under the picture is easy to miss */}
-            {hasImage && node.images.length > 1 && (
-              <small className="sc-ovl-take">
-                take {imageIndex + 1} of {node.images.length}
-              </small>
-            )}
             {hasImage && node.costUsd > 0 && (
               <small className="sc-ovl-spend" title="Of your API budget">
                 ${node.costUsd.toFixed(2)}

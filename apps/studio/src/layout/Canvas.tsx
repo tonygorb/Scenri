@@ -45,9 +45,6 @@ export function Canvas({
   sending,
   onBranch,
   branchingFrom,
-  branchingFromImage,
-  expanded,
-  onToggleExpand,
   versionsOf,
   onVersions,
   engineName,
@@ -55,14 +52,13 @@ export function Canvas({
 }: {
   nodes: TreeNode[];
   selectedId: string | null;
-  /** The variant index is how a stacked run opens on the one you clicked. */
-  onOpen: (id: string, imageIndex?: number) => void;
+  onOpen: (id: string) => void;
   /**
-   * The shot's real URL, take-aware. Tiles render it as a Link so middle click
-   * and Cmd click open the overlay in its own tab; plain click stays SPA (and
-   * stays "pick" while a batch is being built).
+   * The shot's real URL. Tiles render it as a Link so middle click and Cmd
+   * click open the overlay in its own tab; plain click stays SPA (and stays
+   * "pick" while a batch is being built).
    */
-  shotHref: (id: string, imageIndex?: number) => string;
+  shotHref: (id: string) => string;
   onRetry: (node: TreeNode) => void;
   onCancel?: (node: TreeNode) => void;
   /** The star badge looked like a toggle and wasn't one — `k` and the overlay
@@ -84,20 +80,16 @@ export function Canvas({
    */
   empty?: ReactNode;
   /**
-   * A brief that has been sent and has not come back as a shot yet. It leads
-   * the feed so the press of the button is answered immediately, rather than
+   * A brief that has been sent and has not come back as shots yet, and how
+   * many shots it asked for. It leads the feed — one stand-in per expected
+   * sibling — so the press of the button is answered immediately, rather than
    * after a round trip that can take a second on a cold engine.
    */
-  sending?: string | null;
+  sending?: { said: string; count: number } | null;
   /** Point the brief at this shot. Absent where branching makes no sense. */
-  onBranch?: (id: string, imageIndex?: number) => void;
+  onBranch?: (id: string) => void;
   /** The shot the brief is currently pointed at, so its tile can say so. */
   branchingFrom?: string | null;
-  /** Which image of it, so an opened-out take can say it is the armed one. */
-  branchingFromImage?: string | null;
-  /** Runs opened out into their variants. */
-  expanded?: Set<string>;
-  onToggleExpand?: (id: string) => void;
   /** How many shots came from this one, for the versions pip. */
   versionsOf?: (id: string) => number;
   /** Look at just this shot and what came from it. */
@@ -138,20 +130,21 @@ export function Canvas({
   const [feedEl, setFeedEl] = useState<HTMLDivElement | null>(null);
   const { tile: colWidth, cols: fitting } = masonryLayout(useElementWidth(feedEl), tile, useViewportWidth() < PHONE);
 
-  // One inner array per shot: the deal needs to know which tiles belong to one
-  // expanded run so their columns can ascend in take order (see dealOrdinals).
   const tileGroups: ReactNode[][] = [
     ...(sending
       ? [
-          [
-            <div key="sending" className="sc-cell" data-running="true" data-sending="true">
+          // one stand-in per expected sibling, so a four-shot send answers
+          // with four spaces being held rather than one tile hiding three
+          Array.from({ length: Math.max(1, sending.count) }, (_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: a stand-in has no identity beyond its slot; the whole row is replaced at once when the real shots land
+            <div key={`sending-${i}`} className="sc-cell" data-running="true" data-sending="true">
               <span className="sc-shimmer" />
               <span className="sc-cell-tag">sending</span>
               <span className="sc-cell-said" dir="auto">
-                {sending}
+                {sending.said}
               </span>
-            </div>,
-          ],
+            </div>
+          )),
         ]
       : []),
     ...shots.map((n) => {
@@ -243,67 +236,10 @@ export function Canvas({
         onBranch,
         onPick,
         onVersions,
-        onToggleExpand,
         onToggleKeep,
         onArchive,
         onDeletePermanently: onDeletePermanently ? (node) => setDeleteTarget(node) : undefined,
       });
-
-      if (expanded?.has(n.id) && n.images.length > 1) {
-        return n.images.map((hash, i) => (
-          <div
-            // index AND hash: images are content addressed, so one run can
-            // legally hold the same hash twice (two takes that came out
-            // identical), and the hash alone then collides as a key.
-            // biome-ignore lint/suspicious/noArrayIndexKey: the run is append-only, so the take index is stable identity; it exists here to break the tie between duplicate hashes.
-            key={`${n.id}:${i}:${hash}`}
-            className="sc-cell"
-            data-fb-node={n.id}
-            data-fb-variant={i}
-            data-variant=""
-            data-batching={batching || undefined}
-            data-first={i === 0 || undefined}
-            data-selected={i === 0 && n.id === selectedId}
-          >
-            <Link
-              className="sc-cell-open"
-              to={shotHref(n.id, i)}
-              aria-label={
-                batching
-                  ? `${chosen ? 'Deselect' : 'Select'} ${nodeLabel(n)}`
-                  : `Open ${nodeLabel(n)}, take ${i + 1} of ${n.images.length}`
-              }
-              onClick={(e) => {
-                // While a batch is being built a plain click means "pick",
-                // not "open" - the one case the anchor's default is stopped.
-                if (batching) {
-                  e.preventDefault();
-                  onPick?.(n.id);
-                }
-              }}
-            >
-              <FeedImage src={imgUrl(hash)} {...aspectOfImage(n, i)} />
-            </Link>
-            {/* One chrome, both tile shapes. The opened-out take used to place
-                its own bar, and once the counts moved into that row the
-                Collapse button kept its old class without the positioning that
-                came with it — and landed on top of Refine. */}
-            <ShotChrome
-              node={n}
-              take={i}
-              takeCount={n.images.length}
-              chosen={chosen}
-              picking={picking}
-              batching={batching}
-              armed={branchingFrom === n.id && branchingFromImage === hash}
-              menu={menu}
-              onPick={onPick}
-              onBranch={onBranch}
-              onToggleExpand={onToggleExpand}
-            />
-          </div>
-        ));
-      }
 
       return [
         <ContextMenu.Root key={n.id}>
@@ -330,8 +266,6 @@ export function Canvas({
               </Link>
               <ShotChrome
                 node={n}
-                take={null}
-                takeCount={n.images.length}
                 chosen={chosen}
                 picking={picking}
                 batching={batching}
@@ -339,7 +273,6 @@ export function Canvas({
                 menu={menu}
                 onPick={onPick}
                 onBranch={onBranch}
-                onToggleExpand={onToggleExpand}
               />
             </div>
           </ContextMenu.Trigger>

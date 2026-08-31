@@ -83,7 +83,7 @@ const notif = (over: Partial<NotificationItem> = {}): NotificationItem => ({
   kind: 'generation',
   state: 'done',
   title: 'golden hour',
-  subtitle: 'Spring · 2 images',
+  subtitle: 'Spring · ready',
   thumb: null,
   at: '2026-08-04T12:00:00.000Z',
   href: '/b1/create/shots/n1',
@@ -137,12 +137,15 @@ describe('taskFromNode', () => {
     expect(taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), brand).percent).toBeNull();
   });
   it('says where the work is and what came of it', () => {
-    const done = taskFromNode(node({ status: 'done', images: ['h1', 'h2'] }), brand);
-    expect(done.subtitle).toBe('Spring · 2 images');
+    const done = taskFromNode(node({ status: 'done', images: ['h1'] }), brand);
+    expect(done.subtitle).toBe('Spring · ready');
     expect(done.thumb).toBe('h1');
     // the shot hangs off the hub, not off a project nobody named
     expect(done.href).toBe('/b1/create/shots/n1');
-    expect(taskFromNode(node({ status: 'done', images: ['h1'] }), brand).subtitle).toBe('Spring · 1 image');
+    // one row per request: a batch says how many shots it is making
+    expect(taskFromNode(node({ status: 'done', images: ['h1'] }), brand, Date.now(), 4).subtitle).toBe(
+      'Spring · 4 shots',
+    );
     expect(taskFromNode(node({ status: 'error', error: 'engine refused' }), brand).subtitle).toBe(
       'Spring · engine refused',
     );
@@ -154,14 +157,14 @@ describe('taskFromNode', () => {
   });
   it('says only what happened when the shot is in no set', () => {
     // the ordinary case now: no container to name, so no container is named
-    expect(taskFromNode(node({ setNames: [], status: 'done', images: ['h1'] }), brand).subtitle).toBe('1 image');
+    expect(taskFromNode(node({ setNames: [], status: 'done', images: ['h1'] }), brand).subtitle).toBe('ready');
     // the fixture's createdAt is long in the past, so the honest staged copy is this, not "generating"
     expect(taskFromNode(node({ setNames: [] }), brand).subtitle).toBe('taking longer than usual');
   });
   it('names every set a shot belongs to', () => {
     expect(
       taskFromNode(node({ setNames: ['Spring', 'Packshots'], status: 'done', images: ['h1'] }), brand).subtitle,
-    ).toBe('Spring, Packshots · 1 image');
+    ).toBe('Spring, Packshots · ready');
   });
   it('leaves the elapsed count to the time column', () => {
     // the row already carries the seconds on the right; twice is noise
