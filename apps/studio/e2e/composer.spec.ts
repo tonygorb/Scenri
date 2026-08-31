@@ -1520,7 +1520,9 @@ test('paste of a sigil does not open the menu', async ({ page }) => {
   expect(await sentence(page)).toContain('@marco');
 });
 
-test('an opened run reads its takes in request order, wherever completion landed them', async ({ page }) => {
+test('a multi-shot request lands as siblings reading in request order, wherever completion landed them', async ({
+  page,
+}) => {
   await page.goto('/');
   await page.waitForURL((u) => {
     const seg = u.pathname.split('/').filter(Boolean);
@@ -1528,7 +1530,8 @@ test('an opened run reads its takes in request order, wherever completion landed
   });
   const slug = decodeURIComponent(new URL(page.url()).pathname.split('/')[1]);
 
-  // A real four-take demo run through the real API.
+  // A real four-shot demo request through the real API: four first-class
+  // sibling nodes, one image each, sharing one batch identity.
   const made = await page.evaluate(async () => {
     const brands = await (await fetch('/api/brands')).json();
     const ws = await (await fetch(`/api/brands/${brands[0].id}/workspace`)).json();
@@ -1540,31 +1543,34 @@ test('an opened run reads its takes in request order, wherever completion landed
         kind: 'generation',
         engineId: 'demo',
         count: 4,
-        prompt: 'four takes in order',
+        prompt: 'four shots in order',
         width: 512,
         height: 512,
       }),
     });
-    return (await r.json()).id as string;
+    const body = await r.json();
+    return (body.siblings as { id: string }[]).map((s) => s.id);
   });
-  await expect
-    .poll(() => page.evaluate(async (id) => (await (await fetch(`/api/nodes/${id}`)).json()).status, made))
-    .toBe('done');
+  expect(made).toHaveLength(4);
+  for (const id of made) {
+    await expect
+      .poll(() => page.evaluate(async (n) => (await (await fetch(`/api/nodes/${n}`)).json()).status, id))
+      .toBe('done');
+  }
+  // four distinct pictures, not one picture four times
+  const hashes = await page.evaluate(
+    async (ids) => Promise.all(ids.map(async (n) => (await (await fetch(`/api/nodes/${n}`)).json()).images[0])),
+    made,
+  );
+  expect(new Set(hashes).size).toBe(4);
 
   await page.goto(`/${slug}/create`);
-  const runCell = page.locator(`.sc-cell[data-fb-node="${made}"]`).first();
-  await runCell.hover();
-  await runCell.getByRole('button', { name: 'Show all 4 variants' }).click();
-
-  const takes = page.locator(`.sc-cell[data-fb-node="${made}"][data-variant]`);
-  await expect(takes).toHaveCount(4);
   // Visual reading order — top row left to right, then the next row — must be
-  // take 1, 2, 3, 4. The old deal handed the run out counted from its far end,
-  // so a four-take run opened reading 3, 2, 1.
+  // slot 1, 2, 3, 4, however the four resolved.
   const placed: { i: number; x: number; y: number }[] = [];
   for (let i = 0; i < 4; i++) {
-    const box = await page.locator(`.sc-cell[data-fb-node="${made}"][data-fb-variant="${i}"]`).boundingBox();
-    if (!box) throw new Error(`take ${i} has no box`);
+    const box = await page.locator(`.sc-cell[data-fb-node="${made[i]}"]`).first().boundingBox();
+    if (!box) throw new Error(`sibling ${i} has no tile`);
     placed.push({ i, x: box.x, y: box.y });
   }
   const reading = [...placed].sort((a, b) => a.y - b.y || a.x - b.x).map((p) => p.i);
@@ -1869,7 +1875,8 @@ test('the newest work is always the top-left tile', async ({ page }) => {
   await line(page).click();
   await page.keyboard.type('the newest shot');
   await dock(page).locator('.sc-send').click();
-  await expect(page.locator('.sc-cell[data-running]')).toBeVisible();
+  // a default send is a two-shot batch now, so two running tiles are the norm
+  await expect(page.locator('.sc-cell[data-running]').first()).toBeVisible();
   // the demo engine can land between any two round trips, taking the running
   // attribute with it — in that case the done-shot assertion below is the
   // whole invariant, checked against the same top-left spot

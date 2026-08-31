@@ -993,29 +993,39 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const NODE_TIMEOUT_MS = 600_000;
 
   async function runNode(
-    nodeId: string,
+    /**
+     * The nodes this one engine call fills, in slot order. An edit or crop is
+     * a batch of one; a multi-shot generation is N sibling nodes sharing the
+     * call, the reservation, the watchdog and the abort controller — cancel
+     * any of them and the whole call stops, which is the honest reading of
+     * one provider request.
+     */
+    nodeIds: string[],
     /** Null for local work that touches no provider — a pure crop. */
     engine: EngineAdapter | null,
     estimate: number,
     work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number; raw?: unknown }>,
     expect?: { width: number; height: number },
     /**
-     * Runs over the engine's answer before anything is stored. Expansion uses
-     * it to lay the untouched original back over the margin the engine made,
-     * which is the only way any of this can be a guarantee: no provider we can
-     * reach promises to leave a region alone.
+     * Per-node post pass over that node's image, before anything is stored.
+     * Expansion uses it to lay the untouched original back over the margin
+     * the engine made, which is the only way any of this can be a guarantee:
+     * no provider we can reach promises to leave a region alone. A factory
+     * rather than one closure, because canvas conformance writes provenance
+     * onto the node it is conforming — one shared closure once meant the
+     * last-cropped image's record overwrote everyone else's.
      */
-    post?: (images: string[]) => Promise<string[]>,
+    postFor?: (nodeId: string) => ((images: string[]) => Promise<string[]>) | undefined,
     /** Overrides the default bound — derived per engine and batch by the caller. */
     timeoutMs?: number,
   ) {
     const engineId = engine?.capabilities().id ?? 'local';
     reserved.set(engineId, (reserved.get(engineId) ?? 0) + estimate);
     const ctrl = new AbortController();
-    runningGenerations.set(nodeId, ctrl);
+    for (const id of nodeIds) runningGenerations.set(id, ctrl);
     // The last line of defense: whatever the engine's own timers do, no node
     // sits in `running` past this. A multi-variant codex batch can legally
-    // outlive a single per-exec timeout, so the bound lives here, per node.
+    // outlive a single per-exec timeout, so the bound lives here, per run.
     const bound = opts.nodeTimeoutMs ?? timeoutMs ?? NODE_TIMEOUT_MS;
     let watchdogFired = false;
     const watchdog = setTimeout(() => {
@@ -1025,6 +1035,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       ctrl.abort(BUDGET_EXHAUSTED);
     }, bound);
     const startedAt = Date.now();
+    /** Nodes already given their outcome; the catch below settles the rest. */
+    const settled = new Set<string>();
     try {
       const result = await work(ctrl.signal);
       // The watchdog bounds the engine, not the local post-processing. Left
@@ -1032,76 +1044,97 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // the mark and its own failure would then be reported as a timeout —
       // a SUCCESSFUL generation labelled "took too long".
       clearTimeout(watchdog);
-      result.images = await normalizePngs(result.images);
-      if (post) result.images = await post(result.images);
-      if (expect) await assertAspect(result.images, expect);
-      // What was actually delivered, next to what was asked for. The UI used
-      // to guess every tile's shape from the brief's format, which an edit can
-      // make untrue; recorded pixels end the guessing.
-      //
-      // Written BEFORE completeNode, because `done` is what everything else
-      // waits on: the studio polls until a node is done and then reads
-      // rendered.sizes for the tile's shape. Measuring the pixels takes a
-      // sharp metadata read per image, so between the two calls there was a
-      // real window where a node reported done with no record — the tile
-      // guessed its shape from the format token for a frame, and a test that
-      // waited on done read `rendered` as undefined (CI, 2026-08-30).
-      // Completion is the last thing that happens, so it cannot promise a
-      // record that is not there yet.
-      try {
-        const sizes: [number, number][] = [];
-        for (const h of result.images) {
-          const meta = await sharp(core.images.read(h)).metadata();
-          if (meta.width && meta.height) sizes.push([meta.width, meta.height]);
+      const images = await normalizePngs(result.images);
+      // One image per node: image k belongs to requested slot variantIndexes[k]
+      // (a partial codex batch says which slots survived; every other engine
+      // returns a full run, so k maps to k). A slot with nothing behind it
+      // becomes an honest failed node instead of a silently shorter run.
+      const raw = result.raw as
+        | { requested?: number; variantIndexes?: number[]; partialFailures?: string[] }
+        | undefined;
+      const bySlot: (string | undefined)[] = new Array(nodeIds.length);
+      images.forEach((h, k) => {
+        const slot = raw?.variantIndexes?.[k] ?? k;
+        if (slot < nodeIds.length && bySlot[slot] === undefined) bySlot[slot] = h;
+      });
+      const wall = Date.now() - startedAt;
+      const failures = [...(raw?.partialFailures ?? [])];
+      for (let slot = 0; slot < nodeIds.length; slot++) {
+        const id = nodeIds[slot];
+        const hash = bySlot[slot];
+        if (hash === undefined) {
+          core.store.failNode(id, failures.shift() ?? 'the engine returned no image for this shot');
+          settled.add(id);
+          continue;
         }
-        const node = core.store.getNode(nodeId);
-        if (node && sizes.length) {
-          const brief = (node.brief as object | null) ?? {};
-          // A partial codex batch reports which requested slots its surviving
-          // images came from; recorded here, next to the sizes, so "the run
-          // opens on variant 3" is at least a written fact instead of a mystery.
-          const raw = result.raw as { requested?: number; variantIndexes?: number[] } | undefined;
-          const survivors =
-            typeof raw?.requested === 'number' && Array.isArray(raw.variantIndexes)
-              ? { requested: raw.requested, variantIndexes: raw.variantIndexes }
-              : {};
-          // The request beside the delivery, so requested-vs-actual is a
-          // readable fact rather than a reconstruction from the format token.
-          const asked = expect ? { requestedSize: [expect.width, expect.height] } : {};
-          core.store.setBrief(nodeId, { ...brief, rendered: { sizes, ...survivors, ...asked } });
-          // Codex's image tool cannot be handed a pixel size, so a non-square
-          // generation landing EXACTLY on the requested pixels is the
-          // signature of a forbidden shell resize. A log line, never a
-          // reject: the native menu is not contractually known.
-          if (
-            node.kind === 'generation' &&
-            engineId === 'codex-cli' &&
-            expect &&
-            expect.width !== expect.height &&
-            sizes.some(([w, h]) => w === expect.width && h === expect.height)
-          )
-            app.log.warn(
-              { nodeId },
-              'codex delivered exactly the requested pixels; its image tool cannot pin size - suggests a forbidden shell resize',
-            );
+        // Per-node pipeline in its own try/catch: one shot's bad frame fails
+        // that shot, never its siblings.
+        try {
+          let own = [hash];
+          const post = postFor?.(id);
+          if (post) own = await post(own);
+          if (expect) await assertAspect(own, expect);
+          // What was actually delivered, next to what was asked for. Written
+          // BEFORE completeNode, because `done` is what everything else waits
+          // on: the studio polls until a node is done and then reads
+          // rendered.sizes for the tile's shape (CI, 2026-08-30).
+          try {
+            const meta = await sharp(core.images.read(own[0])).metadata();
+            const node = core.store.getNode(id);
+            if (node && meta.width && meta.height) {
+              const brief = (node.brief as object | null) ?? {};
+              const asked = expect ? { requestedSize: [expect.width, expect.height] } : {};
+              core.store.setBrief(id, { ...brief, rendered: { sizes: [[meta.width, meta.height]], ...asked } });
+              // Codex's image tool cannot be handed a pixel size, so a
+              // non-square generation landing EXACTLY on the requested pixels
+              // is the signature of a forbidden shell resize. A log line,
+              // never a reject: the native menu is not contractually known.
+              if (
+                node.kind === 'generation' &&
+                engineId === 'codex-cli' &&
+                expect &&
+                expect.width !== expect.height &&
+                meta.width === expect.width &&
+                meta.height === expect.height
+              )
+                app.log.warn(
+                  { nodeId: id },
+                  'codex delivered exactly the requested pixels; its image tool cannot pin size - suggests a forbidden shell resize',
+                );
+            }
+          } catch {
+            /* the record is a convenience; failing to write it must not fail the run */
+          }
+          // The run's cost and wall time were measured once, for the whole
+          // call: the ledger gets one row and the first node carries the
+          // money, so the cap arithmetic stays exact; every sibling reports
+          // the honest wall time of the request that made it.
+          core.store.completeNode(id, {
+            images: own,
+            costUsd: slot === 0 ? result.costUsd : 0,
+            durationMs: wall,
+          });
+        } catch (err: any) {
+          core.store.failNode(id, String(err?.message ?? err));
         }
-      } catch {
-        /* the record is a convenience; failing to write it must not fail the run */
+        settled.add(id);
       }
-      core.store.completeNode(nodeId, { ...result, durationMs: Date.now() - startedAt });
-      core.ledger.recordCost(engineId, nodeId, result.costUsd);
+      core.ledger.recordCost(engineId, nodeIds[0], result.costUsd);
     } catch (err: any) {
       // the signal is the source of truth for "was this a cancel", not the
       // error shape, which differs across engines (fetch's AbortError, a
       // killed child process, a stopped poll loop) — except the watchdog,
-      // whose abort is a failure with a name, never a user cancel.
-      if (watchdogFired)
-        core.store.failNode(nodeId, `generation timed out after ${Math.round(bound / 60_000)} minutes`);
-      else if (ctrl.signal.aborted) core.store.cancelNode(nodeId);
-      else core.store.failNode(nodeId, String(err?.message ?? err));
+      // whose abort is a failure with a name, never a user cancel. Every node
+      // the fan-out did not reach gets the same outcome: they shared one call.
+      for (const id of nodeIds) {
+        if (settled.has(id)) continue;
+        if (watchdogFired) core.store.failNode(id, `generation timed out after ${Math.round(bound / 60_000)} minutes`);
+        else if (ctrl.signal.aborted) core.store.cancelNode(id);
+        else core.store.failNode(id, String(err?.message ?? err));
+      }
     } finally {
       clearTimeout(watchdog);
-      runningGenerations.delete(nodeId);
+      for (const id of nodeIds) runningGenerations.delete(id);
       const left = (reserved.get(engineId) ?? 0) - estimate;
       if (left > 1e-9) reserved.set(engineId, left);
       else reserved.delete(engineId);
@@ -1183,7 +1216,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         images: [core.images.save(await sharp(args.srcBuf).extract(window).png().toBuffer())],
         costUsd: 0,
       });
-      void runNode(node.id, null, 0, work, { width: plan.width, height: plan.height }).catch((err) =>
+      void runNode([node.id], null, 0, work, { width: plan.width, height: plan.height }).catch((err) =>
         app.log.error({ err }, 'crop run failed'),
       );
       return reply.status(202).send(args.note ? { ...node, warnings: [args.note] } : node);
@@ -1888,18 +1921,36 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // throws 402 via handler; include estimates of everything still in flight
     const billedId = runEngine.capabilities().id;
     core.ledger.assertUnderCap(billedId, estimate + (reserved.get(billedId) ?? 0));
-    const node = core.store.addNode({
-      projectId: project.id,
-      parentId: resolvedParentId,
-      kind,
-      prompt: finalPrompt,
-      engineId: billedId,
-    });
+    // One image, one node: a multi-shot generation lands as N sibling nodes
+    // sharing one engine call, one recipe and one batch identity. An edit is
+    // always a single node.
+    const nodes =
+      kind === 'generation'
+        ? core.store.addNodes({
+            projectId: project.id,
+            parentId: resolvedParentId,
+            kind,
+            prompt: finalPrompt,
+            engineId: billedId,
+            // the same clamp the engine request and the watchdog use
+            count: Math.min(Math.max(1, Number(count)), 8),
+          })
+        : [
+            core.store.addNode({
+              projectId: project.id,
+              parentId: resolvedParentId,
+              kind,
+              prompt: finalPrompt,
+              engineId: billedId,
+            }),
+          ];
+    const node = nodes[0];
     // the resolved source rides along in the brief, which is already a JSON
     // blob on the node, so the record needs no new column to be accurate —
-    // and so does the reshape op, when one was asked for by name
-    if (brief)
-      core.store.setBrief(node.id, {
+    // and so does the reshape op, when one was asked for by name. Every
+    // sibling carries the same recipe: the batch shares one compile.
+    for (const sibling of brief ? nodes : [])
+      core.store.setBrief(sibling.id, {
         ...briefInputsOnly(brief as object),
         ...(editedFrom ? { sourceImage: editedFrom } : {}),
         ...(kind === 'edit' && reshape ? { reshape } : {}),
@@ -2112,8 +2163,18 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             }
             return enforceEditCanvas(staged);
           }
-        : kind === 'generation' && compiled?.width && compiled?.height
-          ? conformToCanvas(node.id, { width: compiled.width, height: compiled.height })
+        : undefined;
+    // Per-node post: an edit's guarantee pipeline is bound to its one node; a
+    // generation's canvas conformance is bound to whichever sibling it is
+    // conforming, so cropping provenance lands on the right record instead of
+    // the last-conformed image overwriting everyone's.
+    const genW = compiled?.width;
+    const genH = compiled?.height;
+    const postFor =
+      post !== undefined
+        ? () => post
+        : kind === 'generation' && genW && genH
+          ? (id: string) => conformToCanvas(id, { width: genW, height: genH })
           : undefined;
     /*
      * A generation that fans out per image is bounded by its WAVE COUNT, not by
@@ -2132,16 +2193,26 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             runCaps.perImageTimeoutMs +
           60_000
         : undefined;
-    void runNode(node.id, runEngine, estimate, work, expectShape, post, nodeBudgetMs).catch((err) =>
-      app.log.error({ err }, 'node run failed'),
-    );
+    void runNode(
+      nodes.map((n) => n.id),
+      runEngine,
+      estimate,
+      work,
+      expectShape,
+      postFor,
+      nodeBudgetMs,
+    ).catch((err) => app.log.error({ err }, 'node run failed'));
     // Surface the compiler's warnings on the accepted node. These name real
     // fidelity risks — a scene built around a product with none attached, an
     // asset that vanished, a reference the engine could not carry — and were
     // previously computed and then dropped, visible only in the preview call.
     // A caller that skipped preview had no way to learn its brief was degraded.
+    // The first node is spread so every `.id` reader keeps working; the full
+    // batch rides beside it for callers that care about the siblings.
     const allWarnings = [...(compiled?.warnings ?? []), ...extraWarnings];
-    return reply.status(202).send(allWarnings.length ? { ...node, warnings: allWarnings } : node);
+    return reply
+      .status(202)
+      .send({ ...node, siblings: nodes, ...(allWarnings.length ? { warnings: allWarnings } : {}) });
   });
 
   app.post('/api/nodes/:id/cancel', async (req, reply) => {
@@ -2222,7 +2293,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     runtime,
     stageImpl: opts.stageImpl,
     exitImpl: opts.exitImpl,
-    busyCount: () => runningGenerations.size + runningImportCount() + runningAssetBuildCount(),
+    // one physical run counts once, however many sibling nodes share its
+    // controller — an update gate held open by a 4-shot batch is still held
+    // open by exactly one piece of work
+    busyCount: () => new Set(runningGenerations.values()).size + runningImportCount() + runningAssetBuildCount(),
   });
 
   // Settle in-flight work before the process goes away (Ctrl-C, update

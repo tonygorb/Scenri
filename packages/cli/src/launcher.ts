@@ -102,6 +102,13 @@ export async function runLauncher(deps: LauncherDeps): Promise<number> {
 
     if (signalled) return code ?? 0;
     if (code === RESTART_EXIT_CODE) continue;
+    // Known wedge, accepted for now: if the staged build bumped the database
+    // schema (it backs up first, automatically) and THEN quick-died, this
+    // fallback re-runs the older bundled build, which refuses the newer
+    // database with SchemaTooNewError and exits 1. The error names the
+    // backups directory, which is the operator's way out; there is no
+    // automatic restore, because the migrated database may already hold work
+    // the snapshot does not.
     if (code !== 0 && useStaged && now() - startedAt < QUICK_DEATH_MS) {
       log(`  Scenri ${staged} failed to start. Falling back to ${deps.ownVersion}.`);
       log('  If this keeps happening:  rm -rf ~/.scenri/app');

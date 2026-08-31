@@ -43,17 +43,11 @@ async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * A finished multi-image shot on the brand's feed, on the free Demo engine.
- *
- * Several cases here are about the variant the URL names, so one image is not
- * enough — seed.setup.ts asks for a single one, which is right for the composer
- * spec and useless to this one.
- */
+/** A finished shot on the brand's feed, on the free Demo engine. */
 async function seedShot(p: Page, brand: string) {
   const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
-  const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 1);
-  if (done) return { nodeId: done.id, images: done.images.length };
+  const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
+  if (done) return { nodeId: done.id };
 
   const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
   const made = (await api(
@@ -65,14 +59,14 @@ async function seedShot(p: Page, brand: string) {
       kind: 'generation',
       prompt: 'routing spec shot',
       engineId: 'demo',
-      count: 3,
+      count: 1,
     }),
   )) as any;
 
   for (let i = 0; i < 40; i++) {
     const t = (await api(p, `/api/brands/${brand}/workspace`)) as any;
     const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
-    if (n?.status === 'done') return { nodeId: n.id, images: n.images.length };
+    if (n?.status === 'done') return { nodeId: n.id };
     await p.waitForTimeout(300);
   }
   throw new Error('demo generation never finished');
@@ -180,20 +174,39 @@ test('setup keeps its own URL rather than being read as a brand', async ({ page 
   await expect(page.locator('.sc-wiz')).toBeVisible();
 });
 
-test('a reloaded shot comes back to the same shot and the same variant', async ({ page }) => {
+test('a batch sibling opens by its own URL and survives a reload', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { nodeId, images } = await seedShot(page, brand.id);
-  test.skip(images < 2, 'needs a multi-image generation to have a variant to hold');
+  // a multi-shot request: three first-class siblings, each independently
+  // addressable with no batch in-memory state
+  const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const made = (await api(
+    page,
+    '/api/nodes',
+    postJson({
+      projectId: ws.project.id,
+      parentId: root?.id ?? null,
+      kind: 'generation',
+      prompt: 'sibling routing shot',
+      engineId: 'demo',
+      count: 3,
+    }),
+  )) as any;
+  expect(made.siblings).toHaveLength(3);
+  const last = made.siblings[2].id as string;
+  for (let i = 0; i < 40; i++) {
+    const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+    if ((t.nodes ?? []).find((x: any) => x.id === last)?.status === 'done') break;
+    await page.waitForTimeout(300);
+  }
 
-  await page.goto(`/${brand.slug}/create/shots/${nodeId}?i=${images - 1}`);
+  await page.goto(`/${brand.slug}/create/shots/${last}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  // the take strip under the stage is where the current variant is stated
-  const current = page.locator('.sc-thumbs button[aria-pressed="true"]');
-  await expect(current).toHaveAttribute('aria-label', `Image ${images}`);
+  expect(new URL(page.url()).pathname).toContain(last);
 
   await page.reload();
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  await expect(page.locator('.sc-thumbs button[aria-pressed="true"]')).toHaveAttribute('aria-label', `Image ${images}`);
+  expect(new URL(page.url()).pathname).toContain(last);
 });
 
 test('back closes a shot, and escape spends the same single entry', async ({ page }) => {

@@ -393,8 +393,8 @@ test('the shot has room around it on a phone', async ({ page }) => {
     const brands = await (await fetch('/api/brands')).json();
     const b = brands.find((x: any) => x.slug === slug);
     const ws = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
-    const many = (ws.nodes ?? []).find((n: any) => n.status === 'done' && (n.images?.length ?? 0) > 1);
-    if (many) return many.id;
+    const done = (ws.nodes ?? []).find((n: any) => n.status === 'done' && (n.images?.length ?? 0) > 0);
+    if (done) return done.id;
     const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
     const made = await (
       await fetch('/api/nodes', {
@@ -406,7 +406,7 @@ test('the shot has room around it on a phone', async ({ page }) => {
           kind: 'generation',
           prompt: 'stage rhythm shot',
           engineId: 'demo',
-          count: 2,
+          count: 1,
         }),
       })
     ).json();

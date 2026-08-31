@@ -71,6 +71,11 @@ export interface TreeNode {
     inherited?: any[];
   } | null;
   archived: boolean;
+  /** The multi-shot request this node came from; null for single sends and
+   * for every edit. Provenance only — never a user-facing hierarchy. */
+  batchId: string | null;
+  /** Which slot of that request this node filled; 0 outside a batch. */
+  batchIndex: number;
 }
 
 /** A node carrying the sets it has been put in, for lists that span the brand. */
