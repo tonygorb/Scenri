@@ -13,6 +13,8 @@
  *                         FAKE_CODEX_SILENT_MS, then writes out-1.png and
  *                         exits 0 — the healthy image_gen round-trip shape
  *   exec-banner-then-hang exec prints one line, then never exits
+ *   exec-banner-then-error  exec prints the real session banner on stderr,
+ *                         then an ERROR line, then exits 1
  *   spawn-grandchild      exec spawns a hanging grandchild (pid to
  *                         FAKE_CODEX_CHILD_PID_FILE), prints, never exits
  * FAKE_CODEX_PID_FILE: where to record this process's pid, so a test can prove
@@ -84,6 +86,16 @@ function main() {
       fs.writeFileSync(path.join(dir, 'out-1.png'), Buffer.concat([Buffer.from('PNG'), Buffer.from(prompt)]));
       process.exit(0);
     };
+    if (mode === 'exec-banner-then-error') {
+      // The real v0.145.0 banner shape. It is ~202 bytes, which is why the
+      // old head-of-stderr snippet showed it and hid the ERROR behind it.
+      process.stderr.write(
+        `OpenAI Codex v0.151.0\n--------\nworkdir: ${dir}\nmodel: gpt-5.6-sol\nprovider: openai\n` +
+          'approval: never\nsandbox: workspace-write [workdir, /tmp]\nreasoning effort: low\n--------\n' +
+          'ERROR: code-mode host exited during handshake\n',
+      );
+      process.exit(1);
+    }
     if (mode === 'exec-banner-then-hang') {
       process.stdout.write('banner\n');
       return hangForever();

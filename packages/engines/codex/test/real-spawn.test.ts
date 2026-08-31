@@ -118,6 +118,21 @@ describe('real spawn: generation lifecycle', () => {
     expect(saved[0].toString()).toContain('a red apple');
   }, 20_000);
 
+  it('a failing run reports the error, not the banner in front of it', async () => {
+    // The tester's exact failure, through a real child: codex writes its
+    // session banner to stderr, then the line that says why, then exits 1.
+    // The old head-of-stderr snippet stopped inside the banner, so the shot
+    // was reported as "workdir: ... model: gpt-5.6-sol" and nothing else.
+    useFakeCodex('exec-banner-then-error');
+    const engine = createCodexEngine({ probeTtlMs: 0, saveImage: () => 'unused' });
+    await expect(engine.generate({ prompt: 'a red apple', brand, width: 640, height: 480, count: 1 })).rejects.toThrow(
+      /code-mode host exited during handshake/,
+    );
+    await expect(
+      engine.generate({ prompt: 'a red apple', brand, width: 640, height: 480, count: 1 }),
+    ).rejects.not.toThrow(/workdir:/);
+  }, 20_000);
+
   it('a healthy run that goes quiet after announcing still finishes', async () => {
     // The user-hitting shape, scaled down: one line at launch, then a silent
     // image_gen round-trip three times the first-output window, then the file.

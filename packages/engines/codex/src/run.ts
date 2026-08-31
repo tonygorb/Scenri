@@ -93,6 +93,77 @@ export function execArgs(dir: string, effort: ReasoningEffort = 'low'): string[]
 }
 
 /**
+ * How much of each pipe is kept for a failure message. codex streams its whole
+ * transcript, so both buffers are tails and never transcripts: enough to carry
+ * the line that ended the run, bounded so a long exec cannot grow them.
+ */
+const TAIL_BYTES = 4096;
+/** How much of that tail a user is actually shown. */
+const DETAIL_CHARS = 800;
+
+/** Append to a rolling buffer that never exceeds TAIL_BYTES. */
+function keepTail(buf: string, chunk: string): string {
+  const next = buf + chunk;
+  return next.length > TAIL_BYTES ? next.slice(next.length - TAIL_BYTES) : next;
+}
+
+/**
+ * The session banner codex prints before it does any work. Its real shape,
+ * captured live on v0.145.0:
+ *
+ *   OpenAI Codex v0.145.0
+ *   --------
+ *   workdir: /tmp/scenri-codex-x
+ *   model: gpt-5.6-sol
+ *   ...
+ *   --------
+ *
+ * so the banner ends at the second separator. The prefix list is the fallback
+ * for a codex whose separators ever change.
+ */
+const BANNER_RULE = /^-{3,}\s*$/;
+const BANNER_LINE = /^(OpenAI Codex v|workdir:|model:|provider:|approval:|sandbox:|reasoning |-{3,}\s*$|\s*$)/;
+
+function afterBanner(stderr: string): string {
+  const lines = stderr.split(/\r?\n/);
+  const rules: number[] = [];
+  for (const [i, line] of lines.entries()) if (BANNER_RULE.test(line)) rules.push(i);
+  if (rules.length >= 2)
+    return lines
+      .slice(rules[1] + 1)
+      .join('\n')
+      .trim();
+  let i = 0;
+  while (i < lines.length && BANNER_LINE.test(lines[i])) i++;
+  return lines.slice(i).join('\n').trim();
+}
+
+/** The last DETAIL_CHARS of `text`, starting on a line boundary. */
+function tailOf(text: string): string {
+  if (text.length <= DETAIL_CHARS) return text;
+  const cut = text.slice(text.length - DETAIL_CHARS);
+  const nl = cut.indexOf('\n');
+  return (nl >= 0 ? cut.slice(nl + 1) : cut).trim();
+}
+
+/**
+ * What to show a user when codex exits nonzero.
+ *
+ * The rule this replaces kept the FIRST 200 characters of stderr, and a real
+ * banner measures about 202 — so a Windows tester on 2026-08-31 was told his
+ * shot failed because "workdir: ... model: gpt-5.6-sol", and the line that
+ * said why was cut off. The reason a run ended is always at the END of it.
+ * codex marks its own failures with `ERROR:`, so that wins when it is there;
+ * stdout is the last resort, for an exit whose stderr is banner and nothing else.
+ */
+export function codexFailureDetail(stderr: string, stdout: string): string {
+  const body = afterBanner(stderr);
+  const errorAt = body.lastIndexOf('\nERROR:');
+  const marked = body.startsWith('ERROR:') ? body : errorAt >= 0 ? body.slice(errorAt + 1) : '';
+  return tailOf(marked) || tailOf(body) || tailOf(stdout.trim()) || tailOf(stderr.trim());
+}
+
+/**
  * End a spawned child for real. On POSIX the child is spawned detached, which
  * makes it its own process-group leader, so a negative-pid SIGTERM reaches
  * codex's own descendants (sips, cp, sandbox helpers) too — a plain kill on
@@ -217,6 +288,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
 
       let settled = false;
       let stderr = '';
+      let stdout = '';
       // The diagnostic line is the evidence base for every timeout value here:
       // when a run fails, the terminal says which budget was blown and what
       // the pipes actually did. Success lines ride behind SCENRI_DEBUG=1.
@@ -251,9 +323,14 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       }
       // codex streams its full transcript to stdout; it MUST be drained or the
       // 64KB pipe buffer fills and codex blocks forever (real hang, 2026-08-01).
-      child.stdout?.on('data', sawActivity);
+      // Draining used to mean discarding, which left an exit that narrated its
+      // failure on stdout with nothing to report. Both pipes now keep a tail.
+      child.stdout?.on('data', (d: Buffer | string) => {
+        stdout = keepTail(stdout, String(d));
+        sawActivity();
+      });
       child.stderr?.on('data', (d: Buffer | string) => {
-        stderr += String(d);
+        stderr = keepTail(stderr, String(d));
         sawActivity();
       });
 
@@ -308,9 +385,9 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
           finish('ok', resolve);
           return;
         }
-        // Codex prints its usage-limit refusal AFTER the session banner, so
-        // the head-of-stderr snippet below showed users a workdir listing
-        // instead of the one fact that mattered. Keyed on the CLI's real
+        // A usage limit is the one failure worth its own sentence: the tail
+        // below would show the raw refusal, which is three URLs long and does
+        // not say the one thing a user needs. Keyed on the CLI's real
         // wording, captured live on 2026-08-29 (v0.145.0):
         //   ERROR: You've hit your usage limit. Upgrade to Pro (...), visit
         //   ... or try again at Aug 30th, 2026 12:41 AM.
@@ -327,7 +404,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
           );
           return;
         }
-        const snippet = stderr.trim().slice(0, 200);
+        const snippet = codexFailureDetail(stderr, stdout);
         finish(`exit-${code ?? 'unknown'}`, () =>
           reject(new Error(`codex exited with code ${code ?? 'unknown'}${snippet ? `: ${snippet}` : ''}`)),
         );
