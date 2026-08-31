@@ -420,6 +420,13 @@ export function DetailOverlay({
               $0 label was noise. */}
           <div className="sc-ovl-head">
             <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
+            {/* which take of the run is on stage — refining works from it,
+                and the ringed thumb under the picture is easy to miss */}
+            {hasImage && node.images.length > 1 && (
+              <small className="sc-ovl-take">
+                take {imageIndex + 1} of {node.images.length}
+              </small>
+            )}
             {hasImage && node.costUsd > 0 && (
               <small className="sc-ovl-spend" title="Of your API budget">
                 ${node.costUsd.toFixed(2)}
@@ -522,9 +529,9 @@ export function DetailOverlay({
               there is nothing else this composer could be talking about. The
               root is the fallback for the cases that cannot branch, so a look
               or a non-editing engine still makes a new shot rather than filing
-              one under a shot it never used. No heading over the field: the
-              placeholder already says what typing here does, and the ringed
-              take under the stage says which take it works from. */}
+              one under a shot it never used. One word of label, so the station
+              speaks the same section grammar as everything above it. */}
+            <span className="sc-eyebrow">Refine</span>
             <Composer
               variant="overlay"
               projectId={projectId}

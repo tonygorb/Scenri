@@ -289,15 +289,20 @@
   font-size: var(--sc-text-title-s);
   font-weight: 600;
 }
+.sc-ovl-take,
 .sc-ovl-spend {
   margin-left: auto;
   color: var(--sc-fg3);
   font-size: var(--sc-text-caption);
 }
+/* when both are present the take leads and the price follows it */
+.sc-ovl-take ~ .sc-ovl-spend {
+  margin-left: var(--sc-space-4);
+}
 /* One section grammar for the whole record: micro-caps label, airy content,
    hairline underneath. */
 .sc-ovl-sec {
-  padding: var(--sc-space-6) 0;
+  padding: var(--sc-space-7) 0;
   border-bottom: 1px solid var(--sc-line);
 }
 .sc-ovl-sec > .sc-eyebrow {
@@ -399,6 +404,10 @@
 .sc-ovl-trail + .sc-ovl-edit {
   margin-top: 0;
 }
+.sc-ovl-edit > .sc-eyebrow {
+  display: block;
+  margin-bottom: var(--sc-space-3);
+}
 .sc-ovl-edit .sc-composer {
   width: 100%;
 }
@@ -414,7 +423,9 @@
   border: none;
   border-radius: var(--sc-radius-sm);
   color: var(--sc-fg2);
-  padding: 0;
+  /* vertical padding only: a bare text action still needs a finger's worth
+     of target, and horizontal padding would break the left type edge */
+  padding: var(--sc-space-2) 0;
   font-size: var(--sc-text-body);
 }
 .sc-ovl-meta .sc-s:hover {
@@ -629,6 +640,11 @@
     position: relative;
     z-index: 1;
     pointer-events: auto;
+  }
+  /* the band shares the screen with a keyboard; the placeholder already says
+     what typing here does */
+  .sc-ovl-edit > .sc-eyebrow {
+    display: none;
   }
 }
 
