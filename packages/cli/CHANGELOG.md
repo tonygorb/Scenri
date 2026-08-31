@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.4](https://github.com/tonygorb/Scenri/compare/v0.7.3...v0.7.4) (2026-08-31)
+
+
+### Bug Fixes
+
+* report why codex failed instead of the banner in front of it ([41b19d9](https://github.com/tonygorb/Scenri/commit/41b19d93a53a759656759b5a5ac4a8093966c117))
+* report why codex failed instead of the banner in front of it ([65518e7](https://github.com/tonygorb/Scenri/commit/65518e765eb1ffff99d35311ebcdc31973c90f93))
+
 ## [0.7.3](https://github.com/tonygorb/Scenri/compare/v0.7.2...v0.7.3) (2026-08-30)
 
 
