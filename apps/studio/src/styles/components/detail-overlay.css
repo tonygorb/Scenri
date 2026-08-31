@@ -24,11 +24,12 @@
   background: var(--sc-bg);
 }
 
-/* The thread as the panel's visual body: versions big enough to recognise,
-   gridded in reading order (ancestors, this shot ringed, its children),
-   anchored just above the composer so the room between the record card and
-   the field is work, not void. margin-top:auto is the bottom-pin; when there
-   is no trail the composer's own auto margin takes over. */
+/* The thread's history in reading order (ancestors, this shot ringed, its
+   children), anchored just above the composer so it holds one place however
+   much record stands above it. One row, always one row: it scrolls sideways
+   rather than wrapping, so eight ancestors and one give the same height.
+   margin-top:auto is the bottom-pin; when there is no trail the composer's
+   own auto margin takes over. */
 .sc-ovl-trail {
   margin-top: auto;
   padding: var(--sc-space-6) 0 var(--sc-space-5);
@@ -38,14 +39,17 @@
   margin-bottom: var(--sc-space-3);
 }
 .sc-ovl-trail-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  align-items: center;
   gap: var(--sc-space-3);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .sc-ovl-trail .sc-fr {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1;
+  width: 48px;
+  height: 48px;
+  flex: none;
   border-radius: var(--sc-radius-md);
   margin-bottom: 0;
 }
@@ -270,38 +274,41 @@
   padding: var(--sc-space-7) var(--sc-space-7) 0;
   min-height: 0;
 }
-/* The record card: one raised surface for everything the shot IS, so the
-   panel reads as two composed objects (record, station) instead of fragments
-   floating on the ground. */
-.sc-ovl-rec {
-  background: var(--sc-raised);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  padding: var(--sc-space-6);
-}
-.sc-ovl-rec > :last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-/* A whisper of a kind line: the eyebrow says WHAT this is, the ask below says
-   what it is OF. Real money only at the far edge. */
+/* A typographic inspector: the panel is flat labeled sections divided by
+   hairlines, nothing raised, nothing boxed. The title row is the first
+   section; real money only at its far edge. */
 .sc-ovl-head {
   display: flex;
   align-items: baseline;
   gap: var(--sc-space-4);
-  margin-bottom: var(--sc-space-3);
+  padding-bottom: var(--sc-space-6);
+  border-bottom: 1px solid var(--sc-line);
+}
+.sc-ovl-head b {
+  font-family: var(--sc-font-display);
+  font-size: var(--sc-text-title-s);
+  font-weight: 600;
 }
 .sc-ovl-spend {
   margin-left: auto;
   color: var(--sc-fg3);
   font-size: var(--sc-text-caption);
 }
+/* One section grammar for the whole record: micro-caps label, airy content,
+   hairline underneath. */
+.sc-ovl-sec {
+  padding: var(--sc-space-6) 0;
+  border-bottom: 1px solid var(--sc-line);
+}
+.sc-ovl-sec > .sc-eyebrow {
+  display: block;
+  margin-bottom: var(--sc-space-3);
+}
 
 .sc-ctx {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sc-space-3);
-  margin-bottom: var(--sc-space-5);
 }
 /* Which ingredient moved since the shot this came from. A quiet second line
    under the chip, never a chip of its own: it is a note about a relationship,
@@ -319,58 +326,53 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+/* The parent, as a typographic line rather than a pill: thumbnail plus name,
+   nothing boxed. The FROM label above already says the relationship. */
 .sc-ctx .sc-ctx-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sc-space-3);
   max-width: 100%;
   min-width: 0;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  padding: 3px 10px;
-  font-size: var(--sc-text-caption);
-  background: var(--sc-panel);
-  color: var(--sc-fg2);
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: var(--sc-text-body);
+  color: var(--sc-fg);
   text-align: left;
 }
-/* A pill stays one line: it is a label, and a label that wraps inside a fully
-   rounded border stops looking like one. The name gives first. */
+/* A label stays one line; the name gives first. */
 .sc-ctx-chip-t {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.sc-ctx-chip-t b {
-  color: var(--sc-fg);
-  font-weight: 500;
-}
 .sc-ctx .sc-ctx-chip img {
   flex: none;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sc-radius-xs);
   object-fit: cover;
 }
 .sc-ctx button.sc-ctx-chip {
   cursor: pointer;
 }
-.sc-ctx button.sc-ctx-chip:hover {
-  color: var(--sc-fg);
-  border-color: var(--sc-line-strong);
+.sc-ctx button.sc-ctx-chip:hover .sc-ctx-chip-t {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-/* The ask is the headline: the typed words are what distinguish this shot
-   from every other, so they get the panel's largest type. The chips beneath
-   name what went in — two voices, nothing said twice. */
+/* The typed words, at reading size: what was asked is the section's whole
+   content. The chips in the section beneath name what went in — two voices,
+   nothing said twice. */
 .sc-brief-record {
-  margin: 0 0 var(--sc-space-5);
+  margin: 0;
   font-size: var(--sc-text-input);
-  font-weight: 500;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--sc-fg);
   overflow-wrap: break-word;
-  /* a legacy compiled-prompt fallback can be a whole paragraph; a headline
-     stops at five lines and stays a headline */
+  /* a legacy compiled-prompt fallback can be a whole paragraph; the record
+     stops at five lines and stays a record */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 5;
@@ -380,7 +382,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--sc-space-2);
-  margin-bottom: var(--sc-space-5);
 }
 /* The panel's one working surface, pinned to its bottom edge: content scrolls
    beneath it, and when there is little content margin-top:auto keeps it at the
@@ -401,16 +402,25 @@
 .sc-ovl-edit .sc-composer {
   width: 100%;
 }
-/* The panel's read-only pills, a step quieter than the composer below them:
-   hairline only, no fill, dimmer text until hovered. Scoped here rather than
-   changed at the base — the same pills speak at full volume in Settings. */
+/* The two setup verbs as typographic actions: no fill, no border, icon and
+   words. Scoped here rather than changed at the base — the same pills speak
+   at full volume in Settings. */
+.sc-ovl-meta .sc-sugg {
+  padding: var(--sc-space-6) 0 0;
+  gap: var(--sc-space-7);
+}
 .sc-ovl-meta .sc-s {
   background: none;
+  border: none;
+  border-radius: var(--sc-radius-sm);
   color: var(--sc-fg2);
-  padding: 6px 10px;
+  padding: 0;
+  font-size: var(--sc-text-body);
 }
 .sc-ovl-meta .sc-s:hover {
   color: var(--sc-fg);
+  background: none;
+  border: none;
 }
 
 @media (max-width: 1023px) {

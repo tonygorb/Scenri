@@ -113,7 +113,8 @@ export function DetailOverlay({
     if (!parts.length) return null;
     const shown = parts.slice(0, 3);
     const rest = parts.length - shown.length;
-    return `Changed: ${shown.join(', ')}${rest > 0 ? `, and ${rest} more` : ''}`;
+    // no "Changed:" prefix: the FROM label above already frames this line
+    return `${shown.join(', ')}${rest > 0 ? `, and ${rest} more` : ''}`;
   }, [parentShot, node.brief, tokenNames]);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -411,36 +412,41 @@ export function DetailOverlay({
         </div>
 
         <aside className="sc-ovl-meta">
-          {/* The record card: everything this shot IS, composed as one raised
-              surface instead of fragments floating on the panel ground. The
-              kind is a whisper and the ASK is the headline — the typed words
-              are what distinguish this shot from every other. The engine id,
-              wall time, "Free" and the filed-in sets that used to crowd the
-              head are gone — facts about the run, not the work. Only money
+          {/* A typographic inspector: flat labeled sections divided by
+              hairlines, nothing raised, nothing boxed. The engine id, wall
+              time, "Free" and the filed-in sets that used to crowd the head
+              are gone — facts about the run, not the work. Only money
               actually spent survives: a real price is a budget decision, a
               $0 label was noise. */}
-          <section className="sc-ovl-rec">
-            <div className="sc-ovl-head">
-              <span className="sc-eyebrow">{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</span>
-              {hasImage && node.costUsd > 0 && (
-                <small className="sc-ovl-spend" title="Of your API budget">
-                  ${node.costUsd.toFixed(2)}
-                </small>
-              )}
-            </div>
-            {node.kind !== 'root' && briefSaid(node) && (
+          <div className="sc-ovl-head">
+            <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
+            {hasImage && node.costUsd > 0 && (
+              <small className="sc-ovl-spend" title="Of your API budget">
+                ${node.costUsd.toFixed(2)}
+              </small>
+            )}
+          </div>
+
+          {node.kind !== 'root' && briefSaid(node) && (
+            <div className="sc-ovl-sec">
+              <span className="sc-eyebrow">Brief</span>
               <p className="sc-brief-record" dir="auto">
                 {briefSaid(node)}
               </p>
-            )}
+            </div>
+          )}
 
-            {/* Context once, in two voices that never repeat each other: the
-              ask above says only the words that were typed, the chips name
-              what went in. The composer no longer carries a strip of the same
-              chips — one column, one statement. */}
+          {/* Context once: the brief says only the words that were typed, the
+              chips name what went in. The composer carries no strip of the
+              same chips — one column, one statement. */}
+          <div className="sc-ovl-sec">
+            <span className="sc-eyebrow">Using</span>
             <Ingredients brief={node.brief} brand={brand} worldTemplateId={worldTemplateId} />
+          </div>
 
-            {parentShot && (
+          {parentShot && (
+            <div className="sc-ovl-sec">
+              <span className="sc-eyebrow">From</span>
               <div className="sc-ctx">
                 <button
                   type="button"
@@ -455,9 +461,7 @@ export function DetailOverlay({
                     reading "refined / from" over two lines with the name
                     stacked beside it. One span wraps as one sentence, and
                     truncates as one, with the whole of it on the title. */}
-                  <span className="sc-ctx-chip-t">
-                    refined from <b>{nodeLabel(parentShot)}</b>
-                  </span>
+                  <span className="sc-ctx-chip-t">{nodeLabel(parentShot)}</span>
                 </button>
                 {/* Which ingredient moved, read from the two stored recipes.
                   Without it, two refinements of one setup are told apart by
@@ -465,51 +469,42 @@ export function DetailOverlay({
                   not enough to remember why they differ. */}
                 {changeLine && <p className="sc-ctx-changed">{changeLine}</p>}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Three verbs, and they are the only three there are.
-              Refining is not among them: the composer below IS refining, so a
-              button that only scrolls you to it was a fourth way to say the
-              same thing. "Add text" moved back to the Text tab, where the rest
-              of the text tools live. */}
-            {/* Reuse setup is offered on a failure too — changing the setup is
+          {/* Reuse setup is offered on a failure too — changing the setup is
               exactly what a declined brief or an unmakeable shape needs, and it
               was the one route out that a failed shot had no way to reach.
               Try again is not: the stage panel already carries it, and it knows
-              which failures re-running cannot fix. */}
-            {(hasImage || node.brief) && (
-              <div className="sc-sugg">
-                {node.brief && (
-                  <button
-                    type="button"
-                    className="sc-s"
-                    onClick={() => onRemix(node)}
-                    title="Put this shot's setup back in the brief, to change and run again"
-                  >
-                    <ArrowsClockwise size={12} /> Reuse setup
-                  </button>
-                )}
-                {hasImage && (
-                  <button
-                    type="button"
-                    className="sc-s"
-                    onClick={() => onRetry(node)}
-                    title="Run the same setup again for a different take"
-                  >
-                    <ArrowCounterClockwise size={12} /> Try again
-                  </button>
-                )}
-                {/* Compare, archive and delete live once, in the bar over the
-                  shot: the panel used to restate two of them as full-width
-                  buttons, which is the settings-page voice this record left. */}
-              </div>
-            )}
-          </section>
+              which failures re-running cannot fix. Compare, archive and delete
+              live once, in the bar over the shot. */}
+          {(hasImage || node.brief) && (
+            <div className="sc-sugg">
+              {node.brief && (
+                <button
+                  type="button"
+                  className="sc-s"
+                  onClick={() => onRemix(node)}
+                  title="Put this shot's setup back in the brief, to change and run again"
+                >
+                  <ArrowsClockwise size={12} /> Reuse setup
+                </button>
+              )}
+              {hasImage && (
+                <button
+                  type="button"
+                  className="sc-s"
+                  onClick={() => onRetry(node)}
+                  title="Run the same setup again for a different take"
+                >
+                  <ArrowCounterClockwise size={12} /> Try again
+                </button>
+              )}
+            </div>
+          )}
 
-          {/* The thread as a visual body, not a rail of micro-dots: the room
-              between the record and the composer belongs to the versions —
-              big enough to recognise, gridded, current one ringed. This is
-              what fills the column with work instead of a void. */}
+          {/* Anchored above the composer, so the thread's history holds one
+              place however much record stands above it. */}
           {(ancestors.length > 0 || children.length > 0) && (
             <div className="sc-ovl-trail">
               <span className="sc-eyebrow">Versions</span>
