@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.7.4',
+    date: '2026-08-31',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'A shot that Codex could not finish now says why it failed. Failures used to quote the banner Codex prints as it starts, which names the working folder and the model but never the reason. A Windows machine that cannot start the Codex tool host is now told which setting to change.',
+      },
+    ],
+  },
+  {
     version: '0.7.3',
     date: '2026-08-31',
     sections: [
