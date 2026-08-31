@@ -24,6 +24,7 @@ const REAL = {
   codexUnverified: 'Could not verify Codex on this computer',
   codexTooOld: 'Codex CLI 0.140.0 is too old. Scenri needs 0.145.0 or newer.',
   codexSilent: 'Codex CLI produced no output for 120s, treating it as stuck',
+  codexCodeMode: 'codex exited with code 1: ERROR: code-mode host exited during handshake',
   codexNeverStarted: 'Codex CLI produced no output for 60s after launch, treating it as stuck',
   codexAuthMidJob: 'codex exited with code 1: ERROR: unexpected status 401 Unauthorized',
   codexExitSaysTimeout: 'codex exited with code 124: timeout',
@@ -109,6 +110,16 @@ describe('describeFailure', () => {
     expect(f.kind).toBe('setup');
     expect(f.title).toBe('Codex is not installed on this machine.');
     expect(f.remedy).toEqual({ label: 'Set up Codex', opens: 'setup' });
+  });
+
+  it('blames the Windows setting, not the model, when the code-mode host dies', () => {
+    // The failure a tester actually hit on 2026-08-31. It only became
+    // classifiable once the engine stopped truncating stderr to the banner.
+    const f = describeFailure(REAL.codexCodeMode, 'Codex');
+    expect(f.kind).toBe('setup');
+    expect(f.title).toBe('Codex could not start its tool host.');
+    expect(f.fix).toContain('SafeDllSearchMode');
+    expect(f.retryable).toBe(false);
   });
 
   it('reads the codex timeout, abort and empty-handed cases', () => {

@@ -180,6 +180,22 @@ const RULES: Rule[] = [
     retryable: false,
   },
   {
+    // codex routes every tool call for a gpt-5.6 model through
+    // codex-code-mode-host.exe, and that host cannot resolve its DLLs when
+    // Windows has SafeDllSearchMode set to 0 — a non-default value some
+    // machines carry. Seen on a tester's box 2026-08-31; upstream
+    // openai/codex#41049 has four independent confirmations of the same fix.
+    // It reads as a model fault only because gpt-5.5 skips that host, so the
+    // copy names the machine setting rather than blaming the model. The
+    // registry path it lives under is too long for a failure note; it is
+    // written out in docs/INSTALL.md under "Codex on Windows".
+    re: /code-mode host/i,
+    kind: 'setup',
+    title: () => 'Codex could not start its tool host.',
+    fix: 'A Windows setting is blocking it. Set SafeDllSearchMode to 1 and restart Windows.',
+    retryable: false,
+  },
+  {
     re: /could not verify codex/i,
     kind: 'setup',
     title: () => 'Scenri could not verify Codex.',

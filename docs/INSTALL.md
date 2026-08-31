@@ -230,7 +230,7 @@ installed, usually after a Node update. Install the current LTS from
 Providers, then **Set up**, and the in-app steps handle both. If sign-in keeps failing, the dialog
 shows the exact terminal command to run instead.
 
-**Codex on Windows.** Three things specific to Windows:
+**Codex on Windows.** Four things specific to Windows:
 
 - **Installed Codex while Scenri was running?** Quit Scenri (close its terminal window) and run
   `npx scenri` again. A running program cannot always see a command installed after it started.
@@ -240,6 +240,15 @@ shows the exact terminal command to run instead.
 - **Codex needs an update.** Scenri requires Codex CLI 0.145.0 or newer. Update with
   `npm install -g @openai/codex@latest`, or if you used OpenAI's standalone installer, run it again:
   `powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"`.
+- **Shots fail with "Codex could not start its tool host".** Codex runs the tools it needs through a
+  helper process, and a non-default Windows setting stops that helper loading. Check it in
+  PowerShell:
+
+  ```powershell
+  reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager" /v SafeDllSearchMode
+  ```
+
+  If it reports `0`, set it to `1` (the Windows default) and restart the computer.
 
 A generation that Codex cannot finish now fails with a plain reason instead of running forever, and
 Cancel stops the Codex process for real.
