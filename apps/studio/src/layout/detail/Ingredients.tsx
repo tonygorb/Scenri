@@ -1,17 +1,27 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
+import { ChipPreview, isPreviewKind, type PreviewKind } from '../../composer/ChipPreview.js';
+import { ImageLightbox } from '../../composer/ImageLightbox.js';
 import { identityKeyOf, normalizeTint } from '../../composer/line.js';
+import { useHoverPreview } from '../../composer/useHoverPreview.js';
 import { byContextOrder } from '../../contextChips.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
 import { presenterPath, productPath, scenePath } from '../../routes.js';
 
 /**
- * What went into the shot, named. A brief already stores its tokens, so the
- * ingredients are a read of the record rather than a guess from the pixels.
+ * What went into the shot, named once. A brief already stores its tokens, so
+ * the ingredients are a read of the record rather than a guess from the
+ * pixels. This row is the panel's ONLY statement of context: the overlay's
+ * refine composer hides its carried strip, because the same three chips said
+ * twice in one column read as two different facts.
+ *
+ * A chip with a catalog page opens it; a reference or a brand mark — chips
+ * whose identity IS an image — peek on hover and open a lightbox on click,
+ * the same behaviour the composer's chips carry.
  */
 export function Ingredients({
   brief,
@@ -29,6 +39,9 @@ export function Ingredients({
   worldTemplateId?: string | null;
 }) {
   const { scenes, presenters, demoProducts } = useAppData();
+  const hover = useHoverPreview<{ key: string; hash: string; kind: PreviewKind; label: string; el: HTMLElement }>();
+  const { shown: peek, closeNow: closePeek } = hover;
+  const [lightbox, setLightbox] = useState<{ hash: string; kind: PreviewKind; label: string | null } | null>(null);
 
   const ownTokens: any[] = brief?.tokens ?? [];
   // What a refinement carried from the shot it refines, recorded apart from
@@ -65,6 +78,8 @@ export function Ingredients({
     /** Where this ingredient lives in the catalog, when it has a page at all. */
     to?: string;
     tint?: string;
+    /** The image the chip itself IS, for the hover peek and the lightbox. */
+    previewHash?: string;
     /** Carried from the shot this one refines, not attached in its own brief. */
     inherited?: boolean;
     /** The thread's world, kept through the photograph rather than any token. */
@@ -151,6 +166,7 @@ export function Ingredients({
           inherited: !!t._inherited,
           label: 'reference image',
           thumb: imgUrl(t.imageHash),
+          previewHash: t.imageHash,
         },
       ];
     }
@@ -163,6 +179,7 @@ export function Ingredients({
           inherited: !!t._inherited,
           label: m ? markLabel(brand?.json, m) : 'brand mark',
           thumb: imgUrl(t.imageHash),
+          previewHash: t.imageHash,
         },
       ];
     }
@@ -210,21 +227,58 @@ export function Ingredients({
             : undefined;
         // Only the ingredients that have a catalog page become links; a colour
         // and a deleted scene stay exactly as static as they read.
-        return c.to ? (
-          <Link
-            className="sc-ingredient"
-            key={c.key}
-            to={c.to}
-            data-kind={c.kind}
-            data-tinted={c.tint ? '' : undefined}
-            data-inherited={c.inherited || undefined}
-            data-world={c.world || undefined}
-            style={style}
-            title={said ?? `Open ${c.kind} ${c.label}`}
-          >
-            {body}
-          </Link>
-        ) : (
+        if (c.to) {
+          return (
+            <Link
+              className="sc-ingredient"
+              key={c.key}
+              to={c.to}
+              data-kind={c.kind}
+              data-tinted={c.tint ? '' : undefined}
+              data-inherited={c.inherited || undefined}
+              data-world={c.world || undefined}
+              style={style}
+              title={said ?? `Open ${c.kind} ${c.label}`}
+            >
+              {body}
+            </Link>
+          );
+        }
+        // A chip whose identity is the image it holds peeks and opens, the
+        // same behaviour the composer gives it.
+        if (c.previewHash && isPreviewKind(c.kind)) {
+          const kind = c.kind;
+          const hash = c.previewHash;
+          const open = peek?.key === c.key;
+          return (
+            <button
+              type="button"
+              className="sc-ingredient"
+              key={c.key}
+              data-kind={c.kind}
+              data-inherited={c.inherited || undefined}
+              data-open={open || undefined}
+              title={open ? undefined : (said ?? `${c.label}. Open it.`)}
+              aria-haspopup="dialog"
+              aria-label={`${c.label}. Open it.`}
+              onPointerEnter={(e) =>
+                e.pointerType === 'mouse' && hover.open({ key: c.key, hash, kind, label: c.label, el: e.currentTarget })
+              }
+              onPointerLeave={(e) => e.pointerType === 'mouse' && hover.close()}
+              onFocus={(e) =>
+                e.currentTarget.matches(':focus-visible') &&
+                hover.open({ key: c.key, hash, kind, label: c.label, el: e.currentTarget })
+              }
+              onClick={() => {
+                closePeek();
+                setLightbox({ hash, kind, label: c.label });
+              }}
+            >
+              {body}
+            </button>
+          );
+        }
+        return (
           <span
             className="sc-ingredient"
             key={c.key}
@@ -239,6 +293,30 @@ export function Ingredients({
           </span>
         );
       })}
+      {peek && (
+        <ChipPreview
+          key={peek.key}
+          anchor={peek.el}
+          kind={peek.kind}
+          src={imgUrl(peek.hash)}
+          label={peek.label}
+          onOpen={() => {
+            closePeek();
+            setLightbox({ hash: peek.hash, kind: peek.kind, label: peek.label });
+          }}
+          onHoverIn={hover.keep}
+          onHoverOut={hover.close}
+          onClose={closePeek}
+        />
+      )}
+      {lightbox && (
+        <ImageLightbox
+          src={imgUrl(lightbox.hash)}
+          kind={lightbox.kind}
+          label={lightbox.label}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </div>
   );
 }

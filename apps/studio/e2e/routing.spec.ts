@@ -187,12 +187,16 @@ test('a reloaded shot comes back to the same shot and the same variant', async (
 
   await page.goto(`/${brand.slug}/create/shots/${nodeId}?i=${images - 1}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  const before = await page.locator('.sc-ovl').innerText();
-  expect(before).toContain(`${images} of ${images} variants`);
+  // the take strip under the stage is where the current variant is stated
+  const current = page.locator('.sc-thumbs button[aria-pressed="true"]');
+  await expect(current).toHaveAttribute('aria-label', `Image ${images}`);
 
   await page.reload();
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  expect(await page.locator('.sc-ovl').innerText()).toContain(`${images} of ${images} variants`);
+  await expect(page.locator('.sc-thumbs button[aria-pressed="true"]')).toHaveAttribute(
+    'aria-label',
+    `Image ${images}`,
+  );
 });
 
 test('back closes a shot, and escape spends the same single entry', async ({ page }) => {

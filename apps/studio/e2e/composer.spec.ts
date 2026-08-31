@@ -1979,69 +1979,14 @@ test('a refinement records what it carried, and the shot detail says it', async 
   await expect(page.locator('.sc-ingredient[data-inherited][data-kind="ref"]')).toBeVisible();
   // and the BRIEF reads as the sentence that was typed
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
-  // the refine composer's strip also names the world the thread was shot in:
-  // a scene never rides a refine as a reference — the photo carries it — and
-  // the strip used to stay silent about the one thing every refine keeps
-  const world = page.locator('.sc-ovl-edit .sc-carried-chip[data-world]');
+  // context is stated once, at the top of the record: the composer's old
+  // carried strip is gone, and the record itself names the world the thread
+  // was shot in — a scene never rides a refine as a reference, the photo
+  // carries it
+  await expect(page.locator('.sc-ovl-edit .sc-carried')).toHaveCount(0);
+  const world = page.locator('.sc-ingredient[data-world]');
   await expect(world).toBeVisible();
   await expect(world).toContainText(made.sceneName);
-});
-
-test('the refine composer states what it is carrying before the send', async ({ page }) => {
-  const brand = new URL(page.url()).pathname.split('/')[1];
-
-  // the strip draws from the preview's own attachments; answer the preview
-  // with a carried product so the UI wiring is what this test proves
-  await page.route('**/api/brief/preview', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      json: {
-        prompt: '',
-        width: 1024,
-        height: 1024,
-        attachments: [
-          // two images of ONE product: the identity shot and a corroboration
-          // angle. The strip counts things, not images — one chip, wearing
-          // the identity image — or the same name reads as two products.
-          { role: 'product', id: 'p1', label: 'Cold brew can', hash: 'a'.repeat(32), essential: true, inherited: true },
-          { role: 'product', id: 'p1', label: 'Cold brew can', hash: 'c'.repeat(32), inherited: true },
-          { role: 'brand', label: 'Acme wordmark', hash: 'b'.repeat(32), inherited: true },
-        ],
-        dropped: [],
-        warnings: [],
-        productId: 'p1',
-        referenceCount: 3,
-      },
-    });
-  });
-
-  let shot = '';
-  await page.route('**/workspace', async (route) => {
-    const res = await route.fetch();
-    const ws = await res.json();
-    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
-    if (done) shot = done.id;
-    await route.fulfill({ response: res, json: ws });
-  });
-
-  await page.goto(`/${brand}/create`);
-  await expect.poll(() => shot).not.toBe('');
-  await page.goto(`/${brand}/create/shots/${shot}`);
-  const composer = page.locator('.sc-ovl-edit');
-  await expect(composer.locator('.sc-brief-line')).toBeVisible();
-
-  // before a single word is typed, the strip says what the thread keeps:
-  // one chip per thing, so the two product images collapse to one chip
-  // wearing the identity image (a world chip, if the thread has one, is a
-  // separate statement and not counted here)
-  await expect(composer.locator('.sc-carried')).toBeVisible();
-  await expect(composer.locator('.sc-carried-chip:not([data-world])')).toHaveCount(2);
-  const productChip = composer.locator('.sc-carried-chip[data-kind="product"]');
-  await expect(productChip).toHaveCount(1);
-  await expect(productChip).toContainText('Cold brew can');
-  await expect(productChip.locator('img')).toHaveAttribute('src', new RegExp('a'.repeat(32)));
-  await expect(composer.locator('.sc-carried-chip[data-kind="mark"]')).toContainText('Acme wordmark');
 });
 
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {

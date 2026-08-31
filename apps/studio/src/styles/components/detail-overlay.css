@@ -24,26 +24,28 @@
   background: var(--sc-bg);
 }
 
-/* The versions trail, in the panel: where you came from, this shot, and what
-   came from it. */
+/* The versions trail, inside the station: where you came from, this shot,
+   and what came from it, riding with the composer so navigating the thread
+   and refining it are one place. */
 .sc-ovl-trail {
-  padding: 0 0 var(--sc-space-5);
+  margin: 0 0 var(--sc-space-4);
 }
+/* One row, always one row: the rail scrolls sideways rather than wrapping, so
+   a shot with eight ancestors and a shot with one give the panel the same
+   height and nothing below this line moves between shots. */
 .sc-ovl-trail-row {
   display: flex;
   align-items: center;
   gap: var(--sc-space-3);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
   margin-top: var(--sc-space-3);
 }
 .sc-ovl-trail .sc-fr {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   margin-bottom: 0;
-}
-.sc-ovl-trail .sc-fr[data-current] {
-  width: 44px;
-  height: 44px;
 }
 .sc-ovl-trail .sc-wire {
   width: 10px;
@@ -219,7 +221,6 @@
   gap: var(--sc-space-5);
   min-width: 0;
   padding: 56px var(--sc-space-7) var(--sc-space-7);
-  overflow: auto;
   position: relative;
 }
 .sc-ovl-stage .sc-frame {
@@ -266,61 +267,30 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  /* one gutter, on the scale, the same on both sides */
-  padding: var(--sc-space-7) var(--sc-space-7) var(--sc-space-6);
+  /* one gutter, on the scale, the same on both sides; the bottom belongs to
+     the sticky composer, which carries its own */
+  padding: var(--sc-space-7) var(--sc-space-7) 0;
   min-height: 0;
 }
-/* The shot's record line. It wraps rather than truncating, because on a phone
-   this is the only place several of these facts are stated. */
+/* A whisper of a kind line: the eyebrow says WHAT this is, the ask below says
+   what it is OF. Real money only at the far edge. */
 .sc-ovl-head {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  margin-bottom: var(--sc-space-5);
-}
-/* Kind and description lead; how it was made and what it cost follow, a step
-   quieter, after a hairline that reads as "and also". */
-.sc-ovl-meta-sep {
-  width: 1px;
-  height: 10px;
-  background: var(--sc-line-strong);
-  align-self: center;
-}
-.sc-ovl-eng,
-.sc-ovl-spend {
-  color: var(--sc-fg3);
-}
-/* How long the run took, beside what it cost: the two numbers people actually
-   ask about a generator, finally both answerable after the fact. */
-.sc-ovl-took {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--sc-font-mono);
-  font-size: 11px;
-  color: var(--sc-fg3);
+  gap: var(--sc-space-4);
+  margin-bottom: var(--sc-space-3);
 }
 .sc-ovl-spend {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.sc-ovl-head b {
-  font-family: var(--sc-font-display);
-  font-size: 15px;
-  font-weight: 600;
-}
-.sc-ovl-head small {
+  margin-left: auto;
   color: var(--sc-fg3);
-  font-size: 11.5px;
+  font-size: var(--sc-text-caption);
 }
 
 .sc-ctx {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sc-space-3);
-  margin-bottom: 14px;
+  margin-bottom: var(--sc-space-5);
 }
 /* Which ingredient moved since the shot this came from. A quiet second line
    under the chip, never a chip of its own: it is a note about a relationship,
@@ -331,6 +301,12 @@
   font-size: var(--sc-text-caption);
   line-height: 1.45;
   color: var(--sc-fg2);
+  /* two lines, then quiet: a long diff otherwise gives every shot a
+     different panel height and the sections below it a different home */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 .sc-ctx .sc-ctx-chip {
   display: inline-flex;
@@ -341,7 +317,7 @@
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
   padding: 3px 10px;
-  font-size: 11.5px;
+  font-size: var(--sc-text-caption);
   background: var(--sc-panel);
   color: var(--sc-fg2);
   text-align: left;
@@ -372,27 +348,40 @@
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
 }
-.sc-ovl-body {
-  flex: 1;
-  min-height: 0;
-  /* the scroll viewport inside grows to its content unless it is told where
-     the bottom is; without this the brief painted straight through the
-     composer below it */
+/* The ask is the headline: the typed words are what distinguish this shot
+   from every other, so they get the panel's largest type. The chips beneath
+   name what went in — two voices, nothing said twice. */
+.sc-brief-record {
+  margin: 0 0 var(--sc-space-5);
+  font-size: var(--sc-text-input);
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--sc-fg);
+  overflow-wrap: break-word;
+  /* a legacy compiled-prompt fallback can be a whole paragraph; a headline
+     stops at five lines and stays a headline */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
   overflow: hidden;
 }
-
-/* The stored brief. It is the panel's only real content, so it is given the
-   room the panel has rather than clamped to four lines behind a summary with
-   no marker on it — which left most of the pane empty and the rest of the
-   sentence reachable only by guessing it could be clicked. */
-.sc-brief-record {
-  margin: var(--sc-space-3) 0 0;
-  font-size: var(--sc-text-caption);
-  line-height: 1.55;
-  color: var(--sc-fg2);
+.sc-ovl-meta .sc-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  margin-bottom: var(--sc-space-5);
 }
+/* The panel's one working surface, pinned to its bottom edge: content scrolls
+   beneath it, and when there is little content margin-top:auto keeps it at the
+   foot of the column. Must stay above the media blocks below, so the phone's
+   position:fixed still wins by being later. */
 .sc-ovl-edit {
-  margin-top: var(--sc-space-5);
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  background: var(--sc-bg);
+  border-top: 1px solid var(--sc-line-chrome);
+  padding: var(--sc-space-5) 0 var(--sc-space-6);
 }
 /* names what typing below will do, now that no button points down here —
    and, when a run holds several takes, which take the refinement works from */
@@ -404,82 +393,25 @@
   margin-bottom: var(--sc-space-3);
 }
 .sc-ovl-edit-head small {
-  font-size: 11px;
+  font-size: var(--sc-text-micro);
   color: var(--sc-fg3);
   white-space: nowrap;
 }
 .sc-ovl-edit .sc-composer {
   width: 100%;
 }
-/* The refinement's carried context: what the thread keeps, said before the
-   send, in the same pill voice the relationship chip above already speaks.
-   Never where context is CHANGED — the brief line below is — but each one is
-   a picture the refinement is carrying, so it opens that picture and nothing
-   else. */
-.sc-carried {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 8px 14px 0;
-}
-.sc-carried-lb {
-  font-size: 11px;
-  color: var(--sc-fg3);
-  margin-right: 2px;
-}
-.sc-carried-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  padding: 2px 8px 2px 3px;
-  /* The previewable ones are real buttons, so the pill has to say all of this
-     itself rather than inherit a span's defaults. */
-  border: 0;
+/* The panel's read-only pills, a step quieter than the composer below them:
+   hairline only, no fill, dimmer text until hovered. Scoped here rather than
+   changed at the base — the same pills speak at full volume in Settings. */
+.sc-ovl-meta .sc-s {
   background: none;
-  font: inherit;
-  border-radius: var(--sc-radius-full);
-  box-shadow: inset 0 0 0 1px var(--sc-line);
-  font-size: 11.5px;
   color: var(--sc-fg2);
+  padding: 6px 10px;
 }
-.sc-carried-chip > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sc-carried-chip img {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex: none;
-}
-/* a mark is usually dark art on transparency: ground it, letterbox it */
-.sc-carried-chip[data-kind="mark"] img {
-  background: #fff;
-  object-fit: contain;
-  border-radius: var(--sc-radius-xs);
-}
-/* The thread's world rides inside the photo, not as a reference: same pill,
-   quieter voice, dashed edge so it never claims to be a sent attachment. */
-.sc-carried-chip[data-world] {
-  /* an outline, not a border: the pill keeps its siblings' exact geometry */
-  box-shadow: none;
-  outline: 1px dashed var(--sc-line);
-  outline-offset: -1px;
-  color: var(--sc-fg3);
-}
-/* Paint only, like every other open-state in the composer: no size, no
-   transform, no border-width, so opening a preview cannot move the strip. */
-button.sc-carried-chip {
-  cursor: pointer;
-}
-.sc-carried-chip[data-open] {
-  background: var(--sc-chip-hover);
+.sc-ovl-meta .sc-s:hover {
   color: var(--sc-fg);
 }
+
 @media (max-width: 1023px) {
   .sc-ovl {
     grid-template-columns: 1fr;
@@ -517,11 +449,13 @@ button.sc-carried-chip {
   place-items: center;
   color: var(--sc-fg3);
 }
-.sc-ovl-edit .sc-brief-line {
-  padding: 11px 13px 3px;
-}
-.sc-ovl-edit .sc-attachpanel {
-  height: min(380px, 48vh);
+/* Desktop only: below 768px the island pass sizes the attach panel for the
+   screen it shares with a keyboard, and used to lose this fight on
+   specificity alone. */
+@media (min-width: 768px) {
+  .sc-ovl-edit .sc-attachpanel {
+    height: min(380px, 48vh);
+  }
 }
 @media (max-width: 1023px) {
   .sc-ovl {
@@ -530,12 +464,22 @@ button.sc-carried-chip {
   .sc-ovl-stage {
     padding: 8px var(--sc-gutter) 12px;
   }
+  /* Stacked, the stage row is content-sized, so the picture's cap is what
+     leaves the panel its room: without this the desktop cap let the image
+     spend the whole viewport and the panel below kept a 100px sliver. */
+  .sc-ovl-stage {
+    --sc-stage-cap: max(calc(100dvh - 340px), 300px);
+  }
+  .sc-ovl-stage[data-takes] {
+    --sc-stage-cap: max(calc(100dvh - 410px), 260px);
+  }
   .sc-ovl-meta {
     max-height: 48vh;
     /* The panel shares the page edge with the stage above it, the header over
        it and the composer below it. It used to sit 2px further in, which is
-       exactly the sort of difference nobody can name and everybody can see. */
-    padding: 12px var(--sc-gutter) 12px;
+       exactly the sort of difference nobody can name and everybody can see.
+       No bottom padding: the sticky composer sits flush on the panel's edge. */
+    padding: 12px var(--sc-gutter) 0;
   }
   .sc-ovl-edit {
     flex-shrink: 0;
@@ -632,11 +576,6 @@ button.sc-carried-chip {
     border-left: none;
     overflow: visible;
   }
-  /* the inspector scrolls with the page rather than inside a dead window */
-  .sc-ovl-body {
-    overflow: visible;
-    min-height: 0;
-  }
   /* The field you type in stays above the keyboard, always.
 
      The band itself carries no background and no border. A solid block with a
@@ -685,16 +624,10 @@ button.sc-carried-chip {
   .sc-ovl-edit-head {
     display: none;
   }
-  /* the carried strip stays, compacted to one scrolling row so the band
-     never grows past its budgeted height */
-  .sc-ovl-edit .sc-carried {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: 2px;
-  }
-  .sc-ovl-edit .sc-carried-chip > span {
-    max-width: 16ch;
+  /* the band shares the screen with a keyboard; versions stay reachable
+     through the header carets, so the rail stands down here */
+  .sc-ovl-edit .sc-ovl-trail {
+    display: none;
   }
 }
 

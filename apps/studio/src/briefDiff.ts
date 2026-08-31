@@ -139,6 +139,22 @@ export function sourceImageOf(node: TreeNode, parent: TreeNode | null | undefine
 }
 
 /**
+ * Only the words that were typed, with the chips left out.
+ *
+ * The shot record states its ingredients once, as a chip row; repeating their
+ * names inside the prose said everything twice. The compiled prompt stays the
+ * fallback for shots made before briefs were stored — for those it is the only
+ * record there is.
+ */
+export function briefSaid(node: TreeNode): string {
+  // The compiled-prompt fallback is only for shots with no brief at all: a
+  // chips-only brief typed no words, and printing the compiler's wall of
+  // directives under its chip row would say what nobody wrote.
+  if (tokens(node.brief).length) return proseOf(node.brief);
+  return node.prompt || '';
+}
+
+/**
  * What the person actually asked for.
  *
  * `node.prompt` is the compiled prompt: their sentence plus every directive the

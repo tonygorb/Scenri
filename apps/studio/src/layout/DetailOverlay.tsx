@@ -18,18 +18,15 @@ import {
   XCircle,
 } from '@phosphor-icons/react';
 import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
-import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type ShotSet, type TreeNode } from '../api.js';
+import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
-import { Inspector } from './Inspector.js';
 import { Composer } from './Composer.js';
-import { Coin } from './Coin.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
-import { briefChangeLine, sourceImageOf } from '../briefDiff.js';
+import { briefChanges, briefSaid, sourceImageOf } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
-import { attachableMarks, markLabel } from '../brand/marks.js';
 import { Ingredients } from './detail/Ingredients.js';
 import { useLineage } from './detail/useLineage.js';
 
@@ -41,7 +38,6 @@ import { useLineage } from './detail/useLineage.js';
 export function DetailOverlay({
   node,
   nodes,
-  inSets,
   brand,
   engines,
   projectId,
@@ -61,10 +57,6 @@ export function DetailOverlay({
 }: {
   node: TreeNode;
   nodes: TreeNode[];
-  /** The sets this shot is filed in. The tile used to carry a bare count of
-   * these, which is a fact stated where there was no room to say which sets;
-   * here there is room, so they are named. */
-  inSets: ShotSet[];
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
@@ -107,21 +99,22 @@ export function DetailOverlay({
     }
     return null;
   }, [node, ancestors]);
-  const changeLine = useMemo(
-    () => (parentShot ? briefChangeLine(parentShot.brief, node.brief, tokenNames) : null),
-    [parentShot, node.brief, tokenNames],
-  );
-  /** TokenNames plus the brand's marks, so the brief speaks every noun. */
-  const proseNames = useMemo(() => {
-    const marks = attachableMarks(brand.json);
-    return {
-      ...tokenNames,
-      mark: (hash: string) => {
-        const m = marks.find((x) => x.hash === hash);
-        return m ? markLabel(brand.json, m) : null;
-      },
-    };
-  }, [tokenNames, brand]);
+  /**
+   * Which INGREDIENT moved, and only that: the quoted-instruction entry is
+   * filtered out, because the brief right above this line already says those
+   * exact words — the one thing this line knows that the brief does not is
+   * what was swapped, added or removed.
+   */
+  const changeLine = useMemo(() => {
+    if (!parentShot) return null;
+    const parts = briefChanges(parentShot.brief, node.brief, tokenNames).filter(
+      (p) => !p.startsWith('“') && p !== 'wording changed',
+    );
+    if (!parts.length) return null;
+    const shown = parts.slice(0, 3);
+    const rest = parts.length - shown.length;
+    return `Changed: ${shown.join(', ')}${rest > 0 ? `, and ${rest} more` : ''}`;
+  }, [parentShot, node.brief, tokenNames]);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -418,54 +411,31 @@ export function DetailOverlay({
         </div>
 
         <aside className="sc-ovl-meta">
-          {/* One line for what this shot IS: its kind, what it shows, what made
-              it and what it cost. The engine used to have a block of its own,
-              which on a phone left the word "demo" sitting alone on a line at
-              the same weight as the shot's description. The cost used to live
-              on a chip in the bar above, which is a row of actions — and once
-              that chip stepped aside on a phone, the price was not stated
-              anywhere at all. Both are facts about the shot, so both belong in
-              the shot's record, said once, at every width. */}
+          {/* The kind is a whisper and the ASK is the headline: what was said
+              to make this shot is the one thing that distinguishes it from
+              every other shot, so it gets the panel's largest type. The
+              engine id, wall time, "Free" and the filed-in sets that used to
+              crowd this row are gone — facts about the run, not the work.
+              Only money actually spent survives: a real price is a budget
+              decision, a $0 label was noise. */}
           <div className="sc-ovl-head">
-            <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
-            <small>
-              {node.images.length > 1 ? `${imageIndex + 1} of ${node.images.length} variants` : nodeLabel(node)}
-            </small>
-            {/* A crop calls no provider, so it shows no provider: older crop
-                nodes recorded the client's selected engine, which displayed a
-                name that did nothing — the brief.reshape check covers them. */}
-            {node.engineId !== 'local' && node.brief?.reshape !== 'crop' && (
-              <>
-                <span className="sc-ovl-meta-sep" aria-hidden />
-                <small className="sc-ovl-eng">{node.engineId}</small>
-              </>
-            )}
-            {/* Only where something was actually made. A shot that came back
-                with nothing was still announcing a gold coin and the word
-                "Free", which reads as a feature of the failure. */}
-            {hasImage && (
-              <small
-                className="sc-ovl-spend"
-                title={node.costUsd > 0 ? 'Of your API budget' : 'No API cost for this shot'}
-              >
-                <Coin size={12} />
-                {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
+            <span className="sc-eyebrow">{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</span>
+            {hasImage && node.costUsd > 0 && (
+              <small className="sc-ovl-spend" title="Of your API budget">
+                ${node.costUsd.toFixed(2)}
               </small>
-            )}
-            {/* How long the run really took. This used to be sayable only
-                while the shot was still rendering, derived from its creation
-                time; a finished shot could never answer the first question
-                people ask about a generator. */}
-            {hasImage && node.durationMs != null && (
-              <small className="sc-ovl-took" title="How long this shot took to generate">
-                {Math.max(1, Math.round(node.durationMs / 1000))}s
-              </small>
-            )}
-            {inSets.length > 0 && (
-              <small className="sc-ovl-filed">Filed in {inSets.map((s) => s.name).join(', ')}</small>
             )}
           </div>
+          {node.kind !== 'root' && briefSaid(node) && (
+            <p className="sc-brief-record" dir="auto">
+              {briefSaid(node)}
+            </p>
+          )}
 
+          {/* Context once, in two voices that never repeat each other: the
+              ask above says only the words that were typed, the chips name
+              what went in. The composer no longer carries a strip of the same
+              chips — one column, one statement. */}
           <Ingredients brief={node.brief} brand={brand} worldTemplateId={worldTemplateId} />
 
           {parentShot && (
@@ -492,27 +462,6 @@ export function DetailOverlay({
                   their pictures alone, which after twenty minutes of work is
                   not enough to remember why they differ. */}
               {changeLine && <p className="sc-ctx-changed">{changeLine}</p>}
-            </div>
-          )}
-
-          {(ancestors.length > 0 || children.length > 0) && (
-            <div className="sc-ovl-trail">
-              <span className="sc-eyebrow">Versions</span>
-              <div className="sc-ovl-trail-row">
-                {ancestors.map((a) => (
-                  <span key={a.id} style={{ display: 'contents' }}>
-                    {frame(a)}
-                    <span className="sc-wire" />
-                  </span>
-                ))}
-                {frame(node, true)}
-                {children.length > 0 && (
-                  <>
-                    <span className="sc-wire" />
-                    {children.slice(0, 4).map((c) => frame(c))}
-                  </>
-                )}
-              </div>
             </div>
           )}
 
@@ -548,29 +497,36 @@ export function DetailOverlay({
                   <ArrowCounterClockwise size={12} /> Try again
                 </button>
               )}
-              {/* Export lives once, with the other file actions over the shot.
-                  It was offered here too, from the same handler — the same word
-                  twice in one dialog. */}
+              {/* Compare, archive and delete live once, in the bar over the
+                  shot: the panel used to restate two of them as full-width
+                  buttons, which is the settings-page voice this record left. */}
             </div>
           )}
 
-          <div className="sc-ovl-body">
-            <Inspector
-              node={node.kind !== 'root' ? node : null}
-              nodes={nodes}
-              imageIndex={imageIndex}
-              onChanged={onChanged}
-              brand={brand}
-              names={proseNames}
-              onExport={() => setExportOpen(true)}
-              onCompare={sourceHash ? () => setCompareOpen(true) : undefined}
-              onArchive={() => onArchive(node)}
-              onUnarchive={() => onUnarchive(node)}
-              onDelete={() => onDelete(node)}
-            />
-          </div>
-
           <div className="sc-ovl-edit">
+            {/* The station's own filmstrip: versions ride WITH the composer,
+                pinned to the panel's foot, so moving through the thread and
+                refining it are one place that never jumps shot to shot. No
+                eyebrow — a rail with a ringed current frame explains itself. */}
+            {(ancestors.length > 0 || children.length > 0) && (
+              <div className="sc-ovl-trail">
+                <div className="sc-ovl-trail-row">
+                  {ancestors.map((a) => (
+                    <span key={a.id} style={{ display: 'contents' }}>
+                      {frame(a)}
+                      <span className="sc-wire" />
+                    </span>
+                  ))}
+                  {frame(node, true)}
+                  {children.length > 0 && (
+                    <>
+                      <span className="sc-wire" />
+                      {children.slice(0, 4).map((c) => frame(c))}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
             {/* In here the target is the whole screen, so it is stated rather
               than chosen: `target` is this shot and there is no chip, because
               there is nothing else this composer could be talking about. The

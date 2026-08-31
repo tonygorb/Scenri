@@ -529,13 +529,9 @@
 
 /* What went into a shot, read straight off its stored brief. Deliberately the
    same chip as the composer's .sc-token, so an ingredient looks identical
-   whether you are writing it or reading it back. */
-.sc-ingredients {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-2);
-  padding: 0 0 var(--sc-space-5);
-}
+   whether you are writing it or reading it back. Since the brief-record
+   rework the chips sit inline in the record's own sentence; there is no
+   separate row container any more. */
 .sc-ingredient {
   display: inline-flex;
   align-items: center;
@@ -628,6 +624,22 @@ a.sc-ingredient[data-tinted]:hover {
   background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
 }
 a.sc-ingredient:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+/* A reference or brand-mark chip is a button that peeks its image, the same
+   behaviour the composer's chips carry. Paint-only states, as everywhere. */
+button.sc-ingredient {
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+button.sc-ingredient:hover,
+.sc-ingredient[data-open] {
+  background: var(--sc-chip-hover);
+  color: var(--sc-fg);
+}
+button.sc-ingredient:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }

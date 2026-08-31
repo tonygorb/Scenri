@@ -355,10 +355,8 @@ test('the shot header never overlaps itself, and collapses to one overflow on a 
   expect(geom.offScreen).toBe(false);
 
   if (isPhone(page)) {
-    // the picture's actions live behind one control, and the price is not an
-    // action so it is not in the action row at all
+    // the picture's actions live behind one control
     await expect(page.locator('.sc-ovl-acts')).toBeHidden();
-    await expect(page.locator('.sc-ovl-bar .sc-ovl-cost')).toBeHidden();
     const overflow = page.locator('.sc-ovl-overflow');
     await expect(overflow).toBeVisible();
 

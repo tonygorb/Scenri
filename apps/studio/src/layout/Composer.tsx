@@ -22,9 +22,8 @@ import {
   type SentenceToken,
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
-import { ChipPreview, isPreviewKind, type PreviewKind } from '../composer/ChipPreview.js';
+import type { PreviewKind } from '../composer/ChipPreview.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
-import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
 import {
   openOnGroup,
@@ -47,7 +46,6 @@ import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
 import { aspectOfFormat, formatOfShot } from '../composer/formats.js';
 import { reshapeOpFor } from '../composer/reshape.js';
-import { byContextOrder } from '../contextChips.js';
 import { failureToast } from '../failure.js';
 import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.js';
 
@@ -685,85 +683,17 @@ export const Composer = forwardRef<
   const targetShapeLabel = targetShape ? `${targetShape.label} ${targetShape.hint}` : formatId;
 
   /**
-   * What this refinement carries from the shot it refines, straight from the
-   * compiler's own preview: the strip and the request cannot disagree, because
-   * they are the same allocation. Overlay only, and inherited only — new
-   * attachments already live as chips inside the brief line, and a strip that
-   * repeated them would say everything twice.
+   * The one image open full size. Ephemeral by construction: local state,
+   * never a draft, never storage, so a reload or a navigation simply has
+   * neither. It lives here rather than inside each surface that can ask for
+   * one, so there is exactly one per composer — the brief line asks through
+   * `onInspect`. The carried-context strip that also fed this is gone: the
+   * shot record above the overlay composer states that context now, once.
    */
-  const carried = useMemo(() => {
-    if (variant !== 'overlay') return [];
-    const kindOf = { product: 'product', character: 'presenter', brand: 'mark', reference: 'ref' } as const;
-    // One chip per THING, not per image. A product can ride with a second
-    // corroboration angle, and two chips wearing the same name read as two
-    // products. The first attachment of a group is its identity image — the
-    // budget boards essentials first — so it owns the thumb.
-    const byEntity = new Map<string, { kind: string; label: string; hash: string }>();
-    for (const a of preview?.attachments ?? []) {
-      if (!a.inherited) continue;
-      const kind = kindOf[a.role] ?? a.role;
-      const key = `${kind}:${a.id ?? a.hash}`;
-      if (!byEntity.has(key)) byEntity.set(key, { kind, label: a.label, hash: a.hash });
-    }
-    return [...byEntity.values()].sort(byContextOrder);
-  }, [variant, preview]);
-
-  /**
-   * Which carried image is being peeked at, and which one is open full size.
-   *
-   * Both ephemeral by construction: local state, never a draft, never storage,
-   * so a reload or a navigation simply has neither. The lightbox lives here
-   * rather than inside each surface that can ask for one, so there is exactly
-   * one per composer — the brief line asks through `onInspect`.
-   */
-  const carriedHover = useHoverPreview<{
-    key: string;
-    hash: string;
-    kind: PreviewKind;
-    label: string;
-    el: HTMLElement;
-  }>();
-  const { shown: carriedPeek, closeNow: closeCarriedPeek } = carriedHover;
   const [lightbox, setLightbox] = useState<{ hash: string; kind: PreviewKind; label: string | null } | null>(null);
-  // A new preview re-allocates the strip, so the element the card is anchored
-  // to can stop existing while it is up.
-  useEffect(() => {
-    if (carriedPeek && !carried.some((a) => `${a.kind}:${a.hash}` === carriedPeek.key)) closeCarriedPeek();
-  }, [carried, carriedPeek, closeCarriedPeek]);
-
-  const inspectCarried = useCallback(
-    (a: { hash: string; kind: PreviewKind; label: string }) => {
-      closeCarriedPeek();
-      setLightbox({ hash: a.hash, kind: a.kind, label: a.label });
-    },
-    [closeCarriedPeek],
-  );
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' =
     branchable && !template && (engineCanEdit || cropping || expanding) ? 'edit' : 'generation';
-  /**
-   * The world this thread was shot in. A refinement never re-sends scene
-   * references — the photograph being refined carries its world — so the
-   * strip stayed silent about the one ingredient every refine keeps, and the
-   * missing scene chip read as a loss. Display only, read from the nearest
-   * shot up the thread that named a scene; the compile allocation above is
-   * untouched.
-   */
-  const worldScene = useMemo(() => {
-    if (variant !== 'overlay' || !refineTarget || mode !== 'edit') return null;
-    const byId = new Map(shots.map((n) => [n.id, n]));
-    let cur: TreeNode | null | undefined = refineTarget;
-    while (cur && cur.kind !== 'root') {
-      const tid: string | undefined =
-        cur.brief?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? cur.brief?.templateId;
-      if (tid) {
-        const s = templates.find((x) => x.id === tid);
-        return s ? { name: s.name, thumb: s.previewUrl ?? null } : null;
-      }
-      cur = cur.parentId ? byId.get(cur.parentId) : null;
-    }
-    return null;
-  }, [variant, refineTarget, mode, shots, templates]);
   // No reshape tutorial here anymore: the op is inferred, and the whole
   // explanation is the two-word state line rendered beside the shape picker.
   const targetNote = !branchable
@@ -1241,88 +1171,6 @@ export const Composer = forwardRef<
           <small className="sc-reshape-hint" aria-live="polite">
             {cropping ? 'Will crop to' : 'Will extend to'} {targetShapeLabel}
           </small>
-        )}
-        {/* The refinement's carried context, stated before it is sent. New
-            attachments appear as chips in the sentence below; this strip is
-            the record of what the thread KEEPS, from the compiler's own
-            preview, so it can never disagree with the request. */}
-        {(carried.length > 0 || worldScene) && (
-          // the visible "Carrying" word is the label; a chip names one image
-          // and, because that image is the whole point of the strip, opens it
-          <div className="sc-carried">
-            <span className="sc-carried-lb">Carrying</span>
-            {carried.map((a) => {
-              const key = `${a.kind}:${a.hash}`;
-              const open = carriedPeek?.key === key;
-              const face = (
-                <>
-                  <img src={imgUrl(a.hash)} alt="" />
-                  <span dir="auto">{a.label}</span>
-                </>
-              );
-              const carriedFrom = `Carried from the shot being refined: ${a.label}`;
-              const kind = a.kind;
-              // A real button, not a span with a role: Enter and Space come
-              // free, and there is nothing interactive inside it to nest.
-              return isPreviewKind(kind) ? (
-                <button
-                  key={key}
-                  type="button"
-                  className="sc-carried-chip"
-                  data-kind={kind}
-                  data-open={open || undefined}
-                  // The tooltip and the card would otherwise say the same thing
-                  // twice, with the tooltip on top of the picture.
-                  title={open ? undefined : carriedFrom}
-                  aria-haspopup="dialog"
-                  aria-label={`${a.label}, carried from the shot being refined. Open it.`}
-                  onPointerEnter={(e) =>
-                    e.pointerType === 'mouse' &&
-                    carriedHover.open({ key, hash: a.hash, kind, label: a.label, el: e.currentTarget })
-                  }
-                  onPointerLeave={(e) => e.pointerType === 'mouse' && carriedHover.close()}
-                  onFocus={(e) =>
-                    e.currentTarget.matches(':focus-visible') &&
-                    carriedHover.open({ key, hash: a.hash, kind, label: a.label, el: e.currentTarget })
-                  }
-                  onClick={() => inspectCarried({ hash: a.hash, kind, label: a.label })}
-                >
-                  {face}
-                </button>
-              ) : (
-                <span key={key} className="sc-carried-chip" data-kind={kind} title={carriedFrom}>
-                  {face}
-                </span>
-              );
-            })}
-            {worldScene && (
-              // The thread's world, said quieter: it rides inside the photo,
-              // not as a reference, so this chip is a statement and never a
-              // control — nothing to remove, nothing re-sent.
-              <span
-                className="sc-carried-chip"
-                data-kind="scene"
-                data-world=""
-                title={`The world this thread was shot in: ${worldScene.name}. It stays in the picture through the photo being refined — nothing is sent again.`}
-              >
-                {worldScene.thumb && <img src={worldScene.thumb} alt="" />}
-                <span dir="auto">{worldScene.name}</span>
-              </span>
-            )}
-          </div>
-        )}
-        {carriedPeek && (
-          <ChipPreview
-            key={carriedPeek.key}
-            anchor={carriedPeek.el}
-            kind={carriedPeek.kind}
-            src={imgUrl(carriedPeek.hash)}
-            label={carriedPeek.label}
-            onOpen={() => inspectCarried(carriedPeek)}
-            onHoverIn={carriedHover.keep}
-            onHoverOut={carriedHover.close}
-            onClose={closeCarriedPeek}
-          />
         )}
         {/* What the engine cap leaves out, said before the money is spent. The
             chip tooltip and the post-send toast already say it; this is the
