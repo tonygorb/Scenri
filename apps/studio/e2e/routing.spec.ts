@@ -209,6 +209,58 @@ test('a batch sibling opens by its own URL and survives a reload', async ({ page
   expect(new URL(page.url()).pathname).toContain(last);
 });
 
+test('refining one sibling never touches the others', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const made = (await api(
+    page,
+    '/api/nodes',
+    postJson({
+      projectId: ws.project.id,
+      parentId: root?.id ?? null,
+      kind: 'generation',
+      prompt: 'isolation batch',
+      engineId: 'demo',
+      count: 3,
+    }),
+  )) as any;
+  const [a, b, c] = made.siblings.map((s: any) => s.id as string);
+  const wait = async (id: string) => {
+    for (let i = 0; i < 40; i++) {
+      const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+      const n = (t.nodes ?? []).find((x: any) => x.id === id);
+      if (n && n.status !== 'running') return n;
+      await page.waitForTimeout(300);
+    }
+    throw new Error('never finished');
+  };
+  const bNode = await wait(b);
+
+  // two refinements of B, and only B
+  for (const prompt of ['warmer', 'tighter']) {
+    const edit = (await api(
+      page,
+      '/api/nodes',
+      postJson({
+        projectId: ws.project.id,
+        parentId: b,
+        kind: 'edit',
+        prompt,
+        engineId: 'demo',
+        sourceImage: bNode.images[0],
+      }),
+    )) as any;
+    await wait(edit.id);
+  }
+
+  const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const childrenOf = (id: string) => (t.nodes ?? []).filter((n: any) => n.parentId === id && n.kind === 'edit');
+  expect(childrenOf(b)).toHaveLength(2);
+  expect(childrenOf(a)).toHaveLength(0);
+  expect(childrenOf(c)).toHaveLength(0);
+});
+
 test('back closes a shot, and escape spends the same single entry', async ({ page }) => {
   const brand = await currentBrand(page);
   await seedShot(page, brand.id);
