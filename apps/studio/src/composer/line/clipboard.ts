@@ -1,4 +1,4 @@
-import { decode, type SentenceToken } from './tokens.js';
+import { decode, encode, type SentenceToken } from './tokens.js';
 
 // ---------------------------------------------------------------- clipboard
 
@@ -36,6 +36,32 @@ export function serializeSelection(range: Range): { text: string; html: string }
   };
   range.cloneContents().childNodes.forEach(walk);
   return { text, html: `<span data-sc-brief="1">${html}</span>` };
+}
+
+/**
+ * The same two flavours, built from tokens instead of a DOM selection: the
+ * shot record's copy action writes these, so a copied brief pastes back into
+ * any composer as chips and into everything else as the sentence you read.
+ */
+export function serializeBriefTokens(
+  tokens: SentenceToken[],
+  labelOf: (t: SentenceToken) => string,
+): { text: string; html: string } {
+  const text: string[] = [];
+  const html: string[] = [];
+  for (const t of tokens) {
+    if (t.t === 'text') {
+      const v = t.v.trim();
+      if (!v) continue;
+      text.push(v);
+      html.push(esc(v));
+      continue;
+    }
+    const label = labelOf(t);
+    text.push(label);
+    html.push(`<span data-sc-tok="${esc(encode(t))}">${esc(label)}</span>`);
+  }
+  return { text: text.join(' '), html: `<span data-sc-brief="1">${html.join(' ')}</span>` };
 }
 
 /** A chip's words, without the remove button's own (empty) text. */

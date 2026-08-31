@@ -40,6 +40,6 @@ export {
   moveAnnouncement,
 } from './line/reorder.js';
 export { keepCaret } from './line/focus.js';
-export { serializeSelection, chipLabel, parseBriefHtml } from './line/clipboard.js';
+export { serializeSelection, serializeBriefTokens, chipLabel, parseBriefHtml } from './line/clipboard.js';
 export type { ColorToken } from './line/chips.js';
 export { templateChip, chipAt, chipHexWords, updateColorChip, normalizeTint, closeIcon } from './line/chips.js';

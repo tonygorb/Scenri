@@ -38,27 +38,23 @@
 }
 .sc-ovl-drill {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--sc-space-2);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .sc-drill-row {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: var(--sc-space-3);
-  min-width: 0;
-  padding: var(--sc-space-1) 0;
+  flex: none;
+  padding: 0;
   border: none;
   background: none;
   cursor: pointer;
-  text-align: left;
-  font-size: var(--sc-text-body);
-  color: var(--sc-fg2);
 }
-.sc-drill-row:hover {
-  color: var(--sc-fg);
-}
-.sc-drill-row[data-current="true"] {
-  color: var(--sc-fg);
+.sc-drill-row:hover .sc-drill-thumb {
+  border-color: var(--sc-line-strong);
 }
 .sc-drill-elbow {
   display: flex;
@@ -69,8 +65,8 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--sc-radius-sm);
   border: 1px solid var(--sc-line);
   background: var(--sc-raised);
@@ -93,15 +89,11 @@
   border-style: dashed;
   background: none;
 }
-.sc-drill-lb {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
 .sc-drill-star {
+  position: absolute;
+  top: 2px;
+  right: 2px;
   display: flex;
-  flex: none;
   color: var(--sc-star);
 }
 .sc-drill-more {
@@ -333,18 +325,36 @@
    nothing said twice. */
 .sc-brief-record {
   margin: 0;
-  font-size: var(--sc-text-input);
-  /* roomy lines are what let a chip sit inside prose without shearing its
-     neighbours; the record wraps exactly like the composer's own sentence */
-  line-height: 2;
+  font-size: var(--sc-text-control);
   color: var(--sc-fg);
   overflow-wrap: break-word;
-  /* a legacy compiled-prompt fallback can be a whole paragraph; the record
-     stops at five lines and stays a record */
+}
+/* Only the sentence clamps. The carried chips live in their own row below,
+   so a long brief can never swallow the references behind the fold. Roomy
+   lines are what let a chip sit inside prose without shearing its
+   neighbours. */
+.sc-brief-said {
+  line-height: 2;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 5;
   overflow: hidden;
+}
+.sc-brief-said:empty {
+  display: none;
+}
+.sc-brief-said[data-expanded] {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.sc-brief-carried {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+.sc-brief-said:not(:empty) + .sc-brief-carried {
+  margin-top: var(--sc-space-3);
 }
 .sc-brief-record .sc-ingredient {
   vertical-align: middle;
@@ -359,11 +369,6 @@
   box-shadow: none;
   outline: none;
   color: var(--sc-fg);
-}
-.sc-brief-record[data-expanded] {
-  display: block;
-  overflow: visible;
-  -webkit-line-clamp: unset;
 }
 /* the clamp's release, in the caption voice, only when the clamp bites */
 .sc-ovl-more {
@@ -414,16 +419,11 @@
   bottom: 0;
   margin-top: auto;
   background: var(--sc-bg);
-  border-top: 1px solid var(--sc-line-chrome);
   padding: var(--sc-space-5) 0 var(--sc-space-6);
 }
 /* two auto margins would split the free space and strand the trail mid-panel */
 .sc-ovl-trail + .sc-ovl-edit {
   margin-top: 0;
-}
-.sc-ovl-edit > .sc-eyebrow {
-  display: block;
-  margin-bottom: var(--sc-space-3);
 }
 .sc-ovl-edit .sc-composer {
   width: 100%;
@@ -645,11 +645,6 @@
     position: relative;
     z-index: 1;
     pointer-events: auto;
-  }
-  /* the band shares the screen with a keyboard; the placeholder already says
-     what typing here does */
-  .sc-ovl-edit > .sc-eyebrow {
-    display: none;
   }
 }
 

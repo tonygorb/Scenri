@@ -4,7 +4,6 @@ import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
   Archive,
   ArrowCounterClockwise,
-  ArrowElbowDownRight,
   ArrowsClockwise,
   ArrowsLeftRight,
   CaretLeft,
@@ -30,6 +29,7 @@ import { briefProse, sourceImageOf } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { ChipPreview } from '../composer/ChipPreview.js';
+import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { BriefLine } from './detail/Ingredients.js';
 import { useLineage } from './detail/useLineage.js';
@@ -158,9 +158,45 @@ export function DetailOverlay({
     }
   };
 
+  /**
+   * Copy the brief in the composer's own clipboard grammar: the HTML flavour
+   * pastes back into any brief line as real chips, the plain flavour pastes
+   * everywhere else as the sentence you read. The chips are the setup's
+   * canonical tokens (own plus carried, deduped) — the same set Reuse setup
+   * rebuilds from.
+   */
   const copyBrief = async () => {
     try {
-      await navigator.clipboard.writeText(said);
+      const tokens = node.brief ? briefTokens(node.brief as Parameters<typeof briefTokens>[0]) : null;
+      if (!tokens || tokens.every((t) => t.t === 'text' && !t.v.trim())) {
+        await navigator.clipboard.writeText(said);
+      } else {
+        const labelOf = (t: SentenceToken): string => {
+          switch (t.t) {
+            case 'text':
+              return t.v;
+            case 'product':
+              return proseNames.product(t.id) ?? 'a product';
+            case 'character':
+              return proseNames.person(t.id) ?? 'a presenter';
+            case 'template':
+              return proseNames.scene(t.id) ?? 'a scene';
+            case 'color':
+              return t.name ?? t.hex;
+            case 'ref':
+              return 'reference image';
+            case 'mark':
+              return proseNames.mark?.(t.imageHash) ?? 'brand mark';
+          }
+        };
+        const { text, html } = serializeBriefTokens(tokens, labelOf);
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+            'text/html': new Blob([html], { type: 'text/html' }),
+          }),
+        ]);
+      }
       push({ kind: 'success', title: 'Brief copied' });
     } catch (e: any) {
       push(failureToast(e, 'Copy failed'));
@@ -244,20 +280,18 @@ export function DetailOverlay({
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
 
   /**
-   * One row of the refinement drill: the thread reads top-down as a descent,
-   * each refinement stepping in under the shot it was made from, this shot
-   * ringed where the drill currently stands. Hovering a row peeks the
+   * One step of the refinement drill: a thumb in the single row that reads
+   * left to right as a descent, each version made from the one before it,
+   * this shot ringed where the drill currently stands. Hovering peeks the
    * version at a readable size before the panel commits to it.
    */
-  const drillRow = (n: TreeNode, depth: number, current = false) => (
+  const drillRow = (n: TreeNode, current = false) => (
     <button
       type="button"
-      key={n.id}
       className="sc-drill-row"
       data-fb-node={n.id}
       data-current={current}
       data-failed={n.status === 'error' || (!n.images[0] && n.status !== 'running' && n.status !== 'cancelled')}
-      style={{ paddingLeft: `${Math.min(depth, 4) * 14}px` }}
       title={nodeLabel(n)}
       onClick={() => {
         framePeek.closeNow();
@@ -275,7 +309,7 @@ export function DetailOverlay({
         framePeek.open({ key: n.id, src: imgUrl(n.images[0]), label: nodeLabel(n), el: e.currentTarget, id: n.id })
       }
     >
-      {depth > 0 && <ArrowElbowDownRight size={12} className="sc-drill-elbow" />}
+      {/* the thumb IS the step: no label, the hover peek carries the words */}
       <span className="sc-drill-thumb">
         {n.images[0] ? (
           <img src={imgUrl(n.images[0])} alt="" />
@@ -287,7 +321,6 @@ export function DetailOverlay({
           <WarningCircle size={12} />
         )}
       </span>
-      <span className="sc-drill-lb">{nodeLabel(n)}</span>
       {n.kept && (
         <span className="sc-drill-star">
           <Star size={10} weight="fill" />
@@ -497,8 +530,15 @@ export function DetailOverlay({
           {node.kind !== 'root' && (said || hasContext) && (
             <div className="sc-ovl-sec sc-ovl-brief">
               <span className="sc-eyebrow">Brief</span>
-              <div ref={briefRef} className="sc-brief-record" data-expanded={briefOpen || undefined} dir="auto">
-                <BriefLine brief={node.brief} prompt={node.prompt} brand={brand} worldTemplateId={worldTemplateId} />
+              <div className="sc-brief-record">
+                <BriefLine
+                  brief={node.brief}
+                  prompt={node.prompt}
+                  brand={brand}
+                  worldTemplateId={worldTemplateId}
+                  saidRef={briefRef}
+                  expanded={briefOpen}
+                />
               </div>
               {(briefOverflows || briefOpen) && (
                 <button
@@ -554,24 +594,19 @@ export function DetailOverlay({
           )}
 
           {/* The thread as a drill of refinements, anchored above the
-              composer: each version steps in under the one it was made from,
-              so the descent reads top-down and this shot is ringed where the
-              drill stands. */}
+              composer: one row, each version made from the one before the
+              caret pointing at it, this shot ringed where the drill stands. */}
           {(ancestors.length > 0 || children.length > 0) && (
             <div className="sc-ovl-trail">
               <span className="sc-eyebrow">Versions</span>
               <div className="sc-ovl-drill">
-                {ancestors.map((a, i) => drillRow(a, i))}
-                {drillRow(node, ancestors.length, true)}
-                {children.slice(0, 4).map((c) => drillRow(c, ancestors.length + 1))}
-                {children.length > 4 && (
-                  <span
-                    className="sc-drill-more"
-                    style={{ paddingLeft: `${Math.min(ancestors.length + 1, 4) * 14 + 26}px` }}
-                  >
-                    and {children.length - 4} more refinements
+                {[...ancestors, node, ...children.slice(0, 4)].map((n, i) => (
+                  <span key={n.id} style={{ display: 'contents' }}>
+                    {i > 0 && <CaretRight size={11} className="sc-drill-elbow" />}
+                    {drillRow(n, n.id === node.id)}
                   </span>
-                )}
+                ))}
+                {children.length > 4 && <span className="sc-drill-more">+{children.length - 4}</span>}
               </div>
             </div>
           )}
@@ -587,9 +622,8 @@ export function DetailOverlay({
               there is nothing else this composer could be talking about. The
               root is the fallback for the cases that cannot branch, so a look
               or a non-editing engine still makes a new shot rather than filing
-              one under a shot it never used. One word of label, so the station
-              speaks the same section grammar as everything above it. */}
-              <span className="sc-eyebrow">Refine</span>
+              one under a shot it never used. No label and no divider: the
+              island's own surface says where the work area starts. */}
               <Composer
                 variant="overlay"
                 projectId={projectId}

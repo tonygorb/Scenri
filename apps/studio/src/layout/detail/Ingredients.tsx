@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { useNavigate } from 'react-router';
 import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
@@ -29,11 +29,17 @@ export function BriefLine({
   prompt,
   brand,
   worldTemplateId,
+  saidRef,
+  expanded,
 }: {
   brief: TreeNode['brief'];
   /** The compiled prompt, the only record shots made before briefs have. */
   prompt?: string | null;
   brand: Brand | null;
+  /** The clamped sentence element, so the caller can measure the clamp. */
+  saidRef?: Ref<HTMLDivElement>;
+  /** Whether the caller's more-toggle has released the clamp. */
+  expanded?: boolean;
   /**
    * The scene the thread was shot in, for a refinement whose own brief names
    * none: a refine keeps its world through the photograph, never as a token,
@@ -313,8 +319,13 @@ export function BriefLine({
 
   return (
     <>
-      {spaced.length ? spaced : prompt || ''}
-      {trailing.length > 0 && trailing.flatMap((c) => [' ', renderChip(c)])}
+      {/* Only the sentence clamps: the carried chips live in their own row
+          below it, so a long brief can never swallow the references behind
+          the five-line fold — which is exactly what it used to do. */}
+      <div ref={saidRef} className="sc-brief-said" data-expanded={expanded || undefined} dir="auto">
+        {spaced.length ? spaced : prompt || ''}
+      </div>
+      {trailing.length > 0 && <div className="sc-brief-carried">{trailing.map((c) => renderChip(c))}</div>}
       {peek && (
         <ChipPreview
           key={peek.key}
