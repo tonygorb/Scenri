@@ -24,32 +24,30 @@
   background: var(--sc-bg);
 }
 
-/* The versions trail, inside the station: where you came from, this shot,
-   and what came from it, riding with the composer so navigating the thread
-   and refining it are one place. */
+/* The thread as the panel's visual body: versions big enough to recognise,
+   gridded in reading order (ancestors, this shot ringed, its children),
+   anchored just above the composer so the room between the record card and
+   the field is work, not void. margin-top:auto is the bottom-pin; when there
+   is no trail the composer's own auto margin takes over. */
 .sc-ovl-trail {
-  margin: 0 0 var(--sc-space-4);
+  margin-top: auto;
+  padding: var(--sc-space-6) 0 var(--sc-space-5);
 }
-/* One row, always one row: the rail scrolls sideways rather than wrapping, so
-   a shot with eight ancestors and a shot with one give the panel the same
-   height and nothing below this line moves between shots. */
+.sc-ovl-trail .sc-eyebrow {
+  display: block;
+  margin-bottom: var(--sc-space-3);
+}
 .sc-ovl-trail-row {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--sc-space-3);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-  margin-top: var(--sc-space-3);
 }
 .sc-ovl-trail .sc-fr {
-  width: 36px;
-  height: 36px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--sc-radius-md);
   margin-bottom: 0;
-}
-.sc-ovl-trail .sc-wire {
-  width: 10px;
-  height: 1px;
 }
 /* One header for the whole overlay: a left group that gets you out and
    between versions, a right group for what you can do to the picture.
@@ -272,6 +270,19 @@
   padding: var(--sc-space-7) var(--sc-space-7) 0;
   min-height: 0;
 }
+/* The record card: one raised surface for everything the shot IS, so the
+   panel reads as two composed objects (record, station) instead of fragments
+   floating on the ground. */
+.sc-ovl-rec {
+  background: var(--sc-raised);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  padding: var(--sc-space-6);
+}
+.sc-ovl-rec > :last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
 /* A whisper of a kind line: the eyebrow says WHAT this is, the ask below says
    what it is OF. Real money only at the far edge. */
 .sc-ovl-head {
@@ -383,19 +394,9 @@
   border-top: 1px solid var(--sc-line-chrome);
   padding: var(--sc-space-5) 0 var(--sc-space-6);
 }
-/* names what typing below will do, now that no button points down here —
-   and, when a run holds several takes, which take the refinement works from */
-.sc-ovl-edit-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: var(--sc-space-3);
-}
-.sc-ovl-edit-head small {
-  font-size: var(--sc-text-micro);
-  color: var(--sc-fg3);
-  white-space: nowrap;
+/* two auto margins would split the free space and strand the trail mid-panel */
+.sc-ovl-trail + .sc-ovl-edit {
+  margin-top: 0;
 }
 .sc-ovl-edit .sc-composer {
   width: 100%;
@@ -618,16 +619,6 @@
     position: relative;
     z-index: 1;
     pointer-events: auto;
-  }
-  /* the placeholder already says what typing here does, and on a phone the
-     line above it is the more expensive of the two */
-  .sc-ovl-edit-head {
-    display: none;
-  }
-  /* the band shares the screen with a keyboard; versions stay reachable
-     through the header carets, so the rail stands down here */
-  .sc-ovl-edit .sc-ovl-trail {
-    display: none;
   }
 }
 

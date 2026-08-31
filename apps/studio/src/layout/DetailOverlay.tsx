@@ -411,144 +411,125 @@ export function DetailOverlay({
         </div>
 
         <aside className="sc-ovl-meta">
-          {/* The kind is a whisper and the ASK is the headline: what was said
-              to make this shot is the one thing that distinguishes it from
-              every other shot, so it gets the panel's largest type. The
-              engine id, wall time, "Free" and the filed-in sets that used to
-              crowd this row are gone — facts about the run, not the work.
-              Only money actually spent survives: a real price is a budget
-              decision, a $0 label was noise. */}
-          <div className="sc-ovl-head">
-            <span className="sc-eyebrow">{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</span>
-            {hasImage && node.costUsd > 0 && (
-              <small className="sc-ovl-spend" title="Of your API budget">
-                ${node.costUsd.toFixed(2)}
-              </small>
+          {/* The record card: everything this shot IS, composed as one raised
+              surface instead of fragments floating on the panel ground. The
+              kind is a whisper and the ASK is the headline — the typed words
+              are what distinguish this shot from every other. The engine id,
+              wall time, "Free" and the filed-in sets that used to crowd the
+              head are gone — facts about the run, not the work. Only money
+              actually spent survives: a real price is a budget decision, a
+              $0 label was noise. */}
+          <section className="sc-ovl-rec">
+            <div className="sc-ovl-head">
+              <span className="sc-eyebrow">{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</span>
+              {hasImage && node.costUsd > 0 && (
+                <small className="sc-ovl-spend" title="Of your API budget">
+                  ${node.costUsd.toFixed(2)}
+                </small>
+              )}
+            </div>
+            {node.kind !== 'root' && briefSaid(node) && (
+              <p className="sc-brief-record" dir="auto">
+                {briefSaid(node)}
+              </p>
             )}
-          </div>
-          {node.kind !== 'root' && briefSaid(node) && (
-            <p className="sc-brief-record" dir="auto">
-              {briefSaid(node)}
-            </p>
-          )}
 
-          {/* Context once, in two voices that never repeat each other: the
+            {/* Context once, in two voices that never repeat each other: the
               ask above says only the words that were typed, the chips name
               what went in. The composer no longer carries a strip of the same
               chips — one column, one statement. */}
-          <Ingredients brief={node.brief} brand={brand} worldTemplateId={worldTemplateId} />
+            <Ingredients brief={node.brief} brand={brand} worldTemplateId={worldTemplateId} />
 
-          {parentShot && (
-            <div className="sc-ctx">
-              <button
-                type="button"
-                className="sc-ctx-chip"
-                onClick={() => onSelect(parentShot.id)}
-                title={`Open ${nodeLabel(parentShot)}, the shot this came from`}
-              >
-                {sourceHash && <img src={imgUrl(sourceHash)} alt="" />}
-                {/* One text item, not two. As a bare text node beside a <b>,
+            {parentShot && (
+              <div className="sc-ctx">
+                <button
+                  type="button"
+                  className="sc-ctx-chip"
+                  onClick={() => onSelect(parentShot.id)}
+                  title={`Open ${nodeLabel(parentShot)}, the shot this came from`}
+                >
+                  {sourceHash && <img src={imgUrl(sourceHash)} alt="" />}
+                  {/* One text item, not two. As a bare text node beside a <b>,
                     the words and the name were separate flex items that shrank
                     and wrapped independently — which is how a pill ended up
                     reading "refined / from" over two lines with the name
                     stacked beside it. One span wraps as one sentence, and
                     truncates as one, with the whole of it on the title. */}
-                <span className="sc-ctx-chip-t">
-                  refined from <b>{nodeLabel(parentShot)}</b>
-                </span>
-              </button>
-              {/* Which ingredient moved, read from the two stored recipes.
+                  <span className="sc-ctx-chip-t">
+                    refined from <b>{nodeLabel(parentShot)}</b>
+                  </span>
+                </button>
+                {/* Which ingredient moved, read from the two stored recipes.
                   Without it, two refinements of one setup are told apart by
                   their pictures alone, which after twenty minutes of work is
                   not enough to remember why they differ. */}
-              {changeLine && <p className="sc-ctx-changed">{changeLine}</p>}
-            </div>
-          )}
+                {changeLine && <p className="sc-ctx-changed">{changeLine}</p>}
+              </div>
+            )}
 
-          {/* Three verbs, and they are the only three there are.
+            {/* Three verbs, and they are the only three there are.
               Refining is not among them: the composer below IS refining, so a
               button that only scrolls you to it was a fourth way to say the
               same thing. "Add text" moved back to the Text tab, where the rest
               of the text tools live. */}
-          {/* Reuse setup is offered on a failure too — changing the setup is
+            {/* Reuse setup is offered on a failure too — changing the setup is
               exactly what a declined brief or an unmakeable shape needs, and it
               was the one route out that a failed shot had no way to reach.
               Try again is not: the stage panel already carries it, and it knows
               which failures re-running cannot fix. */}
-          {(hasImage || node.brief) && (
-            <div className="sc-sugg">
-              {node.brief && (
-                <button
-                  type="button"
-                  className="sc-s"
-                  onClick={() => onRemix(node)}
-                  title="Put this shot's setup back in the brief, to change and run again"
-                >
-                  <ArrowsClockwise size={12} /> Reuse setup
-                </button>
-              )}
-              {hasImage && (
-                <button
-                  type="button"
-                  className="sc-s"
-                  onClick={() => onRetry(node)}
-                  title="Run the same setup again for a different take"
-                >
-                  <ArrowCounterClockwise size={12} /> Try again
-                </button>
-              )}
-              {/* Compare, archive and delete live once, in the bar over the
+            {(hasImage || node.brief) && (
+              <div className="sc-sugg">
+                {node.brief && (
+                  <button
+                    type="button"
+                    className="sc-s"
+                    onClick={() => onRemix(node)}
+                    title="Put this shot's setup back in the brief, to change and run again"
+                  >
+                    <ArrowsClockwise size={12} /> Reuse setup
+                  </button>
+                )}
+                {hasImage && (
+                  <button
+                    type="button"
+                    className="sc-s"
+                    onClick={() => onRetry(node)}
+                    title="Run the same setup again for a different take"
+                  >
+                    <ArrowCounterClockwise size={12} /> Try again
+                  </button>
+                )}
+                {/* Compare, archive and delete live once, in the bar over the
                   shot: the panel used to restate two of them as full-width
                   buttons, which is the settings-page voice this record left. */}
+              </div>
+            )}
+          </section>
+
+          {/* The thread as a visual body, not a rail of micro-dots: the room
+              between the record and the composer belongs to the versions —
+              big enough to recognise, gridded, current one ringed. This is
+              what fills the column with work instead of a void. */}
+          {(ancestors.length > 0 || children.length > 0) && (
+            <div className="sc-ovl-trail">
+              <span className="sc-eyebrow">Versions</span>
+              <div className="sc-ovl-trail-row">
+                {ancestors.map((a) => frame(a))}
+                {frame(node, true)}
+                {children.slice(0, 6).map((c) => frame(c))}
+              </div>
             </div>
           )}
 
           <div className="sc-ovl-edit">
-            {/* The station's own filmstrip: versions ride WITH the composer,
-                pinned to the panel's foot, so moving through the thread and
-                refining it are one place that never jumps shot to shot. No
-                eyebrow — a rail with a ringed current frame explains itself. */}
-            {(ancestors.length > 0 || children.length > 0) && (
-              <div className="sc-ovl-trail">
-                <div className="sc-ovl-trail-row">
-                  {ancestors.map((a) => (
-                    <span key={a.id} style={{ display: 'contents' }}>
-                      {frame(a)}
-                      <span className="sc-wire" />
-                    </span>
-                  ))}
-                  {frame(node, true)}
-                  {children.length > 0 && (
-                    <>
-                      <span className="sc-wire" />
-                      {children.slice(0, 4).map((c) => frame(c))}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
             {/* In here the target is the whole screen, so it is stated rather
               than chosen: `target` is this shot and there is no chip, because
               there is nothing else this composer could be talking about. The
               root is the fallback for the cases that cannot branch, so a look
               or a non-editing engine still makes a new shot rather than filing
-              one under a shot it never used.
-
-              It says so out loud now that the suggestion row no longer carries
-              a button pointing down here — the heading is the only thing that
-              names what typing in this field will do. */}
-            {node.status === 'done' && node.images.length > 0 && (
-              <div className="sc-ovl-edit-head">
-                <span className="sc-eyebrow">Refine this shot</span>
-                {/* refining works from the take on stage, and this is the one
-                    line that says which */}
-                {node.images.length > 1 && (
-                  <small>
-                    take {imageIndex + 1} of {node.images.length}
-                  </small>
-                )}
-              </div>
-            )}
+              one under a shot it never used. No heading over the field: the
+              placeholder already says what typing here does, and the ringed
+              take under the stage says which take it works from. */}
             <Composer
               variant="overlay"
               projectId={projectId}
