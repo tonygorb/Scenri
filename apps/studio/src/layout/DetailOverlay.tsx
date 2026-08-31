@@ -1,9 +1,10 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
   Archive,
   ArrowCounterClockwise,
+  ArrowElbowDownRight,
   ArrowsClockwise,
   ArrowsLeftRight,
   CaretLeft,
@@ -25,9 +26,12 @@ import { StageFrame } from './Stage.js';
 import { Composer } from './Composer.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
-import { briefChanges, briefSaid, sourceImageOf } from '../briefDiff.js';
+import { briefProse, sourceImageOf } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
-import { Ingredients } from './detail/Ingredients.js';
+import { attachableMarks, markLabel } from '../brand/marks.js';
+import { ChipPreview } from '../composer/ChipPreview.js';
+import { useHoverPreview } from '../composer/useHoverPreview.js';
+import { BriefLine } from './detail/Ingredients.js';
 import { useLineage } from './detail/useLineage.js';
 
 /**
@@ -99,26 +103,44 @@ export function DetailOverlay({
     }
     return null;
   }, [node, ancestors]);
-  /**
-   * Which INGREDIENT moved, and only that: the quoted-instruction entry is
-   * filtered out, because the brief right above this line already says those
-   * exact words — the one thing this line knows that the brief does not is
-   * what was swapped, added or removed.
-   */
-  const changeLine = useMemo(() => {
-    if (!parentShot) return null;
-    const parts = briefChanges(parentShot.brief, node.brief, tokenNames).filter(
-      (p) => !p.startsWith('“') && p !== 'wording changed',
-    );
-    if (!parts.length) return null;
-    const shown = parts.slice(0, 3);
-    const rest = parts.length - shown.length;
-    // no "Changed:" prefix: the FROM label above already frames this line
-    return `${shown.join(', ')}${rest > 0 ? `, and ${rest} more` : ''}`;
-  }, [parentShot, node.brief, tokenNames]);
+  /** Whether the brief line has any chips to say: mirrors BriefLine's own
+   *  null condition, so a token-less legacy shot never shows a bare label. */
+  const hasContext = useMemo(() => {
+    const own = (node.brief?.tokens ?? []).some((t: { t?: string }) => t?.t && t.t !== 'text' && t.t !== 'format');
+    const carried = (((node.brief as { inherited?: unknown[] })?.inherited ?? []) as unknown[]).length > 0;
+    return own || carried || !!worldTemplateId;
+  }, [node.brief, worldTemplateId]);
+  /** TokenNames plus the brand's marks, so the brief speaks every noun. */
+  const proseNames = useMemo(() => {
+    const marks = attachableMarks(brand.json);
+    return {
+      ...tokenNames,
+      mark: (hash: string) => {
+        const m = marks.find((x) => x.hash === hash);
+        return m ? markLabel(brand.json, m) : null;
+      },
+    };
+  }, [tokenNames, brand]);
+  /** The whole sentence, nouns spoken: chips mid-sentence would otherwise
+   *  leave holes in the prose ("holding a  in a  env"). The USING row stays
+   *  the interactive statement of the same nouns. */
+  const said = useMemo(() => briefProse(node, proseNames), [node, proseNames]);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  /** Long briefs clamp at five lines; the toggle appears only when the clamp
+   *  actually bites, so short briefs never grow a dangling "more". */
+  const briefRef = useRef<HTMLDivElement>(null);
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [briefOverflows, setBriefOverflows] = useState(false);
+  useEffect(() => setBriefOpen(false), [node.id]);
+  useLayoutEffect(() => {
+    const el = briefRef.current;
+    setBriefOverflows(!!el && el.scrollHeight > el.clientHeight + 1);
+  }, [said]);
+  /** Hover peek over a version frame: the picture at a readable size before
+   *  committing the panel to it. */
+  const framePeek = useHoverPreview<{ key: string; src: string; label: string; el: HTMLElement; id: string }>();
   const hash = node.images[imageIndex] ?? node.images[0];
   const baseName =
     node.prompt
@@ -131,6 +153,15 @@ export function DetailOverlay({
       const blob = await (await fetch(imgUrl(hash))).blob();
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       push({ kind: 'success', title: 'Copied to clipboard' });
+    } catch (e: any) {
+      push(failureToast(e, 'Copy failed'));
+    }
+  };
+
+  const copyBrief = async () => {
+    try {
+      await navigator.clipboard.writeText(said);
+      push({ kind: 'success', title: 'Brief copied' });
     } catch (e: any) {
       push(failureToast(e, 'Copy failed'));
     }
@@ -212,30 +243,54 @@ export function DetailOverlay({
   const hasImage = node.status === 'done' && node.images.length > 0;
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
 
-  const frame = (n: TreeNode, current = false) => (
+  /**
+   * One row of the refinement drill: the thread reads top-down as a descent,
+   * each refinement stepping in under the shot it was made from, this shot
+   * ringed where the drill currently stands. Hovering a row peeks the
+   * version at a readable size before the panel commits to it.
+   */
+  const drillRow = (n: TreeNode, depth: number, current = false) => (
     <button
       type="button"
       key={n.id}
-      className="sc-fr"
+      className="sc-drill-row"
       data-fb-node={n.id}
       data-current={current}
       data-failed={n.status === 'error' || (!n.images[0] && n.status !== 'running' && n.status !== 'cancelled')}
-      data-cancelled={n.status === 'cancelled' && !n.images[0]}
+      style={{ paddingLeft: `${Math.min(depth, 4) * 14}px` }}
       title={nodeLabel(n)}
-      onClick={() => onSelect(n.id)}
+      onClick={() => {
+        framePeek.closeNow();
+        onSelect(n.id);
+      }}
+      onPointerEnter={(e) =>
+        e.pointerType === 'mouse' &&
+        n.images[0] &&
+        framePeek.open({ key: n.id, src: imgUrl(n.images[0]), label: nodeLabel(n), el: e.currentTarget, id: n.id })
+      }
+      onPointerLeave={(e) => e.pointerType === 'mouse' && framePeek.close()}
+      onFocus={(e) =>
+        e.currentTarget.matches(':focus-visible') &&
+        n.images[0] &&
+        framePeek.open({ key: n.id, src: imgUrl(n.images[0]), label: nodeLabel(n), el: e.currentTarget, id: n.id })
+      }
     >
-      {n.images[0] ? (
-        <img src={imgUrl(n.images[0])} alt="" />
-      ) : n.status === 'running' ? (
-        <span className="sc-shimmer" />
-      ) : n.status === 'cancelled' ? (
-        <XCircle size={13} />
-      ) : (
-        <WarningCircle size={13} />
-      )}
+      {depth > 0 && <ArrowElbowDownRight size={12} className="sc-drill-elbow" />}
+      <span className="sc-drill-thumb">
+        {n.images[0] ? (
+          <img src={imgUrl(n.images[0])} alt="" />
+        ) : n.status === 'running' ? (
+          <span className="sc-shimmer" />
+        ) : n.status === 'cancelled' ? (
+          <XCircle size={12} />
+        ) : (
+          <WarningCircle size={12} />
+        )}
+      </span>
+      <span className="sc-drill-lb">{nodeLabel(n)}</span>
       {n.kept && (
-        <span className="sc-fr-star">
-          <Star size={11} weight="fill" />
+        <span className="sc-drill-star">
+          <Star size={10} weight="fill" />
         </span>
       )}
     </button>
@@ -420,6 +475,7 @@ export function DetailOverlay({
               $0 label was noise. */}
           <div className="sc-ovl-head">
             <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
+            {node.archived && <small className="sc-ovl-flag">archived</small>}
             {/* which take of the run is on stage — refining works from it,
                 and the ringed thumb under the picture is easy to miss */}
             {hasImage && node.images.length > 1 && (
@@ -434,48 +490,35 @@ export function DetailOverlay({
             )}
           </div>
 
-          {node.kind !== 'root' && briefSaid(node) && (
-            <div className="sc-ovl-sec">
+          {/* The whole record as one statement in the composer's voice: the
+              typed sentence with its chips inline where they were said, and
+              what the refinement carried riding after it. Long briefs clamp
+              at five lines; "more" appears only when the clamp bites. */}
+          {node.kind !== 'root' && (said || hasContext) && (
+            <div className="sc-ovl-sec sc-ovl-brief">
               <span className="sc-eyebrow">Brief</span>
-              <p className="sc-brief-record" dir="auto">
-                {briefSaid(node)}
-              </p>
-            </div>
-          )}
-
-          {/* Context once: the brief says only the words that were typed, the
-              chips name what went in. The composer carries no strip of the
-              same chips — one column, one statement. */}
-          <div className="sc-ovl-sec">
-            <span className="sc-eyebrow">Using</span>
-            <Ingredients brief={node.brief} brand={brand} worldTemplateId={worldTemplateId} />
-          </div>
-
-          {parentShot && (
-            <div className="sc-ovl-sec">
-              <span className="sc-eyebrow">From</span>
-              <div className="sc-ctx">
+              <div ref={briefRef} className="sc-brief-record" data-expanded={briefOpen || undefined} dir="auto">
+                <BriefLine brief={node.brief} prompt={node.prompt} brand={brand} worldTemplateId={worldTemplateId} />
+              </div>
+              {(briefOverflows || briefOpen) && (
                 <button
                   type="button"
-                  className="sc-ctx-chip"
-                  onClick={() => onSelect(parentShot.id)}
-                  title={`Open ${nodeLabel(parentShot)}, the shot this came from`}
+                  className="sc-ovl-more"
+                  aria-expanded={briefOpen}
+                  onClick={() => setBriefOpen((v) => !v)}
                 >
-                  {sourceHash && <img src={imgUrl(sourceHash)} alt="" />}
-                  {/* One text item, not two. As a bare text node beside a <b>,
-                    the words and the name were separate flex items that shrank
-                    and wrapped independently — which is how a pill ended up
-                    reading "refined / from" over two lines with the name
-                    stacked beside it. One span wraps as one sentence, and
-                    truncates as one, with the whole of it on the title. */}
-                  <span className="sc-ctx-chip-t">{nodeLabel(parentShot)}</span>
+                  {briefOpen ? 'less' : 'more'}
                 </button>
-                {/* Which ingredient moved, read from the two stored recipes.
-                  Without it, two refinements of one setup are told apart by
-                  their pictures alone, which after twenty minutes of work is
-                  not enough to remember why they differ. */}
-                {changeLine && <p className="sc-ctx-changed">{changeLine}</p>}
-              </div>
+              )}
+              <button
+                type="button"
+                className="sc-ovl-copy"
+                title="Copy the brief"
+                aria-label="Copy the brief"
+                onClick={() => void copyBrief()}
+              >
+                <CopySimple size={13} />
+              </button>
             </div>
           )}
 
@@ -510,60 +553,93 @@ export function DetailOverlay({
             </div>
           )}
 
-          {/* Anchored above the composer, so the thread's history holds one
-              place however much record stands above it. */}
+          {/* The thread as a drill of refinements, anchored above the
+              composer: each version steps in under the one it was made from,
+              so the descent reads top-down and this shot is ringed where the
+              drill stands. */}
           {(ancestors.length > 0 || children.length > 0) && (
             <div className="sc-ovl-trail">
               <span className="sc-eyebrow">Versions</span>
-              <div className="sc-ovl-trail-row">
-                {ancestors.map((a) => frame(a))}
-                {frame(node, true)}
-                {children.slice(0, 6).map((c) => frame(c))}
+              <div className="sc-ovl-drill">
+                {ancestors.map((a, i) => drillRow(a, i))}
+                {drillRow(node, ancestors.length, true)}
+                {children.slice(0, 4).map((c) => drillRow(c, ancestors.length + 1))}
+                {children.length > 4 && (
+                  <span
+                    className="sc-drill-more"
+                    style={{ paddingLeft: `${Math.min(ancestors.length + 1, 4) * 14 + 26}px` }}
+                  >
+                    and {children.length - 4} more refinements
+                  </span>
+                )}
               </div>
             </div>
           )}
 
-          <div className="sc-ovl-edit">
-            {/* In here the target is the whole screen, so it is stated rather
+          {/* No station on a dead shot: the stage owns retrying a failure,
+              and a Generate field down here made a failed refine read as a
+              place to start over. Running keeps the held composer, so the
+              field is already waiting when the picture lands. */}
+          {(hasImage || node.status === 'running') && (
+            <div className="sc-ovl-edit">
+              {/* In here the target is the whole screen, so it is stated rather
               than chosen: `target` is this shot and there is no chip, because
               there is nothing else this composer could be talking about. The
               root is the fallback for the cases that cannot branch, so a look
               or a non-editing engine still makes a new shot rather than filing
               one under a shot it never used. One word of label, so the station
               speaks the same section grammar as everything above it. */}
-            <span className="sc-eyebrow">Refine</span>
-            <Composer
-              variant="overlay"
-              projectId={projectId}
-              brand={brand}
-              engines={engines}
-              parent={root}
-              target={node}
-              // the variant on the stage is the one a refine works from
-              sourceImage={hash}
-              shots={nodes}
-              // The dock's composer is still mounted behind this one and there
-              // is one saved draft per brand: without this, merely opening a
-              // shot overwrote a half-typed brief with this composer's empty
-              // sentence, and left its own target behind to be restored later
-              // as a draft the person never wrote.
-              persistDraft={false}
-              // an edit/regen submitted from inside the overlay used to only
-              // reload the tree in place, leaving you looking at the shot you
-              // just replaced; wait for the new node to actually exist, then
-              // reuse the same in-overlay navigation the lineage filmstrip
-              // and Prev/Next already use to land on it
-              onQueued={async (id, kind) => {
-                await onChanged();
+              <span className="sc-eyebrow">Refine</span>
+              <Composer
+                variant="overlay"
+                projectId={projectId}
+                brand={brand}
+                engines={engines}
+                parent={root}
+                target={node}
+                // the variant on the stage is the one a refine works from
+                sourceImage={hash}
+                shots={nodes}
+                // The dock's composer is still mounted behind this one and there
+                // is one saved draft per brand: without this, merely opening a
+                // shot overwrote a half-typed brief with this composer's empty
+                // sentence, and left its own target behind to be restored later
+                // as a draft the person never wrote.
+                persistDraft={false}
+                // an edit/regen submitted from inside the overlay used to only
+                // reload the tree in place, leaving you looking at the shot you
+                // just replaced; wait for the new node to actually exist, then
+                // reuse the same in-overlay navigation the lineage filmstrip
+                // and Prev/Next already use to land on it
+                onQueued={async (id, kind) => {
+                  await onChanged();
+                  if (id) onSelect(id);
+                  // One thread, wherever it was pulled. Refining in here used to
+                  // leave the workspace behind still pointed at nothing, so
+                  // stepping back out and carrying on turned the next
+                  // instruction into a brand new shot.
+                  if (id) onRefined?.(id, kind);
+                }}
+              />
+            </div>
+          )}
+          {framePeek.shown && (
+            <ChipPreview
+              key={framePeek.shown.key}
+              anchor={framePeek.shown.el}
+              kind="shot"
+              src={framePeek.shown.src}
+              label={framePeek.shown.label}
+              onOpen={() => {
+                const id = framePeek.shown?.id;
+                framePeek.closeNow();
                 if (id) onSelect(id);
-                // One thread, wherever it was pulled. Refining in here used to
-                // leave the workspace behind still pointed at nothing, so
-                // stepping back out and carrying on turned the next
-                // instruction into a brand new shot.
-                if (id) onRefined?.(id, kind);
               }}
+              onHoverIn={framePeek.keep}
+              onHoverOut={framePeek.close}
+              onClose={framePeek.closeNow}
             />
-          </div>
+          )}
         </aside>
         <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} />
         {parentShot && sourceHash && (

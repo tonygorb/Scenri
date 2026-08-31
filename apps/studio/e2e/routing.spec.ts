@@ -500,7 +500,7 @@ test('a shot URL whose node is gone falls back to the feed', async ({ page }) =>
  * for the purpose, so the answer costs no new UI and Back returns to the exact
  * shot you were reading.
  */
-test('an ingredient chip opens the thing it names, and Back returns to the shot', async ({ page }) => {
+test('an ingredient chip previews in place, and its card is the door to the page', async ({ page }) => {
   const brand = await currentBrand(page);
 
   // a shot whose brief names a product, a presenter, a scene and a colour, so
@@ -535,13 +535,18 @@ test('an ingredient chip opens the thing it names, and Back returns to the shot'
   await expect(page.locator('.sc-ovl')).toBeVisible();
   await expect(page.locator('.sc-ingredient').first()).toBeVisible();
 
-  // a colour has no page anywhere, so it is the one chip that stays inert
-  await expect(page.locator('a.sc-ingredient')).toHaveCount(3);
+  // a colour has no picture and no page, so it is the one chip that stays inert
+  await expect(page.locator('button.sc-ingredient')).toHaveCount(3);
   await expect(page.locator('span.sc-ingredient[data-kind="color"]')).toHaveCount(1);
 
   for (const kind of ['scene', 'presenter', 'product']) {
     await page.goto(`/${brand.slug}/create/shots/${made.id}`);
+    // clicking a chip never leaves the shot: it pins the preview card
     await page.locator(`.sc-ingredient[data-kind="${kind}"]`).click();
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+    await expect(page.locator('.sc-chip-preview')).toBeVisible();
+    // the card itself is the door to the catalog page
+    await page.locator('.sc-chip-preview-hit').click();
     await expect(page.locator('.sc-ovl')).toHaveCount(0);
     expect(new URL(page.url()).pathname).not.toContain('/shots/');
 

@@ -19,8 +19,9 @@ import { PREVIEW_W, placePanel, type Placed } from './anchorPanel.js';
  * it — there is nothing inside this card for a key to reach.
  */
 
-/** Every surface whose identity is an attachment image: brief line or carried strip. */
-const PREVIEW_KINDS = ['ref', 'mark', 'product', 'presenter', 'scene'] as const;
+/** Every surface whose identity is an image: a brief-line chip, a shot-record
+   chip, or a version frame in the detail panel. */
+const PREVIEW_KINDS = ['ref', 'mark', 'product', 'presenter', 'scene', 'shot'] as const;
 export type PreviewKind = (typeof PREVIEW_KINDS)[number];
 
 /**
@@ -38,6 +39,7 @@ export const PREVIEW_NOUN: Record<PreviewKind, string> = {
   product: 'Product',
   presenter: 'Presenter',
   scene: 'Scene',
+  shot: 'Version',
 };
 
 /**

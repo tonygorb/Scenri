@@ -1309,11 +1309,8 @@ export const Composer = forwardRef<
                   onCount={setVariants}
                   quality={quality}
                   onQuality={setQualityId}
-                  // the overlay's 300px row cannot hold the engine select
-                  // without wrapping, so the engine moves in here
-                  {...(variant === 'overlay' && usable.length > 1
-                    ? { engineChoices: usable, onEngine: setEngineId }
-                    : {})}
+                  // the engine select rides beside More in the overlay row now
+                  // (the row wraps), so More holds only the shot's own settings
                 />
               </Popover.Content>
             </Popover.Root>

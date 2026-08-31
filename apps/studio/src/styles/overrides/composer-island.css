@@ -117,15 +117,9 @@
   padding: 0 10px !important;
   font-size: 12.5px !important;
 }
-/* In the 300px sidebar a second engine wrapped the control row onto two
-   lines; the engine lives inside More there instead (ShotSettingsFields'
-   engine group), so the row select hides. On a phone the refine band is
-   full width and keeps its own select — More does not exist below 768px. */
-@media (min-width: 768px) {
-  .sc-ovl-edit .sc-mini-sel {
-    display: none !important;
-  }
-}
+/* The engine select stays in the row at every width now: the overlay row
+   wraps, so a second engine costs a second line rather than a buried
+   setting. More holds only the shot's own settings. */
 @media (max-width: 767px) {
   .sc-prompt-row {
     padding: 6px 12px 12px;

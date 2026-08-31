@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { briefChangeLine, briefChanges, briefProse, briefSaid, sourceImageOf } from '../src/briefDiff.js';
+import { briefChangeLine, briefChanges, briefProse, sourceImageOf } from '../src/briefDiff.js';
 import type { TokenNames } from '../src/feedRules.js';
 import type { TreeNode } from '../src/api.js';
 
@@ -177,28 +177,5 @@ describe('briefProse', () => {
   it('falls back to the compiled prompt for shots made before briefs were stored', () => {
     const node = { prompt: 'an older shot', brief: null } as unknown as TreeNode;
     expect(briefProse(node, names)).toBe('an older shot');
-  });
-});
-
-describe('briefSaid', () => {
-  it('keeps only the typed words, chips left to the ingredient row', () => {
-    const node = {
-      prompt: 'compiled wall of directives',
-      brief: brief({ t: 'product', id: 'aurelia-serum' }, text('on wet rocks'), { t: 'template', id: 'ice-core' }),
-    } as unknown as TreeNode;
-    expect(briefSaid(node)).toBe('on wet rocks');
-  });
-
-  it('is empty for a chips-only brief, never the compiled prompt', () => {
-    const node = {
-      prompt: 'compiled wall of directives',
-      brief: brief({ t: 'product', id: 'aurelia-serum' }),
-    } as unknown as TreeNode;
-    expect(briefSaid(node)).toBe('');
-  });
-
-  it('falls back to the compiled prompt for shots made before briefs were stored', () => {
-    const node = { prompt: 'an older shot', brief: null } as unknown as TreeNode;
-    expect(briefSaid(node)).toBe('an older shot');
   });
 });

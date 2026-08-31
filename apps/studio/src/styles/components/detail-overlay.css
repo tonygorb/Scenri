@@ -24,12 +24,10 @@
   background: var(--sc-bg);
 }
 
-/* The thread's history in reading order (ancestors, this shot ringed, its
-   children), anchored just above the composer so it holds one place however
-   much record stands above it. One row, always one row: it scrolls sideways
-   rather than wrapping, so eight ancestors and one give the same height.
-   margin-top:auto is the bottom-pin; when there is no trail the composer's
-   own auto margin takes over. */
+/* The thread as a drill of refinements: each version a row stepping in under
+   the one it was made from, this shot ringed where the drill stands.
+   Anchored just above the composer; margin-top:auto is the bottom-pin, and
+   when there is no trail the composer's own auto margin takes over. */
 .sc-ovl-trail {
   margin-top: auto;
   padding: var(--sc-space-6) 0 var(--sc-space-5);
@@ -38,20 +36,77 @@
   display: block;
   margin-bottom: var(--sc-space-3);
 }
-.sc-ovl-trail-row {
+.sc-ovl-drill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+.sc-drill-row {
   display: flex;
   align-items: center;
   gap: var(--sc-space-3);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
+  min-width: 0;
+  padding: var(--sc-space-1) 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--sc-text-body);
+  color: var(--sc-fg2);
 }
-.sc-ovl-trail .sc-fr {
-  width: 48px;
-  height: 48px;
+.sc-drill-row:hover {
+  color: var(--sc-fg);
+}
+.sc-drill-row[data-current="true"] {
+  color: var(--sc-fg);
+}
+.sc-drill-elbow {
+  display: flex;
   flex: none;
-  border-radius: var(--sc-radius-md);
-  margin-bottom: 0;
+  color: var(--sc-fg3);
+}
+.sc-drill-thumb {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--sc-radius-sm);
+  border: 1px solid var(--sc-line);
+  background: var(--sc-raised);
+  color: var(--sc-fg3);
+  overflow: hidden;
+}
+.sc-drill-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* current, without moving: an inset ring, same statement the take strip makes */
+.sc-drill-row[data-current="true"] .sc-drill-thumb {
+  border-color: var(--sc-sel-line);
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+}
+.sc-drill-row[data-failed="true"] .sc-drill-thumb {
+  border-style: dashed;
+  background: none;
+}
+.sc-drill-lb {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sc-drill-star {
+  display: flex;
+  flex: none;
+  color: var(--sc-star);
+}
+.sc-drill-more {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
 }
 /* One header for the whole overlay: a left group that gets you out and
    between versions, a right group for what you can do to the picture.
@@ -97,27 +152,6 @@
     right: calc(var(--sc-ovl-panel-w) + 14px);
   }
 }
-.sc-fr {
-  width: 56px;
-  height: 56px;
-  flex-shrink: 0;
-  border-radius: 9px;
-  overflow: hidden;
-  border: 1px solid var(--sc-line);
-  background: var(--sc-raised);
-  padding: 0;
-  cursor: pointer;
-  position: relative;
-}
-.sc-fr img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.sc-fr:hover {
-  border-color: var(--sc-line-strong);
-}
 /* The takes of one run, under the stage. Same widget as the versions strip one
    level up, so it crops the same way. It carried its box on width and height
    attributes with no rule at all behind them, which meant `fill`: a 4:5 take
@@ -145,27 +179,6 @@
 }
 .sc-thumb-btn:hover .sc-thumb {
   border-color: var(--sc-line-strong);
-}
-/* Current, without moving. This used to go 56→64px and 1→2px of border, so
-   every arrow-key step through the versions grew one tile inside a centred
-   column: the strip below it shifted 8px and the picture inside the tile
-   shifted again. An inset ring says the same thing and occupies no space. */
-.sc-fr[data-current="true"] {
-  border-color: var(--sc-sel-line);
-  outline: 2px solid var(--sc-sel-line);
-  outline-offset: -2px;
-}
-.sc-fr .sc-fr-star {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  color: var(--sc-star);
-}
-.sc-wire {
-  width: 1px;
-  height: 14px;
-  background: var(--sc-line-strong);
-  flex-shrink: 0;
 }
 
 /* The picture's place while it is being made: the box it will occupy, filled
@@ -289,6 +302,11 @@
   font-size: var(--sc-text-title-s);
   font-weight: 600;
 }
+/* the record's state, said where the record starts and nowhere louder */
+.sc-ovl-flag {
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-caption);
+}
 .sc-ovl-take,
 .sc-ovl-spend {
   margin-left: auto;
@@ -310,70 +328,15 @@
   margin-bottom: var(--sc-space-3);
 }
 
-.sc-ctx {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-3);
-}
-/* Which ingredient moved since the shot this came from. A quiet second line
-   under the chip, never a chip of its own: it is a note about a relationship,
-   not another thing to press. */
-.sc-ctx-changed {
-  flex-basis: 100%;
-  margin: 0;
-  font-size: var(--sc-text-caption);
-  line-height: 1.45;
-  color: var(--sc-fg2);
-  /* two lines, then quiet: a long diff otherwise gives every shot a
-     different panel height and the sections below it a different home */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-/* The parent, as a typographic line rather than a pill: thumbnail plus name,
-   nothing boxed. The FROM label above already says the relationship. */
-.sc-ctx .sc-ctx-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sc-space-3);
-  max-width: 100%;
-  min-width: 0;
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: var(--sc-text-body);
-  color: var(--sc-fg);
-  text-align: left;
-}
-/* A label stays one line; the name gives first. */
-.sc-ctx-chip-t {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.sc-ctx .sc-ctx-chip img {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--sc-radius-xs);
-  object-fit: cover;
-}
-.sc-ctx button.sc-ctx-chip {
-  cursor: pointer;
-}
-.sc-ctx button.sc-ctx-chip:hover .sc-ctx-chip-t {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 /* The typed words, at reading size: what was asked is the section's whole
    content. The chips in the section beneath name what went in — two voices,
    nothing said twice. */
 .sc-brief-record {
   margin: 0;
   font-size: var(--sc-text-input);
-  line-height: 1.5;
+  /* roomy lines are what let a chip sit inside prose without shearing its
+     neighbours; the record wraps exactly like the composer's own sentence */
+  line-height: 2;
   color: var(--sc-fg);
   overflow-wrap: break-word;
   /* a legacy compiled-prompt fallback can be a whole paragraph; the record
@@ -382,6 +345,60 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 5;
   overflow: hidden;
+}
+.sc-brief-record .sc-ingredient {
+  vertical-align: middle;
+  margin: 0 1px;
+}
+/* One voice for every chip in the record: what was asked for and what was
+   carried read the same — the distinction lives in the title, not in three
+   competing chip styles between an initial shot and its refinements. */
+.sc-brief-record .sc-ingredient[data-inherited],
+.sc-brief-record .sc-ingredient[data-world] {
+  background: var(--sc-chip);
+  box-shadow: none;
+  outline: none;
+  color: var(--sc-fg);
+}
+.sc-brief-record[data-expanded] {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+/* the clamp's release, in the caption voice, only when the clamp bites */
+.sc-ovl-more {
+  background: none;
+  border: none;
+  padding: var(--sc-space-1) 0 0;
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-caption);
+  cursor: pointer;
+}
+.sc-ovl-more:hover {
+  color: var(--sc-fg);
+}
+/* copy waits invisibly at the section's corner until the section is read */
+.sc-ovl-brief {
+  position: relative;
+}
+.sc-ovl-copy {
+  position: absolute;
+  top: var(--sc-space-7);
+  right: 0;
+  background: none;
+  border: none;
+  padding: var(--sc-space-1);
+  color: var(--sc-fg3);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-ovl-brief:hover .sc-ovl-copy,
+.sc-ovl-copy:focus-visible {
+  opacity: 1;
+}
+.sc-ovl-copy:hover {
+  color: var(--sc-fg);
 }
 .sc-ovl-meta .sc-ingredients {
   display: flex;
@@ -458,18 +475,6 @@
 }
 .sc-ovl-stage .sc-frame {
   max-width: 100%;
-}
-.sc-fr[data-failed="true"] {
-  border-style: dashed;
-  background: none;
-  display: grid;
-  place-items: center;
-  color: var(--sc-fg3);
-}
-.sc-fr[data-cancelled="true"] {
-  display: grid;
-  place-items: center;
-  color: var(--sc-fg3);
 }
 /* Desktop only: below 768px the island pass sizes the attach panel for the
    screen it shares with a keyboard, and used to lose this fight on
