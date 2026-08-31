@@ -13,9 +13,7 @@ import {
   DownloadSimple,
   Star,
   TrashSimple,
-  WarningCircle,
   X,
-  XCircle,
 } from '@phosphor-icons/react';
 import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
 import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
@@ -135,8 +133,32 @@ export function DetailOverlay({
     setBriefOverflows(!!el && el.scrollHeight > el.clientHeight + 1);
   }, [said]);
   /** Hover peek over a version frame: the picture at a readable size before
-   *  committing the panel to it. */
+   *  committing the stage to it. */
   const framePeek = useHoverPreview<{ key: string; src: string; label: string; el: HTMLElement; id: string }>();
+  /**
+   * The image's history in reading order — the original, this shot, its
+   * refinements — worn as the thumb strip under the stage, exactly where the
+   * variants used to live. Only versions with a picture appear; a failed
+   * refinement stays a card in the feed rather than a hole in the strip.
+   */
+  const lineageStrip = useMemo(
+    () => [...ancestors, node, ...children.slice(0, 6)].filter((n) => n.images[0]),
+    [ancestors, node, children],
+  );
+  // Pre-DECODE every version in the strip, not merely fetch it: the files are
+  // already in the HTTP cache from the thumbs, but a ~2MB PNG still costs a
+  // visible beat to decode when the stage first asks for it. Decoded up
+  // front, a click paints from a ready bitmap and the switch reads instant.
+  useEffect(() => {
+    for (const n of lineageStrip) {
+      if (n.id === node.id) continue;
+      const img = new Image();
+      img.src = imgUrl(n.images[0]);
+      img.decode?.().catch(() => {
+        /* a version that cannot decode will simply load the old way */
+      });
+    }
+  }, [lineageStrip, node.id]);
   const hash = node.images[0];
   const baseName =
     node.prompt
@@ -275,56 +297,6 @@ export function DetailOverlay({
   const hasImage = node.status === 'done' && node.images.length > 0;
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
 
-  /**
-   * One step of the refinement drill: a thumb in the single row that reads
-   * left to right as a descent, each version made from the one before it,
-   * this shot ringed where the drill currently stands. Hovering peeks the
-   * version at a readable size before the panel commits to it.
-   */
-  const drillRow = (n: TreeNode, current = false) => (
-    <button
-      type="button"
-      className="sc-drill-row"
-      data-fb-node={n.id}
-      data-current={current}
-      data-failed={n.status === 'error' || (!n.images[0] && n.status !== 'running' && n.status !== 'cancelled')}
-      title={nodeLabel(n)}
-      onClick={() => {
-        framePeek.closeNow();
-        onSelect(n.id);
-      }}
-      onPointerEnter={(e) =>
-        e.pointerType === 'mouse' &&
-        n.images[0] &&
-        framePeek.open({ key: n.id, src: imgUrl(n.images[0]), label: nodeLabel(n), el: e.currentTarget, id: n.id })
-      }
-      onPointerLeave={(e) => e.pointerType === 'mouse' && framePeek.close()}
-      onFocus={(e) =>
-        e.currentTarget.matches(':focus-visible') &&
-        n.images[0] &&
-        framePeek.open({ key: n.id, src: imgUrl(n.images[0]), label: nodeLabel(n), el: e.currentTarget, id: n.id })
-      }
-    >
-      {/* the thumb IS the step: no label, the hover peek carries the words */}
-      <span className="sc-drill-thumb">
-        {n.images[0] ? (
-          <img src={imgUrl(n.images[0])} alt="" />
-        ) : n.status === 'running' ? (
-          <span className="sc-shimmer" />
-        ) : n.status === 'cancelled' ? (
-          <XCircle size={12} />
-        ) : (
-          <WarningCircle size={12} />
-        )}
-      </span>
-      {n.kept && (
-        <span className="sc-drill-star">
-          <Star size={10} weight="fill" />
-        </span>
-      )}
-    </button>
-  );
-
   return createPortal(
     // `loop` as well as `trapped`: without it Tab reached the last control and
     // then did nothing at all — eighteen further presses moved focus nowhere,
@@ -450,13 +422,70 @@ export function DetailOverlay({
           </AlertDialog.Content>
         </AlertDialog.Root>
 
-        <div className="sc-ovl-stage">
+        <div
+          className="sc-ovl-stage"
+          // the shot is capped so the version strip below it always has room;
+          // the cap has to know whether that row is there
+          data-takes={lineageStrip.length > 1 ? '' : undefined}
+        >
           <StageFrame
             node={node}
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
           />
+          {/* The image's own history, right under the image, wearing the strip
+              the variants used to wear: the original, this shot ringed, and
+              its refinements. Hovering peeks a version at a readable size;
+              clicking moves the stage to it. */}
+          {lineageStrip.length > 1 && (
+            <div className="sc-thumbs">
+              {lineageStrip.map((n) => (
+                <button
+                  type="button"
+                  key={n.id}
+                  className="sc-thumb-btn"
+                  aria-label={nodeLabel(n)}
+                  aria-pressed={n.id === node.id}
+                  title={nodeLabel(n)}
+                  onClick={() => {
+                    framePeek.closeNow();
+                    onSelect(n.id);
+                  }}
+                  onPointerEnter={(e) =>
+                    e.pointerType === 'mouse' &&
+                    framePeek.open({
+                      key: n.id,
+                      src: imgUrl(n.images[0]),
+                      label: nodeLabel(n),
+                      el: e.currentTarget,
+                      id: n.id,
+                    })
+                  }
+                  onPointerLeave={(e) => e.pointerType === 'mouse' && framePeek.close()}
+                  onFocus={(e) =>
+                    e.currentTarget.matches(':focus-visible') &&
+                    framePeek.open({
+                      key: n.id,
+                      src: imgUrl(n.images[0]),
+                      label: nodeLabel(n),
+                      el: e.currentTarget,
+                      id: n.id,
+                    })
+                  }
+                >
+                  <img
+                    src={imgUrl(n.images[0])}
+                    alt=""
+                    className="sc-thumb"
+                    data-active={n.id === node.id}
+                    width={52}
+                    height={52}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <aside className="sc-ovl-meta">
@@ -546,23 +575,9 @@ export function DetailOverlay({
             </div>
           )}
 
-          {/* The thread as a drill of refinements, anchored above the
-              composer: one row, each version made from the one before the
-              caret pointing at it, this shot ringed where the drill stands. */}
-          {(ancestors.length > 0 || children.length > 0) && (
-            <div className="sc-ovl-trail">
-              <span className="sc-eyebrow">Versions</span>
-              <div className="sc-ovl-drill">
-                {[...ancestors, node, ...children.slice(0, 4)].map((n, i) => (
-                  <span key={n.id} style={{ display: 'contents' }}>
-                    {i > 0 && <CaretRight size={11} className="sc-drill-elbow" />}
-                    {drillRow(n, n.id === node.id)}
-                  </span>
-                ))}
-                {children.length > 4 && <span className="sc-drill-more">+{children.length - 4}</span>}
-              </div>
-            </div>
-          )}
+          {/* No versions section in here: the image's history wears the thumb
+              strip under the stage, where the variants used to live. The
+              sidebar does not own image navigation. */}
 
           {/* No station on a dead shot: the stage owns retrying a failure,
               and a Generate field down here made a failed refine read as a

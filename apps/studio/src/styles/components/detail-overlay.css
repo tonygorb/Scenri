@@ -24,82 +24,6 @@
   background: var(--sc-bg);
 }
 
-/* The thread as a drill of refinements: each version a row stepping in under
-   the one it was made from, this shot ringed where the drill stands.
-   Anchored just above the composer; margin-top:auto is the bottom-pin, and
-   when there is no trail the composer's own auto margin takes over. */
-.sc-ovl-trail {
-  margin-top: auto;
-  padding: var(--sc-space-6) 0 var(--sc-space-5);
-}
-.sc-ovl-trail .sc-eyebrow {
-  display: block;
-  margin-bottom: var(--sc-space-3);
-}
-.sc-ovl-drill {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-2);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.sc-drill-row {
-  position: relative;
-  display: flex;
-  flex: none;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-}
-.sc-drill-row:hover .sc-drill-thumb {
-  border-color: var(--sc-line-strong);
-}
-.sc-drill-elbow {
-  display: flex;
-  flex: none;
-  color: var(--sc-fg3);
-}
-.sc-drill-thumb {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--sc-radius-sm);
-  border: 1px solid var(--sc-line);
-  background: var(--sc-raised);
-  color: var(--sc-fg3);
-  overflow: hidden;
-}
-.sc-drill-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-/* current, without moving: an inset ring, same statement the take strip makes */
-.sc-drill-row[data-current="true"] .sc-drill-thumb {
-  border-color: var(--sc-sel-line);
-  outline: 2px solid var(--sc-sel-line);
-  outline-offset: -2px;
-}
-.sc-drill-row[data-failed="true"] .sc-drill-thumb {
-  border-style: dashed;
-  background: none;
-}
-.sc-drill-star {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  display: flex;
-  color: var(--sc-star);
-}
-.sc-drill-more {
-  font-size: var(--sc-text-caption);
-  color: var(--sc-fg3);
-}
 /* One header for the whole overlay: a left group that gets you out and
    between versions, a right group for what you can do to the picture.
 
@@ -420,10 +344,6 @@
   margin-top: auto;
   background: var(--sc-bg);
   padding: var(--sc-space-5) 0 var(--sc-space-6);
-}
-/* two auto margins would split the free space and strand the trail mid-panel */
-.sc-ovl-trail + .sc-ovl-edit {
-  margin-top: 0;
 }
 .sc-ovl-edit .sc-composer {
   width: 100%;
