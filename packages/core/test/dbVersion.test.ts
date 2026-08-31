@@ -53,6 +53,9 @@ describe('schema version gate', () => {
       openDb(home);
     } catch (e) {
       expect((e as Error).message).toContain('newer');
+      // the operator's way out of a rollback wedge: the message names where
+      // the pre-migration snapshot lives
+      expect((e as Error).message).toContain(join(home, 'backups'));
     }
   });
 

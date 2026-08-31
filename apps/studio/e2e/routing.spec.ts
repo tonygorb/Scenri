@@ -193,10 +193,7 @@ test('a reloaded shot comes back to the same shot and the same variant', async (
 
   await page.reload();
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  await expect(page.locator('.sc-thumbs button[aria-pressed="true"]')).toHaveAttribute(
-    'aria-label',
-    `Image ${images}`,
-  );
+  await expect(page.locator('.sc-thumbs button[aria-pressed="true"]')).toHaveAttribute('aria-label', `Image ${images}`);
 });
 
 test('back closes a shot, and escape spends the same single entry', async ({ page }) => {

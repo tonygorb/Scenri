@@ -335,6 +335,66 @@ describe('version tree', () => {
       }),
     ).toThrow(/parent node/);
   });
+
+  it('addNodes mints N siblings that read in request order on a newest-first feed', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    const batch = core.store.addNodes({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'hero shot',
+      engineId: 'demo',
+      count: 4,
+    });
+    expect(batch).toHaveLength(4);
+    expect(batch.map((n) => n.batchIndex)).toEqual([0, 1, 2, 3]);
+    // one batch identity for all, named after the first shot
+    expect(new Set(batch.map((n) => n.batchId)).size).toBe(1);
+    expect(batch[0].batchId).toBe(batch[0].id);
+    // slot 0 newest: descending created_at = ascending slot
+    for (let i = 1; i < batch.length; i++) {
+      expect(batch[i - 1].createdAt > batch[i].createdAt).toBe(true);
+    }
+    // and a second batch fired immediately after cannot interleave with it
+    const later = core.store.addNodes({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'again',
+      engineId: 'demo',
+      count: 2,
+    });
+    expect(later[1].createdAt > batch[0].createdAt).toBe(true);
+  });
+
+  it('addNodes of one is not a batch, and a bad parent creates nothing', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    const [only] = core.store.addNodes({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'solo',
+      engineId: 'demo',
+      count: 1,
+    });
+    expect(only.batchId).toBeNull();
+    expect(only.batchIndex).toBe(0);
+
+    const before = core.store.treeFor(project.id).length;
+    expect(() =>
+      core.store.addNodes({
+        projectId: project.id,
+        parentId: 'nope',
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'demo',
+        count: 3,
+      }),
+    ).toThrow(/parent node/);
+    expect(core.store.treeFor(project.id)).toHaveLength(before);
+  });
 });
 
 describe('restart sweep', () => {

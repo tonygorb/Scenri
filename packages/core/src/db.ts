@@ -196,11 +196,13 @@ function widenNodeStatusCheck(db: DB): void {
         overlays TEXT NOT NULL DEFAULT '{}',
         brief TEXT,
         archived INTEGER NOT NULL DEFAULT 0,
-        duration_ms INTEGER
+        duration_ms INTEGER,
+        batch_id TEXT,
+        batch_index INTEGER NOT NULL DEFAULT 0
       );
       INSERT INTO nodes_new
         SELECT id, project_id, parent_id, kind, prompt, engine_id, status, images, cost_usd, kept, error,
-               created_at, overlays, brief, archived, duration_ms
+               created_at, overlays, brief, archived, duration_ms, batch_id, batch_index
         FROM nodes;
       DROP TABLE nodes;
       ALTER TABLE nodes_new RENAME TO nodes;
@@ -350,19 +352,168 @@ function collapseProjects(db: DB): void {
 }
 
 /**
+ * One image, one node.
+ *
+ * A multi-shot request used to land as one node holding N images, and the app
+ * grew a second hierarchy on top of it — takes inside a card, versions across
+ * cards. Since schema v2 every image is its own first-class node, and this
+ * step rewrites the old shape into the new one: the original row keeps its id
+ * and its first image (links, notifications and children survive), and each
+ * further image becomes a minted sibling with the same recipe.
+ *
+ * The pieces that were secretly per-image move with their image: the
+ * overlays entry keyed by that index becomes the sibling's "0", the
+ * rendered.sizes entry becomes its one-element array, and any child that
+ * recorded `brief.sourceImage` as that image is re-pointed at the sibling
+ * that now holds it. Kept and archived were statements about the whole run,
+ * so every sibling inherits them. Cost and duration were measured for the
+ * run once and stay on the original — inventing a per-image split of either
+ * would be fiction.
+ *
+ * Sibling stamps run BACKWARD from the original's (slot i sits i ms earlier):
+ * the feed is newest-first, so this is what makes slot 0 read top-left and
+ * the batch read in request order. Idempotent by shape — after one pass no
+ * node holds more than one image, so a second pass finds nothing to do.
+ */
+function splitMultiImageNodes(db: DB): void {
+  const rows = db.prepare('SELECT * FROM nodes').all() as {
+    id: string;
+    project_id: string;
+    parent_id: string | null;
+    kind: string;
+    prompt: string;
+    engine_id: string;
+    status: string;
+    images: string;
+    cost_usd: number;
+    kept: number;
+    error: string | null;
+    created_at: string;
+    overlays: string;
+    brief: string | null;
+    archived: number;
+    duration_ms: number | null;
+  }[];
+  const multi = rows.filter((r) => {
+    try {
+      return (JSON.parse(r.images) as unknown[]).length > 1;
+    } catch {
+      return false;
+    }
+  });
+  if (!multi.length) return;
+
+  const parse = (s: string | null): any => {
+    if (!s) return null;
+    try {
+      return JSON.parse(s);
+    } catch {
+      return null;
+    }
+  };
+  /** Same text shape addNode writes, so it compares against every other row. */
+  const stampOf = (iso: string, minusMs: number): string => {
+    const t = new Date(`${iso.replace(' ', 'T')}Z`).getTime() - minusMs;
+    const d = new Date(t);
+    const p = (n: number, w = 2) => String(n).padStart(w, '0');
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}.${p(d.getUTCMilliseconds(), 3)}`;
+  };
+
+  const updateOriginal = db.prepare(
+    'UPDATE nodes SET images=?, overlays=?, brief=?, batch_id=?, batch_index=0 WHERE id=?',
+  );
+  const insertSibling = db.prepare(
+    `INSERT INTO nodes (id, project_id, parent_id, kind, prompt, engine_id, status, images, cost_usd, kept,
+       error, created_at, overlays, brief, archived, duration_ms, batch_id, batch_index)
+     VALUES (?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,NULL,?,?)`,
+  );
+  const childrenOf = db.prepare('SELECT id, brief FROM nodes WHERE parent_id=?');
+  const repoint = db.prepare('UPDATE nodes SET parent_id=? WHERE id=?');
+  const setsOf = db.prepare('SELECT set_id FROM set_nodes WHERE node_id=?');
+  const addMember = db.prepare('INSERT OR IGNORE INTO set_nodes (set_id, node_id) VALUES (?,?)');
+
+  db.transaction(() => {
+    for (const r of multi) {
+      const images = JSON.parse(r.images) as string[];
+      const overlays = parse(r.overlays) ?? {};
+      const brief = parse(r.brief);
+      const sizes: unknown[] | null = Array.isArray(brief?.rendered?.sizes) ? brief.rendered.sizes : null;
+      const briefFor = (i: number): string | null => {
+        if (!brief) return null;
+        const b = { ...brief, variants: images.length };
+        if (brief.rendered) {
+          // per-image size travels with its image; the batch bookkeeping
+          // (requested / variantIndexes) described the run and dies with it
+          const { requested: _req, variantIndexes: _vi, ...rendered } = brief.rendered;
+          b.rendered = { ...rendered, ...(sizes ? { sizes: sizes[i] !== undefined ? [sizes[i]] : [] } : {}) };
+        }
+        return JSON.stringify(b);
+      };
+      const siblingIds: string[] = [r.id];
+
+      updateOriginal.run(
+        JSON.stringify([images[0]]),
+        JSON.stringify(overlays['0'] !== undefined ? { '0': overlays['0'] } : {}),
+        briefFor(0),
+        r.id,
+        r.id,
+      );
+
+      for (let i = 1; i < images.length; i++) {
+        const id = randomUUID();
+        siblingIds.push(id);
+        insertSibling.run(
+          id,
+          r.project_id,
+          r.parent_id,
+          r.kind,
+          r.prompt,
+          r.engine_id,
+          r.status,
+          JSON.stringify([images[i]]),
+          r.kept,
+          r.error,
+          stampOf(r.created_at, i),
+          JSON.stringify(overlays[String(i)] !== undefined ? { '0': overlays[String(i)] } : {}),
+          briefFor(i),
+          r.archived,
+          r.id,
+          i,
+        );
+      }
+
+      // a child that recorded which image it refined belongs to the sibling
+      // now holding that image; one that never said stays on the original
+      for (const child of childrenOf.all(r.id) as { id: string; brief: string | null }[]) {
+        const src = parse(child.brief)?.sourceImage;
+        if (typeof src !== 'string') continue;
+        const at = images.indexOf(src);
+        if (at > 0) repoint.run(siblingIds[at], child.id);
+      }
+
+      // membership is a label on the shot; every shot of the run was in the set
+      for (const s of setsOf.all(r.id) as { set_id: string }[]) {
+        for (let i = 1; i < siblingIds.length; i++) addMember.run(s.set_id, siblingIds[i]);
+      }
+    }
+  })();
+}
+
+/**
  * The migration steps below stay "idempotent by shape" — each detects for
  * itself whether it has run. The version stamp exists for the two things shape
  * cannot express: refusing a database written by a NEWER build (its rows may
  * mean things this build has never heard of), and knowing when to take a
  * backup before this build changes anything.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export class SchemaTooNewError extends Error {
-  constructor(found: number, supported: number) {
+  constructor(found: number, supported: number, backupsDir?: string) {
     super(
       `This library was written by a newer Scenri (schema ${found}; this build understands ${supported}). ` +
-        'Update and retry: npx scenri@latest',
+        'Update and retry: npx scenri@latest' +
+        (backupsDir ? ` (a pre-migration snapshot of the library is kept in ${backupsDir})` : ''),
     );
     this.name = 'SchemaTooNewError';
   }
@@ -410,7 +561,7 @@ export function openDb(homeDir: string): DB {
   const found = db.pragma('user_version', { simple: true }) as number;
   if (found > SCHEMA_VERSION) {
     db.close();
-    throw new SchemaTooNewError(found, SCHEMA_VERSION);
+    throw new SchemaTooNewError(found, SCHEMA_VERSION, join(homeDir, 'backups'));
   }
   if (preExisting && found < SCHEMA_VERSION) backupBeforeMigration(db, homeDir, found);
   db.exec(MIGRATIONS);
@@ -431,6 +582,16 @@ export function openDb(homeDir: string): DB {
     // node was still running; a finished shot could never say how long it took,
     // and there was no history from which to state what to expect.
     db.exec('ALTER TABLE nodes ADD COLUMN duration_ms INTEGER');
+  }
+  // Batch provenance: which multi-shot request produced this node and which
+  // slot it filled. Internal metadata only — the user's content object is the
+  // image, never the batch — but it is what keeps siblings reading in request
+  // order and lets a retry know what it is retrying.
+  if (!nodeCols.includes('batch_id')) {
+    db.exec('ALTER TABLE nodes ADD COLUMN batch_id TEXT');
+  }
+  if (!nodeCols.includes('batch_index')) {
+    db.exec('ALTER TABLE nodes ADD COLUMN batch_index INTEGER NOT NULL DEFAULT 0');
   }
   const projectCols = (db.pragma('table_info(projects)') as { name: string }[]).map((c) => c.name);
   if (!projectCols.includes('slug')) {
@@ -459,6 +620,8 @@ export function openDb(homeDir: string): DB {
   backfillSlugs(db);
   // after the backfill, so a set can inherit the slug its project already has
   collapseProjects(db);
+  // after collapseProjects, so minted siblings land in the surviving workspace
+  splitMultiImageNodes(db);
   // Nodes only leave 'running' via the in-process generation promise; after a
   // crash/restart those rows would spin forever in the UI. Sweep them to error.
   db.prepare(
