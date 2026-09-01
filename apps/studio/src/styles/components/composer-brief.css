@@ -479,25 +479,14 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-/* More brief below the fold: the text dissolves into the card instead of
-   hard-clipping against the toolbar. Sticky, so it rides the visible bottom
-   of the scroller; net-zero height, so it adds no scrollable pixel; no
-   pointer events, so the last line stays clickable through it. BriefInput
-   sets data-more from the scroll numbers. */
-.sc-brief::after {
-  content: "";
-  display: block;
-  position: sticky;
-  bottom: 0;
-  height: var(--sc-space-8);
-  margin-top: calc(-1 * var(--sc-space-8));
-  background: linear-gradient(to bottom, transparent, var(--sc-panel));
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
-}
-.sc-brief[data-more]::after {
-  opacity: 1;
+/* More brief below the fold: the text itself fades out at the scroller's
+   bottom edge, the way platform edge fades do, instead of a painted overlay
+   that has to match the card's colour. The mask lives in the element's own
+   box, so it sits at the visible edge whatever the scroll position.
+   BriefInput sets data-more from the scroll numbers and drops it at the
+   bottom, so the last line reads sharp once there is nothing more to see. */
+.sc-brief[data-more] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--sc-space-8)), transparent);
 }
 .sc-brief-line {
   outline: none;

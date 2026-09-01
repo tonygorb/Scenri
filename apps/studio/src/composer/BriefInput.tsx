@@ -166,6 +166,8 @@ export const BriefInput = forwardRef<
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement>(null);
+  /** The scrolling wrapper around the line, for the more-below fade. */
+  const scrollerRef = useRef<HTMLDivElement>(null);
   /** The one live region every reorder path speaks through. */
   const hintId = useId();
   const [live, setLive] = useState('');
@@ -951,7 +953,29 @@ export const BriefInput = forwardRef<
     [brand.json?.palette],
   );
 
+  /**
+   * Whether more brief sits below the scroller's fold, for the bottom fade.
+   * Read on a frame boundary: the input event lands before layout settles,
+   * and reading scroll numbers synchronously there forces a reflow per
+   * keystroke.
+   */
+  const syncScrollHint = useCallback(() => {
+    requestAnimationFrame(() => {
+      const el = scrollerRef.current;
+      if (!el) return;
+      const more = el.scrollHeight - el.scrollTop - el.clientHeight > 1;
+      if (more) el.dataset.more = '';
+      else delete el.dataset.more;
+    });
+  }, []);
+  // content can also change without an input event: a remix landing, a chip
+  // removed by its X, a repaint through setTokens
+  useEffect(() => {
+    syncScrollHint();
+  });
+
   const onInput = () => {
+    syncScrollHint();
     const root = rootRef.current;
     const chips = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
     // a chip deleted with Backspace or Delete leaves both of its spaces behind
@@ -1129,7 +1153,7 @@ export const BriefInput = forwardRef<
   const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
 
   return (
-    <div className="sc-brief" data-drag-over={dragOver || undefined}>
+    <div className="sc-brief" ref={scrollerRef} onScroll={syncScrollHint} data-drag-over={dragOver || undefined}>
       {/* the affordances a chip cannot carry visually: read by aria-describedby */}
       <span id={hintId} className="sc-vh">
         Press Enter to open, Delete to remove, Alt plus arrow keys to move.
