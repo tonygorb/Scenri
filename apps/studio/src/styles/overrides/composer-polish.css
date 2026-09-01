@@ -34,7 +34,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 34px;
+  height: 44px;
   padding: 0 12px;
   border: none;
   border-radius: 9px;
@@ -135,9 +135,9 @@
   white-space: nowrap;
 }
 
-/* the send button is the only thing that breaks the 30px rhythm, on purpose */
+/* the right group's own gap spaces the send now; the old 10px extra is gone */
 .sc-prompt-right .sc-send {
-  margin-left: 10px;
+  margin-left: 0;
 }
 .sc-prompt-row {
   padding: 6px 14px 14px;
@@ -190,5 +190,5 @@
    lift it also used to take has gone. Three simultaneous cues on one button
    is what made tabbing into the composer feel like an alarm. */
 .sc-send:focus-visible {
-  background: var(--sc-inv-bg);
+  background: var(--sc-send-bg);
 }

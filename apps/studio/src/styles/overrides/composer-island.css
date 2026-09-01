@@ -9,14 +9,17 @@
   border-radius: var(--sc-radius-float);
 }
 .sc-prompt-row {
-  padding: 8px 18px 18px;
-  gap: 14px;
+  padding: var(--sc-space-4) var(--sc-space-6) var(--sc-space-6);
+  gap: var(--sc-space-6);
+  /* bottoms meet: the 40px attach disc and the 44px right controls share the
+     row's lower edge, the alignment the Figma toolbar draws */
+  align-items: flex-end;
 }
 .sc-prompt-left {
   gap: 6px;
 }
 .sc-prompt-right {
-  gap: 4px;
+  gap: var(--sc-space-6);
 }
 /* The three settings, spaced like the row they sit in.
 
