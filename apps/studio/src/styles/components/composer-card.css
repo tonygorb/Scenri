@@ -7,7 +7,7 @@
   border: 1px solid var(--sc-line-strong);
   border-radius: var(--sc-radius-xl);
   background: var(--sc-panel);
-  box-shadow: var(--sc-shadow-3);
+  box-shadow: var(--sc-shadow-float);
   /* Both properties that change on focus, on one clock. The ring used to be
      absent from this list, so it snapped in at 0ms while the border eased over
      120ms — two timings on one edge, which is what read as the card shaking. */
@@ -60,9 +60,9 @@
    whole card glowing behind whichever control already had its own ring — three
    layers of "active" at once. And the edge was 1px of border plus 2px of ink
    ring: 3px of near-white where there had been 1px of #383838. It is now one
-   hairline at --sc-focus and a 9% halo. */
+   hairline at --sc-line-focus, the deeper shadow-3, and a 9% halo. */
 .sc-promptcard:has(.sc-brief-line:focus) {
-  border-color: var(--sc-focus);
+  border-color: var(--sc-line-focus);
   box-shadow:
     var(--sc-shadow-3),
     0 0 0 2px var(--sc-focus-halo);
