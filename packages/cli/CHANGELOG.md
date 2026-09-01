@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.5](https://github.com/tonygorb/Scenri/compare/v0.7.4...v0.7.5) (2026-09-01)
+
+
+### Bug Fixes
+
+* one shot per card, an honest refine panel, and truthful transport ([91e00c4](https://github.com/tonygorb/Scenri/commit/91e00c40c90f0d9872469908c8a387f08f70ed99))
+
 ## [0.7.4](https://github.com/tonygorb/Scenri/compare/v0.7.3...v0.7.4) (2026-08-31)
 
 
