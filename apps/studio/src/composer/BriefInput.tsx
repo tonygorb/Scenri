@@ -27,6 +27,7 @@ import {
   type InsertSigil,
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
+import { applySceneTint } from './sceneTint.js';
 import {
   CHIP,
   caretBeside,
@@ -261,8 +262,9 @@ export const BriefInput = forwardRef<
           el.dataset.tinted = 'true';
           el.style.setProperty('--tint', tint);
         }
-        // A brand-owned scene wears the iris treatment, never the catalog tint.
-        if (t && 'custom' in t && t.custom) el.dataset.custom = '1';
+        // A brand-owned scene has no authored previewColor: its tint is read
+        // from its own preview, the same scoring the catalog colours came from.
+        if (!tint && thumb && t && 'custom' in t && t.custom) applySceneTint(el, thumb);
       } else if (token.t === 'product') {
         const p = products.find((x) => x.id === token.id);
         const d = p ? null : demoProducts.find((x) => x.id === token.id);
@@ -779,7 +781,7 @@ export const BriefInput = forwardRef<
     if (picker || menu || (root && 'chipDrag' in root.dataset)) return;
     const chip = chipAt(e.target as HTMLElement);
     const uid = chip?.dataset.uid;
-    if (!chip || !uid || !previewHashOf(decode(chip.dataset.tok ?? ''))) {
+    if (!chip || !uid || !chipPeeks(chip)) {
       hover.close();
       return;
     }
@@ -788,6 +790,17 @@ export const BriefInput = forwardRef<
       return;
     }
     hover.open({ uid, anchor: chip });
+  };
+
+  // What a hover or focus can peek at: anything with a picture of its own.
+  // A reference or mark carries a hash; a product, presenter or scene chip
+  // peeks the same art its thumbnail already resolved. A colour has no
+  // picture, and a chip whose photo failed to load has nothing to show.
+  const chipPeeks = (chip: HTMLElement): boolean => {
+    const t = decode(chip.dataset.tok ?? '');
+    if (previewHashOf(t)) return true;
+    const k = chipOpensPicker(t);
+    return !!(k && k !== 'color' && isPreviewKind(k) && chip.querySelector('img'));
   };
 
   /**
@@ -800,7 +813,7 @@ export const BriefInput = forwardRef<
     const chip = chipAt(e.target as HTMLElement);
     const uid = chip?.dataset.uid;
     if (!chip || !uid || picker || menu) return;
-    if (!previewHashOf(decode(chip.dataset.tok ?? ''))) return;
+    if (!chipPeeks(chip)) return;
     if (!chip.matches(':focus-visible')) return;
     hover.open({ uid, anchor: chip });
   };
@@ -1095,7 +1108,18 @@ export const BriefInput = forwardRef<
 
   const hoveredToken = hovered ? decode(hovered.anchor.dataset.tok ?? '') : null;
   const hoveredHash = previewHashOf(hoveredToken);
-  const hoveredKind = hoveredToken && isPreviewKind(hoveredToken.t) ? hoveredToken.t : null;
+  // The chip's own resolved art: a product's shot, a presenter's avatar, a
+  // scene's preview. The chip already chose it, so the card repeats it rather
+  // than forming a second opinion. A chip with no picture peeks nothing.
+  const hoveredThumb = hovered?.anchor.querySelector('img')?.getAttribute('src') ?? null;
+  const hoveredSrc = hoveredHash ? imgUrl(hoveredHash) : hoveredThumb;
+  const hoveredPicker = chipOpensPicker(hoveredToken);
+  const hoveredKind =
+    hoveredToken && isPreviewKind(hoveredToken.t)
+      ? hoveredToken.t
+      : hoveredPicker && hoveredPicker !== 'color' && isPreviewKind(hoveredPicker)
+        ? hoveredPicker
+        : null;
   const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
 
   return (
@@ -1174,17 +1198,29 @@ export const BriefInput = forwardRef<
         />
       )}
 
-      {hovered && hoveredHash && hoveredKind && (
+      {hovered && hoveredSrc && hoveredKind && (
         <ChipPreview
           key={hovered.uid}
           anchor={hovered.anchor}
           kind={hoveredKind}
-          src={imgUrl(hoveredHash)}
-          // A mark has a name worth repeating; a hand-attached reference's
-          // label is the word "reference", which the card already says.
-          label={hoveredKind === 'mark' ? chipLabel(hovered.anchor) : null}
+          src={hoveredSrc}
+          // A hand-attached reference's label is the word "reference", which
+          // the card already says; everything else has a name worth repeating.
+          label={hoveredKind === 'ref' ? null : chipLabel(hovered.anchor)}
           warning={hoveredWarning}
-          onOpen={() => inspectChip(hovered.anchor)}
+          // The same ask as clicking the chip: a picture opens full size, a
+          // catalog ingredient opens its picker.
+          onOpen={() => {
+            const chip = hovered.anchor;
+            if (hoveredHash) {
+              inspectChip(chip);
+              return;
+            }
+            if (hoveredPicker && hoveredPicker !== 'color') {
+              closeHover();
+              openPicker(chip, hoveredPicker, null, false);
+            }
+          }}
           onHoverIn={hover.keep}
           onHoverOut={hover.close}
           onClose={closeHover}

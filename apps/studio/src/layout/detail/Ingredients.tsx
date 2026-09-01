@@ -7,6 +7,7 @@ import { customScenesOf } from '../../brandAssets.js';
 import { ChipPreview, isPreviewKind, type PreviewKind } from '../../composer/ChipPreview.js';
 import { ImageLightbox } from '../../composer/ImageLightbox.js';
 import { identityKeyOf, normalizeTint } from '../../composer/line.js';
+import { vibrantTintOf } from '../../composer/sceneTint.js';
 import { useHoverPreview } from '../../composer/useHoverPreview.js';
 import { byContextOrder } from '../../contextChips.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
@@ -85,6 +86,23 @@ export function BriefLine({
   const cast: any[] = (brand?.json?.characters ?? []) as any[];
   const ownScenes = customScenesOf(brand);
   const marks = attachableMarks(brand?.json);
+
+  // A custom scene's chip colour, read from its preview the way the catalog
+  // colours were authored. Cached per URL by sceneTint, and the state update
+  // bails when the key already resolved, so re-renders cost nothing.
+  const [autoTints, setAutoTints] = useState<Record<string, string>>({});
+  useEffect(() => {
+    for (const t of [...ownTokens, ...carriedTokens]) {
+      if (t?.t !== 'template') continue;
+      const own = ownScenes.find((x) => x.id === t.id);
+      if (!own?.previewUrl || normalizeTint(own.previewColor)) continue;
+      const key = `t${t.id}`;
+      void vibrantTintOf(own.previewUrl).then((hex) => {
+        const tint = normalizeTint(hex ?? undefined);
+        if (tint) setAutoTints((s) => (s[key] ? s : { ...s, [key]: tint }));
+      });
+    }
+  });
 
   type Chip = {
     key: string;
@@ -203,7 +221,10 @@ export function BriefLine({
         {c.label}
       </>
     );
-    const style = c.tint ? ({ '--tint': c.tint } as CSSProperties) : undefined;
+    // A custom scene's tint arrives from its own preview (sceneTint), the same
+    // scoring that authored the catalog colours; catalog chips carry theirs.
+    const tint = c.tint ?? (c.custom ? autoTints[c.key] : undefined);
+    const style = tint ? ({ '--tint': tint } as CSSProperties) : undefined;
     const said = c.world
       ? `The world this thread was shot in: ${c.label}. A refine keeps it in the picture without asking for it again.`
       : c.inherited
@@ -223,10 +244,9 @@ export function BriefLine({
           className="sc-ingredient"
           key={c.key}
           data-kind={c.kind}
-          data-tinted={c.tint ? '' : undefined}
+          data-tinted={tint ? '' : undefined}
           data-inherited={c.inherited || undefined}
           data-world={c.world || undefined}
-          data-custom={c.custom ? '1' : undefined}
           style={style}
           data-open={open || undefined}
           title={open ? undefined : (said ?? `${c.label}. Preview.`)}
@@ -256,10 +276,9 @@ export function BriefLine({
         className="sc-ingredient"
         key={c.key}
         data-kind={c.kind}
-        data-tinted={c.tint ? '' : undefined}
+        data-tinted={tint ? '' : undefined}
         data-inherited={c.inherited || undefined}
         data-world={c.world || undefined}
-        data-custom={c.custom ? '1' : undefined}
         style={style}
         title={said ?? `${c.kind}: ${c.label}`}
       >
