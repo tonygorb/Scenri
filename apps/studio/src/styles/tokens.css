@@ -204,8 +204,10 @@
      on white too */
   --sc-send-bg: #383838;
   --sc-send-fg: #f5f5f5;
-  /* the composer card while editing: stronger than line-hover, not the ring */
-  --sc-line-focus: #a3a3a3;
+  /* the composer card while editing: stronger than line-hover, not the ring.
+     3.03:1 on white, the same just-above-3 register the dark value carries
+     on its panel (3.21:1). */
+  --sc-line-focus: #949494;
   /* the floating card at rest; focus keeps shadow-3 and adds the halo */
   --sc-shadow-float: 0 18px 25px rgba(0, 0, 0, 0.18);
 }
