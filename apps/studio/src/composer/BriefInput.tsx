@@ -8,7 +8,7 @@ import { bookmarkedScenes } from '../bookmarks.js';
 import { flattenPalette, normalizeHex } from '../brand/palette.js';
 import { attachChipDrag } from './chipDrag.js';
 import { ChipMoveSheet } from './ChipMoveSheet.js';
-import { ChipPreview, isPreviewKind } from './ChipPreview.js';
+import { ChipPreview, isPreviewKind, type PreviewKind } from './ChipPreview.js';
 import { useHoverPreview } from './useHoverPreview.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
@@ -128,7 +128,7 @@ export const BriefInput = forwardRef<
      * lightbox, so there is one per composer rather than one per surface that
      * can ask for it.
      */
-    onInspect?: (image: { hash: string; kind: 'ref' | 'mark'; label: string | null }) => void;
+    onInspect?: (image: { src: string; kind: PreviewKind; label: string | null }) => void;
     /** The category of whichever product the brief already holds, for the
      * picker's "Suited to X" lift. A hint, never a gate — see compat.ts. */
     activeProductCategory?: string | null;
@@ -535,26 +535,32 @@ export const BriefInput = forwardRef<
       const at = root ? caretUnits(root) : null;
       if (at != null) lastCaret.current = at;
       closeHover();
-      onInspect?.({ hash: token.imageHash, kind: token.t, label: token.t === 'mark' ? chipLabel(chip) : null });
+      onInspect?.({ src: imgUrl(token.imageHash), kind: token.t, label: token.t === 'mark' ? chipLabel(chip) : null });
       return true;
     },
     [onInspect, closeHover],
   );
 
-  const openPicker = useCallback((chip: HTMLElement, kind: ChipSheetKind, caret: number | null, touch: boolean) => {
-    const uid = chip.dataset.uid;
-    if (!uid) return;
-    chip.dataset.open = '';
-    // Every chip that opens a surface carries aria-haspopup; the guard is only
-    // so a chip that somehow has none cannot grow a lying aria-expanded.
-    if (chip.hasAttribute('aria-haspopup')) chip.setAttribute('aria-expanded', 'true');
-    // The warning is about to be said inside the surface. Leaving the title on
-    // would float the same sentence over it on the next hover.
-    chip.removeAttribute('title');
-    setMenu(null);
-    setQuery('');
-    setPicker({ uid, kind, anchor: chip, caret, touch });
-  }, []);
+  const openPicker = useCallback(
+    (chip: HTMLElement, kind: ChipSheetKind, caret: number | null, touch: boolean) => {
+      const uid = chip.dataset.uid;
+      if (!uid) return;
+      // The picker owns the chip now: a peek left over from the hover that led
+      // here must not keep floating beside the surface it opened.
+      closeHover();
+      chip.dataset.open = '';
+      // Every chip that opens a surface carries aria-haspopup; the guard is only
+      // so a chip that somehow has none cannot grow a lying aria-expanded.
+      if (chip.hasAttribute('aria-haspopup')) chip.setAttribute('aria-expanded', 'true');
+      // The warning is about to be said inside the surface. Leaving the title on
+      // would float the same sentence over it on the next hover.
+      chip.removeAttribute('title');
+      setMenu(null);
+      setQuery('');
+      setPicker({ uid, kind, anchor: chip, caret, touch });
+    },
+    [closeHover],
+  );
 
   /**
    * Every way out of the picker, and the only place the caret comes back.
@@ -1208,18 +1214,16 @@ export const BriefInput = forwardRef<
           // the card already says; everything else has a name worth repeating.
           label={hoveredKind === 'ref' ? null : chipLabel(hovered.anchor)}
           warning={hoveredWarning}
-          // The same ask as clicking the chip: a picture opens full size, a
-          // catalog ingredient opens its picker.
+          // One pattern for every card: clicking the preview always opens the
+          // picture full size. The picker stays the chip's own click.
           onOpen={() => {
             const chip = hovered.anchor;
             if (hoveredHash) {
               inspectChip(chip);
               return;
             }
-            if (hoveredPicker && hoveredPicker !== 'color') {
-              closeHover();
-              openPicker(chip, hoveredPicker, null, false);
-            }
+            closeHover();
+            onInspect?.({ src: hoveredSrc, kind: hoveredKind, label: chipLabel(chip) });
           }}
           onHoverIn={hover.keep}
           onHoverOut={hover.close}

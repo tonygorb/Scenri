@@ -691,14 +691,14 @@ export const Composer = forwardRef<
    * `onInspect`. The carried-context strip that also fed this is gone: the
    * shot record above the overlay composer states that context now, once.
    */
-  const [lightbox, setLightbox] = useState<{ hash: string; kind: PreviewKind; label: string | null } | null>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; kind: PreviewKind; label: string | null } | null>(null);
   /** The hover peek on the target chip: the same card, on the same timing, a
       chip in the sentence gets. */
   const targetHover = useHoverPreview<{ anchor: HTMLElement }>();
   const openTargetImage = () => {
     if (!target?.images[0]) return;
     targetHover.closeNow();
-    setLightbox({ hash: target.images[0], kind: 'shot', label: null });
+    setLightbox({ src: imgUrl(target.images[0]), kind: 'shot', label: null });
   };
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' =
@@ -1086,7 +1086,7 @@ export const Composer = forwardRef<
           one can ever be up because it is a modal. */}
       {lightbox && (
         <ImageLightbox
-          src={imgUrl(lightbox.hash)}
+          src={lightbox.src}
           kind={lightbox.kind}
           label={lightbox.label}
           onRestoreFocus={() => briefRef.current?.restoreCaret()}
