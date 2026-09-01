@@ -470,25 +470,48 @@
 
    The card itself carries no padding on purpose (the editable owns it, so a
    click in the padding still lands in the text), so this matches the brief
-   line's own 14px rather than inheriting a gutter that is not there. */
+   line's own 16px frame rather than inheriting a gutter that is not there. */
 .sc-target {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin: 0;
-  padding: 12px 14px 0;
+  padding: var(--sc-space-6) var(--sc-space-6) 0;
 }
 
 /* The version being refined is a real .sc-token, so it inherits the whole
    chip language for free. Only the sizing context differs: a sentence chip
    sizes itself in em against the brief line, and this row is not that, so the
    chip pins its own size. The grab cursor goes too; nothing here drags.
-   Verb first, picture second: "Refining (this)". */
+   What differs on purpose is the color: this is the refine context's blue,
+   the one place the app says "this continues that". Mark, verb, picture. */
 .sc-target-chip {
-  font-size: 12px;
+  font-size: var(--sc-text-body);
   cursor: pointer;
-  padding-left: 0.64em;
+  background: var(--sc-refine-bg);
+  box-shadow: 0 0 0 1px var(--sc-refine-line);
+  color: var(--sc-refine-fg);
+}
+.sc-target-chip > svg {
+  color: var(--sc-refine-ico);
+  flex: none;
+}
+.sc-target-chip:hover,
+.sc-target-chip:focus-visible {
+  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-refine-bg));
+  box-shadow: 0 0 0 1px var(--sc-refine-line);
+}
+/* the X floats over the refine blue, not the grey the base chip fades to */
+.sc-target-chip > button {
+  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-refine-bg));
+  color: var(--sc-refine-fg);
+}
+.sc-target-chip > button::before {
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--sc-fg) 6%, var(--sc-refine-bg)));
+}
+.sc-target-chip > button:hover {
+  color: var(--sc-fg);
 }
 /* the stand-in while the version being refined is still rendering.
    position is load bearing: .sc-shimmer is absolutely positioned, and without
@@ -499,8 +522,8 @@
   flex: none;
   position: relative;
   overflow: hidden;
-  width: 1.2em;
-  height: 1.2em;
+  width: 1.44em;
+  height: 1.44em;
   border-radius: 50%;
   align-self: center;
 }
@@ -514,7 +537,7 @@
    sentence below it instead. */
 .sc-target-note-alone {
   display: block;
-  padding: 10px 14px 0;
+  padding: 10px var(--sc-space-6) 0;
 }
 /* The inferred reshape op, said in two words. Quiet by design: this is a
    state readout beside the shape picker, never a warning and never a second
@@ -522,7 +545,7 @@
    question the geometry already decides. */
 .sc-reshape-hint {
   display: block;
-  padding: 8px 14px 0;
+  padding: 8px var(--sc-space-6) 0;
   font-size: 11px;
   color: var(--sc-fg3);
 }

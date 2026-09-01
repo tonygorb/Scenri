@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Popover, Select, Spinner } from '@radix-ui/themes';
-import { ArrowUp, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
+import { ArrowUp, Infinity as InfinityIcon, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
 import {
   api,
   imgUrl,
@@ -1183,15 +1183,16 @@ export const Composer = forwardRef<
         </div>
       )}
       <div className="sc-promptcard">
-        {/* What this brief is about to do, stated before it does it. Only the
-            hub can drop a target, so only the hub shows the chip: inside the
-            overlay the shot being refined is the whole screen. */}
-        {branchable && onClearTarget && (
+        {/* What this brief is about to do, stated before it does it. Every
+            refine composer wears the chip now, the way the Figma refine states
+            draw it; only the hub can drop the target, so only the hub carries
+            the X. */}
+        {branchable && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
             {/* The version being refined, worn as the one chip pattern the app
-                has: the sentence's own .sc-token, with the shot's picture, the
-                word for what is happening to it, and the X floating over the
-                right edge. Not the shot's prompt: that read as a truncated
+                has: the sentence's own .sc-token in the refine blue, with the
+                infinity mark, the word for what is happening, and the shot's
+                picture. Not the shot's prompt: that read as a truncated
                 instruction, not a name. Hover peeks at the image the way a
                 sentence chip does; click opens it full size. */}
             {/* biome-ignore lint/a11y/useSemanticElements: a <button> cannot hold the remove <button> the chip pattern floats over its right edge; the sentence's own chips are the same span-as-button */}
@@ -1200,7 +1201,11 @@ export const Composer = forwardRef<
               role="button"
               tabIndex={0}
               aria-haspopup="dialog"
-              aria-label={`Version being refined: ${nodeLabel(target)}. Open the image, or remove to make a new shot.`}
+              aria-label={
+                onClearTarget
+                  ? `Version being refined: ${nodeLabel(target)}. Open the image, or remove to make a new shot.`
+                  : `Version being refined: ${nodeLabel(target)}. Open the image.`
+              }
               onPointerEnter={(e) => {
                 if (e.pointerType === 'mouse' && target.images[0]) targetHover.open({ anchor: e.currentTarget });
               }}
@@ -1215,6 +1220,7 @@ export const Composer = forwardRef<
                 }
               }}
             >
+              <InfinityIcon size={18} aria-hidden />
               {/* a version that has just been asked for has no picture yet, and
                   the same shimmer the feed uses says so without a second word */}
               Refining
@@ -1223,26 +1229,22 @@ export const Composer = forwardRef<
               ) : (
                 <span className="sc-target-thumb sc-shimmer" />
               )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  targetHover.closeNow();
-                  onClearTarget();
-                }}
-                aria-label="Make a new shot instead"
-              >
-                <X size={12} />
-              </button>
+              {onClearTarget && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    targetHover.closeNow();
+                    onClearTarget();
+                  }}
+                  aria-label="Make a new shot instead"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </span>
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
-        )}
-        {/* Where there is no chip to carry it, the note still has to be said:
-            inside an open shot this is the only sign that what is about to
-            happen is a new shot rather than a change to the one on screen. */}
-        {branchable && !onClearTarget && targetNote && (
-          <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         {/* The inferred op, stated in two words. The old fieldset asked the
             user to pick Crop or Extend when the geometry already decides
