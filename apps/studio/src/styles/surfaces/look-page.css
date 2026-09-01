@@ -535,15 +535,15 @@
 .sc-ingredient {
   display: inline-flex;
   align-items: center;
-  gap: var(--sc-space-2);
-  max-width: 100%; /* the gap matches .sc-token's 0.32em at its 12.5px scale */
+  gap: var(--sc-space-3);
+  max-width: 100%; /* the gap matches .sc-token's 0.48em at its 12.5px scale */
   /* It copied .sc-token's spacing but not its `nowrap`, so a long ingredient
      name wrapped to a second line *inside* the chip. Ellipsis instead — the
      full name is already on this element's `title`. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: var(--sc-space-1) var(--sc-space-3) var(--sc-space-1) var(--sc-space-1);
+  padding: var(--sc-space-1) var(--sc-space-4) var(--sc-space-1) var(--sc-space-1);
   border-radius: var(--sc-radius-full);
   border: none;
   /* The composer's chip surface, not a near-miss of it. This block's own

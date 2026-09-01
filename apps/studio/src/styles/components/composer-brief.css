@@ -50,8 +50,8 @@
 .sc-token {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.32em;
-  padding: 0.16em 0.48em 0.16em 0.16em;
+  gap: 0.48em;
+  padding: 0.16em 0.64em 0.16em 0.16em;
   border-radius: var(--sc-radius-full);
   border: none;
   background: var(--sc-raised);
@@ -72,6 +72,10 @@
   height: 1.6em;
   border-radius: 50%;
   object-fit: cover;
+  /* Never a shrink item: with a long label under the chip's 24ch cap the
+     browser crushed the picture to a sliver instead of eating the ellipsis.
+     The label truncates; the thumbnail never does. */
+  flex: none;
 }
 /* The media are centered in the chip while the label text carries the
    baseline out — see the align-items note above. */
@@ -331,11 +335,6 @@
    said so, but a tooltip you have to hover to find is not far from silence —
    and an identity that quietly became text is the failure this whole path
    exists to prevent. Amber underline, not red: the generation still runs. */
-.sc-token[data-warn] {
-  /* A full hairline ring, not the old bottom bar: a straight bar inside a
-     fully rounded pill clipped at the corners and read as a rendering bug. */
-  box-shadow: inset 0 0 0 1px var(--sc-warn, #d99a2b);
-}
 /* a template chip wears the mood of its own preview image */
 .sc-token[data-tinted] {
   background: color-mix(in srgb, var(--tint) 16%, var(--sc-panel));
@@ -356,7 +355,7 @@
    the whole sentence reflowed. It now sits on top, behind a soft fade. */
 .sc-token {
   position: relative;
-  padding-right: 0.48em;
+  padding-right: 0.64em;
 }
 .sc-token > button {
   position: absolute;
@@ -433,6 +432,26 @@
 .sc-token[data-tinted]:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
+}
+/* A chip whose reference the chosen engine cannot carry. The tooltip already
+   says so, but a tooltip you have to hover to find is not far from silence.
+   The mark is the tint formula in the warn colour: a warm wash on the chip's
+   own surface, unmistakable on one chip and calm across many, where the old
+   ring read as an error wall the moment an engine's budget dropped a batch.
+   Amber, not red: the generation still runs. Stated after the tinted skins
+   so a warned scene chip says warn, not mood. */
+.sc-token[data-warn] {
+  background: color-mix(in srgb, var(--sc-warn) 14%, var(--sc-token-bg));
+  box-shadow: none;
+}
+.sc-token[data-warn]:hover {
+  background: color-mix(in srgb, var(--sc-warn) 18%, var(--sc-token-hover));
+}
+.sc-token[data-warn] > button {
+  background: color-mix(in srgb, var(--sc-warn) 18%, var(--sc-token-hover));
+}
+.sc-token[data-warn] > button::before {
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--sc-warn) 18%, var(--sc-token-hover)));
 }
 /* The fade lives on the button itself. As a ::before at z-index -1 it painted
    behind the chip's own background, so the label showed straight through the X.

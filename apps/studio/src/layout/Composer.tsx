@@ -187,7 +187,7 @@ export const Composer = forwardRef<
     persistDraft = true,
     // the shell distinction lives in CSS (.sc-ovl-edit scopes the overlay
     // variant); accepted so callers keep declaring which shell they mount
-    variant: _variant = 'dock',
+    variant = 'dock',
   },
   handleRef,
 ) {
@@ -707,7 +707,10 @@ export const Composer = forwardRef<
       scene would start a new shot, and trading the armed refine for a chip as
       a click's side effect is the mode flip this composer refuses. Hub only —
       the overlay has no armed chip to lose. */
-  const scenesSitOut = mode === 'edit' && !!target && !!onClearTarget;
+  // The shell, not the X, decides: inside an open shot a scene still starts a
+  // new shot in place (the note says so), while the hub's attach panel sits
+  // scenes out. The X exists in both shells now, so it cannot be the proxy.
+  const scenesSitOut = mode === 'edit' && !!target && variant !== 'overlay';
   // No reshape tutorial here anymore: the op is inferred, and the whole
   // explanation is the two-word state line rendered beside the shape picker.
   const targetNote = !branchable
@@ -1191,11 +1194,11 @@ export const Composer = forwardRef<
         </div>
       )}
       <div className="sc-promptcard">
-        {/* What this brief is about to do, stated before it does it. Every
-            refine composer wears the chip now, the way the Figma refine states
-            draw it; only the hub can drop the target, so only the hub carries
-            the X. */}
-        {branchable && (
+        {/* What this brief is about to do, stated before it does it. Only the
+            hub wears the chip: inside the overlay the sidebar's own header
+            already names the source, so a second "Refining" would say it
+            twice. */}
+        {branchable && onClearTarget && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
             {/* The version being refined, worn as the one chip pattern the app
                 has: the sentence's own .sc-token as a small inverse card, the
@@ -1209,11 +1212,7 @@ export const Composer = forwardRef<
               role="button"
               tabIndex={0}
               aria-haspopup="dialog"
-              aria-label={
-                onClearTarget
-                  ? `Version being refined: ${nodeLabel(target)}. Open the image, or remove to make a new shot.`
-                  : `Version being refined: ${nodeLabel(target)}. Open the image.`
-              }
+              aria-label={`Version being refined: ${nodeLabel(target)}. Open the image, or remove to make a new shot.`}
               onPointerEnter={(e) => {
                 if (e.pointerType === 'mouse' && target.images[0]) targetHover.open({ anchor: e.currentTarget });
               }}
@@ -1252,6 +1251,12 @@ export const Composer = forwardRef<
             </span>
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
+        )}
+        {/* Where there is no chip to carry it, the note still has to be said:
+            inside an open shot this is the only sign that what is about to
+            happen is a new shot rather than a change to the one on screen. */}
+        {branchable && !onClearTarget && targetNote && (
+          <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         {/* The inferred op, stated in two words. The old fieldset asked the
             user to pick Crop or Extend when the geometry already decides

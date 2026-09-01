@@ -229,8 +229,7 @@ test('a scene inside an open shot starts a new shot rather than editing it', asy
   await attachCards(page).first().click();
 
   await expect(editor.locator('.sc-send')).toHaveAttribute('aria-label', 'Generate');
-  // the overlay wears the Refining chip now, so the note rides beside it
-  await expect(editor.locator('.sc-target .sc-target-note')).toHaveText('A scene starts a new shot.');
+  await expect(page.locator('.sc-target-note-alone')).toHaveText('A scene starts a new shot.');
 });
 
 test('refining points at the version it just made, not the one it started from', async ({ page }) => {
