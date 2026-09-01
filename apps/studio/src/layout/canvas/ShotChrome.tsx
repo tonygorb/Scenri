@@ -1,4 +1,4 @@
-import { Check, DotsThree, PencilLine, Star } from '@phosphor-icons/react';
+import { Check, DotsThree, Infinity as InfinityIcon, Star } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { nodeLabel, type TreeNode } from '../../api.js';
 import type { ShotMenuItem } from './shotMenu.js';
@@ -105,7 +105,9 @@ export function ShotChrome({
               title="Continue from this shot"
               onClick={() => onBranch(node.id)}
             >
-              <PencilLine size={13} />
+              {/* the refine mark: a version thread loops on itself, and the
+                  pencil this used to be said "edit text" more than it said that */}
+              <InfinityIcon size={13} weight="bold" />
               <span className="sc-cell-ctl-lb">Refine</span>
             </button>
           )}

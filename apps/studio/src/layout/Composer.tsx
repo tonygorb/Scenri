@@ -22,7 +22,8 @@ import {
   type SentenceToken,
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
-import type { PreviewKind } from '../composer/ChipPreview.js';
+import { ChipPreview, type PreviewKind } from '../composer/ChipPreview.js';
+import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
 import {
@@ -691,6 +692,14 @@ export const Composer = forwardRef<
    * shot record above the overlay composer states that context now, once.
    */
   const [lightbox, setLightbox] = useState<{ hash: string; kind: PreviewKind; label: string | null } | null>(null);
+  /** The hover peek on the target chip: the same card, on the same timing, a
+      chip in the sentence gets. */
+  const targetHover = useHoverPreview<{ anchor: HTMLElement }>();
+  const openTargetImage = () => {
+    if (!target?.images[0]) return;
+    targetHover.closeNow();
+    setLightbox({ hash: target.images[0], kind: 'shot', label: null });
+  };
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' =
     branchable && !template && (engineCanEdit || cropping || expanding) ? 'edit' : 'generation';
@@ -1062,6 +1071,19 @@ export const Composer = forwardRef<
         />
       )}
 
+      {/* The target chip's hover peek: the same card a sentence chip gets. */}
+      {targetHover.shown && target?.images[0] && (
+        <ChipPreview
+          anchor={targetHover.shown.anchor}
+          kind="shot"
+          src={imgUrl(target.images[0])}
+          onOpen={openTargetImage}
+          onHoverIn={targetHover.keep}
+          onHoverOut={targetHover.close}
+          onClose={targetHover.closeNow}
+        />
+      )}
+
       {attachOpen && (
         <AttachPanel
           brand={brand}
@@ -1142,24 +1164,54 @@ export const Composer = forwardRef<
             overlay the shot being refined is the whole screen. */}
         {branchable && onClearTarget && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            {/* The thumbnail IS the identity — the armed card in the feed
-                wears the same ring. The old prompt-fragment label read as a
-                truncated instruction ("Remove the person. This is a"), which
-                said nothing a picture does not; hover still names it. */}
-            <span className="sc-target-lb" title={nodeLabel(target)}>
-              Refining
+            {/* The version being refined, worn as the one chip pattern the app
+                has: the sentence's own .sc-token, with the shot's picture, the
+                word for what is happening to it, and the X floating over the
+                right edge. Not the shot's prompt: that read as a truncated
+                instruction, not a name. Hover peeks at the image the way a
+                sentence chip does; click opens it full size. */}
+            {/* biome-ignore lint/a11y/useSemanticElements: a <button> cannot hold the remove <button> the chip pattern floats over its right edge; the sentence's own chips are the same span-as-button */}
+            <span
+              className="sc-token sc-target-chip"
+              role="button"
+              tabIndex={0}
+              aria-haspopup="dialog"
+              aria-label={`Version being refined: ${nodeLabel(target)}. Open the image, or remove to make a new shot.`}
+              onPointerEnter={(e) => {
+                if (e.pointerType === 'mouse' && target.images[0]) targetHover.open({ anchor: e.currentTarget });
+              }}
+              onPointerLeave={(e) => e.pointerType === 'mouse' && targetHover.close()}
+              onClick={openTargetImage}
+              onKeyDown={(e) => {
+                // the X inside bubbles its keys up here; only the chip's own
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openTargetImage();
+                }
+              }}
+            >
               {/* a version that has just been asked for has no picture yet, and
                   the same shimmer the feed uses says so without a second word */}
+              Refining
               {target.images[0] ? (
                 <img src={imgUrl(target.images[0])} alt="" />
               ) : (
                 <span className="sc-target-thumb sc-shimmer" />
               )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  targetHover.closeNow();
+                  onClearTarget();
+                }}
+                aria-label="Make a new shot instead"
+              >
+                <X size={12} />
+              </button>
             </span>
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
-            <button type="button" className="sc-target-x" onClick={onClearTarget} aria-label="Make a new shot instead">
-              <X size={12} />
-            </button>
           </div>
         )}
         {/* Where there is no chip to carry it, the note still has to be said:
