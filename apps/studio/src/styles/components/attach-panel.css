@@ -167,19 +167,18 @@
   color: var(--sc-fg2);
   margin-bottom: var(--sc-space-1);
 }
-/* A scene picked while a refine is armed starts a new shot, and the card says
-   so before the click: a quieter picture, a plain note. Not disabled — the
-   switch is a real intent, and it explains itself with a toast and an Undo. */
-.sc-ap-card[data-newshot] .sc-ap-thumb {
-  opacity: 0.55;
+/* Scenes sit out while a refine is armed: visible so the catalog is never a
+   mystery, dimmed and disabled so no click can flip the mode as a side
+   effect. The hint above the grid says how to use one; the card's own title
+   repeats it for a hover. */
+.sc-ap-card:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
-.sc-ap-card[data-newshot]:hover .sc-ap-thumb {
-  opacity: 0.8;
-}
-.sc-ap-note {
-  display: inline-block;
-  font-size: var(--sc-text-micro);
-  color: var(--sc-fg3);
+.sc-ap-hint {
+  margin: 0 0 var(--sc-space-3);
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg2);
 }
 .sc-ap-empty {
   padding: 30px 0;

@@ -72,10 +72,13 @@ export function AttachPanel({
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
   activeProductCategory?: string | null;
   /**
-   * A refine is armed, so a scene would start a new shot instead. The scene
-   * cards say so and dim a little — still clickable, because "this subject
-   * in another scene" is a real intent and the switch already explains
-   * itself with a toast and an Undo.
+   * A refine is armed on the hub, so a scene cannot join: it would start a
+   * new shot, and silently trading the armed refine for a scene chip is the
+   * mode-flip-as-side-effect this panel refuses to do. The scene cards sit
+   * out — visible, dimmed, disabled — and a helper line says how to use one:
+   * end the refine first. Deliberately NOT the overlay composer's rule,
+   * where there is no armed chip to lose and a scene plainly flips the
+   * button to Generate.
    */
   refining?: boolean;
   onToken: (t: SentenceToken) => void;
@@ -243,14 +246,20 @@ export function AttachPanel({
   const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Brand', 'Colors', 'Shots'];
 
   const card = (c: Card) => {
-    const newShot = refining && c.tab === 'Scenes';
+    const sitsOut = refining && c.tab === 'Scenes';
     return (
       <button
         type="button"
         key={c.key}
         className="sc-ap-card"
-        data-newshot={newShot || undefined}
-        title={c.sub ? `${c.label} · ${c.sub}` : c.label}
+        disabled={sitsOut}
+        title={
+          sitsOut
+            ? 'Scenes set up a new shot. Press X on Refining to use one.'
+            : c.sub
+              ? `${c.label} · ${c.sub}`
+              : c.label
+        }
         onClick={c.run}
       >
         {c.swatch ? (
@@ -264,7 +273,6 @@ export function AttachPanel({
         )}
         {c.recommended && <span className="sc-ap-rec">Recommended</span>}
         <b dir="auto">{c.label}</b>
-        {newShot && <span className="sc-ap-note">Restages into a new shot</span>}
       </button>
     );
   };
@@ -320,6 +328,11 @@ export function AttachPanel({
       </div>
 
       <div className="sc-ap-body">
+        {refining && tab === 'Scenes' && (
+          <p className="sc-ap-hint">
+            Scenes set up a new shot, so they sit out while you are refining. Press X on Refining to use one.
+          </p>
+        )}
         {shown.length === 0 && <div className="sc-ap-empty">Nothing matches{q.trim() ? ` "${q.trim()}"` : ''}.</div>}
         {tab === 'All' ? (
           groups.map((g) => {

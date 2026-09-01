@@ -45,19 +45,3 @@ describe('resolveSceneSwitch', () => {
     expect(result.toast?.title).toBe('Switched to Scene A. This starts a new shot instead of refining that shot.');
   });
 });
-
-describe('a scene over a refine is a restage', () => {
-  it('says the shot rides along when identity chips carry', () => {
-    const result = resolveSceneSwitch(null, 'scene-a', 'Scene A', 'n1', 'Rooftop Vase', 3);
-    expect(result.changed).toBe(true);
-    expect(result.toast?.title).toBe('Restaging in Scene A: a new shot, carrying what Rooftop Vase used.');
-    expect(result.toast?.branchWasCleared).toBe(true);
-  });
-
-  it('keeps the plain new-shot wording when nothing carries', () => {
-    const result = resolveSceneSwitch(null, 'scene-a', 'Scene A', 'n1', 'Rooftop Vase', 0);
-    expect(result.toast?.title).toBe(
-      'Switched to Scene A. This starts a new shot instead of refining Rooftop Vase.',
-    );
-  });
-});

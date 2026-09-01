@@ -390,11 +390,11 @@ test('a version still rendering holds the button rather than making a new shot',
   await expect(dock(page).locator('.sc-send')).toHaveAttribute('title', /Wait for this version to finish/);
 });
 
-test('re-arming a refine wins over a scene chip instead of being refused', async ({ page }) => {
-  // A scene landing while a refine is armed drops the branch: the fresh setup
-  // wins. The reverse used to be a deadlock — pressing Refine with a scene
-  // chip in the sentence was silently refused, over and over, until the chip
-  // was removed by hand. Whichever the user asked for LAST wins now.
+test('scenes sit out while a refine is armed, and come back when it ends', async ({ page }) => {
+  // A scene starts a new shot, so letting one land mid-refine silently traded
+  // the armed refine for a chip — a mode flip as a click's side effect. The
+  // panel now says so instead: cards visible, dimmed, disabled, with the way
+  // out written above them. Ending the refine restores them.
   await expect(page.locator('.sc-cell').first()).toBeVisible();
   await page.locator('.sc-cell').first().hover();
   await page.locator('.sc-cell-branch').first().click();
@@ -402,11 +402,28 @@ test('re-arming a refine wins over a scene chip instead of being refused', async
 
   await page.locator('.sc-attach-toggle').first().click();
   await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
-  await attachCards(page).first().click();
+  await expect(page.locator('.sc-ap-hint')).toContainText('sit out while you are refining');
+  await expect(attachCards(page).first()).toBeDisabled();
+
+  // X on the refine chip ends it (the click outside also closes the panel);
+  // reopened, the catalog is back in business with no hint
+  await page.locator('.sc-target-chip button').click();
   await expect(page.locator('.sc-target')).toHaveCount(0);
+  await page.locator('.sc-attach-toggle').first().click();
+  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
+  await expect(attachCards(page).first()).toBeEnabled();
+});
+
+test('arming a refine lets a lingering scene chip go', async ({ page }) => {
+  // The other direction stays: a scene chip in a FRESH sentence loses to an
+  // explicit Refine press on a card — it used to be refused over and over
+  // until the chip was removed by hand.
+  await page.locator('.sc-attach-toggle').first().click();
+  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await attachCards(page).first().click();
   await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(1);
 
-  // the attach panel is still open over the feed; put it away first
   await page.keyboard.press('Escape');
   await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
   await page.locator('.sc-cell').first().hover();

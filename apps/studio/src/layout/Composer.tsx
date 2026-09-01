@@ -17,7 +17,6 @@ import {
   BriefInput,
   emptySentence,
   FORMATS,
-  identityKeyOf,
   type BriefInputHandle,
   type BriefToken,
   type SentenceToken,
@@ -522,32 +521,14 @@ export const Composer = forwardRef<
       const existingSceneId = template?.id ?? null;
       const branchId = target?.id ?? null;
       const sceneName = templates.find((t) => t.id === sceneId)?.name ?? 'this scene';
-      // A scene over a refine is a RESTAGE: the armed shot's identity rides
-      // into the new brief instead of evaporating with the branch. Identity
-      // kinds only — a carried ref is the old world's composition, and the
-      // scene brings the new world. Same canonical own-plus-carried set the
-      // reuse-setup path reads, minus whatever is already in the sentence.
-      const restaged =
-        branchId && target
-          ? briefTokens({
-              tokens: ((target.brief as { tokens?: BriefToken[] })?.tokens ?? []) as BriefToken[],
-              inherited: (target.brief as { inherited?: BriefToken[] })?.inherited,
-            })
-              .filter((t) => t.t === 'product' || t.t === 'character' || t.t === 'mark')
-              .filter((t) => !sentence.some((s) => s.t !== 'text' && identityKeyOf(s) === identityKeyOf(t)))
-          : [];
       const result = resolveSceneSwitch(
         existingSceneId,
         sceneId,
         sceneName,
         branchId,
         target ? nodeLabel(target) : null,
-        restaged.length,
       );
       if (!result.changed) return;
-      // the whole sentence as it stood, so Undo can put back exactly this
-      const before = sentence;
-      for (const tok of restaged) briefRef.current?.insert(tok);
       briefRef.current?.insert({ t: 'template', id: sceneId });
       if (result.toast) {
         const toast = result.toast;
@@ -557,20 +538,15 @@ export const Composer = forwardRef<
           action: {
             label: 'Undo',
             onClick: () => {
-              if (toast.branchWasCleared) {
-                // restage undo: the exact sentence back, chips and all
-                briefRef.current?.setTokens(before);
-                if (branchId) onRestoreBranchId?.(branchId);
-                return;
-              }
               if (toast.prevSceneId) briefRef.current?.insert({ t: 'template', id: toast.prevSceneId });
               else briefRef.current?.removeTemplate();
+              if (toast.branchWasCleared && branchId) onRestoreBranchId?.(branchId);
             },
           },
         });
       }
     },
-    [template, target, templates, sentence, push, onRestoreBranchId],
+    [template, target, templates, push, onRestoreBranchId],
   );
 
   useImperativeHandle(handleRef, () => ({
@@ -727,6 +703,11 @@ export const Composer = forwardRef<
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' =
     branchable && !template && (engineCanEdit || cropping || expanding) ? 'edit' : 'generation';
+  /** The hub has a refine armed, so scenes sit out of every attach door: a
+      scene would start a new shot, and trading the armed refine for a chip as
+      a click's side effect is the mode flip this composer refuses. Hub only —
+      the overlay has no armed chip to lose. */
+  const scenesSitOut = mode === 'edit' && !!target && !!onClearTarget;
   // No reshape tutorial here anymore: the op is inferred, and the whole
   // explanation is the two-word state line rendered beside the shape picker.
   const targetNote = !branchable
@@ -1130,7 +1111,7 @@ export const Composer = forwardRef<
         <AttachPanel
           brand={brand}
           activeProductCategory={activeProductCategory}
-          refining={mode === 'edit' && !!target}
+          refining={scenesSitOut}
           shots={shots}
           initialTab={attachTab}
           id={attachPanelId}
@@ -1281,6 +1262,7 @@ export const Composer = forwardRef<
           presenters={presenters}
           demoProducts={demoProducts}
           onTemplatePick={applyScene}
+          scenesSitOut={scenesSitOut}
           flag={flagToken}
           onInspect={(image) => setLightbox(image)}
           onAttachRequest={(tab) => openAttach(tab)}

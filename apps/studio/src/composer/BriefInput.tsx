@@ -115,6 +115,9 @@ export const BriefInput = forwardRef<
     demoProducts: DemoProduct[];
     /** A Scene picked from the attach panel or the chip picker goes through here, not straight to `place()` — this is the one shared attach policy every entry point shares. */
     onTemplatePick: (id: string) => void;
+    /** The hub has a refine armed, so scenes sit out of the sigil menus too —
+     * same restriction the attach panel shows, so no door disagrees. */
+    scenesSitOut?: boolean;
     placeholder: string;
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
@@ -149,6 +152,7 @@ export const BriefInput = forwardRef<
     presenters,
     demoProducts,
     onTemplatePick,
+    scenesSitOut,
     placeholder,
     placeholderSm,
     flag,
@@ -682,7 +686,7 @@ export const BriefInput = forwardRef<
       {
         products: buildCandidates('product', catalog),
         presenters: buildCandidates('presenter', catalog),
-        scenes: buildCandidates('scene', catalog),
+        scenes: scenesSitOut ? [] : buildCandidates('scene', catalog),
         colors: flattenPalette(brand.json?.palette),
       },
       { query, bookmarked },
@@ -690,7 +694,7 @@ export const BriefInput = forwardRef<
       ...c,
       run: () => (c.token.t === 'template' ? onTemplatePick(c.token.id) : placeRef.current(c.token)),
     }));
-  }, [menu, catalog, query, bookmarked, onTemplatePick, brand.json?.palette]);
+  }, [menu, catalog, query, bookmarked, onTemplatePick, scenesSitOut, brand.json?.palette]);
 
   const onClick = (e: React.MouseEvent) => {
     const root = rootRef.current;
