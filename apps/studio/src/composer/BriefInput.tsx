@@ -261,6 +261,8 @@ export const BriefInput = forwardRef<
           el.dataset.tinted = 'true';
           el.style.setProperty('--tint', tint);
         }
+        // A brand-owned scene wears the iris treatment, never the catalog tint.
+        if (t && 'custom' in t && t.custom) el.dataset.custom = '1';
       } else if (token.t === 'product') {
         const p = products.find((x) => x.id === token.id);
         const d = p ? null : demoProducts.find((x) => x.id === token.id);

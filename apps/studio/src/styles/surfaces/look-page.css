@@ -608,6 +608,17 @@
   background: color-mix(in srgb, var(--tint) 14%, var(--sc-token-bg));
   box-shadow: none;
 }
+/* a brand-owned scene wears the composer's iris pair, verbatim */
+.sc-ingredient[data-kind="scene"][data-custom] {
+  background: var(--sc-iris-bg);
+  color: var(--sc-iris-fg);
+}
+a.sc-ingredient[data-kind="scene"][data-custom]:hover,
+button.sc-ingredient[data-kind="scene"][data-custom]:hover,
+.sc-ingredient[data-kind="scene"][data-custom][data-open] {
+  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-iris-bg));
+  color: var(--sc-iris-fg);
+}
 
 /* An ingredient with a catalog page is a way into it. Everything visual stays
    put; only the pointer and the hover say the chip does something. */

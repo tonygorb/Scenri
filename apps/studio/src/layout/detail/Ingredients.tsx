@@ -103,6 +103,8 @@ export function BriefLine({
     inherited?: boolean;
     /** The thread's world, kept through the photograph rather than any token. */
     world?: boolean;
+    /** A brand-owned scene, wearing the iris treatment the composer gives it. */
+    custom?: boolean;
   };
 
   const chipOf = (t: any, inherited: boolean): Chip | null => {
@@ -145,7 +147,8 @@ export function BriefLine({
     }
     if (t?.t === 'template') {
       // The brand's own scenes first, the same precedence the compiler uses.
-      const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
+      const own = ownScenes.find((x) => x.id === t.id);
+      const s = own ?? scenes.find((x) => x.id === t.id);
       return {
         key: `t${t.id}`,
         kind: 'scene',
@@ -156,6 +159,7 @@ export function BriefLine({
         // The composer tints a scene chip with the scene's own preview
         // colour; the record of that shot says it the same way.
         tint: normalizeTint(s?.previewColor),
+        custom: !!own,
       };
     }
     if (t?.t === 'color') {
@@ -222,6 +226,7 @@ export function BriefLine({
           data-tinted={c.tint ? '' : undefined}
           data-inherited={c.inherited || undefined}
           data-world={c.world || undefined}
+          data-custom={c.custom ? '1' : undefined}
           style={style}
           data-open={open || undefined}
           title={open ? undefined : (said ?? `${c.label}. Preview.`)}
@@ -254,6 +259,7 @@ export function BriefLine({
         data-tinted={c.tint ? '' : undefined}
         data-inherited={c.inherited || undefined}
         data-world={c.world || undefined}
+        data-custom={c.custom ? '1' : undefined}
         style={style}
         title={said ?? `${c.kind}: ${c.label}`}
       >

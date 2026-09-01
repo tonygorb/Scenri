@@ -431,6 +431,17 @@
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
+/* A brand-owned scene is its own thing, not a catalog mood: the iris pair,
+   stated over any tint the catalog formula would have mixed. */
+.sc-token[data-kind="template"][data-custom] {
+  background: var(--sc-iris-bg);
+  color: var(--sc-iris-fg);
+}
+.sc-token[data-kind="template"][data-custom]:hover,
+.sc-token[data-kind="template"][data-custom][data-open],
+.sc-token[data-kind="template"][data-custom]:focus-visible {
+  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-iris-bg));
+}
 /* The fade lives on the button itself. As a ::before at z-index -1 it painted
    behind the chip's own background, so the label showed straight through the X.
    The hit area is the glyph, not the fade: at 30px it covered a third of the
@@ -466,6 +477,13 @@
 }
 .sc-token[data-tinted] > button::before {
   background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover)));
+}
+.sc-token[data-kind="template"][data-custom] > button {
+  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-iris-bg));
+  color: var(--sc-iris-fg);
+}
+.sc-token[data-kind="template"][data-custom] > button::before {
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--sc-fg) 6%, var(--sc-iris-bg)));
 }
 /* ---------- the brief is one editable line (5.4) ----------
    Single contenteditable root: native select-all, copy, cut and paste work
