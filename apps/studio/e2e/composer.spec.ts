@@ -383,8 +383,37 @@ test('a version still rendering holds the button rather than making a new shot',
   await page.locator('.sc-brief-line').first().click();
   await page.keyboard.type('crop tighter');
 
-  await expect(page.locator('.sc-target-note')).toHaveText('Still rendering. This can be refined the moment it lands.');
+  // No sentence any more: the chip's shimmer says it, and the held button's
+  // own tooltip explains itself. The hold is the contract being tested.
+  await expect(page.locator('.sc-target-note')).toHaveCount(0);
   await expect(dock(page).locator('.sc-send')).toHaveAttribute('aria-disabled', 'true');
+  await expect(dock(page).locator('.sc-send')).toHaveAttribute('title', /Wait for this version to finish/);
+});
+
+test('re-arming a refine wins over a scene chip instead of being refused', async ({ page }) => {
+  // A scene landing while a refine is armed drops the branch: the fresh setup
+  // wins. The reverse used to be a deadlock — pressing Refine with a scene
+  // chip in the sentence was silently refused, over and over, until the chip
+  // was removed by hand. Whichever the user asked for LAST wins now.
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().hover();
+  await page.locator('.sc-cell-branch').first().click();
+  await expect(page.locator('.sc-target')).toBeVisible();
+
+  await page.locator('.sc-attach-toggle').first().click();
+  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await attachCards(page).first().click();
+  await expect(page.locator('.sc-target')).toHaveCount(0);
+  await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(1);
+
+  // the attach panel is still open over the feed; put it away first
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+  await page.locator('.sc-cell').first().hover();
+  await page.locator('.sc-cell-branch').first().click();
+  await expect(page.locator('.sc-target')).toBeVisible();
+  await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(0);
+  await expect(dock(page).locator('.sc-send')).toHaveAttribute('aria-label', 'Refine');
 });
 
 test('typing after a chip added from the plus menu', async ({ page }) => {

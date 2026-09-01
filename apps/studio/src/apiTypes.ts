@@ -548,5 +548,7 @@ export interface BriefPreview {
     hash: string;
     essential?: boolean;
     inherited?: boolean;
+    /** Why it did not ride: lost the budget, or never had a usable photo. */
+    reason?: 'budget' | 'missing';
   }[];
 }

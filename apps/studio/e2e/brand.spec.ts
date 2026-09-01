@@ -410,18 +410,15 @@ test.describe('brand kit', () => {
     await brandGroup.locator('.sc-ap-card', { hasText: 'E2E Fixture logo' }).click();
 
     // The demo engine reads no references, and the chip says so instead of
-    // silently riding along as decoration that never arrives.
+    // silently riding along as decoration that never arrives. Plain words
+    // with a remedy — the "rides as text only" transport chatter is gone.
     const markChip = page.locator('.sc-brief-line .sc-token[data-kind="mark"]');
     await expect(markChip).toHaveCount(1);
     await expect(markChip).toHaveAttribute('data-warn', '1');
-    await expect(markChip).toHaveAttribute('title', /cannot read the brand mark/);
+    await expect(markChip).toHaveAttribute('title', /won't reach .* Choose an engine that reads images/);
 
-    // And the loss is stated at card level before sending, not only behind a
-    // hover: the composer's own line names the mark that will ride as text.
-    const dropNote = page.locator('.sc-reshape-hint[data-kind="dropped-refs"]');
-    await expect(dropNote).toBeVisible();
-    await expect(dropNote).toContainText('E2E Fixture logo');
-    await expect(dropNote).toContainText('text only');
+    // The chip is the whole story now: no card-level transport sentence.
+    await expect(page.locator('.sc-reshape-hint[data-kind="dropped-refs"]')).toHaveCount(0);
   });
 });
 

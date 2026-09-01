@@ -713,9 +713,10 @@ export const Composer = forwardRef<
         ? null
         : !engineCanEdit
           ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
-          : targetPending
-            ? 'Still rendering. This can be refined the moment it lands.'
-            : null;
+          : // A version still rendering used to add a sentence here; the chip's
+            // own shimmer already says it, and the held send button's tooltip
+            // (blockedReason) explains itself to anyone who asks.
+            null;
 
   /**
    * What is currently set, so the one control can still say it out loud.
@@ -743,13 +744,27 @@ export const Composer = forwardRef<
 
   /**
    * A scene is a fresh setup, so it cannot also be an edit of an existing shot.
-   * Rather than explain that in a sentence nobody asked for, the branch simply
-   * lets go: the scene chip appears and the branch chip disappears, which is the
-   * same fact told in the place you are already looking.
+   * Rather than explain that in a sentence nobody asked for, the LOSER simply
+   * lets go, and which side loses is whichever the user asked for first: a
+   * scene landing while a refine is armed drops the branch chip; re-arming a
+   * refine while a scene chip sits in the sentence drops the scene chip. The
+   * old rule made the scene win both ways, so pressing Refine with a scene
+   * attached was refused over and over until the chip was removed by hand.
+   * Both refs start undefined so a mount that restores both (a draft's scene
+   * plus a ?branch= URL) resolves the old way: the scene wins.
    */
+  const prevTargetId = useRef<string | null | undefined>(undefined);
+  const prevTemplateId = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (template && branchable && onClearTarget) onClearTarget();
-  }, [template, branchable, onClearTarget]);
+    const targetId = branchable ? (target?.id ?? null) : null;
+    const targetChanged = targetId !== prevTargetId.current && prevTargetId.current !== undefined;
+    prevTargetId.current = targetId;
+    const templateChanged = templateTokenId !== prevTemplateId.current;
+    prevTemplateId.current = templateTokenId;
+    if (!template || !branchable) return;
+    if (targetChanged && !templateChanged && targetId) briefRef.current?.removeTemplate();
+    else onClearTarget?.();
+  }, [template, templateTokenId, branchable, target, onClearTarget]);
   // A scene that wants a product still runs without one: it says "the product"
   // instead. Nine of ten ask for one, so refusing here meant a brand with no
   // products could never generate at all. Warn, allow.
@@ -757,13 +772,6 @@ export const Composer = forwardRef<
   // The phrase is the compiler's, from packages/cli/src/brief.ts: change the
   // wording there and this stops matching, with nothing to say it has.
   const blocking = preview?.warnings.filter((w) => w.includes('built around a product')) ?? [];
-  // Identity the engine cap left out, stated BEFORE send. Structural data from
-  // the compiler's own preview (never prose-matched warnings), the same source
-  // the carried strip uses. Scene refs degrade quietly by design.
-  const lostRefs = useMemo(() => {
-    const dropped = (preview?.dropped ?? []).filter((d) => d.role !== 'scene');
-    return [...new Set(dropped.map((d) => d.label))];
-  }, [preview]);
   // the workspace arrives a beat after the screen does, and typing is faster
   // than a round trip: without this the first brief of a cold load could be sent
   // into nothing and come back as an error the user did nothing to cause.
@@ -903,13 +911,19 @@ export const Composer = forwardRef<
   const flagToken = (t: BriefToken): string | null => {
     if (t.t === 'template') return templateFlag;
     if (!preview) return null;
+    const engineName = engine?.displayName ?? 'this engine';
+    // A photo that does not exist has a different remedy than a photo the
+    // engine cannot take: the chip says the one the user can act on. The
+    // compiler classifies the loss (`reason`), the chip only speaks it.
+    const missingIdentity = (role: 'product' | 'character', id: string) =>
+      preview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
     if (t.t === 'ref' && !preview.attachments.some((a) => a.hash === t.imageHash)) {
-      return `${engine?.displayName ?? 'This engine'} cannot read this reference, so it is left out.`;
+      return `This reference won't reach ${engineName}. Choose an engine that reads images, or remove it.`;
     }
     // The brand mark is an attachment like any other, and it used to be the
     // one kind that could be dropped with no mark on its chip at all.
     if (t.t === 'mark' && !preview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
-      return `${engine?.displayName ?? 'This engine'} cannot read the brand mark, so it is left out.`;
+      return `The brand mark won't reach ${engineName}, so the logo can't be drawn from it. Choose an engine that reads images.`;
     }
     // A tiny mark rides, but its fine lettering is already subpixel: the
     // compiler measured the stored file and said so (the 'px across' phrase
@@ -928,7 +942,9 @@ export const Composer = forwardRef<
       // descriptive phrase the compiler labels the attachment with, and two
       // products may legitimately share a name.
       if (p && !preview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
-        return `${engine?.displayName ?? 'This engine'} cannot read the product image, so ${p.name} rides as text only.`;
+        return missingIdentity('product', p.id)
+          ? `${p.name} has no usable photo. Re-add one, or remove this.`
+          : `${p.name}'s photo won't reach ${engineName}. Choose an engine that reads images.`;
       }
     }
     // A presenter is an identity too. Without this, a face the engine could not
@@ -937,7 +953,9 @@ export const Composer = forwardRef<
     if (t.t === 'character') {
       const c = presenters.find((x) => x.id === t.id);
       if (c && !preview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
-        return `${engine?.displayName ?? 'This engine'} cannot read the person reference, so ${c.name} rides as text only.`;
+        return missingIdentity('character', c.id)
+          ? `${c.name} has no usable photo. Re-add one, or remove this.`
+          : `${c.name}'s photo won't reach ${engineName}. Choose an engine that reads images.`;
       }
     }
     return null;
@@ -1227,15 +1245,6 @@ export const Composer = forwardRef<
         {reshapeChoiceOpen && (cropping || expanding) && (
           <small className="sc-reshape-hint" aria-live="polite">
             {cropping ? 'Will crop to' : 'Will extend to'} {targetShapeLabel}
-          </small>
-        )}
-        {/* What the engine cap leaves out, said before the money is spent. The
-            chip tooltip and the post-send toast already say it; this is the
-            card-level line so the loss is never only behind a hover. */}
-        {lostRefs.length > 0 && (
-          <small className="sc-reshape-hint" data-kind="dropped-refs" aria-live="polite">
-            {engineLabel} cannot carry {lostRefs.join(' and ')} as {lostRefs.length === 1 ? 'an image' : 'images'}, so{' '}
-            {lostRefs.length === 1 ? 'it rides' : 'they ride'} as text only.
           </small>
         )}
         <BriefInput

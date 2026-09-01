@@ -154,6 +154,14 @@ const RULES: Rule[] = [
     retryable: false,
   },
   {
+    // The other identity refusal: the photo does not exist, so no engine
+    // choice can help — the server's sentence already says what to re-add.
+    re: /no usable photo/i,
+    kind: 'references',
+    title: () => '',
+    retryable: false,
+  },
+  {
     re: /cannot produce the requested aspect ratio|engine returned \d+x\d+ for a \d+x\d+ request/i,
     kind: 'format',
     title: (e) => `${cap(e)} cannot make this shape.`,
