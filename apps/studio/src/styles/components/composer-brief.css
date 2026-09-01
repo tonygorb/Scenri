@@ -157,10 +157,11 @@
   }
 }
 /* A mark is usually dark art on transparency, which is invisible on a dark
-   chip — and it is a logo, so cropping it to a circle is worse than shrinking
-   it. Ground it in white and letterbox instead. */
+   chip. Ground it in a white circle and letterbox with `contain`: the artwork
+   is never cover-cropped, and the slot keeps the thumbnail family's circle
+   the way the Figma brand chip draws it. */
 .sc-token[data-kind="mark"] img {
-  border-radius: var(--sc-radius-xs);
+  border-radius: 50%;
   object-fit: contain;
   background: #fff;
 }
