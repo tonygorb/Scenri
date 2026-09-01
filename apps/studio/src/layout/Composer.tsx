@@ -280,7 +280,7 @@ export const Composer = forwardRef<
   const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, 2);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [preview, setPreview] = useState<BriefPreview | null>(null);
+  const [preview, setPreview] = useState<(BriefPreview & { forBrief: unknown }) | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTab, setAttachTab] = useState<AttachTab>('All');
   const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, 'standard');
@@ -823,10 +823,13 @@ export const Composer = forwardRef<
       return;
     }
     if (debounce.current) clearTimeout(debounce.current);
+    // The answer is stamped with the brief it describes: a chip pasted while
+    // an older preview is still current must not be judged against it.
+    const requested = brief;
     debounce.current = setTimeout(() => {
       void api
         .previewBrief(brief, engineId, brand.id, refining ? target.id : undefined)
-        .then(setPreview)
+        .then((p) => setPreview({ ...p, forBrief: requested }))
         .catch(() => setPreview(null));
     }, 280);
     return () => {
@@ -902,7 +905,12 @@ export const Composer = forwardRef<
     }
   };
 
-  // warnings live ON the affected chip, not as sentences in the card
+  // warnings live ON the affected chip, not as sentences in the card.
+  // Only a preview that answered THIS brief may flag anything: a chip pasted
+  // while an older answer was current is simply absent from that answer, and
+  // judging it against one flashed a false amber underline until the
+  // debounced refresh landed.
+  const settledPreview = preview && preview.forBrief === brief ? preview : null;
   const templateFlag = !template
     ? null
     : blocking.length > 0
@@ -910,31 +918,31 @@ export const Composer = forwardRef<
       : // The person half of the same compiler warning had no chip to sit on,
         // so a scene needing a presenter said nothing at all until the picture
         // came back with a stranger in it.
-        (preview?.warnings.some((w) => w.includes('built around a person')) ?? false)
+        (settledPreview?.warnings.some((w) => w.includes('built around a person')) ?? false)
         ? 'This scene builds around a person. Attach a presenter.'
         : null;
   const flagToken = (t: BriefToken): string | null => {
     if (t.t === 'template') return templateFlag;
-    if (!preview) return null;
+    if (!settledPreview) return null;
     const engineName = engine?.displayName ?? 'this engine';
     // A photo that does not exist has a different remedy than a photo the
     // engine cannot take: the chip says the one the user can act on. The
     // compiler classifies the loss (`reason`), the chip only speaks it.
     const missingIdentity = (role: 'product' | 'character', id: string) =>
-      preview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
-    if (t.t === 'ref' && !preview.attachments.some((a) => a.hash === t.imageHash)) {
+      settledPreview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
+    if (t.t === 'ref' && !settledPreview.attachments.some((a) => a.hash === t.imageHash)) {
       return `This reference won't reach ${engineName}. Choose an engine that reads images, or remove it.`;
     }
     // The brand mark is an attachment like any other, and it used to be the
     // one kind that could be dropped with no mark on its chip at all.
-    if (t.t === 'mark' && !preview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
+    if (t.t === 'mark' && !settledPreview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
       return `The brand mark won't reach ${engineName}, so the logo can't be drawn from it. Choose an engine that reads images.`;
     }
     // A tiny mark rides, but its fine lettering is already subpixel: the
     // compiler measured the stored file and said so (the 'px across' phrase
     // is the contract, same pattern as 'built around a person' above).
     if (t.t === 'mark') {
-      const small = preview.warnings.find((w) => w.includes('px across'));
+      const small = settledPreview.warnings.find((w) => w.includes('px across'));
       if (small) return small;
     }
     if (t.t === 'product') {
@@ -946,7 +954,7 @@ export const Composer = forwardRef<
       // Match on id, never on label: a display name is free to differ from the
       // descriptive phrase the compiler labels the attachment with, and two
       // products may legitimately share a name.
-      if (p && !preview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
+      if (p && !settledPreview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
         return missingIdentity('product', p.id)
           ? `${p.name} has no usable photo. Re-add one, or remove this.`
           : `${p.name}'s photo won't reach ${engineName}. Choose an engine that reads images.`;
@@ -957,7 +965,7 @@ export const Composer = forwardRef<
     // silence the product case above already fixed.
     if (t.t === 'character') {
       const c = presenters.find((x) => x.id === t.id);
-      if (c && !preview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
+      if (c && !settledPreview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
         return missingIdentity('character', c.id)
           ? `${c.name} has no usable photo. Re-add one, or remove this.`
           : `${c.name}'s photo won't reach ${engineName}. Choose an engine that reads images.`;

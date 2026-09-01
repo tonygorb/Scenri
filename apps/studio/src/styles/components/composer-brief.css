@@ -332,7 +332,9 @@
    and an identity that quietly became text is the failure this whole path
    exists to prevent. Amber underline, not red: the generation still runs. */
 .sc-token[data-warn] {
-  box-shadow: inset 0 -2px 0 var(--sc-warn, #d99a2b);
+  /* A full hairline ring, not the old bottom bar: a straight bar inside a
+     fully rounded pill clipped at the corners and read as a rendering bug. */
+  box-shadow: inset 0 0 0 1px var(--sc-warn, #d99a2b);
 }
 /* a template chip wears the mood of its own preview image */
 .sc-token[data-tinted] {
@@ -476,6 +478,26 @@
   max-height: 30vh;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+/* More brief below the fold: the text dissolves into the card instead of
+   hard-clipping against the toolbar. Sticky, so it rides the visible bottom
+   of the scroller; net-zero height, so it adds no scrollable pixel; no
+   pointer events, so the last line stays clickable through it. BriefInput
+   sets data-more from the scroll numbers. */
+.sc-brief::after {
+  content: "";
+  display: block;
+  position: sticky;
+  bottom: 0;
+  height: var(--sc-space-8);
+  margin-top: calc(-1 * var(--sc-space-8));
+  background: linear-gradient(to bottom, transparent, var(--sc-panel));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-brief[data-more]::after {
+  opacity: 1;
 }
 .sc-brief-line {
   outline: none;
