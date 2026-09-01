@@ -542,9 +542,19 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 .sc-brief-line {
+  /* No bottom padding: the editor scrolls, and any padding living on the
+     line rides away with the content. The toolbar band below carries the
+     16px seam instead, so scrolled text always stops a full step above the
+     controls. Same total rhythm, stated on the static element. */
   font-size: var(--sc-text-input);
-  padding: var(--sc-space-6) var(--sc-space-6) var(--sc-space-4);
+  padding: var(--sc-space-6) var(--sc-space-6) 0;
   min-height: 24px;
+}
+/* When the Refining band sits above, the band's own bottom padding is the
+   gap, so the line starts flush; its top padding would double the space and,
+   worse, scroll away with the content. */
+.sc-target ~ .sc-brief .sc-brief-line {
+  padding-top: 0;
 }
 @media (max-width: 767px) {
   .sc-brief-line {

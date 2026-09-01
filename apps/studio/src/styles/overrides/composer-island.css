@@ -9,7 +9,10 @@
   border-radius: var(--sc-radius-float);
 }
 .sc-prompt-row {
-  padding: var(--sc-space-4) var(--sc-space-6) var(--sc-space-6);
+  /* The full 16px seam above the controls lives HERE, not on the editor:
+     the editor scrolls and would carry it away. Band arithmetic still lands
+     the Figma frames' exact 118px empty composer. */
+  padding: var(--sc-space-6);
   gap: var(--sc-space-6);
   /* bottoms meet: the 40px attach disc and the 44px right controls share the
      row's lower edge, the alignment the Figma toolbar draws */

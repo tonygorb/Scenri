@@ -477,7 +477,10 @@
   gap: 8px;
   flex-wrap: wrap;
   margin: 0;
-  padding: var(--sc-space-6) var(--sc-space-6) 0;
+  /* The band owns its whole 16px frame, top and bottom: the editor below
+     scrolls, and padding that lived on the scrolling line rode away with it,
+     leaving scrolled text jammed against the chip. */
+  padding: var(--sc-space-6);
 }
 
 /* The version being refined is a real .sc-token, so it inherits the whole
