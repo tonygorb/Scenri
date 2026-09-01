@@ -4,7 +4,7 @@ import { imgUrl, type TreeNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
 // one clock for the whole app: the canvas and the bell must not disagree
-import { elapsedSec, runningPhrase } from '../tasks.js';
+import { elapsedLabel, elapsedSec, runningPhrase } from '../tasks.js';
 // the feed's running tiles hold the same shape, from the same source
 import { aspectOfFormat } from '../composer/formats.js';
 
@@ -100,8 +100,15 @@ export function StageFrame({
       <div className="sc-stage-wait" style={{ '--sc-wait-ar': aspectOf(node) } as CSSProperties}>
         <span className="sc-shimmer" />
         <div className="sc-stage-wait-say">
-          <span className="sc-stage-wait-t">
-            {runningPhrase(node.createdAt)}, {elapsedSec(node.createdAt)}s
+          {/* The counter alone: the shimmer says "generating", and the words
+              beside the number read as noise on a phone. The escalating
+              phrase still reaches assistive tech. */}
+          <span
+            className="sc-stage-wait-t"
+            role="status"
+            aria-label={`${runningPhrase(node.createdAt)}, ${elapsedSec(node.createdAt)} seconds`}
+          >
+            {elapsedLabel(node.createdAt)}
           </span>
           {onCancel && (
             <button

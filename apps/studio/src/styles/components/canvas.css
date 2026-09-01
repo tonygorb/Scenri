@@ -561,10 +561,18 @@
   position: absolute;
   inset: 0;
 }
-.sc-cell[data-running] .sc-cell-retry {
+/* The running tile's Cancel wears the shared control skin and never hides:
+   there is no hover on a phone, and a render you cannot stop is a bug. */
+.sc-cell[data-running] .sc-cell-cancel {
   position: absolute;
   right: 10px;
   bottom: 10px;
+  opacity: 1;
+  padding: 0 12px;
+}
+.sc-cell-cancel[data-urgent] {
+  color: var(--sc-gold);
+  background: color-mix(in srgb, var(--sc-gold) 18%, var(--sc-cell-ctl-bg));
 }
 .sc-cell-retry {
   border: 1px solid var(--sc-line);

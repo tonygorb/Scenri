@@ -168,9 +168,11 @@ export function Canvas({
               <RunningTag since={n.createdAt} />
             </Link>
             {onCancel && (
+              // the tile's own control skin, not a bordered panel pill: one
+              // language for everything that sits on a card
               <button
                 type="button"
-                className="sc-cell-retry"
+                className="sc-cell-ctl sc-cell-cancel"
                 data-urgent={elapsedSec(n.createdAt) >= 60 || undefined}
                 onClick={() => onCancel(n)}
               >

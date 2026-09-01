@@ -135,7 +135,9 @@
   padding: var(--sc-space-7);
 }
 .sc-stage-wait-t {
-  font-size: var(--sc-text-caption);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-micro);
+  font-weight: 500;
   color: var(--sc-fg2);
 }
 
