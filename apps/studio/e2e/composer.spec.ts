@@ -229,7 +229,8 @@ test('a scene inside an open shot starts a new shot rather than editing it', asy
   await attachCards(page).first().click();
 
   await expect(editor.locator('.sc-send')).toHaveAttribute('aria-label', 'Generate');
-  await expect(page.locator('.sc-target-note-alone')).toHaveText('A scene starts a new shot.');
+  // the overlay wears the Refining chip now, so the note rides beside it
+  await expect(editor.locator('.sc-target .sc-target-note')).toHaveText('A scene starts a new shot.');
 });
 
 test('refining points at the version it just made, not the one it started from', async ({ page }) => {
@@ -2082,7 +2083,9 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   await page.keyboard.press('End');
   await page.keyboard.type(' in the golden hour with a long clean shadow across the marble slab');
   const wrapped = (await line(page).boundingBox())!.height;
-  const strut = await line(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize) * 1.6);
+  // the line's own computed strut, not a hard-coded ratio: the Figma pass
+  // pitches rows at line-height 2 (30px at the 15px line) so 26px chips fit
+  const strut = await line(page).evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   const grown = wrapped - bare;
   expect(grown).toBeGreaterThan(0);
   expect(Math.abs(grown % strut)).toBeLessThanOrEqual(1);
