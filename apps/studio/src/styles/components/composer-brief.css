@@ -27,16 +27,17 @@
   min-height: 24px;
   cursor: text;
   font-size: 13.5px;
-  line-height: 1.6;
+  line-height: 2;
 }
 
 /* Chip metrics are em, resolved against the line the chip sits in, so the
    composer (15px) and the overlay refine composer (13.5px) keep the SAME
    chip-to-sentence relationship instead of one fixed chip that overflows the
-   smaller line box. 0.8333em computes to the historical 12.5px at the default
-   15px line. line-height 1.4 is the one deliberate value change: it brings
-   the chip's box inside the line's 1.6 strut, so a chip never grows its row
-   and wrapped rows all keep one height.
+   smaller line box. 0.8333em computes to 12.5px at the default 15px line,
+   and the 2.0 line strut (30px at 15px) is the Figma composer's own row
+   pitch: a 26px chip plus the 4px between wrapped rows. The chip's padding
+   and thumbnail resolve to 4px and 18px at that scale, so the chip lands at
+   26px and sits inside the strut, never growing its row.
 
    align-items is baseline, with the media opted out below: an inline-flex
    box's exported baseline comes from its first baseline-aligned item, and
@@ -49,9 +50,9 @@
 .sc-token {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.4em;
-  padding: 0.16em 0.64em 0.16em 0.32em;
-  border-radius: 8px;
+  gap: 0.32em;
+  padding: 0.32em 0.64em 0.32em 0.32em;
+  border-radius: var(--sc-radius-full);
   border: none;
   background: var(--sc-raised);
   font-size: 0.8333em;
@@ -67,8 +68,8 @@
   text-overflow: ellipsis;
 }
 .sc-token img {
-  width: 1.2em;
-  height: 1.2em;
+  width: 1.44em;
+  height: 1.44em;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -352,7 +353,7 @@
    the whole sentence reflowed. It now sits on top, behind a soft fade. */
 .sc-token {
   position: relative;
-  padding-right: 0.8em;
+  padding-right: 0.64em;
 }
 .sc-token > button {
   position: absolute;
@@ -389,16 +390,16 @@
    The X floats over the right edge, revealed on hover but hit-testable
    regardless on mouse devices — see the pointer-events note further down. */
 .sc-token {
-  background: var(--sc-chip);
+  background: var(--sc-token-bg);
   border: none;
   box-shadow: none;
   font-weight: 500;
 }
 .sc-token:hover {
-  background: var(--sc-chip-hover);
+  background: var(--sc-token-hover);
 }
 .sc-token[data-open] {
-  background: var(--sc-chip-active);
+  background: var(--sc-token-active);
   outline: none;
   box-shadow: none;
 }
@@ -407,23 +408,23 @@
    state that has to be visible from the keyboard was the one with nothing to
    see — which only mattered once a chip could be focused at all. */
 .sc-token:focus-visible {
-  background: var(--sc-chip-active);
+  background: var(--sc-token-active);
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   box-shadow: none;
 }
 /* a whisper of the template's own colour, on the same base as everything else */
 .sc-token[data-tinted] {
-  background: color-mix(in srgb, var(--tint) 14%, var(--sc-chip));
+  background: color-mix(in srgb, var(--tint) 14%, var(--sc-token-bg));
   box-shadow: none;
   font-weight: 500;
 }
 .sc-token[data-tinted]:hover {
-  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
 }
 .sc-token[data-tinted][data-open],
 .sc-token[data-tinted]:focus-visible {
-  background: color-mix(in srgb, var(--tint) 20%, var(--sc-chip-active));
+  background: color-mix(in srgb, var(--tint) 20%, var(--sc-token-active));
   box-shadow: none;
 }
 .sc-token[data-tinted]:focus-visible {
@@ -443,7 +444,7 @@
    tap reaches the chip and opens the sheet, which owns removal there. */
 .sc-token > button {
   width: 18px;
-  background: var(--sc-chip-hover);
+  background: var(--sc-token-hover);
 }
 .sc-token > button::before {
   content: "";
@@ -452,7 +453,7 @@
   bottom: 0;
   right: 100%;
   width: 14px;
-  background: linear-gradient(to right, transparent, var(--sc-chip-hover));
+  background: linear-gradient(to right, transparent, var(--sc-token-hover));
   pointer-events: none;
 }
 @media (hover: none) {
@@ -461,10 +462,10 @@
   }
 }
 .sc-token[data-tinted] > button {
-  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
 }
 .sc-token[data-tinted] > button::before {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover)));
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover)));
 }
 /* ---------- the brief is one editable line (5.4) ----------
    Single contenteditable root: native select-all, copy, cut and paste work
@@ -515,7 +516,12 @@
    target you can actually hit. */
 .sc-brief-line .sc-token {
   display: inline-flex;
-  vertical-align: baseline;
+  /* A length, not `baseline`: the 1.44em thumbnail deepened the chip below its
+     exported label baseline, so pure baseline alignment parked the chip 2px
+     under the prose midline. Raising it 0.16em (2px at the chip's 12.5px)
+     centers chip and prose on one midline at every line scale, the alignment
+     the Figma rows draw. Still inline alignment, no transform. */
+  vertical-align: 0.16em;
   margin: 0 2px;
   user-select: none;
 }
@@ -533,9 +539,9 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 .sc-brief-line {
-  font-size: 15px;
-  padding: 18px 20px 10px;
-  min-height: 26px;
+  font-size: var(--sc-text-input);
+  padding: var(--sc-space-6) var(--sc-space-6) var(--sc-space-4);
+  min-height: 30px;
 }
 @media (max-width: 767px) {
   .sc-brief-line {

@@ -291,7 +291,7 @@
    competing chip styles between an initial shot and its refinements. */
 .sc-brief-record .sc-ingredient[data-inherited],
 .sc-brief-record .sc-ingredient[data-world] {
-  background: var(--sc-chip);
+  background: var(--sc-token-bg);
   box-shadow: none;
   outline: none;
   color: var(--sc-fg);

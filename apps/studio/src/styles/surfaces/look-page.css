@@ -535,33 +535,33 @@
 .sc-ingredient {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  max-width: 100%; /* 5px matches .sc-token exactly */
+  gap: var(--sc-space-2);
+  max-width: 100%; /* the gap matches .sc-token's 0.32em at its 12.5px scale */
   /* It copied .sc-token's spacing but not its `nowrap`, so a long ingredient
      name wrapped to a second line *inside* the chip. Ellipsis instead — the
      full name is already on this element's `title`. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 2px 8px 2px 4px;
-  border-radius: 8px;
+  padding: var(--sc-space-2) var(--sc-space-4) var(--sc-space-2) var(--sc-space-2);
+  border-radius: var(--sc-radius-full);
   border: none;
   /* The composer's chip surface, not a near-miss of it. This block's own
      comment claimed an ingredient looked identical to a .sc-token while
      standing on --sc-raised, one step off the chip family's ground. */
-  background: var(--sc-chip);
+  background: var(--sc-token-bg);
   /* The composer chip's COMPUTED numbers at its default 15px line, in px:
      ingredients sit in a flex row, not inside a type-scaled sentence, so the
      honest unit here is the resolved value. line-height follows the chip's
      1.4 (see composer-brief.css .sc-token). */
-  font-size: 12.5px;
+  font-size: var(--sc-text-body);
   font-weight: 500;
   line-height: 1.4;
   color: var(--sc-fg);
 }
 .sc-ingredient img {
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   object-fit: cover;
   flex: none;
@@ -605,7 +605,7 @@
    bordered chip on the panel. These are the composer's numbers verbatim, so
    the two surfaces cannot drift apart by rounding. */
 .sc-ingredient[data-tinted] {
-  background: color-mix(in srgb, var(--tint) 14%, var(--sc-chip));
+  background: color-mix(in srgb, var(--tint) 14%, var(--sc-token-bg));
   box-shadow: none;
 }
 
@@ -618,10 +618,10 @@ a.sc-ingredient {
   transition: background var(--sc-dur-fast) var(--sc-ease);
 }
 a.sc-ingredient:hover {
-  background: var(--sc-chip-hover);
+  background: var(--sc-token-hover);
 }
 a.sc-ingredient[data-tinted]:hover {
-  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
 }
 a.sc-ingredient:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
@@ -636,7 +636,7 @@ button.sc-ingredient {
 }
 button.sc-ingredient:hover,
 .sc-ingredient[data-open] {
-  background: var(--sc-chip-hover);
+  background: var(--sc-token-hover);
   color: var(--sc-fg);
 }
 button.sc-ingredient:focus-visible {
