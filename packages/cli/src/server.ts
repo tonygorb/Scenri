@@ -629,7 +629,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // (five consecutive re-renders) was the one place the floor never fired.
     // The inherited person is a person in frame; the floor rides with them.
     if (inheritedPerson) inheritedDirectives.push(personSkinDirective());
-    const compiled = compileBrief(brief, {
+    const compileCtx = {
       brand: brandJson,
       images: core.images,
       engineCaps: uncapped,
@@ -648,7 +648,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // Only the explicit op drops the dimension promise: an implicit legacy
       // expansion keeps its historical prompt byte for byte.
       ...(opts?.reshape === 'extend' ? { editReshape: 'extend' as const } : {}),
-    });
+    };
+    const compiled = compileBrief(brief, compileCtx);
     let inheritedAttachments: Attachment[] = [];
     let identityWarnings: string[] = [];
     if (inheritedTokens.length) {
@@ -690,6 +691,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
     const cap = Math.max(0, engineCaps.maxReferenceImages - 1);
     const merged = mergeEditAttachments(compiled.attachments, inheritedAttachments, cap);
+    // The instruction's own attachment claims must match the ONE allocation
+    // made here, not the uncapped compile above: a mark this merge dropped
+    // used to leave "the attached brand mark ... reproduce it exactly" in the
+    // prompt with no mark attached. Deterministic and cheap, so the prompt is
+    // simply compiled again against the survivors.
+    const prompt = compileBrief(brief, { ...compileCtx, presentAttachments: merged.kept }).prompt;
     const warnings = [...compiled.warnings, ...identityWarnings.filter((w) => !compiled.warnings.includes(w))];
     if (inherited.truncated)
       warnings.push('This thread is deeper than 64 steps, so identity attached before that could not be carried.');
@@ -697,9 +704,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (engineCaps.maxReferenceImages <= 1) {
         // An engine that carries nothing beyond the frame is not a reason to
         // refuse: unlike a generation, the subject is already in the picture.
-        warnings.push(
-          `${engineCaps.displayName} cannot carry reference images, so the identity rides on the source frame alone.`,
-        );
+        warnings.push(`The identity rides on the shot itself — ${engineCaps.displayName} reads no other images.`);
       } else {
         // Name an identity only when ALL of it was dropped: a shed
         // corroboration angle whose essential survived degrades quietly, the
@@ -708,15 +713,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         const keptLabels = new Set(merged.kept.map((a) => a.label));
         const names = [...new Set(merged.dropped.map((d) => d.label))].filter((l) => !keptLabels.has(l));
         if (names.length)
-          warnings.push(
-            `${engineCaps.displayName} reads ${engineCaps.maxReferenceImages} reference images and the frame being refined keeps one, so ${names.join(
-              ' and ',
-            )} ${names.length === 1 ? 'was' : 'were'} left out.`,
-          );
+          warnings.push(`${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out of this refinement.`);
       }
     }
     return {
-      compiled,
+      compiled: { ...compiled, prompt },
       inheritedTokens,
       merged,
       warnings,
@@ -748,7 +749,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       return {
         ...rest,
         attachments: edit.merged.kept,
-        dropped: edit.merged.dropped,
+        // The own compile runs uncapped, so its dropped list holds exactly the
+        // missing-photo identities; the budget losses live on the merge.
+        dropped: [...edit.compiled.dropped, ...edit.merged.dropped],
         warnings: edit.warnings,
         referenceCount: edit.merged.kept.length,
       };
@@ -1463,6 +1466,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ? []
         : (compiled?.dropped ?? []).filter((d) => d.essential);
       if (lostIdentity.length) {
+        // Two causes, two remedies: a photo that does not exist cannot be
+        // fixed by choosing another engine, and a budget loss cannot be fixed
+        // by re-adding a photo. Say the one the user can act on.
+        const missing = lostIdentity.filter((d) => d.reason === 'missing');
+        if (missing.length) {
+          const names = joinNames(missing.map((d) => d.label));
+          const kindWord = missing[0].role === 'product' ? 'product' : 'presenter';
+          return reply.code(400).send({
+            error: `${names} ${missing.length === 1 ? 'has' : 'have'} no usable photo, so the result would not be your ${kindWord}. Re-add ${missing.length === 1 ? 'its' : 'their'} photo, or remove ${names} from the brief.`,
+          });
+        }
         const names = joinNames(lostIdentity.map((d) => d.label));
         const kindWord = lostIdentity[0].role === 'product' ? 'product' : 'presenter';
         return reply.code(400).send({
@@ -1476,6 +1490,22 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const sentRefs =
         keptRefs && maxEdge ? await Promise.all(keptRefs.map((p) => capReferenceEdge(core, p, maxEdge))) : keptRefs;
       const sentRoles = referenceRoles && cap > 0 ? referenceRoles.slice(0, cap) : (referenceRoles ?? []);
+      // Dev-only transport manifest: which pictures ride, which did not and
+      // why. The one line that answers "did the presenter's face reach the
+      // engine" without re-deriving the compile by hand.
+      if (process.env.SCENRI_DEBUG) {
+        const sent: Record<string, number> = {};
+        for (const r of sentRoles) sent[r] = (sent[r] ?? 0) + 1;
+        app.log.info(
+          {
+            engine: engine.capabilities().id,
+            cap,
+            sent,
+            dropped: (compiled?.dropped ?? []).map((d) => `${d.role}:${d.label} (${d.reason ?? 'budget'})`),
+          },
+          'reference transport',
+        );
+      }
       /*
        * One recipe, N photographs.
        *
@@ -1541,6 +1571,21 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // References only — never the source frame, which keeps its pixels.
       const editEdge = engine.capabilities().maxReferenceEdge;
       if (editEdge) for (const r of editRefs) r.path = await capReferenceEdge(core, r.path, editEdge);
+      // The same dev-only transport manifest the generation path logs.
+      if (process.env.SCENRI_DEBUG) {
+        const sent: Record<string, number> = {};
+        for (const r of editRefs) sent[String(r.role ?? 'reference')] = (sent[String(r.role ?? 'reference')] ?? 0) + 1;
+        app.log.info(
+          {
+            engine: engine.capabilities().id,
+            cap: Math.max(0, engine.capabilities().maxReferenceImages - 1),
+            sourceFrame: true,
+            sent,
+            dropped: (mergedEdit?.dropped ?? []).map((d) => `${d.role}:${d.label} (${d.reason ?? 'budget'})`),
+          },
+          'reference transport',
+        );
+      }
 
       // The old comment here said an edit inherits the source's dimensions so
       // there was nothing to check against. The source IS the thing to check

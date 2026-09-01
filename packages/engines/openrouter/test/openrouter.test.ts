@@ -56,6 +56,9 @@ describe('capabilities', () => {
       supportsEdit: true,
       supportsMask: false,
       maxReferenceImages: 4,
+      // References ride base64-inlined in a JSON body, so the server caps
+      // their edge before encoding — same argument as codex's 2048.
+      maxReferenceEdge: 2048,
       // N sequential calls, one image each: the server budgets the node by
       // that shape rather than spending one flat bound across the whole run.
       perImageTimeoutMs: 300_000,
