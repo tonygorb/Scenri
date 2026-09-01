@@ -435,23 +435,18 @@
 }
 /* A chip whose reference the chosen engine cannot carry. The tooltip already
    says so, but a tooltip you have to hover to find is not far from silence.
-   The mark is the tint formula in the warn colour: a warm wash on the chip's
-   own surface, unmistakable on one chip and calm across many, where the old
-   ring read as an error wall the moment an engine's budget dropped a batch.
-   Amber, not red: the generation still runs. Stated after the tinted skins
-   so a warned scene chip says warn, not mood. */
-.sc-token[data-warn] {
-  background: color-mix(in srgb, var(--sc-warn) 14%, var(--sc-token-bg));
-  box-shadow: none;
-}
-.sc-token[data-warn]:hover {
-  background: color-mix(in srgb, var(--sc-warn) 18%, var(--sc-token-hover));
-}
-.sc-token[data-warn] > button {
-  background: color-mix(in srgb, var(--sc-warn) 18%, var(--sc-token-hover));
-}
-.sc-token[data-warn] > button::before {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--sc-warn) 18%, var(--sc-token-hover)));
+   The mark is one small amber dot after the label: the chip itself keeps the
+   family skin exactly (a recoloured surface read as random colour, and a
+   ring read as an error wall when an engine's budget dropped a batch).
+   Amber, not red: the generation still runs. */
+.sc-token[data-warn]::after {
+  content: "";
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: var(--sc-warn);
+  align-self: center;
+  flex: none;
 }
 /* The fade lives on the button itself. As a ::before at z-index -1 it painted
    behind the chip's own background, so the label showed straight through the X.
@@ -553,9 +548,12 @@
      one raise that fits, and it was measured, not derived: a 0.25px sweep in
      the real font put zero row growth and a zero prose-midline delta at
      exactly 0.24em (3px at the chip's 12.5px). Em keeps the same point at
-     every line scale. Still inline alignment, no transform. */
+     every line scale. Still inline alignment, no transform.
+
+     No margins: the real space characters the line maintains are the gap,
+     and they measure the 4px the frames draw; margins on top made it 8. */
   vertical-align: 0.24em;
-  margin: 0 2px;
+  margin: 0;
   user-select: none;
 }
 .sc-brief-line .sc-token > button {
