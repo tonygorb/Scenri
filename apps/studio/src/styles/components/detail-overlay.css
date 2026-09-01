@@ -510,11 +510,20 @@
   }
   .sc-ovl-meta {
     max-height: 48vh;
-    /* The panel shares the page edge with the stage above it, the header over
-       it and the composer below it. It used to sit 2px further in, which is
-       exactly the sort of difference nobody can name and everybody can see.
+    /* No side padding here either: the sections carry the gutter, so the
+       hairlines between them run the panel's full width on the phone too.
        No bottom padding: the sticky composer sits flush on the panel's edge. */
-    padding: 12px var(--sc-gutter) 0;
+    padding: 12px 0 0;
+  }
+  /* the page edge on a stacked layout is the phone gutter, not the 20 */
+  .sc-ovl-head,
+  .sc-ovl-sec {
+    padding-left: var(--sc-gutter);
+    padding-right: var(--sc-gutter);
+  }
+  .sc-ovl-meta .sc-sugg {
+    padding-left: var(--sc-gutter);
+    padding-right: var(--sc-gutter);
   }
   .sc-ovl-edit {
     flex-shrink: 0;
