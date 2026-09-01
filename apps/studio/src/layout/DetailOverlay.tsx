@@ -45,6 +45,10 @@ const PANEL_MAX = 480;
 const PANEL_DEFAULT = 380;
 const clampPanel = (w: number) => Math.min(PANEL_MAX, Math.max(PANEL_MIN, Math.round(w)));
 
+/** The scene a brief names, in either of the shapes briefs have carried it. */
+const tplOf = (b: TreeNode['brief']) =>
+  b?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? b?.templateId ?? null;
+
 /**
  * Full-screen takeover for one shot: lineage filmstrip left, stage with the
  * text editor center, merged inspector plus edit composer right. The version
@@ -105,8 +109,6 @@ export function DetailOverlay({
    */
   const worldTemplateId = useMemo(() => {
     if (node.kind !== 'edit') return null;
-    const tplOf = (b: TreeNode['brief']) =>
-      b?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? b?.templateId ?? null;
     if (tplOf(node.brief)) return null;
     for (let i = ancestors.length - 1; i >= 0; i--) {
       const tid = tplOf(ancestors[i].brief);
@@ -114,6 +116,22 @@ export function DetailOverlay({
     }
     return null;
   }, [node, ancestors]);
+  /**
+   * Everything the SOURCE image was made of, read down the whole lineage,
+   * nearest level first. A refine's own brief can be bare text at every
+   * level, and older shots recorded no inherited list at all, so the
+   * parent's brief alone loses the identities two levels down. The walk is
+   * the one place the picture's contents can always be read from.
+   */
+  const sourceTokens = useMemo(() => {
+    if (node.kind !== 'edit') return [];
+    const out: unknown[] = [];
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+      const b = ancestors[i].brief as { tokens?: unknown[]; inherited?: unknown[] } | null;
+      out.push(...(b?.tokens ?? []), ...(b?.inherited ?? []));
+    }
+    return out;
+  }, [node.kind, ancestors]);
   /** Whether the brief line has any chips to say: mirrors BriefLine's own
    *  null condition, so a token-less legacy shot never shows a bare label. */
   const hasContext = useMemo(() => {
@@ -566,7 +584,7 @@ export function DetailOverlay({
             {node.kind === 'edit' && parentShot && sourceHash && (
               <SourceChips
                 brand={brand}
-                shot={parentShot}
+                tokens={sourceTokens}
                 onOpen={() => setLightbox({ src: imgUrl(sourceHash), kind: 'shot', label: null })}
               />
             )}
@@ -595,6 +613,8 @@ export function DetailOverlay({
                   worldTemplateId={worldTemplateId}
                   saidRef={briefRef}
                   expanded={briefOpen}
+                  // the header's source cards already say what was carried
+                  hideCarried={node.kind === 'edit' && !!parentShot && !!sourceHash}
                 />
               </div>
               {(briefOverflows || briefOpen) && (

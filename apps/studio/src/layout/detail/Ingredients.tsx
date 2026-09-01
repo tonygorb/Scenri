@@ -32,6 +32,7 @@ export function BriefLine({
   worldTemplateId,
   saidRef,
   expanded,
+  hideCarried,
 }: {
   brief: TreeNode['brief'];
   /** The compiled prompt, the only record shots made before briefs have. */
@@ -48,6 +49,13 @@ export function BriefLine({
    * refine keeps. Display only, resolved by the caller from the lineage.
    */
   worldTemplateId?: string | null;
+  /**
+   * The sidebar's header already names the carried identities and the world
+   * as the source's own cards. Saying them again here is duplication, so
+   * carried products, presenters, scenes and the world chip leave the record;
+   * carried marks and references have no card up there and stay.
+   */
+  hideCarried?: boolean;
 }) {
   const { scenes, presenters, demoProducts } = useAppData();
   const navigate = useNavigate();
@@ -315,12 +323,16 @@ export function BriefLine({
   }
 
   // What the refinement carried rides after the ask, in the same voice, in
-  // the one canonical context order.
+  // the one canonical context order. When the header's source cards are up
+  // they already name the carried identities and the world, so those leave
+  // this row; a carried mark or reference has no card up there and would be
+  // said nowhere, so it stays.
   const trailing: Chip[] = carriedTokens
     .filter((t: any) => t && typeof t.t === 'string' && keep(t))
     .map((t: any) => chipOf(t, true))
-    .filter((c: Chip | null): c is Chip => !!c);
-  if (worldTemplateId) {
+    .filter((c: Chip | null): c is Chip => !!c)
+    .filter((c: Chip) => !hideCarried || (c.kind !== 'product' && c.kind !== 'presenter' && c.kind !== 'scene'));
+  if (worldTemplateId && !hideCarried) {
     const s = ownScenes.find((x) => x.id === worldTemplateId) ?? scenes.find((x) => x.id === worldTemplateId);
     if (s) {
       trailing.push({
@@ -388,13 +400,28 @@ export function BriefLine({
  * chip held; the catalogs resolve the labels and thumbnails exactly the way
  * the brief record above them does.
  */
-export function SourceChips({ brand, shot, onOpen }: { brand: Brand | null; shot: TreeNode; onOpen: () => void }) {
+export function SourceChips({
+  brand,
+  tokens,
+  onOpen,
+}: {
+  brand: Brand | null;
+  /**
+   * The source's lineage tokens, nearest level first: a refine keeps its
+   * contents through the photograph, never as tokens of its own, so the
+   * caller walks the whole chain. Products and presenters accumulate; only
+   * the nearest scene is the picture's world, so the first one wins and the
+   * rest are history.
+   */
+  tokens: unknown[];
+  onOpen: () => void;
+}) {
   const { scenes, presenters, demoProducts } = useAppData();
   const products: any[] = (brand?.json?.products ?? []) as any[];
   const cast: any[] = (brand?.json?.characters ?? []) as any[];
   const ownScenes = customScenesOf(brand);
 
-  type Item = { key: string; label: string; thumb: string | null; crop?: 'top' };
+  type Item = { key: string; kind: string; label: string; thumb: string | null; crop?: 'top' };
   const itemOf = (t: any): Item | null => {
     if (t?.t === 'product') {
       const p = products.find((x) => x.id === t.id);
@@ -402,6 +429,7 @@ export function SourceChips({ brand, shot, onOpen }: { brand: Brand | null; shot
       if (!p && !demo) return null;
       return {
         key: `p${t.id}`,
+        kind: 'product',
         label: p?.name ?? demo?.name ?? 'product',
         thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
       };
@@ -411,24 +439,34 @@ export function SourceChips({ brand, shot, onOpen }: { brand: Brand | null; shot
       const pr = c ? null : presenters.find((x) => x.id === t.id);
       if (!c && !pr) return null;
       const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null as string | null };
-      return { key: `h${t.id}`, label: c?.name ?? pr?.name ?? 'someone', thumb: av.src, crop: av.crop };
+      return {
+        key: `h${t.id}`,
+        kind: 'presenter',
+        label: c?.name ?? pr?.name ?? 'someone',
+        thumb: av.src,
+        crop: av.crop,
+      };
     }
     if (t?.t === 'template') {
       const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
       if (!s) return null;
-      return { key: `t${t.id}`, label: s.name, thumb: s.previewUrl ?? null };
+      return { key: `t${t.id}`, kind: 'scene', label: s.name, thumb: s.previewUrl ?? null };
     }
     return null;
   };
 
   const seen = new Set<string>();
   const items: Item[] = [];
-  for (const t of [...(shot.brief?.tokens ?? []), ...((shot.brief as any)?.inherited ?? [])]) {
+  let sceneNamed = false;
+  for (const t of tokens as any[]) {
+    if (t?.t === 'template' && sceneNamed) continue;
     const it = itemOf(t);
     if (!it || seen.has(it.key)) continue;
+    if (it.kind === 'scene') sceneNamed = true;
     seen.add(it.key);
     items.push(it);
   }
+  items.sort(byContextOrder);
   if (!items.length) return null;
 
   return (
