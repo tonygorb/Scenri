@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.7.5',
+    date: '2026-09-01',
+    title: 'Every shot is one card.',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Every shot is now its own card with its own image. Asking for several shots gives you that many cards, made together and standing on their own, and older multi-image shots split into separate cards the first time this version opens. The shot panel is rebuilt around the brief itself, with inline ingredient chips and versions in a single strip under the picture.',
+      },
+      {
+        heading: 'Refining',
+        body: 'The shot being refined appears as a regular chip in the composer, and the card it points at is marked in the feed. Scenes sit out of the attach panel while a refine is armed, with a note saying why, instead of quietly trading the refine for a new shot.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'Generation requests carry exactly the reference images they claim to carry, and a product or presenter whose photo is missing stops the shot with a clear message instead of running without it. Cards that are still rendering show a simple counter and a cancel button.',
+      },
+    ],
+  },
+  {
     version: '0.7.4',
     date: '2026-08-31',
     sections: [
