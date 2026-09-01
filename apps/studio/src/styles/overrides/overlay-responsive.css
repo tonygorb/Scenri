@@ -1,8 +1,8 @@
-/* compact composer inside the overlay */
+/* The overlay composer wears the dock's own scale; the one concession to a
+   378-to-478px column is that the row may wrap instead of overflowing. */
 .sc-ovl-edit .sc-prompt-row {
   flex-wrap: wrap;
   row-gap: 6px;
-  padding: 6px 10px 10px 12px;
 }
 /* The trigger states what it opens, and reads as held down while it is open.
    `--sc-chip-active` is the pressed fill for a chip that stays pressed; here

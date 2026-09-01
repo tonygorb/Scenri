@@ -18,6 +18,8 @@ export const PREF = {
   count: 'scenri:count',
   format: 'scenri:format',
   assetsOpen: 'scenri:assets-open',
+  /** The shot overlay's details panel width, dragged at its seam. */
+  ovlPanelW: 'scenri:ovl-panel-w',
   /**
    * Which rail sections are opened out, as a list of stable kind keys.
    *

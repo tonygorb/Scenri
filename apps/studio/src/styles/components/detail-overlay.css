@@ -194,6 +194,41 @@
   min-height: 0;
 }
 
+/* The seam between stage and panel is a handle. It floats on the overlay
+   root (the panel scrolls; the root does not), riding the panel's own left
+   border, and only says so under the pointer or keyboard focus: a 1px
+   brighter line, paint only. */
+.sc-ovl-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(var(--sc-ovl-panel-w) - 3px);
+  width: 7px;
+  z-index: 12;
+  cursor: col-resize;
+}
+.sc-ovl-resize::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: var(--sc-line-hover);
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-ovl-resize:hover::before,
+.sc-ovl-resize:focus-visible::before,
+.sc-ovl-resize:active::before {
+  opacity: 1;
+}
+@media (max-width: 1023px) {
+  /* one column below this width: there is no seam to drag */
+  .sc-ovl-resize {
+    display: none;
+  }
+}
 .sc-ovl-meta {
   border-left: 1px solid var(--sc-line-chrome);
   background: var(--sc-bg);
@@ -210,10 +245,59 @@
    section; real money only at its far edge. */
 .sc-ovl-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--sc-space-4);
+  row-gap: var(--sc-space-6);
   padding-bottom: var(--sc-space-6);
   border-bottom: 1px solid var(--sc-line);
+}
+/* The source's identity, said in the refine skin: small inverse cards for
+   the product, the person and the scene the original picture was made of.
+   Same tokens the hub's Refining chip wears, so the two surfaces cannot
+   drift. Each card opens the source image. */
+.sc-source-chips {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+.sc-source-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sc-space-1);
+  border: none;
+  cursor: pointer;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-refine-bg);
+  color: var(--sc-refine-fg);
+  font-size: var(--sc-text-body);
+  font-weight: 600;
+  line-height: 1.3;
+  max-width: 24ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-source-chip:hover,
+.sc-source-chip:focus-visible {
+  background: color-mix(in srgb, var(--sc-refine-fg) 8%, var(--sc-refine-bg));
+}
+.sc-source-chip img {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-sm);
+  object-fit: cover;
+  flex: none;
+}
+.sc-source-chip img[data-crop="top"] {
+  object-position: 50% 12%;
+}
+.sc-source-chip > span {
+  padding: 0 var(--sc-space-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sc-ovl-head b {
   font-family: var(--sc-font-display);
@@ -345,7 +429,9 @@
   bottom: 0;
   margin-top: auto;
   background: var(--sc-bg);
-  padding: var(--sc-space-5) 0 var(--sc-space-6);
+  /* the frames inset the composer card 20px from the panel's bottom edge,
+     the same gutter the panel's sides already carry */
+  padding: var(--sc-space-7) 0;
 }
 .sc-ovl-edit .sc-composer {
   width: 100%;

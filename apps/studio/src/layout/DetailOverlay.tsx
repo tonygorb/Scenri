@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
@@ -27,10 +27,23 @@ import { briefProse, sourceImageOf } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { ChipPreview } from '../composer/ChipPreview.js';
+import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
-import { BriefLine } from './detail/Ingredients.js';
+import { BriefLine, SourceChips } from './detail/Ingredients.js';
 import { useLineage } from './detail/useLineage.js';
+import { PREF, useLocalPref } from '../prefs.js';
+
+/**
+ * The details panel's adjustable width. One bounded range, one reset value,
+ * carried by the same `--sc-ovl-panel-w` custom property the stylesheet has
+ * always read, so the grid, the header stop and the divider all follow one
+ * number.
+ */
+const PANEL_MIN = 380;
+const PANEL_MAX = 480;
+const PANEL_DEFAULT = 380;
+const clampPanel = (w: number) => Math.min(PANEL_MAX, Math.max(PANEL_MIN, Math.round(w)));
 
 /**
  * Full-screen takeover for one shot: lineage filmstrip left, stage with the
@@ -78,6 +91,10 @@ export function DetailOverlay({
   /** What the engine that ran this is called, so a failure can name it in a sentence. */
   const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
   const { push } = useToasts();
+  /** The details panel's width, remembered across sessions. */
+  const [panelW, setPanelW] = useLocalPref<number>(PREF.ovlPanelW, PANEL_DEFAULT);
+  /** The source image, opened full size from the header's source cards. */
+  const [lightbox, setLightbox] = useState<{ src: string; kind: 'shot'; label: string | null } | null>(null);
   /** The image this refinement was made from, not merely the run's first. */
   const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
   /**
@@ -309,6 +326,7 @@ export function DetailOverlay({
         role="dialog"
         aria-modal="true"
         aria-label={nodeLabel(node)}
+        style={{ '--sc-ovl-panel-w': `${clampPanel(panelW)}px` } as CSSProperties}
         // A trail of one is not a trail. The rail held a full-height column for
         // a single thumbnail of the shot you were already looking at, which is
         // the sort of furniture that makes a screen feel unplanned.
@@ -488,6 +506,46 @@ export function DetailOverlay({
           )}
         </div>
 
+        {/* The seam between picture and panel is the handle: drag to size the
+            panel, double-click to reset, arrow keys from the keyboard. During
+            a drag only the CSS variable moves; the preference is written once,
+            on release. It floats on the overlay root because the panel
+            scrolls and the root does not. */}
+        {/* biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be a focusable window splitter; ARIA's separator-as-widget pattern is exactly a focusable div with valuenow */}
+        <div
+          className="sc-ovl-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the details panel"
+          aria-valuemin={PANEL_MIN}
+          aria-valuemax={PANEL_MAX}
+          aria-valuenow={clampPanel(panelW)}
+          tabIndex={0}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+            const root = e.currentTarget.closest<HTMLElement>('.sc-ovl');
+            root?.style.setProperty('--sc-ovl-panel-w', `${clampPanel(window.innerWidth - e.clientX)}px`);
+          }}
+          onPointerUp={(e) => {
+            if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+            e.currentTarget.releasePointerCapture(e.pointerId);
+            setPanelW(clampPanel(window.innerWidth - e.clientX));
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            setPanelW(PANEL_DEFAULT);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft') setPanelW((w) => clampPanel(w + 16));
+            else if (e.key === 'ArrowRight') setPanelW((w) => clampPanel(w - 16));
+          }}
+        />
         <aside className="sc-ovl-meta">
           {/* A typographic inspector: flat labeled sections divided by
               hairlines, nothing raised, nothing boxed. The engine id, wall
@@ -503,7 +561,24 @@ export function DetailOverlay({
                 ${node.costUsd.toFixed(2)}
               </small>
             )}
+            {/* What the original was made of, worn as the source's own small
+                inverse cards; each opens the picture being refined. */}
+            {node.kind === 'edit' && parentShot && sourceHash && (
+              <SourceChips
+                brand={brand}
+                shot={parentShot}
+                onOpen={() => setLightbox({ src: imgUrl(sourceHash), kind: 'shot', label: null })}
+              />
+            )}
           </div>
+          {lightbox && (
+            <ImageLightbox
+              src={lightbox.src}
+              kind={lightbox.kind}
+              label={lightbox.label}
+              onClose={() => setLightbox(null)}
+            />
+          )}
 
           {/* The whole record as one statement in the composer's voice: the
               typed sentence with its chips inline where they were said, and

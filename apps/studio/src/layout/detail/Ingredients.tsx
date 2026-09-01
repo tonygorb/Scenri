@@ -380,3 +380,72 @@ export function BriefLine({
     </>
   );
 }
+
+/**
+ * The refined source's identity, worn as small inverse cards in the sidebar's
+ * header: the product, the person and the scene the original image was made
+ * of. Each one opens the original picture, the same door the old Refining
+ * chip held; the catalogs resolve the labels and thumbnails exactly the way
+ * the brief record above them does.
+ */
+export function SourceChips({ brand, shot, onOpen }: { brand: Brand | null; shot: TreeNode; onOpen: () => void }) {
+  const { scenes, presenters, demoProducts } = useAppData();
+  const products: any[] = (brand?.json?.products ?? []) as any[];
+  const cast: any[] = (brand?.json?.characters ?? []) as any[];
+  const ownScenes = customScenesOf(brand);
+
+  type Item = { key: string; label: string; thumb: string | null; crop?: 'top' };
+  const itemOf = (t: any): Item | null => {
+    if (t?.t === 'product') {
+      const p = products.find((x) => x.id === t.id);
+      const demo = p ? null : demoProducts.find((x) => x.id === t.id);
+      if (!p && !demo) return null;
+      return {
+        key: `p${t.id}`,
+        label: p?.name ?? demo?.name ?? 'product',
+        thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
+      };
+    }
+    if (t?.t === 'character') {
+      const c = cast.find((x) => x.id === t.id);
+      const pr = c ? null : presenters.find((x) => x.id === t.id);
+      if (!c && !pr) return null;
+      const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null as string | null };
+      return { key: `h${t.id}`, label: c?.name ?? pr?.name ?? 'someone', thumb: av.src, crop: av.crop };
+    }
+    if (t?.t === 'template') {
+      const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
+      if (!s) return null;
+      return { key: `t${t.id}`, label: s.name, thumb: s.previewUrl ?? null };
+    }
+    return null;
+  };
+
+  const seen = new Set<string>();
+  const items: Item[] = [];
+  for (const t of [...(shot.brief?.tokens ?? []), ...((shot.brief as any)?.inherited ?? [])]) {
+    const it = itemOf(t);
+    if (!it || seen.has(it.key)) continue;
+    seen.add(it.key);
+    items.push(it);
+  }
+  if (!items.length) return null;
+
+  return (
+    <div className="sc-source-chips">
+      {items.map((it) => (
+        <button
+          type="button"
+          className="sc-source-chip"
+          key={it.key}
+          title={`${it.label}. Open the source image.`}
+          aria-label={`Refining a shot of ${it.label}. Open the source image.`}
+          onClick={onOpen}
+        >
+          {it.thumb && <img src={it.thumb} alt="" data-crop={it.crop} />}
+          <span dir="auto">{it.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
