@@ -45,6 +45,7 @@ import {
   emptySentence,
   encode,
   hasSelectionIn,
+  identityKeyOf,
   insertToken,
   moveAnnouncement,
   moveChipBy,
@@ -467,12 +468,28 @@ export const BriefInput = forwardRef<
           return;
         }
       }
+      // One chip per thing, whichever door asked: the menu, the attach panel,
+      // the assets rail. Asking again for an identity the brief already holds
+      // says so instead of growing a twin.
+      const key = identityKeyOf(token);
+      if (key) {
+        const twin = Array.from(root.querySelectorAll<HTMLElement>(`.${CHIP}`)).find((c) => {
+          const held = decode(c.dataset.tok ?? '');
+          return !!held && identityKeyOf(held) === key;
+        });
+        if (twin) {
+          setMenu(null);
+          setQuery('');
+          announce(`${chipLabel(twin) || 'That'} is already in the brief.`);
+          return;
+        }
+      }
       insertToken(root, chipFor(token), { eatQuery: !!menu, fallbackUnits: lastCaret.current });
       emit();
       setMenu(null);
       setQuery('');
     },
-    [menu, chipFor, emit],
+    [menu, chipFor, emit, announce],
   );
 
   const placeRef = useRef(place);
