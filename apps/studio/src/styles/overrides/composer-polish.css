@@ -37,7 +37,9 @@
   height: 44px;
   padding: 0 12px;
   border: none;
-  border-radius: 9px;
+  /* the row speaks one shape: the same full round the attach disc and the
+     send pill wear, here as a quiet ghost */
+  border-radius: var(--sc-radius-full);
   background: none;
   color: var(--sc-fg2);
   font-size: 13.5px;

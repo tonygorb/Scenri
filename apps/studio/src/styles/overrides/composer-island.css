@@ -89,7 +89,7 @@
   height: 34px !important;
   padding: 0 12px !important;
   font-size: 13.5px !important;
-  border-radius: 9px !important;
+  border-radius: var(--sc-radius-full) !important;
 }
 
 /* The overlay aside is 340px wide and the phone is narrower still; neither can
