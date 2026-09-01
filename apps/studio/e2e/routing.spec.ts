@@ -43,17 +43,11 @@ async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * A finished multi-image shot on the brand's feed, on the free Demo engine.
- *
- * Several cases here are about the variant the URL names, so one image is not
- * enough — seed.setup.ts asks for a single one, which is right for the composer
- * spec and useless to this one.
- */
+/** A finished shot on the brand's feed, on the free Demo engine. */
 async function seedShot(p: Page, brand: string) {
   const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
-  const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 1);
-  if (done) return { nodeId: done.id, images: done.images.length };
+  const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
+  if (done) return { nodeId: done.id };
 
   const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
   const made = (await api(
@@ -65,14 +59,14 @@ async function seedShot(p: Page, brand: string) {
       kind: 'generation',
       prompt: 'routing spec shot',
       engineId: 'demo',
-      count: 3,
+      count: 1,
     }),
   )) as any;
 
   for (let i = 0; i < 40; i++) {
     const t = (await api(p, `/api/brands/${brand}/workspace`)) as any;
     const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
-    if (n?.status === 'done') return { nodeId: n.id, images: n.images.length };
+    if (n?.status === 'done') return { nodeId: n.id };
     await p.waitForTimeout(300);
   }
   throw new Error('demo generation never finished');
@@ -180,19 +174,91 @@ test('setup keeps its own URL rather than being read as a brand', async ({ page 
   await expect(page.locator('.sc-wiz')).toBeVisible();
 });
 
-test('a reloaded shot comes back to the same shot and the same variant', async ({ page }) => {
+test('a batch sibling opens by its own URL and survives a reload', async ({ page }) => {
   const brand = await currentBrand(page);
-  const { nodeId, images } = await seedShot(page, brand.id);
-  test.skip(images < 2, 'needs a multi-image generation to have a variant to hold');
+  // a multi-shot request: three first-class siblings, each independently
+  // addressable with no batch in-memory state
+  const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const made = (await api(
+    page,
+    '/api/nodes',
+    postJson({
+      projectId: ws.project.id,
+      parentId: root?.id ?? null,
+      kind: 'generation',
+      prompt: 'sibling routing shot',
+      engineId: 'demo',
+      count: 3,
+    }),
+  )) as any;
+  expect(made.siblings).toHaveLength(3);
+  const last = made.siblings[2].id as string;
+  for (let i = 0; i < 40; i++) {
+    const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+    if ((t.nodes ?? []).find((x: any) => x.id === last)?.status === 'done') break;
+    await page.waitForTimeout(300);
+  }
 
-  await page.goto(`/${brand.slug}/create/shots/${nodeId}?i=${images - 1}`);
+  await page.goto(`/${brand.slug}/create/shots/${last}`);
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  const before = await page.locator('.sc-ovl').innerText();
-  expect(before).toContain(`${images} of ${images} variants`);
+  expect(new URL(page.url()).pathname).toContain(last);
 
   await page.reload();
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  expect(await page.locator('.sc-ovl').innerText()).toContain(`${images} of ${images} variants`);
+  expect(new URL(page.url()).pathname).toContain(last);
+});
+
+test('refining one sibling never touches the others', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const made = (await api(
+    page,
+    '/api/nodes',
+    postJson({
+      projectId: ws.project.id,
+      parentId: root?.id ?? null,
+      kind: 'generation',
+      prompt: 'isolation batch',
+      engineId: 'demo',
+      count: 3,
+    }),
+  )) as any;
+  const [a, b, c] = made.siblings.map((s: any) => s.id as string);
+  const wait = async (id: string) => {
+    for (let i = 0; i < 40; i++) {
+      const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+      const n = (t.nodes ?? []).find((x: any) => x.id === id);
+      if (n && n.status !== 'running') return n;
+      await page.waitForTimeout(300);
+    }
+    throw new Error('never finished');
+  };
+  const bNode = await wait(b);
+
+  // two refinements of B, and only B
+  for (const prompt of ['warmer', 'tighter']) {
+    const edit = (await api(
+      page,
+      '/api/nodes',
+      postJson({
+        projectId: ws.project.id,
+        parentId: b,
+        kind: 'edit',
+        prompt,
+        engineId: 'demo',
+        sourceImage: bNode.images[0],
+      }),
+    )) as any;
+    await wait(edit.id);
+  }
+
+  const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
+  const childrenOf = (id: string) => (t.nodes ?? []).filter((n: any) => n.parentId === id && n.kind === 'edit');
+  expect(childrenOf(b)).toHaveLength(2);
+  expect(childrenOf(a)).toHaveLength(0);
+  expect(childrenOf(c)).toHaveLength(0);
 });
 
 test('back closes a shot, and escape spends the same single entry', async ({ page }) => {
@@ -496,7 +562,7 @@ test('a shot URL whose node is gone falls back to the feed', async ({ page }) =>
  * for the purpose, so the answer costs no new UI and Back returns to the exact
  * shot you were reading.
  */
-test('an ingredient chip opens the thing it names, and Back returns to the shot', async ({ page }) => {
+test('an ingredient chip previews in place, and its card is the door to the page', async ({ page }) => {
   const brand = await currentBrand(page);
 
   // a shot whose brief names a product, a presenter, a scene and a colour, so
@@ -531,13 +597,18 @@ test('an ingredient chip opens the thing it names, and Back returns to the shot'
   await expect(page.locator('.sc-ovl')).toBeVisible();
   await expect(page.locator('.sc-ingredient').first()).toBeVisible();
 
-  // a colour has no page anywhere, so it is the one chip that stays inert
-  await expect(page.locator('a.sc-ingredient')).toHaveCount(3);
+  // a colour has no picture and no page, so it is the one chip that stays inert
+  await expect(page.locator('button.sc-ingredient')).toHaveCount(3);
   await expect(page.locator('span.sc-ingredient[data-kind="color"]')).toHaveCount(1);
 
   for (const kind of ['scene', 'presenter', 'product']) {
     await page.goto(`/${brand.slug}/create/shots/${made.id}`);
+    // clicking a chip never leaves the shot: it pins the preview card
     await page.locator(`.sc-ingredient[data-kind="${kind}"]`).click();
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+    await expect(page.locator('.sc-chip-preview')).toBeVisible();
+    // the card itself is the door to the catalog page
+    await page.locator('.sc-chip-preview-hit').click();
     await expect(page.locator('.sc-ovl')).toHaveCount(0);
     expect(new URL(page.url()).pathname).not.toContain('/shots/');
 

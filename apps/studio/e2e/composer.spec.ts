@@ -157,8 +157,8 @@ test('the settings ride along with the brief, so a shot can be run again as itse
   await page.keyboard.type('a shot whose recipe must survive');
   // On a desktop the three settings are pills in the row; a narrow composer
   // collapses the same three behind More, and a phone opens them as a sheet.
-  await dock(page).locator('.sc-prompt-pills [aria-label="2 variants"]').click();
-  await page.locator('.sc-setpop').getByRole('radio', { name: '3 variants' }).click();
+  await dock(page).locator('.sc-prompt-pills [aria-label="2 shots"]').click();
+  await page.locator('.sc-setpop').getByRole('radio', { name: '3 shots' }).click();
   await dock(page).locator('.sc-send').click();
   await expect(page.locator('.sc-toast', { hasText: 'That did not send' })).toBeVisible();
 
@@ -383,8 +383,54 @@ test('a version still rendering holds the button rather than making a new shot',
   await page.locator('.sc-brief-line').first().click();
   await page.keyboard.type('crop tighter');
 
-  await expect(page.locator('.sc-target-note')).toHaveText('Still rendering. This can be refined the moment it lands.');
+  // No sentence any more: the chip's shimmer says it, and the held button's
+  // own tooltip explains itself. The hold is the contract being tested.
+  await expect(page.locator('.sc-target-note')).toHaveCount(0);
   await expect(dock(page).locator('.sc-send')).toHaveAttribute('aria-disabled', 'true');
+  await expect(dock(page).locator('.sc-send')).toHaveAttribute('title', /Wait for this version to finish/);
+});
+
+test('scenes sit out while a refine is armed, and come back when it ends', async ({ page }) => {
+  // A scene starts a new shot, so letting one land mid-refine silently traded
+  // the armed refine for a chip — a mode flip as a click's side effect. The
+  // panel now says so instead: cards visible, dimmed, disabled, with the way
+  // out written above them. Ending the refine restores them.
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().hover();
+  await page.locator('.sc-cell-branch').first().click();
+  await expect(page.locator('.sc-target')).toBeVisible();
+
+  await page.locator('.sc-attach-toggle').first().click();
+  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await expect(page.locator('.sc-ap-hint')).toContainText('sit out while you are refining');
+  await expect(attachCards(page).first()).toBeDisabled();
+
+  // X on the refine chip ends it (the click outside also closes the panel);
+  // reopened, the catalog is back in business with no hint
+  await page.locator('.sc-target-chip button').click();
+  await expect(page.locator('.sc-target')).toHaveCount(0);
+  await page.locator('.sc-attach-toggle').first().click();
+  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
+  await expect(attachCards(page).first()).toBeEnabled();
+});
+
+test('arming a refine lets a lingering scene chip go', async ({ page }) => {
+  // The other direction stays: a scene chip in a FRESH sentence loses to an
+  // explicit Refine press on a card — it used to be refused over and over
+  // until the chip was removed by hand.
+  await page.locator('.sc-attach-toggle').first().click();
+  await page.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
+  await attachCards(page).first().click();
+  await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(1);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+  await page.locator('.sc-cell').first().hover();
+  await page.locator('.sc-cell-branch').first().click();
+  await expect(page.locator('.sc-target')).toBeVisible();
+  await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(0);
+  await expect(dock(page).locator('.sc-send')).toHaveAttribute('aria-label', 'Refine');
 });
 
 test('typing after a chip added from the plus menu', async ({ page }) => {
@@ -1520,7 +1566,9 @@ test('paste of a sigil does not open the menu', async ({ page }) => {
   expect(await sentence(page)).toContain('@marco');
 });
 
-test('an opened run reads its takes in request order, wherever completion landed them', async ({ page }) => {
+test('a multi-shot request lands as siblings reading in request order, wherever completion landed them', async ({
+  page,
+}) => {
   await page.goto('/');
   await page.waitForURL((u) => {
     const seg = u.pathname.split('/').filter(Boolean);
@@ -1528,7 +1576,8 @@ test('an opened run reads its takes in request order, wherever completion landed
   });
   const slug = decodeURIComponent(new URL(page.url()).pathname.split('/')[1]);
 
-  // A real four-take demo run through the real API.
+  // A real four-shot demo request through the real API: four first-class
+  // sibling nodes, one image each, sharing one batch identity.
   const made = await page.evaluate(async () => {
     const brands = await (await fetch('/api/brands')).json();
     const ws = await (await fetch(`/api/brands/${brands[0].id}/workspace`)).json();
@@ -1540,31 +1589,34 @@ test('an opened run reads its takes in request order, wherever completion landed
         kind: 'generation',
         engineId: 'demo',
         count: 4,
-        prompt: 'four takes in order',
+        prompt: 'four shots in order',
         width: 512,
         height: 512,
       }),
     });
-    return (await r.json()).id as string;
+    const body = await r.json();
+    return (body.siblings as { id: string }[]).map((s) => s.id);
   });
-  await expect
-    .poll(() => page.evaluate(async (id) => (await (await fetch(`/api/nodes/${id}`)).json()).status, made))
-    .toBe('done');
+  expect(made).toHaveLength(4);
+  for (const id of made) {
+    await expect
+      .poll(() => page.evaluate(async (n) => (await (await fetch(`/api/nodes/${n}`)).json()).status, id))
+      .toBe('done');
+  }
+  // four distinct pictures, not one picture four times
+  const hashes = await page.evaluate(
+    async (ids) => Promise.all(ids.map(async (n) => (await (await fetch(`/api/nodes/${n}`)).json()).images[0])),
+    made,
+  );
+  expect(new Set(hashes).size).toBe(4);
 
   await page.goto(`/${slug}/create`);
-  const runCell = page.locator(`.sc-cell[data-fb-node="${made}"]`).first();
-  await runCell.hover();
-  await runCell.getByRole('button', { name: 'Show all 4 variants' }).click();
-
-  const takes = page.locator(`.sc-cell[data-fb-node="${made}"][data-variant]`);
-  await expect(takes).toHaveCount(4);
   // Visual reading order — top row left to right, then the next row — must be
-  // take 1, 2, 3, 4. The old deal handed the run out counted from its far end,
-  // so a four-take run opened reading 3, 2, 1.
+  // slot 1, 2, 3, 4, however the four resolved.
   const placed: { i: number; x: number; y: number }[] = [];
   for (let i = 0; i < 4; i++) {
-    const box = await page.locator(`.sc-cell[data-fb-node="${made}"][data-fb-variant="${i}"]`).boundingBox();
-    if (!box) throw new Error(`take ${i} has no box`);
+    const box = await page.locator(`.sc-cell[data-fb-node="${made[i]}"]`).first().boundingBox();
+    if (!box) throw new Error(`sibling ${i} has no tile`);
     placed.push({ i, x: box.x, y: box.y });
   }
   const reading = [...placed].sort((a, b) => a.y - b.y || a.x - b.x).map((p) => p.i);
@@ -1869,7 +1921,8 @@ test('the newest work is always the top-left tile', async ({ page }) => {
   await line(page).click();
   await page.keyboard.type('the newest shot');
   await dock(page).locator('.sc-send').click();
-  await expect(page.locator('.sc-cell[data-running]')).toBeVisible();
+  // a default send is a two-shot batch now, so two running tiles are the norm
+  await expect(page.locator('.sc-cell[data-running]').first()).toBeVisible();
   // the demo engine can land between any two round trips, taking the running
   // attribute with it — in that case the done-shot assertion below is the
   // whole invariant, checked against the same top-left spot
@@ -1979,69 +2032,14 @@ test('a refinement records what it carried, and the shot detail says it', async 
   await expect(page.locator('.sc-ingredient[data-inherited][data-kind="ref"]')).toBeVisible();
   // and the BRIEF reads as the sentence that was typed
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
-  // the refine composer's strip also names the world the thread was shot in:
-  // a scene never rides a refine as a reference — the photo carries it — and
-  // the strip used to stay silent about the one thing every refine keeps
-  const world = page.locator('.sc-ovl-edit .sc-carried-chip[data-world]');
+  // context is stated once, at the top of the record: the composer's old
+  // carried strip is gone, and the record itself names the world the thread
+  // was shot in — a scene never rides a refine as a reference, the photo
+  // carries it
+  await expect(page.locator('.sc-ovl-edit .sc-carried')).toHaveCount(0);
+  const world = page.locator('.sc-ingredient[data-world]');
   await expect(world).toBeVisible();
   await expect(world).toContainText(made.sceneName);
-});
-
-test('the refine composer states what it is carrying before the send', async ({ page }) => {
-  const brand = new URL(page.url()).pathname.split('/')[1];
-
-  // the strip draws from the preview's own attachments; answer the preview
-  // with a carried product so the UI wiring is what this test proves
-  await page.route('**/api/brief/preview', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      json: {
-        prompt: '',
-        width: 1024,
-        height: 1024,
-        attachments: [
-          // two images of ONE product: the identity shot and a corroboration
-          // angle. The strip counts things, not images — one chip, wearing
-          // the identity image — or the same name reads as two products.
-          { role: 'product', id: 'p1', label: 'Cold brew can', hash: 'a'.repeat(32), essential: true, inherited: true },
-          { role: 'product', id: 'p1', label: 'Cold brew can', hash: 'c'.repeat(32), inherited: true },
-          { role: 'brand', label: 'Acme wordmark', hash: 'b'.repeat(32), inherited: true },
-        ],
-        dropped: [],
-        warnings: [],
-        productId: 'p1',
-        referenceCount: 3,
-      },
-    });
-  });
-
-  let shot = '';
-  await page.route('**/workspace', async (route) => {
-    const res = await route.fetch();
-    const ws = await res.json();
-    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
-    if (done) shot = done.id;
-    await route.fulfill({ response: res, json: ws });
-  });
-
-  await page.goto(`/${brand}/create`);
-  await expect.poll(() => shot).not.toBe('');
-  await page.goto(`/${brand}/create/shots/${shot}`);
-  const composer = page.locator('.sc-ovl-edit');
-  await expect(composer.locator('.sc-brief-line')).toBeVisible();
-
-  // before a single word is typed, the strip says what the thread keeps:
-  // one chip per thing, so the two product images collapse to one chip
-  // wearing the identity image (a world chip, if the thread has one, is a
-  // separate statement and not counted here)
-  await expect(composer.locator('.sc-carried')).toBeVisible();
-  await expect(composer.locator('.sc-carried-chip:not([data-world])')).toHaveCount(2);
-  const productChip = composer.locator('.sc-carried-chip[data-kind="product"]');
-  await expect(productChip).toHaveCount(1);
-  await expect(productChip).toContainText('Cold brew can');
-  await expect(productChip.locator('img')).toHaveAttribute('src', new RegExp('a'.repeat(32)));
-  await expect(composer.locator('.sc-carried-chip[data-kind="mark"]')).toContainText('Acme wordmark');
 });
 
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {

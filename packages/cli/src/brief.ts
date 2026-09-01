@@ -131,6 +131,14 @@ export interface Attachment {
    * recipe once swapped its leading reference and the fixture stayed green.
    */
   angle?: string;
+  /**
+   * Why a `dropped` entry did not ride, so callers can act on the cause:
+   * `budget` lost the engine-cap allocation; `missing` never had a usable
+   * image at all — its record exists but every photo is gone from the store.
+   * A missing identity is marked essential, so the same refusal path that
+   * guards a budget-dropped identity fires for it too. Absent on `kept`.
+   */
+  reason?: 'budget' | 'missing';
 }
 
 export interface CompiledBrief {
@@ -207,6 +215,16 @@ interface CompileContext {
    * carry them.
    */
   inheritedDirectives?: string[];
+  /**
+   * The attachments that actually ride, when the caller makes a wider
+   * allocation than this compile can see: the edit route merges own and
+   * inherited attachments under a budget that reserves the source frame's
+   * slot, then compiles the prompt once more against the survivors. Directive
+   * resolution consults this instead of the compile's own allocation, so the
+   * prompt never claims a picture the merge dropped. Matched by role + hash,
+   * never by object: the second compile mints fresh attachment objects.
+   */
+  presentAttachments?: Pick<Attachment, 'role' | 'hash'>[];
 }
 
 const assetHash = (ref: unknown): string | null => {
@@ -268,15 +286,32 @@ export function validateBrief(brief: unknown): string[] {
   return errors;
 }
 
+/**
+ * A directive that is only true while a particular picture rides. Written as a
+ * deferred claim during the token loop and resolved against the final
+ * allocation, because the loop cannot know what the budget will keep: the old
+ * code pushed "the attached brand mark ... reproduce it exactly" as a string,
+ * the cap dropped the mark, and the model was handed instructions about a
+ * picture it never received.
+ */
+type DeferredDirective =
+  | string
+  /** The product fidelity claim, re-counted against the angles that ride. */
+  | { need: 'fidelity'; id: string }
+  /** Spoken only when this exact role:hash attachment survives. */
+  | { need: 'attachment'; role: Attachment['role']; hash: string; text: string };
+
 /** Deterministic: same brief + same context always yields the same request. */
 export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const warnings: string[] = [];
   const attachments: Attachment[] = [];
+  /** Identities that exist in the kit but have no usable photo - see below. */
+  const unattachable: Attachment[] = [];
   /** Scene attachments that are the RAW upload (no plate drawn) - see below. */
   const rawSceneFallback: Attachment[] = [];
-  const productDirectives: string[] = [];
+  const productDirectives: DeferredDirective[] = [];
   const personDirectives: string[] = [];
-  const otherDirectives: string[] = [];
+  const otherDirectives: DeferredDirective[] = [];
   let width = 1024;
   let height = 1024;
   let productId: string | null = null;
@@ -350,7 +385,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
               ...(angle ? { angle } : {}),
             });
           });
-          productDirectives.push(productFidelityDirective(pshots.length));
+          productDirectives.push({ need: 'fidelity', id: p.id });
           // Real-world scale, material and the record's own preservation
           // notes, when the product record knows them. A model given no size
           // cue will happily render a watch the size of a dinner plate in a
@@ -369,6 +404,11 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
             );
         } else {
           warnings.push(`${p.name} has no usable photo, so it is named but not attached.`);
+          // A named-but-never-shown identity is the "confidently wrong" run
+          // this compiler exists to prevent, and it used to slip through here
+          // as a warning nobody read. Essential, so the caller's refusal path
+          // treats it exactly like an identity the budget forced out.
+          unattachable.push({ role: 'product', id: p.id, label: p.name, hash: '', essential: true, reason: 'missing' });
         }
         break;
       }
@@ -460,6 +500,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           if (c.build) personDirectives.push(`${c.promptName ?? c.name}'s build: ${c.build}.`);
         } else {
           warnings.push(`${c.name} has no usable photo, so they are named but not attached.`);
+          // Same contract as the product above: a face that cannot be shown
+          // must refuse, not run as prose.
+          unattachable.push({
+            role: 'character',
+            id: c.id,
+            label: c.name,
+            hash: '',
+            essential: true,
+            reason: 'missing',
+          });
         }
         break;
       }
@@ -481,7 +531,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         attachments.push({ role: 'reference', label: 'Reference shot', hash: tok.imageHash });
-        otherDirectives.push('Match the composition, lighting and treatment of the attached reference.');
+        otherDirectives.push({
+          need: 'attachment',
+          role: 'reference',
+          hash: tok.imageHash,
+          text: 'Match the composition, lighting and treatment of the attached reference.',
+        });
         break;
       }
 
@@ -512,9 +567,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         } catch {
           // an unreadable header is not a compile failure
         }
-        otherDirectives.push(
-          "The attached brand mark is this brand's own mark. If the direction asks for the logo to appear, reproduce it exactly as drawn — same colours, letterforms and proportions, never redrawn or re-lettered. Every character it carries appears intact, including the smallest secondary lettering, in its original script and reading direction — never translated, transliterated or re-spelled. Otherwise take only its colour and treatment from it.",
-        );
+        otherDirectives.push({
+          need: 'attachment',
+          role: 'brand',
+          hash: tok.imageHash,
+          text: "The attached brand mark is this brand's own mark. If the direction asks for the logo to appear, reproduce it exactly as drawn — same colours, letterforms and proportions, never redrawn or re-lettered. Every character it carries appears intact, including the smallest secondary lettering, in its original script and reading direction — never translated, transliterated or re-spelled. Otherwise take only its colour and treatment from it.",
+        });
         break;
       }
 
@@ -672,8 +730,44 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
       if (i !== -1) attachments.splice(i, 1);
     }
   }
+  // A reference that is byte-identical to an attached identity's own photo
+  // would spend a second slot on pixels the identity already carries, under a
+  // contract (match the composition) written for OTHER artwork. Same rule as
+  // the ref-vs-mark dedupe at the top: it rides once, as the identity, and
+  // the composition directive dies with the reference copy - the deferred
+  // resolution below never sees reference:hash among the survivors.
+  const identityHashes = new Map<string, string>();
+  for (const a of attachments)
+    if ((a.role === 'product' || a.role === 'character') && !identityHashes.has(a.hash))
+      identityHashes.set(a.hash, a.label);
+  for (let i = attachments.length - 1; i >= 0; i--) {
+    const a = attachments[i];
+    if (a.role === 'reference' && identityHashes.has(a.hash)) {
+      attachments.splice(i, 1);
+      warnings.push(
+        `That reference is the same image as ${identityHashes.get(a.hash)}'s own photo, so it rides once, as the identity.`,
+      );
+    }
+  }
   const max = ctx.engineCaps.maxReferenceImages;
-  const { kept, dropped } = allocateAttachments(attachments, max);
+  const { kept, dropped: budgetDropped } = allocateAttachments(attachments, max);
+
+  // What actually rides, for the deferred directives: the edit route makes a
+  // wider allocation this compile cannot see (own plus inherited, source
+  // frame holding a slot) and hands the survivors back through
+  // `presentAttachments`. Role + hash, never object identity - the edit
+  // route's second compile mints fresh attachment objects.
+  const presentKeys = new Set((ctx.presentAttachments ?? kept).map((a) => `${a.role}:${a.hash}`));
+  const resolveDirective = (d: DeferredDirective): string | null => {
+    if (typeof d === 'string') return d;
+    if (d.need === 'fidelity') {
+      const n = attachments.filter(
+        (a) => a.role === 'product' && a.id === d.id && presentKeys.has(`product:${a.hash}`),
+      ).length;
+      return n > 0 ? productFidelityDirective(n) : null;
+    }
+    return presentKeys.has(`${d.role}:${d.hash}`) ? d.text : null;
+  };
 
   const guard = scene
     ? sceneGuardDirectives({
@@ -710,8 +804,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         treatment: scene.figureTreatment,
         hasPerson,
         // The treatment's fictional-brands rule needs to know a real mark is
-        // deliberately in play; attachments are fully collected by this point.
-        hasMark: attachments.some((a) => a.role === 'brand'),
+        // deliberately in play - and only one that actually rides counts,
+        // same honesty rule as the photo guard above.
+        hasMark: [...presentKeys].some((k) => k.startsWith('brand:')),
       })
     : [];
 
@@ -778,7 +873,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const refGuard =
     ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
 
-  const allDirectives = [
+  const allDirectives: DeferredDirective[] = [
     ...productDirectives,
     ...personDirectives,
     ...pairDirectives,
@@ -792,9 +887,10 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...refGuard,
     ...preservation,
   ];
-  if (allDirectives.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${dedupe(allDirectives).join(' ')}`;
+  const spoken = dedupe(allDirectives.map(resolveDirective).filter((s): s is string => s !== null));
+  if (spoken.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${spoken.join(' ')}`;
 
-  if (dropped.some((d) => d.role !== 'scene')) {
+  if (budgetDropped.some((d) => d.role !== 'scene')) {
     // By label, not by attachment: a product contributes several angles, and
     // naming it once per dropped angle reads as three different products
     // having been lost.
@@ -807,7 +903,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // tell someone their presenter "was left out" when its first image had in
     // fact boarded.
     const keptLabels = new Set(kept.map((a) => a.label));
-    const names = [...new Set(dropped.filter((d) => d.role !== 'scene').map((d) => d.label))].filter(
+    const names = [...new Set(budgetDropped.filter((d) => d.role !== 'scene').map((d) => d.label))].filter(
       (l) => !keptLabels.has(l),
     );
     if (names.length) {
@@ -815,7 +911,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
       // engine that takes none deserves a sentence written for that case.
       const reads = max === 0 ? 'reads no reference images' : `reads ${max} reference image${max === 1 ? '' : 's'}`;
       warnings.push(
-        `${ctx.engineCaps.displayName} ${reads}, so ${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out.`,
+        `${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out — ${ctx.engineCaps.displayName} ${reads}.`,
       );
     }
   }
@@ -823,7 +919,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   return {
     prompt: prompt.trim(),
     referenceImages: kept.map((a) => ctx.images.pathFor(a.hash)),
-    dropped,
+    // The missing-photo identities lead: they are essential, and the refusal
+    // path reads this list. Budget losses carry their reason for the chips.
+    dropped: [...unattachable, ...budgetDropped.map((d) => ({ ...d, reason: 'budget' as const }))],
     width,
     height,
     attachments: kept,

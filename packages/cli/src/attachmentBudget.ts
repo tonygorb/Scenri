@@ -4,14 +4,20 @@ import type { Attachment } from './brief.js';
  * Identity before context before direction before taste. Under a tight engine
  * cap what survives is what the image would be *wrong* without: the product,
  * then the person. A style reference is the first thing worth losing.
+ *
+ * A hand-attached reference outranks the scene: the user chose that exact
+ * picture for this shot, where a scene plate is conditioning the recipe
+ * derived. On a four-slot engine carrying product + presenter + mark +
+ * scene + reference, the scene is what degrades to prose — quietly, by
+ * design — never the image someone attached on purpose.
  */
 export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
   product: 0,
   character: 1,
   brand: 2,
-  scene: 3,
-  composition: 4,
-  reference: 5,
+  reference: 3,
+  scene: 4,
+  composition: 5,
   style: 6,
 };
 

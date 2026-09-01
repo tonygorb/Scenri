@@ -4,7 +4,7 @@ import { imgUrl, type TreeNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
 // one clock for the whole app: the canvas and the bell must not disagree
-import { elapsedSec, runningPhrase } from '../tasks.js';
+import { elapsedLabel, elapsedSec, runningPhrase } from '../tasks.js';
 // the feed's running tiles hold the same shape, from the same source
 import { aspectOfFormat } from '../composer/formats.js';
 
@@ -14,13 +14,11 @@ function aspectOf(node: TreeNode): number {
 
 export function StageFrame({
   node,
-  imageIndex,
   onRetry,
   onCancel,
   engineName,
 }: {
   node: TreeNode;
-  imageIndex: number;
   onRetry?: () => void;
   onCancel?: () => void;
   /** What the engine that ran this is called, so a failure can name it. */
@@ -102,8 +100,15 @@ export function StageFrame({
       <div className="sc-stage-wait" style={{ '--sc-wait-ar': aspectOf(node) } as CSSProperties}>
         <span className="sc-shimmer" />
         <div className="sc-stage-wait-say">
-          <span className="sc-stage-wait-t">
-            {runningPhrase(node.createdAt)}, {elapsedSec(node.createdAt)}s
+          {/* The counter alone: the shimmer says "generating", and the words
+              beside the number read as noise on a phone. The escalating
+              phrase still reaches assistive tech. */}
+          <span
+            className="sc-stage-wait-t"
+            role="status"
+            aria-label={`${runningPhrase(node.createdAt)}, ${elapsedSec(node.createdAt)} seconds`}
+          >
+            {elapsedLabel(node.createdAt)}
           </span>
           {onCancel && (
             <button
@@ -142,11 +147,11 @@ export function StageFrame({
   return (
     <Flex justify="center">
       <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
-        {node.status === 'done' && node.images[imageIndex] && (
+        {node.status === 'done' && node.images[0] && (
           <Box position="relative" style={{ lineHeight: 0 }}>
             <img
               ref={setImgEl}
-              src={imgUrl(node.images[imageIndex])}
+              src={imgUrl(node.images[0])}
               alt={node.prompt}
               // the cap itself lives in CSS, where it can know whether a row of
               // takes sits under the shot: a percentage cannot, because nothing

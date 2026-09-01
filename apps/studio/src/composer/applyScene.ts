@@ -21,7 +21,10 @@ export function resolveSceneSwitch(
   // re-picking the same scene is a true no-op: no swap, no toast, no history
   if (existingSceneId === newSceneId) return { changed: false, toast: null };
   // a scene always implies a fresh setup, so an active branch target is dropped
-  // alongside it (Composer.tsx's own effect enforces the drop; this only names it)
+  // alongside it (Composer.tsx's own effect enforces the drop; this only names
+  // it). The hub cannot reach this while a refine is armed any more — its
+  // scene doors are restricted with a helper — so this fires only for the
+  // overlay composer and the URL-seeded paths.
   const branchWasCleared = !!branchId;
   // a first-time attach onto an empty slot, with nothing else disturbed, is not
   // worth announcing — a toast here would be noise, not signal

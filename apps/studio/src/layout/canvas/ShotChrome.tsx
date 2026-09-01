@@ -1,4 +1,4 @@
-import { Check, DotsThree, PencilLine, Stack, Star } from '@phosphor-icons/react';
+import { Check, DotsThree, Infinity as InfinityIcon, Star } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { nodeLabel, type TreeNode } from '../../api.js';
 import type { ShotMenuItem } from './shotMenu.js';
@@ -8,9 +8,8 @@ import type { ShotMenuItem } from './shotMenu.js';
  *
  * One rule holds it together: **at rest the card wears marks, on hover the
  * marks become controls.** A mark is state you have to read while scanning a
- * wall of shots — this one is kept, this one is a stack of four. A control is
- * a thing you do, and nothing you do needs to be visible before you have
- * chosen a card.
+ * wall of shots — this one is kept. A control is a thing you do, and nothing
+ * you do needs to be visible before you have chosen a card.
  *
  * The tile carries **two verbs and no more**: Refine, which is the whole loop
  * of this app, and one overflow that opens the shot's menu. Keep and Archive
@@ -25,8 +24,6 @@ import type { ShotMenuItem } from './shotMenu.js';
  */
 export function ShotChrome({
   node,
-  take,
-  takeCount,
   chosen,
   picking,
   batching,
@@ -34,12 +31,8 @@ export function ShotChrome({
   menu,
   onPick,
   onBranch,
-  onToggleExpand,
 }: {
   node: TreeNode;
-  /** Which take this tile shows, or null when the run is stacked into one tile. */
-  take: number | null;
-  takeCount: number;
   chosen: boolean;
   picking: boolean;
   /**
@@ -62,17 +55,8 @@ export function ShotChrome({
   /** The shot's verbs, built once by the feed so both menus agree. */
   menu: ShotMenuItem[];
   onPick?: (id: string) => void;
-  onBranch?: (id: string, imageIndex?: number) => void;
-  onToggleExpand?: (id: string) => void;
+  onBranch?: (id: string) => void;
 }) {
-  const opened = take !== null;
-  /**
-   * Picking and the menu act on the run rather than on one picture, so an
-   * opened-out run carries them on its first take only. Four copies of one
-   * checkbox is not four choices.
-   */
-  const runControls = !opened || take === 0;
-
   return (
     <>
       {/* One scrim per card edge, not one pill per control.
@@ -83,7 +67,7 @@ export function ShotChrome({
           a ring instead, which is a smaller claim and the right size of one. */}
       {!batching && <span className="sc-cell-veil" aria-hidden />}
 
-      {picking && runControls && (
+      {picking && (
         <button
           type="button"
           className="sc-cell-ctl sc-cell-pick"
@@ -99,9 +83,20 @@ export function ShotChrome({
         </button>
       )}
 
+      {/* The composer is pointed here: the picked tile's lit tick, worn as a
+          mark. During batching the real pick control renders instead, and the
+          brief cannot be armed then anyway. pointer-events is off in CSS, so
+          this is state, never a second control. */}
+      {armed && !picking && (
+        <span className="sc-cell-ctl sc-cell-pick" data-on title="Being refined">
+          <Check size={13} weight="bold" />
+          <span className="sc-vh">Being refined</span>
+        </span>
+      )}
+
       {/* A mark, not a control: gold says kept and nothing else, and there is
           no unlit state to hover because an unkept shot simply has no star. */}
-      {node.kept && runControls && (
+      {node.kept && (
         <span className="sc-cell-mark sc-cell-star" title="Kept">
           <Star size={14} weight="fill" />
           <span className="sc-vh">Kept</span>
@@ -109,42 +104,25 @@ export function ShotChrome({
       )}
 
       <div className="sc-cell-bar">
-        {/* The count is not a caption, it is the door into the other takes, so
-            it is the one thing on the tile that stays legible at rest. Every
-            take can close the run, not just the first. */}
-        {takeCount > 1 && onToggleExpand ? (
-          <button
-            type="button"
-            className="sc-cell-ctl sc-cell-stack"
-            aria-expanded={opened}
-            aria-label={opened ? `Collapse ${takeCount} variants` : `Show all ${takeCount} variants`}
-            onClick={() => onToggleExpand(node.id)}
-          >
-            <Stack size={13} />
-            <span className="sc-cell-ctl-n">{opened ? `${(take ?? 0) + 1}/${takeCount}` : takeCount}</span>
-            <span className="sc-cell-ctl-lb">{opened ? 'Collapse' : 'variants'}</span>
-          </button>
-        ) : (
-          <span />
-        )}
+        <span />
 
         <div className="sc-cell-acts">
-          {/* Refining is about THIS picture rather than the run, so an opened
-              take carries its own and names the take it is about. */}
           {onBranch && !batching && (
             <button
               type="button"
               className="sc-cell-ctl sc-cell-branch"
               data-on={armed || undefined}
-              aria-label={opened ? `Refine ${(take ?? 0) + 1} of ${takeCount}` : `Refine ${nodeLabel(node)}`}
-              title={opened ? 'Continue from this take' : 'Continue from this shot'}
-              onClick={() => onBranch(node.id, take ?? undefined)}
+              aria-label={`Refine ${nodeLabel(node)}`}
+              title="Continue from this shot"
+              onClick={() => onBranch(node.id)}
             >
-              <PencilLine size={13} />
+              {/* the refine mark: a version thread loops on itself, and the
+                  pencil this used to be said "edit text" more than it said that */}
+              <InfinityIcon size={13} weight="bold" />
               <span className="sc-cell-ctl-lb">Refine</span>
             </button>
           )}
-          {runControls && !batching && menu.length > 0 && (
+          {!batching && menu.length > 0 && (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger>
                 <button

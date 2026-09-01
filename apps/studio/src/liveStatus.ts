@@ -34,7 +34,8 @@ export function generationMessages(
       continue;
     }
     if (n.status === 'done') {
-      messages.push(`Shot ready, ${n.images.length} image${n.images.length === 1 ? '' : 's'}.`);
+      // a node is one image now; the count-of-images sentence died with takes
+      messages.push('Shot ready.');
     } else if (n.status === 'error') {
       messages.push(`Shot failed${n.error ? `: ${n.error}` : '.'}`);
     } else if (n.status === 'cancelled') {

@@ -129,19 +129,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   const [branchId, setBranchId] = useFilterParam('branch', '');
   /**
-   * Which image of the target a refinement should work from. A run holds
-   * several and they are the whole reason to shoot more than one, so aiming at
-   * a take has to survive the same reload the target itself does.
-   */
-  const [branchImage, _setBranchImage] = useFilterParam('bi', '');
-  /**
    * Looking at one shot and everything that came from it. A lens rather than a
    * place, so it rides in the query string next to the others: it is a way of
    * looking at the hub, not somewhere you can be.
    */
   const [lineageId, setLineageId] = useFilterParam('lineage', '');
-  /** Runs opened out into their variants. Not in the URL: it is a glance. */
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   /** How big the feed tiles are (px). Create-only preference, snapped to one
    * of three sizes — the pref key predates them and can hold any slider value. */
   const [tilePref, setTile] = useLocalPref(PREF.tileSize, TILE_DEFAULT);
@@ -156,29 +148,24 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [sortPref, setSortPref] = useLocalPref<FeedSort>(PREF.feedSort, 'newest');
   const sort: FeedSort = isFeedSort(sortPref) ? sortPref : 'newest';
   const [compareOpen, setCompareOpen] = useState(false);
-  const [iParam, setIParam] = useFilterParam('i', '0');
-  const imageIndex = Number.parseInt(iParam, 10) || 0;
   const _saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<ComposerHandle>(null);
   const { push } = useToasts();
   const { tasks, poke } = useTaskCenter();
-  /** The brief that has been sent and not yet come back as a shot. */
-  const [sending, setSending] = useState<string | null>(null);
+  /** The brief that has been sent and not yet come back as shots, and how
+   * many shots it asked for — one stand-in tile per expected sibling. */
+  const [sending, setSending] = useState<{ said: string; count: number } | null>(null);
 
   const projectId = workspace?.id ?? '';
   const base = set ? setPath(brand, set) : hubPath(brand);
   /**
    * Opening a shot used to navigate to a bare path, which threw away the whole
    * query string: the lens you were looking through, and now the shot you had
-   * asked to branch from, both vanished the moment you opened anything. The
-   * variant index is the one part of it this owns.
+   * asked to branch from, both vanished the moment you opened anything.
    */
   const shotHref = useCallback(
-    (id: string, i = 0) => {
-      const p = new URLSearchParams(params);
-      if (i > 0) p.set('i', String(i));
-      else p.delete('i');
-      const q = p.toString();
+    (id: string) => {
+      const q = params.toString();
       return `${base}/shots/${id}${q ? `?${q}` : ''}`;
     },
     [base, params],
@@ -186,15 +173,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   // Built on shotHref so the tile's real href and the programmatic open can
   // never disagree about what URL a shot lives at.
   const openShot = useCallback(
-    (id: string, i = 0, replace = false) => navigate(shotHref(id, i), { replace }),
+    (id: string, replace = false) => navigate(shotHref(id), { replace }),
     [navigate, shotHref],
   );
   const closeShot = useCallback(() => {
     const p = new URLSearchParams(params);
-    // the variant and the inspector tab were about the shot that is closing;
-    // the rest is about the view. Leaving ?panel= behind meant a reloaded or
-    // shared link carried overlay state that no longer applied to anything.
-    p.delete('i');
+    // the inspector tab was about the shot that is closing; the rest is about
+    // the view. Leaving ?panel= behind meant a reloaded or shared link carried
+    // overlay state that no longer applied to anything.
     p.delete('panel');
     const q = p.toString();
     // replace, not push: every in-overlay navigation since the initial open
@@ -459,25 +445,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     [allNodes, branchId],
   );
 
-  /** The frame of the target the dock will refine, named by ?bi=. */
-  const targetImage = target?.images[Number.parseInt(branchImage, 10) || 0] ?? target?.images[0] ?? null;
+  /** The frame the dock will refine: a node holds exactly one image now. */
+  const targetImage = target?.images[0] ?? null;
 
-  /**
-   * Let go of the refine thread: the shot AND the take chosen within it, in one
-   * write. Separately these were two param setters in a tick, which discard
-   * each other's work — so dropping the thread could leave half of it behind.
-   */
-  const clearTarget = useCallback(() => {
-    setParams(
-      (cur) => {
-        const p = new URLSearchParams(cur);
-        p.delete('branch');
-        p.delete('bi');
-        return p;
-      },
-      { replace: true },
-    );
-  }, [setParams]);
+  /** Let go of the refine thread. */
+  const clearTarget = useCallback(() => setBranchId(null), [setBranchId]);
 
   /**
    * Drop params, gathering everything asked for in one tick into one write.
@@ -538,31 +510,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   }, [branchId, target, loaded, clearTarget, push]);
 
   const branchFrom = useCallback(
-    (id: string, imageIndex = 0) => {
-      // One write for both halves. Two useFilterParam setters in the same tick
-      // are each handed the same params to start from, so the second silently
-      // discards the first — here that wiped the target the moment a take was
-      // aimed at, and the brief quietly went back to making a new shot.
-      setParams(
-        (cur) => {
-          const p = new URLSearchParams(cur);
-          p.set('branch', id);
-          if (imageIndex > 0) p.set('bi', String(imageIndex));
-          else p.delete('bi');
-          return p;
-        },
-        { replace: true },
-      );
+    (id: string) => {
+      setBranchId(id);
       composerRef.current?.focus();
     },
-    [setParams],
+    [setBranchId],
   );
 
-  /** Picking a different shot starts it at its first image, not the last one's. */
-  const select = (id: string) => {
-    setSelectedId(id);
-    setIParam(null);
-  };
+  const select = (id: string) => setSelectedId(id);
   /**
    * The overlay-context equivalent of `openShot`: the lineage filmstrip,
    * Prev/Next, the parent chip and arrow keys all move to a different shot
@@ -571,16 +526,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * Arrow keys also walk the closed canvas grid, where there is no overlay
    * route to update; `select`'s plain local-state move still owns that case.
    */
-  const goToShot = (id: string) => (nodeId ? openShot(id, 0, true) : select(id));
-  const setImageIndex = (i: number) => setIParam(i === 0 ? null : String(i));
+  const goToShot = (id: string) => (nodeId ? openShot(id, true) : select(id));
 
   /**
-   * Run a shot's own recipe again, as a sibling of the one that failed.
+   * Run this shot's own recipe again, as one new sibling.
    *
-   * The count comes off the stored brief rather than off the images, because
-   * the only shots this was ever offered on had none: every retry of a
-   * four-variant run used to come back with a single frame. Shots made before
-   * briefs existed keep the old guess, which is all there is to go on.
+   * One card, one retry, one new shot — a card is a single image now, so
+   * trying it again asks for exactly one more, whatever size the batch that
+   * made it was.
    *
    * A rejection here is a spend cap or an engine that has gone away — both
    * worth reading. This used to be fired as `void retry(n)` and rejected in
@@ -594,10 +547,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         kind: node.kind === 'edit' ? 'edit' : 'generation',
         prompt: node.prompt,
         engineId: node.engineId,
-        count: node.brief?.variants ?? Math.max(1, node.images.length || 1),
+        count: 1,
         brief: node.brief,
         // a refinement runs again from the frame it came from; without this the
-        // retake silently switched to the run's first image
+        // retake silently switched to its parent's image
         ...(node.kind === 'edit' && node.brief?.sourceImage ? { sourceImage: node.brief.sourceImage } : {}),
       });
       await reload();
@@ -747,14 +700,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           goToShot(kids[0].id);
           e.preventDefault();
         }
-      } else if (e.key === '[' && imageIndex > 0) setImageIndex(imageIndex - 1);
-      else if (e.key === ']' && selected.images.length - 1 > imageIndex) setImageIndex(imageIndex + 1);
-      else if (e.key === 'Enter' && !nodeId && selected.kind !== 'root') openShot(selected.id);
+      } else if (e.key === 'Enter' && !nodeId && selected.kind !== 'root') openShot(selected.id);
       else if (e.key === '.' && !nodeId) toggleAssets();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, byParent, imageIndex, nodeId, shortcutsOpen, picked.size, branchId, branchFrom, setBranchId]);
+  }, [selected, byParent, nodeId, shortcutsOpen, picked.size, branchId, branchFrom, setBranchId]);
 
   const togglePick = (id: string) =>
     setPicked((cur) => {
@@ -925,8 +876,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     brand,
     engines,
     projectId,
-    imageIndex,
-    setImageIndex,
     close: closeShot,
     select: goToShot,
     // Try again from inside a shot used to file the new take behind the
@@ -1092,15 +1041,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           sending={sending}
           onBranch={branchFrom}
           branchingFrom={target?.id ?? null}
-          branchingFromImage={targetImage}
-          expanded={expanded}
-          onToggleExpand={(id) =>
-            setExpanded((cur) => {
-              const next = new Set(cur);
-              if (!next.delete(id)) next.add(id);
-              return next;
-            })
-          }
           versionsOf={(id) => childrenOf.get(id)?.length ?? 0}
           onVersions={setLineageId}
           tile={tile}
@@ -1236,15 +1176,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
              */
             const thenPointAtIt = () => {
               if (kind !== 'edit' || !made) return;
-              // one write, for the same reason branchFrom uses one: two param
-              // setters in a tick discard each other's work. A refinement comes
-              // back as a single image, so any take chosen on the shot before
-              // it no longer names anything.
               setParams(
                 (cur) => {
                   const p = new URLSearchParams(cur);
                   p.set('branch', made);
-                  p.delete('bi');
                   return p;
                 },
                 { replace: true },

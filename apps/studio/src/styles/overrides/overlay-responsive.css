@@ -4,13 +4,6 @@
   row-gap: 6px;
   padding: 6px 10px 10px 12px;
 }
-.sc-ovl-edit .sc-mini-sel {
-  max-width: 130px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* The trigger states what it opens, and reads as held down while it is open.
    `--sc-chip-active` is the pressed fill for a chip that stays pressed; here
    the surface it opens is doing the talking, so this only has to be one step
@@ -40,9 +33,8 @@
    against the form column's header; mobile stacks it above the form instead
    (see the order: -1 rule above), where that offset is just wasted space. */
 
+/* geometry (size, padding) belongs to composer-island's --sc-send-* pass */
 .sc-send {
-  width: 34px;
-  height: 34px;
   flex-shrink: 0;
   border: none;
   border-radius: 50%;

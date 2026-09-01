@@ -146,8 +146,17 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       // never disagree about what moment it is.
       const [{ nodes, jobs }, { builds: bs }] = await Promise.all([api.activity(brandId), api.assetBuilds(brandId)]);
       liveBuilds = bs;
+      // One row per REQUEST, not per sibling: a four-shot batch is one piece
+      // of work in the bell. The first sibling represents it (its id keeps
+      // old persisted rows reconciling), counted while any of them runs.
+      const byBatch = new Map<string, number>();
+      for (const n of nodes) if (n.batchId) byBatch.set(n.batchId, (byBatch.get(n.batchId) ?? 0) + 1);
+      const collapsed = nodes.filter((n) => !n.batchId || n.batchIndex === 0 || !byBatch.has(n.batchId));
       next = [
-        ...nodes.map((n) => taskFromNode(n, brand)),
+        ...collapsed.map((n) => {
+          const size = n.batchId ? (byBatch.get(n.batchId) ?? 1) : 1;
+          return taskFromNode(n, brand, Date.now(), size);
+        }),
         ...jobs.map((j) => taskFromCatalogJob(j, brand)),
         ...bs.map((b) => taskFromAssetBuild(b, brand)),
       ];

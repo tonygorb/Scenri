@@ -41,6 +41,11 @@ export interface TreeNode {
   /** Put away, not gone: an archived node is excluded from the default feed
    * but always restorable, never deleted. */
   archived: boolean;
+  /** The multi-shot request this node came from; null for single sends and
+   * for every edit. Provenance only — never a user-facing hierarchy. */
+  batchId: string | null;
+  /** Which slot of that request this node filled; 0 outside a batch. */
+  batchIndex: number;
 }
 
 /** A node carrying the sets it has been put in, for lists that span the brand. */
@@ -130,7 +135,25 @@ function rowToNode(r: any): TreeNode {
     overlays: JSON.parse(r.overlays ?? '{}'),
     brief: r.brief ? JSON.parse(r.brief) : null,
     archived: !!r.archived,
+    batchId: r.batch_id ?? null,
+    batchIndex: r.batch_index ?? 0,
   };
+}
+
+/**
+ * Stamps for a batch of siblings, newest for slot 0: the feed is newest-first,
+ * so this is what makes slot 0 read top-left and the batch read in request
+ * order. Monotonic across calls, so two rapid batches can never interleave.
+ */
+let lastBatchStamp = 0;
+function batchStamps(count: number): string[] {
+  const base = Math.max(Date.now(), lastBatchStamp + count);
+  lastBatchStamp = base;
+  const p = (n: number, w = 2) => String(n).padStart(w, '0');
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(base - i);
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}.${p(d.getUTCMilliseconds(), 3)}`;
+  });
 }
 
 export function createStore(db: DB) {
@@ -317,6 +340,49 @@ export function createStore(db: DB) {
         "INSERT INTO nodes (id, project_id, parent_id, kind, prompt, engine_id, created_at) VALUES (?,?,?,?,?,?, strftime('%Y-%m-%d %H:%M:%f','now'))",
       ).run(id, input.projectId, input.parentId, input.kind, input.prompt, input.engineId);
       return this.getNode(id)!;
+    },
+    /**
+     * One multi-shot request, N first-class sibling nodes, one transaction.
+     * Slot 0 gets the newest stamp (see batchStamps) so the newest-first feed
+     * reads the batch in request order; batch_id is the first node's id, held
+     * by every sibling including the first, and stays null for a single send
+     * — one shot is not a batch.
+     */
+    addNodes(input: {
+      projectId: string;
+      parentId: string | null;
+      kind: Exclude<NodeKind, 'root'>;
+      prompt: string;
+      engineId: string;
+      count: number;
+    }): TreeNode[] {
+      if (input.parentId) {
+        const parent = this.getNode(input.parentId);
+        if (!parent || parent.projectId !== input.projectId) throw new Error('parent node not found in project');
+      }
+      const count = Math.max(1, Math.floor(input.count));
+      const ids = Array.from({ length: count }, () => randomUUID());
+      const stamps = batchStamps(count);
+      const batchId = count > 1 ? ids[0] : null;
+      const insert = db.prepare(
+        'INSERT INTO nodes (id, project_id, parent_id, kind, prompt, engine_id, created_at, batch_id, batch_index) VALUES (?,?,?,?,?,?,?,?,?)',
+      );
+      db.transaction(() => {
+        for (let i = 0; i < count; i++) {
+          insert.run(
+            ids[i],
+            input.projectId,
+            input.parentId,
+            input.kind,
+            input.prompt,
+            input.engineId,
+            stamps[i],
+            batchId,
+            i,
+          );
+        }
+      })();
+      return ids.map((id) => this.getNode(id)!);
     },
     completeNode(id: string, result: { images: string[]; costUsd: number; durationMs?: number }): void {
       db.prepare("UPDATE nodes SET status='done', images=?, cost_usd=?, duration_ms=? WHERE id=?").run(

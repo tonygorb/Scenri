@@ -22,9 +22,9 @@ import {
   type SentenceToken,
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
-import { ChipPreview, isPreviewKind, type PreviewKind } from '../composer/ChipPreview.js';
-import { ImageLightbox } from '../composer/ImageLightbox.js';
+import { ChipPreview, type PreviewKind } from '../composer/ChipPreview.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
+import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
 import {
   openOnGroup,
@@ -47,7 +47,6 @@ import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { resolveSceneSwitch } from '../composer/applyScene.js';
 import { aspectOfFormat, formatOfShot } from '../composer/formats.js';
 import { reshapeOpFor } from '../composer/reshape.js';
-import { byContextOrder } from '../contextChips.js';
 import { failureToast } from '../failure.js';
 import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.js';
 
@@ -121,7 +120,7 @@ export const Composer = forwardRef<
      * Cleared here only on failure: on success the caller clears it once the
      * real shot has actually landed, or the tile would blink out and back in.
      */
-    onSending?: (text: string | null) => void;
+    onSending?: (sending: { said: string; count: number } | null) => void;
     /**
      * Which assets the brief holds, published whenever that set changes.
      *
@@ -186,7 +185,9 @@ export const Composer = forwardRef<
     onRestoreBranchId,
     setSlug,
     persistDraft = true,
-    variant = 'dock',
+    // the shell distinction lives in CSS (.sc-ovl-edit scopes the overlay
+    // variant); accepted so callers keep declaring which shell they mount
+    variant: _variant = 'dock',
   },
   handleRef,
 ) {
@@ -266,9 +267,7 @@ export const Composer = forwardRef<
   const [refineFormats, setRefineFormats] = useState<Record<string, string>>({});
   const refineTarget = target && target.kind !== 'root' ? target : null;
   /** What the shot on the chip already is, and the shape a reshape is measured from. */
-  const sourceFormat = refineTarget
-    ? formatOfShot(refineTarget.brief, Math.max(0, refineTarget.images.indexOf(sourceImage ?? '')))
-    : undefined;
+  const sourceFormat = refineTarget ? formatOfShot(refineTarget.brief) : undefined;
   const formatId = refineTarget ? (refineFormats[refineTarget.id] ?? sourceFormat ?? prefFormat) : prefFormat;
   // Derived rather than seeded by an effect on purpose: the overlay reuses one
   // mounted composer as you walk from shot to shot, so a new target has to
@@ -685,85 +684,30 @@ export const Composer = forwardRef<
   const targetShapeLabel = targetShape ? `${targetShape.label} ${targetShape.hint}` : formatId;
 
   /**
-   * What this refinement carries from the shot it refines, straight from the
-   * compiler's own preview: the strip and the request cannot disagree, because
-   * they are the same allocation. Overlay only, and inherited only — new
-   * attachments already live as chips inside the brief line, and a strip that
-   * repeated them would say everything twice.
+   * The one image open full size. Ephemeral by construction: local state,
+   * never a draft, never storage, so a reload or a navigation simply has
+   * neither. It lives here rather than inside each surface that can ask for
+   * one, so there is exactly one per composer — the brief line asks through
+   * `onInspect`. The carried-context strip that also fed this is gone: the
+   * shot record above the overlay composer states that context now, once.
    */
-  const carried = useMemo(() => {
-    if (variant !== 'overlay') return [];
-    const kindOf = { product: 'product', character: 'presenter', brand: 'mark', reference: 'ref' } as const;
-    // One chip per THING, not per image. A product can ride with a second
-    // corroboration angle, and two chips wearing the same name read as two
-    // products. The first attachment of a group is its identity image — the
-    // budget boards essentials first — so it owns the thumb.
-    const byEntity = new Map<string, { kind: string; label: string; hash: string }>();
-    for (const a of preview?.attachments ?? []) {
-      if (!a.inherited) continue;
-      const kind = kindOf[a.role] ?? a.role;
-      const key = `${kind}:${a.id ?? a.hash}`;
-      if (!byEntity.has(key)) byEntity.set(key, { kind, label: a.label, hash: a.hash });
-    }
-    return [...byEntity.values()].sort(byContextOrder);
-  }, [variant, preview]);
-
-  /**
-   * Which carried image is being peeked at, and which one is open full size.
-   *
-   * Both ephemeral by construction: local state, never a draft, never storage,
-   * so a reload or a navigation simply has neither. The lightbox lives here
-   * rather than inside each surface that can ask for one, so there is exactly
-   * one per composer — the brief line asks through `onInspect`.
-   */
-  const carriedHover = useHoverPreview<{
-    key: string;
-    hash: string;
-    kind: PreviewKind;
-    label: string;
-    el: HTMLElement;
-  }>();
-  const { shown: carriedPeek, closeNow: closeCarriedPeek } = carriedHover;
   const [lightbox, setLightbox] = useState<{ hash: string; kind: PreviewKind; label: string | null } | null>(null);
-  // A new preview re-allocates the strip, so the element the card is anchored
-  // to can stop existing while it is up.
-  useEffect(() => {
-    if (carriedPeek && !carried.some((a) => `${a.kind}:${a.hash}` === carriedPeek.key)) closeCarriedPeek();
-  }, [carried, carriedPeek, closeCarriedPeek]);
-
-  const inspectCarried = useCallback(
-    (a: { hash: string; kind: PreviewKind; label: string }) => {
-      closeCarriedPeek();
-      setLightbox({ hash: a.hash, kind: a.kind, label: a.label });
-    },
-    [closeCarriedPeek],
-  );
+  /** The hover peek on the target chip: the same card, on the same timing, a
+      chip in the sentence gets. */
+  const targetHover = useHoverPreview<{ anchor: HTMLElement }>();
+  const openTargetImage = () => {
+    if (!target?.images[0]) return;
+    targetHover.closeNow();
+    setLightbox({ hash: target.images[0], kind: 'shot', label: null });
+  };
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' =
     branchable && !template && (engineCanEdit || cropping || expanding) ? 'edit' : 'generation';
-  /**
-   * The world this thread was shot in. A refinement never re-sends scene
-   * references — the photograph being refined carries its world — so the
-   * strip stayed silent about the one ingredient every refine keeps, and the
-   * missing scene chip read as a loss. Display only, read from the nearest
-   * shot up the thread that named a scene; the compile allocation above is
-   * untouched.
-   */
-  const worldScene = useMemo(() => {
-    if (variant !== 'overlay' || !refineTarget || mode !== 'edit') return null;
-    const byId = new Map(shots.map((n) => [n.id, n]));
-    let cur: TreeNode | null | undefined = refineTarget;
-    while (cur && cur.kind !== 'root') {
-      const tid: string | undefined =
-        cur.brief?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? cur.brief?.templateId;
-      if (tid) {
-        const s = templates.find((x) => x.id === tid);
-        return s ? { name: s.name, thumb: s.previewUrl ?? null } : null;
-      }
-      cur = cur.parentId ? byId.get(cur.parentId) : null;
-    }
-    return null;
-  }, [variant, refineTarget, mode, shots, templates]);
+  /** The hub has a refine armed, so scenes sit out of every attach door: a
+      scene would start a new shot, and trading the armed refine for a chip as
+      a click's side effect is the mode flip this composer refuses. Hub only —
+      the overlay has no armed chip to lose. */
+  const scenesSitOut = mode === 'edit' && !!target && !!onClearTarget;
   // No reshape tutorial here anymore: the op is inferred, and the whole
   // explanation is the two-word state line rendered beside the shape picker.
   const targetNote = !branchable
@@ -774,9 +718,10 @@ export const Composer = forwardRef<
         ? null
         : !engineCanEdit
           ? `${engine?.displayName ?? 'This engine'} cannot edit. This makes a new shot.`
-          : targetPending
-            ? 'Still rendering. This can be refined the moment it lands.'
-            : null;
+          : // A version still rendering used to add a sentence here; the chip's
+            // own shimmer already says it, and the held send button's tooltip
+            // (blockedReason) explains itself to anyone who asks.
+            null;
 
   /**
    * What is currently set, so the one control can still say it out loud.
@@ -799,18 +744,32 @@ export const Composer = forwardRef<
         : sizing === 'advisory'
           ? `${r.label}, asking for ${r.edge} px`
           : `${r.label} ${r.edge} px`;
-    return [shape, `${count} variants`, size && `resolution ${size}`].filter(Boolean).join(', ');
+    return [shape, `${count} shot${count === 1 ? '' : 's'}`, size && `resolution ${size}`].filter(Boolean).join(', ');
   }, [mode, formatId, count, quality, engineId]);
 
   /**
    * A scene is a fresh setup, so it cannot also be an edit of an existing shot.
-   * Rather than explain that in a sentence nobody asked for, the branch simply
-   * lets go: the scene chip appears and the branch chip disappears, which is the
-   * same fact told in the place you are already looking.
+   * Rather than explain that in a sentence nobody asked for, the LOSER simply
+   * lets go, and which side loses is whichever the user asked for first: a
+   * scene landing while a refine is armed drops the branch chip; re-arming a
+   * refine while a scene chip sits in the sentence drops the scene chip. The
+   * old rule made the scene win both ways, so pressing Refine with a scene
+   * attached was refused over and over until the chip was removed by hand.
+   * Both refs start undefined so a mount that restores both (a draft's scene
+   * plus a ?branch= URL) resolves the old way: the scene wins.
    */
+  const prevTargetId = useRef<string | null | undefined>(undefined);
+  const prevTemplateId = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (template && branchable && onClearTarget) onClearTarget();
-  }, [template, branchable, onClearTarget]);
+    const targetId = branchable ? (target?.id ?? null) : null;
+    const targetChanged = targetId !== prevTargetId.current && prevTargetId.current !== undefined;
+    prevTargetId.current = targetId;
+    const templateChanged = templateTokenId !== prevTemplateId.current;
+    prevTemplateId.current = templateTokenId;
+    if (!template || !branchable) return;
+    if (targetChanged && !templateChanged && targetId) briefRef.current?.removeTemplate();
+    else onClearTarget?.();
+  }, [template, templateTokenId, branchable, target, onClearTarget]);
   // A scene that wants a product still runs without one: it says "the product"
   // instead. Nine of ten ask for one, so refusing here meant a brand with no
   // products could never generate at all. Warn, allow.
@@ -818,13 +777,6 @@ export const Composer = forwardRef<
   // The phrase is the compiler's, from packages/cli/src/brief.ts: change the
   // wording there and this stops matching, with nothing to say it has.
   const blocking = preview?.warnings.filter((w) => w.includes('built around a product')) ?? [];
-  // Identity the engine cap left out, stated BEFORE send. Structural data from
-  // the compiler's own preview (never prose-matched warnings), the same source
-  // the carried strip uses. Scene refs degrade quietly by design.
-  const lostRefs = useMemo(() => {
-    const dropped = (preview?.dropped ?? []).filter((d) => d.role !== 'scene');
-    return [...new Set(dropped.map((d) => d.label))];
-  }, [preview]);
   // the workspace arrives a beat after the screen does, and typing is faster
   // than a round trip: without this the first brief of a cold load could be sent
   // into nothing and come back as an error the user did nothing to cause.
@@ -964,13 +916,19 @@ export const Composer = forwardRef<
   const flagToken = (t: BriefToken): string | null => {
     if (t.t === 'template') return templateFlag;
     if (!preview) return null;
+    const engineName = engine?.displayName ?? 'this engine';
+    // A photo that does not exist has a different remedy than a photo the
+    // engine cannot take: the chip says the one the user can act on. The
+    // compiler classifies the loss (`reason`), the chip only speaks it.
+    const missingIdentity = (role: 'product' | 'character', id: string) =>
+      preview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
     if (t.t === 'ref' && !preview.attachments.some((a) => a.hash === t.imageHash)) {
-      return `${engine?.displayName ?? 'This engine'} cannot read this reference, so it is left out.`;
+      return `This reference won't reach ${engineName}. Choose an engine that reads images, or remove it.`;
     }
     // The brand mark is an attachment like any other, and it used to be the
     // one kind that could be dropped with no mark on its chip at all.
     if (t.t === 'mark' && !preview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
-      return `${engine?.displayName ?? 'This engine'} cannot read the brand mark, so it is left out.`;
+      return `The brand mark won't reach ${engineName}, so the logo can't be drawn from it. Choose an engine that reads images.`;
     }
     // A tiny mark rides, but its fine lettering is already subpixel: the
     // compiler measured the stored file and said so (the 'px across' phrase
@@ -989,7 +947,9 @@ export const Composer = forwardRef<
       // descriptive phrase the compiler labels the attachment with, and two
       // products may legitimately share a name.
       if (p && !preview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
-        return `${engine?.displayName ?? 'This engine'} cannot read the product image, so ${p.name} rides as text only.`;
+        return missingIdentity('product', p.id)
+          ? `${p.name} has no usable photo. Re-add one, or remove this.`
+          : `${p.name}'s photo won't reach ${engineName}. Choose an engine that reads images.`;
       }
     }
     // A presenter is an identity too. Without this, a face the engine could not
@@ -998,7 +958,9 @@ export const Composer = forwardRef<
     if (t.t === 'character') {
       const c = presenters.find((x) => x.id === t.id);
       if (c && !preview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
-        return `${engine?.displayName ?? 'This engine'} cannot read the person reference, so ${c.name} rides as text only.`;
+        return missingIdentity('character', c.id)
+          ? `${c.name} has no usable photo. Re-add one, or remove this.`
+          : `${c.name}'s photo won't reach ${engineName}. Choose an engine that reads images.`;
       }
     }
     return null;
@@ -1015,7 +977,9 @@ export const Composer = forwardRef<
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
-    onSending?.(said || 'Your shot');
+    // one stand-in tile per expected sibling: a generation asks for `count`
+    // shots, an edit always comes back as one
+    onSending?.({ said: said || 'Your shot', count: mode === 'generation' ? count : 1 });
     try {
       // the brand's workspace always exists by the time a brief can be run; a
       // missing one is a load that has not landed, not a container to invent
@@ -1130,10 +1094,24 @@ export const Composer = forwardRef<
         />
       )}
 
+      {/* The target chip's hover peek: the same card a sentence chip gets. */}
+      {targetHover.shown && target?.images[0] && (
+        <ChipPreview
+          anchor={targetHover.shown.anchor}
+          kind="shot"
+          src={imgUrl(target.images[0])}
+          onOpen={openTargetImage}
+          onHoverIn={targetHover.keep}
+          onHoverOut={targetHover.close}
+          onClose={targetHover.closeNow}
+        />
+      )}
+
       {attachOpen && (
         <AttachPanel
           brand={brand}
           activeProductCategory={activeProductCategory}
+          refining={scenesSitOut}
           shots={shots}
           initialTab={attachTab}
           id={attachPanelId}
@@ -1210,21 +1188,54 @@ export const Composer = forwardRef<
             overlay the shot being refined is the whole screen. */}
         {branchable && onClearTarget && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            <span className="sc-target-lb">
-              Refining
+            {/* The version being refined, worn as the one chip pattern the app
+                has: the sentence's own .sc-token, with the shot's picture, the
+                word for what is happening to it, and the X floating over the
+                right edge. Not the shot's prompt: that read as a truncated
+                instruction, not a name. Hover peeks at the image the way a
+                sentence chip does; click opens it full size. */}
+            {/* biome-ignore lint/a11y/useSemanticElements: a <button> cannot hold the remove <button> the chip pattern floats over its right edge; the sentence's own chips are the same span-as-button */}
+            <span
+              className="sc-token sc-target-chip"
+              role="button"
+              tabIndex={0}
+              aria-haspopup="dialog"
+              aria-label={`Version being refined: ${nodeLabel(target)}. Open the image, or remove to make a new shot.`}
+              onPointerEnter={(e) => {
+                if (e.pointerType === 'mouse' && target.images[0]) targetHover.open({ anchor: e.currentTarget });
+              }}
+              onPointerLeave={(e) => e.pointerType === 'mouse' && targetHover.close()}
+              onClick={openTargetImage}
+              onKeyDown={(e) => {
+                // the X inside bubbles its keys up here; only the chip's own
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openTargetImage();
+                }
+              }}
+            >
               {/* a version that has just been asked for has no picture yet, and
                   the same shimmer the feed uses says so without a second word */}
+              Refining
               {target.images[0] ? (
                 <img src={imgUrl(target.images[0])} alt="" />
               ) : (
                 <span className="sc-target-thumb sc-shimmer" />
               )}
-              <b dir="auto">{nodeLabel(target)}</b>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  targetHover.closeNow();
+                  onClearTarget();
+                }}
+                aria-label="Make a new shot instead"
+              >
+                <X size={12} />
+              </button>
             </span>
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
-            <button type="button" className="sc-target-x" onClick={onClearTarget} aria-label="Make a new shot instead">
-              <X size={12} />
-            </button>
           </div>
         )}
         {/* Where there is no chip to carry it, the note still has to be said:
@@ -1242,97 +1253,6 @@ export const Composer = forwardRef<
             {cropping ? 'Will crop to' : 'Will extend to'} {targetShapeLabel}
           </small>
         )}
-        {/* The refinement's carried context, stated before it is sent. New
-            attachments appear as chips in the sentence below; this strip is
-            the record of what the thread KEEPS, from the compiler's own
-            preview, so it can never disagree with the request. */}
-        {(carried.length > 0 || worldScene) && (
-          // the visible "Carrying" word is the label; a chip names one image
-          // and, because that image is the whole point of the strip, opens it
-          <div className="sc-carried">
-            <span className="sc-carried-lb">Carrying</span>
-            {carried.map((a) => {
-              const key = `${a.kind}:${a.hash}`;
-              const open = carriedPeek?.key === key;
-              const face = (
-                <>
-                  <img src={imgUrl(a.hash)} alt="" />
-                  <span dir="auto">{a.label}</span>
-                </>
-              );
-              const carriedFrom = `Carried from the shot being refined: ${a.label}`;
-              const kind = a.kind;
-              // A real button, not a span with a role: Enter and Space come
-              // free, and there is nothing interactive inside it to nest.
-              return isPreviewKind(kind) ? (
-                <button
-                  key={key}
-                  type="button"
-                  className="sc-carried-chip"
-                  data-kind={kind}
-                  data-open={open || undefined}
-                  // The tooltip and the card would otherwise say the same thing
-                  // twice, with the tooltip on top of the picture.
-                  title={open ? undefined : carriedFrom}
-                  aria-haspopup="dialog"
-                  aria-label={`${a.label}, carried from the shot being refined. Open it.`}
-                  onPointerEnter={(e) =>
-                    e.pointerType === 'mouse' &&
-                    carriedHover.open({ key, hash: a.hash, kind, label: a.label, el: e.currentTarget })
-                  }
-                  onPointerLeave={(e) => e.pointerType === 'mouse' && carriedHover.close()}
-                  onFocus={(e) =>
-                    e.currentTarget.matches(':focus-visible') &&
-                    carriedHover.open({ key, hash: a.hash, kind, label: a.label, el: e.currentTarget })
-                  }
-                  onClick={() => inspectCarried({ hash: a.hash, kind, label: a.label })}
-                >
-                  {face}
-                </button>
-              ) : (
-                <span key={key} className="sc-carried-chip" data-kind={kind} title={carriedFrom}>
-                  {face}
-                </span>
-              );
-            })}
-            {worldScene && (
-              // The thread's world, said quieter: it rides inside the photo,
-              // not as a reference, so this chip is a statement and never a
-              // control — nothing to remove, nothing re-sent.
-              <span
-                className="sc-carried-chip"
-                data-kind="scene"
-                data-world=""
-                title={`The world this thread was shot in: ${worldScene.name}. It stays in the picture through the photo being refined — nothing is sent again.`}
-              >
-                {worldScene.thumb && <img src={worldScene.thumb} alt="" />}
-                <span dir="auto">{worldScene.name}</span>
-              </span>
-            )}
-          </div>
-        )}
-        {carriedPeek && (
-          <ChipPreview
-            key={carriedPeek.key}
-            anchor={carriedPeek.el}
-            kind={carriedPeek.kind}
-            src={imgUrl(carriedPeek.hash)}
-            label={carriedPeek.label}
-            onOpen={() => inspectCarried(carriedPeek)}
-            onHoverIn={carriedHover.keep}
-            onHoverOut={carriedHover.close}
-            onClose={closeCarriedPeek}
-          />
-        )}
-        {/* What the engine cap leaves out, said before the money is spent. The
-            chip tooltip and the post-send toast already say it; this is the
-            card-level line so the loss is never only behind a hover. */}
-        {lostRefs.length > 0 && (
-          <small className="sc-reshape-hint" data-kind="dropped-refs" aria-live="polite">
-            {engineLabel} cannot carry {lostRefs.join(' and ')} as {lostRefs.length === 1 ? 'an image' : 'images'}, so{' '}
-            {lostRefs.length === 1 ? 'it rides' : 'they ride'} as text only.
-          </small>
-        )}
         <BriefInput
           ref={briefRef}
           onChange={setSentence}
@@ -1342,6 +1262,7 @@ export const Composer = forwardRef<
           presenters={presenters}
           demoProducts={demoProducts}
           onTemplatePick={applyScene}
+          scenesSitOut={scenesSitOut}
           flag={flagToken}
           onInspect={(image) => setLightbox(image)}
           onAttachRequest={(tab) => openAttach(tab)}
@@ -1461,11 +1382,8 @@ export const Composer = forwardRef<
                   onCount={setVariants}
                   quality={quality}
                   onQuality={setQualityId}
-                  // the overlay's 300px row cannot hold the engine select
-                  // without wrapping, so the engine moves in here
-                  {...(variant === 'overlay' && usable.length > 1
-                    ? { engineChoices: usable, onEngine: setEngineId }
-                    : {})}
+                  // the engine select rides beside More in the overlay row now
+                  // (the row wraps), so More holds only the shot's own settings
                 />
               </Popover.Content>
             </Popover.Root>

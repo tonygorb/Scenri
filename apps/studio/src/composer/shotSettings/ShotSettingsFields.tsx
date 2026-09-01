@@ -110,12 +110,12 @@ export function ShotSettingsFields({
           count, so an edit returns exactly one picture however many are asked
           for. Unlike the shape, there is nothing here to reinterpret. */}
       {mode === 'generation' && (
-        /* Variants, not versions: these are the images one brief returns. A
+        /* Shots, plural and independent: one request, N first-class pictures. A
            version is a branch off a finished shot, which is a different thing
            entirely. */
-        <Field label="Variants">
+        <Field label="Shots">
           <Choices
-            label="Variants"
+            label="Shots"
             className="sc-seg"
             value={String(count)}
             ids={VARIANTS.map(String)}
@@ -127,7 +127,7 @@ export function ShotSettingsFields({
                 id={String(n)}
                 className="sc-seg-o"
                 on={n === count}
-                label={`${n} variant${n === 1 ? '' : 's'}`}
+                label={`${n} shot${n === 1 ? '' : 's'}`}
                 onPick={() => onCount(n)}
               >
                 {n}
@@ -196,7 +196,7 @@ export function ShotSettingsFields({
  *
  * The name is a caption, not a group label: the radio group inside carries the
  * accessible name, and every option states itself in full through its own
- * aria-label ("Square, 1:1", "2 variants", "Draft, 768 px, quick checks").
+ * aria-label ("Square, 1:1", "2 shots", "Draft, 768 px, quick checks").
  */
 function Field({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
   return (

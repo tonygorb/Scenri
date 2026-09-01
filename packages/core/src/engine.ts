@@ -189,7 +189,7 @@ export interface EditRequest {
 }
 
 export interface EngineResult {
-  images: string[]; // absolute paths written into the content-addressed store
+  images: string[]; // content hashes returned by the store's saveImage
   costUsd: number; // 0 for externally-billed engines
   raw?: unknown; // provider response for debugging
 }

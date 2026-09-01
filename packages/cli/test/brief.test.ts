@@ -1497,3 +1497,122 @@ describe('the inherited-identity claim covers only what rides', () => {
     expect(r.prompt).not.toContain('the same product and');
   });
 });
+
+describe('directives stay truthful to what actually rides', () => {
+  const brandWithLogo = (hash: string) => ({
+    ...brandWith(productHash, refHash),
+    logos: [{ role: 'wordmark', file: `asset:${hash}` }],
+  });
+
+  // The failure this whole block exists to prevent: the cap drops a picture
+  // and the prompt keeps instructing the model about it. A directive about an
+  // image the engine never received is the compiler lying about what was sent.
+  it('a budget-dropped mark leaves no mark directive in the prompt', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'mark', imageHash: logoHash },
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+        ],
+      },
+      ctx({ brand: brandWithLogo(logoHash), engineCaps: caps(2) }),
+    );
+    expect(r.attachments.map((a) => a.role).sort()).toEqual(['character', 'product']);
+    expect(r.dropped.map((d) => `${d.role}:${d.reason}`)).toEqual(['brand:budget']);
+    expect(r.prompt).not.toContain('attached brand mark');
+  });
+
+  it('a budget-dropped reference leaves no composition directive', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'ref', imageHash: refHash },
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+        ],
+      },
+      ctx({ brand: brandWith(productHash, core.images.save(Buffer.from('cast-bytes'))), engineCaps: caps(2) }),
+    );
+    expect(r.dropped.map((d) => d.role)).toEqual(['reference']);
+    expect(r.prompt).not.toContain('Match the composition, lighting and treatment');
+  });
+
+  it('the fidelity claim counts the angles that rode, not the angles asked for', () => {
+    const a2 = core.images.save(Buffer.from('angle-2'));
+    const a3 = core.images.save(Buffer.from('angle-3'));
+    const brand = {
+      ...brandWith(productHash),
+      products: [
+        {
+          id: 'p1',
+          name: 'House Blend',
+          shots: [{ file: `asset:${productHash}` }, { file: `asset:${a2}` }, { file: `asset:${a3}` }],
+        },
+      ],
+    };
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(1) }));
+    expect(r.attachments).toHaveLength(1);
+    // One image rode, so the singular claim speaks - the plural one told the
+    // model three pictures showed the product when it was handed one.
+    expect(r.prompt).toContain('The attached product image is the exact product');
+    expect(r.prompt).not.toContain('product images all show');
+  });
+
+  it('an identity with no usable photo is an essential loss, not a warning nobody reads', () => {
+    const gone = 'f'.repeat(32);
+    const brand = {
+      ...brandWith(productHash),
+      products: [{ id: 'p1', name: 'House Blend', shots: [{ file: `asset:${gone}` }] }],
+    };
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand }));
+    expect(r.dropped).toEqual([
+      { role: 'product', id: 'p1', label: 'House Blend', hash: '', essential: true, reason: 'missing' },
+    ]);
+    expect(r.warnings.join(' ')).toContain('House Blend has no usable photo');
+  });
+
+  it('a presenter with no usable photo is the same essential loss', () => {
+    const gone = 'e'.repeat(32);
+    const brand = {
+      ...brandWith(productHash),
+      characters: [{ id: 'c1', name: 'Marco', shots: [{ file: `asset:${gone}` }] }],
+    };
+    const r = compileBrief({ tokens: [{ t: 'character', id: 'c1' }] }, ctx({ brand }));
+    expect(r.dropped).toEqual([
+      { role: 'character', id: 'c1', label: 'Marco', hash: '', essential: true, reason: 'missing' },
+    ]);
+  });
+
+  // Same artwork, two roles, one slot: the identity carries the pixels and
+  // the composition contract dies with the reference copy. The mark version
+  // of this rule has held since the ref-vs-mark dedupe above.
+  it('a reference byte-identical to a product photo rides once, as the product', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'ref', imageHash: productHash },
+        ],
+      },
+      ctx(),
+    );
+    expect(r.attachments.map((a) => a.role)).toEqual(['product']);
+    expect(r.prompt).not.toContain('Match the composition, lighting and treatment');
+    expect(r.warnings.join(' ')).toContain('same image as House Blend');
+  });
+
+  // The edit route makes a wider allocation than one compile can see, then
+  // compiles the prompt again against the survivors. An empty survivor list
+  // must silence every attachment claim even though this compile kept them.
+  it('presentAttachments overrides the compile-local allocation for the claims', () => {
+    const logoHash = core.images.save(Buffer.from('logo-bytes'));
+    const r = compileBrief(
+      { tokens: [{ t: 'mark', imageHash: logoHash }] },
+      ctx({ brand: brandWithLogo(logoHash), presentAttachments: [] }),
+    );
+    expect(r.attachments.map((a) => a.role)).toEqual(['brand']);
+    expect(r.prompt).not.toContain('attached brand mark');
+  });
+});

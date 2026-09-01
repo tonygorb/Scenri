@@ -57,6 +57,7 @@ export function AttachPanel({
   shots,
   initialTab = 'All',
   activeProductCategory,
+  refining,
   id,
   onToken,
   onTemplate,
@@ -70,6 +71,16 @@ export function AttachPanel({
   id?: string;
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
   activeProductCategory?: string | null;
+  /**
+   * A refine is armed on the hub, so a scene cannot join: it would start a
+   * new shot, and silently trading the armed refine for a scene chip is the
+   * mode-flip-as-side-effect this panel refuses to do. The scene cards sit
+   * out — visible, dimmed, disabled — and a helper line says how to use one:
+   * end the refine first. Deliberately NOT the overlay composer's rule,
+   * where there is no armed chip to lose and a scene plainly flips the
+   * button to Generate.
+   */
+  refining?: boolean;
   onToken: (t: SentenceToken) => void;
   onTemplate: (id: string) => void;
   onUpload: () => void;
@@ -234,27 +245,37 @@ export function AttachPanel({
   // made the marks reachable only by knowing to click the Brand tab.
   const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Brand', 'Colors', 'Shots'];
 
-  const card = (c: Card) => (
-    <button
-      type="button"
-      key={c.key}
-      className="sc-ap-card"
-      title={c.sub ? `${c.label} · ${c.sub}` : c.label}
-      onClick={c.run}
-    >
-      {c.swatch ? (
-        <span className="sc-ap-thumb" style={{ background: c.swatch }} />
-      ) : c.thumb ? (
-        <img className="sc-ap-thumb" src={c.thumb} alt="" loading="lazy" data-crop={c.crop} />
-      ) : (
-        <span className="sc-ap-thumb sc-ap-thumb-empty">
-          <ImageSquare size={16} />
-        </span>
-      )}
-      {c.recommended && <span className="sc-ap-rec">Recommended</span>}
-      <b dir="auto">{c.label}</b>
-    </button>
-  );
+  const card = (c: Card) => {
+    const sitsOut = refining && c.tab === 'Scenes';
+    return (
+      <button
+        type="button"
+        key={c.key}
+        className="sc-ap-card"
+        disabled={sitsOut}
+        title={
+          sitsOut
+            ? 'Scenes set up a new shot. Press X on Refining to use one.'
+            : c.sub
+              ? `${c.label} · ${c.sub}`
+              : c.label
+        }
+        onClick={c.run}
+      >
+        {c.swatch ? (
+          <span className="sc-ap-thumb" style={{ background: c.swatch }} />
+        ) : c.thumb ? (
+          <img className="sc-ap-thumb" src={c.thumb} alt="" loading="lazy" data-crop={c.crop} />
+        ) : (
+          <span className="sc-ap-thumb sc-ap-thumb-empty">
+            <ImageSquare size={16} />
+          </span>
+        )}
+        {c.recommended && <span className="sc-ap-rec">Recommended</span>}
+        <b dir="auto">{c.label}</b>
+      </button>
+    );
+  };
 
   return (
     // Non-modal on purpose — it stays open for multi-attach and the brief
@@ -307,6 +328,11 @@ export function AttachPanel({
       </div>
 
       <div className="sc-ap-body">
+        {refining && tab === 'Scenes' && (
+          <p className="sc-ap-hint">
+            Scenes set up a new shot, so they sit out while you are refining. Press X on Refining to use one.
+          </p>
+        )}
         {shown.length === 0 && <div className="sc-ap-empty">Nothing matches{q.trim() ? ` "${q.trim()}"` : ''}.</div>}
         {tab === 'All' ? (
           groups.map((g) => {

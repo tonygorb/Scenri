@@ -480,37 +480,29 @@
   padding: 12px 14px 0;
 }
 
-.sc-target-lb {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--sc-fg2);
-}
-.sc-target-lb img,
-.sc-target-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--sc-radius-sm);
-  object-fit: cover;
+/* The version being refined is a real .sc-token, so it inherits the whole
+   chip language for free. Only the sizing context differs: a sentence chip
+   sizes itself in em against the brief line, and this row is not that, so the
+   chip pins its own size. The grab cursor goes too; nothing here drags.
+   Verb first, picture second: "Refining (this)". */
+.sc-target-chip {
+  font-size: 12px;
+  cursor: pointer;
+  padding-left: 0.64em;
 }
 /* the stand-in while the version being refined is still rendering.
    position is load bearing: .sc-shimmer is absolutely positioned, and without
    a containing block here it escaped to the fixed dock and swept the whole
-   composer instead of this 20px square */
+   composer instead of this little circle. Sized like the chip's img. */
 .sc-target-thumb {
   display: inline-block;
   flex: none;
   position: relative;
   overflow: hidden;
-}
-.sc-target-lb b {
-  color: var(--sc-fg);
-  font-weight: 500;
-  max-width: 26ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  align-self: center;
 }
 /* When something overrules the branch, the chip says so instead of quietly
    doing the other thing. */
@@ -534,22 +526,6 @@
   font-size: 11px;
   color: var(--sc-fg3);
 }
-.sc-target-x {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: none;
-  color: var(--sc-fg3);
-  border-radius: 999px;
-  cursor: pointer;
-}
-.sc-target-x:hover {
-  color: var(--sc-fg);
-  background: var(--sc-raised);
-}
-
 .sc-feed-empty {
   padding: 60px 0 30px;
   text-align: center;

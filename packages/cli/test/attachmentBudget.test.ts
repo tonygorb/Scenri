@@ -129,3 +129,24 @@ describe('corroboration alternates between identities', () => {
     expect(dropped).toEqual([]);
   });
 });
+
+describe('a hand-attached reference outranks the scene', () => {
+  // The user chose that exact picture for this shot; the scene plate is
+  // conditioning the recipe derived. Under contention the scene is what
+  // degrades to prose - quietly, by design.
+  it('the reference boards and the scene plate is what degrades', () => {
+    const ref = att('reference', 'r1', { label: 'Reference shot' });
+    const scene = att('scene', 's1', { id: 'scn', label: 'Cracked Clay' });
+    const { kept, dropped } = allocateAttachments([scene, ref], 1);
+    expect(kept.map((a) => a.hash)).toEqual(['r1']);
+    expect(dropped.map((a) => a.hash)).toEqual(['s1']);
+  });
+
+  it('with one seat left after the identities, the reference takes it and the scene does not', () => {
+    const scene = att('scene', 's1', { id: 'scn', label: 'Cracked Clay' });
+    const both = [...contested(att('reference', 'r1', { label: 'Reference shot' })), scene];
+    const { kept, dropped } = allocateAttachments(both, 3);
+    expect(kept.map((a) => a.hash)).toEqual(['p1', 'c1', 'r1']);
+    expect(dropped.map((a) => a.hash)).toContain('s1');
+  });
+});

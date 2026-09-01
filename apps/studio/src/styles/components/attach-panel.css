@@ -167,6 +167,19 @@
   color: var(--sc-fg2);
   margin-bottom: var(--sc-space-1);
 }
+/* Scenes sit out while a refine is armed: visible so the catalog is never a
+   mystery, dimmed and disabled so no click can flip the mode as a side
+   effect. The hint above the grid says how to use one; the card's own title
+   repeats it for a hover. */
+.sc-ap-card:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.sc-ap-hint {
+  margin: 0 0 var(--sc-space-3);
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg2);
+}
 .sc-ap-empty {
   padding: 30px 0;
   text-align: center;

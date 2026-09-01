@@ -357,9 +357,18 @@ describe('generation flow', () => {
       },
     });
     expect(gen.statusCode).toBe(202);
-    const genNode = await waitDone(gen.json().id);
+    // one image, one node: a count-2 request answers with two siblings
+    const siblings = gen.json().siblings as { id: string; batchId: string; batchIndex: number }[];
+    expect(siblings).toHaveLength(2);
+    expect(gen.json().id).toBe(siblings[0].id);
+    expect(siblings.map((s) => s.batchIndex)).toEqual([0, 1]);
+    expect(new Set(siblings.map((s) => s.batchId)).size).toBe(1);
+    const genNode = await waitDone(siblings[0].id);
+    const secondNode = await waitDone(siblings[1].id);
     expect(genNode.status).toBe('done');
-    expect(genNode.images).toHaveLength(2);
+    expect(genNode.images).toHaveLength(1);
+    expect(secondNode.images).toHaveLength(1);
+    expect(genNode.images[0]).not.toBe(secondNode.images[0]);
 
     const img = await app.inject({ method: 'GET', url: `/api/images/${genNode.images[0]}` });
     expect(img.statusCode).toBe(200);
@@ -379,17 +388,22 @@ describe('generation flow', () => {
     expect(kept.json().kept).toBe(true);
 
     // The record of what the run actually was: how long it took, and the real
-    // pixels delivered. The app used to be able to say the first only while
-    // running, and the second never, so every tile guessed its shape.
+    // pixels delivered — per node now, each sibling carrying its own frame.
     expect(genNode.durationMs).toBeGreaterThan(0);
+    expect(secondNode.durationMs).toBeGreaterThan(0);
     // Re-read rather than reuse the waitDone snapshot: the record is written
     // after the status flips, so that snapshot can predate it. See waitRendered.
     const recorded = await waitRenderedOn(app, genNode.id);
-    expect((recorded.brief as any)?.rendered?.sizes?.length).toBe(2);
+    expect((recorded.brief as any)?.rendered?.sizes?.length).toBe(1);
     expect((recorded.brief as any).rendered.sizes[0]).toEqual([256, 256]);
+    const recordedSecond = await waitRenderedOn(app, secondNode.id);
+    expect((recordedSecond.brief as any).rendered.sizes).toEqual([[256, 256]]);
+
+    // the run's money is stated once, on the first sibling
+    expect(secondNode.costUsd).toBe(0);
 
     const tree = await app.inject({ method: 'GET', url: `/api/projects/${project.id}/tree` });
-    expect(tree.json().nodes).toHaveLength(3);
+    expect(tree.json().nodes).toHaveLength(4);
   });
 
   // A refinement used to compile to a bare sentence: no product reference, no
@@ -1094,7 +1108,9 @@ describe('diff + export + settings', () => {
         height: 128,
       },
     });
-    const node = await waitDone(gen.json().id);
+    const [first, second] = gen.json().siblings as { id: string }[];
+    const node = await waitDone(first.id);
+    const other = await waitDone(second.id);
     const same = await app.inject({
       method: 'POST',
       url: '/api/diff',
@@ -1104,7 +1120,7 @@ describe('diff + export + settings', () => {
     const diff = await app.inject({
       method: 'POST',
       url: '/api/diff',
-      payload: { imageA: node.images[0], imageB: node.images[1] },
+      payload: { imageA: node.images[0], imageB: other.images[0] },
     });
     expect(diff.json().score).toBeGreaterThan(0);
     expect(core.images.has(diff.json().heatmapHash)).toBe(true);
@@ -1667,6 +1683,114 @@ describe('node watchdog', () => {
     expect(cancel.statusCode).toBe(200);
     const node = await waitDoneOn(local, gen.json().id);
     expect(node.status).toBe('cancelled');
+    await local.close();
+  });
+
+  it('cancelling one sibling of a batch cancels the whole shared call', async () => {
+    const local = buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 60_000 });
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'W' }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: b.json().id, name: 'w' },
+    });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'hang',
+        count: 3,
+        width: 256,
+        height: 256,
+      },
+    });
+    const siblings = gen.json().siblings as { id: string }[];
+    expect(siblings).toHaveLength(3);
+    // cancel by the LAST sibling's id: one call, one fate, for all three
+    const cancel = await local.inject({ method: 'POST', url: `/api/nodes/${siblings[2].id}/cancel` });
+    expect(cancel.statusCode).toBe(200);
+    for (const s of siblings) {
+      const n = await waitDoneOn(local, s.id);
+      expect(n.status).toBe('cancelled');
+    }
+    await local.close();
+  });
+
+  it('a partial batch fails only the slots that returned nothing, and bills once', async () => {
+    // Two of three slots come back; the adapter names the survivors the way
+    // codex does, and the empty slot becomes an honest failed node.
+    const partial = (): EngineAdapter => ({
+      capabilities: () => ({
+        id: 'partial',
+        displayName: 'Partial',
+        localOnly: true,
+        supportsEdit: false,
+        supportsMask: false,
+        maxReferenceImages: 0,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => 0,
+      generate: async (req) => {
+        const png = (seed: number) =>
+          sharp({
+            create: { width: req.width, height: req.height, channels: 3, background: { r: seed, g: 10, b: 10 } },
+          })
+            .png()
+            .toBuffer();
+        return {
+          images: [core.images.save(await png(40)), core.images.save(await png(200))],
+          costUsd: 0.3,
+          raw: { requested: 3, variantIndexes: [0, 2], partialFailures: ['slot two refused'] },
+        };
+      },
+      edit: async () => {
+        throw new Error('unsupported');
+      },
+    });
+    const local = buildServer({ core, engines: registryWith(partial()) });
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'W' }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: b.json().id, name: 'w' },
+    });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'partial',
+        count: 3,
+        width: 64,
+        height: 64,
+      },
+    });
+    const siblings = gen.json().siblings as { id: string }[];
+    const first = await waitDoneOn(local, siblings[0].id);
+    const second = await waitDoneOn(local, siblings[1].id);
+    const third = await waitDoneOn(local, siblings[2].id);
+    expect(first.status).toBe('done');
+    expect(third.status).toBe('done');
+    expect(second.status).toBe('error');
+    expect(second.error).toBe('slot two refused');
+    // the whole call's money sits on the first sibling, once
+    expect(first.costUsd).toBeCloseTo(0.3);
+    expect(third.costUsd).toBe(0);
     await local.close();
   });
 });

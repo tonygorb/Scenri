@@ -79,12 +79,9 @@ export function ShotDetailRoute() {
     <DetailOverlay
       node={node}
       nodes={ctx.nodes}
-      inSets={ctx.setsFor(node.id)}
       brand={ctx.brand}
       engines={ctx.engines}
       projectId={ctx.projectId}
-      imageIndex={ctx.imageIndex}
-      onImageIndex={ctx.setImageIndex}
       onClose={ctx.close}
       onSelect={ctx.select}
       onRetry={ctx.retry}

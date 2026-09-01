@@ -105,7 +105,10 @@ export const api = {
      * an asset that has gone, a reference this engine could not carry. The
      * server has always sent these; nothing used to read them.
      */
-  }) => req<TreeNode & { warnings?: string[] }>('POST', '/api/nodes', p),
+  }) =>
+    // the first node is spread into the response so `.id` readers keep
+    // working; `siblings` is the whole batch, slot 0 first
+    req<TreeNode & { warnings?: string[]; siblings: TreeNode[] }>('POST', '/api/nodes', p),
   cancelNode: (nodeId: string) => req<{ ok: true }>('POST', `/api/nodes/${nodeId}/cancel`),
   scenes: () => req<{ scenes: Scene[]; collections: string[]; verticals: string[] }>('GET', '/api/scenes'),
   presenters: () => req<{ presenters: Presenter[]; categories: string[]; styles: string[] }>('GET', '/api/presenters'),

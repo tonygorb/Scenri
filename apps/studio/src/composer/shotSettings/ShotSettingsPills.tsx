@@ -133,7 +133,7 @@ export function ShotSettingsPills({
       {mode === 'generation' && (
         <Pop
           {...pop('variants')}
-          aria={`${count} variants`}
+          aria={`${count} shot${count === 1 ? '' : 's'}`}
           width="156px"
           trigger={
             <>
@@ -147,7 +147,7 @@ export function ShotSettingsPills({
               {/* Numeric and four wide, so the whole answer fits on one line
                   and the choice is a glance rather than a read. */}
               <Choices
-                label="Variants"
+                label="Shots"
                 className="sc-seg"
                 value={String(count)}
                 ids={VARIANTS.map(String)}
@@ -159,7 +159,7 @@ export function ShotSettingsPills({
                     id={String(n)}
                     className="sc-seg-o"
                     on={n === count}
-                    label={`${n} variant${n === 1 ? '' : 's'}`}
+                    label={`${n} shot${n === 1 ? '' : 's'}`}
                     onPick={() => {
                       onCount(n);
                       close();

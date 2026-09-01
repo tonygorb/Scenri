@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
@@ -13,24 +13,23 @@ import {
   DownloadSimple,
   Star,
   TrashSimple,
-  WarningCircle,
   X,
-  XCircle,
 } from '@phosphor-icons/react';
 import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
-import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type ShotSet, type TreeNode } from '../api.js';
+import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
-import { Inspector } from './Inspector.js';
 import { Composer } from './Composer.js';
-import { Coin } from './Coin.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
-import { briefChangeLine, sourceImageOf } from '../briefDiff.js';
+import { briefProse, sourceImageOf } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
-import { Ingredients } from './detail/Ingredients.js';
+import { ChipPreview } from '../composer/ChipPreview.js';
+import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
+import { useHoverPreview } from '../composer/useHoverPreview.js';
+import { BriefLine } from './detail/Ingredients.js';
 import { useLineage } from './detail/useLineage.js';
 
 /**
@@ -41,12 +40,9 @@ import { useLineage } from './detail/useLineage.js';
 export function DetailOverlay({
   node,
   nodes,
-  inSets,
   brand,
   engines,
   projectId,
-  imageIndex,
-  onImageIndex,
   onClose,
   onSelect,
   onRetry,
@@ -61,15 +57,9 @@ export function DetailOverlay({
 }: {
   node: TreeNode;
   nodes: TreeNode[];
-  /** The sets this shot is filed in. The tile used to carry a bare count of
-   * these, which is a fact stated where there was no room to say which sets;
-   * here there is room, so they are named. */
-  inSets: ShotSet[];
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
-  imageIndex: number;
-  onImageIndex: (i: number) => void;
   onClose: () => void;
   onSelect: (id: string) => void;
   onRetry: (n: TreeNode) => void;
@@ -107,10 +97,13 @@ export function DetailOverlay({
     }
     return null;
   }, [node, ancestors]);
-  const changeLine = useMemo(
-    () => (parentShot ? briefChangeLine(parentShot.brief, node.brief, tokenNames) : null),
-    [parentShot, node.brief, tokenNames],
-  );
+  /** Whether the brief line has any chips to say: mirrors BriefLine's own
+   *  null condition, so a token-less legacy shot never shows a bare label. */
+  const hasContext = useMemo(() => {
+    const own = (node.brief?.tokens ?? []).some((t: { t?: string }) => t?.t && t.t !== 'text' && t.t !== 'format');
+    const carried = (((node.brief as { inherited?: unknown[] })?.inherited ?? []) as unknown[]).length > 0;
+    return own || carried || !!worldTemplateId;
+  }, [node.brief, worldTemplateId]);
   /** TokenNames plus the brand's marks, so the brief speaks every noun. */
   const proseNames = useMemo(() => {
     const marks = attachableMarks(brand.json);
@@ -122,10 +115,51 @@ export function DetailOverlay({
       },
     };
   }, [tokenNames, brand]);
+  /** The whole sentence, nouns spoken: chips mid-sentence would otherwise
+   *  leave holes in the prose ("holding a  in a  env"). The USING row stays
+   *  the interactive statement of the same nouns. */
+  const said = useMemo(() => briefProse(node, proseNames), [node, proseNames]);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const hash = node.images[imageIndex] ?? node.images[0];
+  /** Long briefs clamp at five lines; the toggle appears only when the clamp
+   *  actually bites, so short briefs never grow a dangling "more". */
+  const briefRef = useRef<HTMLDivElement>(null);
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [briefOverflows, setBriefOverflows] = useState(false);
+  useEffect(() => setBriefOpen(false), [node.id]);
+  useLayoutEffect(() => {
+    const el = briefRef.current;
+    setBriefOverflows(!!el && el.scrollHeight > el.clientHeight + 1);
+  }, [said]);
+  /** Hover peek over a version frame: the picture at a readable size before
+   *  committing the stage to it. */
+  const framePeek = useHoverPreview<{ key: string; src: string; label: string; el: HTMLElement; id: string }>();
+  /**
+   * The image's history in reading order — the original, this shot, its
+   * refinements — worn as the thumb strip under the stage, exactly where the
+   * variants used to live. Only versions with a picture appear; a failed
+   * refinement stays a card in the feed rather than a hole in the strip.
+   */
+  const lineageStrip = useMemo(
+    () => [...ancestors, node, ...children.slice(0, 6)].filter((n) => n.images[0]),
+    [ancestors, node, children],
+  );
+  // Pre-DECODE every version in the strip, not merely fetch it: the files are
+  // already in the HTTP cache from the thumbs, but a ~2MB PNG still costs a
+  // visible beat to decode when the stage first asks for it. Decoded up
+  // front, a click paints from a ready bitmap and the switch reads instant.
+  useEffect(() => {
+    for (const n of lineageStrip) {
+      if (n.id === node.id) continue;
+      const img = new Image();
+      img.src = imgUrl(n.images[0]);
+      img.decode?.().catch(() => {
+        /* a version that cannot decode will simply load the old way */
+      });
+    }
+  }, [lineageStrip, node.id]);
+  const hash = node.images[0];
   const baseName =
     node.prompt
       .slice(0, 40)
@@ -137,6 +171,51 @@ export function DetailOverlay({
       const blob = await (await fetch(imgUrl(hash))).blob();
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       push({ kind: 'success', title: 'Copied to clipboard' });
+    } catch (e: any) {
+      push(failureToast(e, 'Copy failed'));
+    }
+  };
+
+  /**
+   * Copy the brief in the composer's own clipboard grammar: the HTML flavour
+   * pastes back into any brief line as real chips, the plain flavour pastes
+   * everywhere else as the sentence you read. The chips are the setup's
+   * canonical tokens (own plus carried, deduped) — the same set Reuse setup
+   * rebuilds from.
+   */
+  const copyBrief = async () => {
+    try {
+      const tokens = node.brief ? briefTokens(node.brief as Parameters<typeof briefTokens>[0]) : null;
+      if (!tokens || tokens.every((t) => t.t === 'text' && !t.v.trim())) {
+        await navigator.clipboard.writeText(said);
+      } else {
+        const labelOf = (t: SentenceToken): string => {
+          switch (t.t) {
+            case 'text':
+              return t.v;
+            case 'product':
+              return proseNames.product(t.id) ?? 'a product';
+            case 'character':
+              return proseNames.person(t.id) ?? 'a presenter';
+            case 'template':
+              return proseNames.scene(t.id) ?? 'a scene';
+            case 'color':
+              return t.name ?? t.hex;
+            case 'ref':
+              return 'reference image';
+            case 'mark':
+              return proseNames.mark?.(t.imageHash) ?? 'brand mark';
+          }
+        };
+        const { text, html } = serializeBriefTokens(tokens, labelOf);
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+            'text/html': new Blob([html], { type: 'text/html' }),
+          }),
+        ]);
+      }
+      push({ kind: 'success', title: 'Brief copied' });
     } catch (e: any) {
       push(failureToast(e, 'Copy failed'));
     }
@@ -218,35 +297,6 @@ export function DetailOverlay({
   const hasImage = node.status === 'done' && node.images.length > 0;
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
 
-  const frame = (n: TreeNode, current = false) => (
-    <button
-      type="button"
-      key={n.id}
-      className="sc-fr"
-      data-fb-node={n.id}
-      data-current={current}
-      data-failed={n.status === 'error' || (!n.images[0] && n.status !== 'running' && n.status !== 'cancelled')}
-      data-cancelled={n.status === 'cancelled' && !n.images[0]}
-      title={nodeLabel(n)}
-      onClick={() => onSelect(n.id)}
-    >
-      {n.images[0] ? (
-        <img src={imgUrl(n.images[0])} alt="" />
-      ) : n.status === 'running' ? (
-        <span className="sc-shimmer" />
-      ) : n.status === 'cancelled' ? (
-        <XCircle size={13} />
-      ) : (
-        <WarningCircle size={13} />
-      )}
-      {n.kept && (
-        <span className="sc-fr-star">
-          <Star size={11} weight="fill" />
-        </span>
-      )}
-    </button>
-  );
-
   return createPortal(
     // `loop` as well as `trapped`: without it Tab reached the last control and
     // then did nothing at all — eighteen further presses moved focus nowhere,
@@ -256,7 +306,6 @@ export function DetailOverlay({
         className="sc-ovl"
         data-fb="shot-overlay"
         data-fb-node={node.id}
-        data-fb-variant={imageIndex}
         role="dialog"
         aria-modal="true"
         aria-label={nodeLabel(node)}
@@ -375,39 +424,61 @@ export function DetailOverlay({
 
         <div
           className="sc-ovl-stage"
-          // the shot is capped so the row of takes below it always has room;
+          // the shot is capped so the version strip below it always has room;
           // the cap has to know whether that row is there
-          data-takes={node.status === 'done' && node.images.length > 1 ? '' : undefined}
+          data-takes={lineageStrip.length > 1 ? '' : undefined}
         >
           <StageFrame
             node={node}
-            imageIndex={imageIndex}
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
           />
-          {node.status === 'done' && node.images.length > 1 && (
+          {/* The image's own history, right under the image, wearing the strip
+              the variants used to wear: the original, this shot ringed, and
+              its refinements. Hovering peeks a version at a readable size;
+              clicking moves the stage to it. */}
+          {lineageStrip.length > 1 && (
             <div className="sc-thumbs">
-              {node.images.map((h, i) => (
+              {lineageStrip.map((n) => (
                 <button
                   type="button"
-                  // index too: a run can hold the same content-addressed image
-                  // twice, and the hash alone then collides as a key
-                  // biome-ignore lint/suspicious/noArrayIndexKey: the run is append-only, so the take index is stable identity; it breaks the tie between duplicate hashes.
-                  key={`${i}:${h}`}
+                  key={n.id}
                   className="sc-thumb-btn"
-                  onClick={() => onImageIndex(i)}
-                  aria-label={`Image ${i + 1}`}
-                  aria-pressed={i === imageIndex}
+                  aria-label={nodeLabel(n)}
+                  aria-pressed={n.id === node.id}
+                  title={nodeLabel(n)}
+                  onClick={() => {
+                    framePeek.closeNow();
+                    onSelect(n.id);
+                  }}
+                  onPointerEnter={(e) =>
+                    e.pointerType === 'mouse' &&
+                    framePeek.open({
+                      key: n.id,
+                      src: imgUrl(n.images[0]),
+                      label: nodeLabel(n),
+                      el: e.currentTarget,
+                      id: n.id,
+                    })
+                  }
+                  onPointerLeave={(e) => e.pointerType === 'mouse' && framePeek.close()}
+                  onFocus={(e) =>
+                    e.currentTarget.matches(':focus-visible') &&
+                    framePeek.open({
+                      key: n.id,
+                      src: imgUrl(n.images[0]),
+                      label: nodeLabel(n),
+                      el: e.currentTarget,
+                      id: n.id,
+                    })
+                  }
                 >
-                  {/* the attributes stay as the pre-load intrinsic hint; the box
-                      and the crop are the stylesheet's job, and were nobody's
-                      until this rail stretched every portrait take it held */}
                   <img
-                    src={imgUrl(h)}
+                    src={imgUrl(n.images[0])}
                     alt=""
                     className="sc-thumb"
-                    data-active={i === imageIndex}
+                    data-active={n.id === node.id}
                     width={52}
                     height={52}
                   />
@@ -418,114 +489,67 @@ export function DetailOverlay({
         </div>
 
         <aside className="sc-ovl-meta">
-          {/* One line for what this shot IS: its kind, what it shows, what made
-              it and what it cost. The engine used to have a block of its own,
-              which on a phone left the word "demo" sitting alone on a line at
-              the same weight as the shot's description. The cost used to live
-              on a chip in the bar above, which is a row of actions — and once
-              that chip stepped aside on a phone, the price was not stated
-              anywhere at all. Both are facts about the shot, so both belong in
-              the shot's record, said once, at every width. */}
+          {/* A typographic inspector: flat labeled sections divided by
+              hairlines, nothing raised, nothing boxed. The engine id, wall
+              time, "Free" and the filed-in sets that used to crowd the head
+              are gone — facts about the run, not the work. Only money
+              actually spent survives: a real price is a budget decision, a
+              $0 label was noise. */}
           <div className="sc-ovl-head">
             <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
-            <small>
-              {node.images.length > 1 ? `${imageIndex + 1} of ${node.images.length} variants` : nodeLabel(node)}
-            </small>
-            {/* A crop calls no provider, so it shows no provider: older crop
-                nodes recorded the client's selected engine, which displayed a
-                name that did nothing — the brief.reshape check covers them. */}
-            {node.engineId !== 'local' && node.brief?.reshape !== 'crop' && (
-              <>
-                <span className="sc-ovl-meta-sep" aria-hidden />
-                <small className="sc-ovl-eng">{node.engineId}</small>
-              </>
-            )}
-            {/* Only where something was actually made. A shot that came back
-                with nothing was still announcing a gold coin and the word
-                "Free", which reads as a feature of the failure. */}
-            {hasImage && (
-              <small
-                className="sc-ovl-spend"
-                title={node.costUsd > 0 ? 'Of your API budget' : 'No API cost for this shot'}
-              >
-                <Coin size={12} />
-                {node.costUsd > 0 ? `$${node.costUsd.toFixed(2)}` : 'Free'}
+            {node.archived && <small className="sc-ovl-flag">archived</small>}
+            {hasImage && node.costUsd > 0 && (
+              <small className="sc-ovl-spend" title="Of your API budget">
+                ${node.costUsd.toFixed(2)}
               </small>
-            )}
-            {/* How long the run really took. This used to be sayable only
-                while the shot was still rendering, derived from its creation
-                time; a finished shot could never answer the first question
-                people ask about a generator. */}
-            {hasImage && node.durationMs != null && (
-              <small className="sc-ovl-took" title="How long this shot took to generate">
-                {Math.max(1, Math.round(node.durationMs / 1000))}s
-              </small>
-            )}
-            {inSets.length > 0 && (
-              <small className="sc-ovl-filed">Filed in {inSets.map((s) => s.name).join(', ')}</small>
             )}
           </div>
 
-          <Ingredients brief={node.brief} brand={brand} worldTemplateId={worldTemplateId} />
-
-          {parentShot && (
-            <div className="sc-ctx">
+          {/* The whole record as one statement in the composer's voice: the
+              typed sentence with its chips inline where they were said, and
+              what the refinement carried riding after it. Long briefs clamp
+              at five lines; "more" appears only when the clamp bites. */}
+          {node.kind !== 'root' && (said || hasContext) && (
+            <div className="sc-ovl-sec sc-ovl-brief">
+              <span className="sc-eyebrow">Brief</span>
+              <div className="sc-brief-record">
+                <BriefLine
+                  brief={node.brief}
+                  prompt={node.prompt}
+                  brand={brand}
+                  worldTemplateId={worldTemplateId}
+                  saidRef={briefRef}
+                  expanded={briefOpen}
+                />
+              </div>
+              {(briefOverflows || briefOpen) && (
+                <button
+                  type="button"
+                  className="sc-ovl-more"
+                  aria-expanded={briefOpen}
+                  onClick={() => setBriefOpen((v) => !v)}
+                >
+                  {briefOpen ? 'less' : 'more'}
+                </button>
+              )}
               <button
                 type="button"
-                className="sc-ctx-chip"
-                onClick={() => onSelect(parentShot.id)}
-                title={`Open ${nodeLabel(parentShot)}, the shot this came from`}
+                className="sc-ovl-copy"
+                title="Copy the brief"
+                aria-label="Copy the brief"
+                onClick={() => void copyBrief()}
               >
-                {sourceHash && <img src={imgUrl(sourceHash)} alt="" />}
-                {/* One text item, not two. As a bare text node beside a <b>,
-                    the words and the name were separate flex items that shrank
-                    and wrapped independently — which is how a pill ended up
-                    reading "refined / from" over two lines with the name
-                    stacked beside it. One span wraps as one sentence, and
-                    truncates as one, with the whole of it on the title. */}
-                <span className="sc-ctx-chip-t">
-                  refined from <b>{nodeLabel(parentShot)}</b>
-                </span>
+                <CopySimple size={13} />
               </button>
-              {/* Which ingredient moved, read from the two stored recipes.
-                  Without it, two refinements of one setup are told apart by
-                  their pictures alone, which after twenty minutes of work is
-                  not enough to remember why they differ. */}
-              {changeLine && <p className="sc-ctx-changed">{changeLine}</p>}
             </div>
           )}
 
-          {(ancestors.length > 0 || children.length > 0) && (
-            <div className="sc-ovl-trail">
-              <span className="sc-eyebrow">Versions</span>
-              <div className="sc-ovl-trail-row">
-                {ancestors.map((a) => (
-                  <span key={a.id} style={{ display: 'contents' }}>
-                    {frame(a)}
-                    <span className="sc-wire" />
-                  </span>
-                ))}
-                {frame(node, true)}
-                {children.length > 0 && (
-                  <>
-                    <span className="sc-wire" />
-                    {children.slice(0, 4).map((c) => frame(c))}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Three verbs, and they are the only three there are.
-              Refining is not among them: the composer below IS refining, so a
-              button that only scrolls you to it was a fourth way to say the
-              same thing. "Add text" moved back to the Text tab, where the rest
-              of the text tools live. */}
           {/* Reuse setup is offered on a failure too — changing the setup is
               exactly what a declined brief or an unmakeable shape needs, and it
               was the one route out that a failed shot had no way to reach.
               Try again is not: the stage panel already carries it, and it knows
-              which failures re-running cannot fix. */}
+              which failures re-running cannot fix. Compare, archive and delete
+              live once, in the bar over the shot. */}
           {(hasImage || node.brief) && (
             <div className="sc-sugg">
               {node.brief && (
@@ -548,83 +572,76 @@ export function DetailOverlay({
                   <ArrowCounterClockwise size={12} /> Try again
                 </button>
               )}
-              {/* Export lives once, with the other file actions over the shot.
-                  It was offered here too, from the same handler — the same word
-                  twice in one dialog. */}
             </div>
           )}
 
-          <div className="sc-ovl-body">
-            <Inspector
-              node={node.kind !== 'root' ? node : null}
-              nodes={nodes}
-              imageIndex={imageIndex}
-              onChanged={onChanged}
-              brand={brand}
-              names={proseNames}
-              onExport={() => setExportOpen(true)}
-              onCompare={sourceHash ? () => setCompareOpen(true) : undefined}
-              onArchive={() => onArchive(node)}
-              onUnarchive={() => onUnarchive(node)}
-              onDelete={() => onDelete(node)}
-            />
-          </div>
+          {/* No versions section in here: the image's history wears the thumb
+              strip under the stage, where the variants used to live. The
+              sidebar does not own image navigation. */}
 
-          <div className="sc-ovl-edit">
-            {/* In here the target is the whole screen, so it is stated rather
+          {/* No station on a dead shot: the stage owns retrying a failure,
+              and a Generate field down here made a failed refine read as a
+              place to start over. Running keeps the held composer, so the
+              field is already waiting when the picture lands. */}
+          {(hasImage || node.status === 'running') && (
+            <div className="sc-ovl-edit">
+              {/* In here the target is the whole screen, so it is stated rather
               than chosen: `target` is this shot and there is no chip, because
               there is nothing else this composer could be talking about. The
               root is the fallback for the cases that cannot branch, so a look
               or a non-editing engine still makes a new shot rather than filing
-              one under a shot it never used.
-
-              It says so out loud now that the suggestion row no longer carries
-              a button pointing down here — the heading is the only thing that
-              names what typing in this field will do. */}
-            {node.status === 'done' && node.images.length > 0 && (
-              <div className="sc-ovl-edit-head">
-                <span className="sc-eyebrow">Refine this shot</span>
-                {/* refining works from the take on stage, and this is the one
-                    line that says which */}
-                {node.images.length > 1 && (
-                  <small>
-                    take {imageIndex + 1} of {node.images.length}
-                  </small>
-                )}
-              </div>
-            )}
-            <Composer
-              variant="overlay"
-              projectId={projectId}
-              brand={brand}
-              engines={engines}
-              parent={root}
-              target={node}
-              // the variant on the stage is the one a refine works from
-              sourceImage={hash}
-              shots={nodes}
-              // The dock's composer is still mounted behind this one and there
-              // is one saved draft per brand: without this, merely opening a
-              // shot overwrote a half-typed brief with this composer's empty
-              // sentence, and left its own target behind to be restored later
-              // as a draft the person never wrote.
-              persistDraft={false}
-              // an edit/regen submitted from inside the overlay used to only
-              // reload the tree in place, leaving you looking at the shot you
-              // just replaced; wait for the new node to actually exist, then
-              // reuse the same in-overlay navigation the lineage filmstrip
-              // and Prev/Next already use to land on it
-              onQueued={async (id, kind) => {
-                await onChanged();
+              one under a shot it never used. No label and no divider: the
+              island's own surface says where the work area starts. */}
+              <Composer
+                variant="overlay"
+                projectId={projectId}
+                brand={brand}
+                engines={engines}
+                parent={root}
+                target={node}
+                // the variant on the stage is the one a refine works from
+                sourceImage={hash}
+                shots={nodes}
+                // The dock's composer is still mounted behind this one and there
+                // is one saved draft per brand: without this, merely opening a
+                // shot overwrote a half-typed brief with this composer's empty
+                // sentence, and left its own target behind to be restored later
+                // as a draft the person never wrote.
+                persistDraft={false}
+                // an edit/regen submitted from inside the overlay used to only
+                // reload the tree in place, leaving you looking at the shot you
+                // just replaced; wait for the new node to actually exist, then
+                // reuse the same in-overlay navigation the lineage filmstrip
+                // and Prev/Next already use to land on it
+                onQueued={async (id, kind) => {
+                  await onChanged();
+                  if (id) onSelect(id);
+                  // One thread, wherever it was pulled. Refining in here used to
+                  // leave the workspace behind still pointed at nothing, so
+                  // stepping back out and carrying on turned the next
+                  // instruction into a brand new shot.
+                  if (id) onRefined?.(id, kind);
+                }}
+              />
+            </div>
+          )}
+          {framePeek.shown && (
+            <ChipPreview
+              key={framePeek.shown.key}
+              anchor={framePeek.shown.el}
+              kind="shot"
+              src={framePeek.shown.src}
+              label={framePeek.shown.label}
+              onOpen={() => {
+                const id = framePeek.shown?.id;
+                framePeek.closeNow();
                 if (id) onSelect(id);
-                // One thread, wherever it was pulled. Refining in here used to
-                // leave the workspace behind still pointed at nothing, so
-                // stepping back out and carrying on turned the next
-                // instruction into a brand new shot.
-                if (id) onRefined?.(id, kind);
               }}
+              onHoverIn={framePeek.keep}
+              onHoverOut={framePeek.close}
+              onClose={framePeek.closeNow}
             />
-          </div>
+          )}
         </aside>
         <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} />
         {parentShot && sourceHash && (

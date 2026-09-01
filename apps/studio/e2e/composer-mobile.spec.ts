@@ -355,10 +355,8 @@ test('the shot header never overlaps itself, and collapses to one overflow on a 
   expect(geom.offScreen).toBe(false);
 
   if (isPhone(page)) {
-    // the picture's actions live behind one control, and the price is not an
-    // action so it is not in the action row at all
+    // the picture's actions live behind one control
     await expect(page.locator('.sc-ovl-acts')).toBeHidden();
-    await expect(page.locator('.sc-ovl-bar .sc-ovl-cost')).toBeHidden();
     const overflow = page.locator('.sc-ovl-overflow');
     await expect(overflow).toBeVisible();
 
@@ -395,8 +393,8 @@ test('the shot has room around it on a phone', async ({ page }) => {
     const brands = await (await fetch('/api/brands')).json();
     const b = brands.find((x: any) => x.slug === slug);
     const ws = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
-    const many = (ws.nodes ?? []).find((n: any) => n.status === 'done' && (n.images?.length ?? 0) > 1);
-    if (many) return many.id;
+    const done = (ws.nodes ?? []).find((n: any) => n.status === 'done' && (n.images?.length ?? 0) > 0);
+    if (done) return done.id;
     const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
     const made = await (
       await fetch('/api/nodes', {
@@ -408,7 +406,7 @@ test('the shot has room around it on a phone', async ({ page }) => {
           kind: 'generation',
           prompt: 'stage rhythm shot',
           engineId: 'demo',
-          count: 2,
+          count: 1,
         }),
       })
     ).json();

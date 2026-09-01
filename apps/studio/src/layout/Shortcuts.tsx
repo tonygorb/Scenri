@@ -12,11 +12,8 @@ const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Scene menu', keys: ['/'] },
   { label: 'Presenter menu', keys: ['@'] },
   { label: 'Colour menu', keys: ['#'] },
-  // siblings are whole runs off one parent, so they are versions; the images
-  // inside a single run are its variants. Two words, two rows, one meaning each.
   { label: 'Walk versions', keys: ['←', '→'] },
   { label: 'Walk lineage', keys: ['↑', '↓'] },
-  { label: 'Step variants', keys: ['[', ']'] },
   { label: 'Refine this shot', keys: ['b'] },
   { label: 'Keep or unkeep', keys: ['k'] },
   { label: 'Open the shot', keys: ['enter'] },

@@ -141,7 +141,17 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
         localOnly: false,
         supportsEdit: true,
         supportsMask: false,
+        // Four is OUR conservative constant, not a provider fact: OpenRouter
+        // multiplexes many image models and their input limits differ, so
+        // there is no single upstream number to cite the way codex's five is
+        // cited. Four keeps a full identity payload (product essential +
+        // angle, presenter, mark) inside every model we have routed to.
         maxReferenceImages: 4,
+        // Same uplink argument as codex: the provider reads references at
+        // reduced resolution anyway, and these ride base64-inlined inside a
+        // JSON body — a full-resolution phone photo is tens of megabytes of
+        // request for nothing.
+        maxReferenceEdge: 2048,
         // N sequential calls, one image each: the server budgets the node by
         // that shape instead of handing the whole run one flat ten minutes.
         perImageTimeoutMs: PER_IMAGE_TIMEOUT_MS,
