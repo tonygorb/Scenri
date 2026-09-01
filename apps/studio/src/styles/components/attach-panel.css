@@ -167,6 +167,20 @@
   color: var(--sc-fg2);
   margin-bottom: var(--sc-space-1);
 }
+/* A scene picked while a refine is armed starts a new shot, and the card says
+   so before the click: a quieter picture, a plain note. Not disabled — the
+   switch is a real intent, and it explains itself with a toast and an Undo. */
+.sc-ap-card[data-newshot] .sc-ap-thumb {
+  opacity: 0.55;
+}
+.sc-ap-card[data-newshot]:hover .sc-ap-thumb {
+  opacity: 0.8;
+}
+.sc-ap-note {
+  display: inline-block;
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+}
 .sc-ap-empty {
   padding: 30px 0;
   text-align: center;

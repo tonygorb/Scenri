@@ -1106,6 +1106,7 @@ export const Composer = forwardRef<
         <AttachPanel
           brand={brand}
           activeProductCategory={activeProductCategory}
+          refining={mode === 'edit' && !!target}
           shots={shots}
           initialTab={attachTab}
           id={attachPanelId}

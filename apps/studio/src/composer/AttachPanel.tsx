@@ -57,6 +57,7 @@ export function AttachPanel({
   shots,
   initialTab = 'All',
   activeProductCategory,
+  refining,
   id,
   onToken,
   onTemplate,
@@ -70,6 +71,13 @@ export function AttachPanel({
   id?: string;
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
   activeProductCategory?: string | null;
+  /**
+   * A refine is armed, so a scene would start a new shot instead. The scene
+   * cards say so and dim a little — still clickable, because "this subject
+   * in another scene" is a real intent and the switch already explains
+   * itself with a toast and an Undo.
+   */
+  refining?: boolean;
   onToken: (t: SentenceToken) => void;
   onTemplate: (id: string) => void;
   onUpload: () => void;
@@ -234,27 +242,32 @@ export function AttachPanel({
   // made the marks reachable only by knowing to click the Brand tab.
   const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Brand', 'Colors', 'Shots'];
 
-  const card = (c: Card) => (
-    <button
-      type="button"
-      key={c.key}
-      className="sc-ap-card"
-      title={c.sub ? `${c.label} · ${c.sub}` : c.label}
-      onClick={c.run}
-    >
-      {c.swatch ? (
-        <span className="sc-ap-thumb" style={{ background: c.swatch }} />
-      ) : c.thumb ? (
-        <img className="sc-ap-thumb" src={c.thumb} alt="" loading="lazy" data-crop={c.crop} />
-      ) : (
-        <span className="sc-ap-thumb sc-ap-thumb-empty">
-          <ImageSquare size={16} />
-        </span>
-      )}
-      {c.recommended && <span className="sc-ap-rec">Recommended</span>}
-      <b dir="auto">{c.label}</b>
-    </button>
-  );
+  const card = (c: Card) => {
+    const newShot = refining && c.tab === 'Scenes';
+    return (
+      <button
+        type="button"
+        key={c.key}
+        className="sc-ap-card"
+        data-newshot={newShot || undefined}
+        title={c.sub ? `${c.label} · ${c.sub}` : c.label}
+        onClick={c.run}
+      >
+        {c.swatch ? (
+          <span className="sc-ap-thumb" style={{ background: c.swatch }} />
+        ) : c.thumb ? (
+          <img className="sc-ap-thumb" src={c.thumb} alt="" loading="lazy" data-crop={c.crop} />
+        ) : (
+          <span className="sc-ap-thumb sc-ap-thumb-empty">
+            <ImageSquare size={16} />
+          </span>
+        )}
+        {c.recommended && <span className="sc-ap-rec">Recommended</span>}
+        <b dir="auto">{c.label}</b>
+        {newShot && <span className="sc-ap-note">Starts a new shot</span>}
+      </button>
+    );
+  };
 
   return (
     // Non-modal on purpose — it stays open for multi-attach and the brief
