@@ -203,6 +203,13 @@
   outline: 2px solid var(--sc-inv-bg);
   outline-offset: -2px;
 }
+/* The image the composer is armed to refine: the gold selection line, the
+   same statement the tile's own Refine button makes, so which picture the
+   brief is pointed at is readable from across the feed. */
+.sc-cell[data-armed] {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+}
 /* An opened run reads as a group: its first tile keeps the edge that the
    stacked one had, so the eye can see where the run begins. */
 .sc-cell[data-variant][data-first] {

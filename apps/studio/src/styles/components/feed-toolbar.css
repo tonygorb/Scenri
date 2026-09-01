@@ -504,14 +504,6 @@
   position: relative;
   overflow: hidden;
 }
-.sc-target-lb b {
-  color: var(--sc-fg);
-  font-weight: 500;
-  max-width: 26ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* When something overrules the branch, the chip says so instead of quietly
    doing the other thing. */
 .sc-target-note {

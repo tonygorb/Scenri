@@ -184,7 +184,9 @@ export const Composer = forwardRef<
     onRestoreBranchId,
     setSlug,
     persistDraft = true,
-    variant = 'dock',
+    // the shell distinction lives in CSS (.sc-ovl-edit scopes the overlay
+    // variant); accepted so callers keep declaring which shell they mount
+    variant: _variant = 'dock',
   },
   handleRef,
 ) {
@@ -1140,7 +1142,11 @@ export const Composer = forwardRef<
             overlay the shot being refined is the whole screen. */}
         {branchable && onClearTarget && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            <span className="sc-target-lb">
+            {/* The thumbnail IS the identity — the armed card in the feed
+                wears the same ring. The old prompt-fragment label read as a
+                truncated instruction ("Remove the person. This is a"), which
+                said nothing a picture does not; hover still names it. */}
+            <span className="sc-target-lb" title={nodeLabel(target)}>
               Refining
               {/* a version that has just been asked for has no picture yet, and
                   the same shimmer the feed uses says so without a second word */}
@@ -1149,7 +1155,6 @@ export const Composer = forwardRef<
               ) : (
                 <span className="sc-target-thumb sc-shimmer" />
               )}
-              <b dir="auto">{nodeLabel(target)}</b>
             </span>
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
             <button type="button" className="sc-target-x" onClick={onClearTarget} aria-label="Make a new shot instead">

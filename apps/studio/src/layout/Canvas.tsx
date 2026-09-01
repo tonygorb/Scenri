@@ -248,6 +248,9 @@ export function Canvas({
               className="sc-cell"
               data-fb-node={n.id}
               data-selected={n.id === selectedId}
+              // the composer is pointed at this exact image; the card says so
+              // with the same gold line its own Refine button lights up with
+              data-armed={n.id === branchingFrom || undefined}
               data-batching={batching || undefined}
               data-picked={chosen || undefined}
             >
