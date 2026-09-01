@@ -543,7 +543,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: var(--sc-space-2) var(--sc-space-4) var(--sc-space-2) var(--sc-space-2);
+  padding: var(--sc-space-1) var(--sc-space-3) var(--sc-space-1) var(--sc-space-1);
   border-radius: var(--sc-radius-full);
   border: none;
   /* The composer's chip surface, not a near-miss of it. This block's own
@@ -560,8 +560,8 @@
   color: var(--sc-fg);
 }
 .sc-ingredient img {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   object-fit: cover;
   flex: none;
@@ -607,17 +607,6 @@
 .sc-ingredient[data-tinted] {
   background: color-mix(in srgb, var(--tint) 14%, var(--sc-token-bg));
   box-shadow: none;
-}
-/* a brand-owned scene wears the composer's iris pair, verbatim */
-.sc-ingredient[data-kind="scene"][data-custom] {
-  background: var(--sc-iris-bg);
-  color: var(--sc-iris-fg);
-}
-a.sc-ingredient[data-kind="scene"][data-custom]:hover,
-button.sc-ingredient[data-kind="scene"][data-custom]:hover,
-.sc-ingredient[data-kind="scene"][data-custom][data-open] {
-  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-iris-bg));
-  color: var(--sc-iris-fg);
 }
 
 /* An ingredient with a catalog page is a way into it. Everything visual stays

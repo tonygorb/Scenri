@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Popover, Select, Spinner } from '@radix-ui/themes';
-import { ArrowUp, Infinity as InfinityIcon, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
+import { ArrowUp, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
 import {
   api,
   imgUrl,
@@ -1190,11 +1190,11 @@ export const Composer = forwardRef<
         {branchable && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
             {/* The version being refined, worn as the one chip pattern the app
-                has: the sentence's own .sc-token in the refine blue, with the
-                infinity mark, the word for what is happening, and the shot's
-                picture. Not the shot's prompt: that read as a truncated
-                instruction, not a name. Hover peeks at the image the way a
-                sentence chip does; click opens it full size. */}
+                has: the sentence's own .sc-token as a small inverse card, the
+                shot's picture first, then the word for what is happening. Not
+                the shot's prompt: that read as a truncated instruction, not a
+                name. Hover peeks at the image the way a sentence chip does;
+                click opens it full size. */}
             {/* biome-ignore lint/a11y/useSemanticElements: a <button> cannot hold the remove <button> the chip pattern floats over its right edge; the sentence's own chips are the same span-as-button */}
             <span
               className="sc-token sc-target-chip"
@@ -1220,15 +1220,14 @@ export const Composer = forwardRef<
                 }
               }}
             >
-              <InfinityIcon size={18} aria-hidden />
               {/* a version that has just been asked for has no picture yet, and
                   the same shimmer the feed uses says so without a second word */}
-              Refining
               {target.images[0] ? (
                 <img src={imgUrl(target.images[0])} alt="" />
               ) : (
                 <span className="sc-target-thumb sc-shimmer" />
               )}
+              Refining
               {onClearTarget && (
                 <button
                   type="button"

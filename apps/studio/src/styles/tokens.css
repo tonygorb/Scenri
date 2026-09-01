@@ -192,14 +192,10 @@
   --sc-token-bg: #e4e4e4;
   --sc-token-hover: #dcdcdc;
   --sc-token-active: #d4d4d4;
-  /* the Refining source chip: the app's one blue, scoped to refine context */
-  --sc-refine-bg: #dce9fc;
-  --sc-refine-line: #b3cdf2;
-  --sc-refine-fg: #123c85;
-  --sc-refine-ico: #2f6bd0;
-  /* a brand-owned custom scene chip */
-  --sc-iris-bg: #ece2fe;
-  --sc-iris-fg: #46209c;
+  /* the Refining source chip: the card's own inverse, so it reads as a small
+     white card sitting on the composer in dark and the exact mirror in light */
+  --sc-refine-bg: #0a0a0a;
+  --sc-refine-fg: #f5f5f5;
   /* the composer send pill: same in both themes, a dark pill reads primary
      on white too */
   --sc-send-bg: #383838;
@@ -257,12 +253,8 @@
   --sc-token-bg: #2e2e2e;
   --sc-token-hover: #383838;
   --sc-token-active: #424242;
-  --sc-refine-bg: #0a2e6a;
-  --sc-refine-line: #104aa0;
-  --sc-refine-fg: #d8e8ff;
-  --sc-refine-ico: #7aafff;
-  --sc-iris-bg: #3a1890;
-  --sc-iris-fg: #decfff;
+  --sc-refine-bg: #ffffff;
+  --sc-refine-fg: #0d0d0d;
   --sc-send-bg: #383838;
   --sc-send-fg: #f5f5f5;
   --sc-line-focus: #666666;

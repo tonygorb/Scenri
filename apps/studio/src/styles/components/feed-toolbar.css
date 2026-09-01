@@ -484,34 +484,52 @@
    chip language for free. Only the sizing context differs: a sentence chip
    sizes itself in em against the brief line, and this row is not that, so the
    chip pins its own size. The grab cursor goes too; nothing here drags.
-   What differs on purpose is the color: this is the refine context's blue,
-   the one place the app says "this continues that". Mark, verb, picture. */
+   What differs on purpose is the skin: a small inverse card, the shot's
+   picture first as a rounded still (not a circle, this is a frame, not a
+   face), then the verb, then a plain in-flow X. */
 .sc-target-chip {
   font-size: var(--sc-text-body);
+  font-weight: 600;
+  line-height: 1.3;
   cursor: pointer;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-1);
+  border-radius: var(--sc-radius-md);
   background: var(--sc-refine-bg);
-  box-shadow: 0 0 0 1px var(--sc-refine-line);
+  box-shadow: none;
   color: var(--sc-refine-fg);
-}
-.sc-target-chip > svg {
-  color: var(--sc-refine-ico);
-  flex: none;
 }
 .sc-target-chip:hover,
 .sc-target-chip:focus-visible {
-  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-refine-bg));
-  box-shadow: 0 0 0 1px var(--sc-refine-line);
+  background: color-mix(in srgb, var(--sc-refine-fg) 8%, var(--sc-refine-bg));
 }
-/* the X floats over the refine blue, not the grey the base chip fades to */
+.sc-target-chip img {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-sm);
+  object-fit: cover;
+}
+/* The X is part of the chip's own anatomy here, in flow and always visible,
+   never the floating fade the sentence chips use. */
 .sc-target-chip > button {
-  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-refine-bg));
+  position: static;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  opacity: 1;
+  background: none;
   color: var(--sc-refine-fg);
 }
 .sc-target-chip > button::before {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--sc-fg) 6%, var(--sc-refine-bg)));
+  content: none;
 }
 .sc-target-chip > button:hover {
-  color: var(--sc-fg);
+  color: var(--sc-refine-fg);
+  opacity: 0.6;
 }
 /* the stand-in while the version being refined is still rendering.
    position is load bearing: .sc-shimmer is absolutely positioned, and without
@@ -522,9 +540,9 @@
   flex: none;
   position: relative;
   overflow: hidden;
-  width: 1.44em;
-  height: 1.44em;
-  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-sm);
   align-self: center;
 }
 /* When something overrules the branch, the chip says so instead of quietly

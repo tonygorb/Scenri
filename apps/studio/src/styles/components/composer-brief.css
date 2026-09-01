@@ -27,17 +27,17 @@
   min-height: 24px;
   cursor: text;
   font-size: 13.5px;
-  line-height: 2;
+  line-height: 1.6;
 }
 
 /* Chip metrics are em, resolved against the line the chip sits in, so the
    composer (15px) and the overlay refine composer (13.5px) keep the SAME
    chip-to-sentence relationship instead of one fixed chip that overflows the
    smaller line box. 0.8333em computes to 12.5px at the default 15px line,
-   and the 2.0 line strut (30px at 15px) is the Figma composer's own row
-   pitch: a 26px chip plus the 4px between wrapped rows. The chip's padding
-   and thumbnail resolve to 4px and 18px at that scale, so the chip lands at
-   26px and sits inside the strut, never growing its row.
+   and the 1.6 strut (24px at 15px) is the Figma composer's own row pitch:
+   rows sit flush, no extra row gap. The chip's padding and thumbnail resolve
+   to 2px and 20px at that scale, so the chip lands at 24px and fills the
+   strut edge to edge without growing its row.
 
    align-items is baseline, with the media opted out below: an inline-flex
    box's exported baseline comes from its first baseline-aligned item, and
@@ -51,7 +51,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.32em;
-  padding: 0.32em 0.64em 0.32em 0.32em;
+  padding: 0.16em 0.48em 0.16em 0.16em;
   border-radius: var(--sc-radius-full);
   border: none;
   background: var(--sc-raised);
@@ -68,8 +68,8 @@
   text-overflow: ellipsis;
 }
 .sc-token img {
-  width: 1.44em;
-  height: 1.44em;
+  width: 1.6em;
+  height: 1.6em;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -354,7 +354,7 @@
    the whole sentence reflowed. It now sits on top, behind a soft fade. */
 .sc-token {
   position: relative;
-  padding-right: 0.64em;
+  padding-right: 0.48em;
 }
 .sc-token > button {
   position: absolute;
@@ -432,17 +432,6 @@
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
-/* A brand-owned scene is its own thing, not a catalog mood: the iris pair,
-   stated over any tint the catalog formula would have mixed. */
-.sc-token[data-kind="template"][data-custom] {
-  background: var(--sc-iris-bg);
-  color: var(--sc-iris-fg);
-}
-.sc-token[data-kind="template"][data-custom]:hover,
-.sc-token[data-kind="template"][data-custom][data-open],
-.sc-token[data-kind="template"][data-custom]:focus-visible {
-  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-iris-bg));
-}
 /* The fade lives on the button itself. As a ::before at z-index -1 it painted
    behind the chip's own background, so the label showed straight through the X.
    The hit area is the glyph, not the fade: at 30px it covered a third of the
@@ -478,13 +467,6 @@
 }
 .sc-token[data-tinted] > button::before {
   background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover)));
-}
-.sc-token[data-kind="template"][data-custom] > button {
-  background: color-mix(in srgb, var(--sc-fg) 6%, var(--sc-iris-bg));
-  color: var(--sc-iris-fg);
-}
-.sc-token[data-kind="template"][data-custom] > button::before {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--sc-fg) 6%, var(--sc-iris-bg)));
 }
 /* ---------- the brief is one editable line (5.4) ----------
    Single contenteditable root: native select-all, copy, cut and paste work
@@ -535,12 +517,14 @@
    target you can actually hit. */
 .sc-brief-line .sc-token {
   display: inline-flex;
-  /* A length, not `baseline`: the 1.44em thumbnail deepened the chip below its
-     exported label baseline, so pure baseline alignment parked the chip 2px
-     under the prose midline. Raising it 0.16em (2px at the chip's 12.5px)
-     centers chip and prose on one midline at every line scale, the alignment
-     the Figma rows draw. Still inline alignment, no transform. */
-  vertical-align: 0.16em;
+  /* A length, not `baseline`: the 1.6em thumbnail deepens the chip below its
+     exported label baseline, so pure baseline alignment parks the chip low
+     and grows the row. A 24px chip fills the 24px strut exactly, so there is
+     one raise that fits, and it was measured, not derived: a 0.25px sweep in
+     the real font put zero row growth and a zero prose-midline delta at
+     exactly 0.24em (3px at the chip's 12.5px). Em keeps the same point at
+     every line scale. Still inline alignment, no transform. */
+  vertical-align: 0.24em;
   margin: 0 2px;
   user-select: none;
 }
@@ -560,7 +544,7 @@
 .sc-brief-line {
   font-size: var(--sc-text-input);
   padding: var(--sc-space-6) var(--sc-space-6) var(--sc-space-4);
-  min-height: 30px;
+  min-height: 24px;
 }
 @media (max-width: 767px) {
   .sc-brief-line {
