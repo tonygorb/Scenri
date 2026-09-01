@@ -64,7 +64,7 @@ import {
 } from './line.js';
 
 export type { SentenceToken, BriefToken, FormatToken } from './line.js';
-export { briefTokens, emptySentence, isSentence } from './line.js';
+export { briefTokens, emptySentence, identityKeyOf, isSentence } from './line.js';
 
 export { FORMATS } from './formats.js';
 

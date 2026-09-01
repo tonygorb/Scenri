@@ -264,7 +264,7 @@ export function AttachPanel({
         )}
         {c.recommended && <span className="sc-ap-rec">Recommended</span>}
         <b dir="auto">{c.label}</b>
-        {newShot && <span className="sc-ap-note">Starts a new shot</span>}
+        {newShot && <span className="sc-ap-note">Restages into a new shot</span>}
       </button>
     );
   };
