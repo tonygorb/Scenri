@@ -83,6 +83,17 @@ export function ShotChrome({
         </button>
       )}
 
+      {/* The composer is pointed here: the picked tile's lit tick, worn as a
+          mark. During batching the real pick control renders instead, and the
+          brief cannot be armed then anyway. pointer-events is off in CSS, so
+          this is state, never a second control. */}
+      {armed && !picking && (
+        <span className="sc-cell-ctl sc-cell-pick" data-on title="Being refined">
+          <Check size={13} weight="bold" />
+          <span className="sc-vh">Being refined</span>
+        </span>
+      )}
+
       {/* A mark, not a control: gold says kept and nothing else, and there is
           no unlit state to hover because an unkept shot simply has no star. */}
       {node.kept && (

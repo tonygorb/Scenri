@@ -203,12 +203,23 @@
   outline: 2px solid var(--sc-inv-bg);
   outline-offset: -2px;
 }
-/* The image the composer is armed to refine: the gold selection line, the
-   same statement the tile's own Refine button makes, so which picture the
-   brief is pointed at is readable from across the feed. */
+/* The image the composer is armed to refine wears the picked tile's own
+   grammar, because it is the same idea: this tile, not the others. The
+   inverse ring, the lit tick, and the chrome held up with no pointer near,
+   so which picture the brief is pointed at is readable from across the
+   feed. The tick is a mark here, not the batch control: clicks fall through
+   to the tile itself. */
 .sc-cell[data-armed] {
-  outline: 2px solid var(--sc-sel-line);
+  outline: 2px solid var(--sc-inv-bg);
   outline-offset: -2px;
+}
+.sc-cell[data-armed] .sc-cell-ctl,
+.sc-cell[data-armed] .sc-cell-veil {
+  opacity: 1;
+  transition-delay: 0s;
+}
+.sc-cell[data-armed] .sc-cell-pick {
+  pointer-events: none;
 }
 /* An opened run reads as a group: its first tile keeps the edge that the
    stacked one had, so the eye can see where the run begins. */
