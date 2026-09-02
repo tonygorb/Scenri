@@ -103,6 +103,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [err, setErr] = useState<string | null>(null);
   /** What the docked composer's brief holds, so the rail can tick it. */
   const [attached, setAttached] = useState<AttachedIds>(NO_ATTACHMENTS);
+  /** The composer's identity ceiling, for the rail beside it: the same sentence, the same dimming. */
+  const [ceiling, setCeiling] = useState<string | null>(null);
   const [remixBrief, setRemixBrief] = useState<any>(null);
   /** Which use case is sitting in the brief right now, so its card can say so. */
   const [stagedId, setStagedId] = useState<string | null>(null);
@@ -1078,6 +1080,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           brand={brand}
           shots={allNodes}
           attached={attached}
+          full={ceiling}
           onProduct={(id) => composerRef.current?.insertToken({ t: 'product', id })}
           onCharacter={(id) => composerRef.current?.insertToken({ t: 'character', id })}
           onColor={(hex, name) => composerRef.current?.insertToken({ t: 'color', hex, name })}
@@ -1137,6 +1140,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           setSlug={set?.slug ?? null}
           onSending={setSending}
           onAttached={setAttached}
+          onCeiling={setCeiling}
           sourceImage={targetImage ?? undefined}
           onQueued={(made, kind) => {
             setRemixBrief(null);

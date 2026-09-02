@@ -690,10 +690,18 @@
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
-.sc-assets-zero {
+.sc-assets-zero,
+.sc-assets-hint {
   font-size: 12px;
   color: var(--sc-fg3);
   line-height: 1.45;
+}
+/* At the composer's identity ceiling the rail's tiles sit out the way the
+   attach panel's cards do: dimmed, inert, the reason in their title. */
+.sc-acard:disabled,
+.sc-arow > button:disabled {
+  opacity: var(--sc-dim);
+  cursor: default;
 }
 /* Searching, every section is showing answers, so none of them claims the
    column and the rail scrolls through the lot — one scroller, the ordinary

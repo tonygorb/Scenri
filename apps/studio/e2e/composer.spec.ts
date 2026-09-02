@@ -2082,16 +2082,29 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   await page.keyboard.type('hero shot on marble ');
   const bare = (await line(page).boundingBox())!.height;
 
-  // insert the chip: the row must not grow — the chip fits INSIDE the strut.
-  // Before the metric fix the chip's synthesized baseline was its bottom edge
-  // (no flex item participated in baseline alignment), so every chip rode
-  // above the text baseline and stretched its row.
+  // insert the chip: the row grows by exactly the chip's vertical margins and
+  // nothing else. The Figma frames pitch chip rows at 28 (a 24px chip with 2px
+  // above and below) over a 24px prose strut, and the margins are the whole
+  // of that difference: the chip's box itself fits INSIDE the strut. Before
+  // the metric fix the chip's synthesized baseline was its bottom edge (no
+  // flex item participated in baseline alignment), so every chip rode above
+  // the text baseline and stretched its row on top of the margins.
   await plusMenu(page, /products/i);
   await pickCard(page);
   await page.keyboard.press('Escape');
   await expect(chips(page)).toHaveCount(1);
   const withChip = (await line(page).boundingBox())!.height;
-  expect(Math.abs(withChip - bare)).toBeLessThanOrEqual(0.6);
+  const margins = await chips(page)
+    .first()
+    .evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+    });
+  expect(margins).toBeGreaterThan(0);
+  expect(
+    Math.abs(withChip - bare - margins),
+    `bare ${bare} withChip ${withChip} margins ${margins}`,
+  ).toBeLessThanOrEqual(0.6);
 
   // chip label and neighbouring prose share a midline on the same row
   const mid = await line(page).evaluate((el) => {
@@ -2119,7 +2132,8 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   // the line's own computed strut, not a hard-coded ratio: the Figma pass
   // pitches rows at line-height 2 (30px at the 15px line) so 26px chips fit
   const strut = await line(page).evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
-  const grown = wrapped - bare;
+  // measured from the chip row, so the one new row is prose alone
+  const grown = wrapped - withChip;
   expect(grown).toBeGreaterThan(0);
   expect(Math.abs(grown % strut)).toBeLessThanOrEqual(1);
 });

@@ -47,6 +47,7 @@ export function AssetsPanel({
   brand,
   shots,
   attached = NO_ATTACHMENTS,
+  full,
   onProduct,
   onCharacter,
   onColor,
@@ -58,6 +59,13 @@ export function AssetsPanel({
   shots: TreeNode[];
   /** What the brief holds right now, so the rail can say so. */
   attached?: AttachedIds;
+  /**
+   * The composer is at its identity ceiling, and this is the sentence that
+   * says so. The rail is another door into the same brief, so its identity
+   * tiles sit out under the same words the attach panel uses; colours are
+   * not identities and stay live.
+   */
+  full?: string | null;
   onProduct: (id: string) => void;
   onCharacter: (id: string) => void;
   onColor: (hex: string, name?: string) => void;
@@ -243,6 +251,7 @@ export function AssetsPanel({
       </div>
 
       {nothingFound && <p className="sc-assets-zero">Nothing here matches “{q.trim()}”.</p>}
+      {full && !nothingFound && <p className="sc-assets-hint">{full}</p>}
 
       <Section
         kind="product"
@@ -252,6 +261,7 @@ export function AssetsPanel({
         mode={modeOf('product')}
         onToggle={toggle}
         onPick={onProduct}
+        full={full}
         moreLabel="products"
         createLabel="Add product"
         onCreate={() =>
@@ -277,6 +287,7 @@ export function AssetsPanel({
         mode={modeOf('presenter')}
         onToggle={toggle}
         onPick={onCharacter}
+        full={full}
         moreLabel="presenters"
         createLabel="Create presenter"
         onCreate={() =>
@@ -296,6 +307,7 @@ export function AssetsPanel({
         mode={modeOf('scene')}
         onToggle={toggle}
         onPick={onTemplate}
+        full={full}
         moreLabel="scenes"
         createLabel="Create scene"
         onCreate={() =>

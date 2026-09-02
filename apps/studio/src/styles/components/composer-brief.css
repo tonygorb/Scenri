@@ -548,18 +548,30 @@
    target you can actually hit. */
 .sc-brief-line .sc-token {
   display: inline-flex;
+  /* The thumbnail's height plus the padding either side (1.6em + 2 * 0.16em):
+     a chip whose identity has no photo stands as tall as one that does, so
+     every chip row pitches the same 28 and the label sits where its
+     neighbours' labels sit. */
+  min-height: 1.92em;
   /* A length, not `baseline`: the 1.6em thumbnail deepens the chip below its
      exported label baseline, so pure baseline alignment parks the chip low
-     and grows the row. A 24px chip fills the 24px strut exactly, so there is
-     one raise that fits, and it was measured, not derived: a 0.25px sweep in
-     the real font put zero row growth and a zero prose-midline delta at
-     exactly 0.24em (3px at the chip's 12.5px). Em keeps the same point at
-     every line scale. Still inline alignment, no transform.
+     and grows the row. With its 2px margins the chip's box is 28 tall over a
+     24 strut, and there is one raise that centres the label on the prose
+     without growing the row past those margins; it was measured, not
+     derived: a sweep in the real font put a 0.02px midline delta and a 28px
+     pitch at exactly 0.12em (1.5px at the chip's 12.5px), where 0.24em (the
+     flush-row value) sat 1.5px high and 0.04em began to grow the row. Em
+     keeps the same point at every line scale. Still inline alignment, no
+     transform.
 
-     No margins: the real space characters the line maintains are the gap,
-     and they measure the 4px the frames draw; margins on top made it 8. */
-  vertical-align: 0.24em;
-  margin: 0;
+     No side margins: the real space characters the line maintains are the
+     horizontal gap, and they measure the 4px the frames draw. */
+  vertical-align: 0.12em;
+  /* The Figma row pitch is 28: a 24px chip with 2px above and below. The
+     strut stays 24 for prose, and a chip's vertical margin is what grows the
+     rows that hold one; the space characters beside a chip are its 4px
+     horizontal gap, so there is no side margin. */
+  margin: var(--sc-space-1) 0;
   user-select: none;
 }
 .sc-brief-line .sc-token > button {

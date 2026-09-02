@@ -140,6 +140,12 @@ export const Composer = forwardRef<
      */
     onAttached?: (ids: AttachedIds) => void;
     /**
+     * The shot is at its identity ceiling, with the sentence that says so, or
+     * null while there is room. The asset rail beside the composer is another
+     * door into the same brief, and it dims and explains itself with this.
+     */
+    onCeiling?: (sentence: string | null) => void;
+    /**
      * The shot this brief will branch from, chosen with Branch. Null means a
      * new shot, which is the resting state and the only other one there is.
      */
@@ -193,6 +199,7 @@ export const Composer = forwardRef<
     onQueued,
     onSending,
     onAttached,
+    onCeiling,
     target,
     onClearTarget,
     sourceImage,
@@ -967,6 +974,9 @@ export const Composer = forwardRef<
       : null;
   /** The ceiling on identities per shot, engine-independent. */
   const ceilingFull = identityCount >= IDENTITY_CAP ? CEILING_SENTENCE : null;
+  useEffect(() => {
+    onCeiling?.(ceilingFull);
+  }, [ceilingFull, onCeiling]);
   const describedToken = (t: BriefToken): boolean => {
     const set = budget?.described;
     if (!set || set.size === 0) return false;

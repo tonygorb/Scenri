@@ -533,6 +533,8 @@
    rework the chips sit inline in the record's own sentence; there is no
    separate row container any more. */
 .sc-ingredient {
+  /* the composer chip's stand-in height, in this file's px: 20px photo + 2px either side */
+  min-height: calc(20px + 2 * var(--sc-space-1));
   display: inline-flex;
   align-items: center;
   gap: var(--sc-space-3);

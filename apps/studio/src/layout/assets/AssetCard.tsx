@@ -5,11 +5,16 @@ export function AssetCard({
   candidate,
   on,
   named,
+  disabled,
+  title,
   onClick,
 }: {
   candidate: Candidate;
   on: boolean;
   named: boolean;
+  /** The brief cannot take another identity: the tile sits out, dimmed, and `title` says why. */
+  disabled?: boolean;
+  title?: string;
   onClick: () => void;
 }) {
   return (
@@ -19,7 +24,8 @@ export function AssetCard({
       data-on={on || undefined}
       aria-label={candidate.full}
       aria-pressed={on}
-      title={candidate.full}
+      disabled={disabled}
+      title={title ?? candidate.full}
       onClick={onClick}
     >
       <span className="sc-acard-thumb">

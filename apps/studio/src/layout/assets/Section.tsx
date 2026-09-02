@@ -14,6 +14,7 @@ export function Section({
   mode,
   onToggle,
   onPick,
+  full,
   moreLabel,
   createLabel,
   onCreate,
@@ -22,6 +23,8 @@ export function Section({
   title: string;
   items: Candidate[];
   attached: string[];
+  /** The brief is at its identity ceiling: every tile sits out, and this is why. */
+  full?: string | null;
   mode: SectionMode;
   onToggle: (key: string) => void;
   onPick: (id: string) => void;
@@ -65,6 +68,8 @@ export function Section({
                 candidate={c}
                 on={on.has(c.id)}
                 named={shape === 'open'}
+                disabled={!!full}
+                title={full ?? undefined}
                 onClick={() => onPick(c.id)}
               />
             ))}
