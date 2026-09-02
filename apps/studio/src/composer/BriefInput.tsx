@@ -42,7 +42,8 @@ import {
   chipHexWords,
   chipLabel,
   closeIcon,
-  normalizeChipBoundaries,
+  lineIsCanonical,
+  collapseSpaceAtCaret,
   attachGhostCaret,
   stepAcrossChip,
   chipToDelete,
@@ -576,6 +577,35 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
+  // Backspace and Delete at a chip's space take the chip, on every keyboard.
+  // A phone's keyboard reports Backspace as a composition key (keyCode 229),
+  // so keydown cannot be the hook; `beforeinput` names the deletion itself
+  // and is cancelable in WebKit and Chromium alike.
+  const removeChipByUidRef = useRef(removeChipByUid);
+  useEffect(() => {
+    removeChipByUidRef.current = removeChipByUid;
+  }, [removeChipByUid]);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const onBeforeInput = (e: InputEvent) => {
+      const key =
+        e.inputType === 'deleteContentBackward'
+          ? 'Backspace'
+          : e.inputType === 'deleteContentForward'
+            ? 'Delete'
+            : null;
+      if (!key) return;
+      const chip = chipToDelete(root, key);
+      if (!chip?.dataset.uid) return;
+      e.preventDefault();
+      const at = removeChipByUidRef.current(chip.dataset.uid);
+      if (at != null) setCaretUnits(root, at);
+    };
+    root.addEventListener('beforeinput', onBeforeInput);
+    return () => root.removeEventListener('beforeinput', onBeforeInput);
+  }, []);
+
   /**
    * Open the picture a chip IS, full size.
    *
@@ -995,21 +1025,12 @@ export const BriefInput = forwardRef<
     if (menu || picker) return;
     if (composingEvent(e)) return;
     // A chip and the space after it are one thing to the keyboard: one press
-    // crosses both, one press removes both. Prose beside a chip still steps a
-    // character at a time. Modifiers are left alone: Shift extends a selection
-    // and Alt+Arrow moves a focused chip.
+    // crosses both (deleting both is the beforeinput listener's, above). Prose
+    // beside a chip still steps a character at a time. Modifiers are left
+    // alone: Shift extends a selection and Alt+Arrow moves a focused chip.
     if (!e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         if (stepAcrossChip(root, e.key === 'ArrowLeft' ? 'left' : 'right')) e.preventDefault();
-        return;
-      }
-      if (e.key === 'Backspace' || e.key === 'Delete') {
-        const chip = chipToDelete(root, e.key);
-        if (chip?.dataset.uid) {
-          e.preventDefault();
-          const at = removeChipByUid(chip.dataset.uid);
-          if (at != null) setCaretUnits(root, at);
-        }
         return;
       }
     }
@@ -1061,12 +1082,16 @@ export const BriefInput = forwardRef<
   const onInput = (e?: React.FormEvent<HTMLDivElement>) => {
     syncScrollHint();
     const root = rootRef.current;
+    const native = e?.nativeEvent as InputEvent | undefined;
     // Never mid-composition: an IME's provisional text is not the user's line
     // yet, and rewriting it under the composition drops what they were typing.
-    if ((e?.nativeEvent as InputEvent | undefined)?.isComposing) return;
-    // a chip's edge is the one place a space can double: typed into the one the
-    // chip already owns, or left behind as a seam by a chip deleted natively
-    normalizeChipBoundaries(root);
+    if (native?.isComposing) return;
+    // The one rule, only when a keystroke has left the line short of it: a
+    // space typed into the one a chip owns, prose typed flush against a chip,
+    // two chips left touching by a deleted selection.
+    if (!lineIsCanonical(root)) normalizeLine(root);
+    // a selection deleted across a chip leaves its two spaces meeting in prose
+    if (native?.inputType?.startsWith('delete')) collapseSpaceAtCaret(root);
     // clearing the line leaves a <br>; strip it and flip data-empty so the
     // placeholder returns even if Chromium re-inserts a caret host
     if (syncEmpty(root)) caretToEnd(root);
@@ -1162,25 +1187,54 @@ export const BriefInput = forwardRef<
     if (!root || !sel || sel.rangeCount === 0 || !root.contains(sel.getRangeAt(0).startContainer)) return false;
     const range = sel.getRangeAt(0);
 
-    // one template per brief: the pasted one lands where it was pasted and the
-    // chip the line already carried steps aside
+    // What the paste replaces goes first, so a chip pasted over itself is not
+    // its own twin.
+    range.deleteContents();
+
+    // One chip per thing, the same door rule the menu and the panel keep: a
+    // chip the line already holds, or one the paste carries twice, is not
+    // pasted again, and the identity ceiling holds here too. Pasting the whole
+    // brief back into itself used to double every chip, every time.
+    // One template per brief: the pasted one lands where it was pasted and the
+    // chip the line already carried steps aside.
     let usedTemplate = false;
+    let held = Array.from(root.querySelectorAll<HTMLElement>(`.${CHIP}`)).filter((c) =>
+      IDENTITY_KINDS.has(c.dataset.kind ?? ''),
+    ).length;
+    let ceiling = false;
+    const seen = new Set<string>();
     const kept: (string | SentenceToken)[] = [];
     for (const p of parts) {
+      if (typeof p === 'string') {
+        kept.push(p);
+        continue;
+      }
       // a chip whose product or template is gone pastes as the words it read as
-      if (typeof p !== 'string' && !known(p)) {
+      if (!known(p)) {
         kept.push(labelFallback(p, templates, products));
         continue;
       }
-      if (typeof p !== 'string' && p.t === 'template') {
+      if (p.t === 'template') {
         if (usedTemplate) continue;
         usedTemplate = true;
       }
+      const key = identityKeyOf(p);
+      if (key) {
+        if (seen.has(key) || chipForIdentity(root, key)) continue;
+        seen.add(key);
+      }
+      if (IDENTITY_KINDS.has(p.t) && !(p.t === 'template' && templateChip(root))) {
+        if (held >= IDENTITY_CAP) {
+          ceiling = true;
+          continue;
+        }
+        held += 1;
+      }
       kept.push(p);
     }
+    if (ceiling) announce(CEILING_SENTENCE);
     const oldSlot = usedTemplate ? templateChip(root) : null;
 
-    range.deleteContents();
     const frag = document.createDocumentFragment();
     for (const p of kept) frag.appendChild(typeof p === 'string' ? document.createTextNode(p) : chipFor(p));
     const tail = document.createTextNode(' ');

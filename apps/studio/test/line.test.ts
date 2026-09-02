@@ -6,7 +6,8 @@ import {
   chipHexWords,
   chipLabel,
   closeIcon,
-  normalizeChipBoundaries,
+  lineIsCanonical,
+  collapseSpaceAtCaret,
   stepAcrossChip,
   chipToDelete,
   gapAtCaret,
@@ -449,7 +450,7 @@ describe('removing a chip', () => {
   });
 });
 
-describe('normalizeChipBoundaries', () => {
+describe('the typing path: lineIsCanonical, then normalizeLine', () => {
   const caretIn = (t: Text, at: number) => {
     const r = document.createRange();
     r.setStart(t, at);
@@ -472,7 +473,8 @@ describe('normalizeChipBoundaries', () => {
     );
     const t = root.childNodes[1] as Text;
     caretIn(t, 2);
-    expect(normalizeChipBoundaries(root)).toBe(true);
+    expect(lineIsCanonical(root)).toBe(false);
+    normalizeLine(root);
     expect(t.textContent).toBe(' ');
     expect(caretAt()).toEqual([t, 1]);
   });
@@ -485,22 +487,21 @@ describe('normalizeChipBoundaries', () => {
     );
     const t = root.childNodes[1] as Text;
     caretIn(t, 13);
-    normalizeChipBoundaries(root);
+    normalizeLine(root);
     expect(t.textContent).toBe(' on marble ');
     expect(caretAt()).toEqual([t, 11]);
   });
 
-  it('prose that touches no chip is left alone', () => {
+  it('prose that touches no chip is canonical, double spaces and all', () => {
     root.append(document.createTextNode('shoot  in light'));
     dropCaret();
-    expect(normalizeChipBoundaries(root)).toBe(false);
-    expect(text()).toBe('shoot  in light');
+    expect(lineIsCanonical(root)).toBe(true);
   });
 
-  // The bug this rule exists for. Chromium deletes the chip element and leaves
+  // The bug the guard exists for. Chromium deletes the chip element and leaves
   // its two spaces as SEPARATE text nodes, so every pass that measured a node
   // at a time read one space on each side and saw nothing to do.
-  it('collapses the split seam a native Backspace over a middle chip leaves between two chips', () => {
+  it('collapses the split seam a native delete leaves between two chips', () => {
     root.append(
       chipFor({ t: 'product', id: 'p1' }),
       document.createTextNode(' '),
@@ -508,18 +509,24 @@ describe('normalizeChipBoundaries', () => {
       chipFor({ t: 'product', id: 'p2' }),
     );
     caretIn(root.childNodes[1] as Text, 1);
-    expect(normalizeChipBoundaries(root)).toBe(true);
-    expect(shape()).toEqual(['<product>', '" "', '<product>']);
+    expect(lineIsCanonical(root)).toBe(false);
+    normalizeLine(root);
+    expect(shape()).toEqual(['""', '<product>', '" "', '<product>', '" "']);
+    expect(caretAt()).toEqual([root.childNodes[2], 1]);
   });
 
-  it('collapses the same split seam when the chip sat between two prose runs', () => {
+  it('the same seam in prose is merged by the rule and closed at the caret, as a deletion does', () => {
     root.append(document.createTextNode('shoot '), document.createTextNode(' in light'));
     caretIn(root.firstChild as Text, 6);
-    expect(normalizeChipBoundaries(root)).toBe(true);
+    expect(lineIsCanonical(root)).toBe(false);
+    normalizeLine(root);
+    expect(text()).toBe('shoot  in light'); // no chip edge here: the rule leaves prose spacing alone
+    expect(collapseSpaceAtCaret(root)).toBe(true);
     expect(text()).toBe('shoot in light');
+    expect(caretAt()[1]).toBe(6);
   });
 
-  it('leaves three chips in a row with exactly one space at both boundaries', () => {
+  it('three chips in a row keep exactly one space at every boundary', () => {
     root.append(
       chipFor({ t: 'product', id: 'p1' }),
       document.createTextNode(' '),
@@ -530,15 +537,75 @@ describe('normalizeChipBoundaries', () => {
       document.createTextNode(' '),
     );
     caretIn(root.childNodes[1] as Text, 1);
-    expect(normalizeChipBoundaries(root)).toBe(true);
-    expect(shape()).toEqual(['<product>', '" "', '<product>', '" "', '<product>', '" "']);
+    normalizeLine(root);
+    expect(shape()).toEqual(['""', '<product>', '" "', '<product>', '" "', '<product>', '" "']);
   });
 
-  it('does not merge two prose runs that carry no space at their seam', () => {
+  it('a run the browser split is merged with the caret where it was', () => {
     root.append(document.createTextNode('hel'), document.createTextNode('lo'));
-    dropCaret();
-    expect(normalizeChipBoundaries(root)).toBe(false);
-    expect(shape()).toEqual(['"hel"', '"lo"']);
+    caretIn(root.childNodes[1] as Text, 1);
+    expect(lineIsCanonical(root)).toBe(false);
+    normalizeLine(root);
+    expect(shape()).toEqual(['"hello"']);
+    expect(caretAt()).toEqual([root.firstChild, 4]);
+  });
+
+  it('two chips left touching get their space back', () => {
+    root.append(chipFor({ t: 'product', id: 'p1' }), chipFor({ t: 'product', id: 'p2' }), document.createTextNode(' '));
+    const r = document.createRange();
+    r.setStart(root, 1); // between the two chips, as a deleted selection leaves it
+    r.collapse(true);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+    expect(lineIsCanonical(root)).toBe(false);
+    normalizeLine(root);
+    expect(shape()).toEqual(['""', '<product>', '" "', '<product>', '" "']);
+    expect(caretAt()[0]).toBe(root.childNodes[2]);
+  });
+
+  // The other half of "exactly one": prose typed flush against a chip, at the
+  // edge a click or an arrow reaches, gets its space as it is typed.
+  it('prose typed flush before a chip gets its space, and the caret stays before it', () => {
+    root.append(
+      document.createTextNode('se fdsfdfsdf'),
+      chipFor({ t: 'product', id: 'p1' }),
+      document.createTextNode(' '),
+    );
+    const t = root.firstChild as Text;
+    caretIn(t, 12);
+    expect(lineIsCanonical(root)).toBe(false);
+    normalizeLine(root);
+    expect(t.textContent).toBe('se fdsfdfsdf ');
+    expect(caretAt()).toEqual([t, 12]);
+  });
+
+  it('prose typed flush after a chip gets its space, and the caret moves with the text', () => {
+    root.append(chipFor({ t: 'product', id: 'p1' }), document.createTextNode('on'));
+    const t = root.childNodes[1] as Text;
+    caretIn(t, 2);
+    expect(lineIsCanonical(root)).toBe(false);
+    normalizeLine(root);
+    expect(t.textContent).toBe(' on');
+    expect(caretAt()).toEqual([t, 3]);
+  });
+
+  it('is canonical after every structural edit, so a keystroke there does nothing', () => {
+    renderLine(
+      root,
+      [
+        { t: 'text', v: 'shoot ' },
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' on ' },
+        { t: 'product', id: 'p2' },
+      ],
+      chipFor,
+    );
+    expect(lineIsCanonical(root)).toBe(true);
+    insertToken(root, chipFor({ t: 'product', id: 'p3' }));
+    expect(lineIsCanonical(root)).toBe(true);
+    removeChip(root, chips()[0]);
+    expect(lineIsCanonical(root)).toBe(true);
   });
 });
 
@@ -600,39 +667,34 @@ describe('a chip and its space are one to the keyboard', () => {
     expect(stepAcrossChip(root, 'left')).toBe(false);
   });
 
-  it('Backspace from the far edge of a chip space takes the chip', () => {
+  it('Backspace after a chip, or after the space it owns, takes the chip', () => {
     const { seam, tail, prose } = seed();
     caretIn(seam, 1);
     expect(chipToDelete(root, 'Backspace')).toBe(chips()[0]);
+    caretIn(seam, 0);
+    expect(chipToDelete(root, 'Backspace')).toBe(chips()[0]);
     caretIn(tail, 1);
     expect(chipToDelete(root, 'Backspace')).toBe(chips()[2]);
-    caretIn(seam, 0); // flush against p1: the browser already deletes it
-    expect(chipToDelete(root, 'Backspace')).toBeNull();
-    caretIn(prose, 1);
+    caretIn(prose, 1); // just past p2's space, before "on": the space is p2's
+    expect(chipToDelete(root, 'Backspace')).toBe(chips()[1]);
+    caretIn(prose, 2); // inside the prose: the browser's
     expect(chipToDelete(root, 'Backspace')).toBeNull();
   });
 
-  it('Delete from the near edge of a chip space takes the next chip', () => {
-    const { seam, tail } = seed();
+  it('Delete before a chip, or before the space that leads to it, takes the chip', () => {
+    const { seam, tail, prose } = seed();
     caretIn(seam, 0);
     expect(chipToDelete(root, 'Delete')).toBe(chips()[1]);
-    caretIn(seam, 1); // flush against p2: the browser already deletes it
+    caretIn(seam, 1);
+    expect(chipToDelete(root, 'Delete')).toBe(chips()[1]);
+    caretIn(prose, prose.length);
+    expect(chipToDelete(root, 'Delete')).toBe(chips()[2]);
+    caretIn(prose, prose.length - 1); // before the space that leads to p3
+    expect(chipToDelete(root, 'Delete')).toBe(chips()[2]);
+    caretIn(prose, prose.length - 2);
     expect(chipToDelete(root, 'Delete')).toBeNull();
-    caretIn(tail, 0);
+    caretIn(tail, 0); // nothing after the last chip's space
     expect(chipToDelete(root, 'Delete')).toBeNull();
-  });
-
-  it('two chips left touching get their space back, caret at its far edge', () => {
-    root.append(chipFor({ t: 'product', id: 'p1' }), chipFor({ t: 'product', id: 'p2' }), document.createTextNode(' '));
-    const r = document.createRange();
-    r.setStart(root, 1); // between the two chips, as a deleted selection leaves it
-    r.collapse(true);
-    const sel = window.getSelection()!;
-    sel.removeAllRanges();
-    sel.addRange(r);
-    expect(normalizeChipBoundaries(root)).toBe(true);
-    expect(shape()).toEqual(['<product>', '" "', '<product>', '" "']);
-    expect(caretAt()).toEqual([root.childNodes[1], 1]);
   });
 });
 

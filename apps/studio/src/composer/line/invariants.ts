@@ -6,33 +6,51 @@ import { caretUnits, lengthOf, placeCaret, setCaretUnits } from './caret.js';
 /**
  * Bring the line back to its canonical shape, carrying the caret across.
  *
- * Every structural edit ends here, so the rules live in exactly one place:
+ * Every edit ends here: a structural one directly, a keystroke by way of
+ * `lineIsCanonical`, which says whether there is anything to do. The rules
+ * live in exactly one place:
  *
  *  - no empty text nodes, no adjacent text nodes
- *  - exactly one space on each side of a chip
+ *  - exactly one space on each side of a chip, put there when it is missing
  *  - no space at the very start
  *  - a text node always follows a trailing chip, so there is somewhere to type
+ *
+ * The caret is carried by node while its node survives, so a space put in
+ * front of what was just typed moves the caret along with it, and by unit
+ * count otherwise.
  */
 export function normalizeLine(root: HTMLElement | null): void {
   if (!root) return;
-  const at = caretUnits(root);
+  const units = caretUnits(root);
 
+  // Merge first: a live range follows a merge, so the caret read after it is
+  // the one to carry.
   root.normalize();
+  const caret = caretIn(root);
+  let at = caret?.at ?? 0;
   for (const n of Array.from(root.childNodes)) {
     if (n.nodeType === Node.TEXT_NODE && !(n.textContent ?? '').length) n.remove();
   }
 
-  const kids = Array.from(root.childNodes);
-  for (let i = 0; i < kids.length; i++) {
-    const n = kids[i];
+  for (const n of Array.from(root.childNodes)) {
     if (n.nodeType !== Node.TEXT_NODE) continue;
-    let v = n.textContent ?? '';
+    const before = n.textContent ?? '';
+    let v = before;
     const prevIsChip = isChip(n.previousSibling);
     const nextIsChip = isChip(n.nextSibling);
     if (prevIsChip)
       v = v.replace(/^ */, ' '); // exactly one, never none
     else if (!n.previousSibling) v = v.replace(/^ +/, ''); // nothing leads the sentence
     if (nextIsChip) v = v.replace(/ *$/, ' ');
+    if (v === before) continue;
+    if (caret?.text === n) {
+      // what changed at the start of the run moves the caret; what changed at
+      // the end only ever clamps it
+      const leadBefore = before.match(/^ */)?.[0].length ?? 0;
+      const leadAfter = v.match(/^ */)?.[0].length ?? 0;
+      at = at <= leadBefore ? Math.min(at, leadAfter) : at + (leadAfter - leadBefore);
+      at = Math.min(at, v.length);
+    }
     n.textContent = v;
   }
 
@@ -49,7 +67,38 @@ export function normalizeLine(root: HTMLElement | null): void {
   // line. Strip it and keep data-empty in sync for the placeholder.
   if (syncEmpty(root)) return;
 
-  if (at !== null) setCaretUnits(root, at);
+  if (caret && caret.text.parentNode === root) placeCaret(root, caret.text, at);
+  else if (units !== null) setCaretUnits(root, units);
+}
+
+/**
+ * Whether the line already has its canonical shape, so a keystroke can leave
+ * it alone. Cheap on purpose: it runs on every input and touches nothing.
+ * A stray element the browser left, a <br> say, is not this rule's business.
+ */
+export function lineIsCanonical(root: HTMLElement | null): boolean {
+  if (!root) return true;
+  const kids = root.childNodes;
+  for (let i = 0; i < kids.length; i++) {
+    const n = kids[i];
+    if (isChip(n)) {
+      if (!n.nextSibling || isChip(n.nextSibling)) return false; // touching, or nowhere to type
+      continue;
+    }
+    if (n.nodeType !== Node.TEXT_NODE) continue;
+    const v = n.textContent ?? '';
+    const next = kids[i + 1] ?? null;
+    if (next?.nodeType === Node.TEXT_NODE) return false; // a run the browser split
+    if (!v) {
+      if (i === 0 && isChip(next)) continue; // the one empty node allowed: the host before a leading chip
+      return false;
+    }
+    if (isChip(n.previousSibling)) {
+      if (v[0] !== ' ' || v[1] === ' ') return false;
+    } else if (i === 0 && v[0] === ' ') return false;
+    if (isChip(next) && (v[v.length - 1] !== ' ' || v[v.length - 2] === ' ')) return false;
+  }
+  return true;
 }
 
 /**
@@ -60,7 +109,7 @@ export function normalizeLine(root: HTMLElement | null): void {
  */
 export function isBlankLine(root: HTMLElement): boolean {
   if (root.querySelector(CHIP_SELECTOR)) return false;
-  return !(root.textContent ?? '').replace(/[\u200B\uFEFF\u00a0]/g, '').trim();
+  return !(root.textContent ?? '').replace(/[​﻿ ]/g, '').trim();
 }
 
 /**
@@ -80,152 +129,42 @@ export function syncEmpty(root: HTMLElement | null): boolean {
 export const isChip = (n: ChildNode | null): boolean =>
   !!n && n.nodeType === Node.ELEMENT_NODE && (n as HTMLElement).classList.contains(CHIP);
 
-// ---------------------------------------------------------------- the boundary, on the typing path
-
-/**
- * The chip-boundary rule on its own, safe to run on every keystroke.
- *
- * `normalizeLine` states the same rule after a structural edit and can afford
- * to rebuild the line around it. This runs on the typing path instead, so it
- * does nothing at all until a boundary actually needs it, and it carries the
- * caret when it does.
- *
- * It merges the line's text nodes first, and that is the whole point. Chromium
- * deletes a chip by taking the element out and leaving the two spaces that
- * surrounded it as SEPARATE text nodes. A pass that measures one node at a time
- * reads a single space on each side, finds nothing to collapse, and leaves the
- * line rendering both of them (`white-space: pre-wrap`) as a doubled gap that
- * survives until the next structural edit. Two earlier passes each missed this
- * for exactly that reason; merging first is what makes one rule enough.
- */
-export function normalizeChipBoundaries(root: HTMLElement | null): boolean {
-  if (!root) return false;
-  if (!splitOrDoubledBoundary(root) && !caretWedgedInSpaces(root)) return false;
-
-  // Units count characters, and a merge changes no character, so the caret
-  // survives being re-anchored into the node the merge left behind.
-  const at = caretUnits(root);
-  root.normalize();
-  // Two chips left touching (their space selected and deleted) get it back
-  // before the caret is re-anchored: a caret between two chips has no text
-  // node to land in, and would otherwise be sent to the end of the line.
-  let minted: Text | null = null;
-  for (const n of Array.from(root.childNodes)) {
-    if (isChip(n) && isChip(n.nextSibling)) {
-      minted = document.createTextNode(' ');
-      root.insertBefore(minted, n.nextSibling);
-    }
-  }
-  if (at !== null) setCaretUnits(root, at);
-
-  let changed = collapseBoundaryRuns(root);
-  if (collapseSpaceAtCaret(root)) changed = true;
-  if (minted) {
-    // the far edge of a chip's space is the one stop the keys know (see keys.ts)
-    const sel = window.getSelection();
-    const r = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
-    if (r?.collapsed && r.startContainer === minted && r.startOffset === 0) placeCaret(root, minted, 1);
-    changed = true;
-  }
-  return changed;
-}
-
-/** Is there anything at a boundary worth waking the caret up for? */
-function splitOrDoubledBoundary(root: HTMLElement): boolean {
-  const kids = root.childNodes;
-  for (let i = 0; i < kids.length; i++) {
-    const n = kids[i];
-    if (n.nodeType !== Node.TEXT_NODE) continue;
-    const v = n.textContent ?? '';
-    const next = kids[i + 1] ?? null;
-    // A split run only matters when its seam could be holding a space: the two
-    // halves of a word are none of this rule's business.
-    if (next?.nodeType === Node.TEXT_NODE && (v.endsWith(' ') || (next.textContent ?? '').startsWith(' '))) return true;
-    if (isChip(n.previousSibling) && /^ {2,}/.test(v)) return true;
-    if (isChip(n.nextSibling) && / {2,}$/.test(v)) return true;
-  }
-  for (const n of Array.from(kids)) if (isChip(n) && isChip(n.nextSibling)) return true;
-  return false;
-}
-
-/**
- * Exactly one space where a run meets a chip.
- *
- * Only the runs that touch a chip are touched, and only at the end that touches
- * it, so a space the user typed in the middle of their own sentence is never
- * this rule's business.
- */
-function collapseBoundaryRuns(root: HTMLElement): boolean {
+/** The collapsed caret, when it sits in one of the line's own text nodes. */
+export function caretIn(root: HTMLElement | null): { text: Text; at: number } | null {
+  if (!root) return null;
   const sel = typeof window === 'undefined' ? null : window.getSelection();
-  const range = sel && sel.rangeCount > 0 && sel.getRangeAt(0).collapsed ? sel.getRangeAt(0) : null;
-  let changed = false;
-  for (const n of Array.from(root.childNodes)) {
-    if (n.nodeType !== Node.TEXT_NODE) continue;
-    const text = n as Text;
-    const v = text.textContent ?? '';
-    const lead = isChip(n.previousSibling) ? (v.match(/^ +/)?.[0].length ?? 0) : 0;
-    const trail = isChip(n.nextSibling) ? (v.match(/ +$/)?.[0].length ?? 0) : 0;
-    if (lead < 2 && trail < 2) continue;
-    let at = range && range.startContainer === text ? range.startOffset : -1;
-    let out = v;
-    if (lead === v.length) {
-      // spaces only, a chip on each side: one space, caret just past it
-      out = ' ';
-      if (at >= 0) at = Math.min(at, 1);
-    } else {
-      if (lead > 1) {
-        out = ` ${out.slice(lead)}`;
-        if (at >= 0) at = at <= lead ? Math.min(at, 1) : at - (lead - 1);
-      }
-      if (trail > 1) {
-        const keep = out.length - trail;
-        out = `${out.slice(0, keep)} `;
-        if (at >= 0) at = at >= keep ? keep + 1 : at;
-      }
-    }
-    text.textContent = out;
-    if (at >= 0) placeCaret(root, text, at);
-    changed = true;
-  }
-  return changed;
+  if (!sel || sel.rangeCount === 0 || !sel.getRangeAt(0).collapsed) return null;
+  const r = sel.getRangeAt(0);
+  const node = r.startContainer;
+  if (node.nodeType !== Node.TEXT_NODE || node.parentNode !== root) return null;
+  return { text: node as Text, at: r.startOffset };
 }
 
+// ---------------------------------------------------------------- the seam a chip leaves
+
 /**
- * The seam a chip deleted with Backspace or Delete leaves behind.
+ * The seam a selection deleted across a chip leaves in prose.
  *
- * Wedged BETWEEN two spaces is the signature of a deletion, never of typing: a
- * typed space leaves the caret past the run it just grew, so a double space the
- * user wrote on purpose is never mistaken for this.
+ * A chip owns one space on each side; take the chip out of the middle of a
+ * sentence and those two meet as a double space that is no chip's edge, so
+ * the line's rules do not see it. Wedged BETWEEN two spaces is the signature
+ * of that deletion and never of typing, which leaves the caret past the run it
+ * just grew, so a double space the user wrote on purpose is never mistaken for
+ * it.
  */
-function collapseSpaceAtCaret(root: HTMLElement): boolean {
-  const sel = typeof window === 'undefined' ? null : window.getSelection();
-  if (!sel || sel.rangeCount === 0 || !sel.getRangeAt(0).collapsed) return false;
-  const range = sel.getRangeAt(0);
-  const node = range.startContainer;
-  if (node.nodeType !== Node.TEXT_NODE || !root.contains(node)) return false;
-  const text = node as Text;
-  const to = collapseSpaceRunAt(text, range.startOffset, true);
+export function collapseSpaceAtCaret(root: HTMLElement | null): boolean {
+  const c = caretIn(root);
+  if (!c || !root) return false;
+  const to = collapseSpaceRunAt(c.text, c.at, true);
   if (to === null) return false;
-  placeCaret(root, text, to);
+  placeCaret(root, c.text, to);
   return true;
-}
-
-function caretWedgedInSpaces(root: HTMLElement): boolean {
-  const sel = typeof window === 'undefined' ? null : window.getSelection();
-  if (!sel || sel.rangeCount === 0 || !sel.getRangeAt(0).collapsed) return false;
-  const range = sel.getRangeAt(0);
-  if (range.startContainer.nodeType !== Node.TEXT_NODE || !root.contains(range.startContainer)) return false;
-  const v = range.startContainer.textContent ?? '';
-  return v[range.startOffset - 1] === ' ' && v[range.startOffset] === ' ';
 }
 
 /**
  * Collapse the run of spaces spanning `index` to one, and say where that space
  * now ends. `wedged` asks for the strict test: a run only counts when the index
  * has a space on both sides of it.
- *
- * Exported for `removeChip`, which is the one caller that knows exactly where
- * its seam is because it measured it before taking the chip out.
  */
 export function collapseSpaceRunAt(text: Text, index: number, wedged = false): number | null {
   const v = text.textContent ?? '';
@@ -246,10 +185,8 @@ export function collapseSpaceRunAt(text: Text, index: number, wedged = false): n
  * which is the one and only place a removal or a reorder can double a space.
  * The position is measured in units before the chip is lifted, because that is
  * the last moment there is anything to measure from; the caller passes it back
- * once the line has been merged.
- *
- * Scoped on purpose. The line-wide collapse this replaces could not tell a
- * seam from a space the user typed in the middle of their own sentence.
+ * once the line has been merged. Scoped on purpose: a line-wide collapse could
+ * not tell a seam from a space the user typed in the middle of a sentence.
  */
 export function closeSeamAt(root: HTMLElement, units: number): void {
   let n = 0;

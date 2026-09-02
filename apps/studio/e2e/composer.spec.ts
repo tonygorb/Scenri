@@ -766,13 +766,35 @@ test('copy and paste rebuilds the chips', async ({ page }) => {
   await page.keyboard.type('at dusk');
   const original = await sentence(page);
 
+  // copied, cleared, pasted back: the chip comes back as a chip
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('ControlOrMeta+c');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(0);
+  await page.keyboard.press('ControlOrMeta+v');
+
+  await expect(chips(page)).toHaveCount(1);
+  expect(await sentence(page)).toContain(original.trim());
+});
+
+test('pasting a brief back into itself grows no twin', async ({ page }) => {
+  // One chip per thing is the door rule for the menu, the panel and the rail;
+  // the paste used to be the one door without it, and the whole brief pasted
+  // at its own end doubled every chip, every time.
+  await page.keyboard.type('hero of ');
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+  await page.keyboard.type('at dusk');
+
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('ControlOrMeta+c');
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ControlOrMeta+v');
+  await page.keyboard.press('ControlOrMeta+v');
 
-  await expect(chips(page)).toHaveCount(2);
-  expect(await sentence(page)).toContain(original.trim());
+  await expect(chips(page)).toHaveCount(1);
+  // the words still paste; only the twin does not
+  expect((await sentence(page)).match(/at dusk/g)?.length).toBe(3);
 });
 
 test('a second scene swaps in place instead of stacking', async ({ page }) => {
@@ -2321,6 +2343,23 @@ test('the caret between two chips is drawn in the middle of the gap', async ({ p
   await expect(ghost).toBeHidden();
   const restored = await line(page).evaluate((el) => getComputedStyle(el).caretColor);
   expect(restored).not.toBe('rgba(0, 0, 0, 0)');
+});
+
+test('prose typed flush against a chip gets its space as it is typed', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('hero ');
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+  // one press left from the end crosses the chip: the caret is now flush before it
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.type('x');
+  const before = await line(page).evaluate((el) => {
+    const t = el.querySelector('.sc-token')!.previousSibling as Text;
+    const r = getSelection()!.getRangeAt(0);
+    return { text: t.textContent, caret: r.startContainer === t ? r.startOffset : -1 };
+  });
+  expect(before).toEqual({ text: 'hero x ', caret: 6 });
 });
 
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {

@@ -765,6 +765,38 @@ test('a tap in a word keeps the caret in that word, and a tap in the padding lan
   expect(fromPadding).toBeLessThanOrEqual(19);
 });
 
+/**
+ * One Backspace takes a chip on a phone too.
+ *
+ * A phone's keyboard reports Backspace as a composition key, so a rule on
+ * keydown never saw it and the press took the chip's space instead, with a
+ * second press for the chip. The rule lives on `beforeinput`, which names the
+ * deletion itself on every keyboard; this runs it on WebKit and Chromium alike.
+ */
+test('one Backspace removes a chip', async ({ page }) => {
+  await line(page).tap();
+  await page.locator('.sc-canvas-dock .sc-attach-toggle').first().tap();
+  await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).tap();
+  const cards = page.locator('.sc-ap-card:not(.sc-ap-add)');
+  await cards.nth(0).tap();
+  await cards.nth(1).tap();
+  const chips = page.locator('.sc-brief-line .sc-token');
+  await expect(chips).toHaveCount(2);
+  // the caret at the end, past the last chip's space, without a pointer
+  await line(page).evaluate((el) => {
+    el.focus();
+    const tail = el.lastChild as Text;
+    const r = document.createRange();
+    r.setStart(tail, tail.length);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  await page.keyboard.press('Backspace');
+  await expect(chips).toHaveCount(1);
+});
+
 test('a tap on the right edge of a chip opens the sheet, never removes', async ({ page }) => {
   test.skip(!isPhone(page), 'the sheet is the phone path');
   // the x band is inert to touch (hover: none), so the tap reaches the chip

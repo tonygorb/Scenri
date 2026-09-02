@@ -1,5 +1,5 @@
 import { placeCaret } from './caret.js';
-import { isChip } from './invariants.js';
+import { caretIn, isChip } from './invariants.js';
 
 // ---------------------------------------------------------------- a chip and its space, as one
 
@@ -27,17 +27,6 @@ export const isOwnedSpace = (n: ChildNode | null): n is Text =>
   /^ *$/.test(n.textContent ?? '') &&
   isChip(n.previousSibling) &&
   (isChip(n.nextSibling) || !n.nextSibling);
-
-/** The collapsed caret, when it sits in one of the line's own text nodes. */
-function caretIn(root: HTMLElement | null): { text: Text; at: number } | null {
-  if (!root) return null;
-  const sel = typeof window === 'undefined' ? null : window.getSelection();
-  if (!sel || sel.rangeCount === 0 || !sel.getRangeAt(0).collapsed) return null;
-  const r = sel.getRangeAt(0);
-  const node = r.startContainer;
-  if (node.nodeType !== Node.TEXT_NODE || node.parentNode !== root) return null;
-  return { text: node as Text, at: r.startOffset };
-}
 
 /**
  * Step over a chip in one press, its space included.
@@ -68,18 +57,24 @@ export function stepAcrossChip(root: HTMLElement | null, dir: 'left' | 'right'):
 }
 
 /**
- * The chip a Backspace or Delete at a chip's space is really aimed at.
+ * The chip a Backspace or Delete is aimed at.
  *
- * Backspace from the far edge of a chip's space takes the chip before it;
- * Delete from the near edge takes the chip after it. Anywhere else the key is
- * the browser's, which already deletes a chip the caret is flush against.
+ * A chip and the space beside it are one unit, so the key that faces a chip
+ * takes the chip: Backspace flush after a chip or just past the space it owns,
+ * Delete flush before a chip or just before the space that leads to it. Left to
+ * the browser, the press took the space, the line put the space straight back,
+ * and nothing seemed to happen. Anywhere else the key is the browser's.
  */
 export function chipToDelete(root: HTMLElement | null, key: 'Backspace' | 'Delete'): HTMLElement | null {
   const c = caretIn(root);
   if (!c) return null;
   const { text, at } = c;
-  if (!isOwnedSpace(text)) return null;
-  if (key === 'Backspace' && at === text.length) return text.previousSibling as HTMLElement;
-  if (key === 'Delete' && at === 0 && isChip(text.nextSibling)) return text.nextSibling as HTMLElement;
-  return null;
+  const v = text.textContent ?? '';
+  if (key === 'Backspace') {
+    if (!isChip(text.previousSibling)) return null;
+    return at === 0 || (at === 1 && v[0] === ' ') ? (text.previousSibling as HTMLElement) : null;
+  }
+  if (!isChip(text.nextSibling)) return null;
+  const end = v.length;
+  return at === end || (at === end - 1 && v[end - 1] === ' ') ? (text.nextSibling as HTMLElement) : null;
 }
