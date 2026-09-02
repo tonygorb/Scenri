@@ -1036,6 +1036,23 @@ describe('compileBrief: a world built around a figure', () => {
     );
   });
 
+  it('a name in the brief is a thing to show, never a word to write', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'text', v: ' presenting ' },
+          { t: 'product', id: 'p1' },
+        ],
+      },
+      ctx(),
+    );
+    // Four of four codex outputs painted the product names on the wall in
+    // gold before this line existed.
+    expect(r.prompt).toContain('never text to render');
+    expect(r.prompt.indexOf('never text to render')).toBeGreaterThan(r.prompt.indexOf('House Blend'));
+  });
+
   it('with two presenters the figure is shared, and nobody is composed out', () => {
     const brand = brandWith(productHash);
     const r = compileBrief(

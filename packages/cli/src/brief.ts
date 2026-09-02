@@ -25,16 +25,17 @@ import {
   characterFactDirectives,
   editPreservationDirective,
   extendPreservationDirective,
-  inheritedIdentityDirective,
   garmentDisplayDirective,
+  inheritedIdentityDirective,
   markLabel,
+  namesAreNotLetteringDirective,
   personSkinDirective,
   productFactDirectives,
   productFidelityDirective,
   productHandlingDirective,
   referenceIdentityGuard,
-  sceneGuardDirectives,
   sceneFigureDirectives,
+  sceneGuardDirectives,
   shotSpecifiesCamera,
 } from './briefDirectives.js';
 
@@ -834,6 +835,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           productHandlingDirective(),
         ]
       : [];
+  // Anything named in the sentence can be painted as a caption; one line says
+  // a name is a thing to show, never a word to write (briefDirectives.ts).
+  const nameDirectives = productId || hasPerson ? [namesAreNotLetteringDirective()] : [];
   // After the pair line, which is the other directive whose job is to relate two
   // attached things to each other, and before the guards, which must keep the
   // last word on cast (briefDirectives.ts: a scene composing an attached
@@ -925,6 +929,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...cameraDirectives,
     ...apparelUnworn,
     ...brandLines,
+    ...nameDirectives,
     ...guard,
     ...refGuard,
     ...preservation,

@@ -371,6 +371,22 @@ export function shotSpecifiesCamera(text: string): boolean {
  * the feature silently. The house answer to this is `garmentDisplayDirective`:
  * state the rule, and carry the escape clause inside the same sentence.
  */
+/**
+ * A name in the brief says what to show, never what to write. Measured on
+ * codex: two products named in the sentence came back as gold lettering on
+ * the wall in four of four outputs, because nothing said the names were not
+ * signage. The product's own printed packaging is the one exception, and it
+ * is already governed by the fidelity directive.
+ */
+export function namesAreNotLetteringDirective(): string {
+  return (
+    'The names in this brief identify what to show and are never text to render: no caption, label, signage, ' +
+    "engraving or lettering spells a product name or a person's name anywhere in the picture. Printing that is " +
+    "part of a product's own packaging stays exactly as photographed, and nothing else spells a name unless the " +
+    'direction above explicitly asks for it to be written.'
+  );
+}
+
 export function sceneFigureDirectives(opts: {
   figure: string;
   treatment?: string;
