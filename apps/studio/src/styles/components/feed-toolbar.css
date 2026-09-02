@@ -541,13 +541,41 @@
 /* Inside an open shot the band wears the picture's own contents: small
    inverse cards for the product, the person and the scene, in the same
    tokens the hub's Refining chip wears, so the two shells cannot drift.
-   Each card opens the picture. */
+   Each card opens the picture.
+
+   One row at any count: the cards ride a sideways strip with its scrollbar
+   hidden, the lens tabs' own idiom, so the band never stacks rows into the
+   sentence's room. SourceCards marks the edges that have more past them and
+   the strip fades there, the way the brief fades at its fold. */
 .sc-source-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--sc-space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sc-source-chips::-webkit-scrollbar {
+  display: none;
+}
+.sc-source-chips[data-fade-end] {
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--sc-space-8)), transparent);
+}
+.sc-source-chips[data-fade-start] {
+  mask-image: linear-gradient(to right, transparent, #000 var(--sc-space-8));
+}
+.sc-source-chips[data-fade-start][data-fade-end] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--sc-space-8),
+    #000 calc(100% - var(--sc-space-8)),
+    transparent
+  );
 }
 .sc-source-chip {
+  flex: none;
   display: inline-flex;
   align-items: center;
   padding: var(--sc-space-1);
