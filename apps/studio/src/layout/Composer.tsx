@@ -125,7 +125,8 @@ export const Composer = forwardRef<
      * The kind travels with it because only the caller can act on what it
      * means: a refine moves the chip onto the version it just made.
      */
-    onQueued: (nodeId?: string, kind?: 'generation' | 'edit') => void;
+    /** The first node's id, the kind, and every sibling id of a multi-shot send, slot order. */
+    onQueued: (nodeId?: string, kind?: 'generation' | 'edit', siblingIds?: string[]) => void;
     /**
      * A submit is in flight, with the prose of the brief that started it, so a
      * feed can stand something in for the shot before the server has answered.
@@ -1149,7 +1150,11 @@ export const Composer = forwardRef<
       borrowCount(null);
       borrowQuality(null);
       if (persistDraft) clearDraft(brand.id);
-      onQueued(created.id, mode);
+      onQueued(
+        created.id,
+        mode,
+        created.siblings?.map((s) => s.id),
+      );
     } catch (e: any) {
       const message = String(e.message ?? e);
       // A failed send is an event, and this app already has one place for

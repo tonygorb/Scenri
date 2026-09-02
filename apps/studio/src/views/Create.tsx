@@ -1111,7 +1111,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           onAttached={setAttached}
           onCeiling={setCeiling}
           sourceImage={targetImage ?? undefined}
-          onQueued={(made, kind) => {
+          onQueued={(made, kind, siblings) => {
             setRemixBrief(null);
             /**
              * One write, because both halves live in the query string: a
@@ -1167,7 +1167,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
                 { replace: true },
               );
             };
-            if (set && made) void api.addToSet(set.id, [made]).then(reload).then(thenPointAtIt).finally(landed);
+            // every sibling of a batch sent from a set page belongs to the set,
+            // not only the first: the set used to show one of four
+            if (set && made)
+              void api
+                .addToSet(set.id, siblings?.length ? siblings : [made])
+                .then(reload)
+                .then(thenPointAtIt)
+                .finally(landed);
             else void reload().then(thenPointAtIt).finally(landed);
           }}
         />

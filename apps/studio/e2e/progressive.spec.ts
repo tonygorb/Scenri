@@ -184,6 +184,56 @@ test('another brand never sees the batch, before or after it lands', async ({ pa
   for (const id of ids) await expect(picture(page, id)).toBeVisible();
 });
 
+test('every shot of a batch made inside a set is filed in that set', async ({ page }) => {
+  // Since every shot became its own card, a batch sent from a set page filed
+  // only its first shot there: the set showed one of four.
+  const brand = (await (await page.request.get('/api/brands')).json())[0];
+  const made = await page.request.post(`/api/brands/${brand.id}/sets`, { data: { name: 'Batch set' } });
+  expect(made.ok(), await made.text()).toBe(true);
+  const set = await made.json();
+  await page.goto(`/${brand.slug}/create`);
+  await page.evaluate(() => localStorage.setItem('scenri:count', '4'));
+  await page.goto(`/${brand.slug}/sets/${set.slug}`);
+  await expect(line(page)).toBeVisible();
+  const ids = await send(page, 'four shots into a set');
+  await expect
+    .poll(
+      async () => {
+        const ws = await (await page.request.get(`/api/brands/${brand.id}/workspace`)).json();
+        return (ws.membership[set.id] ?? []).filter((id: string) => ids.includes(id)).length;
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(4);
+});
+
+test("a brand's late answer never lands on another brand's feed", async ({ page }) => {
+  const slug = await brandSlug(page);
+  const a = (await (await page.request.get('/api/brands')).json())[0];
+  const made = await page.request.post('/api/brands', {
+    data: { brand: { specVersion: '0.1', meta: { name: 'Late answer' } } },
+  });
+  expect(made.ok(), await made.text()).toBe(true);
+  const b = (await (await page.request.get('/api/brands')).json()).find(
+    (x: { json?: { meta?: { name?: string } } }) => x.json?.meta?.name === 'Late answer',
+  );
+  await openFeed(page, slug, 1);
+  // hold brand A's next workspace answer back, ask for one, and walk to brand
+  // B inside the app while it is still on its way
+  await page.route(`**/api/brands/${a.id}/workspace`, async (route) => {
+    await new Promise((r) => setTimeout(r, 3000));
+    await route.continue();
+  });
+  await send(page, 'a shot whose answer is late');
+  await page.locator('.sc-org-btn').click();
+  await page.locator('.sc-menu-item', { hasText: 'Late answer' }).click();
+  await page.waitForURL(new RegExp(`/${b.slug}$`));
+  await page.locator('.sc-nav a', { hasText: 'Create' }).click();
+  await page.waitForURL(new RegExp(`/${b.slug}/create$`));
+  await page.waitForTimeout(4_000);
+  expect(await page.locator('.sc-cell[data-fb-node]').count()).toBe(0);
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 

@@ -124,9 +124,15 @@ export function BrandLayout() {
    * Drawing the feed used to cost one request per project, so a studio with
    * forty of them paid forty round trips to see one screen.
    */
+  // the brand on screen right now, for an answer that arrives after a switch
+  const brandIdRef = useRef(brand?.id);
+  brandIdRef.current = brand?.id;
   const refreshWorkspace = useCallback(async () => {
     if (!brand) return;
-    const ws = await api.workspace(brand.id);
+    const forBrand = brand.id;
+    const ws = await api.workspace(forBrand);
+    // a slow answer for the brand you left is not an answer about this one
+    if (brandIdRef.current !== forBrand) return;
     setWorkspace(ws.project);
     setNodes(ws.nodes);
     setSets(ws.sets);
