@@ -773,6 +773,52 @@ describe('brief through the API', () => {
     await app.close();
   });
 
+  // Past an engine's photo seats an identity rides as words, by the brief's
+  // own order. The route used to refuse the whole generation for a budget
+  // loss while the composer said the chip was described; only a photo that
+  // does not exist, or an engine that reads no images at all, is fatal.
+  it('a budget loss on an engine that reads images generates; a blind engine still refuses', async () => {
+    const { buildServer } = await import('../src/server.js');
+    const { createDemoEngine } = await import('@scenri/engine-demo');
+    const demo = createDemoEngine((b) => core.images.save(b));
+    const seven = Array.from({ length: 7 }, (_, i) => ({
+      id: `p${i + 1}`,
+      name: `Product ${i + 1}`,
+      shots: [{ file: `asset:${productHash}`, locked: true }],
+    }));
+    const brandSpec = { specVersion: '0.1', meta: { name: 'Acme' }, products: seven };
+    const tokens = seven.map((p) => ({ t: 'product', id: p.id }));
+
+    const roomy = { ...demo, capabilities: () => caps(5) };
+    const app = buildServer({ core, engines: { all: () => [roomy], get: () => roomy } });
+    const brand = (await app.inject({ method: 'POST', url: '/api/brands', payload: { brand: brandSpec } })).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: proj.project.id, kind: 'generation', engineId: 'demo', count: 1, brief: { tokens } },
+    });
+    expect(created.statusCode).toBe(202);
+    // the two that found no seat still reach the engine as their words
+    expect(created.json().prompt).toContain('Product 6');
+    expect(created.json().prompt).toContain('Product 7');
+    await waitDone(app, created.json().id);
+    await app.close();
+
+    const blind = { ...demo, capabilities: () => caps(0) };
+    const app2 = buildServer({ core, engines: { all: () => [blind], get: () => blind } });
+    const refused = await app2.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: proj.project.id, kind: 'generation', engineId: 'demo', count: 1, brief: { tokens } },
+    });
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().error).toContain('cannot carry enough reference images');
+    await app2.close();
+  });
+
   // Re-attaching a carried product at another token shape (an angle, or none)
   // is still the same product: the inherited record must not keep a twin.
   it('an edit re-asking for the carried product records it once', async () => {

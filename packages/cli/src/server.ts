@@ -1474,9 +1474,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // and returns it with full confidence. Refuse instead. Style references
       // are different — losing one costs fidelity of mood, not of subject —
       // so only product/character losses are fatal here.
+      // Two losses cannot be helped by words: a photo that does not exist,
+      // and an engine that reads no images at all. A budget loss on an engine
+      // that does read images is not one of them: the compiler carries that
+      // identity's written spec, the composer has already said so on the
+      // chip, and seats go out in the brief's order, so the user chose.
+      const blind = engine.capabilities().maxReferenceImages === 0;
       const lostIdentity = engine.capabilities().placeholder
         ? []
-        : (compiled?.dropped ?? []).filter((d) => d.essential);
+        : (compiled?.dropped ?? []).filter((d) => d.essential && (d.reason === 'missing' || blind));
       if (lostIdentity.length) {
         // Two causes, two remedies: a photo that does not exist cannot be
         // fixed by choosing another engine, and a budget loss cannot be fixed
