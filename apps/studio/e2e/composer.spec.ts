@@ -457,11 +457,15 @@ test('the thirteenth identity is refused, and the panel says why', async ({ page
   await expect(attachCards(page).first()).toBeEnabled();
   await attachCards(page).first().click();
   await expect(chips(page)).toHaveCount(13);
-  // and a twelfth identity removed reopens the door
-  await chips(page).first().hover();
-  await chips(page).first().locator('[data-role="remove"]').click();
-  await expect(chips(page)).toHaveCount(12);
-  // the click on the chip's x landed outside the panel, which closes it
+  // and an identity removed reopens the door: the keyboard path every other
+  // test uses, since the chip's x is a pointer-only, hover-revealed control.
+  // Two presses: the colour is last and is not an identity.
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(11);
+  // the click into the line landed outside the panel, which closes it
   await dock(page).locator('.sc-attach-toggle').click();
   await tab('Products').click();
   await expect(attachCards(page).nth(12)).toBeEnabled();
