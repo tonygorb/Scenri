@@ -2582,8 +2582,15 @@ test('text after a leading chip drag-selects and survives', async ({ page }) => 
   const during = await selectedText(page);
   await page.mouse.up();
 
+  // The drag starts at the centre of a glyph, so which side of that midpoint
+  // the caret snaps to is decided by font rasterisation: the same gesture
+  // begins one character earlier on macOS than on the Linux runner. What this
+  // test is about is that a drag over the prose after a leading chip takes a
+  // real run of it and keeps it, so it asserts the run rather than which
+  // letter the very first pixel happened to land in.
   expect(during.length).toBeGreaterThan(3);
-  expect(during).toContain('ake this');
+  expect('make this look realistic').toContain(during);
+  expect(during).toContain('this look');
   await page.waitForTimeout(300);
   expect(await selectedText(page)).toBe(during);
 });
