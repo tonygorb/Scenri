@@ -25,7 +25,6 @@ import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import { ChipPreview, type PreviewKind } from '../composer/ChipPreview.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
-import { BrandInherited } from '../composer/BrandInherited.js';
 import { SourceCards, type SourceItem } from '../composer/SourceCards.js';
 import {
   CEILING_SENTENCE,
@@ -1415,8 +1414,6 @@ export const Composer = forwardRef<
           onSubmit={() => void go()}
           onDropFiles={(files) => void pickFiles(files)}
         />
-
-        <BrandInherited brandId={brand.id} revision={brand.updatedAt} />
 
         <div className="sc-prompt-row">
           <div className="sc-prompt-left">

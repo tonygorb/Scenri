@@ -43,8 +43,6 @@ export const api = {
   brandFromUrl: (url: string) => req<Brand & { warnings: string[] }>('POST', '/api/brands/from-url', { url }),
   updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
-  /** The brand rules the compiler appends to every shot in this brand. */
-  brandRules: (id: string) => req<{ directives: string[] }>('GET', `/api/brands/${id}/directives`),
   /**
    * Re-read the brand's own website. Merges: hand-edited fields survive, and
    * scraped colours come back as `suggestions` rather than being applied.

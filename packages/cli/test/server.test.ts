@@ -217,40 +217,6 @@ describe('brand marks', () => {
     await srv.close();
   });
 
-  it('reports the brand rules the compiler appends to every shot', async () => {
-    const brand = await mkBrand();
-    // A palette alone reaches no prompt: colours arrive as chips the user picks.
-    const empty = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/directives` });
-    expect(empty.json().directives).toEqual([]);
-
-    await app.inject({
-      method: 'PUT',
-      url: `/api/brands/${brand.id}`,
-      payload: {
-        brand: {
-          ...brand.json,
-          imagery: { mood: 'crafted, tactile', avoid: ['neon'] },
-          rules: { never: ['competitor logos in frame'] },
-        },
-      },
-    });
-    const res = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/directives` });
-    // Only the rules — never the palette, and never art direction a user cannot
-    // set and nobody could write.
-    expect(res.json().directives).toEqual(['Brand rules — never: competitor logos in frame.']);
-
-    // And they apply to a brief that asked for nothing at all.
-    const preview = await app.inject({
-      method: 'POST',
-      url: '/api/brief/preview',
-      payload: { brandId: brand.id, engineId: 'demo', brief: { tokens: [{ t: 'text', v: 'a mug on a table' }] } },
-    });
-    expect(preview.statusCode).toBe(200);
-    for (const line of res.json().directives) expect(preview.json().prompt).toContain(line);
-    expect(preview.json().prompt).not.toContain('Brand palette:');
-    expect(preview.json().prompt).not.toContain('Brand look');
-  });
-
   it('serves the brand as a .brand zip named after its slug', async () => {
     const brand = await mkBrand();
     await uploadLogo(brand.id);
@@ -262,11 +228,6 @@ describe('brand marks', () => {
 
     const missing = await app.inject({ method: 'GET', url: '/api/brands/nope/export' });
     expect(missing.statusCode).toBe(404);
-  });
-
-  it('404s directives for a brand that does not exist', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/brands/nope/directives' });
-    expect(res.statusCode).toBe(404);
   });
 
   it('re-uploading the same artwork retags it instead of creating a twin no hash can address', async () => {
