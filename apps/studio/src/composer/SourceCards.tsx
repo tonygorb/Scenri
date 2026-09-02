@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { fitCount } from './sourceFit.js';
 
 /**
  * What the picture being refined is made of, worn as the source's own small
@@ -7,64 +8,65 @@ import { useEffect, useRef } from 'react';
  * drift. Each card opens the picture. Nothing here is droppable yet: the
  * band states what the next refinement carries, it does not edit it.
  *
- * One row, however many: the cards ride a strip that scrolls sideways, the
- * same rail the lens tabs use, so the band keeps one height at three cards
- * or twenty instead of stacking rows into the sentence's room. A fade at an
- * edge says there is more past it; a mouse wheel travels the row, since a
- * mouse only speaks vertically.
+ * One row at rest, however many: as many whole cards as fit, then a "+N"
+ * chip saying how many more there are. A card cut off at the edge read as a
+ * layout accident and told nobody how much was hidden; a count is the
+ * statement the band exists to make. The chip opens the row in place, the
+ * cards wrap, and the same chip folds it back.
  */
 export type SourceItem = { key: string; kind: string; label: string; thumb: string | null; crop?: 'top' };
 
 export function SourceCards({ items, onOpen }: { items: SourceItem[]; onOpen: () => void }) {
   const rail = useRef<HTMLDivElement>(null);
+  const more = useRef<HTMLButtonElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  /** How many cards the row shows at rest; the rest stand behind the chip. */
+  const [shown, setShown] = useState(items.length);
+
+  // Fold back whenever the row's contents change: the count is about these
+  // cards, and a previous shot's "open" is nothing to inherit.
+  useEffect(() => setExpanded(false), [items]);
+
   useEffect(() => {
     const el = rail.current;
-    if (!el) return;
-    let raf = 0;
-    const place = () => {
-      if (el.scrollWidth - el.clientWidth - el.scrollLeft > 1) el.dataset.fadeEnd = '';
-      else delete el.dataset.fadeEnd;
-      if (el.scrollLeft > 1) el.dataset.fadeStart = '';
-      else delete el.dataset.fadeStart;
+    const chip = more.current;
+    if (!el || !chip) return;
+    const cards = Array.from(el.querySelectorAll<HTMLElement>('.sc-source-chip:not(.sc-source-more)'));
+    /**
+     * One measured layout per change, never per keystroke: every card is
+     * unhidden, read once, and the widths are kept, so a resize only redoes
+     * the arithmetic.
+     */
+    let widths: number[] = [];
+    const measure = () => {
+      for (const c of cards) c.hidden = false;
+      chip.hidden = false;
+      chip.textContent = `+${items.length}`;
+      widths = cards.map((c) => c.getBoundingClientRect().width);
+      return chip.getBoundingClientRect().width;
     };
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        place();
-      });
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (el.scrollWidth <= el.clientWidth + 1) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.deltaY === 0) return;
-      const max = el.scrollWidth - el.clientWidth;
-      const next = Math.max(0, Math.min(max, el.scrollLeft + e.deltaY));
-      if (next === el.scrollLeft) return;
-      e.preventDefault();
-      el.scrollLeft = next;
-      place();
-    };
-    // the panel's seam changes the row's width under it
+    // read once per items change; a two-digit count is measured with its own
+    // label, so the reservation is never a digit short
+    const moreW = measure();
+    const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
+    const place = () => setShown(fitCount(widths, gap, moreW, el.clientWidth));
+    place();
     const ro = new ResizeObserver(place);
     ro.observe(el);
-    el.addEventListener('scroll', onScroll, { passive: true });
-    el.addEventListener('wheel', onWheel, { passive: false });
-    place();
-    return () => {
-      ro.disconnect();
-      cancelAnimationFrame(raf);
-      el.removeEventListener('scroll', onScroll);
-      el.removeEventListener('wheel', onWheel);
-    };
-  }, []);
+    return () => ro.disconnect();
+  }, [items]);
+
+  const hidden = Math.max(0, items.length - shown);
+  const open = expanded || hidden === 0;
 
   return (
-    <div className="sc-source-chips" ref={rail}>
-      {items.map((it) => (
+    <div className="sc-source-chips" ref={rail} data-expanded={expanded || undefined}>
+      {items.map((it, i) => (
         <button
           type="button"
           className="sc-source-chip"
           key={it.key}
+          hidden={!open && i >= shown}
           title={`${it.label}. Open the image.`}
           aria-label={`Refining a shot of ${it.label}. Open the image.`}
           onClick={onOpen}
@@ -73,6 +75,17 @@ export function SourceCards({ items, onOpen }: { items: SourceItem[]; onOpen: ()
           <span dir="auto">{it.label}</span>
         </button>
       ))}
+      <button
+        type="button"
+        ref={more}
+        className="sc-source-chip sc-source-more"
+        hidden={hidden === 0}
+        aria-expanded={expanded}
+        aria-label={expanded ? 'Show fewer' : `Show ${hidden} more`}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? 'less' : `+${hidden}`}
+      </button>
     </div>
   );
 }

@@ -543,36 +543,19 @@
    tokens the hub's Refining chip wears, so the two shells cannot drift.
    Each card opens the picture.
 
-   One row at any count: the cards ride a sideways strip with its scrollbar
-   hidden, the lens tabs' own idiom, so the band never stacks rows into the
-   sentence's room. SourceCards marks the edges that have more past them and
-   the strip fades there, the way the brief fades at its fold. */
+   One row at rest: as many whole cards as fit, then a "+N" chip; the rest
+   are hidden, never clipped. Opened, the row wraps in place. SourceCards
+   does the counting from measured widths. */
 .sc-source-chips {
   display: flex;
   flex-wrap: nowrap;
   gap: var(--sc-space-2);
   flex: 1 1 auto;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
 }
-.sc-source-chips::-webkit-scrollbar {
-  display: none;
-}
-.sc-source-chips[data-fade-end] {
-  mask-image: linear-gradient(to right, #000 calc(100% - var(--sc-space-8)), transparent);
-}
-.sc-source-chips[data-fade-start] {
-  mask-image: linear-gradient(to right, transparent, #000 var(--sc-space-8));
-}
-.sc-source-chips[data-fade-start][data-fade-end] {
-  mask-image: linear-gradient(
-    to right,
-    transparent,
-    #000 var(--sc-space-8),
-    #000 calc(100% - var(--sc-space-8)),
-    transparent
-  );
+.sc-source-chips[data-expanded] {
+  flex-wrap: wrap;
 }
 .sc-source-chip {
   flex: none;
@@ -611,6 +594,18 @@
   padding: 0 var(--sc-space-3);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* The count is a control, not an identity: the sentence chip's own surface,
+   so it never passes for a fourth ingredient. */
+.sc-source-more {
+  padding: var(--sc-space-1) var(--sc-space-4);
+  background: var(--sc-token-bg);
+  color: var(--sc-fg);
+  font-weight: 500;
+}
+.sc-source-more:hover,
+.sc-source-more:focus-visible {
+  background: var(--sc-token-hover);
 }
 .sc-target-thumb {
   display: inline-block;
