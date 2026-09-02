@@ -476,7 +476,7 @@ test('typing after a chip added from the plus menu', async ({ page }) => {
   await plusMenu(page, /shots/i);
   await pickCard(page);
   await page.keyboard.type('to warm beige');
-  expect(await sentence(page)).toMatch(/reference\s*to warm beige$/);
+  expect(await sentence(page)).toMatch(/Shot\s*to warm beige$/);
 });
 
 test('a chip lands at the caret, not at the end', async ({ page }) => {
@@ -2464,7 +2464,8 @@ const peekSrc = (p: Page) => peek(p).locator('img').getAttribute('src');
 const lightbox = (p: Page) => p.locator('.sc-lightbox');
 const lightboxSrc = (p: Page) => lightbox(p).locator('img').getAttribute('src');
 /** What a chip actually holds, read off its token rather than off its position. */
-const chipHash = async (p: Page, i: number) => ((await chips(p).nth(i).getAttribute('data-tok')) ?? '').slice(2);
+const chipHash = async (p: Page, i: number) =>
+  ((await chips(p).nth(i).getAttribute('data-tok')) ?? '').slice(2).split('|')[0];
 const tokens = (p: Page) => chips(p).evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.tok));
 
 /** Prose plus n reference images, attached the way a person attaches them. */

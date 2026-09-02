@@ -239,7 +239,7 @@ export function AttachPanel({
           label: `Shot ${recent.length - i}`,
           sub: 'as reference',
           thumb: imgUrl(s.images[0]),
-          run: () => onToken({ t: 'ref', imageHash: s.images[0] }),
+          run: () => onToken({ t: 'ref', imageHash: s.images[0], label: 'Shot' }),
         }),
       ),
     ];

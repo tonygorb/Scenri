@@ -298,7 +298,9 @@ export const BriefInput = forwardRef<
         label = token.name ?? token.hex;
         swatch = token.hex;
       } else if (token.t === 'ref') {
-        label = 'reference';
+        // what it is, not what it is for: a shot, a file by its name, or an
+        // image with no name; the peek card says the role
+        label = token.label ?? 'Image';
         thumb = imgUrl(token.imageHash);
       } else if (token.t === 'mark') {
         const m = marks.find((x) => x.hash === token.imageHash);
@@ -1452,7 +1454,7 @@ function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): s
   if (t.t === 'character') return 'someone';
   if (t.t === 'color') return t.name ?? t.hex;
   if (t.t === 'mark') return 'brand mark';
-  return 'reference';
+  return t.t === 'ref' ? (t.label ?? 'Image') : 'reference';
 }
 
 export { chipLabel };

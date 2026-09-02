@@ -917,7 +917,8 @@ export const Composer = forwardRef<
         // the same caret-aware insert every other pick uses: appending through
         // state repainted the line while focus was on the file dialog, which
         // dropped the caret and left the brief untypeable
-        briefRef.current?.insert({ t: 'ref', imageHash: hash });
+        // the chip says the file's own name; a picture with no name is an image
+        briefRef.current?.insert({ t: 'ref', imageHash: hash, label: fileStem(f.name) });
       }
       // the cap is fine, the silence was not: the fifth file used to vanish
       // with nothing anywhere saying so
@@ -1559,3 +1560,9 @@ export const Composer = forwardRef<
     </div>
   );
 });
+
+/** A file's name as a chip label: no extension, no surrounding space, and never empty. */
+function fileStem(name: string): string {
+  const stem = name.replace(/\.[a-z0-9]{2,5}$/i, '').trim();
+  return stem || 'Image';
+}

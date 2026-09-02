@@ -408,7 +408,9 @@ export function AssetsPanel({
                     disabled={!!full && !on}
                     title={full ?? undefined}
                     onClick={() =>
-                      on ? offToken({ t: 'ref', imageHash: hash }) : onToken({ t: 'ref', imageHash: hash })
+                      on
+                        ? offToken({ t: 'ref', imageHash: hash })
+                        : onToken({ t: 'ref', imageHash: hash, label: 'Shot' })
                     }
                   />
                 );

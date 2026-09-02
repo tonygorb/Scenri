@@ -3,7 +3,7 @@ export type SentenceToken =
   | { t: 'product'; id: string; angle?: string }
   | { t: 'character'; id: string }
   | { t: 'color'; hex: string; name?: string }
-  | { t: 'ref'; imageHash: string }
+  | { t: 'ref'; imageHash: string; label?: string }
   | { t: 'mark'; imageHash: string }
   | { t: 'template'; id: string };
 
@@ -27,7 +27,8 @@ export const emptySentence = (): SentenceToken[] => [{ t: 'text', v: '' }];
  * same product carried at another angle is still the same chip — and every
  * other kind keys on its full encoded form. Text and format key to nothing.
  */
-export const identityKeyOf = (t: SentenceToken): string => (t.t === 'product' ? `p:${t.id}` : encode(t));
+export const identityKeyOf = (t: SentenceToken): string =>
+  t.t === 'product' ? `p:${t.id}` : t.t === 'ref' ? `r:${t.imageHash}` : encode(t);
 
 export function briefTokens(brief: {
   tokens: BriefToken[];
@@ -70,7 +71,9 @@ export const encode = (t: SentenceToken): string =>
         : t.t === 'color'
           ? `c:${t.hex}|${t.name ?? ''}`
           : t.t === 'ref'
-            ? `r:${t.imageHash}`
+            ? // the label is what the chip says (a shot, a file's name); the
+              // picture is the identity
+              `r:${t.imageHash}${t.label ? `|${t.label}` : ''}`
             : t.t === 'mark'
               ? `m:${t.imageHash}`
               : '';
@@ -84,7 +87,10 @@ export const decode = (s: string): SentenceToken | null => {
     return id ? { t: 'product', id, ...(angle ? { angle } : {}) } : null;
   }
   if (kind === 'h') return rest ? { t: 'character', id: rest } : null;
-  if (kind === 'r') return rest ? { t: 'ref', imageHash: rest } : null;
+  if (kind === 'r') {
+    const [imageHash, label] = rest.split('|');
+    return imageHash ? { t: 'ref', imageHash, ...(label ? { label } : {}) } : null;
+  }
   if (kind === 'm') return rest ? { t: 'mark', imageHash: rest } : null;
   // 'b' was the brand-kit chip. Brand rules apply on their own now, so a draft
   // saved while it existed decodes to nothing rather than to a dead token.

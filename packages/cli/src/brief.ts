@@ -48,7 +48,7 @@ export type BriefToken =
   | { t: 'product'; id: string; angle?: string }
   | { t: 'character'; id: string }
   | { t: 'color'; hex: string; name?: string }
-  | { t: 'ref'; imageHash: string }
+  | { t: 'ref'; imageHash: string; label?: string }
   | { t: 'mark'; imageHash: string }
   | { t: 'template'; id: string }
   | { t: 'format'; id: FormatId; w: number; h: number };
@@ -284,6 +284,8 @@ export function validateBrief(brief: unknown): string[] {
       case 'ref':
       case 'mark':
         if (!str(t.imageHash)) errors.push(`${at}.imageHash must be a non-empty string`);
+        if (t.t === 'ref' && t.label !== undefined && typeof t.label !== 'string')
+          errors.push(`${at}.label must be a string when present`);
         break;
       case 'format':
         if (!Number.isFinite(t.w) || !Number.isFinite(t.h) || Number(t.w) <= 0 || Number(t.h) <= 0)

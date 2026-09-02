@@ -172,7 +172,7 @@ export function BriefLine({
         key: `r${t.imageHash}`,
         kind: 'ref',
         inherited,
-        label: 'reference image',
+        label: t.label ?? 'reference image',
         thumb: imgUrl(t.imageHash),
         previewHash: t.imageHash,
       };
