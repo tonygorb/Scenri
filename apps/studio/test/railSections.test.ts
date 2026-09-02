@@ -26,7 +26,7 @@ describe('attachedIdsOf', () => {
       { t: 'template', id: 's1' },
       { t: 'product', id: 'p2' },
     ]);
-    expect(a).toEqual({ product: ['p1', 'p2'], presenter: ['c1'], scene: 's1' });
+    expect(a).toEqual({ product: ['p1', 'p2'], presenter: ['c1'], scene: 's1', ref: [], color: [] });
   });
 
   it('keeps one scene only — the brief swaps templates rather than appending', () => {
@@ -45,13 +45,14 @@ describe('attachedIdsOf', () => {
     expect(a.product).toEqual(['p1']);
   });
 
-  it('ignores the chips that are not catalog assets', () => {
+  it('reads colours and references too; only a mark has no rail tile', () => {
     const a = attachedIdsOf([
       { t: 'color', hex: '#fff' },
       { t: 'ref', imageHash: 'h' },
       { t: 'mark', imageHash: 'm' },
     ]);
-    expect(a).toEqual(NO_ATTACHMENTS);
+    expect(a).toEqual({ product: [], presenter: [], scene: null, ref: ['h'], color: ['#fff'] });
+    expect(attachedIdsOf([{ t: 'mark', imageHash: 'm' }])).toEqual(NO_ATTACHMENTS);
   });
 });
 
@@ -70,6 +71,21 @@ describe('attachedIdsKey', () => {
 
   it('tells an empty brief apart from a scene-only one', () => {
     expect(attachedIdsKey(NO_ATTACHMENTS)).not.toBe(attachedIdsKey(attachedIdsOf([{ t: 'template', id: 's' }])));
+  });
+
+  it('reads references by hash and colours by hex, once each, so the rail can tick and untick them', () => {
+    const a = attachedIdsOf([
+      { t: 'ref', imageHash: 'h1' },
+      { t: 'color', hex: '#D96C3B', name: 'Terracotta' },
+      { t: 'ref', imageHash: 'h1' },
+      { t: 'color', hex: '#d96c3b' },
+    ]);
+    expect(a.ref).toEqual(['h1']);
+    expect(a.color).toEqual(['#d96c3b']);
+    expect(attachedIdsKey(a)).not.toBe(attachedIdsKey(NO_ATTACHMENTS));
+    expect(attachedIdsKey(attachedIdsOf([{ t: 'ref', imageHash: 'h1' }]))).not.toBe(
+      attachedIdsKey(attachedIdsOf([{ t: 'ref', imageHash: 'h2' }])),
+    );
   });
 });
 

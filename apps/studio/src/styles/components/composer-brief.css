@@ -148,8 +148,13 @@
   top: 0;
   width: 3px;
   border-radius: 1.5px;
-  background: var(--sc-focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sc-focus) 22%, transparent);
+  /* The foreground, not the focus ring: a focus ring is a mid grey meant to
+     sit quietly around a control, and as a bar between a dark chip and a
+     darker panel it read as a divider. Insertion is the one thing on screen
+     during a drag, so it takes the strongest ink the system has; the halo
+     keeps it apart from white prose. No new hue: the system has none. */
+  background: var(--sc-fg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sc-fg) 22%, transparent);
   z-index: var(--sc-z-popover);
   pointer-events: none;
   transition:

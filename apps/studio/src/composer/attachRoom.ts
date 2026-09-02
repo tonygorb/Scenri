@@ -45,14 +45,6 @@ export const groupKey = (role: string, id: string) => `${role}:${id}`;
 export const IDENTITY_KINDS = new Set(['product', 'character', 'ref', 'mark', 'template']);
 
 /**
- * The kinds that are nothing but their picture. A product, a person or a
- * scene carries a written identity too, so it still shapes the shot when its
- * photo finds no seat; a reference or a brand mark has no words to ride on,
- * and past the last seat it is refused rather than quietly dropped.
- */
-export const PIXEL_ONLY = new Set(['ref', 'mark']);
-
-/**
  * The most identities one shot carries, pictured and described together.
  * Measured on codex: ten identities compiled to 11.4k prompt characters and
  * rendered in 155s, nineteen compiled to 19.8k and hit the 300s watchdog.

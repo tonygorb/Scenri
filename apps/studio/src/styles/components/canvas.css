@@ -1159,9 +1159,16 @@
     opacity 120ms ease,
     transform 120ms cubic-bezier(0.3, 0, 0.2, 1);
 }
-.sc-acard[data-on] .sc-acard-tick {
+.sc-acard[data-on] .sc-acard-tick,
+.sc-aswatch-tile[data-on] .sc-acard-tick {
   opacity: 1;
   transform: scale(1);
+}
+/* On a swatch the same tick sits low: the top corner belongs to the remove
+   X that hover reveals, and a tick under an X is two answers in one spot. */
+.sc-aswatch-tile .sc-acard-tick {
+  top: auto;
+  bottom: 5px;
 }
 .sc-acard[data-on] .sc-acard-thumb {
   border-color: var(--sc-sel-line);

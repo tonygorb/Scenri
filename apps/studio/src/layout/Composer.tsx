@@ -62,8 +62,12 @@ import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.
 export interface ComposerHandle {
   /** Append a token to the brief (assets panel click path). */
   insertToken: (t: SentenceToken) => void;
+  /** Take the chip that is this identity out (the rail's untick). */
+  removeToken: (t: SentenceToken) => void;
   /** Attach a scene by id (assets panel click path). */
   applyScene: (id: string) => void;
+  /** Drop the scene chip (the rail's untick of the scene). */
+  removeTemplate: () => void;
   /** Open the attach panel on a tab, the way "New photoshoot" does. */
   openAttach: (tab: AttachTab) => void;
   focus: () => void;
@@ -573,7 +577,9 @@ export const Composer = forwardRef<
 
   useImperativeHandle(handleRef, () => ({
     insertToken: (t) => briefRef.current?.insert(t),
+    removeToken: (t) => briefRef.current?.remove(t),
     applyScene: (id) => applyScene(id),
+    removeTemplate: () => briefRef.current?.removeTemplate(),
     openAttach: (tab) => openAttach(tab),
     focus: () => briefRef.current?.focus(),
     submit: () => {
@@ -958,11 +964,6 @@ export const Composer = forwardRef<
   }, [settledPreview, identityCount]);
   const room = budget?.room ?? null;
   const engineName = engine?.displayName ?? 'This engine';
-  /** The one sentence for a reference or a mark refused at a full budget. */
-  const seatFull =
-    room && room.left <= 0
-      ? `${engineName} pictures ${room.cap} per shot, and a reference or a mark needs one of them. Remove a photo to make room.`
-      : null;
   /** The ceiling on identities per shot, engine-independent. */
   const ceilingFull = identityCount >= IDENTITY_CAP ? CEILING_SENTENCE : null;
   useEffect(() => {
@@ -974,8 +975,8 @@ export const Composer = forwardRef<
     if (t.t === 'product') return set.has(groupKey('product', t.id));
     if (t.t === 'character') return set.has(groupKey('character', t.id));
     if (t.t === 'template') return set.has(groupKey('scene', t.id));
-    if (t.t === 'ref') return set.has(groupKey('reference', t.imageHash));
-    if (t.t === 'mark') return set.has(groupKey('brand', t.imageHash));
+    // a reference or a mark has no words to ride on: left out, it wears the
+    // dot and its reason, not the described dim
     return false;
   };
   const describedNote = room
@@ -1019,7 +1020,7 @@ export const Composer = forwardRef<
         : cap == null
           ? // An older server says nothing about its cap: no reason, no blame.
             `${What} won't reach ${engineName} this time.`
-          : `${engineName} takes ${cap} photos per shot and ${what} didn't get a seat. Remove a photo to make room.`;
+          : `${engineName} pictures ${cap} per shot and ${what} didn't get a seat. Drag it earlier to picture it, or remove a photo.`;
     };
     const missingIdentity = (role: 'product' | 'character', id: string) =>
       settledPreview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
@@ -1376,7 +1377,6 @@ export const Composer = forwardRef<
           onTemplatePick={applyScene}
           scenesSitOut={scenesSitOut}
           flag={flagToken}
-          seatFull={seatFull}
           described={describedToken}
           describedNote={describedNote}
           onInspect={(image) => setLightbox(image)}

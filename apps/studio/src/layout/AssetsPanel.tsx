@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
+import { Check, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { appendColor, flattenPalette, nextHex, removeColor } from '../brand/palette.js';
@@ -21,6 +21,8 @@ import { ColorPicker } from './ColorPicker.js';
 import { NO_ATTACHMENTS, RAIL_COMPACT, type AttachedIds } from './railSections.js';
 import { Group } from './assets/Group.js';
 import { Section } from './assets/Section.js';
+import { AssetCard } from './assets/AssetCard.js';
+import type { SentenceToken } from '../composer/BriefInput.js';
 export type { SectionMode } from './assets/useShape.js';
 import type { SectionMode } from './assets/useShape.js';
 
@@ -48,11 +50,10 @@ export function AssetsPanel({
   shots,
   attached = NO_ATTACHMENTS,
   full,
-  onProduct,
-  onCharacter,
-  onColor,
-  onRef,
+  onToken,
+  offToken,
   onTemplate,
+  offTemplate,
   onClose,
 }: {
   brand: Brand;
@@ -66,11 +67,12 @@ export function AssetsPanel({
    * not identities and stay live.
    */
   full?: string | null;
-  onProduct: (id: string) => void;
-  onCharacter: (id: string) => void;
-  onColor: (hex: string, name?: string) => void;
-  onRef: (imageHash: string) => void;
+  /** A tile's click puts its chip in the brief; a ticked tile's click takes it out. */
+  onToken: (t: SentenceToken) => void;
+  offToken: (t: SentenceToken) => void;
+  /** Scenes go through the shared attach policy (the swap and its toast), not straight in. */
   onTemplate: (id: string) => void;
+  offTemplate: () => void;
   /** Drawer mode close (shown under 1280px only). */
   onClose: () => void;
 }) {
@@ -259,7 +261,8 @@ export function AssetsPanel({
         attached={attached.product}
         mode={modeOf('product')}
         onToggle={toggle}
-        onPick={onProduct}
+        onPick={(id) => onToken({ t: 'product', id })}
+        onUnpick={(id) => offToken({ t: 'product', id })}
         full={full}
         moreLabel="products"
         createLabel="Add product"
@@ -271,7 +274,7 @@ export function AssetsPanel({
               // appears in the section when the build lands.
               if (made.kind === 'product') {
                 reveal('product');
-                onProduct(made.id);
+                onToken({ t: 'product', id: made.id });
               }
             },
           })
@@ -285,7 +288,8 @@ export function AssetsPanel({
         attached={attached.presenter}
         mode={modeOf('presenter')}
         onToggle={toggle}
-        onPick={onCharacter}
+        onPick={(id) => onToken({ t: 'character', id })}
+        onUnpick={(id) => offToken({ t: 'character', id })}
         full={full}
         moreLabel="presenters"
         createLabel="Create presenter"
@@ -306,6 +310,7 @@ export function AssetsPanel({
         mode={modeOf('scene')}
         onToggle={toggle}
         onPick={onTemplate}
+        onUnpick={() => offTemplate()}
         full={full}
         moreLabel="scenes"
         createLabel="Create scene"
@@ -345,24 +350,39 @@ export function AssetsPanel({
         >
           {(shape) => (
             <div className="sc-arow">
-              {(shape === 'open' ? shownPalette : shownPalette.slice(0, RAIL_COMPACT)).map((c) => (
-                <div key={c.hex} className="sc-aswatch-tile">
-                  <button type="button" title={`${c.name} ${c.hex}`} onClick={() => onColor(c.hex, c.name)}>
-                    <span className="sc-aswatch" style={{ background: c.hex }} />
-                  </button>
-                  {shape === 'open' && (
+              {(shape === 'open' ? shownPalette : shownPalette.slice(0, RAIL_COMPACT)).map((c) => {
+                const on = attached.color.includes(c.hex.toLowerCase());
+                return (
+                  <div key={c.hex} className="sc-aswatch-tile" data-on={on || undefined}>
                     <button
                       type="button"
-                      className="sc-aswatch-x"
-                      aria-label={`Remove ${c.name}`}
-                      title="Remove"
-                      onClick={() => dropColour(c.hex)}
+                      title={`${c.name} ${c.hex}`}
+                      aria-pressed={on}
+                      onClick={() =>
+                        on
+                          ? offToken({ t: 'color', hex: c.hex, name: c.name })
+                          : onToken({ t: 'color', hex: c.hex, name: c.name })
+                      }
                     >
-                      <X size={10} weight="bold" />
+                      <span className="sc-aswatch" style={{ background: c.hex }} />
+                      <span className="sc-acard-tick" aria-hidden>
+                        <Check size={10} weight="bold" />
+                      </span>
                     </button>
-                  )}
-                </div>
-              ))}
+                    {shape === 'open' && (
+                      <button
+                        type="button"
+                        className="sc-aswatch-x"
+                        aria-label={`Remove ${c.name}`}
+                        title="Remove"
+                        onClick={() => dropColour(c.hex)}
+                      >
+                        <X size={10} weight="bold" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </Group>
@@ -371,12 +391,28 @@ export function AssetsPanel({
       {recent.length > 0 && !searching && (
         <Group name="Recent shots" count={recent.length} mode={modeOf('shots')} onToggle={() => toggle('shots')}>
           {(shape) => (
-            <div className="sc-arow">
-              {(shape === 'open' ? recent : recent.slice(0, RAIL_COMPACT)).map((s) => (
-                <button type="button" key={s.id} title="Attach as a style reference" onClick={() => onRef(s.images[0])}>
-                  <img src={imgUrl(s.images[0])} alt="" loading="lazy" />
-                </button>
-              ))}
+            <div className={shape === 'open' ? 'sc-acard-grid' : 'sc-arow'}>
+              {(shape === 'open' ? recent : recent.slice(0, RAIL_COMPACT)).map((s, i) => {
+                const hash = s.images[0];
+                const on = attached.ref.includes(hash);
+                return (
+                  <AssetCard
+                    key={s.id}
+                    candidate={{
+                      label: `Shot ${recent.length - i}`,
+                      full: `Shot ${recent.length - i} · as reference`,
+                      thumb: imgUrl(hash),
+                    }}
+                    on={on}
+                    named={shape === 'open'}
+                    disabled={!!full && !on}
+                    title={full ?? undefined}
+                    onClick={() =>
+                      on ? offToken({ t: 'ref', imageHash: hash }) : onToken({ t: 'ref', imageHash: hash })
+                    }
+                  />
+                );
+              })}
             </div>
           )}
         </Group>

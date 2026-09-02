@@ -14,6 +14,7 @@ export function Section({
   mode,
   onToggle,
   onPick,
+  onUnpick,
   full,
   moreLabel,
   createLabel,
@@ -28,6 +29,8 @@ export function Section({
   mode: SectionMode;
   onToggle: (key: string) => void;
   onPick: (id: string) => void;
+  /** A ticked tile's click: the thing leaves the brief. */
+  onUnpick: (id: string) => void;
   moreLabel: string;
   createLabel: string;
   onCreate: () => void;
@@ -68,9 +71,9 @@ export function Section({
                 candidate={c}
                 on={on.has(c.id)}
                 named={shape === 'open'}
-                disabled={!!full}
+                disabled={!!full && !on.has(c.id)}
                 title={full ?? undefined}
-                onClick={() => onPick(c.id)}
+                onClick={() => (on.has(c.id) ? onUnpick(c.id) : onPick(c.id))}
               />
             ))}
             {shape === 'open' && more > 0 && (

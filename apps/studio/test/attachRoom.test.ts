@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IDENTITY_CAP, IDENTITY_KINDS, PIXEL_ONLY, attachRoom, describedKeys } from '../src/composer/attachRoom.js';
+import { IDENTITY_CAP, IDENTITY_KINDS, attachRoom, describedKeys } from '../src/composer/attachRoom.js';
 
 const a = (role: string, id: string, extra: Record<string, unknown> = {}) =>
   ({ role, id, label: id, hash: `h-${id}`, ...extra }) as never;
@@ -69,9 +69,6 @@ describe('the ceilings', () => {
     expect([...IDENTITY_KINDS].sort()).toEqual(['character', 'mark', 'product', 'ref', 'template']);
     expect(IDENTITY_KINDS.has('color')).toBe(false);
     expect(IDENTITY_KINDS.has('text')).toBe(false);
-  });
-  it('only a reference and a mark are nothing but their picture', () => {
-    expect([...PIXEL_ONLY].sort()).toEqual(['mark', 'ref']);
   });
   it('twelve identities per shot', () => {
     expect(IDENTITY_CAP).toBe(12);

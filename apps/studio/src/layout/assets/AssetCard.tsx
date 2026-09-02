@@ -2,6 +2,9 @@ import { Tooltip } from '@radix-ui/themes';
 import { BookmarkSimple, Check, ImageSquare } from '@phosphor-icons/react';
 import type { Candidate } from '../../composer/ingredientOptions.js';
 
+/** What a rail tile needs of a thing: a caption, a title, a picture. A shot is one too. */
+export type Tile = Pick<Candidate, 'label' | 'full' | 'thumb' | 'crop' | 'bookmarked'>;
+
 export function AssetCard({
   candidate,
   on,
@@ -10,7 +13,7 @@ export function AssetCard({
   title,
   onClick,
 }: {
-  candidate: Candidate;
+  candidate: Tile;
   on: boolean;
   named: boolean;
   /**

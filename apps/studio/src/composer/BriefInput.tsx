@@ -28,7 +28,7 @@ import {
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import { applySceneTint } from './sceneTint.js';
-import { CEILING_SENTENCE, IDENTITY_CAP, IDENTITY_KINDS, PIXEL_ONLY } from './attachRoom.js';
+import { CEILING_SENTENCE, IDENTITY_CAP, IDENTITY_KINDS } from './attachRoom.js';
 import {
   CHIP,
   caretBeside,
@@ -82,6 +82,8 @@ export interface BriefInputHandle {
   setTokens: (t: SentenceToken[]) => void;
   /** Drop the current template chip, if any: it no longer resolves against the catalog. */
   removeTemplate: () => void;
+  /** Take the chip that is this identity out of the brief, if it is in. The rail's untick. */
+  remove: (t: SentenceToken) => void;
   focus: () => void;
   /**
    * Put the caret back where a chip-opened surface found it.
@@ -125,13 +127,6 @@ export const BriefInput = forwardRef<
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
-    /**
-     * The engine's photo seats are all taken: a reference or a mark, which
-     * is nothing but its picture, is refused at every door with this
-     * sentence. Null while there is a seat, or when the engine reads no
-     * images and every chip rides as words.
-     */
-    seatFull?: string | null;
     /** Whether this identity reaches the engine as words: its chip dims and its card says so. */
     described?: (t: SentenceToken) => boolean;
     /** The card's one line for a described identity. */
@@ -170,7 +165,6 @@ export const BriefInput = forwardRef<
     placeholder,
     placeholderSm,
     flag,
-    seatFull,
     described,
     describedNote,
     onInspect,
@@ -520,22 +514,16 @@ export const BriefInput = forwardRef<
           announce(CEILING_SENTENCE);
           return;
         }
-        // Past the engine's photo seats a product, a person or a scene still
-        // rides as words; a reference or a mark is nothing but its picture,
-        // so with no seat left it is refused rather than quietly dropped.
-        if (seatFull && PIXEL_ONLY.has(token.t)) {
-          setMenu(null);
-          setQuery('');
-          announce(seatFull);
-          return;
-        }
+        // Past the engine's photo seats nothing is refused: seats go out in
+        // the line's order, so a chip that found none says so on itself and
+        // can be dragged earlier to take one.
       }
       insertToken(root, chipFor(token), { eatQuery: !!menu, fallbackUnits: lastCaret.current });
       emit();
       setMenu(null);
       setQuery('');
     },
-    [menu, chipFor, emit, announce, seatFull],
+    [menu, chipFor, emit, announce],
   );
 
   const placeRef = useRef(place);
@@ -720,6 +708,18 @@ export const BriefInput = forwardRef<
       const root = rootRef.current;
       const chip = root ? templateChip(root) : null;
       if (!root || !chip) return;
+      removeChip(root, chip);
+      emit();
+    },
+    remove: (t) => {
+      const root = rootRef.current;
+      if (!root) return;
+      const key = identityKeyOf(t);
+      const chip = Array.from(root.querySelectorAll<HTMLElement>(`.${CHIP}`)).find((c) => {
+        const held = decode(c.dataset.tok ?? '');
+        return !!held && identityKeyOf(held) === key;
+      });
+      if (!chip) return;
       removeChip(root, chip);
       emit();
     },

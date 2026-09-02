@@ -1081,11 +1081,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           shots={allNodes}
           attached={attached}
           full={ceiling}
-          onProduct={(id) => composerRef.current?.insertToken({ t: 'product', id })}
-          onCharacter={(id) => composerRef.current?.insertToken({ t: 'character', id })}
-          onColor={(hex, name) => composerRef.current?.insertToken({ t: 'color', hex, name })}
-          onRef={(imageHash) => composerRef.current?.insertToken({ t: 'ref', imageHash })}
+          onToken={(t) => composerRef.current?.insertToken(t)}
+          offToken={(t) => composerRef.current?.removeToken(t)}
           onTemplate={(id) => composerRef.current?.applyScene(id)}
+          offTemplate={() => composerRef.current?.removeTemplate()}
           onClose={() => setAssetsOpen(false)}
         />
       )}
