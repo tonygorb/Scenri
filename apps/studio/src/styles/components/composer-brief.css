@@ -448,6 +448,12 @@
   align-self: center;
   flex: none;
 }
+/* A chip whose photo found no seat rides as words: the chip itself says so
+   by going quiet, and the peek card says why. The same dim the attach panel
+   uses for a tile that is busy. */
+.sc-token[data-described] {
+  opacity: var(--sc-dim);
+}
 /* The fade lives on the button itself. As a ::before at z-index -1 it painted
    behind the chip's own background, so the label showed straight through the X.
    The hit area is the glyph, not the fade: at 30px it covered a third of the

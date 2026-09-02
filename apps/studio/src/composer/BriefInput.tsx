@@ -28,7 +28,7 @@ import {
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import { applySceneTint } from './sceneTint.js';
-import { COSTS_SEAT } from './attachRoom.js';
+import { CEILING_SENTENCE, IDENTITY_CAP, IDENTITY_KINDS, PIXEL_ONLY } from './attachRoom.js';
 import {
   CHIP,
   caretBeside,
@@ -126,11 +126,16 @@ export const BriefInput = forwardRef<
     placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
     /**
-     * Why no more photo chips can join, when the engine's slots are all
-     * taken: the one refusal every door shares. Null while there is room, or
-     * when the engine reads no images and chips ride as words.
+     * The engine's photo seats are all taken: a reference or a mark, which
+     * is nothing but its picture, is refused at every door with this
+     * sentence. Null while there is a seat, or when the engine reads no
+     * images and every chip rides as words.
      */
-    roomFull?: string | null;
+    seatFull?: string | null;
+    /** Whether this identity reaches the engine as words: its chip dims and its card says so. */
+    described?: (t: SentenceToken) => boolean;
+    /** The card's one line for a described identity. */
+    describedNote?: string | null;
     /**
      * A chip whose identity is an image was opened. The composer owns the
      * lightbox, so there is one per composer rather than one per surface that
@@ -165,7 +170,9 @@ export const BriefInput = forwardRef<
     placeholder,
     placeholderSm,
     flag,
-    roomFull,
+    seatFull,
+    described,
+    describedNote,
     onInspect,
     activeProductCategory,
     onAttachRequest,
@@ -327,6 +334,7 @@ export const BriefInput = forwardRef<
         el.title = warning;
         el.dataset.warn = '1';
       }
+      if (described?.(token)) el.dataset.described = '1';
 
       /**
        * A chip that opens a picker is a button, and says so.
@@ -376,7 +384,7 @@ export const BriefInput = forwardRef<
       el.appendChild(x);
       return el;
     },
-    [templates, products, cast, presenters, demoProducts, marks, brand, flag, hintId],
+    [templates, products, cast, presenters, demoProducts, marks, brand, flag, described, hintId],
   );
 
   const emit = useCallback(() => {
@@ -442,6 +450,8 @@ export const BriefInput = forwardRef<
       const warning = flag?.(token) ?? null;
       if (warning) chip.dataset.warn = '1';
       else delete chip.dataset.warn;
+      if (described?.(token)) chip.dataset.described = '1';
+      else delete chip.dataset.described;
       // A chip with a surface open says its warning inside that surface, so the
       // native tooltip would be the same words a second time, hovering over the
       // picture the panel exists to show. `openPicker` takes the title off and
@@ -449,7 +459,7 @@ export const BriefInput = forwardRef<
       if (warning && !('open' in chip.dataset)) chip.title = warning;
       else chip.removeAttribute('title');
     }
-  }, [flag]);
+  }, [flag, described]);
 
   useEffect(() => {
     const track = () => {
@@ -492,21 +502,36 @@ export const BriefInput = forwardRef<
           return;
         }
       }
-      // No photo seat left: a chip that would need one is refused at the
-      // door. A scene swap keeps the seat the old scene held, so it passes;
-      // a colour never needed one.
-      if (roomFull && COSTS_SEAT.has(token.t) && !(token.t === 'template' && templateChip(root))) {
-        setMenu(null);
-        setQuery('');
-        announce(roomFull);
-        return;
+      // Two ceilings, counted at the door so no round trip can be outrun.
+      // A scene swap replaces the scene it finds, so it is never a new
+      // identity; a colour never was one.
+      const isNewIdentity = IDENTITY_KINDS.has(token.t) && !(token.t === 'template' && templateChip(root));
+      if (isNewIdentity) {
+        const held = Array.from(root.querySelectorAll<HTMLElement>(`.${CHIP}`)).filter((c) =>
+          IDENTITY_KINDS.has(c.dataset.kind ?? ''),
+        ).length;
+        if (held >= IDENTITY_CAP) {
+          setMenu(null);
+          setQuery('');
+          announce(CEILING_SENTENCE);
+          return;
+        }
+        // Past the engine's photo seats a product, a person or a scene still
+        // rides as words; a reference or a mark is nothing but its picture,
+        // so with no seat left it is refused rather than quietly dropped.
+        if (seatFull && PIXEL_ONLY.has(token.t)) {
+          setMenu(null);
+          setQuery('');
+          announce(seatFull);
+          return;
+        }
       }
       insertToken(root, chipFor(token), { eatQuery: !!menu, fallbackUnits: lastCaret.current });
       emit();
       setMenu(null);
       setQuery('');
     },
-    [menu, chipFor, emit, announce, roomFull],
+    [menu, chipFor, emit, announce, seatFull],
   );
 
   const placeRef = useRef(place);
@@ -1169,6 +1194,7 @@ export const BriefInput = forwardRef<
   const anchorToken = picker ? decode(picker.anchor.dataset.tok ?? '') : null;
   const previewHash = previewHashOf(anchorToken);
   const anchorWarning = anchorToken ? (flag?.(anchorToken) ?? null) : null;
+  const anchorNote = anchorToken && described?.(anchorToken) ? (describedNote ?? null) : null;
 
   const hoveredToken = hovered ? decode(hovered.anchor.dataset.tok ?? '') : null;
   const hoveredHash = previewHashOf(hoveredToken);
@@ -1185,6 +1211,7 @@ export const BriefInput = forwardRef<
         ? hoveredPicker
         : null;
   const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
+  const hoveredNote = hoveredToken && described?.(hoveredToken) ? (describedNote ?? null) : null;
 
   return (
     <div className="sc-brief" ref={scrollerRef} onScroll={syncScrollHint} data-drag-over={dragOver || undefined}>
@@ -1272,6 +1299,7 @@ export const BriefInput = forwardRef<
           // the card already says; everything else has a name worth repeating.
           label={hoveredKind === 'ref' ? null : chipLabel(hovered.anchor)}
           warning={hoveredWarning}
+          note={hoveredNote}
           // One pattern for every card: clicking the preview always opens the
           // picture full size. The picker stays the chip's own click.
           onOpen={() => {
@@ -1347,6 +1375,7 @@ export const BriefInput = forwardRef<
           brandId={brand.id}
           brandSlug={brand.slug}
           warning={anchorWarning}
+          note={anchorNote}
           onAttachRequest={
             onAttachRequest
               ? (tab) => {

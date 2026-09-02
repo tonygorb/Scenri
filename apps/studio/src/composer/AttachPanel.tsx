@@ -59,6 +59,7 @@ export function AttachPanel({
   activeProductCategory,
   refining,
   full,
+  seatsFull,
   id,
   onToken,
   onTemplate,
@@ -83,11 +84,17 @@ export function AttachPanel({
    */
   refining?: boolean;
   /**
-   * The engine's photo seats are all taken: every card that would cost one
-   * sits out, dimmed and disabled, and this is the sentence that says why.
-   * Colours cost nothing and stay live.
+   * The shot already carries as many identities as one shot takes: every
+   * identity card sits out, dimmed and disabled, and this is the sentence
+   * that says why. Colours are not identities and stay live.
    */
   full?: string | null;
+  /**
+   * The engine's photo seats are taken but the ceiling is not: cards stay
+   * live, because the next identity still shapes the shot in words, and this
+   * sentence says so once, above the cards.
+   */
+  seatsFull?: string | null;
   onToken: (t: SentenceToken) => void;
   onTemplate: (id: string) => void;
   onUpload: () => void;
@@ -254,7 +261,7 @@ export function AttachPanel({
 
   const card = (c: Card) => {
     const sitsOut = refining && c.tab === 'Scenes';
-    // Every card that would cost a photo seat sits out; a colour never does.
+    // At the ceiling every identity card sits out; a colour never does.
     const noRoom = !!full && c.tab !== 'Colors';
     return (
       <button
@@ -339,7 +346,7 @@ export function AttachPanel({
       </div>
 
       <div className="sc-ap-body">
-        {full && tab !== 'Colors' && <p className="sc-ap-hint">{full}</p>}
+        {tab !== 'Colors' && (full || seatsFull) && <p className="sc-ap-hint">{full ?? seatsFull}</p>}
         {refining && tab === 'Scenes' && (
           <p className="sc-ap-hint">
             Scenes set up a new shot, so they sit out while you are refining. Press X on Refining to use one.

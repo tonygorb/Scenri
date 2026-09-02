@@ -433,6 +433,39 @@ test('arming a refine lets a lingering scene chip go', async ({ page }) => {
   await expect(dock(page).locator('.sc-send')).toHaveAttribute('aria-label', 'Refine');
 });
 
+// The ceiling is engine-independent, so the demo engine can prove it: twelve
+// identities go in, the thirteenth card sits out with the sentence that says
+// why, and the door refuses it the same way.
+test('the thirteenth identity is refused, and the panel says why', async ({ page }) => {
+  await dock(page).locator('.sc-attach-toggle').click();
+  const tab = (name: string) => page.locator('.sc-ap-tabs button', { hasText: name });
+  await tab('Products').click();
+  const cards = attachCards(page);
+  expect(await cards.count()).toBeGreaterThanOrEqual(13);
+  for (let i = 0; i < 12; i++) {
+    await cards.nth(i).click();
+    await expect(chips(page)).toHaveCount(i + 1);
+  }
+  await expect(page.locator('.sc-ap-hint')).toContainText('the most one can carry');
+  await expect(cards.nth(12)).toBeDisabled();
+  await expect(cards.nth(12)).toHaveAttribute('title', /Remove a chip to add another/);
+  // a colour is not an identity and still goes in
+  await tab('Colors').click();
+  await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
+  await expect(attachCards(page).first()).toBeEnabled();
+  await attachCards(page).first().click();
+  await expect(chips(page)).toHaveCount(13);
+  // and a twelfth identity removed reopens the door
+  await chips(page).first().hover();
+  await chips(page).first().locator('[data-role="remove"]').click();
+  await expect(chips(page)).toHaveCount(12);
+  // the click on the chip's x landed outside the panel, which closes it
+  await dock(page).locator('.sc-attach-toggle').click();
+  await tab('Products').click();
+  await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
+  await expect(attachCards(page).nth(12)).toBeEnabled();
+});
+
 test('typing after a chip added from the plus menu', async ({ page }) => {
   await page.keyboard.type('change the background color of this ');
   await plusMenu(page, /shots/i);

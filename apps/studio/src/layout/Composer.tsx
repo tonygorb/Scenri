@@ -27,7 +27,14 @@ import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
 import { SourceCards, type SourceItem } from '../composer/SourceCards.js';
-import { attachRoom } from '../composer/attachRoom.js';
+import {
+  CEILING_SENTENCE,
+  IDENTITY_CAP,
+  IDENTITY_KINDS,
+  attachRoom,
+  describedKeys,
+  groupKey,
+} from '../composer/attachRoom.js';
 import {
   openOnGroup,
   RESOLUTIONS,
@@ -922,14 +929,57 @@ export const Composer = forwardRef<
   // judging it against one flashed a false amber underline until the
   // debounced refresh landed.
   const settledPreview = preview && preview.forBrief === brief ? preview : null;
-  // How many more photo chips the engine can carry, from the compiler's own
-  // reading. When none, the doors refuse the pick outright: a chip whose
-  // photo cannot ride is a warning nobody asked for.
-  const room = useMemo(() => attachRoom(settledPreview), [settledPreview]);
-  const roomFull =
+  /**
+   * The budget, as the compiler last reported it.
+   *
+   * Every edit blanks the preview until the debounced refresh lands, and a
+   * gate that read null as "room" was outrun by a second click. So the last
+   * settled reading holds while the next is in flight, and only an empty
+   * brief forgets it: with no identities there is nothing to seat.
+   */
+  const identityCount = useMemo(() => sentence.filter((t) => IDENTITY_KINDS.has(t.t)).length, [sentence]);
+  const lastBudget = useRef<{ room: ReturnType<typeof attachRoom>; described: Set<string> } | null>(null);
+  const budget = useMemo(() => {
+    if (identityCount === 0) {
+      lastBudget.current = null;
+      return null;
+    }
+    if (settledPreview) {
+      lastBudget.current = { room: attachRoom(settledPreview), described: describedKeys(settledPreview) };
+    }
+    return lastBudget.current;
+  }, [settledPreview, identityCount]);
+  const room = budget?.room ?? null;
+  const engineName = engine?.displayName ?? 'This engine';
+  /** The one sentence for a reference or a mark refused at a full budget. */
+  const seatFull =
     room && room.left <= 0
-      ? `${engine?.displayName ?? 'This engine'} takes ${room.cap} photos per shot. Remove one to add another.`
+      ? `${engineName} pictures ${room.cap} per shot, and a reference or a mark needs one of them. Remove a photo to make room.`
       : null;
+  /**
+   * The panel's line while seats are full but the shot can still take
+   * identities: how many are pictured, how many ride as words, and the one
+   * move that changes which is which.
+   */
+  const seatsHint =
+    room && room.left <= 0
+      ? `${engineName} pictures ${room.cap} of the ${identityCount} identities here; the rest ride as words. Drag a chip earlier to picture it instead.`
+      : null;
+  /** The ceiling on identities per shot, engine-independent. */
+  const ceilingFull = identityCount >= IDENTITY_CAP ? CEILING_SENTENCE : null;
+  const describedToken = (t: BriefToken): boolean => {
+    const set = budget?.described;
+    if (!set || set.size === 0) return false;
+    if (t.t === 'product') return set.has(groupKey('product', t.id));
+    if (t.t === 'character') return set.has(groupKey('character', t.id));
+    if (t.t === 'template') return set.has(groupKey('scene', t.id));
+    if (t.t === 'ref') return set.has(groupKey('reference', t.imageHash));
+    if (t.t === 'mark') return set.has(groupKey('brand', t.imageHash));
+    return false;
+  };
+  const describedNote = room
+    ? `Described in words: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it instead.`
+    : null;
   const templateFlag = !template
     ? null
     : blocking.length > 0
@@ -1001,9 +1051,9 @@ export const Composer = forwardRef<
       // descriptive phrase the compiler labels the attachment with, and two
       // products may legitimately share a name.
       if (p && !settledPreview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
-        return missingIdentity('product', p.id)
-          ? `${p.name} has no usable photo. Re-add one, or remove this.`
-          : noSeat(`${p.name}'s photo`);
+        // A product with no seat rides as words: the chip dims, the card
+        // says so, and nothing here shouts.
+        return missingIdentity('product', p.id) ? `${p.name} has no usable photo. Re-add one, or remove this.` : null;
       }
     }
     // A presenter is an identity too. Without this, a face the engine could not
@@ -1011,9 +1061,7 @@ export const Composer = forwardRef<
     if (t.t === 'character') {
       const c = presenters.find((x) => x.id === t.id);
       if (c && !settledPreview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
-        return missingIdentity('character', c.id)
-          ? `${c.name} has no usable photo. Re-add one, or remove this.`
-          : noSeat(`${c.name}'s photo`);
+        return missingIdentity('character', c.id) ? `${c.name} has no usable photo. Re-add one, or remove this.` : null;
       }
     }
     return null;
@@ -1165,7 +1213,8 @@ export const Composer = forwardRef<
           brand={brand}
           activeProductCategory={activeProductCategory}
           refining={scenesSitOut}
-          full={roomFull}
+          full={ceilingFull}
+          seatsFull={seatsHint}
           shots={shots}
           initialTab={attachTab}
           id={attachPanelId}
@@ -1327,7 +1376,9 @@ export const Composer = forwardRef<
           onTemplatePick={applyScene}
           scenesSitOut={scenesSitOut}
           flag={flagToken}
-          roomFull={roomFull}
+          seatFull={seatFull}
+          described={describedToken}
+          describedNote={describedNote}
           onInspect={(image) => setLightbox(image)}
           onAttachRequest={(tab) => openAttach(tab)}
           activeProductCategory={activeProductCategory}
