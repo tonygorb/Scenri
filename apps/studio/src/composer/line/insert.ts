@@ -1,5 +1,5 @@
-import { lengthOf, placeCaret, placeCaretAt, setCaretUnits } from './caret.js';
-import { normalizeLine } from './invariants.js';
+import { lengthOf, placeCaret, setCaretUnits } from './caret.js';
+import { closeSeamAt, normalizeLine } from './invariants.js';
 import { textBeforeCaret } from './query.js';
 
 // ---------------------------------------------------------------- insert and remove
@@ -12,14 +12,15 @@ export interface InsertOptions {
 }
 
 /**
- * Drop a chip where the caret is and leave the caret right after it.
+ * Drop a chip where the caret is and leave the caret after it.
  *
- * Nothing but the chip goes in: the chip owns its gap as a margin, and the
- * spaces around it, if the user wants any, are the user's to type. A caret in
- * text splits the run around the chip; a caret on the line itself, between two
- * chips or at the end, puts the chip at that index. Either way the caret ends
- * flush after the chip, in the text that follows when there is some and on
- * the line itself when there is not.
+ * The caret's own text node is REUSED as the single space that follows the
+ * chip, and the surrounding text is rebuilt around it. Splitting the node the
+ * ordinary way would leave the browser's anchor on the half before the chip,
+ * which is what made a chip look appended while typing carried on in front of
+ * it. Because the node the browser points at is the one that ends up after the
+ * chip, its offset simply clamps to the end of that space and no programmatic
+ * caret move is needed at all.
  */
 export function insertToken(root: HTMLElement | null, chip: HTMLElement, opts: InsertOptions = {}): void {
   if (!root) return;
@@ -39,31 +40,41 @@ export function insertToken(root: HTMLElement | null, chip: HTMLElement, opts: I
   }
   range.deleteContents(); // a highlighted stretch is what the chip replaces
 
-  const container = range.startContainer;
-  if (container.nodeType === Node.TEXT_NODE && container.parentNode === root) {
-    const host = container as Text;
-    const full = host.textContent ?? '';
-    let before = full.slice(0, range.startOffset);
-    const after = full.slice(range.startOffset);
-    if (opts.eatQuery) before = eatQuery(host, before);
-    host.textContent = before;
-    root.insertBefore(chip, host.nextSibling);
-    if (after) {
-      const rest = document.createTextNode(after);
-      root.insertBefore(rest, chip.nextSibling);
-      placeCaret(root, rest, 0);
-    } else {
-      placeCaretAt(root, Array.from(root.childNodes).indexOf(chip) + 1);
-    }
+  let host: Text;
+  let at: number;
+  if (range.startContainer.nodeType === Node.TEXT_NODE) {
+    host = range.startContainer as Text;
+    at = range.startOffset;
   } else {
-    // on the line itself, or somewhere the caret should not be (inside a chip):
-    // the chip goes at the caret's child index, or at the end
-    const index = container === root ? range.startOffset : root.childNodes.length;
-    const ref = root.childNodes[index] ?? null;
-    root.insertBefore(chip, ref);
-    if (ref?.nodeType === Node.TEXT_NODE) placeCaret(root, ref as Text, 0);
-    else placeCaretAt(root, Array.from(root.childNodes).indexOf(chip) + 1);
+    const parentEl = range.startContainer as HTMLElement;
+    host = document.createTextNode('');
+    parentEl.insertBefore(host, parentEl.childNodes[range.startOffset] ?? null);
+    at = 0;
   }
+
+  const full = host.textContent ?? '';
+  let before = full.slice(0, at);
+  const after = full.slice(at);
+
+  if (opts.eatQuery) before = eatQuery(host, before);
+
+  const parent = host.parentNode;
+  if (!parent) return;
+  host.textContent = ' ';
+  if (after.trim() || after.length > 1) parent.insertBefore(document.createTextNode(after), host.nextSibling);
+  parent.insertBefore(chip, host);
+  if (before) parent.insertBefore(document.createTextNode(before), chip);
+
+  /*
+   * Then say where the caret goes, explicitly.
+   *
+   * Reusing the node is what keeps the browser's anchor on the right side of
+   * the chip, but rewriting that node's text resets its offset, so the caret
+   * would sit at the start of the space and the next keystroke would run into
+   * the chip's label. This assignment is honoured because the line never lost
+   * focus: every control that can insert cancels mousedown (see keepCaret).
+   */
+  placeCaret(root, host, host.length);
   normalizeLine(root);
 }
 
@@ -119,6 +130,9 @@ export function removeChip(root: HTMLElement | null, chip: Element | null): void
   root.normalize();
   const before = unitsBeforeChip(root, chip);
   chip.remove();
+  root.normalize();
+  // `before` is also where the chip's two spaces have just met
+  closeSeamAt(root, before);
   normalizeLine(root);
   setCaretUnits(root, before);
 }

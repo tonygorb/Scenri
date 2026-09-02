@@ -117,17 +117,18 @@ describe('moveSlots', () => {
 
 describe('gapStartUnits', () => {
   it('finds the other edge of the whitespace gap a slot stands in', () => {
-    // "|A||B| on desk" — units: [A]0 [B]1 ' '2 o3 n4 ' '5 d6; two chips touch
-    // with nothing between them, so there is no gap to walk back through
+    // "|A| |B| on desk" — units: [A]0 ' '1 [B]2 ' '3 o4 n5 ' '6 d7 (the line
+    // keeps one space per side, so a double space seeded here would collapse)
     seed([
       { t: 'product', id: 'a' },
+      { t: 'text', v: ' ' },
       { t: 'product', id: 'b' },
       { t: 'text', v: ' on desk' },
     ]);
-    expect(gapStartUnits(root, 1)).toBe(1); // before B: no whitespace, no walk
-    expect(gapStartUnits(root, 6)).toBe(5); // before "desk"
+    expect(gapStartUnits(root, 2)).toBe(1); // before B: the gap began after A
+    expect(gapStartUnits(root, 7)).toBe(6); // before "desk"
     expect(gapStartUnits(root, 0)).toBe(0); // the start has no gap before it
-    expect(gapStartUnits(root, 3)).toBe(2); // before "on"
+    expect(gapStartUnits(root, 4)).toBe(3); // before "on"
     expect(gapStartUnits(null, 5)).toBe(5);
   });
 });
@@ -140,7 +141,7 @@ describe('moveChipToUnits', () => {
     ]);
     // target the word boundary after "hero " (unit 5)
     expect(moveChipToUnits(root, chips()[0], 5)).toBe(true);
-    expect(order()).toEqual(['"hero "', '<product:p1>', '"on a desk "']);
+    expect(order()).toEqual(['"hero "', '<product:p1>', '" on a desk "']);
   });
 
   it('moves a chip to the very start and the very end', () => {
@@ -150,11 +151,11 @@ describe('moveChipToUnits', () => {
       { t: 'text', v: ' shot' },
     ]);
     expect(moveChipToUnits(root, chips()[0], 0)).toBe(true);
-    // the two spaces that stood either side of the chip now meet: both the user's
-    expect(order()).toEqual(['<product:p1>', '"wide field  shot"']);
+    expect(order()).toEqual(['<product:p1>', '" wide field shot"']);
     const total = readLine(root).reduce((n, t) => n + (t.t === 'text' ? t.v.length : 1), 0);
     expect(moveChipToUnits(root, chips()[0], total)).toBe(true);
-    expect(order()).toEqual(['"wide field  shot"', '<product:p1>']);
+    // the trailing space is the type-after-a-chip invariant, not content
+    expect(order()).toEqual(['"wide field shot "', '<product:p1>', '" "']);
   });
 
   it('refuses its own edges as a no-op', () => {
@@ -185,13 +186,15 @@ describe('moveChipToUnits', () => {
     expect(chips()).toContain(c);
   });
 
-  it('leaves the prose exactly as it was wherever it lands', () => {
+  it('leaves the one-space-per-side invariant standing wherever it lands', () => {
     seed([
       { t: 'text', v: 'a marble hall ' },
       { t: 'product', id: 'p1' },
     ]);
     moveChipToUnits(root, chips()[0], 2);
-    expect(order()).toEqual(['"a "', '<product:p1>', '"marble hall "']);
+    const texts = readLine(root).filter((t): t is Extract<SentenceToken, { t: 'text' }> => t.t === 'text');
+    for (const t of texts) expect(t.v).not.toMatch(/ {2}/);
+    expect(order()).toEqual(['"a "', '<product:p1>', '" marble hall "']);
   });
 });
 
@@ -208,6 +211,8 @@ describe('reorder then remove', () => {
     expect(order()[0]).toBe('<character:c1>');
     removeChip(root, c);
     expect(order().filter((s) => s.startsWith('<'))).toEqual(['<product:p1>']);
+    const texts = readLine(root).filter((t): t is Extract<SentenceToken, { t: 'text' }> => t.t === 'text');
+    for (const t of texts) expect(t.v).not.toMatch(/ {2}/);
   });
 
   it('keeps a moved chip in place when another chip is removed', () => {
@@ -235,15 +240,15 @@ describe('moveChipBy', () => {
     ]);
     const chip = () => chips()[0];
     expect(moveChipBy(root, chip(), -1)).toBe(true);
-    expect(order()).toEqual(['"one "', '<product:p1>', '"two "']);
+    expect(order()).toEqual(['"one "', '<product:p1>', '" two "']);
     expect(moveChipBy(root, chip(), -1)).toBe(true);
     expect(order()[0]).toBe('<product:p1>');
     expect(moveChipBy(root, chip(), -1)).toBe(false);
     // and all the way back
     expect(moveChipBy(root, chip(), 1)).toBe(true);
-    expect(order()).toEqual(['"one "', '<product:p1>', '"two "']);
+    expect(order()).toEqual(['"one "', '<product:p1>', '" two "']);
     expect(moveChipBy(root, chip(), 1)).toBe(true);
-    expect(order()).toEqual(['"one two "', '<product:p1>']);
+    expect(order()).toEqual(['"one two "', '<product:p1>', '" "']);
     expect(moveChipBy(root, chip(), 1)).toBe(false);
   });
 });

@@ -28,10 +28,10 @@ export {
   groupOf,
 } from './line/tokens.js';
 export { readLine, renderLine } from './line/render.js';
-export { caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, placeCaretAt, unitsOfPosition } from './line/caret.js';
-export { normalizeLine, isBlankLine, syncEmpty } from './line/invariants.js';
-export { chipToDelete, deletionAtLineEdge } from './line/keys.js';
-export { attachGapCaret, gapCaretRect } from './line/gapCaret.js';
+export { caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, tailText } from './line/caret.js';
+export { normalizeLine, lineIsCanonical, collapseSpaceAtCaret, isBlankLine, syncEmpty } from './line/invariants.js';
+export { stepAcrossChip, chipToDelete, deletionAtLineEdge, isOwnedSpace } from './line/keys.js';
+export { attachGhostCaret, gapAtCaret } from './line/ghostCaret.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
 export {
   insertToken,
