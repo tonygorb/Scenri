@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { Popover } from '@radix-ui/themes';
 import { fitCount } from './sourceFit.js';
 
 /**
@@ -11,81 +12,85 @@ import { fitCount } from './sourceFit.js';
  * One row at rest, however many: as many whole cards as fit, then a "+N"
  * chip saying how many more there are. A card cut off at the edge read as a
  * layout accident and told nobody how much was hidden; a count is the
- * statement the band exists to make. The chip opens the row in place, the
- * cards wrap, and the same chip folds it back.
+ * statement the band exists to make. The chip opens the rest in a small
+ * floating card above the band, the composer's own popover, so the sentence
+ * under the caret never moves.
+ *
+ * Nothing here writes to the DOM behind React: when the cards change, the
+ * row first renders with every card showing, a layout effect reads their
+ * widths off that render plus a hidden probe wearing the widest count, and
+ * only then does state hide what does not fit. A resize redoes the
+ * arithmetic on the kept widths without measuring again.
  */
 export type SourceItem = { key: string; kind: string; label: string; thumb: string | null; crop?: 'top' };
 
 export function SourceCards({ items, onOpen }: { items: SourceItem[]; onOpen: () => void }) {
   const rail = useRef<HTMLDivElement>(null);
-  const more = useRef<HTMLButtonElement>(null);
-  const [expanded, setExpanded] = useState(false);
+  const probe = useRef<HTMLSpanElement>(null);
+  const widths = useRef<number[]>([]);
+  const itemsKey = items.map((i) => i.key).join('|');
+  const [seen, setSeen] = useState(itemsKey);
   /** How many cards the row shows at rest; the rest stand behind the chip. */
   const [shown, setShown] = useState(items.length);
+  // New contents: show everything for one render so it can be measured.
+  if (seen !== itemsKey) {
+    setSeen(itemsKey);
+    setShown(items.length);
+  }
 
-  // Fold back whenever the row's contents change: the count is about these
-  // cards, and a previous shot's "open" is nothing to inherit.
-  useEffect(() => setExpanded(false), [items]);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = rail.current;
-    const chip = more.current;
-    if (!el || !chip) return;
-    const cards = Array.from(el.querySelectorAll<HTMLElement>('.sc-source-chip:not(.sc-source-more)'));
-    /**
-     * One measured layout per change, never per keystroke: every card is
-     * unhidden, read once, and the widths are kept, so a resize only redoes
-     * the arithmetic.
-     */
-    let widths: number[] = [];
-    const measure = () => {
-      for (const c of cards) c.hidden = false;
-      chip.hidden = false;
-      chip.textContent = `+${items.length}`;
-      widths = cards.map((c) => c.getBoundingClientRect().width);
-      return chip.getBoundingClientRect().width;
-    };
-    // read once per items change; a two-digit count is measured with its own
-    // label, so the reservation is never a digit short
-    const moreW = measure();
+    const p = probe.current;
+    if (!el || !p) return;
+    const cards = Array.from(
+      el.querySelectorAll<HTMLElement>('.sc-source-chip:not([data-probe]):not(.sc-source-more)'),
+    );
+    widths.current = cards.map((c) => c.getBoundingClientRect().width);
+    const moreW = p.getBoundingClientRect().width;
     const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
-    const place = () => setShown(fitCount(widths, gap, moreW, el.clientWidth));
+    const place = () => setShown(fitCount(widths.current, gap, moreW, el.clientWidth));
     place();
+    // the panel's seam changes the row's width under it
     const ro = new ResizeObserver(place);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [items]);
+  }, [itemsKey]);
 
   const hidden = Math.max(0, items.length - shown);
-  const open = expanded || hidden === 0;
+  const card = (it: SourceItem, folded: boolean) => (
+    <button
+      type="button"
+      className="sc-source-chip"
+      key={it.key}
+      hidden={folded}
+      title={`${it.label}. Open the image.`}
+      aria-label={`Refining a shot of ${it.label}. Open the image.`}
+      onClick={onOpen}
+    >
+      {it.thumb && <img src={it.thumb} alt="" data-crop={it.crop} />}
+      <span dir="auto">{it.label}</span>
+    </button>
+  );
 
   return (
-    <div className="sc-source-chips" ref={rail} data-expanded={expanded || undefined}>
-      {items.map((it, i) => (
-        <button
-          type="button"
-          className="sc-source-chip"
-          key={it.key}
-          hidden={!open && i >= shown}
-          title={`${it.label}. Open the image.`}
-          aria-label={`Refining a shot of ${it.label}. Open the image.`}
-          onClick={onOpen}
-        >
-          {it.thumb && <img src={it.thumb} alt="" data-crop={it.crop} />}
-          <span dir="auto">{it.label}</span>
-        </button>
-      ))}
-      <button
-        type="button"
-        ref={more}
-        className="sc-source-chip sc-source-more"
-        hidden={hidden === 0}
-        aria-expanded={expanded}
-        aria-label={expanded ? 'Show fewer' : `Show ${hidden} more`}
-        onClick={() => setExpanded((v) => !v)}
-      >
-        {expanded ? 'less' : `+${hidden}`}
-      </button>
+    <div className="sc-source-chips" ref={rail}>
+      {items.map((it, i) => card(it, hidden > 0 && i >= shown))}
+      {hidden > 0 && (
+        <Popover.Root>
+          <Popover.Trigger>
+            <button type="button" className="sc-source-chip sc-source-more" aria-label={`Show ${hidden} more`}>
+              +{hidden}
+            </button>
+          </Popover.Trigger>
+          <Popover.Content className="sc-source-pop" side="top" align="end" sideOffset={8}>
+            {items.slice(shown).map((it) => card(it, false))}
+          </Popover.Content>
+        </Popover.Root>
+      )}
+      {/* the widest count this row could ever show, measured, never seen */}
+      <span ref={probe} className="sc-source-chip sc-source-more" data-probe aria-hidden="true">
+        +{items.length}
+      </span>
     </div>
   );
 }

@@ -543,9 +543,10 @@
    tokens the hub's Refining chip wears, so the two shells cannot drift.
    Each card opens the picture.
 
-   One row at rest: as many whole cards as fit, then a "+N" chip; the rest
-   are hidden, never clipped. Opened, the row wraps in place. SourceCards
-   does the counting from measured widths. */
+   One row, always: as many whole cards as fit, then a "+N" chip; the rest
+   are hidden, never clipped, and open in the composer's own popover above
+   the band so nothing under the caret moves. SourceCards does the counting
+   from measured widths. */
 .sc-source-chips {
   display: flex;
   flex-wrap: nowrap;
@@ -554,12 +555,35 @@
   min-width: 0;
   overflow: hidden;
 }
-.sc-source-chips[data-expanded] {
+/* the rest of the row, floating: the same cards, wrapped, on the popover
+   surface every other composer menu already uses */
+.sc-source-pop {
+  display: flex;
   flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  max-width: min(320px, calc(100vw - 2 * var(--sc-gutter)));
+}
+.sc-source-pop[data-state="closed"] {
+  pointer-events: none;
+}
+/* the measuring twin of the count chip: in the row's flow for its font, out
+   of its layout and out of sight */
+.sc-source-chip[data-probe] {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
 }
 .sc-source-chip {
   flex: none;
   display: inline-flex;
+  /* the class's own display would outrank the UA's [hidden]; folded cards
+     have to actually leave the row */
+}
+.sc-source-chip[hidden] {
+  display: none;
+}
+.sc-source-chip {
   align-items: center;
   padding: var(--sc-space-1);
   border: none;

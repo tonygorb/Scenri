@@ -618,11 +618,20 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   // ? lists the lot. Shortcuts.tsx documents exactly what is bound here.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // A popover or dialog that already took the key (Radix marks its Escape
+      // handled) must not also close the shot or walk the tree under it.
+      if (e.defaultPrevented) return;
       const el = document.activeElement as HTMLElement | null;
       const tag = (el?.tagName ?? '').toUpperCase();
-      // the brief line is contenteditable, not an input: it needs the same guard
+      // the brief line is contenteditable, not an input: it needs the same
+      // guard, and so does a focused splitter, whose arrow keys size a panel
+      // rather than walk the tree
       const typing =
-        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!el?.closest('[contenteditable="true"]');
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        !!el?.closest('[contenteditable="true"]') ||
+        !!el?.closest('[role="separator"]');
 
       // cmd+enter runs the brief from anywhere, including mid-sentence
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
