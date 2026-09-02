@@ -42,6 +42,7 @@ import {
   chipHexWords,
   chipLabel,
   closeIcon,
+  collapseChipSpaces,
   collapseDoubleSpaceAtCaret,
   syncEmpty,
   decode,
@@ -1045,6 +1046,8 @@ export const BriefInput = forwardRef<
     // a chip deleted with Backspace or Delete leaves both of its spaces behind
     if (chips < chipCount.current) collapseDoubleSpaceAtCaret(root);
     chipCount.current = chips;
+    // a space typed at a chip's edge doubles the one the chip already owns
+    collapseChipSpaces(root);
     // clearing the line leaves a <br>; strip it and flip data-empty so the
     // placeholder returns even if Chromium re-inserts a caret host
     if (syncEmpty(root)) caretToEnd(root);

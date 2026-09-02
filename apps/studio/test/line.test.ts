@@ -6,6 +6,7 @@ import {
   chipHexWords,
   chipLabel,
   closeIcon,
+  collapseChipSpaces,
   collapseDoubleSpaceAtCaret,
   syncEmpty,
   decode,
@@ -432,6 +433,53 @@ describe('removing a chip', () => {
     sel.addRange(r);
     collapseDoubleSpaceAtCaret(root);
     expect(text()).toBe('shoot in light');
+  });
+});
+
+describe('collapseChipSpaces', () => {
+  const caretIn = (t: Text, at: number) => {
+    const r = document.createRange();
+    r.setStart(t, at);
+    r.collapse(true);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  };
+  const caretAt = () => {
+    const r = window.getSelection()!.getRangeAt(0);
+    return [r.startContainer, r.startOffset] as const;
+  };
+
+  it('a space typed between two chips collapses back to the one they share, caret past it', () => {
+    root.append(
+      chipFor({ t: 'product', id: 'p1' }),
+      document.createTextNode('  '),
+      chipFor({ t: 'character', id: 'c1' }),
+    );
+    const t = root.childNodes[1] as Text;
+    caretIn(t, 2);
+    expect(collapseChipSpaces(root)).toBe(true);
+    expect(t.textContent).toBe(' ');
+    expect(caretAt()).toEqual([t, 1]);
+  });
+
+  it('a space typed at a chip edge beside prose keeps the prose and one space', () => {
+    root.append(
+      chipFor({ t: 'product', id: 'p1' }),
+      document.createTextNode('  on marble  '),
+      chipFor({ t: 'character', id: 'c1' }),
+    );
+    const t = root.childNodes[1] as Text;
+    caretIn(t, 13);
+    collapseChipSpaces(root);
+    expect(t.textContent).toBe(' on marble ');
+    expect(caretAt()).toEqual([t, 11]);
+  });
+
+  it('prose that touches no chip is left alone', () => {
+    root.append(document.createTextNode('shoot  in light'));
+    expect(collapseChipSpaces(root)).toBe(false);
+    expect(text()).toBe('shoot  in light');
   });
 });
 

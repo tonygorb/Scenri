@@ -2078,6 +2078,24 @@ test('a refinement records what it carried, and the shot detail says it', async 
   await expect(page.locator('.sc-ingredient[data-world]')).toHaveCount(0);
 });
 
+test('a space typed at a chip edge never doubles the one the chip owns', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('hero shot of ');
+  await plusMenu(page, /products/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(1);
+  // the caret sits just past the chip, in the single space it owns
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Space');
+  await page.keyboard.type('on marble');
+  const after = await line(page).evaluate((el) => {
+    const chip = el.querySelector('.sc-token')!;
+    return (chip.nextSibling as Text).textContent;
+  });
+  expect(after).toBe(' on marble');
+});
+
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {
   // prose alone: the line's height at exactly one row of its own strut
   await line(page).click();

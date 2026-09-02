@@ -37,6 +37,7 @@ export {
   sigilAtCaret,
   removeChip,
   unitsBeforeChip,
+  collapseChipSpaces,
   collapseDoubleSpaceAtCaret,
 } from './line/insert.js';
 export {
