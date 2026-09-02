@@ -122,11 +122,13 @@ export function catalogPercent(j: CatalogImportJob | null): number {
  * into localStorage and read back after an upgrade, so the one thing they must
  * not do is spell a route by hand.
  */
+// A shot in no set is the ordinary case now, so the row says what happened
+// and stops. Naming the container was worth a column back when every shot had
+// one; saying "Workspace" on all of them would be furniture, not information.
+const whereOf = (n: ActivityNode) => (n.setNames.length > 0 ? `${n.setNames.join(', ')} · ` : '');
+
 export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Date.now(), batchSize = 1): Task {
-  // A shot in no set is the ordinary case now, so the row says what happened
-  // and stops. Naming the container was worth a column back when every shot had
-  // one; saying "Workspace" on all of them would be furniture, not information.
-  const where = n.setNames.length > 0 ? `${n.setNames.join(', ')} · ` : '';
+  const where = whereOf(n);
   // One row per request: a batch says how many shots it is making, a single
   // shot says nothing about counts at all — one is the ordinary case.
   const made = batchSize > 1 ? `${batchSize} shots` : 'ready';
@@ -151,6 +153,47 @@ export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Dat
     // the overlay hangs off the hub now, not off a project nobody named
     href: shotPath(brand, null, n.id),
   };
+}
+
+/**
+ * A multi-shot request as one row that reads the whole batch, not slot 0.
+ *
+ * The row used to be `taskFromNode(slot 0)`, which was right for as long as
+ * every sibling finished in the same instant. A sibling now lands on its own,
+ * and reading the first one's status for all of them would slow the poll to
+ * idle and announce a finish with three shots still rendering. So: running
+ * while any sibling runs; done once anything landed, saying how many did when
+ * some did not; an error only when nothing landed and something failed;
+ * cancelled when nothing landed and nothing failed. It wears the first picture
+ * that exists, whichever slot drew it. Same id and href as before, so the
+ * persisted notification rows keep matching.
+ */
+export function batchTask(siblings: ActivityNode[], brand: { slug: string }, now = Date.now()): Task {
+  const bySlot = [...siblings].sort((a, b) => (a.batchIndex ?? 0) - (b.batchIndex ?? 0));
+  const first = bySlot[0];
+  if (bySlot.length === 1) return taskFromNode(first, brand, now);
+  const landed = bySlot.filter((n) => n.status === 'done' && n.images.length > 0);
+  const status: ActivityNode['status'] = bySlot.some((n) => n.status === 'running')
+    ? 'running'
+    : landed.length
+      ? 'done'
+      : bySlot.some((n) => n.status === 'error')
+        ? 'error'
+        : 'cancelled';
+  const task = taskFromNode(
+    {
+      ...first,
+      status,
+      images: landed[0]?.images ?? [],
+      error: status === 'error' ? (bySlot.find((n) => n.status === 'error')?.error ?? null) : first.error,
+    },
+    brand,
+    now,
+    bySlot.length,
+  );
+  return status === 'done' && landed.length < bySlot.length
+    ? { ...task, subtitle: `${whereOf(first)}${landed.length} of ${bySlot.length} shots` }
+    : task;
 }
 
 export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string }): Task {

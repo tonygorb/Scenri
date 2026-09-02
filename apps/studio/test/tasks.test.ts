@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import type { ActivityNode, AssetBuild, CatalogImportJob } from '../src/api.js';
 import {
   agoLabel,
+  batchTask,
   catalogPercent,
   elapsedLabel,
   elapsedSec,
@@ -461,5 +462,59 @@ describe('unread and watched work', () => {
     // errors are never marked watched at the call site, so they always count
     const feed = [item('a', '2026-08-14 10:00:00', { state: 'error' })];
     expect(unreadCount(feed, '2026-08-14 09:00:00')).toBe(1);
+  });
+});
+
+/**
+ * A multi-shot request is one row in the bell, and the row used to be slot 0
+ * wearing the batch's name: its own status stood for all four. Now that a
+ * sibling finishes on its own, the row has to read the whole batch.
+ */
+describe('batchTask', () => {
+  const NOW = Date.parse('2026-09-02T10:00:30Z');
+  const sib = (i: number, over: Partial<ActivityNode> = {}): ActivityNode =>
+    node({
+      id: `s${i}`,
+      batchId: 's0',
+      batchIndex: i,
+      setNames: [],
+      createdAt: `2026-09-02 10:00:00.00${4 - i}`,
+      ...over,
+    });
+
+  it('is one row named after the first sibling, running while any sibling still runs', () => {
+    const t = batchTask([sib(0, { status: 'done', images: ['h0'] }), sib(1), sib(2), sib(3)], brand, NOW);
+    expect(t.id).toBe('node:s0');
+    expect(t.state).toBe('running');
+    expect(t.percent).toBeNull();
+    expect(t.href).toBe(taskFromNode(sib(0), brand, NOW).href);
+  });
+
+  it('shows the first picture that landed, whichever slot it came from', () => {
+    const t = batchTask([sib(3), sib(2, { status: 'done', images: ['h2'] }), sib(1), sib(0)], brand, NOW);
+    expect(t.thumb).toBe('h2');
+  });
+
+  it('finishes only when every sibling is terminal, and says how many made it', () => {
+    const all = [0, 1, 2, 3].map((i) => sib(i, { status: 'done', images: [`h${i}`] }));
+    expect(batchTask(all, brand, NOW)).toMatchObject({ state: 'done', subtitle: '4 shots', thumb: 'h0' });
+    const some = [
+      sib(0, { status: 'done', images: ['h0'] }),
+      sib(1, { status: 'error', error: 'refused' }),
+      sib(2, { status: 'done', images: ['h2'] }),
+      sib(3, { status: 'cancelled' }),
+    ];
+    expect(batchTask(some, brand, NOW)).toMatchObject({ state: 'done', subtitle: '2 of 4 shots' });
+  });
+
+  it('is an error only when nothing landed, and cancelled only when nothing failed either', () => {
+    const failed = [sib(0, { status: 'error', error: 'refused' }), sib(1, { status: 'cancelled' })];
+    expect(batchTask(failed, brand, NOW)).toMatchObject({ state: 'error', subtitle: 'refused' });
+    const stopped = [sib(0, { status: 'cancelled' }), sib(1, { status: 'cancelled' })];
+    expect(batchTask(stopped, brand, NOW)).toMatchObject({ state: 'cancelled', subtitle: 'cancelled' });
+  });
+
+  it('is taskFromNode for a batch of one', () => {
+    expect(batchTask([node()], brand, NOW)).toEqual(taskFromNode(node(), brand, NOW));
   });
 });

@@ -81,6 +81,8 @@ const OWNED_SCENE = {
 type SeedOptions = {
   /** Seed a scene the brand owns, so the Scenes library renders warm (no first-run offer). */
   scene?: boolean;
+  /** Extra environment for this file's own Scenri: the demo engine's timing knobs, say. */
+  env?: Record<string, string>;
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -130,7 +132,7 @@ class ScenriFixture {
   private child: ChildProcess | null = null;
   home: string | null = null;
 
-  async start(): Promise<void> {
+  async start(env: Record<string, string> = {}): Promise<void> {
     requireStudioBuild();
     this.home = mkdtempSync(join(tmpdir(), 'sc-e2e-'));
     // node directly, not `pnpm exec tsx`. Through pnpm the server is a
@@ -161,6 +163,7 @@ class ScenriFixture {
         OPENROUTER_API_KEY: '',
         REPLICATE_API_TOKEN: '',
         FAL_KEY: '',
+        ...env,
       },
     });
 
@@ -254,7 +257,7 @@ export function isolate(opts: SeedOptions = {}): void {
 
   test.beforeAll(async () => {
     test.setTimeout(120_000);
-    await fx.start();
+    await fx.start(opts.env);
     await fx.seed(opts);
   });
 

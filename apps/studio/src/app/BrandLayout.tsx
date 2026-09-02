@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useMatch, useParams } from 'react-router';
-import { api, type Brand, type Product, type Project, type ShotSet, type TreeNode } from '../api.js';
+import { api, type ActivityNode, type Brand, type Product, type Project, type ShotSet, type TreeNode } from '../api.js';
 import { P, brandPath } from '../routes.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
 import { TabBar } from '../layout/TabBar.js';
@@ -14,6 +14,7 @@ import { ProviderSetup } from '../views/ProviderSetup.js';
 import { useAppData } from './AppShell.js';
 import { pickBrand } from './RootRedirect.js';
 import { TaskCenterProvider } from './TaskCenter.js';
+import { mergeNodes } from './activityMerge.js';
 import { WhatsNewGate } from './WhatsNew.js';
 
 interface BrandData {
@@ -133,6 +134,34 @@ export function BrandLayout() {
     setLoaded(true);
   }, [brand?.id]);
 
+  /**
+   * The bell's poll, folded into the feed by id.
+   *
+   * A shot landing used to mean "refetch the workspace": every shot in the
+   * brand re-read so one tile could change. The poll already carries the
+   * record that changed. A record naming a shot this list has never held is
+   * the one case that still asks for the whole thing, once. The merge itself
+   * runs as an updater so two answers can never overwrite each other; the
+   * unknown check reads the latest committed list, which is all it needs.
+   */
+  const nodesRef = useRef<TreeNode[]>(nodes);
+  nodesRef.current = nodes;
+  const loadedRef = useRef(loaded);
+  loadedRef.current = loaded;
+  const applyActivity = useCallback(
+    (forBrand: string, fresh: ActivityNode[]) => {
+      // the other brand's answer is not an answer about this one
+      if (!brand || forBrand !== brand.id || !loadedRef.current) return;
+      const held = new Set(nodesRef.current.map((n) => n.id));
+      if (fresh.some((n) => !held.has(n.id))) {
+        void refreshWorkspace();
+        return;
+      }
+      setNodes((prev) => mergeNodes(prev, fresh).nodes);
+    },
+    [brand?.id, refreshWorkspace],
+  );
+
   const applySet = useCallback((next: ShotSet) => setSets((cur) => cur.map((s) => (s.id === next.id ? next : s))), []);
   const dropSet = useCallback((id: string) => setSets((cur) => cur.filter((s) => s.id !== id)), []);
 
@@ -187,7 +216,7 @@ export function BrandLayout() {
       <SettingsDialog engines={engines} shots={nodes} onSaved={refresh} />
       <ProviderSetup engines={engines} onSaved={refresh} />
       <WhatsNewDialog />
-      <TaskCenterProvider brand={brand}>
+      <TaskCenterProvider brand={brand} onActivity={applyActivity}>
         {/* The gate needs what only this level knows: whether anything is
             generating or building. It renders nothing. */}
         <WhatsNewGate />

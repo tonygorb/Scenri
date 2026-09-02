@@ -152,7 +152,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [compareOpen, setCompareOpen] = useState(false);
   const composerRef = useRef<ComposerHandle>(null);
   const { push } = useToasts();
-  const { tasks, poke } = useTaskCenter();
+  const { poke } = useTaskCenter();
   /** The brief that has been sent and not yet come back as shots, and how
    * many shots it asked for — one stand-in tile per expected sibling. */
   const [sending, setSending] = useState<{ said: string; count: number } | null>(null);
@@ -225,38 +225,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     if (nodeId) setSelectedId(nodeId);
   }, [nodeId]);
 
-  /**
-   * The bell is the only thing that polls.
-   *
-   * TaskCenter already asks the server what is running, every 1.5s while work
-   * is in flight and every 5s when it is not, and it already stops for a hidden
-   * tab. This screen used to run a second interval at the same cadence asking
-   * an overlapping question, so a single generation was watched twice over.
-   *
-   * Instead it reads the answer the bell already has: whenever a shot changes
-   * state, refetch the workspace once. Catalog imports are filtered out because
-   * they never touch the feed.
-   */
-  const shotActivity = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.kind !== 'catalog')
-        .map((t) => `${t.id}:${t.state}`)
-        .sort()
-        .join('|'),
-    [tasks],
-  );
-  const lastActivity = useRef<string | null>(null);
-  useEffect(() => {
-    // the first reading is the baseline BrandLayout has already loaded against
-    if (lastActivity.current === null) {
-      lastActivity.current = shotActivity;
-      return;
-    }
-    if (lastActivity.current === shotActivity) return;
-    lastActivity.current = shotActivity;
-    void reload();
-  }, [shotActivity, reload]);
+  // The bell is the only thing that polls, and the feed no longer refetches on
+  // its word: BrandLayout folds each poll's records into the list by id
+  // (applyActivity), so a shot landing changes one tile and nothing else.
 
   /** Every non-archived shot in the brand, newest first — the feed before any
    * other lens. Archived shots are put away on purpose: they stay out of
