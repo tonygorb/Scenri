@@ -51,6 +51,29 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.8.0',
+    date: '2026-09-02',
+    title: 'The composer, rebuilt around what a shot is made of.',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Ingredients are compact chips now, each carrying the picture it stands for, and hovering one shows you what it is holding. A shot can hold twelve of them: the ones your engine can photograph are lit, and the rest ride along in words rather than being dropped, with every chip saying which it is. Photos go out in the order you wrote them, so the first thing you named is the first thing pictured. The asset panel beside the brief is a second door into it, so a tile ticks when its chip is in and clicking it again takes the chip out.',
+      },
+      {
+        heading: 'Refine',
+        body: 'The panel beside an open shot has been redrawn, and its edge can be dragged to the width you want. Above the brief it shows what the picture is actually made of, resolved through the whole chain of refinements rather than just the last one, so nothing is repeated and nothing is lost at depth.',
+      },
+      {
+        heading: 'Brand',
+        body: 'A product name is something to show in a shot, never lettering to paint into it, and a brand colour is now spoken as a note rather than an instruction, which keeps invented signage out of your pictures. Brand rules apply to every shot from Settings, so the composer no longer carries a row to say so.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A finished shot appears the moment it lands instead of waiting for the rest of its batch, and a batch sent from a set files every shot in it. Typing around a chip behaves: the chip owns the space beside it, one press removes it, and two chips always keep the single space between them. Two presenters in a scene no longer compose one of them out.',
+      },
+    ],
+  },
+  {
     version: '0.7.5',
     date: '2026-09-01',
     title: 'Every shot is one card.',
