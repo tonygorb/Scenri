@@ -58,8 +58,7 @@ textarea:disabled {
 
 /* Honest truncation: both of these say what is not on screen and how to reach
    it. A list that silently stops at sixty reads as a list of sixty. */
-.sc-ap-capped,
-.sc-swap-capped {
+.sc-ap-capped {
   font-size: 11.5px;
   color: var(--sc-fg3);
   padding: 10px 2px 2px;

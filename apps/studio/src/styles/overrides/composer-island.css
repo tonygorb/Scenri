@@ -117,7 +117,7 @@
   gap: var(--sc-space-2);
 }
 .sc-ovl-edit .sc-prompt-right .sc-send {
-  margin-left: 10px;
+  margin-inline-start: 10px;
 }
 .sc-ovl-edit .sc-mini-sel {
   height: 30px !important;

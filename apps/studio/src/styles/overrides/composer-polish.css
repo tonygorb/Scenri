@@ -137,9 +137,10 @@
   white-space: nowrap;
 }
 
-/* the right group's own gap spaces the send now; the old 10px extra is gone */
+/* on the dock the right group's own gap spaces the send; the overlay adds its
+   own step (composer-island.css) */
 .sc-prompt-right .sc-send {
-  margin-left: 0;
+  margin-inline-start: 0;
 }
 .sc-prompt-row {
   padding: 6px 14px 14px;

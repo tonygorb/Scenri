@@ -12,9 +12,6 @@
   background: var(--sc-hover);
   border-radius: var(--sc-radius);
 }
-.sc-brief-line {
-  padding: 13px 16px 4px;
-}
 /* Plain inline flow, never flex.
    As a flex container every text run became an anonymous flex item and the
    gap between items belonged to no text node at all, so hit testing around a
@@ -26,7 +23,6 @@
   display: block;
   min-height: 24px;
   cursor: text;
-  font-size: 13.5px;
   line-height: 1.6;
 }
 
@@ -312,16 +308,10 @@
 /* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
-.sc-brief-line {
-  padding: 14px 14px 6px;
-}
 /* One 14px frame for the whole card: sentence, controls and edges agree. The
    frame sits on the editable line, not on the card around it, so a click in it
    still lands in the text. As the card's padding it was dead space that threw
    the caret to the start of the sentence. */
-.sc-brief-line {
-  padding: 14px 14px 8px;
-}
 /* ---------- chips are buttons that reopen their own menu ---------- */
 /* grab, not pointer: a chip is also the thing you pick up and move, and the
    cursor is the one resting affordance the drag has */
@@ -341,10 +331,6 @@
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
-/* A chip whose reference the chosen engine cannot carry. The tooltip already
-   said so, but a tooltip you have to hover to find is not far from silence —
-   and an identity that quietly became text is the failure this whole path
-   exists to prevent. Amber underline, not red: the generation still runs. */
 /* a template chip wears the mood of its own preview image */
 .sc-token[data-tinted] {
   background: color-mix(in srgb, var(--tint) 16%, var(--sc-panel));

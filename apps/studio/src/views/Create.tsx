@@ -150,7 +150,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [sortPref, setSortPref] = useLocalPref<FeedSort>(PREF.feedSort, 'newest');
   const sort: FeedSort = isFeedSort(sortPref) ? sortPref : 'newest';
   const [compareOpen, setCompareOpen] = useState(false);
-  const _saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<ComposerHandle>(null);
   const { push } = useToasts();
   const { tasks, poke } = useTaskCenter();

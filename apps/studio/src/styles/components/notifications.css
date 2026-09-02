@@ -163,15 +163,6 @@
 .sc-notif-row[data-running] {
   padding-right: 76px;
 }
-.sc-notif-row[data-unread]::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-gold);
-  flex: none;
-  margin-left: -3px;
-}
 /* relative, so .sc-shimmer sits inside it unchanged */
 .sc-notif-thumb {
   position: relative;

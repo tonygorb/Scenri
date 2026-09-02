@@ -71,10 +71,6 @@
 .sc-create-card[data-main] {
   background: color-mix(in srgb, var(--sc-gold) 11%, var(--sc-raised));
 }
-.sc-create-card[data-soon] {
-  opacity: 0.42;
-  cursor: not-allowed;
-}
 .sc-create-card b {
   display: flex;
   align-items: center;
@@ -128,10 +124,10 @@
   transform-origin: top center;
   transform: scale(1.08);
 }
-.sc-create-card:hover:not([data-soon]) .sc-glyph {
+.sc-create-card:hover .sc-glyph {
   filter: brightness(1.22);
 }
-.sc-create-card:focus-visible:not([data-soon]) .sc-glyph {
+.sc-create-card:focus-visible .sc-glyph {
   filter: brightness(1.22);
 }
 /* Filled wells: life in the glyph, cards stay quiet. Compose well a touch warmer. */

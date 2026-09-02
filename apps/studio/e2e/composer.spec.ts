@@ -2131,8 +2131,8 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   await page.keyboard.press('End');
   await page.keyboard.type(' in the golden hour with a long clean shadow across the marble slab');
   const wrapped = (await line(page).boundingBox())!.height;
-  // the line's own computed strut, not a hard-coded ratio: the Figma pass
-  // pitches rows at line-height 2 (30px at the 15px line) so 26px chips fit
+  // the line's own computed strut, not a hard-coded ratio: prose rows pitch
+  // at the 24px strut, chip rows at 28 through the chips' own margins
   const strut = await line(page).evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   // measured from the chip row, so the one new row is prose alone
   const grown = wrapped - withChip;

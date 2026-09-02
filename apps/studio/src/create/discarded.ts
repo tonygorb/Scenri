@@ -33,8 +33,3 @@ export function takeDiscarded(brandId: string, kind: CreateKind): AssetFields | 
   slot = null;
   return fields;
 }
-
-/** The offer is over: the toast went, or the attempt was made for real. */
-export function dropDiscarded(): void {
-  slot = null;
-}

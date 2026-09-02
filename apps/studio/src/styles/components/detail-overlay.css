@@ -261,15 +261,10 @@
   color: var(--sc-fg3);
   font-size: var(--sc-text-caption);
 }
-.sc-ovl-take,
 .sc-ovl-spend {
   margin-left: auto;
   color: var(--sc-fg3);
   font-size: var(--sc-text-caption);
-}
-/* when both are present the take leads and the price follows it */
-.sc-ovl-take ~ .sc-ovl-spend {
-  margin-left: var(--sc-space-4);
 }
 /* One section grammar for the whole record: micro-caps label, airy content,
    hairline underneath. */
@@ -366,11 +361,6 @@
 }
 .sc-ovl-copy:hover {
   color: var(--sc-fg);
-}
-.sc-ovl-meta .sc-ingredients {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-2);
 }
 /* The panel's one working surface, pinned to its bottom edge: content scrolls
    beneath it, and when there is little content margin-top:auto keeps it at the

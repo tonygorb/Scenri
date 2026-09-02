@@ -609,13 +609,6 @@
 .sc-source-chip {
   flex: none;
   display: inline-flex;
-  /* the class's own display would outrank the UA's [hidden]; folded cards
-     have to actually leave the row */
-}
-.sc-source-chip[hidden] {
-  display: none;
-}
-.sc-source-chip {
   align-items: center;
   padding: var(--sc-space-1);
   border: none;
@@ -663,7 +656,12 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 12px;
-  padding-right: 6px;
+  padding-inline-end: 6px;
+}
+/* the class's own display would outrank the UA's [hidden]; folded cards
+   have to actually leave the row */
+.sc-source-chip[hidden] {
+  display: none;
 }
 .sc-source-faces img {
   width: 18px;
@@ -676,7 +674,7 @@
   object-position: 50% 12%;
 }
 .sc-source-stack > span:last-child {
-  padding: 0 var(--sc-space-3) 0 var(--sc-space-2);
+  padding-inline: var(--sc-space-2) var(--sc-space-3);
 }
 .sc-target-thumb {
   display: inline-block;
@@ -739,7 +737,6 @@
 .sc-amore:focus-visible,
 .sc-s:focus-visible,
 .sc-ap-card:focus-visible,
-.sc-mainnav button:focus-visible,
 .sc-nav :is(button, a):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);

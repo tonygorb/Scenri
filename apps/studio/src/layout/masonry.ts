@@ -42,8 +42,7 @@ export function nearestTileStop(raw: unknown): number {
  * Catalog walls only (Home / Products / Presenters / Scenes).
  * Two views: compact (~7 across) and large (~5 across).
  */
-export const DENSITY_STAGES = [7, 5] as const;
-export type DensityCols = (typeof DENSITY_STAGES)[number];
+export type DensityCols = 7 | 5;
 export const DENSITY_DEFAULT: DensityCols = 5;
 
 /** Map a stored wall-density pref onto compact | large. */

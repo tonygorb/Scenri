@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ImageSquare } from '@phosphor-icons/react';
 import { PREVIEW_W, placePanel, type Placed } from './anchorPanel.js';
@@ -99,7 +99,6 @@ export function ChipPreview({
 }) {
   const [pos, setPos] = useState<Placed | null>(null);
   const [broken, setBroken] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setBroken(false), [src]);
 
@@ -150,7 +149,6 @@ export function ChipPreview({
   const noun = nounHere ?? PREVIEW_NOUN[kind];
   return createPortal(
     <div
-      ref={rootRef}
       className="sc-chip-preview"
       data-kind={kind}
       data-side={pos.side}

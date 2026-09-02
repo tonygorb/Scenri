@@ -174,9 +174,9 @@ export function DetailOverlay({
   const framePeek = useHoverPreview<{ key: string; src: string; label: string; el: HTMLElement; id: string }>();
   /**
    * The image's history in reading order — the original, this shot, its
-   * refinements — worn as the thumb strip under the stage, exactly where the
-   * variants used to live. Only versions with a picture appear; a failed
-   * refinement stays a card in the feed rather than a hole in the strip.
+   * refinements — worn as the thumb strip under the stage. Only versions with
+   * a picture appear; a failed refinement stays a card in the feed rather
+   * than a hole in the strip.
    */
   const lineageStrip = useMemo(
     () => [...ancestors, node, ...children.slice(0, 6)].filter((n) => n.images[0]),
@@ -472,10 +472,9 @@ export function DetailOverlay({
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
           />
-          {/* The image's own history, right under the image, wearing the strip
-              the variants used to wear: the original, this shot ringed, and
-              its refinements. Hovering peeks a version at a readable size;
-              clicking moves the stage to it. */}
+          {/* The image's own history, right under the image: the original,
+              this shot ringed, and its refinements. Hovering peeks a version
+              at a readable size; clicking moves the stage to it. */}
           {lineageStrip.length > 1 && (
             <div className="sc-thumbs">
               {lineageStrip.map((n) => (
@@ -656,8 +655,7 @@ export function DetailOverlay({
           )}
 
           {/* No versions section in here: the image's history wears the thumb
-              strip under the stage, where the variants used to live. The
-              sidebar does not own image navigation. */}
+              strip under the stage. The sidebar does not own image navigation. */}
 
           {/* No station on a dead shot: the stage owns retrying a failure,
               and a Generate field down here made a failed refine read as a

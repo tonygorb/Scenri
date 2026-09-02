@@ -23,11 +23,6 @@
     display: none !important;
   }
 }
-@media (min-width: 768px) {
-  .sc-mobile-only {
-    display: none !important;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;

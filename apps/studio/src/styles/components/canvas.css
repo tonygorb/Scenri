@@ -301,9 +301,6 @@
 .sc-cell-ctl svg {
   flex: none;
 }
-.sc-cell-ctl-n {
-  font-family: var(--sc-font-mono);
-}
 
 /* ---------- what is a mark, and what is a control --------------------------
    Everything is a control by default and waits. The three rules below are the
@@ -402,38 +399,6 @@
   position: static;
 }
 
-/* ---------- the stack mark -------------------------------------------------
-   A run that came back with four pictures is the one thing you cannot see by
-   looking at the tile, so it is the one control that stays legible at rest: a
-   glyph and a numeral, no pill and no border. Under the pointer it becomes the
-   door it always was and says the word. It used to be a chip in a row of three
-   other chips that never hid, which is how a count of takes ended up reading
-   as chrome. */
-.sc-cell-stack {
-  opacity: 1;
-  padding: 0 2px;
-  background: none;
-  filter: var(--sc-cell-mark-shadow);
-  transition:
-    opacity var(--sc-dur-fast) var(--sc-ease) 100ms,
-    background var(--sc-dur-fast) var(--sc-ease),
-    color var(--sc-dur-fast) var(--sc-ease),
-    filter var(--sc-dur-fast) var(--sc-ease);
-}
-.sc-cell-stack .sc-cell-ctl-lb {
-  display: none;
-}
-.sc-cell:hover .sc-cell-stack,
-.sc-cell:focus-within .sc-cell-stack {
-  padding: 0 10px;
-  background: var(--sc-cell-ctl-bg);
-  filter: none;
-}
-.sc-cell:hover .sc-cell-stack .sc-cell-ctl-lb,
-.sc-cell:focus-within .sc-cell-stack .sc-cell-ctl-lb {
-  display: inline;
-}
-
 /* ---------- archive and Refine ---------------------------------------------
    Refine keeps its word at every width now. It used to give it up under a
    finger because on a 175px tile the label and the fact chips could not both
@@ -459,8 +424,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-cellimg img,
   .sc-cell-veil,
-  .sc-cell-ctl,
-  .sc-cell-stack {
+  .sc-cell-ctl {
     transition: none;
   }
 }
@@ -546,7 +510,6 @@
      stays clickable everywhere except the buttons' own small hit areas */
   pointer-events: none;
 }
-.sc-cell-retry,
 .sc-cell-failed .sc-s,
 .sc-cell-failed .sc-fail-alt {
   pointer-events: auto;
@@ -573,23 +536,6 @@
 .sc-cell-cancel[data-urgent] {
   color: var(--sc-gold);
   background: color-mix(in srgb, var(--sc-gold) 18%, var(--sc-cell-ctl-bg));
-}
-.sc-cell-retry {
-  border: 1px solid var(--sc-line);
-  background: var(--sc-panel);
-  border-radius: var(--sc-radius-full);
-  padding: 4px 12px;
-  font-size: 12px;
-  color: var(--sc-fg);
-  cursor: pointer;
-}
-.sc-cell-retry:hover {
-  background: var(--sc-hover);
-}
-.sc-cell-retry[data-urgent] {
-  border-color: var(--sc-gold);
-  color: var(--sc-gold);
-  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
 }
 @media (max-width: 479px) {
   .sc-cell {
