@@ -28,7 +28,7 @@ import {
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import { applySceneTint } from './sceneTint.js';
-import { PIXEL_ONLY } from './attachRoom.js';
+import { COSTS_SEAT } from './attachRoom.js';
 import {
   CHIP,
   caretBeside,
@@ -125,8 +125,6 @@ export const BriefInput = forwardRef<
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
-    /** How an identity reaches the engine, photo or words: the peek card's neutral line. */
-    status?: (t: SentenceToken) => string | null;
     /**
      * Why no more photo chips can join, when the engine's slots are all
      * taken: the one refusal every door shares. Null while there is room, or
@@ -167,7 +165,6 @@ export const BriefInput = forwardRef<
     placeholder,
     placeholderSm,
     flag,
-    status,
     roomFull,
     onInspect,
     activeProductCategory,
@@ -495,9 +492,10 @@ export const BriefInput = forwardRef<
           return;
         }
       }
-      // No photo seat left: a chip that is nothing but its picture is refused
-      // at the door. Everything else carries words and still rides.
-      if (roomFull && PIXEL_ONLY.has(token.t)) {
+      // No photo seat left: a chip that would need one is refused at the
+      // door. A scene swap keeps the seat the old scene held, so it passes;
+      // a colour never needed one.
+      if (roomFull && COSTS_SEAT.has(token.t) && !(token.t === 'template' && templateChip(root))) {
         setMenu(null);
         setQuery('');
         announce(roomFull);
@@ -1171,7 +1169,6 @@ export const BriefInput = forwardRef<
   const anchorToken = picker ? decode(picker.anchor.dataset.tok ?? '') : null;
   const previewHash = previewHashOf(anchorToken);
   const anchorWarning = anchorToken ? (flag?.(anchorToken) ?? null) : null;
-  const anchorStatus = anchorToken ? (status?.(anchorToken) ?? null) : null;
 
   const hoveredToken = hovered ? decode(hovered.anchor.dataset.tok ?? '') : null;
   const hoveredHash = previewHashOf(hoveredToken);
@@ -1188,7 +1185,6 @@ export const BriefInput = forwardRef<
         ? hoveredPicker
         : null;
   const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
-  const hoveredStatus = hoveredToken ? (status?.(hoveredToken) ?? null) : null;
 
   return (
     <div className="sc-brief" ref={scrollerRef} onScroll={syncScrollHint} data-drag-over={dragOver || undefined}>
@@ -1276,7 +1272,6 @@ export const BriefInput = forwardRef<
           // the card already says; everything else has a name worth repeating.
           label={hoveredKind === 'ref' ? null : chipLabel(hovered.anchor)}
           warning={hoveredWarning}
-          note={hoveredStatus}
           // One pattern for every card: clicking the preview always opens the
           // picture full size. The picker stays the chip's own click.
           onOpen={() => {
@@ -1352,7 +1347,6 @@ export const BriefInput = forwardRef<
           brandId={brand.id}
           brandSlug={brand.slug}
           warning={anchorWarning}
-          note={anchorStatus}
           onAttachRequest={
             onAttachRequest
               ? (tab) => {

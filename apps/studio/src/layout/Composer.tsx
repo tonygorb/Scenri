@@ -928,7 +928,7 @@ export const Composer = forwardRef<
   const room = useMemo(() => attachRoom(settledPreview), [settledPreview]);
   const roomFull =
     room && room.left <= 0
-      ? `${engine?.displayName ?? 'This engine'} takes ${room.cap} photos per shot. A mark or a reference needs one of them; products, people and scenes ride as words.`
+      ? `${engine?.displayName ?? 'This engine'} takes ${room.cap} photos per shot. Remove one to add another.`
       : null;
   const templateFlag = !template
     ? null
@@ -943,34 +943,46 @@ export const Composer = forwardRef<
   /**
    * Which chips get a mark, and what it says.
    *
-   * Words carry look, pixels carry likeness. A product, a person or a scene
-   * carries a written identity into the prompt whether or not its photo
-   * found a seat, so a dropped photo there is a fact for the peek card
-   * (`statusToken`), not a warning on the chip. A reference or a brand mark
-   * has nothing but its picture: dropped, it is gone, and the chip says so
-   * with the reason the compiler gave, because the remedy differs. An engine
-   * that reads no images needs a different engine; a full budget needs a
-   * photo removed.
+   * A photo that does not exist has a different remedy than a photo the
+   * engine cannot seat, which differs again from an engine that reads no
+   * images at all: the chip says the one the user can act on. The compiler
+   * classifies the loss (`reason`, `cap`), the chip only speaks it. Words
+   * alone give the right kind of person, never the person, so a chip whose
+   * photo stayed home is always marked.
    */
   const flagToken = (t: BriefToken): string | null => {
     if (t.t === 'template') return templateFlag;
     if (!settledPreview) return null;
     const engineName = engine?.displayName ?? 'this engine';
     const cap = settledPreview.cap;
-    // An older server says nothing about its cap; the engine-blind wording
-    // is the one it always used.
-    const blind = cap == null || cap === 0;
+    /**
+     * The sentence for a photo the engine could have read but had no seat
+     * for. `what` is the mid-sentence form ("this reference", "Astrid's
+     * photo"); the variants that open with it capitalise its first letter, a
+     * name keeps its own case.
+     */
+    const noSeat = (what: string) => {
+      const What = what.charAt(0).toUpperCase() + what.slice(1);
+      return cap === 0
+        ? `${What} won't reach ${engineName}. Choose an engine that reads images.`
+        : cap == null
+          ? // An older server says nothing about its cap: no reason, no blame.
+            `${What} won't reach ${engineName} this time.`
+          : `${engineName} takes ${cap} photos per shot and ${what} didn't get a seat. Remove a photo to make room.`;
+    };
+    const missingIdentity = (role: 'product' | 'character', id: string) =>
+      settledPreview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
     if (t.t === 'ref' && !settledPreview.attachments.some((a) => a.hash === t.imageHash)) {
-      return blind
+      return cap === 0
         ? `This reference won't reach ${engineName}. Choose an engine that reads images, or remove it.`
-        : `${engineName} takes ${cap} photos per shot and this reference didn't get a seat. Remove a photo to make room.`;
+        : noSeat('this reference');
     }
     // The brand mark is an attachment like any other, and it used to be the
     // one kind that could be dropped with no mark on its chip at all.
     if (t.t === 'mark' && !settledPreview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
-      return blind
+      return cap === 0
         ? `The brand mark won't reach ${engineName}, so the logo can't be drawn from it. Choose an engine that reads images.`
-        : `${engineName} takes ${cap} photos per shot and the brand mark didn't get a seat, so the logo can't be drawn from it. Remove a photo to make room.`;
+        : `${noSeat('the brand mark')} The logo can't be drawn from it.`;
     }
     // A tiny mark rides, but its fine lettering is already subpixel: the
     // compiler measured the stored file and said so (the 'px across' phrase
@@ -979,31 +991,32 @@ export const Composer = forwardRef<
       const small = settledPreview.warnings.find((w) => w.includes('px across'));
       if (small) return small;
     }
+    if (t.t === 'product') {
+      // Demo products live in their own list, so a chip naming one resolved to
+      // nothing here and silently skipped the check: exactly the products the
+      // homepage examples are built from.
+      const products = libraryProducts.length ? libraryProducts : (brand.json?.products ?? []);
+      const p = products.find((x: any) => x.id === t.id) ?? demoProducts.find((x) => x.id === t.id);
+      // Match on id, never on label: a display name is free to differ from the
+      // descriptive phrase the compiler labels the attachment with, and two
+      // products may legitimately share a name.
+      if (p && !settledPreview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
+        return missingIdentity('product', p.id)
+          ? `${p.name} has no usable photo. Re-add one, or remove this.`
+          : noSeat(`${p.name}'s photo`);
+      }
+    }
+    // A presenter is an identity too. Without this, a face the engine could not
+    // carry was dropped with no mark on the chip that asked for it.
+    if (t.t === 'character') {
+      const c = presenters.find((x) => x.id === t.id);
+      if (c && !settledPreview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
+        return missingIdentity('character', c.id)
+          ? `${c.name} has no usable photo. Re-add one, or remove this.`
+          : noSeat(`${c.name}'s photo`);
+      }
+    }
     return null;
-  };
-
-  /**
-   * How an identity reaches the engine, for the peek card: by its photo, or
-   * by its words. Neutral, because both are how the product works; the card
-   * simply says which one this shot got, and why, so nobody believes a face
-   * the engine never saw.
-   */
-  const statusToken = (t: BriefToken): string | null => {
-    if (!settledPreview) return null;
-    if (t.t !== 'product' && t.t !== 'character') return null;
-    const role = t.t === 'product' ? 'product' : 'character';
-    const engineName = engine?.displayName ?? 'this engine';
-    if (settledPreview.attachments.some((a) => a.role === role && a.id === t.id)) return `Pictured for ${engineName}.`;
-    const drop = settledPreview.dropped?.find((d) => d.role === role && d.id === t.id);
-    if (!drop) return null;
-    if (drop.reason === 'missing') return `No photo on file. ${engineName} works from the description.`;
-    const cap = settledPreview.cap;
-    // An older server says nothing about its cap, so neither does the card:
-    // guessing "reads no images" at an engine that reads five is a lie.
-    if (cap == null) return `Described in words for ${engineName}.`;
-    return cap === 0
-      ? `Described in words. ${engineName} reads no images.`
-      : `Described in words. ${engineName} takes ${cap} photos per shot.`;
   };
 
   const go = async () => {
@@ -1314,7 +1327,6 @@ export const Composer = forwardRef<
           onTemplatePick={applyScene}
           scenesSitOut={scenesSitOut}
           flag={flagToken}
-          status={statusToken}
           roomFull={roomFull}
           onInspect={(image) => setLightbox(image)}
           onAttachRequest={(tab) => openAttach(tab)}

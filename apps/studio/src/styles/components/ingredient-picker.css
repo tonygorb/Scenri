@@ -515,11 +515,6 @@
   margin-top: var(--swap-step);
   font-size: var(--sc-text-micro);
 }
-.sc-chip-preview-note {
-  margin: var(--swap-step) 0 0;
-  font-size: var(--sc-text-micro);
-  color: var(--sc-fg3);
-}
 .sc-chip-preview-blank {
   display: flex;
   flex-direction: column;

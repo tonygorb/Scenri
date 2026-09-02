@@ -24,9 +24,10 @@ export function attachRoom(preview: Pick<BriefPreview, 'cap' | 'attachments' | '
 }
 
 /**
- * The kinds of chip that are nothing but their picture. A product, a person
- * or a scene carries a written identity too, so it still shapes the shot when
- * its photo finds no seat; a reference or a brand mark has no words to ride
- * on, and past the last seat it is refused rather than quietly dropped.
+ * The kinds of chip that cost a photo seat when the engine reads images: a
+ * product, a person, a reference, a brand mark, a scene with its plate. A
+ * colour costs nothing. Words alone give the right kind of person, never the
+ * person, so past the last seat a new one of these is refused at the door
+ * rather than quietly riding as prose.
  */
-export const PIXEL_ONLY = new Set(['ref', 'mark']);
+export const COSTS_SEAT = new Set(['product', 'character', 'ref', 'mark', 'template']);
