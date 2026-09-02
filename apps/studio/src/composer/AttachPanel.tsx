@@ -58,6 +58,7 @@ export function AttachPanel({
   initialTab = 'All',
   activeProductCategory,
   refining,
+  full,
   id,
   onToken,
   onTemplate,
@@ -81,6 +82,12 @@ export function AttachPanel({
    * button to Generate.
    */
   refining?: boolean;
+  /**
+   * The engine's photo slots are all taken: every card that would cost one
+   * sits out, dimmed and disabled, and this is the sentence that says why.
+   * Colours cost nothing and stay live.
+   */
+  full?: string | null;
   onToken: (t: SentenceToken) => void;
   onTemplate: (id: string) => void;
   onUpload: () => void;
@@ -247,18 +254,21 @@ export function AttachPanel({
 
   const card = (c: Card) => {
     const sitsOut = refining && c.tab === 'Scenes';
+    const noRoom = !!full && c.tab !== 'Colors';
     return (
       <button
         type="button"
         key={c.key}
         className="sc-ap-card"
-        disabled={sitsOut}
+        disabled={sitsOut || noRoom}
         title={
           sitsOut
             ? 'Scenes set up a new shot. Press X on Refining to use one.'
-            : c.sub
-              ? `${c.label} · ${c.sub}`
-              : c.label
+            : noRoom
+              ? full
+              : c.sub
+                ? `${c.label} · ${c.sub}`
+                : c.label
         }
         onClick={c.run}
       >
@@ -328,6 +338,7 @@ export function AttachPanel({
       </div>
 
       <div className="sc-ap-body">
+        {full && tab !== 'Colors' && <p className="sc-ap-hint">{full}</p>}
         {refining && tab === 'Scenes' && (
           <p className="sc-ap-hint">
             Scenes set up a new shot, so they sit out while you are refining. Press X on Refining to use one.

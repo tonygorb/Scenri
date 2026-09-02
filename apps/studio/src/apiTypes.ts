@@ -537,6 +537,12 @@ export interface BriefPreview {
   productId: string | null;
   referenceCount: number;
   /**
+   * How many photo groups the engine carries for this request, the source
+   * frame already subtracted on a refine. 0 means the engine reads no images
+   * at all, in which case chips ride as words and nothing is refused.
+   */
+  cap?: number;
+  /**
    * Attachments the engine's reference budget left out (the kept ones are
    * `attachments`). The server has always sent this; declaring it lets the
    * composer state a loss structurally instead of prose-matching `warnings`.

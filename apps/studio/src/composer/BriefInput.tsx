@@ -28,6 +28,7 @@ import {
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import { applySceneTint } from './sceneTint.js';
+import { BEARS_IMAGE } from './attachRoom.js';
 import {
   CHIP,
   caretBeside,
@@ -125,6 +126,12 @@ export const BriefInput = forwardRef<
     placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
     /**
+     * Why no more photo chips can join, when the engine's slots are all
+     * taken: the one refusal every door shares. Null while there is room, or
+     * when the engine reads no images and chips ride as words.
+     */
+    roomFull?: string | null;
+    /**
      * A chip whose identity is an image was opened. The composer owns the
      * lightbox, so there is one per composer rather than one per surface that
      * can ask for it.
@@ -158,6 +165,7 @@ export const BriefInput = forwardRef<
     placeholder,
     placeholderSm,
     flag,
+    roomFull,
     onInspect,
     activeProductCategory,
     onAttachRequest,
@@ -484,12 +492,21 @@ export const BriefInput = forwardRef<
           return;
         }
       }
+      // No photo slot left: a new picture-bearing chip is refused at the
+      // door. A scene swap is not new (handled above), and a colour costs no
+      // slot.
+      if (roomFull && BEARS_IMAGE.has(token.t)) {
+        setMenu(null);
+        setQuery('');
+        announce(roomFull);
+        return;
+      }
       insertToken(root, chipFor(token), { eatQuery: !!menu, fallbackUnits: lastCaret.current });
       emit();
       setMenu(null);
       setQuery('');
     },
-    [menu, chipFor, emit, announce],
+    [menu, chipFor, emit, announce, roomFull],
   );
 
   const placeRef = useRef(place);

@@ -27,6 +27,7 @@ import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
 import { SourceCards, type SourceItem } from '../composer/SourceCards.js';
+import { attachRoom } from '../composer/attachRoom.js';
 import {
   openOnGroup,
   RESOLUTIONS,
@@ -921,6 +922,14 @@ export const Composer = forwardRef<
   // judging it against one flashed a false amber underline until the
   // debounced refresh landed.
   const settledPreview = preview && preview.forBrief === brief ? preview : null;
+  // How many more photo chips the engine can carry, from the compiler's own
+  // reading. When none, the doors refuse the pick outright: a chip whose
+  // photo cannot ride is a warning nobody asked for.
+  const room = useMemo(() => attachRoom(settledPreview), [settledPreview]);
+  const roomFull =
+    room && room.left <= 0
+      ? `${engine?.displayName ?? 'This engine'} carries ${room.cap} photos here. Remove one to add another.`
+      : null;
   const templateFlag = !template
     ? null
     : blocking.length > 0
@@ -1130,6 +1139,7 @@ export const Composer = forwardRef<
           brand={brand}
           activeProductCategory={activeProductCategory}
           refining={scenesSitOut}
+          full={roomFull}
           shots={shots}
           initialTab={attachTab}
           id={attachPanelId}
@@ -1291,6 +1301,7 @@ export const Composer = forwardRef<
           onTemplatePick={applyScene}
           scenesSitOut={scenesSitOut}
           flag={flagToken}
+          roomFull={roomFull}
           onInspect={(image) => setLightbox(image)}
           onAttachRequest={(tab) => openAttach(tab)}
           activeProductCategory={activeProductCategory}

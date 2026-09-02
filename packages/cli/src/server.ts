@@ -754,6 +754,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         dropped: [...edit.compiled.dropped, ...edit.merged.dropped],
         warnings: edit.warnings,
         referenceCount: edit.merged.kept.length,
+        // How many photo groups this refine can carry in total: the engine's
+        // slots less the one the source frame holds. The composer refuses a
+        // pick past it rather than warning after the fact.
+        cap: Math.max(0, engine.capabilities().maxReferenceImages - 1),
       };
     }
 
@@ -789,7 +793,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     });
     // paths are server-side detail; the UI works in hashes
     const { referenceImages, ...rest } = compiled;
-    return { ...rest, referenceCount: referenceImages.length };
+    return { ...rest, referenceCount: referenceImages.length, cap: engine.capabilities().maxReferenceImages };
   });
 
   registerProjectRoutes(app, { core });
