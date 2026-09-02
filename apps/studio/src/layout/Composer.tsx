@@ -963,15 +963,6 @@ export const Composer = forwardRef<
     room && room.left <= 0
       ? `${engineName} pictures ${room.cap} per shot, and a reference or a mark needs one of them. Remove a photo to make room.`
       : null;
-  /**
-   * The panel's line while seats are full but the shot can still take
-   * identities: how many are pictured, how many ride as words, and the one
-   * move that changes which is which.
-   */
-  const seatsHint =
-    room && room.left <= 0
-      ? `${engineName} pictures ${room.cap} of the ${identityCount} identities here; the rest ride as words. Drag a chip earlier to picture it instead.`
-      : null;
   /** The ceiling on identities per shot, engine-independent. */
   const ceilingFull = identityCount >= IDENTITY_CAP ? CEILING_SENTENCE : null;
   useEffect(() => {
@@ -1224,7 +1215,6 @@ export const Composer = forwardRef<
           activeProductCategory={activeProductCategory}
           refining={scenesSitOut}
           full={ceilingFull}
-          seatsFull={seatsHint}
           shots={shots}
           initialTab={attachTab}
           id={attachPanelId}

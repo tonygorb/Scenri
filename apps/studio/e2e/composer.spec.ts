@@ -446,9 +446,11 @@ test('the thirteenth identity is refused, and the panel says why', async ({ page
     await cards.nth(i).click();
     await expect(chips(page)).toHaveCount(i + 1);
   }
-  await expect(page.locator('.sc-ap-hint')).toContainText('the most one can carry');
   await expect(cards.nth(12)).toBeDisabled();
-  await expect(cards.nth(12)).toHaveAttribute('title', /Remove a chip to add another/);
+  // the reason rides on hover, so the grid never moves to explain itself
+  await cards.nth(12).hover();
+  await expect(page.getByRole('tooltip')).toContainText('the most one can carry');
+  await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
   // a colour is not an identity and still goes in
   await tab('Colors').click();
   await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
@@ -462,7 +464,6 @@ test('the thirteenth identity is refused, and the panel says why', async ({ page
   // the click on the chip's x landed outside the panel, which closes it
   await dock(page).locator('.sc-attach-toggle').click();
   await tab('Products').click();
-  await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
   await expect(attachCards(page).nth(12)).toBeEnabled();
 });
 

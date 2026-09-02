@@ -171,7 +171,8 @@
    mystery, dimmed and disabled so no click can flip the mode as a side
    effect. The hint above the grid says how to use one; the card's own title
    repeats it for a hover. */
-.sc-ap-card:disabled {
+.sc-ap-card:disabled,
+.sc-ap-card[aria-disabled="true"] {
   opacity: 0.45;
   cursor: default;
 }

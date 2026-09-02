@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
+import { Tooltip } from '@radix-ui/themes';
 import { imgUrl, type Brand, type TreeNode } from '../api.js';
 import { uploadLogo } from '../apiUploads.js';
 import { useAppData } from '../app/AppShell.js';
@@ -59,7 +60,6 @@ export function AttachPanel({
   activeProductCategory,
   refining,
   full,
-  seatsFull,
   id,
   onToken,
   onTemplate,
@@ -85,16 +85,11 @@ export function AttachPanel({
   refining?: boolean;
   /**
    * The shot already carries as many identities as one shot takes: every
-   * identity card sits out, dimmed and disabled, and this is the sentence
-   * that says why. Colours are not identities and stay live.
+   * identity card sits out, dimmed and inert, and this is the sentence that
+   * says why, on hover, so the grid never has to move to explain itself.
+   * Colours are not identities and stay live.
    */
   full?: string | null;
-  /**
-   * The engine's photo seats are taken but the ceiling is not: cards stay
-   * live, because the next identity still shapes the shot in words, and this
-   * sentence says so once, above the cards.
-   */
-  seatsFull?: string | null;
   onToken: (t: SentenceToken) => void;
   onTemplate: (id: string) => void;
   onUpload: () => void;
@@ -261,24 +256,28 @@ export function AttachPanel({
 
   const card = (c: Card) => {
     const sitsOut = refining && c.tab === 'Scenes';
-    // At the ceiling every identity card sits out; a colour never does.
+    // At the ceiling every identity card sits out; a colour never does. Inert
+    // through aria-disabled rather than the attribute, because a disabled
+    // button takes no pointer events and the tooltip that says why would
+    // never open.
     const noRoom = !!full && c.tab !== 'Colors';
-    return (
+    const card = (
       <button
         type="button"
         key={c.key}
         className="sc-ap-card"
-        disabled={sitsOut || noRoom}
+        disabled={sitsOut}
+        aria-disabled={noRoom || undefined}
         title={
           sitsOut
             ? 'Scenes set up a new shot. Press X on Refining to use one.'
             : noRoom
-              ? full
+              ? undefined
               : c.sub
                 ? `${c.label} · ${c.sub}`
                 : c.label
         }
-        onClick={c.run}
+        onClick={noRoom ? undefined : c.run}
       >
         {c.swatch ? (
           <span className="sc-ap-thumb" style={{ background: c.swatch }} />
@@ -292,6 +291,13 @@ export function AttachPanel({
         {c.recommended && <span className="sc-ap-rec">Recommended</span>}
         <b dir="auto">{c.label}</b>
       </button>
+    );
+    return noRoom && full ? (
+      <Tooltip key={c.key} content={full}>
+        {card}
+      </Tooltip>
+    ) : (
+      card
     );
   };
 
@@ -346,7 +352,6 @@ export function AttachPanel({
       </div>
 
       <div className="sc-ap-body">
-        {tab !== 'Colors' && (full || seatsFull) && <p className="sc-ap-hint">{full ?? seatsFull}</p>}
         {refining && tab === 'Scenes' && (
           <p className="sc-ap-hint">
             Scenes set up a new shot, so they sit out while you are refining. Press X on Refining to use one.

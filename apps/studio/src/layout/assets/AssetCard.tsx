@@ -1,3 +1,4 @@
+import { Tooltip } from '@radix-ui/themes';
 import { BookmarkSimple, Check, ImageSquare } from '@phosphor-icons/react';
 import type { Candidate } from '../../composer/ingredientOptions.js';
 
@@ -12,21 +13,26 @@ export function AssetCard({
   candidate: Candidate;
   on: boolean;
   named: boolean;
-  /** The brief cannot take another identity: the tile sits out, dimmed, and `title` says why. */
+  /**
+   * The brief cannot take another identity: the tile sits out, dimmed and
+   * inert, and `title` is the sentence its tooltip says. Inert through
+   * aria-disabled, because a disabled button takes no pointer events and the
+   * tooltip would never open.
+   */
   disabled?: boolean;
   title?: string;
   onClick: () => void;
 }) {
-  return (
+  const tile = (
     <button
       type="button"
       className="sc-acard"
       data-on={on || undefined}
       aria-label={candidate.full}
       aria-pressed={on}
-      disabled={disabled}
-      title={title ?? candidate.full}
-      onClick={onClick}
+      aria-disabled={disabled || undefined}
+      title={disabled ? undefined : candidate.full}
+      onClick={disabled ? undefined : onClick}
     >
       <span className="sc-acard-thumb">
         {candidate.thumb ? (
@@ -53,6 +59,7 @@ export function AssetCard({
       )}
     </button>
   );
+  return disabled && title ? <Tooltip content={title}>{tile}</Tooltip> : tile;
 }
 
 /**

@@ -251,7 +251,6 @@ export function AssetsPanel({
       </div>
 
       {nothingFound && <p className="sc-assets-zero">Nothing here matches “{q.trim()}”.</p>}
-      {full && !nothingFound && <p className="sc-assets-hint">{full}</p>}
 
       <Section
         kind="product"
