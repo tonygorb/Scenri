@@ -9,6 +9,7 @@ import {
   normalizeChipBoundaries,
   stepAcrossChip,
   chipToDelete,
+  gapAtCaret,
   syncEmpty,
   decode,
   emptySentence,
@@ -632,6 +633,68 @@ describe('a chip and its space are one to the keyboard', () => {
     expect(normalizeChipBoundaries(root)).toBe(true);
     expect(shape()).toEqual(['<product>', '" "', '<product>', '" "']);
     expect(caretAt()).toEqual([root.childNodes[1], 1]);
+  });
+});
+
+describe('the caret between two chips', () => {
+  const caretIn = (t: Text, at: number) => {
+    const r = document.createRange();
+    r.setStart(t, at);
+    r.collapse(true);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  };
+  /** jsdom lays nothing out, so the chips are given a row to share. */
+  const lay = (el: Element, left: number) =>
+    Object.defineProperty(el, 'getBoundingClientRect', {
+      value: () => ({ left, right: left + 60, top: 10, bottom: 34, width: 60, height: 24 }),
+    });
+
+  it('names the two chips whose gap the caret sits in, from either edge', () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'product', id: 'p2' },
+        { t: 'text', v: ' on marble' },
+      ],
+      chipFor,
+    );
+    const [a, b] = chips();
+    lay(a, 0);
+    lay(b, 64);
+    const seam = root.childNodes[2] as Text;
+    caretIn(seam, 1);
+    expect(gapAtCaret(root)?.after.left).toBe(64);
+    caretIn(seam, 0);
+    expect(gapAtCaret(root)?.before.right).toBe(60);
+  });
+
+  it('is nothing in prose, at the end of the line, or with a selection', () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' on ' },
+        { t: 'product', id: 'p2' },
+      ],
+      chipFor,
+    );
+    const [a, b] = chips();
+    lay(a, 0);
+    lay(b, 100);
+    caretIn(root.childNodes[2] as Text, 1); // prose after p1
+    expect(gapAtCaret(root)).toBeNull();
+    caretIn(root.childNodes[4] as Text, 1); // p2's space at the end of the line
+    expect(gapAtCaret(root)).toBeNull();
+    const r = document.createRange();
+    r.setStart(root.childNodes[2], 1);
+    r.setEnd(root.childNodes[2], 3);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+    expect(gapAtCaret(root)).toBeNull();
   });
 });
 

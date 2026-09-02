@@ -43,6 +43,7 @@ import {
   chipLabel,
   closeIcon,
   normalizeChipBoundaries,
+  attachGhostCaret,
   stepAcrossChip,
   chipToDelete,
   syncEmpty,
@@ -474,6 +475,8 @@ export const BriefInput = forwardRef<
     document.addEventListener('selectionchange', track);
     return () => document.removeEventListener('selectionchange', track);
   }, []);
+  // the caret between two chips is drawn in the middle of their gap
+  useEffect(() => attachGhostCaret(rootRef.current), []);
 
   const place = useCallback(
     (token: SentenceToken) => {

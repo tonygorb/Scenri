@@ -719,6 +719,52 @@ test('a reference chip gets its own touch sheet: move and remove, no keyboard', 
   await expect(briefChips(page)).toHaveCount(0);
 });
 
+/**
+ * A tap in prose leaves the caret where the platform put it.
+ *
+ * A touch caret snaps to the end of the tapped word, the way every field on
+ * the phone does. The line used to re-place it at the finger's exact x for any
+ * tap that missed the row's centre line by a pixel, which is every tap, so the
+ * caret landed mid-word wherever the finger happened to be. The correction is
+ * for the padding, where the browser's answer really is wrong.
+ */
+test('a tap in a word keeps the caret in that word, and a tap in the padding lands under the finger', async ({
+  page,
+  browserName,
+}) => {
+  await line(page).tap();
+  await page.keyboard.type('hero shot of marble ');
+  const geo = await line(page).evaluate((el) => {
+    const t = el.firstChild as Text;
+    const r = document.createRange();
+    r.setStart(t, 13);
+    r.setEnd(t, 19); // "marble"
+    const w = r.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    return { x: (w.left + w.right) / 2, y: (w.top + w.bottom) / 2 + 3, below: box.bottom - 3 };
+  });
+  const caret = () =>
+    line(page).evaluate((el) => {
+      const r = getSelection()!.getRangeAt(0);
+      return r.startContainer === el.firstChild ? r.startOffset : -1;
+    });
+  await page.touchscreen.tap(Math.round(geo.x), Math.round(geo.y));
+  const inWord = await caret();
+  // WebKit snaps a touch caret to the end of the word, as iOS does; re-placing
+  // it at the finger's x put it at 16. Chromium places by character, so there
+  // the word is the most that can be said.
+  if (browserName === 'webkit') expect(inWord).toBe(19);
+  expect(inWord).toBeGreaterThanOrEqual(13);
+  expect(inWord).toBeLessThanOrEqual(19);
+
+  // the padding under the row resolves to the row, under the finger, not to
+  // the start of the sentence
+  await page.touchscreen.tap(Math.round(geo.x), Math.round(geo.below));
+  const fromPadding = await caret();
+  expect(fromPadding).toBeGreaterThanOrEqual(13);
+  expect(fromPadding).toBeLessThanOrEqual(19);
+});
+
 test('a tap on the right edge of a chip opens the sheet, never removes', async ({ page }) => {
   test.skip(!isPhone(page), 'the sheet is the phone path');
   // the x band is inert to touch (hover: none), so the tap reaches the chip

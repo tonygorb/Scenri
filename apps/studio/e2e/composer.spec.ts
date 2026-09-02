@@ -2276,6 +2276,53 @@ test('one press crosses a chip and one press removes it', async ({ page }) => {
   expect(shape).toEqual(['""', '<chip>', '" "']);
 });
 
+/**
+ * The caret between two chips sits in the middle of their gap.
+ *
+ * The gap is one space, and a native caret can only sit at one of its edges,
+ * flush against a pill. While the caret is in that gap the browser's caret is
+ * hidden and one is drawn at the midpoint; in prose the browser's caret is the
+ * caret, untouched.
+ */
+test('the caret between two chips is drawn in the middle of the gap', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('hero of ');
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(2);
+
+  // into the gap by keyboard: one press left from the end crosses the last chip
+  await page.keyboard.press('ArrowLeft');
+  const ghost = page.locator('.sc-caret-ghost');
+  await expect(ghost).toBeVisible();
+  const geo = await page.evaluate(() => {
+    const [a, b] = [...document.querySelectorAll('.sc-brief-line .sc-token')].map((c) => c.getBoundingClientRect());
+    const g = document.querySelector<HTMLElement>('.sc-caret-ghost')!.getBoundingClientRect();
+    return {
+      mid: (a.right + b.left) / 2,
+      ghostX: g.left + g.width / 2,
+      top: Math.min(a.top, b.top),
+      bottom: Math.max(a.bottom, b.bottom),
+      gTop: g.top,
+      gBottom: g.bottom,
+      caretColor: getComputedStyle(document.querySelector('.sc-brief-line')!).caretColor,
+    };
+  });
+  expect(Math.abs(geo.ghostX - geo.mid)).toBeLessThan(1);
+  expect(geo.gTop).toBeGreaterThanOrEqual(geo.top);
+  expect(geo.gBottom).toBeLessThanOrEqual(geo.bottom);
+  expect(geo.caretColor).toBe('rgba(0, 0, 0, 0)');
+
+  // out of the gap into prose: the browser's caret comes back
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(ghost).toBeHidden();
+  const restored = await line(page).evaluate((el) => getComputedStyle(el).caretColor);
+  expect(restored).not.toBe('rgba(0, 0, 0, 0)');
+});
+
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {
   // prose alone: the line's height at exactly one row of its own strut
   await line(page).click();

@@ -31,6 +31,7 @@ export { readLine, renderLine } from './line/render.js';
 export { caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, tailText } from './line/caret.js';
 export { normalizeLine, normalizeChipBoundaries, isBlankLine, syncEmpty } from './line/invariants.js';
 export { stepAcrossChip, chipToDelete, isOwnedSpace } from './line/keys.js';
+export { attachGhostCaret, gapAtCaret } from './line/ghostCaret.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
 export {
   insertToken,

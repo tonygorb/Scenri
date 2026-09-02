@@ -140,8 +140,12 @@ export function caretFromPoint(root: HTMLElement | null, x: number, y: number): 
     return true;
   }
 
-  // the click was in the padding: ask again from inside the row
-  if (Math.abs(cy - y) < 1) return false;
+  // Inside the row the browser's own answer is right, and on a phone it is
+  // more than right: a touch caret snaps to the end of the tapped word, the
+  // way every field on the platform does, and re-placing it at the finger's
+  // exact x moved it mid-word to wherever the finger happened to be. Only a
+  // click in the padding, above or below the row, is asked again from inside.
+  if (y >= row.top && y <= row.bottom) return false;
   const at = caretRangeFromPoint(x, cy);
   if (!at || !root.contains(at.node)) return false;
   if (at.node.nodeType !== Node.TEXT_NODE) return false;
