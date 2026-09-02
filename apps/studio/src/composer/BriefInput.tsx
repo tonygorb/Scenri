@@ -129,8 +129,8 @@ export const BriefInput = forwardRef<
     flag?: (t: SentenceToken) => string | null;
     /** Whether this identity reaches the engine as words: its chip dims and its card says so. */
     described?: (t: SentenceToken) => boolean;
-    /** The card's one line for a described identity. */
-    describedNote?: string | null;
+    /** The card's one line for a chip whose photo found no seat, in the words of its kind. */
+    describedNote?: (t: SentenceToken) => string | null;
     /**
      * A chip whose identity is an image was opened. The composer owns the
      * lightbox, so there is one per composer rather than one per surface that
@@ -1198,7 +1198,7 @@ export const BriefInput = forwardRef<
   const anchorToken = picker ? decode(picker.anchor.dataset.tok ?? '') : null;
   const previewHash = previewHashOf(anchorToken);
   const anchorWarning = anchorToken ? (flag?.(anchorToken) ?? null) : null;
-  const anchorNote = anchorToken && described?.(anchorToken) ? (describedNote ?? null) : null;
+  const anchorNote = anchorToken && described?.(anchorToken) ? (describedNote?.(anchorToken) ?? null) : null;
 
   const hoveredToken = hovered ? decode(hovered.anchor.dataset.tok ?? '') : null;
   const hoveredHash = previewHashOf(hoveredToken);
@@ -1215,7 +1215,7 @@ export const BriefInput = forwardRef<
         ? hoveredPicker
         : null;
   const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
-  const hoveredNote = hoveredToken && described?.(hoveredToken) ? (describedNote ?? null) : null;
+  const hoveredNote = hoveredToken && described?.(hoveredToken) ? (describedNote?.(hoveredToken) ?? null) : null;
 
   return (
     <div className="sc-brief" ref={scrollerRef} onScroll={syncScrollHint} data-drag-over={dragOver || undefined}>

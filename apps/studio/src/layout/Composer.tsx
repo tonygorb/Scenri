@@ -975,13 +975,18 @@ export const Composer = forwardRef<
     if (t.t === 'product') return set.has(groupKey('product', t.id));
     if (t.t === 'character') return set.has(groupKey('character', t.id));
     if (t.t === 'template') return set.has(groupKey('scene', t.id));
-    // a reference or a mark has no words to ride on: left out, it wears the
-    // dot and its reason, not the described dim
+    if (t.t === 'ref') return set.has(groupKey('reference', t.imageHash));
+    if (t.t === 'mark') return set.has(groupKey('brand', t.imageHash));
     return false;
   };
-  const describedNote = room
-    ? `Described in words: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it instead.`
-    : null;
+  /** The card's one line for a chip whose photo found no seat, in the words of its kind. */
+  const describedNote = (t: BriefToken): string | null => {
+    if (!room) return null;
+    // a reference or a mark has no words to ride on: it is simply not in the shot
+    if (t.t === 'ref' || t.t === 'mark')
+      return `Not pictured: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it, or remove a photo.`;
+    return `Described in words: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it instead.`;
+  };
   const templateFlag = !template
     ? null
     : blocking.length > 0
@@ -1024,17 +1029,23 @@ export const Composer = forwardRef<
     };
     const missingIdentity = (role: 'product' | 'character', id: string) =>
       settledPreview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
+    // A reference or a mark that found no seat is not a warning: it dims and
+    // its card says so (`describedToken`). The mark stays only where the chip
+    // cannot work at all: an engine that reads no images, or an older server
+    // that says nothing about its cap.
     if (t.t === 'ref' && !settledPreview.attachments.some((a) => a.hash === t.imageHash)) {
       return cap === 0
         ? `This reference won't reach ${engineName}. Choose an engine that reads images, or remove it.`
-        : noSeat('this reference');
+        : cap == null
+          ? noSeat('this reference')
+          : null;
     }
-    // The brand mark is an attachment like any other, and it used to be the
-    // one kind that could be dropped with no mark on its chip at all.
     if (t.t === 'mark' && !settledPreview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
       return cap === 0
         ? `The brand mark won't reach ${engineName}, so the logo can't be drawn from it. Choose an engine that reads images.`
-        : `${noSeat('the brand mark')} The logo can't be drawn from it.`;
+        : cap == null
+          ? `${noSeat('the brand mark')} The logo can't be drawn from it.`
+          : null;
     }
     // A tiny mark rides, but its fine lettering is already subpixel: the
     // compiler measured the stored file and said so (the 'px across' phrase
