@@ -114,22 +114,24 @@ export function DetailOverlay({
     return null;
   }, [node, ancestors]);
   /**
-   * Everything the picture being refined is made of, read down the whole
-   * lineage, nearest level first: this shot's own brief, then each ancestor.
-   * A refine's own brief can be bare text at every level, and older shots
-   * recorded no inherited list at all, so any single brief loses the
-   * identities two levels down. The walk is the one place the picture's
-   * contents can always be read from.
+   * What this refinement carried in: the source picture's contents, read
+   * down the ancestors nearest level first. Never this shot's own brief:
+   * what it asked for is the record above, and the band saying it again is
+   * the duplication the two surfaces exist to avoid. A refine's own brief
+   * can be bare text at every level, and older shots recorded no inherited
+   * list at all, so any single brief loses the identities two levels down;
+   * the walk is the one place the picture's contents can always be read
+   * from.
    */
   const sourceTokens = useMemo(() => {
     if (node.kind !== 'edit') return [];
     const out: unknown[] = [];
-    for (const n of [node, ...[...ancestors].reverse()]) {
-      const b = n.brief as { tokens?: unknown[]; inherited?: unknown[] } | null;
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+      const b = ancestors[i].brief as { tokens?: unknown[]; inherited?: unknown[] } | null;
       out.push(...(b?.tokens ?? []), ...(b?.inherited ?? []));
     }
     return out;
-  }, [node, ancestors]);
+  }, [node.kind, ancestors]);
   /** The same contents as cards, for the composer's band. */
   const sourceItems = useSourceItems(brand, sourceTokens);
   /** Whether the brief line has any chips to say: mirrors BriefLine's own
