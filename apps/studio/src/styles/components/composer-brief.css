@@ -466,12 +466,17 @@
    Amber, not red: the generation still runs. */
 .sc-token[data-warn]::after {
   content: "";
+  /* Out of flow: a mark that costs inline space moves the chip under the
+     pointer the moment it appears, and it appears on the preview's own
+     schedule. It sits in the X gutter, and the X covers it on hover. */
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 0.22em;
+  translate: 0 -50%;
   width: 0.4em;
   height: 0.4em;
   border-radius: 50%;
   background: var(--sc-warn);
-  align-self: center;
-  flex: none;
 }
 /* A chip whose photo found no seat rides as words: the chip itself says so
    by going quiet, and the peek card says why. The same dim the attach panel

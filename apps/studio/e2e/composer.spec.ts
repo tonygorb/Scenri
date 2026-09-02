@@ -2485,6 +2485,24 @@ test('hovering a reference chip peeks at the picture that chip is holding', asyn
   expect(await peekSrc(page)).toBe(`/api/images/${hash}`);
 });
 
+test('a warned chip keeps its box across a keystroke and the preview that follows', async ({ page }) => {
+  // on the demo engine a reference cannot ride, so its chip wears the mark;
+  // the mark must cost no layout, and must not blink off while the
+  // debounced preview is in flight, or the chip moves under the pointer
+  await seedRefs(page, 1);
+  const chip = chips(page).first();
+  await expect(chip).toHaveAttribute('data-warn', '1');
+  const before = (await chip.boundingBox())!;
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' x');
+  await expect(chip).toHaveAttribute('data-warn', '1');
+  await page.waitForTimeout(700);
+  await expect(chip).toHaveAttribute('data-warn', '1');
+  const after = (await chip.boundingBox())!;
+  expect(Math.abs(after.width - before.width)).toBeLessThanOrEqual(0.5);
+});
+
 test('the peek goes when the pointer leaves, and on Escape', async ({ page }) => {
   await seedRefs(page, 1);
   await chips(page).first().hover();

@@ -957,18 +957,31 @@ export const Composer = forwardRef<
    * brief forgets it: with no identities there is nothing to seat.
    */
   const identityCount = useMemo(() => sentence.filter((t) => IDENTITY_KINDS.has(t.t)).length, [sentence]);
-  const lastBudget = useRef<{ room: ReturnType<typeof attachRoom>; described: Set<string> } | null>(null);
+  const lastBudget = useRef<{
+    room: ReturnType<typeof attachRoom>;
+    described: Set<string>;
+    preview: BriefPreview;
+  } | null>(null);
   const budget = useMemo(() => {
     if (identityCount === 0) {
       lastBudget.current = null;
       return null;
     }
     if (settledPreview) {
-      lastBudget.current = { room: attachRoom(settledPreview), described: describedKeys(settledPreview) };
+      lastBudget.current = {
+        room: attachRoom(settledPreview),
+        described: describedKeys(settledPreview),
+        preview: settledPreview,
+      };
     }
     return lastBudget.current;
   }, [settledPreview, identityCount]);
   const room = budget?.room ?? null;
+  // The flags read the same sticky preview as the budget. Read off the
+  // in-flight one, a chip's mark came and went on every keystroke for the
+  // length of the debounce, and a mark that costs layout moved the chip
+  // under the pointer.
+  const stickyPreview = budget?.preview ?? null;
   const engineName = engine?.displayName ?? 'This engine';
   /** The ceiling on identities per shot, engine-independent. */
   const ceilingFull = identityCount >= IDENTITY_CAP ? CEILING_SENTENCE : null;
@@ -1001,7 +1014,7 @@ export const Composer = forwardRef<
       : // The person half of the same compiler warning had no chip to sit on,
         // so a scene needing a presenter said nothing at all until the picture
         // came back with a stranger in it.
-        (settledPreview?.warnings.some((w) => w.includes('built around a person')) ?? false)
+        (stickyPreview?.warnings.some((w) => w.includes('built around a person')) ?? false)
         ? 'This scene builds around a person. Attach a presenter.'
         : null;
   /**
@@ -1016,9 +1029,9 @@ export const Composer = forwardRef<
    */
   const flagToken = (t: BriefToken): string | null => {
     if (t.t === 'template') return templateFlag;
-    if (!settledPreview) return null;
+    if (!stickyPreview) return null;
     const engineName = engine?.displayName ?? 'this engine';
-    const cap = settledPreview.cap;
+    const cap = stickyPreview.cap;
     /**
      * The sentence for a photo the engine could have read but had no seat
      * for. `what` is the mid-sentence form ("this reference", "Astrid's
@@ -1035,19 +1048,19 @@ export const Composer = forwardRef<
           : `${engineName} pictures ${cap} per shot and ${what} didn't get a seat. Drag it earlier to picture it, or remove a photo.`;
     };
     const missingIdentity = (role: 'product' | 'character', id: string) =>
-      settledPreview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
+      stickyPreview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
     // A reference or a mark that found no seat is not a warning: it dims and
     // its card says so (`describedToken`). The mark stays only where the chip
     // cannot work at all: an engine that reads no images, or an older server
     // that says nothing about its cap.
-    if (t.t === 'ref' && !settledPreview.attachments.some((a) => a.hash === t.imageHash)) {
+    if (t.t === 'ref' && !stickyPreview.attachments.some((a) => a.hash === t.imageHash)) {
       return cap === 0
         ? `This reference won't reach ${engineName}. Choose an engine that reads images, or remove it.`
         : cap == null
           ? noSeat('this reference')
           : null;
     }
-    if (t.t === 'mark' && !settledPreview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
+    if (t.t === 'mark' && !stickyPreview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
       return cap === 0
         ? `The brand mark won't reach ${engineName}, so the logo can't be drawn from it. Choose an engine that reads images.`
         : cap == null
@@ -1058,7 +1071,7 @@ export const Composer = forwardRef<
     // compiler measured the stored file and said so (the 'px across' phrase
     // is the contract, same pattern as 'built around a person' above).
     if (t.t === 'mark') {
-      const small = settledPreview.warnings.find((w) => w.includes('px across'));
+      const small = stickyPreview.warnings.find((w) => w.includes('px across'));
       if (small) return small;
     }
     if (t.t === 'product') {
@@ -1070,7 +1083,7 @@ export const Composer = forwardRef<
       // Match on id, never on label: a display name is free to differ from the
       // descriptive phrase the compiler labels the attachment with, and two
       // products may legitimately share a name.
-      if (p && !settledPreview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
+      if (p && !stickyPreview.attachments.some((a) => a.role === 'product' && a.id === p.id)) {
         // A product with no seat rides as words: the chip dims, the card
         // says so, and nothing here shouts.
         return missingIdentity('product', p.id) ? `${p.name} has no usable photo. Re-add one, or remove this.` : null;
@@ -1080,12 +1093,25 @@ export const Composer = forwardRef<
     // carry was dropped with no mark on the chip that asked for it.
     if (t.t === 'character') {
       const c = presenters.find((x) => x.id === t.id);
-      if (c && !settledPreview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
+      if (c && !stickyPreview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
         return missingIdentity('character', c.id) ? `${c.name} has no usable photo. Re-add one, or remove this.` : null;
       }
     }
     return null;
   };
+
+  // Stable while their inputs are: the line's refresh effect keys on these,
+  // and a new function every render made it rewrite every chip every render.
+  const flag = useCallback(flagToken, [
+    stickyPreview,
+    engine?.displayName,
+    templateFlag,
+    libraryProducts,
+    brand.json?.products,
+    demoProducts,
+    presenters,
+  ]);
+  const described = useCallback(describedToken, [budget]);
 
   const go = async () => {
     if (!canGo) return;
@@ -1397,8 +1423,8 @@ export const Composer = forwardRef<
           demoProducts={demoProducts}
           onTemplatePick={applyScene}
           scenesSitOut={scenesSitOut}
-          flag={flagToken}
-          described={describedToken}
+          flag={flag}
+          described={described}
           describedNote={describedNote}
           onInspect={(image) => setLightbox(image)}
           onAttachRequest={(tab) => openAttach(tab)}
