@@ -43,6 +43,8 @@ import {
   chipLabel,
   closeIcon,
   chipToDelete,
+  deletionAtLineEdge,
+  attachGapCaret,
   unitsOfPosition,
   syncEmpty,
   decode,
@@ -578,6 +580,8 @@ export const BriefInput = forwardRef<
   // keyboard, which reports Backspace as a composition key (keyCode 229) and
   // reaches keydown as nothing usable. A cancelled keydown fires no
   // beforeinput, so the two never both act.
+  // the caret on the line beside a chip is drawn, since no browser paints it well
+  useEffect(() => attachGapCaret(rootRef.current), []);
   const removeChipByUidRef = useRef(removeChipByUid);
   useEffect(() => {
     removeChipByUidRef.current = removeChipByUid;
@@ -594,7 +598,10 @@ export const BriefInput = forwardRef<
             : null;
       if (!key) return;
       const chip = chipToDelete(root, key);
-      if (!chip?.dataset.uid) return;
+      if (!chip?.dataset.uid) {
+        if (deletionAtLineEdge(root, key)) e.preventDefault();
+        return;
+      }
       e.preventDefault();
       const at = removeChipByUidRef.current(chip.dataset.uid);
       if (at != null) setCaretUnits(root, at);
@@ -1027,6 +1034,10 @@ export const BriefInput = forwardRef<
         e.preventDefault();
         const at = removeChipByUid(chip.dataset.uid);
         if (at != null) setCaretUnits(root, at);
+        return;
+      }
+      if (deletionAtLineEdge(root, e.key)) {
+        e.preventDefault();
         return;
       }
     }

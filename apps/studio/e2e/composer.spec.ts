@@ -2305,6 +2305,64 @@ test('prose typed against a chip stays as typed, and the margin is the gap', asy
   expect(before.air).toBeGreaterThanOrEqual(2);
 });
 
+test("the caret between two chips is drawn in the middle of the gap, at the pill's height", async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(2);
+  await page.keyboard.press('ArrowLeft'); // between the two
+  const bar = page.locator('.sc-gap-caret');
+  await expect(bar).toBeVisible();
+  const geo = await page.evaluate(() => {
+    const [a, b] = [...document.querySelectorAll('.sc-brief-line .sc-token')].map((c) => c.getBoundingClientRect());
+    const g = document.querySelector<HTMLElement>('.sc-gap-caret')!.getBoundingClientRect();
+    return {
+      mid: (a.right + b.left) / 2,
+      x: g.left + g.width / 2,
+      top: a.top,
+      bottom: a.bottom,
+      gTop: g.top,
+      gBottom: g.bottom,
+      native: getComputedStyle(document.querySelector('.sc-brief-line')!).caretColor,
+    };
+  });
+  expect(Math.abs(geo.x - geo.mid)).toBeLessThan(1);
+  expect(Math.abs(geo.gTop - geo.top)).toBeLessThan(1);
+  expect(Math.abs(geo.gBottom - geo.bottom)).toBeLessThan(1);
+  expect(geo.native).toBe('rgba(0, 0, 0, 0)');
+  // into prose: the browser's caret is the caret again
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.type('x');
+  await expect(bar).toBeHidden();
+});
+
+test('a Backspace before the first chip, and a Delete after the last, take nothing', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await pickCard(page, 2);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(3);
+  const caret = () =>
+    line(page).evaluate((el) => {
+      const r = getSelection()!.getRangeAt(0);
+      return r.startContainer === el ? `line@${r.startOffset}` : 'elsewhere';
+    });
+  expect(await caret()).toBe('line@3');
+  await page.keyboard.press('Delete'); // on the line after the last chip: nothing to take
+  await expect(chips(page)).toHaveCount(3);
+  // one press left per chip lands before the first; Home would stop after it
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowLeft');
+  expect(await caret()).toBe('line@0');
+  await page.keyboard.press('Backspace'); // before the first: nothing to take
+  await expect(chips(page)).toHaveCount(3);
+  await expect(line(page)).not.toHaveAttribute('data-empty', '');
+});
+
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {
   // prose alone: the line's height at exactly one row of its own strut
   await line(page).click();

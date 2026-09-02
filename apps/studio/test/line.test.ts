@@ -7,6 +7,8 @@ import {
   chipLabel,
   closeIcon,
   chipToDelete,
+  deletionAtLineEdge,
+  gapCaretRect,
   placeCaretAt,
   syncEmpty,
   decode,
@@ -583,6 +585,104 @@ describe("the native line: the chip owns its gap, the text is the user's", () =>
     caretIn(root.childNodes[3] as Text, 1); // inside the prose: the browser's
     expect(chipToDelete(root, 'Backspace')).toBeNull();
     expect(chipToDelete(root, 'Delete')).toBeNull();
+  });
+});
+
+describe('the caret on the line beside a chip', () => {
+  /** jsdom lays nothing out, so the chips are given a row to share. */
+  const lay = (el: Element, left: number, top = 10) =>
+    Object.defineProperty(el, 'getBoundingClientRect', {
+      value: () => ({ left, right: left + 60, top, bottom: top + 24, width: 60, height: 24 }),
+    });
+
+  it("is drawn in the middle of the gap between two chips, at the pill's height", () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'product', id: 'p2' },
+      ],
+      chipFor,
+    );
+    const [a, b] = chips();
+    lay(a, 0);
+    lay(b, 64);
+    placeCaretAt(root, 1);
+    expect(gapCaretRect(root)).toEqual({ x: 62, top: 10, height: 24 });
+  });
+
+  it("is drawn one margin off a lone chip's edge, before the first and after the last", () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' on ' },
+        { t: 'product', id: 'p2' },
+      ],
+      chipFor,
+    );
+    const [a, b] = chips();
+    lay(a, 0);
+    lay(b, 100);
+    a.style.marginInlineStart = '2px';
+    b.style.marginInlineStart = '2px';
+    placeCaretAt(root, 0);
+    expect(gapCaretRect(root)).toEqual({ x: -2, top: 10, height: 24 });
+    placeCaretAt(root, 3);
+    expect(gapCaretRect(root)).toEqual({ x: 162, top: 10, height: 24 });
+  });
+
+  it('is nothing in text, and nothing when chips sit on different rows either side', () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' on ' },
+        { t: 'product', id: 'p2' },
+      ],
+      chipFor,
+    );
+    const r = document.createRange();
+    r.setStart(root.childNodes[1], 1);
+    r.collapse(true);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+    expect(gapCaretRect(root)).toBeNull();
+    // two chips on two rows: beside the one before, not between them
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'product', id: 'p2' },
+      ],
+      chipFor,
+    );
+    const [a, b] = chips();
+    lay(a, 200, 10);
+    lay(b, 0, 40);
+    a.style.marginInlineStart = '2px';
+    placeCaretAt(root, 1);
+    expect(gapCaretRect(root)).toEqual({ x: 262, top: 10, height: 24 });
+  });
+
+  it('a deletion with nothing on its side at a line edge is swallowed', () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'product', id: 'p2' },
+      ],
+      chipFor,
+    );
+    placeCaretAt(root, 0);
+    expect(deletionAtLineEdge(root, 'Backspace')).toBe(true);
+    expect(deletionAtLineEdge(root, 'Delete')).toBe(false);
+    placeCaretAt(root, 2);
+    expect(deletionAtLineEdge(root, 'Delete')).toBe(true);
+    expect(deletionAtLineEdge(root, 'Backspace')).toBe(false);
+    placeCaretAt(root, 1);
+    expect(deletionAtLineEdge(root, 'Backspace')).toBe(false);
   });
 });
 
