@@ -2009,7 +2009,7 @@ describe('a refinement carries marks and references, not just subjects', () => {
     await local.close();
   });
 
-  it('under a tight budget the subject boards first and the loss is spoken', async () => {
+  it('under a tight budget the subject boards first and the rest is carried in words, not announced as lost', async () => {
     const { engine, edits } = capture(2); // the source frame keeps one slot: one left
     const local = buildServer({ core, engines: registryWith(engine) });
     const { projectId, genNode, productHash } = await seed(local);
@@ -2027,7 +2027,9 @@ describe('a refinement carries marks and references, not just subjects', () => {
       },
     });
     expect(edit.statusCode).toBe(202);
-    expect((edit.json().warnings ?? []).join(' ')).toMatch(/left out/);
+    // The composer dimmed the seatless chip and said "described in words"
+    // before the send; a toast saying it "was left out" would contradict it.
+    expect((edit.json().warnings ?? []).join(' ')).not.toMatch(/left out/);
     await waitDoneOn(local, edit.json().id);
 
     expect(edits[0].referenceImages).toEqual([core.images.pathFor(productHash)]);
@@ -2593,12 +2595,12 @@ describe('engine images are validated, oriented, and conformed before storing', 
 // honestly: the engine gets a deterministic downscale at its own budget, its
 // native answer is kept, and the record says so.
 describe('refines on a pixel-budget engine step down honestly', () => {
+  const png = (w: number, h: number) =>
+    sharp({ create: { width: w, height: h, channels: 3, background: '#446688' } })
+      .png()
+      .toBuffer();
   const budgetEngine = () => {
     const edits: EditRequest[] = [];
-    const png = (w: number, h: number) =>
-      sharp({ create: { width: w, height: h, channels: 3, background: '#446688' } })
-        .png()
-        .toBuffer();
     const engine: EngineAdapter = {
       capabilities: () => ({
         id: 'budget-spy',
@@ -2621,6 +2623,63 @@ describe('refines on a pixel-budget engine step down honestly', () => {
     };
     return { engine, edits };
   };
+
+  it('a frame a few pixels over the budget steps down to its own size, which is no step at all', async () => {
+    const { engine, edits } = budgetEngine();
+    // 82x79 is 6478 pixels: over a 6400 budget, and budgetSize rounds it
+    // straight back to 82x79. Nothing to resample, nothing to announce.
+    engine.generate = async () => ({ images: [core.images.save(await png(82, 79))], costUsd: 0 });
+    engine.edit = async (req) => {
+      edits.push(req);
+      return { images: [core.images.save(await png(82, 79))], costUsd: 0 };
+    };
+    const local = buildServer({ core, engines: registryWith(engine) });
+    const brand = (
+      await local.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json();
+    const ws = await local.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        kind: 'generation',
+        engineId: 'budget-spy',
+        brief: {
+          tokens: [
+            { t: 'format', id: 'square', w: 82, h: 79 },
+            { t: 'text', v: 'a mug' },
+          ],
+        },
+      },
+    });
+    const genNode = await waitDoneOn(local, gen.json().id);
+    const edit = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'budget-spy',
+        sourceImage: genNode.images[0],
+        brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+      },
+    });
+    expect(edit.statusCode).toBe(202);
+    expect((edit.json().warnings ?? []).join(' ')).not.toContain('continues at');
+    const editNode = await waitRenderedOn(local, edit.json().id);
+    expect(editNode.status).toBe('done');
+    const sent = await sharp(edits[0].sourceImage).metadata();
+    expect([sent.width, sent.height]).toEqual([82, 79]);
+    expect((editNode.brief as any).steppedDown).toBeUndefined();
+    await local.close();
+  });
 
   it('sends the budget-size source, keeps the native answer, and records the step-down once', async () => {
     const { engine, edits } = budgetEngine();

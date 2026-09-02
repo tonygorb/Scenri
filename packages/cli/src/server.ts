@@ -705,22 +705,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const warnings = [...compiled.warnings, ...identityWarnings.filter((w) => !compiled.warnings.includes(w))];
     if (inherited.truncated)
       warnings.push('This thread is deeper than 64 steps, so identity attached before that could not be carried.');
-    if (merged.dropped.length) {
-      if (engineCaps.maxReferenceImages <= 1) {
-        // An engine that carries nothing beyond the frame is not a reason to
-        // refuse: unlike a generation, the subject is already in the picture.
-        warnings.push(`The identity rides on the shot itself — ${engineCaps.displayName} reads no other images.`);
-      } else {
-        // Name an identity only when ALL of it was dropped: a shed
-        // corroboration angle whose essential survived degrades quietly, the
-        // same way a dropped scene reference does — naming it here read as
-        // though the product itself had been left out.
-        const keptLabels = new Set(merged.kept.map((a) => a.label));
-        const names = [...new Set(merged.dropped.map((d) => d.label))].filter((l) => !keptLabels.has(l));
-        if (names.length)
-          warnings.push(`${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out of this refinement.`);
-      }
-    }
+    // An engine that carries nothing beyond the frame is not a reason to
+    // refuse: unlike a generation, the subject is already in the picture. On an
+    // engine that reads more, whatever found no seat is described in words by
+    // the compile above, and the composer dimmed its chip before the send; a
+    // warning that it "was left out" would contradict both.
+    if (merged.dropped.length && engineCaps.maxReferenceImages <= 1)
+      warnings.push(`The identity rides on the shot itself — ${engineCaps.displayName} reads no other images.`);
     return {
       compiled: { ...compiled, prompt },
       inheritedTokens,
@@ -1815,14 +1806,18 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
        * original's size, so their untouched pixels never shrink.
        */
       const editPixelBudget = runEngine.capabilities().editPixelBudget;
-      if (
+      // A frame a few pixels over the budget steps down to its own size; that
+      // is no step at all, so neither the resample nor the note happens.
+      const stepped =
         !expandPlan &&
         editPixelBudget &&
         srcMeta.width &&
         srcMeta.height &&
         srcMeta.width * srcMeta.height > editPixelBudget
-      ) {
-        sentSize = budgetSize(srcMeta.width, srcMeta.height, editPixelBudget);
+          ? budgetSize(srcMeta.width, srcMeta.height, editPixelBudget)
+          : null;
+      if (editPixelBudget && stepped && (stepped.width !== srcMeta.width || stepped.height !== srcMeta.height)) {
+        sentSize = stepped;
         budgetSourceHash = core.images.save(
           await sharp(srcBuf)
             .resize(sentSize.width, sentSize.height, { fit: 'fill', kernel: 'lanczos3' })

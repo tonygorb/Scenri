@@ -375,6 +375,8 @@ export function sceneFigureDirectives(opts: {
   figure: string;
   treatment?: string;
   hasPerson: boolean;
+  /** How many presenters are attached; the figure is a role one of them takes, the rest stand with them. */
+  people?: number;
   hasMark?: boolean;
 }): string[] {
   const figure = opts.figure.trim().replace(/[.\s]+$/, '');
@@ -382,7 +384,18 @@ export function sceneFigureDirectives(opts: {
   const treatment = (opts.treatment ?? '').trim().replace(/[.\s]+$/, '');
   const out: string[] = [];
 
-  if (opts.hasPerson) {
+  if (opts.hasPerson && (opts.people ?? 1) > 1) {
+    // Several presenters, one figure position: the first named takes it and
+    // the others share the frame. Said explicitly, because "one figure, never
+    // a second person" composed the second presenter out three times in four.
+    out.push(
+      `This world is built around one figure: ${figure}. The attached presenters share that role: the first named ` +
+        'presenter takes the figure position and the others stand with them in the same frame, every one of them ' +
+        'clearly visible. Any person the scene direction describes IS one of the attached presenters and never an ' +
+        'extra person, and each identity comes from their own attached photograph alone, never from anything the ' +
+        'scene direction says about a body.',
+    );
+  } else if (opts.hasPerson) {
     // Presence is already a fact by the time this is read: personDirectives says
     // the presenter is in the photograph. This only says WHAT PART they play,
     // and re-anchors identity so a figure the scene described is never a second

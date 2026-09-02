@@ -332,6 +332,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const characters: any[] = ctx.brand?.characters ?? [];
   const inlineTemplates: CompilableScene[] = [];
   let hasPerson = false;
+  let people = 0;
   let sentence = '';
   // Tokens compile independently and never know what text preceded them, so
   // every append goes through here to guarantee a separating space — raw
@@ -432,6 +433,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         hasPerson = true;
+        people += 1;
         // Same two-name contract products have: the model reads `promptName`
         // where there is one, humans read `name`. A curated presenter has no
         // promptName and is named by `name`, which is why renaming one is a
@@ -841,6 +843,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         figure: scene.figure,
         treatment: scene.figureTreatment,
         hasPerson,
+        people,
         // The treatment's fictional-brands rule needs to know a real mark is
         // deliberately in play - and only one that actually rides counts,
         // same honesty rule as the photo guard above.
@@ -929,28 +932,25 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const spoken = dedupe(allDirectives.map(resolveDirective).filter((s): s is string => s !== null));
   if (spoken.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${spoken.join(' ')}`;
 
-  if (budgetDropped.some((d) => d.role !== 'scene')) {
+  if (max === 0 && budgetDropped.some((d) => d.role !== 'scene')) {
+    // Only an engine that reads no images at all has something to say here:
+    // every identity rides as words, and the composer already flags each chip
+    // the same way. On an engine that reads images, a photo that found no seat
+    // is described in words (its spec, or an absent-attachment directive), and
+    // the chip says "described in words" before the shot is sent; a warning
+    // that it "was left out" would contradict both.
     // By label, not by attachment: a product contributes several angles, and
     // naming it once per dropped angle reads as three different products
-    // having been lost.
-    // Never name a dropped scene reference. This warning exists to tell someone
-    // an identity they attached will not be shown; a scene ref is context that
-    // degrades quietly, and naming it here reads as though their scene failed.
-    // And name an identity only when ALL of it was dropped: a shed
-    // corroboration angle whose essential survived degrades quietly - the
-    // refine path has said this since 0.6.9, and the generation path used to
-    // tell someone their presenter "was left out" when its first image had in
-    // fact boarded.
+    // having been lost. Never name a dropped scene reference: a scene ref is
+    // context that degrades quietly, and naming it reads as though the scene
+    // failed. Name an identity only when ALL of it was dropped.
     const keptLabels = new Set(kept.map((a) => a.label));
     const names = [...new Set(budgetDropped.filter((d) => d.role !== 'scene').map((d) => d.label))].filter(
       (l) => !keptLabels.has(l),
     );
     if (names.length) {
-      // "reads 0 reference images" is technically true and reads like a bug; an
-      // engine that takes none deserves a sentence written for that case.
-      const reads = max === 0 ? 'reads no reference images' : `reads ${max} reference image${max === 1 ? '' : 's'}`;
       warnings.push(
-        `${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out — ${ctx.engineCaps.displayName} ${reads}.`,
+        `${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out — ${ctx.engineCaps.displayName} reads no reference images.`,
       );
     }
   }

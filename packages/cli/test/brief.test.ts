@@ -122,7 +122,10 @@ describe('compileBrief', () => {
       ctx({ engineCaps: caps(2) }),
     );
     expect(r.attachments).toHaveLength(2);
-    expect(r.warnings.join(' ')).toMatch(/reads 2 reference images/);
+    // The reference found no seat: it rides in words, and nothing calls it
+    // lost. The composer dimmed its chip and said so before the send.
+    expect(r.prompt).toContain('was attached but not sent this time');
+    expect(r.warnings.join(' ')).not.toMatch(/left out|reads \d/);
   });
 
   it('writes prose and tokens in order, attaching the product with a fidelity directive', () => {
@@ -191,7 +194,7 @@ describe('compileBrief', () => {
     expect([r.width, r.height]).toEqual([1080, 1920]);
   });
 
-  it('clamps attachments to what the engine reads and names what was dropped', () => {
+  it('clamps attachments to what the engine reads and carries the rest in words', () => {
     const r = compileBrief(
       {
         tokens: [
@@ -203,8 +206,8 @@ describe('compileBrief', () => {
     );
     expect(r.referenceImages).toHaveLength(1);
     expect(r.attachments[0].role).toBe('product');
-    expect(r.warnings[0]).toContain('Codex CLI reads 1 reference image');
-    expect(r.warnings[0]).toContain('Reference shot');
+    expect(r.prompt).toContain('was attached but not sent this time');
+    expect(r.warnings.join(' ')).not.toMatch(/left out/);
   });
 
   it('a template writes the brief and free text becomes art direction', () => {
@@ -1033,6 +1036,29 @@ describe('compileBrief: a world built around a figure', () => {
     );
   });
 
+  it('with two presenters the figure is shared, and nobody is composed out', () => {
+    const brand = brandWith(productHash);
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'character', id: 'c2' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene() && {
+        ...ctx({ templateById: (id: string) => (id === base.id ? base : undefined) }),
+        brand: { ...brand, characters: [...brand.characters, { ...brand.characters[0], id: 'c2', name: 'Lena' }] },
+      },
+    );
+    // "one figure, never a second person" composed the second presenter out
+    // three times in four on codex; the role is shared, and both are present.
+    expect(r.prompt).toContain('The attached presenters share that role');
+    expect(r.prompt).not.toContain('never a second person');
+    expect(r.prompt).toContain('Marco is in this photograph');
+    expect(r.prompt).toContain('Lena is in this photograph');
+  });
+
   it('with nobody attached, fills the role with an anonymous person rather than an empty room', () => {
     const r = compileBrief(
       {
@@ -1556,7 +1582,7 @@ describe('the drop warning names only what was fully lost', () => {
     expect(r.warnings.join(' ')).not.toContain('House Blend');
   });
 
-  it('an identity dropped whole is still named', () => {
+  it('an identity dropped whole rides in words, and is not called lost', () => {
     const r = compileBrief(
       {
         tokens: [
@@ -1566,8 +1592,8 @@ describe('the drop warning names only what was fully lost', () => {
       },
       ctx({ engineCaps: caps(1, 'Codex CLI') }),
     );
-    expect(r.warnings[0]).toContain('Reference shot');
-    expect(r.warnings[0]).not.toContain('House Blend');
+    expect(r.prompt).toContain('was attached but not sent this time');
+    expect(r.warnings.join(' ')).not.toMatch(/left out|House Blend/);
   });
 });
 
