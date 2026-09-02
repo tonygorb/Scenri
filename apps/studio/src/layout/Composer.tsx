@@ -979,14 +979,10 @@ export const Composer = forwardRef<
     if (t.t === 'mark') return set.has(groupKey('brand', t.imageHash));
     return false;
   };
-  /** The card's one line for a chip whose photo found no seat, in the words of its kind. */
-  const describedNote = (t: BriefToken): string | null => {
-    if (!room) return null;
-    // a reference or a mark has no words to ride on: it is simply not in the shot
-    if (t.t === 'ref' || t.t === 'mark')
-      return `Not pictured: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it, or remove a photo.`;
-    return `Described in words: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it instead.`;
-  };
+  /** The card's one line for any chip whose photo found no seat: what is true, and the one move that changes it. */
+  const describedNote = room
+    ? `Not pictured: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it.`
+    : null;
   const templateFlag = !template
     ? null
     : blocking.length > 0
