@@ -690,7 +690,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         .map((a) => ({ ...a, inherited: true }));
     }
     const cap = Math.max(0, engineCaps.maxReferenceImages - 1);
-    const merged = mergeEditAttachments(compiled.attachments, inheritedAttachments, cap);
+    // `seated`, not `attachments`: the compile above hands back its images
+    // re-sorted by role, and a second allocation from that order pictured
+    // every product before any face on a refinement whatever the line said.
+    const merged = mergeEditAttachments(compiled.seated, inheritedAttachments, cap);
     // The instruction's own attachment claims must match the ONE allocation
     // made here, not the uncapped compile above: a mark this merge dropped
     // used to leave "the attached brand mark ... reproduce it exactly" in the

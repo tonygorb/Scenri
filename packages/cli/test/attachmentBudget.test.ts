@@ -199,6 +199,23 @@ describe('a hand-attached reference outranks the scene', () => {
     ).toEqual(['p1', 's1']);
   });
 
+  it('hands back the seated images in brief order too, for a second allocation', () => {
+    const brief = [
+      att('product', 'p1', { id: 'a', essential: true }),
+      att('character', 'c1', { id: 'b', essential: true }),
+      att('product', 'p2', { id: 'c', essential: true }),
+    ];
+    const r = allocateAttachments(brief, 3);
+    expect(r.kept.map((a) => a.hash)).toEqual(['p1', 'p2', 'c1']);
+    expect(r.seated.map((a) => a.hash)).toEqual(['p1', 'c1', 'p2']);
+    // a tighter second pass from `seated` keeps the brief's order; from `kept` it would not
+    expect(
+      allocateAttachments(r.seated, 2)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['c1', 'p1']);
+  });
+
   it('moving a chip earlier moves its photo into the frame', () => {
     const later = [
       att('product', 'p1', { id: 'a' }),

@@ -73,7 +73,7 @@ export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
 export function allocateAttachments(
   attachments: Attachment[],
   cap: number,
-): { kept: Attachment[]; dropped: Attachment[] } {
+): { kept: Attachment[]; dropped: Attachment[]; seated: Attachment[] } {
   const max = Math.max(0, cap);
   const indexed = attachments.map((a, i) => ({ a, i }));
   const legacyOrder = [...indexed].sort(
@@ -128,6 +128,12 @@ export function allocateAttachments(
   return {
     kept: legacyOrder.filter((x) => kept.has(x.i)).map((x) => x.a),
     dropped: legacyOrder.filter((x) => !kept.has(x.i)).map((x) => x.a),
+    // The same images in the order the brief placed them, for a caller that
+    // will allocate again: `kept` is re-sorted by role for the consumers
+    // below, and feeding that back into a second, tighter allocation put
+    // every product ahead of every face on a refinement whatever the line
+    // said.
+    seated: seatOrder.filter((x) => kept.has(x.i)).map((x) => x.a),
   };
 }
 

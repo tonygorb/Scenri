@@ -154,6 +154,8 @@ export interface CompiledBrief {
   width: number;
   height: number;
   attachments: Attachment[];
+  /** `attachments` in the order the brief placed them, for the edit route's second allocation. */
+  seated: Attachment[];
   warnings: string[];
   productId: string | null;
 }
@@ -750,7 +752,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
   }
   const max = ctx.engineCaps.maxReferenceImages;
-  const { kept, dropped: budgetDropped } = allocateAttachments(attachments, max);
+  const { kept, dropped: budgetDropped, seated } = allocateAttachments(attachments, max);
 
   // What actually rides, for the deferred directives: the edit route makes a
   // wider allocation this compile cannot see (own plus inherited, source
@@ -925,6 +927,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     width,
     height,
     attachments: kept,
+    seated,
     warnings,
     productId,
   };
