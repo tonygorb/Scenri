@@ -52,6 +52,7 @@ export function Section({
   return (
     <Group
       name={title}
+      kind={kind}
       count={items.length}
       mode={mode}
       onToggle={() => onToggle(kind)}

@@ -4,6 +4,7 @@ import { useShape, type SectionMode, type Shape } from './useShape.js';
 
 export function Group({
   name,
+  kind,
   count,
   mode,
   onToggle,
@@ -11,6 +12,8 @@ export function Group({
   children,
 }: {
   name: string;
+  /** Which shelf this is, for the one thing the CSS keys on it: a product tile's radius. */
+  kind?: string;
   count?: number;
   mode: SectionMode;
   onToggle: () => void;
@@ -20,7 +23,7 @@ export function Group({
   const want: Shape = mode === 'open' || mode === 'result' ? 'open' : 'compact';
   const shape = useShape(want);
   return (
-    <div className="sc-agroup" data-mode={mode}>
+    <div className="sc-agroup" data-mode={mode} data-kind={kind}>
       <div className="sc-agroup-h">
         <button type="button" className="sc-agroup-t" aria-expanded={mode === 'open'} onClick={onToggle}>
           <b>{name}</b>

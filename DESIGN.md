@@ -141,7 +141,7 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **shadow-3** (`0 18px 50px rgba(0,0,0,.34)` dark / `rgba(0,0,0,.18)` light): dialogs, full overlays.
 
 ### Named Rules
-**The Flat-By-Default Rule.** Nothing gets a resting shadow. If it isn't floating above the page (dialog, overlay, dock), it gets a hairline border and nothing else.
+**The Flat-By-Default Rule.** Nothing gets a resting shadow. If it isn't floating above the page (dialog, overlay, dock), it gets a hairline border and nothing else. The hairline is 1px, with one exception in width: the picture tiles in the Create assets rail wear a 1.5px frame, because a 1px line vanishes against a photograph.
 
 ## 5. Components
 

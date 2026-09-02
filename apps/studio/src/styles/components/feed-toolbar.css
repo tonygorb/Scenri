@@ -4,8 +4,9 @@
    right, how do I find something in it: search, then the preferences that
    describe how the results look rather than which results there are.
 
-   Spacing carries the grouping, not boxes: --sc-space-4 between siblings on
-   one axis, --sc-space-6 across an axis boundary. Two steps, no third. */
+   Spacing carries the grouping, not boxes: 8px between siblings, 20px between
+   the place and its lenses, and 12px more before the panel switch, which is
+   not a discovery control. Figma 5253:3395 is the source for every number. */
 .sc-toolbar {
   /* One height for everything in the row, matching .sc-filterbar on the
      library pages so the same search pill is not 30px here and 34px there. */
@@ -23,8 +24,7 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  padding: var(--sc-space-5) 0 var(--sc-space-4);
-  margin-bottom: var(--sc-space-2);
+  padding: var(--sc-space-6) 0;
   background: var(--sc-bg);
 }
 /* Place and lens share a type size so they read as one row. The place is
@@ -33,7 +33,7 @@
 .sc-toolbar-scope {
   display: flex;
   align-items: center;
-  gap: var(--sc-space-8);
+  gap: var(--sc-space-7);
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -48,15 +48,26 @@
   flex: 1 1 auto;
   min-width: 0;
 }
-.sc-toolbar .sc-verticals {
-  padding: 0 0 1px;
-}
 /* The rail's 16px ink slot is sized for a page that gives it a line of its
-   own. Sharing this row, that slot hung the underline below every control
-   beside it and pushed the labels off the row's centre; 8px puts the ink
-   under the word and the word on the same axis as everything else. */
+   own. Sharing this row, the underline sits 4px under the word and is one
+   pixel thick, and the word rides 3px above the row's centre so the ink can
+   hang below it: 6 + label + 4 + 1 + 7 makes the 37px tab list the Figma
+   draws beside a 34px control. Nothing here is a boxed tab. */
+.sc-toolbar .sc-verticals {
+  padding: 0 0 7px;
+}
 .sc-toolbar .sc-verticals button {
-  padding: 8px 0;
+  padding: 6px 0 4px;
+}
+/* The rail is a scroll container, and in one `bottom: 0` lands on the box's
+   outer edge rather than inside its padding; 6 lifts the ink to the buttons'
+   own bottom edge, 4px under the word. */
+.sc-toolbar .sc-verticals-ink {
+  height: 1px;
+  bottom: 6px;
+}
+.sc-toolbar .sc-vcount {
+  margin-left: 4px;
 }
 
 .sc-toolbar-actions {
@@ -74,11 +85,20 @@
 /* The rail's switch is not a discovery control — it opens and shuts a column
    of the page — so the boundary gap holds it off from search and view. */
 .sc-toolbar-assets {
-  margin-left: var(--sc-space-6);
+  margin-left: var(--sc-space-5);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
 }
-/* Same 17px as the lens tabs, heavier, always ink. No box at rest — hover
-   is the ghost chip. Padding matches the tab buttons so the words sit on
-   one axis; the underline hangs below both. */
+/* The search toggle shares the row's raised fill. The primitive keeps the
+   page colour on the library pages, where it has to stay opaque over the
+   rail's edge fade; here the rail is a sibling, not an underlay. */
+.sc-toolbar .sc-libsearch-toggle {
+  background: var(--sc-raised);
+}
+/* Same 17px as the lens tabs, heavier, always ink, and the one boxed control
+   on the left: a raised 34px chip with the inline radius, so the place reads
+   as a menu and the lenses beside it as its children. Hover is the border
+   stepping up, the same move Sort makes. */
 .sc-toolbar-place {
   display: inline-flex;
   align-items: center;
@@ -86,21 +106,21 @@
   flex: none;
   width: auto;
   min-width: 0;
-  height: auto;
-  margin: 0 -8px;
-  padding: 8px;
-  border: none;
+  height: var(--sc-control-h);
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-sm);
-  background: none;
+  background: var(--sc-raised);
   color: var(--sc-fg);
   font: 600 17px / 1 var(--sc-font);
   letter-spacing: -0.022em;
   cursor: pointer;
-  transition: background var(--sc-dur-fast) var(--sc-ease);
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
 }
 .sc-toolbar-place:hover,
 .sc-toolbar-place[data-state="open"] {
-  background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
   outline: none;
 }
 .sc-toolbar-place:hover .sc-caret,
@@ -143,8 +163,8 @@
   height: var(--sc-control-h);
   padding: 0 10px;
   border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  background: none;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
   color: var(--sc-fg2);
   font-size: var(--sc-text-body);
   font-weight: 500;
@@ -171,16 +191,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The wall's own size toggle, at this row's control height — the same
-   adjustment .sc-filterbar makes, because the control ships smaller than the
-   controls it stands beside. */
-.sc-toolbar-actions .sc-density {
-  height: var(--sc-control-h);
-}
-.sc-toolbar-actions .sc-density-opt {
-  height: 28px;
-}
-
 /* The library search pill, at the row's own control height. The field grows
    out of its own right edge, over the gap rather than into the row, so
    opening it moves nothing. The sub-1280px filterbar rules turn the open pill
@@ -206,23 +216,25 @@
 }
 
 /* Catalog walls — two-view icon toggle (compact ↔ large). Sliding pill + VT. */
+/* 34px like every control it stands beside: a 1px line, a 1px well, two
+   30px options. It used to ship at 32 and every host padded it back up. */
 .sc-density {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  padding: 2px;
-  border-radius: 9px;
+  padding: 1px;
+  border-radius: var(--sc-radius-md);
   background: var(--sc-well);
   border: 1px solid var(--sc-line);
 }
 .sc-density-ink {
   position: absolute;
-  top: 2px;
-  bottom: 2px;
+  top: 1px;
+  bottom: 1px;
   left: 0;
   width: var(--sc-density-w, 0px);
-  border-radius: 7px;
+  border-radius: var(--sc-radius-sm);
   background: var(--sc-raised);
   box-shadow: 0 0 0 1px var(--sc-line);
   pointer-events: none;
@@ -240,10 +252,10 @@
   display: grid;
   place-items: center;
   width: 30px;
-  height: 26px;
+  height: 30px;
   padding: 0;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--sc-radius-sm);
   background: transparent;
   color: var(--sc-fg3);
   cursor: pointer;
@@ -314,13 +326,6 @@
     margin: 0;
     padding: 0;
     justify-content: center;
-    /* Icon-only on a black bar: the chip is what makes the folder a control
-       rather than a watermark. Desktop stays a title, so it stays unboxed. */
-    background: var(--sc-chip);
-  }
-  .sc-toolbar-place:hover,
-  .sc-toolbar-place[data-state="open"] {
-    background: var(--sc-chip-hover);
   }
   .sc-toolbar-btn {
     padding: 0 8px;
