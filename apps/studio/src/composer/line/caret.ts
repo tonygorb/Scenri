@@ -4,9 +4,7 @@
  * The caret as a count of characters, each chip counting as one.
  *
  * A Range dies the moment a repaint replaces the nodes it points at; a number
- * survives. Used around explicit repaints and normalisation, and on the typing
- * path only when `normalizeChipBoundaries` has found a boundary to close: it
- * merges the line's text nodes, which is a repaint as far as a Range knows.
+ * survives. Used around explicit repaints and normalisation.
  */
 export function caretUnits(root: HTMLElement | null): number | null {
   const sel = typeof window === 'undefined' ? null : window.getSelection();
@@ -27,68 +25,56 @@ export function caretUnits(root: HTMLElement | null): number | null {
   return n;
 }
 
-/** Restore a caret recorded by caretUnits, always inside a real text node. */
+/**
+ * Restore a caret recorded by caretUnits.
+ *
+ * Inside a text node whenever there is one; on the line itself, between two
+ * chips or after the last one, when there is not. That position is a real
+ * caret position: arrows stop there and typing there makes the text node.
+ */
 export function setCaretUnits(root: HTMLElement | null, units: number): void {
   if (!root) return;
+  const kids = Array.from(root.childNodes);
   let n = 0;
-  for (const c of Array.from(root.childNodes)) {
+  for (let i = 0; i < kids.length; i++) {
+    const c = kids[i];
     const len = lengthOf(c);
-    if (units <= n + len) {
-      if (c.nodeType === Node.TEXT_NODE) {
+    if (c.nodeType === Node.TEXT_NODE) {
+      if (units <= n + len) {
         placeCaret(root, c as Text, units - n);
         return;
       }
-      // a chip cannot hold a caret, so use the text just after it
-      const next = c.nextSibling;
-      if (next?.nodeType === Node.TEXT_NODE) {
-        placeCaret(root, next as Text, 0);
+    } else {
+      if (units === n) {
+        placeCaretAt(root, i);
         return;
       }
-      break;
+      if (units === n + 1) {
+        const next = kids[i + 1];
+        if (next?.nodeType === Node.TEXT_NODE) placeCaret(root, next as Text, 0);
+        else placeCaretAt(root, i + 1);
+        return;
+      }
     }
     n += len;
   }
-  caretToEnd(root);
+  placeCaretAt(root, kids.length);
 }
 
 /**
- * Put the caret at the end of the line, inside a real text node.
+ * Put the caret at the end of the line.
  *
- * selectNodeContents + collapse anchors the caret to the editable host itself
- * (container is the div, offset is a child index). Chromium will not type into
- * that position when the line ends in a contenteditable=false chip: it drops
- * the next keystroke at offset 0 instead, which reads as "I cannot type after
- * the chip".
+ * The "give me the caret back" entry point, used when focus really did leave
+ * (a Radix menu closing, the file dialog). Focusing is a genuine transition,
+ * which is exactly when Chromium re-establishes an editing caret; it is a
+ * no-op when the line already has focus.
  */
 export function caretToEnd(root: HTMLElement | null): void {
   if (!root) return;
-  // This is the "give me the caret back" entry point, used when focus really
-  // did leave (a Radix menu closing, the file dialog). Focusing is safe here:
-  // it is a genuine transition, which is exactly when Chromium re-establishes
-  // an editing caret. It is a no-op when the line already has focus.
   root.focus({ preventScroll: true });
-  if (!root.firstChild) {
-    // an empty line has nothing to anchor to, and has to stay :empty for its
-    // placeholder, so the host caret is the right answer there
-    const sel = window.getSelection();
-    const r = document.createRange();
-    r.selectNodeContents(root);
-    r.collapse(false);
-    sel?.removeAllRanges();
-    sel?.addRange(r);
-    return;
-  }
-  const tail = tailText(root);
-  placeCaret(root, tail, tail.length);
-}
-
-/** The line's last text node, adding the space a trailing chip needs. */
-export function tailText(root: HTMLElement): Text {
   const last = root.lastChild;
-  if (last && last.nodeType === Node.TEXT_NODE) return last as Text;
-  const t = document.createTextNode(' ');
-  root.appendChild(t);
-  return t;
+  if (last?.nodeType === Node.TEXT_NODE) placeCaret(root, last as Text, (last as Text).length);
+  else placeCaretAt(root, root.childNodes.length);
 }
 
 /**
@@ -115,6 +101,16 @@ export function placeCaret(root: HTMLElement, node: Text, offset: number) {
   sel?.removeAllRanges();
   sel?.addRange(r);
   void root;
+}
+
+/** The caret on the line itself, before the child at `index`: between two chips, or after the last node. */
+export function placeCaretAt(root: HTMLElement, index: number) {
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.setStart(root, Math.max(0, Math.min(index, root.childNodes.length)));
+  r.collapse(true);
+  sel?.removeAllRanges();
+  sel?.addRange(r);
 }
 
 export const lengthOf = (n: ChildNode): number => (n.nodeType === Node.TEXT_NODE ? (n.textContent ?? '').length : 1);

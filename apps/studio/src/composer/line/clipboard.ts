@@ -17,18 +17,22 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export function serializeSelection(range: Range): { text: string; html: string } {
   let text = '';
   let html = '';
+  let lastWasChip = false;
   const walk = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       const v = node.textContent ?? '';
       text += v;
       html += esc(v);
+      lastWasChip = false;
       return;
     }
     const el = node as HTMLElement;
     const raw = el.dataset?.tok;
     if (raw) {
       const label = chipLabel(el);
-      text += label;
+      // two chips touch in the line, with a margin for a gap; as words they need a space
+      text += (lastWasChip ? ' ' : '') + label;
+      lastWasChip = true;
       html += `<span data-sc-tok="${esc(raw)}">${esc(label)}</span>`;
       return;
     }

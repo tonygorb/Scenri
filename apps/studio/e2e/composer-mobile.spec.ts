@@ -782,12 +782,11 @@ test('one Backspace removes a chip', async ({ page }) => {
   await cards.nth(1).tap();
   const chips = page.locator('.sc-brief-line .sc-token');
   await expect(chips).toHaveCount(2);
-  // the caret at the end, past the last chip's space, without a pointer
+  // the caret on the line after the last chip, without a pointer
   await line(page).evaluate((el) => {
     el.focus();
-    const tail = el.lastChild as Text;
     const r = document.createRange();
-    r.setStart(tail, tail.length);
+    r.setStart(el, el.childNodes.length);
     r.collapse(true);
     const sel = getSelection()!;
     sel.removeAllRanges();
@@ -795,6 +794,17 @@ test('one Backspace removes a chip', async ({ page }) => {
   });
   await page.keyboard.press('Backspace');
   await expect(chips).toHaveCount(1);
+
+  // and typing there lands after the chip, with no host to stand in
+  await page.keyboard.type('x');
+  const tail = await line(page).evaluate((el) => {
+    const last = el.lastChild;
+    return {
+      text: last?.nodeType === Node.TEXT_NODE ? last.textContent : null,
+      afterChip: last?.previousSibling?.nodeType === Node.ELEMENT_NODE,
+    };
+  });
+  expect(tail).toEqual({ text: 'x', afterChip: true });
 });
 
 test('a tap on the right edge of a chip opens the sheet, never removes', async ({ page }) => {

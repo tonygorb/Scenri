@@ -53,7 +53,7 @@ export function renderLine(
 ): void {
   if (!root) return;
   root.textContent = '';
-  for (const t of tokens) {
+  for (const t of withoutSeams(tokens)) {
     if (t.t === 'text') {
       if (t.v) root.appendChild(document.createTextNode(t.v));
       continue;
@@ -61,4 +61,21 @@ export function renderLine(
     root.appendChild(chipFor(t));
   }
   normalizeLine(root);
+}
+
+/**
+ * Briefs saved before the chip owned its gap carried a space of the line's own
+ * on each side of every chip. The chip's margin is that gap now, so a run of
+ * nothing but whitespace that only ever stood between two chips, or before the
+ * first, or after the last, is dropped on the way in. A space the user typed
+ * beside a chip has words on its other side and is kept.
+ */
+function withoutSeams(tokens: SentenceToken[]): SentenceToken[] {
+  const chipAt = (i: number) => i >= 0 && i < tokens.length && tokens[i].t !== 'text';
+  return tokens.filter((t, i) => {
+    if (t.t !== 'text' || !/^\s+$/.test(t.v)) return true;
+    const edgeBefore = i === 0 || chipAt(i - 1);
+    const edgeAfter = i === tokens.length - 1 || chipAt(i + 1);
+    return !(edgeBefore && edgeAfter);
+  });
 }

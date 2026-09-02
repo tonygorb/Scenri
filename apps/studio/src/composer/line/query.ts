@@ -1,5 +1,5 @@
 import { CHIP_SELECTOR, decode, identityKeyOf } from './tokens.js';
-import { placeCaret } from './caret.js';
+import { placeCaret, placeCaretAt } from './caret.js';
 
 // ---------------------------------------------------------------- slash query
 
@@ -58,29 +58,16 @@ export function caretRect(): DOMRect | null {
  */
 export function caretBeside(root: HTMLElement | null, chip: Element | null, side: 'before' | 'after'): void {
   if (!root || !chip) return;
+  const index = Array.from(root.childNodes).indexOf(chip);
   if (side === 'after') {
     const next = chip.nextSibling;
-    if (next?.nodeType === Node.TEXT_NODE) {
-      const t = next as Text;
-      // past the single space that follows a chip, so the caret reads as
-      // sitting after the pill rather than wedged against it
-      placeCaret(root, t, Math.min(1, t.length));
-      return;
-    }
-    const t = document.createTextNode(' ');
-    chip.parentNode?.insertBefore(t, chip.nextSibling);
-    placeCaret(root, t, t.length);
+    if (next?.nodeType === Node.TEXT_NODE) placeCaret(root, next as Text, 0);
+    else placeCaretAt(root, index + 1);
     return;
   }
   const prev = chip.previousSibling;
-  if (prev?.nodeType === Node.TEXT_NODE) {
-    const t = prev as Text;
-    placeCaret(root, t, t.length);
-    return;
-  }
-  const t = document.createTextNode('');
-  chip.parentNode?.insertBefore(t, chip);
-  placeCaret(root, t, 0);
+  if (prev?.nodeType === Node.TEXT_NODE) placeCaret(root, prev as Text, (prev as Text).length);
+  else placeCaretAt(root, index);
 }
 
 /** How far either side of a chip still counts as "I meant this chip". */

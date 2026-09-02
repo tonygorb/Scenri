@@ -42,11 +42,8 @@ import {
   chipHexWords,
   chipLabel,
   closeIcon,
-  lineIsCanonical,
-  collapseSpaceAtCaret,
-  attachGhostCaret,
-  stepAcrossChip,
   chipToDelete,
+  unitsOfPosition,
   syncEmpty,
   decode,
   emptySentence,
@@ -476,8 +473,6 @@ export const BriefInput = forwardRef<
     document.addEventListener('selectionchange', track);
     return () => document.removeEventListener('selectionchange', track);
   }, []);
-  // the caret between two chips is drawn in the middle of their gap
-  useEffect(() => attachGhostCaret(rootRef.current), []);
 
   const place = useCallback(
     (token: SentenceToken) => {
@@ -577,10 +572,12 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
-  // Backspace and Delete at a chip's space take the chip, on every keyboard.
-  // A phone's keyboard reports Backspace as a composition key (keyCode 229),
-  // so keydown cannot be the hook; `beforeinput` names the deletion itself
-  // and is cancelable in WebKit and Chromium alike.
+  // Deleting a chip is the line's, not the browser's (see keys.ts): the same
+  // rule runs from keydown for a hardware key, whose cancellation stops any
+  // native deletion in every engine, and from `beforeinput` for a phone's
+  // keyboard, which reports Backspace as a composition key (keyCode 229) and
+  // reaches keydown as nothing usable. A cancelled keydown fires no
+  // beforeinput, so the two never both act.
   const removeChipByUidRef = useRef(removeChipByUid);
   useEffect(() => {
     removeChipByUidRef.current = removeChipByUid;
@@ -1024,13 +1021,12 @@ export const BriefInput = forwardRef<
     }
     if (menu || picker) return;
     if (composingEvent(e)) return;
-    // A chip and the space after it are one thing to the keyboard: one press
-    // crosses both (deleting both is the beforeinput listener's, above). Prose
-    // beside a chip still steps a character at a time. Modifiers are left
-    // alone: Shift extends a selection and Alt+Arrow moves a focused chip.
-    if (!e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        if (stepAcrossChip(root, e.key === 'ArrowLeft' ? 'left' : 'right')) e.preventDefault();
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      const chip = chipToDelete(root, e.key);
+      if (chip?.dataset.uid) {
+        e.preventDefault();
+        const at = removeChipByUid(chip.dataset.uid);
+        if (at != null) setCaretUnits(root, at);
         return;
       }
     }
@@ -1086,12 +1082,6 @@ export const BriefInput = forwardRef<
     // Never mid-composition: an IME's provisional text is not the user's line
     // yet, and rewriting it under the composition drops what they were typing.
     if (native?.isComposing) return;
-    // The one rule, only when a keystroke has left the line short of it: a
-    // space typed into the one a chip owns, prose typed flush against a chip,
-    // two chips left touching by a deleted selection.
-    if (!lineIsCanonical(root)) normalizeLine(root);
-    // a selection deleted across a chip leaves its two spaces meeting in prose
-    if (native?.inputType?.startsWith('delete')) collapseSpaceAtCaret(root);
     // clearing the line leaves a <br>; strip it and flip data-empty so the
     // placeholder returns even if Chromium re-inserts a caret host
     if (syncEmpty(root)) caretToEnd(root);
@@ -1237,12 +1227,16 @@ export const BriefInput = forwardRef<
 
     const frag = document.createDocumentFragment();
     for (const p of kept) frag.appendChild(typeof p === 'string' ? document.createTextNode(p) : chipFor(p));
-    const tail = document.createTextNode(' ');
-    frag.appendChild(tail);
+    const last = frag.lastChild;
     range.insertNode(frag);
     if (oldSlot) oldSlot.remove();
 
-    const at = caretUnitsOf(root, tail);
+    // the caret lands right after what was pasted, and nothing else goes in
+    const at = last
+      ? last.nodeType === Node.TEXT_NODE
+        ? unitsOfPosition(root, last, (last as Text).length)
+        : unitsOfPosition(root, root, Array.from(root.childNodes).indexOf(last) + 1)
+      : (caretUnits(root) ?? 0);
     normalizeLine(root);
     setCaretUnits(root, at);
     emit();
@@ -1508,16 +1502,6 @@ function sameColor(a: string | null | undefined, b: string | null | undefined): 
   const left = a ? normalizeHex(a) : null;
   const right = b ? normalizeHex(b) : null;
   return !!left && left === right;
-}
-
-/** Characters before a node, chips counting as one, for restoring a caret. */
-function caretUnitsOf(root: HTMLElement, node: Node): number {
-  let n = 0;
-  for (const c of Array.from(root.childNodes)) {
-    if (c === node || c.contains(node)) break;
-    n += c.nodeType === Node.TEXT_NODE ? (c.textContent ?? '').length : 1;
-  }
-  return n + (node.nodeType === Node.TEXT_NODE ? (node.textContent ?? '').length : 1);
 }
 
 function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): string {

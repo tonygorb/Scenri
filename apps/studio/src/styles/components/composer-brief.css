@@ -17,8 +17,8 @@
    gap between items belonged to no text node at all, so hit testing around a
    chip was guesswork: clicking beside one jumped the caret to the start of the
    sentence, and clicking the empty space after the sentence landed in front of
-   the chip. Chips are inline-flex atoms inside normal text flow instead, and
-   the spacing comes from the real space characters the line maintains. */
+   the chip. Chips are inline-flex atoms inside normal text flow instead, each
+   owning its gap as a margin; the line keeps no space on a chip's behalf. */
 .sc-brief-line {
   display: block;
   min-height: 24px;
@@ -176,37 +176,10 @@
     transform 80ms ease,
     height 80ms ease;
 }
-/* The caret between two chips, drawn in the middle of their gap while the
-   browser's own caret, which can only sit at one edge of the space, is hidden.
-   The same ink and geometry as a text caret, not the drop indicator's bar: this
-   is the caret, not an insertion mark. Fine pointers only, see ghostCaret.ts. */
-.sc-caret-ghost {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 1px;
-  background: var(--sc-fg);
-  z-index: var(--sc-z-popover);
-  pointer-events: none;
-  animation: sc-caret-blink 1.06s steps(1, end) infinite;
-}
-@keyframes sc-caret-blink {
-  0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .sc-drop-caret,
   .sc-chip-ghost {
     transition: none;
-  }
-  .sc-caret-ghost {
-    animation: none;
   }
 }
 /* A mark is usually dark art on transparency, which is invisible on a dark
@@ -609,14 +582,16 @@
      and `middle` 1.5px low. Em keeps the same point at every line scale.
      Still inline alignment, no transform.
 
-     No side margins: the real space characters the line maintains are the
-     horizontal gap, and they measure the 4px the frames draw. */
+     The chip owns its gap: 2px of margin on each side, so two chips that
+     touch in the document sit the 4px apart the frames draw, and the caret
+     between them lands where the two margins meet, in the middle of the gap.
+     Symmetric, so it holds in a right-to-left line too. The line itself keeps
+     no space on a chip's behalf; the spaces beside one are the user's. */
   vertical-align: 0.12em;
   /* The Figma row pitch is 28: a 24px chip with 2px above and below. The
      strut stays 24 for prose, and a chip's vertical margin is what grows the
-     rows that hold one; the space characters beside a chip are its 4px
-     horizontal gap, so there is no side margin. */
-  margin: var(--sc-space-1) 0;
+     rows that hold one. */
+  margin: var(--sc-space-1);
   user-select: none;
 }
 .sc-brief-line .sc-token > button {
