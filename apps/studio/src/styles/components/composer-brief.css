@@ -94,25 +94,18 @@
 }
 
 /* ---------- chip drag reorder ----------------------------------------------
-   The source chip stays in flow at its exact box — zero layout shift — but
-   empties into a hollow dashed slot: unmistakably "this space is held", and
-   never confusable with the traveling ghost. The drop caret is a fixed bar at
-   the exact insertion point, the same geometry the real caret would have
-   there, with a soft halo so it reads over busy prose and dark chips.
+   The source chip stays in flow at its exact box, zero layout shift, and
+   fades to a faint ghost of itself: the place it left, plainly not a place
+   to drop. It used to hollow into a dashed slot, and a dashed box beside
+   the drop caret read as a second drop zone. The drop caret is the one
+   target: a fixed bar at the exact insertion point, the same geometry the
+   real caret would have there, with a soft halo so it reads over busy prose
+   and dark chips. Half the described-chip dim, so the two never read alike.
    Specificity note: (0,4,0) on purpose — the tinted/warn skins later in this
-   file are (0,2,0) and the slot must win by weight, not by file position. */
+   file are (0,2,0) and the ghost must win by weight, not by file position. */
 .sc-brief-line[data-chip-drag] .sc-token[data-drag-src] {
-  /* a whisper of fill under the dashes: reserved space, not a rendering bug */
-  background: color-mix(in srgb, var(--sc-line) 18%, transparent);
+  opacity: calc(var(--sc-dim) / 2);
   box-shadow: none;
-  color: transparent;
-  outline: 1.5px dashed var(--sc-line-strong);
-  outline-offset: -1.5px;
-}
-.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > img,
-.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > svg,
-.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > .sc-token-swatch {
-  visibility: hidden;
 }
 .sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > button {
   opacity: 0;

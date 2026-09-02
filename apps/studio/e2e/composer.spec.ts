@@ -2175,7 +2175,7 @@ test('the drag ghost rides the grab point like a platform drag image', async ({ 
   expect(style.fontSize).toBe(await chip.evaluate((el) => getComputedStyle(el).fontSize));
 
   // the caret marks the drop, and the source chip holds its exact box as a
-  // dashed slot: zero reflow anywhere
+  // faint ghost of itself: zero reflow anywhere
   await expect(page.locator('.sc-drop-caret')).toBeVisible();
   const during = (await chip.boundingBox())!;
   expect(during.x).toBe(before.x);

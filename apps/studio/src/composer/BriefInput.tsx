@@ -425,6 +425,10 @@ export const BriefInput = forwardRef<
       onDragStart: () => {
         setMenu(null);
         setQuery('');
+        // A peek that was open on the chip being picked up would ride along
+        // otherwise; the pointer-over path already refuses to open one while
+        // the drag runs.
+        closeHover();
       },
       onMoved: (_chip, message) => {
         emit();
@@ -432,7 +436,7 @@ export const BriefInput = forwardRef<
       },
       onCancelled: () => announce('Reorder cancelled.'),
     });
-  }, [emit, announce]);
+  }, [emit, announce, closeHover]);
 
   /** Chips are DOM nodes React never revisits (see chipFor above), so a
    * warning set at creation — "builds around a product", "cannot read this
