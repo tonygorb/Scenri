@@ -998,7 +998,10 @@ export const Composer = forwardRef<
     if (!drop) return null;
     if (drop.reason === 'missing') return `No photo on file. ${engineName} works from the description.`;
     const cap = settledPreview.cap;
-    return cap == null || cap === 0
+    // An older server says nothing about its cap, so neither does the card:
+    // guessing "reads no images" at an engine that reads five is a lie.
+    if (cap == null) return `Described in words for ${engineName}.`;
+    return cap === 0
       ? `Described in words. ${engineName} reads no images.`
       : `Described in words. ${engineName} takes ${cap} photos per shot.`;
   };
