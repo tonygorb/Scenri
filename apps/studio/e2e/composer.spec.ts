@@ -2096,6 +2096,117 @@ test('a space typed at a chip edge never doubles the one the chip owns', async (
   expect(after).toBe(' on marble');
 });
 
+/**
+ * The gap two chips are left with after the one between them is deleted.
+ *
+ * A chip owns one space on each side. Delete it with the caret in the line and
+ * Chromium takes the element out and leaves those two spaces behind as SEPARATE
+ * text nodes, so every pass that measured one node at a time read a single space
+ * on each side and found nothing to close. The line renders spaces literally
+ * (`white-space: pre-wrap`), so the survivors sat at twice the gap of every
+ * other pair until the next structural edit happened to restate the invariant.
+ */
+test('deleting the chip between two chips leaves the two spaces as one', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await pickCard(page, 2);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(3);
+
+  // the gap any adjacent pair reads at, before anything is deleted
+  const gapOf = (a: number, b: number) =>
+    line(page).evaluate(
+      (root, [i, j]) => {
+        const els = root.querySelectorAll('.sc-token');
+        return Math.round(els[j].getBoundingClientRect().left - els[i].getBoundingClientRect().right);
+      },
+      [a, b] as const,
+    );
+  const control = await gapOf(0, 1);
+  expect(control).toBeGreaterThan(0);
+
+  // the caret immediately after the middle chip, which is where a Backspace
+  // deletes the chip itself rather than a space
+  await line(page).evaluate((el) => {
+    const chip = el.querySelectorAll('.sc-token')[1];
+    const r = document.createRange();
+    r.setStart(chip.nextSibling as Text, 0);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(2);
+
+  // one text node, holding one space
+  const between = await line(page).evaluate((el) => {
+    const first = el.querySelector('.sc-token')!;
+    const next = first.nextSibling;
+    return {
+      isText: next?.nodeType === Node.TEXT_NODE,
+      value: next?.textContent ?? null,
+      thenChip: (next?.nextSibling as HTMLElement | null)?.classList?.contains('sc-token') ?? false,
+    };
+  });
+  expect(between).toEqual({ isText: true, value: ' ', thenChip: true });
+
+  // and the survivors read at the same gap as any other pair, not twice it
+  expect(await gapOf(0, 1)).toBe(control);
+});
+
+/**
+ * The same rule, in the refine composer.
+ *
+ * The composer in the shot's sidebar is the same component as the hub's, at a
+ * smaller type scale, so the boundary rule cannot hold in one and not the other.
+ * Pinned here anyway: it is the surface the doubled gap was reported on, and a
+ * shared component is only shared until somebody forks it.
+ */
+test('the refine composer closes the same seam, at its own type scale', async ({ page }) => {
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().click();
+  await page.waitForURL(/\/shots\//);
+  const editor = page.locator('.sc-ovl-edit');
+  const editLine = editor.locator('.sc-brief-line');
+  await expect(editLine).toBeVisible();
+
+  // start from an empty sentence: a refine composer opens carrying context
+  await editLine.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Backspace');
+
+  await editor.locator('.sc-attach-toggle').click();
+  await page.locator('.sc-ap-tabs button', { hasText: /products/i }).click();
+  await attachCards(page).first().waitFor();
+  for (const i of [0, 1, 2]) await attachCards(page).nth(i).click();
+  await page.keyboard.press('Escape');
+  await expect(editor.locator('.sc-token')).toHaveCount(3);
+
+  await editLine.evaluate((el) => {
+    const chip = el.querySelectorAll('.sc-token')[1];
+    const r = document.createRange();
+    r.setStart(chip.nextSibling as Text, 0);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  await page.keyboard.press('Backspace');
+  await expect(editor.locator('.sc-token')).toHaveCount(2);
+
+  const between = await editLine.evaluate((el) => {
+    const next = el.querySelector('.sc-token')!.nextSibling;
+    return {
+      value: next?.textContent ?? null,
+      thenChip: (next?.nextSibling as HTMLElement | null)?.classList?.contains('sc-token') ?? false,
+    };
+  });
+  expect(between).toEqual({ value: ' ', thenChip: true });
+});
+
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {
   // prose alone: the line's height at exactly one row of its own strut
   await line(page).click();

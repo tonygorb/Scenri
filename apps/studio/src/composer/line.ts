@@ -29,7 +29,7 @@ export {
 } from './line/tokens.js';
 export { readLine, renderLine } from './line/render.js';
 export { caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, tailText } from './line/caret.js';
-export { normalizeLine, isBlankLine, syncEmpty } from './line/invariants.js';
+export { normalizeLine, normalizeChipBoundaries, isBlankLine, syncEmpty } from './line/invariants.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
 export {
   insertToken,
@@ -37,8 +37,6 @@ export {
   sigilAtCaret,
   removeChip,
   unitsBeforeChip,
-  collapseChipSpaces,
-  collapseDoubleSpaceAtCaret,
 } from './line/insert.js';
 export {
   chipForIdentity,

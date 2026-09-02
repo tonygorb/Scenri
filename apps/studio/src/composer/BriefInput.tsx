@@ -42,8 +42,7 @@ import {
   chipHexWords,
   chipLabel,
   closeIcon,
-  collapseChipSpaces,
-  collapseDoubleSpaceAtCaret,
+  normalizeChipBoundaries,
   syncEmpty,
   decode,
   emptySentence,
@@ -189,7 +188,6 @@ export const BriefInput = forwardRef<
     setLive('');
     requestAnimationFrame(() => setLive(msg));
   }, []);
-  const chipCount = useRef(0);
   /**
    * Where the caret last was inside the line. Only used when focus genuinely
    * left it: the file dialog and the attach panel's search box.
@@ -393,7 +391,6 @@ export const BriefInput = forwardRef<
   const emit = useCallback(() => {
     const root = rootRef.current;
     if (!root) return;
-    chipCount.current = root.querySelectorAll(`.${CHIP}`).length;
     onChange(readLine(root));
   }, [onChange]);
 
@@ -402,7 +399,6 @@ export const BriefInput = forwardRef<
     const root = rootRef.current;
     if (!root) return;
     renderLine(root, initialTokens?.length ? initialTokens : emptySentence(), (t) => chipFor(t));
-    chipCount.current = root.querySelectorAll(`.${CHIP}`).length;
     syncEmpty(root);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -706,7 +702,6 @@ export const BriefInput = forwardRef<
       const root = rootRef.current;
       if (!root) return;
       renderLine(root, t.length ? t : emptySentence(), (tok) => chipFor(tok));
-      chipCount.current = root.querySelectorAll(`.${CHIP}`).length;
       syncEmpty(root);
       onChange(readLine(root));
     },
@@ -1039,15 +1034,15 @@ export const BriefInput = forwardRef<
     syncScrollHint();
   });
 
-  const onInput = () => {
+  const onInput = (e?: React.FormEvent<HTMLDivElement>) => {
     syncScrollHint();
     const root = rootRef.current;
-    const chips = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
-    // a chip deleted with Backspace or Delete leaves both of its spaces behind
-    if (chips < chipCount.current) collapseDoubleSpaceAtCaret(root);
-    chipCount.current = chips;
-    // a space typed at a chip's edge doubles the one the chip already owns
-    collapseChipSpaces(root);
+    // Never mid-composition: an IME's provisional text is not the user's line
+    // yet, and rewriting it under the composition drops what they were typing.
+    if ((e?.nativeEvent as InputEvent | undefined)?.isComposing) return;
+    // a chip's edge is the one place a space can double: typed into the one the
+    // chip already owns, or left behind as a seam by a chip deleted natively
+    normalizeChipBoundaries(root);
     // clearing the line leaves a <br>; strip it and flip data-empty so the
     // placeholder returns even if Chromium re-inserts a caret host
     if (syncEmpty(root)) caretToEnd(root);
@@ -1055,7 +1050,6 @@ export const BriefInput = forwardRef<
     pasted.current = false;
     const chipped = chipHexWords(root, (t) => chipFor(t), { commit: fromPaste, nameFor: nameForHex });
     if (chipped) {
-      chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
       setMenu(null);
       setQuery('');
     }
@@ -1130,7 +1124,6 @@ export const BriefInput = forwardRef<
     if (parts && pasteParts(parts)) {
       const root = rootRef.current;
       if (chipHexWords(root, (t) => chipFor(t), { commit: true, nameFor: nameForHex })) {
-        chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
         emit();
       }
       return;
@@ -1266,7 +1259,6 @@ export const BriefInput = forwardRef<
         onBlur={() => {
           const root = rootRef.current;
           if (chipHexWords(root, (t) => chipFor(t), { commit: true, nameFor: nameForHex })) {
-            chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
             setMenu(null);
             setQuery('');
           }

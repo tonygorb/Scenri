@@ -6,8 +6,7 @@ import {
   chipHexWords,
   chipLabel,
   closeIcon,
-  collapseChipSpaces,
-  collapseDoubleSpaceAtCaret,
+  normalizeChipBoundaries,
   syncEmpty,
   decode,
   emptySentence,
@@ -171,6 +170,30 @@ describe('normalizeLine invariants', () => {
     normalizeLine(root);
     expect(text()).toBe('lead');
     expect(root.childNodes).toHaveLength(1);
+  });
+
+  // The rule is scoped to chip boundaries, so prose the user spaced out on
+  // purpose survives every later structural edit. It used to be collapsed by a
+  // line-wide pass that could not tell a typed space from a synthetic one.
+  it('keeps a double space the user typed in prose', () => {
+    renderLine(root, [{ t: 'text', v: 'a  b ' }], chipFor);
+    caret(5);
+    insertToken(root, chipFor({ t: 'product', id: 'p1' }));
+    expect(text()).toBe('a  b P:p1 ');
+  });
+
+  it('hydrates and reads back without gaining a separator, over repeated cycles', () => {
+    const seed: SentenceToken[] = [
+      { t: 'text', v: 'shoot ' },
+      { t: 'product', id: 'p1' },
+      { t: 'character', id: 'c1' },
+      { t: 'text', v: ' on marble' },
+    ];
+    renderLine(root, seed, chipFor);
+    const first = shape();
+    for (let i = 0; i < 3; i++) renderLine(root, readLine(root), chipFor);
+    expect(shape()).toEqual(first);
+    expect(first).toEqual(['"shoot "', '<product>', '" "', '<character>', '" on marble"']);
   });
 
   it('strips a lone <br> and sets data-empty for the placeholder', () => {
@@ -421,22 +444,9 @@ describe('removing a chip', () => {
     expect(chips().length).toBe(1);
     expect(text()).toBe('shoot P:p1 x');
   });
-
-  it('closes the double space a Backspace over a chip leaves', () => {
-    root.append(document.createTextNode('shoot  in light'));
-    const t = root.firstChild as Text;
-    const r = document.createRange();
-    r.setStart(t, 6);
-    r.collapse(true);
-    const sel = window.getSelection()!;
-    sel.removeAllRanges();
-    sel.addRange(r);
-    collapseDoubleSpaceAtCaret(root);
-    expect(text()).toBe('shoot in light');
-  });
 });
 
-describe('collapseChipSpaces', () => {
+describe('normalizeChipBoundaries', () => {
   const caretIn = (t: Text, at: number) => {
     const r = document.createRange();
     r.setStart(t, at);
@@ -449,6 +459,7 @@ describe('collapseChipSpaces', () => {
     const r = window.getSelection()!.getRangeAt(0);
     return [r.startContainer, r.startOffset] as const;
   };
+  const dropCaret = () => window.getSelection()?.removeAllRanges();
 
   it('a space typed between two chips collapses back to the one they share, caret past it', () => {
     root.append(
@@ -458,7 +469,7 @@ describe('collapseChipSpaces', () => {
     );
     const t = root.childNodes[1] as Text;
     caretIn(t, 2);
-    expect(collapseChipSpaces(root)).toBe(true);
+    expect(normalizeChipBoundaries(root)).toBe(true);
     expect(t.textContent).toBe(' ');
     expect(caretAt()).toEqual([t, 1]);
   });
@@ -471,15 +482,60 @@ describe('collapseChipSpaces', () => {
     );
     const t = root.childNodes[1] as Text;
     caretIn(t, 13);
-    collapseChipSpaces(root);
+    normalizeChipBoundaries(root);
     expect(t.textContent).toBe(' on marble ');
     expect(caretAt()).toEqual([t, 11]);
   });
 
   it('prose that touches no chip is left alone', () => {
     root.append(document.createTextNode('shoot  in light'));
-    expect(collapseChipSpaces(root)).toBe(false);
+    dropCaret();
+    expect(normalizeChipBoundaries(root)).toBe(false);
     expect(text()).toBe('shoot  in light');
+  });
+
+  // The bug this rule exists for. Chromium deletes the chip element and leaves
+  // its two spaces as SEPARATE text nodes, so every pass that measured a node
+  // at a time read one space on each side and saw nothing to do.
+  it('collapses the split seam a native Backspace over a middle chip leaves between two chips', () => {
+    root.append(
+      chipFor({ t: 'product', id: 'p1' }),
+      document.createTextNode(' '),
+      document.createTextNode(' '),
+      chipFor({ t: 'product', id: 'p2' }),
+    );
+    caretIn(root.childNodes[1] as Text, 1);
+    expect(normalizeChipBoundaries(root)).toBe(true);
+    expect(shape()).toEqual(['<product>', '" "', '<product>']);
+  });
+
+  it('collapses the same split seam when the chip sat between two prose runs', () => {
+    root.append(document.createTextNode('shoot '), document.createTextNode(' in light'));
+    caretIn(root.firstChild as Text, 6);
+    expect(normalizeChipBoundaries(root)).toBe(true);
+    expect(text()).toBe('shoot in light');
+  });
+
+  it('leaves three chips in a row with exactly one space at both boundaries', () => {
+    root.append(
+      chipFor({ t: 'product', id: 'p1' }),
+      document.createTextNode(' '),
+      document.createTextNode(' '),
+      chipFor({ t: 'product', id: 'p2' }),
+      document.createTextNode('  '),
+      chipFor({ t: 'product', id: 'p3' }),
+      document.createTextNode(' '),
+    );
+    caretIn(root.childNodes[1] as Text, 1);
+    expect(normalizeChipBoundaries(root)).toBe(true);
+    expect(shape()).toEqual(['<product>', '" "', '<product>', '" "', '<product>', '" "']);
+  });
+
+  it('does not merge two prose runs that carry no space at their seam', () => {
+    root.append(document.createTextNode('hel'), document.createTextNode('lo'));
+    dropCaret();
+    expect(normalizeChipBoundaries(root)).toBe(false);
+    expect(shape()).toEqual(['"hel"', '"lo"']);
   });
 });
 

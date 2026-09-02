@@ -4,8 +4,9 @@
  * The caret as a count of characters, each chip counting as one.
  *
  * A Range dies the moment a repaint replaces the nodes it points at; a number
- * survives. Used only around explicit repaints and normalisation, never on the
- * typing path.
+ * survives. Used around explicit repaints and normalisation, and on the typing
+ * path only when `normalizeChipBoundaries` has found a boundary to close: it
+ * merges the line's text nodes, which is a repaint as far as a Range knows.
  */
 export function caretUnits(root: HTMLElement | null): number | null {
   const sel = typeof window === 'undefined' ? null : window.getSelection();

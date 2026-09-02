@@ -1,5 +1,5 @@
 import { lengthOf, placeCaret, setCaretUnits } from './caret.js';
-import { isChip, normalizeLine } from './invariants.js';
+import { closeSeamAt, normalizeLine } from './invariants.js';
 import { textBeforeCaret } from './query.js';
 
 // ---------------------------------------------------------------- insert and remove
@@ -130,6 +130,9 @@ export function removeChip(root: HTMLElement | null, chip: Element | null): void
   root.normalize();
   const before = unitsBeforeChip(root, chip);
   chip.remove();
+  root.normalize();
+  // `before` is also where the chip's two spaces have just met
+  closeSeamAt(root, before);
   normalizeLine(root);
   setCaretUnits(root, before);
 }
@@ -149,65 +152,4 @@ export function unitsBeforeChip(root: HTMLElement, node: Node): number {
     n += lengthOf(c);
   }
   return n;
-}
-
-/**
- * Exactly one space on each side of a chip, kept while typing.
- *
- * `normalizeLine` states the rule after every structural edit, but a space
- * typed at a chip's edge lands in the single space the chip already owns and
- * made two: an 8px gap between two chips, and a second caret slot in it. This
- * runs on every input, touches only the runs that meet a chip, and carries the
- * caret across so the keystroke still feels like it happened.
- */
-export function collapseChipSpaces(root: HTMLElement | null): boolean {
-  if (!root) return false;
-  const sel = window.getSelection();
-  const range = sel && sel.rangeCount > 0 && sel.getRangeAt(0).collapsed ? sel.getRangeAt(0) : null;
-  let changed = false;
-  for (const n of Array.from(root.childNodes)) {
-    if (n.nodeType !== Node.TEXT_NODE) continue;
-    const text = n as Text;
-    const v = text.textContent ?? '';
-    const lead = isChip(n.previousSibling) ? (v.match(/^ +/)?.[0].length ?? 0) : 0;
-    const trail = isChip(n.nextSibling) ? (v.match(/ +$/)?.[0].length ?? 0) : 0;
-    if (lead < 2 && trail < 2) continue;
-    let at = range && range.startContainer === text ? range.startOffset : -1;
-    let out = v;
-    if (lead === v.length) {
-      // spaces only, a chip on each side: one space, caret just past it
-      out = ' ';
-      if (at >= 0) at = Math.min(at, 1);
-    } else {
-      if (lead > 1) {
-        out = ` ${out.slice(lead)}`;
-        if (at >= 0) at = at <= lead ? Math.min(at, 1) : at - (lead - 1);
-      }
-      if (trail > 1) {
-        const keep = out.length - trail;
-        out = `${out.slice(0, keep)} `;
-        if (at >= 0) at = at >= keep ? keep + 1 : at;
-      }
-    }
-    text.textContent = out;
-    if (at >= 0) placeCaret(root, text, at);
-    changed = true;
-  }
-  return changed;
-}
-
-/** True when the caret sits between two spaces, as a deleted chip leaves it. */
-export function collapseDoubleSpaceAtCaret(root: HTMLElement | null): void {
-  if (!root) return;
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || !sel.getRangeAt(0).collapsed) return;
-  const range = sel.getRangeAt(0);
-  const node = range.startContainer;
-  if (node.nodeType !== Node.TEXT_NODE || !root.contains(node)) return;
-  const text = node as Text;
-  const v = text.textContent ?? '';
-  const at = range.startOffset;
-  if (v[at - 1] !== ' ' || v[at] !== ' ') return;
-  text.textContent = v.slice(0, at) + v.slice(at + 1);
-  placeCaret(root, text, at);
 }
