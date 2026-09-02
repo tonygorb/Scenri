@@ -19,18 +19,3 @@
   font-weight: 650;
   color: var(--sc-fg3);
 }
-
-/* Measure & wrap utilities — prefer wiring via surface selectors; these
-   exist for one-off display copy that has no dedicated class yet.
-   balance = titles; pretty = ledes/prose. Never on dense chrome. */
-.sc-text-title {
-  text-wrap: balance;
-}
-.sc-text-lede {
-  text-wrap: pretty;
-  max-width: var(--sc-measure-lede);
-}
-.sc-text-prose {
-  text-wrap: pretty;
-  max-width: var(--sc-measure-prose);
-}

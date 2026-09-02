@@ -8,6 +8,7 @@ import { brandJsonWithResolvedPresenters, loadPresenters } from './presenters.js
 import { brandJsonWithResolvedDemoProducts, loadDemoProducts, demoProductResolver } from './demoProducts.js';
 import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type BriefToken } from './brief.js';
 import { mergeEditAttachments } from './attachmentBudget.js';
+import { shotWordsFor } from './shotWords.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
@@ -19,7 +20,7 @@ import type {
   ReferenceRole,
   EngineResult,
 } from '@scenri/core';
-import { SpendCapError, ASPECT_TOLERANCE, BUDGET_EXHAUSTED, budgetSize } from '@scenri/core';
+import { SpendCapError, ASPECT_TOLERANCE, BUDGET_EXHAUSTED, budgetSize, type OnImageLanded } from '@scenri/core';
 import { readMeta } from './meta.js';
 import { createUpdateChecker, type UpdateChecker } from './update/check.js';
 import { createContentFetcher, type ContentFetcher } from './content/fetch.js';
@@ -632,6 +633,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const compileCtx = {
       brand: brandJson,
       images: core.images,
+      wordsFor: shotWordsFor(core, brandId),
       engineCaps: uncapped,
       template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
       templateById: sceneById,
@@ -690,7 +692,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         .map((a) => ({ ...a, inherited: true }));
     }
     const cap = Math.max(0, engineCaps.maxReferenceImages - 1);
-    const merged = mergeEditAttachments(compiled.attachments, inheritedAttachments, cap);
+    // `seated`, not `attachments`: the compile above hands back its images
+    // re-sorted by role, and a second allocation from that order pictured
+    // every product before any face on a refinement whatever the line said.
+    const merged = mergeEditAttachments(compiled.seated, inheritedAttachments, cap);
     // The instruction's own attachment claims must match the ONE allocation
     // made here, not the uncapped compile above: a mark this merge dropped
     // used to leave "the attached brand mark ... reproduce it exactly" in the
@@ -700,26 +705,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const warnings = [...compiled.warnings, ...identityWarnings.filter((w) => !compiled.warnings.includes(w))];
     if (inherited.truncated)
       warnings.push('This thread is deeper than 64 steps, so identity attached before that could not be carried.');
-    if (merged.dropped.length) {
-      if (engineCaps.maxReferenceImages <= 1) {
-        // An engine that carries nothing beyond the frame is not a reason to
-        // refuse: unlike a generation, the subject is already in the picture.
-        warnings.push(`The identity rides on the shot itself — ${engineCaps.displayName} reads no other images.`);
-      } else {
-        // Name an identity only when ALL of it was dropped: a shed
-        // corroboration angle whose essential survived degrades quietly, the
-        // same way a dropped scene reference does — naming it here read as
-        // though the product itself had been left out.
-        const keptLabels = new Set(merged.kept.map((a) => a.label));
-        const names = [...new Set(merged.dropped.map((d) => d.label))].filter((l) => !keptLabels.has(l));
-        if (names.length)
-          warnings.push(`${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out of this refinement.`);
-      }
-    }
+    // An engine that carries nothing beyond the frame is not a reason to
+    // refuse: unlike a generation, the subject is already in the picture. On an
+    // engine that reads more, whatever found no seat is described in words by
+    // the compile above, and the composer dimmed its chip before the send; a
+    // warning that it "was left out" would contradict both.
+    if (merged.dropped.length && engineCaps.maxReferenceImages <= 1)
+      warnings.push(`The identity rides on the shot itself — ${engineCaps.displayName} reads no other images.`);
     return {
       compiled: { ...compiled, prompt },
       inheritedTokens,
       merged,
+      /** The seats this refinement had: the engine's, less the source frame. */
+      cap,
       warnings,
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
@@ -754,6 +752,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         dropped: [...edit.compiled.dropped, ...edit.merged.dropped],
         warnings: edit.warnings,
         referenceCount: edit.merged.kept.length,
+        // How many photo groups this refine can carry in total: the engine's
+        // slots less the one the source frame holds. The composer refuses a
+        // pick past it rather than warning after the fact.
+        cap: edit.cap,
       };
     }
 
@@ -783,13 +785,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const compiled = compileBrief(brief as Brief, {
       brand: brandJson,
       images: core.images,
+      wordsFor: shotWordsFor(core, brand.id),
       engineCaps: engine.capabilities(),
       template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
       templateById: sceneById,
     });
     // paths are server-side detail; the UI works in hashes
     const { referenceImages, ...rest } = compiled;
-    return { ...rest, referenceCount: referenceImages.length };
+    return { ...rest, referenceCount: referenceImages.length, cap: engine.capabilities().maxReferenceImages };
   });
 
   registerProjectRoutes(app, { core });
@@ -1007,7 +1010,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     /** Null for local work that touches no provider — a pure crop. */
     engine: EngineAdapter | null,
     estimate: number,
-    work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number; raw?: unknown }>,
+    work: (
+      signal: AbortSignal,
+      onImage: OnImageLanded,
+    ) => Promise<{ images: string[]; costUsd: number; raw?: unknown }>,
     expect?: { width: number; height: number },
     /**
      * Per-node post pass over that node's image, before anything is stored.
@@ -1040,14 +1046,83 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const startedAt = Date.now();
     /** Nodes already given their outcome; the catch below settles the rest. */
     const settled = new Set<string>();
+    /**
+     * One slot, settled on its own: normalized, post-processed, measured and
+     * marked done (or failed) the moment its image exists. This was the body
+     * of a loop that ran only after the WHOLE call had resolved, so a four-shot
+     * run showed nothing until its slowest exec was in. An adapter that can
+     * tell its slots apart now reports each as it lands and the slot settles
+     * at once; the loop after the call picks up only the slots nobody reported.
+     * Its own try/catch, so one shot's bad frame fails that shot, never its
+     * siblings.
+     */
+    const settleSlot = async (slot: number, hash: string) => {
+      const id = nodeIds[slot];
+      try {
+        let own = await normalizePngs([hash]);
+        const post = postFor?.(id);
+        if (post) own = await post(own);
+        if (expect) await assertAspect(own, expect);
+        // What was actually delivered, next to what was asked for. Written
+        // BEFORE completeNode, because `done` is what everything else waits
+        // on: the studio polls until a node is done and then reads
+        // rendered.sizes for the tile's shape (CI, 2026-08-30).
+        try {
+          const meta = await sharp(core.images.read(own[0])).metadata();
+          const node = core.store.getNode(id);
+          if (node && meta.width && meta.height) {
+            const brief = (node.brief as object | null) ?? {};
+            const asked = expect ? { requestedSize: [expect.width, expect.height] } : {};
+            core.store.setBrief(id, { ...brief, rendered: { sizes: [[meta.width, meta.height]], ...asked } });
+            // Codex's image tool cannot be handed a pixel size, so a
+            // non-square generation landing EXACTLY on the requested pixels
+            // is the signature of a forbidden shell resize. A log line,
+            // never a reject: the native menu is not contractually known.
+            if (
+              node.kind === 'generation' &&
+              engineId === 'codex-cli' &&
+              expect &&
+              expect.width !== expect.height &&
+              meta.width === expect.width &&
+              meta.height === expect.height
+            )
+              app.log.warn(
+                { nodeId: id },
+                'codex delivered exactly the requested pixels; its image tool cannot pin size - suggests a forbidden shell resize',
+              );
+          }
+        } catch {
+          /* the record is a convenience; failing to write it must not fail the run */
+        }
+        // Each sibling reports its own wall time: the moment its picture was
+        // usable, measured from the request. The run's money is not known
+        // until the whole call resolves, so it is written then, once, onto
+        // the first sibling (chargeNode below), and the ledger gets one row.
+        core.store.completeNode(id, { images: own, costUsd: 0, durationMs: Date.now() - startedAt });
+      } catch (err: any) {
+        core.store.failNode(id, String(err?.message ?? err));
+      } finally {
+        settled.add(id);
+      }
+    };
+    /** Slots the adapter reported early, each settling on its own promise. */
+    const landing = new Map<number, Promise<void>>();
+    let accepting = true;
+    const onImage: OnImageLanded = (slot, hash) => {
+      if (!accepting || !Number.isInteger(slot) || slot < 0 || slot >= nodeIds.length || landing.has(slot)) return;
+      landing.set(slot, settleSlot(slot, hash));
+    };
     try {
-      const result = await work(ctrl.signal);
+      const result = await work(ctrl.signal, onImage);
+      accepting = false;
       // The watchdog bounds the engine, not the local post-processing. Left
       // armed past this point, a slow normalize/post/aspect pass could cross
       // the mark and its own failure would then be reported as a timeout —
       // a SUCCESSFUL generation labelled "took too long".
       clearTimeout(watchdog);
-      const images = await normalizePngs(result.images);
+      // Whatever landed early finishes settling before the leftovers are
+      // judged, or a slot could be failed as missing mid-pipeline.
+      await Promise.allSettled(landing.values());
       // One image per node: image k belongs to requested slot variantIndexes[k]
       // (a partial codex batch says which slots survived; every other engine
       // returns a full run, so k maps to k). A slot with nothing behind it
@@ -1056,74 +1131,31 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         | { requested?: number; variantIndexes?: number[]; partialFailures?: string[] }
         | undefined;
       const bySlot: (string | undefined)[] = new Array(nodeIds.length);
-      images.forEach((h, k) => {
+      result.images.forEach((h, k) => {
         const slot = raw?.variantIndexes?.[k] ?? k;
         if (slot < nodeIds.length && bySlot[slot] === undefined) bySlot[slot] = h;
       });
-      const wall = Date.now() - startedAt;
       const failures = [...(raw?.partialFailures ?? [])];
       for (let slot = 0; slot < nodeIds.length; slot++) {
-        const id = nodeIds[slot];
+        if (landing.has(slot)) continue;
         const hash = bySlot[slot];
         if (hash === undefined) {
-          core.store.failNode(id, failures.shift() ?? 'the engine returned no image for this shot');
-          settled.add(id);
+          core.store.failNode(nodeIds[slot], failures.shift() ?? 'the engine returned no image for this shot');
+          settled.add(nodeIds[slot]);
           continue;
         }
-        // Per-node pipeline in its own try/catch: one shot's bad frame fails
-        // that shot, never its siblings.
-        try {
-          let own = [hash];
-          const post = postFor?.(id);
-          if (post) own = await post(own);
-          if (expect) await assertAspect(own, expect);
-          // What was actually delivered, next to what was asked for. Written
-          // BEFORE completeNode, because `done` is what everything else waits
-          // on: the studio polls until a node is done and then reads
-          // rendered.sizes for the tile's shape (CI, 2026-08-30).
-          try {
-            const meta = await sharp(core.images.read(own[0])).metadata();
-            const node = core.store.getNode(id);
-            if (node && meta.width && meta.height) {
-              const brief = (node.brief as object | null) ?? {};
-              const asked = expect ? { requestedSize: [expect.width, expect.height] } : {};
-              core.store.setBrief(id, { ...brief, rendered: { sizes: [[meta.width, meta.height]], ...asked } });
-              // Codex's image tool cannot be handed a pixel size, so a
-              // non-square generation landing EXACTLY on the requested pixels
-              // is the signature of a forbidden shell resize. A log line,
-              // never a reject: the native menu is not contractually known.
-              if (
-                node.kind === 'generation' &&
-                engineId === 'codex-cli' &&
-                expect &&
-                expect.width !== expect.height &&
-                meta.width === expect.width &&
-                meta.height === expect.height
-              )
-                app.log.warn(
-                  { nodeId: id },
-                  'codex delivered exactly the requested pixels; its image tool cannot pin size - suggests a forbidden shell resize',
-                );
-            }
-          } catch {
-            /* the record is a convenience; failing to write it must not fail the run */
-          }
-          // The run's cost and wall time were measured once, for the whole
-          // call: the ledger gets one row and the first node carries the
-          // money, so the cap arithmetic stays exact; every sibling reports
-          // the honest wall time of the request that made it.
-          core.store.completeNode(id, {
-            images: own,
-            costUsd: slot === 0 ? result.costUsd : 0,
-            durationMs: wall,
-          });
-        } catch (err: any) {
-          core.store.failNode(id, String(err?.message ?? err));
-        }
-        settled.add(id);
+        await settleSlot(slot, hash);
       }
+      // The run's cost and wall time were measured once, for the whole call:
+      // the ledger gets one row and the first node carries the money, so the
+      // cap arithmetic stays exact.
+      core.store.chargeNode(nodeIds[0], result.costUsd);
       core.ledger.recordCost(engineId, nodeIds[0], result.costUsd);
     } catch (err: any) {
+      accepting = false;
+      // a slot still settling keeps settling: its picture exists whatever
+      // happened to the rest of the call
+      await Promise.allSettled(landing.values());
       // the signal is the source of truth for "was this a cancel", not the
       // error shape, which differs across engines (fetch's AbortError, a
       // killed child process, a stopped poll loop) — except the watchdog,
@@ -1364,6 +1396,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         compiled = compileBrief(brief as Brief, {
           brand: brandJson,
           images: core.images,
+          wordsFor: shotWordsFor(core, project.brandId),
           engineCaps: engine.capabilities(),
           template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
           templateById: sceneById,
@@ -1412,6 +1445,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       compiled = compileBrief(legacyBrief, {
         brand: brandJson,
         images: core.images,
+        wordsFor: shotWordsFor(core, project.brandId),
         engineCaps: engine.capabilities(),
         templateById: sceneFor(brandJson),
       });
@@ -1421,7 +1455,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
 
     let estimate: number;
-    let work: (signal: AbortSignal) => Promise<{ images: string[]; costUsd: number }>;
+    let work: (
+      signal: AbortSignal,
+      onImage: OnImageLanded,
+    ) => Promise<{ images: string[]; costUsd: number; raw?: unknown }>;
     // Only generations declare a target shape. An edit inherits the source
     // image's dimensions, so there is nothing to check it against.
     let expectShape: { width: number; height: number } | undefined;
@@ -1462,9 +1499,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // and returns it with full confidence. Refuse instead. Style references
       // are different — losing one costs fidelity of mood, not of subject —
       // so only product/character losses are fatal here.
+      // Two losses cannot be helped by words: a photo that does not exist,
+      // and an engine that reads no images at all. A budget loss on an engine
+      // that does read images is not one of them: the compiler carries that
+      // identity's written spec, the composer has already said so on the
+      // chip, and seats go out in the brief's order, so the user chose.
+      const blind = engine.capabilities().maxReferenceImages === 0;
       const lostIdentity = engine.capabilities().placeholder
         ? []
-        : (compiled?.dropped ?? []).filter((d) => d.essential);
+        : (compiled?.dropped ?? []).filter((d) => d.essential && (d.reason === 'missing' || blind));
       if (lostIdentity.length) {
         // Two causes, two remedies: a photo that does not exist cannot be
         // fixed by choosing another engine, and a budget loss cannot be fixed
@@ -1545,7 +1588,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         ...(variations.length ? { variations } : {}),
       };
       estimate = await engine.costEstimate(genReq);
-      work = (signal) => engine.generate(genReq, signal);
+      work = (signal, onImage) => engine.generate(genReq, signal, onImage);
       expectShape = { width, height };
     } else {
       const parent = core.store.getNode(resolvedParentId);
@@ -1795,14 +1838,18 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
        * original's size, so their untouched pixels never shrink.
        */
       const editPixelBudget = runEngine.capabilities().editPixelBudget;
-      if (
+      // A frame a few pixels over the budget steps down to its own size; that
+      // is no step at all, so neither the resample nor the note happens.
+      const stepped =
         !expandPlan &&
         editPixelBudget &&
         srcMeta.width &&
         srcMeta.height &&
         srcMeta.width * srcMeta.height > editPixelBudget
-      ) {
-        sentSize = budgetSize(srcMeta.width, srcMeta.height, editPixelBudget);
+          ? budgetSize(srcMeta.width, srcMeta.height, editPixelBudget)
+          : null;
+      if (editPixelBudget && stepped && (stepped.width !== srcMeta.width || stepped.height !== srcMeta.height)) {
+        sentSize = stepped;
         budgetSourceHash = core.images.save(
           await sharp(srcBuf)
             .resize(sentSize.width, sentSize.height, { fit: 'fill', kernel: 'lanczos3' })
@@ -2022,7 +2069,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             }
           : {}),
         // What the refinement carried, recorded apart from what it asked for:
-        // the detail view shows both, and remix reads tokens alone.
+        // the detail view shows both, and reuse setup merges both (mergeCarried).
         ...(kind === 'edit' && inheritedTokens.length ? { inherited: inheritedTokens } : {}),
       });
     // Fire and forget: the 202 is the answer and the node's own status carries

@@ -1,5 +1,5 @@
-import { CHIP_SELECTOR } from './tokens.js';
-import { placeCaret } from './caret.js';
+import { CHIP_SELECTOR, decode, identityKeyOf } from './tokens.js';
+import { placeCaret, isGuard } from './caret.js';
 
 // ---------------------------------------------------------------- slash query
 
@@ -8,6 +8,15 @@ import { placeCaret } from './caret.js';
  * A chip ends the query; the browser can split one run of typing across
  * several text nodes, so this walks back over them.
  */
+/** The chip that IS this identity, if the line holds one: the twin guard and the rail's untick share it. */
+export function chipForIdentity(root: HTMLElement, key: string): HTMLElement | null {
+  for (const c of Array.from(root.querySelectorAll<HTMLElement>(CHIP_SELECTOR))) {
+    const held = decode(c.dataset.tok ?? '');
+    if (held && identityKeyOf(held) === key) return c;
+  }
+  return null;
+}
+
 export function textBeforeCaret(root: HTMLElement | null): string {
   const sel = typeof window === 'undefined' ? null : window.getSelection();
   if (!root || !sel || sel.rangeCount === 0) return '';
@@ -49,29 +58,10 @@ export function caretRect(): DOMRect | null {
  */
 export function caretBeside(root: HTMLElement | null, chip: Element | null, side: 'before' | 'after'): void {
   if (!root || !chip) return;
-  if (side === 'after') {
-    const next = chip.nextSibling;
-    if (next?.nodeType === Node.TEXT_NODE) {
-      const t = next as Text;
-      // past the single space that follows a chip, so the caret reads as
-      // sitting after the pill rather than wedged against it
-      placeCaret(root, t, Math.min(1, t.length));
-      return;
-    }
-    const t = document.createTextNode(' ');
-    chip.parentNode?.insertBefore(t, chip.nextSibling);
-    placeCaret(root, t, t.length);
-    return;
-  }
-  const prev = chip.previousSibling;
-  if (prev?.nodeType === Node.TEXT_NODE) {
-    const t = prev as Text;
-    placeCaret(root, t, t.length);
-    return;
-  }
-  const t = document.createTextNode('');
-  chip.parentNode?.insertBefore(t, chip);
-  placeCaret(root, t, 0);
+  const beside = side === 'after' ? chip.nextSibling : chip.previousSibling;
+  if (beside?.nodeType !== Node.TEXT_NODE) return; // the line always keeps text there
+  const t = beside as Text;
+  placeCaret(root, t, isGuard(t) ? 1 : side === 'after' ? 0 : t.length);
 }
 
 /** How far either side of a chip still counts as "I meant this chip". */
@@ -131,8 +121,12 @@ export function caretFromPoint(root: HTMLElement | null, x: number, y: number): 
     return true;
   }
 
-  // the click was in the padding: ask again from inside the row
-  if (Math.abs(cy - y) < 1) return false;
+  // Inside the row the browser's own answer is right, and on a phone it is
+  // more than right: a touch caret snaps to the end of the tapped word, the
+  // way every field on the platform does, and re-placing it at the finger's
+  // exact x moved it mid-word to wherever the finger happened to be. Only a
+  // click in the padding, above or below the row, is asked again from inside.
+  if (y >= row.top && y <= row.bottom) return false;
   const at = caretRangeFromPoint(x, cy);
   if (!at || !root.contains(at.node)) return false;
   if (at.node.nodeType !== Node.TEXT_NODE) return false;

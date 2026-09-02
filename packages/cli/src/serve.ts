@@ -5,7 +5,7 @@ import { existsSync, realpathSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { createEngineRegistry } from './engines.js';
-import { createDemoEngine } from '@scenri/engine-demo';
+import { createDemoEngine, demoOptionsFromEnv } from '@scenri/engine-demo';
 import { buildServer, type InstallKind } from './server.js';
 import { repairPresenterCrops } from './presenterRepair.js';
 import { readMeta } from './meta.js';
@@ -75,7 +75,10 @@ async function run(): Promise<void> {
   // network. The demo engine is deliberately absent from the default registry
   // (see engines.ts) because it proves nothing about fidelity, so it is opted
   // into explicitly here and nowhere else.
-  const stubs = process.env.SCENRI_DEMO_ENGINE === '1' ? [createDemoEngine((b: Buffer) => core.images.save(b))] : [];
+  const stubs =
+    process.env.SCENRI_DEMO_ENGINE === '1'
+      ? [createDemoEngine((b: Buffer) => core.images.save(b), demoOptionsFromEnv(process.env))]
+      : [];
   const engines = createEngineRegistry(core, stubs);
   const here = dirname(fileURLToPath(import.meta.url));
   // dev: monorepo path; published: bundled dist

@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { Spinner } from '@radix-ui/themes';
-import { CaretLeft, CaretRight, ImageSquare, Plus } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
 import { imgUrl, nodeLabel, type TreeNode } from '../api.js';
 
 /**
@@ -25,42 +24,6 @@ export function RefFrame({ src }: { src: string }) {
         <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} />
       )}
     </div>
-  );
-}
-
-/**
- * One recommended angle a product hasn't got yet — a single upload-capable
- * tile, for the per-category reference checklist on a product's page.
- * Distinct from `EmptyRefFrame` below, which fills in for having no
- * reference at all rather than naming one specific missing shot.
- */
-export function UploadRefFrame({
-  label,
-  busy,
-  onUpload,
-}: {
-  label: string;
-  busy?: boolean;
-  onUpload: (file: File) => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  return (
-    <label className="sc-lookpage-ref sc-lookpage-ref-upload" data-busy={busy || undefined}>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        hidden
-        disabled={busy}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onUpload(file);
-          e.target.value = '';
-        }}
-      />
-      <span className="sc-lookpage-ref-blank">{busy ? <Spinner size="2" /> : <Plus size={18} />}</span>
-      <span className="sc-lookpage-ref-upload-label">{label}</span>
-    </label>
   );
 }
 

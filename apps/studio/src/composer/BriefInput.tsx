@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { productLabel, sceneLabel } from '../displayName.js';
-import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
+import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { characterAvatar, presenterAvatar } from '../presenterVisual.js';
@@ -8,7 +8,7 @@ import { bookmarkedScenes } from '../bookmarks.js';
 import { flattenPalette, normalizeHex } from '../brand/palette.js';
 import { attachChipDrag } from './chipDrag.js';
 import { ChipMoveSheet } from './ChipMoveSheet.js';
-import { ChipPreview, isPreviewKind } from './ChipPreview.js';
+import { ChipPreview, isPreviewKind, type PreviewKind } from './ChipPreview.js';
 import { useHoverPreview } from './useHoverPreview.js';
 import { TokenMenu, type MenuOption } from './TokenMenu.js';
 import { IngredientPicker, type CloseReason } from './IngredientPicker.js';
@@ -19,6 +19,7 @@ import {
   buildCandidates,
   chipOpensPicker,
   chipOpensSheet,
+  findIngredient,
   insertShortlist,
   previewHashOf,
   type Candidate,
@@ -27,6 +28,8 @@ import {
   type InsertSigil,
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
+import { applySceneTint } from './sceneTint.js';
+import { CEILING_SENTENCE, IDENTITY_CAP, IDENTITY_KINDS } from './attachRoom.js';
 import {
   CHIP,
   caretBeside,
@@ -35,15 +38,21 @@ import {
   caretToEnd,
   caretUnits,
   chipAt,
+  chipForIdentity,
   chipHexWords,
   chipLabel,
   closeIcon,
-  collapseDoubleSpaceAtCaret,
+  lineIsCanonical,
+  unitsOfPosition,
+  stepAcrossChip,
+  chipToDelete,
+  deletionAtLineEdge,
   syncEmpty,
   decode,
   emptySentence,
   encode,
   hasSelectionIn,
+  identityKeyOf,
   insertToken,
   moveAnnouncement,
   moveChipBy,
@@ -64,7 +73,7 @@ import {
 } from './line.js';
 
 export type { SentenceToken, BriefToken, FormatToken } from './line.js';
-export { briefTokens, emptySentence, identityKeyOf, isSentence } from './line.js';
+export { briefTokens, emptySentence, identityKeyOf, isSentence, mergeCarried } from './line.js';
 
 export { FORMATS } from './formats.js';
 
@@ -79,6 +88,8 @@ export interface BriefInputHandle {
   setTokens: (t: SentenceToken[]) => void;
   /** Drop the current template chip, if any: it no longer resolves against the catalog. */
   removeTemplate: () => void;
+  /** Take the chip that is this identity out of the brief, if it is in. The rail's untick. */
+  remove: (t: SentenceToken) => void;
   focus: () => void;
   /**
    * Put the caret back where a chip-opened surface found it.
@@ -109,7 +120,6 @@ export const BriefInput = forwardRef<
     initialTokens?: SentenceToken[];
     onChange: (t: SentenceToken[]) => void;
     brand: Brand;
-    shots: TreeNode[];
     templates: Scene[];
     presenters: Presenter[];
     demoProducts: DemoProduct[];
@@ -122,12 +132,16 @@ export const BriefInput = forwardRef<
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
     flag?: (t: SentenceToken) => string | null;
+    /** Whether this identity reaches the engine as words: its chip dims and its card says so. */
+    described?: (t: SentenceToken) => boolean;
+    /** The card's one line for a chip whose photo found no seat. */
+    describedNote?: string | null;
     /**
      * A chip whose identity is an image was opened. The composer owns the
      * lightbox, so there is one per composer rather than one per surface that
      * can ask for it.
      */
-    onInspect?: (image: { hash: string; kind: 'ref' | 'mark'; label: string | null }) => void;
+    onInspect?: (image: { src: string; kind: PreviewKind; label: string | null }) => void;
     /** The category of whichever product the brief already holds, for the
      * picker's "Suited to X" lift. A hint, never a gate — see compat.ts. */
     activeProductCategory?: string | null;
@@ -156,6 +170,8 @@ export const BriefInput = forwardRef<
     placeholder,
     placeholderSm,
     flag,
+    described,
+    describedNote,
     onInspect,
     activeProductCategory,
     onAttachRequest,
@@ -165,6 +181,8 @@ export const BriefInput = forwardRef<
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement>(null);
+  /** The scrolling wrapper around the line, for the more-below fade. */
+  const scrollerRef = useRef<HTMLDivElement>(null);
   /** The one live region every reorder path speaks through. */
   const hintId = useId();
   const [live, setLive] = useState('');
@@ -174,7 +192,6 @@ export const BriefInput = forwardRef<
     setLive('');
     requestAnimationFrame(() => setLive(msg));
   }, []);
-  const chipCount = useRef(0);
   /**
    * Where the caret last was inside the line. Only used when focus genuinely
    * left it: the file dialog and the attach panel's search box.
@@ -238,12 +255,13 @@ export const BriefInput = forwardRef<
       const el = document.createElement('span');
       el.className = CHIP;
       el.contentEditable = 'false';
-      // A bidi-isolated run with its own direction: an LTR product name inside
-      // a Hebrew sentence (or the reverse) renders its own way without letting
-      // the browser reorder it against the surrounding prose. dir=auto implies
+      // The chip is a left-to-right object whatever its label says: thumb on
+      // the left, X on the right, like every other chip in the row. Only the
+      // label resolves its own direction (the span below), so a Hebrew name
+      // reads right-to-left inside a chip that does not flip. dir implies
       // unicode-bidi:isolate, so the LOGICAL token order — the one the
       // compiler reads — is never what the bidi algorithm rearranges.
-      el.dir = 'auto';
+      el.dir = 'ltr';
       el.dataset.kind = token.t;
       el.dataset.tok = encode(token);
       el.dataset.uid = uid ?? `u${uidSeq.current++}`;
@@ -252,8 +270,11 @@ export const BriefInput = forwardRef<
       let thumb: string | null = null;
       let thumbCrop: 'top' | undefined;
       let swatch: string | null = null;
-      if (token.t === 'template') {
-        const t = templates.find((x) => x.id === token.id);
+      // The one lookup every surface uses: the brand's own record before the
+      // shipped one of the same id (ingredientOptions.ts, findIngredient).
+      const found = findIngredient(token, { products, demoProducts, cast, presenters, scenes: templates });
+      if (found?.kind === 'scene') {
+        const t = found.scene;
         label = t ? sceneLabel(t, 'chip') : 'missing template';
         thumb = t?.previewUrl ?? null;
         const tint = normalizeTint(t?.previewColor);
@@ -261,17 +282,17 @@ export const BriefInput = forwardRef<
           el.dataset.tinted = 'true';
           el.style.setProperty('--tint', tint);
         }
-      } else if (token.t === 'product') {
-        const p = products.find((x) => x.id === token.id);
-        const d = p ? null : demoProducts.find((x) => x.id === token.id);
+        // A brand-owned scene has no authored previewColor: its tint is read
+        // from its own preview, the same scoring the catalog colours came from.
+        if (!tint && thumb && found.custom) applySceneTint(el, thumb);
+      } else if (found?.kind === 'product') {
         // A chip sits inside the user's own sentence, so it gets the bare
         // product name — the brand is context the sentence already carries.
-        const attached = p ?? d;
+        const attached = found.product ?? found.demo;
         label = attached ? productLabel(attached, 'chip') : 'missing product';
-        thumb = p ? assetUrl(p.shots?.[0]?.file) : (d?.previewUrl ?? null);
-      } else if (token.t === 'character') {
-        const c = cast.find((x) => x.id === token.id);
-        const p = c ? null : presenters.find((x) => x.id === token.id);
+        thumb = found.product ? assetUrl(found.product.shots?.[0]?.file) : (found.demo?.previewUrl ?? null);
+      } else if (found?.kind === 'presenter') {
+        const { character: c, presenter: p } = found;
         label = c?.name ?? p?.name ?? 'missing person';
         // The canonical avatar chain (presenterVisual.ts). This chip used to
         // put the raw full-length studio shot inside its 15px circle.
@@ -282,7 +303,9 @@ export const BriefInput = forwardRef<
         label = token.name ?? token.hex;
         swatch = token.hex;
       } else if (token.t === 'ref') {
-        label = 'reference';
+        // what it is, not what it is for: a shot, a file by its name, or an
+        // image with no name; the peek card says the role
+        label = token.label ?? 'Image';
         thumb = imgUrl(token.imageHash);
       } else if (token.t === 'mark') {
         const m = marks.find((x) => x.hash === token.imageHash);
@@ -305,13 +328,18 @@ export const BriefInput = forwardRef<
         sw.style.background = swatch;
         el.appendChild(sw);
       }
-      el.appendChild(document.createTextNode(label));
+      const text = document.createElement('span');
+      text.className = 'sc-token-label';
+      text.dir = 'auto';
+      text.textContent = label;
+      el.appendChild(text);
 
       const warning = flag?.(token) ?? null;
       if (warning) {
         el.title = warning;
         el.dataset.warn = '1';
       }
+      if (described?.(token)) el.dataset.described = '1';
 
       /**
        * A chip that opens a picker is a button, and says so.
@@ -361,13 +389,12 @@ export const BriefInput = forwardRef<
       el.appendChild(x);
       return el;
     },
-    [templates, products, cast, presenters, demoProducts, marks, brand, flag, hintId],
+    [templates, products, cast, presenters, demoProducts, marks, brand, flag, described, hintId],
   );
 
   const emit = useCallback(() => {
     const root = rootRef.current;
     if (!root) return;
-    chipCount.current = root.querySelectorAll(`.${CHIP}`).length;
     onChange(readLine(root));
   }, [onChange]);
 
@@ -376,7 +403,6 @@ export const BriefInput = forwardRef<
     const root = rootRef.current;
     if (!root) return;
     renderLine(root, initialTokens?.length ? initialTokens : emptySentence(), (t) => chipFor(t));
-    chipCount.current = root.querySelectorAll(`.${CHIP}`).length;
     syncEmpty(root);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -402,6 +428,10 @@ export const BriefInput = forwardRef<
       onDragStart: () => {
         setMenu(null);
         setQuery('');
+        // A peek that was open on the chip being picked up would ride along
+        // otherwise; the pointer-over path already refuses to open one while
+        // the drag runs.
+        closeHover();
       },
       onMoved: (_chip, message) => {
         emit();
@@ -409,7 +439,7 @@ export const BriefInput = forwardRef<
       },
       onCancelled: () => announce('Reorder cancelled.'),
     });
-  }, [emit, announce]);
+  }, [emit, announce, closeHover]);
 
   /** Chips are DOM nodes React never revisits (see chipFor above), so a
    * warning set at creation — "builds around a product", "cannot read this
@@ -427,6 +457,8 @@ export const BriefInput = forwardRef<
       const warning = flag?.(token) ?? null;
       if (warning) chip.dataset.warn = '1';
       else delete chip.dataset.warn;
+      if (described?.(token)) chip.dataset.described = '1';
+      else delete chip.dataset.described;
       // A chip with a surface open says its warning inside that surface, so the
       // native tooltip would be the same words a second time, hovering over the
       // picture the panel exists to show. `openPicker` takes the title off and
@@ -434,7 +466,7 @@ export const BriefInput = forwardRef<
       if (warning && !('open' in chip.dataset)) chip.title = warning;
       else chip.removeAttribute('title');
     }
-  }, [flag]);
+  }, [flag, described]);
 
   useEffect(() => {
     const track = () => {
@@ -461,12 +493,43 @@ export const BriefInput = forwardRef<
           return;
         }
       }
+      // One chip per thing, whichever door asked: the menu, the attach panel,
+      // the assets rail. Asking again for an identity the brief already holds
+      // says so instead of growing a twin.
+      const key = identityKeyOf(token);
+      if (key) {
+        const twin = chipForIdentity(root, key);
+        if (twin) {
+          setMenu(null);
+          setQuery('');
+          announce(`${chipLabel(twin) || 'That'} is already in the brief.`);
+          return;
+        }
+      }
+      // Two ceilings, counted at the door so no round trip can be outrun.
+      // A scene swap replaces the scene it finds, so it is never a new
+      // identity; a colour never was one.
+      const isNewIdentity = IDENTITY_KINDS.has(token.t) && !(token.t === 'template' && templateChip(root));
+      if (isNewIdentity) {
+        const held = Array.from(root.querySelectorAll<HTMLElement>(`.${CHIP}`)).filter((c) =>
+          IDENTITY_KINDS.has(c.dataset.kind ?? ''),
+        ).length;
+        if (held >= IDENTITY_CAP) {
+          setMenu(null);
+          setQuery('');
+          announce(CEILING_SENTENCE);
+          return;
+        }
+        // Past the engine's photo seats nothing is refused: seats go out in
+        // the line's order, so a chip that found none says so on itself and
+        // can be dragged earlier to take one.
+      }
       insertToken(root, chipFor(token), { eatQuery: !!menu, fallbackUnits: lastCaret.current });
       emit();
       setMenu(null);
       setQuery('');
     },
-    [menu, chipFor, emit],
+    [menu, chipFor, emit, announce],
   );
 
   const placeRef = useRef(place);
@@ -512,6 +575,38 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
+  // Backspace and Delete at a chip's space take the chip, on every keyboard.
+  // A phone's keyboard reports Backspace as a composition key (keyCode 229),
+  // so keydown cannot be the hook; `beforeinput` names the deletion itself
+  // and is cancelable in WebKit and Chromium alike.
+  const removeChipByUidRef = useRef(removeChipByUid);
+  useEffect(() => {
+    removeChipByUidRef.current = removeChipByUid;
+  }, [removeChipByUid]);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const onBeforeInput = (e: InputEvent) => {
+      const key =
+        e.inputType === 'deleteContentBackward'
+          ? 'Backspace'
+          : e.inputType === 'deleteContentForward'
+            ? 'Delete'
+            : null;
+      if (!key) return;
+      const chip = chipToDelete(root, key);
+      if (!chip?.dataset.uid) {
+        if (deletionAtLineEdge(root, key)) e.preventDefault();
+        return;
+      }
+      e.preventDefault();
+      const at = removeChipByUidRef.current(chip.dataset.uid);
+      if (at != null) setCaretUnits(root, at);
+    };
+    root.addEventListener('beforeinput', onBeforeInput);
+    return () => root.removeEventListener('beforeinput', onBeforeInput);
+  }, []);
+
   /**
    * Open the picture a chip IS, full size.
    *
@@ -531,26 +626,32 @@ export const BriefInput = forwardRef<
       const at = root ? caretUnits(root) : null;
       if (at != null) lastCaret.current = at;
       closeHover();
-      onInspect?.({ hash: token.imageHash, kind: token.t, label: token.t === 'mark' ? chipLabel(chip) : null });
+      onInspect?.({ src: imgUrl(token.imageHash), kind: token.t, label: token.t === 'mark' ? chipLabel(chip) : null });
       return true;
     },
     [onInspect, closeHover],
   );
 
-  const openPicker = useCallback((chip: HTMLElement, kind: ChipSheetKind, caret: number | null, touch: boolean) => {
-    const uid = chip.dataset.uid;
-    if (!uid) return;
-    chip.dataset.open = '';
-    // Every chip that opens a surface carries aria-haspopup; the guard is only
-    // so a chip that somehow has none cannot grow a lying aria-expanded.
-    if (chip.hasAttribute('aria-haspopup')) chip.setAttribute('aria-expanded', 'true');
-    // The warning is about to be said inside the surface. Leaving the title on
-    // would float the same sentence over it on the next hover.
-    chip.removeAttribute('title');
-    setMenu(null);
-    setQuery('');
-    setPicker({ uid, kind, anchor: chip, caret, touch });
-  }, []);
+  const openPicker = useCallback(
+    (chip: HTMLElement, kind: ChipSheetKind, caret: number | null, touch: boolean) => {
+      const uid = chip.dataset.uid;
+      if (!uid) return;
+      // The picker owns the chip now: a peek left over from the hover that led
+      // here must not keep floating beside the surface it opened.
+      closeHover();
+      chip.dataset.open = '';
+      // Every chip that opens a surface carries aria-haspopup; the guard is only
+      // so a chip that somehow has none cannot grow a lying aria-expanded.
+      if (chip.hasAttribute('aria-haspopup')) chip.setAttribute('aria-expanded', 'true');
+      // The warning is about to be said inside the surface. Leaving the title on
+      // would float the same sentence over it on the next hover.
+      chip.removeAttribute('title');
+      setMenu(null);
+      setQuery('');
+      setPicker({ uid, kind, anchor: chip, caret, touch });
+    },
+    [closeHover],
+  );
 
   /**
    * Every way out of the picker, and the only place the caret comes back.
@@ -637,7 +738,6 @@ export const BriefInput = forwardRef<
       const root = rootRef.current;
       if (!root) return;
       renderLine(root, t.length ? t : emptySentence(), (tok) => chipFor(tok));
-      chipCount.current = root.querySelectorAll(`.${CHIP}`).length;
       syncEmpty(root);
       onChange(readLine(root));
     },
@@ -645,6 +745,14 @@ export const BriefInput = forwardRef<
       const root = rootRef.current;
       const chip = root ? templateChip(root) : null;
       if (!root || !chip) return;
+      removeChip(root, chip);
+      emit();
+    },
+    remove: (t) => {
+      const root = rootRef.current;
+      if (!root) return;
+      const chip = chipForIdentity(root, identityKeyOf(t));
+      if (!chip) return;
       removeChip(root, chip);
       emit();
     },
@@ -777,7 +885,7 @@ export const BriefInput = forwardRef<
     if (picker || menu || (root && 'chipDrag' in root.dataset)) return;
     const chip = chipAt(e.target as HTMLElement);
     const uid = chip?.dataset.uid;
-    if (!chip || !uid || !previewHashOf(decode(chip.dataset.tok ?? ''))) {
+    if (!chip || !uid || !chipPeeks(chip)) {
       hover.close();
       return;
     }
@@ -786,6 +894,17 @@ export const BriefInput = forwardRef<
       return;
     }
     hover.open({ uid, anchor: chip });
+  };
+
+  // What a hover or focus can peek at: anything with a picture of its own.
+  // A reference or mark carries a hash; a product, presenter or scene chip
+  // peeks the same art its thumbnail already resolved. A colour has no
+  // picture, and a chip whose photo failed to load has nothing to show.
+  const chipPeeks = (chip: HTMLElement): boolean => {
+    const t = decode(chip.dataset.tok ?? '');
+    if (previewHashOf(t)) return true;
+    const k = chipOpensPicker(t);
+    return !!(k && k !== 'color' && isPreviewKind(k) && chip.querySelector('img'));
   };
 
   /**
@@ -798,7 +917,7 @@ export const BriefInput = forwardRef<
     const chip = chipAt(e.target as HTMLElement);
     const uid = chip?.dataset.uid;
     if (!chip || !uid || picker || menu) return;
-    if (!previewHashOf(decode(chip.dataset.tok ?? ''))) return;
+    if (!chipPeeks(chip)) return;
     if (!chip.matches(':focus-visible')) return;
     hover.open({ uid, anchor: chip });
   };
@@ -906,6 +1025,32 @@ export const BriefInput = forwardRef<
     }
     if (menu || picker) return;
     if (composingEvent(e)) return;
+    // A chip and the space after it are one thing to the keyboard: one press
+    // crosses both, one press removes both. Prose beside a chip still steps a
+    // character at a time. Modifiers are left alone: Shift extends a selection
+    // and Alt+Arrow moves a focused chip. Deletion runs from here for a
+    // hardware key, whose cancellation stops any native deletion in every
+    // engine, and from `beforeinput` for a phone's keyboard (below); a
+    // cancelled keydown fires no beforeinput, so the two never both act.
+    if (!e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (stepAcrossChip(root, e.key === 'ArrowLeft' ? 'left' : 'right')) e.preventDefault();
+        return;
+      }
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        const chip = chipToDelete(root, e.key);
+        if (chip?.dataset.uid) {
+          e.preventDefault();
+          const at = removeChipByUid(chip.dataset.uid);
+          if (at != null) setCaretUnits(root, at);
+          return;
+        }
+        if (deletionAtLineEdge(root, e.key)) {
+          e.preventDefault();
+          return;
+        }
+      }
+    }
     // '$' a product, '/' a scene, '@' a presenter, '#' a colour.
     if (e.key === '$' || e.key === '/' || e.key === '@' || e.key === '#') {
       const root = rootRef.current;
@@ -930,12 +1075,38 @@ export const BriefInput = forwardRef<
     [brand.json?.palette],
   );
 
-  const onInput = () => {
+  /**
+   * Whether more brief sits below the scroller's fold, for the bottom fade.
+   * Read on a frame boundary: the input event lands before layout settles,
+   * and reading scroll numbers synchronously there forces a reflow per
+   * keystroke.
+   */
+  const syncScrollHint = useCallback(() => {
+    requestAnimationFrame(() => {
+      const el = scrollerRef.current;
+      if (!el) return;
+      const more = el.scrollHeight - el.scrollTop - el.clientHeight > 1;
+      if (more) el.dataset.more = '';
+      else delete el.dataset.more;
+    });
+  }, []);
+  // content can also change without an input event: a remix landing, a chip
+  // removed by its X, a repaint through setTokens
+  useEffect(() => {
+    syncScrollHint();
+  });
+
+  const onInput = (e?: React.FormEvent<HTMLDivElement>) => {
+    syncScrollHint();
     const root = rootRef.current;
-    const chips = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
-    // a chip deleted with Backspace or Delete leaves both of its spaces behind
-    if (chips < chipCount.current) collapseDoubleSpaceAtCaret(root);
-    chipCount.current = chips;
+    const native = e?.nativeEvent as InputEvent | undefined;
+    // Never mid-composition: an IME's provisional text is not the user's line
+    // yet, and rewriting it under the composition drops what they were typing.
+    if (native?.isComposing) return;
+    // The one rule, only when a keystroke has left the line short of it: a
+    // space typed into the one a chip owns, prose typed flush against a chip,
+    // two chips left touching by a deleted selection.
+    if (!lineIsCanonical(root)) normalizeLine(root);
     // clearing the line leaves a <br>; strip it and flip data-empty so the
     // placeholder returns even if Chromium re-inserts a caret host
     if (syncEmpty(root)) caretToEnd(root);
@@ -943,7 +1114,6 @@ export const BriefInput = forwardRef<
     pasted.current = false;
     const chipped = chipHexWords(root, (t) => chipFor(t), { commit: fromPaste, nameFor: nameForHex });
     if (chipped) {
-      chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
       setMenu(null);
       setQuery('');
     }
@@ -1018,7 +1188,6 @@ export const BriefInput = forwardRef<
     if (parts && pasteParts(parts)) {
       const root = rootRef.current;
       if (chipHexWords(root, (t) => chipFor(t), { commit: true, nameFor: nameForHex })) {
-        chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
         emit();
       }
       return;
@@ -1033,33 +1202,66 @@ export const BriefInput = forwardRef<
     if (!root || !sel || sel.rangeCount === 0 || !root.contains(sel.getRangeAt(0).startContainer)) return false;
     const range = sel.getRangeAt(0);
 
-    // one template per brief: the pasted one lands where it was pasted and the
-    // chip the line already carried steps aside
+    // What the paste replaces goes first, so a chip pasted over itself is not
+    // its own twin.
+    range.deleteContents();
+
+    // One chip per thing, the same door rule the menu and the panel keep: a
+    // chip the line already holds, or one the paste carries twice, is not
+    // pasted again, and the identity ceiling holds here too. Pasting the whole
+    // brief back into itself used to double every chip, every time.
+    // One template per brief: the pasted one lands where it was pasted and the
+    // chip the line already carried steps aside.
     let usedTemplate = false;
+    let held = Array.from(root.querySelectorAll<HTMLElement>(`.${CHIP}`)).filter((c) =>
+      IDENTITY_KINDS.has(c.dataset.kind ?? ''),
+    ).length;
+    let ceiling = false;
+    const seen = new Set<string>();
     const kept: (string | SentenceToken)[] = [];
     for (const p of parts) {
+      if (typeof p === 'string') {
+        kept.push(p);
+        continue;
+      }
       // a chip whose product or template is gone pastes as the words it read as
-      if (typeof p !== 'string' && !known(p)) {
+      if (!known(p)) {
         kept.push(labelFallback(p, templates, products));
         continue;
       }
-      if (typeof p !== 'string' && p.t === 'template') {
+      if (p.t === 'template') {
         if (usedTemplate) continue;
         usedTemplate = true;
       }
+      const key = identityKeyOf(p);
+      if (key) {
+        if (seen.has(key) || chipForIdentity(root, key)) continue;
+        seen.add(key);
+      }
+      if (IDENTITY_KINDS.has(p.t) && !(p.t === 'template' && templateChip(root))) {
+        if (held >= IDENTITY_CAP) {
+          ceiling = true;
+          continue;
+        }
+        held += 1;
+      }
       kept.push(p);
     }
+    if (ceiling) announce(CEILING_SENTENCE);
     const oldSlot = usedTemplate ? templateChip(root) : null;
 
-    range.deleteContents();
     const frag = document.createDocumentFragment();
     for (const p of kept) frag.appendChild(typeof p === 'string' ? document.createTextNode(p) : chipFor(p));
-    const tail = document.createTextNode(' ');
-    frag.appendChild(tail);
+    const last = frag.lastChild;
     range.insertNode(frag);
     if (oldSlot) oldSlot.remove();
 
-    const at = caretUnitsOf(root, tail);
+    // the caret lands right after what was pasted, and nothing else goes in
+    const at = last
+      ? last.nodeType === Node.TEXT_NODE
+        ? unitsOfPosition(root, last, (last as Text).length)
+        : unitsOfPosition(root, root, Array.from(root.childNodes).indexOf(last) + 1)
+      : (caretUnits(root) ?? 0);
     normalizeLine(root);
     setCaretUnits(root, at);
     emit();
@@ -1090,14 +1292,27 @@ export const BriefInput = forwardRef<
   const anchorToken = picker ? decode(picker.anchor.dataset.tok ?? '') : null;
   const previewHash = previewHashOf(anchorToken);
   const anchorWarning = anchorToken ? (flag?.(anchorToken) ?? null) : null;
+  const anchorNote = anchorToken && described?.(anchorToken) ? (describedNote ?? null) : null;
 
   const hoveredToken = hovered ? decode(hovered.anchor.dataset.tok ?? '') : null;
   const hoveredHash = previewHashOf(hoveredToken);
-  const hoveredKind = hoveredToken && isPreviewKind(hoveredToken.t) ? hoveredToken.t : null;
+  // The chip's own resolved art: a product's shot, a presenter's avatar, a
+  // scene's preview. The chip already chose it, so the card repeats it rather
+  // than forming a second opinion. A chip with no picture peeks nothing.
+  const hoveredThumb = hovered?.anchor.querySelector('img')?.getAttribute('src') ?? null;
+  const hoveredSrc = hoveredHash ? imgUrl(hoveredHash) : hoveredThumb;
+  const hoveredPicker = chipOpensPicker(hoveredToken);
+  const hoveredKind =
+    hoveredToken && isPreviewKind(hoveredToken.t)
+      ? hoveredToken.t
+      : hoveredPicker && hoveredPicker !== 'color' && isPreviewKind(hoveredPicker)
+        ? hoveredPicker
+        : null;
   const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
+  const hoveredNote = hoveredToken && described?.(hoveredToken) ? (describedNote ?? null) : null;
 
   return (
-    <div className="sc-brief" data-drag-over={dragOver || undefined}>
+    <div className="sc-brief" ref={scrollerRef} onScroll={syncScrollHint} data-drag-over={dragOver || undefined}>
       {/* the affordances a chip cannot carry visually: read by aria-describedby */}
       <span id={hintId} className="sc-vh">
         Press Enter to open, Delete to remove, Alt plus arrow keys to move.
@@ -1141,7 +1356,6 @@ export const BriefInput = forwardRef<
         onBlur={() => {
           const root = rootRef.current;
           if (chipHexWords(root, (t) => chipFor(t), { commit: true, nameFor: nameForHex })) {
-            chipCount.current = root?.querySelectorAll(`.${CHIP}`).length ?? 0;
             setMenu(null);
             setQuery('');
           }
@@ -1172,17 +1386,28 @@ export const BriefInput = forwardRef<
         />
       )}
 
-      {hovered && hoveredHash && hoveredKind && (
+      {hovered && hoveredSrc && hoveredKind && (
         <ChipPreview
           key={hovered.uid}
           anchor={hovered.anchor}
           kind={hoveredKind}
-          src={imgUrl(hoveredHash)}
-          // A mark has a name worth repeating; a hand-attached reference's
-          // label is the word "reference", which the card already says.
-          label={hoveredKind === 'mark' ? chipLabel(hovered.anchor) : null}
+          src={hoveredSrc}
+          // A hand-attached reference's label is the word "reference", which
+          // the card already says; everything else has a name worth repeating.
+          label={chipLabel(hovered.anchor)}
           warning={hoveredWarning}
-          onOpen={() => inspectChip(hovered.anchor)}
+          note={hoveredNote}
+          // One pattern for every card: clicking the preview always opens the
+          // picture full size. The picker stays the chip's own click.
+          onOpen={() => {
+            const chip = hovered.anchor;
+            if (hoveredHash) {
+              inspectChip(chip);
+              return;
+            }
+            closeHover();
+            onInspect?.({ src: hoveredSrc, kind: hoveredKind, label: chipLabel(chip) });
+          }}
           onHoverIn={hover.keep}
           onHoverOut={hover.close}
           onClose={closeHover}
@@ -1247,6 +1472,7 @@ export const BriefInput = forwardRef<
           brandId={brand.id}
           brandSlug={brand.slug}
           warning={anchorWarning}
+          note={anchorNote}
           onAttachRequest={
             onAttachRequest
               ? (tab) => {
@@ -1303,23 +1529,13 @@ function sameColor(a: string | null | undefined, b: string | null | undefined): 
   return !!left && left === right;
 }
 
-/** Characters before a node, chips counting as one, for restoring a caret. */
-function caretUnitsOf(root: HTMLElement, node: Node): number {
-  let n = 0;
-  for (const c of Array.from(root.childNodes)) {
-    if (c === node || c.contains(node)) break;
-    n += c.nodeType === Node.TEXT_NODE ? (c.textContent ?? '').length : 1;
-  }
-  return n + (node.nodeType === Node.TEXT_NODE ? (node.textContent ?? '').length : 1);
-}
-
 function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): string {
   if (t.t === 'template') return templates.find((x) => x.id === t.id)?.name ?? 'template';
   if (t.t === 'product') return products.find((x) => x.id === t.id)?.name ?? 'product';
   if (t.t === 'character') return 'someone';
   if (t.t === 'color') return t.name ?? t.hex;
   if (t.t === 'mark') return 'brand mark';
-  return 'reference';
+  return t.t === 'ref' ? (t.label ?? 'Image') : 'reference';
 }
 
 export { chipLabel };

@@ -515,6 +515,13 @@
   margin-top: var(--swap-step);
   font-size: var(--sc-text-micro);
 }
+/* How an identity reaches the engine when its photo found no seat: a fact
+   in the card's quiet voice, not a warning. */
+.sc-chip-preview-note {
+  margin: var(--swap-step) 0 0;
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+}
 .sc-chip-preview-blank {
   display: flex;
   flex-direction: column;

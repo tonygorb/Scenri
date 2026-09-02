@@ -45,10 +45,7 @@ test.describe('brand kit', () => {
   test('the kit is a settings pane, and /kit still lands in it', async ({ page }) => {
     const brand = await currentBrand(page);
 
-    // The nav slot went back to the work: five items, no Brand tab.
-    await expect(page.locator('nav.sc-mainnav button, .sc-mainnav a'))
-      .toHaveCount(0, { timeout: 1 })
-      .catch(() => {});
+    // The nav slot went back to the work: no Brand tab.
     await expect(page.getByRole('button', { name: 'Brand', exact: true })).toHaveCount(0);
 
     // Every link that used to point at the page lands in the pane instead.
@@ -180,9 +177,6 @@ test.describe('brand kit', () => {
       rules: { never: ['competitor logos in frame'] },
     });
 
-    const { directives } = (await api(page, `/api/brands/${brand.id}/directives`)) as { directives: string[] };
-    expect(directives).toEqual(['Brand rules — never: competitor logos in frame.']);
-
     const preview = (brief: unknown) =>
       api(page, '/api/brief/preview', {
         method: 'POST',
@@ -203,20 +197,21 @@ test.describe('brand kit', () => {
         { t: 'color', hex: '#1F3D2B', name: 'Forest' },
       ],
     });
-    expect(withColor.prompt).toContain('Use #1F3D2B as a defining color in the composition.');
+    expect(withColor.prompt).toContain(
+      'Use #1F3D2B as a defining color in the composition, in surfaces, materials and light, never as lettering.',
+    );
   });
 
-  test('the composer says the rules apply, without any chip', async ({ page }) => {
+  test('the rules reach the shot without any chip or row in the composer', async ({ page }) => {
     const brand = await currentBrand(page);
     await putBrand(page, brand.id, { ...brand.json, rules: { never: ['competitor logos in frame'] } });
 
+    // Rules are the brand's standing context, written in Settings and appended
+    // by the compiler on its own (the preview test above pins the words). The
+    // composer carries no row, no dropdown and no helper text about them.
     await page.goto(`/${brand.slug}/create?compose=1`);
-    const inherited = page.locator('.sc-inherit-head');
-    await expect(inherited).toHaveText('Brand rules apply to every shot');
-
-    // Opening it shows the literal text the compiler appends — not a rewording.
-    await inherited.click();
-    await expect(page.locator('.sc-inherit-body')).toContainText('Brand rules — never: competitor logos in frame.');
+    await expect(page.locator('.sc-brief-line')).toBeVisible();
+    await expect(page.locator('.sc-inherit-head')).toHaveCount(0);
 
     // The chip that used to carry all this is gone from both places it lived.
     await page.locator('.sc-attach-toggle').first().click();
@@ -297,12 +292,21 @@ test.describe('brand kit', () => {
     await expect(page.locator('.sc-chips-item', { hasText: 'alcohol' })).toBeVisible();
     await expect(page.locator('.sc-chips-sugg .sc-chip', { hasText: 'alcohol' })).toHaveCount(0);
 
-    // The line accumulates whatever rules the brand already had, so assert the
-    // rule is in it rather than that it is the whole of it.
+    // What the model receives is the compiled prompt; the line accumulates
+    // whatever rules the brand already had, so assert the rule is in it
+    // rather than that it is the whole of it.
     await expect
       .poll(async () => {
-        const { directives } = (await api(page, `/api/brands/${brand.id}/directives`)) as { directives: string[] };
-        return directives.find((d) => d.startsWith('Brand rules — never:')) ?? '';
+        const { prompt } = (await api(page, '/api/brief/preview', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            brandId: brand.id,
+            engineId: 'demo',
+            brief: { tokens: [{ t: 'text', v: 'a mug on a table' }] },
+          }),
+        })) as { prompt: string };
+        return prompt.split('. ').find((d) => d.startsWith('Brand rules — never:')) ?? '';
       })
       .toContain('alcohol');
   });

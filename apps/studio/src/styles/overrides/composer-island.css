@@ -9,14 +9,20 @@
   border-radius: var(--sc-radius-float);
 }
 .sc-prompt-row {
-  padding: 8px 18px 18px;
-  gap: 14px;
+  /* The full 16px seam above the controls lives HERE, not on the editor:
+     the editor scrolls and would carry it away. Band arithmetic still lands
+     the Figma frames' exact 118px empty composer. */
+  padding: var(--sc-space-6);
+  gap: var(--sc-space-6);
+  /* bottoms meet: the 40px attach disc and the 44px right controls share the
+     row's lower edge, the alignment the Figma toolbar draws */
+  align-items: flex-end;
 }
 .sc-prompt-left {
   gap: 6px;
 }
 .sc-prompt-right {
-  gap: 4px;
+  gap: var(--sc-space-6);
 }
 /* The three settings, spaced like the row they sit in.
 
@@ -83,39 +89,40 @@
   height: 34px !important;
   padding: 0 12px !important;
   font-size: 13.5px !important;
-  border-radius: 9px !important;
+  border-radius: var(--sc-radius-full) !important;
 }
 
-/* The overlay aside is 340px wide and the phone is narrower still; neither can
-   hold the new row, so both keep the old scale. */
+/* The overlay composer wears the dock's language at the panel's own scale,
+   the numbers the sidebar frames draw: the same 15px sentence with rows
+   pitched 28 so wrapped chips breathe, and a 38/30/38 control row. The two
+   10px values are the frames' own; the spacing scale has no 10. */
 .sc-ovl-edit .sc-brief-line {
-  font-size: 13.5px;
-  padding: 11px 13px 3px;
-}
-.sc-ovl-edit .sc-prompt-row {
-  padding: 6px 10px 10px 12px;
-  gap: 8px;
+  /* 28px rows: a 24px chip plus the 4px the frames put between rows */
+  line-height: 1.8667;
 }
 .sc-ovl-edit .sc-var {
   height: 30px;
   padding: 0 10px;
-  font-size: 12.5px;
+  font-size: var(--sc-text-body);
 }
-/* The sidebar composer runs a notch smaller. It states the size and nothing
-   else: width, height and padding belong to the two properties above, which is
-   why this can no longer make the disc oblong. */
 .sc-ovl-edit .sc-send {
   --sc-send-size: 38px;
   --sc-send-pad: var(--sc-space-5);
 }
 .sc-ovl-edit .sc-prompt-row .sc-attach-toggle {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
+}
+.sc-ovl-edit .sc-prompt-right {
+  gap: var(--sc-space-2);
+}
+.sc-ovl-edit .sc-prompt-right .sc-send {
+  margin-inline-start: 10px;
 }
 .sc-ovl-edit .sc-mini-sel {
   height: 30px !important;
   padding: 0 10px !important;
-  font-size: 12.5px !important;
+  font-size: var(--sc-text-body) !important;
 }
 /* The engine select stays in the row at every width now: the overlay row
    wraps, so a second engine costs a second line rather than a buried

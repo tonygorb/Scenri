@@ -123,7 +123,7 @@
 /* the add-logo tile is a label over a file input; while its upload runs it
    goes quiet instead of accepting a second file */
 .sc-ap-add[data-busy] {
-  opacity: 0.6;
+  opacity: var(--sc-dim);
   pointer-events: none;
 }
 .sc-ap-thumb {
@@ -171,7 +171,8 @@
    mystery, dimmed and disabled so no click can flip the mode as a side
    effect. The hint above the grid says how to use one; the card's own title
    repeats it for a hover. */
-.sc-ap-card:disabled {
+.sc-ap-card:disabled,
+.sc-ap-card[aria-disabled="true"] {
   opacity: 0.45;
   cursor: default;
 }

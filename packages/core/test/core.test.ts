@@ -452,3 +452,26 @@ describe('ledger + caps', () => {
     expect(core.ledger.monthlySpend('codex-cli')).toBe(0);
   });
 });
+
+describe('chargeNode', () => {
+  it("puts the run's money on a finished node and never on one still running or failed", () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    const [done, running, failed] = core.store.addNodes({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'x',
+      engineId: 'demo',
+      count: 3,
+    });
+    core.store.completeNode(done.id, { images: ['h'], costUsd: 0, durationMs: 5 });
+    core.store.failNode(failed.id, 'no');
+    core.store.chargeNode(done.id, 0.4);
+    core.store.chargeNode(running.id, 0.4);
+    core.store.chargeNode(failed.id, 0.4);
+    expect(core.store.getNode(done.id)!.costUsd).toBeCloseTo(0.4);
+    expect(core.store.getNode(running.id)!.costUsd).toBe(0);
+    expect(core.store.getNode(failed.id)!.costUsd).toBe(0);
+  });
+});

@@ -71,6 +71,8 @@ export interface PickerProps {
   brandSlug: string;
   /** The chip's own warning, if the compiler flagged it. Shown above Remove. */
   warning: string | null;
+  /** How this identity reaches the engine when its photo found no seat. A fact, not a warning. */
+  note?: string | null;
   onPick: (c: Candidate) => void;
   onRemove: () => void;
   onClose: (reason: CloseReason) => void;
@@ -107,6 +109,7 @@ function PickerBody({
   brandId,
   brandSlug,
   warning,
+  note,
   onPick,
   onRemove,
   onClose,
@@ -341,6 +344,7 @@ function PickerBody({
 
       <div className="sc-swap-foot">
         {currentId && !list.current && <p className="sc-swap-warn">This {noun} is no longer available.</p>}
+        {note && <p className="sc-chip-preview-note">{note}</p>}
         {warning && <p className="sc-swap-warn">{warning}</p>}
         {warning && onAttachRequest && kind === 'scene' && (
           <div className="sc-swap-attach">

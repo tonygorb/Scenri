@@ -214,10 +214,12 @@ describe('golden: identity is never lost or confused', () => {
       1,
     );
     expect(roles(r)).toEqual(['product']);
-    // Losing the presenter entirely is an essential loss — the route refuses
-    // on this, rather than generating a stranger with full confidence.
+    // Losing the presenter's photo is an essential loss the allocator records;
+    // the presenter rides in words (the composer dimmed his chip and said so),
+    // and nothing calls him lost.
     expect(r.dropped.some((d) => d.essential && d.role === 'character')).toBe(true);
-    expect(r.warnings.join(' ')).toMatch(/Marco/);
+    expect(r.prompt).toContain('Marco');
+    expect(r.warnings.join(' ')).not.toMatch(/left out/);
   });
 
   it('6. product + scene + custom reference — identity boards first, then the reference beats a spare angle', () => {

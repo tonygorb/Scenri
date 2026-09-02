@@ -16,6 +16,47 @@ import { normalizeTint, type SentenceToken } from './line.js';
  */
 export type IngredientKind = 'product' | 'presenter' | 'scene';
 
+/** The catalogs a token resolves against, in the one order every surface uses: the brand's own first, then what ships. */
+export interface IngredientSources {
+  products: readonly any[];
+  demoProducts: readonly DemoProduct[];
+  cast: readonly any[];
+  presenters: readonly Presenter[];
+  /** Own scenes and catalog scenes in one list, own first; an own scene carries `custom`. */
+  scenes: readonly Scene[];
+}
+
+/** What a token names, resolved once: the brand's own record when it has one, else the shipped one. */
+export type Found =
+  | { kind: 'product'; product: any | null; demo: DemoProduct | null }
+  | { kind: 'presenter'; character: any | null; presenter: Presenter | null }
+  | { kind: 'scene'; scene: Scene | null; custom: boolean };
+
+/**
+ * The one lookup behind the composer's chip, the record's chip and the
+ * overlay's source cards. Own before shipped: a product in the kit beats
+ * the demo product of the same id, a cast member beats the stock presenter,
+ * an own scene beats the catalog's. A missing thing resolves to nulls so
+ * each surface can say "missing" in its own words.
+ */
+export function findIngredient(t: SentenceToken, src: IngredientSources): Found | null {
+  if (t.t === 'product') {
+    const product = src.products.find((x) => x.id === t.id) ?? null;
+    const demo = product ? null : (src.demoProducts.find((x) => x.id === t.id) ?? null);
+    return { kind: 'product', product, demo };
+  }
+  if (t.t === 'character') {
+    const character = src.cast.find((x) => x.id === t.id) ?? null;
+    const presenter = character ? null : (src.presenters.find((x) => x.id === t.id) ?? null);
+    return { kind: 'presenter', character, presenter };
+  }
+  if (t.t === 'template') {
+    const scene = src.scenes.find((x) => x.id === t.id) ?? null;
+    return { kind: 'scene', scene, custom: !!scene && 'custom' in scene && !!(scene as { custom?: boolean }).custom };
+  }
+  return null;
+}
+
 /** What the picker calls the thing, in headings, buttons and aria labels. */
 export const NOUN: Record<IngredientKind, string> = {
   product: 'product',

@@ -1,5 +1,5 @@
 import type { SentenceToken } from './tokens.js';
-import { lengthOf, unitsOfPosition } from './caret.js';
+import { GUARD_RE, lengthOf, unitsOfPosition } from './caret.js';
 import { unitsBeforeChip } from './insert.js';
 import { isChip, normalizeLine } from './invariants.js';
 import { chipLabel } from './clipboard.js';
@@ -34,7 +34,15 @@ export function moveSlots(tokens: SentenceToken[]): number[] {
     u += t.v.length;
   }
   slots.add(u);
-  return [...slots].sort((a, b) => a - b);
+  const sorted = [...slots].sort((a, b) => a - b);
+  // One slot per gap. A chip's trailing edge and the boundary after the
+  // space that follows it are two unit positions four pixels apart that land
+  // a chip in exactly the same place, and a drag snapping between them drew
+  // two carets flickering side by side. Where nothing but whitespace
+  // separates two slots, the later one stands for both: the same side a
+  // word boundary already sits on, right before the next thing.
+  const flat = flatOf(tokens);
+  return sorted.filter((s, i) => i === sorted.length - 1 || !/^[ \n]*$/.test(flat.slice(s, sorted[i + 1])));
 }
 
 /**
@@ -57,6 +65,11 @@ const noopSlot = (flat: string, chipUnits: number, slot: number): boolean => {
 export function moveSlotsFor(tokens: SentenceToken[], chipUnits: number): number[] {
   const flat = flatOf(tokens);
   return moveSlots(tokens).filter((s) => !noopSlot(flat, chipUnits, s));
+}
+
+/** The first legal slot at or past a raw unit position: what "after this" means. */
+export function snapAfter(slots: number[], units: number): number | null {
+  return slots.find((s) => s >= units) ?? (slots.length ? slots[slots.length - 1] : null);
 }
 
 /** The nearest legal slot to a raw unit position; ties resolve earlier. */
@@ -125,6 +138,21 @@ export function moveChipBy(root: HTMLElement | null, chip: HTMLElement, dir: -1 
 }
 
 /**
+ * Where the whitespace run ending at `units` begins, in units: the other edge
+ * of the gap a slot stands in. A slot sits right before the next thing, so
+ * the drop caret drawn exactly there hugs that thing; drawn at the middle of
+ * the gap it sits with the same air on both sides. Equal to `units` when no
+ * whitespace precedes it.
+ */
+export function gapStartUnits(root: HTMLElement | null, units: number): number {
+  if (!root) return units;
+  const flat = flatOf(readTokensLite(root));
+  let start = units;
+  while (start > 0 && (flat[start - 1] === ' ' || flat[start - 1] === '\n')) start -= 1;
+  return start;
+}
+
+/**
  * A drop point as a snapped unit position, or null when the point resolves to
  * nothing the line owns. Chip-band points land on the chip's own edge; text
  * points snap to the nearest word boundary. `noop` is true when dropping there
@@ -150,7 +178,11 @@ export function dropUnitsAt(
         ? unitsOfPosition(root, pos.node, pos.offset)
         : null;
   if (raw === null) return null;
-  const snapped = snapToSlot(slots, raw);
+  // Landing after a chip means after it: the slot at its trailing edge folded
+  // into the one past its following space (one slot per gap), and the
+  // nearest-slot tie would have handed the drop back to the slot before the
+  // chip. So an "after" resolves upward to the first slot at or past it.
+  const snapped = 'beside' in pos && pos.side === 'after' ? snapAfter(slots, raw) : snapToSlot(slots, raw);
   if (snapped === null) return null;
   return { units: snapped, noop: noopSlot(flatOf(tokens), at, snapped) };
 }
@@ -176,7 +208,7 @@ const WORDS_AROUND = 3;
 function nextThing(chip: HTMLElement): string | null {
   for (let n = chip.nextSibling; n; n = n.nextSibling) {
     if (isChip(n)) return chipLabel(n as HTMLElement) || null;
-    const words = (n.textContent ?? '').trim();
+    const words = (n.textContent ?? '').replace(GUARD_RE, '').trim();
     if (words) return `"${words.split(/\s+/).slice(0, WORDS_AROUND).join(' ')}"`;
   }
   return null;
@@ -201,7 +233,7 @@ function readTokensLite(root: HTMLElement): SentenceToken[] {
   let buf = '';
   for (const n of Array.from(root.childNodes)) {
     if (n.nodeType === Node.TEXT_NODE) {
-      buf += n.textContent ?? '';
+      buf += (n.textContent ?? '').replace(GUARD_RE, '');
       continue;
     }
     if (buf) {

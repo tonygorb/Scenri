@@ -1,8 +1,8 @@
-/* compact composer inside the overlay */
+/* The overlay composer wears the dock's own scale; the one concession to a
+   378-to-478px column is that the row may wrap instead of overflowing. */
 .sc-ovl-edit .sc-prompt-row {
   flex-wrap: wrap;
   row-gap: 6px;
-  padding: 6px 10px 10px 12px;
 }
 /* The trigger states what it opens, and reads as held down while it is open.
    `--sc-chip-active` is the pressed fill for a chip that stays pressed; here
@@ -38,8 +38,8 @@
   flex-shrink: 0;
   border: none;
   border-radius: 50%;
-  background: var(--sc-inv-bg);
-  color: var(--sc-inv-fg);
+  background: var(--sc-send-bg);
+  color: var(--sc-send-fg);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -53,12 +53,14 @@
 .sc-send:disabled,
 .sc-send[aria-disabled="true"] {
   /* Not a blanket opacity: at 42% the label composited to 3.98:1 and the one
-     control people look for became the hardest thing on the card to read. */
-  background: var(--sc-chip-active);
+     control people look for became the hardest thing on the card to read.
+     One ladder step under the enabled fill, since the enabled pill now sits
+     on the chip-active tone itself. */
+  background: var(--sc-chip);
   /* Inactive controls are exempt from AA, but this is the control people look
      for first: it reads as unavailable through its surface, not by being hard
      to read. */
-  color: var(--sc-fg);
+  color: var(--sc-fg2);
   cursor: not-allowed;
 }
 .sc-send:focus-visible {

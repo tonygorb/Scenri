@@ -7,7 +7,7 @@
   border: 1px solid var(--sc-line-strong);
   border-radius: var(--sc-radius-xl);
   background: var(--sc-panel);
-  box-shadow: var(--sc-shadow-3);
+  box-shadow: var(--sc-shadow-float);
   /* Both properties that change on focus, on one clock. The ring used to be
      absent from this list, so it snapped in at 0ms while the border eased over
      120ms — two timings on one edge, which is what read as the card shaking. */
@@ -60,56 +60,12 @@
    whole card glowing behind whichever control already had its own ring — three
    layers of "active" at once. And the edge was 1px of border plus 2px of ink
    ring: 3px of near-white where there had been 1px of #383838. It is now one
-   hairline at --sc-focus and a 9% halo. */
+   hairline at --sc-line-focus, the deeper shadow-3, and a 9% halo. */
 .sc-promptcard:has(.sc-brief-line:focus) {
-  border-color: var(--sc-focus);
+  border-color: var(--sc-line-focus);
   box-shadow:
     var(--sc-shadow-3),
     0 0 0 2px var(--sc-focus-halo);
-}
-/* what the brand kit is adding to this shot, where the prompt is written */
-.sc-inherit {
-  margin: 0 0 6px;
-}
-.sc-inherit-head {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px 3px 6px;
-  font-size: 11px;
-  color: var(--sc-fg3);
-  background: none;
-  border: 0;
-  border-radius: var(--sc-radius-full);
-  cursor: pointer;
-  transition:
-    color 120ms ease,
-    background 120ms ease;
-}
-.sc-inherit-head:hover {
-  color: var(--sc-fg2);
-  background: var(--sc-hover);
-}
-.sc-inherit-body {
-  display: grid;
-  gap: 6px;
-  margin-top: 4px;
-  padding: 9px 11px;
-  background: var(--sc-well);
-  border-radius: var(--sc-radius);
-}
-.sc-inherit-body p {
-  margin: 0;
-  font-family: var(--sc-font-mono);
-  font-size: 10.5px;
-  line-height: 1.55;
-  color: var(--sc-fg3);
-  overflow-wrap: anywhere;
-}
-@media (prefers-reduced-motion: reduce) {
-  .sc-inherit-head {
-    transition: none;
-  }
 }
 
 /* ---- from composer-island.css (dissolved 2026-08-18, css-restructure) ----

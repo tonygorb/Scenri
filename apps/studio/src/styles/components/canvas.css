@@ -301,9 +301,6 @@
 .sc-cell-ctl svg {
   flex: none;
 }
-.sc-cell-ctl-n {
-  font-family: var(--sc-font-mono);
-}
 
 /* ---------- what is a mark, and what is a control --------------------------
    Everything is a control by default and waits. The three rules below are the
@@ -402,38 +399,6 @@
   position: static;
 }
 
-/* ---------- the stack mark -------------------------------------------------
-   A run that came back with four pictures is the one thing you cannot see by
-   looking at the tile, so it is the one control that stays legible at rest: a
-   glyph and a numeral, no pill and no border. Under the pointer it becomes the
-   door it always was and says the word. It used to be a chip in a row of three
-   other chips that never hid, which is how a count of takes ended up reading
-   as chrome. */
-.sc-cell-stack {
-  opacity: 1;
-  padding: 0 2px;
-  background: none;
-  filter: var(--sc-cell-mark-shadow);
-  transition:
-    opacity var(--sc-dur-fast) var(--sc-ease) 100ms,
-    background var(--sc-dur-fast) var(--sc-ease),
-    color var(--sc-dur-fast) var(--sc-ease),
-    filter var(--sc-dur-fast) var(--sc-ease);
-}
-.sc-cell-stack .sc-cell-ctl-lb {
-  display: none;
-}
-.sc-cell:hover .sc-cell-stack,
-.sc-cell:focus-within .sc-cell-stack {
-  padding: 0 10px;
-  background: var(--sc-cell-ctl-bg);
-  filter: none;
-}
-.sc-cell:hover .sc-cell-stack .sc-cell-ctl-lb,
-.sc-cell:focus-within .sc-cell-stack .sc-cell-ctl-lb {
-  display: inline;
-}
-
 /* ---------- archive and Refine ---------------------------------------------
    Refine keeps its word at every width now. It used to give it up under a
    finger because on a 175px tile the label and the fact chips could not both
@@ -459,8 +424,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-cellimg img,
   .sc-cell-veil,
-  .sc-cell-ctl,
-  .sc-cell-stack {
+  .sc-cell-ctl {
     transition: none;
   }
 }
@@ -546,7 +510,6 @@
      stays clickable everywhere except the buttons' own small hit areas */
   pointer-events: none;
 }
-.sc-cell-retry,
 .sc-cell-failed .sc-s,
 .sc-cell-failed .sc-fail-alt {
   pointer-events: auto;
@@ -574,23 +537,6 @@
   color: var(--sc-gold);
   background: color-mix(in srgb, var(--sc-gold) 18%, var(--sc-cell-ctl-bg));
 }
-.sc-cell-retry {
-  border: 1px solid var(--sc-line);
-  background: var(--sc-panel);
-  border-radius: var(--sc-radius-full);
-  padding: 4px 12px;
-  font-size: 12px;
-  color: var(--sc-fg);
-  cursor: pointer;
-}
-.sc-cell-retry:hover {
-  background: var(--sc-hover);
-}
-.sc-cell-retry[data-urgent] {
-  border-color: var(--sc-gold);
-  color: var(--sc-gold);
-  background: color-mix(in srgb, var(--sc-gold) 12%, transparent);
-}
 @media (max-width: 479px) {
   .sc-cell {
     margin-bottom: 8px;
@@ -603,7 +549,7 @@
 .sc-assets {
   grid-area: assets;
   border-left: 1px solid var(--sc-line-chrome);
-  background: var(--sc-panel);
+  background: var(--sc-bg);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -630,18 +576,21 @@
   top: -16px;
   z-index: 2;
   flex: none;
-  background: var(--sc-panel);
+  background: var(--sc-bg);
   margin: -16px -16px 16px;
-  padding: 16px 16px 10px;
+  /* 8 here and the 16 margin below: the field gets 24px of air, half again
+     what the sections give each other, so it reads as the panel's head. */
+  padding: 16px 16px 8px;
 }
 .sc-assets-search {
   display: flex;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
   padding: 0 6px 0 12px;
-  height: 32px;
+  height: 34px;
 }
 /* The system's one focus treatment, the same ring `.sc-swap-search` and every
    button in the shared list wear. A bespoke border-colour change was a second
@@ -695,6 +644,12 @@
   color: var(--sc-fg3);
   line-height: 1.45;
 }
+/* At the composer's identity ceiling the rail's tiles sit out the way the
+   attach panel's cards do: dimmed, inert, the reason on hover. */
+.sc-acard[aria-disabled="true"] {
+  opacity: var(--sc-dim);
+  cursor: default;
+}
 /* Searching, every section is showing answers, so none of them claims the
    column and the rail scrolls through the lot — one scroller, the ordinary
    one, rather than five panes each scrolling a few results of their own. */
@@ -708,13 +663,25 @@
    whether it was worth opening. Open one and every other section gives its row
    back and waits as a header, because four quick rows nobody is looking at are
    280px the section being worked in could be using. The rail itself never
-   scrolls; only the open section does, and only when it has to. */
+   scrolls; only the open section does, and only when it has to.
+
+   Nothing in this block transitions. Heights and margins are animated
+   together from measured numbers by `useRailMotion`, so the open section,
+   its folding siblings and the gaps between them move on one clock; a CSS
+   transition here would be a second clock. Opacity is the exception: it
+   never changes layout, so it may fade on its own. */
 .sc-agroup {
   flex-grow: 0;
   flex-shrink: 0;
   flex-basis: auto;
-  margin-bottom: 16px;
-  transition: margin-bottom 240ms cubic-bezier(0.32, 0, 0.2, 1);
+  /* The room a focus ring needs around a tile: the ring and its offset. Every
+     grid in a section bleeds this far into the gutter on both sides, and every
+     box that clips or scrolls a grid widens by the same amount, so the tiles
+     sit flush with the heading and a ring on an edge tile is never cut. */
+  --sc-ring-room: calc(var(--sc-ring-w) + var(--sc-ring-off));
+  /* 12, plus the grid's ring room: 16px from the last tile's edge to the next
+     heading, which is the number the Figma draws. */
+  margin-bottom: 12px;
 }
 .sc-agroup[data-mode="collapsed"] {
   margin-bottom: 6px;
@@ -733,7 +700,6 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  margin-bottom: 16px;
 }
 .sc-agroup[data-mode="open"] > .sc-agroup-h {
   flex: none;
@@ -747,30 +713,33 @@
   align-items: center;
   gap: 6px;
   min-height: 22px;
-  margin-bottom: 8px;
+  /* 4, plus the grid's ring room: 8px from the heading to the tiles' top
+     edge, in both shapes. */
+  margin-bottom: 4px;
 }
-/* A standing-down section collapses via grid-template-rows 1fr -> 0fr, the
-   standard no-JS way to animate to and from an intrinsic ("auto") height,
-   which a plain height transition cannot do since "auto" isn't animatable.
-   .sc-agroup-content is the single row; overflow:hidden on it is what clips
-   the tiles away as the row shrinks toward nothing. */
+/* The body is the box `useRailMotion` animates: a plain block whose height
+   is whatever its content needs, folded to nothing when the section stands
+   down, and clipped only while it is in flight. */
 .sc-agroup-body {
-  display: grid;
-  grid-template-rows: 1fr;
   min-height: 0;
-  transition: grid-template-rows 240ms cubic-bezier(0.32, 0, 0.2, 1);
 }
+/* The clip box reaches the ring room past the column on each side, so the
+   grids inside can bleed theirs into the panel's padding and a focused edge
+   tile still draws its whole ring while the section is folded. */
 .sc-agroup-content {
   overflow: hidden;
   min-height: 0;
   opacity: 1;
   transition: opacity 120ms ease;
+  padding-inline: var(--sc-ring-room);
+  margin-inline: calc(-1 * var(--sc-ring-room));
 }
 /* Visibility is delayed until the fade finishes on the way out, so the tiles
    do not vanish mid-fade, and drops instantly on the way back in so a
    returning row is clickable straight away. */
 .sc-agroup[data-mode="collapsed"] > .sc-agroup-body {
-  grid-template-rows: 0fr;
+  height: 0;
+  overflow: hidden;
 }
 .sc-agroup[data-mode="collapsed"] .sc-agroup-content {
   opacity: 0;
@@ -793,21 +762,34 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
+  /* the scrollport widens by the ring room too, so the grids' bleed stays
+     inside it instead of being clipped on the outer columns */
+  padding-inline: var(--sc-ring-room);
+  margin-inline: calc(-1 * var(--sc-ring-room));
 }
 .sc-agroup[data-mode="open"] .sc-agroup-content {
   overflow: visible;
   flex: none;
-  /* 2px ring + 1px offset on the last row, otherwise the section's own
-     scrollport chops the stroke along the bottom edge. */
-  padding-bottom: 4px;
 }
 /* The quick row and the named grid are different DOM — different cell count,
-   different columns, labels or none — so swapping one for the other outright
-   reads as a pop, worst of all while the section is also changing height.
-   This is a plain cross-fade: content fades to 0, the shape swaps underneath
-   while it is invisible (see `useShape`), then fades back in. */
-.sc-agroup-content[data-fading] {
-  opacity: 0;
+   different columns, labels or none — so the incoming shape is keyed, mounts
+   fresh and fades in while the box is still moving under it (see `Group`).
+   Nothing of the old shape is kept: the growth or the fold is what the eye
+   follows, and the new tiles arrive inside it. */
+.sc-agroup-layer {
+  animation: sc-agroup-in 160ms ease;
+}
+@keyframes sc-agroup-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-agroup-layer,
+  .sc-agroup-content {
+    animation: none;
+    transition: none;
+  }
 }
 .sc-agroup-t {
   display: flex;
@@ -870,7 +852,7 @@
   color: var(--sc-fg2);
   background: var(--sc-raised);
   border-radius: 999px;
-  padding: 1px 6px;
+  padding: 2px 6px;
 }
 .sc-agroup-t:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
@@ -898,16 +880,35 @@
   font-weight: 600;
 }
 .sc-agroup-h .sc-aadd {
+  position: relative;
   margin-left: auto;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
+  /* No UA padding: a button ships with 1px 6px, which put the 10px glyph
+     6px in from the left. At 22px that happened to be the centre. */
+  padding: 0;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
   background: none;
   display: grid;
   place-items: center;
+  place-content: center;
   color: var(--sc-fg2);
   cursor: pointer;
+}
+/* A 20px mark with a 28px reach: the extra is drawn on nothing, so the
+   heading keeps its geometry and the pointer gets its target. A thumb gets
+   the app's tap floor. */
+.sc-agroup-h .sc-aadd::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+}
+@media (pointer: coarse) {
+  .sc-agroup-h .sc-aadd::after {
+    inset: calc((20px - var(--sc-tap)) / 2);
+  }
 }
 .sc-agroup-h .sc-aadd:hover {
   /* The colour-plus ColorPicker paints an inline background:none so it does
@@ -917,13 +918,16 @@
 }
 /* The closed shape: four square thumbnails, one row, no labels. Recognition
    by eye — which is the whole premise of a visual asset rail — and the name is
-   a hover away. Four across is what fits legibly at 288px of content. */
+   a hover away. Four across, 4px apart, flush with the panel's own gutter:
+   the padding is the ring's room (2px ring + 1px offset + a pixel against
+   subpixel shear) and the negative inline margin gives that room back, so
+   the tiles line up with the heading above them instead of sitting 4px in. */
 .sc-arow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 7px;
-  /* 2px ring + 1px offset, plus a pixel so subpixels do not shear it. */
-  padding: 4px;
+  gap: 4px;
+  padding: var(--sc-ring-room);
+  margin-inline: calc(-1 * var(--sc-ring-room));
   overflow: visible;
 }
 /* Plain image/swatch tiles — shared by the compact 4-col preview grid and any
@@ -934,23 +938,23 @@
    any corner control) when the same box is overflow:hidden + radius — the
    chopped ring and quarter-circle X on a hovered brand swatch. Pictures and
    pigment clip on the inner face instead. */
-.sc-arow > button,
+.sc-arow > button:not(.sc-acard),
 .sc-arow > .sc-aswatch-tile,
 .sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile) {
-  border: 1px solid var(--sc-line);
-  border-radius: 8px;
+  border: 1.5px solid var(--sc-line);
+  border-radius: var(--sc-radius-md);
   overflow: visible;
   padding: 0;
   background: var(--sc-raised);
   aspect-ratio: 1;
   cursor: pointer;
 }
-.sc-arow > button:hover,
+.sc-arow > button:not(.sc-acard):hover,
 .sc-arow > .sc-aswatch-tile:hover,
 .sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile):hover {
   border-color: var(--sc-line-strong);
 }
-.sc-arow > button:focus-visible,
+.sc-arow > button:not(.sc-acard):focus-visible,
 .sc-arow > .sc-aswatch-tile:focus-within,
 .sc-acard-grid > button:not(.sc-acard):not(.sc-amore-tile):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
@@ -964,6 +968,17 @@
 .sc-arow > button:hover,
 .sc-arow > button:focus-visible {
   z-index: 1;
+}
+/* In the quick row a card's thumb is its one and only frame: 1.5px so the
+   hairline survives against a photograph, the inline radius, and 10px on a
+   product, whose packshot sits on a raised mat. The row chrome above skips
+   .sc-acard so this is never a frame inside a frame. */
+.sc-arow .sc-acard-thumb {
+  border-width: 1.5px;
+  border-radius: var(--sc-radius-md);
+}
+.sc-agroup[data-kind="product"] .sc-arow .sc-acard-thumb {
+  border-radius: var(--sc-radius);
 }
 .sc-aswatch-tile > button:first-child {
   display: block;
@@ -1090,6 +1105,10 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
+  /* the same ring room as the quick row, so the two shapes share their
+     edges and the last row's ring clears the section's own scrollport */
+  padding: var(--sc-ring-room);
+  margin-inline: calc(-1 * var(--sc-ring-room));
 }
 .sc-acard {
   display: flex;
@@ -1152,9 +1171,16 @@
     opacity 120ms ease,
     transform 120ms cubic-bezier(0.3, 0, 0.2, 1);
 }
-.sc-acard[data-on] .sc-acard-tick {
+.sc-acard[data-on] .sc-acard-tick,
+.sc-aswatch-tile[data-on] .sc-acard-tick {
   opacity: 1;
   transform: scale(1);
+}
+/* On a swatch the same tick sits low: the top corner belongs to the remove
+   X that hover reveals, and a tick under an X is two answers in one spot. */
+.sc-aswatch-tile .sc-acard-tick {
+  top: auto;
+  bottom: 5px;
 }
 .sc-acard[data-on] .sc-acard-thumb {
   border-color: var(--sc-sel-line);

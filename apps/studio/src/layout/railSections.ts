@@ -34,31 +34,40 @@ export const RAIL_EXPANDED = 24;
  */
 export const RAIL_BATCH = 24;
 
-/** What the brief currently holds, by kind. Scenes are singular; the rest are not. */
+/**
+ * What the brief currently holds, by kind: every kind the rail can show, so
+ * every rail tile can carry a tick and toggle. Scenes are singular; the rest
+ * are not. References key on their image hash, colours on their hex.
+ */
 export interface AttachedIds {
   product: string[];
   presenter: string[];
   /** At most one — `BriefInput.place` swaps a template rather than appending. */
   scene: string | null;
+  ref: string[];
+  color: string[];
 }
 
-export const NO_ATTACHMENTS: AttachedIds = { product: [], presenter: [], scene: null };
+export const NO_ATTACHMENTS: AttachedIds = { product: [], presenter: [], scene: null, ref: [], color: [] };
 
 /** Which assets a sentence has attached, in the order they appear. */
 export function attachedIdsOf(tokens: readonly SentenceToken[]): AttachedIds {
   const product: string[] = [];
   const presenter: string[] = [];
+  const ref: string[] = [];
+  const color: string[] = [];
   let scene: string | null = null;
+  const add = (list: string[], id: string) => {
+    if (!list.includes(id)) list.push(id);
+  };
   for (const t of tokens) {
-    if (t.t === 'product') {
-      if (!product.includes(t.id)) product.push(t.id);
-    } else if (t.t === 'character') {
-      if (!presenter.includes(t.id)) presenter.push(t.id);
-    } else if (t.t === 'template') {
-      scene = t.id;
-    }
+    if (t.t === 'product') add(product, t.id);
+    else if (t.t === 'character') add(presenter, t.id);
+    else if (t.t === 'template') scene = t.id;
+    else if (t.t === 'ref') add(ref, t.imageHash);
+    else if (t.t === 'color') add(color, t.hex.toLowerCase());
   }
-  return { product, presenter, scene };
+  return { product, presenter, scene, ref, color };
 }
 
 /**
@@ -69,7 +78,7 @@ export function attachedIdsOf(tokens: readonly SentenceToken[]): AttachedIds {
  * (and re-render the rail) on every character typed into the brief.
  */
 export function attachedIdsKey(a: AttachedIds): string {
-  return `${a.product.join(',')}|${a.presenter.join(',')}|${a.scene ?? ''}`;
+  return `${a.product.join(',')}|${a.presenter.join(',')}|${a.scene ?? ''}|${a.ref.join(',')}|${a.color.join(',')}`;
 }
 
 export interface RailSlice<T> {

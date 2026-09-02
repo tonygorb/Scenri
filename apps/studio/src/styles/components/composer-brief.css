@@ -12,31 +12,28 @@
   background: var(--sc-hover);
   border-radius: var(--sc-radius);
 }
-.sc-brief-line {
-  padding: 13px 16px 4px;
-}
 /* Plain inline flow, never flex.
    As a flex container every text run became an anonymous flex item and the
    gap between items belonged to no text node at all, so hit testing around a
    chip was guesswork: clicking beside one jumped the caret to the start of the
    sentence, and clicking the empty space after the sentence landed in front of
-   the chip. Chips are inline-flex atoms inside normal text flow instead, and
-   the spacing comes from the real space characters the line maintains. */
+   the chip. Chips are inline-flex atoms inside normal text flow instead, each
+   owning its gap as a margin; the line keeps no space on a chip's behalf. */
 .sc-brief-line {
   display: block;
   min-height: 24px;
   cursor: text;
-  font-size: 13.5px;
   line-height: 1.6;
 }
 
 /* Chip metrics are em, resolved against the line the chip sits in, so the
    composer (15px) and the overlay refine composer (13.5px) keep the SAME
    chip-to-sentence relationship instead of one fixed chip that overflows the
-   smaller line box. 0.8333em computes to the historical 12.5px at the default
-   15px line. line-height 1.4 is the one deliberate value change: it brings
-   the chip's box inside the line's 1.6 strut, so a chip never grows its row
-   and wrapped rows all keep one height.
+   smaller line box. 0.8333em computes to 12.5px at the default 15px line,
+   and the 1.6 strut (24px at 15px) is the Figma composer's own row pitch:
+   rows sit flush, no extra row gap. The chip's padding and thumbnail resolve
+   to 2px and 20px at that scale, so the chip lands at 24px and fills the
+   strut edge to edge without growing its row.
 
    align-items is baseline, with the media opted out below: an inline-flex
    box's exported baseline comes from its first baseline-aligned item, and
@@ -48,10 +45,19 @@
    the wrong font: chipDrag freezes its computed font-size inline. */
 .sc-token {
   display: inline-flex;
+  /* Baseline, so the label is the one item that exports a baseline and the
+     chip sits on the sentence's baseline like a word (the metric fix: a chip
+     whose baseline was synthesized from its bottom edge rode above the text
+     and stretched its row). The label is centred by its own line box, which
+     is as tall as the thumbnail's row; see .sc-token-label. */
   align-items: baseline;
-  gap: 0.4em;
-  padding: 0.16em 0.64em 0.16em 0.32em;
-  border-radius: 8px;
+  gap: 0.48em;
+  /* The chip never flips: thumb left, X right, whatever the label's script
+     (BriefInput sets dir=ltr on the chip and dir=auto on the label). */
+  direction: ltr;
+  padding-block: 0.16em;
+  padding-inline: 0.16em 0.64em;
+  border-radius: var(--sc-radius-full);
   border: none;
   background: var(--sc-raised);
   font-size: 0.8333em;
@@ -64,20 +70,34 @@
      `max-width` in ch keeps it proportional to the type size. */
   max-width: 24ch;
   overflow: hidden;
+}
+/* The label is the one flex item allowed to shrink, and it is the one that
+   truncates; its own direction comes from its text (dir=auto). Its line box
+   is exactly the thumbnail's height, so the glyphs sit centred in the chip
+   by their own half-leading while the baseline the chip exports stays the
+   label's: with the 1.4 line box every label sat 1.5px high. */
+.sc-token > .sc-token-label {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.6em;
 }
-.sc-token img {
-  width: 1.2em;
-  height: 1.2em;
-  border-radius: 50%;
-  object-fit: cover;
-}
-/* The media are centered in the chip while the label text carries the
-   baseline out — see the align-items note above. */
+/* The media are centred in the chip while the label carries the baseline
+   out — see the align-items note above. */
 .sc-token > img,
 .sc-token > svg,
 .sc-token > .sc-token-swatch {
   align-self: center;
+}
+.sc-token img {
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  object-fit: cover;
+  /* Never a shrink item: with a long label under the chip's 24ch cap the
+     browser crushed the picture to a sliver instead of eating the ellipsis.
+     The label truncates; the thumbnail never does. */
+  flex: none;
 }
 /* A 4:5 card standing in for a square avatar: centre it and the circle is a
    torso. Pulling the framing up puts the face where a face belongs. Same
@@ -91,9 +111,11 @@
 /* ---------- chip drag reorder ----------------------------------------------
    The source chip stays in flow at its exact box — zero layout shift — but
    empties into a hollow dashed slot: unmistakably "this space is held", and
-   never confusable with the traveling ghost. The drop caret is a fixed bar at
-   the exact insertion point, the same geometry the real caret would have
-   there, with a soft halo so it reads over busy prose and dark chips.
+   never confusable with the traveling ghost. The drop caret is a fixed bar
+   at the exact insertion point, centred in the gap it stands in, with a soft
+   halo so it reads over busy prose and dark chips. (The slot was briefly
+   taken out as a suspected second drop zone; the second zone was a second
+   caret per gap, fixed in reorder.ts, and the slot came back by request.)
    Specificity note: (0,4,0) on purpose — the tinted/warn skins later in this
    file are (0,2,0) and the slot must win by weight, not by file position. */
 .sc-brief-line[data-chip-drag] .sc-token[data-drag-src] {
@@ -141,8 +163,13 @@
   top: 0;
   width: 3px;
   border-radius: 1.5px;
-  background: var(--sc-focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sc-focus) 22%, transparent);
+  /* The foreground, not the focus ring: a focus ring is a mid grey meant to
+     sit quietly around a control, and as a bar between a dark chip and a
+     darker panel it read as a divider. Insertion is the one thing on screen
+     during a drag, so it takes the strongest ink the system has; the halo
+     keeps it apart from white prose. No new hue: the system has none. */
+  background: var(--sc-fg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sc-fg) 22%, transparent);
   z-index: var(--sc-z-popover);
   pointer-events: none;
   transition:
@@ -156,10 +183,11 @@
   }
 }
 /* A mark is usually dark art on transparency, which is invisible on a dark
-   chip — and it is a logo, so cropping it to a circle is worse than shrinking
-   it. Ground it in white and letterbox instead. */
+   chip. Ground it in a white circle and letterbox with `contain`: the artwork
+   is never cover-cropped, and the slot keeps the thumbnail family's circle
+   the way the Figma brand chip draws it. */
 .sc-token[data-kind="mark"] img {
-  border-radius: var(--sc-radius-xs);
+  border-radius: 50%;
   object-fit: contain;
   background: #fff;
 }
@@ -296,16 +324,10 @@
 /* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
-.sc-brief-line {
-  padding: 14px 14px 6px;
-}
 /* One 14px frame for the whole card: sentence, controls and edges agree. The
    frame sits on the editable line, not on the card around it, so a click in it
    still lands in the text. As the card's padding it was dead space that threw
    the caret to the start of the sentence. */
-.sc-brief-line {
-  padding: 14px 14px 8px;
-}
 /* ---------- chips are buttons that reopen their own menu ---------- */
 /* grab, not pointer: a chip is also the thing you pick up and move, and the
    cursor is the one resting affordance the drag has */
@@ -324,13 +346,6 @@
 .sc-token:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
-}
-/* A chip whose reference the chosen engine cannot carry. The tooltip already
-   said so, but a tooltip you have to hover to find is not far from silence —
-   and an identity that quietly became text is the failure this whole path
-   exists to prevent. Amber underline, not red: the generation still runs. */
-.sc-token[data-warn] {
-  box-shadow: inset 0 -2px 0 var(--sc-warn, #d99a2b);
 }
 /* a template chip wears the mood of its own preview image */
 .sc-token[data-tinted] {
@@ -352,24 +367,25 @@
    the whole sentence reflowed. It now sits on top, behind a soft fade. */
 .sc-token {
   position: relative;
-  padding-right: 0.8em;
+  padding-inline-end: 0.64em;
 }
 .sc-token > button {
   position: absolute;
   top: 0;
-  right: 0;
+  inset-inline-end: 0;
   bottom: 0;
   width: 30px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 0 6px 0 0;
+  padding: 0;
+  padding-inline-end: 6px;
   border: none;
   border-radius: inherit;
   color: var(--sc-fg2);
   opacity: 0;
   transition: opacity 120ms ease;
-  background: linear-gradient(to right, transparent, var(--sc-raised) 45%);
+  background: linear-gradient(90deg, transparent, var(--sc-raised) 45%);
 }
 .sc-token:hover > button,
 .sc-token:focus-within > button {
@@ -379,26 +395,26 @@
   color: var(--sc-fg);
 }
 .sc-token[data-tinted] > button {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%);
 }
 .sc-token[data-tinted]:hover > button {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%);
 }
 /* ---------- chips, final pass (5.3) ----------
    One language for every chip: same surface, thumbnail, no border, no ring.
    The X floats over the right edge, revealed on hover but hit-testable
    regardless on mouse devices — see the pointer-events note further down. */
 .sc-token {
-  background: var(--sc-chip);
+  background: var(--sc-token-bg);
   border: none;
   box-shadow: none;
   font-weight: 500;
 }
 .sc-token:hover {
-  background: var(--sc-chip-hover);
+  background: var(--sc-token-hover);
 }
 .sc-token[data-open] {
-  background: var(--sc-chip-active);
+  background: var(--sc-token-active);
   outline: none;
   box-shadow: none;
 }
@@ -407,28 +423,54 @@
    state that has to be visible from the keyboard was the one with nothing to
    see — which only mattered once a chip could be focused at all. */
 .sc-token:focus-visible {
-  background: var(--sc-chip-active);
+  background: var(--sc-token-active);
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   box-shadow: none;
 }
 /* a whisper of the template's own colour, on the same base as everything else */
 .sc-token[data-tinted] {
-  background: color-mix(in srgb, var(--tint) 14%, var(--sc-chip));
+  background: color-mix(in srgb, var(--tint) 14%, var(--sc-token-bg));
   box-shadow: none;
   font-weight: 500;
 }
 .sc-token[data-tinted]:hover {
-  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
 }
 .sc-token[data-tinted][data-open],
 .sc-token[data-tinted]:focus-visible {
-  background: color-mix(in srgb, var(--tint) 20%, var(--sc-chip-active));
+  background: color-mix(in srgb, var(--tint) 20%, var(--sc-token-active));
   box-shadow: none;
 }
 .sc-token[data-tinted]:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
+}
+/* A chip whose reference the chosen engine cannot carry. The tooltip already
+   says so, but a tooltip you have to hover to find is not far from silence.
+   The mark is one small amber dot after the label: the chip itself keeps the
+   family skin exactly (a recoloured surface read as random colour, and a
+   ring read as an error wall when an engine's budget dropped a batch).
+   Amber, not red: the generation still runs. */
+.sc-token[data-warn]::after {
+  content: "";
+  /* Out of flow: a mark that costs inline space moves the chip under the
+     pointer the moment it appears, and it appears on the preview's own
+     schedule. It sits in the X gutter, and the X covers it on hover. */
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 0.22em;
+  translate: 0 -50%;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: var(--sc-warn);
+}
+/* A chip whose photo found no seat rides as words: the chip itself says so
+   by going quiet, and the peek card says why. The same dim the attach panel
+   uses for a tile that is busy. */
+.sc-token[data-described] {
+  opacity: var(--sc-dim);
 }
 /* The fade lives on the button itself. As a ::before at z-index -1 it painted
    behind the chip's own background, so the label showed straight through the X.
@@ -443,16 +485,16 @@
    tap reaches the chip and opens the sheet, which owns removal there. */
 .sc-token > button {
   width: 18px;
-  background: var(--sc-chip-hover);
+  background: var(--sc-token-hover);
 }
 .sc-token > button::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 100%;
+  inset-inline-end: 100%;
   width: 14px;
-  background: linear-gradient(to right, transparent, var(--sc-chip-hover));
+  background: linear-gradient(90deg, transparent, var(--sc-token-hover));
   pointer-events: none;
 }
 @media (hover: none) {
@@ -461,10 +503,10 @@
   }
 }
 .sc-token[data-tinted] > button {
-  background: color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover));
+  background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
 }
 .sc-token[data-tinted] > button::before {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-chip-hover)));
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover)));
 }
 /* ---------- the brief is one editable line (5.4) ----------
    Single contenteditable root: native select-all, copy, cut and paste work
@@ -474,6 +516,15 @@
   max-height: 30vh;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+/* More brief below the fold: the text itself fades out at the scroller's
+   bottom edge, the way platform edge fades do, instead of a painted overlay
+   that has to match the card's colour. The mask lives in the element's own
+   box, so it sits at the visible edge whatever the scroll position.
+   BriefInput sets data-more from the scroll numbers and drops it at the
+   bottom, so the last line reads sharp once there is nothing more to see. */
+.sc-brief[data-more] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--sc-space-8)), transparent);
 }
 .sc-brief-line {
   outline: none;
@@ -515,8 +566,32 @@
    target you can actually hit. */
 .sc-brief-line .sc-token {
   display: inline-flex;
-  vertical-align: baseline;
-  margin: 0 2px;
+  /* The thumbnail's height plus the padding either side (1.6em + 2 * 0.16em):
+     a chip whose identity has no photo stands as tall as one that does, so
+     every chip row pitches the same 28 and the label sits where its
+     neighbours' labels sit. */
+  min-height: 1.92em;
+  /* A length, not `baseline`: the 1.6em thumbnail deepens the chip below its
+     exported label baseline, so pure baseline alignment parks the chip low
+     and grows the row. With its 2px margins the chip's box is 28 tall over a
+     24 strut, and there is one raise that centres the label on the prose
+     without growing the row past those margins; it was measured, not
+     derived, and re-measured once the label got its own 1.6em line box: a
+     sweep in the real font put a 0.02px midline delta and a 28px pitch at
+     exactly 0.12em (1.5px at the chip's 12.5px), where 0.24em sat 1.5px high
+     and `middle` 1.5px low. Em keeps the same point at every line scale.
+     Still inline alignment, no transform.
+
+     The chip owns its gap: 2px of margin on each side, so two chips that
+     touch in the document sit the 4px apart the frames draw. The caret in
+     that gap sits in the zero-width guard text between them, which the
+     browser draws where the two margins meet. Symmetric, so it holds in a
+     right-to-left line too. The line keeps no space on a chip's behalf. */
+  vertical-align: 0.12em;
+  /* The Figma row pitch is 28: a 24px chip with 2px above and below. The
+     strut stays 24 for prose, and a chip's vertical margin is what grows the
+     rows that hold one. */
+  margin: var(--sc-space-1);
   user-select: none;
 }
 .sc-brief-line .sc-token > button {
@@ -533,9 +608,19 @@
    Appended in original pass order; relative order among dissolved passes is
    preserved by dissolving passes in manifest order. */
 .sc-brief-line {
-  font-size: 15px;
-  padding: 18px 20px 10px;
-  min-height: 26px;
+  /* No bottom padding: the editor scrolls, and any padding living on the
+     line rides away with the content. The toolbar band below carries the
+     16px seam instead, so scrolled text always stops a full step above the
+     controls. Same total rhythm, stated on the static element. */
+  font-size: var(--sc-text-input);
+  padding: var(--sc-space-6) var(--sc-space-6) 0;
+  min-height: 24px;
+}
+/* When the Refining band sits above, the band's own bottom padding is the
+   gap, so the line starts flush; its top padding would double the space and,
+   worse, scroll away with the content. */
+.sc-target ~ .sc-brief .sc-brief-line {
+  padding-top: 0;
 }
 @media (max-width: 767px) {
   .sc-brief-line {

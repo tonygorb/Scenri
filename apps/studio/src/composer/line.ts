@@ -16,10 +16,21 @@
  */
 
 export type { SentenceToken, FormatToken, BriefToken } from './line/tokens.js';
-export { isSentence, emptySentence, briefTokens, identityKeyOf, CHIP, encode, decode, groupOf } from './line/tokens.js';
+export {
+  isSentence,
+  emptySentence,
+  briefTokens,
+  mergeCarried,
+  identityKeyOf,
+  CHIP,
+  encode,
+  decode,
+  groupOf,
+} from './line/tokens.js';
 export { readLine, renderLine } from './line/render.js';
-export { caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, tailText } from './line/caret.js';
-export { normalizeLine, isBlankLine, syncEmpty } from './line/invariants.js';
+export { GUARD, caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, unitsOfPosition } from './line/caret.js';
+export { normalizeLine, lineIsCanonical, syncEmpty } from './line/invariants.js';
+export { stepAcrossChip, chipToDelete, deletionAtLineEdge } from './line/keys.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
 export {
   insertToken,
@@ -27,16 +38,24 @@ export {
   sigilAtCaret,
   removeChip,
   unitsBeforeChip,
-  collapseDoubleSpaceAtCaret,
 } from './line/insert.js';
-export { textBeforeCaret, caretRect, caretBeside, caretFromPoint, pointToLinePosition } from './line/query.js';
+export {
+  chipForIdentity,
+  textBeforeCaret,
+  caretRect,
+  caretBeside,
+  caretFromPoint,
+  pointToLinePosition,
+} from './line/query.js';
 export {
   moveSlots,
   moveSlotsFor,
+  snapAfter,
   snapToSlot,
   moveChipToUnits,
   moveChipBy,
   dropUnitsAt,
+  gapStartUnits,
   moveAnnouncement,
 } from './line/reorder.js';
 export { keepCaret } from './line/focus.js';

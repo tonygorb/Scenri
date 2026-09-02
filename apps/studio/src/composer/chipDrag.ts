@@ -1,4 +1,4 @@
-import { caretBeside, chipAt, dropUnitsAt, moveAnnouncement, moveChipToUnits } from './line.js';
+import { caretBeside, chipAt, dropUnitsAt, gapStartUnits, moveAnnouncement, moveChipToUnits } from './line.js';
 
 /**
  * Pointer-drag reordering for the brief's chips.
@@ -115,9 +115,10 @@ export function attachChipDrag(
     cb.onDragStart();
     window.getSelection()?.removeAllRanges();
     root.setAttribute('data-chip-drag', '');
-    dragging.setAttribute('data-drag-src', '');
     // the pointer keeps its grip where it landed on the chip, so the ghost
-    // never jumps out from under the fingers at pickup
+    // never jumps out from under the fingers at pickup. Measured BEFORE the
+    // chip is marked as the source: that mark takes it out of the line, and
+    // a box read after it has a zero rect at the origin.
     const r = dragging.getBoundingClientRect();
     grab = { dx: armed.x - r.left, dy: armed.y - r.top };
     armed = null;
@@ -148,6 +149,8 @@ export function attachChipDrag(
     ghost.style.fontSize = getComputedStyle(dragging).fontSize;
     ghostSize = { w: r.width, h: r.height };
     document.body.appendChild(ghost);
+    // Now the chip may leave the line: the ghost is the only thing left of it.
+    dragging.setAttribute('data-drag-src', '');
 
     indicator = document.createElement('div');
     indicator.className = 'sc-drop-caret';
@@ -173,12 +176,22 @@ export function attachChipDrag(
     lastDrop = drop;
     if (!indicator) return;
     const rect = drop && !drop.noop ? rectAtUnits(root, drop.units) : null;
-    if (!rect) {
+    if (!rect || !drop) {
       indicator.style.display = 'none';
       return;
     }
+    // The slot sits right before the next thing; the caret is drawn in the
+    // middle of the gap it stands in, so it has the same air on both sides,
+    // between two chips and between two words alike. Only within one row: a
+    // gap that wraps has no middle worth pointing at. Rows are told apart by
+    // their vertical centres, not their tops: a chip's box and a text caret
+    // on the same row start at different heights.
+    const gapStart = gapStartUnits(root, drop.units);
+    const from = gapStart < drop.units ? rectAtUnits(root, gapStart) : null;
+    const sameRow = !!from && Math.abs(from.top + from.height / 2 - (rect.top + rect.height / 2)) < rect.height / 2;
+    const x = from && sameRow ? (from.left + rect.left) / 2 : rect.left;
     indicator.style.display = '';
-    indicator.style.transform = `translate3d(${rect.left - 1.5}px, ${rect.top - 2}px, 0)`;
+    indicator.style.transform = `translate3d(${x - 1.5}px, ${rect.top - 2}px, 0)`;
     indicator.style.height = `${rect.height + 4}px`;
   };
 
@@ -253,7 +266,13 @@ function rectAtUnits(root: HTMLElement, units: number): DOMRect | null {
   for (let i = 0; i < kids.length; i++) {
     const c = kids[i];
     const len = c.nodeType === Node.TEXT_NODE ? (c.textContent ?? '').length : 1;
-    if (units <= n + len) {
+    // A position at the very end of a text node is also the start of what
+    // follows, and when that is a chip its own left edge is the honest place
+    // to draw: the end of a space that hangs at a soft wrap sits on the row
+    // above, where the slot before the row's first chip would be drawn a
+    // row too high.
+    const endsHere = c.nodeType === Node.TEXT_NODE && units === n + len && i < kids.length - 1;
+    if (units <= n + len && !endsHere) {
       if (c.nodeType !== Node.TEXT_NODE) {
         // a chip edge: the element's own box is the honest geometry
         const r = (c as HTMLElement).getBoundingClientRect();

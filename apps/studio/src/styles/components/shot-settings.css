@@ -204,14 +204,6 @@
     background 140ms ease,
     color 140ms ease;
 }
-/* Leaving the set the segmented control's own click already did silently —
-   this is the visible half of the fix, the icon being the tell. */
-.sc-seg[data-leaves-set] {
-  background: color-mix(in srgb, var(--sc-well) 100%, var(--sc-fg3) 8%);
-}
-.sc-seg[data-leaves-set] .sc-seg-o {
-  color: var(--sc-fg3);
-}
 .sc-seg-o:hover {
   color: var(--sc-fg);
 }
@@ -414,8 +406,14 @@
 .sc-seg-ratio .sc-ratio {
   color: var(--sc-fg3);
 }
-.sc-var:hover .sc-ratio {
+/* In the trigger the glyph is a bare outline on the label's own grey: the
+   Figma toolbar draws it without the wash, and level with the word. */
+.sc-var .sc-ratio {
   color: var(--sc-fg2);
+  background: transparent;
+}
+.sc-var:hover .sc-ratio {
+  color: var(--sc-fg);
 }
 .sc-setrow:hover .sc-ratio,
 .sc-setrow[data-on] .sc-ratio,

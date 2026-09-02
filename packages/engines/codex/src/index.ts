@@ -27,6 +27,7 @@ import {
   type EngineResult,
   type GenerateRequest,
   type ReferenceRole,
+  type OnImageLanded,
 } from '@scenri/core';
 import { DEFAULT_TIMEOUT_MS, createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
 
@@ -248,7 +249,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       return 0; // billed on the user's own Codex subscription, never by us
     },
 
-    async generate(req: GenerateRequest, signal?: AbortSignal): Promise<EngineResult> {
+    async generate(req: GenerateRequest, signal?: AbortSignal, onImage?: OnImageLanded): Promise<EngineResult> {
       // One codex exec per image, run concurrently (CODEX_POOL): each exec
       // carries its own timers, so the pool trades total batch latency
       // against upload contention — every worker uploads the same reference
@@ -306,6 +307,9 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
             const i = next++;
             try {
               results[i] = await jobs[i]();
+              // This slot's picture exists: the caller may show it now rather
+              // than after the slowest sibling.
+              if (results[i][0]) onImage?.(i, results[i][0]);
             } catch (err) {
               // One variant failing used to reject the batch, so three finished
               // images were thrown away and left orphaned in the content store.

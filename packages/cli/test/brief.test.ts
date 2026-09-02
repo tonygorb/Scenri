@@ -122,7 +122,10 @@ describe('compileBrief', () => {
       ctx({ engineCaps: caps(2) }),
     );
     expect(r.attachments).toHaveLength(2);
-    expect(r.warnings.join(' ')).toMatch(/reads 2 reference images/);
+    // The reference found no seat: it rides in words, and nothing calls it
+    // lost. The composer dimmed its chip and said so before the send.
+    expect(r.prompt).toContain('was attached but not sent this time');
+    expect(r.warnings.join(' ')).not.toMatch(/left out|reads \d/);
   });
 
   it('writes prose and tokens in order, attaching the product with a fidelity directive', () => {
@@ -159,7 +162,7 @@ describe('compileBrief', () => {
       },
       ctx(),
     );
-    expect(r.prompt).toContain('poster in Terracotta (#D96C3B)');
+    expect(r.prompt).toContain('poster in (brand color Terracotta #D96C3B)');
     expect(r.prompt).toContain('Use #D96C3B as a defining color');
   });
 
@@ -191,7 +194,7 @@ describe('compileBrief', () => {
     expect([r.width, r.height]).toEqual([1080, 1920]);
   });
 
-  it('clamps attachments to what the engine reads and names what was dropped', () => {
+  it('clamps attachments to what the engine reads and carries the rest in words', () => {
     const r = compileBrief(
       {
         tokens: [
@@ -203,8 +206,8 @@ describe('compileBrief', () => {
     );
     expect(r.referenceImages).toHaveLength(1);
     expect(r.attachments[0].role).toBe('product');
-    expect(r.warnings[0]).toContain('Codex CLI reads 1 reference image');
-    expect(r.warnings[0]).toContain('Reference shot');
+    expect(r.prompt).toContain('was attached but not sent this time');
+    expect(r.warnings.join(' ')).not.toMatch(/left out/);
   });
 
   it('a template writes the brief and free text becomes art direction', () => {
@@ -288,7 +291,9 @@ describe('brandRuleDirectives', () => {
     );
     expect(r.prompt).not.toContain('Brand palette:');
     expect(r.prompt).not.toContain('Brand look');
-    expect(r.prompt).toContain('Use #1F3D2B as a defining color in the composition.');
+    expect(r.prompt).toContain(
+      'Use #1F3D2B as a defining color in the composition, in surfaces, materials and light, never as lettering.',
+    );
   });
 
   it('ranks after the shot directives and before the scene guards', () => {
@@ -624,7 +629,7 @@ describe('brief through the API', () => {
       payload: { brief, engineId: 'demo', brandId: brand.id },
     });
     expect(preview.statusCode).toBe(200);
-    expect(preview.json().prompt).toContain('hero shot of House Blend in Terracotta (#D96C3B)');
+    expect(preview.json().prompt).toContain('hero shot of House Blend in (brand color Terracotta #D96C3B)');
     expect(preview.json().width).toBe(1080);
 
     const created = await app.inject({
@@ -710,6 +715,113 @@ describe('brief through the API', () => {
     expect(node.brief.quality).toBe('high');
     expect(node.brief.tokens).toHaveLength(2);
     await app.close();
+  });
+
+  // The composer refuses a photo chip the engine cannot carry, and it learns
+  // the room from the preview: the engine's slots, less the source frame on
+  // a refine. A wrong or missing cap would make the gate lie in one direction
+  // or the other.
+  it('the preview says how many photo groups the engine carries', async () => {
+    const { buildServer } = await import('../src/server.js');
+    const { createDemoEngine } = await import('@scenri/engine-demo');
+    const demo = createDemoEngine((b) => core.images.save(b));
+    // The demo engine's own generate and edit, behind a five-slot contract:
+    // the preview only ever asks an engine for its capabilities.
+    const mock = { ...demo, capabilities: () => caps(5) };
+    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', ...brandWith(productHash) } },
+      })
+    ).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const brief = {
+      tokens: [
+        { t: 'text', v: 'hero shot of ' },
+        { t: 'product', id: 'p1' },
+      ],
+    };
+
+    const fresh = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: { brief, engineId: 'demo', brandId: brand.id },
+    });
+    expect(fresh.statusCode).toBe(200);
+    expect(fresh.json().cap).toBe(5);
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: proj.project.id, kind: 'generation', engineId: 'demo', count: 1, brief },
+    });
+    expect(created.statusCode).toBe(202);
+    const parent = await waitDone(app, created.json().id);
+
+    const refine = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: {
+        brief: { tokens: [{ t: 'text', v: 'warmer' }] },
+        engineId: 'demo',
+        brandId: brand.id,
+        parentId: parent.id,
+      },
+    });
+    expect(refine.statusCode).toBe(200);
+    // one slot holds the photograph being refined
+    expect(refine.json().cap).toBe(4);
+    await app.close();
+  });
+
+  // Past an engine's photo seats an identity rides as words, by the brief's
+  // own order. The route used to refuse the whole generation for a budget
+  // loss while the composer said the chip was described; only a photo that
+  // does not exist, or an engine that reads no images at all, is fatal.
+  it('a budget loss on an engine that reads images generates; a blind engine still refuses', async () => {
+    const { buildServer } = await import('../src/server.js');
+    const { createDemoEngine } = await import('@scenri/engine-demo');
+    const demo = createDemoEngine((b) => core.images.save(b));
+    const seven = Array.from({ length: 7 }, (_, i) => ({
+      id: `p${i + 1}`,
+      name: `Product ${i + 1}`,
+      shots: [{ file: `asset:${productHash}`, locked: true }],
+    }));
+    const brandSpec = { specVersion: '0.1', meta: { name: 'Acme' }, products: seven };
+    const tokens = seven.map((p) => ({ t: 'product', id: p.id }));
+
+    const roomy = { ...demo, capabilities: () => caps(5) };
+    const app = buildServer({ core, engines: { all: () => [roomy], get: () => roomy } });
+    const brand = (await app.inject({ method: 'POST', url: '/api/brands', payload: { brand: brandSpec } })).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: proj.project.id, kind: 'generation', engineId: 'demo', count: 1, brief: { tokens } },
+    });
+    expect(created.statusCode).toBe(202);
+    // the two that found no seat still reach the engine as their words
+    expect(created.json().prompt).toContain('Product 6');
+    expect(created.json().prompt).toContain('Product 7');
+    await waitDone(app, created.json().id);
+    await app.close();
+
+    const blind = { ...demo, capabilities: () => caps(0) };
+    const app2 = buildServer({ core, engines: { all: () => [blind], get: () => blind } });
+    const refused = await app2.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: proj.project.id, kind: 'generation', engineId: 'demo', count: 1, brief: { tokens } },
+    });
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().error).toContain('cannot carry enough reference images');
+    await app2.close();
   });
 
   // Re-attaching a carried product at another token shape (an angle, or none)
@@ -924,6 +1036,46 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.prompt.indexOf('is in this photograph')).toBeLessThan(
       r.prompt.indexOf('This world is built around one figure'),
     );
+  });
+
+  it('a name in the brief is a thing to show, never a word to write', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'text', v: ' presenting ' },
+          { t: 'product', id: 'p1' },
+        ],
+      },
+      ctx(),
+    );
+    // Four of four codex outputs painted the product names on the wall in
+    // gold before this line existed.
+    expect(r.prompt).toContain('never text to render');
+    expect(r.prompt.indexOf('never text to render')).toBeGreaterThan(r.prompt.indexOf('House Blend'));
+  });
+
+  it('with two presenters the figure is shared, and nobody is composed out', () => {
+    const brand = brandWith(productHash);
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'character', id: 'c2' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene() && {
+        ...ctx({ templateById: (id: string) => (id === base.id ? base : undefined) }),
+        brand: { ...brand, characters: [...brand.characters, { ...brand.characters[0], id: 'c2', name: 'Lena' }] },
+      },
+    );
+    // "one figure, never a second person" composed the second presenter out
+    // three times in four on codex; the role is shared, and both are present.
+    expect(r.prompt).toContain('The attached presenters share that role');
+    expect(r.prompt).not.toContain('never a second person');
+    expect(r.prompt).toContain('Marco is in this photograph');
+    expect(r.prompt).toContain('Lena is in this photograph');
   });
 
   it('with nobody attached, fills the role with an anonymous person rather than an empty room', () => {
@@ -1449,7 +1601,7 @@ describe('the drop warning names only what was fully lost', () => {
     expect(r.warnings.join(' ')).not.toContain('House Blend');
   });
 
-  it('an identity dropped whole is still named', () => {
+  it('an identity dropped whole rides in words, and is not called lost', () => {
     const r = compileBrief(
       {
         tokens: [
@@ -1459,8 +1611,8 @@ describe('the drop warning names only what was fully lost', () => {
       },
       ctx({ engineCaps: caps(1, 'Codex CLI') }),
     );
-    expect(r.warnings[0]).toContain('Reference shot');
-    expect(r.warnings[0]).not.toContain('House Blend');
+    expect(r.prompt).toContain('was attached but not sent this time');
+    expect(r.warnings.join(' ')).not.toMatch(/left out|House Blend/);
   });
 });
 
@@ -1511,10 +1663,12 @@ describe('directives stay truthful to what actually rides', () => {
     const logoHash = core.images.save(Buffer.from('logo-bytes'));
     const r = compileBrief(
       {
+        // the mark comes last, so on a two-seat engine it is the one left out:
+        // seats go out in the brief's order
         tokens: [
-          { t: 'mark', imageHash: logoHash },
           { t: 'product', id: 'p1' },
           { t: 'character', id: 'c1' },
+          { t: 'mark', imageHash: logoHash },
         ],
       },
       ctx({ brand: brandWithLogo(logoHash), engineCaps: caps(2) }),
@@ -1522,21 +1676,49 @@ describe('directives stay truthful to what actually rides', () => {
     expect(r.attachments.map((a) => a.role).sort()).toEqual(['character', 'product']);
     expect(r.dropped.map((d) => `${d.role}:${d.reason}`)).toEqual(['brand:budget']);
     expect(r.prompt).not.toContain('attached brand mark');
+    // it is carried in words instead: by name, with the rule that keeps the
+    // engine from inventing it
+    expect(r.prompt).toContain('was not attached this time; keep every branded surface plain and do not invent a logo');
   });
 
   it('a budget-dropped reference leaves no composition directive', () => {
     const r = compileBrief(
       {
+        // the reference comes last, so on a two-seat engine it is the one left
+        // out: seats go out in the brief's order
         tokens: [
-          { t: 'ref', imageHash: refHash },
           { t: 'product', id: 'p1' },
           { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
         ],
       },
       ctx({ brand: brandWith(productHash, core.images.save(Buffer.from('cast-bytes'))), engineCaps: caps(2) }),
     );
     expect(r.dropped.map((d) => d.role)).toEqual(['reference']);
-    expect(r.prompt).not.toContain('Match the composition, lighting and treatment');
+    expect(r.prompt).not.toContain('of the attached reference');
+    // no words behind this image: the prompt says only that it did not ride
+    expect(r.prompt).toContain('A reference image was attached but not sent this time.');
+  });
+
+  it('a budget-dropped reference that was one of our shots is described from that shot', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx({
+        brand: brandWith(productHash, core.images.save(Buffer.from('cast-bytes'))),
+        engineCaps: caps(2),
+        wordsFor: (h) => (h === refHash ? 'a vase on a marble ledge at dusk' : null),
+      }),
+    );
+    expect(r.prompt).toContain(
+      'A reference shot was not attached this time; it showed a vase on a marble ledge at dusk. Match that composition, lighting and treatment.',
+    );
+    expect(r.prompt).not.toContain('of the attached reference');
   });
 
   it('the fidelity claim counts the angles that rode, not the angles asked for', () => {

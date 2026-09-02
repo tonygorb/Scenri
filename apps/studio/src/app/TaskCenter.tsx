@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { api, type AssetBuild, type Brand } from '../api.js';
+import { api, type ActivityNode, type AssetBuild, type Brand } from '../api.js';
 import { spendAssetDraft } from '../createDraft.js';
 import { useToasts } from '../toasts.js';
 import { hubPath } from '../routes.js';
 import { useAppData } from './AppShell.js';
 import {
+  batchTask,
   loadFeed,
   loadSeen,
   mergeFeed,
@@ -76,7 +77,20 @@ export function useTaskCenter(): TaskCenterValue {
   return value;
 }
 
-export function TaskCenterProvider({ brand, children }: { brand: Brand; children: ReactNode }) {
+export function TaskCenterProvider({
+  brand,
+  onActivity,
+  children,
+}: {
+  brand: Brand;
+  /**
+   * Every poll's fresh shot records, handed to whoever holds the feed. The
+   * feed used to refetch the whole workspace whenever the bell saw a state
+   * change; the records that changed were already in the bell's hands.
+   */
+  onActivity?: (brandId: string, nodes: ActivityNode[]) => void;
+  children: ReactNode;
+}) {
   const navigate = useNavigate();
   const { push } = useToasts();
   const { refresh: refreshBrands } = useAppData();
@@ -124,6 +138,8 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
   watchingFeedRef.current = /\/(create|sets)(\/|$)/.test(pathname);
   const pushRef = useRef(push);
   pushRef.current = push;
+  const onActivityRef = useRef(onActivity);
+  onActivityRef.current = onActivity;
 
   // brand is in the path, so switching brands must not carry the other one's
   // history or edge state across
@@ -146,17 +162,20 @@ export function TaskCenterProvider({ brand, children }: { brand: Brand; children
       // never disagree about what moment it is.
       const [{ nodes, jobs }, { builds: bs }] = await Promise.all([api.activity(brandId), api.assetBuilds(brandId)]);
       liveBuilds = bs;
+      onActivityRef.current?.(brandId, nodes);
       // One row per REQUEST, not per sibling: a four-shot batch is one piece
-      // of work in the bell. The first sibling represents it (its id keeps
-      // old persisted rows reconciling), counted while any of them runs.
-      const byBatch = new Map<string, number>();
-      for (const n of nodes) if (n.batchId) byBatch.set(n.batchId, (byBatch.get(n.batchId) ?? 0) + 1);
-      const collapsed = nodes.filter((n) => !n.batchId || n.batchIndex === 0 || !byBatch.has(n.batchId));
+      // of work in the bell, read across all of its siblings (batchTask) now
+      // that each lands on its own.
+      const byBatch = new Map<string, ActivityNode[]>();
+      const singles: ActivityNode[] = [];
+      for (const n of nodes) {
+        if (!n.batchId) singles.push(n);
+        else byBatch.set(n.batchId, [...(byBatch.get(n.batchId) ?? []), n]);
+      }
+      const now = Date.now();
       next = [
-        ...collapsed.map((n) => {
-          const size = n.batchId ? (byBatch.get(n.batchId) ?? 1) : 1;
-          return taskFromNode(n, brand, Date.now(), size);
-        }),
+        ...singles.map((n) => taskFromNode(n, brand, now)),
+        ...[...byBatch.values()].map((group) => batchTask(group, brand, now)),
         ...jobs.map((j) => taskFromCatalogJob(j, brand)),
         ...bs.map((b) => taskFromAssetBuild(b, brand)),
       ];

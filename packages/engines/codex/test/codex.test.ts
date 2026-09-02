@@ -783,3 +783,21 @@ describe('edit', () => {
     );
   });
 });
+
+describe('generate reports each variant as it lands', () => {
+  it('calls onImage with the slot and its hash as each exec returns', async () => {
+    const { spawnImpl } = fakeSpawn(({ args, child }) => {
+      const second = child.stdin.written.includes('SLOT-2');
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), second ? PNG_2 : PNG_1);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    const landed: [number, string][] = [];
+    const result = await engine.generate({ ...genReq, variations: ['SLOT-1', 'SLOT-2'] }, undefined, (slot, hash) =>
+      landed.push([slot, hash]),
+    );
+    expect(landed).toHaveLength(2);
+    expect(new Set(landed.map(([slot]) => slot))).toEqual(new Set([0, 1]));
+    for (const [slot, hash] of landed) expect(result.images[slot]).toBe(hash);
+  });
+});

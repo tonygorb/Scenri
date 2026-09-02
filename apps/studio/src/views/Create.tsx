@@ -103,6 +103,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [err, setErr] = useState<string | null>(null);
   /** What the docked composer's brief holds, so the rail can tick it. */
   const [attached, setAttached] = useState<AttachedIds>(NO_ATTACHMENTS);
+  /** The composer's identity ceiling, for the rail beside it: the same sentence, the same dimming. */
+  const [ceiling, setCeiling] = useState<string | null>(null);
   const [remixBrief, setRemixBrief] = useState<any>(null);
   /** Which use case is sitting in the brief right now, so its card can say so. */
   const [stagedId, setStagedId] = useState<string | null>(null);
@@ -148,10 +150,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [sortPref, setSortPref] = useLocalPref<FeedSort>(PREF.feedSort, 'newest');
   const sort: FeedSort = isFeedSort(sortPref) ? sortPref : 'newest';
   const [compareOpen, setCompareOpen] = useState(false);
-  const _saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<ComposerHandle>(null);
   const { push } = useToasts();
-  const { tasks, poke } = useTaskCenter();
+  const { poke } = useTaskCenter();
   /** The brief that has been sent and not yet come back as shots, and how
    * many shots it asked for — one stand-in tile per expected sibling. */
   const [sending, setSending] = useState<{ said: string; count: number } | null>(null);
@@ -224,38 +225,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     if (nodeId) setSelectedId(nodeId);
   }, [nodeId]);
 
-  /**
-   * The bell is the only thing that polls.
-   *
-   * TaskCenter already asks the server what is running, every 1.5s while work
-   * is in flight and every 5s when it is not, and it already stops for a hidden
-   * tab. This screen used to run a second interval at the same cadence asking
-   * an overlapping question, so a single generation was watched twice over.
-   *
-   * Instead it reads the answer the bell already has: whenever a shot changes
-   * state, refetch the workspace once. Catalog imports are filtered out because
-   * they never touch the feed.
-   */
-  const shotActivity = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.kind !== 'catalog')
-        .map((t) => `${t.id}:${t.state}`)
-        .sort()
-        .join('|'),
-    [tasks],
-  );
-  const lastActivity = useRef<string | null>(null);
-  useEffect(() => {
-    // the first reading is the baseline BrandLayout has already loaded against
-    if (lastActivity.current === null) {
-      lastActivity.current = shotActivity;
-      return;
-    }
-    if (lastActivity.current === shotActivity) return;
-    lastActivity.current = shotActivity;
-    void reload();
-  }, [shotActivity, reload]);
+  // The bell is the only thing that polls, and the feed no longer refetches on
+  // its word: BrandLayout folds each poll's records into the list by id
+  // (applyActivity), so a shot landing changes one tile and nothing else.
 
   /** Every non-archived shot in the brand, newest first — the feed before any
    * other lens. Archived shots are put away on purpose: they stay out of
@@ -618,11 +590,20 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   // ? lists the lot. Shortcuts.tsx documents exactly what is bound here.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // A popover or dialog that already took the key (Radix marks its Escape
+      // handled) must not also close the shot or walk the tree under it.
+      if (e.defaultPrevented) return;
       const el = document.activeElement as HTMLElement | null;
       const tag = (el?.tagName ?? '').toUpperCase();
-      // the brief line is contenteditable, not an input: it needs the same guard
+      // the brief line is contenteditable, not an input: it needs the same
+      // guard, and so does a focused splitter, whose arrow keys size a panel
+      // rather than walk the tree
       const typing =
-        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!el?.closest('[contenteditable="true"]');
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        !!el?.closest('[contenteditable="true"]') ||
+        !!el?.closest('[role="separator"]');
 
       // cmd+enter runs the brief from anywhere, including mid-sentence
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -1069,11 +1050,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           brand={brand}
           shots={allNodes}
           attached={attached}
-          onProduct={(id) => composerRef.current?.insertToken({ t: 'product', id })}
-          onCharacter={(id) => composerRef.current?.insertToken({ t: 'character', id })}
-          onColor={(hex, name) => composerRef.current?.insertToken({ t: 'color', hex, name })}
-          onRef={(imageHash) => composerRef.current?.insertToken({ t: 'ref', imageHash })}
+          full={ceiling}
+          onToken={(t) => composerRef.current?.insertToken(t)}
+          offToken={(t) => composerRef.current?.removeToken(t)}
           onTemplate={(id) => composerRef.current?.applyScene(id)}
+          offTemplate={() => composerRef.current?.removeTemplate()}
           onClose={() => setAssetsOpen(false)}
         />
       )}
@@ -1128,8 +1109,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           setSlug={set?.slug ?? null}
           onSending={setSending}
           onAttached={setAttached}
+          onCeiling={setCeiling}
           sourceImage={targetImage ?? undefined}
-          onQueued={(made, kind) => {
+          onQueued={(made, kind, siblings) => {
             setRemixBrief(null);
             /**
              * One write, because both halves live in the query string: a
@@ -1185,7 +1167,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
                 { replace: true },
               );
             };
-            if (set && made) void api.addToSet(set.id, [made]).then(reload).then(thenPointAtIt).finally(landed);
+            // every sibling of a batch sent from a set page belongs to the set,
+            // not only the first: the set used to show one of four
+            if (set && made)
+              void api
+                .addToSet(set.id, siblings?.length ? siblings : [made])
+                .then(reload)
+                .then(thenPointAtIt)
+                .finally(landed);
             else void reload().then(thenPointAtIt).finally(landed);
           }}
         />

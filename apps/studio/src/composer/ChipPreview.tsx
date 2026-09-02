@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ImageSquare } from '@phosphor-icons/react';
 import { PREVIEW_W, placePanel, type Placed } from './anchorPanel.js';
@@ -67,6 +67,8 @@ export function ChipPreview({
   src,
   label,
   warning,
+  note,
+  noun: nounHere,
   onOpen,
   onHoverIn,
   onHoverOut,
@@ -76,10 +78,18 @@ export function ChipPreview({
   kind: PreviewKind;
   /** Always `imgUrl(hash)` off the token or the attachment. Never a lookup by position. */
   src: string;
-  /** The name of the thing, when it has one. A hand-attached reference has none. */
+  /** The name of the thing: a product's, a person's, a scene's, a shot's title, a reference's own label. */
   label?: string | null;
   /** The compiler's own warning about this attachment, said here rather than in a tooltip. */
   warning?: string | null;
+  /** How this identity reaches the engine when its photo found no seat. A fact, not a warning. */
+  note?: string | null;
+  /**
+   * What the card calls the thing, when the kind's own noun is not the
+   * whole truth here: the shot being refined is a version, and the card
+   * should say which.
+   */
+  noun?: string;
   /** Clicking the card is the same ask as clicking the chip: open it properly. */
   onOpen: () => void;
   /** The pointer reached the card, so whatever close the chip scheduled is off. */
@@ -89,7 +99,6 @@ export function ChipPreview({
 }) {
   const [pos, setPos] = useState<Placed | null>(null);
   const [broken, setBroken] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setBroken(false), [src]);
 
@@ -137,10 +146,9 @@ export function ChipPreview({
   }, [onClose]);
 
   if (!pos) return null;
-  const noun = PREVIEW_NOUN[kind];
+  const noun = nounHere ?? PREVIEW_NOUN[kind];
   return createPortal(
     <div
-      ref={rootRef}
       className="sc-chip-preview"
       data-kind={kind}
       data-side={pos.side}
@@ -173,6 +181,7 @@ export function ChipPreview({
         {label && <b dir="auto">{label}</b>}
         <span>{noun}</span>
       </button>
+      {note && <p className="sc-chip-preview-note">{note}</p>}
       {warning && <p className="sc-swap-warn">{warning}</p>}
     </div>,
     document.body,

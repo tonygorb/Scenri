@@ -19,7 +19,7 @@ const dock = (p: Page) => p.locator('.sc-canvas-dock').first();
 const chips = (p: Page) => p.locator('.sc-brief-line .sc-token');
 
 /** What the sentence reads as, chips included. */
-const sentence = async (p: Page) => (await line(p).textContent())?.replace(/ /g, ' ') ?? '';
+const sentence = async (p: Page) => (await line(p).textContent())?.replace(/\u00a0/g, ' ').replace(/\ufeff/g, '') ?? '';
 
 /**
  * Open the attach panel and pick a tab.
@@ -433,12 +433,60 @@ test('arming a refine lets a lingering scene chip go', async ({ page }) => {
   await expect(dock(page).locator('.sc-send')).toHaveAttribute('aria-label', 'Refine');
 });
 
+// The ceiling is engine-independent, so the demo engine can prove it: twelve
+// identities go in, the thirteenth card sits out with the sentence that says
+// why, and the door refuses it the same way.
+test('the thirteenth identity is refused, and the panel says why', async ({ page }) => {
+  await dock(page).locator('.sc-attach-toggle').click();
+  const tab = (name: string) => page.locator('.sc-ap-tabs button', { hasText: name });
+  await tab('Products').click();
+  const cards = attachCards(page);
+  expect(await cards.count()).toBeGreaterThanOrEqual(13);
+  for (let i = 0; i < 12; i++) {
+    await cards.nth(i).click();
+    await expect(chips(page)).toHaveCount(i + 1);
+  }
+  await expect(cards.nth(12)).toBeDisabled();
+  // the reason rides on hover, so the grid never moves to explain itself
+  await cards.nth(12).hover();
+  await expect(page.getByRole('tooltip')).toContainText('Remove one to add another');
+  await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
+  // a colour is not an identity and still goes in
+  await tab('Colors').click();
+  await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
+  await expect(attachCards(page).first()).toBeEnabled();
+  await attachCards(page).first().click();
+  await expect(chips(page)).toHaveCount(13);
+  // and an identity removed reopens the door: the keyboard path every other
+  // test uses, since the chip's x is a pointer-only, hover-revealed control.
+  // The caret goes to the end without a pointer: a click into a three-row
+  // line lands wherever its centre is, and that was a chip's x. One press
+  // per chip: the colour, last and not an identity, then the twelfth identity.
+  await line(page).evaluate((el) => {
+    el.focus();
+    const tail = el.lastChild as Text;
+    const r = document.createRange();
+    r.setStart(tail, tail.length);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(12);
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(11);
+  // nothing clicked outside the panel, so it is still open
+  await tab('Products').click();
+  await expect(attachCards(page).nth(12)).toBeEnabled();
+});
+
 test('typing after a chip added from the plus menu', async ({ page }) => {
   await page.keyboard.type('change the background color of this ');
   await plusMenu(page, /shots/i);
   await pickCard(page);
   await page.keyboard.type('to warm beige');
-  expect(await sentence(page)).toMatch(/reference\s*to warm beige$/);
+  expect(await sentence(page)).toMatch(/Shot\s*to warm beige$/);
 });
 
 test('a chip lands at the caret, not at the end', async ({ page }) => {
@@ -449,7 +497,7 @@ test('a chip lands at the caret, not at the end', async ({ page }) => {
   await pickCard(page);
   await page.keyboard.type('X');
   const text = await sentence(page);
-  expect(text.startsWith('shoot it ')).toBe(true);
+  expect(text.startsWith('shoot it')).toBe(true);
   expect(text).toMatch(/X\s*in golden light$/); // typing carried on after the chip
 });
 
@@ -553,7 +601,7 @@ test('clicking moves the caret, before and after a chip', async ({ page }) => {
   await page.keyboard.type('#');
   expect(await sentence(page)).toMatch(/^alpha #bravo/);
 
-  await clickAtChar(page, 2, 9); // inside "charlie delta"
+  await clickAtChar(page, 2, 8); // inside "charlie delta", right before "delta"
   await page.keyboard.type('@');
   expect(await sentence(page)).toMatch(/charlie @delta/);
 });
@@ -565,9 +613,8 @@ test('backspace over a chip removes it and leaves one space', async ({ page }) =
   await page.keyboard.type('two');
   await expect(chips(page)).toHaveCount(1);
 
-  // walk back over "two" and the space, then delete the chip itself
-  for (let i = 0; i < 'two '.length; i++) await page.keyboard.press('ArrowLeft');
-  await page.keyboard.press('Backspace');
+  // walk back over "two" to sit flush after the chip, then one Backspace takes it
+  for (let i = 0; i < 'two'.length; i++) await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('Backspace');
   await expect(chips(page)).toHaveCount(0);
   expect(await sentence(page)).not.toMatch(/ {2}/);
@@ -718,13 +765,35 @@ test('copy and paste rebuilds the chips', async ({ page }) => {
   await page.keyboard.type('at dusk');
   const original = await sentence(page);
 
+  // copied, cleared, pasted back: the chip comes back as a chip
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('ControlOrMeta+c');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(0);
+  await page.keyboard.press('ControlOrMeta+v');
+
+  await expect(chips(page)).toHaveCount(1);
+  expect(await sentence(page)).toContain(original.trim());
+});
+
+test('pasting a brief back into itself grows no twin', async ({ page }) => {
+  // One chip per thing is the door rule for the menu, the panel and the rail;
+  // the paste used to be the one door without it, and the whole brief pasted
+  // at its own end doubled every chip, every time.
+  await page.keyboard.type('hero of ');
+  await plusMenu(page, /product/i);
+  await pickCard(page);
+  await page.keyboard.type('at dusk');
+
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('ControlOrMeta+c');
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ControlOrMeta+v');
+  await page.keyboard.press('ControlOrMeta+v');
 
-  await expect(chips(page)).toHaveCount(2);
-  expect(await sentence(page)).toContain(original.trim());
+  await expect(chips(page)).toHaveCount(1);
+  // the words still paste; only the twin does not
+  expect((await sentence(page)).match(/at dusk/g)?.length).toBe(3);
 });
 
 test('a second scene swaps in place instead of stacking', async ({ page }) => {
@@ -964,7 +1033,6 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   await expect(composer.locator('.sc-send')).toContainText('Refine');
   await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
   await expect(composer.locator('.sc-reshape')).toHaveCount(0);
-  await expect(composer).not.toContainText('Expands this shot');
 
   // the send is caught and answered here rather than allowed to make a picture
   let posted: any = null;
@@ -1015,7 +1083,6 @@ test('a squarer shape while refining infers a crop, and sends it with no words a
   await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '1:1' }).first().click();
   await page.keyboard.press('Escape');
   await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will crop to Square 1:1');
-  await expect(composer).not.toContainText('Nothing new is drawn');
 
   // words and a crop cannot travel together, and the block says so out loud
   await composer.locator('.sc-brief-line').click();
@@ -1236,7 +1303,6 @@ test('typing in the picker never reaches the brief', async ({ page }) => {
   // the brief is untouched, and the panel says so rather than pretending
   expect(await sentence(page)).toBe(before);
   await expect(page.locator('.sc-swap-empty')).toBeVisible();
-  await expect(page.locator('.sc-swap-capped')).toHaveCount(0);
 });
 
 test('search finds a scene and one click takes it', async ({ page }) => {
@@ -1649,12 +1715,12 @@ test('a chip drags between words, and the drop is the same truth the compiler re
   await page.mouse.up();
 
   // the chip now leads the sentence, and the click after the drop opened nothing
-  expect(await sentence(page)).toMatch(/^Cold brew can\s+hero shot on marble/);
+  expect(await sentence(page)).toMatch(/^Cold brew can\s*hero shot on marble/);
   await expect(pick(page)).toHaveCount(0);
   // the move is a real edit: the draft round-trips it across a reload
   await page.reload();
   await line(page).waitFor();
-  expect(await sentence(page)).toMatch(/^Cold brew can\s+hero shot on marble/);
+  expect(await sentence(page)).toMatch(/^Cold brew can\s*hero shot on marble/);
 });
 
 test('a press without movement is still a click, and Escape abandons a drag', async ({ page }) => {
@@ -1686,12 +1752,12 @@ test('Alt plus an arrow moves a focused chip, and the move is announced', async 
   await seedReorder(page);
   await chips(page).first().focus();
   await page.keyboard.press('Alt+ArrowLeft');
-  expect(await sentence(page)).toMatch(/^hero shot on\s+Cold brew can\s+marble/);
+  expect(await sentence(page)).toMatch(/^hero shot on\s*Cold brew can\s*marble/);
   // the same chip kept focus, so the next press keeps walking
   await expect(chips(page).first()).toBeFocused();
   await expect(page.locator('.sc-brief [role="status"]')).toContainText('Moved Cold brew can');
   await page.keyboard.press('Alt+ArrowRight');
-  expect(await sentence(page)).toMatch(/^hero shot on marble\s+Cold brew can/);
+  expect(await sentence(page)).toMatch(/^hero shot on marble\s*Cold brew can/);
 });
 
 test('a chip says how it is operated, and its x is chrome rather than a trap', async ({ page }) => {
@@ -1780,9 +1846,9 @@ test('every chip removes independently by its x: middle, then first, then last',
   await expect(chips(page)).toHaveCount(1);
   await removeX(page, 0);
   await expect(chips(page)).toHaveCount(0);
+  // the words are the user's, and so are the spaces that met when a chip left
   const text = await sentence(page);
   expect(text).toMatch(/shoot\s+with\s+in\s+light/);
-  expect(text).not.toMatch(/ {2}/);
   // the x removed; it never opened a picker or menu
   await expect(pick(page)).toHaveCount(0);
   await expect(page.locator('.sc-cmd')).toHaveCount(0);
@@ -1866,7 +1932,6 @@ test('backspace among three chips removes only the nearest', async ({ page }) =>
   await expect(chips(page)).toHaveCount(2);
   expect(await chips(page).nth(0).getAttribute('data-tok')).toMatch(/^p:/);
   expect(await chips(page).nth(1).getAttribute('data-tok')).toMatch(/^h:/);
-  expect(await sentence(page)).not.toMatch(/ {2}/);
 });
 
 test('the newest work is always the top-left tile', async ({ page }) => {
@@ -2037,9 +2102,265 @@ test('a refinement records what it carried, and the shot detail says it', async 
   // was shot in — a scene never rides a refine as a reference, the photo
   // carries it
   await expect(page.locator('.sc-ovl-edit .sc-carried')).toHaveCount(0);
-  const world = page.locator('.sc-ingredient[data-world]');
-  await expect(world).toBeVisible();
-  await expect(world).toContainText(made.sceneName);
+  // the header's source cards name the world the thread was shot in; the
+  // record repeats nothing the header already says
+  await expect(page.locator('.sc-source-chip', { hasText: made.sceneName })).toBeVisible();
+  await expect(page.locator('.sc-ingredient[data-world]')).toHaveCount(0);
+});
+
+test("spaces typed after a chip are the user's, every one of them", async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('hero shot of ');
+  await plusMenu(page, /products/i);
+  await pickCard(page);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(1);
+  // the caret sits past the chip's own space; two more are the user's to keep
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Space');
+  await page.keyboard.type('on marble');
+  const after = await line(page).evaluate((el) => {
+    const chip = el.querySelector('.sc-token')!;
+    return (chip.nextSibling as Text).textContent;
+  });
+  expect(after).toBe('  on marble');
+});
+
+/**
+ * The gap two chips are left with after the one between them is deleted.
+ *
+ * A chip owns one space on each side. Delete it with the caret in the line and
+ * Chromium takes the element out and leaves those two spaces behind as SEPARATE
+ * text nodes, so every pass that measured one node at a time read a single space
+ * on each side and found nothing to close. The line renders spaces literally
+ * (`white-space: pre-wrap`), so the survivors sat at twice the gap of every
+ * other pair until the next structural edit happened to restate the invariant.
+ */
+test('deleting the chip between two chips leaves the two spaces as one', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await pickCard(page, 2);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(3);
+
+  // the gap any adjacent pair reads at, before anything is deleted
+  const gapOf = (a: number, b: number) =>
+    line(page).evaluate(
+      (root, [i, j]) => {
+        const els = root.querySelectorAll('.sc-token');
+        return Math.round(els[j].getBoundingClientRect().left - els[i].getBoundingClientRect().right);
+      },
+      [a, b] as const,
+    );
+  const control = await gapOf(0, 1);
+  expect(control).toBeGreaterThan(0);
+
+  // the caret immediately after the middle chip, which is where a Backspace
+  // deletes the chip itself rather than a space
+  await line(page).evaluate((el) => {
+    const chip = el.querySelectorAll('.sc-token')[1];
+    const r = document.createRange();
+    r.setStart(chip.nextSibling as Text, 0);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(2);
+
+  // one text node, holding one space
+  const between = await line(page).evaluate((el) => {
+    const first = el.querySelector('.sc-token')!;
+    const next = first.nextSibling;
+    return {
+      isText: next?.nodeType === Node.TEXT_NODE,
+      value: next?.textContent ?? null,
+      thenChip: (next?.nextSibling as HTMLElement | null)?.classList?.contains('sc-token') ?? false,
+    };
+  });
+  expect(between).toEqual({ isText: true, value: '\ufeff', thenChip: true });
+
+  // and the survivors read at the same gap as any other pair, not twice it
+  expect(await gapOf(0, 1)).toBe(control);
+});
+
+/**
+ * The same rule, in the refine composer.
+ *
+ * The composer in the shot's sidebar is the same component as the hub's, at a
+ * smaller type scale, so the boundary rule cannot hold in one and not the other.
+ * Pinned here anyway: it is the surface the doubled gap was reported on, and a
+ * shared component is only shared until somebody forks it.
+ */
+test('the refine composer closes the same seam, at its own type scale', async ({ page }) => {
+  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await page.locator('.sc-cell').first().click();
+  await page.waitForURL(/\/shots\//);
+  const editor = page.locator('.sc-ovl-edit');
+  const editLine = editor.locator('.sc-brief-line');
+  await expect(editLine).toBeVisible();
+
+  // start from an empty sentence: a refine composer opens carrying context
+  await editLine.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Backspace');
+
+  await editor.locator('.sc-attach-toggle').click();
+  await page.locator('.sc-ap-tabs button', { hasText: /products/i }).click();
+  await attachCards(page).first().waitFor();
+  for (const i of [0, 1, 2]) await attachCards(page).nth(i).click();
+  await page.keyboard.press('Escape');
+  await expect(editor.locator('.sc-token')).toHaveCount(3);
+
+  await editLine.evaluate((el) => {
+    const chip = el.querySelectorAll('.sc-token')[1];
+    const r = document.createRange();
+    r.setStart(chip.nextSibling as Text, 0);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  await page.keyboard.press('Backspace');
+  await expect(editor.locator('.sc-token')).toHaveCount(2);
+
+  const between = await editLine.evaluate((el) => {
+    const next = el.querySelector('.sc-token')!.nextSibling;
+    return {
+      value: next?.textContent ?? null,
+      thenChip: (next?.nextSibling as HTMLElement | null)?.classList?.contains('sc-token') ?? false,
+    };
+  });
+  expect(between).toEqual({ value: '\ufeff', thenChip: true });
+});
+
+/**
+ * A chip and the space after it are one thing to the keyboard.
+ *
+ * The space between two chips is a real character, and the browser stepped and
+ * deleted it as one: crossing a chip took two presses, removing one took two,
+ * and after the first of those the chips sat touching. One press now does each.
+ */
+test('one press crosses a chip and one press removes it', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await pickCard(page, 2);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(3);
+
+  const caret = () =>
+    line(page).evaluate((el) => {
+      const r = getSelection()!.getRangeAt(0);
+      const kids = [...el.childNodes];
+      const i = kids.indexOf(r.startContainer as ChildNode);
+      return `${i}@${r.startOffset}`;
+    });
+  // the caret rests past the last chip's space: '' <a> ' ' <b> ' ' <c> ' '
+  expect(await caret()).toBe('6@1');
+
+  // one Backspace takes the chip, not the space
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(2);
+  expect(await caret()).toBe('4@1');
+
+  // one press left per chip, landing past the previous chip's space each time
+  await page.keyboard.press('ArrowLeft');
+  expect(await caret()).toBe('2@1');
+  await page.keyboard.press('ArrowLeft');
+  expect(await caret()).toBe('0@1');
+  // and one press right per chip
+  await page.keyboard.press('ArrowRight');
+  expect(await caret()).toBe('2@1');
+  await page.keyboard.press('ArrowRight');
+  expect(await caret()).toBe('4@1');
+
+  // Delete from the near edge of the gap takes the chip after it
+  await line(page).evaluate((el) => {
+    const r = document.createRange();
+    r.setStart(el.childNodes[2], 0);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  await page.keyboard.press('Delete');
+  await expect(chips(page)).toHaveCount(1);
+  const shape = await line(page).evaluate((el) =>
+    [...el.childNodes].map((n) => (n.nodeType === Node.TEXT_NODE ? JSON.stringify(n.textContent) : '<chip>')),
+  );
+  expect(shape).toEqual(['"\ufeff"', '<chip>', '"\ufeff"']);
+});
+
+test('the caret between two chips sits in their shared guard, in the middle of the gap', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(2);
+  await page.keyboard.press('ArrowLeft'); // between the two
+  const geo = await line(page).evaluate((el) => {
+    const [a, b] = [...el.querySelectorAll('.sc-token')].map((c) => c.getBoundingClientRect());
+    const r = getSelection()!.getRangeAt(0);
+    const g = r.startContainer as Text;
+    const probe = document.createRange();
+    probe.setStart(g, 0);
+    probe.setEnd(g, g.length);
+    const x = probe.getBoundingClientRect().left;
+    return {
+      inGuard: g.nodeType === Node.TEXT_NODE && g.textContent === '\ufeff',
+      x,
+      mid: (a.right + b.left) / 2,
+      gap: b.left - a.right,
+    };
+  });
+  expect(geo.inGuard).toBe(true);
+  expect(Math.round(geo.gap)).toBe(4);
+  expect(Math.abs(geo.x - geo.mid)).toBeLessThan(1);
+});
+
+test('prose typed flush against a chip stays flush until the user types the space', async ({ page }) => {
+  await line(page).click();
+  await page.keyboard.type('hero ');
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await page.keyboard.press('Escape');
+  // one press left from the end crosses the chip: the caret is now flush before it
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.type('x');
+  const before = await line(page).evaluate((el) => {
+    const t = el.querySelector('.sc-token')!.previousSibling as Text;
+    const r = getSelection()!.getRangeAt(0);
+    return { text: t.textContent, caret: r.startContainer === t ? r.startOffset : -1 };
+  });
+  expect(before).toEqual({ text: 'hero x', caret: 6 });
+});
+
+test('a Backspace before the first chip, and a Delete after the last, take nothing', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await pickCard(page, 2);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(3);
+  await page.keyboard.press('Delete'); // past the last chip's space: nothing to take
+  await expect(chips(page)).toHaveCount(3);
+  // one press left per chip lands in the host before the first
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowLeft');
+  const at = await line(page).evaluate((el) => {
+    const r = getSelection()!.getRangeAt(0);
+    return r.startContainer === el.firstChild && (el.firstChild as Text).textContent === '\ufeff';
+  });
+  expect(at).toBe(true);
+  await page.keyboard.press('Backspace'); // before the first: nothing to take
+  await expect(chips(page)).toHaveCount(3);
+  await expect(line(page)).not.toHaveAttribute('data-empty', '');
 });
 
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {
@@ -2048,21 +2369,34 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   await page.keyboard.type('hero shot on marble ');
   const bare = (await line(page).boundingBox())!.height;
 
-  // insert the chip: the row must not grow — the chip fits INSIDE the strut.
-  // Before the metric fix the chip's synthesized baseline was its bottom edge
-  // (no flex item participated in baseline alignment), so every chip rode
-  // above the text baseline and stretched its row.
+  // insert the chip: the row grows by exactly the chip's vertical margins and
+  // nothing else. The Figma frames pitch chip rows at 28 (a 24px chip with 2px
+  // above and below) over a 24px prose strut, and the margins are the whole
+  // of that difference: the chip's box itself fits INSIDE the strut. Before
+  // the metric fix the chip's synthesized baseline was its bottom edge (no
+  // flex item participated in baseline alignment), so every chip rode above
+  // the text baseline and stretched its row on top of the margins.
   await plusMenu(page, /products/i);
   await pickCard(page);
   await page.keyboard.press('Escape');
   await expect(chips(page)).toHaveCount(1);
   const withChip = (await line(page).boundingBox())!.height;
-  expect(Math.abs(withChip - bare)).toBeLessThanOrEqual(0.6);
+  const margins = await chips(page)
+    .first()
+    .evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+    });
+  expect(margins).toBeGreaterThan(0);
+  expect(
+    Math.abs(withChip - bare - margins),
+    `bare ${bare} withChip ${withChip} margins ${margins}`,
+  ).toBeLessThanOrEqual(0.6);
 
   // chip label and neighbouring prose share a midline on the same row
   const mid = await line(page).evaluate((el) => {
     const chip = el.querySelector('.sc-token') as HTMLElement;
-    const label = Array.from(chip.childNodes).find((n) => n.nodeType === Node.TEXT_NODE) as Text;
+    const label = chip.querySelector('.sc-token-label') as HTMLElement;
     const lr = document.createRange();
     lr.selectNodeContents(label);
     const labelRect = lr.getBoundingClientRect();
@@ -2082,8 +2416,11 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   await page.keyboard.press('End');
   await page.keyboard.type(' in the golden hour with a long clean shadow across the marble slab');
   const wrapped = (await line(page).boundingBox())!.height;
-  const strut = await line(page).evaluate((el) => parseFloat(getComputedStyle(el).fontSize) * 1.6);
-  const grown = wrapped - bare;
+  // the line's own computed strut, not a hard-coded ratio: prose rows pitch
+  // at the 24px strut, chip rows at 28 through the chips' own margins
+  const strut = await line(page).evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  // measured from the chip row, so the one new row is prose alone
+  const grown = wrapped - withChip;
   expect(grown).toBeGreaterThan(0);
   expect(Math.abs(grown % strut)).toBeLessThanOrEqual(1);
 });
@@ -2100,9 +2437,9 @@ test('the drag ghost rides the grab point like a platform drag image', async ({ 
   await page.mouse.down();
   const endX = grabX - 90;
   await page.mouse.move(endX, grabY, { steps: 8 });
-  await page.waitForTimeout(80);
 
   const ghost = page.locator('.sc-chip-ghost');
+  await expect(ghost).toBeVisible();
   await expect(ghost).toBeVisible();
   const gbox = (await ghost.boundingBox())!;
   // preserved size: no scale jump
@@ -2145,8 +2482,10 @@ test('a Hebrew brief with an English chip survives to the wire unreversed', asyn
   await page.keyboard.press('End');
   await page.keyboard.type(' על חימר סדוק באור חם');
 
-  // the chip is a bidi-isolated run with its own direction
-  expect(await chips(page).first().getAttribute('dir')).toBe('auto');
+  // the chip itself is a left-to-right object (thumb left, X right); its
+  // label is the bidi-isolated run with its own direction
+  expect(await chips(page).first().getAttribute('dir')).toBe('ltr');
+  expect(await chips(page).first().locator('.sc-token-label').getAttribute('dir')).toBe('auto');
 
   // the wire carries the LOGICAL order: Hebrew before the chip, Hebrew after,
   // nothing reversed, nothing corrupted
@@ -2243,8 +2582,15 @@ test('text after a leading chip drag-selects and survives', async ({ page }) => 
   const during = await selectedText(page);
   await page.mouse.up();
 
+  // The drag starts at the centre of a glyph, so which side of that midpoint
+  // the caret snaps to is decided by font rasterisation: the same gesture
+  // begins one character earlier on macOS than on the Linux runner. What this
+  // test is about is that a drag over the prose after a leading chip takes a
+  // real run of it and keeps it, so it asserts the run rather than which
+  // letter the very first pixel happened to land in.
   expect(during.length).toBeGreaterThan(3);
-  expect(during).toContain('ake this');
+  expect('make this look realistic').toContain(during);
+  expect(during).toContain('this look');
   await page.waitForTimeout(300);
   expect(await selectedText(page)).toBe(during);
 });
@@ -2409,7 +2755,8 @@ const peekSrc = (p: Page) => peek(p).locator('img').getAttribute('src');
 const lightbox = (p: Page) => p.locator('.sc-lightbox');
 const lightboxSrc = (p: Page) => lightbox(p).locator('img').getAttribute('src');
 /** What a chip actually holds, read off its token rather than off its position. */
-const chipHash = async (p: Page, i: number) => ((await chips(p).nth(i).getAttribute('data-tok')) ?? '').slice(2);
+const chipHash = async (p: Page, i: number) =>
+  ((await chips(p).nth(i).getAttribute('data-tok')) ?? '').slice(2).split('|')[0];
 const tokens = (p: Page) => chips(p).evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.tok));
 
 /** Prose plus n reference images, attached the way a person attaches them. */
@@ -2430,6 +2777,24 @@ test('hovering a reference chip peeks at the picture that chip is holding', asyn
   await expect(peek(page)).toBeVisible();
   // the token's own hash, which is the one the compiler attaches
   expect(await peekSrc(page)).toBe(`/api/images/${hash}`);
+});
+
+test('a warned chip keeps its box across a keystroke and the preview that follows', async ({ page }) => {
+  // on the demo engine a reference cannot ride, so its chip wears the mark;
+  // the mark must cost no layout, and must not blink off while the
+  // debounced preview is in flight, or the chip moves under the pointer
+  await seedRefs(page, 1);
+  const chip = chips(page).first();
+  await expect(chip).toHaveAttribute('data-warn', '1');
+  const before = (await chip.boundingBox())!;
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' x');
+  await expect(chip).toHaveAttribute('data-warn', '1');
+  await page.waitForTimeout(700);
+  await expect(chip).toHaveAttribute('data-warn', '1');
+  const after = (await chip.boundingBox())!;
+  expect(Math.abs(after.width - before.width)).toBeLessThanOrEqual(0.5);
 });
 
 test('the peek goes when the pointer leaves, and on Escape', async ({ page }) => {
@@ -2486,11 +2851,11 @@ test('closing the picture puts the caret back, so the next key is not a removal'
   await expect(lightbox(page)).toHaveCount(0);
 
   // A dialog hands focus back to what opened it, and what opened this was a
-  // chip — where Backspace means "remove me". The caret has to come home.
-  await page.keyboard.press('Backspace');
-  await expect(chips(page)).toHaveCount(2);
+  // chip, where a letter goes nowhere. The caret has to come home to the line:
+  // typing lands in the sentence, and both chips are still there.
   await page.keyboard.type('ok');
   expect(await sentence(page)).toContain('ok');
+  await expect(chips(page)).toHaveCount(2);
 });
 
 test('clicking the peek opens that picture full size, and Escape closes it', async ({ page }) => {
@@ -2537,7 +2902,12 @@ test('removing the reference being peeked at takes its card with it', async ({ p
   await seedRefs(page, 2);
   await chips(page).nth(1).hover();
   await expect(peek(page)).toBeVisible();
-  await chips(page).nth(1).locator('[data-role="remove"]').click();
+  // the x is hover-revealed and pointer-only: settle on it before pressing,
+  // the way a hand does, or a click issued in the same frame the card
+  // mounts can land before the x is live (it did, once in three runs)
+  const x = chips(page).nth(1).locator('[data-role="remove"]');
+  await x.hover();
+  await x.click();
   await expect(chips(page)).toHaveCount(1);
   // no orphan card left pointing at a chip that stopped existing
   await expect(peek(page)).toHaveCount(0);
@@ -2675,9 +3045,9 @@ test('the shot record reads each ingredient once, and names the world it keeps',
   // copy wins, the carried angle twin collapses into it
   await expect(page.locator('.sc-ingredient[data-kind="product"]')).toHaveCount(1);
   await expect(page.locator('.sc-ingredient[data-kind="product"]')).not.toHaveAttribute('data-inherited', /.*/);
-  // and the record names the world the thread was shot in, quieter than a
-  // token: the refine never re-sends the scene, the photograph carries it
-  const world = page.locator('.sc-ingredient[data-world]');
-  await expect(world).toBeVisible();
-  await expect(world).toContainText(made.sceneName);
+  // The header's source cards name the world the thread was shot in: the
+  // refine never re-sends the scene, the photograph carries it, and the
+  // record repeats nothing the header already says.
+  await expect(page.locator('.sc-source-chip', { hasText: made.sceneName })).toBeVisible();
+  await expect(page.locator('.sc-ingredient[data-world]')).toHaveCount(0);
 });

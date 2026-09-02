@@ -30,6 +30,7 @@
 @import "./foundations/interaction.css";
 @import "./components/composer-brief.css";
 @import "./components/ingredient-picker.css";
+@import "./components/tooltip.css";
 @import "./surfaces/home.css";
 @import "./components/feed-toolbar.css";
 @import "./components/toasts.css";

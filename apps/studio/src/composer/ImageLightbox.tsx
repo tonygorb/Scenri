@@ -21,12 +21,15 @@ export function ImageLightbox({
   src,
   kind,
   label,
+  noun: nounHere,
   onRestoreFocus,
   onClose,
 }: {
   src: string;
   kind: PreviewKind;
   label?: string | null;
+  /** What the caption calls the thing, when the kind's own noun is not the whole truth here. */
+  noun?: string;
   /**
    * Where focus belongs once this closes.
    *
@@ -39,7 +42,7 @@ export function ImageLightbox({
   onClose: () => void;
 }) {
   const [broken, setBroken] = useState(false);
-  const noun = PREVIEW_NOUN[kind];
+  const noun = nounHere ?? PREVIEW_NOUN[kind];
 
   return (
     <DialogSheet

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
+import { SitOutTooltip } from './SitOutTooltip.js';
 import { imgUrl, type Brand, type TreeNode } from '../api.js';
 import { uploadLogo } from '../apiUploads.js';
 import { useAppData } from '../app/AppShell.js';
@@ -58,6 +59,7 @@ export function AttachPanel({
   initialTab = 'All',
   activeProductCategory,
   refining,
+  full,
   id,
   onToken,
   onTemplate,
@@ -81,6 +83,13 @@ export function AttachPanel({
    * button to Generate.
    */
   refining?: boolean;
+  /**
+   * The shot already carries as many identities as one shot takes: every
+   * identity card sits out, dimmed and inert, and this is the sentence that
+   * says why, on hover, so the grid never has to move to explain itself.
+   * Colours are not identities and stay live.
+   */
+  full?: string | null;
   onToken: (t: SentenceToken) => void;
   onTemplate: (id: string) => void;
   onUpload: () => void;
@@ -230,7 +239,7 @@ export function AttachPanel({
           label: `Shot ${recent.length - i}`,
           sub: 'as reference',
           thumb: imgUrl(s.images[0]),
-          run: () => onToken({ t: 'ref', imageHash: s.images[0] }),
+          run: () => onToken({ t: 'ref', imageHash: s.images[0], label: 'Shot' }),
         }),
       ),
     ];
@@ -246,21 +255,24 @@ export function AttachPanel({
   const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Brand', 'Colors', 'Shots'];
 
   const card = (c: Card) => {
-    const sitsOut = refining && c.tab === 'Scenes';
-    return (
+    // Two reasons a card sits out, one way of sitting out: inert through
+    // aria-disabled rather than the attribute, because a disabled button
+    // takes no pointer events and the tooltip that says why would never
+    // open. A colour never sits out.
+    const why =
+      refining && c.tab === 'Scenes'
+        ? 'Scenes set up a new shot. Press X on Refining to use one.'
+        : full && c.tab !== 'Colors'
+          ? full
+          : null;
+    const card = (
       <button
         type="button"
         key={c.key}
         className="sc-ap-card"
-        disabled={sitsOut}
-        title={
-          sitsOut
-            ? 'Scenes set up a new shot. Press X on Refining to use one.'
-            : c.sub
-              ? `${c.label} · ${c.sub}`
-              : c.label
-        }
-        onClick={c.run}
+        aria-disabled={why ? true : undefined}
+        title={why ? undefined : c.sub ? `${c.label} · ${c.sub}` : c.label}
+        onClick={why ? undefined : c.run}
       >
         {c.swatch ? (
           <span className="sc-ap-thumb" style={{ background: c.swatch }} />
@@ -274,6 +286,11 @@ export function AttachPanel({
         {c.recommended && <span className="sc-ap-rec">Recommended</span>}
         <b dir="auto">{c.label}</b>
       </button>
+    );
+    return (
+      <SitOutTooltip key={c.key} why={why}>
+        {card}
+      </SitOutTooltip>
     );
   };
 

@@ -1,13 +1,14 @@
-import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
-import { ChipPreview, isPreviewKind, type PreviewKind } from '../../composer/ChipPreview.js';
-import { ImageLightbox } from '../../composer/ImageLightbox.js';
-import { identityKeyOf, normalizeTint } from '../../composer/line.js';
-import { useHoverPreview } from '../../composer/useHoverPreview.js';
+import { findIngredient } from '../../composer/ingredientOptions.js';
+import { isPreviewKind } from '../../composer/ChipPreview.js';
+import type { SourceItem } from '../../composer/SourceCards.js';
+import { mergeCarried, normalizeTint } from '../../composer/line.js';
+import { vibrantTintOf } from '../../composer/sceneTint.js';
+import { type PeekAt, useIngredientPeek } from '../../composer/useIngredientPeek.js';
 import { byContextOrder } from '../../contextChips.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
 import { presenterPath, productPath, scenePath } from '../../routes.js';
@@ -31,6 +32,7 @@ export function BriefLine({
   worldTemplateId,
   saidRef,
   expanded,
+  hideCarried,
 }: {
   brief: TreeNode['brief'];
   /** The compiled prompt, the only record shots made before briefs have. */
@@ -47,35 +49,16 @@ export function BriefLine({
    * refine keeps. Display only, resolved by the caller from the lineage.
    */
   worldTemplateId?: string | null;
+  /**
+   * The sidebar's header already names the carried identities and the world
+   * as the source's own cards. Saying them again here is duplication, so
+   * carried products, presenters, scenes and the world chip leave the record;
+   * carried marks and references have no card up there and stay.
+   */
+  hideCarried?: boolean;
 }) {
   const { scenes, presenters, demoProducts } = useAppData();
-  const navigate = useNavigate();
-  /** One card for hover-peeks and for chips pinned open by a click alike:
-   *  `to` makes the card a door to a catalog page, its absence makes it a
-   *  window onto the image (the lightbox). */
-  type Peek = { key: string; src: string; kind: PreviewKind; label: string; el: HTMLElement; to?: string };
-  const hover = useHoverPreview<Peek>();
-  const { shown: hovered, closeNow: closePeek } = hover;
-  const [pinned, setPinned] = useState<Peek | null>(null);
-  const peek = pinned ?? hovered;
-  const closeCard = () => {
-    setPinned(null);
-    closePeek();
-  };
-  // A pinned card stays until it is told to go: Escape and the card's own
-  // logic close it, and so does a press anywhere that is not a chip or the
-  // card itself — without this the card simply could not be put away.
-  useEffect(() => {
-    if (!pinned) return;
-    const down = (e: PointerEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (t?.closest('.sc-chip-preview') || t?.closest('.sc-ingredient')) return;
-      setPinned(null);
-    };
-    document.addEventListener('pointerdown', down, true);
-    return () => document.removeEventListener('pointerdown', down, true);
-  }, [pinned]);
-  const [lightbox, setLightbox] = useState<{ src: string; kind: PreviewKind; label: string | null } | null>(null);
+  const peek = useIngredientPeek('.sc-ingredient');
 
   const ownTokens: any[] = brief?.tokens ?? [];
   // What a refinement carried from the shot it refines, recorded apart from
@@ -85,6 +68,23 @@ export function BriefLine({
   const cast: any[] = (brand?.json?.characters ?? []) as any[];
   const ownScenes = customScenesOf(brand);
   const marks = attachableMarks(brand?.json);
+
+  // A custom scene's chip colour, read from its preview the way the catalog
+  // colours were authored. Cached per URL by sceneTint, and the state update
+  // bails when the key already resolved, so re-renders cost nothing.
+  const [autoTints, setAutoTints] = useState<Record<string, string>>({});
+  useEffect(() => {
+    for (const t of [...ownTokens, ...carriedTokens]) {
+      if (t?.t !== 'template') continue;
+      const own = ownScenes.find((x) => x.id === t.id);
+      if (!own?.previewUrl || normalizeTint(own.previewColor)) continue;
+      const key = `t${t.id}`;
+      void vibrantTintOf(own.previewUrl).then((hex) => {
+        const tint = normalizeTint(hex ?? undefined);
+        if (tint) setAutoTints((s) => (s[key] ? s : { ...s, [key]: tint }));
+      });
+    }
+  });
 
   type Chip = {
     key: string;
@@ -103,15 +103,20 @@ export function BriefLine({
     inherited?: boolean;
     /** The thread's world, kept through the photograph rather than any token. */
     world?: boolean;
+    /** A brand-owned scene, wearing the iris treatment the composer gives it. */
+    custom?: boolean;
   };
 
+  // The one lookup every surface uses (ingredientOptions.ts, findIngredient):
+  // the brand's own record first, then the shipped one of the same id. A demo
+  // product is not in the brand's own products[] — it is resolved at
+  // generation time — so without the fallback every Scenri Library product
+  // credited itself as the bare word "product".
+  const sources = { products, demoProducts, cast, presenters, scenes: [...ownScenes, ...scenes] };
   const chipOf = (t: any, inherited: boolean): Chip | null => {
-    if (t?.t === 'product') {
-      const p = products.find((x) => x.id === t.id);
-      // A demo product is not in the brand's own products[] — it is resolved at
-      // generation time — so without this fallback every Scenri Library product
-      // credited itself as the bare word "product".
-      const demo = p ? null : demoProducts.find((x) => x.id === t.id);
+    const found = findIngredient(t, sources);
+    if (found?.kind === 'product') {
+      const { product: p, demo } = found;
       return {
         key: `p${t.id}`,
         kind: 'product',
@@ -123,9 +128,8 @@ export function BriefLine({
         to: brand && (p || demo) ? productPath(brand, t.id) : undefined,
       };
     }
-    if (t?.t === 'character') {
-      const c = cast.find((x) => x.id === t.id);
-      const pr = c ? null : presenters.find((x) => x.id === t.id);
+    if (found?.kind === 'presenter') {
+      const { character: c, presenter: pr } = found;
       // A roster entry is the brand's own copy; only the presenter it was cast
       // from has a page. A person built here is the exception: they are a
       // roster entry that owns their page, under their own id.
@@ -143,9 +147,8 @@ export function BriefLine({
         to: brand && pid ? presenterPath(brand, pid) : undefined,
       };
     }
-    if (t?.t === 'template') {
-      // The brand's own scenes first, the same precedence the compiler uses.
-      const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
+    if (found?.kind === 'scene') {
+      const s = found.scene;
       return {
         key: `t${t.id}`,
         kind: 'scene',
@@ -156,6 +159,7 @@ export function BriefLine({
         // The composer tints a scene chip with the scene's own preview
         // colour; the record of that shot says it the same way.
         tint: normalizeTint(s?.previewColor),
+        custom: found.custom,
       };
     }
     if (t?.t === 'color') {
@@ -169,7 +173,7 @@ export function BriefLine({
         key: `r${t.imageHash}`,
         kind: 'ref',
         inherited,
-        label: 'reference image',
+        label: t.label ?? 'reference image',
         thumb: imgUrl(t.imageHash),
         previewHash: t.imageHash,
       };
@@ -199,7 +203,10 @@ export function BriefLine({
         {c.label}
       </>
     );
-    const style = c.tint ? ({ '--tint': c.tint } as CSSProperties) : undefined;
+    // A custom scene's tint arrives from its own preview (sceneTint), the same
+    // scoring that authored the catalog colours; catalog chips carry theirs.
+    const tint = c.tint ?? (c.custom ? autoTints[c.key] : undefined);
+    const style = tint ? ({ '--tint': tint } as CSSProperties) : undefined;
     const said = c.world
       ? `The world this thread was shot in: ${c.label}. A refine keeps it in the picture without asking for it again.`
       : c.inherited
@@ -211,36 +218,21 @@ export function BriefLine({
     const src = (c.previewHash ? imgUrl(c.previewHash) : c.thumb) ?? (c.to ? '' : null);
     if (src !== null && isPreviewKind(c.kind)) {
       const kind = c.kind;
-      const open = peek?.key === c.key;
-      const at: Omit<Peek, 'el'> = { key: c.key, src, kind, label: c.label, to: c.to };
+      const open = peek.isOpen(c.key);
+      const at: PeekAt = { key: c.key, src, kind, label: c.label, to: c.to };
       return (
         <button
           type="button"
           className="sc-ingredient"
           key={c.key}
           data-kind={c.kind}
-          data-tinted={c.tint ? '' : undefined}
+          data-tinted={tint ? '' : undefined}
           data-inherited={c.inherited || undefined}
           data-world={c.world || undefined}
           style={style}
-          data-open={open || undefined}
           title={open ? undefined : (said ?? `${c.label}. Preview.`)}
-          aria-haspopup="dialog"
           aria-label={`${c.label}. Preview.`}
-          onPointerEnter={(e) => e.pointerType === 'mouse' && !pinned && hover.open({ ...at, el: e.currentTarget })}
-          onPointerLeave={(e) => e.pointerType === 'mouse' && hover.close()}
-          onFocus={(e) =>
-            e.currentTarget.matches(':focus-visible') && !pinned && hover.open({ ...at, el: e.currentTarget })
-          }
-          onClick={(e) => {
-            // a second press on the pinned chip puts the card away
-            if (pinned?.key === c.key) {
-              closeCard();
-              return;
-            }
-            closePeek();
-            setPinned({ ...at, el: e.currentTarget });
-          }}
+          {...peek.bind(at)}
         >
           {body}
         </button>
@@ -251,7 +243,7 @@ export function BriefLine({
         className="sc-ingredient"
         key={c.key}
         data-kind={c.kind}
-        data-tinted={c.tint ? '' : undefined}
+        data-tinted={tint ? '' : undefined}
         data-inherited={c.inherited || undefined}
         data-world={c.world || undefined}
         style={style}
@@ -262,40 +254,33 @@ export function BriefLine({
     );
   };
 
-  // One chip per thing: a token that appears both asked-for and carried (or
-  // carried at another angle) is the same ingredient, and rendering it twice
-  // also collided React keys. Own copies win, so the spoken order survives.
-  const seen = new Set<string>();
-  const keep = (t: any) => {
-    const k = identityKeyOf(t);
-    if (!k) return true;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  };
+  // One chip per thing, the composer's own rule: the record and the brief
+  // it reopens come through the same merge, so they never disagree.
+  const merged = mergeCarried(ownTokens, carriedTokens);
 
   // The sentence, in the order it was said: text runs stay prose, everything
   // else becomes the chip the composer would show for it.
   const sentence: ReactNode[] = [];
-  for (const t of ownTokens) {
-    if (t?.t === 'text') {
-      const v = typeof t.v === 'string' ? t.v.trim() : '';
+  for (const t of merged.own) {
+    if (t.t === 'text') {
+      const v = t.v.trim();
       if (v) sentence.push(v);
       continue;
     }
-    if (t?.t === 'format') continue;
-    if (!keep(t)) continue;
     const c = chipOf(t, false);
     if (c) sentence.push(renderChip(c));
   }
 
   // What the refinement carried rides after the ask, in the same voice, in
-  // the one canonical context order.
-  const trailing: Chip[] = carriedTokens
-    .filter((t: any) => t && typeof t.t === 'string' && keep(t))
+  // the one canonical context order. When the header's source cards are up
+  // they already name the carried identities and the world, so those leave
+  // this row; a carried mark or reference has no card up there and would be
+  // said nowhere, so it stays.
+  const trailing: Chip[] = merged.carried
     .map((t: any) => chipOf(t, true))
-    .filter((c: Chip | null): c is Chip => !!c);
-  if (worldTemplateId) {
+    .filter((c: Chip | null): c is Chip => !!c)
+    .filter((c: Chip) => !hideCarried || (c.kind !== 'product' && c.kind !== 'presenter' && c.kind !== 'scene'));
+  if (worldTemplateId && !hideCarried) {
     const s = ownScenes.find((x) => x.id === worldTemplateId) ?? scenes.find((x) => x.id === worldTemplateId);
     if (s) {
       trailing.push({
@@ -326,32 +311,75 @@ export function BriefLine({
         {spaced.length ? spaced : prompt || ''}
       </div>
       {trailing.length > 0 && <div className="sc-brief-carried">{trailing.map((c) => renderChip(c))}</div>}
-      {peek && (
-        <ChipPreview
-          key={peek.key}
-          anchor={peek.el}
-          kind={peek.kind}
-          src={peek.src}
-          label={peek.label}
-          onOpen={() => {
-            const target = peek;
-            closeCard();
-            if (target.to) navigate(target.to);
-            else setLightbox({ src: target.src, kind: target.kind, label: target.label });
-          }}
-          onHoverIn={hover.keep}
-          onHoverOut={() => !pinned && hover.close()}
-          onClose={closeCard}
-        />
-      )}
-      {lightbox && (
-        <ImageLightbox
-          src={lightbox.src}
-          kind={lightbox.kind}
-          label={lightbox.label}
-          onClose={() => setLightbox(null)}
-        />
-      )}
+      {peek.surface}
     </>
   );
+}
+
+/**
+ * What a picture is made of, resolved from its lineage tokens (nearest level
+ * first) against the catalogs, the same way the brief record resolves its
+ * chips. Products and presenters accumulate; only the nearest scene is the
+ * picture's world, so the first one wins and the rest are history.
+ */
+export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceItem[] {
+  const { scenes, presenters, demoProducts } = useAppData();
+  return useMemo(() => {
+    const products: any[] = (brand?.json?.products ?? []) as any[];
+    const cast: any[] = (brand?.json?.characters ?? []) as any[];
+    const sources = { products, demoProducts, cast, presenters, scenes: [...customScenesOf(brand), ...scenes] };
+    const itemOf = (t: any): SourceItem | null => {
+      const found = findIngredient(t, sources);
+      if (found?.kind === 'product') {
+        const { product: p, demo } = found;
+        if (!p && !demo) return null;
+        return {
+          key: `p${t.id}`,
+          kind: 'product',
+          label: p?.name ?? demo?.name ?? 'product',
+          thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
+          to: brand ? productPath(brand, t.id) : undefined,
+        };
+      }
+      if (found?.kind === 'presenter') {
+        const { character: c, presenter: pr } = found;
+        if (!c && !pr) return null;
+        const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null as string | null };
+        const pid = pr?.id ?? c?.presenterId ?? (c?.origin === 'custom' ? c.id : undefined);
+        return {
+          key: `h${t.id}`,
+          kind: 'presenter',
+          label: c?.name ?? pr?.name ?? 'someone',
+          thumb: av.src,
+          crop: av.crop,
+          to: brand && pid ? presenterPath(brand, pid) : undefined,
+        };
+      }
+      if (found?.kind === 'scene') {
+        const s = found.scene;
+        if (!s) return null;
+        return {
+          key: `t${t.id}`,
+          kind: 'scene',
+          label: s.name,
+          thumb: s.previewUrl ?? null,
+          to: brand ? scenePath(brand, s.id) : undefined,
+        };
+      }
+      return null;
+    };
+    const seen = new Set<string>();
+    const items: SourceItem[] = [];
+    let sceneNamed = false;
+    for (const t of tokens as any[]) {
+      if (t?.t === 'template' && sceneNamed) continue;
+      const it = itemOf(t);
+      if (!it || seen.has(it.key)) continue;
+      if (it.kind === 'scene') sceneNamed = true;
+      seen.add(it.key);
+      items.push(it);
+    }
+    items.sort(byContextOrder);
+    return items;
+  }, [brand, tokens, scenes, presenters, demoProducts]);
 }

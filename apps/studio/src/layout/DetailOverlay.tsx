@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
@@ -29,8 +29,24 @@ import { attachableMarks, markLabel } from '../brand/marks.js';
 import { ChipPreview } from '../composer/ChipPreview.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
-import { BriefLine } from './detail/Ingredients.js';
+import { BriefLine, useSourceItems } from './detail/Ingredients.js';
 import { useLineage } from './detail/useLineage.js';
+import { PREF, useLocalPref } from '../prefs.js';
+
+/**
+ * The details panel's adjustable width. One bounded range, one reset value,
+ * carried by the same `--sc-ovl-panel-w` custom property the stylesheet has
+ * always read, so the grid, the header stop and the divider all follow one
+ * number.
+ */
+const PANEL_MIN = 380;
+const PANEL_MAX = 480;
+const PANEL_DEFAULT = 380;
+const clampPanel = (w: number) => Math.min(PANEL_MAX, Math.max(PANEL_MIN, Math.round(w)));
+
+/** The scene a brief names, in either of the shapes briefs have carried it. */
+const tplOf = (b: TreeNode['brief']) =>
+  b?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? b?.templateId ?? null;
 
 /**
  * Full-screen takeover for one shot: lineage filmstrip left, stage with the
@@ -78,6 +94,8 @@ export function DetailOverlay({
   /** What the engine that ran this is called, so a failure can name it in a sentence. */
   const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
   const { push } = useToasts();
+  /** The details panel's width, remembered across sessions. */
+  const [panelW, setPanelW] = useLocalPref<number>(PREF.ovlPanelW, PANEL_DEFAULT);
   /** The image this refinement was made from, not merely the run's first. */
   const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
   /**
@@ -88,8 +106,6 @@ export function DetailOverlay({
    */
   const worldTemplateId = useMemo(() => {
     if (node.kind !== 'edit') return null;
-    const tplOf = (b: TreeNode['brief']) =>
-      b?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? b?.templateId ?? null;
     if (tplOf(node.brief)) return null;
     for (let i = ancestors.length - 1; i >= 0; i--) {
       const tid = tplOf(ancestors[i].brief);
@@ -97,6 +113,27 @@ export function DetailOverlay({
     }
     return null;
   }, [node, ancestors]);
+  /**
+   * What this refinement carried in: the source picture's contents, read
+   * down the ancestors nearest level first. Never this shot's own brief:
+   * what it asked for is the record above, and the band saying it again is
+   * the duplication the two surfaces exist to avoid. A refine's own brief
+   * can be bare text at every level, and older shots recorded no inherited
+   * list at all, so any single brief loses the identities two levels down;
+   * the walk is the one place the picture's contents can always be read
+   * from.
+   */
+  const sourceTokens = useMemo(() => {
+    if (node.kind !== 'edit') return [];
+    const out: unknown[] = [];
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+      const b = ancestors[i].brief as { tokens?: unknown[]; inherited?: unknown[] } | null;
+      out.push(...(b?.tokens ?? []), ...(b?.inherited ?? []));
+    }
+    return out;
+  }, [node.kind, ancestors]);
+  /** The same contents as cards, for the composer's band. */
+  const sourceItems = useSourceItems(brand, sourceTokens);
   /** Whether the brief line has any chips to say: mirrors BriefLine's own
    *  null condition, so a token-less legacy shot never shows a bare label. */
   const hasContext = useMemo(() => {
@@ -137,9 +174,9 @@ export function DetailOverlay({
   const framePeek = useHoverPreview<{ key: string; src: string; label: string; el: HTMLElement; id: string }>();
   /**
    * The image's history in reading order — the original, this shot, its
-   * refinements — worn as the thumb strip under the stage, exactly where the
-   * variants used to live. Only versions with a picture appear; a failed
-   * refinement stays a card in the feed rather than a hole in the strip.
+   * refinements — worn as the thumb strip under the stage. Only versions with
+   * a picture appear; a failed refinement stays a card in the feed rather
+   * than a hole in the strip.
    */
   const lineageStrip = useMemo(
     () => [...ancestors, node, ...children.slice(0, 6)].filter((n) => n.images[0]),
@@ -309,6 +346,7 @@ export function DetailOverlay({
         role="dialog"
         aria-modal="true"
         aria-label={nodeLabel(node)}
+        style={{ '--sc-ovl-panel-w': `${clampPanel(panelW)}px` } as CSSProperties}
         // A trail of one is not a trail. The rail held a full-height column for
         // a single thumbnail of the shot you were already looking at, which is
         // the sort of furniture that makes a screen feel unplanned.
@@ -434,10 +472,9 @@ export function DetailOverlay({
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
           />
-          {/* The image's own history, right under the image, wearing the strip
-              the variants used to wear: the original, this shot ringed, and
-              its refinements. Hovering peeks a version at a readable size;
-              clicking moves the stage to it. */}
+          {/* The image's own history, right under the image: the original,
+              this shot ringed, and its refinements. Hovering peeks a version
+              at a readable size; clicking moves the stage to it. */}
           {lineageStrip.length > 1 && (
             <div className="sc-thumbs">
               {lineageStrip.map((n) => (
@@ -488,6 +525,46 @@ export function DetailOverlay({
           )}
         </div>
 
+        {/* The seam between picture and panel is the handle: drag to size the
+            panel, double-click to reset, arrow keys from the keyboard. During
+            a drag only the CSS variable moves; the preference is written once,
+            on release. It floats on the overlay root because the panel
+            scrolls and the root does not. */}
+        {/* biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be a focusable window splitter; ARIA's separator-as-widget pattern is exactly a focusable div with valuenow */}
+        <div
+          className="sc-ovl-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the details panel"
+          aria-valuemin={PANEL_MIN}
+          aria-valuemax={PANEL_MAX}
+          aria-valuenow={clampPanel(panelW)}
+          tabIndex={0}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+            const root = e.currentTarget.closest<HTMLElement>('.sc-ovl');
+            root?.style.setProperty('--sc-ovl-panel-w', `${clampPanel(window.innerWidth - e.clientX)}px`);
+          }}
+          onPointerUp={(e) => {
+            if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+            e.currentTarget.releasePointerCapture(e.pointerId);
+            setPanelW(clampPanel(window.innerWidth - e.clientX));
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            setPanelW(PANEL_DEFAULT);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft') setPanelW((w) => clampPanel(w + 16));
+            else if (e.key === 'ArrowRight') setPanelW((w) => clampPanel(w - 16));
+          }}
+        />
         <aside className="sc-ovl-meta">
           {/* A typographic inspector: flat labeled sections divided by
               hairlines, nothing raised, nothing boxed. The engine id, wall
@@ -520,6 +597,8 @@ export function DetailOverlay({
                   worldTemplateId={worldTemplateId}
                   saidRef={briefRef}
                   expanded={briefOpen}
+                  // the header's source cards already say what was carried
+                  hideCarried={node.kind === 'edit' && !!parentShot && !!sourceHash}
                 />
               </div>
               {(briefOverflows || briefOpen) && (
@@ -576,8 +655,7 @@ export function DetailOverlay({
           )}
 
           {/* No versions section in here: the image's history wears the thumb
-              strip under the stage, where the variants used to live. The
-              sidebar does not own image navigation. */}
+              strip under the stage. The sidebar does not own image navigation. */}
 
           {/* No station on a dead shot: the stage owns retrying a failure,
               and a Generate field down here made a failed refine read as a
@@ -594,6 +672,7 @@ export function DetailOverlay({
               island's own surface says where the work area starts. */}
               <Composer
                 variant="overlay"
+                sourceItems={sourceItems}
                 projectId={projectId}
                 brand={brand}
                 engines={engines}

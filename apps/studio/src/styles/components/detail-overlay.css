@@ -194,15 +194,51 @@
   min-height: 0;
 }
 
+/* The seam between stage and panel is a handle. It floats on the overlay
+   root (the panel scrolls; the root does not), riding the panel's own left
+   border, and only says so under the pointer or keyboard focus: a 1px
+   brighter line, paint only. */
+.sc-ovl-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(var(--sc-ovl-panel-w) - 3px);
+  width: 7px;
+  z-index: 12;
+  cursor: col-resize;
+}
+.sc-ovl-resize::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: var(--sc-line-hover);
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-ovl-resize:hover::before,
+.sc-ovl-resize:focus-visible::before,
+.sc-ovl-resize:active::before {
+  opacity: 1;
+}
+@media (max-width: 1023px) {
+  /* one column below this width: there is no seam to drag */
+  .sc-ovl-resize {
+    display: none;
+  }
+}
 .sc-ovl-meta {
   border-left: 1px solid var(--sc-line-chrome);
   background: var(--sc-bg);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  /* one gutter, on the scale, the same on both sides; the bottom belongs to
-     the sticky composer, which carries its own */
-  padding: var(--sc-space-7) var(--sc-space-7) 0;
+  /* No side padding here: each section carries its own 20px gutter, so the
+     hairlines between sections run the panel's full width the way the
+     frames draw them. */
+  padding: var(--sc-space-7) 0 0;
   min-height: 0;
 }
 /* A typographic inspector: the panel is flat labeled sections divided by
@@ -212,7 +248,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--sc-space-4);
-  padding-bottom: var(--sc-space-6);
+  padding: 0 var(--sc-space-7) var(--sc-space-6);
   border-bottom: 1px solid var(--sc-line);
 }
 .sc-ovl-head b {
@@ -225,20 +261,15 @@
   color: var(--sc-fg3);
   font-size: var(--sc-text-caption);
 }
-.sc-ovl-take,
 .sc-ovl-spend {
   margin-left: auto;
   color: var(--sc-fg3);
   font-size: var(--sc-text-caption);
 }
-/* when both are present the take leads and the price follows it */
-.sc-ovl-take ~ .sc-ovl-spend {
-  margin-left: var(--sc-space-4);
-}
 /* One section grammar for the whole record: micro-caps label, airy content,
    hairline underneath. */
 .sc-ovl-sec {
-  padding: var(--sc-space-7) 0;
+  padding: var(--sc-space-7);
   border-bottom: 1px solid var(--sc-line);
 }
 .sc-ovl-sec > .sc-eyebrow {
@@ -291,7 +322,7 @@
    competing chip styles between an initial shot and its refinements. */
 .sc-brief-record .sc-ingredient[data-inherited],
 .sc-brief-record .sc-ingredient[data-world] {
-  background: var(--sc-chip);
+  background: var(--sc-token-bg);
   box-shadow: none;
   outline: none;
   color: var(--sc-fg);
@@ -331,11 +362,6 @@
 .sc-ovl-copy:hover {
   color: var(--sc-fg);
 }
-.sc-ovl-meta .sc-ingredients {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-2);
-}
 /* The panel's one working surface, pinned to its bottom edge: content scrolls
    beneath it, and when there is little content margin-top:auto keeps it at the
    foot of the column. Must stay above the media blocks below, so the phone's
@@ -345,7 +371,8 @@
   bottom: 0;
   margin-top: auto;
   background: var(--sc-bg);
-  padding: var(--sc-space-5) 0 var(--sc-space-6);
+  /* the frames inset the composer card 20px on every side */
+  padding: var(--sc-space-7);
 }
 .sc-ovl-edit .sc-composer {
   width: 100%;
@@ -354,7 +381,7 @@
    words. Scoped here rather than changed at the base — the same pills speak
    at full volume in Settings. */
 .sc-ovl-meta .sc-sugg {
-  padding: var(--sc-space-6) 0 0;
+  padding: var(--sc-space-6) var(--sc-space-7) 0;
   gap: var(--sc-space-7);
 }
 .sc-ovl-meta .sc-s {
@@ -424,11 +451,20 @@
   }
   .sc-ovl-meta {
     max-height: 48vh;
-    /* The panel shares the page edge with the stage above it, the header over
-       it and the composer below it. It used to sit 2px further in, which is
-       exactly the sort of difference nobody can name and everybody can see.
+    /* No side padding here either: the sections carry the gutter, so the
+       hairlines between them run the panel's full width on the phone too.
        No bottom padding: the sticky composer sits flush on the panel's edge. */
-    padding: 12px var(--sc-gutter) 0;
+    padding: 12px 0 0;
+  }
+  /* the page edge on a stacked layout is the phone gutter, not the 20 */
+  .sc-ovl-head,
+  .sc-ovl-sec {
+    padding-left: var(--sc-gutter);
+    padding-right: var(--sc-gutter);
+  }
+  .sc-ovl-meta .sc-sugg {
+    padding-left: var(--sc-gutter);
+    padding-right: var(--sc-gutter);
   }
   .sc-ovl-edit {
     flex-shrink: 0;

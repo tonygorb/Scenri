@@ -1,0 +1,27 @@
+/* ---------- tooltip ----------
+   One short sentence beside the thing you are hovering, on the app's own
+   surface: the panel colour, the strong hairline, the floating shadow, the
+   same tokens the chip peek card and the pickers wear. Radix Themes gives
+   the mechanics (delay, placement, portal, role=tooltip) and would give a
+   coat of its own; these two-class selectors outrank its one-class rules
+   without order or !important, so the coat is ours. No arrow, like every
+   other floating card here. */
+.rt-TooltipContent.sc-tip {
+  padding: var(--sc-space-2) var(--sc-space-4);
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius);
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  box-shadow: var(--sc-shadow-3);
+  font-family: inherit;
+}
+.rt-TooltipContent.sc-tip .rt-TooltipText {
+  font-size: var(--sc-text-micro);
+  line-height: 1.4;
+  color: var(--sc-fg);
+}
+/* Radix's popper sets the arrow's display inline, so it is hidden by
+   visibility, which nothing inline touches. */
+.rt-TooltipContent.sc-tip .rt-TooltipArrow {
+  visibility: hidden;
+}

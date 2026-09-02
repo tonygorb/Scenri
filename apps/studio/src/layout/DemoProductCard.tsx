@@ -1,7 +1,7 @@
 import type { DemoProduct } from '../api.js';
 import { productLabel } from '../displayName.js';
 import { categoryLabel } from '../productCategories.js';
-import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
+import { CatalogCard, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
 
 export type DemoProductCardVariant = CatalogCardVariant;
 export type DemoProductCardSize = Exclude<CatalogCardSize, 'shelf'>;
@@ -52,9 +52,4 @@ export function DemoProductCard({
       size={size}
     />
   );
-}
-
-/** One skeleton shape, every list that hasn't resolved the demo product catalog yet. */
-export function DemoProductCardSkeleton(props: { size?: DemoProductCardSize; count?: number }) {
-  return <CatalogCardSkeleton {...props} />;
 }

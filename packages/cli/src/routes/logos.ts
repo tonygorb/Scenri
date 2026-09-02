@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import type { Core } from '@scenri/core';
 import { validateBrand } from '@scenri/brand';
-import { brandRuleDirectives } from '../brief.js';
 import { assetHash, LOGO_BACKGROUNDS, LOGO_ROLES, readImagePart, toMarkPng } from './shared.js';
 
 export function registerLogoRoutes(app: FastifyInstance, deps: { core: Core }): void {
@@ -102,20 +101,6 @@ export function registerLogoRoutes(app: FastifyInstance, deps: { core: Core }): 
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     return core.store.updateBrand(brand.id, json);
-  });
-
-  /**
-   * The brand rules the compiler appends to every shot in this brand.
-   *
-   * The composer shows this verbatim, which is what keeps an always-applied
-   * rule from being an invisible one. The studio cannot import compileBrief (it
-   * has no workspace dependencies), and a second hand-written copy of the
-   * wording in the UI is exactly the drift this endpoint exists to prevent.
-   */
-  app.get('/api/brands/:id/directives', async (req, reply) => {
-    const brand = core.store.getBrand((req.params as any).id);
-    if (!brand) return reply.status(404).send({ error: 'brand not found' });
-    return { directives: brandRuleDirectives(brand.json as any) };
   });
 
   app.delete('/api/brands/:id/logos/:hash', async (req, reply) => {

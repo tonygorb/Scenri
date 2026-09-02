@@ -468,3 +468,17 @@ describe('edit — references', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
+
+describe('progressive delivery', () => {
+  it('reports each slot as its call returns, in request order', async () => {
+    const { engine } = makeEngine();
+    const landed: [number, string][] = [];
+    const res = await engine.generate(genReq({ count: 3 }), undefined, (slot, hash) => landed.push([slot, hash]));
+    expect(landed).toEqual([
+      [0, 'hash-1'],
+      [1, 'hash-2'],
+      [2, 'hash-3'],
+    ]);
+    expect(res.images).toEqual(['hash-1', 'hash-2', 'hash-3']);
+  });
+});

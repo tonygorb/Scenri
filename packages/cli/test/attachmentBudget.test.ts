@@ -134,12 +134,109 @@ describe('a hand-attached reference outranks the scene', () => {
   // The user chose that exact picture for this shot; the scene plate is
   // conditioning the recipe derived. Under contention the scene is what
   // degrades to prose - quietly, by design.
-  it('the reference boards and the scene plate is what degrades', () => {
+  it('between a reference and a scene plate, the one placed first boards', () => {
     const ref = att('reference', 'r1', { label: 'Reference shot' });
     const scene = att('scene', 's1', { id: 'scn', label: 'Cracked Clay' });
-    const { kept, dropped } = allocateAttachments([scene, ref], 1);
-    expect(kept.map((a) => a.hash)).toEqual(['r1']);
-    expect(dropped.map((a) => a.hash)).toEqual(['s1']);
+    expect(allocateAttachments([ref, scene], 1).kept.map((a) => a.hash)).toEqual(['r1']);
+    expect(allocateAttachments([scene, ref], 1).kept.map((a) => a.hash)).toEqual(['s1']);
+    expect(allocateAttachments([scene, ref], 1).dropped.map((a) => a.hash)).toEqual(['r1']);
+  });
+
+  // Chips outnumber seats: the brief's own order decides, whatever the kind,
+  // so the pictured chips are always the leading ones and a mark placed
+  // last is the one left out.
+  it('seats chips in brief order, whatever their kind', () => {
+    const many = [
+      att('product', 'p1', { id: 'a', label: 'Vase', essential: true }),
+      att('character', 'c1', { id: 'b', label: 'Astrid', essential: true }),
+      att('product', 'p2', { id: 'c', label: 'Watch', essential: true }),
+      att('character', 'c2', { id: 'd', label: 'Bree', essential: true }),
+      att('reference', 'r1', { label: 'Reference shot' }),
+      att('product', 'p3', { id: 'e', label: 'Lamp', essential: true }),
+      att('brand', 'm1', { label: 'Logo' }),
+    ];
+    const { kept, dropped } = allocateAttachments(many, 4);
+    expect(kept.map((a) => a.hash).sort()).toEqual(['c1', 'c2', 'p1', 'p2']);
+    expect(dropped.map((a) => a.hash).sort()).toEqual(['m1', 'p3', 'r1']);
+    expect(
+      allocateAttachments([many[6], ...many.slice(0, 6)], 4)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['c1', 'm1', 'p1', 'p2']);
+  });
+
+  // The compiler marks every product and person essential, so the order has
+  // to hold among essentials too, or a face never beats a vase.
+  it('a person placed before a product is pictured before it, essential or not', () => {
+    const brief = [
+      att('character', 'c1', { id: 'b', essential: true }),
+      att('product', 'p1', { id: 'a', essential: true }),
+      att('product', 'p2', { id: 'c', essential: true }),
+      att('character', 'c2', { id: 'd', essential: true }),
+    ];
+    expect(
+      allocateAttachments(brief, 2)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['c1', 'p1']);
+    expect(
+      allocateAttachments(brief, 3)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['c1', 'p1', 'p2']);
+  });
+
+  it('a scene placed first is pictured before the identities after it', () => {
+    const brief = [
+      att('scene', 's1', { id: 'scn' }),
+      att('product', 'p1', { id: 'a', essential: true }),
+      att('character', 'c1', { id: 'b', essential: true }),
+    ];
+    expect(
+      allocateAttachments(brief, 2)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['p1', 's1']);
+  });
+
+  it('hands back the seated images in brief order too, for a second allocation', () => {
+    const brief = [
+      att('product', 'p1', { id: 'a', essential: true }),
+      att('character', 'c1', { id: 'b', essential: true }),
+      att('product', 'p2', { id: 'c', essential: true }),
+    ];
+    const r = allocateAttachments(brief, 3);
+    expect(r.kept.map((a) => a.hash)).toEqual(['p1', 'p2', 'c1']);
+    expect(r.seated.map((a) => a.hash)).toEqual(['p1', 'c1', 'p2']);
+    // a tighter second pass from `seated` keeps the brief's order; from `kept` it would not
+    expect(
+      allocateAttachments(r.seated, 2)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['c1', 'p1']);
+  });
+
+  it('moving a chip earlier moves its photo into the frame', () => {
+    const later = [
+      att('product', 'p1', { id: 'a' }),
+      att('character', 'c1', { id: 'b' }),
+      att('product', 'p2', { id: 'c' }),
+    ];
+    expect(
+      allocateAttachments(later, 2)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['c1', 'p1']);
+    const earlier = [
+      att('product', 'p2', { id: 'c' }),
+      att('product', 'p1', { id: 'a' }),
+      att('character', 'c1', { id: 'b' }),
+    ];
+    expect(
+      allocateAttachments(earlier, 2)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['p1', 'p2']);
   });
 
   it('with one seat left after the identities, the reference takes it and the scene does not', () => {

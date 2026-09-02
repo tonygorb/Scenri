@@ -25,16 +25,17 @@ import {
   characterFactDirectives,
   editPreservationDirective,
   extendPreservationDirective,
-  inheritedIdentityDirective,
   garmentDisplayDirective,
+  inheritedIdentityDirective,
   markLabel,
+  namesAreNotLetteringDirective,
   personSkinDirective,
   productFactDirectives,
   productFidelityDirective,
   productHandlingDirective,
   referenceIdentityGuard,
-  sceneGuardDirectives,
   sceneFigureDirectives,
+  sceneGuardDirectives,
   shotSpecifiesCamera,
 } from './briefDirectives.js';
 
@@ -48,7 +49,7 @@ export type BriefToken =
   | { t: 'product'; id: string; angle?: string }
   | { t: 'character'; id: string }
   | { t: 'color'; hex: string; name?: string }
-  | { t: 'ref'; imageHash: string }
+  | { t: 'ref'; imageHash: string; label?: string }
   | { t: 'mark'; imageHash: string }
   | { t: 'template'; id: string }
   | { t: 'format'; id: FormatId; w: number; h: number };
@@ -154,6 +155,8 @@ export interface CompiledBrief {
   width: number;
   height: number;
   attachments: Attachment[];
+  /** `attachments` in the order the brief placed them, for the edit route's second allocation. */
+  seated: Attachment[];
   warnings: string[];
   productId: string | null;
 }
@@ -179,6 +182,14 @@ interface CompileContext {
   brand: any;
   images: Core['images'];
   engineCaps: EngineCapabilities;
+  /**
+   * What a reference image showed, in words, when the image is one of the
+   * brand's own shots: the head of that shot's recorded prompt. Spoken for a
+   * reference whose photo found no seat, so it still shapes the picture the
+   * way a seatless product does through its spec. Null for an image with no
+   * words behind it.
+   */
+  wordsFor?: (hash: string) => string | null;
   /** Legacy single scene (brief.templateId). Frames the whole prompt. */
   template?: CompilableScene;
   /** Lookup for inline scene tokens, which compile where they sit. */
@@ -274,6 +285,8 @@ export function validateBrief(brief: unknown): string[] {
       case 'ref':
       case 'mark':
         if (!str(t.imageHash)) errors.push(`${at}.imageHash must be a non-empty string`);
+        if (t.t === 'ref' && t.label !== undefined && typeof t.label !== 'string')
+          errors.push(`${at}.label must be a string when present`);
         break;
       case 'format':
         if (!Number.isFinite(t.w) || !Number.isFinite(t.h) || Number(t.w) <= 0 || Number(t.h) <= 0)
@@ -320,6 +333,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const characters: any[] = ctx.brand?.characters ?? [];
   const inlineTemplates: CompilableScene[] = [];
   let hasPerson = false;
+  let people = 0;
   let sentence = '';
   // Tokens compile independently and never know what text preceded them, so
   // every append goes through here to guarantee a separating space — raw
@@ -420,6 +434,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         hasPerson = true;
+        people += 1;
         // Same two-name contract products have: the model reads `promptName`
         // where there is one, humans read `name`. A curated presenter has no
         // promptName and is named by `name`, which is why renaming one is a
@@ -516,8 +531,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
 
       case 'color': {
         const hex = tok.hex.toUpperCase();
-        append(tok.name ? `${tok.name} (${hex})` : hex);
-        otherDirectives.push(`Use ${hex} as a defining color in the composition.`);
+        // A parenthetical, so the chip never reads as a modifier of whatever
+        // was named just before it: "Serum gold (#C9A96E)" painted the
+        // product's name on the wall in gold; "(brand color gold #C9A96E)"
+        // is metadata about the shot.
+        append(tok.name ? `(brand color ${tok.name} ${hex})` : `(brand color ${hex})`);
+        otherDirectives.push(
+          `Use ${hex} as a defining color in the composition, in surfaces, materials and light, never as lettering.`,
+        );
         break;
       }
 
@@ -750,7 +771,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
   }
   const max = ctx.engineCaps.maxReferenceImages;
-  const { kept, dropped: budgetDropped } = allocateAttachments(attachments, max);
+  const { kept, dropped: budgetDropped, seated } = allocateAttachments(attachments, max);
 
   // What actually rides, for the deferred directives: the edit route makes a
   // wider allocation this compile cannot see (own plus inherited, source
@@ -768,6 +789,32 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
     return presentKeys.has(`${d.role}:${d.hash}`) ? d.text : null;
   };
+  // Words for the pictures that found no seat. A product, a person or a
+  // scene already speaks through its own directives whether or not its
+  // photo rides; a reference and a mark used to fall silent, which left the
+  // chip claiming a description the prompt did not carry. A reference is
+  // spoken as what its shot showed, when it was one of ours; a mark by name,
+  // with the one rule that keeps the engine from inventing it.
+  const absentDirectives: string[] = [];
+  const absentSeen = new Set<string>();
+  for (const a of attachments) {
+    const key = `${a.role}:${a.hash}`;
+    if (presentKeys.has(key) || absentSeen.has(key)) continue;
+    if (a.role === 'reference') {
+      absentSeen.add(key);
+      const words = ctx.wordsFor?.(a.hash) ?? null;
+      absentDirectives.push(
+        words
+          ? `A reference shot was not attached this time; it showed ${words}. Match that composition, lighting and treatment.`
+          : 'A reference image was attached but not sent this time.',
+      );
+    } else if (a.role === 'brand') {
+      absentSeen.add(key);
+      absentDirectives.push(
+        `The brand mark "${a.label}" was not attached this time; keep every branded surface plain and do not invent a logo.`,
+      );
+    }
+  }
 
   const guard = scene
     ? sceneGuardDirectives({
@@ -794,6 +841,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           productHandlingDirective(),
         ]
       : [];
+  // Anything named in the sentence can be painted as a caption; one line says
+  // a name is a thing to show, never a word to write (briefDirectives.ts).
+  const nameDirectives = productId || hasPerson ? [namesAreNotLetteringDirective()] : [];
   // After the pair line, which is the other directive whose job is to relate two
   // attached things to each other, and before the guards, which must keep the
   // last word on cast (briefDirectives.ts: a scene composing an attached
@@ -803,6 +853,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         figure: scene.figure,
         treatment: scene.figureTreatment,
         hasPerson,
+        people,
         // The treatment's fictional-brands rule needs to know a real mark is
         // deliberately in play - and only one that actually rides counts,
         // same honesty rule as the photo guard above.
@@ -874,12 +925,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
 
   const allDirectives: DeferredDirective[] = [
+    // First, beside the sentence that names things: the model reads the names
+    // and this line in one breath, before any spec repeats them.
+    ...nameDirectives,
     ...productDirectives,
     ...personDirectives,
     ...pairDirectives,
     ...figureDirectives,
     ...closeUpDirectives,
     ...otherDirectives,
+    ...absentDirectives,
     ...cameraDirectives,
     ...apparelUnworn,
     ...brandLines,
@@ -890,28 +945,25 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const spoken = dedupe(allDirectives.map(resolveDirective).filter((s): s is string => s !== null));
   if (spoken.length) prompt = `${prompt}${prompt.endsWith('.') ? '' : '.'} ${spoken.join(' ')}`;
 
-  if (budgetDropped.some((d) => d.role !== 'scene')) {
+  if (max === 0 && budgetDropped.some((d) => d.role !== 'scene')) {
+    // Only an engine that reads no images at all has something to say here:
+    // every identity rides as words, and the composer already flags each chip
+    // the same way. On an engine that reads images, a photo that found no seat
+    // is described in words (its spec, or an absent-attachment directive), and
+    // the chip says "described in words" before the shot is sent; a warning
+    // that it "was left out" would contradict both.
     // By label, not by attachment: a product contributes several angles, and
     // naming it once per dropped angle reads as three different products
-    // having been lost.
-    // Never name a dropped scene reference. This warning exists to tell someone
-    // an identity they attached will not be shown; a scene ref is context that
-    // degrades quietly, and naming it here reads as though their scene failed.
-    // And name an identity only when ALL of it was dropped: a shed
-    // corroboration angle whose essential survived degrades quietly - the
-    // refine path has said this since 0.6.9, and the generation path used to
-    // tell someone their presenter "was left out" when its first image had in
-    // fact boarded.
+    // having been lost. Never name a dropped scene reference: a scene ref is
+    // context that degrades quietly, and naming it reads as though the scene
+    // failed. Name an identity only when ALL of it was dropped.
     const keptLabels = new Set(kept.map((a) => a.label));
     const names = [...new Set(budgetDropped.filter((d) => d.role !== 'scene').map((d) => d.label))].filter(
       (l) => !keptLabels.has(l),
     );
     if (names.length) {
-      // "reads 0 reference images" is technically true and reads like a bug; an
-      // engine that takes none deserves a sentence written for that case.
-      const reads = max === 0 ? 'reads no reference images' : `reads ${max} reference image${max === 1 ? '' : 's'}`;
       warnings.push(
-        `${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out — ${ctx.engineCaps.displayName} ${reads}.`,
+        `${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out — ${ctx.engineCaps.displayName} reads no reference images.`,
       );
     }
   }
@@ -925,6 +977,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     width,
     height,
     attachments: kept,
+    seated,
     warnings,
     productId,
   };

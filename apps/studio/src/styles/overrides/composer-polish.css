@@ -34,10 +34,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 34px;
+  height: 44px;
   padding: 0 12px;
   border: none;
-  border-radius: 9px;
+  /* the row speaks one shape: the same full round the attach disc and the
+     send pill wear, here as a quiet ghost */
+  border-radius: var(--sc-radius-full);
   background: none;
   color: var(--sc-fg2);
   font-size: 13.5px;
@@ -135,9 +137,10 @@
   white-space: nowrap;
 }
 
-/* the send button is the only thing that breaks the 30px rhythm, on purpose */
+/* on the dock the right group's own gap spaces the send; the overlay adds its
+   own step (composer-island.css) */
 .sc-prompt-right .sc-send {
-  margin-left: 10px;
+  margin-inline-start: 0;
 }
 .sc-prompt-row {
   padding: 6px 14px 14px;
@@ -190,5 +193,5 @@
    lift it also used to take has gone. Three simultaneous cues on one button
    is what made tabbing into the composer feel like an alarm. */
 .sc-send:focus-visible {
-  background: var(--sc-inv-bg);
+  background: var(--sc-send-bg);
 }

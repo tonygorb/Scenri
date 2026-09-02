@@ -141,7 +141,7 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **shadow-3** (`0 18px 50px rgba(0,0,0,.34)` dark / `rgba(0,0,0,.18)` light): dialogs, full overlays.
 
 ### Named Rules
-**The Flat-By-Default Rule.** Nothing gets a resting shadow. If it isn't floating above the page (dialog, overlay, dock), it gets a hairline border and nothing else.
+**The Flat-By-Default Rule.** Nothing gets a resting shadow. If it isn't floating above the page (dialog, overlay, dock), it gets a hairline border and nothing else. The hairline is 1px, with one exception in width: the picture tiles in the Create assets rail wear a 1.5px frame, because a 1px line vanishes against a photograph.
 
 ## 5. Components
 
@@ -235,6 +235,9 @@ hover the marks become controls.**
 
 ### Composer insert menus (`/`, `@`, `#`)
 A caret (or phone-docked) shortlist, not a command palette. The four triggers share one shell (`.sc-cmd`, `--sc-z-popover`) and one ranking rule (`pickList` / `insertShortlist`). `$` is products, `@` is presenters, `/` is scenes and `#` is colours. Each menu carries that label at the top. Typing in the brief is the filter: no inner search field, no cap banner, no keyboard-hint footer. Empty query is a ranked shortlist; a typed miss stays open with one quiet line. Colors, marks and shots stay on the attach panel. Structured chips and `compileBrief` IDs do not change.
+
+### Composer chips in the sentence
+A chip is an inline atom in real text flow that owns its gap as a symmetric 2px margin: two chips that touch in the document sit 4px apart, and the same holds in a right-to-left line. The line keeps no space on a chip's behalf, ever: the spaces beside a chip are the user's, typed or not, the way a mention behaves in any text field. Where the user has typed nothing beside a chip the line keeps a guard there, one zero-width character (`\uFEFF`) that gives the caret text to sit in, because a phone shows no caret anywhere else; the guard is never part of the sentence (readers strip it, the unit maths does not count it, typing into it leaves only what was typed), and between two touching chips the browser draws the caret at the guard, which is where the two margins meet. A chip is one unit to the keyboard: one press crosses it, the key that faces it removes it (keydown for a hardware key, `beforeinput` for a phone's keyboard, since no engine deletes an atom consistently on its own), and a press at a line edge with nothing on its side is swallowed. On touch the platform's caret and word-snap stand, and a tap is corrected only in the line's padding. `composer/line/invariants.ts` keeps the guards and the browser's untidiness straight; `composer/line/keys.ts` holds the key rules; `render.ts` drops the seams older briefs stored.
 
 ### Section Headers (`.sc-sec-head`)
 - Flex row, title (15px/600) at the leading edge, an optional right-aligned action (ghost button, "+ Add X" pattern) at the trailing edge. **This is strictly a 2-slot contract**: title-group and trailing-action. A subtitle, when present, belongs inside the title group (its own inline flex with an explicit gap), never as a third top-level flex child, which is what produces glued text.

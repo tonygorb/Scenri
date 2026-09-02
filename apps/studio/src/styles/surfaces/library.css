@@ -175,15 +175,6 @@
 .sc-filterbar-actions .sc-sec-more {
   margin-left: 0;
 }
-/* The density toggle ships at 32px and both its neighbours are 34px, which
-   left it a pixel proud at each edge — the kind of gap you feel before you
-   can name it. */
-.sc-filterbar-actions .sc-density {
-  height: 34px;
-}
-.sc-filterbar-actions .sc-density-opt {
-  height: 28px;
-}
 .sc-filterbar .sc-verticals-shell {
   /* `relative`, not `static`. The rail's edge fades are `position: absolute`
      pseudo-elements on this shell, so a static shell hands them the nearest
@@ -308,7 +299,7 @@
   display: grid;
   place-items: center;
   border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
+  border-radius: var(--sc-radius-md);
   /* Opaque, not transparent: the rail's edge fade ends right beside this and
      read as lying across the button whenever it could show through. */
   background: var(--sc-bg);
@@ -346,8 +337,8 @@
   height: 34px;
   padding: 0 8px 0 14px;
   border: 1px solid var(--sc-line-strong);
-  /* Keeps the pill it grew out of, so open and shut are one object, not two. */
-  border-radius: var(--sc-radius-full);
+  /* Keeps the shape it grew out of, so open and shut are one object, not two. */
+  border-radius: var(--sc-radius-md);
   /* It floats above the rail, so it is one of the few things allowed a shadow. */
   background: var(--sc-panel);
   box-shadow: var(--sc-shadow-2);
