@@ -383,29 +383,31 @@
   color: var(--sc-fg2);
   opacity: 0;
   transition: opacity 120ms ease;
-  background: linear-gradient(to var(--sc-fade-to, right), transparent, var(--sc-raised) 45%);
+  background: linear-gradient(var(--sc-fade-angle, 90deg), transparent, var(--sc-raised) 45%);
 }
 .sc-token:hover > button,
 .sc-token:focus-within > button {
   opacity: 1;
 }
-/* dir="auto" resolves per chip; a right-to-left label fades toward its X on the left */
+/* dir="auto" resolves per chip; a right-to-left label fades toward its X on
+   the left. An angle rather than a direction keyword: 90deg is "to right",
+   270deg is "to left", and one custom property flips every fade at once. */
 .sc-token:dir(rtl) {
-  --sc-fade-to: left;
+  --sc-fade-angle: 270deg;
 }
 .sc-token > button:hover {
   color: var(--sc-fg);
 }
 .sc-token[data-tinted] > button {
   background: linear-gradient(
-    to var(--sc-fade-to, right),
+    var(--sc-fade-angle, 90deg),
     transparent,
     color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%
   );
 }
 .sc-token[data-tinted]:hover > button {
   background: linear-gradient(
-    to var(--sc-fade-to, right),
+    var(--sc-fade-angle, 90deg),
     transparent,
     color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%
   );
@@ -499,7 +501,7 @@
   bottom: 0;
   inset-inline-end: 100%;
   width: 14px;
-  background: linear-gradient(to var(--sc-fade-to, right), transparent, var(--sc-token-hover));
+  background: linear-gradient(var(--sc-fade-angle, 90deg), transparent, var(--sc-token-hover));
   pointer-events: none;
 }
 @media (hover: none) {
@@ -512,7 +514,7 @@
 }
 .sc-token[data-tinted] > button::before {
   background: linear-gradient(
-    to var(--sc-fade-to, right),
+    var(--sc-fade-angle, 90deg),
     transparent,
     color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover))
   );
