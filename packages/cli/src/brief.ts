@@ -181,6 +181,14 @@ interface CompileContext {
   brand: any;
   images: Core['images'];
   engineCaps: EngineCapabilities;
+  /**
+   * What a reference image showed, in words, when the image is one of the
+   * brand's own shots: the head of that shot's recorded prompt. Spoken for a
+   * reference whose photo found no seat, so it still shapes the picture the
+   * way a seatless product does through its spec. Null for an image with no
+   * words behind it.
+   */
+  wordsFor?: (hash: string) => string | null;
   /** Legacy single scene (brief.templateId). Frames the whole prompt. */
   template?: CompilableScene;
   /** Lookup for inline scene tokens, which compile where they sit. */
@@ -770,6 +778,32 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
     return presentKeys.has(`${d.role}:${d.hash}`) ? d.text : null;
   };
+  // Words for the pictures that found no seat. A product, a person or a
+  // scene already speaks through its own directives whether or not its
+  // photo rides; a reference and a mark used to fall silent, which left the
+  // chip claiming a description the prompt did not carry. A reference is
+  // spoken as what its shot showed, when it was one of ours; a mark by name,
+  // with the one rule that keeps the engine from inventing it.
+  const absentDirectives: string[] = [];
+  const absentSeen = new Set<string>();
+  for (const a of attachments) {
+    const key = `${a.role}:${a.hash}`;
+    if (presentKeys.has(key) || absentSeen.has(key)) continue;
+    if (a.role === 'reference') {
+      absentSeen.add(key);
+      const words = ctx.wordsFor?.(a.hash) ?? null;
+      absentDirectives.push(
+        words
+          ? `A reference shot was not attached this time; it showed ${words}. Match that composition, lighting and treatment.`
+          : 'A reference image was attached but not sent this time.',
+      );
+    } else if (a.role === 'brand') {
+      absentSeen.add(key);
+      absentDirectives.push(
+        `The brand mark "${a.label}" was not attached this time; keep every branded surface plain and do not invent a logo.`,
+      );
+    }
+  }
 
   const guard = scene
     ? sceneGuardDirectives({
@@ -882,6 +916,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...figureDirectives,
     ...closeUpDirectives,
     ...otherDirectives,
+    ...absentDirectives,
     ...cameraDirectives,
     ...apparelUnworn,
     ...brandLines,

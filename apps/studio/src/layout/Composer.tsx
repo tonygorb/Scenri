@@ -980,16 +980,14 @@ export const Composer = forwardRef<
     return false;
   };
   /**
-   * The card's one line for a chip whose photo found no seat: one sentence,
-   * one truthful subject. A product, a person or a scene still reaches the
-   * engine as its written identity, so it is described in words; a reference
-   * or a mark has no words to ride on, so it is simply not pictured.
+   * The card's one line for a chip whose photo found no seat. True of every
+   * kind: the compiler carries a seatless product, person or scene as its
+   * written identity, a reference as what its shot showed, a mark by name
+   * with the plain-surface rule (see brief.ts, the absent attachments).
    */
-  const describedNote = (t: BriefToken): string | null => {
-    if (!room) return null;
-    const hook = t.t === 'ref' || t.t === 'mark' ? 'Not pictured' : 'Described in words';
-    return `${hook}: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it.`;
-  };
+  const describedNote = room
+    ? `Described in words: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it.`
+    : null;
   const templateFlag = !template
     ? null
     : blocking.length > 0

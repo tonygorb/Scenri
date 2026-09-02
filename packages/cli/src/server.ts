@@ -8,6 +8,7 @@ import { brandJsonWithResolvedPresenters, loadPresenters } from './presenters.js
 import { brandJsonWithResolvedDemoProducts, loadDemoProducts, demoProductResolver } from './demoProducts.js';
 import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type BriefToken } from './brief.js';
 import { mergeEditAttachments } from './attachmentBudget.js';
+import { shotWordsFor } from './shotWords.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
@@ -632,6 +633,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const compileCtx = {
       brand: brandJson,
       images: core.images,
+      wordsFor: shotWordsFor(core, brandId),
       engineCaps: uncapped,
       template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
       templateById: sceneById,
@@ -790,6 +792,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const compiled = compileBrief(brief as Brief, {
       brand: brandJson,
       images: core.images,
+      wordsFor: shotWordsFor(core, brand.id),
       engineCaps: engine.capabilities(),
       template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
       templateById: sceneById,
@@ -1371,6 +1374,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         compiled = compileBrief(brief as Brief, {
           brand: brandJson,
           images: core.images,
+          wordsFor: shotWordsFor(core, project.brandId),
           engineCaps: engine.capabilities(),
           template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
           templateById: sceneById,
@@ -1419,6 +1423,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       compiled = compileBrief(legacyBrief, {
         brand: brandJson,
         images: core.images,
+        wordsFor: shotWordsFor(core, project.brandId),
         engineCaps: engine.capabilities(),
         templateById: sceneFor(brandJson),
       });

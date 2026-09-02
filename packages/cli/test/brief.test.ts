@@ -1585,6 +1585,9 @@ describe('directives stay truthful to what actually rides', () => {
     expect(r.attachments.map((a) => a.role).sort()).toEqual(['character', 'product']);
     expect(r.dropped.map((d) => `${d.role}:${d.reason}`)).toEqual(['brand:budget']);
     expect(r.prompt).not.toContain('attached brand mark');
+    // it is carried in words instead: by name, with the rule that keeps the
+    // engine from inventing it
+    expect(r.prompt).toContain('was not attached this time; keep every branded surface plain and do not invent a logo');
   });
 
   it('a budget-dropped reference leaves no composition directive', () => {
@@ -1601,7 +1604,30 @@ describe('directives stay truthful to what actually rides', () => {
       ctx({ brand: brandWith(productHash, core.images.save(Buffer.from('cast-bytes'))), engineCaps: caps(2) }),
     );
     expect(r.dropped.map((d) => d.role)).toEqual(['reference']);
-    expect(r.prompt).not.toContain('Match the composition, lighting and treatment');
+    expect(r.prompt).not.toContain('of the attached reference');
+    // no words behind this image: the prompt says only that it did not ride
+    expect(r.prompt).toContain('A reference image was attached but not sent this time.');
+  });
+
+  it('a budget-dropped reference that was one of our shots is described from that shot', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx({
+        brand: brandWith(productHash, core.images.save(Buffer.from('cast-bytes'))),
+        engineCaps: caps(2),
+        wordsFor: (h) => (h === refHash ? 'a vase on a marble ledge at dusk' : null),
+      }),
+    );
+    expect(r.prompt).toContain(
+      'A reference shot was not attached this time; it showed a vase on a marble ledge at dusk. Match that composition, lighting and treatment.',
+    );
+    expect(r.prompt).not.toContain('of the attached reference');
   });
 
   it('the fidelity claim counts the angles that rode, not the angles asked for', () => {
