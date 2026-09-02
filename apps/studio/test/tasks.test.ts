@@ -104,9 +104,13 @@ describe('time', () => {
   it('labels elapsed and ago at each threshold', () => {
     const t0 = Date.UTC(2026, 7, 4, 12, 0, 0);
     const at = '2026-08-04T12:00:00Z';
-    expect(elapsedLabel(at, t0 + 42_000)).toBe('42s');
-    expect(elapsedLabel(at, t0 + 4 * 60_000)).toBe('4m');
-    expect(elapsedLabel(at, t0 + 62 * 60_000)).toBe('1h 2m');
+    // a clock, not a rounded unit: past the first minute the old "4m" sat
+    // still for sixty seconds at a time
+    expect(elapsedLabel(at, t0)).toBe('0:00');
+    expect(elapsedLabel(at, t0 + 42_000)).toBe('0:42');
+    expect(elapsedLabel(at, t0 + 4 * 60_000)).toBe('4:00');
+    expect(elapsedLabel(at, t0 + 59 * 60_000 + 59_000)).toBe('59:59');
+    expect(elapsedLabel(at, t0 + 62 * 60_000)).toBe('1:02:00');
     expect(agoLabel(at, t0 + 10_000)).toBe('just now');
     expect(agoLabel(at, t0 + 4 * 60_000)).toBe('4m ago');
     expect(agoLabel(at, t0 + 5 * 3600_000)).toBe('5h ago');

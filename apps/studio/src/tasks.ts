@@ -79,13 +79,20 @@ export function runningPhrase(createdAt: string, now = Date.now()): string {
   return 'taking longer than usual';
 }
 
-/** How long this has been going: "42s", "4m", "1h 2m". */
+/**
+ * How long this has been going, as a clock: "0:42", "4:17", "1:02:00".
+ *
+ * It used to round to a unit ("42s", then "4m"), so past the first minute the
+ * pill sat still for sixty seconds at a time and a two-minute render read the
+ * same at 2:01 and 2:59. Hours appear only once reached.
+ */
 export function elapsedLabel(startedAt: string, now = Date.now()): string {
   const s = elapsedSec(startedAt, now);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
+  const two = (n: number) => String(n).padStart(2, '0');
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
 }
 
 /** How long ago this happened: "just now", "4m ago", "Yesterday". */
