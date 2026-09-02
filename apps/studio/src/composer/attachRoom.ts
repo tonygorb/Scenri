@@ -62,8 +62,8 @@ export const PIXEL_ONLY = new Set(['ref', 'mark']);
 export const IDENTITY_CAP = 12;
 
 /**
- * What every door says at the ceiling: what is true, and what to do. The
- * same sentence above the attach panel's dimmed cards, in the live region
- * when a pick is refused, so a dimmed grid never has to explain itself.
+ * What every door says at the ceiling, in one short line: what is true, and
+ * what to do. The tooltip on a dimmed card or tile, the live region when a
+ * pick is refused.
  */
-export const CEILING_SENTENCE = `This shot already holds ${IDENTITY_CAP} identities, the most one can carry. Remove a chip to add another.`;
+export const CEILING_SENTENCE = `Shot is full: ${IDENTITY_CAP} identities. Remove one to add another.`;

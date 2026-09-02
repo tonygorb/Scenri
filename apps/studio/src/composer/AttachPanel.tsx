@@ -293,7 +293,7 @@ export function AttachPanel({
       </button>
     );
     return noRoom && full ? (
-      <Tooltip key={c.key} content={full}>
+      <Tooltip key={c.key} content={full} className="sc-tip" maxWidth="220px">
         {card}
       </Tooltip>
     ) : (

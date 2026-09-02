@@ -59,7 +59,13 @@ export function AssetCard({
       )}
     </button>
   );
-  return disabled && title ? <Tooltip content={title}>{tile}</Tooltip> : tile;
+  return disabled && title ? (
+    <Tooltip content={title} className="sc-tip" maxWidth="220px">
+      {tile}
+    </Tooltip>
+  ) : (
+    tile
+  );
 }
 
 /**

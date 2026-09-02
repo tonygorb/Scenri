@@ -449,7 +449,7 @@ test('the thirteenth identity is refused, and the panel says why', async ({ page
   await expect(cards.nth(12)).toBeDisabled();
   // the reason rides on hover, so the grid never moves to explain itself
   await cards.nth(12).hover();
-  await expect(page.getByRole('tooltip')).toContainText('the most one can carry');
+  await expect(page.getByRole('tooltip')).toContainText('Remove one to add another');
   await expect(page.locator('.sc-ap-hint')).toHaveCount(0);
   // a colour is not an identity and still goes in
   await tab('Colors').click();
