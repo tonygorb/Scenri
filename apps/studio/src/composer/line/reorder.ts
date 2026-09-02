@@ -1,7 +1,7 @@
 import type { SentenceToken } from './tokens.js';
-import { lengthOf, unitsOfPosition } from './caret.js';
+import { GUARD_RE, lengthOf, unitsOfPosition } from './caret.js';
 import { unitsBeforeChip } from './insert.js';
-import { closeSeamAt, isChip, normalizeLine } from './invariants.js';
+import { isChip, normalizeLine } from './invariants.js';
 import { chipLabel } from './clipboard.js';
 import { pointToLinePosition } from './query.js';
 
@@ -120,11 +120,6 @@ export function moveChipToUnits(root: HTMLElement | null, chip: HTMLElement, tar
 
   chip.remove();
   root.insertBefore(chip, ref);
-  root.normalize();
-  // A move is a lift and a landing, and the lift leaves the same seam a removal
-  // does. It sits at `at`, one unit further along when the chip came back down
-  // in front of it.
-  closeSeamAt(root, targetUnits <= at ? at + 1 : at);
   normalizeLine(root);
   return true;
 }
@@ -213,7 +208,7 @@ const WORDS_AROUND = 3;
 function nextThing(chip: HTMLElement): string | null {
   for (let n = chip.nextSibling; n; n = n.nextSibling) {
     if (isChip(n)) return chipLabel(n as HTMLElement) || null;
-    const words = (n.textContent ?? '').trim();
+    const words = (n.textContent ?? '').replace(GUARD_RE, '').trim();
     if (words) return `"${words.split(/\s+/).slice(0, WORDS_AROUND).join(' ')}"`;
   }
   return null;
@@ -238,7 +233,7 @@ function readTokensLite(root: HTMLElement): SentenceToken[] {
   let buf = '';
   for (const n of Array.from(root.childNodes)) {
     if (n.nodeType === Node.TEXT_NODE) {
-      buf += n.textContent ?? '';
+      buf += (n.textContent ?? '').replace(GUARD_RE, '');
       continue;
     }
     if (buf) {

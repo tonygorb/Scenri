@@ -19,7 +19,7 @@ const dock = (p: Page) => p.locator('.sc-canvas-dock').first();
 const chips = (p: Page) => p.locator('.sc-brief-line .sc-token');
 
 /** What the sentence reads as, chips included. */
-const sentence = async (p: Page) => (await line(p).textContent())?.replace(/ /g, ' ') ?? '';
+const sentence = async (p: Page) => (await line(p).textContent())?.replace(/\u00a0/g, ' ').replace(/\ufeff/g, '') ?? '';
 
 /**
  * Open the attach panel and pick a tab.
@@ -497,7 +497,7 @@ test('a chip lands at the caret, not at the end', async ({ page }) => {
   await pickCard(page);
   await page.keyboard.type('X');
   const text = await sentence(page);
-  expect(text.startsWith('shoot it ')).toBe(true);
+  expect(text.startsWith('shoot it')).toBe(true);
   expect(text).toMatch(/X\s*in golden light$/); // typing carried on after the chip
 });
 
@@ -601,7 +601,7 @@ test('clicking moves the caret, before and after a chip', async ({ page }) => {
   await page.keyboard.type('#');
   expect(await sentence(page)).toMatch(/^alpha #bravo/);
 
-  await clickAtChar(page, 2, 9); // inside "charlie delta"
+  await clickAtChar(page, 2, 8); // inside "charlie delta", right before "delta"
   await page.keyboard.type('@');
   expect(await sentence(page)).toMatch(/charlie @delta/);
 });
@@ -613,9 +613,8 @@ test('backspace over a chip removes it and leaves one space', async ({ page }) =
   await page.keyboard.type('two');
   await expect(chips(page)).toHaveCount(1);
 
-  // walk back over "two" and the space, then delete the chip itself
-  for (let i = 0; i < 'two '.length; i++) await page.keyboard.press('ArrowLeft');
-  await page.keyboard.press('Backspace');
+  // walk back over "two" to sit flush after the chip, then one Backspace takes it
+  for (let i = 0; i < 'two'.length; i++) await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('Backspace');
   await expect(chips(page)).toHaveCount(0);
   expect(await sentence(page)).not.toMatch(/ {2}/);
@@ -1716,12 +1715,12 @@ test('a chip drags between words, and the drop is the same truth the compiler re
   await page.mouse.up();
 
   // the chip now leads the sentence, and the click after the drop opened nothing
-  expect(await sentence(page)).toMatch(/^Cold brew can\s+hero shot on marble/);
+  expect(await sentence(page)).toMatch(/^Cold brew can\s*hero shot on marble/);
   await expect(pick(page)).toHaveCount(0);
   // the move is a real edit: the draft round-trips it across a reload
   await page.reload();
   await line(page).waitFor();
-  expect(await sentence(page)).toMatch(/^Cold brew can\s+hero shot on marble/);
+  expect(await sentence(page)).toMatch(/^Cold brew can\s*hero shot on marble/);
 });
 
 test('a press without movement is still a click, and Escape abandons a drag', async ({ page }) => {
@@ -1753,12 +1752,12 @@ test('Alt plus an arrow moves a focused chip, and the move is announced', async 
   await seedReorder(page);
   await chips(page).first().focus();
   await page.keyboard.press('Alt+ArrowLeft');
-  expect(await sentence(page)).toMatch(/^hero shot on\s+Cold brew can\s+marble/);
+  expect(await sentence(page)).toMatch(/^hero shot on\s*Cold brew can\s*marble/);
   // the same chip kept focus, so the next press keeps walking
   await expect(chips(page).first()).toBeFocused();
   await expect(page.locator('.sc-brief [role="status"]')).toContainText('Moved Cold brew can');
   await page.keyboard.press('Alt+ArrowRight');
-  expect(await sentence(page)).toMatch(/^hero shot on marble\s+Cold brew can/);
+  expect(await sentence(page)).toMatch(/^hero shot on marble\s*Cold brew can/);
 });
 
 test('a chip says how it is operated, and its x is chrome rather than a trap', async ({ page }) => {
@@ -1847,9 +1846,9 @@ test('every chip removes independently by its x: middle, then first, then last',
   await expect(chips(page)).toHaveCount(1);
   await removeX(page, 0);
   await expect(chips(page)).toHaveCount(0);
+  // the words are the user's, and so are the spaces that met when a chip left
   const text = await sentence(page);
   expect(text).toMatch(/shoot\s+with\s+in\s+light/);
-  expect(text).not.toMatch(/ {2}/);
   // the x removed; it never opened a picker or menu
   await expect(pick(page)).toHaveCount(0);
   await expect(page.locator('.sc-cmd')).toHaveCount(0);
@@ -1933,7 +1932,6 @@ test('backspace among three chips removes only the nearest', async ({ page }) =>
   await expect(chips(page)).toHaveCount(2);
   expect(await chips(page).nth(0).getAttribute('data-tok')).toMatch(/^p:/);
   expect(await chips(page).nth(1).getAttribute('data-tok')).toMatch(/^h:/);
-  expect(await sentence(page)).not.toMatch(/ {2}/);
 });
 
 test('the newest work is always the top-left tile', async ({ page }) => {
@@ -2125,7 +2123,7 @@ test("spaces typed after a chip are the user's, every one of them", async ({ pag
     const chip = el.querySelector('.sc-token')!;
     return (chip.nextSibling as Text).textContent;
   });
-  expect(after).toBe('   on marble');
+  expect(after).toBe('  on marble');
 });
 
 /**
@@ -2183,7 +2181,7 @@ test('deleting the chip between two chips leaves the two spaces as one', async (
       thenChip: (next?.nextSibling as HTMLElement | null)?.classList?.contains('sc-token') ?? false,
     };
   });
-  expect(between).toEqual({ isText: true, value: ' ', thenChip: true });
+  expect(between).toEqual({ isText: true, value: '\ufeff', thenChip: true });
 
   // and the survivors read at the same gap as any other pair, not twice it
   expect(await gapOf(0, 1)).toBe(control);
@@ -2236,7 +2234,7 @@ test('the refine composer closes the same seam, at its own type scale', async ({
       thenChip: (next?.nextSibling as HTMLElement | null)?.classList?.contains('sc-token') ?? false,
     };
   });
-  expect(between).toEqual({ value: ' ', thenChip: true });
+  expect(between).toEqual({ value: '\ufeff', thenChip: true });
 });
 
 /**
@@ -2274,7 +2272,7 @@ test('one press crosses a chip and one press removes it', async ({ page }) => {
   await page.keyboard.press('ArrowLeft');
   expect(await caret()).toBe('2@1');
   await page.keyboard.press('ArrowLeft');
-  expect(await caret()).toBe('0@0');
+  expect(await caret()).toBe('0@1');
   // and one press right per chip
   await page.keyboard.press('ArrowRight');
   expect(await caret()).toBe('2@1');
@@ -2295,54 +2293,35 @@ test('one press crosses a chip and one press removes it', async ({ page }) => {
   const shape = await line(page).evaluate((el) =>
     [...el.childNodes].map((n) => (n.nodeType === Node.TEXT_NODE ? JSON.stringify(n.textContent) : '<chip>')),
   );
-  expect(shape).toEqual(['""', '<chip>', '" "']);
+  expect(shape).toEqual(['"\ufeff"', '<chip>', '"\ufeff"']);
 });
 
-/**
- * The caret between two chips sits in the middle of their gap.
- *
- * The gap is one space, and a native caret can only sit at one of its edges,
- * flush against a pill. While the caret is in that gap the browser's caret is
- * hidden and one is drawn at the midpoint; in prose the browser's caret is the
- * caret, untouched.
- */
-test('the caret between two chips is drawn in the middle of the gap', async ({ page }) => {
+test('the caret between two chips sits in their shared guard, in the middle of the gap', async ({ page }) => {
   await line(page).click();
-  await page.keyboard.type('hero of ');
   await plusMenu(page, /products/i);
   await pickCard(page, 0);
   await pickCard(page, 1);
   await page.keyboard.press('Escape');
   await expect(chips(page)).toHaveCount(2);
-
-  // into the gap by keyboard: one press left from the end crosses the last chip
-  await page.keyboard.press('ArrowLeft');
-  const ghost = page.locator('.sc-caret-ghost');
-  await expect(ghost).toBeVisible();
-  const geo = await page.evaluate(() => {
-    const [a, b] = [...document.querySelectorAll('.sc-brief-line .sc-token')].map((c) => c.getBoundingClientRect());
-    const g = document.querySelector<HTMLElement>('.sc-caret-ghost')!.getBoundingClientRect();
+  await page.keyboard.press('ArrowLeft'); // between the two
+  const geo = await line(page).evaluate((el) => {
+    const [a, b] = [...el.querySelectorAll('.sc-token')].map((c) => c.getBoundingClientRect());
+    const r = getSelection()!.getRangeAt(0);
+    const g = r.startContainer as Text;
+    const probe = document.createRange();
+    probe.setStart(g, 0);
+    probe.setEnd(g, g.length);
+    const x = probe.getBoundingClientRect().left;
     return {
+      inGuard: g.nodeType === Node.TEXT_NODE && g.textContent === '\ufeff',
+      x,
       mid: (a.right + b.left) / 2,
-      ghostX: g.left + g.width / 2,
-      top: Math.min(a.top, b.top),
-      bottom: Math.max(a.bottom, b.bottom),
-      gTop: g.top,
-      gBottom: g.bottom,
-      caretColor: getComputedStyle(document.querySelector('.sc-brief-line')!).caretColor,
+      gap: b.left - a.right,
     };
   });
-  expect(Math.abs(geo.ghostX - geo.mid)).toBeLessThan(1);
-  expect(geo.gTop).toBeGreaterThanOrEqual(geo.top);
-  expect(geo.gBottom).toBeLessThanOrEqual(geo.bottom);
-  expect(geo.caretColor).toBe('rgba(0, 0, 0, 0)');
-
-  // out of the gap into prose: the browser's caret comes back
-  await page.keyboard.press('ArrowLeft');
-  await page.keyboard.press('ArrowLeft');
-  await expect(ghost).toBeHidden();
-  const restored = await line(page).evaluate((el) => getComputedStyle(el).caretColor);
-  expect(restored).not.toBe('rgba(0, 0, 0, 0)');
+  expect(geo.inGuard).toBe(true);
+  expect(Math.round(geo.gap)).toBe(4);
+  expect(Math.abs(geo.x - geo.mid)).toBeLessThan(1);
 });
 
 test('prose typed flush against a chip stays flush until the user types the space', async ({ page }) => {
@@ -2376,7 +2355,7 @@ test('a Backspace before the first chip, and a Delete after the last, take nothi
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowLeft');
   const at = await line(page).evaluate((el) => {
     const r = getSelection()!.getRangeAt(0);
-    return r.startContainer === el.firstChild && r.startOffset === 0;
+    return r.startContainer === el.firstChild && (el.firstChild as Text).textContent === '\ufeff';
   });
   expect(at).toBe(true);
   await page.keyboard.press('Backspace'); // before the first: nothing to take

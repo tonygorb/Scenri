@@ -43,8 +43,7 @@ import {
   chipLabel,
   closeIcon,
   lineIsCanonical,
-  collapseSpaceAtCaret,
-  attachGhostCaret,
+  unitsOfPosition,
   stepAcrossChip,
   chipToDelete,
   deletionAtLineEdge,
@@ -477,8 +476,6 @@ export const BriefInput = forwardRef<
     document.addEventListener('selectionchange', track);
     return () => document.removeEventListener('selectionchange', track);
   }, []);
-  // the caret between two chips is drawn in the middle of their gap
-  useEffect(() => attachGhostCaret(rootRef.current), []);
 
   const place = useCallback(
     (token: SentenceToken) => {
@@ -1109,9 +1106,7 @@ export const BriefInput = forwardRef<
     // The one rule, only when a keystroke has left the line short of it: a
     // space typed into the one a chip owns, prose typed flush against a chip,
     // two chips left touching by a deleted selection.
-    if (!lineIsCanonical(root)) normalizeLine(root, { shapeProse: false });
-    // a selection deleted across a chip leaves its two spaces meeting in prose
-    if (native?.inputType?.startsWith('delete')) collapseSpaceAtCaret(root);
+    if (!lineIsCanonical(root)) normalizeLine(root);
     // clearing the line leaves a <br>; strip it and flip data-empty so the
     // placeholder returns even if Chromium re-inserts a caret host
     if (syncEmpty(root)) caretToEnd(root);
@@ -1257,12 +1252,16 @@ export const BriefInput = forwardRef<
 
     const frag = document.createDocumentFragment();
     for (const p of kept) frag.appendChild(typeof p === 'string' ? document.createTextNode(p) : chipFor(p));
-    const tail = document.createTextNode(' ');
-    frag.appendChild(tail);
+    const last = frag.lastChild;
     range.insertNode(frag);
     if (oldSlot) oldSlot.remove();
 
-    const at = caretUnitsOf(root, tail);
+    // the caret lands right after what was pasted, and nothing else goes in
+    const at = last
+      ? last.nodeType === Node.TEXT_NODE
+        ? unitsOfPosition(root, last, (last as Text).length)
+        : unitsOfPosition(root, root, Array.from(root.childNodes).indexOf(last) + 1)
+      : (caretUnits(root) ?? 0);
     normalizeLine(root);
     setCaretUnits(root, at);
     emit();
@@ -1528,16 +1527,6 @@ function sameColor(a: string | null | undefined, b: string | null | undefined): 
   const left = a ? normalizeHex(a) : null;
   const right = b ? normalizeHex(b) : null;
   return !!left && left === right;
-}
-
-/** Characters before a node, chips counting as one, for restoring a caret. */
-function caretUnitsOf(root: HTMLElement, node: Node): number {
-  let n = 0;
-  for (const c of Array.from(root.childNodes)) {
-    if (c === node || c.contains(node)) break;
-    n += c.nodeType === Node.TEXT_NODE ? (c.textContent ?? '').length : 1;
-  }
-  return n + (node.nodeType === Node.TEXT_NODE ? (node.textContent ?? '').length : 1);
 }
 
 function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): string {

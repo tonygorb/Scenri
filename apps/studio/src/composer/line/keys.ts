@@ -1,101 +1,70 @@
-import { placeCaret } from './caret.js';
-import { caretUnits } from './caret.js';
+import { isGuard, placeCaret } from './caret.js';
 import { caretIn, isChip } from './invariants.js';
 
-// ---------------------------------------------------------------- a chip and its space, as one
+// ---------------------------------------------------------------- a chip and its guard, as one
 
 /**
- * A chip and the space after it are one thing to the keyboard.
- *
- * Between two chips, and after the last one, the line keeps exactly one space
- * so there is somewhere for a caret to be. That space is the chip's, not the
- * sentence's: nothing typed into it is a word, and deleting it only puts two
- * chips shoulder to shoulder until the line puts it back. Left to the browser
- * it was still a character, so crossing a chip took two presses and removing
- * one took two as well, with the chips touching in between. These rules make
- * the two one unit: one press crosses a chip, one press removes it, and the
- * far edge of its space is the only place the caret stops in that gap.
- *
- * Prose beside a chip is untouched. Its spaces are the user's, and the keys
- * step through them a character at a time, as they do in any sentence.
+ * A chip is an inline atom; the text beside it is either the user's or a
+ * guard, one zero-width character that hosts the caret where the user has
+ * typed nothing. The browsers step and delete around such a thing as if it
+ * were a letter, so these rules make the atom one unit to the keyboard: one
+ * press crosses it, the key that faces it removes it. In prose the keys are
+ * the browser's.
  */
 
-/** A chip's own space: spaces only, a chip before it, and a chip or nothing after. */
-export const isOwnedSpace = (n: ChildNode | null): n is Text =>
-  !!n &&
-  n.nodeType === Node.TEXT_NODE &&
-  / +/.test(n.textContent ?? '') &&
-  /^ *$/.test(n.textContent ?? '') &&
-  isChip(n.previousSibling) &&
-  (isChip(n.nextSibling) || !n.nextSibling);
-
 /**
- * Step over a chip in one press, its space included.
+ * Step over a chip in one press.
  *
  * True when the caret was moved and the browser's own step must not happen.
- * False leaves the key to the browser: prose is stepped through a character
- * at a time, and crossing a chip into prose lands where the browser lands.
+ * At the edge of the text beside a chip, or anywhere in its guard, the step
+ * crosses the chip and lands in the text on its other side: past that text's
+ * guard, or at the near edge of its prose.
  */
 export function stepAcrossChip(root: HTMLElement | null, dir: 'left' | 'right'): boolean {
   const c = caretIn(root);
   if (!c || !root) return false;
   const { text, at } = c;
+  const guard = isGuard(text);
   if (dir === 'right') {
-    // Right before a chip. The browser would cross it and stop at the near
-    // edge of its space; the far edge is the stop, so the space goes with it.
-    if (at !== text.length || !isChip(text.nextSibling)) return false;
-    const after = text.nextSibling?.nextSibling ?? null;
-    if (!isOwnedSpace(after)) return false;
-    placeCaret(root, after, 1);
+    if (!isChip(text.nextSibling) || (!guard && at !== text.length)) return false;
+    const after = text.nextSibling?.nextSibling;
+    if (after?.nodeType !== Node.TEXT_NODE) return false;
+    placeCaret(root, after as Text, isGuard(after) ? 1 : 0);
     return true;
   }
-  // At the far edge of a chip's space: a step back crosses the chip too.
-  if (at !== text.length || !isOwnedSpace(text)) return false;
-  const before = text.previousSibling?.previousSibling ?? null;
+  if (!isChip(text.previousSibling) || (!guard && at !== 0)) return false;
+  const before = text.previousSibling?.previousSibling;
   if (before?.nodeType !== Node.TEXT_NODE) return false;
-  placeCaret(root, before as Text, (before as Text).length);
+  placeCaret(root, before as Text, isGuard(before) ? 1 : (before as Text).length);
   return true;
 }
 
 /**
  * The chip a Backspace or Delete is aimed at.
  *
- * A chip and the space beside it are one unit, so the key that faces a chip
- * takes the chip: Backspace flush after a chip or just past the space it owns,
- * Delete flush before a chip or just before the space that leads to it. Left to
- * the browser, the press took the space, the line put the space straight back,
- * and nothing seemed to happen. Anywhere else the key is the browser's.
+ * Backspace flush after a chip, or anywhere in the guard after it, takes the
+ * chip; Delete flush before one, or in the guard before it, likewise. Left to
+ * the browser the press took the guard, the line put it straight back, and
+ * nothing seemed to happen. Anywhere else the key is the browser's.
  */
 export function chipToDelete(root: HTMLElement | null, key: 'Backspace' | 'Delete'): HTMLElement | null {
   const c = caretIn(root);
   if (!c) return null;
   const { text, at } = c;
-  const v = text.textContent ?? '';
+  const guard = isGuard(text);
   if (key === 'Backspace') {
-    if (!isChip(text.previousSibling)) return null;
-    return at === 0 || (at === 1 && v[0] === ' ') ? (text.previousSibling as HTMLElement) : null;
+    return isChip(text.previousSibling) && (guard || at === 0) ? (text.previousSibling as HTMLElement) : null;
   }
-  if (!isChip(text.nextSibling)) return null;
-  const end = v.length;
-  return at === end || (at === end - 1 && v[end - 1] === ' ') ? (text.nextSibling as HTMLElement) : null;
+  return isChip(text.nextSibling) && (guard || at === text.length) ? (text.nextSibling as HTMLElement) : null;
 }
 
 /**
- * A Backspace with nothing before the caret and a chip standing first.
- *
- * At the very start of the line the press has nothing to take, and left to
- * the browser it took the line: both engines treat the edge of an editing host
- * beside a non-editable atom as something to merge or clear. So the press is
- * swallowed. The end of the line never needs this: a chip there always has
- * its space after it, and a Delete at the end of text takes nothing anywhere.
+ * A press with nothing on its side of the caret: Backspace in the guard before
+ * a chip that starts the line, Delete in the guard after one that ends it.
+ * Left to the browser it took the guard, or the line; swallowed.
  */
 export function deletionAtLineEdge(root: HTMLElement | null, key: 'Backspace' | 'Delete'): boolean {
-  if (!root || key !== 'Backspace') return false;
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || !sel.getRangeAt(0).collapsed) return false;
-  if (caretUnits(root) !== 0) return false;
-  const first = Array.from(root.childNodes).find(
-    (c) => c.nodeType !== Node.TEXT_NODE || (c.textContent ?? '').length > 0,
-  );
-  return isChip(first ?? null);
+  const c = caretIn(root);
+  if (!c || !isGuard(c.text)) return false;
+  return key === 'Backspace' ? !c.text.previousSibling : !c.text.nextSibling;
 }

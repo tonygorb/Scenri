@@ -28,10 +28,9 @@ export {
   groupOf,
 } from './line/tokens.js';
 export { readLine, renderLine } from './line/render.js';
-export { caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, tailText } from './line/caret.js';
-export { normalizeLine, lineIsCanonical, collapseSpaceAtCaret, isBlankLine, syncEmpty } from './line/invariants.js';
-export { stepAcrossChip, chipToDelete, deletionAtLineEdge, isOwnedSpace } from './line/keys.js';
-export { attachGhostCaret, gapAtCaret } from './line/ghostCaret.js';
+export { GUARD, caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, unitsOfPosition } from './line/caret.js';
+export { normalizeLine, lineIsCanonical, syncEmpty } from './line/invariants.js';
+export { stepAcrossChip, chipToDelete, deletionAtLineEdge } from './line/keys.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
 export {
   insertToken,
