@@ -8,7 +8,10 @@ import { isolate } from './harness.js';
  */
 isolate({ env: { SCENRI_DEMO_STAGGER_MS: '300', SCENRI_DEMO_FAIL_SLOT: '1' } });
 
-test.beforeEach(async ({}, testInfo) => testInfo.setTimeout(60_000));
+test.beforeEach(async ({ page }, testInfo) => {
+  await page.bringToFront();
+  testInfo.setTimeout(60_000);
+});
 
 const line = (p: Page) => p.locator('.sc-brief-line').first();
 const dock = (p: Page) => p.locator('.sc-canvas-dock').first();

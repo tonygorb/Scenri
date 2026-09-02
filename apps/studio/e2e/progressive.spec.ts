@@ -12,7 +12,10 @@ isolate({ env: { SCENRI_DEMO_STAGGER_MS: '3000', SCENRI_DEMO_ORDER: 'reverse' } 
 
 // A staggered batch takes nine seconds to land on its own; the default budget
 // of twenty leaves nothing for the walk to and from it on a loaded machine.
-test.beforeEach(async ({}, testInfo) => testInfo.setTimeout(60_000));
+test.beforeEach(async ({ page }, testInfo) => {
+  await page.bringToFront();
+  testInfo.setTimeout(60_000);
+});
 
 const line = (p: Page) => p.locator('.sc-brief-line').first();
 const dock = (p: Page) => p.locator('.sc-canvas-dock').first();
