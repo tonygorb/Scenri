@@ -45,10 +45,7 @@ test.describe('brand kit', () => {
   test('the kit is a settings pane, and /kit still lands in it', async ({ page }) => {
     const brand = await currentBrand(page);
 
-    // The nav slot went back to the work: five items, no Brand tab.
-    await expect(page.locator('nav.sc-mainnav button, .sc-mainnav a'))
-      .toHaveCount(0, { timeout: 1 })
-      .catch(() => {});
+    // The nav slot went back to the work: no Brand tab.
     await expect(page.getByRole('button', { name: 'Brand', exact: true })).toHaveCount(0);
 
     // Every link that used to point at the page lands in the pane instead.

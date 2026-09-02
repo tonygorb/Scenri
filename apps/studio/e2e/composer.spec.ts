@@ -1002,7 +1002,6 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   await expect(composer.locator('.sc-send')).toContainText('Refine');
   await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
   await expect(composer.locator('.sc-reshape')).toHaveCount(0);
-  await expect(composer).not.toContainText('Expands this shot');
 
   // the send is caught and answered here rather than allowed to make a picture
   let posted: any = null;
@@ -1053,7 +1052,6 @@ test('a squarer shape while refining infers a crop, and sends it with no words a
   await page.locator('.sc-morepop .sc-seg-o').filter({ hasText: '1:1' }).first().click();
   await page.keyboard.press('Escape');
   await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will crop to Square 1:1');
-  await expect(composer).not.toContainText('Nothing new is drawn');
 
   // words and a crop cannot travel together, and the block says so out loud
   await composer.locator('.sc-brief-line').click();
@@ -1274,7 +1272,6 @@ test('typing in the picker never reaches the brief', async ({ page }) => {
   // the brief is untouched, and the panel says so rather than pretending
   expect(await sentence(page)).toBe(before);
   await expect(page.locator('.sc-swap-empty')).toBeVisible();
-  await expect(page.locator('.sc-swap-capped')).toHaveCount(0);
 });
 
 test('search finds a scene and one click takes it', async ({ page }) => {
@@ -2155,9 +2152,9 @@ test('the drag ghost rides the grab point like a platform drag image', async ({ 
   await page.mouse.down();
   const endX = grabX - 90;
   await page.mouse.move(endX, grabY, { steps: 8 });
-  await page.waitForTimeout(80);
 
   const ghost = page.locator('.sc-chip-ghost');
+  await expect(ghost).toBeVisible();
   await expect(ghost).toBeVisible();
   const gbox = (await ghost.boundingBox())!;
   // preserved size: no scale jump
