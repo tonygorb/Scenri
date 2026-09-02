@@ -67,6 +67,7 @@ export function ChipPreview({
   src,
   label,
   warning,
+  note,
   onOpen,
   onHoverIn,
   onHoverOut,
@@ -80,6 +81,8 @@ export function ChipPreview({
   label?: string | null;
   /** The compiler's own warning about this attachment, said here rather than in a tooltip. */
   warning?: string | null;
+  /** How this identity reaches the engine, by photo or by words. A fact, not a warning. */
+  note?: string | null;
   /** Clicking the card is the same ask as clicking the chip: open it properly. */
   onOpen: () => void;
   /** The pointer reached the card, so whatever close the chip scheduled is off. */
@@ -173,6 +176,7 @@ export function ChipPreview({
         {label && <b dir="auto">{label}</b>}
         <span>{noun}</span>
       </button>
+      {note && <p className="sc-chip-preview-note">{note}</p>}
       {warning && <p className="sc-swap-warn">{warning}</p>}
     </div>,
     document.body,

@@ -83,9 +83,10 @@ export function AttachPanel({
    */
   refining?: boolean;
   /**
-   * The engine's photo slots are all taken: every card that would cost one
-   * sits out, dimmed and disabled, and this is the sentence that says why.
-   * Colours cost nothing and stay live.
+   * The engine's photo seats are all taken: the cards that are nothing but
+   * their picture (marks, shots as references) sit out, dimmed and disabled,
+   * and this is the sentence that says why. Everything else carries words
+   * and stays live.
    */
   full?: string | null;
   onToken: (t: SentenceToken) => void;
@@ -254,7 +255,9 @@ export function AttachPanel({
 
   const card = (c: Card) => {
     const sitsOut = refining && c.tab === 'Scenes';
-    const noRoom = !!full && c.tab !== 'Colors';
+    // Only a card that is nothing but its picture sits out: a mark, a shot
+    // used as a reference. Products, people and scenes carry words.
+    const noRoom = !!full && (c.tab === 'Brand' || c.tab === 'Shots');
     return (
       <button
         type="button"
@@ -338,7 +341,7 @@ export function AttachPanel({
       </div>
 
       <div className="sc-ap-body">
-        {full && tab !== 'Colors' && <p className="sc-ap-hint">{full}</p>}
+        {full && (tab === 'Brand' || tab === 'Shots') && <p className="sc-ap-hint">{full}</p>}
         {refining && tab === 'Scenes' && (
           <p className="sc-ap-hint">
             Scenes set up a new shot, so they sit out while you are refining. Press X on Refining to use one.

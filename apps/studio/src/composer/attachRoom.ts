@@ -23,5 +23,10 @@ export function attachRoom(preview: Pick<BriefPreview, 'cap' | 'attachments' | '
   return { cap: preview.cap, left: preview.cap - groups.size };
 }
 
-/** The kinds of chip that cost a photo slot when the engine reads images. */
-export const BEARS_IMAGE = new Set(['product', 'character', 'ref', 'mark', 'template']);
+/**
+ * The kinds of chip that are nothing but their picture. A product, a person
+ * or a scene carries a written identity too, so it still shapes the shot when
+ * its photo finds no seat; a reference or a brand mark has no words to ride
+ * on, and past the last seat it is refused rather than quietly dropped.
+ */
+export const PIXEL_ONLY = new Set(['ref', 'mark']);
