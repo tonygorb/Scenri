@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { useNavigate } from 'react-router';
 import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
@@ -6,6 +6,7 @@ import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
 import { ChipPreview, isPreviewKind, type PreviewKind } from '../../composer/ChipPreview.js';
 import { ImageLightbox } from '../../composer/ImageLightbox.js';
+import type { SourceItem } from '../../composer/SourceCards.js';
 import { identityKeyOf, normalizeTint } from '../../composer/line.js';
 import { vibrantTintOf } from '../../composer/sceneTint.js';
 import { useHoverPreview } from '../../composer/useHoverPreview.js';
@@ -394,96 +395,61 @@ export function BriefLine({
 }
 
 /**
- * The refined source's identity, worn as small inverse cards in the sidebar's
- * header: the product, the person and the scene the original image was made
- * of. Each one opens the original picture, the same door the old Refining
- * chip held; the catalogs resolve the labels and thumbnails exactly the way
- * the brief record above them does.
+ * What a picture is made of, resolved from its lineage tokens (nearest level
+ * first) against the catalogs, the same way the brief record resolves its
+ * chips. Products and presenters accumulate; only the nearest scene is the
+ * picture's world, so the first one wins and the rest are history.
  */
-export function SourceChips({
-  brand,
-  tokens,
-  onOpen,
-}: {
-  brand: Brand | null;
-  /**
-   * The source's lineage tokens, nearest level first: a refine keeps its
-   * contents through the photograph, never as tokens of its own, so the
-   * caller walks the whole chain. Products and presenters accumulate; only
-   * the nearest scene is the picture's world, so the first one wins and the
-   * rest are history.
-   */
-  tokens: unknown[];
-  onOpen: () => void;
-}) {
+export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceItem[] {
   const { scenes, presenters, demoProducts } = useAppData();
-  const products: any[] = (brand?.json?.products ?? []) as any[];
-  const cast: any[] = (brand?.json?.characters ?? []) as any[];
-  const ownScenes = customScenesOf(brand);
-
-  type Item = { key: string; kind: string; label: string; thumb: string | null; crop?: 'top' };
-  const itemOf = (t: any): Item | null => {
-    if (t?.t === 'product') {
-      const p = products.find((x) => x.id === t.id);
-      const demo = p ? null : demoProducts.find((x) => x.id === t.id);
-      if (!p && !demo) return null;
-      return {
-        key: `p${t.id}`,
-        kind: 'product',
-        label: p?.name ?? demo?.name ?? 'product',
-        thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
-      };
+  return useMemo(() => {
+    const products: any[] = (brand?.json?.products ?? []) as any[];
+    const cast: any[] = (brand?.json?.characters ?? []) as any[];
+    const ownScenes = customScenesOf(brand);
+    const itemOf = (t: any): SourceItem | null => {
+      if (t?.t === 'product') {
+        const p = products.find((x) => x.id === t.id);
+        const demo = p ? null : demoProducts.find((x) => x.id === t.id);
+        if (!p && !demo) return null;
+        return {
+          key: `p${t.id}`,
+          kind: 'product',
+          label: p?.name ?? demo?.name ?? 'product',
+          thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
+        };
+      }
+      if (t?.t === 'character') {
+        const c = cast.find((x) => x.id === t.id);
+        const pr = c ? null : presenters.find((x) => x.id === t.id);
+        if (!c && !pr) return null;
+        const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null as string | null };
+        return {
+          key: `h${t.id}`,
+          kind: 'presenter',
+          label: c?.name ?? pr?.name ?? 'someone',
+          thumb: av.src,
+          crop: av.crop,
+        };
+      }
+      if (t?.t === 'template') {
+        const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
+        if (!s) return null;
+        return { key: `t${t.id}`, kind: 'scene', label: s.name, thumb: s.previewUrl ?? null };
+      }
+      return null;
+    };
+    const seen = new Set<string>();
+    const items: SourceItem[] = [];
+    let sceneNamed = false;
+    for (const t of tokens as any[]) {
+      if (t?.t === 'template' && sceneNamed) continue;
+      const it = itemOf(t);
+      if (!it || seen.has(it.key)) continue;
+      if (it.kind === 'scene') sceneNamed = true;
+      seen.add(it.key);
+      items.push(it);
     }
-    if (t?.t === 'character') {
-      const c = cast.find((x) => x.id === t.id);
-      const pr = c ? null : presenters.find((x) => x.id === t.id);
-      if (!c && !pr) return null;
-      const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null as string | null };
-      return {
-        key: `h${t.id}`,
-        kind: 'presenter',
-        label: c?.name ?? pr?.name ?? 'someone',
-        thumb: av.src,
-        crop: av.crop,
-      };
-    }
-    if (t?.t === 'template') {
-      const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
-      if (!s) return null;
-      return { key: `t${t.id}`, kind: 'scene', label: s.name, thumb: s.previewUrl ?? null };
-    }
-    return null;
-  };
-
-  const seen = new Set<string>();
-  const items: Item[] = [];
-  let sceneNamed = false;
-  for (const t of tokens as any[]) {
-    if (t?.t === 'template' && sceneNamed) continue;
-    const it = itemOf(t);
-    if (!it || seen.has(it.key)) continue;
-    if (it.kind === 'scene') sceneNamed = true;
-    seen.add(it.key);
-    items.push(it);
-  }
-  items.sort(byContextOrder);
-  if (!items.length) return null;
-
-  return (
-    <div className="sc-source-chips">
-      {items.map((it) => (
-        <button
-          type="button"
-          className="sc-source-chip"
-          key={it.key}
-          title={`${it.label}. Open the source image.`}
-          aria-label={`Refining a shot of ${it.label}. Open the source image.`}
-          onClick={onOpen}
-        >
-          {it.thumb && <img src={it.thumb} alt="" data-crop={it.crop} />}
-          <span dir="auto">{it.label}</span>
-        </button>
-      ))}
-    </div>
-  );
+    items.sort(byContextOrder);
+    return items;
+  }, [brand, tokens, scenes, presenters, demoProducts]);
 }

@@ -27,10 +27,9 @@ import { briefProse, sourceImageOf } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { ChipPreview } from '../composer/ChipPreview.js';
-import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
-import { BriefLine, SourceChips } from './detail/Ingredients.js';
+import { BriefLine, useSourceItems } from './detail/Ingredients.js';
 import { useLineage } from './detail/useLineage.js';
 import { PREF, useLocalPref } from '../prefs.js';
 
@@ -97,8 +96,6 @@ export function DetailOverlay({
   const { push } = useToasts();
   /** The details panel's width, remembered across sessions. */
   const [panelW, setPanelW] = useLocalPref<number>(PREF.ovlPanelW, PANEL_DEFAULT);
-  /** The source image, opened full size from the header's source cards. */
-  const [lightbox, setLightbox] = useState<{ src: string; kind: 'shot'; label: string | null } | null>(null);
   /** The image this refinement was made from, not merely the run's first. */
   const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
   /**
@@ -117,21 +114,24 @@ export function DetailOverlay({
     return null;
   }, [node, ancestors]);
   /**
-   * Everything the SOURCE image was made of, read down the whole lineage,
-   * nearest level first. A refine's own brief can be bare text at every
-   * level, and older shots recorded no inherited list at all, so the
-   * parent's brief alone loses the identities two levels down. The walk is
-   * the one place the picture's contents can always be read from.
+   * Everything the picture being refined is made of, read down the whole
+   * lineage, nearest level first: this shot's own brief, then each ancestor.
+   * A refine's own brief can be bare text at every level, and older shots
+   * recorded no inherited list at all, so any single brief loses the
+   * identities two levels down. The walk is the one place the picture's
+   * contents can always be read from.
    */
   const sourceTokens = useMemo(() => {
     if (node.kind !== 'edit') return [];
     const out: unknown[] = [];
-    for (let i = ancestors.length - 1; i >= 0; i--) {
-      const b = ancestors[i].brief as { tokens?: unknown[]; inherited?: unknown[] } | null;
+    for (const n of [node, ...[...ancestors].reverse()]) {
+      const b = n.brief as { tokens?: unknown[]; inherited?: unknown[] } | null;
       out.push(...(b?.tokens ?? []), ...(b?.inherited ?? []));
     }
     return out;
-  }, [node.kind, ancestors]);
+  }, [node, ancestors]);
+  /** The same contents as cards, for the composer's band. */
+  const sourceItems = useSourceItems(brand, sourceTokens);
   /** Whether the brief line has any chips to say: mirrors BriefLine's own
    *  null condition, so a token-less legacy shot never shows a bare label. */
   const hasContext = useMemo(() => {
@@ -579,24 +579,7 @@ export function DetailOverlay({
                 ${node.costUsd.toFixed(2)}
               </small>
             )}
-            {/* What the original was made of, worn as the source's own small
-                inverse cards; each opens the picture being refined. */}
-            {node.kind === 'edit' && parentShot && sourceHash && (
-              <SourceChips
-                brand={brand}
-                tokens={sourceTokens}
-                onOpen={() => setLightbox({ src: imgUrl(sourceHash), kind: 'shot', label: null })}
-              />
-            )}
           </div>
-          {lightbox && (
-            <ImageLightbox
-              src={lightbox.src}
-              kind={lightbox.kind}
-              label={lightbox.label}
-              onClose={() => setLightbox(null)}
-            />
-          )}
 
           {/* The whole record as one statement in the composer's voice: the
               typed sentence with its chips inline where they were said, and
@@ -689,6 +672,7 @@ export function DetailOverlay({
               island's own surface says where the work area starts. */}
               <Composer
                 variant="overlay"
+                sourceItems={sourceItems}
                 projectId={projectId}
                 brand={brand}
                 engines={engines}

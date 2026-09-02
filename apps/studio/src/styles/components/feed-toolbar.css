@@ -538,6 +538,52 @@
    position is load bearing: .sc-shimmer is absolutely positioned, and without
    a containing block here it escaped to the fixed dock and swept the whole
    composer instead of this little circle. Sized like the chip's img. */
+/* Inside an open shot the band wears the picture's own contents: small
+   inverse cards for the product, the person and the scene, in the same
+   tokens the hub's Refining chip wears, so the two shells cannot drift.
+   Each card opens the picture. */
+.sc-source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+.sc-source-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sc-space-1);
+  border: none;
+  cursor: pointer;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-refine-bg);
+  color: var(--sc-refine-fg);
+  font-size: var(--sc-text-body);
+  font-weight: 600;
+  line-height: 1.3;
+  max-width: 24ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-source-chip:hover,
+.sc-source-chip:focus-visible {
+  background: color-mix(in srgb, var(--sc-refine-fg) 8%, var(--sc-refine-bg));
+}
+.sc-source-chip img {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-sm);
+  object-fit: cover;
+  flex: none;
+}
+.sc-source-chip img[data-crop="top"] {
+  object-position: 50% 12%;
+}
+.sc-source-chip > span {
+  padding: 0 var(--sc-space-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sc-target-thumb {
   display: inline-block;
   flex: none;

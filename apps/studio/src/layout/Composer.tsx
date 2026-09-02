@@ -26,6 +26,7 @@ import { ChipPreview, type PreviewKind } from '../composer/ChipPreview.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { BrandInherited } from '../composer/BrandInherited.js';
+import { SourceCards, type SourceItem } from '../composer/SourceCards.js';
 import {
   openOnGroup,
   RESOLUTIONS,
@@ -161,6 +162,11 @@ export const Composer = forwardRef<
      * and a "Carrying" strip stating what the refinement inherits.
      */
     variant?: 'dock' | 'overlay';
+    /**
+     * What the picture being refined is made of, for the overlay's band: the
+     * shot detail resolves it from the lineage, the composer only wears it.
+     */
+    sourceItems?: SourceItem[];
   }
 >(function Composer(
   {
@@ -188,6 +194,7 @@ export const Composer = forwardRef<
     // the shell distinction lives in CSS (.sc-ovl-edit scopes the overlay
     // variant); accepted so callers keep declaring which shell they mount
     variant = 'dock',
+    sourceItems,
   },
   handleRef,
 ) {
@@ -1194,10 +1201,10 @@ export const Composer = forwardRef<
         </div>
       )}
       <div className="sc-promptcard">
-        {/* What this brief is about to do, stated before it does it. Only the
-            hub wears the chip: inside the overlay the sidebar's own header
-            already names the source, so a second "Refining" would say it
-            twice. */}
+        {/* What this brief is about to do, stated before it does it. The hub
+            wears the one Refining chip, with its X; the overlay wears the
+            picture's own contents as cards, the deeper level of the same
+            band. */}
         {branchable && onClearTarget && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
             {/* The version being refined, worn as the one chip pattern the app
@@ -1252,10 +1259,16 @@ export const Composer = forwardRef<
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}
-        {/* Where there is no chip to carry it, the note still has to be said:
+        {variant === 'overlay' && sourceItems && sourceItems.length > 0 && (
+          <div className="sc-target" data-note={targetNote ? '' : undefined}>
+            <SourceCards items={sourceItems} onOpen={openTargetImage} />
+            {targetNote && <small className="sc-target-note">{targetNote}</small>}
+          </div>
+        )}
+        {/* Where there is no band to carry it, the note still has to be said:
             inside an open shot this is the only sign that what is about to
             happen is a new shot rather than a change to the one on screen. */}
-        {branchable && !onClearTarget && targetNote && (
+        {branchable && !onClearTarget && targetNote && !(variant === 'overlay' && sourceItems?.length) && (
           <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         {/* The inferred op, stated in two words. The old fieldset asked the
