@@ -162,7 +162,7 @@ describe('compileBrief', () => {
       },
       ctx(),
     );
-    expect(r.prompt).toContain('poster in Terracotta (#D96C3B)');
+    expect(r.prompt).toContain('poster in (brand color Terracotta #D96C3B)');
     expect(r.prompt).toContain('Use #D96C3B as a defining color');
   });
 
@@ -291,7 +291,9 @@ describe('brandRuleDirectives', () => {
     );
     expect(r.prompt).not.toContain('Brand palette:');
     expect(r.prompt).not.toContain('Brand look');
-    expect(r.prompt).toContain('Use #1F3D2B as a defining color in the composition.');
+    expect(r.prompt).toContain(
+      'Use #1F3D2B as a defining color in the composition, in surfaces, materials and light, never as lettering.',
+    );
   });
 
   it('ranks after the shot directives and before the scene guards', () => {
@@ -627,7 +629,7 @@ describe('brief through the API', () => {
       payload: { brief, engineId: 'demo', brandId: brand.id },
     });
     expect(preview.statusCode).toBe(200);
-    expect(preview.json().prompt).toContain('hero shot of House Blend in Terracotta (#D96C3B)');
+    expect(preview.json().prompt).toContain('hero shot of House Blend in (brand color Terracotta #D96C3B)');
     expect(preview.json().width).toBe(1080);
 
     const created = await app.inject({

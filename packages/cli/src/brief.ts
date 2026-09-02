@@ -531,8 +531,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
 
       case 'color': {
         const hex = tok.hex.toUpperCase();
-        append(tok.name ? `${tok.name} (${hex})` : hex);
-        otherDirectives.push(`Use ${hex} as a defining color in the composition.`);
+        // A parenthetical, so the chip never reads as a modifier of whatever
+        // was named just before it: "Serum gold (#C9A96E)" painted the
+        // product's name on the wall in gold; "(brand color gold #C9A96E)"
+        // is metadata about the shot.
+        append(tok.name ? `(brand color ${tok.name} ${hex})` : `(brand color ${hex})`);
+        otherDirectives.push(
+          `Use ${hex} as a defining color in the composition, in surfaces, materials and light, never as lettering.`,
+        );
         break;
       }
 
@@ -919,6 +925,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
 
   const allDirectives: DeferredDirective[] = [
+    // First, beside the sentence that names things: the model reads the names
+    // and this line in one breath, before any spec repeats them.
+    ...nameDirectives,
     ...productDirectives,
     ...personDirectives,
     ...pairDirectives,
@@ -929,7 +938,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...cameraDirectives,
     ...apparelUnworn,
     ...brandLines,
-    ...nameDirectives,
     ...guard,
     ...refGuard,
     ...preservation,

@@ -381,7 +381,8 @@ export function shotSpecifiesCamera(text: string): boolean {
 export function namesAreNotLetteringDirective(): string {
   return (
     'The names in this brief identify what to show and are never text to render: no caption, label, signage, ' +
-    "engraving or lettering spells a product name or a person's name anywhere in the picture. Printing that is " +
+    "engraving or lettering spells a product name or a person's name, in any language or script, anywhere in the " +
+    'picture. Printing that is ' +
     "part of a product's own packaging stays exactly as photographed, and nothing else spells a name unless the " +
     'direction above explicitly asks for it to be written.'
   );

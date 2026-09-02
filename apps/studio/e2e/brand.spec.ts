@@ -200,7 +200,9 @@ test.describe('brand kit', () => {
         { t: 'color', hex: '#1F3D2B', name: 'Forest' },
       ],
     });
-    expect(withColor.prompt).toContain('Use #1F3D2B as a defining color in the composition.');
+    expect(withColor.prompt).toContain(
+      'Use #1F3D2B as a defining color in the composition, in surfaces, materials and light, never as lettering.',
+    );
   });
 
   test('the composer says the rules apply, without any chip', async ({ page }) => {
