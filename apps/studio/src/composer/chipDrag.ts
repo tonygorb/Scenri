@@ -1,4 +1,4 @@
-import { caretBeside, chipAt, dropUnitsAt, moveAnnouncement, moveChipToUnits } from './line.js';
+import { caretBeside, chipAt, dropUnitsAt, gapStartUnits, moveAnnouncement, moveChipToUnits } from './line.js';
 
 /**
  * Pointer-drag reordering for the brief's chips.
@@ -176,12 +176,22 @@ export function attachChipDrag(
     lastDrop = drop;
     if (!indicator) return;
     const rect = drop && !drop.noop ? rectAtUnits(root, drop.units) : null;
-    if (!rect) {
+    if (!rect || !drop) {
       indicator.style.display = 'none';
       return;
     }
+    // The slot sits right before the next thing; the caret is drawn in the
+    // middle of the gap it stands in, so it has the same air on both sides,
+    // between two chips and between two words alike. Only within one row: a
+    // gap that wraps has no middle worth pointing at. Rows are told apart by
+    // their vertical centres, not their tops: a chip's box and a text caret
+    // on the same row start at different heights.
+    const gapStart = gapStartUnits(root, drop.units);
+    const from = gapStart < drop.units ? rectAtUnits(root, gapStart) : null;
+    const sameRow = !!from && Math.abs(from.top + from.height / 2 - (rect.top + rect.height / 2)) < rect.height / 2;
+    const x = from && sameRow ? (from.left + rect.left) / 2 : rect.left;
     indicator.style.display = '';
-    indicator.style.transform = `translate3d(${rect.left - 1.5}px, ${rect.top - 2}px, 0)`;
+    indicator.style.transform = `translate3d(${x - 1.5}px, ${rect.top - 2}px, 0)`;
     indicator.style.height = `${rect.height + 4}px`;
   };
 

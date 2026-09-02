@@ -34,7 +34,15 @@ export function moveSlots(tokens: SentenceToken[]): number[] {
     u += t.v.length;
   }
   slots.add(u);
-  return [...slots].sort((a, b) => a - b);
+  const sorted = [...slots].sort((a, b) => a - b);
+  // One slot per gap. A chip's trailing edge and the boundary after the
+  // space that follows it are two unit positions four pixels apart that land
+  // a chip in exactly the same place, and a drag snapping between them drew
+  // two carets flickering side by side. Where nothing but whitespace
+  // separates two slots, the later one stands for both: the same side a
+  // word boundary already sits on, right before the next thing.
+  const flat = flatOf(tokens);
+  return sorted.filter((s, i) => i === sorted.length - 1 || !/^[ \n]*$/.test(flat.slice(s, sorted[i + 1])));
 }
 
 /**
@@ -122,6 +130,21 @@ export function moveChipBy(root: HTMLElement | null, chip: HTMLElement, dir: -1 
   const target = dir === -1 ? [...slots].reverse().find((s) => s < at) : slots.find((s) => s > at + 1);
   if (target === undefined) return false;
   return moveChipToUnits(root, chip, target);
+}
+
+/**
+ * Where the whitespace run ending at `units` begins, in units: the other edge
+ * of the gap a slot stands in. A slot sits right before the next thing, so
+ * the drop caret drawn exactly there hugs that thing; drawn at the middle of
+ * the gap it sits with the same air on both sides. Equal to `units` when no
+ * whitespace precedes it.
+ */
+export function gapStartUnits(root: HTMLElement | null, units: number): number {
+  if (!root) return units;
+  const flat = flatOf(readTokensLite(root));
+  let start = units;
+  while (start > 0 && (flat[start - 1] === ' ' || flat[start - 1] === '\n')) start -= 1;
+  return start;
 }
 
 /**

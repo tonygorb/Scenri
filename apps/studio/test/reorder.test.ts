@@ -6,6 +6,7 @@ import {
   moveAnnouncement,
   moveChipBy,
   moveChipToUnits,
+  gapStartUnits,
   moveSlots,
   moveSlotsFor,
   readLine,
@@ -57,9 +58,23 @@ describe('moveSlots', () => {
       { t: 'text', v: ' desk' },
     ];
     const slots = moveSlots(tokens);
-    for (const s of [0, 3, 5, 6, 11]) expect(slots).toContain(s);
+    for (const s of [0, 3, 5, 7, 11]) expect(slots).toContain(s);
     // never inside a word
     for (const s of [1, 2, 8, 9, 10]) expect(slots).not.toContain(s);
+    // and never the chip's trailing edge when a space follows it: 6 and 7
+    // land the chip in the same place, and one gap offers one slot
+    expect(slots).not.toContain(6);
+  });
+
+  it('offers one slot per gap between two chips', () => {
+    // "|A| |B|" — units: [A]0 ' '1 [B]2, end 3. The gap between them is one
+    // place to land, not the two unit positions either side of its space.
+    const tokens: SentenceToken[] = [
+      { t: 'product', id: 'a' },
+      { t: 'text', v: ' ' },
+      { t: 'product', id: 'b' },
+    ];
+    expect(moveSlots(tokens)).toEqual([0, 2, 3]);
   });
 
   it('never offers the inside of a word', () => {
@@ -83,6 +98,24 @@ describe('moveSlots', () => {
     expect(snapToSlot([0, 4, 10], 7)).toBe(4);
     expect(snapToSlot([0, 4, 10], 8)).toBe(10);
     expect(snapToSlot([], 3)).toBeNull();
+  });
+});
+
+describe('gapStartUnits', () => {
+  it('finds the other edge of the whitespace gap a slot stands in', () => {
+    // "|A| |B| on desk" — units: [A]0 ' '1 [B]2 ' '3 o4 n5 ' '6 d7 (the line
+    // keeps one space per side, so a double space seeded here would collapse)
+    seed([
+      { t: 'product', id: 'a' },
+      { t: 'text', v: ' ' },
+      { t: 'product', id: 'b' },
+      { t: 'text', v: ' on desk' },
+    ]);
+    expect(gapStartUnits(root, 2)).toBe(1); // before B: the gap began after A
+    expect(gapStartUnits(root, 7)).toBe(6); // before "desk"
+    expect(gapStartUnits(root, 0)).toBe(0); // the start has no gap before it
+    expect(gapStartUnits(root, 4)).toBe(3); // before "on"
+    expect(gapStartUnits(null, 5)).toBe(5);
   });
 });
 

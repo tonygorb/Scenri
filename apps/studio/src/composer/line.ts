@@ -37,6 +37,7 @@ export {
   moveChipToUnits,
   moveChipBy,
   dropUnitsAt,
+  gapStartUnits,
   moveAnnouncement,
 } from './line/reorder.js';
 export { keepCaret } from './line/focus.js';

@@ -94,19 +94,30 @@
 }
 
 /* ---------- chip drag reorder ----------------------------------------------
-   The chip being dragged leaves the line the moment the drag is real, the
-   way a native list lets an item go: the row closes up behind it and the
-   only thing left of it is the ghost under the pointer. It used to hold its
-   box, first as a dashed slot, then as a faint ghost, and either way that
-   held box beside the drop caret read as a second place to drop. The drop
-   caret is the one target: a fixed bar at the exact insertion point, the
-   same geometry the real caret would have there, with a soft halo so it
-   reads over busy prose and dark chips. The chip is still in the DOM, so the
-   unit arithmetic that places the caret and lands the drop is unchanged.
+   The source chip stays in flow at its exact box — zero layout shift — but
+   empties into a hollow dashed slot: unmistakably "this space is held", and
+   never confusable with the traveling ghost. The drop caret is a fixed bar
+   at the exact insertion point, centred in the gap it stands in, with a soft
+   halo so it reads over busy prose and dark chips. (The slot was briefly
+   taken out as a suspected second drop zone; the second zone was a second
+   caret per gap, fixed in reorder.ts, and the slot came back by request.)
    Specificity note: (0,4,0) on purpose — the tinted/warn skins later in this
-   file are (0,2,0) and this must win by weight, not by file position. */
+   file are (0,2,0) and the slot must win by weight, not by file position. */
 .sc-brief-line[data-chip-drag] .sc-token[data-drag-src] {
-  display: none;
+  /* a whisper of fill under the dashes: reserved space, not a rendering bug */
+  background: color-mix(in srgb, var(--sc-line) 18%, transparent);
+  box-shadow: none;
+  color: transparent;
+  outline: 1.5px dashed var(--sc-line-strong);
+  outline-offset: -1.5px;
+}
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > img,
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > svg,
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > .sc-token-swatch {
+  visibility: hidden;
+}
+.sc-brief-line[data-chip-drag] .sc-token[data-drag-src] > button {
+  opacity: 0;
 }
 .sc-brief-line[data-chip-drag] {
   user-select: none;
