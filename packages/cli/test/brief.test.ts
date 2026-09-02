@@ -1572,10 +1572,12 @@ describe('directives stay truthful to what actually rides', () => {
     const logoHash = core.images.save(Buffer.from('logo-bytes'));
     const r = compileBrief(
       {
+        // the mark comes last, so on a two-seat engine it is the one left out:
+        // seats go out in the brief's order
         tokens: [
-          { t: 'mark', imageHash: logoHash },
           { t: 'product', id: 'p1' },
           { t: 'character', id: 'c1' },
+          { t: 'mark', imageHash: logoHash },
         ],
       },
       ctx({ brand: brandWithLogo(logoHash), engineCaps: caps(2) }),
@@ -1588,10 +1590,12 @@ describe('directives stay truthful to what actually rides', () => {
   it('a budget-dropped reference leaves no composition directive', () => {
     const r = compileBrief(
       {
+        // the reference comes last, so on a two-seat engine it is the one left
+        // out: seats go out in the brief's order
         tokens: [
-          { t: 'ref', imageHash: refHash },
           { t: 'product', id: 'p1' },
           { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
         ],
       },
       ctx({ brand: brandWith(productHash, core.images.save(Buffer.from('cast-bytes'))), engineCaps: caps(2) }),

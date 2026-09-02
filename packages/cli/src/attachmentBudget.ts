@@ -12,21 +12,23 @@ import type { Attachment } from './brief.js';
  * design — never the image someone attached on purpose.
  */
 /**
- * How a seat is handed out when identities outnumber seats. The two roles
- * that are nothing but their picture come first: a brand mark or a reference
- * cannot ride as words. Then the identities, in the brief's own order rather
- * than product-before-person: the user's arrangement says who matters, and
- * moving a chip earlier moves its photo into the frame. Context, direction
- * and taste keep their old rank behind identity.
+ * How a seat is handed out when attachments outnumber seats: in the brief's
+ * own order, whatever the kind. Every chip the user placed, a product, a
+ * person, a scene, a reference, a mark, is one group, and the first ones in
+ * the line are the pictured ones, so moving a chip earlier moves its photo
+ * into the frame and the dimmed chips are always the trailing ones. Only
+ * direction and taste, which are not chips anyone placed, rank behind.
+ * On a refinement the merge indexes own attachments ahead of carried ones,
+ * so the user's newest instruction still outranks what is carried.
  */
 const SEAT_TIER: Record<Attachment['role'], number> = {
   brand: 0,
   reference: 0,
-  product: 1,
-  character: 1,
-  scene: 2,
-  composition: 3,
-  style: 4,
+  product: 0,
+  character: 0,
+  scene: 0,
+  composition: 1,
+  style: 2,
 };
 
 export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
@@ -49,14 +51,13 @@ export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
  * reference or brand mark the user attached by hand. The picture then ignored
  * an explicit instruction to make a subject it already had marginally sharper.
  *
- * Three passes fix exactly that, and nothing else:
- *   1. essentials, in the old order — identity always boards first, and an
- *      essential that still does not fit lands in `dropped` so the caller's
- *      refusal path fires unchanged;
- *   2. one slot for each attachment group not yet represented, in role-priority
- *      order — every distinct thing the user attached gets a seat before any
- *      group gets a second one;
- *   3. whatever room remains goes back to corroboration one group at a time,
+ * Two passes fix exactly that, and nothing else:
+ *   1. one seat for each attachment group, in seat order (see SEAT_TIER: every
+ *      chip in the brief's own order, then direction and taste) — every
+ *      distinct thing the user attached gets a seat before any group gets a
+ *      second one, and an essential that finds no seat lands in `dropped` so
+ *      the caller's refusal path fires unchanged;
+ *   2. whatever room remains goes back to corroboration one group at a time,
  *      round-robin — a second product angle, then the presenter's second view,
  *      then the product's third. The old order handed all leftovers out by role
  *      priority, so on a four-slot engine product angle #2 AND #3 both boarded
@@ -90,10 +91,13 @@ export function allocateAttachments(
     keptGroups.add(groupOf(x.a));
   };
 
-  for (const x of legacyOrder) {
-    if (kept.size >= max) break;
-    if (x.a.essential) admit(x);
-  }
+  // No essentials-first pass any more. The compiler marks every product and
+  // person essential, so that pass ranked every product before any face
+  // whatever the brief said, and a scene or a mark placed first could never
+  // be pictured ahead of them. A seat per group in seat order gives each
+  // group its first image, which is the essential one; an essential that
+  // still finds no seat lands in `dropped` exactly as before, so the caller's
+  // refusal path fires unchanged.
   const seatOrder = [...indexed].sort((x, y) => SEAT_TIER[x.a.role] - SEAT_TIER[y.a.role] || x.i - y.i);
   for (const x of seatOrder) {
     if (kept.size >= max) break;
