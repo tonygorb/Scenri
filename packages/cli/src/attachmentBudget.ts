@@ -11,6 +11,24 @@ import type { Attachment } from './brief.js';
  * scene + reference, the scene is what degrades to prose — quietly, by
  * design — never the image someone attached on purpose.
  */
+/**
+ * How a seat is handed out when identities outnumber seats. The two roles
+ * that are nothing but their picture come first: a brand mark or a reference
+ * cannot ride as words. Then the identities, in the brief's own order rather
+ * than product-before-person: the user's arrangement says who matters, and
+ * moving a chip earlier moves its photo into the frame. Context, direction
+ * and taste keep their old rank behind identity.
+ */
+const SEAT_TIER: Record<Attachment['role'], number> = {
+  brand: 0,
+  reference: 0,
+  product: 1,
+  character: 1,
+  scene: 2,
+  composition: 3,
+  style: 4,
+};
+
 export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
   product: 0,
   character: 1,
@@ -76,7 +94,8 @@ export function allocateAttachments(
     if (kept.size >= max) break;
     if (x.a.essential) admit(x);
   }
-  for (const x of legacyOrder) {
+  const seatOrder = [...indexed].sort((x, y) => SEAT_TIER[x.a.role] - SEAT_TIER[y.a.role] || x.i - y.i);
+  for (const x of seatOrder) {
     if (kept.size >= max) break;
     if (!kept.has(x.i) && !keptGroups.has(groupOf(x.a))) admit(x);
   }

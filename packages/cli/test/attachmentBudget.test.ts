@@ -142,6 +142,46 @@ describe('a hand-attached reference outranks the scene', () => {
     expect(dropped.map((a) => a.hash)).toEqual(['s1']);
   });
 
+  // Identities outnumber seats: the brief's own order decides, and the two
+  // roles with no words to fall back on go first whatever their position.
+  it('seats identities in brief order, marks and references first', () => {
+    const many = [
+      att('product', 'p1', { id: 'a', label: 'Vase' }),
+      att('character', 'c1', { id: 'b', label: 'Astrid' }),
+      att('product', 'p2', { id: 'c', label: 'Watch' }),
+      att('character', 'c2', { id: 'd', label: 'Bree' }),
+      att('reference', 'r1', { label: 'Reference shot' }),
+      att('product', 'p3', { id: 'e', label: 'Lamp' }),
+      att('brand', 'm1', { label: 'Logo' }),
+    ];
+    const { kept, dropped } = allocateAttachments(many, 4);
+    expect(kept.map((a) => a.hash).sort()).toEqual(['c1', 'm1', 'p1', 'r1']);
+    expect(dropped.map((a) => a.hash).sort()).toEqual(['c2', 'p2', 'p3']);
+  });
+
+  it('moving a chip earlier moves its photo into the frame', () => {
+    const later = [
+      att('product', 'p1', { id: 'a' }),
+      att('character', 'c1', { id: 'b' }),
+      att('product', 'p2', { id: 'c' }),
+    ];
+    expect(
+      allocateAttachments(later, 2)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['c1', 'p1']);
+    const earlier = [
+      att('product', 'p2', { id: 'c' }),
+      att('product', 'p1', { id: 'a' }),
+      att('character', 'c1', { id: 'b' }),
+    ];
+    expect(
+      allocateAttachments(earlier, 2)
+        .kept.map((a) => a.hash)
+        .sort(),
+    ).toEqual(['p1', 'p2']);
+  });
+
   it('with one seat left after the identities, the reference takes it and the scene does not', () => {
     const scene = att('scene', 's1', { id: 'scn', label: 'Cracked Clay' });
     const both = [...contested(att('reference', 'r1', { label: 'Reference shot' })), scene];
