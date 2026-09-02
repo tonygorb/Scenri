@@ -3,6 +3,7 @@ import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
+import { findIngredient } from '../../composer/ingredientOptions.js';
 import { isPreviewKind } from '../../composer/ChipPreview.js';
 import type { SourceItem } from '../../composer/SourceCards.js';
 import { mergeCarried, normalizeTint } from '../../composer/line.js';
@@ -106,13 +107,16 @@ export function BriefLine({
     custom?: boolean;
   };
 
+  // The one lookup every surface uses (ingredientOptions.ts, findIngredient):
+  // the brand's own record first, then the shipped one of the same id. A demo
+  // product is not in the brand's own products[] — it is resolved at
+  // generation time — so without the fallback every Scenri Library product
+  // credited itself as the bare word "product".
+  const sources = { products, demoProducts, cast, presenters, scenes: [...ownScenes, ...scenes] };
   const chipOf = (t: any, inherited: boolean): Chip | null => {
-    if (t?.t === 'product') {
-      const p = products.find((x) => x.id === t.id);
-      // A demo product is not in the brand's own products[] — it is resolved at
-      // generation time — so without this fallback every Scenri Library product
-      // credited itself as the bare word "product".
-      const demo = p ? null : demoProducts.find((x) => x.id === t.id);
+    const found = findIngredient(t, sources);
+    if (found?.kind === 'product') {
+      const { product: p, demo } = found;
       return {
         key: `p${t.id}`,
         kind: 'product',
@@ -124,9 +128,8 @@ export function BriefLine({
         to: brand && (p || demo) ? productPath(brand, t.id) : undefined,
       };
     }
-    if (t?.t === 'character') {
-      const c = cast.find((x) => x.id === t.id);
-      const pr = c ? null : presenters.find((x) => x.id === t.id);
+    if (found?.kind === 'presenter') {
+      const { character: c, presenter: pr } = found;
       // A roster entry is the brand's own copy; only the presenter it was cast
       // from has a page. A person built here is the exception: they are a
       // roster entry that owns their page, under their own id.
@@ -144,10 +147,8 @@ export function BriefLine({
         to: brand && pid ? presenterPath(brand, pid) : undefined,
       };
     }
-    if (t?.t === 'template') {
-      // The brand's own scenes first, the same precedence the compiler uses.
-      const own = ownScenes.find((x) => x.id === t.id);
-      const s = own ?? scenes.find((x) => x.id === t.id);
+    if (found?.kind === 'scene') {
+      const s = found.scene;
       return {
         key: `t${t.id}`,
         kind: 'scene',
@@ -158,7 +159,7 @@ export function BriefLine({
         // The composer tints a scene chip with the scene's own preview
         // colour; the record of that shot says it the same way.
         tint: normalizeTint(s?.previewColor),
-        custom: !!own,
+        custom: found.custom,
       };
     }
     if (t?.t === 'color') {
@@ -326,11 +327,11 @@ export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceIt
   return useMemo(() => {
     const products: any[] = (brand?.json?.products ?? []) as any[];
     const cast: any[] = (brand?.json?.characters ?? []) as any[];
-    const ownScenes = customScenesOf(brand);
+    const sources = { products, demoProducts, cast, presenters, scenes: [...customScenesOf(brand), ...scenes] };
     const itemOf = (t: any): SourceItem | null => {
-      if (t?.t === 'product') {
-        const p = products.find((x) => x.id === t.id);
-        const demo = p ? null : demoProducts.find((x) => x.id === t.id);
+      const found = findIngredient(t, sources);
+      if (found?.kind === 'product') {
+        const { product: p, demo } = found;
         if (!p && !demo) return null;
         return {
           key: `p${t.id}`,
@@ -340,9 +341,8 @@ export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceIt
           to: brand ? productPath(brand, t.id) : undefined,
         };
       }
-      if (t?.t === 'character') {
-        const c = cast.find((x) => x.id === t.id);
-        const pr = c ? null : presenters.find((x) => x.id === t.id);
+      if (found?.kind === 'presenter') {
+        const { character: c, presenter: pr } = found;
         if (!c && !pr) return null;
         const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null as string | null };
         const pid = pr?.id ?? c?.presenterId ?? (c?.origin === 'custom' ? c.id : undefined);
@@ -355,8 +355,8 @@ export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceIt
           to: brand && pid ? presenterPath(brand, pid) : undefined,
         };
       }
-      if (t?.t === 'template') {
-        const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
+      if (found?.kind === 'scene') {
+        const s = found.scene;
         if (!s) return null;
         return {
           key: `t${t.id}`,

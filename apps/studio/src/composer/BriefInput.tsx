@@ -19,6 +19,7 @@ import {
   buildCandidates,
   chipOpensPicker,
   chipOpensSheet,
+  findIngredient,
   insertShortlist,
   previewHashOf,
   type Candidate,
@@ -265,8 +266,11 @@ export const BriefInput = forwardRef<
       let thumb: string | null = null;
       let thumbCrop: 'top' | undefined;
       let swatch: string | null = null;
-      if (token.t === 'template') {
-        const t = templates.find((x) => x.id === token.id);
+      // The one lookup every surface uses: the brand's own record before the
+      // shipped one of the same id (ingredientOptions.ts, findIngredient).
+      const found = findIngredient(token, { products, demoProducts, cast, presenters, scenes: templates });
+      if (found?.kind === 'scene') {
+        const t = found.scene;
         label = t ? sceneLabel(t, 'chip') : 'missing template';
         thumb = t?.previewUrl ?? null;
         const tint = normalizeTint(t?.previewColor);
@@ -276,18 +280,15 @@ export const BriefInput = forwardRef<
         }
         // A brand-owned scene has no authored previewColor: its tint is read
         // from its own preview, the same scoring the catalog colours came from.
-        if (!tint && thumb && t && 'custom' in t && t.custom) applySceneTint(el, thumb);
-      } else if (token.t === 'product') {
-        const p = products.find((x) => x.id === token.id);
-        const d = p ? null : demoProducts.find((x) => x.id === token.id);
+        if (!tint && thumb && found.custom) applySceneTint(el, thumb);
+      } else if (found?.kind === 'product') {
         // A chip sits inside the user's own sentence, so it gets the bare
         // product name — the brand is context the sentence already carries.
-        const attached = p ?? d;
+        const attached = found.product ?? found.demo;
         label = attached ? productLabel(attached, 'chip') : 'missing product';
-        thumb = p ? assetUrl(p.shots?.[0]?.file) : (d?.previewUrl ?? null);
-      } else if (token.t === 'character') {
-        const c = cast.find((x) => x.id === token.id);
-        const p = c ? null : presenters.find((x) => x.id === token.id);
+        thumb = found.product ? assetUrl(found.product.shots?.[0]?.file) : (found.demo?.previewUrl ?? null);
+      } else if (found?.kind === 'presenter') {
+        const { character: c, presenter: p } = found;
         label = c?.name ?? p?.name ?? 'missing person';
         // The canonical avatar chain (presenterVisual.ts). This chip used to
         // put the raw full-length studio shot inside its 15px circle.
