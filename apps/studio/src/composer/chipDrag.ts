@@ -266,7 +266,13 @@ function rectAtUnits(root: HTMLElement, units: number): DOMRect | null {
   for (let i = 0; i < kids.length; i++) {
     const c = kids[i];
     const len = c.nodeType === Node.TEXT_NODE ? (c.textContent ?? '').length : 1;
-    if (units <= n + len) {
+    // A position at the very end of a text node is also the start of what
+    // follows, and when that is a chip its own left edge is the honest place
+    // to draw: the end of a space that hangs at a soft wrap sits on the row
+    // above, where the slot before the row's first chip would be drawn a
+    // row too high.
+    const endsHere = c.nodeType === Node.TEXT_NODE && units === n + len && i < kids.length - 1;
+    if (units <= n + len && !endsHere) {
       if (c.nodeType !== Node.TEXT_NODE) {
         // a chip edge: the element's own box is the honest geometry
         const r = (c as HTMLElement).getBoundingClientRect();

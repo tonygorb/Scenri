@@ -12,6 +12,7 @@ import {
   readLine,
   removeChip,
   renderLine,
+  snapAfter,
   snapToSlot,
   type SentenceToken,
 } from '../src/composer/line.js';
@@ -91,6 +92,14 @@ describe('moveSlots', () => {
     ];
     // chip sits at units 3..4
     expect(moveSlotsFor(tokens, 3)).toEqual([0, 9]);
+  });
+
+  it('snapAfter resolves upward, so "after the last chip of a row" never lands before it', () => {
+    // "|A| |B|" — slots [0, 2, 3]; a drop just after B is raw 3, after A is raw 1
+    expect(snapAfter([0, 2, 3], 1)).toBe(2);
+    expect(snapAfter([0, 2, 3], 3)).toBe(3);
+    expect(snapAfter([0, 2, 3], 9)).toBe(3);
+    expect(snapAfter([], 1)).toBeNull();
   });
 
   it('snapToSlot picks the nearest, ties to the earlier', () => {

@@ -33,6 +33,7 @@ export { textBeforeCaret, caretRect, caretBeside, caretFromPoint, pointToLinePos
 export {
   moveSlots,
   moveSlotsFor,
+  snapAfter,
   snapToSlot,
   moveChipToUnits,
   moveChipBy,

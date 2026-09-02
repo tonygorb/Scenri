@@ -67,6 +67,11 @@ export function moveSlotsFor(tokens: SentenceToken[], chipUnits: number): number
   return moveSlots(tokens).filter((s) => !noopSlot(flat, chipUnits, s));
 }
 
+/** The first legal slot at or past a raw unit position: what "after this" means. */
+export function snapAfter(slots: number[], units: number): number | null {
+  return slots.find((s) => s >= units) ?? (slots.length ? slots[slots.length - 1] : null);
+}
+
 /** The nearest legal slot to a raw unit position; ties resolve earlier. */
 export function snapToSlot(slots: number[], units: number): number | null {
   let best: number | null = null;
@@ -173,7 +178,11 @@ export function dropUnitsAt(
         ? unitsOfPosition(root, pos.node, pos.offset)
         : null;
   if (raw === null) return null;
-  const snapped = snapToSlot(slots, raw);
+  // Landing after a chip means after it: the slot at its trailing edge folded
+  // into the one past its following space (one slot per gap), and the
+  // nearest-slot tie would have handed the drop back to the slot before the
+  // chip. So an "after" resolves upward to the first slot at or past it.
+  const snapped = 'beside' in pos && pos.side === 'after' ? snapAfter(slots, raw) : snapToSlot(slots, raw);
   if (snapped === null) return null;
   return { units: snapped, noop: noopSlot(flatOf(tokens), at, snapped) };
 }
