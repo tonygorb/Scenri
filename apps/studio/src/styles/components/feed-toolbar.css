@@ -48,16 +48,21 @@
   flex: 1 1 auto;
   min-width: 0;
 }
-/* The rail's 16px ink slot is sized for a page that gives it a line of its
-   own. Sharing this row, the underline sits 4px under the word and is one
-   pixel thick, and the word rides 3px above the row's centre so the ink can
-   hang below it: 6 + label + 4 + 1 + 7 makes the 37px tab list the Figma
-   draws beside a 34px control. Nothing here is a boxed tab. */
+/* The library rail's 17px is sized for a page that gives it a line of its
+   own. Sharing this row with 34px controls, the lenses speak the controls'
+   size, one weight under the boxed place and one step over Sort, so the
+   row is one system rather than a title beside a toolbar. The underline
+   sits 4px under the word and is one pixel thick, and the word rides a
+   little above the row's centre so the ink can hang below it. Nothing here
+   is a boxed tab. */
 .sc-toolbar .sc-verticals {
   padding: 0 0 7px;
 }
 .sc-toolbar .sc-verticals button {
   padding: 6px 0 4px;
+  font-size: var(--sc-text-control);
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 /* The rail is a scroll container, and in one `bottom: 0` lands on the box's
    outer edge rather than inside its padding; 6 lifts the ink to the buttons'
@@ -66,8 +71,11 @@
   height: 1px;
   bottom: 6px;
 }
+/* Smaller with the label; the rail's own lift puts its top edge on the
+   word's, the way the Figma sets the count. */
 .sc-toolbar .sc-vcount {
   margin-left: 4px;
+  font-size: 9.5px;
 }
 
 .sc-toolbar-actions {
@@ -95,10 +103,11 @@
 .sc-toolbar .sc-libsearch-toggle {
   background: var(--sc-raised);
 }
-/* Same 17px as the lens tabs, heavier, always ink, and the one boxed control
-   on the left: a raised 34px chip with the inline radius, so the place reads
-   as a menu and the lenses beside it as its children. Hover is the border
-   stepping up, the same move Sort makes. */
+/* The one boxed control on the left: a raised 34px chip with the inline
+   radius, so the place reads as a menu and the lenses beside it as its
+   children. It speaks the composer pills' size, semibold, a clear step above
+   Sort and a clear step under the 17px lenses: boxed and at their size it
+   fought them for the row. Hover is the border stepping up, Sort's move. */
 .sc-toolbar-place {
   display: inline-flex;
   align-items: center;
@@ -113,8 +122,8 @@
   border-radius: var(--sc-radius-sm);
   background: var(--sc-raised);
   color: var(--sc-fg);
-  font: 600 17px / 1 var(--sc-font);
-  letter-spacing: -0.022em;
+  font: 600 var(--sc-text-control) / 1 var(--sc-font);
+  letter-spacing: -0.01em;
   cursor: pointer;
   transition: border-color var(--sc-dur-fast) var(--sc-ease);
 }

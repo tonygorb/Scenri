@@ -663,15 +663,25 @@
    whether it was worth opening. Open one and every other section gives its row
    back and waits as a header, because four quick rows nobody is looking at are
    280px the section being worked in could be using. The rail itself never
-   scrolls; only the open section does, and only when it has to. */
+   scrolls; only the open section does, and only when it has to.
+
+   Nothing in this block transitions. Heights and margins are animated
+   together from measured numbers by `useRailMotion`, so the open section,
+   its folding siblings and the gaps between them move on one clock; a CSS
+   transition here would be a second clock. Opacity is the exception: it
+   never changes layout, so it may fade on its own. */
 .sc-agroup {
   flex-grow: 0;
   flex-shrink: 0;
   flex-basis: auto;
-  /* 12, plus the row's 4px ring gutter: 16px from the last tile's edge to the
-     next heading, which is the number the Figma draws. */
+  /* The room a focus ring needs around a tile: the ring and its offset. Every
+     grid in a section bleeds this far into the gutter on both sides, and every
+     box that clips or scrolls a grid widens by the same amount, so the tiles
+     sit flush with the heading and a ring on an edge tile is never cut. */
+  --sc-ring-room: calc(var(--sc-ring-w) + var(--sc-ring-off));
+  /* 12, plus the grid's ring room: 16px from the last tile's edge to the next
+     heading, which is the number the Figma draws. */
   margin-bottom: 12px;
-  transition: margin-bottom 240ms cubic-bezier(0.32, 0, 0.2, 1);
 }
 .sc-agroup[data-mode="collapsed"] {
   margin-bottom: 6px;
@@ -690,14 +700,9 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  margin-bottom: 16px;
 }
-.sc-agroup[data-mode="open"] > .sc-agroup-h,
-.sc-agroup[data-mode="result"] > .sc-agroup-h {
+.sc-agroup[data-mode="open"] > .sc-agroup-h {
   flex: none;
-  /* the named grid carries no ring gutter of its own, so the header keeps
-     the whole 8 */
-  margin-bottom: 8px;
 }
 /* The row's height is the create button's, whether or not this section has
    one — otherwise Recent shots (the one group that still cannot be created
@@ -708,37 +713,33 @@
   align-items: center;
   gap: 6px;
   min-height: 22px;
-  /* 4, plus the quick row's 4px ring gutter: 8px from the heading to the
-     tiles' top edge. */
+  /* 4, plus the grid's ring room: 8px from the heading to the tiles' top
+     edge, in both shapes. */
   margin-bottom: 4px;
 }
-/* A standing-down section collapses via grid-template-rows 1fr -> 0fr, the
-   standard no-JS way to animate to and from an intrinsic ("auto") height,
-   which a plain height transition cannot do since "auto" isn't animatable.
-   .sc-agroup-content is the single row; overflow:hidden on it is what clips
-   the tiles away as the row shrinks toward nothing. */
+/* The body is the box `useRailMotion` animates: a plain block whose height
+   is whatever its content needs, folded to nothing when the section stands
+   down, and clipped only while it is in flight. */
 .sc-agroup-body {
-  display: grid;
-  grid-template-rows: 1fr;
   min-height: 0;
-  transition: grid-template-rows 240ms cubic-bezier(0.32, 0, 0.2, 1);
 }
+/* The clip box reaches the ring room past the column on each side, so the
+   grids inside can bleed theirs into the panel's padding and a focused edge
+   tile still draws its whole ring while the section is folded. */
 .sc-agroup-content {
   overflow: hidden;
   min-height: 0;
   opacity: 1;
   transition: opacity 120ms ease;
-  /* The clip box reaches 4px past the column on each side so the quick row
-     can bleed its ring gutter into the panel's padding (see .sc-arow) and a
-     focused edge tile still draws its whole ring while the section is folded. */
-  padding-inline: 4px;
-  margin-inline: -4px;
+  padding-inline: var(--sc-ring-room);
+  margin-inline: calc(-1 * var(--sc-ring-room));
 }
 /* Visibility is delayed until the fade finishes on the way out, so the tiles
    do not vanish mid-fade, and drops instantly on the way back in so a
    returning row is clickable straight away. */
 .sc-agroup[data-mode="collapsed"] > .sc-agroup-body {
-  grid-template-rows: 0fr;
+  height: 0;
+  overflow: hidden;
 }
 .sc-agroup[data-mode="collapsed"] .sc-agroup-content {
   opacity: 0;
@@ -761,23 +762,34 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
+  /* the scrollport widens by the ring room too, so the grids' bleed stays
+     inside it instead of being clipped on the outer columns */
+  padding-inline: var(--sc-ring-room);
+  margin-inline: calc(-1 * var(--sc-ring-room));
 }
 .sc-agroup[data-mode="open"] .sc-agroup-content {
   overflow: visible;
   flex: none;
-  /* 2px ring + 1px offset on the last row, otherwise the section's own
-     scrollport chops the stroke along the bottom edge. No inline bleed here:
-     the body clips overflow-x, so the gutter stays inside the column. */
-  padding: 0 0 4px;
-  margin-inline: 0;
 }
 /* The quick row and the named grid are different DOM — different cell count,
-   different columns, labels or none — so swapping one for the other outright
-   reads as a pop, worst of all while the section is also changing height.
-   This is a plain cross-fade: content fades to 0, the shape swaps underneath
-   while it is invisible (see `useShape`), then fades back in. */
-.sc-agroup-content[data-fading] {
-  opacity: 0;
+   different columns, labels or none — so the incoming shape is keyed, mounts
+   fresh and fades in while the box is still moving under it (see `Group`).
+   Nothing of the old shape is kept: the growth or the fold is what the eye
+   follows, and the new tiles arrive inside it. */
+.sc-agroup-layer {
+  animation: sc-agroup-in 160ms ease;
+}
+@keyframes sc-agroup-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-agroup-layer,
+  .sc-agroup-content {
+    animation: none;
+    transition: none;
+  }
 }
 .sc-agroup-t {
   display: flex;
@@ -872,11 +884,15 @@
   margin-left: auto;
   width: 20px;
   height: 20px;
+  /* No UA padding: a button ships with 1px 6px, which put the 10px glyph
+     6px in from the left. At 22px that happened to be the centre. */
+  padding: 0;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
   background: none;
   display: grid;
   place-items: center;
+  place-content: center;
   color: var(--sc-fg2);
   cursor: pointer;
 }
@@ -910,12 +926,9 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
-  padding: 4px;
-  margin-inline: -4px;
+  padding: var(--sc-ring-room);
+  margin-inline: calc(-1 * var(--sc-ring-room));
   overflow: visible;
-}
-.sc-agroup[data-mode="open"] .sc-arow {
-  margin-inline: 0;
 }
 /* Plain image/swatch tiles — shared by the compact 4-col preview grid and any
    group (Brand colors, Recent shots) that skips the labeled AssetCard even
@@ -1092,6 +1105,10 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
+  /* the same ring room as the quick row, so the two shapes share their
+     edges and the last row's ring clears the section's own scrollport */
+  padding: var(--sc-ring-room);
+  margin-inline: calc(-1 * var(--sc-ring-room));
 }
 .sc-acard {
   display: flex;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Check, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -21,6 +21,7 @@ import { ColorPicker } from './ColorPicker.js';
 import { NO_ATTACHMENTS, RAIL_COMPACT, type AttachedIds } from './railSections.js';
 import { Group } from './assets/Group.js';
 import { Section } from './assets/Section.js';
+import { useRailMotion } from './assets/useRailMotion.js';
 import { AssetCard } from './assets/AssetCard.js';
 import type { SentenceToken } from '../composer/BriefInput.js';
 export type { SectionMode } from './assets/useShape.js';
@@ -90,7 +91,13 @@ export function AssetsPanel({
    * scrolling, which is the thing this shape exists to avoid.
    */
   const [expanded, setExpanded] = useSessionPref<string | null>(PREF.assetsExpanded, null);
-  const toggle = (key: string) => setExpanded((cur) => (cur === key ? null : key));
+  const rail = useRef<HTMLElement>(null);
+  /** Read the shelf before it changes, so every section can move from where it was. */
+  const snapshot = useRailMotion(rail, expanded);
+  const toggle = (key: string) => {
+    snapshot();
+    setExpanded((cur) => (cur === key ? null : key));
+  };
   /**
    * Search over this rail and nothing else.
    *
@@ -111,6 +118,7 @@ export function AssetsPanel({
    * that was already open, which is the opposite of showing what you made.
    */
   const reveal = (key: string) => {
+    snapshot();
     setQ('');
     setExpanded(key);
   };
@@ -209,7 +217,7 @@ export function AssetsPanel({
     searching && !found.product.length && !found.presenter.length && !found.scene.length && !shownPalette.length;
 
   return (
-    <aside className="sc-assets" aria-label="Assets">
+    <aside ref={rail} className="sc-assets" aria-label="Assets">
       <div className="sc-assets-head">
         <b>Assets</b>
         <button

@@ -157,7 +157,7 @@ export function FeedToolbar({
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>
             <button type="button" className="sc-toolbar-place" data-on={somewhere || undefined} aria-label={placeLabel}>
-              <FolderSimple className="sc-toolbar-place-ic" size={18} />
+              <FolderSimple className="sc-toolbar-place-ic" size={16} />
               <span className="sc-toolbar-place-t">{placeLabel}</span>
               <CaretDown size={10} className="sc-caret" />
             </button>
