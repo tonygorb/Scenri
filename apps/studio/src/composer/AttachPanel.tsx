@@ -255,29 +255,24 @@ export function AttachPanel({
   const groups: Exclude<Tab, 'All'>[] = ['Products', 'Presenters', 'Scenes', 'Brand', 'Colors', 'Shots'];
 
   const card = (c: Card) => {
-    const sitsOut = refining && c.tab === 'Scenes';
-    // At the ceiling every identity card sits out; a colour never does. Inert
-    // through aria-disabled rather than the attribute, because a disabled
-    // button takes no pointer events and the tooltip that says why would
-    // never open.
-    const noRoom = !!full && c.tab !== 'Colors';
+    // Two reasons a card sits out, one way of sitting out: inert through
+    // aria-disabled rather than the attribute, because a disabled button
+    // takes no pointer events and the tooltip that says why would never
+    // open. A colour never sits out.
+    const why =
+      refining && c.tab === 'Scenes'
+        ? 'Scenes set up a new shot. Press X on Refining to use one.'
+        : full && c.tab !== 'Colors'
+          ? full
+          : null;
     const card = (
       <button
         type="button"
         key={c.key}
         className="sc-ap-card"
-        disabled={sitsOut}
-        aria-disabled={noRoom || undefined}
-        title={
-          sitsOut
-            ? 'Scenes set up a new shot. Press X on Refining to use one.'
-            : noRoom
-              ? undefined
-              : c.sub
-                ? `${c.label} · ${c.sub}`
-                : c.label
-        }
-        onClick={noRoom ? undefined : c.run}
+        aria-disabled={why ? true : undefined}
+        title={why ? undefined : c.sub ? `${c.label} · ${c.sub}` : c.label}
+        onClick={why ? undefined : c.run}
       >
         {c.swatch ? (
           <span className="sc-ap-thumb" style={{ background: c.swatch }} />
@@ -292,8 +287,8 @@ export function AttachPanel({
         <b dir="auto">{c.label}</b>
       </button>
     );
-    return noRoom && full ? (
-      <Tooltip key={c.key} content={full} className="sc-tip" maxWidth="220px">
+    return why ? (
+      <Tooltip key={c.key} content={why} className="sc-tip" maxWidth="220px">
         {card}
       </Tooltip>
     ) : (
