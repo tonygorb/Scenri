@@ -555,14 +555,46 @@
   min-width: 0;
   overflow: hidden;
 }
-/* the rest of the row, floating: the same cards, wrapped, on the popover
-   surface every other composer menu already uses */
+/* The folded rest, floating: a flat list of names on the popover surface
+   every other composer menu already uses. Rows, not chips: a row inside a
+   hover-opened surface must not open a second hover surface of its own. */
 .sc-source-pop {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-2);
-  padding: var(--sc-space-3);
+  flex-direction: column;
+  gap: var(--sc-space-1);
+  padding: var(--sc-space-2);
+  min-width: 180px;
   max-width: min(320px, calc(100vw - 2 * var(--sc-gutter)));
+}
+.sc-source-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg);
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.sc-source-row:hover,
+.sc-source-row:focus-visible {
+  background: var(--sc-hover);
+}
+.sc-source-row img {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sc-radius-sm);
+  object-fit: cover;
+  flex: none;
+}
+.sc-source-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sc-source-pop[data-state="closed"] {
   pointer-events: none;
@@ -620,17 +652,31 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The count is a control, not an identity: the sentence chip's own surface,
-   so it never passes for a fourth ingredient. */
-.sc-source-more {
-  padding: var(--sc-space-1) var(--sc-space-4);
-  background: var(--sc-token-bg);
-  color: var(--sc-fg);
-  font-weight: 500;
+/* The stack: the folded cards' own thumbnails, overlapping, with the count
+   riding on them, so what is folded stays recognisable at a glance. The
+   overlap comes from grid columns narrower than the picture, never from a
+   negative margin. Same inverse skin as the cards: it belongs to the row. */
+.sc-source-stack {
+  gap: 0;
 }
-.sc-source-more:hover,
-.sc-source-more:focus-visible {
-  background: var(--sc-token-hover);
+.sc-source-faces {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 12px;
+  padding-right: 6px;
+}
+.sc-source-faces img {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-sm);
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--sc-refine-bg);
+}
+.sc-source-faces img[data-crop="top"] {
+  object-position: 50% 12%;
+}
+.sc-source-stack > span:last-child {
+  padding: 0 var(--sc-space-3) 0 var(--sc-space-2);
 }
 .sc-target-thumb {
   display: inline-block;

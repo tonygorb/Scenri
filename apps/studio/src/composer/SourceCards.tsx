@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Popover } from '@radix-ui/themes';
+import { useNavigate } from 'react-router';
 import { isPreviewKind } from './ChipPreview.js';
 import { fitCount } from './sourceFit.js';
 import { useHoverPreview } from './useHoverPreview.js';
@@ -14,18 +15,17 @@ import { useIngredientPeek } from './useIngredientPeek.js';
  * catalog page. Nothing here is droppable yet: the band states what the next
  * refinement carries, it does not edit it.
  *
- * One row at rest, however many: as many whole cards as fit, then a "+N"
- * chip saying how many more there are. A card cut off at the edge read as a
- * layout accident and told nobody how much was hidden; a count is the
- * statement the band exists to make. The chip opens the rest in a small
- * floating card above the band, the composer's own popover, so the sentence
- * under the caret never moves; it opens on hover the way the peeks do, and
- * a click holds it.
+ * One row, however many. The scene is the world every refinement keeps, so
+ * it always shows; then as many product and presenter cards as fit; then the
+ * rest fold into a stack of their own thumbnails with a count, so what is
+ * folded is still recognisable at a glance. The stack opens the folded names
+ * as a flat list in the composer's own popover, on hover the way the peeks
+ * open, held by a click; nothing under the caret ever moves.
  *
  * Nothing here writes to the DOM behind React: when the cards change, the
  * row first renders with every card showing, a layout effect reads their
- * widths off that render plus a hidden probe wearing the widest count, and
- * only then does state hide what does not fit. A resize redoes the
+ * widths off that render plus a hidden probe wearing the widest stack, and
+ * only then does state fold what does not fit. A resize redoes the
  * arithmetic on the kept widths without measuring again.
  */
 export type SourceItem = {
@@ -38,33 +38,40 @@ export type SourceItem = {
   to?: string;
 };
 
+/** How many folded thumbnails the stack shows before the count does the rest. */
+const FACES = 3;
+
 export function SourceCards({ items }: { items: SourceItem[] }) {
+  const navigate = useNavigate();
   const rail = useRef<HTMLDivElement>(null);
-  const peek = useIngredientPeek('.sc-source-chip');
-  const rest = useHoverPreview<{ anchor: HTMLElement }>();
   const probe = useRef<HTMLSpanElement>(null);
   const widths = useRef<number[]>([]);
+  const peek = useIngredientPeek('.sc-source-chip');
+  const rest = useHoverPreview<{ anchor: HTMLElement }>();
+
+  const world = items.find((i) => i.kind === 'scene') ?? null;
+  const foldable = items.filter((i) => i !== world);
   const itemsKey = items.map((i) => i.key).join('|');
   const [seen, setSeen] = useState(itemsKey);
-  /** How many cards the row shows at rest; the rest stand behind the chip. */
-  const [shown, setShown] = useState(items.length);
+  /** How many foldable cards the row shows; the rest stand in the stack. */
+  const [shown, setShown] = useState(foldable.length);
   // New contents: show everything for one render so it can be measured.
   if (seen !== itemsKey) {
     setSeen(itemsKey);
-    setShown(items.length);
+    setShown(foldable.length);
   }
 
   useLayoutEffect(() => {
     const el = rail.current;
     const p = probe.current;
     if (!el || !p) return;
-    const cards = Array.from(
-      el.querySelectorAll<HTMLElement>('.sc-source-chip:not([data-probe]):not(.sc-source-more)'),
-    );
+    const cards = Array.from(el.querySelectorAll<HTMLElement>('.sc-source-chip[data-foldable]'));
     widths.current = cards.map((c) => c.getBoundingClientRect().width);
-    const moreW = p.getBoundingClientRect().width;
+    const pinned = el.querySelector<HTMLElement>('.sc-source-chip[data-world]');
     const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
-    const place = () => setShown(fitCount(widths.current, gap, moreW, el.clientWidth));
+    const worldW = pinned ? pinned.getBoundingClientRect().width + gap : 0;
+    const stackW = p.getBoundingClientRect().width;
+    const place = () => setShown(fitCount(widths.current, gap, stackW, el.clientWidth - worldW));
     place();
     // the panel's seam changes the row's width under it
     const ro = new ResizeObserver(place);
@@ -72,8 +79,10 @@ export function SourceCards({ items }: { items: SourceItem[] }) {
     return () => ro.disconnect();
   }, [itemsKey]);
 
-  const hidden = Math.max(0, items.length - shown);
-  const card = (it: SourceItem, folded: boolean) => {
+  const folded = foldable.slice(shown);
+  const hidden = folded.length;
+
+  const card = (it: SourceItem, extra: Record<string, unknown>) => {
     const kind = isPreviewKind(it.kind) ? it.kind : null;
     const open = peek.isOpen(it.key);
     return (
@@ -81,9 +90,9 @@ export function SourceCards({ items }: { items: SourceItem[] }) {
         type="button"
         className="sc-source-chip"
         key={it.key}
-        hidden={folded}
         title={open ? undefined : `${it.label}. Preview.`}
         aria-label={`Refining a shot of ${it.label}. Preview.`}
+        {...extra}
         {...(kind && it.thumb ? peek.bind({ key: it.key, src: it.thumb, kind, label: it.label, to: it.to }) : {})}
       >
         {it.thumb && <img src={it.thumb} alt="" data-crop={it.crop} />}
@@ -92,21 +101,31 @@ export function SourceCards({ items }: { items: SourceItem[] }) {
     );
   };
 
+  const faces = (list: SourceItem[]) => (
+    <span className="sc-source-faces">
+      {list
+        .slice(0, FACES)
+        .map((it) => (it.thumb ? <img key={it.key} src={it.thumb} alt="" data-crop={it.crop} /> : null))}
+    </span>
+  );
+
   return (
     <div className="sc-source-chips" ref={rail}>
-      {items.map((it, i) => card(it, hidden > 0 && i >= shown))}
+      {foldable.map((it, i) => card(it, { 'data-foldable': '', hidden: hidden > 0 && i >= shown }))}
+      {world && card(world, { 'data-world': '' })}
       {hidden > 0 && (
         <Popover.Root open={!!rest.shown} onOpenChange={(o) => !o && rest.closeNow()}>
           <Popover.Trigger>
             <button
               type="button"
-              className="sc-source-chip sc-source-more"
+              className="sc-source-chip sc-source-stack"
               aria-label={`Show ${hidden} more`}
               onPointerEnter={(e) => e.pointerType === 'mouse' && rest.open({ anchor: e.currentTarget })}
               onPointerLeave={(e) => e.pointerType === 'mouse' && rest.close()}
               onClick={(e) => (rest.shown ? rest.closeNow() : rest.open({ anchor: e.currentTarget }))}
             >
-              +{hidden}
+              {faces(folded)}
+              <span>+{hidden}</span>
             </button>
           </Popover.Trigger>
           <Popover.Content
@@ -117,15 +136,29 @@ export function SourceCards({ items }: { items: SourceItem[] }) {
             onPointerEnter={rest.keep}
             onPointerLeave={rest.close}
           >
-            {items.slice(shown).map((it) => card(it, false))}
+            {folded.map((it) => (
+              <button
+                type="button"
+                className="sc-source-row"
+                key={it.key}
+                onClick={() => {
+                  rest.closeNow();
+                  if (it.to) navigate(it.to);
+                }}
+              >
+                {it.thumb && <img src={it.thumb} alt="" data-crop={it.crop} />}
+                <span dir="auto">{it.label}</span>
+              </button>
+            ))}
           </Popover.Content>
         </Popover.Root>
       )}
-      {peek.surface}
-      {/* the widest count this row could ever show, measured, never seen */}
-      <span ref={probe} className="sc-source-chip sc-source-more" data-probe aria-hidden="true">
-        +{items.length}
+      {/* the widest stack this row could ever show, measured, never seen */}
+      <span ref={probe} className="sc-source-chip sc-source-stack" data-probe aria-hidden="true">
+        {faces(foldable)}
+        <span>+{foldable.length}</span>
       </span>
+      {peek.surface}
     </div>
   );
 }
