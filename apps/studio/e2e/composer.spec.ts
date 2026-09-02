@@ -2174,15 +2174,18 @@ test('the drag ghost rides the grab point like a platform drag image', async ({ 
   // the em metrics survived the move to <body>
   expect(style.fontSize).toBe(await chip.evaluate((el) => getComputedStyle(el).fontSize));
 
-  // the caret marks the drop, and the source chip holds its exact box as a
-  // faint ghost of itself: zero reflow anywhere
+  // the caret marks the drop, and the chip itself has left the line the way
+  // a native list lets an item go: the ghost is the only thing left of it
   await expect(page.locator('.sc-drop-caret')).toBeVisible();
-  const during = (await chip.boundingBox())!;
-  expect(during.x).toBe(before.x);
-  expect(during.width).toBe(before.width);
+  await expect(chip).toBeHidden();
 
+  // cancelled: it is back in its exact box
   await page.keyboard.press('Escape');
   await expect(ghost).toHaveCount(0);
+  await expect(chip).toBeVisible();
+  const after = (await chip.boundingBox())!;
+  expect(after.x).toBe(before.x);
+  expect(after.width).toBe(before.width);
 });
 
 test('a Hebrew brief with an English chip survives to the wire unreversed', async ({ page }) => {

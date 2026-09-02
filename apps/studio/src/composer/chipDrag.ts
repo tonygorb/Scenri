@@ -115,9 +115,10 @@ export function attachChipDrag(
     cb.onDragStart();
     window.getSelection()?.removeAllRanges();
     root.setAttribute('data-chip-drag', '');
-    dragging.setAttribute('data-drag-src', '');
     // the pointer keeps its grip where it landed on the chip, so the ghost
-    // never jumps out from under the fingers at pickup
+    // never jumps out from under the fingers at pickup. Measured BEFORE the
+    // chip is marked as the source: that mark takes it out of the line, and
+    // a box read after it has a zero rect at the origin.
     const r = dragging.getBoundingClientRect();
     grab = { dx: armed.x - r.left, dy: armed.y - r.top };
     armed = null;
@@ -148,6 +149,8 @@ export function attachChipDrag(
     ghost.style.fontSize = getComputedStyle(dragging).fontSize;
     ghostSize = { w: r.width, h: r.height };
     document.body.appendChild(ghost);
+    // Now the chip may leave the line: the ghost is the only thing left of it.
+    dragging.setAttribute('data-drag-src', '');
 
     indicator = document.createElement('div');
     indicator.className = 'sc-drop-caret';
