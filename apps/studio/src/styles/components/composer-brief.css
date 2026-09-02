@@ -51,7 +51,10 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.48em;
-  padding: 0.16em 0.64em 0.16em 0.16em;
+  /* logical, not physical: a right-to-left label reverses the row, and the
+     wide gutter must stay on the X's side, the thumb's side stays tight */
+  padding-block: 0.16em;
+  padding-inline: 0.16em 0.64em;
   border-radius: var(--sc-radius-full);
   border: none;
   background: var(--sc-raised);
@@ -362,37 +365,50 @@
    the whole sentence reflowed. It now sits on top, behind a soft fade. */
 .sc-token {
   position: relative;
-  padding-right: 0.64em;
+  padding-inline-end: 0.64em;
 }
 .sc-token > button {
   position: absolute;
   top: 0;
-  right: 0;
+  inset-inline-end: 0;
   bottom: 0;
   width: 30px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 0 6px 0 0;
+  padding: 0;
+  padding-inline-end: 6px;
   border: none;
   border-radius: inherit;
   color: var(--sc-fg2);
   opacity: 0;
   transition: opacity 120ms ease;
-  background: linear-gradient(to right, transparent, var(--sc-raised) 45%);
+  background: linear-gradient(to var(--sc-fade-to, right), transparent, var(--sc-raised) 45%);
 }
 .sc-token:hover > button,
 .sc-token:focus-within > button {
   opacity: 1;
 }
+/* dir="auto" resolves per chip; a right-to-left label fades toward its X on the left */
+.sc-token:dir(rtl) {
+  --sc-fade-to: left;
+}
 .sc-token > button:hover {
   color: var(--sc-fg);
 }
 .sc-token[data-tinted] > button {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%);
+  background: linear-gradient(
+    to var(--sc-fade-to, right),
+    transparent,
+    color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%
+  );
 }
 .sc-token[data-tinted]:hover > button {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%);
+  background: linear-gradient(
+    to var(--sc-fade-to, right),
+    transparent,
+    color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%
+  );
 }
 /* ---------- chips, final pass (5.3) ----------
    One language for every chip: same surface, thumbnail, no border, no ring.
@@ -481,9 +497,9 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 100%;
+  inset-inline-end: 100%;
   width: 14px;
-  background: linear-gradient(to right, transparent, var(--sc-token-hover));
+  background: linear-gradient(to var(--sc-fade-to, right), transparent, var(--sc-token-hover));
   pointer-events: none;
 }
 @media (hover: none) {
@@ -495,7 +511,11 @@
   background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
 }
 .sc-token[data-tinted] > button::before {
-  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover)));
+  background: linear-gradient(
+    to var(--sc-fade-to, right),
+    transparent,
+    color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover))
+  );
 }
 /* ---------- the brief is one editable line (5.4) ----------
    Single contenteditable root: native select-all, copy, cut and paste work

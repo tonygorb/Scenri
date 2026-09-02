@@ -545,7 +545,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: var(--sc-space-1) var(--sc-space-4) var(--sc-space-1) var(--sc-space-1);
+  padding-block: var(--sc-space-1);
+  padding-inline: var(--sc-space-1) var(--sc-space-4);
   border-radius: var(--sc-radius-full);
   border: none;
   /* The composer's chip surface, not a near-miss of it. This block's own
@@ -599,7 +600,7 @@
   border-radius: 4px;
   border: 1px solid var(--sc-line-strong);
   flex: none;
-  margin-left: 4px;
+  margin-inline-start: 4px;
 }
 /* A scene says "scene" the same way here as in the brief line: a whisper of its
    own preview colour on the same chip base, and no border. The grey hairline

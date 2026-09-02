@@ -719,14 +719,19 @@ export const Composer = forwardRef<
    * `onInspect`. The carried-context strip that also fed this is gone: the
    * shot record above the overlay composer states that context now, once.
    */
-  const [lightbox, setLightbox] = useState<{ src: string; kind: PreviewKind; label: string | null } | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    src: string;
+    kind: PreviewKind;
+    label: string | null;
+    noun?: string;
+  } | null>(null);
   /** The hover peek on the target chip: the same card, on the same timing, a
       chip in the sentence gets. */
   const targetHover = useHoverPreview<{ anchor: HTMLElement }>();
   const openTargetImage = () => {
     if (!target?.images[0]) return;
     targetHover.closeNow();
-    setLightbox({ src: imgUrl(target.images[0]), kind: 'shot', label: null });
+    setLightbox({ src: imgUrl(target.images[0]), kind: 'shot', label: nodeLabel(target), noun: 'Refining this shot' });
   };
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
   const mode: 'generation' | 'edit' =
@@ -1205,6 +1210,7 @@ export const Composer = forwardRef<
           src={lightbox.src}
           kind={lightbox.kind}
           label={lightbox.label}
+          noun={lightbox.noun}
           onRestoreFocus={() => briefRef.current?.restoreCaret()}
           onClose={() => setLightbox(null)}
         />
@@ -1216,6 +1222,8 @@ export const Composer = forwardRef<
           anchor={targetHover.shown.anchor}
           kind="shot"
           src={imgUrl(target.images[0])}
+          label={nodeLabel(target)}
+          noun="Refining this shot"
           onOpen={openTargetImage}
           onHoverIn={targetHover.keep}
           onHoverOut={targetHover.close}

@@ -1303,7 +1303,7 @@ export const BriefInput = forwardRef<
           src={hoveredSrc}
           // A hand-attached reference's label is the word "reference", which
           // the card already says; everything else has a name worth repeating.
-          label={hoveredKind === 'ref' ? null : chipLabel(hovered.anchor)}
+          label={chipLabel(hovered.anchor)}
           warning={hoveredWarning}
           note={hoveredNote}
           // One pattern for every card: clicking the preview always opens the

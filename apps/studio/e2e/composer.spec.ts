@@ -2593,7 +2593,12 @@ test('removing the reference being peeked at takes its card with it', async ({ p
   await seedRefs(page, 2);
   await chips(page).nth(1).hover();
   await expect(peek(page)).toBeVisible();
-  await chips(page).nth(1).locator('[data-role="remove"]').click();
+  // the x is hover-revealed and pointer-only: settle on it before pressing,
+  // the way a hand does, or a click issued in the same frame the card
+  // mounts can land before the x is live (it did, once in three runs)
+  const x = chips(page).nth(1).locator('[data-role="remove"]');
+  await x.hover();
+  await x.click();
   await expect(chips(page)).toHaveCount(1);
   // no orphan card left pointing at a chip that stopped existing
   await expect(peek(page)).toHaveCount(0);
