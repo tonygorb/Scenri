@@ -1,26 +1,14 @@
 import type { BriefPreview } from '../apiTypes.js';
 
 /**
- * How many more photo-bearing chips the engine can carry, read off the
- * compiler's own preview rather than re-deriving its budget here.
- *
- * The allocator seats one image per group before any group gets a second
- * angle, and a group is one chip's worth: a product, a person, a mark, a
- * reference, a scene plate. So the room is the cap less the distinct groups
- * the compile produced, kept and budget-dropped alike; a dropped identity
- * that simply has no photo never held a slot and does not count. An engine
- * that reads no images (cap 0) has no room to run out of: its chips are
- * words, and refusing them would refuse the brief.
+ * How many photo groups the engine pictures per shot, as the compiler's own
+ * preview reports it: the engine's slots, less the source frame on a refine.
+ * Null for an engine that reads no images (its chips are words) and for an
+ * older server that says nothing about its cap.
  */
-export function attachRoom(preview: Pick<BriefPreview, 'cap' | 'attachments' | 'dropped'> | null): {
-  cap: number;
-  left: number;
-} | null {
+export function photoCap(preview: Pick<BriefPreview, 'cap'> | null): number | null {
   if (!preview || preview.cap == null || preview.cap <= 0) return null;
-  const groups = new Set<string>();
-  for (const a of preview.attachments) groups.add(groupKey(a.role, a.id ?? a.hash));
-  for (const d of preview.dropped) if (d.reason !== 'missing') groups.add(groupKey(d.role, d.id ?? d.hash));
-  return { cap: preview.cap, left: preview.cap - groups.size };
+  return preview.cap;
 }
 
 /**

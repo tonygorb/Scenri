@@ -5,7 +5,7 @@ import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
 import { isPreviewKind } from '../../composer/ChipPreview.js';
 import type { SourceItem } from '../../composer/SourceCards.js';
-import { identityKeyOf, normalizeTint } from '../../composer/line.js';
+import { mergeCarried, normalizeTint } from '../../composer/line.js';
 import { vibrantTintOf } from '../../composer/sceneTint.js';
 import { type PeekAt, useIngredientPeek } from '../../composer/useIngredientPeek.js';
 import { byContextOrder } from '../../contextChips.js';
@@ -253,29 +253,19 @@ export function BriefLine({
     );
   };
 
-  // One chip per thing: a token that appears both asked-for and carried (or
-  // carried at another angle) is the same ingredient, and rendering it twice
-  // also collided React keys. Own copies win, so the spoken order survives.
-  const seen = new Set<string>();
-  const keep = (t: any) => {
-    const k = identityKeyOf(t);
-    if (!k) return true;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  };
+  // One chip per thing, the composer's own rule: the record and the brief
+  // it reopens come through the same merge, so they never disagree.
+  const merged = mergeCarried(ownTokens, carriedTokens);
 
   // The sentence, in the order it was said: text runs stay prose, everything
   // else becomes the chip the composer would show for it.
   const sentence: ReactNode[] = [];
-  for (const t of ownTokens) {
-    if (t?.t === 'text') {
-      const v = typeof t.v === 'string' ? t.v.trim() : '';
+  for (const t of merged.own) {
+    if (t.t === 'text') {
+      const v = t.v.trim();
       if (v) sentence.push(v);
       continue;
     }
-    if (t?.t === 'format') continue;
-    if (!keep(t)) continue;
     const c = chipOf(t, false);
     if (c) sentence.push(renderChip(c));
   }
@@ -285,8 +275,7 @@ export function BriefLine({
   // they already name the carried identities and the world, so those leave
   // this row; a carried mark or reference has no card up there and would be
   // said nowhere, so it stays.
-  const trailing: Chip[] = carriedTokens
-    .filter((t: any) => t && typeof t.t === 'string' && keep(t))
+  const trailing: Chip[] = merged.carried
     .map((t: any) => chipOf(t, true))
     .filter((c: Chip | null): c is Chip => !!c)
     .filter((c: Chip) => !hideCarried || (c.kind !== 'product' && c.kind !== 'presenter' && c.kind !== 'scene'));

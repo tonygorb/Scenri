@@ -10,6 +10,8 @@ describe('a reference token with a label', () => {
     expect(encode(t)).toBe('r:abc123|Shot');
     expect(decode(encode(t))).toEqual(t);
     expect(decode('r:abc123')).toEqual({ t: 'ref', imageHash: 'abc123' });
+    // a file named with a bar keeps its whole name
+    expect(decode('r:abc123|a|b.png')).toEqual({ t: 'ref', imageHash: 'abc123', label: 'a|b.png' });
   });
   it('keys on the picture, never on the name', () => {
     expect(identityKeyOf({ t: 'ref', imageHash: 'abc123', label: 'Shot' })).toBe(

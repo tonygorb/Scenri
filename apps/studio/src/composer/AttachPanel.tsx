@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
-import { Tooltip } from '@radix-ui/themes';
+import { SitOutTooltip } from './SitOutTooltip.js';
 import { imgUrl, type Brand, type TreeNode } from '../api.js';
 import { uploadLogo } from '../apiUploads.js';
 import { useAppData } from '../app/AppShell.js';
@@ -287,12 +287,10 @@ export function AttachPanel({
         <b dir="auto">{c.label}</b>
       </button>
     );
-    return why ? (
-      <Tooltip key={c.key} content={why} className="sc-tip" maxWidth="220px">
+    return (
+      <SitOutTooltip key={c.key} why={why}>
         {card}
-      </Tooltip>
-    ) : (
-      card
+      </SitOutTooltip>
     );
   };
 

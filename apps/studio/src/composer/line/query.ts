@@ -1,4 +1,4 @@
-import { CHIP_SELECTOR } from './tokens.js';
+import { CHIP_SELECTOR, decode, identityKeyOf } from './tokens.js';
 import { placeCaret } from './caret.js';
 
 // ---------------------------------------------------------------- slash query
@@ -8,6 +8,15 @@ import { placeCaret } from './caret.js';
  * A chip ends the query; the browser can split one run of typing across
  * several text nodes, so this walks back over them.
  */
+/** The chip that IS this identity, if the line holds one: the twin guard and the rail's untick share it. */
+export function chipForIdentity(root: HTMLElement, key: string): HTMLElement | null {
+  for (const c of Array.from(root.querySelectorAll<HTMLElement>(CHIP_SELECTOR))) {
+    const held = decode(c.dataset.tok ?? '');
+    if (held && identityKeyOf(held) === key) return c;
+  }
+  return null;
+}
+
 export function textBeforeCaret(root: HTMLElement | null): string {
   const sel = typeof window === 'undefined' ? null : window.getSelection();
   if (!root || !sel || sel.rangeCount === 0) return '';

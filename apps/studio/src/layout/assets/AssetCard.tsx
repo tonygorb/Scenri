@@ -1,4 +1,4 @@
-import { Tooltip } from '@radix-ui/themes';
+import { SitOutTooltip } from '../../composer/SitOutTooltip.js';
 import { BookmarkSimple, Check, ImageSquare } from '@phosphor-icons/react';
 import type { Candidate } from '../../composer/ingredientOptions.js';
 
@@ -62,13 +62,7 @@ export function AssetCard({
       )}
     </button>
   );
-  return disabled && title ? (
-    <Tooltip content={title} className="sc-tip" maxWidth="220px">
-      {tile}
-    </Tooltip>
-  ) : (
-    tile
-  );
+  return <SitOutTooltip why={disabled ? title : null}>{tile}</SitOutTooltip>;
 }
 
 /**

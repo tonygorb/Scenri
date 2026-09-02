@@ -31,7 +31,7 @@ import {
   CEILING_SENTENCE,
   IDENTITY_CAP,
   IDENTITY_KINDS,
-  attachRoom,
+  photoCap,
   describedKeys,
   groupKey,
 } from '../composer/attachRoom.js';
@@ -210,8 +210,9 @@ export const Composer = forwardRef<
     onRestoreBranchId,
     setSlug,
     persistDraft = true,
-    // the shell distinction lives in CSS (.sc-ovl-edit scopes the overlay
-    // variant); accepted so callers keep declaring which shell they mount
+    // The shell decides more than styling: the overlay's band wears the
+    // source cards and never the Refining chip, and scenes sit out only on
+    // the hub (see scenesSitOut and the target band below).
     variant = 'dock',
     sourceItems,
   },
@@ -693,18 +694,6 @@ export const Composer = forwardRef<
     ? reshapeOpFor(aspectOfFormat(sourceFormat), aspectOfFormat(formatId))
     : null;
   const cropping = reshapeOp === 'crop';
-  /*
-   * Growing a shot into a bigger frame needs an engine that can paint a margin
-   * around a picture. An engine that only re-renders a whole frame from a
-   * sentence cannot: measured three times on one unchanged shot, the join came
-   * back clean, then badly broken, then clean again. That is a coin toss, and a
-   * coin toss is worse to ship than an honest absence — so this asks the
-   * engine, and offers the crop to anything that answers no.
-   */
-  // Growing a frame always works: an engine that can genuinely paint a margin
-  // is asked to, and everything else gets the same shape built locally from
-  // the picture's own edge — seamless by construction, identical every run,
-  // and free. So this needs no engine at all, exactly like a crop.
   // Growing a frame still needs an engine: the margin is generated, unlike a
   // crop, which is pure geometry and needs nothing at all.
   const expanding = reshapeOp === 'extend' && engineCanEdit;
@@ -957,11 +946,7 @@ export const Composer = forwardRef<
    * brief forgets it: with no identities there is nothing to seat.
    */
   const identityCount = useMemo(() => sentence.filter((t) => IDENTITY_KINDS.has(t.t)).length, [sentence]);
-  const lastBudget = useRef<{
-    room: ReturnType<typeof attachRoom>;
-    described: Set<string>;
-    preview: BriefPreview;
-  } | null>(null);
+  const lastBudget = useRef<{ cap: number | null; described: Set<string>; preview: BriefPreview } | null>(null);
   const budget = useMemo(() => {
     if (identityCount === 0) {
       lastBudget.current = null;
@@ -969,14 +954,14 @@ export const Composer = forwardRef<
     }
     if (settledPreview) {
       lastBudget.current = {
-        room: attachRoom(settledPreview),
+        cap: photoCap(settledPreview),
         described: describedKeys(settledPreview),
         preview: settledPreview,
       };
     }
     return lastBudget.current;
   }, [settledPreview, identityCount]);
-  const room = budget?.room ?? null;
+  const cap = budget?.cap ?? null;
   // The flags read the same sticky preview as the budget. Read off the
   // in-flight one, a chip's mark came and went on every keystroke for the
   // length of the debounce, and a mark that costs layout moved the chip
@@ -1004,9 +989,8 @@ export const Composer = forwardRef<
    * written identity, a reference as what its shot showed, a mark by name
    * with the plain-surface rule (see brief.ts, the absent attachments).
    */
-  const describedNote = room
-    ? `Described in words: ${engineName} pictures ${room.cap} per shot. Drag it earlier to picture it.`
-    : null;
+  const describedNote =
+    cap != null ? `Described in words: ${engineName} pictures ${cap} per shot. Drag it earlier to picture it.` : null;
   const templateFlag = !template
     ? null
     : blocking.length > 0
@@ -1031,22 +1015,9 @@ export const Composer = forwardRef<
     if (t.t === 'template') return templateFlag;
     if (!stickyPreview) return null;
     const engineName = engine?.displayName ?? 'this engine';
-    const cap = stickyPreview.cap;
-    /**
-     * The sentence for a photo the engine could have read but had no seat
-     * for. `what` is the mid-sentence form ("this reference", "Astrid's
-     * photo"); the variants that open with it capitalise its first letter, a
-     * name keeps its own case.
-     */
-    const noSeat = (what: string) => {
-      const What = what.charAt(0).toUpperCase() + what.slice(1);
-      return cap === 0
-        ? `${What} won't reach ${engineName}. Choose an engine that reads images.`
-        : cap == null
-          ? // An older server says nothing about its cap: no reason, no blame.
-            `${What} won't reach ${engineName} this time.`
-          : `${engineName} pictures ${cap} per shot and ${what} didn't get a seat. Drag it earlier to picture it, or remove a photo.`;
-    };
+    const reported = stickyPreview.cap;
+    // An older server says nothing about its cap: no reason, no blame.
+    const unknownCap = (what: string) => `${what} won't reach ${engineName} this time.`;
     const missingIdentity = (role: 'product' | 'character', id: string) =>
       stickyPreview.dropped?.some((d) => d.role === role && d.id === id && d.reason === 'missing') ?? false;
     // A reference or a mark that found no seat is not a warning: it dims and
@@ -1054,17 +1025,17 @@ export const Composer = forwardRef<
     // cannot work at all: an engine that reads no images, or an older server
     // that says nothing about its cap.
     if (t.t === 'ref' && !stickyPreview.attachments.some((a) => a.hash === t.imageHash)) {
-      return cap === 0
+      return reported === 0
         ? `This reference won't reach ${engineName}. Choose an engine that reads images, or remove it.`
-        : cap == null
-          ? noSeat('this reference')
+        : reported == null
+          ? unknownCap('This reference')
           : null;
     }
     if (t.t === 'mark' && !stickyPreview.attachments.some((a) => a.role === 'brand' && a.hash === t.imageHash)) {
-      return cap === 0
+      return reported === 0
         ? `The brand mark won't reach ${engineName}, so the logo can't be drawn from it. Choose an engine that reads images.`
-        : cap == null
-          ? `${noSeat('the brand mark')} The logo can't be drawn from it.`
+        : reported == null
+          ? `${unknownCap('The brand mark')} The logo can't be drawn from it.`
           : null;
     }
     // A tiny mark rides, but its fine lettering is already subpixel: the
@@ -1417,7 +1388,6 @@ export const Composer = forwardRef<
           ref={briefRef}
           onChange={setSentence}
           brand={brand}
-          shots={shots}
           templates={templates}
           presenters={presenters}
           demoProducts={demoProducts}

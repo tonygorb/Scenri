@@ -725,6 +725,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       compiled: { ...compiled, prompt },
       inheritedTokens,
       merged,
+      /** The seats this refinement had: the engine's, less the source frame. */
+      cap,
       warnings,
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
@@ -762,7 +764,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         // How many photo groups this refine can carry in total: the engine's
         // slots less the one the source frame holds. The composer refuses a
         // pick past it rather than warning after the fact.
-        cap: Math.max(0, engine.capabilities().maxReferenceImages - 1),
+        cap: edit.cap,
       };
     }
 
@@ -2040,7 +2042,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             }
           : {}),
         // What the refinement carried, recorded apart from what it asked for:
-        // the detail view shows both, and remix reads tokens alone.
+        // the detail view shows both, and reuse setup merges both (mergeCarried).
         ...(kind === 'edit' && inheritedTokens.length ? { inherited: inheritedTokens } : {}),
       });
     // Fire and forget: the 202 is the answer and the node's own status carries

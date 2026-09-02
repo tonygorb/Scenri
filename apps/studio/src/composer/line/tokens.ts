@@ -30,22 +30,38 @@ export const emptySentence = (): SentenceToken[] => [{ t: 'text', v: '' }];
 export const identityKeyOf = (t: SentenceToken): string =>
   t.t === 'product' ? `p:${t.id}` : t.t === 'ref' ? `r:${t.imageHash}` : encode(t);
 
+/**
+ * One chip per thing, across what was asked and what was carried: a token
+ * that appears both asked-for and carried, or carried at another angle, is
+ * the same ingredient. Own copies win, so the spoken order survives, and the
+ * record and the composer agree because they both come through here.
+ */
+export function mergeCarried(
+  tokens: readonly BriefToken[],
+  inherited: readonly BriefToken[],
+): { own: SentenceToken[]; carried: SentenceToken[] } {
+  const seen = new Set<string>();
+  const keep = (t: SentenceToken) => {
+    const k = identityKeyOf(t);
+    if (!k) return true;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  };
+  const own = tokens.filter(isSentence).filter(keep);
+  const carried = inherited.filter(isSentence).filter(keep);
+  return { own, carried };
+}
+
 export function briefTokens(brief: {
   tokens: BriefToken[];
   templateId?: string;
   inherited?: BriefToken[];
 }): SentenceToken[] {
-  const own = (brief.tokens ?? []).filter(isSentence);
   // Carried context is part of the setup. The detail view lists an inherited
   // mark or reference as an ingredient of the shot, so "reuse setup" has to
   // rebuild the brief with it or the two disagree about what the shot was.
-  const seen = new Set(own.map(identityKeyOf));
-  const carried = (brief.inherited ?? []).filter(isSentence).filter((t) => {
-    const k = identityKeyOf(t);
-    if (!k || seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+  const { own, carried } = mergeCarried(brief.tokens ?? [], brief.inherited ?? []);
   const all = [...own, ...carried];
   const body = all.length ? all : emptySentence();
   const hasTemplateToken = body.some((t) => t.t === 'template');
@@ -88,7 +104,10 @@ export const decode = (s: string): SentenceToken | null => {
   }
   if (kind === 'h') return rest ? { t: 'character', id: rest } : null;
   if (kind === 'r') {
-    const [imageHash, label] = rest.split('|');
+    // the hash never holds a bar; a file's name might, so the label is the rest
+    const bar = rest.indexOf('|');
+    const imageHash = bar < 0 ? rest : rest.slice(0, bar);
+    const label = bar < 0 ? '' : rest.slice(bar + 1);
     return imageHash ? { t: 'ref', imageHash, ...(label ? { label } : {}) } : null;
   }
   if (kind === 'm') return rest ? { t: 'mark', imageHash: rest } : null;

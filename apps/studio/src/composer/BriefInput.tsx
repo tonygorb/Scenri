@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { productLabel, sceneLabel } from '../displayName.js';
-import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, type TreeNode } from '../api.js';
+import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { characterAvatar, presenterAvatar } from '../presenterVisual.js';
@@ -37,6 +37,7 @@ import {
   caretToEnd,
   caretUnits,
   chipAt,
+  chipForIdentity,
   chipHexWords,
   chipLabel,
   closeIcon,
@@ -67,7 +68,7 @@ import {
 } from './line.js';
 
 export type { SentenceToken, BriefToken, FormatToken } from './line.js';
-export { briefTokens, emptySentence, identityKeyOf, isSentence } from './line.js';
+export { briefTokens, emptySentence, identityKeyOf, isSentence, mergeCarried } from './line.js';
 
 export { FORMATS } from './formats.js';
 
@@ -114,7 +115,6 @@ export const BriefInput = forwardRef<
     initialTokens?: SentenceToken[];
     onChange: (t: SentenceToken[]) => void;
     brand: Brand;
-    shots: TreeNode[];
     templates: Scene[];
     presenters: Presenter[];
     demoProducts: DemoProduct[];
@@ -491,10 +491,7 @@ export const BriefInput = forwardRef<
       // says so instead of growing a twin.
       const key = identityKeyOf(token);
       if (key) {
-        const twin = Array.from(root.querySelectorAll<HTMLElement>(`.${CHIP}`)).find((c) => {
-          const held = decode(c.dataset.tok ?? '');
-          return !!held && identityKeyOf(held) === key;
-        });
+        const twin = chipForIdentity(root, key);
         if (twin) {
           setMenu(null);
           setQuery('');
@@ -716,11 +713,7 @@ export const BriefInput = forwardRef<
     remove: (t) => {
       const root = rootRef.current;
       if (!root) return;
-      const key = identityKeyOf(t);
-      const chip = Array.from(root.querySelectorAll<HTMLElement>(`.${CHIP}`)).find((c) => {
-        const held = decode(c.dataset.tok ?? '');
-        return !!held && identityKeyOf(held) === key;
-      });
+      const chip = chipForIdentity(root, identityKeyOf(t));
       if (!chip) return;
       removeChip(root, chip);
       emit();
