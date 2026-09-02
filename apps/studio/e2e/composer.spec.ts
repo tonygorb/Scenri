@@ -2111,7 +2111,7 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   // chip label and neighbouring prose share a midline on the same row
   const mid = await line(page).evaluate((el) => {
     const chip = el.querySelector('.sc-token') as HTMLElement;
-    const label = Array.from(chip.childNodes).find((n) => n.nodeType === Node.TEXT_NODE) as Text;
+    const label = chip.querySelector('.sc-token-label') as HTMLElement;
     const lr = document.createRange();
     lr.selectNodeContents(label);
     const labelRect = lr.getBoundingClientRect();
@@ -2197,8 +2197,10 @@ test('a Hebrew brief with an English chip survives to the wire unreversed', asyn
   await page.keyboard.press('End');
   await page.keyboard.type(' על חימר סדוק באור חם');
 
-  // the chip is a bidi-isolated run with its own direction
-  expect(await chips(page).first().getAttribute('dir')).toBe('auto');
+  // the chip itself is a left-to-right object (thumb left, X right); its
+  // label is the bidi-isolated run with its own direction
+  expect(await chips(page).first().getAttribute('dir')).toBe('ltr');
+  expect(await chips(page).first().locator('.sc-token-label').getAttribute('dir')).toBe('auto');
 
   // the wire carries the LOGICAL order: Hebrew before the chip, Hebrew after,
   // nothing reversed, nothing corrupted

@@ -56,12 +56,8 @@ export function updateColorChip(chip: HTMLElement, token: ColorToken): void {
   const label = token.name ?? token.hex;
   const swatch = chip.querySelector<HTMLElement>('.sc-token-swatch');
   if (swatch) swatch.style.background = token.hex;
-  for (const n of Array.from(chip.childNodes)) {
-    if (n.nodeType === Node.TEXT_NODE) {
-      n.textContent = label;
-      break;
-    }
-  }
+  const text = chip.querySelector<HTMLElement>('.sc-token-label');
+  if (text) text.textContent = label;
   if (chip.getAttribute('role') === 'button') {
     chip.setAttribute('aria-label', `colour: ${label}. Change or remove.`);
   }

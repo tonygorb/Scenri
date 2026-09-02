@@ -45,10 +45,16 @@
    the wrong font: chipDrag freezes its computed font-size inline. */
 .sc-token {
   display: inline-flex;
+  /* Baseline, so the label is the one item that exports a baseline and the
+     chip sits on the sentence's baseline like a word (the metric fix: a chip
+     whose baseline was synthesized from its bottom edge rode above the text
+     and stretched its row). The label is centred by its own line box, which
+     is as tall as the thumbnail's row; see .sc-token-label. */
   align-items: baseline;
   gap: 0.48em;
-  /* logical, not physical: a right-to-left label reverses the row, and the
-     wide gutter must stay on the X's side, the thumb's side stays tight */
+  /* The chip never flips: thumb left, X right, whatever the label's script
+     (BriefInput sets dir=ltr on the chip and dir=auto on the label). */
+  direction: ltr;
   padding-block: 0.16em;
   padding-inline: 0.16em 0.64em;
   border-radius: var(--sc-radius-full);
@@ -64,7 +70,24 @@
      `max-width` in ch keeps it proportional to the type size. */
   max-width: 24ch;
   overflow: hidden;
+}
+/* The label is the one flex item allowed to shrink, and it is the one that
+   truncates; its own direction comes from its text (dir=auto). Its line box
+   is exactly the thumbnail's height, so the glyphs sit centred in the chip
+   by their own half-leading while the baseline the chip exports stays the
+   label's: with the 1.4 line box every label sat 1.5px high. */
+.sc-token > .sc-token-label {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.6em;
+}
+/* The media are centred in the chip while the label carries the baseline
+   out — see the align-items note above. */
+.sc-token > img,
+.sc-token > svg,
+.sc-token > .sc-token-swatch {
+  align-self: center;
 }
 .sc-token img {
   width: 1.6em;
@@ -75,13 +98,6 @@
      browser crushed the picture to a sliver instead of eating the ellipsis.
      The label truncates; the thumbnail never does. */
   flex: none;
-}
-/* The media are centered in the chip while the label text carries the
-   baseline out — see the align-items note above. */
-.sc-token > img,
-.sc-token > svg,
-.sc-token > .sc-token-swatch {
-  align-self: center;
 }
 /* A 4:5 card standing in for a square avatar: centre it and the circle is a
    torso. Pulling the framing up puts the face where a face belongs. Same
@@ -369,34 +385,20 @@
   color: var(--sc-fg2);
   opacity: 0;
   transition: opacity 120ms ease;
-  background: linear-gradient(var(--sc-fade-angle, 90deg), transparent, var(--sc-raised) 45%);
+  background: linear-gradient(90deg, transparent, var(--sc-raised) 45%);
 }
 .sc-token:hover > button,
 .sc-token:focus-within > button {
   opacity: 1;
 }
-/* dir="auto" resolves per chip; a right-to-left label fades toward its X on
-   the left. An angle rather than a direction keyword: 90deg is "to right",
-   270deg is "to left", and one custom property flips every fade at once. */
-.sc-token:dir(rtl) {
-  --sc-fade-angle: 270deg;
-}
 .sc-token > button:hover {
   color: var(--sc-fg);
 }
 .sc-token[data-tinted] > button {
-  background: linear-gradient(
-    var(--sc-fade-angle, 90deg),
-    transparent,
-    color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%
-  );
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%);
 }
 .sc-token[data-tinted]:hover > button {
-  background: linear-gradient(
-    var(--sc-fade-angle, 90deg),
-    transparent,
-    color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%
-  );
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%);
 }
 /* ---------- chips, final pass (5.3) ----------
    One language for every chip: same surface, thumbnail, no border, no ring.
@@ -492,7 +494,7 @@
   bottom: 0;
   inset-inline-end: 100%;
   width: 14px;
-  background: linear-gradient(var(--sc-fade-angle, 90deg), transparent, var(--sc-token-hover));
+  background: linear-gradient(90deg, transparent, var(--sc-token-hover));
   pointer-events: none;
 }
 @media (hover: none) {
@@ -504,11 +506,7 @@
   background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
 }
 .sc-token[data-tinted] > button::before {
-  background: linear-gradient(
-    var(--sc-fade-angle, 90deg),
-    transparent,
-    color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover))
-  );
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover)));
 }
 /* ---------- the brief is one editable line (5.4) ----------
    Single contenteditable root: native select-all, copy, cut and paste work
@@ -578,11 +576,11 @@
      and grows the row. With its 2px margins the chip's box is 28 tall over a
      24 strut, and there is one raise that centres the label on the prose
      without growing the row past those margins; it was measured, not
-     derived: a sweep in the real font put a 0.02px midline delta and a 28px
-     pitch at exactly 0.12em (1.5px at the chip's 12.5px), where 0.24em (the
-     flush-row value) sat 1.5px high and 0.04em began to grow the row. Em
-     keeps the same point at every line scale. Still inline alignment, no
-     transform.
+     derived, and re-measured once the label got its own 1.6em line box: a
+     sweep in the real font put a 0.02px midline delta and a 28px pitch at
+     exactly 0.12em (1.5px at the chip's 12.5px), where 0.24em sat 1.5px high
+     and `middle` 1.5px low. Em keeps the same point at every line scale.
+     Still inline alignment, no transform.
 
      No side margins: the real space characters the line maintains are the
      horizontal gap, and they measure the 4px the frames draw. */

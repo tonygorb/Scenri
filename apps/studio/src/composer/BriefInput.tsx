@@ -252,12 +252,13 @@ export const BriefInput = forwardRef<
       const el = document.createElement('span');
       el.className = CHIP;
       el.contentEditable = 'false';
-      // A bidi-isolated run with its own direction: an LTR product name inside
-      // a Hebrew sentence (or the reverse) renders its own way without letting
-      // the browser reorder it against the surrounding prose. dir=auto implies
+      // The chip is a left-to-right object whatever its label says: thumb on
+      // the left, X on the right, like every other chip in the row. Only the
+      // label resolves its own direction (the span below), so a Hebrew name
+      // reads right-to-left inside a chip that does not flip. dir implies
       // unicode-bidi:isolate, so the LOGICAL token order — the one the
       // compiler reads — is never what the bidi algorithm rearranges.
-      el.dir = 'auto';
+      el.dir = 'ltr';
       el.dataset.kind = token.t;
       el.dataset.tok = encode(token);
       el.dataset.uid = uid ?? `u${uidSeq.current++}`;
@@ -324,7 +325,11 @@ export const BriefInput = forwardRef<
         sw.style.background = swatch;
         el.appendChild(sw);
       }
-      el.appendChild(document.createTextNode(label));
+      const text = document.createElement('span');
+      text.className = 'sc-token-label';
+      text.dir = 'auto';
+      text.textContent = label;
+      el.appendChild(text);
 
       const warning = flag?.(token) ?? null;
       if (warning) {

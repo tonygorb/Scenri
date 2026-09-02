@@ -64,13 +64,9 @@ export function serializeBriefTokens(
   return { text: text.join(' '), html: `<span data-sc-brief="1">${html.join(' ')}</span>` };
 }
 
-/** A chip's words, without the remove button's own (empty) text. */
+/** A chip's words: its label span alone, never the remove button's text. */
 export function chipLabel(chip: HTMLElement): string {
-  let out = '';
-  for (const n of Array.from(chip.childNodes)) {
-    if (n.nodeType === Node.TEXT_NODE) out += n.textContent ?? '';
-  }
-  return out.trim();
+  return (chip.querySelector('.sc-token-label')?.textContent ?? '').trim();
 }
 
 /**

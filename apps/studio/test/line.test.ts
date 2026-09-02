@@ -38,7 +38,12 @@ function chipFor(t: SentenceToken): HTMLElement {
   el.contentEditable = 'false';
   el.dataset.kind = t.t;
   el.dataset.tok = encode(t);
-  el.appendChild(document.createTextNode(labelOf(t)));
+  // The real chip (BriefInput.chipFor) keeps its words in a label span
+  // with its own direction; the readers under test look for that span.
+  const text = document.createElement('span');
+  text.className = 'sc-token-label';
+  text.textContent = labelOf(t);
+  el.appendChild(text);
   const x = document.createElement('button');
   x.dataset.role = 'remove';
   x.appendChild(closeIcon());
