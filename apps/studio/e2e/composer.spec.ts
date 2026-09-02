@@ -459,14 +459,24 @@ test('the thirteenth identity is refused, and the panel says why', async ({ page
   await expect(chips(page)).toHaveCount(13);
   // and an identity removed reopens the door: the keyboard path every other
   // test uses, since the chip's x is a pointer-only, hover-revealed control.
-  // Two presses: the colour is last and is not an identity.
-  await line(page).click();
-  await page.keyboard.press('End');
+  // The caret goes to the end without a pointer: a click into a three-row
+  // line lands wherever its centre is, and that was a chip's x. One press
+  // per chip: the colour, last and not an identity, then the twelfth identity.
+  await line(page).evaluate((el) => {
+    el.focus();
+    const tail = el.lastChild as Text;
+    const r = document.createRange();
+    r.setStart(tail, tail.length);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
   await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(12);
   await page.keyboard.press('Backspace');
   await expect(chips(page)).toHaveCount(11);
-  // the click into the line landed outside the panel, which closes it
-  await dock(page).locator('.sc-attach-toggle').click();
+  // nothing clicked outside the panel, so it is still open
   await tab('Products').click();
   await expect(attachCards(page).nth(12)).toBeEnabled();
 });
@@ -2207,6 +2217,65 @@ test('the refine composer closes the same seam, at its own type scale', async ({
   expect(between).toEqual({ value: ' ', thenChip: true });
 });
 
+/**
+ * A chip and the space after it are one thing to the keyboard.
+ *
+ * The space between two chips is a real character, and the browser stepped and
+ * deleted it as one: crossing a chip took two presses, removing one took two,
+ * and after the first of those the chips sat touching. One press now does each.
+ */
+test('one press crosses a chip and one press removes it', async ({ page }) => {
+  await line(page).click();
+  await plusMenu(page, /products/i);
+  await pickCard(page, 0);
+  await pickCard(page, 1);
+  await pickCard(page, 2);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(3);
+
+  const caret = () =>
+    line(page).evaluate((el) => {
+      const r = getSelection()!.getRangeAt(0);
+      const kids = [...el.childNodes];
+      const i = kids.indexOf(r.startContainer as ChildNode);
+      return `${i}@${r.startOffset}`;
+    });
+  // the caret rests past the last chip's space: '' <a> ' ' <b> ' ' <c> ' '
+  expect(await caret()).toBe('6@1');
+
+  // one Backspace takes the chip, not the space
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(2);
+  expect(await caret()).toBe('4@1');
+
+  // one press left per chip, landing past the previous chip's space each time
+  await page.keyboard.press('ArrowLeft');
+  expect(await caret()).toBe('2@1');
+  await page.keyboard.press('ArrowLeft');
+  expect(await caret()).toBe('0@0');
+  // and one press right per chip
+  await page.keyboard.press('ArrowRight');
+  expect(await caret()).toBe('2@1');
+  await page.keyboard.press('ArrowRight');
+  expect(await caret()).toBe('4@1');
+
+  // Delete from the near edge of the gap takes the chip after it
+  await line(page).evaluate((el) => {
+    const r = document.createRange();
+    r.setStart(el.childNodes[2], 0);
+    r.collapse(true);
+    const sel = getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  });
+  await page.keyboard.press('Delete');
+  await expect(chips(page)).toHaveCount(1);
+  const shape = await line(page).evaluate((el) =>
+    [...el.childNodes].map((n) => (n.nodeType === Node.TEXT_NODE ? JSON.stringify(n.textContent) : '<chip>')),
+  );
+  expect(shape).toEqual(['""', '<chip>', '" "']);
+});
+
 test('a chip fits inside the line box and shares the sentence baseline', async ({ page }) => {
   // prose alone: the line's height at exactly one row of its own strut
   await line(page).click();
@@ -2688,11 +2757,11 @@ test('closing the picture puts the caret back, so the next key is not a removal'
   await expect(lightbox(page)).toHaveCount(0);
 
   // A dialog hands focus back to what opened it, and what opened this was a
-  // chip — where Backspace means "remove me". The caret has to come home.
-  await page.keyboard.press('Backspace');
-  await expect(chips(page)).toHaveCount(2);
+  // chip, where a letter goes nowhere. The caret has to come home to the line:
+  // typing lands in the sentence, and both chips are still there.
   await page.keyboard.type('ok');
   expect(await sentence(page)).toContain('ok');
+  await expect(chips(page)).toHaveCount(2);
 });
 
 test('clicking the peek opens that picture full size, and Escape closes it', async ({ page }) => {

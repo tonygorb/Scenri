@@ -236,6 +236,9 @@ hover the marks become controls.**
 ### Composer insert menus (`/`, `@`, `#`)
 A caret (or phone-docked) shortlist, not a command palette. The four triggers share one shell (`.sc-cmd`, `--sc-z-popover`) and one ranking rule (`pickList` / `insertShortlist`). `$` is products, `@` is presenters, `/` is scenes and `#` is colours. Each menu carries that label at the top. Typing in the brief is the filter: no inner search field, no cap banner, no keyboard-hint footer. Empty query is a ranked shortlist; a typed miss stays open with one quiet line. Colors, marks and shots stay on the attach panel. Structured chips and `compileBrief` IDs do not change.
 
+### Composer chips in the sentence
+A chip is an inline atom in real text flow, and the gap beside it is a real space character, never a margin or a container gap: the line keeps exactly one space on each side of a chip, `white-space: pre-wrap` renders it, and that is the 4px the frames draw. A side margin on the chip doubles it. Between two chips, and after the last one, that space is the chip's, not the sentence's, and the keyboard treats the two as one unit: one press crosses a chip, one press removes it, and the far edge of its space is the only caret stop in the gap. Prose beside a chip keeps its own spaces and is stepped through a character at a time. The rules live in `composer/line/keys.ts` and `composer/line/invariants.ts`.
+
 ### Section Headers (`.sc-sec-head`)
 - Flex row, title (15px/600) at the leading edge, an optional right-aligned action (ghost button, "+ Add X" pattern) at the trailing edge. **This is strictly a 2-slot contract**: title-group and trailing-action. A subtitle, when present, belongs inside the title group (its own inline flex with an explicit gap), never as a third top-level flex child, which is what produces glued text.
 

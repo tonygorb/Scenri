@@ -43,6 +43,8 @@ import {
   chipLabel,
   closeIcon,
   normalizeChipBoundaries,
+  stepAcrossChip,
+  chipToDelete,
   syncEmpty,
   decode,
   emptySentence,
@@ -989,6 +991,25 @@ export const BriefInput = forwardRef<
     }
     if (menu || picker) return;
     if (composingEvent(e)) return;
+    // A chip and the space after it are one thing to the keyboard: one press
+    // crosses both, one press removes both. Prose beside a chip still steps a
+    // character at a time. Modifiers are left alone: Shift extends a selection
+    // and Alt+Arrow moves a focused chip.
+    if (!e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (stepAcrossChip(root, e.key === 'ArrowLeft' ? 'left' : 'right')) e.preventDefault();
+        return;
+      }
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        const chip = chipToDelete(root, e.key);
+        if (chip?.dataset.uid) {
+          e.preventDefault();
+          const at = removeChipByUid(chip.dataset.uid);
+          if (at != null) setCaretUnits(root, at);
+        }
+        return;
+      }
+    }
     // '$' a product, '/' a scene, '@' a presenter, '#' a colour.
     if (e.key === '$' || e.key === '/' || e.key === '@' || e.key === '#') {
       const root = rootRef.current;

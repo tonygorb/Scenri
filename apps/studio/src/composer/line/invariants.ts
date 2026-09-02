@@ -106,10 +106,27 @@ export function normalizeChipBoundaries(root: HTMLElement | null): boolean {
   // survives being re-anchored into the node the merge left behind.
   const at = caretUnits(root);
   root.normalize();
+  // Two chips left touching (their space selected and deleted) get it back
+  // before the caret is re-anchored: a caret between two chips has no text
+  // node to land in, and would otherwise be sent to the end of the line.
+  let minted: Text | null = null;
+  for (const n of Array.from(root.childNodes)) {
+    if (isChip(n) && isChip(n.nextSibling)) {
+      minted = document.createTextNode(' ');
+      root.insertBefore(minted, n.nextSibling);
+    }
+  }
   if (at !== null) setCaretUnits(root, at);
 
   let changed = collapseBoundaryRuns(root);
   if (collapseSpaceAtCaret(root)) changed = true;
+  if (minted) {
+    // the far edge of a chip's space is the one stop the keys know (see keys.ts)
+    const sel = window.getSelection();
+    const r = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (r?.collapsed && r.startContainer === minted && r.startOffset === 0) placeCaret(root, minted, 1);
+    changed = true;
+  }
   return changed;
 }
 
@@ -127,6 +144,7 @@ function splitOrDoubledBoundary(root: HTMLElement): boolean {
     if (isChip(n.previousSibling) && /^ {2,}/.test(v)) return true;
     if (isChip(n.nextSibling) && / {2,}$/.test(v)) return true;
   }
+  for (const n of Array.from(kids)) if (isChip(n) && isChip(n.nextSibling)) return true;
   return false;
 }
 

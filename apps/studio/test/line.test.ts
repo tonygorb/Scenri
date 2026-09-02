@@ -7,6 +7,8 @@ import {
   chipLabel,
   closeIcon,
   normalizeChipBoundaries,
+  stepAcrossChip,
+  chipToDelete,
   syncEmpty,
   decode,
   emptySentence,
@@ -536,6 +538,100 @@ describe('normalizeChipBoundaries', () => {
     dropCaret();
     expect(normalizeChipBoundaries(root)).toBe(false);
     expect(shape()).toEqual(['"hel"', '"lo"']);
+  });
+});
+
+describe('a chip and its space are one to the keyboard', () => {
+  const caretIn = (t: Text, at: number) => {
+    const r = document.createRange();
+    r.setStart(t, at);
+    r.collapse(true);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  };
+  const caretAt = () => {
+    const r = window.getSelection()!.getRangeAt(0);
+    return [r.startContainer, r.startOffset] as const;
+  };
+  /** '' <p1> ' ' <p2> ' on marble ' <p3> ' ' */
+  const seed = () => {
+    renderLine(
+      root,
+      [
+        { t: 'product', id: 'p1' },
+        { t: 'product', id: 'p2' },
+        { t: 'text', v: ' on marble ' },
+        { t: 'product', id: 'p3' },
+      ],
+      chipFor,
+    );
+    const k = root.childNodes;
+    return { lead: k[0] as Text, seam: k[2] as Text, prose: k[4] as Text, tail: k[6] as Text };
+  };
+
+  it('one press right crosses a chip and lands past its space', () => {
+    const { lead, seam, tail } = seed();
+    caretIn(lead, 0);
+    expect(stepAcrossChip(root, 'right')).toBe(true);
+    expect(caretAt()).toEqual([seam, 1]);
+    expect(stepAcrossChip(root, 'right')).toBe(false); // prose follows p2: the browser's step
+    caretIn(tail, 0);
+    expect(stepAcrossChip(root, 'right')).toBe(false); // nothing to cross
+  });
+
+  it('crossing a chip into prose is left to the browser', () => {
+    const { prose } = seed();
+    caretIn(prose, 11); // right before p3
+    expect(stepAcrossChip(root, 'right')).toBe(true); // p3 owns the tail
+    expect(caretAt()).toEqual([root.childNodes[6], 1]);
+  });
+
+  it('one press left from the far edge of a chip space crosses the chip', () => {
+    const { lead, seam, tail, prose } = seed();
+    caretIn(tail, 1);
+    expect(stepAcrossChip(root, 'left')).toBe(true);
+    expect(caretAt()).toEqual([prose, prose.length]);
+    caretIn(seam, 1);
+    expect(stepAcrossChip(root, 'left')).toBe(true);
+    expect(caretAt()).toEqual([lead, 0]);
+    caretIn(prose, 1); // a prose space is the user's: step it like any character
+    expect(stepAcrossChip(root, 'left')).toBe(false);
+  });
+
+  it('Backspace from the far edge of a chip space takes the chip', () => {
+    const { seam, tail, prose } = seed();
+    caretIn(seam, 1);
+    expect(chipToDelete(root, 'Backspace')).toBe(chips()[0]);
+    caretIn(tail, 1);
+    expect(chipToDelete(root, 'Backspace')).toBe(chips()[2]);
+    caretIn(seam, 0); // flush against p1: the browser already deletes it
+    expect(chipToDelete(root, 'Backspace')).toBeNull();
+    caretIn(prose, 1);
+    expect(chipToDelete(root, 'Backspace')).toBeNull();
+  });
+
+  it('Delete from the near edge of a chip space takes the next chip', () => {
+    const { seam, tail } = seed();
+    caretIn(seam, 0);
+    expect(chipToDelete(root, 'Delete')).toBe(chips()[1]);
+    caretIn(seam, 1); // flush against p2: the browser already deletes it
+    expect(chipToDelete(root, 'Delete')).toBeNull();
+    caretIn(tail, 0);
+    expect(chipToDelete(root, 'Delete')).toBeNull();
+  });
+
+  it('two chips left touching get their space back, caret at its far edge', () => {
+    root.append(chipFor({ t: 'product', id: 'p1' }), chipFor({ t: 'product', id: 'p2' }), document.createTextNode(' '));
+    const r = document.createRange();
+    r.setStart(root, 1); // between the two chips, as a deleted selection leaves it
+    r.collapse(true);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(r);
+    expect(normalizeChipBoundaries(root)).toBe(true);
+    expect(shape()).toEqual(['<product>', '" "', '<product>', '" "']);
+    expect(caretAt()).toEqual([root.childNodes[1], 1]);
   });
 });
 
