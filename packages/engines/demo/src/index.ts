@@ -1,11 +1,60 @@
 import sharp from 'sharp';
-import type { EngineAdapter, EngineCapabilities, EngineResult, GenerateRequest, EditRequest } from '@scenri/core';
+import {
+  BUDGET_EXHAUSTED,
+  type EngineAdapter,
+  type EngineCapabilities,
+  type EngineResult,
+  type GenerateRequest,
+  type EditRequest,
+  type OnImageLanded,
+} from '@scenri/core';
+
+/**
+ * How the demo run behaves, for the tests that need a run to take its time.
+ * Every knob is off by default: a plain demo generation lands as fast as sharp
+ * can draw, which is what every existing end-to-end spec relies on.
+ */
+export interface DemoOptions {
+  /** Milliseconds between one slot landing and the next. */
+  staggerMs?: number;
+  /** `reverse` lands the last slot first: the out-of-order case a feed has to survive. */
+  order?: 'request' | 'reverse';
+  /** A slot that fails, reported the way codex reports a partial run. */
+  failSlot?: number;
+}
+
+/** The knobs as the end-to-end harness sets them, from the environment; none by default. */
+export function demoOptionsFromEnv(env: Record<string, string | undefined>): DemoOptions {
+  const out: DemoOptions = {};
+  const stagger = Number(env.SCENRI_DEMO_STAGGER_MS);
+  if (env.SCENRI_DEMO_STAGGER_MS && Number.isFinite(stagger) && stagger > 0) out.staggerMs = stagger;
+  if (env.SCENRI_DEMO_ORDER === 'reverse') out.order = 'reverse';
+  const fail = Number(env.SCENRI_DEMO_FAIL_SLOT);
+  if (env.SCENRI_DEMO_FAIL_SLOT && Number.isInteger(fail) && fail >= 0) out.failSlot = fail;
+  return out;
+}
+
+/** Resolves after `ms`, or at once when the signal aborts: the caller reads the signal next. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 /**
  * Demo engine: always available, zero cost. Renders a placeholder using the
  * brand palette + prompt text so every flow works without keys or agents.
  */
-export function createDemoEngine(saveImage: (buf: Buffer) => string): EngineAdapter {
+export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoOptions = {}): EngineAdapter {
   const paletteOf = (req: GenerateRequest | EditRequest): string[] => {
     const p = (req.brand?.brand as any)?.palette;
     const hexes = [p?.primary?.hex, p?.secondary?.hex, ...(p?.accent ?? []).map((a: any) => a?.hex)].filter(
@@ -54,13 +103,32 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string): EngineAdap
     async costEstimate() {
       return 0;
     },
-    async generate(req: GenerateRequest): Promise<EngineResult> {
+    async generate(req: GenerateRequest, signal?: AbortSignal, onImage?: OnImageLanded): Promise<EngineResult> {
       const colors = paletteOf(req);
-      const images: string[] = [];
-      for (let i = 0; i < Math.max(1, req.count); i++) {
-        images.push(saveImage(await render(colors, req.prompt, req.width, req.height, i + req.prompt.length)));
+      const count = Math.max(1, req.count);
+      const slots = Array.from({ length: count }, (_, i) => i);
+      if (opts.order === 'reverse') slots.reverse();
+      const landed = new Map<number, string>();
+      const failures: string[] = [];
+      for (const [position, slot] of slots.entries()) {
+        if (position > 0 && opts.staggerMs) await sleep(opts.staggerMs, signal);
+        if (signal?.aborted) {
+          // a budget abort keeps what landed; a cancel is the user asking for the stop
+          if (signal.reason === BUDGET_EXHAUSTED) break;
+          throw Object.assign(new Error('generation cancelled'), { name: 'AbortError' });
+        }
+        if (slot === opts.failSlot) {
+          failures.push(`demo: slot ${slot + 1} refused`);
+          continue;
+        }
+        const hash = saveImage(await render(colors, req.prompt, req.width, req.height, slot + req.prompt.length));
+        landed.set(slot, hash);
+        onImage?.(slot, hash);
       }
-      return { images, costUsd: 0 };
+      const done = [...landed.keys()].sort((a, b) => a - b);
+      const images = done.map((slot) => landed.get(slot)!);
+      if (done.length === count) return { images, costUsd: 0 };
+      return { images, costUsd: 0, raw: { requested: count, variantIndexes: done, partialFailures: failures } };
     },
     async edit(req: EditRequest): Promise<EngineResult> {
       const colors = paletteOf(req);

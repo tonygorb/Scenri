@@ -392,6 +392,16 @@ export function createStore(db: DB) {
         id,
       );
     },
+    /**
+     * The run's money, written once it is known. A batch's first sibling used
+     * to be charged inside completeNode, at the end of the whole call; a
+     * sibling now completes the moment its own image lands, and the cost is
+     * only known when the call resolves, so it is written afterwards, onto a
+     * node that finished. A failed or running node keeps 0, as before.
+     */
+    chargeNode(id: string, costUsd: number): void {
+      db.prepare("UPDATE nodes SET cost_usd=? WHERE id=? AND status='done'").run(costUsd, id);
+    },
     failNode(id: string, error: string): void {
       db.prepare("UPDATE nodes SET status='error', error=? WHERE id=?").run(error, id);
     },

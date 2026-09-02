@@ -188,6 +188,20 @@ export interface EditRequest {
   seed?: number;
 }
 
+/**
+ * How an adapter tells the caller that ONE slot's image exists, before the
+ * whole call resolves.
+ *
+ * A four-image run used to be delivered as one promise: three finished pictures
+ * waited, invisible, on the slowest exec. An adapter that can tell its slots
+ * apart (one process or one request per image) calls this the moment a slot's
+ * image is saved, at most once per slot, with the same hash it will list in
+ * the final `images`. An adapter that hands the count to the provider (fal,
+ * replicate) cannot know when one image is done and simply never calls it: the
+ * caller settles every unreported slot from the final answer, exactly as before.
+ */
+export type OnImageLanded = (slot: number, hash: string) => void;
+
 export interface EngineResult {
   images: string[]; // content hashes returned by the store's saveImage
   costUsd: number; // 0 for externally-billed engines
@@ -335,6 +349,6 @@ export interface EngineAdapter {
   /** Cheap readiness probe: binary present, session valid, key set, etc. */
   isAvailable(): Promise<EngineAvailability>;
   costEstimate(req: GenerateRequest | EditRequest): Promise<number>;
-  generate(req: GenerateRequest, signal?: AbortSignal): Promise<EngineResult>;
+  generate(req: GenerateRequest, signal?: AbortSignal, onImage?: OnImageLanded): Promise<EngineResult>;
   edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult>;
 }

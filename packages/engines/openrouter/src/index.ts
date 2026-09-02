@@ -8,6 +8,7 @@ import {
   type EngineResult,
   type GenerateRequest,
   type EditRequest,
+  type OnImageLanded,
 } from '@scenri/core';
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
@@ -170,7 +171,7 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
       return count * perImageUsd;
     },
 
-    async generate(req: GenerateRequest, signal?: AbortSignal): Promise<EngineResult> {
+    async generate(req: GenerateRequest, signal?: AbortSignal, onImage?: OnImageLanded): Promise<EngineResult> {
       const key = requireKey();
       // Bind each image to its role positionally. Without this the model gets
       // N undifferentiated images plus prose mentioning a product and a
@@ -237,7 +238,10 @@ export function createOpenRouterEngine(opts: OpenRouterEngineOptions): EngineAda
           signal,
         );
         raws.push(json);
-        for (const buf of extractImages(json)) hashes.push(opts.saveImage(buf));
+        const own = extractImages(json).map((buf) => opts.saveImage(buf));
+        hashes.push(...own);
+        // one request per slot, so this slot is done the moment it answers
+        if (own[0]) onImage?.(i, own[0]);
         if (typeof json?.usage?.cost === 'number') {
           reportedCost += json.usage.cost;
           sawReportedCost = true;

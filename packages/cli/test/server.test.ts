@@ -3,7 +3,14 @@ import sharp from 'sharp';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCore, type Core, type EditRequest, type EngineAdapter, type GenerateRequest } from '@scenri/core';
+import {
+  BUDGET_EXHAUSTED,
+  createCore,
+  type Core,
+  type EditRequest,
+  type EngineAdapter,
+  type GenerateRequest,
+} from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
 import { waitDone as waitDoneOn, waitRendered as waitRenderedOn } from './helpers.js';
@@ -1749,8 +1756,11 @@ describe('node watchdog', () => {
     expect(third.status).toBe('done');
     expect(second.status).toBe('error');
     expect(second.error).toBe('slot two refused');
-    // the whole call's money sits on the first sibling, once
-    expect(first.costUsd).toBeCloseTo(0.3);
+    // the whole call's money sits on the first sibling, once — written after
+    // the last slot settles, so it is read back rather than taken from the
+    // snapshot that saw the first sibling finish
+    const charged = (await local.inject({ method: 'GET', url: `/api/nodes/${first.id}` })).json();
+    expect(charged.costUsd).toBeCloseTo(0.3);
     expect(third.costUsd).toBe(0);
     await local.close();
   });
@@ -3335,6 +3345,333 @@ describe('a reshape is classified by the server and planned at the engine budget
       expect(brief.expand.assist[1]).toBeLessThan(125);
       // and the request still fits the budget
       expect((edits[0].width ?? 0) * (edits[0].height ?? 0)).toBeLessThanOrEqual(6400 * 1.02);
+    } finally {
+      await local.close();
+    }
+  });
+});
+
+/**
+ * A four-shot request is four sibling nodes sharing one engine call. The call
+ * used to be the unit of completion: no sibling left `running` until the
+ * slowest one had landed, so three finished pictures sat invisible behind one
+ * slow exec. Each slot now settles the moment its own image exists.
+ */
+describe('progressive delivery', () => {
+  const png = (seed: number) =>
+    sharp({ create: { width: 64, height: 64, channels: 3, background: { r: seed % 256, g: 20, b: 30 } } })
+      .png()
+      .toBuffer();
+
+  /**
+   * An adapter the test drives by hand. `report(slot, hash)` hands the server
+   * one finished image through the contract's onImage channel; `finish()`
+   * resolves the call the way every adapter does at the end, listing what
+   * landed in slot order; a user abort rejects it and a budget abort answers
+   * with whatever landed, exactly as codex does.
+   */
+  const staged = (costUsd = 0.4) => {
+    const landed = new Map<number, string>();
+    let onImage: ((slot: number, hash: string) => void) | undefined;
+    let resolveCall: ((r: { images: string[]; costUsd: number; raw?: unknown }) => void) | null = null;
+    let rejectCall: ((e: unknown) => void) | null = null;
+    const answer = (extra: Record<string, unknown> = {}) => {
+      const slots = [...landed.keys()].sort((a, b) => a - b);
+      return { images: slots.map((s) => landed.get(s)!), costUsd, raw: { variantIndexes: slots, ...extra } };
+    };
+    const adapter: EngineAdapter = {
+      capabilities: () => ({
+        id: 'staged',
+        displayName: 'Staged',
+        localOnly: true,
+        supportsEdit: true,
+        supportsMask: false,
+        maxReferenceImages: 0,
+      }),
+      isAvailable: async () => ({ ok: true }),
+      costEstimate: async () => costUsd,
+      generate: (_req, signal, report) => {
+        onImage = report;
+        return new Promise((res, rej) => {
+          resolveCall = res;
+          rejectCall = rej;
+          signal?.addEventListener(
+            'abort',
+            () => (signal.reason === BUDGET_EXHAUSTED ? res(answer()) : rej(new Error('aborted'))),
+            { once: true },
+          );
+        });
+      },
+      edit: async () => ({ images: [core.images.save(await png(7))], costUsd: 0 }),
+    };
+    /** A distinct finished image for this slot, saved the way an engine saves it. */
+    const prepare = async (slot: number) => core.images.save(await png(40 + slot * 30));
+    const report = (slot: number, hash: string) => {
+      landed.set(slot, hash);
+      onImage?.(slot, hash);
+    };
+    const land = async (slot: number) => {
+      const hash = await prepare(slot);
+      report(slot, hash);
+      return hash;
+    };
+    return {
+      adapter,
+      prepare,
+      report,
+      land,
+      finish: (extra?: Record<string, unknown>) => resolveCall?.(answer(extra)),
+      fail: (err: unknown) => rejectCall?.(err),
+    };
+  };
+
+  const boot = async (s: ReturnType<typeof staged>, count: number, nodeTimeoutMs?: number) => {
+    const local = buildServer({
+      core,
+      engines: registryWith(s.adapter),
+      ...(nodeTimeoutMs ? { nodeTimeoutMs } : {}),
+    });
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'W' }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: b.json().id, name: 'w' },
+    });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'staged',
+        count,
+        width: 64,
+        height: 64,
+      },
+    });
+    expect(gen.statusCode).toBe(202);
+    const siblings = gen.json().siblings as { id: string; batchIndex: number; createdAt: string }[];
+    return {
+      local,
+      brandId: b.json().id as string,
+      projectId: proj.json().project.id as string,
+      siblings,
+    };
+  };
+  const status = async (local: FastifyInstance, id: string) =>
+    (await local.inject({ method: 'GET', url: `/api/nodes/${id}` })).json();
+  /** The run's money is written last, so a charged first sibling means the run has fully wound down. */
+  const waitCharged = async (local: FastifyInstance, id: string) => {
+    for (let i = 0; i < 200; i++) {
+      const n = await status(local, id);
+      if (n.costUsd > 0) return n;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    throw new Error('the run never charged its first sibling');
+  };
+
+  it('a slot that lands is done while its siblings are still running', async () => {
+    const s = staged();
+    const { local, brandId, siblings } = await boot(s, 4);
+    try {
+      const hash = await s.land(2);
+      const third = await waitDoneOn(local, siblings[2].id);
+      expect(third.status).toBe('done');
+      expect(third.images).toEqual([hash]);
+      expect(third.durationMs).toBeGreaterThan(0);
+      expect((await waitRenderedOn(local, siblings[2].id)).brief.rendered.sizes).toEqual([[64, 64]]);
+      for (const i of [0, 1, 3]) expect((await status(local, siblings[i].id)).status).toBe('running');
+      // the bell's one question answers the same way
+      const activity = await local.inject({ method: 'GET', url: `/api/brands/${brandId}/activity` });
+      const byId = new Map<string, string>(activity.json().nodes.map((n: any) => [n.id, n.status]));
+      expect(byId.get(siblings[2].id)).toBe('done');
+      expect(byId.get(siblings[0].id)).toBe('running');
+      for (const i of [0, 1, 3]) await s.land(i);
+      s.finish();
+      for (const n of siblings) expect((await waitDoneOn(local, n.id)).status).toBe('done');
+      await waitCharged(local, siblings[0].id);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('a single shot lands the same way', async () => {
+    const s = staged();
+    const { local, siblings } = await boot(s, 1);
+    try {
+      const hash = await s.land(0);
+      expect(await waitDoneOn(local, siblings[0].id)).toMatchObject({ status: 'done', images: [hash] });
+      s.finish();
+      await waitCharged(local, siblings[0].id);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('landing out of order leaves the request order untouched', async () => {
+    const s = staged();
+    const { local, projectId, siblings } = await boot(s, 4);
+    try {
+      for (const slot of [3, 1, 0, 2]) {
+        await s.land(slot);
+        await waitDoneOn(local, siblings[slot].id);
+      }
+      s.finish();
+      await waitCharged(local, siblings[0].id);
+      const tree = (await local.inject({ method: 'GET', url: `/api/projects/${projectId}/tree` })).json()
+        .nodes as any[];
+      const batch = tree.filter((n) => n.kind === 'generation');
+      // slot 0 newest, so newest-first reads 0,1,2,3 whatever order they landed in
+      const byNewest = [...batch].sort(
+        (a, b) => (b.createdAt as string).localeCompare(a.createdAt) || (b.id as string).localeCompare(a.id),
+      );
+      expect(byNewest.map((n) => n.batchIndex)).toEqual([0, 1, 2, 3]);
+      expect(byNewest.map((n) => n.id)).toEqual(siblings.map((n) => n.id));
+      expect(new Set(batch.map((n) => n.images[0])).size).toBe(4);
+      // one compile, shared: every sibling carries the same prompt and recipe
+      expect(new Set(batch.map((n) => n.prompt)).size).toBe(1);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('two slots landing in the same tick both land', async () => {
+    const s = staged();
+    const { local, siblings } = await boot(s, 2);
+    try {
+      const [h0, h1] = await Promise.all([s.prepare(0), s.prepare(1)]);
+      s.report(0, h0);
+      s.report(1, h1);
+      expect((await waitDoneOn(local, siblings[0].id)).images).toEqual([h0]);
+      expect((await waitDoneOn(local, siblings[1].id)).images).toEqual([h1]);
+      s.finish();
+      await waitCharged(local, siblings[0].id);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('a slot that fails fails alone', async () => {
+    const s = staged();
+    const { local, siblings } = await boot(s, 4);
+    try {
+      for (const slot of [0, 2, 3]) await s.land(slot);
+      s.finish({ partialFailures: ['slot one refused'] });
+      expect(await waitDoneOn(local, siblings[1].id)).toMatchObject({ status: 'error', error: 'slot one refused' });
+      for (const i of [0, 2, 3]) expect((await waitDoneOn(local, siblings[i].id)).status).toBe('done');
+      await waitCharged(local, siblings[0].id);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('cancelling after two shots landed keeps the two and stops the rest', async () => {
+    const s = staged();
+    const { local, siblings } = await boot(s, 4);
+    try {
+      const h0 = await s.land(0);
+      const h1 = await s.land(1);
+      await waitDoneOn(local, siblings[0].id);
+      await waitDoneOn(local, siblings[1].id);
+      const cancel = await local.inject({ method: 'POST', url: `/api/nodes/${siblings[3].id}/cancel` });
+      expect(cancel.statusCode).toBe(200);
+      expect((await waitDoneOn(local, siblings[2].id)).status).toBe('cancelled');
+      expect((await waitDoneOn(local, siblings[3].id)).status).toBe('cancelled');
+      expect(await status(local, siblings[0].id)).toMatchObject({ status: 'done', images: [h0] });
+      expect(await status(local, siblings[1].id)).toMatchObject({ status: 'done', images: [h1] });
+      // the call is over: nothing left to cancel
+      const again = await local.inject({ method: 'POST', url: `/api/nodes/${siblings[0].id}/cancel` });
+      expect(again.statusCode).toBe(400);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('a landed shot can be refined while its siblings are still coming', async () => {
+    const s = staged();
+    const { local, projectId, siblings } = await boot(s, 3);
+    try {
+      await s.land(1);
+      await waitDoneOn(local, siblings[1].id);
+      const edit = await local.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: { projectId, parentId: siblings[1].id, kind: 'edit', prompt: 'warmer', engineId: 'staged' },
+      });
+      expect(edit.statusCode).toBe(202);
+      const child = await waitDoneOn(local, edit.json().id);
+      expect(child.status).toBe('done');
+      expect(child.parentId).toBe(siblings[1].id);
+      expect((await status(local, siblings[0].id)).status).toBe('running');
+      await s.land(0);
+      await s.land(2);
+      s.finish();
+      for (const n of siblings) expect((await waitDoneOn(local, n.id)).status).toBe('done');
+      await waitCharged(local, siblings[0].id);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('the money lands on the first sibling however late it lands', async () => {
+    const s = staged(0.4);
+    const { local, siblings } = await boot(s, 2);
+    try {
+      await s.land(1);
+      await waitDoneOn(local, siblings[1].id);
+      await s.land(0);
+      await waitDoneOn(local, siblings[0].id);
+      s.finish();
+      expect((await waitCharged(local, siblings[0].id)).costUsd).toBeCloseTo(0.4);
+      expect((await status(local, siblings[1].id)).costUsd).toBe(0);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('a run that outlives the watchdog keeps the shots that landed', async () => {
+    const s = staged();
+    const { local, siblings } = await boot(s, 3, 300);
+    try {
+      const h0 = await s.land(0);
+      await waitDoneOn(local, siblings[0].id);
+      // never finished by hand: the budget abort makes the adapter answer with what it has
+      expect((await waitDoneOn(local, siblings[1].id)).status).toBe('error');
+      expect((await waitDoneOn(local, siblings[2].id)).status).toBe('error');
+      expect(await status(local, siblings[0].id)).toMatchObject({ status: 'done', images: [h0] });
+      await waitCharged(local, siblings[0].id);
+    } finally {
+      await local.close();
+    }
+  });
+
+  it('another brand never sees the batch, landed or not', async () => {
+    const s = staged();
+    const { local, siblings } = await boot(s, 2);
+    try {
+      const other = await local.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: { specVersion: '0.1', meta: { name: 'Elsewhere' }, palette: { primary: { hex: '#654321' } } },
+        },
+      });
+      await s.land(0);
+      await waitDoneOn(local, siblings[0].id);
+      const ids = new Set(siblings.map((n) => n.id));
+      const activity = (await local.inject({ method: 'GET', url: `/api/brands/${other.json().id}/activity` })).json();
+      expect(activity.nodes.some((n: any) => ids.has(n.id))).toBe(false);
+      const ws = (await local.inject({ method: 'GET', url: `/api/brands/${other.json().id}/workspace` })).json();
+      expect(ws.nodes.some((n: any) => ids.has(n.id))).toBe(false);
+      await s.land(1);
+      s.finish();
+      await waitCharged(local, siblings[0].id);
     } finally {
       await local.close();
     }
