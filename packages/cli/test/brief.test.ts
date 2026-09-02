@@ -712,6 +712,67 @@ describe('brief through the API', () => {
     await app.close();
   });
 
+  // The composer refuses a photo chip the engine cannot carry, and it learns
+  // the room from the preview: the engine's slots, less the source frame on
+  // a refine. A wrong or missing cap would make the gate lie in one direction
+  // or the other.
+  it('the preview says how many photo groups the engine carries', async () => {
+    const { buildServer } = await import('../src/server.js');
+    const { createDemoEngine } = await import('@scenri/engine-demo');
+    const demo = createDemoEngine((b) => core.images.save(b));
+    // The demo engine's own generate and edit, behind a five-slot contract:
+    // the preview only ever asks an engine for its capabilities.
+    const mock = { ...demo, capabilities: () => caps(5) };
+    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', ...brandWith(productHash) } },
+      })
+    ).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const brief = {
+      tokens: [
+        { t: 'text', v: 'hero shot of ' },
+        { t: 'product', id: 'p1' },
+      ],
+    };
+
+    const fresh = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: { brief, engineId: 'demo', brandId: brand.id },
+    });
+    expect(fresh.statusCode).toBe(200);
+    expect(fresh.json().cap).toBe(5);
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: proj.project.id, kind: 'generation', engineId: 'demo', count: 1, brief },
+    });
+    expect(created.statusCode).toBe(202);
+    const parent = await waitDone(app, created.json().id);
+
+    const refine = await app.inject({
+      method: 'POST',
+      url: '/api/brief/preview',
+      payload: {
+        brief: { tokens: [{ t: 'text', v: 'warmer' }] },
+        engineId: 'demo',
+        brandId: brand.id,
+        parentId: parent.id,
+      },
+    });
+    expect(refine.statusCode).toBe(200);
+    // one slot holds the photograph being refined
+    expect(refine.json().cap).toBe(4);
+    await app.close();
+  });
+
   // Re-attaching a carried product at another token shape (an angle, or none)
   // is still the same product: the inherited record must not keep a twin.
   it('an edit re-asking for the carried product records it once', async () => {
