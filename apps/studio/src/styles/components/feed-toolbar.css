@@ -601,7 +601,8 @@
   transition: background var(--sc-dur-fast) var(--sc-ease);
 }
 .sc-source-chip:hover,
-.sc-source-chip:focus-visible {
+.sc-source-chip:focus-visible,
+.sc-source-chip[data-open] {
   background: color-mix(in srgb, var(--sc-refine-fg) 8%, var(--sc-refine-bg));
 }
 .sc-source-chip img {

@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { useNavigate } from 'react-router';
 import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
-import { ChipPreview, isPreviewKind, type PreviewKind } from '../../composer/ChipPreview.js';
-import { ImageLightbox } from '../../composer/ImageLightbox.js';
+import { isPreviewKind } from '../../composer/ChipPreview.js';
 import type { SourceItem } from '../../composer/SourceCards.js';
 import { identityKeyOf, normalizeTint } from '../../composer/line.js';
 import { vibrantTintOf } from '../../composer/sceneTint.js';
-import { useHoverPreview } from '../../composer/useHoverPreview.js';
+import { type PeekAt, useIngredientPeek } from '../../composer/useIngredientPeek.js';
 import { byContextOrder } from '../../contextChips.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
 import { presenterPath, productPath, scenePath } from '../../routes.js';
@@ -59,33 +57,7 @@ export function BriefLine({
   hideCarried?: boolean;
 }) {
   const { scenes, presenters, demoProducts } = useAppData();
-  const navigate = useNavigate();
-  /** One card for hover-peeks and for chips pinned open by a click alike:
-   *  `to` makes the card a door to a catalog page, its absence makes it a
-   *  window onto the image (the lightbox). */
-  type Peek = { key: string; src: string; kind: PreviewKind; label: string; el: HTMLElement; to?: string };
-  const hover = useHoverPreview<Peek>();
-  const { shown: hovered, closeNow: closePeek } = hover;
-  const [pinned, setPinned] = useState<Peek | null>(null);
-  const peek = pinned ?? hovered;
-  const closeCard = () => {
-    setPinned(null);
-    closePeek();
-  };
-  // A pinned card stays until it is told to go: Escape and the card's own
-  // logic close it, and so does a press anywhere that is not a chip or the
-  // card itself — without this the card simply could not be put away.
-  useEffect(() => {
-    if (!pinned) return;
-    const down = (e: PointerEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (t?.closest('.sc-chip-preview') || t?.closest('.sc-ingredient')) return;
-      setPinned(null);
-    };
-    document.addEventListener('pointerdown', down, true);
-    return () => document.removeEventListener('pointerdown', down, true);
-  }, [pinned]);
-  const [lightbox, setLightbox] = useState<{ src: string; kind: PreviewKind; label: string | null } | null>(null);
+  const peek = useIngredientPeek('.sc-ingredient');
 
   const ownTokens: any[] = brief?.tokens ?? [];
   // What a refinement carried from the shot it refines, recorded apart from
@@ -245,8 +217,8 @@ export function BriefLine({
     const src = (c.previewHash ? imgUrl(c.previewHash) : c.thumb) ?? (c.to ? '' : null);
     if (src !== null && isPreviewKind(c.kind)) {
       const kind = c.kind;
-      const open = peek?.key === c.key;
-      const at: Omit<Peek, 'el'> = { key: c.key, src, kind, label: c.label, to: c.to };
+      const open = peek.isOpen(c.key);
+      const at: PeekAt = { key: c.key, src, kind, label: c.label, to: c.to };
       return (
         <button
           type="button"
@@ -257,24 +229,9 @@ export function BriefLine({
           data-inherited={c.inherited || undefined}
           data-world={c.world || undefined}
           style={style}
-          data-open={open || undefined}
           title={open ? undefined : (said ?? `${c.label}. Preview.`)}
-          aria-haspopup="dialog"
           aria-label={`${c.label}. Preview.`}
-          onPointerEnter={(e) => e.pointerType === 'mouse' && !pinned && hover.open({ ...at, el: e.currentTarget })}
-          onPointerLeave={(e) => e.pointerType === 'mouse' && hover.close()}
-          onFocus={(e) =>
-            e.currentTarget.matches(':focus-visible') && !pinned && hover.open({ ...at, el: e.currentTarget })
-          }
-          onClick={(e) => {
-            // a second press on the pinned chip puts the card away
-            if (pinned?.key === c.key) {
-              closeCard();
-              return;
-            }
-            closePeek();
-            setPinned({ ...at, el: e.currentTarget });
-          }}
+          {...peek.bind(at)}
         >
           {body}
         </button>
@@ -364,32 +321,7 @@ export function BriefLine({
         {spaced.length ? spaced : prompt || ''}
       </div>
       {trailing.length > 0 && <div className="sc-brief-carried">{trailing.map((c) => renderChip(c))}</div>}
-      {peek && (
-        <ChipPreview
-          key={peek.key}
-          anchor={peek.el}
-          kind={peek.kind}
-          src={peek.src}
-          label={peek.label}
-          onOpen={() => {
-            const target = peek;
-            closeCard();
-            if (target.to) navigate(target.to);
-            else setLightbox({ src: target.src, kind: target.kind, label: target.label });
-          }}
-          onHoverIn={hover.keep}
-          onHoverOut={() => !pinned && hover.close()}
-          onClose={closeCard}
-        />
-      )}
-      {lightbox && (
-        <ImageLightbox
-          src={lightbox.src}
-          kind={lightbox.kind}
-          label={lightbox.label}
-          onClose={() => setLightbox(null)}
-        />
-      )}
+      {peek.surface}
     </>
   );
 }
@@ -416,6 +348,7 @@ export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceIt
           kind: 'product',
           label: p?.name ?? demo?.name ?? 'product',
           thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
+          to: brand ? productPath(brand, t.id) : undefined,
         };
       }
       if (t?.t === 'character') {
@@ -423,18 +356,26 @@ export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceIt
         const pr = c ? null : presenters.find((x) => x.id === t.id);
         if (!c && !pr) return null;
         const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null as string | null };
+        const pid = pr?.id ?? c?.presenterId ?? (c?.origin === 'custom' ? c.id : undefined);
         return {
           key: `h${t.id}`,
           kind: 'presenter',
           label: c?.name ?? pr?.name ?? 'someone',
           thumb: av.src,
           crop: av.crop,
+          to: brand && pid ? presenterPath(brand, pid) : undefined,
         };
       }
       if (t?.t === 'template') {
         const s = ownScenes.find((x) => x.id === t.id) ?? scenes.find((x) => x.id === t.id);
         if (!s) return null;
-        return { key: `t${t.id}`, kind: 'scene', label: s.name, thumb: s.previewUrl ?? null };
+        return {
+          key: `t${t.id}`,
+          kind: 'scene',
+          label: s.name,
+          thumb: s.previewUrl ?? null,
+          to: brand ? scenePath(brand, s.id) : undefined,
+        };
       }
       return null;
     };

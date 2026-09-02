@@ -1261,7 +1261,7 @@ export const Composer = forwardRef<
         )}
         {variant === 'overlay' && sourceItems && sourceItems.length > 0 && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            <SourceCards items={sourceItems} onOpen={openTargetImage} />
+            <SourceCards items={sourceItems} />
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}
