@@ -20,6 +20,7 @@ import {
   unreadCount,
   type NotificationItem,
   type Task,
+  sameByValue,
 } from '../tasks.js';
 
 /**
@@ -207,12 +208,13 @@ export function TaskCenterProvider({
     // After the pull, never before: setBuilds is what removes the in-progress
     // card, and doing it first left a frame where the card was gone and the
     // finished scene had not arrived yet.
-    setBuilds(liveBuilds);
+    setBuilds((prev) => (sameByValue(prev, liveBuilds) ? prev : liveBuilds));
 
     const arrivals = settled(prevRef.current, next);
     prevRef.current = new Map(next.map((t) => [t.id, t]));
     runningRef.current = next.filter((t) => t.state === 'running').length;
-    setTasks(orderTasks(next));
+    const ordered = orderTasks(next);
+    setTasks((prev) => (sameByValue(prev, ordered) ? prev : ordered));
 
     if (arrivals.length === 0) return;
 

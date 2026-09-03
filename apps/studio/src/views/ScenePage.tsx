@@ -4,6 +4,7 @@ import { Spinner, TextArea, TextField } from '@radix-ui/themes';
 import { api, type Scene, type ScenePatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 import { customSceneById } from '../brandAssets.js';
 import { hubPath, scenePath, scenesPath, shotPath } from '../routes.js';
@@ -32,7 +33,7 @@ export function ScenePage() {
   const { scenes, loaded, error, refetch, applyBrand } = useAppData();
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this scene actually produce"
-  const { brand, nodes: shots } = useBrand();
+  const { brand } = useBrand();
   const navigate = useNavigate();
   const applyScene = useApplyScene();
   const brandId = brand.id;
@@ -81,19 +82,7 @@ export function ScenePage() {
   }, [sceneId, isOwned]);
 
   /** Shots whose brief carried this scene, newest first. */
-  const made = useMemo(
-    () =>
-      shots
-        .filter(
-          (s) =>
-            s.status === 'done' &&
-            s.images.length > 0 &&
-            (s.brief?.tokens ?? []).some((t: any) => t?.t === 'template' && t.id === sceneId),
-        )
-        .slice(-12)
-        .reverse(),
-    [shots, sceneId],
-  );
+  const made = useMadeWith(brand.id, [sceneId ?? '']);
 
   const near = useMemo(() => {
     if (!scene) return [];

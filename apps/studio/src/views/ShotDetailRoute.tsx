@@ -1,45 +1,53 @@
 import { useEffect, useState } from 'react';
 import { Spinner } from '@radix-ui/themes';
 import { useOutletContext, useParams } from 'react-router';
+import { api, type FeedNode } from '../api.js';
 import { DetailOverlay } from '../layout/DetailOverlay.js';
 import { useToasts } from '../toasts.js';
 import type { ShotContext } from './create/shotContext.js';
 
 /**
  * The shot overlay as a URL. Being a child route keeps the canvas mounted
- * underneath, so opening a shot does not refetch the tree, and a reload of
+ * underneath, so opening a shot does not refetch anything, and a reload of
  * /shots/:shotId comes straight back to the same picture.
+ *
+ * The shot is read from the pages the feed holds. A shot outside them (a deep
+ * link, a version older than what was scrolled to, one made a moment ago on
+ * another screen) is one row from the server; only a row the server does not
+ * have is "no longer available". That verdict used to come from a snapshot
+ * of the whole brand, and re-reading the whole brand was the only way to ask.
  */
 export function ShotDetailRoute() {
   const { shotId } = useParams();
   const ctx = useOutletContext<ShotContext>();
   const { push } = useToasts();
-  const node = ctx.nodes.find((n) => n.id === shotId) ?? null;
-  const absent = ctx.loaded && (!node || node.kind === 'root');
-  // Asking the server before believing it is gone. The tree behind the overlay
-  // is a snapshot, and a shot made a moment ago on another screen — from a
-  // notification, say — is not in the snapshot that was fetched before it
-  // existed. Concluding "deleted" from that told people their finished work
-  // was "no longer available" and threw them back to the feed.
-  // State rather than a ref, for the same reason the set route uses state: a
-  // ref does not re-render, so nothing would recompute the verdict once the
-  // answer came back.
-  const [asked, setAsked] = useState<string | null>(null);
-  const missing = absent && asked === shotId;
+  const held = shotId ? (ctx.byId.get(shotId) ?? null) : null;
+  const [fetched, setFetched] = useState<{ id: string; node: FeedNode | null } | null>(null);
 
   useEffect(() => {
-    if (!absent || !shotId || asked === shotId) return;
+    if (!shotId || held) return;
     let alive = true;
-    void ctx.reload().finally(() => alive && setAsked(shotId));
+    api
+      .node(shotId)
+      .then((n) => alive && setFetched({ id: shotId, node: n.kind === 'root' ? null : n }))
+      .catch(() => alive && setFetched({ id: shotId, node: null }));
     return () => {
       alive = false;
     };
-  }, [absent, shotId, asked, ctx.reload]);
+  }, [shotId, held]);
 
-  // it resolved after all: a later miss on another shot is asked afresh
+  // a fetched shot still rendering is not in any page, so the poll is the only
+  // thing that can tell this overlay it landed
   useEffect(() => {
-    if (node) setAsked(null);
-  }, [node]);
+    if (!shotId || held) return;
+    return ctx.subscribeActivity((nodes) => {
+      const hit = nodes.find((n) => n.id === shotId);
+      if (hit) setFetched({ id: shotId, node: hit });
+    });
+  }, [shotId, held, ctx.subscribeActivity]);
+
+  const node = held ?? (fetched !== null && fetched.id === shotId ? fetched.node : null);
+  const missing = !held && fetched !== null && fetched.id === shotId && fetched.node === null;
 
   // a link to a shot that has since been deleted, or to the project root:
   // fall back to the canvas rather than holding an empty overlay open, and
@@ -50,24 +58,10 @@ export function ShotDetailRoute() {
     ctx.close();
   }, [missing, ctx.close, push]);
 
-  // The tree has not arrived yet: a blank flash here would read as the shot
-  // itself being empty, when it is only the fetch that has not landed.
-  //
   // Its own class, not `sc-ovl`. Sharing that one made "the overlay is open"
   // a claim a spinner could satisfy, so every e2e assertion on `.sc-ovl`
-  // quietly also passed while the shot was still loading, and one that read
-  // the text straight after got an empty string.
-  if (!ctx.loaded) {
-    return (
-      <div className="sc-ovl-wait" role="status" aria-label="Loading">
-        <Spinner size="3" />
-      </div>
-    );
-  }
-
-  // Still asking: hold the shell rather than flashing an empty screen, exactly
-  // as while the tree was first loading.
-  if (!node || node.kind === 'root') {
+  // quietly also passed while the shot was still loading.
+  if (!node) {
     return missing ? null : (
       <div className="sc-ovl-wait" role="status" aria-label="Loading">
         <Spinner size="3" />
@@ -78,7 +72,8 @@ export function ShotDetailRoute() {
   return (
     <DetailOverlay
       node={node}
-      nodes={ctx.nodes}
+      rootId={ctx.rootId}
+      recent={ctx.recent}
       brand={ctx.brand}
       engines={ctx.engines}
       projectId={ctx.projectId}
@@ -86,7 +81,8 @@ export function ShotDetailRoute() {
       onSelect={ctx.select}
       onRetry={ctx.retry}
       onCancel={ctx.cancel}
-      onChanged={ctx.reload}
+      onKeep={ctx.keep}
+      onLanded={ctx.landed}
       onRefined={ctx.refined}
       tokenNames={ctx.tokenNames}
       onRemix={ctx.remix}

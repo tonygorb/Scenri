@@ -1413,7 +1413,7 @@ describe('diff + export + settings', () => {
     expect(unnamed.statusCode).toBe(400);
 
     const added = await app.inject({ method: 'POST', url: `/api/sets/${setId}/nodes`, payload: { nodeIds: [nodeId] } });
-    expect(added.json()).toEqual({ ok: true, added: 1 });
+    expect(added.json()).toMatchObject({ ok: true, added: 1, nodeIds: [nodeId] });
     const withShot = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
     expect(withShot.json().membership[setId]).toEqual([nodeId]);
 
@@ -1429,12 +1429,14 @@ describe('diff + export + settings', () => {
     const emptied = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
     expect(emptied.json().membership[setId]).toBeUndefined();
     // removing from a set is not deleting: the shot is still on the feed
-    expect(emptied.json().nodes.some((n: any) => n.id === nodeId)).toBe(true);
+    const feed = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed` });
+    expect(feed.json().items.some((n: any) => n.id === nodeId)).toBe(true);
 
     expect((await app.inject({ method: 'DELETE', url: `/api/sets/${setId}` })).json()).toEqual({ ok: true });
     const gone = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
     expect(gone.json().sets).toEqual([]);
-    expect(gone.json().nodes.some((n: any) => n.id === nodeId)).toBe(true);
+    const still = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed` });
+    expect(still.json().items.some((n: any) => n.id === nodeId)).toBe(true);
 
     expect((await app.inject({ method: 'PATCH', url: '/api/sets/nope', payload: { name: 'x' } })).statusCode).toBe(404);
     expect((await app.inject({ method: 'DELETE', url: '/api/sets/nope' })).statusCode).toBe(404);
@@ -3667,8 +3669,8 @@ describe('progressive delivery', () => {
       const ids = new Set(siblings.map((n) => n.id));
       const activity = (await local.inject({ method: 'GET', url: `/api/brands/${other.json().id}/activity` })).json();
       expect(activity.nodes.some((n: any) => ids.has(n.id))).toBe(false);
-      const ws = (await local.inject({ method: 'GET', url: `/api/brands/${other.json().id}/workspace` })).json();
-      expect(ws.nodes.some((n: any) => ids.has(n.id))).toBe(false);
+      const ws = (await local.inject({ method: 'GET', url: `/api/brands/${other.json().id}/feed?limit=200` })).json();
+      expect(ws.items.some((n: any) => ids.has(n.id))).toBe(false);
       await s.land(1);
       s.finish();
       await waitCharged(local, siblings[0].id);

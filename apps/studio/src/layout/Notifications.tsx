@@ -11,7 +11,7 @@ import {
   WarningCircle,
   XCircle,
 } from '@phosphor-icons/react';
-import { api, imgUrl } from '../api.js';
+import { api, thumbUrl } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../tasks.js';
@@ -241,7 +241,7 @@ function Tab({
 }
 
 function Thumb({ task }: { task: Pick<Task, 'kind' | 'state' | 'thumb' | 'title'> }) {
-  if (task.thumb) return <img src={imgUrl(task.thumb)} alt="" />;
+  if (task.thumb) return <img src={thumbUrl(task.thumb, 'micro')} alt="" loading="lazy" decoding="async" />;
   if (task.state === 'running') return <span className="sc-shimmer" />;
   if (task.state === 'error') return <WarningCircle size={17} weight="fill" />;
   if (task.state === 'cancelled') return <XCircle size={17} color="var(--sc-fg3)" />;

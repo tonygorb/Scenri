@@ -1,4 +1,15 @@
-import { caretBeside, chipAt, dropUnitsAt, gapStartUnits, moveAnnouncement, moveChipToUnits } from './line.js';
+import {
+  caretBeside,
+  caretUnits,
+  chipAt,
+  dropUnitsAt,
+  gapStartUnits,
+  lengthOf,
+  moveAnnouncement,
+  moveChipToUnits,
+  offsetIn,
+  setCaretUnits,
+} from './line.js';
 
 /**
  * Pointer-drag reordering for the brief's chips.
@@ -48,6 +59,15 @@ export function attachChipDrag(
   let ghost: HTMLElement | null = null;
   let indicator: HTMLElement | null = null;
   let lastDrop: { units: number; noop: boolean } | null = null;
+  /**
+   * The caret the drag interrupted, as a count of characters.
+   *
+   * A number rather than a Range: the drop's normalize replaces the text nodes
+   * around the chip, and a Range pointing at one of them dies with it.
+   */
+  let caretBefore: number | null = null;
+  /** The pointer the line has captured for the length of the drag. */
+  let captured: number | null = null;
   let grab = { dx: 0, dy: 0 };
   let ghostSize = { w: 0, h: 0 };
   let raf = 0;
@@ -78,6 +98,16 @@ export function attachChipDrag(
   };
 
   const teardown = () => {
+    if (captured !== null) {
+      // the pointer goes back before anything else: a release that throws
+      // must not leave the line holding it
+      try {
+        root.releasePointerCapture(captured);
+      } catch {
+        /* already gone with the pointer */
+      }
+      captured = null;
+    }
     ghost?.remove();
     indicator?.remove();
     ghost = null;
@@ -91,10 +121,27 @@ export function attachChipDrag(
     cancelAnimationFrame(raf);
   };
 
+  /**
+   * Hand the caret back to where the drag found it.
+   *
+   * The line keeps focus for the whole gesture, so a drag that ends without
+   * moving anything used to leave a focused editor with no selection at all:
+   * no caret to see, and every keystroke after it swallowed. Nothing moved on
+   * these paths, so the recorded position still means what it meant; the chip
+   * that was picked up is the fallback when there was no caret to record.
+   */
+  const restoreCaret = (chip: HTMLElement) => {
+    if (!root.isConnected || !root.contains(document.activeElement)) return;
+    if (caretBefore !== null) setCaretUnits(root, caretBefore);
+    else caretBeside(root, chip, 'after');
+  };
+
   const cancel = () => {
     if (!dragging) return;
+    const chip = dragging;
     teardown();
     suppressNextClick();
+    restoreCaret(chip);
     cb.onCancelled();
   };
 
@@ -111,6 +158,10 @@ export function attachChipDrag(
 
   const promote = (e: PointerEvent) => {
     if (!armed) return;
+    // Read first, before anything else here can reach the line: picking a
+    // chip up clears the selection so no highlight rides along under the
+    // ghost, and a drag that moves nothing has to undo exactly that.
+    caretBefore = caretUnits(root);
     dragging = armed.chip;
     cb.onDragStart();
     window.getSelection()?.removeAllRanges();
@@ -122,6 +173,24 @@ export function attachChipDrag(
     const r = dragging.getBoundingClientRect();
     grab = { dx: armed.x - r.left, dy: armed.y - r.top };
     armed = null;
+    /*
+     * The line takes the pointer, as every other drag in the app does (the
+     * sheet's grip, the overlay's splitter).
+     *
+     * Without it the release is delivered to whatever happens to be under the
+     * pointer — the feed, a panel, the window chrome — and anything on that
+     * path that stops the event, or a release outside the window entirely,
+     * never reaches these listeners. The drag then never tears down: the line
+     * keeps `data-chip-drag`, which is `user-select: none`, so from then on a
+     * click cannot place a caret at all, and the chip that was picked up
+     * stays behind as an empty dashed slot.
+     */
+    try {
+      root.setPointerCapture(e.pointerId);
+      captured = e.pointerId;
+    } catch {
+      // a pointer that has already ended: the window listeners still cover it
+    }
     // the cursor rule on the line cannot follow a window-level drag
     document.documentElement.style.cursor = 'grabbing';
 
@@ -198,6 +267,11 @@ export function attachChipDrag(
   const onPointerMove = (e: PointerEvent) => {
     if (armed) {
       if (Math.hypot(e.clientX - armed.x, e.clientY - armed.y) < THRESHOLD) return;
+      // Prevented like every later move: without it the compatibility
+      // mousemove for this one reaches the browser's own selection drag,
+      // which is still live from the press, and it extends a selection under
+      // the ghost from the point the chip was grabbed.
+      e.preventDefault();
       promote(e);
       return;
     }
@@ -215,14 +289,25 @@ export function attachChipDrag(
     }
     if (!dragging) return;
     const chip = dragging;
-    const drop = dropUnitsAt(root, chip, e.clientX, e.clientY) ?? lastDrop;
-    teardown();
+    // Whatever the drop maths does, the drag ends here: an exception on the
+    // way to a landing must not leave the line in drag state.
+    let drop: { units: number; noop: boolean } | null;
+    try {
+      drop = dropUnitsAt(root, chip, e.clientX, e.clientY) ?? lastDrop;
+    } catch {
+      drop = lastDrop;
+    } finally {
+      teardown();
+    }
     suppressNextClick();
     if (drop && !drop.noop && moveChipToUnits(root, chip, drop.units)) {
       caretBeside(root, chip, 'after');
       cb.onMoved(chip, moveAnnouncement(root, chip));
       return;
     }
+    // Released on the chip's own place, or off the line entirely: nothing
+    // moved, so the caret goes back rather than staying gone.
+    restoreCaret(chip);
     cb.onCancelled();
   };
 
@@ -241,6 +326,9 @@ export function attachChipDrag(
 
   root.addEventListener('pointerdown', onPointerDown);
   root.addEventListener('dragstart', onDragStart);
+  // The capture going away without a release having reached us: the drag is
+  // over whether or not anything told us so.
+  root.addEventListener('lostpointercapture', cancel);
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
   window.addEventListener('pointercancel', cancel);
@@ -251,6 +339,7 @@ export function attachChipDrag(
     teardown();
     root.removeEventListener('pointerdown', onPointerDown);
     root.removeEventListener('dragstart', onDragStart);
+    root.removeEventListener('lostpointercapture', cancel);
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerup', onPointerUp);
     window.removeEventListener('pointercancel', cancel);
@@ -259,13 +348,24 @@ export function attachChipDrag(
   };
 }
 
-/** Where a unit position sits on screen, for the insertion indicator. */
+/**
+ * Where a unit position sits on screen, for the insertion indicator.
+ *
+ * Counted in the same units the drop maths speaks: `lengthOf`, so the guard
+ * beside a chip counts as nothing, and `offsetIn` to turn a count of
+ * characters into a DOM offset inside a text node. Walking on raw string
+ * length instead put the indicator one position further along for every
+ * guard it passed — a chip's worth of drift per chip, so on a line of
+ * nothing but chips (a guard in every gap) it was drawn one or two chips
+ * away from the gap the pointer was over, while the drop itself, which
+ * counts properly, landed where it was aimed.
+ */
 function rectAtUnits(root: HTMLElement, units: number): DOMRect | null {
   let n = 0;
   const kids = Array.from(root.childNodes);
   for (let i = 0; i < kids.length; i++) {
     const c = kids[i];
-    const len = c.nodeType === Node.TEXT_NODE ? (c.textContent ?? '').length : 1;
+    const len = lengthOf(c);
     // A position at the very end of a text node is also the start of what
     // follows, and when that is a chip its own left edge is the honest place
     // to draw: the end of a space that hangs at a soft wrap sits on the row
@@ -279,7 +379,7 @@ function rectAtUnits(root: HTMLElement, units: number): DOMRect | null {
         return new DOMRect(units === n ? r.left : r.right, r.top, 0, r.height);
       }
       const range = document.createRange();
-      range.setStart(c, Math.max(0, Math.min(units - n, len)));
+      range.setStart(c, offsetIn(c as Text, Math.max(0, Math.min(units - n, len))));
       range.collapse(true);
       const rect = range.getBoundingClientRect();
       return rect.height ? rect : null;

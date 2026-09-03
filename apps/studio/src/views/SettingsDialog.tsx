@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from '@radix-ui/themes';
 import { Broom, Database, Info, Lightning, Palette, PiggyBank, Sun, TrashSimple, X } from '@phosphor-icons/react';
-import { api, type EngineInfo, type TreeNode, type VersionInfo } from '../api.js';
+import { api, type EngineInfo, type VersionInfo } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { focusSelfOnOpen, type Pane } from '../app/dialogs.js';
 import { BrandPane } from './settings/BrandPane.js';
@@ -33,11 +33,11 @@ const PANES: { id: Pane; label: string; title: string; icon: React.ReactNode; da
  */
 export function SettingsDialog({
   engines,
-  shots,
+  brandId,
   onSaved,
 }: {
   engines: EngineInfo[];
-  shots: TreeNode[];
+  brandId: string;
   onSaved: () => void;
 }) {
   const settings = useDialogParam('settings');
@@ -121,7 +121,7 @@ export function SettingsDialog({
               {pane === 'brand' && <BrandPane />}
               {pane === 'engines' && <EnginesPane engines={engines} />}
               {pane === 'budget' && <Budget engines={engines} onSaved={onSaved} />}
-              {pane === 'usage' && <Usage shots={shots} />}
+              {pane === 'usage' && <Usage brandId={brandId} />}
               {pane === 'library' && <Library />}
               {pane === 'appearance' && <Appearance />}
               {pane === 'about' && <About version={version} />}

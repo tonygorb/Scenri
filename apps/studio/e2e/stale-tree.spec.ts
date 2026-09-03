@@ -44,10 +44,10 @@ async function currentBrand(p: Page) {
   return { id: brands.find((b) => b.slug === slug).id, slug };
 }
 
-/** Serve the workspace with `drop` applied, once, then tell the truth. */
-async function staleOnce(p: Page, drop: (ws: any) => void) {
+/** Serve one answer of `path` with `drop` applied, once, then tell the truth. */
+async function staleOnce(p: Page, path: string, drop: (body: any) => void) {
   let spent = false;
-  await p.route('**/api/brands/*/workspace', async (route) => {
+  await p.route(path, async (route) => {
     const res = await route.fetch();
     const ws = await res.json();
     if (!spent) {
@@ -60,13 +60,13 @@ async function staleOnce(p: Page, drop: (ws: any) => void) {
 
 test('a shot missing from a stale tree is confirmed, not declared gone', async ({ page }) => {
   const brand = await currentBrand(page);
-  const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-  const shot = ws.nodes.find((n: any) => n.kind !== 'root' && n.status === 'done');
+  const feed = (await api(page, `/api/brands/${brand.id}/feed?limit=200`)) as any;
+  const shot = feed.items.find((n: any) => n.status === 'done');
   expect(shot, 'seed shot').toBeTruthy();
 
-  // exactly the CI condition: the first tree the overlay sees predates the shot
-  await staleOnce(page, (w) => {
-    w.nodes = w.nodes.filter((n: any) => n.id !== shot.id);
+  // exactly the CI condition: the first feed page the overlay sees predates the shot
+  await staleOnce(page, '**/api/brands/*/feed*', (f) => {
+    f.items = f.items.filter((n: any) => n.id !== shot.id);
   });
 
   await page.goto(`/${brand.slug}/create/shots/${shot.id}`);
@@ -89,7 +89,7 @@ test('a set missing from a stale tree is confirmed, not bounced', async ({ page 
     body: JSON.stringify({ name: 'Race set' }),
   })) as any;
 
-  await staleOnce(page, (w) => {
+  await staleOnce(page, '**/api/brands/*/workspace', (w) => {
     w.sets = w.sets.filter((s: any) => s.id !== made.id);
   });
 

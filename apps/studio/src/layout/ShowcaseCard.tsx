@@ -1,12 +1,4 @@
-import {
-  Fragment,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type MouseEvent,
-  type ReactNode,
-} from 'react';
+import { Fragment, useLayoutEffect, useRef, type CSSProperties, type ReactNode, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import type { ShowcaseEntry } from '../api.js';

@@ -247,15 +247,15 @@ test('refining points at the version it just made, not the one it started from',
   // arrived already pointing at the answer and the case proved nothing.
   let refined = false;
 
-  await page.route('**/api/brands/*/workspace', async (route) => {
+  await page.route('**/api/brands/*/feed*', async (route) => {
     const res = await route.fetch();
-    const ws = await res.json();
-    const donor = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length);
+    const feed = await res.json();
+    const donor = (feed.items ?? []).find((n: any) => n.status === 'done' && n.images.length);
     existingImage = donor?.images?.[0] ?? null;
-    if (refined && donor && !(ws.nodes ?? []).some((n: any) => n.id === REFINED)) {
-      ws.nodes.push({ ...donor, id: REFINED, parentId: donor.id, kind: 'edit', prompt: 'made it tighter' });
+    if (refined && donor && !(feed.items ?? []).some((n: any) => n.id === REFINED)) {
+      feed.items.unshift({ ...donor, id: REFINED, parentId: donor.id, kind: 'edit', promptHead: 'made it tighter' });
     }
-    await route.fulfill({ response: res, json: ws });
+    await route.fulfill({ response: res, json: feed });
   });
   await page.route('**/api/nodes', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
@@ -268,6 +268,8 @@ test('refining points at the version it just made, not the one it started from',
         parentId: null,
         kind: 'edit',
         prompt: 'made it tighter',
+        promptHead: 'made it tighter',
+        childCount: 0,
         engineId: 'demo',
         status: 'done',
         images: existingImage ? [existingImage] : [],
@@ -360,22 +362,22 @@ test('a version still rendering holds the button rather than making a new shot',
     const slug = location.pathname.split('/')[1];
     const brands = await (await fetch('/api/brands')).json();
     const b = brands.find((x: any) => x.slug === slug);
-    const ws = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
-    return (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length)?.id ?? null;
+    const feed = await (await fetch(`/api/brands/${b.id}/feed?limit=200`)).json();
+    return (feed.items ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length)?.id ?? null;
   });
   expect(held).toBeTruthy();
 
   // that one shot now reads as still rendering, which is the state a real
   // refine passes through too quickly to catch on the demo engine
-  await page.route('**/api/brands/*/workspace', async (route) => {
+  await page.route('**/api/brands/*/feed*', async (route) => {
     const res = await route.fetch();
-    const ws = await res.json();
-    const n = (ws.nodes ?? []).find((x: any) => x.id === held);
+    const feed = await res.json();
+    const n = (feed.items ?? []).find((x: any) => x.id === held);
     if (n) {
       n.status = 'running';
       n.images = [];
     }
-    await route.fulfill({ response: res, json: ws });
+    await route.fulfill({ response: res, json: feed });
   });
 
   await page.goto(`${new URL(page.url()).pathname}?branch=${held}`);
@@ -984,6 +986,37 @@ test('clicking the body of a chip opens its picker, not the caret menu', async (
  * The control stays now and means what it says: a new shape runs the same setup
  * again at that shape, as a new shot, and the composer says so before you send.
  */
+
+/**
+ * Rewrite the recorded shape of the brand's first finished shot, on every
+ * feed page and on its own record, and answer its id once one has been seen.
+ * The shape the composer reads is the shape the shot reports, so this is the
+ * only input the reshape cases need; generating a real shot of each shape
+ * left finish notifications behind for three cases two files away.
+ */
+async function recordedFormat(page: Page, format: string): Promise<() => string> {
+  let shot = '';
+  const rewrite = (n: any) => {
+    shot = n.id;
+    n.brief = { ...(n.brief ?? { tokens: [] }), format };
+  };
+  await page.route('**/api/brands/*/feed*', async (route) => {
+    const res = await route.fetch();
+    const feed = await res.json();
+    const done = (feed.items ?? []).find((n: any) => n.status === 'done' && n.images?.length);
+    if (done) rewrite(done);
+    await route.fulfill({ response: res, json: feed });
+  });
+  await page.route('**/api/nodes/*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await route.fetch();
+    const body = await res.json();
+    if (shot && body.id === shot) rewrite(body);
+    await route.fulfill({ response: res, json: body });
+  });
+  return () => shot;
+}
+
 test('a new shape while refining expands the shot rather than replacing it', async ({ page }) => {
   const brand = new URL(page.url()).pathname.split('/')[1];
 
@@ -999,22 +1032,12 @@ test('a new shape while refining expands the shot rather than replacing it', asy
    * the stored record, the app re-derives it from the server, and my shot came
    * back as somebody else's unread news.
    */
-  let shot = '';
-  await page.route('**/workspace', async (route) => {
-    const res = await route.fetch();
-    const ws = await res.json();
-    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
-    if (done) {
-      shot = done.id;
-      done.brief = { ...(done.brief ?? { tokens: [] }), format: 'square' };
-    }
-    await route.fulfill({ response: res, json: ws });
-  });
+  const shot = await recordedFormat(page, 'square');
 
   await page.goto(`/${brand}/create`);
-  await expect.poll(() => shot).not.toBe('');
+  await expect.poll(shot).not.toBe('');
 
-  await page.goto(`/${brand}/create/shots/${shot}`);
+  await page.goto(`/${brand}/create/shots/${shot()}`);
   const composer = page.locator('.sc-ovl-edit');
   await expect(composer.locator('.sc-brief-line')).toBeVisible();
 
@@ -1050,7 +1073,7 @@ test('a new shape while refining expands the shot rather than replacing it', asy
   // a child of the shot on screen, carrying the frame it was made from: the
   // server grows that picture rather than starting another one — and the op
   // rides on the wire by name, never inferred
-  expect(posted.parentId).toBe(shot);
+  expect(posted.parentId).toBe(shot());
   expect(posted.sourceImage).toBeTruthy();
   expect(posted.reshape).toBe('extend');
 });
@@ -1060,21 +1083,11 @@ test('a squarer shape while refining infers a crop, and sends it with no words a
 
   // the same trick as the expand test: the shot's recorded shape is the only
   // input the composer needs, so the workspace response carries it
-  let shot = '';
-  await page.route('**/workspace', async (route) => {
-    const res = await route.fetch();
-    const ws = await res.json();
-    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
-    if (done) {
-      shot = done.id;
-      done.brief = { ...(done.brief ?? { tokens: [] }), format: 'landscape' };
-    }
-    await route.fulfill({ response: res, json: ws });
-  });
+  const shot = await recordedFormat(page, 'landscape');
 
   await page.goto(`/${brand}/create`);
-  await expect.poll(() => shot).not.toBe('');
-  await page.goto(`/${brand}/create/shots/${shot}`);
+  await expect.poll(shot).not.toBe('');
+  await page.goto(`/${brand}/create/shots/${shot()}`);
   const composer = page.locator('.sc-ovl-edit');
   await expect(composer.locator('.sc-brief-line')).toBeVisible();
 
@@ -1117,27 +1130,17 @@ test('a squarer shape while refining infers a crop, and sends it with no words a
   await expect.poll(() => posted?.kind).toBe('edit');
   expect(posted.reshape).toBe('crop');
   expect(posted.brief.format).toBe('square');
-  expect(posted.parentId).toBe(shot);
+  expect(posted.parentId).toBe(shot());
 });
 
 test('an orientation flip is further than one extend can reach, and the hint says crop', async ({ page }) => {
   const brand = new URL(page.url()).pathname.split('/')[1];
 
-  let shot = '';
-  await page.route('**/workspace', async (route) => {
-    const res = await route.fetch();
-    const ws = await res.json();
-    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
-    if (done) {
-      shot = done.id;
-      done.brief = { ...(done.brief ?? { tokens: [] }), format: 'landscape' };
-    }
-    await route.fulfill({ response: res, json: ws });
-  });
+  const shot = await recordedFormat(page, 'landscape');
 
   await page.goto(`/${brand}/create`);
-  await expect.poll(() => shot).not.toBe('');
-  await page.goto(`/${brand}/create/shots/${shot}`);
+  await expect.poll(shot).not.toBe('');
+  await page.goto(`/${brand}/create/shots/${shot()}`);
   const composer = page.locator('.sc-ovl-edit');
   await expect(composer.locator('.sc-brief-line')).toBeVisible();
 
@@ -1182,22 +1185,51 @@ test('a shape chosen while refining one shot does not follow you to the next', a
    */
   let a = '';
   let b = '';
-  await page.context().route('**/workspace', async (route) => {
+  const shaped = (shot: any, id: string, format: string) => ({
+    ...shot,
+    id,
+    brief: { ...(shot.brief ?? { tokens: [] }), format },
+  });
+  // the first finished shot reads as square, and a twin of it as portrait: on
+  // the feed page, on each one's own record, and in the lineage the overlay's
+  // Next version steps through
+  await page.context().route('**/api/brands/*/feed*', async (route) => {
     const res = await route.fetch();
-    const ws = await res.json();
-    const nodes = ws.nodes ?? [];
-    const i = nodes.findIndex((n: any) => n.kind !== 'root' && n.status === 'done' && n.images?.length);
+    const feed = await res.json();
+    const items = feed.items ?? [];
+    const i = items.findIndex((n: any) => n.status === 'done' && n.images?.length);
     if (i >= 0) {
-      const shot = nodes[i];
+      const shot = items[i];
       a = shot.id;
       b = `${shot.id}-b`;
-      shot.brief = { ...(shot.brief ?? { tokens: [] }), format: 'square' };
+      items[i] = shaped(shot, a, 'square');
       // a sibling, so the overlay's own Next version steps between the two
       // without a reload: the bug's worst case is one mounted composer walking
       // from shot to shot, which no amount of remounting would have caught
-      nodes.splice(i + 1, 0, { ...shot, id: b, brief: { ...shot.brief, format: 'portrait' } });
+      items.splice(i + 1, 0, shaped(shot, b, 'portrait'));
     }
-    await route.fulfill({ response: res, json: ws });
+    await route.fulfill({ response: res, json: feed });
+  });
+  const idOf = (url: string) => new URL(url).pathname.split('/')[3] ?? '';
+  await page.context().route('**/api/nodes/*', async (route) => {
+    const id = idOf(route.request().url());
+    if (route.request().method() !== 'GET' || !a || (id !== a && id !== b)) return route.fallback();
+    const res = await route.fetch({ url: route.request().url().replace(b, a) });
+    const body = await res.json();
+    await route.fulfill({ response: res, json: shaped(body, id, id === a ? 'square' : 'portrait') });
+  });
+  await page.context().route('**/api/nodes/*/lineage', async (route) => {
+    const id = idOf(route.request().url());
+    if (!a || (id !== a && id !== b)) return route.fallback();
+    const res = await route.fetch({ url: route.request().url().replace(b, a) });
+    const lineage = await res.json();
+    const i = lineage.siblings.findIndex((n: any) => n.id === a);
+    if (i >= 0) {
+      const shot = lineage.siblings[i];
+      lineage.siblings[i] = shaped(shot, a, 'square');
+      lineage.siblings.splice(i + 1, 0, shaped(shot, b, 'portrait'));
+    }
+    await route.fulfill({ response: res, json: lineage });
   });
 
   await page.goto(`/${brand}/create`);
@@ -1246,9 +1278,11 @@ test('a shape chosen while refining one shot does not follow you to the next', a
 
   // the machine's own default is still the default, which is the whole cause:
   // a refine that writes the pref is a refine every later brief and every
-  // later tab inherits. (The key exists because the dock's own composer wrote
-  // the fallback on mount; what matters is that 16:9 never reached it.)
-  expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"square"');
+  // later tab inherits. (The dock's composer no longer writes its fallback on
+  // mount, so the key may be absent; what matters is that 16:9 never reached it.)
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('scenri:format'))) ?? 'null')).not.toBe(
+    'landscape',
+  );
 
   // so a second tab, sharing that storage, opens the 4:5 shot at 4:5 while this
   // one still holds 16:9 on the first
@@ -1748,6 +1782,157 @@ test('a press without movement is still a click, and Escape abandons a drag', as
   expect(await sentence(page)).toBe(before);
 });
 
+/**
+ * A drag that moves nothing has to hand the caret back.
+ *
+ * Picking a chip up clears the selection so no highlight rides along under the
+ * ghost. Only a landed move put a caret back, so the three ways a drag ends
+ * with nothing moved — released on the chip's own place, abandoned with
+ * Escape, released off the line — left a focused editor with no caret at all,
+ * and every keystroke after one of them was swallowed.
+ */
+test('a drag that moves nothing gives the caret back, and typing lands there', async ({ page }) => {
+  await seedReorder(page);
+  const before = await sentence(page);
+  const grab = async () => {
+    const b = (await chips(page).first().boundingBox())!;
+    return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) };
+  };
+
+  // released over the chip's own place: past the threshold, so a real drag
+  const noop = await grab();
+  await page.mouse.move(noop.x, noop.y);
+  await page.mouse.down();
+  await page.mouse.move(noop.x + 9, noop.y, { steps: 3 });
+  await page.mouse.up();
+  await page.keyboard.type('A');
+
+  // abandoned with Escape
+  const esc = await grab();
+  await page.mouse.move(esc.x, esc.y);
+  await page.mouse.down();
+  await page.mouse.move(esc.x - 40, esc.y, { steps: 4 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await page.keyboard.type('B');
+
+  // released off the line entirely
+  const off = await grab();
+  await page.mouse.move(off.x, off.y);
+  await page.mouse.down();
+  await page.mouse.move(off.x, off.y - 200, { steps: 5 });
+  await page.mouse.up();
+  await page.keyboard.type('C');
+
+  // the caret was after the chip all three times, which is where attaching
+  // left it, and no drag moved anything
+  expect(await sentence(page)).toBe(`${before}ABC`);
+});
+
+/**
+ * The line takes the pointer for the length of a drag.
+ *
+ * Without it the release lands on whatever sits under the pointer — the feed,
+ * a panel, the window chrome — and anything on that path that stops the event,
+ * or a release outside the window at all, never reached the drag. It then
+ * never tore down: the line kept `data-chip-drag`, which is `user-select:
+ * none`, so from that moment a click could not place a caret anywhere in the
+ * brief, and the chip that was picked up stayed behind as an empty dashed
+ * slot. The canvas is not an ancestor of the line, so a listener there that
+ * swallows the release is exactly that case.
+ */
+test('a release the page swallows still ends the drag, and the line still takes a caret', async ({ page }) => {
+  await seedReorder(page);
+  const before = await sentence(page);
+  await page.evaluate(() => {
+    document.querySelector('.sc-canvas')?.addEventListener('pointerup', (e) => e.stopPropagation(), { once: true });
+  });
+
+  const b = (await chips(page).first().boundingBox())!;
+  const canvas = (await page.locator('.sc-canvas').boundingBox())!;
+  await page.mouse.move(Math.round(b.x + b.width / 2), Math.round(b.y + b.height / 2));
+  await page.mouse.down();
+  await page.mouse.move(Math.round(b.x + b.width / 2) + 12, Math.round(b.y + b.height / 2), { steps: 3 });
+  // released over the feed, where the swallowing listener is
+  await page.mouse.move(Math.round(canvas.x + canvas.width / 2), Math.round(canvas.y + 80), { steps: 6 });
+  await page.mouse.up();
+
+  // nothing of the drag is left on screen
+  await expect(page.locator('.sc-chip-ghost')).toHaveCount(0);
+  await expect(page.locator('.sc-drop-caret')).toHaveCount(0);
+  await expect(page.locator('.sc-brief-line[data-chip-drag]')).toHaveCount(0);
+  await expect(page.locator('.sc-brief-line .sc-token[data-drag-src]')).toHaveCount(0);
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.sc-brief-line')!).userSelect)).not.toBe(
+    'none',
+  );
+
+  // and the line takes a caret again: the whole point of the state coming off
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('!');
+  expect(await sentence(page)).toBe(`${before}!`);
+});
+
+/**
+ * The insertion caret is drawn where the drop will land.
+ *
+ * It is positioned by counting characters along the line, and the line keeps a
+ * zero-width guard beside every chip. The drop maths counts a guard as
+ * nothing, as everything else in the line does; the indicator counted it as
+ * one, so it drew one position further along for every guard it passed. On a
+ * brief of nothing but chips there is a guard in every gap, so the caret
+ * appeared one or two chips away from the gap the pointer was over — while
+ * the drop, counting properly, landed exactly where it was aimed.
+ */
+test('the drop caret is drawn in the gap the pointer is over, on a line of only chips', async ({ page }) => {
+  const add = async (tab: RegExp, i: number) => {
+    await plusMenu(page, tab);
+    await pickCard(page, i);
+    await page.keyboard.press('Escape');
+  };
+  await add(/products/i, 0);
+  await add(/products/i, 1);
+  await add(/products/i, 2);
+  await add(/presenters/i, 0);
+  await add(/presenters/i, 1);
+  await add(/scenes/i, 0);
+  await expect(chips(page)).toHaveCount(6);
+  // nothing was typed, so the line is chips and the guards between them
+
+  const boxes = await page.evaluate(() =>
+    [...document.querySelectorAll('.sc-brief-line .sc-token')].map((e) => {
+      const r = e.getBoundingClientRect();
+      return { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top) };
+    }),
+  );
+  const last = boxes.length - 1;
+  const b = (await chips(page).nth(last).boundingBox())!;
+  const cy = Math.round(b.y + b.height / 2);
+  await page.mouse.move(Math.round(b.x + b.width / 2), cy);
+  await page.mouse.down();
+  await page.mouse.move(Math.round(b.x + b.width / 2) + 9, cy, { steps: 3 });
+
+  // every gap between the chips ahead of it, on the row it is being dragged along
+  for (let g = 0; g < last - 1; g++) {
+    if (boxes[g].top !== boxes[g + 1].top) continue;
+    const gapX = Math.round((boxes[g].right + boxes[g + 1].left) / 2);
+    await page.mouse.move(gapX, cy, { steps: 4 });
+    // the indicator follows on the next frame, so let the frame happen
+    await page.waitForTimeout(80);
+    const x = await page.evaluate(() => {
+      const el = document.querySelector('.sc-drop-caret') as HTMLElement | null;
+      return el && el.style.display !== 'none' ? Math.round(el.getBoundingClientRect().left) : null;
+    });
+    const where = `gap ${g}: caret at ${x}, gap is ${boxes[g].right}..${boxes[g + 1].left}`;
+    expect(x, where).not.toBeNull();
+    // inside the gap it is pointing at, not a chip or two away
+    expect(x as number, where).toBeGreaterThanOrEqual(boxes[g].right - 10);
+    expect(x as number, where).toBeLessThanOrEqual(boxes[g + 1].left + 10);
+  }
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});
+
 test('Alt plus an arrow moves a focused chip, and the move is announced', async ({ page }) => {
   await seedReorder(page);
   await chips(page).first().focus();
@@ -2005,8 +2190,8 @@ test('the newest work is always the top-left tile', async ({ page }) => {
   await expect(page.locator('.sc-cell[data-running]')).toHaveCount(0, { timeout: 30_000 });
   const newest = await page.evaluate(async () => {
     const brands = await (await fetch('/api/brands')).json();
-    const ws = await (await fetch(`/api/brands/${brands[0].id}/workspace`)).json();
-    const nodes = ws.nodes.filter((n: any) => n.kind !== 'root' && n.status === 'done');
+    const feed = await (await fetch(`/api/brands/${brands[0].id}/feed?limit=200`)).json();
+    const nodes = feed.items.filter((n: any) => n.status === 'done');
     nodes.sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
     return nodes[0].id;
   });
@@ -2776,7 +2961,7 @@ test('hovering a reference chip peeks at the picture that chip is holding', asyn
   await chips(page).first().hover();
   await expect(peek(page)).toBeVisible();
   // the token's own hash, which is the one the compiler attaches
-  expect(await peekSrc(page)).toBe(`/api/images/${hash}`);
+  expect(await peekSrc(page)).toBe(`/api/images/${hash}/thumb?w=640`);
 });
 
 test('a warned chip keeps its box across a keystroke and the preview that follows', async ({ page }) => {
@@ -2817,10 +3002,10 @@ test('hovering a second reference switches the peek to itself, and only one is u
 
   await chips(page).nth(0).hover();
   await expect(peek(page)).toBeVisible();
-  expect(await peekSrc(page)).toBe(`/api/images/${first}`);
+  expect(await peekSrc(page)).toBe(`/api/images/${first}/thumb?w=640`);
   await chips(page).nth(1).hover();
   await expect(peek(page)).toHaveCount(1);
-  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${second}`);
+  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${second}/thumb?w=640`);
 });
 
 test('a chip body opens its picture, and its caret gutter still takes the caret', async ({ page }) => {
@@ -2882,9 +3067,9 @@ test('a reordered brief still peeks at each reference by identity, never by posi
   await expect.poll(() => chipHash(page, 0)).toBe(second);
 
   await chips(page).nth(0).hover();
-  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${second}`);
+  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${second}/thumb?w=640`);
   await chips(page).nth(1).hover();
-  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${first}`);
+  await expect.poll(() => peekSrc(page)).toBe(`/api/images/${first}/thumb?w=640`);
 });
 
 test('the x removes a reference and never opens a picture', async ({ page }) => {

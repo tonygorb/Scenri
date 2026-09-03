@@ -3,7 +3,7 @@ import { productLabel, sceneLabel, showcaseSearchText } from '../displayName.js'
 import { Link, useNavigate } from 'react-router';
 import { Badge } from '@radix-ui/themes';
 import { Aperture, Mountains, Package, User } from '@phosphor-icons/react';
-import { assetUrl, type ShowcaseEntry } from '../api.js';
+import { assetUrl, type ShowcaseEntry, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';
@@ -16,7 +16,7 @@ import { bookmarkedScenes } from '../bookmarks.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { showcaseCategoryLabel, sortShowcaseCategories } from '../showcaseCategories.js';
-import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
+import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { Composer } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
@@ -65,7 +65,7 @@ export function HomeView() {
     showcaseError,
     refetchShowcase,
   } = useAppData();
-  const { brand, workspace, nodes, products: library } = useBrand();
+  const { brand, workspace, root, recent, products: library } = useBrand();
   const createAsset = useCreateAsset();
   const navigate = useNavigate();
   const { push } = useToasts();
@@ -185,9 +185,6 @@ export function HomeView() {
    * Create via `?showcase=`, and Create's apply fires the one toast. */
   const openShowcase = phone ? applyShowcase : stageShowcase;
 
-  /** The brand feed root, the same parent Create hangs new shots off. */
-  const root = nodes.find((n) => n.kind === 'root') ?? null;
-
   /** Seed a scene and open the products attach — product, presenter, and scene
    * chain in Create from there. The most recently bookmarked scene wins:
    * bookmarks are stored in the order they were given, and the newest one is
@@ -226,7 +223,7 @@ export function HomeView() {
     const claim = (url: string | null | undefined) => {
       if (!url || used.has(url)) return null;
       used.add(url);
-      return url;
+      return thumbOf(url, 'tile');
     };
     const fromShowcaseIds = (ids: string[]) => {
       for (const id of ids) {
@@ -293,168 +290,170 @@ export function HomeView() {
   }, [templates, presenters, products, demoProducts, showcase]);
 
   return (
-    <ScrollPane>
-      <main className="sc-main" id="main" data-no-dock={phone || undefined}>
-        <h1 className="sc-greet">
-          Compose a shot <em>on brand</em>
-        </h1>
+    <WallDensityCtx.Provider value={densityAttr}>
+      <ScrollPane>
+        <main className="sc-main" id="main" data-no-dock={phone || undefined}>
+          <h1 className="sc-greet">
+            Compose a shot <em>on brand</em>
+          </h1>
 
-        <div className="sc-create-grid">
-          <button type="button" className="sc-create-card" data-tone="compose" data-main="" onClick={startCompose}>
-            <CreateGlyph thumbUrl={createThumbs.compose} fallback={<Aperture size={22} weight="fill" />} />
-            <b>Create an image</b>
-          </button>
-          {/* The three ingredients that image is made from. All three are real
+          <div className="sc-create-grid">
+            <button type="button" className="sc-create-card" data-tone="compose" data-main="" onClick={startCompose}>
+              <CreateGlyph thumbUrl={createThumbs.compose} fallback={<Aperture size={22} weight="fill" />} />
+              <b>Create an image</b>
+            </button>
+            {/* The three ingredients that image is made from. All three are real
               flows now; the last two spent a while here as disabled "Soon"
               cards against a backend that had already shipped. */}
-          <IngredientCard
-            tone="product"
-            title="Add a product"
-            count={products.length}
-            thumbUrl={createThumbs.product}
-            icon={<Package size={22} weight="fill" />}
-            onClick={() => createAsset('product')}
-          />
-          <IngredientCard
-            tone="presenter"
-            title="Create a presenter"
-            thumbUrl={createThumbs.presenter}
-            icon={<User size={22} weight="fill" />}
-            onClick={() => createAsset('presenter')}
-          />
-          <IngredientCard
-            tone="scene"
-            title="Create a scene"
-            thumbUrl={createThumbs.scene}
-            icon={<Mountains size={22} weight="fill" />}
-            onClick={() => createAsset('scene')}
-          />
-        </div>
-
-        {!showcaseLoaded && (
-          <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
-            <ShowcaseCardSkeleton size="grid" count={8} />
-          </div>
-        )}
-
-        {showcaseLoaded && showcaseError && (
-          <p className="sc-feed-empty">
-            Couldn't load the showcase gallery.{' '}
-            <button type="button" className="sc-sec-more" onClick={() => refetchShowcase()}>
-              Retry
-            </button>
-          </p>
-        )}
-
-        {showcaseLoaded && !showcaseError && showcase.length > 0 && (
-          <>
-            <LibraryToolbar
-              filters={<FacetFilter mode="tabs" group={categoryFacet} />}
-              search={
-                showcase.length >= SEARCH_MIN && (
-                  <LibrarySearch value={q} onChange={setQ} noun="examples" total={showcase.length} />
-                )
-              }
-              density={<DensityControl value={density} onChange={setDensity} />}
+            <IngredientCard
+              tone="product"
+              title="Add a product"
+              count={products.length}
+              thumbUrl={createThumbs.product}
+              icon={<Package size={22} weight="fill" />}
+              onClick={() => createAsset('product')}
             />
+            <IngredientCard
+              tone="presenter"
+              title="Create a presenter"
+              thumbUrl={createThumbs.presenter}
+              icon={<User size={22} weight="fill" />}
+              onClick={() => createAsset('presenter')}
+            />
+            <IngredientCard
+              tone="scene"
+              title="Create a scene"
+              thumbUrl={createThumbs.scene}
+              icon={<Mountains size={22} weight="fill" />}
+              onClick={() => createAsset('scene')}
+            />
+          </div>
 
-            {shownShowcase.length > 0 && (
-              <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-                {shownShowcase.map((s) => (
-                  <ShowcaseCard
-                    key={s.id}
-                    entry={s}
-                    size="grid"
-                    onOpen={openShowcase}
-                    productHref={(id) => productPath(brand, id)}
-                    presenterHref={(id) => presenterPath(brand, id)}
-                    sceneHref={(id) => scenePath(brand, id)}
-                    {...recipeOf(s)}
+          {!showcaseLoaded && (
+            <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
+              <ShowcaseCardSkeleton size="grid" count={8} />
+            </div>
+          )}
+
+          {showcaseLoaded && showcaseError && (
+            <p className="sc-feed-empty">
+              Couldn't load the showcase gallery.{' '}
+              <button type="button" className="sc-sec-more" onClick={() => refetchShowcase()}>
+                Retry
+              </button>
+            </p>
+          )}
+
+          {showcaseLoaded && !showcaseError && showcase.length > 0 && (
+            <>
+              <LibraryToolbar
+                filters={<FacetFilter mode="tabs" group={categoryFacet} />}
+                search={
+                  showcase.length >= SEARCH_MIN && (
+                    <LibrarySearch value={q} onChange={setQ} noun="examples" total={showcase.length} />
+                  )
+                }
+                density={<DensityControl value={density} onChange={setDensity} />}
+              />
+
+              {shownShowcase.length > 0 && (
+                <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+                  {shownShowcase.map((s) => (
+                    <ShowcaseCard
+                      key={s.id}
+                      entry={s}
+                      size="grid"
+                      onOpen={openShowcase}
+                      productHref={(id) => productPath(brand, id)}
+                      presenterHref={(id) => presenterPath(brand, id)}
+                      sceneHref={(id) => scenePath(brand, id)}
+                      {...recipeOf(s)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {shownShowcase.length === 0 &&
+                (searching ? (
+                  <LibraryZero
+                    noun="examples"
+                    q={q}
+                    facet={category ? showcaseCategoryLabel(category) : null}
+                    onClearSearch={clearSearch}
+                    onClearAll={clear}
                   />
+                ) : (
+                  <p className="sc-looks-empty">No example carries that category yet.</p>
+                ))}
+            </>
+          )}
+
+          {!presentersLoaded && (
+            <div className="sc-masonry" aria-hidden>
+              <PresenterCardSkeleton size="grid" count={8} />
+            </div>
+          )}
+
+          {presentersLoaded && presenters.length > 0 && (
+            <>
+              <div className="sc-sec-head">
+                <span className="sc-sec-title">Presenters</span>
+                <Link className="sc-sec-more" to={presentersPath(brand)}>
+                  Browse presenters
+                </Link>
+              </div>
+              <div className="sc-masonry">
+                {presenters.slice(0, 8).map((p) => (
+                  <PresenterCard key={p.id} presenter={p} variant="navigate" size="grid" onOpen={applyPresenter} />
                 ))}
               </div>
-            )}
+            </>
+          )}
 
-            {shownShowcase.length === 0 &&
-              (searching ? (
-                <LibraryZero
-                  noun="examples"
-                  q={q}
-                  facet={category ? showcaseCategoryLabel(category) : null}
-                  onClearSearch={clearSearch}
-                  onClearAll={clear}
-                />
-              ) : (
-                <p className="sc-looks-empty">No example carries that category yet.</p>
-              ))}
-          </>
-        )}
-
-        {!presentersLoaded && (
-          <div className="sc-masonry" aria-hidden>
-            <PresenterCardSkeleton size="grid" count={8} />
-          </div>
-        )}
-
-        {presentersLoaded && presenters.length > 0 && (
-          <>
-            <div className="sc-sec-head">
-              <span className="sc-sec-title">Presenters</span>
-              <Link className="sc-sec-more" to={presentersPath(brand)}>
-                Browse presenters
-              </Link>
+          {!scenesLoaded && (
+            <div className="sc-masonry" aria-hidden>
+              <SceneCardSkeleton size="grid" count={8} />
             </div>
-            <div className="sc-masonry">
-              {presenters.slice(0, 8).map((p) => (
-                <PresenterCard key={p.id} presenter={p} variant="navigate" size="grid" onOpen={applyPresenter} />
-              ))}
-            </div>
-          </>
-        )}
+          )}
 
-        {!scenesLoaded && (
-          <div className="sc-masonry" aria-hidden>
-            <SceneCardSkeleton size="grid" count={8} />
-          </div>
-        )}
+          {scenesLoaded && templates.length > 0 && (
+            <>
+              <div className="sc-sec-head">
+                <span className="sc-sec-title">Scenes</span>
+                <Link className="sc-sec-more" to={scenesPath(brand)}>
+                  Browse scenes
+                </Link>
+              </div>
+              <div className="sc-masonry">
+                {shelfScenes.map((s) => (
+                  <SceneCard key={s.id} scene={s} variant="navigate" size="grid" onOpen={applyScene} />
+                ))}
+              </div>
+            </>
+          )}
+        </main>
 
-        {scenesLoaded && templates.length > 0 && (
-          <>
-            <div className="sc-sec-head">
-              <span className="sc-sec-title">Scenes</span>
-              <Link className="sc-sec-more" to={scenesPath(brand)}>
-                Browse scenes
-              </Link>
-            </div>
-            <div className="sc-masonry">
-              {shelfScenes.map((s) => (
-                <SceneCard key={s.id} scene={s} variant="navigate" size="grid" onOpen={applyScene} />
-              ))}
-            </div>
-          </>
-        )}
-      </main>
-
-      {/* The real Composer, not a stand-in: chips, attach, settings, drafts —
+        {/* The real Composer, not a stand-in: chips, attach, settings, drafts —
           everything Create's dock has, sharing the same per-brand draft. Send
           actually starts the brief (the workspace is brand-level, so it exists
           here the same as there), then moves to Create to watch it land.
           Desktop/tablet only: on a phone the dock is unmounted (the unmount
           flushes the draft, so half-typed briefs still reach Create). */}
-      {!phone && (
-        <ComposerDock>
-          <Composer
-            projectId={workspace?.id || null}
-            brand={brand}
-            engines={engines}
-            parent={root}
-            shots={nodes}
-            initialBrief={dockBrief}
-            onQueued={() => navigate(hubPath(brand))}
-          />
-        </ComposerDock>
-      )}
-    </ScrollPane>
+        {!phone && (
+          <ComposerDock>
+            <Composer
+              projectId={workspace?.id || null}
+              brand={brand}
+              engines={engines}
+              parentId={root}
+              shots={recent}
+              initialBrief={dockBrief}
+              onQueued={() => navigate(hubPath(brand))}
+            />
+          </ComposerDock>
+        )}
+      </ScrollPane>
+    </WallDensityCtx.Provider>
   );
 }
 

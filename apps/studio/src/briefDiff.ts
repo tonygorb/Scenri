@@ -1,4 +1,4 @@
-import type { TreeNode } from './api.js';
+import type { FeedNode } from './api.js';
 import type { TokenNames } from './feedRules.js';
 
 /**
@@ -15,7 +15,7 @@ import type { TokenNames } from './feedRules.js';
  * moved, and a sentence that lists nine things is one nobody reads.
  */
 
-type Brief = TreeNode['brief'];
+type Brief = FeedNode['brief'];
 
 interface Tok {
   t: string;
@@ -132,7 +132,7 @@ export function briefChangeLine(from: Brief, to: Brief, names: TokenNames): stri
  * Try again re-ran it from the wrong frame. The fallback stays for shots made
  * before the source was recorded — it is a guess, and the only one available.
  */
-export function sourceImageOf(node: TreeNode, parent: TreeNode | null | undefined): string | undefined {
+export function sourceImageOf(node: FeedNode, parent: FeedNode | null | undefined): string | undefined {
   const recorded = node.brief?.sourceImage;
   if (recorded && parent?.images.includes(recorded)) return recorded;
   return parent?.images[0];
@@ -148,7 +148,7 @@ export function sourceImageOf(node: TreeNode, parent: TreeNode | null | undefine
  * sentence they typed is in the brief's own text tokens; the compiled prompt is
  * the fallback for shots made before briefs were stored.
  */
-export function briefProse(node: TreeNode, names: ProseNames): string {
+export function briefProse(node: FeedNode, names: ProseNames): string {
   // Walk the tokens in order and speak every chip by name. Keeping only the
   // text runs left literal holes where the chips sat: "add this logo to the ."
   // — a sentence with its nouns removed.
@@ -177,7 +177,7 @@ export function briefProse(node: TreeNode, names: ProseNames): string {
     .replace(/\s+/g, ' ')
     .replace(/\s+([.,!?;:])/g, '$1')
     .trim();
-  return said || node.prompt || '';
+  return said || (node as { prompt?: string }).prompt || node.promptHead || '';
 }
 
 /** The resolvers briefProse speaks with: TokenNames plus the brand's marks. */

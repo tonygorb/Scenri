@@ -154,6 +154,25 @@ export function demoProductRefPath(templatesRoot: string, id: string, angle: str
  * exactly. A read-through cache, not a write to any brand's data — nothing
  * here touches `products[]`.
  */
+/**
+ * Decoded once per process, keyed by source file: the same read-through the
+ * presenter references have. Every compile that named a demo product used
+ * to re-read and re-encode all of its angles through sharp, on every preview
+ * keystroke as well as every generation, into a content-addressed store that
+ * threw the work away each time.
+ */
+const resolvedRefs = new Map<string, string>();
+
+async function refHash(core: Core, path: string): Promise<string> {
+  const hit = resolvedRefs.get(path);
+  // Verified before it is trusted: a hash is only valid for the store that
+  // holds it, and tests build a fresh core per case.
+  if (hit && core.images.has(hit)) return hit;
+  const hash = core.images.save(await sharp(readFileSync(path)).png().toBuffer());
+  resolvedRefs.set(path, hash);
+  return hash;
+}
+
 export async function resolveDemoProductImages(
   core: Core,
   templatesRoot: string,
@@ -175,8 +194,7 @@ export async function resolveDemoProductImages(
   for (const angle of angles) {
     const path = demoProductRefPath(templatesRoot, product.id, angle);
     if (!existsSync(path)) continue;
-    const png = await sharp(readFileSync(path)).png().toBuffer();
-    const hash = core.images.save(png);
+    const hash = await refHash(core, path);
     shots.push({ file: `asset:${hash}`, angle, locked: true });
   }
   if (!shots.length) return null;

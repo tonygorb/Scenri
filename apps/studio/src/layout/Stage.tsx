@@ -1,6 +1,6 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Box, Flex, Text } from '@radix-ui/themes';
-import { imgUrl, type TreeNode } from '../api.js';
+import { imgUrl, thumbUrl, type FeedNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
 // one clock for the whole app: the canvas and the bell must not disagree
@@ -8,9 +8,17 @@ import { elapsedLabel, elapsedSec, runningPhrase } from '../tasks.js';
 // the feed's running tiles hold the same shape, from the same source
 import { aspectOfFormat } from '../composer/formats.js';
 
-function aspectOf(node: TreeNode): number {
+function aspectOf(node: FeedNode): number {
   return aspectOfFormat(node.brief?.format);
 }
+
+/** The pixels the run recorded for its first image, when it recorded them. */
+function recordedSize(node: FeedNode): [number, number] | null {
+  const size = (node.brief as { rendered?: { sizes?: [number, number][] } } | null)?.rendered?.sizes?.[0];
+  return size && size[0] > 0 && size[1] > 0 ? size : null;
+}
+
+type ContentRect = { left: number; top: number; width: number; height: number };
 
 export function StageFrame({
   node,
@@ -18,16 +26,14 @@ export function StageFrame({
   onCancel,
   engineName,
 }: {
-  node: TreeNode;
+  node: FeedNode;
   onRetry?: () => void;
   onCancel?: () => void;
   /** What the engine that ran this is called, so a failure can name it. */
   engineName?: string;
 }) {
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
-  const [contentRect, setContentRect] = useState<{ left: number; top: number; width: number; height: number } | null>(
-    null,
-  );
+  const [contentRect, setContentRect] = useState<ContentRect | null>(null);
   const [, force] = useState(0);
 
   useEffect(() => {
@@ -144,35 +150,90 @@ export function StageFrame({
     return <FailureNote failure={failure} density="stage" onRetry={onRetry} />;
   }
 
+  const hash = node.status === 'done' ? node.images[0] : undefined;
+  const size = hash ? recordedSize(node) : null;
+  if (hash && size) {
+    /*
+     * The run recorded its pixels, so the frame takes the picture's box
+     * before a byte of it arrives: the same sizing the waiting state uses,
+     * bounded by the room there is, the cap, and the picture's own width.
+     * Under the original sits the feed's tile derivative, already decoded by
+     * the tile that was just clicked, so the stage shows the shot at once
+     * and the original replaces it in place when its decode is done.
+     */
+    return (
+      <Box
+        className="sc-frame sc-stage-pic"
+        style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties}
+      >
+        <StagePicture key={hash} hash={hash} alt={node.promptHead} imgRef={setImgEl} contentRect={contentRect} />
+      </Box>
+    );
+  }
+
   return (
     <Flex justify="center">
       <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
-        {node.status === 'done' && node.images[0] && (
+        {hash && (
           <Box position="relative" style={{ lineHeight: 0 }}>
             <img
               ref={setImgEl}
-              src={imgUrl(node.images[0])}
-              alt={node.prompt}
+              src={imgUrl(hash)}
+              alt={node.promptHead}
               // the cap itself lives in CSS, where it can know whether a row of
               // takes sits under the shot: a percentage cannot, because nothing
               // between here and the stage has a definite height to measure
               style={{ display: 'block', maxWidth: '100%' }}
             />
-            {contentRect && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: contentRect.left,
-                  top: contentRect.top,
-                  width: contentRect.width,
-                  height: contentRect.height,
-                  lineHeight: 'normal',
-                }}
-              ></div>
-            )}
+            {contentRect && <ContentBox rect={contentRect} />}
           </Box>
         )}
       </Box>
     </Flex>
+  );
+}
+
+function StagePicture({
+  hash,
+  alt,
+  imgRef,
+  contentRect,
+}: {
+  hash: string;
+  alt: string;
+  imgRef: (el: HTMLImageElement | null) => void;
+  contentRect: ContentRect | null;
+}) {
+  // the derivative stays until the original has pixels; a cached original
+  // can be complete before React attaches onLoad, hence the ref check
+  const [under, setUnder] = useState(true);
+  const attach = useCallback(
+    (el: HTMLImageElement | null) => {
+      imgRef(el);
+      if (el?.complete && el.naturalWidth) setUnder(false);
+    },
+    [imgRef],
+  );
+  return (
+    <Box position="relative" style={{ lineHeight: 0 }}>
+      {under && <img className="sc-stage-under" src={thumbUrl(hash, 'tile')} alt="" aria-hidden decoding="async" />}
+      <img ref={attach} src={imgUrl(hash)} alt={alt} className="sc-stage-img" onLoad={() => setUnder(false)} />
+      {contentRect && <ContentBox rect={contentRect} />}
+    </Box>
+  );
+}
+
+function ContentBox({ rect }: { rect: ContentRect }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        lineHeight: 'normal',
+      }}
+    ></div>
   );
 }

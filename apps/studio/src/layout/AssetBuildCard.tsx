@@ -1,6 +1,6 @@
 import { Spinner } from '@radix-ui/themes';
 import { ArrowClockwise, X } from '@phosphor-icons/react';
-import { imgUrl, type AssetBuild } from '../api.js';
+import { type AssetBuild, thumbUrl } from '../api.js';
 import { describeFailure } from '../failure.js';
 
 /**
@@ -52,7 +52,7 @@ export function AssetBuildCard({
     <div className="sc-lookcard" data-variant="plain" data-size="grid" data-build data-building={!failed || undefined}>
       <div className="sc-lookcard-media">
         {build.previewHash ? (
-          <img src={imgUrl(build.previewHash)} alt="" />
+          <img src={thumbUrl(build.previewHash, 'tile')} alt="" />
         ) : (
           <span className="sc-lookcard-blank">{failed ? null : <Spinner />}</span>
         )}

@@ -13,7 +13,7 @@ import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { AssetBuildCard } from '../layout/AssetBuildCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
-import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
+import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
@@ -22,6 +22,9 @@ import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { StarterDivider } from '../layout/library/StarterDivider.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
+
+/** Cards a collection shows before asking; the same page the flat wall turns. */
+const COLLECTION_PAGE = 24;
 import { matchesQuery, type FacetMode } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { PREF, useLocalPref } from '../prefs.js';
@@ -117,6 +120,8 @@ export function ScenesView() {
     [wallSource, q],
   );
 
+  /** Collections the reader has opened out past their first page. */
+  const [openCollections, setOpenCollections] = useState<ReadonlySet<string>>(() => new Set());
   const { visible, remaining, showMore } = useLibraryPage(
     filtered,
     `${vertical ?? ''}|${onlyMarked ? 'bookmarked' : ''}|${bookmarksBrowse ? 'browse' : ''}|${q}`,
@@ -251,124 +256,141 @@ export function ScenesView() {
   );
 
   return (
-    <ScrollPane>
-      <main className="sc-looks sc-scenes" id="main" data-hero={heroMode || undefined}>
-        {!heroMode && toolbar}
+    <WallDensityCtx.Provider value={densityAttr}>
+      <ScrollPane>
+        <main className="sc-looks sc-scenes" id="main" data-hero={heroMode || undefined}>
+          {!heroMode && toolbar}
 
-        {showMine && (
-          <section className="sc-owned">
-            <div className="sc-sec-head">
-              <h2 className="sc-sec-title">Your scenes</h2>
+          {showMine && (
+            <section className="sc-owned">
+              <div className="sc-sec-head">
+                <h2 className="sc-sec-title">Your scenes</h2>
+              </div>
+              <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+                {buildingScenes.map((b) => (
+                  <AssetBuildCard
+                    key={b.id}
+                    build={b}
+                    onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
+                    onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
+                    onRetry={() => createAsset('scene')}
+                  />
+                ))}
+                {mineShown.map((s) => (
+                  <SceneCard
+                    key={s.id}
+                    scene={s}
+                    variant="use"
+                    size="grid"
+                    onOpen={openScene}
+                    href={scenePath(brand, s.id)}
+                    onUse={applyScene}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* The cold state, the same one Products shows. */}
+          {heroMode && loaded && !error && scenes.length > 0 && (
+            <LibraryEmpty
+              shape="cold"
+              title={
+                <>
+                  Build your own <em>scene</em>
+                </>
+              }
+              body="Upload a few references of a place, and its light and materials carry into every image you make."
+              action={createCta}
+            />
+          )}
+
+          {/* A heading only where it separates two things. */}
+          {showMine && loaded && !error && !onlyMarked && byFacet.length > 0 && (
+            <div className="sc-sec-head sc-owned-divider">
+              <h2 className="sc-sec-title">Scenri scenes</h2>
             </div>
-            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-              {buildingScenes.map((b) => (
-                <AssetBuildCard
-                  key={b.id}
-                  build={b}
-                  onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
-                  onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
-                  onRetry={() => createAsset('scene')}
-                />
-              ))}
-              {mineShown.map((s) => (
-                <SceneCard
-                  key={s.id}
-                  scene={s}
-                  variant="use"
-                  size="grid"
-                  onOpen={openScene}
-                  href={scenePath(brand, s.id)}
-                  onUse={applyScene}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+          )}
 
-        {/* The cold state, the same one Products shows. */}
-        {heroMode && loaded && !error && scenes.length > 0 && (
-          <LibraryEmpty
-            shape="cold"
-            title={
-              <>
-                Build your own <em>scene</em>
-              </>
-            }
-            body="Upload a few references of a place, and its light and materials carry into every image you make."
-            action={createCta}
-          />
-        )}
-
-        {/* A heading only where it separates two things. */}
-        {showMine && loaded && !error && !onlyMarked && byFacet.length > 0 && (
-          <div className="sc-sec-head sc-owned-divider">
-            <h2 className="sc-sec-title">Scenri scenes</h2>
-          </div>
-        )}
-
-        {/* The seam, and the row that belongs to the wall under it. Both sit
+          {/* The seam, and the row that belongs to the wall under it. Both sit
             outside the sectioned branch below on purpose: searching or picking
             Bookmarks flips `flat`, and a row that unmounts as you type in it is
             worse than one that never appeared. */}
-        {heroMode && loaded && !error && scenes.length > 0 && (
-          <>
-            <StarterDivider label="Or start from one of ours" />
-            {toolbar}
-          </>
-        )}
+          {heroMode && loaded && !error && scenes.length > 0 && (
+            <>
+              <StarterDivider label="Or start from one of ours" />
+              {toolbar}
+            </>
+          )}
 
-        {!loaded && (
-          <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
-            <SceneCardSkeleton size="grid" count={8} />
-          </div>
-        )}
+          {!loaded && (
+            <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
+              <SceneCardSkeleton size="grid" count={8} />
+            </div>
+          )}
 
-        {loaded && error && (
-          <LibraryEmpty
-            shape="error"
-            title="Couldn't load this library"
-            body="Something went wrong reaching the catalog."
-            onRetry={() => refetch()}
-          />
-        )}
+          {loaded && error && (
+            <LibraryEmpty
+              shape="error"
+              title="Couldn't load this library"
+              body="Something went wrong reaching the catalog."
+              onRetry={() => refetch()}
+            />
+          )}
 
-        {loaded &&
-          !error &&
-          !flat &&
-          collections.map((c) => {
-            const inCollection = wallSource.filter((s) => s.collections.includes(c));
-            if (!inCollection.length) return null;
-            return (
-              // Just the heading and the wall. The row of scene names that
-              // used to sit here repeated, in text, every card directly
-              // below it: two ways to open the same thing, stacked.
-              <section className="sc-coll" key={c}>
-                <h2>{c}</h2>
-                {grid(inCollection)}
-              </section>
-            );
-          })}
+          {loaded &&
+            !error &&
+            !flat &&
+            collections.map((c) => {
+              const inCollection = wallSource.filter((s) => s.collections.includes(c));
+              if (!inCollection.length) return null;
+              // A collection shows one page and says how many more there are:
+              // this view was the one wall in the app that mounted every card
+              // it could name, and a brand's own scenes land in one collection.
+              const opened = openCollections.has(c);
+              const shown = opened ? inCollection : inCollection.slice(0, COLLECTION_PAGE);
+              return (
+                // Just the heading and the wall. The row of scene names that
+                // used to sit here repeated, in text, every card directly
+                // below it: two ways to open the same thing, stacked.
+                <section className="sc-coll" key={c}>
+                  <h2>{c}</h2>
+                  {grid(shown)}
+                  {shown.length < inCollection.length && (
+                    <div className="sc-lib-more">
+                      <button
+                        type="button"
+                        className="sc-btn sc-btn-ghost"
+                        onClick={() => setOpenCollections((cur) => new Set(cur).add(c))}
+                      >
+                        Show all {inCollection.length}
+                      </button>
+                    </div>
+                  )}
+                </section>
+              );
+            })}
 
-        {loaded && !error && flat && visible.length > 0 && grid(visible, true)}
+          {loaded && !error && flat && visible.length > 0 && grid(visible, true)}
 
-        {/* An empty Bookmarks tab is not a failed search — nothing went wrong,
+          {/* An empty Bookmarks tab is not a failed search — nothing went wrong,
             there is just nothing here yet. Say what puts something here. In the
             cold state the catalog stays up instead: there is nothing to hide
             behind an empty wall, and the instruction only works if cards are
             on screen. */}
-        {loaded && !error && bookmarksMessage && (
-          <LibraryEmpty
-            shape="zero"
-            body="Nothing bookmarked yet. Bookmark a scene from its card and it stays here."
-            action={
-              <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setFacets({ bookmarked: null })}>
-                Browse every scene
-              </button>
-            }
-          />
-        )}
+          {loaded && !error && bookmarksMessage && (
+            <LibraryEmpty
+              shape="zero"
+              body="Nothing bookmarked yet. Bookmark a scene from its card and it stays here."
+              action={
+                <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setFacets({ bookmarked: null })}>
+                  Browse every scene
+                </button>
+              }
+            />
+          )}
 
-        {/* Everything else that empties the wall: a search, a vertical, or both.
+          {/* Everything else that empties the wall: a search, a vertical, or both.
             Gated on the message above actually rendering, never on a proxy for
             it. It used to read `markedTotal > 0`, then `!bookmarksZero`; both
             were shorthand for "not the case above" and both left a state where
@@ -376,29 +398,30 @@ export function ScenesView() {
             The facet it names is the one the wall was actually narrowed by —
             in `bookmarksBrowse` that is nothing, because the wall is the whole
             catalog. */}
-        {loaded &&
-          !error &&
-          scenes.length > 0 &&
-          !bookmarksMessage &&
-          filtered.length === 0 &&
-          mineShown.length === 0 && (
-            <LibraryZero
-              noun="scenes"
-              q={q}
-              facet={bookmarksBrowse ? null : onlyMarked ? 'Bookmarks' : vertical}
-              onClearSearch={clearSearch}
-              onClearAll={clear}
-            />
-          )}
+          {loaded &&
+            !error &&
+            scenes.length > 0 &&
+            !bookmarksMessage &&
+            filtered.length === 0 &&
+            mineShown.length === 0 && (
+              <LibraryZero
+                noun="scenes"
+                q={q}
+                facet={bookmarksBrowse ? null : onlyMarked ? 'Bookmarks' : vertical}
+                onClearSearch={clearSearch}
+                onClearAll={clear}
+              />
+            )}
 
-        {flat && remaining > 0 && (
-          <div className="sc-lib-more">
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
-              Show {Math.min(remaining, 60)} more
-            </button>
-          </div>
-        )}
-      </main>
-    </ScrollPane>
+          {flat && remaining > 0 && (
+            <div className="sc-lib-more">
+              <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
+                Show {Math.min(remaining, 60)} more
+              </button>
+            </div>
+          )}
+        </main>
+      </ScrollPane>
+    </WallDensityCtx.Provider>
   );
 }

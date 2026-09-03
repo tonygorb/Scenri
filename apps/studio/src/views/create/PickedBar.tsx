@@ -1,5 +1,5 @@
 import { DropdownMenu } from '@radix-ui/themes';
-import type { ShotSet, TreeNode } from '../../api.js';
+import type { ShotSet, FeedNode } from '../../api.js';
 import { Confirm } from '../../Confirm.js';
 
 /** What you can do with a handful of shots. Only ever about membership. */
@@ -25,7 +25,7 @@ export function PickedBar({
   onClear: () => void;
   onKeep: () => void;
   allKept: boolean;
-  comparable: readonly [TreeNode, TreeNode] | null;
+  comparable: readonly [FeedNode, FeedNode] | null;
   onCompare: () => void;
   /** Keep/Compare/Add-to-set are curation for active work — an archived
    * selection only has two sensible actions, so the bar swaps entirely. */

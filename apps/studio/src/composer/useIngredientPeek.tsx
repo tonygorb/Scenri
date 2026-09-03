@@ -1,4 +1,5 @@
 import { type FocusEvent, type MouseEvent, type PointerEvent, useEffect, useState } from 'react';
+import { thumbOf } from '../api.js';
 import { useNavigate } from 'react-router';
 import { ChipPreview, type PreviewKind } from './ChipPreview.js';
 import { ImageLightbox } from './ImageLightbox.js';
@@ -74,13 +75,13 @@ export function useIngredientPeek(chips: string) {
           key={peek.key}
           anchor={peek.el}
           kind={peek.kind}
-          src={peek.src}
+          src={thumbOf(peek.src, 'tile')}
           label={peek.label}
           onOpen={() => {
             const target = peek;
             closeCard();
             if (target.to) navigate(target.to);
-            else setLightbox({ src: target.src, kind: target.kind, label: target.label });
+            else setLightbox({ src: thumbOf(target.src, 'full'), kind: target.kind, label: target.label });
           }}
           onHoverIn={hover.keep}
           onHoverOut={() => !pinned && hover.close()}

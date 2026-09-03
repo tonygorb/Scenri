@@ -217,14 +217,13 @@ test("a brand's late answer never lands on another brand's feed", async ({ page 
   const b = (await (await page.request.get('/api/brands')).json()).find(
     (x: { json?: { meta?: { name?: string } } }) => x.json?.meta?.name === 'Late answer',
   );
-  await openFeed(page, slug, 1);
-  // hold brand A's next workspace answer back, ask for one, and walk to brand
-  // B inside the app while it is still on its way
-  await page.route(`**/api/brands/${a.id}/workspace`, async (route) => {
+  // hold brand A's feed page back, open the feed so it is asked for, and walk
+  // to brand B inside the app while the answer is still on its way
+  await page.route(`**/api/brands/${a.id}/feed*`, async (route) => {
     await new Promise((r) => setTimeout(r, 3000));
     await route.continue();
   });
-  await send(page, 'a shot whose answer is late');
+  await openFeed(page, slug, 1);
   await page.locator('.sc-org-btn').click();
   await page.locator('.sc-menu-item', { hasText: 'Late answer' }).click();
   await page.waitForURL(new RegExp(`/${b.slug}$`));
@@ -251,4 +250,31 @@ test.describe('on a phone', () => {
     );
     expect(overflow).toBeLessThanOrEqual(0);
   });
+});
+
+/**
+ * A running shot is selectable like any other.
+ *
+ * The done and failed tiles have always carried `data-selected`, the running
+ * one never did, so opening a shot that was still rendering left the feed with
+ * no ring on it while every other tile in the same feed showed one.
+ */
+test('the tile of a running shot carries the selected state like any other', async ({ page }) => {
+  const slug = await brandSlug(page);
+  await openFeed(page, slug);
+  // the engine lands the LAST slot first here, so the first one is still
+  // rendering long after the others are pictures
+  const ids = await send(page, 'still rendering, and selected');
+  const still = ids[0];
+  await expect(picture(page, ids[3])).toBeVisible({ timeout: 20_000 });
+  expect(await stillRunning(page, still), 'the first slot is still rendering').toBe(true);
+
+  await tile(page, still).locator('.sc-cell-open').click();
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  // Both marks on the one element, asserted together: checked one after the
+  // other, a tile that finished mid-assertion satisfies the second as a done
+  // tile and the case proves nothing.
+  await expect(
+    page.locator(`.sc-cell[data-fb-node="${still}"][data-running="true"][data-selected="true"]`),
+  ).toHaveCount(1);
 });

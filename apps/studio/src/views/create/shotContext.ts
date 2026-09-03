@@ -1,4 +1,4 @@
-import type { Brand, EngineInfo, ShotSet, TreeNode } from '../../api.js';
+import type { Brand, EngineInfo, FeedNode, ShotSet } from '../../api.js';
 import type { TokenNames } from '../../feedRules.js';
 
 /**
@@ -6,7 +6,12 @@ import type { TokenNames } from '../../feedRules.js';
  * route, so this travels through the Outlet rather than through props.
  */
 export interface ShotContext {
-  nodes: TreeNode[];
+  /** The shots the feed holds right now, by id: the pages scrolled to, never the whole brand. */
+  byId: ReadonlyMap<string, FeedNode>;
+  /** The project's root, which every new shot hangs off. */
+  rootId: string | null;
+  /** The newest done shots, for the overlay composer's attach panel. */
+  recent: FeedNode[];
   loaded: boolean;
   /** The sets a shot is filed in, by name rather than by count. */
   setsFor: (id: string) => ShotSet[];
@@ -15,16 +20,22 @@ export interface ShotContext {
   projectId: string;
   close: () => void;
   select: (id: string) => void;
-  retry: (node: TreeNode) => void;
-  cancel: (node: TreeNode) => void;
+  retry: (node: FeedNode) => void;
+  cancel: (node: FeedNode) => void;
+  keep: (node: FeedNode) => void;
+  /** Re-read the frame and the first page: the fallback when a change cannot be folded in. */
   reload: () => Promise<void>;
-  remix: (node: TreeNode) => void;
-  branch: (node: TreeNode) => void;
-  archive: (node: TreeNode) => void;
-  unarchive: (node: TreeNode) => void;
-  delete: (node: TreeNode) => void;
+  remix: (node: FeedNode) => void;
+  branch: (node: FeedNode) => void;
+  archive: (node: FeedNode) => void;
+  unarchive: (node: FeedNode) => void;
+  delete: (node: FeedNode) => void;
+  /** Shots that did not exist a moment ago were made from inside the overlay. */
+  landed: (nodes: FeedNode[]) => void;
   /** A shot was made from inside the overlay: keep one refine thread. */
   refined: (nodeId: string, kind?: 'generation' | 'edit') => void;
+  /** The bell's poll, for a shot the pages do not hold. */
+  subscribeActivity: (fn: (nodes: FeedNode[]) => void) => () => void;
   /** Ids to display names, so a shot can say which ingredient moved. */
   tokenNames: TokenNames;
 }

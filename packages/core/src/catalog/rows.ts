@@ -233,6 +233,62 @@ export const productsFor = (db: DB, brandId: string): CatalogProductRow[] =>
       )
       .all(brandId) as any[]
   ).map(rowProduct);
+export const rowVariant = (r: any): CatalogVariantRow => ({
+  id: r.id,
+  productId: r.product_id,
+  externalKey: r.external_key,
+  title: r.title,
+  sku: r.sku,
+  price: r.price,
+  compareAtPrice: r.compare_at_price,
+  currency: r.currency,
+  available: r.available == null ? null : !!r.available,
+  options: JSON.parse(r.options || '{}'),
+});
+export const rowImage = (r: any): CatalogImageRow => ({
+  id: r.id,
+  productId: r.product_id,
+  sourceUrl: r.source_url,
+  assetRef: r.asset_ref,
+  width: r.width,
+  height: r.height,
+  position: r.position,
+  alt: r.alt,
+  angle: r.angle ?? null,
+  excluded: !!r.excluded,
+});
+/** Every active product's variants in a brand, keyed by product, in one query. */
+export const variantsForBrand = (db: DB, brandId: string): Map<string, CatalogVariantRow[]> => {
+  const out = new Map<string, CatalogVariantRow[]>();
+  const rows = db
+    .prepare(
+      `SELECT v.* FROM catalog_variants v JOIN catalog_products p ON p.id = v.product_id
+        WHERE p.brand_id=? AND p.status!='unavailable' ORDER BY v.product_id, v.rowid`,
+    )
+    .all(brandId) as any[];
+  for (const r of rows) {
+    const list = out.get(r.product_id) ?? [];
+    list.push(rowVariant(r));
+    out.set(r.product_id, list);
+  }
+  return out;
+};
+/** Every active product's images in a brand, keyed by product and in position order, in one query. */
+export const imagesForBrand = (db: DB, brandId: string): Map<string, CatalogImageRow[]> => {
+  const out = new Map<string, CatalogImageRow[]>();
+  const rows = db
+    .prepare(
+      `SELECT i.* FROM catalog_images i JOIN catalog_products p ON p.id = i.product_id
+        WHERE p.brand_id=? AND p.status!='unavailable' ORDER BY i.product_id, i.position`,
+    )
+    .all(brandId) as any[];
+  for (const r of rows) {
+    const list = out.get(r.product_id) ?? [];
+    list.push(rowImage(r));
+    out.set(r.product_id, list);
+  }
+  return out;
+};
 export const variantsFor = (db: DB, productId: string): CatalogVariantRow[] =>
   (db.prepare('SELECT * FROM catalog_variants WHERE product_id=?').all(productId) as any[]).map((r) => ({
     id: r.id,

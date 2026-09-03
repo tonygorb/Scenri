@@ -85,6 +85,35 @@ export const imgUrl = (hash: string) => `/api/images/${hash}`;
 /** Renders an `asset:<hash>` brand ref as an image URL, or null. */
 export const assetUrl = (ref?: string) => (ref?.startsWith('asset:') ? imgUrl(ref.slice(6)) : null);
 
+/**
+ * The store's derivatives: `tile` for a feed cell and a catalog card, `micro`
+ * for the surfaces that show a picture at 64px or less (the rail, the version
+ * strip, a chip, a notification row). The original stays on `imgUrl` for the
+ * stage, Compare, the clipboard and export: those are the surfaces that show
+ * the pixels the engine made. A tile used to fetch the same 2 MB PNG the
+ * stage does, so one screen of feed was ten megabytes of decode.
+ */
+type ThumbSize = 'tile' | 'micro';
+const THUMB_WIDTH: Record<ThumbSize, number> = { tile: 640, micro: 160 };
+export const thumbUrl = (hash: string, size: ThumbSize) => `${imgUrl(hash)}/thumb?w=${THUMB_WIDTH[size]}`;
+/** Renders an `asset:<hash>` brand ref at a derivative size, or null. */
+export const assetThumbUrl = (ref: string | undefined, size: ThumbSize) =>
+  ref?.startsWith('asset:') ? thumbUrl(ref.slice(6), size) : null;
+
+const STORE_IMAGE = /^\/api\/images\/([a-f0-9]{32})(?:\/thumb\?w=\d+)?$/;
+/**
+ * The same picture at another size when the URL is one of the store's, in
+ * either of its shapes; `full` is the original. Any other URL (a curated
+ * catalog file, a blob) passes through unchanged, which is what lets a card
+ * that only holds a URL ask for the size it needs.
+ */
+export function thumbOf<T extends string | null | undefined>(url: T, size: ThumbSize | 'full'): T {
+  if (!url) return url;
+  const m = STORE_IMAGE.exec(url);
+  if (!m) return url;
+  return (size === 'full' ? imgUrl(m[1]) : thumbUrl(m[1], size)) as T;
+}
+
 export async function downloadExport(imageHash: string, presets: string[], baseName: string) {
   const res = await fetch('/api/export', {
     method: 'POST',

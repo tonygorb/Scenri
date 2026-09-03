@@ -94,10 +94,6 @@ async function run(): Promise<void> {
   const token = onlyThisMachine ? undefined : randomBytes(24).toString('base64url');
   const reachableAt = onlyThisMachine ? [] : HOST === '0.0.0.0' || HOST === '::' ? lanAddresses() : [HOST];
 
-  // One boot-time pass over custom presenters whose thumbnails predate the
-  // crop fix. Content-addressed, so a healthy library is a read-only walk.
-  await repairPresenterCrops(core, (line) => console.log(line));
-
   const app = buildServer({
     core,
     engines,
@@ -175,6 +171,12 @@ async function run(): Promise<void> {
 
   // First look ~10s after listen, then a staleness tick every few minutes. check() itself honours the
   // Settings toggle and SCENRI_NO_UPDATE_CHECK, and stays silent offline.
+  // One pass over custom presenters whose thumbnails predate the crop fix.
+  // Content-addressed, so a healthy library is a read-only walk: it still
+  // decodes every custom presenter's first shot through sharp, which is why
+  // it runs after listen and never holds the port. A commit re-reads the
+  // brand and patches one presenter by id, so a live write is never clobbered.
+  void repairPresenterCrops(core, (line) => console.log(line)).catch(() => undefined);
   app.updates.schedule();
   // The one-time library download, shortly after listen. ensure() honours
   // SCENRI_NO_CONTENT_FETCH and its Settings toggle, and stays silent offline.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Studio preferences that are settings, not locations: which engine you picked,
@@ -94,7 +94,14 @@ export function migrateKey(from: string, to: string): string | null {
 /** useState that remembers, so call sites read exactly as they did before. */
 export function useLocalPref<T>(key: string, fallback: T) {
   const [value, setValue] = useState<T>(() => read(key, fallback));
+  // What storage held when this copy mounted. A mount used to write the value
+  // straight back and broadcast it, and on a wall of three hundred cards each
+  // reading one pref that was three hundred synchronous storage writes and a
+  // hundred thousand listener calls before first paint. Only a change writes.
+  const written = useRef<T>(value);
   useEffect(() => {
+    if (Object.is(written.current, value)) return;
+    written.current = value;
     write(key, value);
   }, [key, value]);
   useEffect(() => {

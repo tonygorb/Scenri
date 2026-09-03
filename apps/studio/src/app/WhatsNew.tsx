@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { api, type ReleaseEntry } from '../api.js';
 import { useDialogParam } from './AppShell.js';
@@ -120,24 +120,12 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
    */
   const unread = version !== null && seen !== version && entry !== null && entry.sections.length > 0;
 
-  return (
-    <Ctx.Provider
-      value={{
-        status,
-        version,
-        entry,
-        changelogUrl,
-        releasesUrl,
-        unread,
-        open,
-        autoOpenSpent,
-        autoOpen,
-        markSeen,
-      }}
-    >
-      {children}
-    </Ctx.Provider>
+  const value = useMemo(
+    () => ({ status, version, entry, changelogUrl, releasesUrl, unread, open, autoOpenSpent, autoOpen, markSeen }),
+    [status, version, entry, changelogUrl, releasesUrl, unread, open, autoOpenSpent, autoOpen, markSeen],
   );
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 /**

@@ -82,8 +82,8 @@ test('feed tiles and the detail stage never stretch a picture', async ({ page })
   await expect
     .poll(
       async () => {
-        const now = (await api(page, `/api/brands/${brandId}/workspace`)) as any;
-        return made.filter((id) => now.nodes.find((n: any) => n.id === id)?.status === 'done').length;
+        const now = (await api(page, `/api/brands/${brandId}/feed?limit=200`)) as any;
+        return made.filter((id) => now.items.find((n: any) => n.id === id)?.status === 'done').length;
       },
       { timeout: 30_000 },
     )

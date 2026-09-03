@@ -1,28 +1,31 @@
 import { join } from 'node:path';
-import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { rmSync } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import JSZip from 'jszip';
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
+import type { ThumbStore } from '../thumbs.js';
 
-export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core }): void {
-  const { core } = deps;
+export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; thumbs: ThumbStore }): void {
+  const { core, thumbs } = deps;
+  /**
+   * What the library weighs. Off the event loop: a hundred thousand images
+   * used to be a hundred thousand synchronous stats on the request thread.
+   */
   app.get('/api/home', async () => {
     const imagesDir = join(core.home, 'images');
-    let files = 0,
-      bytes = 0;
-    if (existsSync(imagesDir)) {
-      for (const f of readdirSync(imagesDir)) {
-        try {
-          bytes += statSync(join(imagesDir, f)).size;
-          files++;
-        } catch {
-          /* vanished mid-walk */
-        }
-      }
+    let files = 0;
+    let bytes = 0;
+    const names = await readdir(imagesDir).catch(() => [] as string[]);
+    const sizes = await Promise.all(names.map((f) => stat(join(imagesDir, f)).catch(() => null)));
+    for (const s of sizes) {
+      if (!s?.isFile()) continue;
+      bytes += s.size;
+      files++;
     }
     const dbPath = join(core.home, 'scenri.db');
-    const dbBytes = existsSync(dbPath) ? statSync(dbPath).size : 0;
+    const dbBytes = (await stat(dbPath).catch(() => null))?.size ?? 0;
     return { dir: core.home, dbPath, images: files, bytes: bytes + dbBytes };
   });
 
@@ -82,13 +85,17 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core })
           removed++;
         }
       }
+      // The derivatives go with the shots they were made from. Without this
+      // every thumbnail of every deleted shot stayed on disk forever: nothing
+      // else knows the hash any more, so nothing else can ever remove it.
+      thumbs.clear();
       return { ok: true, scope, projects: removed };
     }
     core.close();
     // User data by explicit name — never the whole home dir: ~/.scenri/app
     // holds the staged application versions, and one of them may be the code
     // answering this very request.
-    for (const name of ['scenri.db', 'scenri.db-wal', 'scenri.db-shm', 'images', 'backups']) {
+    for (const name of ['scenri.db', 'scenri.db-wal', 'scenri.db-shm', 'images', 'thumbs', 'backups']) {
       // Retries are for Windows, where an open handle (a streaming image, an
       // antivirus pass) makes unlink fail transiently; a throw here would
       // leave the process alive with the database already closed.

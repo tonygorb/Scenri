@@ -190,6 +190,29 @@
 .sc-ovl-stage img {
   max-height: var(--sc-stage-cap);
 }
+/* A finished shot whose run recorded its pixels: the frame is sized the way
+   the waiting box is, from the cap and the recorded ratio, and no wider than
+   the picture itself, so it holds the picture's exact box before the picture
+   has loaded. The tile derivative sits under the original until the original
+   has painted. */
+.sc-ovl-stage .sc-stage-pic {
+  position: relative;
+  width: min(100%, calc(var(--sc-stage-cap) * var(--sc-pic-ar, 1)), var(--sc-pic-w, 100%));
+  aspect-ratio: var(--sc-pic-ar, 1);
+  height: auto;
+}
+.sc-stage-pic .sc-stage-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sc-stage-pic .sc-stage-under {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 .sc-ovl-stage > * {
   min-height: 0;
 }

@@ -12,7 +12,7 @@ import { customPresentersOf } from '../brandAssets.js';
 import { presenterPath } from '../routes.js';
 import { AssetBuildCard } from '../layout/AssetBuildCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
-import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
+import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
@@ -165,26 +165,91 @@ export function PresentersView() {
   );
 
   return (
-    <ScrollPane>
-      <main className="sc-looks sc-presenters" id="main" data-hero={heroMode || undefined}>
-        {!heroMode && toolbar}
+    <WallDensityCtx.Provider value={densityAttr}>
+      <ScrollPane>
+        <main className="sc-looks sc-presenters" id="main" data-hero={heroMode || undefined}>
+          {!heroMode && toolbar}
 
-        {showMine && (
-          <section className="sc-owned">
-            <div className="sc-sec-head">
-              <h2 className="sc-sec-title">Your presenters</h2>
+          {showMine && (
+            <section className="sc-owned">
+              <div className="sc-sec-head">
+                <h2 className="sc-sec-title">Your presenters</h2>
+              </div>
+              <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+                {running.map((b) => (
+                  <AssetBuildCard
+                    key={b.id}
+                    build={b}
+                    onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
+                    onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
+                    onRetry={() => createAsset('presenter')}
+                  />
+                ))}
+                {minePlusBuilds.map((p) => (
+                  <PresenterCard
+                    key={p.id}
+                    presenter={p}
+                    variant="use"
+                    size="grid"
+                    onOpen={openPresenter}
+                    href={presenterPath(brand, p.id)}
+                    onUse={applyPresenter}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* The cold state, the same one Products shows: the offer, centred,
+            with the roster underneath so the page is never an empty room. */}
+          {heroMode && presentersLoaded && !presentersError && presenters.length > 0 && (
+            <LibraryEmpty
+              shape="cold"
+              title={
+                <>
+                  Cast your own <em>presenter</em>
+                </>
+              }
+              body="Upload a few photos of one person, and they stay the same person in every image you make."
+              action={createCta}
+            />
+          )}
+
+          {/* A heading only where it separates two things. Filter your own half
+            away and the page is simply a wall of ours, which needs no label. */}
+          {showMine && presentersLoaded && !presentersError && visible.length > 0 && (
+            <div className="sc-sec-head sc-owned-divider">
+              <h2 className="sc-sec-title">Scenri presenters</h2>
             </div>
+          )}
+
+          {!presentersLoaded && (
+            <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
+              <PresenterCardSkeleton size="grid" count={8} />
+            </div>
+          )}
+
+          {presentersLoaded && presentersError && (
+            <LibraryEmpty
+              shape="error"
+              title="Couldn't load the presenter library"
+              body="Something went wrong reaching the catalog."
+              onRetry={() => refetchPresenters()}
+            />
+          )}
+
+          {/* The seam, and the row that belongs to the roster under it. The only
+            eyebrow on this page. */}
+          {heroMode && presentersLoaded && !presentersError && presenters.length > 0 && (
+            <>
+              <StarterDivider label="Or cast someone from ours" />
+              {toolbar}
+            </>
+          )}
+
+          {presentersLoaded && !presentersError && visible.length > 0 && (
             <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-              {running.map((b) => (
-                <AssetBuildCard
-                  key={b.id}
-                  build={b}
-                  onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
-                  onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
-                  onRetry={() => createAsset('presenter')}
-                />
-              ))}
-              {minePlusBuilds.map((p) => (
+              {visible.map((p) => (
                 <PresenterCard
                   key={p.id}
                   presenter={p}
@@ -196,88 +261,25 @@ export function PresentersView() {
                 />
               ))}
             </div>
-          </section>
-        )}
+          )}
 
-        {/* The cold state, the same one Products shows: the offer, centred,
-            with the roster underneath so the page is never an empty room. */}
-        {heroMode && presentersLoaded && !presentersError && presenters.length > 0 && (
-          <LibraryEmpty
-            shape="cold"
-            title={
-              <>
-                Cast your own <em>presenter</em>
-              </>
-            }
-            body="Upload a few photos of one person, and they stay the same person in every image you make."
-            action={createCta}
-          />
-        )}
+          {presentersLoaded && !presentersError && !filtered.length && presenters.length > 0 && (
+            <LibraryZero noun="presenters" q={q} facet={category} onClearSearch={clearSearch} onClearAll={clear} />
+          )}
 
-        {/* A heading only where it separates two things. Filter your own half
-            away and the page is simply a wall of ours, which needs no label. */}
-        {showMine && presentersLoaded && !presentersError && visible.length > 0 && (
-          <div className="sc-sec-head sc-owned-divider">
-            <h2 className="sc-sec-title">Scenri presenters</h2>
-          </div>
-        )}
+          {presentersLoaded && !presentersError && !presenters.length && (
+            <LibraryEmpty shape="zero" body="The presenter library is still being cast. Check back soon." />
+          )}
 
-        {!presentersLoaded && (
-          <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
-            <PresenterCardSkeleton size="grid" count={8} />
-          </div>
-        )}
-
-        {presentersLoaded && presentersError && (
-          <LibraryEmpty
-            shape="error"
-            title="Couldn't load the presenter library"
-            body="Something went wrong reaching the catalog."
-            onRetry={() => refetchPresenters()}
-          />
-        )}
-
-        {/* The seam, and the row that belongs to the roster under it. The only
-            eyebrow on this page. */}
-        {heroMode && presentersLoaded && !presentersError && presenters.length > 0 && (
-          <>
-            <StarterDivider label="Or cast someone from ours" />
-            {toolbar}
-          </>
-        )}
-
-        {presentersLoaded && !presentersError && visible.length > 0 && (
-          <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-            {visible.map((p) => (
-              <PresenterCard
-                key={p.id}
-                presenter={p}
-                variant="use"
-                size="grid"
-                onOpen={openPresenter}
-                href={presenterPath(brand, p.id)}
-                onUse={applyPresenter}
-              />
-            ))}
-          </div>
-        )}
-
-        {presentersLoaded && !presentersError && !filtered.length && presenters.length > 0 && (
-          <LibraryZero noun="presenters" q={q} facet={category} onClearSearch={clearSearch} onClearAll={clear} />
-        )}
-
-        {presentersLoaded && !presentersError && !presenters.length && (
-          <LibraryEmpty shape="zero" body="The presenter library is still being cast. Check back soon." />
-        )}
-
-        {remaining > 0 && (
-          <div className="sc-lib-more">
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
-              Show {Math.min(remaining, 60)} more
-            </button>
-          </div>
-        )}
-      </main>
-    </ScrollPane>
+          {remaining > 0 && (
+            <div className="sc-lib-more">
+              <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
+                Show {Math.min(remaining, 60)} more
+              </button>
+            </div>
+          )}
+        </main>
+      </ScrollPane>
+    </WallDensityCtx.Provider>
   );
 }

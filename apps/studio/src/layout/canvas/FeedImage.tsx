@@ -16,11 +16,17 @@ import { useCallback, useState, type CSSProperties } from 'react';
  */
 export function FeedImage({
   src,
+  fallback,
   alt = '',
   aspect,
   guess = true,
 }: {
   src: string;
+  /**
+   * What to show when `src` cannot load: the original behind a derivative,
+   * so a tile whose thumbnail is missing is a slower tile, never a broken one.
+   */
+  fallback?: string;
   alt?: string;
   aspect?: number;
   /**
@@ -32,9 +38,11 @@ export function FeedImage({
   guess?: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
   const measure = useCallback((el: HTMLImageElement | null) => {
-    if (el?.complete) setLoaded(true);
+    if (el?.complete && el.naturalWidth) setLoaded(true);
   }, []);
+  const shown = failed && fallback ? fallback : src;
   return (
     <span
       className="sc-cellimg"
@@ -45,12 +53,15 @@ export function FeedImage({
       {!loaded && <span className="sc-shimmer" />}
       <img
         ref={measure}
-        src={src}
+        src={shown}
         alt={alt}
         loading="lazy"
         decoding="async"
         onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
+        onError={() => {
+          if (fallback && !failed) setFailed(true);
+          else setLoaded(true);
+        }}
       />
     </span>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, useRef } from 'react';
 import { api, type VersionInfo } from '../../api.js';
 import { useUpdateCenter } from '../../app/UpdateCenter.js';
 import { useWhatsNew } from '../../app/WhatsNew.js';
@@ -50,12 +50,20 @@ export function About({ version }: { version: VersionInfo | null }) {
     }
   };
 
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
   const command = updateCommand(version?.installKind);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(command);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 1600);
     } catch {
       /* clipboard blocked: the command is on screen to select */
     }

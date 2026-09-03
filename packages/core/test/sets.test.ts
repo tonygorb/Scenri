@@ -184,6 +184,6 @@ describe('sets', () => {
     const activity = core.store.recentActivity(brand.id);
     const byId = Object.fromEntries(activity.map((n) => [n.id, n.setNames]));
     expect(byId[grouped]).toEqual(['Campaign']);
-    expect(activity.find((n) => n.prompt === 'loose')!.setNames).toEqual([]);
+    expect(activity.find((n) => n.promptHead === 'loose')!.setNames).toEqual([]);
   });
 });

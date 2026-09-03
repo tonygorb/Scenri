@@ -1,6 +1,5 @@
-import { useLayoutEffect, useRef, type CSSProperties } from 'react';
-import { PREF, useLocalPref } from '../prefs.js';
-import { DENSITY_DEFAULT, TILE_STOPS, type DensityCols, nearestTileStop, normalizeDensity } from './masonry.js';
+import { createContext, useContext, useLayoutEffect, useRef, type CSSProperties } from 'react';
+import { TILE_STOPS, type DensityCols, nearestTileStop, normalizeDensity } from './masonry.js';
 
 export type DensitySize = 'compact' | 'large';
 
@@ -9,10 +8,19 @@ export function densitySize(cols: number): DensitySize {
   return normalizeDensity(cols) === 5 ? 'large' : 'compact';
 }
 
-/** Same pref the wall toggle writes — for portaled tips outside the masonry. */
+/**
+ * The wall's density, provided once per page for the credits inside its cards.
+ *
+ * Every credit tip used to read the pref itself: three hooks per card, each
+ * with its own storage read, its own window listener and its own mount-time
+ * write, so the use-case wall paid for about three hundred subscribers to one
+ * value before first paint. The page already knows the answer; it says it once.
+ */
+export const WallDensityCtx = createContext<DensitySize>('large');
+
+/** The density of the wall this component sits in ('large' outside any wall). */
 export function useWallDensitySize(): DensitySize {
-  const [raw] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
-  return densitySize(raw);
+  return useContext(WallDensityCtx);
 }
 
 interface SizeOption {

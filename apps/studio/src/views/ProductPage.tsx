@@ -4,6 +4,7 @@ import { api, assetUrl, addProductShot, deleteProduct, type DemoProduct, type Pr
 import { Confirm } from '../Confirm.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useMadeWith } from './useMadeWith.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { useToasts } from '../toasts.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
@@ -102,7 +103,7 @@ function TitleField({ value, onChange }: { value: string; onChange: (v: string) 
  */
 export function ProductPage() {
   const { productId = '' } = useParams();
-  const { brand, products, nodes: shots, refresh, refreshProducts } = useBrand();
+  const { brand, products, refresh, refreshProducts } = useBrand();
   const { demoProducts, demoProductsLoaded } = useAppData();
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
@@ -145,19 +146,8 @@ export function ProductPage() {
     setName(product?.name ?? '');
   }, [product?.id]);
 
-  const made = useMemo(
-    () =>
-      shots
-        .filter(
-          (s) =>
-            s.status === 'done' &&
-            s.images.length > 0 &&
-            (s.brief?.tokens ?? []).some((t: any) => t?.t === 'product' && t.id === productId),
-        )
-        .slice(-12)
-        .reverse(),
-    [shots, productId],
-  );
+  /** Shots whose brief carried this product, newest first. */
+  const made = useMadeWith(brand.id, [productId ?? '']);
 
   const isManual = (product?.origin ?? 'manual') === 'manual';
 

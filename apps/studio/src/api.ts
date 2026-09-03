@@ -8,6 +8,7 @@ export type * from './apiTypes.js';
 export * from './apiUploads.js';
 export * from './apiLabels.js';
 import { req } from './apiReq.js';
+import { feedSearchParams } from './feedRules.js';
 import type { ExportPreset } from './apiUploads.js';
 import type {
   ActivityNode,
@@ -19,26 +20,33 @@ import type {
   CatalogSource,
   CodexSetupResult,
   CodexSetupState,
-  SetupPlatform,
+  DemoProduct,
   EngineInfo,
+  FeedNode,
+  FeedPage,
+  FeedQuery,
+  Lineage,
   Presenter,
+  PresenterPatch,
   Product,
   Project,
   ReleaseNotesResponse,
   Scene,
   ScenePatch,
-  PresenterPatch,
+  SetupPlatform,
   ShotSet,
   ShowcaseEntry,
-  DemoProduct,
   TreeNode,
   UpdateStatus,
+  UsageDay,
   VersionInfo,
   Workspace,
 } from './apiTypes.js';
 
 export const api = {
   brands: () => req<Brand[]>('GET', '/api/brands'),
+  /** Every brand as the switcher and the route resolver need it, never the document. */
+  /** One brand's whole document. */
   createBrand: (brand: any) => req<Brand>('POST', '/api/brands', { brand }),
   brandFromUrl: (url: string) => req<Brand & { warnings: string[] }>('POST', '/api/brands/from-url', { url }),
   updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),
@@ -63,15 +71,24 @@ export const api = {
   /** Everything running or lately finished in a brand, generations and imports together. */
   activity: (brandId: string) =>
     req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[] }>('GET', `/api/brands/${brandId}/activity`),
-  /** The brand's shots, sets and memberships in one request. */
+  /** The brand's frame: project, root, sets, memberships and the newest shots. Never every shot. */
   workspace: (brandId: string) => req<Workspace>('GET', `/api/brands/${brandId}/workspace`),
+  /** One page of the brand's shots for a place, lens, search and sort. */
+  feed: (brandId: string, query: FeedQuery, signal?: AbortSignal) =>
+    req<FeedPage>('GET', `/api/brands/${brandId}/feed${feedSearchParams(query)}`, undefined, signal),
+  /** One shot, whole: the prompt and everything else a list leaves out. */
+  node: (id: string) => req<TreeNode>('GET', `/api/nodes/${id}`),
+  /** Where one shot sits in its tree. */
+  lineage: (id: string) => req<Lineage>('GET', `/api/nodes/${id}/lineage`),
+  /** A year of runs by day. */
+  usage: (brandId: string) => req<{ days: UsageDay[] }>('GET', `/api/brands/${brandId}/usage`),
   sets: (brandId: string) => req<ShotSet[]>('GET', `/api/brands/${brandId}/sets`),
   createSet: (brandId: string, name: string) => req<ShotSet>('POST', `/api/brands/${brandId}/sets`, { name }),
   renameSet: (id: string, name: string) => req<ShotSet>('PATCH', `/api/sets/${id}`, { name }),
   /** The set goes; every shot that was in it stays where it was. */
   deleteSet: (id: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}`),
   addToSet: (id: string, nodeIds: string[]) =>
-    req<{ ok: true; added: number }>('POST', `/api/sets/${id}/nodes`, { nodeIds }),
+    req<{ ok: true; added: number; nodeIds: string[] }>('POST', `/api/sets/${id}/nodes`, { nodeIds }),
   removeFromSet: (id: string, nodeId: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}/nodes/${nodeId}`),
   engines: () => req<EngineInfo[]>('GET', '/api/engines'),
   codexStatus: () =>
@@ -123,9 +140,9 @@ export const api = {
     // a parentId makes it a REFINE preview: the server runs the same
     // inheritance and budget path the send will run
     req<BriefPreview>('POST', '/api/brief/preview', { brief, engineId, brandId, ...(parentId ? { parentId } : {}) }),
-  keep: (nodeId: string, kept: boolean) => req<TreeNode>('POST', `/api/nodes/${nodeId}/keep`, { kept }),
+  keep: (nodeId: string, kept: boolean) => req<FeedNode>('POST', `/api/nodes/${nodeId}/keep`, { kept }),
   archiveNode: (nodeId: string, archived: boolean) =>
-    req<TreeNode>('POST', `/api/nodes/${nodeId}/archive`, { archived }),
+    req<FeedNode>('POST', `/api/nodes/${nodeId}/archive`, { archived }),
   deleteNode: (nodeId: string) => req<{ ok: true }>('DELETE', `/api/nodes/${nodeId}`),
   deleteNodesBatch: (nodeIds: string[]) =>
     req<{ ok: true; deleted: number }>('POST', '/api/nodes/delete-batch', { nodeIds }),

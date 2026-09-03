@@ -1,6 +1,6 @@
-import type { Scene, TreeNode } from './apiTypes.js';
+import type { FeedNode, Scene } from './apiTypes.js';
 
-export function hasNoShots(nodes: TreeNode[]): boolean {
+export function hasNoShots(nodes: FeedNode[]): boolean {
   return nodes.every((n) => n.kind === 'root');
 }
 
@@ -29,11 +29,13 @@ export function registerSceneNameAliases(scenes: Pick<Scene, 'name' | 'legacyNam
 }
 
 /** Human title for a node: scene name, lift shorthand, or first words of the prompt. */
-export function nodeLabel(n: TreeNode): string {
-  const tag = /^\[([^\]]+)\]/.exec(n.prompt)?.[1];
+export function nodeLabel(n: Pick<FeedNode, 'promptHead' | 'kind'>): string {
+  // the head of the prompt is all a title ever needed; the whole prompt stays
+  // on the server until one shot is opened
+  const head = n.promptHead ?? '';
+  const tag = /^\[([^\]]+)\]/.exec(head)?.[1];
   if (tag) return sceneNameAliases.get(tag) ?? tag;
-  if (n.prompt.startsWith('Remove all overlaid marketing text') || n.prompt.startsWith('Remove ALL text'))
-    return 'Text lift';
-  const words = n.prompt.trim().split(/\s+/).slice(0, 6).join(' ');
+  if (head.startsWith('Remove all overlaid marketing text') || head.startsWith('Remove ALL text')) return 'Text lift';
+  const words = head.trim().split(/\s+/).slice(0, 6).join(' ');
   return words || (n.kind === 'edit' ? 'Edit' : 'Generation');
 }

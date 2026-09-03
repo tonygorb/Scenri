@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ImageSquare, MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
 import { SitOutTooltip } from './SitOutTooltip.js';
-import { imgUrl, type Brand, type TreeNode } from '../api.js';
+import { type Brand, type FeedNode, thumbUrl } from '../api.js';
 import { uploadLogo } from '../apiUploads.js';
 import { useAppData } from '../app/AppShell.js';
 import { useToasts } from '../toasts.js';
@@ -67,7 +67,7 @@ export function AttachPanel({
   onClose,
 }: {
   brand: Brand;
-  shots: TreeNode[];
+  shots: FeedNode[];
   initialTab?: AttachTab;
   /** For the opener's aria-controls. */
   id?: string;
@@ -176,10 +176,8 @@ export function AttachPanel({
   const cards = useMemo<Card[]>(() => {
     const palette = flattenPalette(brand.json?.palette);
     const marks = attachableMarks(brand.json);
-    const recent = shots
-      .filter((s) => s.status === 'done' && s.images.length > 0)
-      .slice(-12)
-      .reverse();
+    // newest first and already done: the workspace answer carries the shelf
+    const recent = shots.filter((s) => s.status === 'done' && s.images.length > 0).slice(0, 12);
 
     /**
      * Products, presenters and scenes come from the one shared model, ranked
@@ -218,7 +216,7 @@ export function AttachPanel({
           tab: 'Brand',
           label: markLabel(brand.json, m),
           sub: 'the mark itself',
-          thumb: imgUrl(m.hash as string),
+          thumb: thumbUrl(m.hash as string, 'micro'),
           run: () => onToken({ t: 'mark', imageHash: m.hash as string }),
         }),
       ),
@@ -238,7 +236,7 @@ export function AttachPanel({
           tab: 'Shots',
           label: `Shot ${recent.length - i}`,
           sub: 'as reference',
-          thumb: imgUrl(s.images[0]),
+          thumb: thumbUrl(s.images[0], 'micro'),
           run: () => onToken({ t: 'ref', imageHash: s.images[0], label: 'Shot' }),
         }),
       ),

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { api, type TreeNode } from './api.js';
+import { api, type FeedNode } from './api.js';
 import { useToasts } from './toasts.js';
 import { failureToast } from './failure.js';
 
@@ -8,25 +8,25 @@ import { failureToast } from './failure.js';
  * safety net, not a toast, since there is nothing to undo to. Only ever
  * called on an already-archived node; the server enforces that too.
  */
-export function useDeleteNode(onChanged: () => Promise<void> | void) {
+export function useDeleteNode(onDrop: (ids: string[]) => void) {
   const { push } = useToasts();
 
   const remove = useCallback(
-    (node: TreeNode) =>
+    (node: FeedNode) =>
       api
         .deleteNode(node.id)
-        .then(() => onChanged())
+        .then(() => onDrop([node.id]))
         .catch((e: any) => push(failureToast(e, 'Could not delete this shot'))),
-    [onChanged, push],
+    [onDrop, push],
   );
 
   const removeBatch = useCallback(
     (ids: string[]) =>
       api
         .deleteNodesBatch(ids)
-        .then(() => onChanged())
+        .then(() => onDrop(ids))
         .catch((e: any) => push(failureToast(e, 'Could not delete these shots'))),
-    [onChanged, push],
+    [onDrop, push],
   );
 
   return { remove, removeBatch };

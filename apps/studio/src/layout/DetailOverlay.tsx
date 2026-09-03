@@ -16,7 +16,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
-import { api, imgUrl, nodeLabel, type Brand, type EngineInfo, type TreeNode } from '../api.js';
+import { imgUrl, nodeLabel, type Brand, type EngineInfo, type FeedNode, thumbUrl } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
@@ -26,11 +26,11 @@ import { failureToast } from '../failure.js';
 import { briefProse, sourceImageOf } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
-import { ChipPreview } from '../composer/ChipPreview.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
-import { useHoverPreview } from '../composer/useHoverPreview.js';
+import { LineageStrip } from './detail/LineageStrip.js';
 import { BriefLine, useSourceItems } from './detail/Ingredients.js';
-import { useLineage } from './detail/useLineage.js';
+import { useLineageOf } from './detail/useLineageOf.js';
+import { useFullNode } from './detail/useFullNode.js';
 import { PREF, useLocalPref } from '../prefs.js';
 
 /**
@@ -45,7 +45,7 @@ const PANEL_DEFAULT = 380;
 const clampPanel = (w: number) => Math.min(PANEL_MAX, Math.max(PANEL_MIN, Math.round(w)));
 
 /** The scene a brief names, in either of the shapes briefs have carried it. */
-const tplOf = (b: TreeNode['brief']) =>
+const tplOf = (b: FeedNode['brief']) =>
   b?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? b?.templateId ?? null;
 
 /**
@@ -55,7 +55,8 @@ const tplOf = (b: TreeNode['brief']) =>
  */
 export function DetailOverlay({
   node,
-  nodes,
+  rootId,
+  recent,
   brand,
   engines,
   projectId,
@@ -63,7 +64,8 @@ export function DetailOverlay({
   onSelect,
   onRetry,
   onCancel,
-  onChanged,
+  onKeep,
+  onLanded,
   onRemix,
   onArchive,
   onUnarchive,
@@ -71,31 +73,41 @@ export function DetailOverlay({
   onRefined,
   tokenNames,
 }: {
-  node: TreeNode;
-  nodes: TreeNode[];
+  node: FeedNode;
+  /** The project's root, which a new shot from in here hangs off. */
+  rootId: string | null;
+  /** The newest done shots, for the attach panel of the composer in here. */
+  recent: FeedNode[];
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
   onClose: () => void;
   onSelect: (id: string) => void;
-  onRetry: (n: TreeNode) => void;
-  onCancel: (n: TreeNode) => void;
-  onChanged: () => Promise<void> | void;
-  onRemix: (n: TreeNode) => void;
-  onArchive: (n: TreeNode) => void;
-  onUnarchive: (n: TreeNode) => void;
-  onDelete: (n: TreeNode) => void;
+  onRetry: (n: FeedNode) => void;
+  onCancel: (n: FeedNode) => void;
+  onKeep: (n: FeedNode) => void;
+  /** Shots that did not exist a moment ago were made from in here. */
+  onLanded: (nodes: FeedNode[]) => void;
+  onRemix: (n: FeedNode) => void;
+  onArchive: (n: FeedNode) => void;
+  onUnarchive: (n: FeedNode) => void;
+  onDelete: (n: FeedNode) => void;
   /** A shot was made from in here, so the workspace can follow the same thread. */
   onRefined?: (nodeId: string, kind?: 'generation' | 'edit') => void;
   /** Ids to display names, for the line saying which ingredient moved. */
   tokenNames: TokenNames;
 }) {
-  const { ancestors, children, siblings, sibIndex, root, parentShot } = useLineage(nodes, node);
+  // One small indexed query each: the tree around this shot, and the whole
+  // record behind its summary. Neither is waited for; the summary draws now.
+  const { ancestors, children, siblings, sibIndex, parentShot } = useLineageOf(node);
+  const full = useFullNode(node);
   /** What the engine that ran this is called, so a failure can name it in a sentence. */
   const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
   const { push } = useToasts();
   /** The details panel's width, remembered across sessions. */
   const [panelW, setPanelW] = useLocalPref<number>(PREF.ovlPanelW, PANEL_DEFAULT);
+  const dragX = useRef(0);
+  const dragRaf = useRef(0);
   /** The image this refinement was made from, not merely the run's first. */
   const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
   /**
@@ -155,7 +167,7 @@ export function DetailOverlay({
   /** The whole sentence, nouns spoken: chips mid-sentence would otherwise
    *  leave holes in the prose ("holding a  in a  env"). The USING row stays
    *  the interactive statement of the same nouns. */
-  const said = useMemo(() => briefProse(node, proseNames), [node, proseNames]);
+  const said = useMemo(() => briefProse(full ?? node, proseNames), [full, node, proseNames]);
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -169,9 +181,6 @@ export function DetailOverlay({
     const el = briefRef.current;
     setBriefOverflows(!!el && el.scrollHeight > el.clientHeight + 1);
   }, [said]);
-  /** Hover peek over a version frame: the picture at a readable size before
-   *  committing the stage to it. */
-  const framePeek = useHoverPreview<{ key: string; src: string; label: string; el: HTMLElement; id: string }>();
   /**
    * The image's history in reading order — the original, this shot, its
    * refinements — worn as the thumb strip under the stage. Only versions with
@@ -182,23 +191,30 @@ export function DetailOverlay({
     () => [...ancestors, node, ...children.slice(0, 6)].filter((n) => n.images[0]),
     [ancestors, node, children],
   );
-  // Pre-DECODE every version in the strip, not merely fetch it: the files are
-  // already in the HTTP cache from the thumbs, but a ~2MB PNG still costs a
-  // visible beat to decode when the stage first asks for it. Decoded up
-  // front, a click paints from a ready bitmap and the switch reads instant.
+  // Pre-decode the tile derivative of the two versions beside this one. The
+  // stage paints that derivative under the original while the original
+  // decodes, so a step to a neighbour shows a picture at once. Only the
+  // neighbours, and released on cleanup: decoding every version of a long
+  // chain at full resolution held a dozen bitmaps for a strip of 52px thumbs.
   useEffect(() => {
-    for (const n of lineageStrip) {
-      if (n.id === node.id) continue;
+    const at = lineageStrip.findIndex((n) => n.id === node.id);
+    const near = [lineageStrip[at - 1], lineageStrip[at + 1]].filter((n): n is FeedNode => !!n);
+    const held = near.map((n) => {
       const img = new Image();
-      img.src = imgUrl(n.images[0]);
+      img.decoding = 'async';
+      img.src = thumbUrl(n.images[0], 'tile');
       img.decode?.().catch(() => {
         /* a version that cannot decode will simply load the old way */
       });
-    }
+      return img;
+    });
+    return () => {
+      for (const img of held) img.src = '';
+    };
   }, [lineageStrip, node.id]);
   const hash = node.images[0];
   const baseName =
-    node.prompt
+    node.promptHead
       .slice(0, 40)
       .replace(/\s+/g, '-')
       .replace(/[^a-zA-Z0-9-]/g, '') || 'shot';
@@ -285,11 +301,7 @@ export function DetailOverlay({
       key: 'keep',
       label: node.kept ? 'Remove from keepers' : 'Keep',
       icon: <Star size={14} weight={node.kept ? 'fill' : 'regular'} />,
-      onClick: () =>
-        void api
-          .keep(node.id, !node.kept)
-          .then(onChanged)
-          .catch((e) => push(failureToast(e, 'Could not update keeper status'))),
+      onClick: () => onKeep(node),
       tint: node.kept ? 'var(--sc-star)' : undefined,
     },
     { key: 'copy', label: 'Copy image', icon: <CopySimple size={14} />, onClick: () => void copyImage() },
@@ -475,54 +487,7 @@ export function DetailOverlay({
           {/* The image's own history, right under the image: the original,
               this shot ringed, and its refinements. Hovering peeks a version
               at a readable size; clicking moves the stage to it. */}
-          {lineageStrip.length > 1 && (
-            <div className="sc-thumbs">
-              {lineageStrip.map((n) => (
-                <button
-                  type="button"
-                  key={n.id}
-                  className="sc-thumb-btn"
-                  aria-label={nodeLabel(n)}
-                  aria-pressed={n.id === node.id}
-                  title={nodeLabel(n)}
-                  onClick={() => {
-                    framePeek.closeNow();
-                    onSelect(n.id);
-                  }}
-                  onPointerEnter={(e) =>
-                    e.pointerType === 'mouse' &&
-                    framePeek.open({
-                      key: n.id,
-                      src: imgUrl(n.images[0]),
-                      label: nodeLabel(n),
-                      el: e.currentTarget,
-                      id: n.id,
-                    })
-                  }
-                  onPointerLeave={(e) => e.pointerType === 'mouse' && framePeek.close()}
-                  onFocus={(e) =>
-                    e.currentTarget.matches(':focus-visible') &&
-                    framePeek.open({
-                      key: n.id,
-                      src: imgUrl(n.images[0]),
-                      label: nodeLabel(n),
-                      el: e.currentTarget,
-                      id: n.id,
-                    })
-                  }
-                >
-                  <img
-                    src={imgUrl(n.images[0])}
-                    alt=""
-                    className="sc-thumb"
-                    data-active={n.id === node.id}
-                    width={52}
-                    height={52}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
+          {lineageStrip.length > 1 && <LineageStrip strip={lineageStrip} activeId={node.id} onSelect={onSelect} />}
         </div>
 
         {/* The seam between picture and panel is the handle: drag to size the
@@ -549,7 +514,14 @@ export function DetailOverlay({
           onPointerMove={(e) => {
             if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
             const root = e.currentTarget.closest<HTMLElement>('.sc-ovl');
-            root?.style.setProperty('--sc-ovl-panel-w', `${clampPanel(window.innerWidth - e.clientX)}px`);
+            // one write per frame: a write per pointer event forced a layout
+            // per event while the panel was being dragged
+            dragX.current = e.clientX;
+            if (dragRaf.current) return;
+            dragRaf.current = requestAnimationFrame(() => {
+              dragRaf.current = 0;
+              root?.style.setProperty('--sc-ovl-panel-w', `${clampPanel(window.innerWidth - dragX.current)}px`);
+            });
           }}
           onPointerUp={(e) => {
             if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
@@ -592,7 +564,7 @@ export function DetailOverlay({
               <div className="sc-brief-record">
                 <BriefLine
                   brief={node.brief}
-                  prompt={node.prompt}
+                  prompt={full?.prompt ?? node.promptHead}
                   brand={brand}
                   worldTemplateId={worldTemplateId}
                   saidRef={briefRef}
@@ -676,11 +648,11 @@ export function DetailOverlay({
                 projectId={projectId}
                 brand={brand}
                 engines={engines}
-                parent={root}
+                parentId={rootId}
                 target={node}
                 // the variant on the stage is the one a refine works from
                 sourceImage={hash}
-                shots={nodes}
+                shots={recent}
                 // The dock's composer is still mounted behind this one and there
                 // is one saved draft per brand: without this, merely opening a
                 // shot overwrote a half-typed brief with this composer's empty
@@ -692,8 +664,8 @@ export function DetailOverlay({
                 // just replaced; wait for the new node to actually exist, then
                 // reuse the same in-overlay navigation the lineage filmstrip
                 // and Prev/Next already use to land on it
-                onQueued={async (id, kind) => {
-                  await onChanged();
+                onQueued={(id, kind, _siblings, made) => {
+                  onLanded(made ?? []);
                   if (id) onSelect(id);
                   // One thread, wherever it was pulled. Refining in here used to
                   // leave the workspace behind still pointed at nothing, so
@@ -703,23 +675,6 @@ export function DetailOverlay({
                 }}
               />
             </div>
-          )}
-          {framePeek.shown && (
-            <ChipPreview
-              key={framePeek.shown.key}
-              anchor={framePeek.shown.el}
-              kind="shot"
-              src={framePeek.shown.src}
-              label={framePeek.shown.label}
-              onOpen={() => {
-                const id = framePeek.shown?.id;
-                framePeek.closeNow();
-                if (id) onSelect(id);
-              }}
-              onHoverIn={framePeek.keep}
-              onHoverOut={framePeek.close}
-              onClose={framePeek.closeNow}
-            />
           )}
         </aside>
         <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} />

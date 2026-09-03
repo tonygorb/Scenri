@@ -46,10 +46,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A finished shot on the brand's feed, on the free Demo engine. */
 async function seedShot(p: Page, brand: string) {
   const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
-  const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
+  const feed = (await api(p, `/api/brands/${brand}/feed?limit=200`)) as any;
+  const done = (feed.items ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
   if (done) return { nodeId: done.id };
 
-  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const root = ws.root ? { id: ws.root as string } : null;
   const made = (await api(
     p,
     '/api/nodes',
@@ -64,8 +65,7 @@ async function seedShot(p: Page, brand: string) {
   )) as any;
 
   for (let i = 0; i < 40; i++) {
-    const t = (await api(p, `/api/brands/${brand}/workspace`)) as any;
-    const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
+    const n = (await api(p, `/api/nodes/${made.id}`)) as any;
     if (n?.status === 'done') return { nodeId: n.id };
     await p.waitForTimeout(300);
   }
@@ -75,7 +75,7 @@ async function seedShot(p: Page, brand: string) {
 /** A second, distinct finished shot — for the cases that need two. */
 async function seedAnotherShot(p: Page, brand: string, prompt: string) {
   const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
-  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const root = ws.root ? { id: ws.root as string } : null;
   const made = (await api(
     p,
     '/api/nodes',
@@ -90,8 +90,7 @@ async function seedAnotherShot(p: Page, brand: string, prompt: string) {
   )) as any;
 
   for (let i = 0; i < 40; i++) {
-    const t = (await api(p, `/api/brands/${brand}/workspace`)) as any;
-    const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
+    const n = (await api(p, `/api/nodes/${made.id}`)) as any;
     if (n?.status === 'done') return { nodeId: n.id as string };
     await p.waitForTimeout(300);
   }
@@ -179,7 +178,7 @@ test('a batch sibling opens by its own URL and survives a reload', async ({ page
   // a multi-shot request: three first-class siblings, each independently
   // addressable with no batch in-memory state
   const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const root = ws.root ? { id: ws.root as string } : null;
   const made = (await api(
     page,
     '/api/nodes',
@@ -195,8 +194,7 @@ test('a batch sibling opens by its own URL and survives a reload', async ({ page
   expect(made.siblings).toHaveLength(3);
   const last = made.siblings[2].id as string;
   for (let i = 0; i < 40; i++) {
-    const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-    if ((t.nodes ?? []).find((x: any) => x.id === last)?.status === 'done') break;
+    if (((await api(page, `/api/nodes/${last}`)) as any).status === 'done') break;
     await page.waitForTimeout(300);
   }
 
@@ -212,7 +210,7 @@ test('a batch sibling opens by its own URL and survives a reload', async ({ page
 test('refining one sibling never touches the others', async ({ page }) => {
   const brand = await currentBrand(page);
   const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const root = ws.root ? { id: ws.root as string } : null;
   const made = (await api(
     page,
     '/api/nodes',
@@ -228,9 +226,8 @@ test('refining one sibling never touches the others', async ({ page }) => {
   const [a, b, c] = made.siblings.map((s: any) => s.id as string);
   const wait = async (id: string) => {
     for (let i = 0; i < 40; i++) {
-      const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-      const n = (t.nodes ?? []).find((x: any) => x.id === id);
-      if (n && n.status !== 'running') return n;
+      const n = (await api(page, `/api/nodes/${id}`)) as any;
+      if (n?.id && n.status !== 'running') return n;
       await page.waitForTimeout(300);
     }
     throw new Error('never finished');
@@ -254,11 +251,11 @@ test('refining one sibling never touches the others', async ({ page }) => {
     await wait(edit.id);
   }
 
-  const t = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-  const childrenOf = (id: string) => (t.nodes ?? []).filter((n: any) => n.parentId === id && n.kind === 'edit');
-  expect(childrenOf(b)).toHaveLength(2);
-  expect(childrenOf(a)).toHaveLength(0);
-  expect(childrenOf(c)).toHaveLength(0);
+  const childrenOf = async (id: string) =>
+    (((await api(page, `/api/nodes/${id}/lineage`)) as any).children ?? []).filter((n: any) => n.kind === 'edit');
+  expect(await childrenOf(b)).toHaveLength(2);
+  expect(await childrenOf(a)).toHaveLength(0);
+  expect(await childrenOf(c)).toHaveLength(0);
 });
 
 test('back closes a shot, and escape spends the same single entry', async ({ page }) => {
@@ -433,7 +430,8 @@ test('a set can be renamed and deleted from the place menu, and the shots surviv
 
   // deleting a set is a label coming off, never a shot going away
   const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-  expect(ws.nodes.some((n: any) => n.id === nodeId)).toBe(true);
+  const feed = (await api(page, `/api/brands/${brand.id}/feed?limit=200`)) as any;
+  expect(feed.items.some((n: any) => n.id === nodeId)).toBe(true);
   expect(ws.sets.some((s: any) => s.id === set.id)).toBe(false);
 });
 
@@ -568,7 +566,7 @@ test('an ingredient chip previews in place, and its card is the door to the page
   // a shot whose brief names a product, a presenter, a scene and a colour, so
   // every kind of chip is on the panel at once
   const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const root = ws.root ? { id: ws.root as string } : null;
   const scenes = ((await api(page, '/api/scenes')) as any).scenes ?? [];
   const presenters = ((await api(page, '/api/presenters')) as any).presenters ?? [];
   const made = (await api(
@@ -629,7 +627,7 @@ test('a scene chip says "scene" the same way in the brief line and on the shot',
   const scene = scenes[0];
 
   const ws = (await api(page, `/api/brands/${brand.id}/workspace`)) as any;
-  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const root = ws.root ? { id: ws.root as string } : null;
   const made = (await api(
     page,
     '/api/nodes',

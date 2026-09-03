@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router';
-import { api, hasNoShots, nodeLabel, type ShotSet, type TreeNode } from '../api.js';
+import { api, nodeLabel, type FeedNode, type FeedQuery, type ShotSet } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useAssetsPanel, useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
@@ -12,19 +12,7 @@ import { NO_ATTACHMENTS, type AttachedIds } from '../layout/railSections.js';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
 import { generationMessages } from '../liveStatus.js';
-import {
-  applyLens,
-  byNewest,
-  countLenses,
-  filterFeed,
-  isFeedSort,
-  isLens,
-  shotSearchText,
-  sortFeed,
-  type FeedSort,
-  type Lens,
-  type TokenNames,
-} from '../feedRules.js';
+import { isFeedSort, isLens, type FeedSort, type Lens, type TokenNames } from '../feedRules.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
@@ -46,9 +34,10 @@ import { LensEmpty } from './create/LensEmpty.js';
 import { PickedBar } from './create/PickedBar.js';
 export type { ShotContext } from './create/shotContext.js';
 import type { ShotContext } from './create/shotContext.js';
+import { useFeedQuery } from './create/useFeedQuery.js';
+import type { AdmitContext } from './create/feedQueryRules.js';
 import { useNodeId } from './create/useNodeId.js';
-
-/** The lenses that are not places. A set is a place and lives in the path. */
+import { useResolvedNode } from './create/useResolvedNode.js';
 
 /**
  * The hub: everything this brand has made, and the brief that makes more.
@@ -57,23 +46,32 @@ import { useNodeId } from './create/useNodeId.js';
  * this is the only screen that is a tool. Home is the way in and carries none
  * of it.
  *
- * The feed is the whole brand. A project used to be the container work happened
- * inside, which meant one had to exist before anything could be shown — so five
- * buttons quietly made one each. A set is a filter over the feed instead, and
- * `set` of null is not an empty state but the ordinary one.
+ * The feed is the whole brand, as a paged query. It used to be every shot the
+ * brand had ever made, held here and filtered, sorted and searched in render:
+ * a workspace of twenty thousand shots was twenty thousand records to parse,
+ * twenty thousand tiles to mount, and twenty thousand records to re-read for
+ * every keeper toggle. The server answers one page for one place, lens,
+ * search and sort; this screen holds the pages it has scrolled to and folds
+ * every change in by id. A set is a place in that query, and `set` of null is
+ * not an empty state but the ordinary one.
  */
 export function CreateView({ set }: { set: ShotSet | null }) {
   const { engines, scenes: templates, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
   const {
     brand,
     workspace,
-    nodes: allNodes,
+    root,
+    recent,
     sets,
     membership,
-    loaded,
+    loaded: frameLoaded,
     refresh,
     applySet,
     dropSet,
+    insertSet,
+    applyMembership,
+    applyNodes,
+    subscribeActivity,
     products,
   } = useBrand();
   // The rail offers what a brief can resolve, so the brand's own assets lead
@@ -202,50 +200,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     setPlace('ungrouped');
   }, [lensParam, setLens, setPlace]);
 
-  // announcing a finish is TaskCenter's job: it is mounted above the router and
-  // so can still speak once you have walked away
-  const reload = useCallback(async () => {
-    try {
-      await refresh();
-      setErr(null);
-    } catch (e: any) {
-      setErr(String(e.message ?? e));
-    }
-  }, [refresh]);
-
-  // one implementation for every surface that can put a shot away or bring it
-  // back — the feed tile, its context menu, the overlay toolbar, the Info tab
-  const { archive, unarchive, unarchiveBatch } = useArchiveNode(reload);
-  // permanent — only ever reachable once a shot is already archived
-  const { remove, removeBatch } = useDeleteNode(reload);
-
-  // a cold load of /n/:nodeId has to select the node the URL names, once the
-  // shots it belongs to actually arrive
-  useEffect(() => {
-    if (nodeId) setSelectedId(nodeId);
-  }, [nodeId]);
-
-  // The bell is the only thing that polls, and the feed no longer refetches on
-  // its word: BrandLayout folds each poll's records into the list by id
-  // (applyActivity), so a shot landing changes one tile and nothing else.
-
-  /** Every non-archived shot in the brand, newest first — the feed before any
-   * other lens. Archived shots are put away on purpose: they stay out of
-   * lineage walks and version counts here, reachable only via the Archived
-   * lens itself or a direct link (DetailOverlay reads from `allNodes`, not
-   * this). */
-  const shots = useMemo(() => [...allNodes].filter((n) => n.kind !== 'root' && !n.archived).sort(byNewest), [allNodes]);
-
-  /** What assistive technology hears about generation (see liveStatus.ts). */
-  const statusMap = useRef<Map<string, string> | null>(null);
-  const [genLive, setGenLive] = useState('');
-  useEffect(() => {
-    const { messages, next } = generationMessages(statusMap.current ?? new Map(), allNodes);
-    const firstDiff = statusMap.current === null;
-    statusMap.current = next;
-    if (!firstDiff && messages.length) setGenLive(messages.join(' '));
-  }, [allNodes]);
-
   /** Which sets each shot is in, so a cell can say so without another request. */
   const setsByNode = useMemo(() => {
     const m = new Map<string, ShotSet[]>();
@@ -258,73 +212,97 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     return m;
   }, [sets, membership]);
 
-  /** Children by parent, for the versions pip and for walking a lineage. */
-  const childrenOf = useMemo(() => {
-    const m = new Map<string, TreeNode[]>();
-    for (const n of shots) {
-      if (!n.parentId) continue;
-      if (!m.has(n.parentId)) m.set(n.parentId, []);
-      m.get(n.parentId)!.push(n);
-    }
-    return m;
-  }, [shots]);
+  /**
+   * The one question this screen asks the server. Everything that decides
+   * which shots are on screen lives in it, so a lens, a place, a search or a
+   * sort is a new first page and nothing else.
+   */
+  const query = useMemo<FeedQuery>(
+    () => ({
+      lens,
+      set: set?.id,
+      ungrouped: ungrouped || undefined,
+      lineage: lineageId || undefined,
+      q: q.trim() || undefined,
+      sort,
+    }),
+    [lens, set?.id, ungrouped, lineageId, q, sort],
+  );
 
   /**
-   * A shot and everything descended from it. Walked rather than filtered on
-   * parentId alone, so an edit of an edit is still part of the lineage it
-   * belongs to rather than disappearing one level down.
+   * What the page rules need to know about a place, kept on refs so a record
+   * folded in right after a membership change sees the membership it changed.
    */
-  const lineage = useMemo(() => {
-    if (!lineageId) return null;
-    const root = shots.find((n) => n.id === lineageId);
-    if (!root) return null;
-    const ids = new Set<string>([root.id]);
-    const queue = [root.id];
-    while (queue.length) {
-      for (const kid of childrenOf.get(queue.pop()!) ?? []) {
-        if (ids.has(kid.id)) continue;
-        ids.add(kid.id);
-        queue.push(kid.id);
-      }
-    }
-    return { root, ids };
-  }, [lineageId, shots, childrenOf]);
+  const membershipRef = useRef(membership);
+  membershipRef.current = membership;
+  const setsByNodeRef = useRef(setsByNode);
+  setsByNodeRef.current = setsByNode;
+  const lineageIdsRef = useRef<Set<string>>(new Set());
+  const admitCtx = useMemo<AdmitContext>(
+    () => ({
+      inSet: (id) => (set ? (membershipRef.current[set.id] ?? []).includes(id) : false),
+      inAnySet: (id) => setsByNodeRef.current.has(id),
+      inLineage: (n) => n.id === lineageId || (n.parentId !== null && lineageIdsRef.current.has(n.parentId)),
+    }),
+    [set?.id, lineageId],
+  );
+
+  const feed = useFeedQuery(brand.id, query, admitCtx);
+  const { items, byId, counts } = feed;
+  const feedRef = useRef(feed);
+  feedRef.current = feed;
+  lineageIdsRef.current = useMemo(() => new Set(items.map((n) => n.id)), [items]);
+  /** Every shot this screen has ever held or heard of, so a poll's stranger is told from an old friend. */
+  const seen = useRef(new Set<string>());
+  useEffect(() => {
+    for (const n of items) seen.current.add(n.id);
+  }, [items]);
+
+  /** What assistive technology hears about generation (see liveStatus.ts). */
+  const statusMap = useRef<Map<string, string> | null>(null);
+  const [genLive, setGenLive] = useState('');
+
+  /**
+   * The bell's poll, and every change applied anywhere, folded into the pages.
+   *
+   * A record the pages hold changes in place. A record they do not hold is
+   * either on a page not yet loaded (then it is not news) or brand new, made
+   * on another screen; the pages cannot tell which by looking, so a stranger
+   * re-reads the first page and the counts, once, which is bounded whatever
+   * the size of the brand. This used to re-read every shot in the brand.
+   */
+  useEffect(
+    () =>
+      subscribeActivity((fresh) => {
+        const { messages, next } = generationMessages(statusMap.current ?? new Map(), fresh);
+        const firstDiff = statusMap.current === null;
+        statusMap.current = next;
+        if (!firstDiff && messages.length) setGenLive(messages.join(' '));
+        const f = feedRef.current;
+        let stranger = false;
+        for (const n of fresh) {
+          if (f.byId.has(n.id)) f.patch(n);
+          else if (!seen.current.has(n.id) && n.kind !== 'root') stranger = true;
+          seen.current.add(n.id);
+        }
+        if (stranger && f.ready) void f.refresh().catch(() => {});
+      }),
+    [subscribeActivity],
+  );
+
+  // the feed cannot say what it holds until the first page is in
+  const loaded = frameLoaded && feed.ready;
+
+  /** The root of the lineage being looked at, for the crumb: on a page, or one row from the server. */
+  const lineageRoot = useResolvedNode(lineageId || null, byId);
 
   // a lineage whose shot is gone is not a lineage; drop it rather than show an
   // empty feed under a breadcrumb naming something that is not there
   useEffect(() => {
-    if (!lineageId || !loaded || lineage) return;
+    if (!lineageId || !lineageRoot.missing) return;
     setLineageId(null);
     push({ kind: 'error', title: 'That shot is no longer available', detail: 'Showing everything instead.' });
-  }, [lineageId, loaded, lineage, setLineageId, push]);
-
-  /**
-   * The place, in two halves.
-   *
-   * Archived shots are held out of `shots` everywhere else in the app, so
-   * "archived, inside this set" cannot be a flag to filter on — it is a
-   * second array scoped the same way. Both halves are scoped before any lens
-   * touches them, which is what lets a lens compose with a set instead of
-   * cancelling it.
-   */
-  const archivedShots = useMemo(
-    () => [...allNodes].filter((n) => n.kind !== 'root' && n.archived).sort(byNewest),
-    [allNodes],
-  );
-  const scope = useMemo(() => {
-    const inScope = (list: TreeNode[]) => {
-      if (lineage) return list.filter((n) => lineage.ids.has(n.id));
-      if (set) {
-        const inSet = new Set(membership[set.id] ?? []);
-        return list.filter((n) => inSet.has(n.id));
-      }
-      if (ungrouped) return list.filter((n) => !setsByNode.has(n.id));
-      return list;
-    };
-    return { live: inScope(shots), archived: inScope(archivedShots) };
-  }, [shots, archivedShots, set, membership, setsByNode, lineage, ungrouped]);
-
-  const shown = useMemo(() => applyLens(scope.live, scope.archived, lens), [scope, lens]);
+  }, [lineageId, lineageRoot.missing, setLineageId, push]);
 
   /**
    * Brief tokens carry ids; searching wants the names behind them. Every
@@ -354,68 +332,29 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     };
   }, [products, demoProducts, brand, presenters, catalog.scenes]);
 
-  /** Haystack per shot, cached by id: prompt and brief never change once made. */
-  const searchTextFor = useMemo(() => {
-    const cache = new Map<string, string>();
-    return (n: TreeNode) => {
-      const hit = cache.get(n.id);
-      if (hit !== undefined) return hit;
-      const text = shotSearchText(n, tokenNames, engines.find((e) => e.id === n.engineId)?.displayName);
-      cache.set(n.id, text);
-      return text;
-    };
-  }, [tokenNames, engines]);
-
-  /** What each tab would show from here — this place, this search. */
-  const lensCounts = useMemo(
-    () => countLenses(scope.live, scope.archived, q, searchTextFor),
-    [scope, q, searchTextFor],
-  );
-  const ungroupedCount = useMemo(
-    () => shots.reduce((n, s) => n + (setsByNode.has(s.id) ? 0 : 1), 0),
-    [shots, setsByNode],
-  );
-
-  /** What the canvas actually renders: the lensed feed, searched, then ordered. */
-  const feed = useMemo(() => sortFeed(filterFeed(shown, q, searchTextFor), sort), [shown, q, searchTextFor, sort]);
-
-  const byParent = useMemo(() => {
-    const m = new Map<string | null, TreeNode[]>();
-    for (const n of allNodes) {
-      if (!m.has(n.parentId)) m.set(n.parentId, []);
-      m.get(n.parentId)!.push(n);
-    }
-    return m;
-  }, [allNodes]);
-  const root = allNodes.find((n) => n.kind === 'root') ?? null;
-
+  /** The shot the keyboard acts on: the one clicked, else the newest usable one on screen. */
   const selected = useMemo(() => {
-    const byId = allNodes.find((n) => n.id === selectedId);
-    if (byId) return byId;
+    const chosen = selectedId ? byId.get(selectedId) : undefined;
+    if (chosen) return chosen;
     // never land on a failure: prefer the newest usable shot
-    const usable = feed.filter((n) => n.status !== 'error');
-    return usable[0] ?? feed[0] ?? root;
-  }, [allNodes, selectedId, feed, root]);
+    return items.find((n) => n.status !== 'error') ?? items[0] ?? null;
+  }, [byId, items, selectedId]);
 
   /**
    * The branch target, resolved against what actually exists. A URL can name a
    * shot that has since failed, or one from a brand you are no longer in, so
    * the chip is derived rather than stored and cannot outlive its shot.
    */
-  const target = useMemo(
-    () =>
-      allNodes.find(
-        (n) =>
-          n.id === branchId &&
-          n.kind !== 'root' &&
-          // A shot still rendering counts. Refining moves the chip onto the
-          // version it just made, and that version does not exist as a picture
-          // for a few seconds — dropping the chip in the meantime would read as
-          // the app forgetting what you were working on.
-          (n.status === 'running' || (n.status === 'done' && n.images.length > 0)),
-      ) ?? null,
-    [allNodes, branchId],
-  );
+  const branch = useResolvedNode(branchId || null, byId);
+  const target = useMemo(() => {
+    const n = branch.node;
+    if (!n || n.kind === 'root') return null;
+    // A shot still rendering counts. Refining moves the chip onto the
+    // version it just made, and that version does not exist as a picture
+    // for a few seconds — dropping the chip in the meantime would read as
+    // the app forgetting what you were working on.
+    return n.status === 'running' || (n.status === 'done' && n.images.length > 0) ? n : null;
+  }, [branch.node]);
 
   /** The frame the dock will refine: a node holds exactly one image now. */
   const targetImage = target?.images[0] ?? null;
@@ -474,12 +413,18 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const spendSeeds = useCallback(() => dropParams('scene', 'presenter', 'product'), [dropParams]);
 
   // a target that has stopped being one is dropped, and said so: a chip that
-  // silently stops meaning anything is worse than no chip
+  // silently stops meaning anything is worse than no chip. The server is asked
+  // before the verdict, so a target on a page not yet loaded is never "gone".
   useEffect(() => {
-    if (!branchId || target || !loaded) return;
-    clearTarget();
-    push({ kind: 'error', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
-  }, [branchId, target, loaded, clearTarget, push]);
+    if (!branchId || !loaded) return;
+    if (branch.node && !target) {
+      clearTarget();
+      push({ kind: 'error', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
+    } else if (branch.missing) {
+      clearTarget();
+      push({ kind: 'error', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
+    }
+  }, [branchId, branch.node, branch.missing, target, loaded, clearTarget, push]);
 
   const branchFrom = useCallback(
     (id: string) => {
@@ -501,6 +446,47 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const goToShot = (id: string) => (nodeId ? openShot(id, true) : select(id));
 
   /**
+   * Shots that did not exist a moment ago: a send, a refine, a retry. Seated
+   * in the pages by the query's own rules, put on the recent shelf, and the
+   * one poller asked to look again so their pictures land on the idle cadence
+   * no longer. The stand-in is cleared by the caller once the tiles are in.
+   */
+  const landed = useCallback(
+    (nodes: FeedNode[]) => {
+      for (const n of nodes) seen.current.add(n.id);
+      feedRef.current.insert(nodes);
+      applyNodes(nodes);
+      poke();
+    },
+    [applyNodes, poke],
+  );
+
+  /** The fallback when a change cannot be folded in: the frame and the first page, re-read. */
+  const reload = useCallback(async () => {
+    try {
+      await refresh();
+      await feedRef.current.refresh();
+      setErr(null);
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    }
+  }, [refresh]);
+
+  // one implementation for every surface that can put a shot away or bring it
+  // back — the feed tile, its context menu, the overlay toolbar, the Info tab
+  const applyOne = useCallback((n: FeedNode) => applyNodes([n]), [applyNodes]);
+  const { archive, unarchive, unarchiveBatch } = useArchiveNode(applyOne);
+  // permanent — only ever reachable once a shot is already archived
+  const dropIds = useCallback((ids: string[]) => feedRef.current.drop(ids), []);
+  const { remove, removeBatch } = useDeleteNode(dropIds);
+
+  // a cold load of /n/:nodeId has to select the node the URL names, once the
+  // shots it belongs to actually arrive
+  useEffect(() => {
+    if (nodeId) setSelectedId(nodeId);
+  }, [nodeId]);
+
+  /**
    * Run this shot's own recipe again, as one new sibling.
    *
    * One card, one retry, one new shot — a card is a single image now, so
@@ -511,13 +497,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * worth reading. This used to be fired as `void retry(n)` and rejected in
    * silence, so the button simply appeared to do nothing.
    */
-  const retry = async (node: TreeNode): Promise<string | null> => {
+  const retry = async (node: FeedNode): Promise<string | null> => {
     try {
+      // the whole record: a shot made before briefs existed runs again from its prompt
+      const full = await api.node(node.id);
       const made = await api.addNode({
         projectId,
         parentId: node.parentId,
         kind: node.kind === 'edit' ? 'edit' : 'generation',
-        prompt: node.prompt,
+        prompt: full.prompt,
         engineId: node.engineId,
         count: 1,
         brief: node.brief,
@@ -525,7 +513,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         // retake silently switched to its parent's image
         ...(node.kind === 'edit' && node.brief?.sourceImage ? { sourceImage: node.brief.sourceImage } : {}),
       });
-      await reload();
+      landed(made.siblings?.length ? made.siblings : [made]);
       return made?.id ?? null;
     } catch (e: any) {
       push(failureToast(e, 'Could not run this again'));
@@ -533,10 +521,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     }
   };
 
-  const cancel = async (node: TreeNode) => {
+  const cancel = async (node: FeedNode) => {
     try {
       await api.cancelNode(node.id);
-      await reload();
+      // the record settles on the run's own catch; the poll corrects this
+      applyNodes([{ ...node, status: 'cancelled' }]);
+      poke();
     } catch (e: any) {
       push(failureToast(e, 'Could not cancel this shot'));
     }
@@ -584,6 +574,154 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       { replace: true },
     );
   }, [showcaseIdParam, showcaseLoaded, showcase, setParams, push]);
+
+  /**
+   * Marking a shot a keeper, one or many.
+   *
+   * The star flips at once and the server's answer replaces it; a refusal puts
+   * the record back and says so. Every one of these used to re-read the whole
+   * brand to light one star.
+   */
+  const keep = async (node: FeedNode, next = !node.kept) => {
+    applyNodes([{ ...node, kept: next }]);
+    try {
+      applyNodes([await api.keep(node.id, next)]);
+    } catch (e: any) {
+      applyNodes([node]);
+      push(failureToast(e, 'Could not update keeper status'));
+    }
+  };
+
+  // allNodes, not shots: shots excludes archived nodes, but a selection can be
+  // made from the Archived lens too — sourcing from the pages, whatever the
+  // lens, is what makes Keep/Compare/batch-delete work for that selection
+  const pickedNodes = useMemo(
+    () => [...picked].map((id) => byId.get(id)).filter((n): n is FeedNode => !!n),
+    [byId, picked],
+  );
+
+  /** One press sets them all; pressing again on an all-kept selection clears them. */
+  const keepPicked = async () => {
+    const next = !(pickedNodes.length > 0 && pickedNodes.every((n) => n.kept));
+    const changing = pickedNodes.filter((n) => n.kept !== next);
+    applyNodes(changing.map((n) => ({ ...n, kept: next })));
+    try {
+      applyNodes(await Promise.all(changing.map((n) => api.keep(n.id, next))));
+    } catch (e: any) {
+      applyNodes(changing);
+      push(failureToast(e, 'Could not update keeper status'));
+    }
+  };
+
+  /** A set's membership as the server just answered it: the frame and the place both learn of it. */
+  const fileInto = useCallback(
+    (setId: string, ids: string[]) => {
+      membershipRef.current = { ...membershipRef.current, [setId]: ids };
+      applyMembership(setId, ids);
+    },
+    [applyMembership],
+  );
+
+  const addPickedTo = async (target: ShotSet) => {
+    try {
+      const r = await api.addToSet(target.id, [...picked]);
+      fileInto(target.id, r.nodeIds);
+      setPicked(new Set());
+      // a place defined by membership has just moved under the pages
+      if (set || ungrouped) void feedRef.current.refresh();
+    } catch (e: any) {
+      push(failureToast(e, 'Could not add to the set'));
+    }
+  };
+
+  const pendingMembers = useRef<string[]>([]);
+  const [askCreate, setAskCreate] = useState(false);
+  useEffect(() => {
+    if (!askCreate) return;
+    setAskCreate(false);
+  }, [askCreate]);
+
+  const newSetWith = async (nodeIds: string[], name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    try {
+      const made = await api.createSet(brand.id, clean);
+      insertSet(made);
+      if (nodeIds.length > 0) {
+        const r = await api.addToSet(made.id, nodeIds);
+        fileInto(made.id, r.nodeIds);
+      }
+      setPicked(new Set());
+      navigate(setPath(brand, made));
+    } catch (e: any) {
+      push(failureToast(e, 'Could not create the set'));
+    }
+  };
+
+  const takePendingMembers = () => {
+    const ids = pendingMembers.current;
+    pendingMembers.current = [];
+    return ids;
+  };
+
+  const renameActive = async (name: string) => {
+    if (!set) return;
+    const clean = name.trim();
+    if (!clean || clean === set.name) return;
+    try {
+      const saved = await api.renameSet(set.id, clean);
+      applySet(saved);
+      navigate(setPath(brand, saved), { replace: true });
+      void refresh();
+    } catch (e: any) {
+      push(failureToast(e, 'Could not rename the set'));
+    }
+  };
+
+  const deleteActive = async () => {
+    if (!set) return;
+    try {
+      await api.deleteSet(set.id);
+      dropSet(set.id);
+      navigate(hubPath(brand), { replace: true });
+      void refresh();
+    } catch (e: any) {
+      push(failureToast(e, 'Could not delete the set'));
+    }
+  };
+
+  /**
+   * Compare answers a question about exactly two things, so it is offered for
+   * exactly two and only when both have an image to compare. Three selected is
+   * not a comparison, and a failed shot has nothing to put on the wall.
+   */
+  const comparable = useMemo(() => {
+    if (pickedNodes.length !== 2) return null;
+    const [a, b] = pickedNodes;
+    if (a.status !== 'done' || b.status !== 'done' || !a.images[0] || !b.images[0]) return null;
+    return [a, b] as const;
+  }, [pickedNodes]);
+
+  /**
+   * Arrow keys walk the tree around the selected shot. The tree comes from the
+   * server's parent index, one small answer per shot, rather than from a map
+   * over every shot in the brand.
+   */
+  const walk = async (dir: 'left' | 'right' | 'up' | 'down') => {
+    const at = selected;
+    if (!at) return;
+    if (dir === 'up') {
+      if (at.parentId && at.parentId !== root) goToShot(at.parentId);
+      return;
+    }
+    const lin = await api.lineage(at.id).catch(() => null);
+    if (!lin) return;
+    const sibs = lin.siblings.filter((n) => n.kind !== 'root');
+    const i = sibs.findIndex((n) => n.id === at.id);
+    if (dir === 'left' && i > 0) goToShot(sibs[i - 1].id);
+    else if (dir === 'right' && i >= 0 && i < sibs.length - 1) goToShot(sibs[i + 1].id);
+    else if (dir === 'down' && lin.children[0]) goToShot(lin.children[0].id);
+  };
 
   // keyboard: arrows walk the tree, [ ] step images, esc closes the overlay,
   // enter opens the selected shot, k keeps it, . toggles the assets panel,
@@ -664,29 +802,24 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         e.preventDefault();
         return;
       }
-      const sibs = (byParent.get(selected.parentId) ?? []).filter((n) => n.kind !== 'root');
-      const i = sibs.findIndex((n) => n.id === selected.id);
-      if (e.key === 'ArrowLeft' && i > 0) {
-        goToShot(sibs[i - 1].id);
+      if (e.key === 'ArrowLeft') {
+        void walk('left');
         e.preventDefault();
-      } else if (e.key === 'ArrowRight' && i >= 0 && i < sibs.length - 1) {
-        goToShot(sibs[i + 1].id);
+      } else if (e.key === 'ArrowRight') {
+        void walk('right');
         e.preventDefault();
-      } else if (e.key === 'ArrowUp' && selected.parentId) {
-        goToShot(selected.parentId);
+      } else if (e.key === 'ArrowUp') {
+        void walk('up');
         e.preventDefault();
       } else if (e.key === 'ArrowDown') {
-        const kids = byParent.get(selected.id) ?? [];
-        if (kids.length) {
-          goToShot(kids[0].id);
-          e.preventDefault();
-        }
+        void walk('down');
+        e.preventDefault();
       } else if (e.key === 'Enter' && !nodeId && selected.kind !== 'root') openShot(selected.id);
       else if (e.key === '.' && !nodeId) toggleAssets();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, byParent, nodeId, shortcutsOpen, picked.size, branchId, branchFrom, setBranchId]);
+  }, [selected, nodeId, shortcutsOpen, picked.size, branchId, branchFrom, setBranchId, root]);
 
   const togglePick = (id: string) =>
     setPicked((cur) => {
@@ -694,112 +827,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       if (!next.delete(id)) next.add(id);
       return next;
     });
-
-  // allNodes, not shots: shots excludes archived nodes, but a selection can be
-  // made from the Archived lens too — sourcing from the un-filtered tree is
-  // what makes Keep/Compare/batch-delete work for that selection at all
-  const pickedNodes = useMemo(() => allNodes.filter((n) => picked.has(n.id)), [allNodes, picked]);
-
-  /**
-   * Compare answers a question about exactly two things, so it is offered for
-   * exactly two and only when both have an image to compare. Three selected is
-   * not a comparison, and a failed shot has nothing to put on the wall.
-   */
-  const comparable = useMemo(() => {
-    if (pickedNodes.length !== 2) return null;
-    const [a, b] = pickedNodes;
-    if (a.status !== 'done' || b.status !== 'done' || !a.images[0] || !b.images[0]) return null;
-    return [a, b] as const;
-  }, [pickedNodes]);
-
-  /**
-   * Marking a shot a keeper, one or many.
-   *
-   * Every one of these used to be fired into the void, so a request that came
-   * back a failure left the star simply not changing, with nothing said.
-   */
-  const keep = async (node: TreeNode, next = !node.kept) => {
-    try {
-      await api.keep(node.id, next);
-      await reload();
-    } catch (e: any) {
-      push(failureToast(e, 'Could not update keeper status'));
-    }
-  };
-
-  /** One press sets them all; pressing again on an all-kept selection clears them. */
-  const keepPicked = async () => {
-    const next = !(pickedNodes.length > 0 && pickedNodes.every((n) => n.kept));
-    try {
-      await Promise.all(pickedNodes.filter((n) => n.kept !== next).map((n) => api.keep(n.id, next)));
-      await reload();
-    } catch (e: any) {
-      push(failureToast(e, 'Could not update keeper status'));
-    }
-  };
-
-  const addPickedTo = async (target: ShotSet) => {
-    try {
-      await api.addToSet(target.id, [...picked]);
-      setPicked(new Set());
-      await reload();
-    } catch (e: any) {
-      push(failureToast(e, 'Could not add to the set'));
-    }
-  };
-
-  const pendingMembers = useRef<string[]>([]);
-  const [askCreate, setAskCreate] = useState(false);
-  useEffect(() => {
-    if (!askCreate) return;
-    setAskCreate(false);
-  }, [askCreate]);
-
-  const newSetWith = async (nodeIds: string[], name: string) => {
-    const clean = name.trim();
-    if (!clean) return;
-    try {
-      const made = await api.createSet(brand.id, clean);
-      if (nodeIds.length > 0) await api.addToSet(made.id, nodeIds);
-      setPicked(new Set());
-      await reload();
-      navigate(setPath(brand, made));
-    } catch (e: any) {
-      push(failureToast(e, 'Could not create the set'));
-    }
-  };
-
-  const takePendingMembers = () => {
-    const ids = pendingMembers.current;
-    pendingMembers.current = [];
-    return ids;
-  };
-
-  const renameActive = async (name: string) => {
-    if (!set) return;
-    const clean = name.trim();
-    if (!clean || clean === set.name) return;
-    try {
-      const saved = await api.renameSet(set.id, clean);
-      applySet(saved);
-      navigate(setPath(brand, saved), { replace: true });
-      void refresh();
-    } catch (e: any) {
-      push(failureToast(e, 'Could not rename the set'));
-    }
-  };
-
-  const deleteActive = async () => {
-    if (!set) return;
-    try {
-      await api.deleteSet(set.id);
-      dropSet(set.id);
-      navigate(hubPath(brand), { replace: true });
-      void refresh();
-    } catch (e: any) {
-      push(failureToast(e, 'Could not delete the set'));
-    }
-  };
 
   /**
    * Nothing to show is three different facts: the brand has never made
@@ -810,7 +837,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * is useless advice when there is no shot to star.
    */
   /** Never made anything here. Drives both the empty state and the bare chrome. */
-  const firstRun = hasNoShots(allNodes);
+  const firstRun = loaded && counts !== null && counts.total === 0;
   /**
    * First run has no feed toolbar — there is no feed to describe — so it also
    * has no rail switch. The rail stays open there regardless: it is the
@@ -847,8 +874,18 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     <LensEmpty text="Every shot is already in a set." onAll={() => setPlace(null)} />
   ) : null;
 
+  /** What the search field says it searches: the lens before the search narrowed it. */
+  const unsearched = useRef(0);
+  if (!q.trim() && counts) unsearched.current = counts[lens];
+  const lensCounts = useMemo(
+    () => ({ all: counts?.all ?? 0, keepers: counts?.keepers ?? 0, archived: counts?.archived ?? 0 }),
+    [counts],
+  );
+
   const shotContext: ShotContext = {
-    nodes: allNodes,
+    byId,
+    rootId: root,
+    recent,
     loaded,
     // The sets a shot is filed in. It used to be a count on the tile, which is
     // a fact about the picture stated where there is no room to say which
@@ -870,7 +907,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       });
     },
     cancel: (n) => void cancel(n),
-    reload: () => reload(),
+    keep: (n) => void keep(n),
+    reload,
     remix: (n) => {
       setRemixBrief({ ...n.brief, _at: Date.now() });
       // durable against a reload landing between this click and the hub
@@ -891,12 +929,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     archive: (n) => void archive(n).then(() => closeShot()),
     unarchive: (n) => void unarchive(n),
     delete: (n) => void remove(n).then(() => closeShot()),
+    landed,
     // whichever surface a refine was pulled from, the workspace follows the
     // same thread, so stepping back out continues the conversation instead of
     // turning the next instruction into a brand new shot
     refined: (id, kind) => {
       if (kind === 'edit') setBranchId(id);
     },
+    subscribeActivity,
     tokenNames,
   };
 
@@ -939,9 +979,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         {/* Was a bare Radix callout printing whatever the server threw. Same
             reading as every other failure in the app now, so the page does not
             change vocabulary depending on where the error came from. */}
-        {err && (
+        {(err || feed.error) && (
           <div className="sc-canvas-alert">
-            <FailureRow failure={describeFailure(err)} />
+            <FailureRow failure={describeFailure(err ?? feed.error ?? '')} />
           </div>
         )}
 
@@ -955,7 +995,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             sets={sets}
             active={set}
             ungrouped={ungrouped}
-            ungroupedCount={ungroupedCount}
+            ungroupedCount={counts?.ungrouped ?? 0}
             onPlaceAll={() => (set ? navigate(hubPath(brand)) : setPlace(null))}
             onPlaceUngrouped={() => (set ? navigate(`${hubPath(brand)}?in=ungrouped`) : setPlace('ungrouped'))}
             onOpenSet={(s) => navigate(setPath(brand, s))}
@@ -971,7 +1011,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             onLens={(l) => setLens(l === 'all' ? null : l)}
             q={q}
             onQ={setQ}
-            searchTotal={shown.length}
+            searchTotal={q.trim() ? unsearched.current : (counts?.[lens] ?? 0)}
             sort={sort}
             onSort={setSortPref}
             tile={tile}
@@ -982,13 +1022,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           />
         )}
 
-        {lineage && (
+        {lineageId && lineageRoot.node && (
           <div className="sc-lineage-bar">
             <button type="button" className="sc-crumb-back" onClick={() => setLineageId(null)}>
               All shots
             </button>
             <span className="sc-crumb-sep">›</span>
-            <b dir="auto">{nodeLabel(lineage.root)}</b>
+            <b dir="auto">{nodeLabel(lineageRoot.node)}</b>
             <span className="sc-crumb-sep">›</span>
             <span className="sc-crumb-here">versions</span>
           </div>
@@ -1002,7 +1042,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             could clear it because there was nothing to clear. A ring is for a
             shot someone chose. */}
         <Canvas
-          nodes={feed}
+          nodes={items}
           selectedId={selectedId}
           onOpen={openShot}
           shotHref={shotHref}
@@ -1022,10 +1062,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           sending={sending}
           onBranch={branchFrom}
           branchingFrom={target?.id ?? null}
-          versionsOf={(id) => childrenOf.get(id)?.length ?? 0}
           onVersions={setLineageId}
           tile={tile}
-          empty={emptyState}
+          empty={loaded ? emptyState : null}
+          pending={!loaded}
+          onNearEnd={feed.complete ? undefined : feed.loadMore}
         />
       </main>
 
@@ -1048,7 +1089,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       {!phone && (
         <AssetsPanel
           brand={brand}
-          shots={allNodes}
+          shots={recent}
           attached={attached}
           full={ceiling}
           onToken={(t) => composerRef.current?.insertToken(t)}
@@ -1092,8 +1133,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           projectId={projectId || null}
           brand={brand}
           engines={engines}
-          parent={root}
-          shots={allNodes}
+          parentId={root}
+          shots={recent}
           initialBrief={remixBrief}
           suppressDraftRestore={showcaseIdParam !== null}
           startScene={params.get('scene') ?? undefined}
@@ -1111,7 +1152,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           onAttached={setAttached}
           onCeiling={setCeiling}
           sourceImage={targetImage ?? undefined}
-          onQueued={(made, kind, siblings) => {
+          onQueued={(made, kind, siblings, records) => {
             setRemixBrief(null);
             /**
              * One write, because both halves live in the query string: a
@@ -1139,13 +1180,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
               },
               { replace: true },
             );
-            // the server is busy as of now, so ask the one poller to look again
-            // rather than let a fresh shot wait out the idle cadence
-            poke();
-            // The stand-in tile is cleared only once the real shot is in hand.
-            // Clearing on response instead left a beat with neither, which read
-            // as the brief having been swallowed.
-            const landed = () => setSending(null);
+            // The stand-in tile is cleared only once the real shots are in
+            // hand. Clearing on response instead left a beat with neither,
+            // which read as the brief having been swallowed.
+            const standInGone = () => setSending(null);
             /**
              * Point at the new version only once it is actually in hand.
              *
@@ -1167,15 +1205,21 @@ export function CreateView({ set }: { set: ShotSet | null }) {
                 { replace: true },
               );
             };
+            const seat = () => {
+              landed(records ?? []);
+              thenPointAtIt();
+              standInGone();
+            };
             // every sibling of a batch sent from a set page belongs to the set,
-            // not only the first: the set used to show one of four
+            // not only the first: the set used to show one of four. Filed
+            // before seating, so the place admits them the moment they land.
             if (set && made)
               void api
                 .addToSet(set.id, siblings?.length ? siblings : [made])
-                .then(reload)
-                .then(thenPointAtIt)
-                .finally(landed);
-            else void reload().then(thenPointAtIt).finally(landed);
+                .then((r) => fileInto(set.id, r.nodeIds))
+                .catch((e: any) => push(failureToast(e, 'Could not add to the set')))
+                .finally(seat);
+            else seat();
           }}
         />
       </ComposerDock>
@@ -1184,12 +1228,3 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     </div>
   );
 }
-
-/**
- * The brand has never made anything. The only empty state that has to teach,
- * so it is the only one that offers a way to start rather than a way back.
- *
- * A scene is the shortest route to a first shot worth keeping, which is why the
- * row is here and not a second sentence: the brief accepts prose, but prose is
- * the harder opening move for someone who has never used this.
- */

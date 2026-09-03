@@ -13,6 +13,8 @@ import { normalizeTint } from './line.js';
  * said about a muddy dominant anyway.
  */
 const cache = new Map<string, Promise<string | null>>();
+/** Pictures whose tint is remembered. Past this the oldest is forgotten; a Map keeps insertion order. */
+export const TINT_CACHE_CAP = 64;
 
 export function vibrantTintOf(url: string): Promise<string | null> {
   let p = cache.get(url);
@@ -21,8 +23,14 @@ export function vibrantTintOf(url: string): Promise<string | null> {
       .then((px) => (px ? vibrantFromPixels(px.data, 4) : null))
       .catch(() => null);
     cache.set(url, p);
+    while (cache.size > TINT_CACHE_CAP) cache.delete(cache.keys().next().value as string);
   }
   return p;
+}
+
+/** How many pictures the cache holds right now (tests). */
+export function tintCacheSize(): number {
+  return cache.size;
 }
 
 /**

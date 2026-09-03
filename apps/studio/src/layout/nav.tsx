@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useLocation, useMatch } from 'react-router';
 import { FilmSlate, House, IdentificationBadge, Package, PlusCircle } from '@phosphor-icons/react';
-import { assetUrl, type Brand } from '../api.js';
+import { type Brand, assetThumbUrl } from '../api.js';
 import { primaryMark } from '../brand/marks.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { P, brandPath, hubPath, scenesPath, presentersPath, productsPath } from '../routes.js';
@@ -119,7 +119,8 @@ export function inkOn(hex: string): string {
  * is what every workspace switcher worth copying does.
  */
 export function BrandAvatar({ brand, size = 20 }: { brand: Brand; size?: number }) {
-  const logo = assetUrl(primaryMark(brand.json)?.file);
+  // a 20px circle reads the small derivative; the mark's own file is for the kit
+  const logo = assetThumbUrl(primaryMark(brand.json)?.file, 'micro');
   const hex: string = brand.json?.palette?.primary?.hex ?? '#6b6b6b';
   return (
     <span

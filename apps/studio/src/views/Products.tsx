@@ -10,7 +10,7 @@ import { productPath } from '../routes.js';
 import { ProductCard, ProductCardSkeleton } from '../layout/ProductCard.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { PRODUCT_CATEGORIES, categoryLabel, effectiveCategory } from '../productCategories.js';
-import { DensityControl, densitySize, densityWallStyle } from '../layout/DensityControl.js';
+import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
 import { LibrarySearch } from '../layout/library/LibrarySearch.js';
@@ -170,104 +170,106 @@ export function ProductsView() {
   );
 
   return (
-    <ScrollPane>
-      <main className="sc-looks sc-products" id="main" data-hero={heroMode || undefined}>
-        {!heroMode && toolbar}
+    <WallDensityCtx.Provider value={densityAttr}>
+      <ScrollPane>
+        <main className="sc-looks sc-products" id="main" data-hero={heroMode || undefined}>
+          {!heroMode && toolbar}
 
-        {!productsLoaded && (
-          <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
-            <ProductCardSkeleton size="grid" count={8} />
-          </div>
-        )}
-
-        {showMine && mineVisible.length > 0 && (
-          <section className="sc-owned">
-            <div className="sc-sec-head">
-              <h2 className="sc-sec-title">Your products</h2>
+          {!productsLoaded && (
+            <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
+              <ProductCardSkeleton size="grid" count={8} />
             </div>
+          )}
+
+          {showMine && mineVisible.length > 0 && (
+            <section className="sc-owned">
+              <div className="sc-sec-head">
+                <h2 className="sc-sec-title">Your products</h2>
+              </div>
+              <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+                {mineVisible.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    variant="use"
+                    size="grid"
+                    onOpen={openProduct}
+                    href={productPath(brand, p.id)}
+                    onUse={applyProduct}
+                  />
+                ))}
+              </div>
+              {remaining > 0 && (
+                <div className="sc-lib-more">
+                  <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
+                    Show {Math.min(remaining, 60)} more
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* The cold state, the same one Presenters and Scenes show: the offer,
+            centred, with the library underneath so the page is never an empty
+            room. */}
+          {heroMode && (
+            <LibraryEmpty
+              shape="cold"
+              title={
+                <>
+                  Bring in a <em>product</em>
+                </>
+              }
+              body="Upload a few clean shots, or import your store, and it stays exact in every image you make."
+              action={addMenu}
+            />
+          )}
+
+          {/* A heading only where it separates two things. Filter your own half
+            away and the page is simply a wall of ours, which needs no label. */}
+          {showMine && mineVisible.length > 0 && theirsFiltered.length > 0 && (
+            <div className="sc-sec-head sc-owned-divider">
+              <h2 className="sc-sec-title">Scenri products</h2>
+            </div>
+          )}
+
+          {/* The seam, and the row that belongs to the wall under it. Gated on
+            the unfiltered library, not on what survives the filter: a search
+            that finds nothing must not take the control you searched with. */}
+          {heroMode && theirs.length > 0 && (
+            <>
+              <StarterDivider label="Or borrow one of ours" />
+              {toolbar}
+            </>
+          )}
+
+          {theirsFiltered.length > 0 && (
             <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-              {mineVisible.map((p) => (
-                <ProductCard
+              {theirsFiltered.map((p) => (
+                <DemoProductCard
                   key={p.id}
                   product={p}
                   variant="use"
                   size="grid"
+                  onUse={applyProduct}
                   onOpen={openProduct}
                   href={productPath(brand, p.id)}
-                  onUse={applyProduct}
                 />
               ))}
             </div>
-            {remaining > 0 && (
-              <div className="sc-lib-more">
-                <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>
-                  Show {Math.min(remaining, 60)} more
-                </button>
-              </div>
-            )}
-          </section>
-        )}
+          )}
 
-        {/* The cold state, the same one Presenters and Scenes show: the offer,
-            centred, with the library underneath so the page is never an empty
-            room. */}
-        {heroMode && (
-          <LibraryEmpty
-            shape="cold"
-            title={
-              <>
-                Bring in a <em>product</em>
-              </>
-            }
-            body="Upload a few clean shots, or import your store, and it stays exact in every image you make."
-            action={addMenu}
-          />
-        )}
-
-        {/* A heading only where it separates two things. Filter your own half
-            away and the page is simply a wall of ours, which needs no label. */}
-        {showMine && mineVisible.length > 0 && theirsFiltered.length > 0 && (
-          <div className="sc-sec-head sc-owned-divider">
-            <h2 className="sc-sec-title">Scenri products</h2>
-          </div>
-        )}
-
-        {/* The seam, and the row that belongs to the wall under it. Gated on
-            the unfiltered library, not on what survives the filter: a search
-            that finds nothing must not take the control you searched with. */}
-        {heroMode && theirs.length > 0 && (
-          <>
-            <StarterDivider label="Or borrow one of ours" />
-            {toolbar}
-          </>
-        )}
-
-        {theirsFiltered.length > 0 && (
-          <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-            {theirsFiltered.map((p) => (
-              <DemoProductCard
-                key={p.id}
-                product={p}
-                variant="use"
-                size="grid"
-                onUse={applyProduct}
-                onOpen={openProduct}
-                href={productPath(brand, p.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {productsLoaded && mineFiltered.length === 0 && theirsFiltered.length === 0 && (
-          <LibraryZero
-            noun="products"
-            q={q}
-            facet={category ? categoryLabel(category) : null}
-            onClearSearch={clearSearch}
-            onClearAll={clear}
-          />
-        )}
-      </main>
-    </ScrollPane>
+          {productsLoaded && mineFiltered.length === 0 && theirsFiltered.length === 0 && (
+            <LibraryZero
+              noun="products"
+              q={q}
+              facet={category ? categoryLabel(category) : null}
+              onClearSearch={clearSearch}
+              onClearAll={clear}
+            />
+          )}
+        </main>
+      </ScrollPane>
+    </WallDensityCtx.Provider>
   );
 }

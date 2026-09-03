@@ -1,4 +1,4 @@
-import { assetUrl, type DemoProduct, type Presenter, type Product, type Scene } from '../api.js';
+import { type DemoProduct, type Presenter, type Product, type Scene, assetThumbUrl, thumbOf } from '../api.js';
 import type { Swatch } from '../brand/palette.js';
 import { isRecommendedPresenter, isRecommendedScene } from '../compat.js';
 import { productLabel, productSearchText, presenterSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
@@ -221,7 +221,7 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
     // brand.json is what a brand with no import still has.
     const own = cat.libraryProducts.length ? cat.libraryProducts : cat.brandProducts;
     return [
-      ...own.map((p): Candidate => productCandidate(p, 'brand', assetUrl(p.shots?.[0]?.file))),
+      ...own.map((p): Candidate => productCandidate(p, 'brand', assetThumbUrl(p.shots?.[0]?.file, 'tile'))),
       ...cat.demoProducts.map((p): Candidate => productCandidate(p, 'catalog', p.previewUrl ?? null)),
     ];
   }
@@ -239,7 +239,7 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
           full: [p.name, clean(p.descriptor)].filter(Boolean).join(' · '),
           sub: clean(p.descriptor),
           search: presenterSearchText(p),
-          thumb: av.src,
+          thumb: thumbOf(av.src, 'tile'),
           crop: av.crop,
           // This list arrives already merged (`withCustomFirst`), so it is not
           // all Scenri's. A person this brand cast for itself carries `custom`
@@ -261,7 +261,7 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
           label: c.name,
           full: c.name,
           search: c.name,
-          thumb: av.src,
+          thumb: thumbOf(av.src, 'tile'),
           crop: av.crop,
           source: 'brand',
           token: { t: 'character', id: c.id },
@@ -278,7 +278,7 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
       full: sceneLabel(s, 'tooltip'),
       sub: clean(s.lighting),
       search: sceneSearchText(s),
-      thumb: s.previewUrl ?? null,
+      thumb: thumbOf(s.previewUrl ?? null, 'tile'),
       tint: normalizeTint(s.previewColor),
       // Same merged list as presenters: a scene this brand built carries
       // `custom`. Hardcoding 'catalog' here made every own scene read as ours.

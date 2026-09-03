@@ -60,6 +60,9 @@ function writeLegacyFixture(db: ReturnType<typeof openDb>) {
   ).run(JSON.stringify([H('d')]), JSON.stringify({ tokens: [{ t: 'text', v: 'warmer light' }], sourceImage: H('b') }));
   db.prepare("INSERT INTO sets (id, brand_id, name, slug) VALUES ('s1','b1','Spring','spring')").run();
   db.prepare("INSERT INTO set_nodes (set_id, node_id) VALUES ('s1','run1')").run();
+  // a library written before the split ran has no marker for it; the boot
+  // that opened this file to seed it wrote one, so the seed takes it back
+  db.prepare("DELETE FROM settings WHERE key = 'images_split'").run();
 }
 
 describe('splitMultiImageNodes', () => {
