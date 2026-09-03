@@ -10,7 +10,7 @@ function remember(id: string, lineage: Lineage): void {
   while (cache.size > LINEAGE_CACHE_CAP) cache.delete(cache.keys().next().value as string);
 }
 
-export interface LineageOf {
+interface LineageOf {
   /** Root-most first, the parent last; never the root itself. */
   ancestors: FeedNode[];
   /** Live refinements of the shot. */

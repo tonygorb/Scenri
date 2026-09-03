@@ -2,7 +2,7 @@ import type { FeedNode } from '../api.js';
 import { byNewest } from '../feedRules.js';
 
 /** How many of the newest done shots the workspace answer carries for the rail and the attach panel. */
-export const RECENT_CAP = 48;
+const RECENT_CAP = 48;
 
 /**
  * The recent shelf after a poll: records it holds are swapped in by id, a

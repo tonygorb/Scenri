@@ -206,7 +206,7 @@ export function Canvas({
    * The feed's order: the stand-ins for a send first (one per expected
    * sibling, so a four-shot send answers with four spaces being held rather
    * than one tile hiding three), then every shot newest first. The flat index
-   * is the ordinal `dealOrdinals` documents: the newest tile is ordinal 0 and
+   * is the ordinal `dealColumns` deals on: the newest tile is ordinal 0 and
    * always the top-left cell, the feed reads left to right and then down.
    */
   type Item = { key: string; node: FeedNode | null; said?: string };
@@ -324,8 +324,8 @@ export function Canvas({
            * then down, and an expanded run's takes stay consecutive so they
            * read in request order. A prepend shifts every tile by one slot;
            * that is deliberate and it happens only when the user's own send
-           * enters the feed and when that shot lands (see dealOrdinals for the
-           * far-end deal this replaced and why). A run stays ONE tile while it
+           * enters the feed and when that shot lands; it is the price of
+           * "newest is always top left". A run stays ONE tile while it
            * renders: a run is one card with takes inside, and its canonical
            * newest position is the guarantee, not a cell per take.
            */

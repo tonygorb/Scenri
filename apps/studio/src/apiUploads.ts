@@ -93,8 +93,8 @@ export const assetUrl = (ref?: string) => (ref?.startsWith('asset:') ? imgUrl(re
  * the pixels the engine made. A tile used to fetch the same 2 MB PNG the
  * stage does, so one screen of feed was ten megabytes of decode.
  */
-export type ThumbSize = 'tile' | 'micro';
-export const THUMB_WIDTH: Record<ThumbSize, number> = { tile: 640, micro: 160 };
+type ThumbSize = 'tile' | 'micro';
+const THUMB_WIDTH: Record<ThumbSize, number> = { tile: 640, micro: 160 };
 export const thumbUrl = (hash: string, size: ThumbSize) => `${imgUrl(hash)}/thumb?w=${THUMB_WIDTH[size]}`;
 /** Renders an `asset:<hash>` brand ref at a derivative size, or null. */
 export const assetThumbUrl = (ref: string | undefined, size: ThumbSize) =>

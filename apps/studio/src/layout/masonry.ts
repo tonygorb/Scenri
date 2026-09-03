@@ -112,26 +112,3 @@ export function masonryLayout(width: number, tile: number, phoneMode: boolean): 
   const cols = phoneMode ? 2 : Math.max(1, Math.floor((width + GAP) / (tile + GAP)));
   return { tile: Math.floor((width - GAP * (cols - 1)) / cols), cols };
 }
-
-/**
- * Column ordinals for a newest-first list of tile GROUPS. A collapsed shot is
- * a group of one; an expanded run is a group of N tiles in take order. A
- * tile's column is its ordinal modulo the column count.
- *
- * The ordinal is simply the flat index: the newest tile is ordinal 0 and
- * ALWAYS lands top-left, the feed reads left to right then down, and groups
- * stay consecutive so an expanded run reads take 1, 2, 3 across the row.
- *
- * This replaces a far-end deal that counted ordinals from the OLDEST tile so
- * a prepend never renumbered what was on screen. That stability had a cost
- * nobody accepted once they saw it: the newest work landed in whichever
- * column its ordinal picked, so a fresh generation could open as the third
- * cell of the grid. Now a prepend shifts every tile by one slot instead, and
- * that happens at exactly two moments: the instant the user pressed Generate
- * (their own action) and the instant that shot lands. A feed that answers
- * "where is my newest shot" with "top left, always" is worth the shuffle.
- */
-export function dealOrdinals(groupSizes: number[]): number[][] {
-  let next = 0;
-  return groupSizes.map((size) => Array.from({ length: size }, () => next++));
-}

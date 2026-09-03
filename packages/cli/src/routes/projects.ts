@@ -2,12 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import { searchTerms, termMatches, type BrandRow, type Core, type FeedFilter, type FeedSort } from '@scenri/core';
 
 /** Something a brief token can name, with the name it answers to right now. */
-export interface TokenName {
+interface TokenName {
   id: string;
   name: string;
 }
 
-export interface ProjectRouteDeps {
+interface ProjectRouteDeps {
   core: Core;
   /**
    * Every product, presenter and scene a brand's briefs can point at, by

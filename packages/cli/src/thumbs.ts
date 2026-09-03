@@ -15,15 +15,14 @@ import type { Core } from '@scenri/core';
  *
  * The original stays on `/api/images/:hash` for the stage, compare and export.
  */
-export const THUMB_WIDTHS = [640, 160] as const;
-export type ThumbWidth = (typeof THUMB_WIDTHS)[number];
+const THUMB_WIDTHS = [640, 160] as const;
+type ThumbWidth = (typeof THUMB_WIDTHS)[number];
 
 export const isThumbWidth = (w: unknown): w is ThumbWidth => THUMB_WIDTHS.includes(w as ThumbWidth);
 
 export interface ThumbStore {
   /** Where derivatives live: `<home>/thumbs`, a sibling of `images/`. */
   dir: string;
-  pathFor(hash: string, w: ThumbWidth): string;
   /**
    * The derivative's path once it exists on disk, or null when it cannot be
    * made (an undecodable original, a full disk). Never throws; a failure is
@@ -95,7 +94,6 @@ export function createThumbStore(core: Core, opts: { concurrency?: number } = {}
 
   return {
     dir,
-    pathFor,
     async ensure(hash, w) {
       if (!enabled || !/^[a-f0-9]{32}$/.test(hash)) return null;
       const key = `${hash}-w${w}`;

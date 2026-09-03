@@ -13,11 +13,11 @@ import { GAP } from '../masonry.js';
  */
 export const WINDOW_THRESHOLD = 40;
 /** Viewports of tiles kept mounted above and below the visible band. */
-export const OVERSCAN_VIEWPORTS = 1;
+const OVERSCAN_VIEWPORTS = 1;
 /** Scroll positions are read to this grain: a window that moved less than this did not move. */
-export const SCROLL_QUANTUM = 64;
+const SCROLL_QUANTUM = 64;
 
-export type TileKind = 'done' | 'running' | 'failed' | 'sending';
+type TileKind = 'done' | 'running' | 'failed' | 'sending';
 
 /** Whether a feed of this many tiles is windowed. */
 export const windowed = (count: number): boolean => count > WINDOW_THRESHOLD;
@@ -73,8 +73,8 @@ export function visibleRange(starts: number[], top: number, bottom: number): [nu
 
 /**
  * The tiles of each column, by flat index: the newest tile is ordinal 0 and
- * always top-left, the feed reads left to right and then down. The same deal
- * `dealOrdinals` documents, for the case where every group is one tile.
+ * always top-left, the feed reads left to right and then down. One tile per
+ * shot since a run became one card, so the deal needs no group sizes.
  */
 export function dealColumns(count: number, cols: number): number[][] {
   const out: number[][] = Array.from({ length: Math.max(1, cols) }, () => []);

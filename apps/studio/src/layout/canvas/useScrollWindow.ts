@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState } from 'react';
 import { quantize } from './windowRules.js';
 
-export interface ScrollWindow {
+interface ScrollWindow {
   /** How far the feed has scrolled under the scroller's top edge; negative while the toolbar is still above it. */
   top: number;
   /** The scroller's inner height. */

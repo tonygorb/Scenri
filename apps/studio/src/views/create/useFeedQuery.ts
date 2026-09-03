@@ -14,9 +14,9 @@ import {
 } from './feedQueryRules.js';
 
 /** Shots per page: about three screens at the large tile, the same page the library walls turn. */
-export const FEED_PAGE = 60;
+const FEED_PAGE = 60;
 
-export interface FeedQueryResult {
+interface FeedQueryResult {
   /** The pages loaded so far, in the query's order. Empty while a different brand's answer is still the one held. */
   items: FeedNode[];
   /** The same records by id, for every lookup that used to scan the whole workspace. */

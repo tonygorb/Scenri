@@ -25,7 +25,7 @@ export type NodeStatus = 'running' | 'done' | 'error' | 'cancelled';
  * (the leading [Scene] tag or the first six words) and alt text. Counted in
  * code points, which is what SQLite's substr counts.
  */
-export const PROMPT_HEAD_CHARS = 240;
+const PROMPT_HEAD_CHARS = 240;
 /**
  * A shot as every list carries it. The compiled prompt averages 3 KB and was
  * 80% of every feed payload, read by nothing a list shows; it stays behind
@@ -69,7 +69,7 @@ export interface TreeNode extends FeedNode {
   overlays: Record<string, unknown[]>;
 }
 
-export type FeedLens = 'all' | 'keepers' | 'archived';
+type FeedLens = 'all' | 'keepers' | 'archived';
 export type FeedSort = 'newest' | 'oldest' | 'cost' | 'keepers';
 
 /** One search term with the ids whose current display names it matched, resolved by the caller. */
@@ -93,7 +93,7 @@ export interface FeedFilter {
   terms?: FeedSearchTerm[];
 }
 
-export interface FeedPageQuery extends FeedFilter {
+interface FeedPageQuery extends FeedFilter {
   sort?: FeedSort;
   limit?: number;
   /** The `next` of the previous page. */
@@ -217,9 +217,9 @@ const CHILD_COUNT_SQL =
   "(CASE WHEN n.kind = 'root' THEN 0 ELSE (SELECT count(*) FROM nodes c WHERE c.parent_id = n.id AND c.archived = 0) END)";
 
 /** How many siblings a lineage answer carries on either side of the shot. */
-export const LINEAGE_SIBLINGS_RADIUS = 25;
+const LINEAGE_SIBLINGS_RADIUS = 25;
 /** How many children a lineage answer carries; the strip shows six. */
-export const LINEAGE_CHILDREN_MAX = 60;
+const LINEAGE_CHILDREN_MAX = 60;
 
 /** What every list reads: no prompt, no overlays, two JSON columns instead of three. */
 const FEED_COLS = `n.id, n.project_id, n.parent_id, n.kind, substr(n.prompt, 1, ${PROMPT_HEAD_CHARS}) AS prompt_head,
@@ -389,7 +389,7 @@ const keysetOf = (n: FeedNode, sort: FeedSort): Keyset =>
       ? { c: n.createdAt, i: n.id, v: n.kept ? 1 : 0 }
       : { c: n.createdAt, i: n.id };
 
-export const FEED_PAGE_MAX = 200;
+const FEED_PAGE_MAX = 200;
 
 export function createStore(db: DB) {
   return {

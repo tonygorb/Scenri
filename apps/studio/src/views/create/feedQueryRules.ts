@@ -40,7 +40,7 @@ export function feedSearchParams(q: FeedQuery): string {
 }
 
 /** The same ordering the server's ORDER BY produces, so a local insert lands where a refetch would. */
-export function comparator(sort: FeedQuery['sort']): (a: FeedNode, b: FeedNode) => number {
+function comparator(sort: FeedQuery['sort']): (a: FeedNode, b: FeedNode) => number {
   switch (sort) {
     case 'oldest':
       return (a, b) => byNewest(b, a);
