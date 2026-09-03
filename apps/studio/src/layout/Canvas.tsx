@@ -1,15 +1,20 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { Link } from 'react-router';
-import { AlertDialog, Button, ContextMenu, Flex } from '@radix-ui/themes';
-import { hasNoShots, imgUrl, nodeLabel, thumbUrl, type FeedNode } from '../api.js';
-import { describeCancelled, describeFailure } from '../failure.js';
-import { FailureNote } from './Failure.js';
-import { elapsedSec } from '../tasks.js';
-import { dealOrdinals, masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
-import { RunningTag } from './canvas/RunningTag.js';
-import { FeedImage } from './canvas/FeedImage.js';
-import { ShotChrome } from './canvas/ShotChrome.js';
-import { shotMenuItems } from './canvas/shotMenu.js';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { AlertDialog, Button, Flex } from '@radix-ui/themes';
+import { hasNoShots, type FeedNode } from '../api.js';
+import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
+import { aspectOfImage, Tile, type TileHandlers } from './canvas/Tile.js';
+import { RunningTile } from './canvas/RunningTile.js';
+import { FailedTile } from './canvas/FailedTile.js';
+import {
+  columnStarts,
+  dealColumns,
+  estimateHeight,
+  mountedBand,
+  visibleRange,
+  windowed,
+} from './canvas/windowRules.js';
+import { useScrollWindow } from './canvas/useScrollWindow.js';
+import { useTileHeights } from './canvas/useTileHeights.js';
 import { aspectOfFormat } from '../composer/formats.js';
 
 /**
@@ -17,17 +22,6 @@ import { aspectOfFormat } from '../composer/formats.js';
  * Running tiles shimmer with elapsed seconds (status, never a fake percent),
  * failed tiles stay quiet and dashed, edits carry a provenance badge.
  */
-
-/**
- * A tile's shape: recorded pixels when the run wrote them, the brief's format
- * as the guess for everything older. The record ends the guessing, which is
- * what lets the box hold its shape after load instead of reflowing the column.
- */
-function aspectOfImage(n: FeedNode, i: number): { aspect: number | undefined; guess: boolean } {
-  const size = (n.brief as { rendered?: { sizes?: [number, number][] } } | null)?.rendered?.sizes?.[i];
-  if (size && size[0] > 0 && size[1] > 0) return { aspect: size[0] / size[1], guess: false };
-  return { aspect: aspectOfFormat((n.brief as { format?: string } | null)?.format), guess: true };
-}
 
 export function Canvas({
   nodes,
@@ -45,7 +39,6 @@ export function Canvas({
   sending,
   onBranch,
   branchingFrom,
-  versionsOf,
   onVersions,
   engineName,
   tile,
@@ -92,8 +85,6 @@ export function Canvas({
   onBranch?: (id: string) => void;
   /** The shot the brief is currently pointed at, so its tile can say so. */
   branchingFrom?: string | null;
-  /** How many shots came from this one, for the versions pip. */
-  versionsOf?: (id: string) => number;
   /** Look at just this shot and what came from it. */
   onVersions?: (id: string) => void;
   /**
@@ -155,176 +146,137 @@ export function Canvas({
     return () => io.disconnect();
   }, [endEl, onNearEnd]);
 
-  const tileGroups: ReactNode[][] = [
-    ...(sending
-      ? [
-          // one stand-in per expected sibling, so a four-shot send answers
-          // with four spaces being held rather than one tile hiding three
-          Array.from({ length: Math.max(1, sending.count) }, (_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: a stand-in has no identity beyond its slot; the whole row is replaced at once when the real shots land
-            <div key={`sending-${i}`} className="sc-cell" data-running="true" data-sending="true">
-              <span className="sc-shimmer" />
-              <span className="sc-cell-tag">sending</span>
-              <span className="sc-cell-said" dir="auto">
-                {sending.said}
-              </span>
-            </div>
-          )),
-        ]
-      : []),
-    ...shots.map((n) => {
-      if (n.status === 'running') {
-        return [
-          // Cancel used to be a <button> inside .sc-cell-open — invalid HTML
-          // (React warned on it), and the same nested-interactive mistake this
-          // pass already fixed for SceneCard and the kept-star badge. A sibling
-          // now, matching that pattern.
-          <div
-            key={n.id}
-            className="sc-cell"
-            data-running="true"
-            data-fb-node={n.id}
-            // the shape the brief asked for, so the picture lands in the space
-            // already held for it instead of resizing its column
-            style={{ '--sc-cell-ar': aspectOfFormat(n.brief?.format) } as CSSProperties}
-          >
-            <Link className="sc-cell-open" to={shotHref(n.id)} aria-label={`Open ${nodeLabel(n)}, still rendering`}>
-              <span className="sc-shimmer" />
-              <RunningTag since={n.createdAt} />
-            </Link>
-            {onCancel && (
-              // the tile's own control skin, not a bordered panel pill: one
-              // language for everything that sits on a card
-              <button
-                type="button"
-                className="sc-cell-ctl sc-cell-cancel"
-                data-urgent={elapsedSec(n.createdAt) >= 60 || undefined}
-                onClick={() => onCancel(n)}
-              >
-                Cancel
-              </button>
-            )}
-          </div>,
-        ];
-      }
-      /*
-       * Cancelled and failed are one tile with two readings. They used to be
-       * two near-identical blocks that had already drifted — the failed one
-       * clipped its message at 200px with `nowrap`, so the reason a shot failed
-       * was unreadable on the very tile reporting it, and both offered two grey
-       * pills of identical weight where one is a rescue and the other a
-       * dismissal.
-       */
-      if (n.status === 'cancelled' || n.status === 'error' || n.images.length === 0) {
-        const cancelled = n.status === 'cancelled';
-        const failure = cancelled ? describeCancelled() : describeFailure(n.error, engineName?.(n.engineId));
-        return [
-          <div
-            key={n.id}
-            className="sc-cell"
-            data-fb-node={n.id}
-            data-cancelled={cancelled || undefined}
-            data-failed={!cancelled || undefined}
-            data-selected={n.id === selectedId}
-          >
-            <Link className="sc-cell-open" to={shotHref(n.id)} aria-label={`Open ${nodeLabel(n)}`} />
-            <span className="sc-cell-failed">
-              <FailureNote
-                failure={failure}
-                density="tile"
-                onRetry={() => onRetry(n)}
-                dismiss={
-                  onArchive
-                    ? {
-                        // Says what it will do. Both of these called the same
-                        // handler under the same word, and that handler
-                        // restores an already-archived shot — so on an archived
-                        // failure the button labelled Dismiss put it back,
-                        // which is the opposite of dismissing it.
-                        label: n.archived ? 'Restore' : 'Dismiss',
-                        onClick: () => onArchive(n),
-                      }
-                    : undefined
-                }
-              />
-            </span>
-          </div>,
-        ];
-      }
-      const chosen = picked?.has(n.id) ?? false;
-      const versions = versionsOf?.(n.id) ?? 0;
-      /** The shot's verbs, built once so the two menus offering them agree. */
-      const menu = shotMenuItems(n, {
-        chosen,
-        batching,
-        versions,
-        onOpen,
-        shotHref,
-        onBranch,
-        onPick,
-        onVersions,
-        onToggleKeep,
-        onArchive,
-        onDeletePermanently: onDeletePermanently ? (node) => setDeleteTarget(node) : undefined,
-      });
-
-      return [
-        <ContextMenu.Root key={n.id}>
-          <ContextMenu.Trigger>
-            <div
-              className="sc-cell"
-              data-fb-node={n.id}
-              data-selected={n.id === selectedId}
-              // the composer is pointed at this exact image; the card says so
-              // with the same gold line its own Refine button lights up with
-              data-armed={n.id === branchingFrom || undefined}
-              data-batching={batching || undefined}
-              data-picked={chosen || undefined}
-            >
-              <Link
-                className="sc-cell-open"
-                to={shotHref(n.id)}
-                aria-label={batching ? `${chosen ? 'Deselect' : 'Select'} ${nodeLabel(n)}` : `Open ${nodeLabel(n)}`}
-                onClick={(e) => {
-                  if (batching) {
-                    e.preventDefault();
-                    onPick?.(n.id);
-                  }
-                }}
-              >
-                <FeedImage
-                  src={thumbUrl(n.images[0], 'tile')}
-                  fallback={imgUrl(n.images[0])}
-                  {...aspectOfImage(n, 0)}
-                />
-              </Link>
-              <ShotChrome
-                node={n}
-                chosen={chosen}
-                picking={picking}
-                batching={batching}
-                armed={n.id === branchingFrom}
-                menu={menu}
-                onPick={onPick}
-                onBranch={onBranch}
-              />
-            </div>
-          </ContextMenu.Trigger>
-          <ContextMenu.Content>
-            {menu.map((it) => (
-              <span key={it.key} style={{ display: 'contents' }}>
-                {it.separated && <ContextMenu.Separator />}
-                <ContextMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
-                  {it.label}
-                </ContextMenu.Item>
-              </span>
-            ))}
-          </ContextMenu.Content>
-        </ContextMenu.Root>,
-      ];
+  /*
+   * The tiles' verbs, stable for the life of the feed. Every handler the
+   * caller passes is read through a ref at call time, so a tile keyed on its
+   * shot and its own state re-renders when those change and never because
+   * the feed's parent rendered with a fresh arrow. Presence still matters (a
+   * verb that is not offered is not a menu item), so the object is rebuilt
+   * only when a verb appears or goes.
+   */
+  const latest = useRef({
+    onOpen,
+    shotHref,
+    onRetry,
+    onCancel,
+    onToggleKeep,
+    onArchive,
+    onBranch,
+    onPick,
+    onVersions,
+    engineName,
+  });
+  latest.current = {
+    onOpen,
+    shotHref,
+    onRetry,
+    onCancel,
+    onToggleKeep,
+    onArchive,
+    onBranch,
+    onPick,
+    onVersions,
+    engineName,
+  };
+  const askDelete = !!onDeletePermanently;
+  const handlers = useMemo<
+    TileHandlers & {
+      onRetry: (n: FeedNode) => void;
+      onCancel?: (n: FeedNode) => void;
+      engineName?: (id: string) => string | undefined;
+    }
+  >(
+    () => ({
+      onOpen: (id) => latest.current.onOpen(id),
+      shotHref: (id) => latest.current.shotHref(id),
+      onRetry: (n) => latest.current.onRetry(n),
+      onCancel: onCancel ? (n) => latest.current.onCancel?.(n) : undefined,
+      onToggleKeep: onToggleKeep ? (n) => latest.current.onToggleKeep?.(n) : undefined,
+      onArchive: onArchive ? (n) => latest.current.onArchive?.(n) : undefined,
+      onBranch: onBranch ? (id) => latest.current.onBranch?.(id) : undefined,
+      onPick: onPick ? (id) => latest.current.onPick?.(id) : undefined,
+      onVersions: onVersions ? (id) => latest.current.onVersions?.(id) : undefined,
+      onDeleteAsk: askDelete ? (n) => setDeleteTarget(n) : undefined,
+      engineName: engineName ? (id) => latest.current.engineName?.(id) : undefined,
     }),
+    [!!onCancel, !!onToggleKeep, !!onArchive, !!onBranch, !!onPick, !!onVersions, askDelete, !!engineName],
+  );
+
+  /**
+   * The feed's order: the stand-ins for a send first (one per expected
+   * sibling, so a four-shot send answers with four spaces being held rather
+   * than one tile hiding three), then every shot newest first. The flat index
+   * is the ordinal `dealOrdinals` documents: the newest tile is ordinal 0 and
+   * always the top-left cell, the feed reads left to right and then down.
+   */
+  type Item = { key: string; node: FeedNode | null; said?: string };
+  const items: Item[] = [
+    ...(sending
+      ? Array.from(
+          { length: Math.max(1, sending.count) },
+          (_, i): Item => ({ key: `sending-${i}`, node: null, said: sending.said }),
+        )
+      : []),
+    ...shots.map((n): Item => ({ key: n.id, node: n })),
   ];
-  const tiles = tileGroups.flat();
+  const isFailed = (n: FeedNode) => n.status === 'cancelled' || n.status === 'error' || n.images.length === 0;
+  const render = (it: Item): ReactNode => {
+    const n = it.node;
+    if (!n) {
+      return (
+        <div key={it.key} className="sc-cell" data-running="true" data-sending="true">
+          <span className="sc-shimmer" />
+          <span className="sc-cell-tag">sending</span>
+          <span className="sc-cell-said" dir="auto">
+            {it.said}
+          </span>
+        </div>
+      );
+    }
+    if (n.status === 'running')
+      return <RunningTile key={n.id} node={n} shotHref={handlers.shotHref} onCancel={handlers.onCancel} />;
+    if (isFailed(n)) {
+      return (
+        <FailedTile
+          key={n.id}
+          node={n}
+          selected={n.id === selectedId}
+          shotHref={handlers.shotHref}
+          engineName={handlers.engineName}
+          onRetry={handlers.onRetry}
+          onArchive={handlers.onArchive}
+        />
+      );
+    }
+    return (
+      <Tile
+        key={n.id}
+        node={n}
+        selected={n.id === selectedId}
+        armed={n.id === branchingFrom}
+        chosen={picked?.has(n.id) ?? false}
+        picking={picking}
+        batching={batching}
+        versions={n.childCount}
+        handlers={handlers}
+      />
+    );
+  };
+  /** A tile's height before it has been measured, from its shape. */
+  const estimate = (it: Item): number => {
+    const n = it.node;
+    if (!n) return estimateHeight('sending', undefined, colWidth);
+    if (n.status === 'running') return estimateHeight('running', aspectOfFormat(n.brief?.format), colWidth);
+    if (isFailed(n)) return estimateHeight('failed', undefined, colWidth);
+    return estimateHeight('done', aspectOfImage(n, 0).aspect, colWidth);
+  };
+
+  // Past the threshold the columns are windowed: a spacer, the tiles within a
+  // viewport of the visible band, a spacer. Below it every tile is mounted and
+  // the DOM is exactly what it was.
+  const windowing = windowed(items.length);
+  const win = useScrollWindow(feedEl, windowing);
+  const heightOf = useTileHeights(feedEl, windowing);
 
   // Nothing loaded yet: the grid keeps its shape with stand-ins in the brief's
   // default shape, the same tile a send holds its place with, so the feed
@@ -358,13 +310,14 @@ export function Canvas({
    * Never more columns than there are tiles to put in them, or the row ends in
    * empty columns — the same dead space multicol left, reached the other way.
    */
-  const cols = Math.max(1, Math.min(fitting, tiles.length));
-  const ordinals = dealOrdinals(tileGroups.map((g) => g.length)).flat();
+  const cols = Math.max(1, Math.min(fitting, items.length));
+  const columns = dealColumns(items.length, cols);
+  const band = windowing ? mountedBand(win.top, win.height) : null;
 
   return (
     <>
       <div className="sc-feed" ref={setFeedEl} style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}>
-        {Array.from({ length: cols }, (_, c) => (
+        {columns.map((idx, c) => {
           /*
            * Dealt round-robin on the flat index: the newest tile is ordinal 0
            * and is ALWAYS the top-left cell, the feed reads left to right and
@@ -376,11 +329,31 @@ export function Canvas({
            * renders: a run is one card with takes inside, and its canonical
            * newest position is the guarantee, not a cell per take.
            */
-          // biome-ignore lint/suspicious/noArrayIndexKey: the index is the identity here. These are positions, not records: column 2 of 4 is column 2 of 4, and the count is in the key so a resize remounts them rather than reshuffling tiles between surviving columns.
-          <div className="sc-feed-col" key={`col-${cols}-${c}`}>
-            {tiles.filter((_, i) => ordinals[i] % cols === c)}
-          </div>
-        ))}
+          // The index is the identity here. These are positions, not records:
+          // column 2 of 4 is column 2 of 4, and the count is in the key so a
+          // resize remounts them rather than reshuffling tiles between
+          // surviving columns.
+          const key = `col-${cols}-${c}`;
+          if (!band) {
+            return (
+              <div className="sc-feed-col" key={key}>
+                {idx.map((i) => render(items[i]))}
+              </div>
+            );
+          }
+          const heights = idx.map((i) => (items[i].node && heightOf(items[i].node.id)) ?? estimate(items[i]));
+          const starts = columnStarts(heights);
+          const [from, to] = visibleRange(starts, band[0], band[1]);
+          return (
+            <div className="sc-feed-col" key={key}>
+              {from > 0 && <div className="sc-feed-pad" style={{ height: starts[from] }} aria-hidden />}
+              {idx.slice(from, to).map((i) => render(items[i]))}
+              {to < idx.length && (
+                <div className="sc-feed-pad" style={{ height: starts[idx.length] - starts[to] }} aria-hidden />
+              )}
+            </div>
+          );
+        })}
       </div>
       {onNearEnd && <div className="sc-feed-end" ref={setEndEl} aria-hidden />}
       <AlertDialog.Root open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>

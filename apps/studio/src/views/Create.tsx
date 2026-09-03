@@ -1062,7 +1062,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           sending={sending}
           onBranch={branchFrom}
           branchingFrom={target?.id ?? null}
-          versionsOf={(id) => byId.get(id)?.childCount ?? 0}
           onVersions={setLineageId}
           tile={tile}
           empty={loaded ? emptyState : null}

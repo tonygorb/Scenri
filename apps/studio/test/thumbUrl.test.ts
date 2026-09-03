@@ -37,7 +37,7 @@ describe('who reads which size', () => {
   const here = fileURLToPath(import.meta.url);
   const src = (p: string) => readFileSync(resolve(here, '..', '..', 'src', p), 'utf8');
   it('the feed tile, the cards and the strips read derivatives', () => {
-    expect(src('layout/Canvas.tsx')).toMatch(/thumbUrl\(n\.images\[0\], 'tile'\)/);
+    expect(src('layout/canvas/Tile.tsx')).toMatch(/thumbUrl\(n\.images\[0\], 'tile'\)/);
     expect(src('layout/CatalogCard.tsx')).toMatch(/thumbOf\(previewUrl, 'tile'\)/);
     expect(src('layout/detail/LineageStrip.tsx')).toMatch(/thumbUrl\(n\.images\[0\], 'micro'\)/);
     expect(src('layout/Notifications.tsx')).toMatch(/thumbUrl\(task\.thumb, 'micro'\)/);

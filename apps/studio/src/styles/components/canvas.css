@@ -232,6 +232,12 @@
 .sc-feed-end {
   height: 1px;
 }
+/* A windowed column's spacers: the height of the tiles it is not showing
+   above and below the mounted band, so the scrollbar and the reader's place
+   are those of the whole feed. */
+.sc-feed-pad {
+  display: block;
+}
 
 /* ---------- the scrim ------------------------------------------------------
    Eased stops rather than the two-stop linear a gradient is usually written
