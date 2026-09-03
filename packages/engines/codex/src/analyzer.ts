@@ -162,7 +162,7 @@ function buildPrompt(req: AnalyzeRequest, refCount: number, problems: string[]):
       : refCount === 1
         ? 'One reference image is attached.'
         : `${refCount} reference images are attached.`;
-  const body = req.kind === 'presenter' ? presenterBody(req, refCount) : sceneBody(req);
+  const body = req.kind === 'presenter' ? presenterBody(req, refCount) : sceneBody(req, refCount);
   const revision = req.priorDraft
     ? ` You are revising an existing record, not starting over: keep everything that is not being corrected. Current record: ${JSON.stringify(req.priorDraft)}.`
     : '';
@@ -202,7 +202,7 @@ function presenterBody(req: AnalyzeRequest, refCount: number): string {
   );
 }
 
-function sceneBody(req: AnalyzeRequest): string {
+function sceneBody(req: AnalyzeRequest, refCount: number): string {
   // The user's own direction, and it outranks the pictures.
   //
   // This used to read "What the person wants from it: X" - a wish, with no
@@ -261,13 +261,26 @@ function sceneBody(req: AnalyzeRequest): string {
     ' "description": one sentence a person reads on a card;' +
     ' "subject": "product" if this world suits a staged object, "person" if it suits someone photographed in it, "either" when it truly suits both;' +
     ' "prompt": four or five sentences describing the set itself, in the present tense, naming nothing branded and nobody identifiable.' +
-    ' Ambient human presence belongs here, written the way the rest of the set is written - a figure far off in the frame, worn seats, a table dressed for two;' +
-    ' "figure": when this concept depends on a person being in it, one short phrase for the role they play -' +
+    // "a figure far off in the frame" used to be offered here as ambience, and
+    // it walked into the reusable prose of scenes that had no one in them: a
+    // flower field described with a distant figure rendered that figure on
+    // every product-only shot. Traces are the set's; a body is the figure's.
+    ' Human presence belongs here only as the traces a set carries - worn seats, a table dressed for two, a path worn through the grass -' +
+    ' never as a body in the frame; a person is recorded under "figure" or not at all;' +
+    // The bias ran the other way too: "empty only when the concept genuinely
+    // survives with nobody" set a figure on every custom scene in a real
+    // library. A figure is evidence of a person, never room for one.
+    ' "figure": one short phrase for the role a person plays, ONLY when a reference is built around a person,' +
+    ' or when the person who chose these references names one -' +
     ' their framing, their scale, and what they are doing - such as "someone is seated at the stone ledge, mid-ground, at human scale"' +
     ' or "one person at close portrait range, squared to camera, filling the frame".' +
     ' A portrait counts. If the reference is built around a person and would stop being this concept without one, that is a figure,' +
-    ' however much of the frame they occupy. Use an empty string only when the concept genuinely survives with nobody in it,' +
-    ' or when the people present are passers-by rather than the point - describe those in "prompt" with the rest of the set instead.' +
+    ' however much of the frame they occupy.' +
+    ' A landscape, a field, a room, a surface, a still life or an empty set has no figure: write an empty string,' +
+    ' and never add one because the world could hold a person.' +
+    ' Passers-by and people who merely happened to be in a reference are not a figure either;' +
+    ' what the set keeps of them goes in "prompt" with the rest of the set.' +
+    (refCount === 0 ? ' With no reference images, write a figure only if the description itself names a person.' : '') +
     ' This is a different question from "subject": "subject" is who this world flatters, "figure" is whether the concept needs a body at all;' +
     ' "figureTreatment": what has been done TO that figure, when something has - one short phrase, such as' +
     ' "the face entirely covered in overlapping printed stickers" or "the head and shoulders wrapped in translucent fabric".' +

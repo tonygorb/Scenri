@@ -260,6 +260,19 @@ describe('analyze — scene', () => {
     const { args } = calls[0];
     expect(args.filter((a) => a.startsWith('--image='))).toEqual([]);
     expect(promptFromArgs(calls[0])).toContain('You have no reference images');
+    // A field described in words is not a portrait: with nothing to look at,
+    // a figure is written only when the description itself names a person.
+    expect(promptFromArgs(calls[0])).toContain('write a figure only if the description itself names a person');
+  });
+
+  it('keeps the words-alone figure rule out of a prompt that has pictures', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(GOOD_SCENE));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    await analyzer.analyze({ kind: 'scene', name: 'Shore', imagePaths: [photo()] });
+    expect(promptFromArgs(calls[0])).not.toContain('write a figure only if the description itself names a person');
   });
 
   it('rejects a prompt that leaves a placeholder behind', async () => {
@@ -319,6 +332,25 @@ describe('analyze — scene: presence without identity', () => {
     // The instruction that caused the erasure is gone.
     expect(prompt).not.toContain('leave it out completely');
     expect(prompt).not.toContain('not what is standing in it');
+  });
+
+  it('asks for human presence as traces, never as a body', async () => {
+    // "a figure far off in the frame" invited a person into every scene's
+    // reusable prose, and a user's flower field kept rendering one. Traces
+    // belong to the set; a person is either the figure or not there.
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('only as the traces a set carries');
+    expect(prompt).toContain('a path worn through the grass');
+    expect(prompt).toContain('never as a body in the frame');
+    expect(prompt).not.toContain('a figure far off in the frame');
+  });
+
+  it('gives a landscape, a room or a still life no figure', async () => {
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('ONLY when a reference is built around a person');
+    expect(prompt).toContain('A landscape, a field, a room, a surface, a still life or an empty set has no figure');
+    // The bias that set a figure on all seven of the owner's custom scenes.
+    expect(prompt).not.toContain('genuinely survives with nobody in it');
   });
 
   it('asks for the axes a generic description flattens', async () => {
