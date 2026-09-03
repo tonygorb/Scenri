@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.2](https://github.com/tonygorb/Scenri/compare/v0.8.1...v0.8.2) (2026-09-03)
+
+
+### Bug Fixes
+
+* **deps:** patch fastify and fast-uri for the September advisories ([b87a1a6](https://github.com/tonygorb/Scenri/commit/b87a1a6da111cc45d73ae547df6d997e84ad7a7e))
+* **deps:** patch fastify and fast-uri for the September advisories ([8e6a060](https://github.com/tonygorb/Scenri/commit/8e6a06059d075e46fd550336f9305d548352eb96))
+
 ## [0.8.1](https://github.com/tonygorb/Scenri/compare/v0.8.0...v0.8.1) (2026-09-03)
 
 
