@@ -73,9 +73,10 @@ const open = async (p: Page, slug: string) => {
 };
 
 /** The hash a thumbnail is showing, which is the identity the draft stores. */
+/** The hash a reference thumb shows, from either shape of the store's URL: the original or a derivative. */
 const refHash = async (p: Page, i: number): Promise<string> => {
   const src = await refs(p).nth(i).locator('img').getAttribute('src');
-  return (src ?? '').split('/').pop() ?? '';
+  return /\/api\/images\/([a-f0-9]{32})/.exec(src ?? '')?.[1] ?? '';
 };
 
 test.describe('a scene creation draft lives exactly as long as the attempt', () => {
