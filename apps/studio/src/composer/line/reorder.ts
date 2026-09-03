@@ -1,5 +1,5 @@
 import type { SentenceToken } from './tokens.js';
-import { GUARD_RE, lengthOf, unitsOfPosition } from './caret.js';
+import { GUARD_RE, lengthOf, offsetIn, unitsOfPosition } from './caret.js';
 import { unitsBeforeChip } from './insert.js';
 import { isChip, normalizeLine } from './invariants.js';
 import { chipLabel } from './clipboard.js';
@@ -105,10 +105,15 @@ export function moveChipToUnits(root: HTMLElement | null, chip: HTMLElement, tar
     const len = lengthOf(c);
     if (targetUnits <= n + len) {
       if (c.nodeType === Node.TEXT_NODE) {
-        const offset = targetUnits - n;
-        if (offset <= 0) ref = c;
-        else if (offset >= len) ref = c.nextSibling;
-        else ref = (c as Text).splitText(offset);
+        const units = targetUnits - n;
+        if (units <= 0) ref = c;
+        else if (units >= len) ref = c.nextSibling;
+        // `units` counts characters the way the whole line does, guards as
+        // nothing; splitText wants a DOM offset. They agree only while a text
+        // node is either pure guard or guard-free, which normalizeLine
+        // happens to guarantee from another file. Converting says so here,
+        // and is the same pair every other walk uses.
+        else ref = (c as Text).splitText(offsetIn(c as Text, units));
       } else {
         ref = targetUnits === n ? c : c.nextSibling;
       }
@@ -217,16 +222,23 @@ function nextThing(chip: HTMLElement): string | null {
 function prevThing(chip: HTMLElement): string | null {
   for (let n = chip.previousSibling; n; n = n.previousSibling) {
     if (isChip(n)) return chipLabel(n as HTMLElement) || null;
-    const words = (n.textContent ?? '').trim();
+    // stripped like its mirror above: trim() only eats a guard today because
+    // U+FEFF happens to be whitespace, which is not a rule this line relies on
+    const words = (n.textContent ?? '').replace(GUARD_RE, '').trim();
     if (words) return `"${words.split(/\s+/).slice(-WORDS_AROUND).join(' ')}"`;
   }
   return null;
 }
 
 /**
- * The token stream for slot math, straight off the children. A local copy of
- * readLine's walk rather than an import: render.ts imports invariants, and
- * slot math needs nothing but text lengths and chip positions.
+ * The token stream for slot math, straight off the children.
+ *
+ * Deliberately not `readLine`, and not for an import reason: `readLine` folds
+ * stray markup (a pasted span, a stray `<br>`) into the text buffer, while
+ * every slot and drop number is counted in the units `lengthOf` speaks, where
+ * any non-text child is one. Reading the line the other way would put these
+ * string indices out of step with `unitsBeforeChip` on any line the browser
+ * has left markup in.
  */
 function readTokensLite(root: HTMLElement): SentenceToken[] {
   const out: SentenceToken[] = [];

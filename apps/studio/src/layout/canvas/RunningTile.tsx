@@ -8,10 +8,13 @@ import { RunningTag } from './RunningTag.js';
 /** A shot that is still rendering: the shape the brief asked for, held, and a way to stop it. */
 export const RunningTile = memo(function RunningTile({
   node: n,
+  selected,
   shotHref,
   onCancel,
 }: {
   node: FeedNode;
+  /** The shot the overlay is on. A running tile is selectable like any other. */
+  selected: boolean;
   shotHref: (id: string) => string;
   onCancel?: (node: FeedNode) => void;
 }) {
@@ -24,6 +27,7 @@ export const RunningTile = memo(function RunningTile({
       className="sc-cell"
       data-running="true"
       data-fb-node={n.id}
+      data-selected={selected}
       // the shape the brief asked for, so the picture lands in the space
       // already held for it instead of resizing its column
       style={{ '--sc-cell-ar': aspectOfFormat(n.brief?.format) } as CSSProperties}

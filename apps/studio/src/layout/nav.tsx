@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useLocation, useMatch } from 'react-router';
 import { FilmSlate, House, IdentificationBadge, Package, PlusCircle } from '@phosphor-icons/react';
-import { assetUrl, type Brand, thumbOf } from '../api.js';
+import { type Brand, assetThumbUrl } from '../api.js';
 import { primaryMark } from '../brand/marks.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { P, brandPath, hubPath, scenesPath, presentersPath, productsPath } from '../routes.js';
@@ -120,7 +120,7 @@ export function inkOn(hex: string): string {
  */
 export function BrandAvatar({ brand, size = 20 }: { brand: Brand; size?: number }) {
   // a 20px circle reads the small derivative; the mark's own file is for the kit
-  const logo = thumbOf(assetUrl(primaryMark(brand.json)?.file), 'micro');
+  const logo = assetThumbUrl(primaryMark(brand.json)?.file, 'micro');
   const hex: string = brand.json?.palette?.primary?.hex ?? '#6b6b6b';
   return (
     <span

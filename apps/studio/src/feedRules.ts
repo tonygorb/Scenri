@@ -1,10 +1,15 @@
 /**
- * The pure decisions behind the Create feed's search and sort — kept free of
- * React/DOM so `test/feedRules.test.ts` can cover the actual logic directly,
- * the same split `layout/library/libraryRules.ts` makes for the library pages.
+ * The pure decisions the Create feed is addressed by: its sorts, its lenses,
+ * and the query string that asks the server for a page. Free of React and DOM
+ * so `test/feedRules.test.ts` covers the logic directly, the same split
+ * `layout/library/libraryRules.ts` makes for the library pages.
+ *
+ * Searching itself is not here: the feed's search is an indexed query on the
+ * server (`packages/core/src/searchRules.ts`), and nothing matches on the
+ * client any more.
  */
 
-import type { FeedNode } from './api.js';
+import type { FeedNode, FeedQuery } from './api.js';
 
 export type FeedSort = 'newest' | 'oldest' | 'cost' | 'keepers';
 
@@ -37,6 +42,22 @@ export const LENSES: ReadonlyArray<{ id: Lens; label: string }> = [
 /** Guards a URL read. `?tab=ungrouped` was a lens once and is a place now. */
 export function isLens(v: unknown): v is Lens {
   return LENSES.some((l) => l.id === v);
+}
+
+/** The query string the route reads; nothing is sent for a default. */
+export function feedSearchParams(q: FeedQuery): string {
+  const p = new URLSearchParams();
+  if (q.lens && q.lens !== 'all') p.set('lens', q.lens);
+  if (q.set) p.set('set', q.set);
+  if (q.ungrouped) p.set('ungrouped', '1');
+  if (q.lineage) p.set('lineage', q.lineage);
+  if (q.token) p.set('token', q.token);
+  if (q.q?.trim()) p.set('q', q.q.trim());
+  if (q.sort && q.sort !== 'newest') p.set('sort', q.sort);
+  if (q.limit) p.set('limit', String(q.limit));
+  if (q.cursor) p.set('cursor', q.cursor);
+  const s = p.toString();
+  return s ? `?${s}` : '';
 }
 
 /** Newest first — the ordering the feed has always used. The id tiebreak

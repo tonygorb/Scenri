@@ -251,3 +251,30 @@ test.describe('on a phone', () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 });
+
+/**
+ * A running shot is selectable like any other.
+ *
+ * The done and failed tiles have always carried `data-selected`, the running
+ * one never did, so opening a shot that was still rendering left the feed with
+ * no ring on it while every other tile in the same feed showed one.
+ */
+test('the tile of a running shot carries the selected state like any other', async ({ page }) => {
+  const slug = await brandSlug(page);
+  await openFeed(page, slug);
+  // the engine lands the LAST slot first here, so the first one is still
+  // rendering long after the others are pictures
+  const ids = await send(page, 'still rendering, and selected');
+  const still = ids[0];
+  await expect(picture(page, ids[3])).toBeVisible({ timeout: 20_000 });
+  expect(await stillRunning(page, still), 'the first slot is still rendering').toBe(true);
+
+  await tile(page, still).locator('.sc-cell-open').click();
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  // Both marks on the one element, asserted together: checked one after the
+  // other, a tile that finished mid-assertion satisfies the second as a done
+  // tile and the case proves nothing.
+  await expect(
+    page.locator(`.sc-cell[data-fb-node="${still}"][data-running="true"][data-selected="true"]`),
+  ).toHaveCount(1);
+});

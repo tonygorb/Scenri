@@ -4,7 +4,6 @@ import {
   admits,
   appendPage,
   countsAfter,
-  feedSearchParams,
   insertSorted,
   lensAdmits,
   placeAdmits,
@@ -13,6 +12,7 @@ import {
   replaceById,
   withoutIds,
 } from '../src/views/create/feedQueryRules.js';
+import { feedSearchParams } from '../src/feedRules.js';
 
 const node = (over: Partial<FeedNode> = {}): FeedNode => ({
   id: 'a',

@@ -270,3 +270,31 @@ describe('moveAnnouncement', () => {
     expect(moveAnnouncement(root, chips()[0])).toBe('Moved P:p1 before H:c1.');
   });
 });
+
+/**
+ * The unit space and the DOM are not the same ruler.
+ *
+ * A unit counts a guard as nothing, a DOM offset counts it as a character.
+ * `moveChipToUnits` walks in units and then splits a text node, so the two
+ * have to be converted between; today `normalizeLine` keeps a text node either
+ * pure guard or guard-free, which makes them agree by accident. The line
+ * built here breaks that accident on purpose, the way a browser can mid-edit,
+ * and the drop still lands on the character it was aimed at.
+ */
+describe('moveChipToUnits counts in units, not in DOM offsets', () => {
+  it('lands on the aimed character even when a guard shares the text node', () => {
+    seed([
+      { t: 'text', v: 'one two ' },
+      { t: 'product', id: 'p1' },
+    ]);
+    const chip = root.querySelector<HTMLElement>(`.${CHIP}`)!;
+    // a guard welded onto the front of the prose: legal DOM, and exactly what
+    // normalizeLine would tidy away if it ran
+    const prose = root.firstChild as Text;
+    prose.textContent = `\ufeff${prose.textContent ?? ''}`;
+
+    // unit 4 is the boundary after "one ", which is DOM offset 5 here
+    expect(moveChipToUnits(root, chip, 4)).toBe(true);
+    expect(readLine(root).map((t) => (t.t === 'text' ? t.v : '<chip>'))).toEqual(['one ', '<chip>', 'two ']);
+  });
+});

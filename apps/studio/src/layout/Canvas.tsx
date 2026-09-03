@@ -234,7 +234,15 @@ export function Canvas({
       );
     }
     if (n.status === 'running')
-      return <RunningTile key={n.id} node={n} shotHref={handlers.shotHref} onCancel={handlers.onCancel} />;
+      return (
+        <RunningTile
+          key={n.id}
+          node={n}
+          selected={n.id === selectedId}
+          shotHref={handlers.shotHref}
+          onCancel={handlers.onCancel}
+        />
+      );
     if (isFailed(n)) {
       return (
         <FailedTile

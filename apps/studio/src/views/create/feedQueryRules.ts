@@ -23,22 +23,6 @@ export function queryKey(brandId: string, q: FeedQuery): string {
   ].join('|');
 }
 
-/** The query string the route reads; nothing is sent for a default. */
-export function feedSearchParams(q: FeedQuery): string {
-  const p = new URLSearchParams();
-  if (q.lens && q.lens !== 'all') p.set('lens', q.lens);
-  if (q.set) p.set('set', q.set);
-  if (q.ungrouped) p.set('ungrouped', '1');
-  if (q.lineage) p.set('lineage', q.lineage);
-  if (q.token) p.set('token', q.token);
-  if (q.q?.trim()) p.set('q', q.q.trim());
-  if (q.sort && q.sort !== 'newest') p.set('sort', q.sort);
-  if (q.limit) p.set('limit', String(q.limit));
-  if (q.cursor) p.set('cursor', q.cursor);
-  const s = p.toString();
-  return s ? `?${s}` : '';
-}
-
 /** The same ordering the server's ORDER BY produces, so a local insert lands where a refetch would. */
 function comparator(sort: FeedQuery['sort']): (a: FeedNode, b: FeedNode) => number {
   switch (sort) {

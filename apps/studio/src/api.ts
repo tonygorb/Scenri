@@ -8,7 +8,7 @@ export type * from './apiTypes.js';
 export * from './apiUploads.js';
 export * from './apiLabels.js';
 import { req } from './apiReq.js';
-import { feedSearchParams } from './views/create/feedQueryRules.js';
+import { feedSearchParams } from './feedRules.js';
 import type { ExportPreset } from './apiUploads.js';
 import type {
   ActivityNode,
