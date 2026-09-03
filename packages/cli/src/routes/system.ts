@@ -5,9 +5,10 @@ import { spawn } from 'node:child_process';
 import JSZip from 'jszip';
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
+import type { ThumbStore } from '../thumbs.js';
 
-export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core }): void {
-  const { core } = deps;
+export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; thumbs: ThumbStore }): void {
+  const { core, thumbs } = deps;
   /**
    * What the library weighs. Off the event loop: a hundred thousand images
    * used to be a hundred thousand synchronous stats on the request thread.
@@ -84,6 +85,10 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core })
           removed++;
         }
       }
+      // The derivatives go with the shots they were made from. Without this
+      // every thumbnail of every deleted shot stayed on disk forever: nothing
+      // else knows the hash any more, so nothing else can ever remove it.
+      thumbs.clear();
       return { ok: true, scope, projects: removed };
     }
     core.close();

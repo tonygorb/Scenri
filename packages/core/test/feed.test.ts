@@ -300,30 +300,7 @@ describe('lineageOf, recentShots, usageByDay', () => {
   });
 });
 
-describe('brand summaries and set members', () => {
-  it('answers without the document, with the primary mark by the studio rule', () => {
-    const marked = core.store.createBrand({
-      specVersion: '0.1',
-      meta: { name: 'Marked', website: 'https://marked.example' },
-      palette: { primary: { hex: '#123456', name: 'Deep' } },
-      logos: [
-        { role: 'wordmark', file: `asset:${'a'.repeat(32)}` },
-        { role: 'primary', file: `asset:${'b'.repeat(32)}` },
-      ],
-    } as any);
-    const list = core.store.listBrandSummaries();
-    const row = list.find((b) => b.id === marked.id)!;
-    expect('json' in row).toBe(false);
-    expect(row).toMatchObject({
-      name: 'Marked',
-      website: 'https://marked.example',
-      primaryHex: '#123456',
-      mark: `asset:${'b'.repeat(32)}`,
-    });
-    const bare = list.find((b) => b.id === brandId)!;
-    expect(bare).toMatchObject({ name: 'Feed Co', website: null, mark: null, primaryHex: null });
-  });
-
+describe('set members', () => {
   it("lists a set's members in filing order", () => {
     const a = shot();
     const b = shot();

@@ -15,7 +15,6 @@ import type {
   AssetBuild,
   AssetBuildCapabilities,
   Brand,
-  BrandSummary,
   BriefPreview,
   CatalogImportJob,
   CatalogSource,
@@ -47,9 +46,7 @@ import type {
 export const api = {
   brands: () => req<Brand[]>('GET', '/api/brands'),
   /** Every brand as the switcher and the route resolver need it, never the document. */
-  brandsSummary: () => req<BrandSummary[]>('GET', '/api/brands/summary'),
   /** One brand's whole document. */
-  brand: (id: string) => req<Brand>('GET', `/api/brands/${id}`),
   createBrand: (brand: any) => req<Brand>('POST', '/api/brands', { brand }),
   brandFromUrl: (url: string) => req<Brand & { warnings: string[] }>('POST', '/api/brands/from-url', { url }),
   updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),

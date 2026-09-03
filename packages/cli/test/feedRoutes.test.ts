@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import sharp from 'sharp';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, type Core, type EngineAdapter } from '@scenri/core';
@@ -173,17 +173,20 @@ describe('the frame, the tree and the usage', () => {
   });
 });
 
-describe('brands', () => {
-  it('lists summaries without the document, and one document by id', async () => {
-    const { brand } = await brandWithShots(0);
-    const list = await app.inject({ method: 'GET', url: '/api/brands/summary' });
-    expect(list.statusCode).toBe(200);
-    expect(list.json()).toHaveLength(1);
-    expect(list.json()[0]).toMatchObject({ id: brand.id, slug: 'feed-co', name: 'Feed Co' });
-    expect('json' in list.json()[0]).toBe(false);
-    const one = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}` });
-    expect(one.json().json.meta.name).toBe('Feed Co');
-    expect((await app.inject({ method: 'GET', url: '/api/brands/nope' })).statusCode).toBe(404);
+describe('the danger zone', () => {
+  it('deleting every shot takes its derivatives with it', async () => {
+    const { brand, ids } = await brandWithShots(2);
+    const hash = core.store.getNode(ids[0])!.images[0];
+    // make a derivative the way a tile does
+    expect((await app.inject({ method: 'GET', url: `/api/images/${hash}/thumb?w=640` })).statusCode).toBe(200);
+    const thumbs = join(home, 'thumbs');
+    expect(readdirSync(thumbs).length).toBeGreaterThan(0);
+
+    const wiped = await app.inject({ method: 'DELETE', url: '/api/data?scope=shots' });
+    expect(wiped.json().ok).toBe(true);
+    // nothing knows those hashes any more, so nothing else could ever remove them
+    expect(readdirSync(thumbs)).toEqual([]);
+    expect((await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed` })).json().counts.total).toBe(0);
   });
 });
 

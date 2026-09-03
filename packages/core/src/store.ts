@@ -69,19 +69,6 @@ export interface TreeNode extends FeedNode {
   overlays: Record<string, unknown[]>;
 }
 
-/** What the brand switcher and the route resolver need, never the document. */
-export interface BrandSummary {
-  id: string;
-  slug: string;
-  name: string;
-  website: string | null;
-  /** The primary mark as an asset ref, if the kit has one. */
-  mark: string | null;
-  primaryHex: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export type FeedLens = 'all' | 'keepers' | 'archived';
 export type FeedSort = 'newest' | 'oldest' | 'cost' | 'keepers';
 
@@ -303,15 +290,6 @@ function decodeCursor(cursor: string): Keyset {
   throw new Error('invalid cursor');
 }
 
-/** The primary mark of a kit, by the studio's own rule: the entry tagged primary, else the first with a file. */
-export function primaryMarkOf(logos: unknown): string | null {
-  const list = Array.isArray(logos) ? logos.filter((l: any) => l && String(l.file ?? '').trim()) : [];
-  const roles = ['primary', 'mark', 'wordmark', 'monochrome', 'alternate'];
-  const tagged = list.find((l: any) => (roles.includes(l.role) ? l.role : 'primary') === 'primary');
-  const pick = tagged ?? list[0];
-  return pick ? String(pick.file) : null;
-}
-
 /**
  * The WHERE clauses of a feed filter, on alias `n`, with their parameters.
  * Shared by the page and the counts so both always agree about what a place
@@ -436,34 +414,6 @@ export function createStore(db: DB) {
         id: r.id,
         slug: r.slug,
         json: JSON.parse(r.json),
-        createdAt: r.created_at,
-        updatedAt: r.updated_at,
-      }));
-    },
-    /**
-     * Every brand as the switcher and the route resolver need it. The
-     * document is never parsed: a studio with fifty brands used to hand the
-     * shell fifty whole kits to draw fifty menu rows.
-     */
-    listBrandSummaries(): BrandSummary[] {
-      return (
-        db
-          .prepare(
-            `SELECT id, slug, created_at, updated_at,
-                    json_extract(json, '$.meta.name') AS name,
-                    json_extract(json, '$.meta.website') AS website,
-                    json_extract(json, '$.palette.primary.hex') AS primary_hex,
-                    json_extract(json, '$.logos') AS logos
-               FROM brands ORDER BY created_at`,
-          )
-          .all() as any[]
-      ).map((r) => ({
-        id: r.id,
-        slug: r.slug,
-        name: r.name ? String(r.name) : r.slug,
-        website: r.website ? String(r.website) : null,
-        mark: primaryMarkOf(r.logos ? JSON.parse(r.logos) : null),
-        primaryHex: r.primary_hex ? String(r.primary_hex) : null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       }));

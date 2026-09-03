@@ -182,18 +182,6 @@ export interface UsageDay {
 }
 
 /** What the brand switcher and the route resolver need, never the document. */
-export interface BrandSummary {
-  id: string;
-  slug: string;
-  name: string;
-  website: string | null;
-  /** The primary mark as an asset ref, if the kit has one. */
-  mark: string | null;
-  primaryHex: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface TextLayer {
   id: string;
   text: string;

@@ -191,13 +191,6 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   // ---- brands
   app.get('/api/brands', async () => core.store.listBrands());
-  /** Every brand as the switcher and the route resolver need it, never the document. */
-  app.get('/api/brands/summary', async () => core.store.listBrandSummaries());
-  /** One brand's whole document: what the brand on screen is drawn from. */
-  app.get('/api/brands/:id', async (req, reply) => {
-    const row = core.store.getBrand((req.params as any).id);
-    return row ?? reply.status(404).send({ error: 'brand not found' });
-  });
   app.post('/api/brands', async (req, reply) => {
     const json = (req.body as any)?.brand;
     const v = validateBrand(json);
@@ -2444,7 +2437,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return drained;
   });
 
-  registerSystemRoutes(app, { core });
+  registerSystemRoutes(app, { core, thumbs });
 
   // ---- studio SPA
   if (opts.studioDist && existsSync(opts.studioDist)) {

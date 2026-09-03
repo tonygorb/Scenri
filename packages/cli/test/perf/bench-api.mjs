@@ -103,7 +103,6 @@ console.log(`big brand ${big.slug} (${big.nodeCount} nodes), small brand ${small
 console.log('boot set');
 await measure('version', '/api/version');
 await measure('brands', '/api/brands');
-await measure('brands/summary', '/api/brands/summary');
 await measure('engines', '/api/engines');
 await measure('scenes', '/api/scenes');
 await measure('presenters', '/api/presenters');
