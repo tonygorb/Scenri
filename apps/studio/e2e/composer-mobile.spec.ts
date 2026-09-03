@@ -304,9 +304,10 @@ test('the shot header never overlaps itself, and collapses to one overflow on a 
     const brands = await (await fetch('/api/brands')).json();
     const b = brands.find((x: any) => x.slug === slug);
     const ws = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
-    const done = (ws.nodes ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length);
+    const feed = await (await fetch(`/api/brands/${b.id}/feed?limit=200`)).json();
+    const done = (feed.items ?? []).find((n: any) => n.kind !== 'root' && n.status === 'done' && n.images.length);
     if (done) return done.id;
-    const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+    const root = ws.root ? { id: ws.root as string } : null;
     const made = await (
       await fetch('/api/nodes', {
         method: 'POST',
@@ -322,8 +323,7 @@ test('the shot header never overlaps itself, and collapses to one overflow on a 
       })
     ).json();
     for (let i = 0; i < 40; i++) {
-      const t = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
-      const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
+      const n = await (await fetch(`/api/nodes/${made.id}`)).json();
       if (n?.status === 'done') return n.id;
       await new Promise((r) => setTimeout(r, 300));
     }
@@ -393,9 +393,10 @@ test('the shot has room around it on a phone', async ({ page }) => {
     const brands = await (await fetch('/api/brands')).json();
     const b = brands.find((x: any) => x.slug === slug);
     const ws = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
-    const done = (ws.nodes ?? []).find((n: any) => n.status === 'done' && (n.images?.length ?? 0) > 0);
+    const feed = await (await fetch(`/api/brands/${b.id}/feed?limit=200`)).json();
+    const done = (feed.items ?? []).find((n: any) => n.status === 'done' && (n.images?.length ?? 0) > 0);
     if (done) return done.id;
-    const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+    const root = ws.root ? { id: ws.root as string } : null;
     const made = await (
       await fetch('/api/nodes', {
         method: 'POST',
@@ -411,8 +412,7 @@ test('the shot has room around it on a phone', async ({ page }) => {
       })
     ).json();
     for (let i = 0; i < 40; i++) {
-      const t = await (await fetch(`/api/brands/${b.id}/workspace`)).json();
-      const n = (t.nodes ?? []).find((x: any) => x.id === made.id);
+      const n = await (await fetch(`/api/nodes/${made.id}`)).json();
       if (n?.status === 'done') return n.id;
       await new Promise((r) => setTimeout(r, 300));
     }

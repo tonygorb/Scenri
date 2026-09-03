@@ -55,7 +55,7 @@ async function fireAndWalkAway(p: Page, brand: string) {
   // assumes you were there before the work started.
   await p.waitForLoadState('networkidle');
   const ws = (await api(p, `/api/brands/${brand}/workspace`)) as any;
-  const root = (ws.nodes ?? []).find((n: any) => n.kind === 'root');
+  const root = ws.root ? { id: ws.root as string } : null;
   const made = (await api(
     p,
     '/api/nodes',

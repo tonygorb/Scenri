@@ -217,14 +217,13 @@ test("a brand's late answer never lands on another brand's feed", async ({ page 
   const b = (await (await page.request.get('/api/brands')).json()).find(
     (x: { json?: { meta?: { name?: string } } }) => x.json?.meta?.name === 'Late answer',
   );
-  await openFeed(page, slug, 1);
-  // hold brand A's next workspace answer back, ask for one, and walk to brand
-  // B inside the app while it is still on its way
-  await page.route(`**/api/brands/${a.id}/workspace`, async (route) => {
+  // hold brand A's feed page back, open the feed so it is asked for, and walk
+  // to brand B inside the app while the answer is still on its way
+  await page.route(`**/api/brands/${a.id}/feed*`, async (route) => {
     await new Promise((r) => setTimeout(r, 3000));
     await route.continue();
   });
-  await send(page, 'a shot whose answer is late');
+  await openFeed(page, slug, 1);
   await page.locator('.sc-org-btn').click();
   await page.locator('.sc-menu-item', { hasText: 'Late answer' }).click();
   await page.waitForURL(new RegExp(`/${b.slug}$`));
