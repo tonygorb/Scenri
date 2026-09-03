@@ -370,6 +370,11 @@ results.sections.open = !want('open')
   ? SKIPPED
   : await section('open', async () => {
       await ensureFeed();
+      // from the top: an earlier section may have left the feed scrolled, and
+      // closing the overlay lands back at the top, where a tile snapshotted
+      // lower down is no longer mounted
+      await scrollTop();
+      await sleep(300);
       const overlay = [];
       const stage = [];
       const close = [];
@@ -498,6 +503,7 @@ results.sections.search = !want('search')
       await sleep(300);
       return {
         perKey: summarize(perKey),
+        keys: perKey.map((v) => Math.round(v)),
         unchangedKeys: unchanged,
         countsAfter: after.counts,
         cellsAfter: after.cells,
