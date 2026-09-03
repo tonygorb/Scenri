@@ -1,6 +1,15 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { productLabel, sceneLabel } from '../displayName.js';
-import { assetUrl, imgUrl, type Brand, type Scene, type Presenter, type DemoProduct } from '../api.js';
+import {
+  imgUrl,
+  type Brand,
+  type Scene,
+  type Presenter,
+  type DemoProduct,
+  thumbUrl,
+  assetThumbUrl,
+  thumbOf,
+} from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { characterAvatar, presenterAvatar } from '../presenterVisual.js';
@@ -290,14 +299,16 @@ export const BriefInput = forwardRef<
         // product name — the brand is context the sentence already carries.
         const attached = found.product ?? found.demo;
         label = attached ? productLabel(attached, 'chip') : 'missing product';
-        thumb = found.product ? assetUrl(found.product.shots?.[0]?.file) : (found.demo?.previewUrl ?? null);
+        thumb = found.product
+          ? assetThumbUrl(found.product.shots?.[0]?.file, 'micro')
+          : (found.demo?.previewUrl ?? null);
       } else if (found?.kind === 'presenter') {
         const { character: c, presenter: p } = found;
         label = c?.name ?? p?.name ?? 'missing person';
         // The canonical avatar chain (presenterVisual.ts). This chip used to
         // put the raw full-length studio shot inside its 15px circle.
         const av = c ? characterAvatar(c) : p ? presenterAvatar(p) : { src: null };
-        thumb = av.src;
+        thumb = thumbOf(av.src, 'micro');
         thumbCrop = av.crop;
       } else if (token.t === 'color') {
         label = token.name ?? token.hex;
@@ -306,11 +317,11 @@ export const BriefInput = forwardRef<
         // what it is, not what it is for: a shot, a file by its name, or an
         // image with no name; the peek card says the role
         label = token.label ?? 'Image';
-        thumb = imgUrl(token.imageHash);
+        thumb = thumbUrl(token.imageHash, 'micro');
       } else if (token.t === 'mark') {
         const m = marks.find((x) => x.hash === token.imageHash);
         label = m ? markLabel(brand.json, m) : 'missing mark';
-        thumb = imgUrl(token.imageHash);
+        thumb = thumbUrl(token.imageHash, 'micro');
       }
 
       if (thumb) {
@@ -1091,10 +1102,18 @@ export const BriefInput = forwardRef<
     });
   }, []);
   // content can also change without an input event: a remix landing, a chip
-  // removed by its X, a repaint through setTokens
+  // removed by its X, a repaint through setTokens. The scroller's own size
+  // says so; a dependency-less effect used to read layout after every render
+  // of the composer, keystroke or not.
   useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
     syncScrollHint();
-  });
+    const ro = new ResizeObserver(syncScrollHint);
+    ro.observe(el);
+    for (const child of el.children) ro.observe(child);
+    return () => ro.disconnect();
+  }, [syncScrollHint]);
 
   const onInput = (e?: React.FormEvent<HTMLDivElement>) => {
     syncScrollHint();
@@ -1300,7 +1319,7 @@ export const BriefInput = forwardRef<
   // scene's preview. The chip already chose it, so the card repeats it rather
   // than forming a second opinion. A chip with no picture peeks nothing.
   const hoveredThumb = hovered?.anchor.querySelector('img')?.getAttribute('src') ?? null;
-  const hoveredSrc = hoveredHash ? imgUrl(hoveredHash) : hoveredThumb;
+  const hoveredSrc = hoveredHash ? thumbUrl(hoveredHash, 'tile') : thumbOf(hoveredThumb, 'tile');
   const hoveredPicker = chipOpensPicker(hoveredToken);
   const hoveredKind =
     hoveredToken && isPreviewKind(hoveredToken.t)
@@ -1422,7 +1441,7 @@ export const BriefInput = forwardRef<
           key={picker.uid}
           kind={picker.kind}
           label={chipLabel(picker.anchor)}
-          thumb={previewHash ? imgUrl(previewHash) : null}
+          thumb={previewHash ? thumbUrl(previewHash, 'micro') : null}
           onInspect={() => inspectChip(picker.anchor)}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onRemove={() => {

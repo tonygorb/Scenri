@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog, Spinner } from '@radix-ui/themes';
 import { X } from '@phosphor-icons/react';
-import { api, imgUrl, nodeLabel, type TreeNode } from '../api.js';
+import { api, imgUrl, nodeLabel, type FeedNode } from '../api.js';
 import { describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
 import { focusSelfOnOpen } from '../app/dialogs.js';
@@ -25,8 +25,8 @@ export function CompareDialog({
   open,
   onOpenChange,
 }: {
-  a: TreeNode;
-  b: TreeNode;
+  a: FeedNode;
+  b: FeedNode;
   /** The variant of each that is on screen, so it compares what you were looking at. */
   imageA: string;
   imageB: string;

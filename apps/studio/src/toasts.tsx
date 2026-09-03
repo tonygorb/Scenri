@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle, WarningCircle, X } from '@phosphor-icons/react';
 
 export interface ToastAction {
@@ -58,8 +58,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismiss],
   );
 
+  const value = useMemo(() => ({ push }), [push]);
+
   return (
-    <Ctx.Provider value={{ push }}>
+    <Ctx.Provider value={value}>
       {children}
       <div className="sc-toasts" role="status" aria-live="polite">
         {items.map((t) => (

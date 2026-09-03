@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Check, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
-import { api, imgUrl, type Brand, type TreeNode } from '../api.js';
+import { api, type Brand, type FeedNode, thumbUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { appendColor, flattenPalette, nextHex, removeColor } from '../brand/palette.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
@@ -58,7 +58,7 @@ export function AssetsPanel({
   onClose,
 }: {
   brand: Brand;
-  shots: TreeNode[];
+  shots: FeedNode[];
   /** What the brief holds right now, so the rail can say so. */
   attached?: AttachedIds;
   /**
@@ -207,10 +207,8 @@ export function AssetsPanel({
     })();
   };
 
-  const recent = shots
-    .filter((s) => s.status === 'done' && s.images.length > 0)
-    .slice(-RECENT_SHOTS)
-    .reverse();
+  // newest first and already done: the workspace answer carries the shelf
+  const recent = shots.filter((s) => s.status === 'done' && s.images.length > 0).slice(0, RECENT_SHOTS);
 
   /** Nothing in the rail answered. Said once, rather than five times over. */
   const nothingFound =
@@ -409,7 +407,7 @@ export function AssetsPanel({
                     candidate={{
                       label: `Shot ${recent.length - i}`,
                       full: `Shot ${recent.length - i} · as reference`,
-                      thumb: imgUrl(hash),
+                      thumb: thumbUrl(hash, 'micro'),
                     }}
                     on={on}
                     named={shape === 'open'}

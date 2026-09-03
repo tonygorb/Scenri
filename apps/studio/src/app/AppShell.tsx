@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, useMemo } from 'react';
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Flex, Spinner } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo, type Presenter, type DemoProduct, type ShowcaseEntry } from '../api.js';
@@ -88,6 +88,72 @@ export function AppShell() {
     void refresh();
   }, [refresh]);
 
+  /**
+   * One value for as long as nothing in it changed. The four catalog hooks
+   * each hand back a fresh wrapper object per render, so the deps are their
+   * fields, not the wrappers: an AppShell render that changed nothing must
+   * not re-render the 24 consumers below it.
+   */
+  const value = useMemo<AppData | null>(
+    () =>
+      brands === null
+        ? null
+        : {
+            brands,
+            engines,
+            scenes: scenes.scenes,
+            collections: scenes.collections,
+            verticals: scenes.verticals,
+            loaded: scenes.loaded,
+            error: scenes.error,
+            refetch: scenes.refetch,
+            presenters: presenters.presenters,
+            presenterCategories: presenters.categories,
+            presenterStyles: presenters.styles,
+            presentersLoaded: presenters.loaded,
+            presentersError: presenters.error,
+            refetchPresenters: presenters.refetch,
+            demoProducts: demoProducts.demoProducts,
+            demoProductCategories: demoProducts.categories,
+            demoProductsLoaded: demoProducts.loaded,
+            demoProductsError: demoProducts.error,
+            showcase: showcase.showcase,
+            showcaseCategories: showcase.categories,
+            showcaseLoaded: showcase.loaded,
+            showcaseError: showcase.error,
+            refetchShowcase: showcase.refetch,
+            refresh,
+            applyBrand,
+          },
+    [
+      brands,
+      engines,
+      scenes.scenes,
+      scenes.collections,
+      scenes.verticals,
+      scenes.loaded,
+      scenes.error,
+      scenes.refetch,
+      presenters.presenters,
+      presenters.categories,
+      presenters.styles,
+      presenters.loaded,
+      presenters.error,
+      presenters.refetch,
+      demoProducts.demoProducts,
+      demoProducts.categories,
+      demoProducts.loaded,
+      demoProducts.error,
+      showcase.showcase,
+      showcase.categories,
+      showcase.loaded,
+      showcase.error,
+      showcase.refetch,
+      refresh,
+      applyBrand,
+    ],
+  );
+
   if (error) {
     return (
       <Flex align="center" justify="center" height="100vh" p="5">
@@ -104,30 +170,7 @@ export function AppShell() {
   }
 
   return (
-    <Ctx.Provider
-      value={{
-        brands,
-        engines,
-        ...scenes,
-        presenters: presenters.presenters,
-        presenterCategories: presenters.categories,
-        presenterStyles: presenters.styles,
-        presentersLoaded: presenters.loaded,
-        presentersError: presenters.error,
-        refetchPresenters: presenters.refetch,
-        demoProducts: demoProducts.demoProducts,
-        demoProductCategories: demoProducts.categories,
-        demoProductsLoaded: demoProducts.loaded,
-        demoProductsError: demoProducts.error,
-        showcase: showcase.showcase,
-        showcaseCategories: showcase.categories,
-        showcaseLoaded: showcase.loaded,
-        showcaseError: showcase.error,
-        refetchShowcase: showcase.refetch,
-        refresh,
-        applyBrand,
-      }}
-    >
+    <Ctx.Provider value={value!}>
       {/* The tab is written in one place, above everything that could name
           it, and the pages below publish through this. */}
       <DocumentTitleCtx.Provider value={publishTitle}>

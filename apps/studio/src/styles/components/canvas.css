@@ -227,6 +227,12 @@
   box-shadow: inset 3px 0 0 0 var(--sc-line-strong);
 }
 
+/* The page boundary after the last tile: watched, never seen. One pixel tall
+   so it has a box to intersect with; the two-screen margin is the observer's. */
+.sc-feed-end {
+  height: 1px;
+}
+
 /* ---------- the scrim ------------------------------------------------------
    Eased stops rather than the two-stop linear a gradient is usually written
    as: black-to-transparent in one step reads as a grey haze with a visible

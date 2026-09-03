@@ -1,4 +1,4 @@
-import { nodeLabel, type TreeNode } from '../../api.js';
+import { nodeLabel, type FeedNode } from '../../api.js';
 
 /** One line of a shot's menu. Rendered by both surfaces that offer it. */
 export interface ShotMenuItem {
@@ -26,7 +26,7 @@ export interface ShotMenuItem {
  * they are management, they are in here, and the picture keeps its corner.
  */
 export function shotMenuItems(
-  node: TreeNode,
+  node: FeedNode,
   {
     chosen,
     batching,
@@ -50,9 +50,9 @@ export function shotMenuItems(
     onBranch?: (id: string) => void;
     onPick?: (id: string) => void;
     onVersions?: (id: string) => void;
-    onToggleKeep?: (node: TreeNode) => void;
-    onArchive?: (node: TreeNode) => void;
-    onDeletePermanently?: (node: TreeNode) => void;
+    onToggleKeep?: (node: FeedNode) => void;
+    onArchive?: (node: FeedNode) => void;
+    onDeletePermanently?: (node: FeedNode) => void;
   },
 ): ShotMenuItem[] {
   const items: ShotMenuItem[] = [{ key: 'open', label: `Open ${nodeLabel(node)}`, onSelect: () => onOpen(node.id) }];

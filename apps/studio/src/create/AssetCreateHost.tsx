@@ -153,6 +153,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (value === null) return;
     let alive = true;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     setCapsFailed(false);
     const ask = (retry: boolean) =>
       api
@@ -160,12 +161,13 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         .then((c) => alive && setCaps(c))
         .catch(() => {
           if (!alive) return;
-          if (retry) setTimeout(() => ask(false), 600);
+          if (retry) retryTimer = setTimeout(() => ask(false), 600);
           else setCapsFailed(true);
         });
     void ask(true);
     return () => {
       alive = false;
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, [value]);
 

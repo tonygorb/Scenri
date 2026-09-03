@@ -70,6 +70,28 @@ describe('useLocalPref', () => {
     expect(overlay.current[0]).toBe('high');
   });
 
+  it('does not write or broadcast on mount when nothing changed', () => {
+    // A wall of three hundred cards each reading one pref used to perform
+    // three hundred synchronous storage writes and dispatch three hundred
+    // events to three hundred listeners before first paint.
+    localStorage.setItem(PREF.wallDensity, '5');
+    let broadcasts = 0;
+    const onChanged = () => {
+      broadcasts++;
+    };
+    window.addEventListener('scenri:pref-changed', onChanged);
+    const a = mount(() => useLocalPref(PREF.wallDensity, 7));
+    const b = mount(() => useLocalPref(PREF.count, 2));
+    expect(a.current[0]).toBe(5);
+    expect(b.current[0]).toBe(2);
+    expect(broadcasts).toBe(0);
+    expect(localStorage.getItem(PREF.count)).toBeNull();
+    act(() => b.current[1](3));
+    expect(broadcasts).toBe(1);
+    expect(localStorage.getItem(PREF.count)).toBe('3');
+    window.removeEventListener('scenri:pref-changed', onChanged);
+  });
+
   it('leaves a different key alone', () => {
     const count = mount(() => useLocalPref(PREF.count, 2));
     const format = mount(() => useLocalPref(PREF.format, 'square'));
@@ -84,8 +106,9 @@ describe('useRecipeSetting', () => {
     act(() => s.current[2](4));
     expect(s.current[0]).toBe(4);
     // the machine's own default is untouched: looking at a 4-variant example
-    // is not a decision about what every later shot should cost
-    expect(localStorage.getItem(PREF.count)).toBe('2');
+    // is not a decision about what every later shot should cost. Nothing was
+    // ever written for it either: a mount no longer writes the fallback down.
+    expect(localStorage.getItem(PREF.count)).toBeNull();
   });
 
   it('hands the pref back when the borrowing ends', () => {

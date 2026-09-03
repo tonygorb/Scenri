@@ -1,5 +1,5 @@
 import { Plus, X } from '@phosphor-icons/react';
-import { imgUrl } from '../api.js';
+import { thumbUrl } from '../api.js';
 import { Dropzone } from '../layout/Dropzone.js';
 
 /**
@@ -42,7 +42,7 @@ export function RefStrip({
     <div className="sc-assetform-refs">
       {hashes.map((h, i) => (
         <span key={h} className="sc-assetform-ref">
-          <img src={imgUrl(h)} alt={`Reference ${i + 1}`} />
+          <img src={thumbUrl(h, 'micro')} alt={`Reference ${i + 1}`} loading="lazy" decoding="async" />
           <button
             type="button"
             className="sc-assetform-drop"

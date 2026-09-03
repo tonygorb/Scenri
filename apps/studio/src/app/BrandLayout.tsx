@@ -1,31 +1,35 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Outlet, useLocation, useMatch, useParams } from 'react-router';
-import { api, type ActivityNode, type Brand, type Product, type Project, type ShotSet, type TreeNode } from '../api.js';
+import { api, type ActivityNode, type Brand, type FeedNode, type Project, type ShotSet } from '../api.js';
 import { P, brandPath } from '../routes.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
 import { TabBar } from '../layout/TabBar.js';
 import { TopBar } from '../layout/TopBar.js';
 import { AssetCreateHost } from '../create/AssetCreateHost.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
-import { useProductLibrary } from '../useProductLibrary.js';
+import { ProductLibraryProvider, useProductLibrary, type ProductLibraryValue } from './ProductLibrary.js';
 import { SettingsDialog } from '../views/SettingsDialog.js';
 import { WhatsNewDialog } from '../views/WhatsNewDialog.js';
 import { ProviderSetup } from '../views/ProviderSetup.js';
 import { useAppData } from './AppShell.js';
 import { pickBrand } from './RootRedirect.js';
 import { TaskCenterProvider } from './TaskCenter.js';
-import { mergeNodes } from './activityMerge.js';
+import { mergeRecent } from './recentRules.js';
 import { WhatsNewGate } from './WhatsNew.js';
 
-interface BrandData {
+export type ActivityListener = (nodes: FeedNode[]) => void;
+
+interface BrandCore {
   brand: Brand;
   /**
    * The brand's one hidden project. Every node hangs from it; nothing in the UI
    * names it. Null only for the moment before the first answer lands.
    */
   workspace: Project | null;
-  /** Every shot in the brand, newest last, roots included. */
-  nodes: TreeNode[];
+  /** The project's root, which every new shot hangs off. Null until the first answer lands. */
+  root: string | null;
+  /** The newest done shots, newest first, for the rail and the attach panel. */
+  recent: FeedNode[];
   sets: ShotSet[];
   /** Which shots are in which set, keyed by set id. */
   membership: Record<string, string[]>;
@@ -35,13 +39,9 @@ interface BrandData {
    * AttachPanel, BriefInput) each ran their own independent 4s poll of the
    * same endpoint before this moved up.
    */
-  products: Product[];
-  /** False until the product library's first answer lands for this brand. */
-  productsLoaded: boolean;
-  /** Re-read the product library now — for a surface that has just written to it. */
-  refreshProducts: () => Promise<void>;
   /** False until the first answer lands, so /s/:slug knows it cannot resolve yet. */
   loaded: boolean;
+  /** Re-read the frame: sets, memberships, the recent shelf. Never the shots, which are paged. */
   refresh: () => Promise<void>;
   /**
    * Put a renamed set back into the list without waiting for a round trip.
@@ -53,14 +53,39 @@ interface BrandData {
    */
   applySet: (next: ShotSet) => void;
   dropSet: (id: string) => void;
+  insertSet: (set: ShotSet) => void;
+  /** A set's whole membership, as the server just answered it. */
+  applyMembership: (setId: string, ids: string[]) => void;
+  /**
+   * Records that changed anywhere (a keep, an archive, a landing). The recent
+   * shelf folds them in and every subscriber hears of them; nothing is
+   * re-read.
+   */
+  applyNodes: (nodes: FeedNode[]) => void;
+  /** The bell's poll and every applied change, as a stream, for whoever holds shots on screen. */
+  subscribeActivity: (fn: ActivityListener) => () => void;
 }
 
-const Ctx = createContext<BrandData | null>(null);
+export type BrandData = BrandCore & ProductLibraryValue;
 
+const Ctx = createContext<BrandCore | null>(null);
+
+/** What `useBrand()` answers about products before the library provider has mounted (the settings dialogs sit above it). */
+const NO_PRODUCTS: ProductLibraryValue = { products: [], productsLoaded: false, refreshProducts: async () => {} };
+
+/**
+ * The brand on screen, plus its product library.
+ *
+ * Two contexts behind one hook: the library lives below TaskCenter (it reads
+ * the import jobs the bell already polls, and re-reads on them), the rest of
+ * the brand lives above it. Every consumer destructures, so the merged object
+ * only has to be stable while neither half changed.
+ */
 export function useBrand(): BrandData {
-  const value = useContext(Ctx);
-  if (!value) throw new Error('useBrand must be used inside BrandLayout');
-  return value;
+  const core = useContext(Ctx);
+  const library = useProductLibrary() ?? NO_PRODUCTS;
+  if (!core) throw new Error('useBrand must be used inside BrandLayout');
+  return useMemo(() => ({ ...core, ...library }), [core, library]);
 }
 
 interface AssetsPanelState {
@@ -98,7 +123,8 @@ export function BrandLayout() {
   const here = useMatch({ path: P.brand, end: false });
   const { brands, engines, refresh } = useAppData();
   const [workspace, setWorkspace] = useState<Project | null>(null);
-  const [nodes, setNodes] = useState<TreeNode[]>([]);
+  const [root, setRoot] = useState<string | null>(null);
+  const [recent, setRecent] = useState<FeedNode[]>([]);
   const [sets, setSets] = useState<ShotSet[]>([]);
   const [membership, setMembership] = useState<Record<string, string[]>>({});
   const [loaded, setLoaded] = useState(false);
@@ -117,7 +143,6 @@ export function BrandLayout() {
   useKeyboardInset();
 
   const brand = brands.find((b) => b.slug === brandSlug) ?? brands.find((b) => b.id === brandSlug) ?? null;
-  const { products, loaded: productsLoaded, reload: refreshProducts } = useProductLibrary(brand?.id);
 
   /**
    * One ask for the whole brand: its shots, its sets, and who is in what.
@@ -134,55 +159,121 @@ export function BrandLayout() {
     // a slow answer for the brand you left is not an answer about this one
     if (brandIdRef.current !== forBrand) return;
     setWorkspace(ws.project);
-    setNodes(ws.nodes);
+    setRoot(ws.root);
+    setRecent(ws.recent);
     setSets(ws.sets);
     setMembership(ws.membership);
     setLoaded(true);
   }, [brand?.id]);
 
   /**
-   * The bell's poll, folded into the feed by id.
+   * Every change to a record, wherever it came from, on one stream.
    *
-   * A shot landing used to mean "refetch the workspace": every shot in the
-   * brand re-read so one tile could change. The poll already carries the
-   * record that changed. A record naming a shot this list has never held is
-   * the one case that still asks for the whole thing, once. The merge itself
-   * runs as an updater so two answers can never overwrite each other; the
-   * unknown check reads the latest committed list, which is all it needs.
+   * The bell's poll used to be folded into a list of every shot held here; a
+   * record naming a shot the list had never seen re-read the whole brand. The
+   * feed owns its own pages now and subscribes; the frame only keeps the
+   * recent shelf current.
    */
-  const nodesRef = useRef<TreeNode[]>(nodes);
-  nodesRef.current = nodes;
-  const loadedRef = useRef(loaded);
-  loadedRef.current = loaded;
+  const listeners = useRef(new Set<ActivityListener>());
+  const subscribeActivity = useCallback((fn: ActivityListener) => {
+    listeners.current.add(fn);
+    return () => {
+      listeners.current.delete(fn);
+    };
+  }, []);
+  const applyNodes = useCallback((nodes: FeedNode[]) => {
+    if (!nodes.length) return;
+    setRecent((prev) => mergeRecent(prev, nodes));
+    for (const fn of listeners.current) fn(nodes);
+  }, []);
   const applyActivity = useCallback(
     (forBrand: string, fresh: ActivityNode[]) => {
       // the other brand's answer is not an answer about this one
-      if (!brand || forBrand !== brand.id || !loadedRef.current) return;
-      const held = new Set(nodesRef.current.map((n) => n.id));
-      if (fresh.some((n) => !held.has(n.id))) {
-        void refreshWorkspace();
-        return;
-      }
-      setNodes((prev) => mergeNodes(prev, fresh).nodes);
+      if (!brand || forBrand !== brand.id) return;
+      applyNodes(fresh);
     },
-    [brand?.id, refreshWorkspace],
+    [brand?.id, applyNodes],
   );
 
   const applySet = useCallback((next: ShotSet) => setSets((cur) => cur.map((s) => (s.id === next.id ? next : s))), []);
   const dropSet = useCallback((id: string) => setSets((cur) => cur.filter((s) => s.id !== id)), []);
+  const insertSet = useCallback(
+    (set: ShotSet) => setSets((cur) => (cur.some((s) => s.id === set.id) ? cur : [set, ...cur])),
+    [],
+  );
+  const applyMembership = useCallback(
+    (setId: string, ids: string[]) => setMembership((cur) => ({ ...cur, [setId]: ids })),
+    [],
+  );
+
+  /**
+   * One object for as long as nothing in it changed. An inline literal here
+   * was a new object on every BrandLayout render, and BrandLayout rendered on
+   * every product poll, so all thirty consumers of useBrand() and the whole
+   * route subtree re-rendered every four seconds for nothing.
+   */
+  const value = useMemo<BrandCore | null>(
+    () =>
+      brand
+        ? {
+            brand,
+            workspace,
+            root,
+            recent,
+            sets,
+            membership,
+            loaded,
+            refresh: refreshWorkspace,
+            applySet,
+            dropSet,
+            insertSet,
+            applyMembership,
+            applyNodes,
+            subscribeActivity,
+          }
+        : null,
+    [
+      brand,
+      workspace,
+      root,
+      recent,
+      sets,
+      membership,
+      loaded,
+      refreshWorkspace,
+      applySet,
+      dropSet,
+      insertSet,
+      applyMembership,
+      applyNodes,
+      subscribeActivity,
+    ],
+  );
 
   // the other brand's answer is not an answer about this one
   useEffect(() => {
     setLoaded(false);
+    setRecent([]);
+    setRoot(null);
   }, [brand?.id]);
 
   useEffect(() => {
     if (brand) rememberBrand(brand.id);
   }, [brand?.id]);
 
+  // Keyed on the brand alone. This used to re-run on `brand.updatedAt` too,
+  // so every brand-kit autosave, palette edit and presenter rename re-read
+  // every shot in the brand; a brand write never changes what shots exist.
   useEffect(() => {
     void refreshWorkspace();
-  }, [refreshWorkspace, brand?.updatedAt]);
+  }, [refreshWorkspace]);
+
+  // the settings dialogs can change what the frame holds (the danger pane
+  // removes every shot), so what they save re-reads both the app and the frame
+  const refreshAll = useCallback(() => {
+    void refresh();
+    void refreshWorkspace();
+  }, [refresh, refreshWorkspace]);
 
   // The tail comes off the raw pathname rather than out of a param, so whatever
   // follows — /scenes/<id>, /sets/<slug>/shots/<id> — survives a swap of the
@@ -203,40 +294,29 @@ export function BrandLayout() {
   if (brandSlug !== brand.slug) return <Navigate to={brandPath(brand) + tail + search} replace />;
 
   return (
-    <Ctx.Provider
-      value={{
-        brand,
-        workspace,
-        nodes,
-        sets,
-        membership,
-        products,
-        productsLoaded,
-        refreshProducts,
-        loaded,
-        refresh: refreshWorkspace,
-        applySet,
-        dropSet,
-      }}
-    >
-      <SettingsDialog engines={engines} shots={nodes} onSaved={refresh} />
+    <Ctx.Provider value={value!}>
+      <SettingsDialog engines={engines} brandId={brand.id} onSaved={refreshAll} />
       <ProviderSetup engines={engines} onSaved={refresh} />
       <WhatsNewDialog />
       <TaskCenterProvider brand={brand} onActivity={applyActivity}>
-        {/* The gate needs what only this level knows: whether anything is
-            generating or building. It renders nothing. */}
-        <WhatsNewGate />
-        {/* Inside TaskCenter: a creation flow reads the builds already in
-            flight, and pokes the one poll when it starts another. */}
-        <AssetCreateHost>
-          <AssetsCtx.Provider value={assets}>
-            <div className="sc-shell">
-              <TopBar />
-              <Outlet />
-              <TabBar />
-            </div>
-          </AssetsCtx.Provider>
-        </AssetCreateHost>
+        {/* Inside TaskCenter: the library re-reads on the import jobs the bell
+            polls, and everything below reads it through useBrand(). */}
+        <ProductLibraryProvider brand={brand}>
+          {/* The gate needs what only this level knows: whether anything is
+              generating or building. It renders nothing. */}
+          <WhatsNewGate />
+          {/* Inside TaskCenter: a creation flow reads the builds already in
+              flight, and pokes the one poll when it starts another. */}
+          <AssetCreateHost>
+            <AssetsCtx.Provider value={assets}>
+              <div className="sc-shell">
+                <TopBar />
+                <Outlet />
+                <TabBar />
+              </div>
+            </AssetsCtx.Provider>
+          </AssetCreateHost>
+        </ProductLibraryProvider>
       </TaskCenterProvider>
     </Ctx.Provider>
   );

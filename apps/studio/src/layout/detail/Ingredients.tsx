@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { assetUrl, imgUrl, type Brand, type TreeNode } from '../../api.js';
+import { type Brand, type FeedNode, thumbUrl, assetThumbUrl, thumbOf } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
@@ -34,7 +34,7 @@ export function BriefLine({
   expanded,
   hideCarried,
 }: {
-  brief: TreeNode['brief'];
+  brief: FeedNode['brief'];
   /** The compiled prompt, the only record shots made before briefs have. */
   prompt?: string | null;
   brand: Brand | null;
@@ -122,7 +122,7 @@ export function BriefLine({
         kind: 'product',
         inherited,
         label: p?.name ?? demo?.name ?? 'product',
-        thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
+        thumb: p ? assetThumbUrl(p?.shots?.[0]?.file, 'micro') : (demo?.previewUrl ?? null),
         // ProductPage resolves demo ids too, so a library product is as
         // openable as one of the brand's own.
         to: brand && (p || demo) ? productPath(brand, t.id) : undefined,
@@ -174,7 +174,7 @@ export function BriefLine({
         kind: 'ref',
         inherited,
         label: t.label ?? 'reference image',
-        thumb: imgUrl(t.imageHash),
+        thumb: thumbUrl(t.imageHash, 'micro'),
         previewHash: t.imageHash,
       };
     }
@@ -185,7 +185,7 @@ export function BriefLine({
         kind: 'mark',
         inherited,
         label: m ? markLabel(brand?.json, m) : 'brand mark',
-        thumb: imgUrl(t.imageHash),
+        thumb: thumbUrl(t.imageHash, 'micro'),
         previewHash: t.imageHash,
       };
     }
@@ -215,7 +215,7 @@ export function BriefLine({
     // A missing thumbnail is not a missing door: the card shows its blank
     // plate and still opens the page, so every catalog chip behaves the same
     // way whether or not its picture loaded.
-    const src = (c.previewHash ? imgUrl(c.previewHash) : c.thumb) ?? (c.to ? '' : null);
+    const src = (c.previewHash ? thumbUrl(c.previewHash, 'tile') : thumbOf(c.thumb, 'tile')) ?? (c.to ? '' : null);
     if (src !== null && isPreviewKind(c.kind)) {
       const kind = c.kind;
       const open = peek.isOpen(c.key);
@@ -337,7 +337,7 @@ export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceIt
           key: `p${t.id}`,
           kind: 'product',
           label: p?.name ?? demo?.name ?? 'product',
-          thumb: p ? assetUrl(p?.shots?.[0]?.file) : (demo?.previewUrl ?? null),
+          thumb: p ? assetThumbUrl(p?.shots?.[0]?.file, 'micro') : (demo?.previewUrl ?? null),
           to: brand ? productPath(brand, t.id) : undefined,
         };
       }

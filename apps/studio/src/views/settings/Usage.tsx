@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import type { TreeNode } from '../../api.js';
+import { useEffect, useMemo, useState } from 'react';
+import { api, type UsageDay } from '../../api.js';
 import { Group } from './Group.js';
 import { buildHeat } from './usageRules.js';
 
@@ -35,24 +35,37 @@ function HeatRange({
  * told the truth about only the first forty. The brand's shots are already in
  * hand upstairs, so it now counts what it was given.
  */
-export function Usage({ shots }: { shots: TreeNode[] }) {
-  const nodes = useMemo(() => shots.filter((n) => n.kind !== 'root'), [shots]);
+export function Usage({ brandId }: { brandId: string }) {
+  // Counted by the server, by day, in one query: this used to be handed every
+  // shot in the brand to count for itself, so the whole workspace travelled
+  // to a settings pane to draw fifty-three columns.
+  const [days, setDays] = useState<UsageDay[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setDays(null);
+    api
+      .usage(brandId)
+      .then((r) => alive && setDays(r.days))
+      .catch(() => alive && setDays([]));
+    return () => {
+      alive = false;
+    };
+  }, [brandId]);
 
   const { year, quarter, total, byKind } = useMemo(() => {
     const perDay = new Map<string, number>();
     const kinds = { generation: 0, edit: 0 };
-    for (const n of nodes ?? []) {
-      const day = String(n.createdAt).slice(0, 10);
-      perDay.set(day, (perDay.get(day) ?? 0) + 1);
-      if (n.kind === 'edit') kinds.edit++;
-      else kinds.generation++;
+    for (const d of days ?? []) {
+      perDay.set(d.day, (perDay.get(d.day) ?? 0) + d.generations + d.edits);
+      kinds.generation += d.generations;
+      kinds.edit += d.edits;
     }
     const year = buildHeat(perDay, 53);
     const quarter = buildHeat(perDay, 13);
     return { year, quarter, total: year.sum, byKind: kinds };
-  }, [nodes]);
+  }, [days]);
 
-  if (nodes === null) return <p className="sc-set-empty">Reading your library…</p>;
+  if (days === null) return <p className="sc-set-empty">Reading your library…</p>;
 
   const most = Math.max(byKind.generation, byKind.edit, 1);
   return (

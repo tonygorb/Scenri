@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { vibrantFromPixels } from '../src/composer/sceneTint.js';
+import { TINT_CACHE_CAP, tintCacheSize, vibrantFromPixels, vibrantTintOf } from '../src/composer/sceneTint.js';
 
 const field = (px: number[], count: number): number[] => Array.from({ length: count }, () => px).flat();
 
@@ -35,5 +35,17 @@ describe('vibrantFromPixels', () => {
     const b = parseInt(hex?.slice(5, 7) ?? '0', 16);
     const r = parseInt(hex?.slice(1, 3) ?? '0', 16);
     expect(b).toBeGreaterThan(r);
+  });
+});
+
+describe('vibrantTintOf', () => {
+  it('remembers at most TINT_CACHE_CAP pictures, forgetting the oldest first', async () => {
+    const urls = Array.from({ length: TINT_CACHE_CAP + 10 }, (_, i) => `/api/images/${String(i).padStart(32, '0')}`);
+    for (const u of urls) void vibrantTintOf(u);
+    expect(tintCacheSize()).toBe(TINT_CACHE_CAP);
+    // the same url again is a hit, not a new entry
+    void vibrantTintOf(urls[urls.length - 1]);
+    expect(tintCacheSize()).toBe(TINT_CACHE_CAP);
+    await Promise.all(urls.map((u) => vibrantTintOf(u).catch(() => null)));
   });
 });

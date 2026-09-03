@@ -195,7 +195,7 @@ describe('buildCandidates — products', () => {
       'product',
       catalog({ libraryProducts: [owned(), owned({ id: 'o2', shots: [] })] }),
     );
-    expect(withShot.thumb).toBe('/api/images/abc');
+    expect(withShot.thumb).toBe('/api/images/abc/thumb?w=640');
     expect(noShot.thumb).toBeNull();
   });
 

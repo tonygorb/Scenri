@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { assetUrl } from '../api.js';
+import { assetUrl, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { customPresentersOf, customScenesOf } from '../brandAssets.js';
@@ -50,7 +50,7 @@ export function useKindPreview(): Record<CreateKind, KindPreview> {
     const firstUrl = <T>(list: T[], pick: (x: T) => string | null | undefined): string | null => {
       for (const x of list) {
         const url = claim(pick(x));
-        if (url) return url;
+        if (url) return thumbOf(url, 'tile');
       }
       return null;
     };

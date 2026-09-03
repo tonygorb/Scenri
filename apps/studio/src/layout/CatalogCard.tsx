@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { thumbOf } from '../api.js';
+import { useHoverNone } from '../useMediaQuery.js';
 import { Link } from 'react-router';
 import { ContextMenu } from '@radix-ui/themes';
 import { BookmarkSimple, Check, ImageSquare } from '@phosphor-icons/react';
@@ -73,15 +75,7 @@ export function CatalogCard({
   const [broken, setBroken] = useState(false);
   const [armed, setArmed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
-  const [touchUi, setTouchUi] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(hover: none)');
-    const sync = () => setTouchUi(mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  }, []);
+  const touchUi = useHoverNone();
 
   const showUseButton = variant === 'use' && !!onOpen && !!onUse;
 
@@ -97,7 +91,7 @@ export function CatalogCard({
 
   const preview =
     previewUrl && !broken ? (
-      <img src={previewUrl} alt="" loading="lazy" onError={() => setBroken(true)} />
+      <img src={thumbOf(previewUrl, 'tile')} alt="" loading="lazy" onError={() => setBroken(true)} />
     ) : (
       <span className="sc-lookcard-blank">
         <ImageSquare size={20} />

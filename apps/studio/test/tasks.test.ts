@@ -21,6 +21,7 @@ import {
   unreadCount,
   type NotificationItem,
   type Task,
+  sameByValue,
 } from '../src/tasks.js';
 
 /** Only the slug is read: an href is spelled from it, never from the id. */
@@ -520,5 +521,21 @@ describe('batchTask', () => {
 
   it('is taskFromNode for a batch of one', () => {
     expect(batchTask([node()], brand, NOW)).toEqual(taskFromNode(node(), brand, NOW));
+  });
+});
+
+describe('sameByValue', () => {
+  it('keeps the previous reference when a poll answers the same thing', () => {
+    const prev = [node(), node({ id: 'b' })];
+    const next = prev.map((n) => ({ ...n }));
+    expect(sameByValue(prev, next)).toBe(true);
+    expect(sameByValue(prev, prev)).toBe(true);
+  });
+
+  it('sees a changed field, a missing record and a reorder', () => {
+    const prev = [node(), node({ id: 'b' })];
+    expect(sameByValue(prev, [prev[0], { ...prev[1], status: 'done' }])).toBe(false);
+    expect(sameByValue(prev, [prev[0]])).toBe(false);
+    expect(sameByValue(prev, [prev[1], prev[0]])).toBe(false);
   });
 });

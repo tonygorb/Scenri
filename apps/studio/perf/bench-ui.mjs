@@ -228,7 +228,7 @@ const scrollTop = () =>
 const results = { boot: [], sections: {} };
 const only = args.only ? new Set(String(args.only).split(',')) : null;
 const want = (name) => !only || only.has(name);
-const BOOT_RUNS = only && !only.has('boot') ? 1 : 3;
+const BOOT_RUNS = args.boots ? Number(args.boots) : only && !only.has('boot') ? 1 : 3;
 const SKIPPED = {
   skipped: true,
   longTasks: { count: 0, totalMs: 0, max: 0 },

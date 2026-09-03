@@ -60,11 +60,21 @@ export function useElementWidth(el: HTMLElement | null): number {
   const [w, setW] = useState(0);
   useEffect(() => {
     if (!el) return;
-    const measure = () => setW(el.clientWidth);
-    measure();
+    // One state write per frame at most. The assets rail animates its width
+    // over 220 ms, and a write per observed pixel re-rendered the whole feed
+    // a dozen times per toggle for a layout the browser was already easing.
+    let raf = 0;
+    const measure = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setW(el.clientWidth));
+    };
+    setW(el.clientWidth);
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, [el]);
   return w;
 }
@@ -76,9 +86,16 @@ export function useElementWidth(el: HTMLElement | null): number {
 export function useViewportWidth(): number {
   const [w, setW] = useState(() => window.innerWidth);
   useEffect(() => {
-    const onResize = () => setW(window.innerWidth);
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setW(window.innerWidth));
+    };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+    };
   }, []);
   return w;
 }

@@ -348,3 +348,15 @@ export const saveFeed = (brandId: string, feed: NotificationItem[]) =>
   write(feedKey(brandId), JSON.stringify(feed.slice(0, FEED_CAP)));
 export const loadSeen = (brandId: string) => read(seenKey(brandId));
 export const saveSeen = (brandId: string, at: string) => write(seenKey(brandId), at);
+
+/**
+ * Whether two poll answers say the same thing, so an unchanged answer keeps
+ * the previous reference and nothing downstream re-renders. Value equality by
+ * JSON: the lists are at most a few dozen small records, so this costs less
+ * than one re-render of one consumer, and it can never miss a field.
+ */
+export function sameByValue<T>(prev: T[], next: T[]): boolean {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  return JSON.stringify(prev) === JSON.stringify(next);
+}

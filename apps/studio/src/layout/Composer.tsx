@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Popover, Select, Spinner } from '@radix-ui/themes';
-import { ArrowUp, Info, Lightning, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
+import { ArrowUp, Info, Lightning, Plus, SlidersHorizontal } from '@phosphor-icons/react';
 import {
   api,
   imgUrl,
@@ -9,7 +9,7 @@ import {
   type Brand,
   type BriefPreview,
   type EngineInfo,
-  type TreeNode,
+  type FeedNode,
 } from '../api.js';
 import { effectiveCategory } from '../productCategories.js';
 import {
@@ -22,8 +22,8 @@ import {
   type SentenceToken,
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
-import { ChipPreview, type PreviewKind } from '../composer/ChipPreview.js';
-import { useHoverPreview } from '../composer/useHoverPreview.js';
+import type { PreviewKind } from '../composer/ChipPreview.js';
+import { RefineChip } from '../composer/RefineChip.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { SourceCards, type SourceItem } from '../composer/SourceCards.js';
 import {
@@ -84,8 +84,9 @@ export const Composer = forwardRef<
     projectId: string | null;
     brand: Brand;
     engines: EngineInfo[];
-    parent: TreeNode | null;
-    shots: TreeNode[];
+    /** The project's root, which every new shot hangs off. */
+    parentId: string | null;
+    shots: FeedNode[];
     initialBrief?: {
       tokens: BriefToken[];
       templateId?: string;
@@ -126,7 +127,7 @@ export const Composer = forwardRef<
      * means: a refine moves the chip onto the version it just made.
      */
     /** The first node's id, the kind, and every sibling id of a multi-shot send, slot order. */
-    onQueued: (nodeId?: string, kind?: 'generation' | 'edit', siblingIds?: string[]) => void;
+    onQueued: (nodeId?: string, kind?: 'generation' | 'edit', siblingIds?: string[], made?: FeedNode[]) => void;
     /**
      * A submit is in flight, with the prose of the brief that started it, so a
      * feed can stand something in for the shot before the server has answered.
@@ -153,7 +154,7 @@ export const Composer = forwardRef<
      * The shot this brief will branch from, chosen with Branch. Null means a
      * new shot, which is the resting state and the only other one there is.
      */
-    target?: TreeNode | null;
+    target?: FeedNode | null;
     /** Given only where the target can be dropped, which is where it is shown. */
     onClearTarget?: () => void;
     /**
@@ -191,7 +192,7 @@ export const Composer = forwardRef<
     projectId,
     brand,
     engines,
-    parent,
+    parentId,
     shots,
     initialBrief,
     suppressDraftRestore,
@@ -714,12 +715,8 @@ export const Composer = forwardRef<
     label: string | null;
     noun?: string;
   } | null>(null);
-  /** The hover peek on the target chip: the same card, on the same timing, a
-      chip in the sentence gets. */
-  const targetHover = useHoverPreview<{ anchor: HTMLElement }>();
   const openTargetImage = () => {
     if (!target?.images[0]) return;
-    targetHover.closeNow();
     setLightbox({ src: imgUrl(target.images[0]), kind: 'shot', label: nodeLabel(target), noun: 'Refining this shot' });
   };
   // A crop needs no engine at all, so it is an edit even when nothing can edit.
@@ -1107,7 +1104,7 @@ export const Composer = forwardRef<
         // an edit hangs off the shot it edits; anything else hangs off the
         // root, so a brief that only *looked* like a branch is not filed as a
         // version of a shot it never used
-        parentId: mode === 'edit' && target ? target.id : (parent?.id ?? null),
+        parentId: mode === 'edit' && target ? target.id : parentId,
         kind: mode,
         engineId,
         count,
@@ -1154,6 +1151,8 @@ export const Composer = forwardRef<
         created.id,
         mode,
         created.siblings?.map((s) => s.id),
+        // the records themselves, so the feed can seat them without re-reading the brand
+        created.siblings?.length ? created.siblings : [created],
       );
     } catch (e: any) {
       const message = String(e.message ?? e);
@@ -1214,21 +1213,6 @@ export const Composer = forwardRef<
           noun={lightbox.noun}
           onRestoreFocus={() => briefRef.current?.restoreCaret()}
           onClose={() => setLightbox(null)}
-        />
-      )}
-
-      {/* The target chip's hover peek: the same card a sentence chip gets. */}
-      {targetHover.shown && target?.images[0] && (
-        <ChipPreview
-          anchor={targetHover.shown.anchor}
-          kind="shot"
-          src={imgUrl(target.images[0])}
-          label={nodeLabel(target)}
-          noun="Refining this shot"
-          onOpen={openTargetImage}
-          onHoverIn={targetHover.keep}
-          onHoverOut={targetHover.close}
-          onClose={targetHover.closeNow}
         />
       )}
 
@@ -1315,55 +1299,10 @@ export const Composer = forwardRef<
             band. */}
         {branchable && onClearTarget && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            {/* The version being refined, worn as the one chip pattern the app
-                has: the sentence's own .sc-token as a small inverse card, the
-                shot's picture first, then the word for what is happening. Not
-                the shot's prompt: that read as a truncated instruction, not a
-                name. Hover peeks at the image the way a sentence chip does;
-                click opens it full size. */}
-            {/* biome-ignore lint/a11y/useSemanticElements: a <button> cannot hold the remove <button> the chip pattern floats over its right edge; the sentence's own chips are the same span-as-button */}
-            <span
-              className="sc-token sc-target-chip"
-              role="button"
-              tabIndex={0}
-              aria-haspopup="dialog"
-              aria-label={`Version being refined: ${nodeLabel(target)}. Open the image, or remove to make a new shot.`}
-              onPointerEnter={(e) => {
-                if (e.pointerType === 'mouse' && target.images[0]) targetHover.open({ anchor: e.currentTarget });
-              }}
-              onPointerLeave={(e) => e.pointerType === 'mouse' && targetHover.close()}
-              onClick={openTargetImage}
-              onKeyDown={(e) => {
-                // the X inside bubbles its keys up here; only the chip's own
-                if (e.target !== e.currentTarget) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  openTargetImage();
-                }
-              }}
-            >
-              {/* a version that has just been asked for has no picture yet, and
-                  the same shimmer the feed uses says so without a second word */}
-              {target.images[0] ? (
-                <img src={imgUrl(target.images[0])} alt="" />
-              ) : (
-                <span className="sc-target-thumb sc-shimmer" />
-              )}
-              Refining
-              {onClearTarget && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    targetHover.closeNow();
-                    onClearTarget();
-                  }}
-                  aria-label="Make a new shot instead"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </span>
+            {/* The version being refined, as the one chip pattern the app has.
+                Its hover peek is its own (RefineChip), so resting the pointer
+                on it no longer re-renders this whole composer. */}
+            <RefineChip target={target} onOpenImage={openTargetImage} onClear={onClearTarget} />
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}

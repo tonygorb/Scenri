@@ -1,6 +1,6 @@
 import { Check, DotsThree, Infinity as InfinityIcon, Star } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
-import { nodeLabel, type TreeNode } from '../../api.js';
+import { nodeLabel, type FeedNode } from '../../api.js';
 import type { ShotMenuItem } from './shotMenu.js';
 
 /**
@@ -32,7 +32,7 @@ export function ShotChrome({
   onPick,
   onBranch,
 }: {
-  node: TreeNode;
+  node: FeedNode;
   chosen: boolean;
   picking: boolean;
   /**

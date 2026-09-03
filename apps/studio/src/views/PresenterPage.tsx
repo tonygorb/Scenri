@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { TextArea, TextField } from '@radix-ui/themes';
 import { api, type PresenterPatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 import { customPresenterById } from '../brandAssets.js';
 import { presenterAvatar } from '../presenterVisual.js';
@@ -26,7 +27,7 @@ const FRONT_ANGLES = 4;
 export function PresenterPage() {
   const { presenterId = '' } = useParams();
   const { presenters, presentersLoaded, presentersError, refetchPresenters, applyBrand } = useAppData();
-  const { brand, nodes: shots } = useBrand();
+  const { brand } = useBrand();
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
   const [refs, setRefs] = useState<string[]>([]);
@@ -70,21 +71,7 @@ export function PresenterPage() {
   const inRoster = roster.find((c) => c.presenterId === presenterId);
 
   /** Shots whose brief attached this presenter, directly or via an old roster copy. */
-  const made = useMemo(
-    () =>
-      shots
-        .filter(
-          (s) =>
-            s.status === 'done' &&
-            s.images.length > 0 &&
-            (s.brief?.tokens ?? []).some(
-              (t: any) => t?.t === 'character' && (t.id === presenterId || t.id === inRoster?.id),
-            ),
-        )
-        .slice(-12)
-        .reverse(),
-    [shots, presenterId, inRoster],
-  );
+  const made = useMadeWith(brand.id, [presenterId ?? '', inRoster?.id ?? '']);
 
   const [draftName, setDraftName] = useState(owned?.name ?? '');
   const [draftDescriptor, setDraftDescriptor] = useState(owned?.descriptor ?? '');

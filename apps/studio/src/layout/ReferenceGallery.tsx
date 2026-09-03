@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
-import { imgUrl, nodeLabel, type TreeNode } from '../api.js';
+import { nodeLabel, type FeedNode, thumbUrl } from '../api.js';
 
 /**
  * Shared between `ScenePage` and `PresenterPage`: the reference-frame grid,
@@ -42,7 +42,7 @@ export function EmptyRefFrame() {
 }
 
 /** One shot in a "made/featuring this" slider — same broken-image fallback. */
-export function ShotThumb({ node, to }: { node: TreeNode; to: string }) {
+export function ShotThumb({ node, to }: { node: FeedNode; to: string }) {
   const [broken, setBroken] = useState(false);
   return (
     <Link className="sc-lookcard" aria-label={`Open ${nodeLabel(node)}`} to={to}>
@@ -51,7 +51,7 @@ export function ShotThumb({ node, to }: { node: TreeNode; to: string }) {
           <ImageSquare size={20} />
         </span>
       ) : (
-        <img src={imgUrl(node.images[0])} alt="" loading="lazy" onError={() => setBroken(true)} />
+        <img src={thumbUrl(node.images[0], 'tile')} alt="" loading="lazy" onError={() => setBroken(true)} />
       )}
     </Link>
   );

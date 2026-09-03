@@ -1,7 +1,7 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { AlertDialog, Button, ContextMenu, Flex } from '@radix-ui/themes';
-import { hasNoShots, imgUrl, nodeLabel, type TreeNode } from '../api.js';
+import { hasNoShots, imgUrl, nodeLabel, thumbUrl, type FeedNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
 import { elapsedSec } from '../tasks.js';
@@ -23,7 +23,7 @@ import { aspectOfFormat } from '../composer/formats.js';
  * as the guess for everything older. The record ends the guessing, which is
  * what lets the box hold its shape after load instead of reflowing the column.
  */
-function aspectOfImage(n: TreeNode, i: number): { aspect: number | undefined; guess: boolean } {
+function aspectOfImage(n: FeedNode, i: number): { aspect: number | undefined; guess: boolean } {
   const size = (n.brief as { rendered?: { sizes?: [number, number][] } } | null)?.rendered?.sizes?.[i];
   if (size && size[0] > 0 && size[1] > 0) return { aspect: size[0] / size[1], guess: false };
   return { aspect: aspectOfFormat((n.brief as { format?: string } | null)?.format), guess: true };
@@ -49,8 +49,10 @@ export function Canvas({
   onVersions,
   engineName,
   tile,
+  pending,
+  onNearEnd,
 }: {
-  nodes: TreeNode[];
+  nodes: FeedNode[];
   selectedId: string | null;
   onOpen: (id: string) => void;
   /**
@@ -59,18 +61,18 @@ export function Canvas({
    * "pick" while a batch is being built).
    */
   shotHref: (id: string) => string;
-  onRetry: (node: TreeNode) => void;
-  onCancel?: (node: TreeNode) => void;
+  onRetry: (node: FeedNode) => void;
+  onCancel?: (node: FeedNode) => void;
   /** The star badge looked like a toggle and wasn't one — `k` and the overlay
    * were the only real controls. This is the tile-level path to match. */
-  onToggleKeep?: (node: TreeNode) => void;
+  onToggleKeep?: (node: FeedNode) => void;
   /** Put a shot away — or, on an already-archived one, bring it back. Absent
    * where a tile can't be put away at all (there is none today, but the
    * fallback in the running/cancelled tiles keeps this optional rather than
    * a silent crash if that ever changes). */
-  onArchive?: (node: TreeNode) => void;
+  onArchive?: (node: FeedNode) => void;
   /** Permanent. Only ever offered (in the context menu) on an already-archived tile. */
-  onDeletePermanently?: (node: TreeNode) => void;
+  onDeletePermanently?: (node: FeedNode) => void;
   picked?: Set<string>;
   onPick?: (id: string) => void;
   /**
@@ -103,6 +105,13 @@ export function Canvas({
   engineName?: (id: string) => string | undefined;
   /** Target column width in px, from Create’s grid-size slider. */
   tile: number;
+  /**
+   * The first page has not landed yet. The grid holds its shape with stand-in
+   * tiles rather than flashing an empty state that is not true.
+   */
+  pending?: boolean;
+  /** The reader is within reach of the last loaded tile: bring the next page. */
+  onNearEnd?: () => void;
 }) {
   const shots = nodes.filter((n) => n.kind !== 'root');
   const picking = !!onPick;
@@ -123,12 +132,28 @@ export function Canvas({
   const batching = picking && (picked?.size ?? 0) > 0;
   // one confirm dialog for the whole grid, not one per tile — the context
   // menu item just says which node it's for
-  const [deleteTarget, setDeleteTarget] = useState<TreeNode | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FeedNode | null>(null);
   // a callback ref rather than useRef: the feed is not in the tree at all while
   // the brand is empty, so an effect keyed on a ref object would never see it
   // arrive and would measure nothing for the rest of the session
   const [feedEl, setFeedEl] = useState<HTMLDivElement | null>(null);
   const { tile: colWidth, cols: fitting } = masonryLayout(useElementWidth(feedEl), tile, useViewportWidth() < PHONE);
+  // The page boundary: one sentinel after the last tile, watched against the
+  // scroller with a two-screen margin, so the next page is in hand before the
+  // reader reaches the end of this one.
+  const [endEl, setEndEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!endEl || !onNearEnd) return;
+    const scroller = endEl.closest('.sc-canvas');
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) onNearEnd();
+      },
+      { root: scroller, rootMargin: '200% 0px' },
+    );
+    io.observe(endEl);
+    return () => io.disconnect();
+  }, [endEl, onNearEnd]);
 
   const tileGroups: ReactNode[][] = [
     ...(sending
@@ -267,7 +292,11 @@ export function Canvas({
                   }
                 }}
               >
-                <FeedImage src={imgUrl(n.images[0])} {...aspectOfImage(n, 0)} />
+                <FeedImage
+                  src={thumbUrl(n.images[0], 'tile')}
+                  fallback={imgUrl(n.images[0])}
+                  {...aspectOfImage(n, 0)}
+                />
               </Link>
               <ShotChrome
                 node={n}
@@ -296,6 +325,28 @@ export function Canvas({
     }),
   ];
   const tiles = tileGroups.flat();
+
+  // Nothing loaded yet: the grid keeps its shape with stand-ins in the brief's
+  // default shape, the same tile a send holds its place with, so the feed
+  // never flashes an empty state on the way to its first page.
+  if (pending && hasNoShots(shots) && !sending) {
+    const cols = Math.max(1, Math.min(fitting, 8));
+    return (
+      <div className="sc-feed" ref={setFeedEl} style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}>
+        {Array.from({ length: cols }, (_, c) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: stand-ins have no identity beyond their slot
+          <div className="sc-feed-col" key={`col-${cols}-${c}`}>
+            {Array.from({ length: 2 }, (_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: stand-ins have no identity beyond their slot
+              <div key={`pending-${c}-${i}`} className="sc-cell" data-running="true" data-sending="true">
+                <span className="sc-shimmer" />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   // a first shot on a brand new brand has to have somewhere to appear, so the
   // stand-in outranks the empty state rather than waiting behind it. `shots`
@@ -331,6 +382,7 @@ export function Canvas({
           </div>
         ))}
       </div>
+      {onNearEnd && <div className="sc-feed-end" ref={setEndEl} aria-hidden />}
       <AlertDialog.Root open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialog.Content maxWidth="420px">
           <AlertDialog.Title>Delete this shot permanently?</AlertDialog.Title>

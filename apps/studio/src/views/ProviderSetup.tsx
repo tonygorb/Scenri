@@ -366,10 +366,18 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
     }
   };
 
+  const copiedTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
   const copy = (text: string) => {
     void navigator.clipboard?.writeText(text).then(() => {
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
+      copiedTimer.current = window.setTimeout(() => setCopied(false), 1600);
     });
   };
 

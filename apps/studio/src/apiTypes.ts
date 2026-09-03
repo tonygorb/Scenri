@@ -14,12 +14,11 @@ export interface Project {
   slug: string;
   createdAt: string;
 }
-export interface TreeNode {
+export interface FeedNode {
   id: string;
   projectId: string;
   parentId: string | null;
   kind: 'root' | 'generation' | 'edit';
-  prompt: string;
   engineId: string;
   status: 'running' | 'done' | 'error' | 'cancelled';
   images: string[];
@@ -29,12 +28,6 @@ export interface TreeNode {
   kept: boolean;
   error: string | null;
   createdAt: string;
-  /**
-   * Captions once laid over a shot. Scenri makes the picture; composing type
-   * onto it was a different product. Nothing writes this any more, and the
-   * field stays only because shots already carry it.
-   */
-  overlays: Record<string, TextLayer[]>;
   /**
    * The recipe, stored verbatim so the shot can be run again or reopened in
    * the composer. `variants` and `quality` are settings rather than sentence:
@@ -76,10 +69,30 @@ export interface TreeNode {
   batchId: string | null;
   /** Which slot of that request this node filled; 0 outside a batch. */
   batchIndex: number;
+  /**
+   * The head of the compiled prompt (240 code points): enough for a title
+   * (the leading [Scene] tag or the first six words) and alt text. The whole
+   * prompt averages 3 KB and was 80% of every feed payload, read by nothing a
+   * list shows; GET /api/nodes/:id carries it.
+   */
+  promptHead: string;
+  /** How many live (non-archived) refinements hang off this shot: the versions pip. */
+  childCount: number;
+}
+
+/** The whole record, as GET /api/nodes/:id answers it. Structurally a FeedNode, so it can sit in any list. */
+export interface TreeNode extends FeedNode {
+  prompt: string;
+  /**
+   * Captions once laid over a shot. Scenri makes the picture; composing type
+   * onto it was a different product. Nothing writes this any more, and the
+   * field stays only because shots already carry it.
+   */
+  overlays: Record<string, TextLayer[]>;
 }
 
 /** A node carrying the sets it has been put in, for lists that span the brand. */
-export interface ActivityNode extends TreeNode {
+export interface ActivityNode extends FeedNode {
   /** Empty when the shot is in no set, which is an ordinary state, not a gap. */
   setNames: string[];
 }
@@ -99,12 +112,85 @@ export interface ShotSet {
   updatedAt: string;
 }
 
-/** The whole brand in one answer: its shots, its sets, and who is in what. */
+/**
+ * The brand's frame in one answer: its one project and root, its sets, who is
+ * in what, and the newest shots for the rail and the attach panel. The shots
+ * themselves are a paged query (FeedPage), never carried here: a workspace
+ * with twenty thousand of them costs the same to open as one with twenty.
+ */
 export interface Workspace {
   project: Project;
-  nodes: TreeNode[];
+  /** The project's root node id: every shot hangs off it. */
+  root: string;
   sets: ShotSet[];
   membership: Record<string, string[]>;
+  /** The newest done shots, newest first, for surfaces that show a handful. */
+  recent: FeedNode[];
+}
+
+/** Which shots a feed page is about. Every field is optional; absent means all. */
+export interface FeedQuery {
+  lens?: 'all' | 'keepers' | 'archived';
+  /** Only shots in this set. */
+  set?: string;
+  /** Only shots in no set. */
+  ungrouped?: boolean;
+  /** This shot and everything descended from it. */
+  lineage?: string;
+  /** Only shots whose brief carries this product, presenter or scene id. */
+  token?: string;
+  q?: string;
+  sort?: 'newest' | 'oldest' | 'cost' | 'keepers';
+  limit?: number;
+  cursor?: string;
+}
+
+/** What each lens would show from the same place and search. */
+export interface FeedCounts {
+  /** Every shot the brand has ever made, whatever the place, lens or search: zero means a first run. */
+  total: number;
+  all: number;
+  keepers: number;
+  archived: number;
+  /** Live shots in no set at all, unscoped: the ungrouped place's own count. */
+  ungrouped: number;
+}
+
+export interface FeedPage {
+  items: FeedNode[];
+  /** Opaque keyset cursor for the next page; null at the end. */
+  next: string | null;
+  counts: FeedCounts;
+}
+
+/** Where a shot sits in its tree, as the overlay and the keyboard walk need it. */
+export interface Lineage {
+  /** Root-most first, the parent last; never the root itself. */
+  ancestors: FeedNode[];
+  /** Every shot sharing the parent, the shot itself included, in feed order. */
+  siblings: FeedNode[];
+  /** Live refinements of the shot, in feed order. */
+  children: FeedNode[];
+}
+
+/** One day of runs, for the usage heat map. */
+export interface UsageDay {
+  day: string;
+  generations: number;
+  edits: number;
+}
+
+/** What the brand switcher and the route resolver need, never the document. */
+export interface BrandSummary {
+  id: string;
+  slug: string;
+  name: string;
+  website: string | null;
+  /** The primary mark as an asset ref, if the kit has one. */
+  mark: string | null;
+  primaryHex: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TextLayer {

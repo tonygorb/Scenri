@@ -9,6 +9,13 @@ import { useLocation } from 'react-router';
  * has nothing to restore an inner div to anyway.
  */
 const offsets = new Map<string, number>();
+/** Places remembered. A Map keeps insertion order, so the oldest key is the first one. */
+const OFFSETS_CAP = 50;
+function remember(key: string, top: number): void {
+  offsets.delete(key);
+  remember(key, top);
+  while (offsets.size > OFFSETS_CAP) offsets.delete(offsets.keys().next().value as string);
+}
 
 /** How long a pane keeps waiting for late content before it settles for what it has. */
 const SETTLE_MS = 1000;
@@ -86,7 +93,7 @@ export function ScrollPane({ className = 'sc-home', children }: { className?: st
     const el = ref.current;
     if (!el) return;
     const save = () => {
-      if (!chasing.current) offsets.set(key, el.scrollTop);
+      if (!chasing.current) remember(key, el.scrollTop);
     };
     el.addEventListener('scroll', save, { passive: true });
     return () => el.removeEventListener('scroll', save);
