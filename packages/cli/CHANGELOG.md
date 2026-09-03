@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.1](https://github.com/tonygorb/Scenri/compare/v0.8.0...v0.8.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* **cli:** deleting every shot takes its derivatives with it ([bf04111](https://github.com/tonygorb/Scenri/commit/bf04111cf9535395c9e6e6f2946c26098b626794))
+* **composer:** a chip drag that moves nothing gives the caret back ([019e91a](https://github.com/tonygorb/Scenri/commit/019e91a1b56467604a42c230e404f1ea5a050229))
+* **composer:** the drop caret counts the line the way the drop does ([83506cc](https://github.com/tonygorb/Scenri/commit/83506cc7bfca6a5443f60c2943f088da81b01c03))
+* **composer:** the last unit walk converts, and a running tile can be selected ([46bfb17](https://github.com/tonygorb/Scenri/commit/46bfb177d0813a314628436d94cfbe6ffb5af62f))
+* **composer:** the line takes the pointer for the length of a chip drag ([3fdd7c4](https://github.com/tonygorb/Scenri/commit/3fdd7c47873d6745894fe3f9064cbe5be6845474))
+
+
+### Performance Improvements
+
+* add the performance fixture seeder and benches ([795e44a](https://github.com/tonygorb/Scenri/commit/795e44ac7cd4555d3f11751a8ef7143032a50609))
+* **cli:** paged feed routes, thumbnails, streamed originals, cheaper boot ([324c2ea](https://github.com/tonygorb/Scenri/commit/324c2ea023f1bab4b017a29ae7cccc11b30d4c71))
+* **core:** a cheap boot on a big library, an indexed root, a bounded short search ([b1ba64b](https://github.com/tonygorb/Scenri/commit/b1ba64be69cf4c9f604f106f6340230ccb31a1f9))
+* **core:** a search term filters text from its third letter ([aeb081e](https://github.com/tonygorb/Scenri/commit/aeb081e135546d68d497093114ff4881901d619c))
+* **core:** counts from the state index, activity from two reads, a lineage window ([6cde811](https://github.com/tonygorb/Scenri/commit/6cde8112aed92166b91bcf3a4df4745b731676ef))
+* **core:** the feed is an indexed, paged query with a full-text index ([e3c6e2b](https://github.com/tonygorb/Scenri/commit/e3c6e2b1be72d1d071d96b613bdb90e2caea8d84))
+* global performance hardening, the same speed at any library size ([ab7b1c1](https://github.com/tonygorb/Scenri/commit/ab7b1c156f241e7ac1c8c6806f3f72b7844a0251))
+* **studio:** a paged feed, derivatives on every grid, and a quiet shell ([8e99a17](https://github.com/tonygorb/Scenri/commit/8e99a17cd10b4ac2d9f03d344bd1479a63e5903d))
+* **studio:** memoised tiles and a windowed feed ([0102dfd](https://github.com/tonygorb/Scenri/commit/0102dfd9052bfb6d22d848d2183b4676739e1bb3))
+* **studio:** the brand avatar and the rail's people and scenes read derivatives ([49231d7](https://github.com/tonygorb/Scenri/commit/49231d7931fc70637576e7dba607cd34d723ea78))
+
 ## [0.8.0](https://github.com/tonygorb/Scenri/compare/v0.7.5...v0.8.0) (2026-09-02)
 
 

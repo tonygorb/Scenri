@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.8.1',
+    date: '2026-09-03',
+    title: 'The same speed at any size.',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'The feed opens on its first page and brings in more as you scroll, so a brand holding ten shots and a brand holding ten thousand open in the same moment. Pictures arrive as light copies sized for where they are shown, and the full image only where you actually look at it, so a long feed scrolls smoothly and a shot opens with its picture already in hand. Search reads the whole brand from the third letter you type, and finds shots by the products, people and scenes they were made with as well as by their words.',
+      },
+      {
+        heading: 'Library',
+        body: 'Opening Scenri no longer slows down as your library grows. The first start after this update builds a search index once, which takes a moment on a very large library; every start after that is immediate. Clearing every shot from the danger zone now removes their thumbnails too, which used to stay on disk with nothing left that could find them.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'Dragging a chip to reorder it shows the insertion mark in the gap you are pointing at, rather than a chip or two further along, and a drag that changes nothing leaves the caret where it was. A drag released outside the brief no longer leaves the line unable to take a caret at all. A shot that is still rendering now shows the same selection ring as every other tile when you open it.',
+      },
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-09-02',
     title: 'The composer, rebuilt around what a shot is made of.',
