@@ -349,9 +349,12 @@ function filterSql(f: FeedFilter, params: Record<string, unknown>, withLens: boo
       params[`m${i}`] = match;
       any.push(`n.rowid IN (SELECT rowid FROM nodes_fts WHERE nodes_fts MATCH @m${i})`);
     } else {
-      // too short for the trigram index: a scan of the search text, the rare case
+      // too short for the trigram index: the search text is scanned, but only
+      // this project's rows of it, by rowid, and a page stops at its first
+      // sixty hits. Scanning the whole index for the rows to keep read every
+      // brand's text for every keystroke under three characters.
       params[`l${i}`] = `%${term.text.replace(/[\\%_]/g, '\\$&')}%`;
-      any.push(`n.rowid IN (SELECT rowid FROM nodes_fts WHERE lower(text) LIKE @l${i} ESCAPE '\\')`);
+      any.push(`EXISTS (SELECT 1 FROM nodes_fts f WHERE f.rowid = n.rowid AND lower(f.text) LIKE @l${i} ESCAPE '\\')`);
     }
     if (term.tokenIds.length) {
       const names = term.tokenIds.map((t, j) => {
@@ -710,12 +713,15 @@ export function createStore(db: DB) {
     },
     /** The project's root, by index, rather than the whole tree read to find it. */
     rootFor(projectId: string): TreeNode | null {
-      const r = db
-        .prepare(
-          `SELECT n.*, ${CHILD_COUNT_SQL} AS child_count FROM nodes n WHERE n.project_id=? AND n.kind='root' ORDER BY n.created_at, n.id LIMIT 1`,
-        )
-        .get(projectId) as any;
-      return r ? rowToNode(r) : null;
+      // by the state index, never a walk of the project in creation order: a
+      // root need not be the oldest row, and walking to it read every row
+      const rows = db
+        .prepare(`SELECT n.*, ${CHILD_COUNT_SQL} AS child_count FROM nodes n WHERE n.project_id=? AND n.kind='root'`)
+        .all(projectId) as any[];
+      rows.sort(
+        (a, b) => String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)),
+      );
+      return rows.length ? rowToNode(rows[0]) : null;
     },
     treeFor(projectId: string): TreeNode[] {
       // Rows from before addNode stamped milliseconds are second-resolution,
@@ -811,6 +817,8 @@ export function createStore(db: DB) {
     lineageOf(id: string): Lineage | null {
       const node = this.getFeedNode(id);
       if (!node) return null;
+      // the root has no siblings worth the name and its children are the feed
+      if (node.kind === 'root') return { ancestors: [], siblings: [], children: [] };
       const ancestors: FeedNode[] = [];
       let cur = node.parentId ? this.getFeedNode(node.parentId) : null;
       for (let hops = 0; cur && cur.kind !== 'root' && hops < 64; hops++) {
@@ -828,20 +836,19 @@ export function createStore(db: DB) {
       ).c;
       const skip = Math.max(0, before - LINEAGE_SIBLINGS_RADIUS);
       const take = before - skip + 1 + LINEAGE_SIBLINGS_RADIUS;
+      // nothing hangs off a parent but shots, so no kind test: the one here
+      // made the offset walk read every row it skipped
       const siblings = (
         db
           .prepare(
-            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id IS ? AND n.kind != 'root'
+            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id IS ?
               ORDER BY n.created_at, n.id LIMIT ? OFFSET ?`,
           )
           .all(node.parentId, take, skip) as any[]
       ).map(rowToFeedNode);
       const children = (
         db
-          .prepare(
-            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id = ? AND n.kind != 'root'
-              ORDER BY n.created_at, n.id LIMIT ?`,
-          )
+          .prepare(`SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id = ? ORDER BY n.created_at, n.id LIMIT ?`)
           .all(node.id, LINEAGE_CHILDREN_MAX) as any[]
       ).map(rowToFeedNode);
       return { ancestors, siblings, children };

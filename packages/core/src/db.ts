@@ -375,7 +375,22 @@ function collapseProjects(db: DB): void {
  * the batch read in request order. Idempotent by shape — after one pass no
  * node holds more than one image, so a second pass finds nothing to do.
  */
+const IMAGES_SPLIT_MARK = 'v1';
+
 function splitMultiImageNodes(db: DB): void {
+  // Once through is enough: the scan below reads every row's images column,
+  // a third of a gigabyte on a hundred thousand shots, and no build since 0.7.5
+  // writes a row this would split. The marker says the pass has run.
+  const done = (
+    db.prepare("SELECT value FROM settings WHERE key='images_split'").get() as { value: string } | undefined
+  )?.value;
+  if (done === IMAGES_SPLIT_MARK) return;
+  const mark = () =>
+    db
+      .prepare(
+        "INSERT INTO settings (key, value) VALUES ('images_split', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      )
+      .run(IMAGES_SPLIT_MARK);
   // Only a row whose images array holds two elements has a comma in it: the
   // scan stays, the JSON parse of every row on every boot goes.
   const rows = db.prepare("SELECT * FROM nodes WHERE images LIKE '%,%'").all() as {
@@ -403,7 +418,10 @@ function splitMultiImageNodes(db: DB): void {
       return false;
     }
   });
-  if (!multi.length) return;
+  if (!multi.length) {
+    mark();
+    return;
+  }
 
   const parse = (s: string | null): any => {
     if (!s) return null;
@@ -499,6 +517,7 @@ function splitMultiImageNodes(db: DB): void {
       }
     }
   })();
+  mark();
 }
 
 /**
@@ -609,9 +628,19 @@ function ensureSearch(db: DB): void {
   const marker = (
     db.prepare("SELECT value FROM settings WHERE key='search_index'").get() as { value: string } | undefined
   )?.value;
-  const nodes = (db.prepare('SELECT count(*) c FROM nodes').get() as { c: number }).c;
-  const indexed = (db.prepare('SELECT count(*) c FROM nodes_fts').get() as { c: number }).c;
-  if (marker === SEARCH_INDEX_VERSION && nodes === indexed) return;
+  // Whole when the oldest and the newest row are both indexed: the triggers
+  // were in place from the first row to the last. Counting the trigram index
+  // instead read the whole of it, which on a hundred thousand shots is nine
+  // hundred megabytes off a cold disk, every boot.
+  const bounds = db.prepare('SELECT min(rowid) AS lo, max(rowid) AS hi, count(*) AS c FROM nodes').get() as {
+    lo: number | null;
+    hi: number | null;
+    c: number;
+  };
+  const indexed = (rowid: number | null) =>
+    rowid !== null && !!db.prepare('SELECT 1 FROM nodes_fts WHERE rowid = ?').get(rowid);
+  const whole = bounds.c === 0 || (indexed(bounds.lo) && indexed(bounds.hi));
+  if (marker === SEARCH_INDEX_VERSION && whole) return;
   db.transaction(() => {
     db.exec('DELETE FROM nodes_fts');
     db.exec('DELETE FROM node_tokens');

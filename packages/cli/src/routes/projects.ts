@@ -22,8 +22,28 @@ export interface ProjectRouteDeps {
 
 const SORTS: FeedSort[] = ['newest', 'oldest', 'cost', 'keepers'];
 
+/**
+ * The token names resolved for a brand, held for the length of a burst of
+ * keystrokes. Resolving them reads the product library and every catalog,
+ * which is right once per search and wrong once per letter typed. Two
+ * seconds bounds how stale a rename can be; fifty brands bounds the map.
+ */
+const NAMES_TTL_MS = 2000;
+const NAMES_MAX = 50;
+
 export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDeps): void {
   const { core } = deps;
+  const names = new Map<string, { at: number; list: TokenName[] }>();
+  const tokenNames = (brand: BrandRow): TokenName[] => {
+    const key = `${brand.id}:${brand.updatedAt}`;
+    const now = Date.now();
+    const hit = names.get(key);
+    if (hit && now - hit.at < NAMES_TTL_MS) return hit.list;
+    const list = deps.tokenNames(brand);
+    if (names.size >= NAMES_MAX) names.delete(names.keys().next().value as string);
+    names.set(key, { at: now, list });
+    return list;
+  };
   // ---- projects + tree
   app.post('/api/projects', async (req, reply) => {
     const { brandId, name } = req.body as any;
@@ -92,12 +112,12 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
     const q = qs.q ?? '';
     let terms: FeedFilter['terms'];
     if (q.trim()) {
-      // names are resolved once per request, from what they are called now
-      const names = deps.tokenNames(brand);
+      // names are resolved from what they are called now, once per burst
+      const known = tokenNames(brand);
       const engines = deps.engineNames();
       terms = searchTerms(q).map((t) => ({
         ...t,
-        tokenIds: names.filter((n) => termMatches(n.name, t)).map((n) => n.id),
+        tokenIds: known.filter((n) => termMatches(n.name, t)).map((n) => n.id),
         engineIds: engines.filter((e) => termMatches(e.name, t)).map((e) => e.id),
       }));
     }

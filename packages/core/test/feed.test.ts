@@ -389,3 +389,52 @@ describe('what stays bounded on a big brand', () => {
     raw.close();
   });
 });
+
+describe('what boot and the root cost on a big brand', () => {
+  it('finds the root by the state index even when it is not the oldest row', () => {
+    shot();
+    const raw = openDb(home);
+    raw.prepare("UPDATE nodes SET created_at = datetime('now', '+1 day') WHERE id = ?").run(rootId);
+    raw.close();
+    expect(core.store.rootFor(projectId)?.id).toBe(rootId);
+    expect(core.store.lineageOf(rootId)).toEqual({ ancestors: [], siblings: [], children: [] });
+  });
+
+  it('marks the image split as done and skips the scan from then on', () => {
+    const raw = openDb(home);
+    expect((raw.prepare("SELECT value FROM settings WHERE key='images_split'").get() as any).value).toBe('v1');
+    raw.close();
+  });
+
+  it('rebuilds the search index when a row was written past its triggers', () => {
+    const a = shot({ prompt: 'indexed as written' });
+    const raw = openDb(home);
+    // a row written by a build without the triggers: present in nodes, absent from the index
+    raw.exec('DROP TRIGGER nodes_search_ai');
+    raw
+      .prepare(
+        `INSERT INTO nodes (id, project_id, parent_id, kind, prompt, engine_id, status, images, cost_usd, kept, error, overlays, brief, archived)
+         VALUES ('late-row', ?, ?, 'generation', 'written without the triggers', 'demo', 'done', '[]', 0, 0, NULL, '{}', NULL, 0)`,
+      )
+      .run(projectId, rootId);
+    expect(raw.prepare('SELECT count(*) AS c FROM nodes_fts WHERE nodes_fts MATCH \'"triggers"\'').get()).toEqual({
+      c: 0,
+    });
+    raw.close();
+    // the next boot sees the newest row unindexed and rebuilds
+    const again = openDb(home);
+    expect(again.prepare('SELECT count(*) AS c FROM nodes_fts WHERE nodes_fts MATCH \'"triggers"\'').get()).toEqual({
+      c: 1,
+    });
+    expect(again.prepare('SELECT count(*) AS c FROM nodes_fts WHERE nodes_fts MATCH \'"as written"\'').get()).toEqual({
+      c: 1,
+    });
+    again.close();
+    expect(
+      core.store
+        .feedPage(projectId, { lens: 'all', terms: [{ ...searchTerms('triggers')[0], tokenIds: [], engineIds: [] }] })
+        .items.map((n) => n.id),
+    ).toEqual(['late-row']);
+    expect(a.id).toBeTruthy();
+  });
+});
