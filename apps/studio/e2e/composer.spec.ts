@@ -1873,6 +1873,66 @@ test('a release the page swallows still ends the drag, and the line still takes 
   expect(await sentence(page)).toBe(`${before}!`);
 });
 
+/**
+ * The insertion caret is drawn where the drop will land.
+ *
+ * It is positioned by counting characters along the line, and the line keeps a
+ * zero-width guard beside every chip. The drop maths counts a guard as
+ * nothing, as everything else in the line does; the indicator counted it as
+ * one, so it drew one position further along for every guard it passed. On a
+ * brief of nothing but chips there is a guard in every gap, so the caret
+ * appeared one or two chips away from the gap the pointer was over — while
+ * the drop, counting properly, landed exactly where it was aimed.
+ */
+test('the drop caret is drawn in the gap the pointer is over, on a line of only chips', async ({ page }) => {
+  const add = async (tab: RegExp, i: number) => {
+    await plusMenu(page, tab);
+    await pickCard(page, i);
+    await page.keyboard.press('Escape');
+  };
+  await add(/products/i, 0);
+  await add(/products/i, 1);
+  await add(/products/i, 2);
+  await add(/presenters/i, 0);
+  await add(/presenters/i, 1);
+  await add(/scenes/i, 0);
+  await expect(chips(page)).toHaveCount(6);
+  // nothing was typed, so the line is chips and the guards between them
+
+  const boxes = await page.evaluate(() =>
+    [...document.querySelectorAll('.sc-brief-line .sc-token')].map((e) => {
+      const r = e.getBoundingClientRect();
+      return { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top) };
+    }),
+  );
+  const last = boxes.length - 1;
+  const b = (await chips(page).nth(last).boundingBox())!;
+  const cy = Math.round(b.y + b.height / 2);
+  await page.mouse.move(Math.round(b.x + b.width / 2), cy);
+  await page.mouse.down();
+  await page.mouse.move(Math.round(b.x + b.width / 2) + 9, cy, { steps: 3 });
+
+  // every gap between the chips ahead of it, on the row it is being dragged along
+  for (let g = 0; g < last - 1; g++) {
+    if (boxes[g].top !== boxes[g + 1].top) continue;
+    const gapX = Math.round((boxes[g].right + boxes[g + 1].left) / 2);
+    await page.mouse.move(gapX, cy, { steps: 4 });
+    // the indicator follows on the next frame, so let the frame happen
+    await page.waitForTimeout(80);
+    const x = await page.evaluate(() => {
+      const el = document.querySelector('.sc-drop-caret') as HTMLElement | null;
+      return el && el.style.display !== 'none' ? Math.round(el.getBoundingClientRect().left) : null;
+    });
+    const where = `gap ${g}: caret at ${x}, gap is ${boxes[g].right}..${boxes[g + 1].left}`;
+    expect(x, where).not.toBeNull();
+    // inside the gap it is pointing at, not a chip or two away
+    expect(x as number, where).toBeGreaterThanOrEqual(boxes[g].right - 10);
+    expect(x as number, where).toBeLessThanOrEqual(boxes[g + 1].left + 10);
+  }
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+});
+
 test('Alt plus an arrow moves a focused chip, and the move is announced', async ({ page }) => {
   await seedReorder(page);
   await chips(page).first().focus();

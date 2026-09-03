@@ -4,8 +4,10 @@ import {
   chipAt,
   dropUnitsAt,
   gapStartUnits,
+  lengthOf,
   moveAnnouncement,
   moveChipToUnits,
+  offsetIn,
   setCaretUnits,
 } from './line.js';
 
@@ -346,13 +348,24 @@ export function attachChipDrag(
   };
 }
 
-/** Where a unit position sits on screen, for the insertion indicator. */
+/**
+ * Where a unit position sits on screen, for the insertion indicator.
+ *
+ * Counted in the same units the drop maths speaks: `lengthOf`, so the guard
+ * beside a chip counts as nothing, and `offsetIn` to turn a count of
+ * characters into a DOM offset inside a text node. Walking on raw string
+ * length instead put the indicator one position further along for every
+ * guard it passed — a chip's worth of drift per chip, so on a line of
+ * nothing but chips (a guard in every gap) it was drawn one or two chips
+ * away from the gap the pointer was over, while the drop itself, which
+ * counts properly, landed where it was aimed.
+ */
 function rectAtUnits(root: HTMLElement, units: number): DOMRect | null {
   let n = 0;
   const kids = Array.from(root.childNodes);
   for (let i = 0; i < kids.length; i++) {
     const c = kids[i];
-    const len = c.nodeType === Node.TEXT_NODE ? (c.textContent ?? '').length : 1;
+    const len = lengthOf(c);
     // A position at the very end of a text node is also the start of what
     // follows, and when that is a chip its own left edge is the honest place
     // to draw: the end of a space that hangs at a soft wrap sits on the row
@@ -366,7 +379,7 @@ function rectAtUnits(root: HTMLElement, units: number): DOMRect | null {
         return new DOMRect(units === n ? r.left : r.right, r.top, 0, r.height);
       }
       const range = document.createRange();
-      range.setStart(c, Math.max(0, Math.min(units - n, len)));
+      range.setStart(c, offsetIn(c as Text, Math.max(0, Math.min(units - n, len))));
       range.collapse(true);
       const rect = range.getBoundingClientRect();
       return rect.height ? rect : null;

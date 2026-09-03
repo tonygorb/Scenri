@@ -28,7 +28,16 @@ export {
   groupOf,
 } from './line/tokens.js';
 export { readLine, renderLine } from './line/render.js';
-export { GUARD, caretUnits, setCaretUnits, caretToEnd, hasSelectionIn, unitsOfPosition } from './line/caret.js';
+export {
+  GUARD,
+  caretUnits,
+  setCaretUnits,
+  caretToEnd,
+  hasSelectionIn,
+  unitsOfPosition,
+  lengthOf,
+  offsetIn,
+} from './line/caret.js';
 export { normalizeLine, lineIsCanonical, syncEmpty } from './line/invariants.js';
 export { stepAcrossChip, chipToDelete, deletionAtLineEdge } from './line/keys.js';
 export type { InsertOptions, Sigil } from './line/insert.js';
