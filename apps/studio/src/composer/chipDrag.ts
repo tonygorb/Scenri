@@ -64,6 +64,8 @@ export function attachChipDrag(
    * around the chip, and a Range pointing at one of them dies with it.
    */
   let caretBefore: number | null = null;
+  /** The pointer the line has captured for the length of the drag. */
+  let captured: number | null = null;
   let grab = { dx: 0, dy: 0 };
   let ghostSize = { w: 0, h: 0 };
   let raf = 0;
@@ -94,6 +96,16 @@ export function attachChipDrag(
   };
 
   const teardown = () => {
+    if (captured !== null) {
+      // the pointer goes back before anything else: a release that throws
+      // must not leave the line holding it
+      try {
+        root.releasePointerCapture(captured);
+      } catch {
+        /* already gone with the pointer */
+      }
+      captured = null;
+    }
     ghost?.remove();
     indicator?.remove();
     ghost = null;
@@ -159,6 +171,24 @@ export function attachChipDrag(
     const r = dragging.getBoundingClientRect();
     grab = { dx: armed.x - r.left, dy: armed.y - r.top };
     armed = null;
+    /*
+     * The line takes the pointer, as every other drag in the app does (the
+     * sheet's grip, the overlay's splitter).
+     *
+     * Without it the release is delivered to whatever happens to be under the
+     * pointer — the feed, a panel, the window chrome — and anything on that
+     * path that stops the event, or a release outside the window entirely,
+     * never reaches these listeners. The drag then never tears down: the line
+     * keeps `data-chip-drag`, which is `user-select: none`, so from then on a
+     * click cannot place a caret at all, and the chip that was picked up
+     * stays behind as an empty dashed slot.
+     */
+    try {
+      root.setPointerCapture(e.pointerId);
+      captured = e.pointerId;
+    } catch {
+      // a pointer that has already ended: the window listeners still cover it
+    }
     // the cursor rule on the line cannot follow a window-level drag
     document.documentElement.style.cursor = 'grabbing';
 
@@ -257,8 +287,16 @@ export function attachChipDrag(
     }
     if (!dragging) return;
     const chip = dragging;
-    const drop = dropUnitsAt(root, chip, e.clientX, e.clientY) ?? lastDrop;
-    teardown();
+    // Whatever the drop maths does, the drag ends here: an exception on the
+    // way to a landing must not leave the line in drag state.
+    let drop: { units: number; noop: boolean } | null;
+    try {
+      drop = dropUnitsAt(root, chip, e.clientX, e.clientY) ?? lastDrop;
+    } catch {
+      drop = lastDrop;
+    } finally {
+      teardown();
+    }
     suppressNextClick();
     if (drop && !drop.noop && moveChipToUnits(root, chip, drop.units)) {
       caretBeside(root, chip, 'after');
@@ -286,6 +324,9 @@ export function attachChipDrag(
 
   root.addEventListener('pointerdown', onPointerDown);
   root.addEventListener('dragstart', onDragStart);
+  // The capture going away without a release having reached us: the drag is
+  // over whether or not anything told us so.
+  root.addEventListener('lostpointercapture', cancel);
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
   window.addEventListener('pointercancel', cancel);
@@ -296,6 +337,7 @@ export function attachChipDrag(
     teardown();
     root.removeEventListener('pointerdown', onPointerDown);
     root.removeEventListener('dragstart', onDragStart);
+    root.removeEventListener('lostpointercapture', cancel);
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerup', onPointerUp);
     window.removeEventListener('pointercancel', cancel);

@@ -1829,6 +1829,50 @@ test('a drag that moves nothing gives the caret back, and typing lands there', a
   expect(await sentence(page)).toBe(`${before}ABC`);
 });
 
+/**
+ * The line takes the pointer for the length of a drag.
+ *
+ * Without it the release lands on whatever sits under the pointer — the feed,
+ * a panel, the window chrome — and anything on that path that stops the event,
+ * or a release outside the window at all, never reached the drag. It then
+ * never tore down: the line kept `data-chip-drag`, which is `user-select:
+ * none`, so from that moment a click could not place a caret anywhere in the
+ * brief, and the chip that was picked up stayed behind as an empty dashed
+ * slot. The canvas is not an ancestor of the line, so a listener there that
+ * swallows the release is exactly that case.
+ */
+test('a release the page swallows still ends the drag, and the line still takes a caret', async ({ page }) => {
+  await seedReorder(page);
+  const before = await sentence(page);
+  await page.evaluate(() => {
+    document.querySelector('.sc-canvas')?.addEventListener('pointerup', (e) => e.stopPropagation(), { once: true });
+  });
+
+  const b = (await chips(page).first().boundingBox())!;
+  const canvas = (await page.locator('.sc-canvas').boundingBox())!;
+  await page.mouse.move(Math.round(b.x + b.width / 2), Math.round(b.y + b.height / 2));
+  await page.mouse.down();
+  await page.mouse.move(Math.round(b.x + b.width / 2) + 12, Math.round(b.y + b.height / 2), { steps: 3 });
+  // released over the feed, where the swallowing listener is
+  await page.mouse.move(Math.round(canvas.x + canvas.width / 2), Math.round(canvas.y + 80), { steps: 6 });
+  await page.mouse.up();
+
+  // nothing of the drag is left on screen
+  await expect(page.locator('.sc-chip-ghost')).toHaveCount(0);
+  await expect(page.locator('.sc-drop-caret')).toHaveCount(0);
+  await expect(page.locator('.sc-brief-line[data-chip-drag]')).toHaveCount(0);
+  await expect(page.locator('.sc-brief-line .sc-token[data-drag-src]')).toHaveCount(0);
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.sc-brief-line')!).userSelect)).not.toBe(
+    'none',
+  );
+
+  // and the line takes a caret again: the whole point of the state coming off
+  await line(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('!');
+  expect(await sentence(page)).toBe(`${before}!`);
+});
+
 test('Alt plus an arrow moves a focused chip, and the move is announced', async ({ page }) => {
   await seedReorder(page);
   await chips(page).first().focus();
