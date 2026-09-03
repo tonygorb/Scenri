@@ -9,6 +9,7 @@ import { createCatalogStore, type CatalogStore } from './catalogStore.js';
 export * from './engine.js';
 export * from './store.js';
 export * from './catalogStore.js';
+export * from './searchRules.js';
 export { SpendCapError, type Ledger } from './ledger.js';
 export { SCHEMA_VERSION, SchemaTooNewError } from './db.js';
 export type { ImageStore } from './imageStore.js';

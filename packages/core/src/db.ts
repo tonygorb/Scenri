@@ -376,7 +376,9 @@ function collapseProjects(db: DB): void {
  * node holds more than one image, so a second pass finds nothing to do.
  */
 function splitMultiImageNodes(db: DB): void {
-  const rows = db.prepare('SELECT * FROM nodes').all() as {
+  // Only a row whose images array holds two elements has a comma in it: the
+  // scan stays, the JSON parse of every row on every boot goes.
+  const rows = db.prepare("SELECT * FROM nodes WHERE images LIKE '%,%'").all() as {
     id: string;
     project_id: string;
     parent_id: string | null;
@@ -500,6 +502,126 @@ function splitMultiImageNodes(db: DB): void {
 }
 
 /**
+ * The indexes every list read leans on. `IF NOT EXISTS`, created after the
+ * `nodes` rebuild above (which would otherwise drop them) and outside the
+ * version stamp: a library opened by an older build keeps working, and a
+ * library opened by this one gains them once.
+ *
+ * The three composite indexes each serve one feed ordering plus its keyset
+ * cursor; `parent_id` serves the lineage walk and the versions count;
+ * `status` the restart sweep and the running filter of the activity poll.
+ */
+function ensureIndexes(db: DB): void {
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_nodes_project_created ON nodes(project_id, created_at, id);
+    CREATE INDEX IF NOT EXISTS idx_nodes_project_kept ON nodes(project_id, kept, created_at, id);
+    CREATE INDEX IF NOT EXISTS idx_nodes_project_cost ON nodes(project_id, cost_usd, created_at, id);
+    CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status);
+    CREATE INDEX IF NOT EXISTS idx_catalog_variants_product ON catalog_variants(product_id);
+    CREATE INDEX IF NOT EXISTS idx_cost_events_engine_ts ON cost_events(engine_id, ts);
+  `);
+}
+
+/**
+ * The search text of one node row, in SQL, so the triggers that keep the
+ * index current need no application code: an older build writing rows
+ * through these triggers keeps the index whole. The prompt, the template
+ * field values, and every colour token's name and hex; token display names
+ * are matched by id at query time, since a rename must be found by its new
+ * name without rewriting a single stored shot.
+ */
+function searchTextSql(alias: string): string {
+  const brief = `CASE WHEN json_valid(${alias}.brief) THEN ${alias}.brief ELSE '{}' END`;
+  return `trim(coalesce(${alias}.prompt, '') || ' ' ||
+    coalesce((SELECT group_concat(je.value, ' ') FROM json_each(${brief}, '$.templateFields') AS je), '') || ' ' ||
+    coalesce((SELECT group_concat(coalesce(json_extract(je.value, '$.name'), '') || ' ' || coalesce(json_extract(je.value, '$.hex'), ''), ' ')
+                FROM json_each(${brief}, '$.tokens') AS je WHERE json_extract(je.value, '$.t') = 'color'), ''))`;
+}
+
+/** The brief's product, presenter and scene ids, one row each, plus the legacy bare templateId. */
+function tokenRowsSql(alias: string): string {
+  const brief = `CASE WHEN json_valid(${alias}.brief) THEN ${alias}.brief ELSE '{}' END`;
+  return `SELECT ${alias}.id, json_extract(je.value, '$.t'), json_extract(je.value, '$.id')
+            FROM json_each(${brief}, '$.tokens') AS je
+           WHERE json_extract(je.value, '$.t') IN ('product', 'character', 'template')
+             AND json_extract(je.value, '$.id') IS NOT NULL
+          UNION ALL
+          SELECT ${alias}.id, 'template', json_extract(${brief}, '$.templateId')
+           WHERE json_extract(${brief}, '$.templateId') IS NOT NULL`;
+}
+
+/** The same token rows for every node at once, for the rebuild. */
+function tokenRowsFromNodesSql(): string {
+  const brief = "CASE WHEN json_valid(n.brief) THEN n.brief ELSE '{}' END";
+  return `SELECT n.id, json_extract(je.value, '$.t'), json_extract(je.value, '$.id')
+            FROM nodes n, json_each(${brief}, '$.tokens') AS je
+           WHERE json_extract(je.value, '$.t') IN ('product', 'character', 'template')
+             AND json_extract(je.value, '$.id') IS NOT NULL
+          UNION ALL
+          SELECT n.id, 'template', json_extract(${brief}, '$.templateId')
+            FROM nodes n
+           WHERE json_extract(${brief}, '$.templateId') IS NOT NULL`;
+}
+
+/** Bumped when the text or token rule changes, so an existing index is rebuilt once. */
+const SEARCH_INDEX_VERSION = 'v1';
+
+/**
+ * Two derived tables over `nodes`, kept current by SQLite triggers:
+ * `nodes_fts`, a trigram full-text index over the search text, keyed by the
+ * node's rowid so a delete or an update touches one row; and `node_tokens`,
+ * the ids a brief carries, so "shots that used this product" is an index
+ * lookup rather than a scan of every brief.
+ *
+ * Idempotent by shape and self-healing: the rows are counted against `nodes`
+ * on every open, and a mismatch (a restored backup, a build that predates the
+ * triggers) rebuilds both tables from `nodes` in one transaction. A version
+ * marker in `settings` forces the same rebuild when the rule changes.
+ */
+function ensureSearch(db: DB): void {
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(text, tokenize='trigram case_sensitive 0 remove_diacritics 1');
+    CREATE TABLE IF NOT EXISTS node_tokens (
+      node_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      token_id TEXT NOT NULL,
+      PRIMARY KEY (node_id, kind, token_id)
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS idx_node_tokens_token ON node_tokens(token_id, node_id);
+    CREATE TRIGGER IF NOT EXISTS nodes_search_ai AFTER INSERT ON nodes BEGIN
+      INSERT INTO nodes_fts(rowid, text) VALUES (new.rowid, ${searchTextSql('new')});
+      INSERT OR IGNORE INTO node_tokens(node_id, kind, token_id) ${tokenRowsSql('new')};
+    END;
+    CREATE TRIGGER IF NOT EXISTS nodes_search_au AFTER UPDATE OF prompt, brief ON nodes BEGIN
+      DELETE FROM nodes_fts WHERE rowid = old.rowid;
+      DELETE FROM node_tokens WHERE node_id = old.id;
+      INSERT INTO nodes_fts(rowid, text) VALUES (new.rowid, ${searchTextSql('new')});
+      INSERT OR IGNORE INTO node_tokens(node_id, kind, token_id) ${tokenRowsSql('new')};
+    END;
+    CREATE TRIGGER IF NOT EXISTS nodes_search_ad AFTER DELETE ON nodes BEGIN
+      DELETE FROM nodes_fts WHERE rowid = old.rowid;
+      DELETE FROM node_tokens WHERE node_id = old.id;
+    END;
+  `);
+  const marker = (
+    db.prepare("SELECT value FROM settings WHERE key='search_index'").get() as { value: string } | undefined
+  )?.value;
+  const nodes = (db.prepare('SELECT count(*) c FROM nodes').get() as { c: number }).c;
+  const indexed = (db.prepare('SELECT count(*) c FROM nodes_fts').get() as { c: number }).c;
+  if (marker === SEARCH_INDEX_VERSION && nodes === indexed) return;
+  db.transaction(() => {
+    db.exec('DELETE FROM nodes_fts');
+    db.exec('DELETE FROM node_tokens');
+    db.exec(`INSERT INTO nodes_fts(rowid, text) SELECT n.rowid, ${searchTextSql('n')} FROM nodes n`);
+    db.exec(`INSERT OR IGNORE INTO node_tokens(node_id, kind, token_id) ${tokenRowsFromNodesSql()}`);
+    db.prepare(
+      "INSERT INTO settings (key, value) VALUES ('search_index', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+    ).run(SEARCH_INDEX_VERSION);
+  })();
+}
+
+/**
  * The migration steps below stay "idempotent by shape" — each detects for
  * itself whether it has run. The version stamp exists for the two things shape
  * cannot express: refusing a database written by a NEWER build (its rows may
@@ -617,11 +739,15 @@ export function openDb(homeDir: string): DB {
     db.exec('ALTER TABLE catalog_images ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0');
   }
   widenNodeStatusCheck(db);
+  // after the rebuild above, which would have dropped them
+  ensureIndexes(db);
   backfillSlugs(db);
   // after the backfill, so a set can inherit the slug its project already has
   collapseProjects(db);
   // after collapseProjects, so minted siblings land in the surviving workspace
   splitMultiImageNodes(db);
+  // after the split, so the index counts the rows the split minted
+  ensureSearch(db);
   // Nodes only leave 'running' via the in-process generation promise; after a
   // crash/restart those rows would spin forever in the UI. Sweep them to error.
   db.prepare(

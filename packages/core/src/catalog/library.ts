@@ -1,5 +1,5 @@
 import type { DB } from '../db.js';
-import { imagesFor, productsFor, variantsFor, type LibraryProduct } from './rows.js';
+import { imagesForBrand, productsFor, variantsForBrand, type LibraryProduct } from './rows.js';
 
 export function libraryMethods(db: DB) {
   return {
@@ -20,8 +20,14 @@ export function libraryMethods(db: DB) {
         })),
       }));
 
+      // Three queries for the whole library, whatever its size. This was one
+      // query per product for its images and one more for its variants, and
+      // the studio read it every four seconds: a 576-product store was 1,153
+      // queries per tick.
+      const imagesBy = imagesForBrand(db, brandId);
+      const variantsBy = variantsForBrand(db, brandId);
       const catalog = productsFor(db, brandId).map((p): LibraryProduct => {
-        const images = imagesFor(db, p.id);
+        const images = imagesBy.get(p.id) ?? [];
         const shot = (i: (typeof images)[number]) => ({
           file: i.assetRef!,
           locked: true,
@@ -60,7 +66,7 @@ export function libraryMethods(db: DB) {
           status: p.status,
           shots,
           hiddenShots,
-          variants: variantsFor(db, p.id),
+          variants: variantsBy.get(p.id) ?? [],
         };
       });
 

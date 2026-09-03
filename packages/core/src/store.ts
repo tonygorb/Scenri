@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DB } from './db.js';
 import { RESERVED_SLUGS, firstFree, slugifyWithId } from './slug.js';
+import { ftsMatch, type SearchTerm } from './searchRules.js';
 
 export interface BrandRow {
   id: string;
@@ -19,12 +20,25 @@ export interface ProjectRow {
 }
 export type NodeKind = 'root' | 'generation' | 'edit';
 export type NodeStatus = 'running' | 'done' | 'error' | 'cancelled';
-export interface TreeNode {
+/**
+ * Characters of the compiled prompt a list row carries: enough for a title
+ * (the leading [Scene] tag or the first six words) and alt text. Counted in
+ * code points, which is what SQLite's substr counts.
+ */
+export const PROMPT_HEAD_CHARS = 240;
+/**
+ * A shot as every list carries it. The compiled prompt averages 3 KB and was
+ * 80% of every feed payload, read by nothing a list shows; it stays behind
+ * getNode. The full TreeNode extends this, so a whole record can sit in any
+ * list.
+ */
+export interface FeedNode {
   id: string;
   projectId: string;
   parentId: string | null;
   kind: NodeKind;
-  prompt: string;
+  /** The first PROMPT_HEAD_CHARS code points of the compiled prompt. */
+  promptHead: string;
   engineId: string;
   status: NodeStatus;
   images: string[];
@@ -34,8 +48,6 @@ export interface TreeNode {
   kept: boolean;
   error: string | null;
   createdAt: string;
-  /** Text-overlay layers keyed by image index (editor data, opaque to core). */
-  overlays: Record<string, unknown[]>;
   /** Structured brief this shot came from; null for legacy nodes. */
   brief: unknown | null;
   /** Put away, not gone: an archived node is excluded from the default feed
@@ -46,10 +58,95 @@ export interface TreeNode {
   batchId: string | null;
   /** Which slot of that request this node filled; 0 outside a batch. */
   batchIndex: number;
+  /** How many live (non-archived) refinements hang off this shot: the versions pip. */
+  childCount: number;
+}
+
+/** The whole record: what a list carries plus the compiled prompt and the overlays. */
+export interface TreeNode extends FeedNode {
+  prompt: string;
+  /** Text-overlay layers keyed by image index (editor data, opaque to core). */
+  overlays: Record<string, unknown[]>;
+}
+
+/** What the brand switcher and the route resolver need, never the document. */
+export interface BrandSummary {
+  id: string;
+  slug: string;
+  name: string;
+  website: string | null;
+  /** The primary mark as an asset ref, if the kit has one. */
+  mark: string | null;
+  primaryHex: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type FeedLens = 'all' | 'keepers' | 'archived';
+export type FeedSort = 'newest' | 'oldest' | 'cost' | 'keepers';
+
+/** One search term with the ids whose current display names it matched, resolved by the caller. */
+export interface FeedSearchTerm extends SearchTerm {
+  tokenIds: string[];
+  engineIds: string[];
+}
+
+/** Which shots a feed page is about. Absent means all. */
+export interface FeedFilter {
+  lens?: FeedLens;
+  /** Only shots in this set. */
+  set?: string;
+  /** Only shots in no set. */
+  ungrouped?: boolean;
+  /** This shot and everything descended from it. */
+  lineage?: string;
+  /** Only shots whose brief carries one of these product, presenter or scene ids. */
+  tokens?: string[];
+  /** Every term must match: the index over the prompt, a token's current name, or the engine's name. */
+  terms?: FeedSearchTerm[];
+}
+
+export interface FeedPageQuery extends FeedFilter {
+  sort?: FeedSort;
+  limit?: number;
+  /** The `next` of the previous page. */
+  cursor?: string | null;
+}
+
+export interface FeedCounts {
+  /** Every shot the brand has ever made, whatever the place, lens or search. */
+  total: number;
+  all: number;
+  keepers: number;
+  archived: number;
+  /** Live shots in no set at all, unscoped and unsearched. */
+  ungrouped: number;
+}
+
+export interface FeedPage {
+  items: FeedNode[];
+  /** An opaque keyset cursor for the page after this one; null at the end. */
+  next: string | null;
+}
+
+/** Where one shot sits in its tree. */
+export interface Lineage {
+  /** Root-most first, the parent last; never the root itself. */
+  ancestors: FeedNode[];
+  /** Every shot off the same parent, the shot itself included, oldest first. */
+  siblings: FeedNode[];
+  /** Refinements of the shot, oldest first. */
+  children: FeedNode[];
+}
+
+export interface UsageDay {
+  day: string;
+  generations: number;
+  edits: number;
 }
 
 /** A node carrying the sets it has been put in, for lists that span the brand. */
-export interface ActivityNode extends TreeNode {
+export interface ActivityNode extends FeedNode {
   /** Empty when the shot is in no set, which is an ordinary state, not a gap. */
   setNames: string[];
 }
@@ -117,13 +214,28 @@ function rowToSet(r: any): SetRow {
   };
 }
 
-function rowToNode(r: any): TreeNode {
+/** The first PROMPT_HEAD_CHARS code points, the way SQLite's substr counts them. */
+const headOf = (prompt: unknown): string =>
+  Array.from(String(prompt ?? ''))
+    .slice(0, PROMPT_HEAD_CHARS)
+    .join('');
+
+/** Live refinements hanging off a row, as a correlated subquery over the parent index. */
+const CHILD_COUNT_SQL =
+  "(SELECT count(*) FROM nodes c WHERE c.parent_id = n.id AND c.archived = 0 AND c.kind != 'root')";
+
+/** What every list reads: no prompt, no overlays, two JSON columns instead of three. */
+const FEED_COLS = `n.id, n.project_id, n.parent_id, n.kind, substr(n.prompt, 1, ${PROMPT_HEAD_CHARS}) AS prompt_head,
+  n.engine_id, n.status, n.images, n.cost_usd, n.duration_ms, n.kept, n.error, n.created_at, n.brief, n.archived,
+  n.batch_id, n.batch_index, ${CHILD_COUNT_SQL} AS child_count`;
+
+function rowToFeedNode(r: any): FeedNode {
   return {
     id: r.id,
     projectId: r.project_id,
     parentId: r.parent_id,
     kind: r.kind,
-    prompt: r.prompt,
+    promptHead: r.prompt_head ?? headOf(r.prompt),
     engineId: r.engine_id,
     status: r.status,
     images: JSON.parse(r.images),
@@ -132,11 +244,19 @@ function rowToNode(r: any): TreeNode {
     kept: !!r.kept,
     error: r.error,
     createdAt: r.created_at,
-    overlays: JSON.parse(r.overlays ?? '{}'),
     brief: r.brief ? JSON.parse(r.brief) : null,
     archived: !!r.archived,
     batchId: r.batch_id ?? null,
     batchIndex: r.batch_index ?? 0,
+    childCount: r.child_count ?? 0,
+  };
+}
+
+function rowToNode(r: any): TreeNode {
+  return {
+    ...rowToFeedNode(r),
+    prompt: r.prompt,
+    overlays: JSON.parse(r.overlays ?? '{}'),
   };
 }
 
@@ -155,6 +275,132 @@ function batchStamps(count: number): string[] {
     return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}.${p(d.getUTCMilliseconds(), 3)}`;
   });
 }
+
+/** The keyset behind `next`: where the last row of a page sat in its ordering. */
+interface Keyset {
+  c: string;
+  i: string;
+  v?: number;
+}
+const encodeCursor = (k: Keyset): string => Buffer.from(JSON.stringify(k)).toString('base64url');
+function decodeCursor(cursor: string): Keyset {
+  try {
+    const k = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (typeof k?.c === 'string' && typeof k?.i === 'string') return k;
+  } catch {
+    /* fall through */
+  }
+  throw new Error('invalid cursor');
+}
+
+/** The primary mark of a kit, by the studio's own rule: the entry tagged primary, else the first with a file. */
+export function primaryMarkOf(logos: unknown): string | null {
+  const list = Array.isArray(logos) ? logos.filter((l: any) => l && String(l.file ?? '').trim()) : [];
+  const roles = ['primary', 'mark', 'wordmark', 'monochrome', 'alternate'];
+  const tagged = list.find((l: any) => (roles.includes(l.role) ? l.role : 'primary') === 'primary');
+  const pick = tagged ?? list[0];
+  return pick ? String(pick.file) : null;
+}
+
+/**
+ * The WHERE clauses of a feed filter, on alias `n`, with their parameters.
+ * Shared by the page and the counts so both always agree about what a place
+ * holds. The lens is applied by the page only; the counts describe every lens.
+ */
+function filterSql(f: FeedFilter, params: Record<string, unknown>, withLens: boolean): string[] {
+  const where: string[] = ["n.kind != 'root'"];
+  if (withLens) {
+    if (f.lens === 'archived') where.push('n.archived = 1');
+    else if (f.lens === 'keepers') where.push('n.archived = 0 AND n.kept = 1');
+    else where.push('n.archived = 0');
+  }
+  if (f.lineage) {
+    params.lineage = f.lineage;
+    where.push(
+      'n.id IN (WITH RECURSIVE d(id) AS (SELECT @lineage UNION ALL SELECT c.id FROM nodes c JOIN d ON c.parent_id = d.id) SELECT id FROM d)',
+    );
+  } else if (f.set) {
+    params.set = f.set;
+    where.push('n.id IN (SELECT node_id FROM set_nodes WHERE set_id = @set)');
+  } else if (f.ungrouped) {
+    where.push('NOT EXISTS (SELECT 1 FROM set_nodes sn WHERE sn.node_id = n.id)');
+  }
+  if (f.tokens?.length) {
+    const names = f.tokens.map((t, i) => {
+      params[`tok${i}`] = t;
+      return `@tok${i}`;
+    });
+    where.push(`n.id IN (SELECT node_id FROM node_tokens WHERE token_id IN (${names.join(', ')}))`);
+  }
+  (f.terms ?? []).forEach((term, i) => {
+    const any: string[] = [];
+    const match = ftsMatch(term);
+    if (match) {
+      params[`m${i}`] = match;
+      any.push(`n.rowid IN (SELECT rowid FROM nodes_fts WHERE nodes_fts MATCH @m${i})`);
+    } else {
+      // too short for the trigram index: a scan of the search text, the rare case
+      params[`l${i}`] = `%${term.text.replace(/[\\%_]/g, '\\$&')}%`;
+      any.push(`n.rowid IN (SELECT rowid FROM nodes_fts WHERE lower(text) LIKE @l${i} ESCAPE '\\')`);
+    }
+    if (term.tokenIds.length) {
+      const names = term.tokenIds.map((t, j) => {
+        params[`t${i}_${j}`] = t;
+        return `@t${i}_${j}`;
+      });
+      any.push(`n.id IN (SELECT node_id FROM node_tokens WHERE token_id IN (${names.join(', ')}))`);
+    }
+    if (term.engineIds.length) {
+      const names = term.engineIds.map((e, j) => {
+        params[`e${i}_${j}`] = e;
+        return `@e${i}_${j}`;
+      });
+      any.push(`n.engine_id IN (${names.join(', ')})`);
+    }
+    where.push(`(${any.join(' OR ')})`);
+  });
+  return where;
+}
+
+/** The ORDER BY of each sort and the keyset predicate that continues it. */
+function sortSql(
+  sort: FeedSort,
+  cursor: Keyset | null,
+  params: Record<string, unknown>,
+): { order: string; after: string | null } {
+  if (cursor) {
+    params.c = cursor.c;
+    params.i = cursor.i;
+    params.v = cursor.v ?? 0;
+  }
+  const newest = '(n.created_at < @c OR (n.created_at = @c AND n.id < @i))';
+  const oldest = '(n.created_at > @c OR (n.created_at = @c AND n.id > @i))';
+  switch (sort) {
+    case 'oldest':
+      return { order: 'n.created_at ASC, n.id ASC', after: cursor ? oldest : null };
+    case 'cost':
+      return {
+        order: 'n.cost_usd DESC, n.created_at DESC, n.id DESC',
+        after: cursor ? `(n.cost_usd < @v OR (n.cost_usd = @v AND ${newest}))` : null,
+      };
+    case 'keepers':
+      return {
+        order: 'n.kept DESC, n.created_at DESC, n.id DESC',
+        after: cursor ? `(n.kept < @v OR (n.kept = @v AND ${newest}))` : null,
+      };
+    default:
+      return { order: 'n.created_at DESC, n.id DESC', after: cursor ? newest : null };
+  }
+}
+
+const keysetOf = (n: FeedNode, sort: FeedSort): Keyset =>
+  sort === 'cost'
+    ? { c: n.createdAt, i: n.id, v: n.costUsd }
+    : sort === 'keepers'
+      ? { c: n.createdAt, i: n.id, v: n.kept ? 1 : 0 }
+      : { c: n.createdAt, i: n.id };
+
+export const FEED_PAGE_MAX = 200;
 
 export function createStore(db: DB) {
   return {
@@ -179,6 +425,34 @@ export function createStore(db: DB) {
         id: r.id,
         slug: r.slug,
         json: JSON.parse(r.json),
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      }));
+    },
+    /**
+     * Every brand as the switcher and the route resolver need it. The
+     * document is never parsed: a studio with fifty brands used to hand the
+     * shell fifty whole kits to draw fifty menu rows.
+     */
+    listBrandSummaries(): BrandSummary[] {
+      return (
+        db
+          .prepare(
+            `SELECT id, slug, created_at, updated_at,
+                    json_extract(json, '$.meta.name') AS name,
+                    json_extract(json, '$.meta.website') AS website,
+                    json_extract(json, '$.palette.primary.hex') AS primary_hex,
+                    json_extract(json, '$.logos') AS logos
+               FROM brands ORDER BY created_at`,
+          )
+          .all() as any[]
+      ).map((r) => ({
+        id: r.id,
+        slug: r.slug,
+        name: r.name ? String(r.name) : r.slug,
+        website: r.website ? String(r.website) : null,
+        mark: primaryMarkOf(r.logos ? JSON.parse(r.logos) : null),
+        primaryHex: r.primary_hex ? String(r.primary_hex) : null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       }));
@@ -318,6 +592,13 @@ export function createStore(db: DB) {
       return out;
     },
 
+    /** One set's members, in the order they were filed. */
+    membersOf(setId: string): string[] {
+      return (
+        db.prepare('SELECT node_id FROM set_nodes WHERE set_id=? ORDER BY added_at, node_id').all(setId) as any[]
+      ).map((r) => r.node_id);
+    },
+
     // nodes / version tree
     addNode(input: {
       projectId: string;
@@ -409,7 +690,21 @@ export function createStore(db: DB) {
       db.prepare("UPDATE nodes SET status='cancelled' WHERE id=?").run(id);
     },
     getNode(id: string): TreeNode | null {
-      const r = db.prepare('SELECT * FROM nodes WHERE id=?').get(id) as any;
+      const r = db.prepare(`SELECT n.*, ${CHILD_COUNT_SQL} AS child_count FROM nodes n WHERE n.id=?`).get(id) as any;
+      return r ? rowToNode(r) : null;
+    },
+    /** The list shape of one shot: what a keep or an archive answers with. */
+    getFeedNode(id: string): FeedNode | null {
+      const r = db.prepare(`SELECT ${FEED_COLS} FROM nodes n WHERE n.id=?`).get(id) as any;
+      return r ? rowToFeedNode(r) : null;
+    },
+    /** The project's root, by index, rather than the whole tree read to find it. */
+    rootFor(projectId: string): TreeNode | null {
+      const r = db
+        .prepare(
+          `SELECT n.*, ${CHILD_COUNT_SQL} AS child_count FROM nodes n WHERE n.project_id=? AND n.kind='root' ORDER BY n.created_at, n.id LIMIT 1`,
+        )
+        .get(projectId) as any;
       return r ? rowToNode(r) : null;
     },
     treeFor(projectId: string): TreeNode[] {
@@ -418,9 +713,130 @@ export function createStore(db: DB) {
       // them in a different order on every read — and the feed reshuffles
       // between two loads of one brand. New rows carry a fraction and only
       // tie on a same-millisecond scripted burst.
-      return (db.prepare('SELECT * FROM nodes WHERE project_id=? ORDER BY created_at, id').all(projectId) as any[]).map(
-        rowToNode,
-      );
+      return (
+        db
+          .prepare(
+            `SELECT n.*, ${CHILD_COUNT_SQL} AS child_count FROM nodes n WHERE n.project_id=? ORDER BY n.created_at, n.id`,
+          )
+          .all(projectId) as any[]
+      ).map(rowToNode);
+    },
+    /**
+     * One page of a project's shots for a place, lens, search and sort.
+     *
+     * Keyset paging on the sort's own columns, never OFFSET: the cost of page
+     * forty is the cost of page one, and a shot landing between two pages
+     * shifts nothing already read. Every clause is served by an index or by
+     * the search index; the whole workspace is never read.
+     */
+    feedPage(projectId: string, q: FeedPageQuery): FeedPage {
+      const limit = Math.max(1, Math.min(FEED_PAGE_MAX, Math.floor(q.limit ?? 60)));
+      const sort: FeedSort = q.sort ?? 'newest';
+      const params: Record<string, unknown> = { project: projectId, limit: limit + 1 };
+      const where = ['n.project_id = @project', ...filterSql(q, params, true)];
+      const { order, after } = sortSql(sort, q.cursor ? decodeCursor(q.cursor) : null, params);
+      if (after) where.push(after);
+      const rows = db
+        .prepare(`SELECT ${FEED_COLS} FROM nodes n WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT @limit`)
+        .all(params) as any[];
+      const items = rows.slice(0, limit).map(rowToFeedNode);
+      const more = rows.length > limit;
+      return { items, next: more && items.length ? encodeCursor(keysetOf(items[items.length - 1], sort)) : null };
+    },
+    /** What each lens would show from a place and search, plus the two unscoped totals. */
+    feedCounts(projectId: string, f: FeedFilter): FeedCounts {
+      const params: Record<string, unknown> = { project: projectId };
+      const where = ['n.project_id = @project', ...filterSql({ ...f, lens: undefined }, params, false)];
+      const scoped = db
+        .prepare(
+          `SELECT coalesce(sum(n.archived = 0), 0) AS live, coalesce(sum(n.archived = 0 AND n.kept = 1), 0) AS kept,
+                  coalesce(sum(n.archived = 1), 0) AS archived
+             FROM nodes n WHERE ${where.join(' AND ')}`,
+        )
+        .get(params) as { live: number; kept: number; archived: number };
+      const total = (
+        db.prepare("SELECT count(*) AS c FROM nodes n WHERE n.project_id = ? AND n.kind != 'root'").get(projectId) as {
+          c: number;
+        }
+      ).c;
+      const ungrouped = (
+        db
+          .prepare(
+            `SELECT count(*) AS c FROM nodes n
+              WHERE n.project_id = ? AND n.kind != 'root' AND n.archived = 0
+                AND NOT EXISTS (SELECT 1 FROM set_nodes sn WHERE sn.node_id = n.id)`,
+          )
+          .get(projectId) as { c: number }
+      ).c;
+      return { total, all: scoped.live, keepers: scoped.kept, archived: scoped.archived, ungrouped };
+    },
+    /**
+     * Where one shot sits in its tree, from the parent index: its ancestors
+     * up to (never including) the root, everything off the same parent, and
+     * everything off it. Archived versions stay in the strip, as they did
+     * when the overlay walked the whole workspace.
+     */
+    lineageOf(id: string): Lineage | null {
+      const node = this.getFeedNode(id);
+      if (!node) return null;
+      const ancestors: FeedNode[] = [];
+      let cur = node.parentId ? this.getFeedNode(node.parentId) : null;
+      for (let hops = 0; cur && cur.kind !== 'root' && hops < 64; hops++) {
+        ancestors.unshift(cur);
+        cur = cur.parentId ? this.getFeedNode(cur.parentId) : null;
+      }
+      const siblings = (
+        db
+          .prepare(
+            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id IS ? AND n.kind != 'root' ORDER BY n.created_at, n.id`,
+          )
+          .all(node.parentId) as any[]
+      ).map(rowToFeedNode);
+      const children = (
+        db
+          .prepare(
+            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id = ? AND n.kind != 'root' ORDER BY n.created_at, n.id`,
+          )
+          .all(node.id) as any[]
+      ).map(rowToFeedNode);
+      return { ancestors, siblings, children };
+    },
+    /** The newest finished shots, newest first, for the rail and the attach panel. */
+    recentShots(projectId: string, limit = 48): FeedNode[] {
+      return (
+        db
+          .prepare(
+            `SELECT ${FEED_COLS} FROM nodes n
+              WHERE n.project_id = ? AND n.kind != 'root' AND n.status = 'done' AND n.images != '[]'
+              ORDER BY n.created_at DESC, n.id DESC LIMIT ?`,
+          )
+          .all(projectId, Math.max(1, Math.min(FEED_PAGE_MAX, limit))) as any[]
+      ).map(rowToFeedNode);
+    },
+    /** A year of runs by day, counted where the rows are. */
+    usageByDay(brandId: string): UsageDay[] {
+      return (
+        db
+          .prepare(
+            `SELECT substr(n.created_at, 1, 10) AS day,
+                    coalesce(sum(n.kind = 'generation'), 0) AS generations,
+                    coalesce(sum(n.kind = 'edit'), 0) AS edits
+               FROM nodes n JOIN projects p ON p.id = n.project_id
+              WHERE p.brand_id = ? AND n.kind != 'root' AND n.created_at >= date('now', '-400 days')
+              GROUP BY day ORDER BY day`,
+          )
+          .all(brandId) as any[]
+      ).map((r) => ({ day: String(r.day), generations: Number(r.generations), edits: Number(r.edits) }));
+    },
+    /** The compiled prompt of the shot that produced an image, for a reference described in words. */
+    promptForImage(brandId: string, hash: string): string | null {
+      const r = db
+        .prepare(
+          `SELECT n.prompt FROM nodes n JOIN projects p ON p.id = n.project_id
+            WHERE p.brand_id = ? AND n.images LIKE ? ORDER BY n.created_at, n.id LIMIT 1`,
+        )
+        .get(brandId, `%"${hash}"%`) as { prompt: string } | undefined;
+      return r?.prompt ?? null;
     },
     /**
      * Every piece of work a brand has in flight, plus whatever finished lately,
@@ -435,7 +851,7 @@ export function createStore(db: DB) {
     recentActivity(brandId: string, limit = 60): ActivityNode[] {
       const rows = db
         .prepare(
-          `SELECT n.*, (
+          `SELECT ${FEED_COLS}, (
                     SELECT group_concat(s.name, char(31))
                       FROM set_nodes sn JOIN sets s ON s.id = sn.set_id
                      WHERE sn.node_id = n.id
@@ -450,7 +866,7 @@ export function createStore(db: DB) {
         .all(brandId, limit) as any[];
       // char(31) is the unit separator: a set may legally be called "A, B"
       return rows.map((r) => ({
-        ...rowToNode(r),
+        ...rowToFeedNode(r),
         setNames: r.set_names ? String(r.set_names).split(SET_NAME_SEP) : [],
       }));
     },
