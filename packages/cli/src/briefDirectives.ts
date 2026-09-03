@@ -90,7 +90,10 @@ export function extendPreservationDirective(): string {
   );
 }
 
-export function editPreservationDirective(scope: 'local' | 'global', opts?: { removal?: boolean }): string {
+export function editPreservationDirective(
+  scope: 'local' | 'global',
+  opts?: { removal?: boolean; relights?: boolean },
+): string {
   if (scope === 'local') {
     const removal = opts?.removal
       ? ' What is removed leaves nothing behind: the surface and the scene continue as if it had never been there, with no outline, silhouette, residue or ghost of it.'
@@ -110,11 +113,19 @@ export function editPreservationDirective(scope: 'local' | 'global', opts?: { re
   // fifth consecutive global refine a plain dress had grown an embossed
   // pattern no hop asked for, and skin had hardened a step per hop. A full
   // re-render invents texture unless told the surfaces are already finished.
+  //
+  // The light line is the same lesson one axis over. The local variant always
+  // said "the same lighting"; the global one named subject, product,
+  // dimensions and texture and never light, so "make the texture more
+  // realistic" was free to relight the whole frame. It is pinned unless the
+  // instruction itself is about light (editScopeRules: relights), in which
+  // case the ask wins and nothing here argues with it.
+  const light = opts?.relights ? '' : ' The light stays as it is: the same direction, colour temperature and shadows.';
   return (
     'This is a change to a photograph that already exists, not a new photograph. Apply the instruction to the image ' +
     'you were given and keep what it does not name: the same subject and the same face, the same product with the ' +
     'same label, geometry and colour, and the same dimensions. Do not replace the subject and do not redesign the ' +
-    'product. Every surface keeps the texture it already has: no invented pattern, grain, weave or embossing on ' +
+    `product.${light} Every surface keeps the texture it already has: no invented pattern, grain, weave or embossing on ` +
     'fabric, skin or walls that the photograph does not carry now.'
   );
 }
@@ -376,6 +387,80 @@ export function shotSpecifiesCamera(text: string): boolean {
   return /\b\d{2,3}\s?mm\b|\bf\/\d|\blens\b|\bcamera\b|\bshot from\b|\beye[- ]level\b|\blow angle\b|\bhigh angle\b|\boverhead\b|\btop[- ]down\b|\bbird'?s[- ]eye\b|\bclose[- ]?up\b|\bmacro\b|\bwide shot\b|\bcrop(?:ped)?\b|\bframing\b|\bDOF\b|\bdepth of field\b|\bbokeh\b|\bshallow (?:focus|depth)\b|\bdeep focus\b/i.test(
     text,
   );
+}
+
+/**
+ * Does the shot direction already decide the light?
+ *
+ * The camera rule, one axis over. Read against the user's OWN words only,
+ * never the compiled sentence: 71 of 72 catalog scene prompts name their
+ * light, so a gate that read the sentence would silence every scene. Same
+ * generosity as the camera: a false positive only drops the scene's default
+ * line, a false negative would put two lights in one prompt. Bare "key",
+ * "fill", "warm" and "cool" are left out on purpose ("key visual", "fill the
+ * frame", "a warm cup"), and so are the nouns the showcase recipes measured
+ * as objects rather than light: a cap or lens "rim", an aloe "gel", spray
+ * "mist", a table "lamp", and "sun" inside a hyphenated compound
+ * ("sun-stick", "sun-cracked"). Their light senses stay: "rim light",
+ * "gelled", "misty", "lamplight", "low sun".
+ */
+export function shotSpecifiesLight(text: string): boolean {
+  return /\blight(?:s|ing|ed)?\b|\blit\b|\bflash\b|\bstrobe\b|\bspot ?light\b|\bsoft ?box\b|\bgelled\b|\bcolou?r gels?\b|\bback ?lit\b|\bbacklight\b|\brim[- ]?li(?:ght|t)\b|\bglow(?:ing)?\b|\bneon\b|\bgolden hour\b|\bblue hour\b|\bsun\b(?!-)|\bsun(?:set|rise|light|lit|ny)\b|\bdusk\b|\bdawn\b|\bnight(?:time)?\b|\bmidday\b|\bnoon\b|\bovercast\b|\bcloudy\b|\bdaylight\b|\bmoon(?:lit|light)\b|\bcandle(?:lit|light)?\b|\blamp[- ]?li(?:ght|t)\b|\bshadow(?:s|ed|y)?\b|\bsilhouette[ds]?\b|\bhigh[- ]key\b|\blow[- ]key\b|\bchiaroscuro\b|\bexposure\b|\b(?:over|under)exposed\b|\bwhite ?balance\b|\bcolou?r temperature\b|\b\d{4} ?k\b|\bdiffused?\b|\bbounced?\b|\bpracticals\b|\b(?:the|a|one|low|warm|single) practical\b|\btungsten\b|\bfluorescent\b|\bfoggy\b|\bmisty\b|\bhazy\b/i.test(
+    text,
+  );
+}
+
+/**
+ * Who owns the light.
+ *
+ * Scene = illumination, product references = identity and material, and the
+ * compiler says so. Before this nothing did: Scene.lighting, the one
+ * structured light phrase every catalog scene carries and the analyzer is
+ * required to write, reached the plate draw, the cards and the search index
+ * and never a generation prompt; and where a presenter's reference has always
+ * been released ("their lighting is neutral studio capture conditions") the
+ * product's packshot never was, so its softbox rode into the finished frame
+ * and a good render sat pasted into a good scene.
+ *
+ * Two short lines, in the register the camera line already uses.
+ *   - the WORLD line, `Light for this shot: <scene.lighting>.`, when a scene
+ *     is in the brief, something is attached to be lit, the direction did not
+ *     choose the light itself, and no hand-attached reference already owns it
+ *     (its directive says "match the composition, lighting and treatment",
+ *     and a catalog default must not outrank a deliberate attachment);
+ *   - the PRODUCT release, when a product photo rides and there is a world to
+ *     take light from (a scene or a reference). No scene and no reference
+ *     means the packshot's light is the best evidence the model has, so the
+ *     plain packshot path stays byte-identical.
+ * A presenter and a product attached together get one clause tying them to
+ * the same light. Generation only: a refinement's picture already holds it.
+ */
+export function lightingContractDirectives(opts: {
+  /** The scene's `lighting` phrase; '' when no scene is in the brief. */
+  sceneLighting: string;
+  /** shotSpecifiesLight over the user's own text tokens, never the compiled sentence. */
+  directionLights: boolean;
+  /** A reference token rides: it is a world of its own. */
+  hasReference: boolean;
+  /** A product or presenter is in the brief, so there is something to light. */
+  hasIdentity: boolean;
+  /** A product photo actually rides, so the release names a real picture. */
+  productRides: boolean;
+  hasPerson: boolean;
+}): string[] {
+  const lighting = opts.sceneLighting.trim().replace(/[.\s]+$/, '');
+  const out: string[] = [];
+  if (lighting && !opts.directionLights && !opts.hasReference && opts.hasIdentity)
+    out.push(`Light for this shot: ${lighting}.`);
+  if (opts.productRides && (lighting || opts.hasReference))
+    out.push(
+      "The product reference photographs define the product's identity and materials, never the light they were " +
+        "taken in: light it as physically present in this set, with this set's key direction, softness, colour " +
+        'temperature and exposure on its surfaces, its bounce and reflections, and its own cast and contact shadows, ' +
+        'label and form still readable.' +
+        (opts.hasPerson ? ' The presenter and the product stand in that same light.' : ''),
+    );
+  return out;
 }
 
 /**

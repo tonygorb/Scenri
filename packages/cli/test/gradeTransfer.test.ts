@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import sharp from 'sharp';
 import { gradeComposite, isGradeOnlyInstruction, GRADE_GATE_MEAN_DELTA } from '../src/gradeTransfer.js';
+import { scopeOfInstruction } from '../src/editScopeRules.js';
 
 // A textured test card: gradient + noise, so a grade is measurable and
 // geometry changes are distinguishable from tone changes.
@@ -35,6 +36,22 @@ describe('isGradeOnlyInstruction', () => {
     ])
       expect(isGradeOnlyInstruction(t), t).toBe(true);
   });
+  it('every tonal sentence is also a global relight, so the grade path and the scope verdict agree', () => {
+    for (const t of [
+      'slightly warmer light',
+      'cooler, overcast light',
+      'deeper shadows',
+      'a touch more contrast',
+      'make the lighting slightly softer',
+      'warmer light again',
+    ]) {
+      const v = scopeOfInstruction(t);
+      expect(v.scope, t).toBe('global');
+      expect(v.relights, t).toBe(true);
+      expect(isGradeOnlyInstruction(t), t).toBe(true);
+    }
+  });
+
   it('refuses anything that names a thing or an action on one', () => {
     for (const t of [
       'remove the cup on the left',

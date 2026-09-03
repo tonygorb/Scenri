@@ -52,6 +52,34 @@ describe('edit scope', () => {
     expect(scope('remove the cup, warmer overall')).toBe('global');
   });
 
+  // A global refine used to be free to relight the whole frame whatever it
+  // asked for. The verdict now says whether the instruction is about light at
+  // all, so preservation can pin the light when it is not.
+  it('knows whether the instruction relights the picture', () => {
+    const relights = (s: string) => scopeOfInstruction(s).relights;
+    for (const t of [
+      'make the lighting softer',
+      'warmer',
+      'at night',
+      'make it nighttime',
+      'cooler, overcast light',
+      'deeper shadows',
+      'make it more editorial',
+      'black and white',
+      'brighter highlights',
+    ])
+      expect(relights(t), t).toBe(true);
+    for (const t of [
+      'make the texture more realistic',
+      'change her outfit',
+      'move the camera lower',
+      'wider framing',
+      'remove the cup on the left',
+      'do something interesting with it',
+    ])
+      expect(relights(t), t).toBeFalsy();
+  });
+
   it('explains which cue decided, so a surprising call can be read back', () => {
     expect(scopeOfInstruction('make it nighttime').matched).toContain('time');
     expect(scopeOfInstruction('remove the cup on the left').matched).toContain('region');

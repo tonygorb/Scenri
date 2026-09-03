@@ -651,6 +651,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       mode: 'edit' as const,
       editScope: verdict.scope,
       editRemoval: verdict.removal ?? false,
+      editRelights: verdict.relights ?? false,
       // Kinds, not a count: the identity claim speaks only about the kinds
       // that actually ride. A mark-only or ref-only inheritance emits no
       // generic claim - markEditDirective and inheritedRefDirective speak

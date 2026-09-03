@@ -475,6 +475,40 @@ describe('generation flow', () => {
       expect(globalNode.prompt).toContain('Apply the instruction to the image you were given');
       expect(globalNode.prompt).not.toContain('Change only what was asked for');
     });
+
+    it('a global refine keeps the light unless the instruction is about light', { timeout: 20_000 }, async () => {
+      const { brand } = await seedBrand();
+      const { project } = await mkProject(brand.id);
+      const gen = await app.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: { projectId: project.id, kind: 'generation', engineId: 'demo', brief: briefWithProduct() },
+      });
+      const genNode = await waitDone(gen.json().id);
+      const refine = async (v: string) => {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/nodes',
+          payload: {
+            projectId: project.id,
+            parentId: genNode.id,
+            kind: 'edit',
+            engineId: 'demo',
+            sourceImage: genNode.images[0],
+            brief: { tokens: [{ t: 'text', v }] },
+          },
+        });
+        return waitDone(res.json().id);
+      };
+      // "more realistic" reads as a whole-frame change, and used to be free to
+      // relight everything while it was at it.
+      const texture = await refine('make the texture more realistic');
+      expect(texture.prompt).toContain('Apply the instruction to the image you were given');
+      expect(texture.prompt).toContain('The light stays as it is');
+      // An instruction about the light gets to change it.
+      const softer = await refine('make the lighting softer');
+      expect(softer.prompt).not.toContain('The light stays as it is');
+    });
   });
 
   // Asking a finished shot for a different shape used to start a new one, so a

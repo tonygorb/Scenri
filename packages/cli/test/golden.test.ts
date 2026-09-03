@@ -22,7 +22,7 @@ import {
   type EngineCapabilities,
 } from '@scenri/core';
 import { compileBrief, validateBrief, FORMATS, PRODUCT_REF_MAX, CHARACTER_REF_MAX, type Brief } from '../src/brief.js';
-import { markEditDirective } from '../src/briefDirectives.js';
+import { markEditDirective, shotSpecifiesLight } from '../src/briefDirectives.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 
 let home: string;
@@ -480,6 +480,156 @@ describe('golden: responsibility contract', () => {
       { t: 'template', id: PRODUCT_SCENE },
     ]);
     expect(r.prompt).not.toContain('Camera for this shot:');
+  });
+
+  // The scene owns the light; the product's reference photographs own what
+  // the product is. Nothing used to say either: Scene.lighting never reached a
+  // prompt, and a packshot's studio light rode along as if it were the
+  // product's own, so a good product render sat pasted into a good scene.
+  describe('golden: the scene lights the product', () => {
+    const WORLD = 'Light for this shot:';
+    const RELEASE = 'never the light they were taken in';
+    const SHARED = 'stand in that same light';
+    const sceneLighting = resolveScene(PRODUCT_SCENE)!.lighting;
+
+    it('a product in a scene takes the scene light, said after the fidelity lines and before the guards', () => {
+      const r = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'template', id: PRODUCT_SCENE },
+      ]);
+      expect(r.prompt).toContain(`${WORLD} ${sceneLighting}.`);
+      expect(r.prompt).toContain(RELEASE);
+      expect(r.prompt.indexOf(WORLD)).toBeGreaterThan(r.prompt.indexOf('preserve its label'));
+      expect(r.prompt.indexOf(WORLD)).toBeGreaterThan(r.prompt.indexOf('Its materials and finish'));
+      expect(r.prompt.indexOf(WORLD)).toBeLessThan(r.prompt.indexOf('Disregard any product'));
+      expect(r.prompt.indexOf(RELEASE)).toBeLessThan(r.prompt.indexOf('Disregard any product'));
+    });
+
+    it("the scene's own prose never counts as the direction choosing the light", () => {
+      // 71 of 72 catalog scene prompts name light; the gate reads the user's
+      // words, never the compiled sentence, or every scene would silence itself.
+      expect(shotSpecifiesLight(resolveScene(PRODUCT_SCENE)!.prompt)).toBe(true);
+      const r = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'template', id: PRODUCT_SCENE },
+        { t: 'text', v: ' on a cold morning' },
+      ]);
+      expect(r.prompt).toContain(WORLD);
+    });
+
+    it('says nothing without a scene, and nothing on a scene alone', () => {
+      const packshot = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: ' on a stone plinth' },
+      ]);
+      expect(packshot.prompt).not.toContain(WORLD);
+      expect(packshot.prompt).not.toContain(RELEASE);
+      const sceneOnly = compile([{ t: 'template', id: PRODUCT_SCENE }]);
+      expect(sceneOnly.prompt).not.toContain(WORLD);
+      expect(sceneOnly.prompt).not.toContain(RELEASE);
+    });
+
+    it('a presenter in a scene takes the light, with no product release to speak', () => {
+      const r = compile([
+        { t: 'character', id: 'c1' },
+        { t: 'template', id: PRODUCT_SCENE },
+      ]);
+      expect(r.prompt).toContain(WORLD);
+      expect(r.prompt).not.toContain(RELEASE);
+      expect(r.prompt).not.toContain(SHARED);
+    });
+
+    it('stays out of a refinement, where the picture already holds the light', () => {
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'p1' },
+            { t: 'template', id: PRODUCT_SCENE },
+          ],
+        },
+        { brand: brand(), images: core.images, engineCaps: caps(6), templateById: resolveScene, mode: 'edit' },
+      );
+      expect(r.prompt).not.toContain(WORLD);
+      expect(r.prompt).not.toContain(RELEASE);
+    });
+
+    it('the direction wins: explicit light words drop the scene light and keep the product release', () => {
+      const r = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'template', id: PRODUCT_SCENE },
+        { t: 'text', v: ' backlit at golden hour' },
+      ]);
+      expect(r.prompt).not.toContain(WORLD);
+      expect(r.prompt).toContain(RELEASE);
+    });
+
+    it('a hand-attached reference already owns the light, so the scene line yields to it', () => {
+      const withScene = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'template', id: PRODUCT_SCENE },
+        { t: 'ref', imageHash: inspoHash },
+      ]);
+      expect(withScene.prompt).not.toContain(WORLD);
+      expect(withScene.prompt).toContain(RELEASE);
+      const refOnly = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'ref', imageHash: inspoHash },
+      ]);
+      expect(refOnly.prompt).not.toContain(WORLD);
+      expect(refOnly.prompt).toContain(RELEASE);
+    });
+
+    it('a presenter and a product share the one light, only when both are attached', () => {
+      const both = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'character', id: 'c1' },
+        { t: 'template', id: PRODUCT_SCENE },
+      ]);
+      expect(both.prompt).toContain(WORLD);
+      expect(both.prompt).toContain(RELEASE);
+      expect(both.prompt).toContain(SHARED);
+      const productOnly = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'template', id: PRODUCT_SCENE },
+      ]);
+      expect(productOnly.prompt).not.toContain(SHARED);
+    });
+
+    it('shotSpecifiesLight is generous about light words and blind to everything else', () => {
+      for (const t of [
+        'backlit',
+        'at golden hour',
+        'a single spotlight',
+        'soft window light',
+        'neon glow',
+        'hard shadows',
+        'shot at dusk',
+        'overcast afternoon',
+        'silhouetted against the door',
+        'gelled flash',
+        'lit from the left',
+        'tungsten lamps',
+      ])
+        expect(shotSpecifiesLight(t), t).toBe(true);
+      for (const t of [
+        'a mug on a table',
+        'closeup with strong DOF',
+        'on a marble counter',
+        'fill the frame with the bottle',
+        'a warm cup of coffee',
+        'the key visual for the launch',
+        // measured on the showcase recipes: objects, not light
+        'two drops shed off the cap rim',
+        'the nearest gel core in one plane',
+        'this flat-oval anodised sun-stick tube',
+        'spray mist beads on the metal',
+        'a book folded past the lamp',
+      ])
+        expect(shotSpecifiesLight(t), t).toBe(false);
+      // and their light senses still count
+      for (const t of ['a hard rim light', 'lamplight pooling', 'low sun over the wall', 'a misty morning'])
+        expect(shotSpecifiesLight(t), t).toBe(true);
+    });
   });
 
   // Apparel briefs that carried no presenter produced an invented wearer: a

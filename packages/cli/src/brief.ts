@@ -19,6 +19,7 @@ export {
   sceneGuardDirectives,
   sceneFigureDirectives,
   shotSpecifiesCamera,
+  shotSpecifiesLight,
 } from './briefDirectives.js';
 import {
   brandRuleDirectives,
@@ -27,6 +28,7 @@ import {
   extendPreservationDirective,
   garmentDisplayDirective,
   inheritedIdentityDirective,
+  lightingContractDirectives,
   markLabel,
   namesAreNotLetteringDirective,
   personSkinDirective,
@@ -37,6 +39,7 @@ import {
   sceneFigureDirectives,
   sceneGuardDirectives,
   shotSpecifiesCamera,
+  shotSpecifiesLight,
   soloProductDirective,
 } from './briefDirectives.js';
 
@@ -206,6 +209,8 @@ interface CompileContext {
   editScope?: EditScope;
   /** The instruction removes something, so the ghost it would leave is named. */
   editRemoval?: boolean;
+  /** The instruction changes the light itself, so preservation must not pin it. See editScopeRules. */
+  editRelights?: boolean;
   /**
    * Which identity KINDS were inherited from the shot being refined, so the
    * claim speaks only about what actually rides. Legacy `true` means both -
@@ -677,6 +682,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   }
 
   sentence = sentence.replace(/\s{2,}/g, ' ').trim();
+  // The user's own words, apart from everything a chip compiled into the
+  // sentence: the light gate reads these, never the scene's prose.
+  const direction = brief.tokens
+    .filter((t): t is Extract<BriefToken, { t: 'text' }> => t.t === 'text')
+    .map((t) => t.v)
+    .join(' ');
 
   const explicitFormat = [...brief.tokens]
     .reverse()
@@ -901,7 +912,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // extendPreservationDirective.
           ...(ctx.editReshape === 'extend'
             ? [extendPreservationDirective()]
-            : [editPreservationDirective(ctx.editScope ?? 'global', { removal: ctx.editRemoval })]),
+            : [
+                editPreservationDirective(ctx.editScope ?? 'global', {
+                  removal: ctx.editRemoval,
+                  relights: ctx.editRelights,
+                }),
+              ]),
           ...(ctx.inheritedIdentity
             ? [inheritedIdentityDirective(ctx.inheritedIdentity === true ? undefined : ctx.inheritedIdentity)]
             : []),
@@ -936,6 +952,24 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // generation: an edit's identity rides the source frame.
   const refGuard =
     ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
+  // Who owns the light (briefDirectives.ts). Beside the camera line, the same
+  // tier: a scene default resolved against the direction. After the product
+  // and person blocks it has to outrank (the fidelity line, "the view the
+  // reference gives", the materials), before the brand rules and the guards,
+  // which keep the last word. Reads the post-dedupe attachments so a
+  // budget-dropped reference still counts as owning the light, exactly as
+  // its absent-attachment line still says "match that lighting".
+  const lightingDirectives =
+    ctx.mode !== 'edit'
+      ? lightingContractDirectives({
+          sceneLighting: scene?.lighting ?? '',
+          directionLights: shotSpecifiesLight(direction),
+          hasReference: attachments.some((a) => a.role === 'reference'),
+          hasIdentity: !!productId || hasPerson,
+          productRides: [...presentKeys].some((k) => k.startsWith('product:')),
+          hasPerson,
+        })
+      : [];
 
   const allDirectives: DeferredDirective[] = [
     // First, beside the sentence that names things: the model reads the names
@@ -949,6 +983,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...otherDirectives,
     ...absentDirectives,
     ...cameraDirectives,
+    ...lightingDirectives,
     ...apparelUnworn,
     ...productAlone,
     ...brandLines,

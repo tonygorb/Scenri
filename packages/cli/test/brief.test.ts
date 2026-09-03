@@ -971,6 +971,43 @@ describe('brief through the API', () => {
   });
 });
 
+describe('a refinement keeps the light unless it asks to change it', () => {
+  const KEEP_LIGHT = 'The light stays as it is';
+  const texture = [{ t: 'text', v: 'make the texture more realistic' }] as any;
+
+  it('a global refine that says nothing about light pins it', () => {
+    const r = compileBrief({ tokens: texture }, ctx({ mode: 'edit', editScope: 'global', editRelights: false }));
+    expect(r.prompt).toContain(KEEP_LIGHT);
+    expect(r.prompt).toContain('the same direction, colour temperature and shadows');
+    // and it still sits inside the preservation block, before the texture line
+    expect(r.prompt.indexOf(KEEP_LIGHT)).toBeGreaterThan(r.prompt.indexOf('do not redesign the product'));
+    expect(r.prompt.indexOf(KEEP_LIGHT)).toBeLessThan(r.prompt.indexOf('Every surface keeps the texture'));
+  });
+
+  it('a refine that asks to relight is free to', () => {
+    const r = compileBrief(
+      { tokens: [{ t: 'text', v: 'make the lighting softer' }] },
+      ctx({ mode: 'edit', editScope: 'global', editRelights: true }),
+    );
+    expect(r.prompt).not.toContain(KEEP_LIGHT);
+  });
+
+  it('a local refine already says the same lighting, and says nothing twice', () => {
+    const r = compileBrief(
+      { tokens: [{ t: 'text', v: 'remove the cup on the left' }] },
+      ctx({ mode: 'edit', editScope: 'local', editRelights: false }),
+    );
+    expect(r.prompt).toContain('the same lighting');
+    expect(r.prompt).not.toContain(KEEP_LIGHT);
+  });
+
+  it('an extend keeps its own under-the-same-light wording', () => {
+    const r = compileBrief({ tokens: texture }, ctx({ mode: 'edit', editReshape: 'extend', editRelights: false }));
+    expect(r.prompt).toContain('under the same light');
+    expect(r.prompt).not.toContain(KEEP_LIGHT);
+  });
+});
+
 describe('an extend edit drops the dimension promise', () => {
   const editTokens = [{ t: 'text', v: 'golden light' }] as any;
 

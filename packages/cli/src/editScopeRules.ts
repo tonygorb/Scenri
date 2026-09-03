@@ -35,6 +35,13 @@ export interface ScopeVerdict {
   /** True when the instruction removes something, which needs its own clause:
    * an engine that paints a thing out tends to leave its ghost behind. */
   removal?: boolean;
+  /**
+   * True when the instruction is about the light itself (light, grade, time
+   * of day, weather, mood, or a tonal comparative), so the preservation
+   * directive must not pin the light it is being asked to change. Unset on a
+   * local verdict, whose own wording already keeps the lighting.
+   */
+  relights?: boolean;
 }
 
 /**
@@ -70,6 +77,17 @@ const GLOBAL_CUES: [string, RegExp][] = [
 ];
 
 /**
+ * The cue groups that mean the instruction is about the light, plus the tonal
+ * words that reach a global verdict without matching any group ("deeper
+ * shadows" is grade-only to gradeTransfer.ts and matches nothing above).
+ */
+const RELIGHT_GROUPS = new Set(['light', 'grade', 'time', 'weather', 'mood']);
+const RELIGHT_WORD =
+  /\b(warmer|cooler|brighter|darker|softer|harder|moodier|punchier|flatter|deeper|dimmer|shadows?|highlights?|glow(?:ing)?|sunlit|sunny|candlelit|moonlit)\b/i;
+const relightsPicture = (s: string, globals: string[]) =>
+  globals.some((g) => RELIGHT_GROUPS.has(g)) || RELIGHT_WORD.test(s);
+
+/**
  * A targeted verb aimed at a definite thing. The determiner matters: "remove
  * the cup" names an object that exists in the frame, while "remove clutter" is
  * a note about the picture as a whole.
@@ -101,23 +119,24 @@ export function scopeOfInstruction(text: string): ScopeVerdict {
   if (!s) return { scope: 'global', matched: ['empty'] };
 
   const globals = GLOBAL_CUES.filter(([, re]) => re.test(s)).map(([name]) => name);
-  if (globals.length) return { scope: 'global', matched: globals };
+  const relights = relightsPicture(s, globals);
+  if (globals.length) return { scope: 'global', matched: globals, relights };
 
   const words = s.split(/\s+/).filter(Boolean);
-  if (words.length > MAX_LOCAL_WORDS) return { scope: 'global', matched: ['long'] };
+  if (words.length > MAX_LOCAL_WORDS) return { scope: 'global', matched: ['long'], relights };
 
   // Two requests in one sentence: even when both look local, the second is
   // unverifiable against a single changed region, so do not promise to keep
   // anything.
   const clauses = s.split(COORDINATION).filter((c) => c.trim().length > 0);
   if (clauses.length > 1 && clauses.filter((c) => LOCAL_VERB.test(c)).length > 1) {
-    return { scope: 'global', matched: ['multiple'] };
+    return { scope: 'global', matched: ['multiple'], relights };
   }
 
   const matched: string[] = [];
   if (REGION_CUE.test(s)) matched.push('region');
   if (LOCAL_VERB.test(s) && DEFINITE_OBJECT.test(s)) matched.push('verb+object');
-  if (!matched.length) return { scope: 'global', matched: ['no local cue'] };
+  if (!matched.length) return { scope: 'global', matched: ['no local cue'], relights };
 
   return { scope: 'local', matched, removal: REMOVAL_VERB.test(s) };
 }
