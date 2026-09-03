@@ -1078,7 +1078,7 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.prompt).toContain('Lena is in this photograph');
   });
 
-  it('with nobody attached, the world is photographed unpopulated and the product takes the figure\'s place', () => {
+  it("with nobody attached, the world is photographed unpopulated and the product takes the figure's place", () => {
     const r = compileBrief(
       {
         tokens: [

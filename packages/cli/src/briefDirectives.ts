@@ -337,6 +337,27 @@ export function garmentDisplayDirective(): string {
 }
 
 /**
+ * The general case of the garment line: a product with nobody attached is
+ * photographed on its own.
+ *
+ * Thirteen demo product records carry their own "no props, hands, or
+ * presenter in frame" in their negative constraints, which is why demo QA
+ * never met this. An imported product carries no such note, and a
+ * product-only brief on a custom scene kept coming back with a person in it
+ * (a flower field, a serum, nobody asked for). Nothing anywhere said the
+ * product was alone. Same shape as the garment line: state the rule, carry
+ * the escape clause in the same sentence, so "held in one hand" still works.
+ * Emitted only for generations; a refinement's picture has its staging.
+ */
+export function soloProductDirective(): string {
+  return (
+    'No person is part of this brief. The product is photographed on its own: no model, no hand, no partial figure ' +
+    'and no silhouette or reflection of anyone presenting it, unless the direction above explicitly asks for a ' +
+    'person, a hand or a model.'
+  );
+}
+
+/**
  * Does the shot direction already decide the camera?
  *
  * Camera belongs to the shot; a Scene may only express a tendency. Rather than

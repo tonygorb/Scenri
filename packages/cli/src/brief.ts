@@ -37,6 +37,7 @@ import {
   sceneFigureDirectives,
   sceneGuardDirectives,
   shotSpecifiesCamera,
+  soloProductDirective,
 } from './briefDirectives.js';
 
 /**
@@ -919,6 +920,17 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     })
       ? [garmentDisplayDirective()]
       : [];
+  // The general case of the garment line. A figure-led scene owns the
+  // no-presenter case through its own figure directive, and apparel already
+  // said it; everything else with a product and nobody attached says it here.
+  const productAlone =
+    ctx.mode !== 'edit' &&
+    !hasPerson &&
+    !scene?.figure &&
+    !apparelUnworn.length &&
+    attachments.some((a) => a.role === 'product')
+      ? [soloProductDirective()]
+      : [];
   // Presenter over reference, for identity - said only about images that
   // actually rode (same honesty rule as the photo guard), and only on a
   // generation: an edit's identity rides the source frame.
@@ -938,6 +950,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...absentDirectives,
     ...cameraDirectives,
     ...apparelUnworn,
+    ...productAlone,
     ...brandLines,
     ...guard,
     ...refGuard,

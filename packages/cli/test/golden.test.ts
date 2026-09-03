@@ -519,6 +519,56 @@ describe('golden: responsibility contract', () => {
     });
   });
 
+  // The general case of the garment line. Thirteen demo product records carry
+  // their own "no props, hands, or presenter in frame", which is why demo QA
+  // never met this; an imported product carries nothing, and a product-only
+  // brief on a custom scene kept coming back with a person in it.
+  describe('a product with nobody attached is photographed on its own', () => {
+    const SOLO = 'The product is photographed on its own';
+    const GARMENT = 'Present the garment as a product';
+
+    it('fires for a product with no presenter', () => {
+      const r = compile([{ t: 'product', id: 'p1' }]);
+      expect(r.prompt).toContain('No person is part of this brief');
+      expect(r.prompt).toContain(SOLO);
+      expect(r.prompt).toContain('unless the direction above explicitly asks for a person, a hand or a model');
+    });
+
+    it('stays out when a presenter is attached', () => {
+      const r = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'character', id: 'c1' },
+      ]);
+      expect(r.prompt).not.toContain(SOLO);
+    });
+
+    it('yields to the garment line for apparel, which already says it', () => {
+      const r = compileBrief(
+        { tokens: [{ t: 'product', id: 'g1' }] },
+        { brand: apparelBrand(), images: core.images, engineCaps: caps(6), templateById: resolveScene },
+      );
+      expect(r.prompt).toContain(GARMENT);
+      expect(r.prompt).not.toContain(SOLO);
+    });
+
+    it('stays out of a refinement, whose picture already has its staging', () => {
+      const r = compileBrief(
+        { tokens: [{ t: 'product', id: 'p1' }] },
+        { brand: brand(), images: core.images, engineCaps: caps(6), templateById: resolveScene, mode: 'edit' },
+      );
+      expect(r.prompt).not.toContain(SOLO);
+    });
+
+    it('precedes the scene guards, which keep the last word on cast', () => {
+      const r = compile([
+        { t: 'product', id: 'p1' },
+        { t: 'template', id: PRODUCT_SCENE },
+      ]);
+      expect(r.prompt).toContain(SOLO);
+      expect(r.prompt.indexOf(SOLO)).toBeLessThan(r.prompt.indexOf('Disregard any product'));
+    });
+  });
+
   // An engine that paints a thing out tends to leave its ghost behind. The
   // removal clause names the failure; only removal verbs earn it.
   describe('a removal leaves nothing behind', () => {
