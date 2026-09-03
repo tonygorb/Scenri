@@ -20,7 +20,10 @@
     "format": "biome format --write .",
     "check": "biome check .",
     "ci": "biome ci .",
-    "test:visual": "pnpm --filter @scenri/studio exec playwright test -c playwright.visual.config.ts"
+    "test:visual": "pnpm --filter @scenri/studio exec playwright test -c playwright.visual.config.ts",
+    "perf:seed": "node --import tsx packages/cli/test/perf/seed.mjs",
+    "perf:api": "node --import tsx packages/cli/test/perf/bench-api.mjs",
+    "perf:ui": "node apps/studio/perf/bench-ui.mjs"
   },
   "pnpm": {
     "overrides": {
