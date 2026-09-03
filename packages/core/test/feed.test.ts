@@ -184,12 +184,26 @@ describe('feed search', () => {
     expect(q('linen shelf')).toEqual([]);
   });
 
-  it('matches a plural query against its singular, and a short term by scan', () => {
+  it('matches a plural query against its singular, and lets a term under three letters through', () => {
     const a = shot({ prompt: 'one serum on marble' });
-    const q = (s: string) => allPages({ terms: searchTerms(s).map((t) => ({ ...t, tokenIds: [], engineIds: [] })) });
+    const b = shot({ prompt: 'plain', brief: { tokens: [{ t: 'product', id: 'p-cup' }] } });
+    const q = (s: string, tokenIds: string[] = []) =>
+      allPages({ terms: searchTerms(s).map((t) => ({ ...t, tokenIds, engineIds: [] })) });
     expect(q('serums').map((n) => n.id)).toEqual([a.id]);
-    expect(q('on').map((n) => n.id)).toEqual([a.id]);
-    expect(q('zz')).toEqual([]);
+    // below the trigram index a term filters no text: the feed narrows on the third letter
+    expect(
+      q('on')
+        .map((n) => n.id)
+        .sort(),
+    ).toEqual([a.id, b.id].sort());
+    expect(
+      q('zz')
+        .map((n) => n.id)
+        .sort(),
+    ).toEqual([a.id, b.id].sort());
+    expect(q('on marble').map((n) => n.id)).toEqual([a.id]);
+    // but it still finds what the caller matched by name
+    expect(q('cu', ['p-cup']).map((n) => n.id)).toEqual([b.id]);
   });
 
   it('matches template field values and colour names the brief carries', () => {

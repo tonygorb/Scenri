@@ -21,7 +21,13 @@ export function fold(s: string): string {
 /** Below this a term is too short to strip a plural from safely. */
 export const STEM_MIN = 4;
 
-/** The trigram index needs three characters; shorter terms fall back to a scan. */
+/**
+ * The trigram index needs three characters. A shorter term filters no text
+ * at all (it still matches a name resolved by the caller): the feed narrows
+ * on the third letter, the way every trigram-backed search does, rather than
+ * scanning every shot's text for the first two. The library pages, which
+ * search a catalog on the client, keep matching from the first letter.
+ */
 export const TRIGRAM_MIN = 3;
 
 export interface SearchTerm {
@@ -58,10 +64,7 @@ export function matchesQuery(haystack: string, q: string): boolean {
 
 const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
-/**
- * The FTS5 MATCH expression for one term, or null when the term is too short
- * for the trigram index and has to be found by a scan instead.
- */
+/** The FTS5 MATCH expression for one term, or null when the term is too short for the trigram index. */
 export function ftsMatch(term: SearchTerm): string | null {
   if (term.text.length < TRIGRAM_MIN) return null;
   return term.stem ? `(${quote(term.text)} OR ${quote(term.stem)})` : quote(term.text);

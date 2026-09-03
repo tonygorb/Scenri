@@ -127,10 +127,11 @@ test('a tile deep in the feed opens, and every verb works on it', async ({ page 
   await expect(page.locator('.sc-ovl')).toHaveCount(0);
   await expect(deep).toBeAttached();
 
-  // keep: the star paints, the record says so
+  // keep, from the tile's own More menu: the star paints, the record says so
   await deep.scrollIntoViewIfNeeded();
-  await deep.click({ button: 'right' });
-  await page.getByRole('menuitem', { name: 'Keep' }).click();
+  await deep.hover();
+  await deep.locator('.sc-cell-more').click();
+  await page.getByRole('menuitem', { name: 'Keep', exact: true }).click();
   await expect(deep.locator('.sc-cell-star')).toBeVisible();
   await expect.poll(async () => ((await api(page, `/api/nodes/${oldest}`)) as any).kept).toBe(true);
   await expect(page.getByRole('tab', { name: /^Keepers/ })).toContainText('1');

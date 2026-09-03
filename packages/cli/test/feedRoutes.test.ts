@@ -48,7 +48,7 @@ async function brandWithShots(n: number) {
       projectId: project.id,
       parentId: root.id,
       kind: 'generation',
-      prompt: `shot number ${i} on linen`,
+      prompt: `shot number ${['zero', 'one', 'two', 'three', 'four'][i] ?? i} on linen`,
       engineId: 'demo',
       count: 1,
     });
@@ -88,8 +88,11 @@ describe('GET /api/brands/:id/feed', () => {
 
   it('searches the index and the current names of the tokens a brief carries', async () => {
     const { brand, ids } = await brandWithShots(4);
-    const byPrompt = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=number%203` });
+    const byPrompt = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=number%20three` });
     expect(byPrompt.json().items.map((n: any) => n.id)).toEqual([ids[3]]);
+    // a term under three letters filters no text; the feed narrows on the third
+    const short = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=qx` });
+    expect(short.json().counts.all).toBe(4);
     // "mug" is nowhere in a prompt; it is the product's name, and the odd shots carry the product
     const byName = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=mug` });
     expect(byName.json().items.map((n: any) => n.id)).toEqual([ids[3], ids[1]]);
@@ -151,8 +154,8 @@ describe('the frame, the tree and the usage', () => {
     expect(usage.json().days).toHaveLength(1);
     expect(usage.json().days[0].generations).toBe(2);
     const full = await app.inject({ method: 'GET', url: `/api/nodes/${ids[0]}` });
-    expect(full.json().prompt).toBe('shot number 0 on linen');
-    expect(full.json().promptHead).toBe('shot number 0 on linen');
+    expect(full.json().prompt).toBe('shot number zero on linen');
+    expect(full.json().promptHead).toBe('shot number zero on linen');
   });
 
   it('keep and archive answer with the list shape', async () => {

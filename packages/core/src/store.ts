@@ -348,14 +348,12 @@ function filterSql(f: FeedFilter, params: Record<string, unknown>, withLens: boo
     if (match) {
       params[`m${i}`] = match;
       any.push(`n.rowid IN (SELECT rowid FROM nodes_fts WHERE nodes_fts MATCH @m${i})`);
-    } else {
-      // too short for the trigram index: the search text is scanned, but only
-      // this project's rows of it, by rowid, and a page stops at its first
-      // sixty hits. Scanning the whole index for the rows to keep read every
-      // brand's text for every keystroke under three characters.
-      params[`l${i}`] = `%${term.text.replace(/[\\%_]/g, '\\$&')}%`;
-      any.push(`EXISTS (SELECT 1 FROM nodes_fts f WHERE f.rowid = n.rowid AND lower(f.text) LIKE @l${i} ESCAPE '\\')`);
     }
+    // A term under three characters is below the trigram index and filters
+    // the text of nothing: scanning for it instead cost most of a second on
+    // a brand of twenty thousand for the first two letters of every search.
+    // It still finds the products, people, scenes and engines whose names
+    // hold it, which the caller resolved by name.
     if (term.tokenIds.length) {
       const names = term.tokenIds.map((t, j) => {
         params[`t${i}_${j}`] = t;
@@ -370,7 +368,7 @@ function filterSql(f: FeedFilter, params: Record<string, unknown>, withLens: boo
       });
       any.push(`n.engine_id IN (${names.join(', ')})`);
     }
-    where.push(`(${any.join(' OR ')})`);
+    if (any.length) where.push(`(${any.join(' OR ')})`);
   });
   return where;
 }

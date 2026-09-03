@@ -11,7 +11,10 @@ export function useTileHeights(feedEl: HTMLElement | null, enabled: boolean): (i
   const heights = useRef(new Map<string, number>());
   const [, bump] = useState(0);
   const ro = useRef<ResizeObserver | null>(null);
-  const seen = useRef(new WeakSet<Element>());
+  // held strongly, on purpose: an observed element is kept alive by its
+  // observer, so a tile that left the window has to be unobserved or it
+  // stays in memory, detached, for as long as the feed is open
+  const seen = useRef(new Set<Element>());
   useLayoutEffect(() => {
     if (!enabled) return;
     let raf = 0;
@@ -41,13 +44,19 @@ export function useTileHeights(feedEl: HTMLElement | null, enabled: boolean): (i
       cancelAnimationFrame(raf);
       observer.disconnect();
       ro.current = null;
-      seen.current = new WeakSet();
+      seen.current = new Set();
     };
   }, [enabled]);
-  // after every render, whatever cell arrived is put under the observer
+  // after every render: whatever cell arrived goes under the observer, and
+  // whatever cell left the window is let go of
   useLayoutEffect(() => {
     const observer = ro.current;
     if (!enabled || !observer || !feedEl) return;
+    for (const el of seen.current) {
+      if (el.isConnected) continue;
+      observer.unobserve(el);
+      seen.current.delete(el);
+    }
     for (const el of feedEl.querySelectorAll('.sc-cell[data-fb-node]')) {
       if (seen.current.has(el)) continue;
       seen.current.add(el);

@@ -335,8 +335,11 @@ results.sections.keeper = !want('keeper')
       const times = [];
       const listBytes = [];
       for (let i = 0; i < 6; i++) {
-        const target = page.locator(`${SEL.cell}:not(:has(${SEL.star}))`).nth(i);
-        const id = await target.getAttribute('data-fb-node');
+        // the id first, then the tile by its id: the feed is windowed, so a
+        // hover that scrolls can change which tiles are mounted and what
+        // "the i-th tile" resolves to between two actions
+        const id = await page.locator(`${SEL.cell}:not(:has(${SEL.star}))`).nth(i).getAttribute('data-fb-node');
+        const target = page.locator(`${SEL.cell}[data-fb-node="${id}"]`);
         await target.hover();
         await sleep(150);
         await target.locator(SEL.more).click();
@@ -371,11 +374,15 @@ results.sections.open = !want('open')
       const stage = [];
       const close = [];
       const stageBytes = [];
-      const cells = page.locator(SEL.cell);
-      const n = await cells.count();
+      // ids first, tiles by id: the feed is windowed, so what is mounted (and
+      // what the i-th tile is) changes as the page scrolls a tile into view
+      const ids = await page.evaluate(
+        (sel) => [...document.querySelectorAll(sel)].map((el) => el.getAttribute('data-fb-node')),
+        SEL.cell,
+      );
       for (let i = 0; i < 6; i++) {
-        const idx = Math.min(n - 1, i * 7);
-        const cell = cells.nth(idx);
+        const id = ids[Math.min(ids.length - 1, i * 3)];
+        const cell = page.locator(`${SEL.cell}[data-fb-node="${id}"]`);
         await cell.scrollIntoViewIfNeeded();
         await sleep(200);
         const before = net.buckets.open.image;
