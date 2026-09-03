@@ -437,7 +437,13 @@ results.sections.brandSwitch = !want('brandSwitch')
       for (let i = 0; i < 6; i++) {
         const before = net.buckets.brandSwitch.api;
         await page.locator(SEL.orgBtn).click();
-        const item = page.locator(`${SEL.menuItem}:not([data-current])`, { hasText: target.name }).first();
+        // the exact name: with fifty brands "Norrland Home" also appears inside
+        // "Norrland Home 2", and hasText would take the first of them
+        const item = page
+          .locator(`${SEL.menuItem}:not([data-current])`, {
+            has: page.locator(`span[dir="auto"]:text-is("${target.name.replace(/"/g, '\\"')}")`),
+          })
+          .first();
         await item.waitFor();
         const t0 = await now();
         await item.click();
@@ -605,7 +611,11 @@ results.sections.heap = !want('heap')
       let target = small;
       for (let i = 0; i < 5; i++) {
         await page.locator(SEL.orgBtn).click();
-        const item = page.locator(`${SEL.menuItem}:not([data-current])`, { hasText: target.name }).first();
+        const item = page
+          .locator(`${SEL.menuItem}:not([data-current])`, {
+            has: page.locator(`span[dir="auto"]:text-is("${target.name.replace(/"/g, '\\"')}")`),
+          })
+          .first();
         await item.click();
         await until("(slug) => location.pathname === '/' + slug && document.querySelector('.sc-home')", target.slug);
         await page.locator(`nav.sc-nav a[href^="/${target.slug}/create"]`).first().click();
@@ -614,7 +624,12 @@ results.sections.heap = !want('heap')
       }
       if ((await page.evaluate(() => location.pathname)) !== `/${big.slug}/create`) {
         await page.locator(SEL.orgBtn).click();
-        await page.locator(`${SEL.menuItem}:not([data-current])`, { hasText: big.name }).first().click();
+        await page
+          .locator(`${SEL.menuItem}:not([data-current])`, {
+            has: page.locator(`span[dir="auto"]:text-is("${big.name.replace(/"/g, '\\"')}")`),
+          })
+          .first()
+          .click();
         await until("(slug) => location.pathname === '/' + slug", big.slug);
         await page.locator(`nav.sc-nav a[href^="/${big.slug}/create"]`).first().click();
         await until("() => document.querySelector('.sc-cellimg[data-loaded]')");
