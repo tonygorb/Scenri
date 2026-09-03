@@ -44,8 +44,14 @@ export interface VariationContext {
 /**
  * Camera moves for a brief that left the camera open. Index 0 is the straight
  * read, so a slot never has to be described as a departure from another slot.
+ *
+ * Two ladders per envelope, chosen by whether a presenter is attached. The
+ * person ladder moves poses, hands, heads and expressions; on a product-only
+ * run those words were the last thing the model read on every slot, and a
+ * user's flower-field product shot kept coming back with a person in it. The
+ * object ladder moves only the camera, the subject on its base, and the set.
  */
-const OPEN_LADDER = [
+const OPEN_LADDER_PERSON = [
   'Frame this one as the direction describes it, the straight read of the brief.',
   'Step the camera to one side of where the direction places it, and let the pose settle with the move.',
   'Frame tighter on the subject than the straight read, same lens character.',
@@ -56,11 +62,22 @@ const OPEN_LADDER = [
   'Hold the same framing and let the subject carry a different beat of the same moment.',
 ];
 
+const OPEN_LADDER_OBJECT = [
+  'Frame this one as the direction describes it, the straight read of the brief.',
+  'Step the camera to one side of where the direction places it, the subject staying exactly where it stands.',
+  'Frame tighter on the subject than the straight read, same lens character.',
+  'Drop the eye line a little and leave more air in the frame.',
+  'Step back for a wider read of the same setup.',
+  'Come round to a three-quarter view of the same arrangement.',
+  'Take it from slightly above, the same distance.',
+  'Hold the same framing and turn the subject a few degrees on its base, the set unchanged.',
+];
+
 /**
  * Moves for a brief that named its own camera. Distance, height and lens are
  * the direction's to decide, so these move only what it did not fix.
  */
-const FIXED_LADDER = [
+const FIXED_LADDER_PERSON = [
   'Frame this one as the direction describes it, the straight read of the brief.',
   'Keep the camera the direction asks for and shift it a little laterally.',
   'Keep the camera the direction asks for and let the weight and hands settle differently.',
@@ -71,18 +88,34 @@ const FIXED_LADDER = [
   'Keep the camera the direction asks for and let the pose breathe a little wider.',
 ];
 
+const FIXED_LADDER_OBJECT = [
+  'Frame this one as the direction describes it, the straight read of the brief.',
+  'Keep the camera the direction asks for and shift it a little laterally.',
+  'Keep the camera the direction asks for and turn the subject a few degrees on its base.',
+  'Keep the camera the direction asks for and place the subject a little to one side within the same setup.',
+  'Keep the camera the direction asks for and let the light fall a touch differently across the same setup.',
+  'Keep the camera the direction asks for and let the focus sit a touch deeper or shallower.',
+  'Keep the camera the direction asks for and rearrange the near foreground slightly.',
+  'Keep the camera the direction asks for and tilt the subject a touch off square, the set unchanged.',
+];
+
 /**
  * What every frame in the run shares. Stated identically for every slot, and
  * last in the clause, so no slot can read as the one where it mattered less.
  *
  * Wardrobe is named explicitly. It is not implied by "same person": a model
  * given a new camera angle will happily re-dress the subject, and four frames
- * in four outfits are not a set. Only the cloth's behaviour may move.
+ * in four outfits are not a set. Only the cloth's behaviour may move. With no
+ * presenter there is no wardrobe to hold, and naming one invented a wearer:
+ * the lock then holds the set dressing instead.
  */
 function locks(ctx: VariationContext): string {
   const parts = [
-    'Every frame in this run belongs to one continuous shoot: the same location, the same light, ' +
-      'and the same wardrobe garment for garment, changing only as the pose moves the cloth.',
+    ctx.hasPresenter
+      ? 'Every frame in this run belongs to one continuous shoot: the same location, the same light, ' +
+        'and the same wardrobe garment for garment, changing only as the pose moves the cloth.'
+      : 'Every frame in this run belongs to one continuous shoot: the same location, the same light ' +
+        'and the same set dressing, changing only with the photographic move named above.',
   ];
   if (ctx.hasPresenter)
     parts.push(
@@ -105,7 +138,13 @@ function locks(ctx: VariationContext): string {
  */
 export function variationPlan(count: number, ctx: VariationContext): string[] {
   if (!Number.isFinite(count) || count <= 1) return [];
-  const ladder = ctx.cameraFixed ? FIXED_LADDER : OPEN_LADDER;
+  const ladder = ctx.hasPresenter
+    ? ctx.cameraFixed
+      ? FIXED_LADDER_PERSON
+      : OPEN_LADDER_PERSON
+    : ctx.cameraFixed
+      ? FIXED_LADDER_OBJECT
+      : OPEN_LADDER_OBJECT;
   const shared = locks(ctx);
   return Array.from({ length: Math.floor(count) }, (_, i) => `${ladder[i % ladder.length]} ${shared}`);
 }

@@ -64,7 +64,56 @@ describe('variationPlan', () => {
       expect(clause).not.toContain('brand mark');
       // The shoot itself still holds together.
       expect(clause).toContain('one continuous shoot');
+      // The reported leak: with nobody attached the wardrobe lock still rode
+      // on every slot, and "as the pose moves the cloth" was the last thing
+      // the model read on a product-only run. No presenter, no body language.
+      expect(clause).not.toContain('wardrobe');
+      expect(clause).not.toMatch(/\bpose\b|\bhands?\b|\bhead angle\b|\bexpression\b|\bcloth\b/i);
     }
+  });
+
+  describe('without a presenter, the set is a set of objects', () => {
+    const objectOnly = { hasPresenter: false, hasProduct: true, hasMark: false, cameraFixed: false };
+    const BODY =
+      /\bpose\b|\bhands?\b|\bhead\b|\bexpression\b|\bwardrobe\b|\bgarment\b|\bcloth\b|\bweight\b|\bbreathe\b/i;
+
+    it('no slot moves a body, on either ladder', () => {
+      for (const ctx of [objectOnly, { ...objectOnly, cameraFixed: true }]) {
+        const plan = variationPlan(8, ctx);
+        expect(plan).toHaveLength(8);
+        for (const clause of plan) expect(clause).not.toMatch(BODY);
+        expect(plan[0]).toContain('the straight read of the brief');
+        const moves = plan.map((c) => c.split('. ')[0]);
+        expect(new Set(moves).size).toBe(8);
+        const locks = plan.map((c) => c.split('. ').slice(1).join('. '));
+        expect(new Set(locks).size).toBe(1);
+      }
+    });
+
+    it('a product-only pair still locks the product and the shoot', () => {
+      for (const clause of variationPlan(2, objectOnly)) {
+        expect(clause).toContain('The product is the one in the product references and no other');
+        expect(clause).toContain('one continuous shoot');
+        expect(clause).toContain('the same light');
+        expect(clause).not.toContain('wardrobe');
+      }
+    });
+
+    it('never numbers a slot here either', () => {
+      for (const clause of variationPlan(8, objectOnly)) {
+        expect(clause).not.toMatch(/\btake \d/i);
+        expect(clause).not.toMatch(/\b\d+ of \d+\b/);
+        expect(clause).not.toMatch(/\banother\b|\bthe other\b|\bprevious\b|\bdifferent from\b/i);
+      }
+    });
+  });
+
+  it('every slot of every run shares the scene light', () => {
+    // The lighting contract is per run, not per slot: 1x compiles with no
+    // clause at all, and 2x, 3x and 4x each carry the same light lock.
+    for (const ctx of [full, { ...full, hasPresenter: false }])
+      for (const n of [2, 3, 4])
+        for (const clause of variationPlan(n, ctx)) expect(clause).toContain('the same location, the same light');
   });
 
   it('narrows to the brief when the brief already chose the camera', () => {
