@@ -1078,7 +1078,7 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.prompt).toContain('Lena is in this photograph');
   });
 
-  it('with nobody attached, fills the role with an anonymous person rather than an empty room', () => {
+  it('with nobody attached, the world is photographed unpopulated and the product takes the figure\'s place', () => {
     const r = compileBrief(
       {
         tokens: [
@@ -1088,12 +1088,36 @@ describe('compileBrief: a world built around a figure', () => {
       },
       withScene(),
     );
-    // The old behaviour left the space deliberately empty, which turned a
-    // figure-led scene into a photograph of a bare wall.
-    expect(r.prompt).toContain('Someone fills that role in the frame, and they are nobody in particular');
-    expect(r.prompt).toContain('no recognisable identity to preserve');
-    expect(r.prompt).toContain('Show them unless the direction above asks for no people');
-    expect(r.prompt).not.toContain('nobody is invented to fill it');
+    // The presenter chip is the only WHO authority. This used to invent an
+    // anonymous person to fill the role, and a user's product-only shot on a
+    // custom scene kept coming back with someone in it.
+    expect(r.prompt).toContain('This world is built around one figure');
+    expect(r.prompt).toContain('photographed unpopulated');
+    expect(r.prompt).toContain("the attached product takes the figure's placement and scale");
+    expect(r.prompt).toContain('unless the direction above asks for someone');
+    expect(r.prompt).not.toContain('Someone fills that role');
+    expect(r.prompt).not.toContain('nobody in particular');
+  });
+
+  it('a figure-led scene owns the unpopulated case, so the solo-product line stays out', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene(),
+    );
+    expect(r.prompt).toContain('photographed unpopulated');
+    expect(r.prompt).not.toContain('The product is photographed on its own');
+  });
+
+  it('a scene-only brief with a figure holds the set alone', () => {
+    const r = compileBrief({ tokens: [{ t: 'template', id: base.id }] }, withScene());
+    expect(r.prompt).toContain('photographed unpopulated');
+    expect(r.prompt).toContain('holds the set alone');
+    expect(r.prompt).not.toContain('the attached product takes');
   });
 
   it('applies the treatment to the presenter without unmaking them', () => {
@@ -1215,6 +1239,11 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.prompt).toContain('the face entirely covered in overlapping printed stickers');
     // No presenter, so there is no identity to reconcile and no claim about one.
     expect(r.prompt).not.toContain('still exactly theirs');
+    // And no claim that a body is in shot: the unpopulated line above says the
+    // opposite, and the treatment paragraph already carries its own
+    // nobody-in-frame reconciliation.
+    expect(r.prompt).not.toContain('The figure is bodily present and in shot');
+    expect(r.prompt).toContain('applies to whatever the frame does hold');
   });
 
   it('ranks after the pair line and before the scene guards', () => {

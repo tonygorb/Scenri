@@ -858,6 +858,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         // deliberately in play - and only one that actually rides counts,
         // same honesty rule as the photo guard above.
         hasMark: [...presentKeys].some((k) => k.startsWith('brand:')),
+        hasProduct: !!productId,
       })
     : [];
 

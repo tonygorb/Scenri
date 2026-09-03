@@ -395,6 +395,8 @@ export function sceneFigureDirectives(opts: {
   /** How many presenters are attached; the figure is a role one of them takes, the rest stand with them. */
   people?: number;
   hasMark?: boolean;
+  /** A product is attached, so with nobody attached it is what takes the figure's place. */
+  hasProduct?: boolean;
 }): string[] {
   const figure = opts.figure.trim().replace(/[.\s]+$/, '');
   if (!figure) return [];
@@ -423,10 +425,22 @@ export function sceneFigureDirectives(opts: {
         'from their own attached photograph alone, never from anything the scene direction says about a body.',
     );
   } else {
+    // The presenter chip is the only WHO authority. This used to fill the
+    // role with an anonymous invented person, on the argument that a
+    // figure-led scene drawn empty is a different scene; a user's product-only
+    // shot on a custom scene then kept coming back with someone in it, and
+    // every custom scene in a real library carried a figure. Unpopulated by
+    // default: the figure's placement and scale still shape the frame, the
+    // product stands where the figure stood, and the direction can still ask
+    // for someone. A treatment scene already carries its own nobody-in-frame
+    // reconciliation below, which this agrees with word for word.
+    const stands = opts.hasProduct
+      ? "the attached product takes the figure's placement and scale in the frame"
+      : 'the frame is composed for that placement and scale and holds the set alone';
     out.push(
-      `This world is built around one figure: ${figure}. Someone fills that role in the frame, and they are nobody in ` +
-        'particular: an anonymous person invented for this photograph only, with no recognisable identity to preserve ' +
-        'and nothing about them carried anywhere else. Show them unless the direction above asks for no people.',
+      `This world is built around one figure: ${figure}. No presenter is attached, so this world is photographed ` +
+        `unpopulated: no person, hand or silhouette stands in for that figure, and ${stands}, ` +
+        'unless the direction above asks for someone.',
     );
   }
 
@@ -441,6 +455,13 @@ export function sceneFigureDirectives(opts: {
     const who = opts.hasPerson
       ? 'The face and body underneath are still exactly theirs - same structure, same proportions, same build - and any ' +
         'earlier instruction that their features must survive unchanged is a rule about who they are, which this does not alter. '
+      : '';
+    // Presence is a claim about the attached presenter. With nobody attached
+    // the unpopulated line above says the opposite, so this stays unsaid and
+    // the nobody-in-frame reconciliation further down carries the treatment.
+    const present = opts.hasPerson
+      ? 'The figure is bodily present and in shot: where the treatment covers or hides them, that is the photograph working ' +
+        'as intended and never a reason to leave them out, crop them away, or reduce them to a shadow. '
       : '';
     out.push(
       `The art direction of this world is what has been done to that figure: ${treatment}. ` +
@@ -459,9 +480,7 @@ export function sceneFigureDirectives(opts: {
         'them exactly as the description says, so a sparse treatment stays sparse while still touching every part ' +
         'of the form. ' +
         'Each piece sits on the plane beneath it, curving and catching light with the surface it is stuck to. ' +
-        `${who}` +
-        'The figure is bodily present and in shot: where the treatment covers or hides them, that is the photograph working ' +
-        'as intended and never a reason to leave them out, crop them away, or reduce them to a shadow. ' +
+        `${who}${present}` +
         // The treatment is the art direction, not a property of the person. Ask
         // for this world with no people in it and the stickers should still be
         // there, on whatever the frame does hold - that IS the scene. Suppressing
