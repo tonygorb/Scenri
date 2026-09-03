@@ -16,23 +16,16 @@ export function shotWords(prompt: string | null | undefined, max = 160): string 
 }
 
 /**
- * A lookup from image hash to the words of the shot it came from, over every
- * project of one brand. Built once per compile and read lazily: most briefs
- * carry no seatless reference, and a brand can hold hundreds of shots.
+ * A lookup from image hash to the words of the shot it came from. Read
+ * lazily, one indexed row per hash: most briefs carry no seatless reference,
+ * and a brand can hold thousands of shots.
  */
 export function shotWordsFor(core: Core, brandId: string): (hash: string) => string | null {
-  let byHash: Map<string, string> | null = null;
+  // one read per hash asked, remembered for the compile; this used to read
+  // every shot in the brand to answer for one reference
+  const byHash = new Map<string, string | null>();
   return (hash) => {
-    if (!byHash) {
-      byHash = new Map();
-      for (const p of core.store.listProjects(brandId)) {
-        for (const n of core.store.treeFor(p.id)) {
-          const words = shotWords(n.prompt);
-          if (!words) continue;
-          for (const h of n.images ?? []) if (!byHash.has(h)) byHash.set(h, words);
-        }
-      }
-    }
+    if (!byHash.has(hash)) byHash.set(hash, shotWords(core.store.promptForImage(brandId, hash)));
     return byHash.get(hash) ?? null;
   };
 }

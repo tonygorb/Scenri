@@ -28,7 +28,14 @@ import type { stageVersion } from './update/stage.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
 import type { EngineRegistry } from './engines.js';
 import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
-import { brandJsonWithIdentityCrops, brandSceneById, runningAssetBuildCount, type Analyzer } from './customAssets.js';
+import {
+  brandCharacters,
+  brandJsonWithIdentityCrops,
+  brandSceneById,
+  brandScenes,
+  runningAssetBuildCount,
+  type Analyzer,
+} from './customAssets.js';
 import type { CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
 import { identityTokenKey, inheritedIdentityTokens } from './editIdentity.js';
@@ -83,6 +90,7 @@ import { registerShowcaseRoutes } from './routes/showcase.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerCodexSetupRoutes } from './routes/codexSetup.js';
 import { registerImageRoutes } from './routes/images.js';
+import { createThumbStore } from './thumbs.js';
 import { registerUpdateRoutes } from './routes/updates.js';
 import { registerSystemRoutes } from './routes/system.js';
 
@@ -155,6 +163,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // map: a node only ever leaves 'running' via the promise this map tracks, so
   // cancelling it is looking the controller up and aborting it.
   const runningGenerations = new Map<string, AbortController>();
+  // Derivatives for every picture shown smaller than it is. Made when a shot
+  // lands and on first request; the originals stay where they were.
+  const thumbs = createThumbStore(core);
   const { scenes } = loadScenes(opts.templatesDir);
   // resolves a scene by its id or by any id it used to answer to
   const resolveScene = sceneResolver(scenes);
@@ -180,6 +191,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   // ---- brands
   app.get('/api/brands', async () => core.store.listBrands());
+  /** Every brand as the switcher and the route resolver need it, never the document. */
+  app.get('/api/brands/summary', async () => core.store.listBrandSummaries());
+  /** One brand's whole document: what the brand on screen is drawn from. */
+  app.get('/api/brands/:id', async (req, reply) => {
+    const row = core.store.getBrand((req.params as any).id);
+    return row ?? reply.status(404).send({ error: 'brand not found' });
+  });
   app.post('/api/brands', async (req, reply) => {
     const json = (req.body as any)?.brand;
     const v = validateBrand(json);
@@ -795,7 +813,19 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return { ...rest, referenceCount: referenceImages.length, cap: engine.capabilities().maxReferenceImages };
   });
 
-  registerProjectRoutes(app, { core });
+  registerProjectRoutes(app, {
+    core,
+    // what a search may match a brief token by: every name a token can carry today
+    tokenNames: (brand) => [
+      ...core.catalog.listLibraryProducts(brand.id, brand.json).map((p) => ({ id: p.id, name: p.name })),
+      ...demoProducts.map((p) => ({ id: p.id, name: p.name })),
+      ...brandCharacters(brand.json).map((c: any) => ({ id: String(c.id), name: String(c.name ?? '') })),
+      ...presenters.map((p) => ({ id: p.id, name: p.name })),
+      ...brandScenes(brand.json).map((sc) => ({ id: sc.id, name: sc.name })),
+      ...scenes.map((sc) => ({ id: sc.id, name: sc.name })),
+    ],
+    engineNames: () => engines.all().map((e) => ({ id: e.capabilities().id, name: e.capabilities().displayName })),
+  });
 
   registerCodexSetupRoutes(app, { codexSetup: opts.codexSetup, codexRunner: engines.codexRunner });
 
@@ -1099,6 +1129,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         // until the whole call resolves, so it is written then, once, onto
         // the first sibling (chargeNode below), and the ledger gets one row.
         core.store.completeNode(id, { images: own, costUsd: 0, durationMs: Date.now() - startedAt });
+        // the tile asks for the 640 derivative the moment it learns the shot
+        // is done; making it now means that first paint never waits on sharp
+        thumbs.warm(own[0]);
       } catch (err: any) {
         core.store.failNode(id, String(err?.message ?? err));
       } finally {
@@ -1263,7 +1296,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
      * to exist or be signed in.
      */
     if (kind === 'edit' && reshape === 'crop') {
-      const rootForCrop = core.store.treeFor(project.id).find((n) => n.kind === 'root');
+      const rootForCrop = core.store.rootFor(project.id);
       if (!rootForCrop) return reply.status(500).send({ error: 'project has no root node' });
       const cropParentId = parentId ? String(parentId) : rootForCrop.id;
       if (brief && Array.isArray(brief.tokens)) {
@@ -1301,7 +1334,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
     // A null parent would create a node the tree UI can never reach — anchor
     // parentless requests to the project root instead.
-    const rootNode = core.store.treeFor(project.id).find((n) => n.kind === 'root');
+    const rootNode = core.store.rootFor(project.id);
     if (!rootNode) return reply.status(500).send({ error: 'project has no root node' });
     const resolvedParentId = parentId ? String(parentId) : rootNode.id;
 
@@ -2339,13 +2372,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const n = core.store.getNode((req.params as any).id);
     if (!n) return reply.status(404).send({ error: 'node not found' });
     core.store.setKept(n.id, Boolean((req.body as any)?.kept ?? true));
-    return core.store.getNode(n.id);
+    // the list shape: what the feed patches in place, without a re-read
+    return core.store.getFeedNode(n.id);
   });
   app.post('/api/nodes/:id/archive', async (req, reply) => {
     const n = core.store.getNode((req.params as any).id);
     if (!n) return reply.status(404).send({ error: 'node not found' });
     core.store.setArchived(n.id, Boolean((req.body as any)?.archived ?? true));
-    return core.store.getNode(n.id);
+    return core.store.getFeedNode(n.id);
   });
   // permanent — the client already restricts this to the Archived lens, but
   // the archived-only rule is enforced here too, not just in the UI
@@ -2370,7 +2404,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return { ok: true, deleted };
   });
 
-  registerImageRoutes(app, { core });
+  registerImageRoutes(app, { core, thumbs });
 
   // ---- this machine: where the work lives, and how to get it all out
   // ---- version + lifecycle
@@ -2403,6 +2437,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       while (runningGenerations.size > 0 && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 25));
       }
+      await thumbs.settle();
       await app.close();
       core.close();
     })();
