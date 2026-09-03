@@ -516,7 +516,9 @@ function ensureIndexes(db: DB): void {
     CREATE INDEX IF NOT EXISTS idx_nodes_project_created ON nodes(project_id, created_at, id);
     CREATE INDEX IF NOT EXISTS idx_nodes_project_kept ON nodes(project_id, kept, created_at, id);
     CREATE INDEX IF NOT EXISTS idx_nodes_project_cost ON nodes(project_id, cost_usd, created_at, id);
-    CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_nodes_project_state ON nodes(project_id, kind, archived, kept);
+    DROP INDEX IF EXISTS idx_nodes_parent;
+    CREATE INDEX IF NOT EXISTS idx_nodes_parent_created ON nodes(parent_id, created_at, id);
     CREATE INDEX IF NOT EXISTS idx_nodes_status ON nodes(status);
     CREATE INDEX IF NOT EXISTS idx_catalog_variants_product ON catalog_variants(product_id);
     CREATE INDEX IF NOT EXISTS idx_cost_events_engine_ts ON cost_events(engine_id, ts);

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, matchesQuery, searchTerms, type Core, type FeedNode, type FeedSearchTerm } from '../src/index.js';
+import { openDb } from '../src/db.js';
 
 /**
  * The paged feed: one page for one place, lens, search and sort, from the
@@ -36,7 +37,16 @@ afterEach(() => {
 });
 
 /** One finished shot with a brief, in creation order. */
-function shot(over: { prompt?: string; brief?: unknown; kind?: 'generation' | 'edit'; parentId?: string; engineId?: string; cost?: number } = {}) {
+function shot(
+  over: {
+    prompt?: string;
+    brief?: unknown;
+    kind?: 'generation' | 'edit';
+    parentId?: string;
+    engineId?: string;
+    cost?: number;
+  } = {},
+) {
   const [n] = core.store.addNodes({
     projectId,
     parentId: over.parentId ?? rootId,
@@ -99,7 +109,12 @@ describe('feedPage', () => {
   it('pages newest first by keyset and chains into the whole set without holes or repeats', () => {
     const made = Array.from({ length: 7 }, (_, i) => shot({ prompt: `shot ${i}` }));
     const first = core.store.feedPage(projectId, { limit: 3 });
-    expect(first.items.map((n) => n.id)).toEqual(made.slice(-3).reverse().map((n) => n.id));
+    expect(first.items.map((n) => n.id)).toEqual(
+      made
+        .slice(-3)
+        .reverse()
+        .map((n) => n.id),
+    );
     expect(first.next).not.toBeNull();
     const all = allPages({ limit: 3 });
     expect(all.map((n) => n.id)).toEqual([...made].reverse().map((n) => n.id));
@@ -253,7 +268,14 @@ describe('lineageOf, recentShots, usageByDay', () => {
   it('lists the newest finished shots first and counts a year by day', () => {
     const a = shot();
     const b = shot();
-    const [running] = core.store.addNodes({ projectId, parentId: rootId, kind: 'generation', prompt: 'x', engineId: 'demo', count: 1 });
+    const [running] = core.store.addNodes({
+      projectId,
+      parentId: rootId,
+      kind: 'generation',
+      prompt: 'x',
+      engineId: 'demo',
+      count: 1,
+    });
     expect(core.store.recentShots(projectId, 10).map((n) => n.id)).toEqual([b.id, a.id]);
     expect(core.store.recentShots(projectId, 1).map((n) => n.id)).toEqual([b.id]);
     const days = core.store.usageByDay(brandId);
@@ -271,8 +293,8 @@ describe('brand summaries and set members', () => {
       meta: { name: 'Marked', website: 'https://marked.example' },
       palette: { primary: { hex: '#123456', name: 'Deep' } },
       logos: [
-        { role: 'wordmark', file: 'asset:' + 'a'.repeat(32) },
-        { role: 'primary', file: 'asset:' + 'b'.repeat(32) },
+        { role: 'wordmark', file: `asset:${'a'.repeat(32)}` },
+        { role: 'primary', file: `asset:${'b'.repeat(32)}` },
       ],
     } as any);
     const list = core.store.listBrandSummaries();
@@ -282,17 +304,88 @@ describe('brand summaries and set members', () => {
       name: 'Marked',
       website: 'https://marked.example',
       primaryHex: '#123456',
-      mark: 'asset:' + 'b'.repeat(32),
+      mark: `asset:${'b'.repeat(32)}`,
     });
     const bare = list.find((b) => b.id === brandId)!;
     expect(bare).toMatchObject({ name: 'Feed Co', website: null, mark: null, primaryHex: null });
   });
 
-  it('lists a set\'s members in filing order', () => {
+  it("lists a set's members in filing order", () => {
     const a = shot();
     const b = shot();
     const set = core.store.createSet(brandId, 'Press');
     core.store.addToSet(set.id, [b.id, a.id]);
     expect(new Set(core.store.membersOf(set.id))).toEqual(new Set([a.id, b.id]));
+  });
+});
+
+describe('what stays bounded on a big brand', () => {
+  it('the root counts no children, and a shot in a long row gets a window of siblings around it', () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 60; i++) ids.push(shot({ prompt: `row ${i}` }).id);
+    const root = core.store.rootFor(projectId)!;
+    expect(root.childCount).toBe(0);
+    expect(core.store.getNode(root.id)!.childCount).toBe(0);
+    // the first of sixty: itself and the twenty-five after it
+    const first = core.store.lineageOf(ids[0])!;
+    expect(first.siblings.map((n) => n.id)).toEqual(ids.slice(0, 26));
+    // the middle: twenty-five before, itself, twenty-five after
+    const mid = core.store.lineageOf(ids[30])!;
+    expect(mid.siblings).toHaveLength(51);
+    expect(mid.siblings.map((n) => n.id)).toEqual(ids.slice(5, 56));
+    // the last: the twenty-five before it and itself
+    const last = core.store.lineageOf(ids[59])!;
+    expect(last.siblings.map((n) => n.id)).toEqual(ids.slice(34, 60));
+    // and a step to a neighbour re-centres the window
+    const next = core.store.lineageOf(mid.siblings[26].id)!;
+    expect(next.siblings.map((n) => n.id)).toEqual(ids.slice(6, 57));
+  });
+
+  it('activity is the running shots plus the recent ones, from two indexed reads', () => {
+    const fresh = shot({ prompt: 'landed today' });
+    const [running] = core.store.addNodes({
+      projectId,
+      parentId: rootId,
+      kind: 'generation',
+      prompt: 'still going',
+      engineId: 'demo',
+      count: 1,
+    });
+    const old = shot({ prompt: 'from last month' });
+    const oldRunning = shot({ prompt: 'stuck since last month' });
+    // a second connection to the same file, for the clock the store never lets a caller set
+    const raw = openDb(home);
+    raw.prepare("UPDATE nodes SET created_at = datetime('now', '-30 days') WHERE id = ?").run(old.id);
+    raw
+      .prepare("UPDATE nodes SET created_at = datetime('now', '-30 days'), status = 'running' WHERE id = ?")
+      .run(oldRunning.id);
+    raw.close();
+    const seen = core.store.recentActivity(brandId).map((n) => n.id);
+    expect(seen).toContain(fresh.id);
+    expect(seen).toContain(running.id);
+    expect(seen).toContain(oldRunning.id);
+    expect(seen).not.toContain(old.id);
+    // newest first, whichever read answered
+    expect(seen.indexOf(fresh.id)).toBeLessThan(seen.indexOf(oldRunning.id));
+  });
+
+  it('the feed page, the counts and the lineage read indexes, never the table', () => {
+    shot();
+    const raw = openDb(home);
+    const plan = (sql: string, ...args: unknown[]) =>
+      (raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...args) as { detail: string }[]).map((r) => r.detail).join(' | ');
+    expect(
+      plan("SELECT count(*) FROM nodes n WHERE n.project_id = ? AND n.kind != 'root' AND n.archived = 0", projectId),
+    ).toContain('COVERING INDEX idx_nodes_project_state');
+    expect(
+      plan(
+        "SELECT n.id FROM nodes n WHERE n.project_id = ? AND n.kind != 'root' AND n.archived = 0 ORDER BY n.created_at DESC, n.id DESC LIMIT 61",
+        projectId,
+      ),
+    ).not.toContain('TEMP B-TREE');
+    expect(
+      plan('SELECT n.id FROM nodes n WHERE n.parent_id IS ? ORDER BY n.created_at, n.id LIMIT 51 OFFSET 5', rootId),
+    ).not.toContain('TEMP B-TREE');
+    raw.close();
   });
 });

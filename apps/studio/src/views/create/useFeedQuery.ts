@@ -80,7 +80,7 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
       .feed(brandId, { ...queryRef.current, limit: FEED_PAGE }, ctrl.signal)
       .then((page) => {
         if (ctrl.signal.aborted) return;
-        setHeld({ brandId, key, items: page.items, next: page.next, counts: page.counts, error: null });
+        setHeld({ brandId, key, items: page.items, next: page.next, counts: page.counts ?? null, error: null });
       })
       .catch((err: unknown) => {
         if (ctrl.signal.aborted) return;
@@ -105,7 +105,7 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
         setHeld((cur) =>
           cur.key !== key
             ? cur
-            : { ...cur, items: appendPage(cur.items, page.items), next: page.next, counts: page.counts },
+            : { ...cur, items: appendPage(cur.items, page.items), next: page.next, counts: page.counts ?? cur.counts },
         );
       })
       .catch(() => {
@@ -126,7 +126,7 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
             ...cur,
             items: refreshFirst(cur.items, page.items),
             next: cur.items.length ? cur.next : page.next,
-            counts: page.counts,
+            counts: page.counts ?? cur.counts,
             error: null,
           },
     );

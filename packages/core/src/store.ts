@@ -220,9 +220,19 @@ const headOf = (prompt: unknown): string =>
     .slice(0, PROMPT_HEAD_CHARS)
     .join('');
 
-/** Live refinements hanging off a row, as a correlated subquery over the parent index. */
+/**
+ * Live refinements hanging off a row, as a correlated subquery over the
+ * parent index. Zero for the root by rule rather than by counting: every
+ * top-level shot hangs off it, and counting twenty thousand of them cost
+ * every request that touched the root fifty milliseconds.
+ */
 const CHILD_COUNT_SQL =
-  "(SELECT count(*) FROM nodes c WHERE c.parent_id = n.id AND c.archived = 0 AND c.kind != 'root')";
+  "(CASE WHEN n.kind = 'root' THEN 0 ELSE (SELECT count(*) FROM nodes c WHERE c.parent_id = n.id AND c.archived = 0) END)";
+
+/** How many siblings a lineage answer carries on either side of the shot. */
+export const LINEAGE_SIBLINGS_RADIUS = 25;
+/** How many children a lineage answer carries; the strip shows six. */
+export const LINEAGE_CHILDREN_MAX = 60;
 
 /** What every list reads: no prompt, no overlays, two JSON columns instead of three. */
 const FEED_COLS = `n.id, n.project_id, n.parent_id, n.kind, substr(n.prompt, 1, ${PROMPT_HEAD_CHARS}) AS prompt_head,
@@ -743,7 +753,13 @@ export function createStore(db: DB) {
       const more = rows.length > limit;
       return { items, next: more && items.length ? encodeCursor(keysetOf(items[items.length - 1], sort)) : null };
     },
-    /** What each lens would show from a place and search, plus the two unscoped totals. */
+    /**
+     * What each lens would show from a place and search, plus the two
+     * unscoped totals. The scoped sums and the total read the state index
+     * alone (project, kind, archived, kept: nothing that needs the row), and
+     * the grouped count walks the brand's memberships rather than asking
+     * every shot whether it is in a set.
+     */
     feedCounts(projectId: string, f: FeedFilter): FeedCounts {
       const params: Record<string, unknown> = { project: projectId };
       const where = ['n.project_id = @project', ...filterSql({ ...f, lens: undefined }, params, false)];
@@ -754,27 +770,43 @@ export function createStore(db: DB) {
              FROM nodes n WHERE ${where.join(' AND ')}`,
         )
         .get(params) as { live: number; kept: number; archived: number };
-      const total = (
-        db.prepare("SELECT count(*) AS c FROM nodes n WHERE n.project_id = ? AND n.kind != 'root'").get(projectId) as {
-          c: number;
-        }
-      ).c;
-      const ungrouped = (
+      const totals = db
+        .prepare(
+          `SELECT count(*) AS total, coalesce(sum(n.archived = 0), 0) AS live
+             FROM nodes n WHERE n.project_id = ? AND n.kind != 'root'`,
+        )
+        .get(projectId) as { total: number; live: number };
+      const grouped = (
         db
           .prepare(
-            `SELECT count(*) AS c FROM nodes n
-              WHERE n.project_id = ? AND n.kind != 'root' AND n.archived = 0
-                AND NOT EXISTS (SELECT 1 FROM set_nodes sn WHERE sn.node_id = n.id)`,
+            `SELECT count(DISTINCT sn.node_id) AS c
+               FROM sets s
+               CROSS JOIN set_nodes sn ON sn.set_id = s.id
+               CROSS JOIN nodes n ON n.id = sn.node_id
+              WHERE s.brand_id = (SELECT brand_id FROM projects WHERE id = ?)
+                AND n.project_id = ? AND n.archived = 0`,
           )
-          .get(projectId) as { c: number }
+          .get(projectId, projectId) as { c: number }
       ).c;
-      return { total, all: scoped.live, keepers: scoped.kept, archived: scoped.archived, ungrouped };
+      return {
+        total: totals.total,
+        all: scoped.live,
+        keepers: scoped.kept,
+        archived: scoped.archived,
+        ungrouped: totals.live - grouped,
+      };
     },
     /**
      * Where one shot sits in its tree, from the parent index: its ancestors
-     * up to (never including) the root, everything off the same parent, and
-     * everything off it. Archived versions stay in the strip, as they did
-     * when the overlay walked the whole workspace.
+     * up to (never including) the root, the siblings around it, and what
+     * hangs off it. Archived versions stay in the strip, as they did when the
+     * overlay walked the whole workspace.
+     *
+     * The siblings are a window: this shot, and up to twenty-five on either
+     * side in filing order. A top-level shot's siblings are every top-level
+     * shot in the brand, and the whole list was eighteen megabytes on a
+     * brand of twenty thousand; the overlay only ever steps to a neighbour,
+     * and each step asks again, so the window re-centres as it goes.
      */
     lineageOf(id: string): Lineage | null {
       const node = this.getFeedNode(id);
@@ -785,19 +817,32 @@ export function createStore(db: DB) {
         ancestors.unshift(cur);
         cur = cur.parentId ? this.getFeedNode(cur.parentId) : null;
       }
+      // the shot's rank among its siblings, from the index alone
+      const before = (
+        db
+          .prepare(
+            `SELECT count(*) AS c FROM nodes n
+              WHERE n.parent_id IS ? AND (n.created_at < ? OR (n.created_at = ? AND n.id < ?))`,
+          )
+          .get(node.parentId, node.createdAt, node.createdAt, node.id) as { c: number }
+      ).c;
+      const skip = Math.max(0, before - LINEAGE_SIBLINGS_RADIUS);
+      const take = before - skip + 1 + LINEAGE_SIBLINGS_RADIUS;
       const siblings = (
         db
           .prepare(
-            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id IS ? AND n.kind != 'root' ORDER BY n.created_at, n.id`,
+            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id IS ? AND n.kind != 'root'
+              ORDER BY n.created_at, n.id LIMIT ? OFFSET ?`,
           )
-          .all(node.parentId) as any[]
+          .all(node.parentId, take, skip) as any[]
       ).map(rowToFeedNode);
       const children = (
         db
           .prepare(
-            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id = ? AND n.kind != 'root' ORDER BY n.created_at, n.id`,
+            `SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id = ? AND n.kind != 'root'
+              ORDER BY n.created_at, n.id LIMIT ?`,
           )
-          .all(node.id) as any[]
+          .all(node.id, LINEAGE_CHILDREN_MAX) as any[]
       ).map(rowToFeedNode);
       return { ancestors, siblings, children };
     },
@@ -849,21 +894,31 @@ export function createStore(db: DB) {
      * ISO string is a silent, timezone-shaped mis-filter.
      */
     recentActivity(brandId: string, limit = 60): ActivityNode[] {
-      const rows = db
-        .prepare(
-          `SELECT ${FEED_COLS}, (
+      // Two indexed reads joined, never one scan: "running, or recent" as a
+      // single OR walked every shot in the brand to find the running ones,
+      // forty milliseconds a poll on a brand of twenty thousand. The status
+      // index answers the first half and the created index the second, and
+      // each stops where its answer does.
+      const cols = `${FEED_COLS}, (
                     SELECT group_concat(s.name, char(31))
                       FROM set_nodes sn JOIN sets s ON s.id = sn.set_id
                      WHERE sn.node_id = n.id
-                  ) AS set_names
-             FROM nodes n JOIN projects p ON p.id = n.project_id
-            WHERE p.brand_id = ?
-              AND n.kind != 'root'
-              AND (n.status = 'running' OR n.created_at >= datetime('now', '-2 days'))
-            ORDER BY n.created_at DESC, n.id DESC
-            LIMIT ?`,
+                  ) AS set_names`;
+      const inBrand = 'n.project_id IN (SELECT id FROM projects WHERE brand_id = @brand)';
+      const rows = db
+        .prepare(
+          `SELECT * FROM (
+             SELECT ${cols} FROM nodes n
+              WHERE ${inBrand} AND n.kind != 'root' AND n.status = 'running'
+             UNION ALL
+             SELECT ${cols} FROM nodes n
+              WHERE ${inBrand} AND n.kind != 'root' AND n.status != 'running'
+                AND n.created_at >= datetime('now', '-2 days')
+           )
+           ORDER BY created_at DESC, id DESC
+           LIMIT @limit`,
         )
-        .all(brandId, limit) as any[];
+        .all({ brand: brandId, limit }) as any[];
       // char(31) is the unit separator: a set may legally be called "A, B"
       return rows.map((r) => ({
         ...rowToFeedNode(r),

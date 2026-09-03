@@ -121,7 +121,9 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
       if (/cursor/.test(String((err as Error).message))) return reply.status(400).send({ error: 'invalid cursor' });
       throw err;
     }
-    return { ...page, counts: core.store.feedCounts(project.id, filter) };
+    // the counts describe the whole place, so the first page carries them and
+    // a continuation, which changes nothing about the place, carries none
+    return qs.cursor ? page : { ...page, counts: core.store.feedCounts(project.id, filter) };
   });
 
   /** Where one shot sits in its tree: what the overlay and the keyboard walk need. */

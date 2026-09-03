@@ -160,7 +160,8 @@ export interface FeedPage {
   items: FeedNode[];
   /** Opaque keyset cursor for the next page; null at the end. */
   next: string | null;
-  counts: FeedCounts;
+  /** The lens counts of the place: on a first page only, never on a continuation. */
+  counts?: FeedCounts;
 }
 
 /** Where a shot sits in its tree, as the overlay and the keyboard walk need it. */
