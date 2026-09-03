@@ -376,8 +376,12 @@ results.sections.open = !want('open')
       const stageBytes = [];
       // ids first, tiles by id: the feed is windowed, so what is mounted (and
       // what the i-th tile is) changes as the page scrolls a tile into view
+      // only tiles with a picture: a failed shot's stage is a note, not an image
       const ids = await page.evaluate(
-        (sel) => [...document.querySelectorAll(sel)].map((el) => el.getAttribute('data-fb-node')),
+        (sel) =>
+          [...document.querySelectorAll(sel)]
+            .filter((el) => el.querySelector('.sc-cellimg'))
+            .map((el) => el.getAttribute('data-fb-node')),
         SEL.cell,
       );
       for (let i = 0; i < 6; i++) {
