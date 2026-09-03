@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.8.2',
+    date: '2026-09-03',
+    sections: [
+      {
+        heading: 'Security',
+        body: 'The server Scenri runs on and the URL parser under it are on their patched releases. Nothing about how Scenri works changes.',
+      },
+    ],
+  },
+  {
     version: '0.8.1',
     date: '2026-09-03',
     title: 'The same speed at any size.',
