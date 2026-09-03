@@ -424,6 +424,23 @@ export const BriefInput = forwardRef<
       const root = rootRef.current;
       const el = root?.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
       if (root && el && moveChipBy(root, el, dir)) {
+        /*
+         * The caret follows the chip, exactly as it does after a drag.
+         *
+         * The sheet holds focus while it is open, so the line's caret is a
+         * stored position the sheet hands back on close — and a stored
+         * POSITION means somewhere else once the chip has moved past it. The
+         * line would come back with its caret in a place the finger never
+         * put it. Recorded here, beside the chip that just moved, in the
+         * picker's own record and in the one the panel reads.
+         */
+        caretBeside(root, el, 'after');
+        const at = caretUnits(root);
+        if (at !== null) {
+          lastCaret.current = at;
+          if (pickerRef.current?.uid === uid) pickerRef.current = { ...pickerRef.current, caret: at };
+          setPicker((p) => (p && p.uid === uid ? { ...p, caret: at } : p));
+        }
         emit();
         announce(moveAnnouncement(root, el));
       }

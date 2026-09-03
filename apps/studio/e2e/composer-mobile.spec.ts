@@ -687,6 +687,33 @@ test('the sheet is the touch reorder path, and it stays open between steps', asy
   const mid = (await line(page).textContent()) ?? '';
   await sheet(page).getByRole('button', { name: 'Move later' }).click();
   await expect.poll(async () => ((await line(page).textContent()) ?? '') !== mid).toBe(true);
+
+  /*
+   * The caret goes with the chip.
+   *
+   * The sheet holds focus while it is open, so the line's caret is a stored
+   * POSITION the sheet hands back when it closes — and once the chip has
+   * moved past that position the same number means somewhere else entirely.
+   * The line used to come back with its caret at the end of the sentence
+   * rather than beside the chip the finger had just moved.
+   */
+  const where = await page.evaluate(() => {
+    const root = document.querySelector('.sc-brief-line') as HTMLElement;
+    const chip = root.querySelector('.sc-token') as HTMLElement;
+    const sel = window.getSelection();
+    const box = chip.getBoundingClientRect();
+    const r = sel?.rangeCount ? sel.getRangeAt(0) : null;
+    return {
+      caretX: r && root.contains(r.startContainer) ? r.getBoundingClientRect().left : null,
+      chipRight: box.right,
+      row: box.top,
+      caretY: r && root.contains(r.startContainer) ? r.getBoundingClientRect().top : null,
+    };
+  });
+  expect(where.caretX, 'the line still has a caret in it').not.toBeNull();
+  // beside the chip, on the chip's own row
+  expect(Math.abs((where.caretX ?? 0) - where.chipRight)).toBeLessThan(12);
+  expect(Math.abs((where.caretY ?? 0) - where.row)).toBeLessThan(24);
 });
 
 /** One done shot attached as a reference chip, with prose to move through. */

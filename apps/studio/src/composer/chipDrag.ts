@@ -1,4 +1,13 @@
-import { caretBeside, chipAt, dropUnitsAt, gapStartUnits, moveAnnouncement, moveChipToUnits } from './line.js';
+import {
+  caretBeside,
+  caretUnits,
+  chipAt,
+  dropUnitsAt,
+  gapStartUnits,
+  moveAnnouncement,
+  moveChipToUnits,
+  setCaretUnits,
+} from './line.js';
 
 /**
  * Pointer-drag reordering for the brief's chips.
@@ -48,6 +57,13 @@ export function attachChipDrag(
   let ghost: HTMLElement | null = null;
   let indicator: HTMLElement | null = null;
   let lastDrop: { units: number; noop: boolean } | null = null;
+  /**
+   * The caret the drag interrupted, as a count of characters.
+   *
+   * A number rather than a Range: the drop's normalize replaces the text nodes
+   * around the chip, and a Range pointing at one of them dies with it.
+   */
+  let caretBefore: number | null = null;
   let grab = { dx: 0, dy: 0 };
   let ghostSize = { w: 0, h: 0 };
   let raf = 0;
@@ -91,10 +107,27 @@ export function attachChipDrag(
     cancelAnimationFrame(raf);
   };
 
+  /**
+   * Hand the caret back to where the drag found it.
+   *
+   * The line keeps focus for the whole gesture, so a drag that ends without
+   * moving anything used to leave a focused editor with no selection at all:
+   * no caret to see, and every keystroke after it swallowed. Nothing moved on
+   * these paths, so the recorded position still means what it meant; the chip
+   * that was picked up is the fallback when there was no caret to record.
+   */
+  const restoreCaret = (chip: HTMLElement) => {
+    if (!root.isConnected || !root.contains(document.activeElement)) return;
+    if (caretBefore !== null) setCaretUnits(root, caretBefore);
+    else caretBeside(root, chip, 'after');
+  };
+
   const cancel = () => {
     if (!dragging) return;
+    const chip = dragging;
     teardown();
     suppressNextClick();
+    restoreCaret(chip);
     cb.onCancelled();
   };
 
@@ -111,6 +144,10 @@ export function attachChipDrag(
 
   const promote = (e: PointerEvent) => {
     if (!armed) return;
+    // Read first, before anything else here can reach the line: picking a
+    // chip up clears the selection so no highlight rides along under the
+    // ghost, and a drag that moves nothing has to undo exactly that.
+    caretBefore = caretUnits(root);
     dragging = armed.chip;
     cb.onDragStart();
     window.getSelection()?.removeAllRanges();
@@ -198,6 +235,11 @@ export function attachChipDrag(
   const onPointerMove = (e: PointerEvent) => {
     if (armed) {
       if (Math.hypot(e.clientX - armed.x, e.clientY - armed.y) < THRESHOLD) return;
+      // Prevented like every later move: without it the compatibility
+      // mousemove for this one reaches the browser's own selection drag,
+      // which is still live from the press, and it extends a selection under
+      // the ghost from the point the chip was grabbed.
+      e.preventDefault();
       promote(e);
       return;
     }
@@ -223,6 +265,9 @@ export function attachChipDrag(
       cb.onMoved(chip, moveAnnouncement(root, chip));
       return;
     }
+    // Released on the chip's own place, or off the line entirely: nothing
+    // moved, so the caret goes back rather than staying gone.
+    restoreCaret(chip);
     cb.onCancelled();
   };
 

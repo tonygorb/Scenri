@@ -1782,6 +1782,53 @@ test('a press without movement is still a click, and Escape abandons a drag', as
   expect(await sentence(page)).toBe(before);
 });
 
+/**
+ * A drag that moves nothing has to hand the caret back.
+ *
+ * Picking a chip up clears the selection so no highlight rides along under the
+ * ghost. Only a landed move put a caret back, so the three ways a drag ends
+ * with nothing moved — released on the chip's own place, abandoned with
+ * Escape, released off the line — left a focused editor with no caret at all,
+ * and every keystroke after one of them was swallowed.
+ */
+test('a drag that moves nothing gives the caret back, and typing lands there', async ({ page }) => {
+  await seedReorder(page);
+  const before = await sentence(page);
+  const grab = async () => {
+    const b = (await chips(page).first().boundingBox())!;
+    return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) };
+  };
+
+  // released over the chip's own place: past the threshold, so a real drag
+  const noop = await grab();
+  await page.mouse.move(noop.x, noop.y);
+  await page.mouse.down();
+  await page.mouse.move(noop.x + 9, noop.y, { steps: 3 });
+  await page.mouse.up();
+  await page.keyboard.type('A');
+
+  // abandoned with Escape
+  const esc = await grab();
+  await page.mouse.move(esc.x, esc.y);
+  await page.mouse.down();
+  await page.mouse.move(esc.x - 40, esc.y, { steps: 4 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await page.keyboard.type('B');
+
+  // released off the line entirely
+  const off = await grab();
+  await page.mouse.move(off.x, off.y);
+  await page.mouse.down();
+  await page.mouse.move(off.x, off.y - 200, { steps: 5 });
+  await page.mouse.up();
+  await page.keyboard.type('C');
+
+  // the caret was after the chip all three times, which is where attaching
+  // left it, and no drag moved anything
+  expect(await sentence(page)).toBe(`${before}ABC`);
+});
+
 test('Alt plus an arrow moves a focused chip, and the move is announced', async ({ page }) => {
   await seedReorder(page);
   await chips(page).first().focus();
