@@ -241,12 +241,23 @@ A chip is an inline atom in real text flow that owns its gap as a symmetric 2px 
 
 ### Composer attach picker (the "+")
 One panel, one grid, one insertion path. The "+" answers "what do you want to add to this shot": a head
-that stays put (search, the labelled **Upload image** button, close, then the category rail) over the one
-scrolling grid, in a frame that keeps its size whatever the tab. It is anchored above the composer at its
-full width on every screen and is non-modal on purpose: its mousedown never takes the caret (`keepCaret`),
-so a pick lands where you were typing, the brief stays in view, and the panel stays open for the next one.
-A phone gets the same panel with thumb-sized controls and the keyboard dropped on open; a bottom sheet was
+that stays put over the one scrolling grid, in a frame that keeps its size whatever the tab. It is anchored
+above the composer at its full width on every screen and is non-modal on purpose: its mousedown never takes
+the caret (`keepCaret`), so a pick lands where you were typing, the brief stays in view, and the panel stays
+open for the next one. A phone gets the same panel with the keyboard dropped on open; a bottom sheet was
 tried and covered the very composer the picker adds to.
+- **The head is one row, the composer's Figma row.** The category rail leads and takes the slack; trailing,
+  the library pages' own search (the 34px square that opens into a field over the rail, so nothing moves),
+  the primary **Upload image** pill (the one insertion the grid cannot offer, so it wears the primary fill),
+  then the 32px square close. 16px padding over a hairline; 12px gaps rather than the Figma's 16, because
+  at 16 the seventh tab sat behind the fade at 1440. Nothing in the head is the panel's own control: search
+  is `LibrarySearch`, the buttons are `.sc-btn` and `.sc-icon-btn`.
+- **A phone is not the desktop head folded.** A toolbar of a 44px pill and two circles over the rail was
+  built and dropped the same hour: it read as a desktop panel squeezed. The phone head is one thumb-high
+  row, the rail and the search (open, the field takes the row and the rail steps aside, the library's own
+  phone answer); **Upload image is the grid's first tile**, a dashed frame at the size of what it joins,
+  the camera roll's idiom; and the composer's own + is the close, turning into an x while the panel is up,
+  so no head button doubles it.
 - **The category rail is the underline rail** (`VerticalsTabs`), scoped to the panel's scale, never pills:
   a tab strip stays underline-style, and the rail already scrolls sideways with edge fades, which is the
   whole mobile answer. Every grid sits under the same two-slot row: the group's name and count leading,
@@ -278,8 +289,10 @@ tried and covered the very composer the picker adds to.
   tabindex), Up off the first row returns to search, Enter in search picks the first hit, Escape closes.
   All of it stops propagation: the shot overlay walks shots on the same arrows and closes on the same Escape.
 - **Shots are the feed's own query.** Every finished shot of the brand, newest first, searched on the server
-  and keyset paged 48 at a time, the way the Create grid turns its pages. The workspace's recent shelf is
-  the rail's, not the picker's: a brand with four hundred shots offered twelve here once.
+  and keyset paged 48 at a time, the way the Create grid turns its pages. The Create rail's Recent shots
+  reads the same pages once its section is open, under the feed's own count, so the two doors agree; the
+  workspace's recent shelf still leads there, because a shot that landed a moment ago is on the shelf
+  before any page knows it. A brand with four hundred shots offered twelve in both places once.
 - **Derivatives sized to the tile.** `small` (320) for a product, presenter or scene tile, `micro` for a shot
   or a mark; the curated JPEGs take `?w=` through the same routes.
 - **Your own picture comes in three ways, through one door.** The Upload image button, a file dropped on the

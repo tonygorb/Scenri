@@ -1,5 +1,5 @@
 import { memo, useEffect, useState, type KeyboardEvent } from 'react';
-import { Check, ImageSquare, Plus, X } from '@phosphor-icons/react';
+import { Check, ImageSquare, Plus, UploadSimple, X } from '@phosphor-icons/react';
 import { SitOutTooltip } from '../SitOutTooltip.js';
 import { KIND_ONE, type AttachCard } from './attachRules.js';
 
@@ -103,5 +103,29 @@ function Thumb({ src, crop }: { src?: string | null; crop?: 'top' }) {
         <img src={src} alt="" loading="lazy" decoding="async" data-crop={crop} onError={() => setBroken(true)} />
       )}
     </span>
+  );
+}
+
+/**
+ * Upload image on a phone: the first square of the grid rather than a button
+ * in the head, the camera roll's own idiom, drawn at the size of what it
+ * joins. `sc-ap-add` keeps it out of the tests' tile counts, as the other
+ * make-one actions are.
+ */
+export function UploadTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="sc-ap-card sc-ap-add sc-ap-upload-tile"
+      title="Add an image from your phone. It joins the shot as a reference."
+      onClick={onClick}
+    >
+      <span className="sc-ap-thumb">
+        <UploadSimple size={22} aria-hidden />
+      </span>
+      <span className="sc-ap-cap">
+        <b>Upload image</b>
+      </span>
+    </button>
   );
 }

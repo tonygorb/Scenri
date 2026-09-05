@@ -31,65 +31,61 @@
   min-height: 0;
 }
 
-/* ---- head: the action row, then the category rail. Stays put; the body scrolls. */
+/* ---- head: one row, the rail leading and the actions trailing, on the
+   composer's Figma metrics: 16px padding over a hairline, the rail's ink at
+   the row's floor, 34px controls. The gaps are 12 rather than the Figma's
+   16: seven tabs and three controls total 492px at 16 and the panel gives
+   the rail 449, which clipped Shots behind the fade at rest. At 12, with the
+   counts 3px off their labels and the labels tracked -0.02em, every tab is
+   on screen at 1440 with 4px to spare; narrower than that the rail scrolls
+   with its fades, as it does on the library pages. Stays put; the body scrolls. */
 .sc-ap-head {
   flex: none;
   display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-2);
-  padding: var(--sc-space-5) var(--sc-space-5) 0;
+  align-items: flex-start;
+  gap: var(--sc-space-5);
+  padding: var(--sc-space-6);
   border-bottom: 1px solid var(--sc-line);
 }
+.sc-ap-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .sc-ap-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-5);
+}
+.sc-ap-actions-add {
   display: flex;
   align-items: center;
   gap: var(--sc-space-4);
 }
-/* Search is a browse utility: one quiet field that takes the slack. */
-.sc-ap-search {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-3);
-  height: 34px;
-  padding: 0 var(--sc-space-5);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-well);
-  color: var(--sc-fg3);
-  cursor: text;
+/* The search is the library pages' own 34px target that opens into a field
+   over the rail. In a panel it sits on the raised tone, not the page's, and
+   it floats over the rail at every desktop width: the library's sub-1280
+   rule that lets the field take the row is the page's answer, not this one. */
+.sc-ap-head .sc-libsearch-toggle {
+  background: var(--sc-raised);
 }
-.sc-ap-search input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: none;
-  outline: none;
-  color: var(--sc-fg);
-  font: inherit;
-  font-size: var(--sc-text-control);
-}
-.sc-ap-search input::placeholder {
-  color: var(--sc-fg3);
-}
-@media (hover: hover) {
-  .sc-ap-search:hover {
-    border-color: var(--sc-line-strong);
-  }
-}
-.sc-ap-search:focus-within {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-}
-/* Upload image is an insertion, a peer of every tile, and says so in words. */
-.sc-ap-upload {
+.sc-ap-head .sc-libsearch[data-open] {
   flex: none;
-  padding: 0 14px;
+  width: 34px;
+}
+.sc-ap-head .sc-libsearch[data-open] .sc-libsearch-field {
+  position: absolute;
+  width: 280px;
+  box-shadow: var(--sc-shadow-2);
+}
+/* Upload image is the primary insertion, and says so in the primary fill. */
+.sc-ap-upload {
+  padding: 0 13px;
   font-weight: 500;
 }
 .sc-ap-close {
-  flex: none;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
 }
 /* The rail's page-level rules (sticky, its 24px margin, page-colour fades,
    17px labels) do not apply inside a panel; the toolbar scopes it the same
@@ -107,22 +103,36 @@
   background: linear-gradient(to left, var(--sc-panel) 45%, transparent);
 }
 .sc-ap-tabs .sc-verticals {
-  gap: var(--sc-space-6);
+  gap: var(--sc-space-5);
   padding: 0 0 7px;
 }
 .sc-ap-tabs .sc-verticals button {
   padding: 6px 0 4px;
   font-size: var(--sc-text-control);
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 .sc-ap-tabs .sc-verticals-ink {
   height: 1px;
   bottom: 6px;
 }
 .sc-ap-tabs .sc-vcount {
-  margin-left: 4px;
+  margin-left: 3px;
   font-size: 9.5px;
+}
+
+/* The composer's + is this panel's opener, and while the panel is up it is
+   the close too: on a phone the only one. It says so by turning into an x. */
+.sc-attach-toggle svg {
+  transition: transform 160ms ease;
+}
+.sc-attach-toggle[aria-expanded="true"] svg {
+  transform: rotate(45deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-attach-toggle svg {
+    transition: none;
+  }
 }
 
 /* ---- body: the one scroll container */
@@ -130,7 +140,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--sc-space-5);
+  padding: var(--sc-space-6);
 }
 .sc-ap-group + .sc-ap-group {
   margin-top: var(--sc-space-7);
@@ -430,17 +440,75 @@
     height: min(510px, var(--ap-avail, calc(100dvh - 270px)));
     border-radius: var(--sc-radius-float);
   }
+  /* One row does not fit seven tabs and three controls, and a toolbar
+     squeezed onto two read as the desktop panel folded in half. A phone gets
+     the rail and the search on one thumb-high row; Upload image is the
+     grid's first tile, at the size of what it joins; the composer's own +
+     under the panel is the close, and it says so by turning. */
   .sc-ap-head {
-    padding: var(--sc-space-5) var(--sc-space-5) 0;
+    align-items: flex-end;
+    gap: var(--sc-space-4);
+    /* the same inset as the grid under it, so the rail and the tiles share an edge */
+    padding: 0 var(--sc-space-6);
   }
-  /* Every control a thumb has to hit is the tap size; the graphic keeps its scale. */
-  .sc-ap-search,
-  .sc-ap-upload {
-    height: var(--sc-tap);
+  .sc-ap-tabs .sc-verticals {
+    padding: 0 0 6px;
   }
-  .sc-ap-close {
+  .sc-ap-tabs .sc-verticals button {
+    padding: 13px 0 8px;
+  }
+  .sc-ap-tabs .sc-verticals-ink {
+    bottom: 5px;
+  }
+  .sc-ap-actions {
+    padding-bottom: 5px;
+  }
+  /* the 34px button keeps its scale; the tap size is the wrapper's */
+  .sc-ap-head .sc-libsearch {
     width: var(--sc-tap);
-    height: var(--sc-tap);
+    height: 34px;
+  }
+  .sc-ap-head .sc-libsearch-toggle {
+    left: auto;
+    width: 34px;
+  }
+  /* Open, the field takes the row and the rail steps aside until it closes:
+     the library's own phone answer, a field over the row read as a thing
+     that landed on top of it. */
+  .sc-ap-head:has(.sc-libsearch[data-open]) .sc-ap-tabs {
+    display: none;
+  }
+  .sc-ap-head:has(.sc-libsearch[data-open]) .sc-ap-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 9px 0 6px;
+  }
+  .sc-ap-head .sc-libsearch[data-open],
+  .sc-ap-head .sc-libsearch[data-open] .sc-ap-actions-add {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  .sc-ap-actions-add {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sc-ap-head .sc-libsearch[data-open] .sc-libsearch-field {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+  }
+  /* The upload tile: a frame with nothing in it yet, which is what it is for. */
+  .sc-ap-upload-tile .sc-ap-thumb {
+    display: grid;
+    place-items: center;
+    border-style: dashed;
+    border-color: var(--sc-line-strong);
+    background: var(--sc-well);
+    color: var(--sc-fg2);
+  }
+  .sc-ap-upload-tile:active .sc-ap-thumb {
+    background: var(--sc-hover);
   }
   /* a thumb's target for the quiet verbs, without growing the row's type */
   .sc-ap-sec-act {

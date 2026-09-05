@@ -169,10 +169,10 @@ function AttachDock({
       if (e.key !== 'Escape' || creating) return;
       // the creation dialog is a real Radix Dialog stacked on top: its own
       // Escape closes it; this only steps in once nothing is on top.
-      // A search with text in it takes the first Escape for itself (the body
-      // clears it); the next one closes the panel.
+      // A field in the panel takes its own Escapes first: the search clears,
+      // then closes itself; the next one closes the panel.
       const a = document.activeElement;
-      if (a instanceof HTMLInputElement && rootRef.current?.contains(a) && a.value) return;
+      if (a instanceof HTMLInputElement && rootRef.current?.contains(a)) return;
       e.stopPropagation();
       closeRef.current();
     };

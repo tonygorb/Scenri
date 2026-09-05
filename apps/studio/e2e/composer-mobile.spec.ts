@@ -874,20 +874,24 @@ test.describe('the attach panel on a phone', () => {
     await expect(line(page)).toBeInViewport();
     // and the panel is on screen, head first
     expect(p.y).toBeGreaterThanOrEqual(0);
-    await expect(panel(page).getByRole('textbox', { name: 'Search' })).toBeInViewport();
+    await expect(panel(page).getByRole('button', { name: /^Search/ })).toBeInViewport();
   });
 
   test('search, upload, every tab and close are reachable, and nothing spills', async ({ page }) => {
     test.skip(!isPhone(page), 'thumb sizes are the phone rule');
     await openAttach(page);
     const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
-    for (const sel of ['.sc-ap-search', '.sc-ap-upload', '.sc-ap-close']) {
+    // the search's tap size is its wrapper's; Upload image is the grid's first tile, at tile size
+    for (const sel of ['.sc-attachpanel .sc-libsearch', '.sc-ap-upload-tile']) {
       const b = await box(sel);
       // to the pixel the screen draws: a 44px control can read 43.99998 in layout units
-      expect(Math.round(b.height), sel).toBeGreaterThanOrEqual(44);
+      expect(Math.round(b.height), sel).toBeGreaterThanOrEqual(34);
       expect(Math.round(b.width), sel).toBeGreaterThanOrEqual(44);
     }
     await expect(panel(page).getByRole('button', { name: 'Upload image' })).toBeVisible();
+    // no head button doubles the composer's own +, which is the close here
+    await expect(panel(page).getByRole('button', { name: 'Close' })).toHaveCount(0);
+    await expect(page.locator('.sc-attach-toggle')).toHaveAttribute('aria-expanded', 'true');
     // seven tabs in a rail that scrolls sideways rather than clipping their names
     await expect(page.locator('.sc-ap-tabs [role="tab"]')).toHaveCount(7);
     const last = page.locator('.sc-ap-tabs [role="tab"]').last();
@@ -903,11 +907,13 @@ test.describe('the attach panel on a phone', () => {
     // and the page itself grew no sideways scroll
     const spill = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(spill).toBeLessThanOrEqual(1);
-    // the search still takes the keyboard when it is tapped, at a size Safari will not zoom
-    const input = panel(page).getByRole('textbox', { name: 'Search' });
-    await input.tap();
+    // the search still takes the keyboard when it is tapped, at a size Safari will not zoom,
+    // and open it takes the row: the rail steps aside until the field folds
+    await panel(page).locator('.sc-libsearch-toggle').tap();
+    const input = panel(page).getByRole('searchbox', { name: /^Search/ });
     await expect(input).toBeFocused();
     expect(await input.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+    await expect(page.locator('.sc-ap-tabs')).toBeHidden();
   });
 
   test('every attach tile is big enough for a thumb', async ({ page }) => {
@@ -940,8 +946,8 @@ test.describe('the attach panel on a phone', () => {
     // the same tile again: out it comes
     await page.locator('.sc-ap-card[data-on]').tap();
     await expect(briefChips(page)).toHaveCount(1);
-    // closed with the x: the chip stays, and no keyboard came up for the brief
-    await panel(page).locator('.sc-ap-close').tap();
+    // closed with the composer's own + (an x while the panel is up): the chip stays, and no keyboard came up for the brief
+    await page.locator('.sc-attach-toggle').tap();
     await expect(panel(page)).toHaveCount(0);
     await expect(briefChips(page)).toHaveCount(1);
     const active = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.className ?? '');

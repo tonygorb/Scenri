@@ -23,13 +23,16 @@ export function LibrarySearch({
   onChange,
   noun,
   total,
+  shortcut = true,
 }: {
   value: string;
   onChange: (next: string) => void;
+  /** Whether `/` anywhere on the page opens the field. Off inside the composer's picker, where `/` is the scene sigil. */
+  shortcut?: boolean;
   /** Plural noun for the accessible label and placeholder, e.g. "scenes". */
   noun: string;
-  /** Catalog size, shown in the placeholder. */
-  total: number;
+  /** Catalog size, shown in the placeholder; left out where there is no one catalog to count. */
+  total?: number;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(value.trim().length > 0);
@@ -52,6 +55,7 @@ export function LibrarySearch({
 
   // Slash is the one shortcut. Never while the caret is already in a field.
   useEffect(() => {
+    if (!shortcut) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
@@ -61,7 +65,7 @@ export function LibrarySearch({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [openSearch]);
+  }, [openSearch, shortcut]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Escape') return;
@@ -93,7 +97,7 @@ export function LibrarySearch({
           ref={input}
           type="search"
           value={value}
-          placeholder={`Search ${total} ${noun}`}
+          placeholder={total == null ? `Search ${noun}` : `Search ${total} ${noun}`}
           aria-label={`Search ${noun}`}
           autoComplete="off"
           autoCorrect="off"

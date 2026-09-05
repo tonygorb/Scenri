@@ -2940,6 +2940,13 @@ const REF_B = Buffer.from(
   'base64',
 );
 const upload = (name: string, buffer: Buffer) => ({ name, mimeType: 'image/png', buffer });
+/** The picker's search is the library's 34px button that opens into a field; press it, get the field. */
+const openSearch = async (page: Page) => {
+  await page.locator('.sc-attachpanel .sc-libsearch-toggle').click();
+  const field = page.locator('.sc-attachpanel').getByRole('searchbox', { name: /^Search/ });
+  await expect(field).toBeFocused();
+  return field;
+};
 
 /** The hover card. */
 const peek = (p: Page) => p.locator('.sc-chip-preview');
@@ -3265,8 +3272,8 @@ test.describe('the attach picker', () => {
       await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
       await expect(upload(page)).toBeVisible();
     }
-    // the search field is one control, labelled, and the rail is a real tablist
-    await expect(page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' })).toBeVisible();
+    // the search is one labelled button that opens into a field, and the rail is a real tablist
+    await expect(page.locator('.sc-attachpanel').getByRole('button', { name: /^Search/ })).toBeVisible();
     await expect(page.locator('.sc-ap-tabs [role="tablist"]')).toHaveCount(1);
     await expect(page.locator('.sc-ap-tabs [role="tab"]')).toHaveCount(7);
   });
@@ -3292,20 +3299,23 @@ test.describe('the attach picker', () => {
 
   test('the search field can be left, and Escape clears it before it closes the panel', async ({ page }) => {
     await dock(page).locator('.sc-attach-toggle').click();
-    const search = page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' });
-    await search.click();
-    await expect(search).toBeFocused();
-    // a press anywhere else in the panel lets the field go
+    const search = await openSearch(page);
+    const open = page.locator('.sc-attachpanel .sc-libsearch[data-open]');
+    // a press anywhere else in the panel lets the field go, and an empty field folds back into its button
     await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).click();
     await expect(search).not.toBeFocused();
+    await expect(open).toHaveCount(0);
     // Escape in a search with text clears the text and keeps the panel
-    await search.click();
+    await openSearch(page);
     await search.fill('marco');
     await expect(attachCards(page)).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(search).toHaveValue('');
     await expect(page.locator('.sc-attachpanel')).toBeVisible();
-    // the next Escape closes it
+    // the next folds the field; the one after that closes the panel
+    await page.keyboard.press('Escape');
+    await expect(open).toHaveCount(0);
+    await expect(page.locator('.sc-attachpanel')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
   });
@@ -3316,7 +3326,7 @@ test.describe('the attach picker', () => {
     await dock(page).locator('.sc-attach-toggle').click();
     await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
     await attachCards(page).first().waitFor();
-    await page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' }).click();
+    await openSearch(page);
     await page.keyboard.press('ArrowDown');
     await expect(attachCards(page).nth(0)).toBeFocused();
     await page.keyboard.press('ArrowRight');
@@ -3392,7 +3402,7 @@ test.describe('the attach picker', () => {
     expect(await sentence(page)).toMatch(/^on a shelf\s*clip/);
     // the picker takes the same paste, through the same door
     await dock(page).locator('.sc-attach-toggle').click();
-    await pasteImage('.sc-ap-search input', 'gif');
+    await pasteImage('.sc-attachpanel .sc-libsearch input', 'gif');
     await expect(line(page).locator('.sc-token[data-kind="ref"]')).toHaveCount(2);
     // and it is the real reference role, not text
     await expect(line(page).locator('.sc-token[data-kind="ref"]').first()).toContainText('clip');
@@ -3443,7 +3453,7 @@ test.describe('the attach picker', () => {
 
   test('a search with no hits says so and keeps the upload action', async ({ page }) => {
     await plusMenu(page, /presenters/i);
-    const search = page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' });
+    const search = await openSearch(page);
     await search.fill('zzqq');
     await expect(page.locator('.sc-ap-empty')).toHaveText('No matching presenters.');
     await expect(attachCards(page)).toHaveCount(0);
@@ -3491,7 +3501,7 @@ test.describe('the attach picker', () => {
     await editor.locator('.sc-attach-toggle').click();
     await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
     await attachCards(page).first().waitFor();
-    await page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' }).click();
+    await openSearch(page);
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowRight');
     await expect(attachCards(page).nth(1)).toBeFocused();

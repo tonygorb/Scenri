@@ -10,7 +10,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
 } from 'react';
-import { MagnifyingGlass, UploadSimple, X } from '@phosphor-icons/react';
+import { UploadSimple, X } from '@phosphor-icons/react';
 import { api, type Brand } from '../../api.js';
 import { uploadLogo } from '../../apiUploads.js';
 import { appendColor, flattenPalette, nextHex } from '../../brand/palette.js';
@@ -20,15 +20,17 @@ import { bookmarkedScenes } from '../../bookmarks.js';
 import { useCreateAsset } from '../../create/AssetCreateHost.js';
 import { failureToast } from '../../failure.js';
 import { VerticalsTabs } from '../../layout/VerticalsTabs.js';
+import { LibrarySearch } from '../../layout/library/LibrarySearch.js';
 import { useToasts } from '../../toasts.js';
 import { PAGE, buildCandidates, filterCandidates, pickList, type IngredientKind } from '../ingredientOptions.js';
 import { useIngredientCatalog } from '../useIngredientCatalog.js';
 import { identityKeyOf, type SentenceToken } from '../line/tokens.js';
-import { AttachTile } from './AttachTile.js';
+import { AttachTile, UploadTile } from './AttachTile.js';
 import { useShotPages } from './useShotPages.js';
 import {
   GROUPS,
   GROUP_LABEL,
+  NOUN,
   NAV_KEYS,
   TILE_MIN,
   TILE_MIN_PHONE,
@@ -130,7 +132,7 @@ export function AttachBody({
   const [shown, setShown] = useState(PAGE);
   const [active, setActive] = useState(0);
   const [width, setWidth] = useState(phone ? 347 : 696);
-  const searchRef = useRef<HTMLInputElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // A new tab or a new search is a new list: page one, first tile.
@@ -210,7 +212,14 @@ export function AttachBody({
    */
   const lists = useMemo<GroupList[]>(() => {
     if (tab === 'All') {
-      return GROUPS.map((g) => listFor(g, columnsFor(g, width, phone))).filter((l) => l.items.length > 0);
+      const out: GroupList[] = [];
+      for (const g of GROUPS) {
+        const cols = columnsFor(g, width, phone);
+        // on a phone the first row also holds the upload tile, so it takes one fewer
+        const l = listFor(g, phone && out.length === 0 ? Math.max(1, cols - 1) : cols);
+        if (l.items.length > 0) out.push(l);
+      }
+      return out;
     }
     // the Shots tab pages by the server, so it draws every page it holds
     return [listFor(tab, tab === 'Shots' ? Number.MAX_SAFE_INTEGER : shown)];
@@ -304,15 +313,17 @@ export function AttachBody({
    */
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
+    const onSearch = target instanceof HTMLInputElement && !!headRef.current?.contains(target);
     if (e.key === 'Escape') {
+      // the search field takes its own Escapes (clear, then close the field);
+      // one that reaches here is for the panel
+      if (onSearch) return;
       e.preventDefault();
       e.stopPropagation();
-      // a search with text in it: the first Escape clears, the next one closes
-      if (target === searchRef.current && q) setQ('');
-      else onClose();
+      onClose();
       return;
     }
-    if (target === searchRef.current) {
+    if (onSearch) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         e.stopPropagation();
@@ -333,8 +344,14 @@ export function AttachBody({
     if (!tile) return;
     e.preventDefault();
     const next = stepIndex(active, e.key as NavKey, columnsOf(tile.closest('.sc-ap-grid')), navGroups);
-    if (next === 'search') searchRef.current?.focus();
-    else if (next != null) focusTile(next);
+    if (next === 'search') {
+      // the field when it is open, else the target that opens it
+      const head = headRef.current;
+      (
+        head?.querySelector<HTMLElement>('.sc-libsearch[data-open] input') ??
+        head?.querySelector<HTMLElement>('.sc-libsearch-toggle')
+      )?.focus();
+    } else if (next != null) focusTile(next);
   };
 
   /**
@@ -451,37 +468,13 @@ export function AttachBody({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a key router, not a control
     <div className="sc-ap-inner" onKeyDown={onKeyDown} onPaste={onPaste}>
-      <div className="sc-ap-head">
-        <div className="sc-ap-actions">
-          <label className="sc-ap-search">
-            <MagnifyingGlass size={14} aria-hidden />
-            <input
-              ref={searchRef}
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search"
-              aria-label="Search"
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
-          {/* The one way to bring your own picture in, said in words: it used
-              to be a 12px glyph beside the close button, which is how one of
-              the composer's most important actions went unfound. */}
-          <button
-            type="button"
-            className="sc-btn sc-btn-ghost sc-ap-upload"
-            onClick={onUpload}
-            title="Add an image from your computer. It joins the shot as a reference."
-          >
-            <UploadSimple size={14} aria-hidden />
-            <span>Upload image</span>
-          </button>
-          <button type="button" className="sc-icon-btn sc-ap-close" onClick={onClose} aria-label="Close">
-            <X size={14} />
-          </button>
-        </div>
+      {/* One row: the rail leading, then the actions the way the composer's
+          Figma sets them. Search is the library pages' own 34px target that
+          opens into a field over the rail; Upload image is the primary pill,
+          the one insertion the grid cannot offer; Close is the corner. A
+          phone keeps the row to the rail and the search: Upload is the
+          grid's first tile there, and the composer's own + is the close. */}
+      <div className="sc-ap-head" ref={headRef}>
         <div className="sc-ap-tabs">
           <VerticalsTabs
             aria-label="What to add"
@@ -489,6 +482,33 @@ export function AttachBody({
             items={tabItems(counts)}
             onSelect={(v) => onTab((v ?? 'All') as AttachTab)}
           />
+        </div>
+        <div className="sc-ap-actions">
+          <div className="sc-ap-actions-add">
+            <LibrarySearch
+              value={q}
+              onChange={setQ}
+              noun={tab === 'All' ? 'everything' : NOUN[tab]}
+              total={tab === 'All' ? undefined : counts[tab]}
+              shortcut={false}
+            />
+            {!phone && (
+              <button
+                type="button"
+                className="sc-btn sc-btn-primary sc-ap-upload"
+                onClick={onUpload}
+                title="Add an image from your computer. It joins the shot as a reference."
+              >
+                <UploadSimple size={14} aria-hidden />
+                <span>Upload image</span>
+              </button>
+            )}
+          </div>
+          {!phone && (
+            <button type="button" className="sc-icon-btn sc-ap-close" onClick={onClose} aria-label="Close">
+              <X size={14} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -498,7 +518,7 @@ export function AttachBody({
             Scenes set up a new shot, so they sit out while you are refining. Press X on Refining to use one.
           </p>
         )}
-        {lists.map((l) => {
+        {lists.map((l, gi) => {
           const why = whyFor(l.group);
           const start = nav;
           nav += l.items.length;
@@ -576,6 +596,9 @@ export function AttachBody({
                 )}
               </div>
               <div className="sc-ap-grid" data-shape={l.items[0]?.shape ?? 'square'} style={style}>
+                {/* Out of the arrow walk on purpose: a hardware keyboard on a
+                    phone is rare, and the tile is one Tab away regardless. */}
+                {phone && gi === 0 && <UploadTile onClick={onUpload} />}
                 {l.items.map((card, i) => (
                   <AttachTile
                     key={card.key}
@@ -604,6 +627,11 @@ export function AttachBody({
           );
         })}
         {tab === 'Shots' && shots.error && <p className="sc-ap-empty">Could not load the shots. {shots.error}</p>}
+        {empty && phone && (
+          <div className="sc-ap-grid" style={{ '--ap-min': `${TILE_MIN_PHONE.Products}px` } as CSSProperties}>
+            <UploadTile onClick={onUpload} />
+          </div>
+        )}
         {empty && !(tab === 'Shots' && (shots.loading || shots.error)) && (
           <p className="sc-ap-empty">{emptyCopy(tab, q)}</p>
         )}
