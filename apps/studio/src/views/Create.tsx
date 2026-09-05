@@ -1090,6 +1090,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         <AssetsPanel
           brand={brand}
           shots={recent}
+          shotsTotal={lensCounts.all}
           attached={attached}
           full={ceiling}
           onToken={(t) => composerRef.current?.insertToken(t)}

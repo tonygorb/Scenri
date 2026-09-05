@@ -26,9 +26,10 @@ const EMPTY: ShotPages = { items: [], total: 0, hasMore: false, loading: false, 
  * hundred shots offered twelve. This is the feed's own query instead, the one
  * the Create grid turns: newest first, searched on the server, keyset paged.
  * A shot still rendering, failed or empty is not a reference and is left out
- * of what is drawn, never of the count.
+ * of what is drawn, never of the count. The Create rail's Recent shots reads
+ * the same pages once its section is open, so the two doors agree.
  */
-export function useShotPages(brandId: string, query: string): ShotPages {
+export function useShotPages(brandId: string, query: string, enabled = true): ShotPages {
   const q = query.trim();
   const key = `${brandId}|${q}`;
   const [held, setHeld] = useState<{ key: string; items: FeedNode[]; next: string | null; total: number }>({
@@ -77,12 +78,14 @@ export function useShotPages(brandId: string, query: string): ShotPages {
   // The first page for a new brand or a new search. Typing is debounced the
   // way the library's URL write is; opening is not.
   useEffect(() => {
+    // `enabled` false: nothing asked yet (a closed rail section), so no request
+    if (!enabled) return;
     const delay = held.key === '' ? 0 : 150;
     const t = setTimeout(() => void fetchPage(null), delay);
     return () => clearTimeout(t);
     // held.key is read for the delay only; a new key is what should refetch
     // biome-ignore lint/correctness/useExhaustiveDependencies: see above
-  }, [fetchPage]);
+  }, [fetchPage, enabled]);
 
   useEffect(() => () => inflight.current?.abort(), []);
 
