@@ -27,7 +27,7 @@ export const GROUP_LABEL: Record<AttachGroup, string> = {
   Scenes: 'Scenes',
   Colors: 'Brand colors',
   Brand: 'Brand marks',
-  Shots: 'Recent shots',
+  Shots: 'Shots',
 };
 
 /** The kind, said once before a tile's name for a screen reader: "Product: Field Watch". */
@@ -47,7 +47,7 @@ export const NOUN: Record<AttachGroup, string> = {
   Scenes: 'scenes',
   Colors: 'brand colors',
   Brand: 'brand marks',
-  Shots: 'recent shots',
+  Shots: 'shots',
 };
 
 /**
@@ -152,12 +152,10 @@ export function fromCandidate(c: Candidate): AttachCard {
 }
 
 /**
- * The brand's own things: its marks, its colours and its finished shots.
- * These have no candidate model; the panel is the only surface that lists
- * them together. Newest shot first, already done: the workspace answer
- * carries the shelf.
+ * The brand's own things: its marks and its colours. These have no candidate
+ * model; the panel is the only surface that lists them together.
  */
-export function extraCards(brandJson: unknown, shots: readonly FeedNode[]): AttachCard[] {
+export function extraCards(brandJson: unknown): AttachCard[] {
   const marks = attachableMarks(brandJson).map((m): AttachCard => {
     const hash = m.hash as string;
     const label = markLabel(brandJson, m);
@@ -185,9 +183,16 @@ export function extraCards(brandJson: unknown, shots: readonly FeedNode[]): Atta
       token,
     };
   });
-  const recent = shots.filter((s) => s.status === 'done' && s.images.length > 0).slice(0, 12);
-  const refs = recent.map((s, i): AttachCard => {
-    const label = `Shot ${recent.length - i}`;
+  return [...marks, ...colors];
+}
+
+/**
+ * Finished shots as reference tiles, newest first, numbered from the brand's
+ * count so "Shot 463" is the newest and the numbers hold across pages.
+ */
+export function shotCards(shots: readonly FeedNode[], total: number): AttachCard[] {
+  return shots.map((s, i): AttachCard => {
+    const label = `Shot ${Math.max(1, total - i)}`;
     return {
       key: `r:${s.images[0]}`,
       group: 'Shots',
@@ -199,7 +204,6 @@ export function extraCards(brandJson: unknown, shots: readonly FeedNode[]): Atta
       token: { t: 'ref', imageHash: s.images[0], label: 'Shot' },
     };
   });
-  return [...marks, ...colors, ...refs];
 }
 
 /** The library matcher over a card's own words, for the kinds with no candidate model. */

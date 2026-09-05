@@ -87,7 +87,6 @@ export const Composer = forwardRef<
     engines: EngineInfo[];
     /** The project's root, which every new shot hangs off. */
     parentId: string | null;
-    shots: FeedNode[];
     initialBrief?: {
       tokens: BriefToken[];
       templateId?: string;
@@ -194,7 +193,6 @@ export const Composer = forwardRef<
     brand,
     engines,
     parentId,
-    shots,
     initialBrief,
     suppressDraftRestore,
     startScene,
@@ -1264,7 +1262,6 @@ export const Composer = forwardRef<
           activeProductCategory={activeProductCategory}
           refining={scenesSitOut}
           full={ceilingFull}
-          shots={shots}
           initialTab={attachTab}
           id={attachPanelId}
           attached={attachedInShot}

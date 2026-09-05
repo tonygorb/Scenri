@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useSearchParams } from 'react-router';
-import type { Brand, FeedNode } from '../api.js';
+import type { Brand } from '../api.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
 /** A thumb, not a mouse: focusing the brief raises a keyboard over the panel. */
@@ -20,7 +20,6 @@ export type { AttachTab } from './attach/attachRules.js';
 
 export interface AttachPanelProps {
   brand: Brand;
-  shots: FeedNode[];
   initialTab?: AttachTab;
   /** For the opener's aria-controls. */
   id?: string;
@@ -87,7 +86,6 @@ export function AttachPanel(props: AttachPanelProps) {
     <AttachDock id={props.id} phone={phone} touch={touch} creating={creating} onClose={props.onClose}>
       <AttachBody
         brand={props.brand}
-        shots={props.shots}
         tab={tab}
         onTab={setTab}
         activeProductCategory={props.activeProductCategory}

@@ -11,7 +11,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { MagnifyingGlass, UploadSimple, X } from '@phosphor-icons/react';
-import { api, type Brand, type FeedNode } from '../../api.js';
+import { api, type Brand } from '../../api.js';
 import { uploadLogo } from '../../apiUploads.js';
 import { appendColor, flattenPalette, nextHex } from '../../brand/palette.js';
 import { ColorPicker } from '../../layout/ColorPicker.js';
@@ -25,6 +25,7 @@ import { PAGE, buildCandidates, filterCandidates, pickList, type IngredientKind 
 import { useIngredientCatalog } from '../useIngredientCatalog.js';
 import { identityKeyOf, type SentenceToken } from '../line/tokens.js';
 import { AttachTile } from './AttachTile.js';
+import { SHOT_PAGE, useShotPages } from './useShotPages.js';
 import {
   GROUPS,
   GROUP_LABEL,
@@ -36,6 +37,7 @@ import {
   extraCards,
   fromCandidate,
   matchesCard,
+  shotCards,
   stepIndex,
   tabItems,
   type AttachCard,
@@ -47,7 +49,6 @@ import {
 
 export interface AttachBodyProps {
   brand: Brand;
-  shots: FeedNode[];
   tab: AttachTab;
   onTab: (tab: AttachTab) => void;
   /** The category of whichever product is already in the brief, if any: feeds the "suited" hint. */
@@ -98,7 +99,6 @@ interface GroupList {
  */
 export function AttachBody({
   brand,
-  shots,
   tab,
   onTab,
   activeProductCategory,
@@ -154,19 +154,26 @@ export function AttachBody({
     }),
     [catalog],
   );
-  const extras = useMemo(() => extraCards(brand.json, shots), [brand.json, shots]);
+  const extras = useMemo(() => extraCards(brand.json), [brand.json]);
+  // Every finished shot, newest first, searched on the server: the shelf the
+  // workspace carries for the rail stops at forty-eight.
+  const shots = useShotPages(brand.id, query);
+  const shotItems = useMemo(() => shotCards(shots.items, shots.total), [shots.items, shots.total]);
 
   /** Every group's size under the current search, for the rail. */
   const counts = useMemo(() => {
     const out = {} as Record<AttachGroup, number>;
     for (const g of GROUPS) {
       const kind = KIND_OF[g];
-      out[g] = kind
-        ? filterCandidates(candidates[kind], query).length
-        : extras.filter((c) => c.group === g && matchesCard(c, query)).length;
+      out[g] =
+        g === 'Shots'
+          ? shots.total
+          : kind
+            ? filterCandidates(candidates[kind], query).length
+            : extras.filter((c) => c.group === g && matchesCard(c, query)).length;
     }
     return out;
-  }, [candidates, extras, query]);
+  }, [candidates, extras, query, shots.total]);
 
   const listFor = useCallback(
     (g: AttachGroup, limit: number): GroupList => {
@@ -175,10 +182,18 @@ export function AttachBody({
         const pl = pickList(kind, candidates[kind], { currentId: null, query, bookmarked, shown: limit });
         return { group: g, items: pl.items.map(fromCandidate), total: pl.total, remaining: pl.remaining };
       }
+      if (g === 'Shots') {
+        // paged by the server: what is not here yet is a page away, not a slice
+        const items = shotItems.slice(0, limit);
+        const remaining = shots.hasMore
+          ? Math.max(1, shots.total - shotItems.length)
+          : Math.max(0, shotItems.length - limit);
+        return { group: g, items, total: shots.total, remaining };
+      }
       const all = extras.filter((c) => c.group === g && matchesCard(c, query));
       return { group: g, items: all.slice(0, limit), total: all.length, remaining: Math.max(0, all.length - limit) };
     },
-    [candidates, extras, query, bookmarked],
+    [candidates, extras, query, bookmarked, shotItems, shots.hasMore, shots.total],
   );
 
   /**
@@ -194,7 +209,8 @@ export function AttachBody({
         (l) => l.items.length > 0,
       );
     }
-    return [listFor(tab, shown)];
+    // the Shots tab pages by the server, so it draws every page it holds
+    return [listFor(tab, tab === 'Shots' ? Number.MAX_SAFE_INTEGER : shown)];
   }, [tab, listFor, shown, width, phone]);
 
   /** Every tile in navigation order, and where each group's run starts and ends. */
@@ -540,15 +556,23 @@ export function AttachBody({
                 ))}
               </div>
               {tab !== 'All' && l.remaining > 0 && (
-                <button type="button" className="sc-ap-more" onClick={() => setShown((n) => n + PAGE)}>
+                <button
+                  type="button"
+                  className="sc-ap-more"
+                  disabled={l.group === 'Shots' && shots.loading}
+                  onClick={() => (l.group === 'Shots' ? shots.loadMore() : setShown((n) => n + PAGE))}
+                >
                   {/* Never a silent truncation: say what is not on screen. */}
-                  Show {Math.min(PAGE, l.remaining)} more of {l.total}
+                  Show {Math.min(l.group === 'Shots' ? SHOT_PAGE : PAGE, l.remaining)} more of {l.total}
                 </button>
               )}
             </section>
           );
         })}
-        {empty && <p className="sc-ap-empty">{emptyCopy(tab, q)}</p>}
+        {tab === 'Shots' && shots.error && <p className="sc-ap-empty">Could not load the shots. {shots.error}</p>}
+        {empty && !(tab === 'Shots' && (shots.loading || shots.error)) && (
+          <p className="sc-ap-empty">{emptyCopy(tab, q)}</p>
+        )}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import {
   columnsFor,
   emptyCopy,
   extraCards,
+  shotCards,
   fromCandidate,
   matchesCard,
   stepIndex,
@@ -70,29 +71,35 @@ describe('cards', () => {
     expect(a.thumb).toBe('/api/presenter-avatars/astrid.jpg?v=9&w=320');
   });
 
-  it('draws the brand marks, its colours and the finished shots, newest first', () => {
+  it('draws the brand marks and its colours', () => {
     const json = {
       logos: [{ file: `asset:${HASH}`, role: 'primary' }],
       palette: { primary: { hex: '#388DDD', name: 'Primary' } },
     };
-    const shots = [
-      { id: 'n1', status: 'done', images: [HASH2] },
-      { id: 'n2', status: 'running', images: [] },
-      { id: 'n3', status: 'done', images: [] },
-    ] as any[];
-    const cards = extraCards(json, shots);
-    expect(cards.map((c) => c.group)).toEqual(['Brand', 'Colors', 'Shots']);
+    const cards = extraCards(json);
+    expect(cards.map((c) => c.group)).toEqual(['Brand', 'Colors']);
     expect(cards[0].token).toEqual({ t: 'mark', imageHash: HASH });
     expect(cards[0].thumb).toBe(`/api/images/${HASH}/thumb?w=160`);
-    expect(cards[1].shape).toBe('swatch');
     expect(cards[0].shape).toBe('square');
+    expect(cards[1].shape).toBe('swatch');
     expect(cards[1].swatch).toBe('#388DDD');
     expect(cards[1].key).toBe(identityKeyOf({ t: 'color', hex: '#388DDD', name: 'Primary' }));
-    expect(cards[2].label).toBe('Shot 1');
-    expect(cards[2].token).toEqual({ t: 'ref', imageHash: HASH2, label: 'Shot' });
     expect(matchesCard(cards[1], '388d')).toBe(true);
-    expect(matchesCard(cards[2], 'shot')).toBe(true);
-    expect(matchesCard(cards[2], 'mark')).toBe(false);
+  });
+
+  it('numbers the finished shots from the brand count, newest first, across pages', () => {
+    const shots = [
+      { id: 'n1', status: 'done', images: [HASH2] },
+      { id: 'n2', status: 'done', images: [HASH] },
+    ] as any[];
+    const cards = shotCards(shots, 463);
+    expect(cards.map((c) => c.label)).toEqual(['Shot 463', 'Shot 462']);
+    expect(cards[0].token).toEqual({ t: 'ref', imageHash: HASH2, label: 'Shot' });
+    expect(cards[0].thumb).toBe(`/api/images/${HASH2}/thumb?w=160`);
+    expect(matchesCard(cards[0], 'shot')).toBe(true);
+    expect(matchesCard(cards[0], 'mark')).toBe(false);
+    // a count that lags the page never goes below one
+    expect(shotCards(shots, 1).map((c) => c.label)).toEqual(['Shot 1', 'Shot 1']);
   });
 });
 

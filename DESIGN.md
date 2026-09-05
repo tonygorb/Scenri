@@ -266,6 +266,9 @@ tried and covered the very composer the picker adds to.
 - **Every key stays in the picker.** Arrows walk the tiles by the grid's real column count (a roving
   tabindex), Up off the first row returns to search, Enter in search picks the first hit, Escape closes.
   All of it stops propagation: the shot overlay walks shots on the same arrows and closes on the same Escape.
+- **Shots are the feed's own query.** Every finished shot of the brand, newest first, searched on the server
+  and keyset paged 48 at a time, the way the Create grid turns its pages. The workspace's recent shelf is
+  the rail's, not the picker's: a brand with four hundred shots offered twelve here once.
 - **Derivatives sized to the tile.** `small` (320) for a product, presenter or scene tile, `micro` for a shot
   or a mark; the curated JPEGs take `?w=` through the same routes.
 - **Your own picture comes in three ways, through one door.** The Upload image button, a file dropped on the
