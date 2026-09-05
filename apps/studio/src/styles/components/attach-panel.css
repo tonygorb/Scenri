@@ -343,22 +343,16 @@
   color: var(--sc-fg3);
   font-size: var(--sc-text-body);
 }
-.sc-ap-more {
-  display: block;
-  width: 100%;
-  margin-top: var(--sc-space-5);
-  height: 34px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  background: none;
-  color: var(--sc-fg2);
-  font-size: var(--sc-text-body);
-  cursor: pointer;
+.sc-ap-sentinel {
+  height: 1px;
 }
-.sc-ap-more:hover {
-  color: var(--sc-fg);
-  background: var(--sc-hover);
-  border-color: var(--sc-line-strong);
+/* how far in you are, while there is more: a caption, never a control */
+.sc-ap-foot {
+  margin: var(--sc-space-4) 0 0;
+  text-align: center;
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- a phone: the same panel, the composer's full width, above it. The
@@ -377,7 +371,6 @@
   /* Every control a thumb has to hit is the tap size; the graphic keeps its scale. */
   .sc-ap-search,
   .sc-ap-upload,
-  .sc-ap-more,
   .sc-ap-card[data-shape="swatch"] {
     height: var(--sc-tap);
   }

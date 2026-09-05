@@ -25,7 +25,7 @@ import { PAGE, buildCandidates, filterCandidates, pickList, type IngredientKind 
 import { useIngredientCatalog } from '../useIngredientCatalog.js';
 import { identityKeyOf, type SentenceToken } from '../line/tokens.js';
 import { AttachTile } from './AttachTile.js';
-import { SHOT_PAGE, useShotPages } from './useShotPages.js';
+import { useShotPages } from './useShotPages.js';
 import {
   GROUPS,
   GROUP_LABEL,
@@ -240,6 +240,37 @@ export function AttachBody({
   }, []);
 
   // One press per tile: in the shot already, it comes out; otherwise it goes in.
+  /**
+   * Paging by scroll. The sentinel sits after the grid inside the body, the
+   * one scroller; when it comes within a page of the viewport the next page
+   * is asked for: the server's for shots, the next slice for everything else.
+   * A keyboard walk reaches it too, because focusing the last tile scrolls
+   * it into view.
+   */
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const nextPage = useRef<() => void>(() => {});
+  nextPage.current = () => {
+    const l = lists[0];
+    if (!l || tab === 'All' || l.remaining <= 0) return;
+    if (l.group === 'Shots') {
+      if (!shots.loading) shots.loadMore();
+    } else setShown((n) => n + PAGE);
+  };
+  useEffect(() => {
+    const el = sentinelRef.current;
+    const root = bodyRef.current;
+    if (!el || !root) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) nextPage.current();
+      },
+      { root, rootMargin: '0px 0px 240px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+    // re-armed whenever the sentinel is (re)mounted with a new list behind it
+  }, [tab, lists]);
+
   const pickIndex = useCallback(
     (i: number) => {
       const card = flat[i];
@@ -556,15 +587,15 @@ export function AttachBody({
                 ))}
               </div>
               {tab !== 'All' && l.remaining > 0 && (
-                <button
-                  type="button"
-                  className="sc-ap-more"
-                  disabled={l.group === 'Shots' && shots.loading}
-                  onClick={() => (l.group === 'Shots' ? shots.loadMore() : setShown((n) => n + PAGE))}
-                >
-                  {/* Never a silent truncation: say what is not on screen. */}
-                  Show {Math.min(l.group === 'Shots' ? SHOT_PAGE : PAGE, l.remaining)} more of {l.total}
-                </button>
+                <>
+                  {/* The next page comes as you reach it, a page ahead of the
+                      scroll, so no button interrupts the browse. Never a silent
+                      truncation, still: the line says how far in you are. */}
+                  <div ref={sentinelRef} className="sc-ap-sentinel" aria-hidden />
+                  <p className="sc-ap-foot" aria-live="polite">
+                    {l.items.length} of {l.total}
+                  </p>
+                </>
               )}
             </section>
           );
