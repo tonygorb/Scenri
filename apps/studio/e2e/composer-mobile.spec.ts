@@ -880,8 +880,9 @@ test.describe('the attach sheet', () => {
     const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
     for (const sel of ['.sc-ap-search', '.sc-ap-upload', '.sc-ap-close']) {
       const b = await box(sel);
-      expect(b.height, sel).toBeGreaterThanOrEqual(44);
-      expect(b.width, sel).toBeGreaterThanOrEqual(44);
+      // to the pixel the screen draws: a 44px control can read 43.99998 in layout units
+      expect(Math.round(b.height), sel).toBeGreaterThanOrEqual(44);
+      expect(Math.round(b.width), sel).toBeGreaterThanOrEqual(44);
     }
     await expect(attachSheet(page).getByRole('button', { name: 'Upload image' })).toBeVisible();
     // seven tabs in a rail that scrolls sideways rather than clipping their names
