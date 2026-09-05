@@ -151,11 +151,6 @@
   color: var(--sc-fg3);
   font-variant-numeric: tabular-nums;
 }
-/* A tab's action row without a title: the rail has just said the name. */
-.sc-ap-sec[data-bare] {
-  justify-content: flex-end;
-  min-height: 0;
-}
 .sc-ap-sec-act {
   margin-left: auto;
   border: none;

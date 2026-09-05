@@ -457,81 +457,78 @@ export function AttachBody({
           const style = { '--ap-min': `${min}px`, '--ap-lines': kind === 'product' ? 2 : 1 } as CSSProperties;
           return (
             <section key={l.group} className="sc-ap-group" aria-label={GROUP_LABEL[l.group]}>
-              {/* On All the row names the group and offers the rest of it. On a
-                  tab the rail has just said the name and the count, so the row
-                  carries only the tab's own action, when it has one. */}
-              {tab !== 'Shots' && (
-                <div className="sc-ap-sec" data-bare={tab === 'All' ? undefined : ''}>
-                  {tab === 'All' && (
-                    <span className="sc-ap-sec-title">
-                      {GROUP_LABEL[l.group]}
-                      <span className="sc-ap-sec-n">{l.total}</span>
-                    </span>
-                  )}
-                  {tab === 'All' && l.total > l.items.length && (
-                    <button type="button" className="sc-ap-sec-act" onClick={() => onTab(l.group)}>
-                      Show all {l.total}
-                    </button>
-                  )}
-                  {tab === 'Products' && (
-                    <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('product')}>
-                      <Plus size={12} aria-hidden />
-                      Add product
-                    </button>
-                  )}
-                  {tab === 'Presenters' && (
-                    <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('presenter')}>
-                      <Plus size={12} aria-hidden />
-                      Create presenter
-                    </button>
-                  )}
-                  {tab === 'Scenes' && (
-                    <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('scene')}>
-                      <Plus size={12} aria-hidden />
-                      Create scene
-                    </button>
-                  )}
-                  {tab === 'Colors' && (
-                    <ColorPicker
-                      className="sc-btn sc-btn-ghost sc-ap-add"
-                      triggerStyle={{ background: 'none' }}
-                      value={nextHex(flattenPalette(brand.json?.palette))}
-                      presets={flattenPalette(brand.json?.palette).map((c) => c.hex)}
-                      commitMode="close"
-                      align="end"
-                      label="Add color"
-                      onChange={(hex) => void addColour(hex)}
-                    >
-                      <Plus size={12} aria-hidden />
-                      Add color
-                    </ColorPicker>
-                  )}
-                  {tab === 'Brand' && (
-                    // A label over a hidden input, the same gesture BrandIdentity's
-                    // variant-add uses: one click, a file, and the mark is in the
-                    // kit AND in the brief.
-                    <label
-                      className="sc-btn sc-btn-ghost sc-ap-add"
-                      title="Add your logo to the brand kit"
-                      data-busy={logoBusy || undefined}
-                    >
-                      <input
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        disabled={logoBusy}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          e.target.value = '';
-                          if (file) void addLogo(file);
-                        }}
-                      />
-                      <Plus size={12} aria-hidden />
-                      Add logo
-                    </label>
-                  )}
-                </div>
-              )}
+              {/* The group's row, the same two slots everywhere: its name and
+                  count leading, one action trailing. On All that action is the
+                  rest of the group; on a tab it is the tab's own way to make
+                  one. An action with no title beside it read as a stray. */}
+              <div className="sc-ap-sec">
+                <span className="sc-ap-sec-title">
+                  {GROUP_LABEL[l.group]}
+                  <span className="sc-ap-sec-n">{l.total}</span>
+                </span>
+                {tab === 'All' && l.total > l.items.length && (
+                  <button type="button" className="sc-ap-sec-act" onClick={() => onTab(l.group)}>
+                    Show all {l.total}
+                  </button>
+                )}
+                {tab === 'Products' && (
+                  <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('product')}>
+                    <Plus size={12} aria-hidden />
+                    Add product
+                  </button>
+                )}
+                {tab === 'Presenters' && (
+                  <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('presenter')}>
+                    <Plus size={12} aria-hidden />
+                    Create presenter
+                  </button>
+                )}
+                {tab === 'Scenes' && (
+                  <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('scene')}>
+                    <Plus size={12} aria-hidden />
+                    Create scene
+                  </button>
+                )}
+                {tab === 'Colors' && (
+                  <ColorPicker
+                    className="sc-btn sc-btn-ghost sc-ap-add"
+                    triggerStyle={{ background: 'none' }}
+                    value={nextHex(flattenPalette(brand.json?.palette))}
+                    presets={flattenPalette(brand.json?.palette).map((c) => c.hex)}
+                    commitMode="close"
+                    align="end"
+                    label="Add color"
+                    onChange={(hex) => void addColour(hex)}
+                  >
+                    <Plus size={12} aria-hidden />
+                    Add color
+                  </ColorPicker>
+                )}
+                {tab === 'Brand' && (
+                  // A label over a hidden input, the same gesture BrandIdentity's
+                  // variant-add uses: one click, a file, and the mark is in the
+                  // kit AND in the brief.
+                  <label
+                    className="sc-btn sc-btn-ghost sc-ap-add"
+                    title="Add your logo to the brand kit"
+                    data-busy={logoBusy || undefined}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      disabled={logoBusy}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (file) void addLogo(file);
+                      }}
+                    />
+                    <Plus size={12} aria-hidden />
+                    Add logo
+                  </label>
+                )}
+              </div>
               <div className="sc-ap-grid" data-shape={l.items[0]?.shape ?? 'square'} style={style}>
                 {l.items.map((card, i) => (
                   <AttachTile

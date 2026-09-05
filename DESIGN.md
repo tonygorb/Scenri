@@ -249,10 +249,11 @@ A phone gets the same panel with thumb-sized controls and the keyboard dropped o
 tried and covered the very composer the picker adds to.
 - **The category rail is the underline rail** (`VerticalsTabs`), scoped to the panel's scale, never pills:
   a tab strip stays underline-style, and the rail already scrolls sideways with edge fades, which is the
-  whole mobile answer. On a tab the rail has just said the name and the count, so the grid carries no
-  title of its own, only the tab's own way to make one at the row's end (Add product, Create presenter,
-  Create scene, Add color, Add logo; a shot is made by generating); on All each group has its row and a
-  "Show all".
+  whole mobile answer. Every grid sits under the same two-slot row: the group's name and count leading,
+  one action trailing. On All that action is "Show all"; on a tab it is the tab's own way to make one (Add
+  product, Create presenter, Create scene, Add color, Add logo; a shot is made by generating, so Shots has
+  none). An action with no title beside it read as a stray, so the title stays even under a rail that has
+  just said the name.
 - **Every picture is a square in one grid**, sized for the thing (a face and a packshot read at 112 to
   130px) so the count follows the width and never changes between tabs. A presenter is the canonical
   `presenterAvatar`, a product its packshot with the brand under it, a scene its 4:5 preview centred (what
