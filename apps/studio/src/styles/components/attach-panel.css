@@ -286,11 +286,12 @@
     filter: brightness(1.06);
   }
 }
-/* The press is a paint step on the picture: it is its own image, so opacity
-   is the only paint it has. Held or not, the same press. */
-.sc-ap-card:not([aria-disabled="true"]):active .sc-ap-thumb img,
-.sc-ap-card:not([aria-disabled="true"]):active .sc-ap-swatch {
-  opacity: 0.86;
+/* The press paints the control, not the picture: a picture that dipped
+   and sprang back on every pick read as a flash. The puck under the pointer
+   is what the press is about, and it steps its opacity the way a primary
+   button does. */
+.sc-ap-card:not([aria-disabled="true"]):active .sc-ap-puck {
+  opacity: 0.75;
 }
 .sc-ap-cap {
   display: block;
@@ -315,19 +316,18 @@
 /* The puck in the corner says what a press will do: a plus under the pointer
    on a tile that is not in the shot yet, a tick on one that is, and the tick
    becomes an x under the pointer because the tile is a toggle. Same inverse
-   puck the rail and the chip picker use, arriving with their 120ms so it
-   reads as an answer rather than a flicker. */
-/* One ring, one weight, one ink: the same 2px inverse ring inside the edge
-   a picked shot tile draws, for a tile the shot already holds. */
+   puck the rail and the chip picker use. One element, its glyph swapped in
+   place, with no arrival animation: it is already under the pointer when
+   the press lands, and anything that pops there reads as a flash. */
 .sc-ap-card[data-on] .sc-ap-thumb {
   border-color: var(--sc-inv-bg);
   box-shadow: inset 0 0 0 1px var(--sc-inv-bg);
 }
-.sc-ap-tick {
+.sc-ap-puck {
   position: absolute;
   top: 6px;
   right: 6px;
-  display: grid;
+  display: none;
   place-items: center;
   width: 18px;
   height: 18px;
@@ -335,44 +335,44 @@
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
   box-shadow: 0 0 0 2px var(--sc-panel);
-  animation: sc-ap-tick-in var(--sc-dur-fast) var(--sc-ease) both;
 }
-@keyframes sc-ap-tick-in {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-.sc-ap-tick-off,
-.sc-ap-card[data-on]:focus-visible .sc-ap-tick-on {
+.sc-ap-puck svg {
   display: none;
 }
-.sc-ap-card[data-on]:focus-visible .sc-ap-tick-off {
+/* held: the tick, always */
+.sc-ap-card[data-on] .sc-ap-puck {
+  display: grid;
+}
+.sc-ap-card[data-on] .sc-ap-puck-on {
   display: block;
 }
+/* aimed at, by a pointer that can hover or by the keyboard: the plus on a
+   tile not yet held, the x on one that is */
 @media (hover: hover) {
-  .sc-ap-card[data-on]:hover .sc-ap-tick-on {
-    display: none;
-  }
-  .sc-ap-card[data-on]:hover .sc-ap-tick-off {
-    display: block;
-  }
-  /* the plus rides only under a pointer that can hover; a thumb taps the tile itself */
-  .sc-ap-card:not([data-on]):not([aria-disabled="true"]):hover .sc-ap-tick-add {
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-puck {
     display: grid;
   }
+  .sc-ap-card:not([data-on]):hover .sc-ap-puck-add {
+    display: block;
+  }
+  .sc-ap-card[data-on]:hover .sc-ap-puck-on {
+    display: none;
+  }
+  .sc-ap-card[data-on]:hover .sc-ap-puck-off {
+    display: block;
+  }
 }
-.sc-ap-tick-add {
+.sc-ap-card:not([aria-disabled="true"]):focus-visible .sc-ap-puck {
+  display: grid;
+}
+.sc-ap-card:not([data-on]):focus-visible .sc-ap-puck-add {
+  display: block;
+}
+.sc-ap-card[data-on]:focus-visible .sc-ap-puck-on {
   display: none;
 }
-/* the picture under a tick or a plus is the same picture; the puck is the
-   only thing that changes, so a hover never re-lights a held tile's ring */
-.sc-ap-card:not([data-on]):focus-visible .sc-ap-tick-add {
-  display: grid;
+.sc-ap-card[data-on]:focus-visible .sc-ap-puck-off {
+  display: block;
 }
 
 /* ---- sitting out, hints, empty, more */
@@ -386,7 +386,7 @@
   cursor: default;
 }
 /* sitting out answers no pointer: no puck, no brightening, no press */
-.sc-ap-card[aria-disabled="true"] .sc-ap-tick-add {
+.sc-ap-card[aria-disabled="true"] .sc-ap-puck {
   display: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -394,9 +394,6 @@
   .sc-ap-thumb img,
   .sc-ap-swatch {
     transition: none;
-  }
-  .sc-ap-tick {
-    animation: none;
   }
 }
 .sc-ap-hint {

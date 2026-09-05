@@ -40,6 +40,9 @@ export const AttachTile = memo(function AttachTile({
     // the pair from reaching the line behind the panel, where Space is a space
     if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
   };
+  // A tile the shot holds can always be pressed again to take it out, full
+  // shot or not: the ceiling is about adding, and removal is the way back.
+  const blocked = why && !ticked ? why : null;
   const tile = (
     <button
       type="button"
@@ -49,10 +52,10 @@ export const AttachTile = memo(function AttachTile({
       data-nav={index}
       data-on={ticked ? '' : undefined}
       tabIndex={active ? 0 : -1}
-      aria-disabled={why ? true : undefined}
+      aria-disabled={blocked ? true : undefined}
       aria-pressed={ticked}
-      title={why ?? (ticked ? `${card.label} is in the shot. Press to remove it.` : card.full)}
-      onClick={why ? undefined : () => onPick(index)}
+      title={blocked ?? (ticked ? `${card.label} is in the shot. Press to remove it.` : card.full)}
+      onClick={blocked ? undefined : () => onPick(index)}
       onFocus={() => onFocus(index)}
       onKeyDown={onKeyDown}
     >
@@ -66,22 +69,20 @@ export const AttachTile = memo(function AttachTile({
         <b dir="auto">{card.label}</b>
         {card.sub && <span dir="auto">{card.sub}</span>}
       </span>
-      {ticked ? (
-        <span className="sc-ap-tick" aria-hidden>
-          <Check className="sc-ap-tick-on" size={11} weight="bold" />
-          <X className="sc-ap-tick-off" size={11} weight="bold" />
+      {/* One puck, always the same element, so a press swaps its glyph in
+          place: plus under the pointer, tick once held, x under the pointer
+          on a held tile. Tearing it down and rebuilding it flashed. */}
+      {(ticked || !why) && (
+        <span className="sc-ap-puck" aria-hidden>
+          <Plus className="sc-ap-puck-add" size={11} weight="bold" />
+          <Check className="sc-ap-puck-on" size={11} weight="bold" />
+          <X className="sc-ap-puck-off" size={11} weight="bold" />
         </span>
-      ) : (
-        !why && (
-          <span className="sc-ap-tick sc-ap-tick-add" aria-hidden>
-            <Plus size={11} weight="bold" />
-          </span>
-        )
       )}
       {ticked && <span className="sc-vh">{' In the shot.'}</span>}
     </button>
   );
-  return <SitOutTooltip why={why}>{tile}</SitOutTooltip>;
+  return <SitOutTooltip why={blocked}>{tile}</SitOutTooltip>;
 });
 
 /**

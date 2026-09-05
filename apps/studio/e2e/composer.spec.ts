@@ -3342,7 +3342,7 @@ test.describe('the attach picker', () => {
     await expect(on).toHaveCount(1);
     await expect(on).toHaveAttribute('aria-pressed', 'true');
     await expect(on).toContainText('In the shot');
-    await expect(on.locator('.sc-ap-tick')).toBeVisible();
+    await expect(on.locator('.sc-ap-puck')).toBeVisible();
     // the second press is a removal, through the brief's own remove
     await on.click();
     await expect(chips(page)).toHaveCount(0);
