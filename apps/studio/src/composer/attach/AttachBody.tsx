@@ -512,7 +512,8 @@ export function AttachBody({
                     <input
                       type="file"
                       accept="image/*"
-                      hidden
+                      // visually hidden, not `hidden`: the input is what the keyboard reaches, and Enter on it opens the file dialog
+                      className="sc-vh"
                       disabled={logoBusy}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
