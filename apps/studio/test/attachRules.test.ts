@@ -154,9 +154,11 @@ describe('arrow keys', () => {
 
 describe('the grid', () => {
   it('predicts auto-fill: how many tiles fit across a width', () => {
-    expect(columnsFor('Presenters', 696, false)).toBe(7);
-    expect(columnsFor('Products', 696, false)).toBe(6);
+    expect(columnsFor('Presenters', 696, false)).toBe(5);
+    expect(columnsFor('Presenters', 1000, false)).toBe(8);
+    expect(columnsFor('Products', 696, false)).toBe(5);
     expect(columnsFor('Scenes', 696, false)).toBe(4);
+    expect(columnsFor('Shots', 696, false)).toBe(6);
     expect(columnsFor('Presenters', 347, true)).toBe(3);
     expect(columnsFor('Scenes', 347, true)).toBe(2);
     expect(columnsFor('Colors', 696, false)).toBe(1);

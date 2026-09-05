@@ -69,16 +69,22 @@ export const SHAPE: Record<AttachGroup, TileShape> = {
  * The narrowest a tile of each kind may be, in CSS pixels. The grid is
  * `repeat(auto-fill, minmax(min, 1fr))` and reads the same number through
  * `--ap-min`, so the column count `columnsFor` predicts is the one the
- * browser draws. A presenter's face reads at 84; a product needs a little
- * more for its packshot and the brand line under it; a scene is landscape.
+ * browser draws.
+ *
+ * Sized for the thing, not for the width: a face and a packshot read at
+ * about 112 to 130px, a scene wants its width for the light, a shot and a
+ * mark are recognised smaller. The count is whatever that leaves: five
+ * presenters across a 696px panel, eight across a 1000px one. Letting the
+ * width decide gave ten 88px faces on a wide screen, which is a contact
+ * sheet, not a picker.
  */
 export const TILE_MIN: Record<AttachGroup, number> = {
-  Products: 104,
-  Presenters: 84,
-  Scenes: 132,
+  Products: 112,
+  Presenters: 112,
+  Scenes: 160,
   Colors: 0,
-  Brand: 84,
-  Shots: 84,
+  Brand: 104,
+  Shots: 104,
 };
 /** On a phone the tiles are for a thumb: three squares across at 375, two scenes. */
 export const TILE_MIN_PHONE: Record<AttachGroup, number> = {
