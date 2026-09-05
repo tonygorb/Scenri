@@ -259,6 +259,11 @@ tried and covered the very composer the picker adds to.
   `presenterAvatar`, a product its packshot with the brand under it, a scene its 4:5 preview centred (what
   the chip picker does with it too), a mark letterboxed on white, a colour a swatch chip. One fixed
   caption; "Recommended" is in the title, not the caption. Nothing on a tile manages.
+- **A tile's states are the rail's.** The picture sits in a hairline frame: `--sc-line` at rest,
+  `--sc-line-strong` under a pointer that can hover (never on touch, where a hover would stick to the last
+  tap), the focus ring on the frame rather than the button, a press that is only the picture's opacity, and
+  `--sc-sel-line` when the thing is in the shot. Nothing dims, scales or moves; a swatch chip presses the
+  way every chip does, through the shared list in `foundations/interaction.css`.
 - **Already in the shot wears a tick and is a toggle.** The tick is the inverse puck the chip picker uses
   for what is on, keyed on the brief's own identity rule (`identityKeyOf`), so the tile and the rail can
   never disagree; the same press again takes the chip out through the brief's own remove, and the tick

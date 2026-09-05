@@ -78,26 +78,23 @@ export const AttachTile = memo(function AttachTile({
   return <SitOutTooltip why={why}>{tile}</SitOutTooltip>;
 });
 
-/** A catalog import whose image never downloaded has a product but no picture. */
+/**
+ * The picture in its frame. The frame is what the states paint (a hairline at
+ * rest, stronger under the pointer, the selected line when in the shot, the
+ * ring when focused), the same way the rail's asset card frames the same
+ * pictures. A catalog import whose image never downloaded has a product but
+ * no picture, and keeps the frame.
+ */
 function Thumb({ src, crop }: { src?: string | null; crop?: 'top' }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [src]);
-  if (!src || broken) {
-    return (
-      <span className="sc-ap-thumb sc-ap-thumb-empty">
-        <ImageSquare size={16} />
-      </span>
-    );
-  }
   return (
-    <img
-      className="sc-ap-thumb"
-      src={src}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      data-crop={crop}
-      onError={() => setBroken(true)}
-    />
+    <span className="sc-ap-thumb" data-empty={!src || broken ? '' : undefined}>
+      {!src || broken ? (
+        <ImageSquare size={16} />
+      ) : (
+        <img src={src} alt="" loading="lazy" decoding="async" data-crop={crop} onError={() => setBroken(true)} />
+      )}
+    </span>
   );
 }

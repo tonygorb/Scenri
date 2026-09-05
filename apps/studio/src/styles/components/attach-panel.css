@@ -72,6 +72,11 @@
 .sc-ap-search input::placeholder {
   color: var(--sc-fg3);
 }
+@media (hover: hover) {
+  .sc-ap-search:hover {
+    border-color: var(--sc-line-strong);
+  }
+}
 .sc-ap-search:focus-within {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
@@ -162,10 +167,18 @@
   font-weight: 500;
   color: var(--sc-fg2);
 }
-.sc-ap-sec-act:hover {
-  color: var(--sc-fg);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+@media (hover: hover) {
+  .sc-ap-sec-act:hover {
+    color: var(--sc-fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+/* the Add logo verb is a label whose input holds the focus */
+.sc-ap-sec-act:focus-within {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+  border-radius: var(--sc-radius-xs);
 }
 /* The ways to make something new from here wear the same quiet verb "Show
    all" wears on All, so the row is the same row on every tab and nothing
@@ -193,7 +206,12 @@
   gap: var(--sc-space-4);
 }
 
-/* ---- the tile: a picture, then one fixed caption */
+/* ---- the tile: a picture in a frame, then one fixed caption.
+   The states are the rail's, for the same pictures a few pixels away: a
+   hairline at rest, a stronger one under the pointer, the ring on the frame
+   when focused, a paint-only press, and when the thing is in the shot the
+   selected line plus a tick that arrives rather than appears. Nothing here
+   moves a box. */
 .sc-ap-card {
   position: relative;
   display: flex;
@@ -208,37 +226,60 @@
   color: var(--sc-fg);
 }
 .sc-ap-card:focus-visible {
+  outline: none;
+}
+.sc-ap-card:focus-visible .sc-ap-thumb {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
-  border-radius: var(--sc-radius);
 }
 .sc-ap-thumb {
+  position: relative;
   display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
-  object-fit: cover;
-  background: var(--sc-raised);
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius);
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+  background: var(--sc-raised);
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-ap-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 /* A mark cropped is a mark unreadable: ground it and letterbox it. */
 .sc-ap-card[data-group="Brand"] .sc-ap-thumb {
+  background: #fff;
+}
+.sc-ap-card[data-group="Brand"] .sc-ap-thumb img {
   object-fit: contain;
   padding: 10%;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px var(--sc-line);
-}
-.sc-ap-card:hover .sc-ap-thumb {
-  opacity: 0.85;
 }
 /* A 4:5 card standing in for a square avatar reads face-first, not torso-first. */
-.sc-ap-thumb[data-crop="top"] {
+.sc-ap-thumb img[data-crop="top"] {
   object-position: 50% 12%;
 }
-.sc-ap-thumb-empty {
+.sc-ap-thumb[data-empty] {
   display: grid;
   place-items: center;
   color: var(--sc-fg3);
+}
+/* Under the pointer the frame firms up; nothing dims and nothing scales. A
+   touch screen keeps its hover for the tap and would wear it until the next
+   tap, so the pointer rule is for pointers that can hover. */
+@media (hover: hover) {
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb {
+    border-color: var(--sc-line-strong);
+  }
+}
+/* The press is a paint step on the picture: it is its own image, so opacity
+   is the only paint it has. */
+.sc-ap-card:not([aria-disabled="true"]):active .sc-ap-thumb {
+  opacity: 0.86;
 }
 .sc-ap-cap {
   display: block;
@@ -260,8 +301,13 @@
   font-size: var(--sc-text-micro);
   color: var(--sc-fg2);
 }
-/* In the shot already: a tick in the corner, the same puck the chip picker
-   uses for what is on, with a halo of the panel so it reads on a white packshot. */
+/* In the shot already: the selected line on the frame and a tick in the
+   corner, the inverse puck the rail and the chip picker use, arriving with
+   the rail's own 120ms so a pick reads as an answer rather than a flicker.
+   The tile is a toggle, so under the pointer the tick becomes the x it will do. */
+.sc-ap-card[data-on] .sc-ap-thumb {
+  border-color: var(--sc-sel-line);
+}
 .sc-ap-tick {
   position: absolute;
   top: 6px;
@@ -274,16 +320,32 @@
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
   box-shadow: 0 0 0 2px var(--sc-panel);
+  animation: sc-ap-tick-in var(--sc-dur-fast) var(--sc-ease) both;
 }
-/* The tile is a toggle: under the pointer the tick becomes the x it will do. */
+@keyframes sc-ap-tick-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 .sc-ap-tick-off,
-.sc-ap-card[data-on]:hover .sc-ap-tick-on,
 .sc-ap-card[data-on]:focus-visible .sc-ap-tick-on {
   display: none;
 }
-.sc-ap-card[data-on]:hover .sc-ap-tick-off,
 .sc-ap-card[data-on]:focus-visible .sc-ap-tick-off {
   display: block;
+}
+@media (hover: hover) {
+  .sc-ap-card[data-on]:hover .sc-ap-tick-on {
+    display: none;
+  }
+  .sc-ap-card[data-on]:hover .sc-ap-tick-off {
+    display: block;
+  }
 }
 
 /* ---- a colour is a swatch and a name, one chip on the control scale */
@@ -296,11 +358,19 @@
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-full);
 }
-.sc-ap-card[data-shape="swatch"]:hover {
-  background: var(--sc-hover);
-  border-color: var(--sc-line-strong);
+@media (hover: hover) {
+  .sc-ap-card[data-shape="swatch"]:hover {
+    background: var(--sc-hover);
+    border-color: var(--sc-line-strong);
+  }
 }
+.sc-ap-card[data-shape="swatch"][data-on] {
+  border-color: var(--sc-sel-line);
+}
+/* the frame is the chip itself here, so the ring goes on it */
 .sc-ap-card[data-shape="swatch"]:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
   border-radius: var(--sc-radius-full);
 }
 .sc-ap-swatch {
@@ -319,6 +389,7 @@
   width: 16px;
   height: 16px;
   box-shadow: none;
+  animation: none;
 }
 
 /* ---- sitting out, hints, empty, more */
@@ -330,6 +401,14 @@
 .sc-ap-card[aria-disabled="true"] {
   opacity: var(--sc-disabled);
   cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-ap-thumb {
+    transition: none;
+  }
+  .sc-ap-tick {
+    animation: none;
+  }
 }
 .sc-ap-hint {
   margin: 0 0 var(--sc-space-4);
