@@ -10,7 +10,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
 } from 'react';
-import { MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
+import { MagnifyingGlass, UploadSimple, X } from '@phosphor-icons/react';
 import { api, type Brand, type FeedNode } from '../../api.js';
 import { uploadLogo } from '../../apiUploads.js';
 import { appendColor, flattenPalette, nextHex } from '../../brand/palette.js';
@@ -472,26 +472,23 @@ export function AttachBody({
                   </button>
                 )}
                 {tab === 'Products' && (
-                  <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('product')}>
-                    <Plus size={12} aria-hidden />
+                  <button type="button" className="sc-ap-sec-act sc-ap-add" onClick={() => create('product')}>
                     Add product
                   </button>
                 )}
                 {tab === 'Presenters' && (
-                  <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('presenter')}>
-                    <Plus size={12} aria-hidden />
+                  <button type="button" className="sc-ap-sec-act sc-ap-add" onClick={() => create('presenter')}>
                     Create presenter
                   </button>
                 )}
                 {tab === 'Scenes' && (
-                  <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('scene')}>
-                    <Plus size={12} aria-hidden />
+                  <button type="button" className="sc-ap-sec-act sc-ap-add" onClick={() => create('scene')}>
                     Create scene
                   </button>
                 )}
                 {tab === 'Colors' && (
                   <ColorPicker
-                    className="sc-btn sc-btn-ghost sc-ap-add"
+                    className="sc-ap-sec-act sc-ap-add"
                     triggerStyle={{ background: 'none' }}
                     value={nextHex(flattenPalette(brand.json?.palette))}
                     presets={flattenPalette(brand.json?.palette).map((c) => c.hex)}
@@ -500,7 +497,6 @@ export function AttachBody({
                     label="Add color"
                     onChange={(hex) => void addColour(hex)}
                   >
-                    <Plus size={12} aria-hidden />
                     Add color
                   </ColorPicker>
                 )}
@@ -509,7 +505,7 @@ export function AttachBody({
                   // variant-add uses: one click, a file, and the mark is in the
                   // kit AND in the brief.
                   <label
-                    className="sc-btn sc-btn-ghost sc-ap-add"
+                    className="sc-ap-sec-act sc-ap-add"
                     title="Add your logo to the brand kit"
                     data-busy={logoBusy || undefined}
                   >
@@ -524,7 +520,6 @@ export function AttachBody({
                         if (file) void addLogo(file);
                       }}
                     />
-                    <Plus size={12} aria-hidden />
                     Add logo
                   </label>
                 )}

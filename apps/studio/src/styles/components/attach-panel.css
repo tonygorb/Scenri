@@ -157,7 +157,9 @@
   background: none;
   padding: 0;
   cursor: pointer;
+  font: inherit;
   font-size: var(--sc-text-caption);
+  font-weight: 500;
   color: var(--sc-fg2);
 }
 .sc-ap-sec-act:hover {
@@ -165,15 +167,13 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-/* The two ways to make something new from here, at the row's end and out of
-   the grid: a grid of things to add holds only things to add. */
-.sc-ap-add {
-  margin-left: auto;
-  height: 26px;
-  padding: 0 10px 0 8px;
-  gap: 4px;
-  font-size: var(--sc-text-caption);
-  font-weight: 500;
+/* The ways to make something new from here wear the same quiet verb "Show
+   all" wears on All, so the row is the same row on every tab and nothing
+   shifts when the tab changes. The grid holds only things to add. */
+.sc-ap-sec-act {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
 }
 .sc-ap-add[data-busy] {
   opacity: var(--sc-dim);
@@ -385,8 +385,9 @@
     width: var(--sc-tap);
     height: var(--sc-tap);
   }
-  .sc-ap-add {
-    height: 34px;
+  /* a thumb's target for the quiet verbs, without growing the row's type */
+  .sc-ap-sec-act {
+    min-height: 32px;
   }
   .sc-ap-grid {
     column-gap: var(--sc-space-5);
