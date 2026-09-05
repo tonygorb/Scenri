@@ -479,13 +479,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   // ---- scenes (+ their preview imagery when generated)
   const templatesRoot = opts.templatesDir ?? defaultScenesDir();
-  registerSceneRoutes(app, { templatesRoot, scenes });
+  registerSceneRoutes(app, { templatesRoot, scenes, thumbs });
 
   // ---- presenters (curated identity catalog). A presenter attaches straight
   // into a brief like a Scene does — see brandJsonWithResolvedPresenters below.
   const presentersDir = join(templatesRoot, 'presenters');
   const { presenters } = loadPresenters(presentersDir);
-  registerPresenterRoutes(app, { templatesRoot, presenters });
+  registerPresenterRoutes(app, { templatesRoot, presenters, thumbs });
 
   // ---- custom presenters and scenes (the ones a brand builds for itself)
   //
@@ -504,7 +504,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // Thumbnail is always the category's "primary" angle (three-quarter where
   // the category has one, else front) — a slightly dimensional hero shot,
   // never a creative-campaign image. See primaryAngleFor/demoProductRefPath.
-  registerDemoProductRoutes(app, { templatesRoot, demoProducts, demoProductById });
+  registerDemoProductRoutes(app, { templatesRoot, demoProducts, demoProductById, thumbs });
 
   registerShowcaseRoutes(app, { templatesRoot });
 

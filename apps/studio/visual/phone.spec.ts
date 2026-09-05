@@ -75,3 +75,11 @@ test('settings sheet', async ({ page }) => {
   await page.goto(`/${d.slug}?settings=brand`);
   await shot(page, 'settings-brand');
 });
+
+test('composer attach sheet', async ({ page }) => {
+  await prep(page);
+  await page.goto(`/${d.slug}/create?compose=1`);
+  await page.locator('.sc-attach-toggle').first().click();
+  await page.locator('.sc-attachsheet').waitFor();
+  await shot(page, 'create-composer-attach');
+});
