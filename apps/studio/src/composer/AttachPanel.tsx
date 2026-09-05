@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import type { Brand, FeedNode } from '../api.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
-import { useSheetDrag } from '../useSheetDrag.js';
+
+/** A thumb, not a mouse: focusing the brief raises a keyboard over the panel. */
+const COARSE = '(pointer: coarse)';
 import { AttachBody } from './attach/AttachBody.js';
-import { NAV_KEYS, type AttachCard, type AttachTab } from './attach/attachRules.js';
+import type { AttachCard, AttachTab } from './attach/attachRules.js';
 import { keepCaret } from './line.js';
 
 export type { AttachTab } from './attach/attachRules.js';
@@ -38,11 +39,15 @@ export interface AttachPanelProps {
   /** What the shot already holds, by identity key. */
   attached: ReadonlySet<string>;
   onPick: (card: AttachCard) => void;
+  /** A ticked tile pressed again: the chip comes back out of the shot. */
+  onRemove: (card: AttachCard) => void;
   onUpload: () => void;
+  /** Image files pasted into the picker: the same door as Upload image. */
+  onFiles: (files: FileList) => void;
   /**
    * `restore`: whether the composer should put the caret back in the brief.
-   * The anchored panel asks for it when the close came from inside it; the
-   * phone sheet never does, because focusing the brief raises the keyboard.
+   * Asked for when the close came from inside the panel on a desktop; never
+   * on a phone, because focusing the brief raises the keyboard.
    */
   onClose: (o: { restore: boolean }) => void;
 }
@@ -50,14 +55,17 @@ export interface AttachPanelProps {
 /**
  * The "+" in the composer: add something to this shot.
  *
- * One body, two shells. On a desktop it is the anchored panel above the
- * composer, non-modal on purpose: it stays open for multi-attach, the brief
- * stays editable behind it, and because its mousedown never takes the caret
- * a pick lands exactly where you were typing. On a phone it is a sheet under
- * the thumb, on the shell the shot settings and the chip picker already use.
+ * One panel, anchored above the composer at its full width, on every screen.
+ * Non-modal on purpose: it stays open for multi-attach, the brief stays in
+ * view and editable behind it, and because its mousedown never takes the
+ * caret a pick lands exactly where you were typing. A phone gets the same
+ * panel with thumb-sized controls and the keyboard dropped on open, so the
+ * space above the composer is the panel's; a sheet was tried and covered the
+ * very composer the picker adds to.
  */
 export function AttachPanel(props: AttachPanelProps) {
   const phone = useMediaQuery(PHONE);
+  const touch = useMediaQuery(COARSE);
   const [tab, setTab] = useState<AttachTab>(props.initialTab ?? 'All');
   useEffect(() => {
     setTab(props.initialTab ?? 'All');
@@ -68,56 +76,88 @@ export function AttachPanel(props: AttachPanelProps) {
   const [params] = useSearchParams();
   const creating = params.get('new') !== null;
 
-  const body = (restore: boolean) => (
-    <AttachBody
-      brand={props.brand}
-      shots={props.shots}
-      tab={tab}
-      onTab={setTab}
-      activeProductCategory={props.activeProductCategory}
-      refining={props.refining}
-      full={props.full}
-      attached={props.attached}
-      phone={phone}
-      onPick={props.onPick}
-      onUpload={props.onUpload}
-      onClose={() => props.onClose({ restore })}
-    />
-  );
-
-  return phone ? (
-    <AttachSheet creating={creating} onClose={() => props.onClose({ restore: false })}>
-      {body(false)}
-    </AttachSheet>
-  ) : (
-    <AttachDock id={props.id} creating={creating} onClose={props.onClose}>
-      {body(true)}
+  return (
+    <AttachDock id={props.id} phone={phone} touch={touch} creating={creating} onClose={props.onClose}>
+      <AttachBody
+        brand={props.brand}
+        shots={props.shots}
+        tab={tab}
+        onTab={setTab}
+        activeProductCategory={props.activeProductCategory}
+        refining={props.refining}
+        full={props.full}
+        attached={props.attached}
+        phone={phone}
+        touch={touch}
+        onPick={props.onPick}
+        onRemove={props.onRemove}
+        onUpload={props.onUpload}
+        onFiles={props.onFiles}
+        onClose={() => props.onClose({ restore: !touch })}
+      />
     </AttachDock>
   );
 }
 
-// ---------------------------------------------------------------- desktop
-
 /**
- * Anchored above the composer at its full width. Non-modal: no focus trap,
- * no scrim, no aria-modal. Escape closes it from anywhere, an outside click
- * closes it, and the composer decides what gets focus afterwards.
+ * The shell: no focus trap, no scrim, no aria-modal. Escape closes it from
+ * anywhere, an outside click closes it, and the composer decides what gets
+ * focus afterwards.
  */
 function AttachDock({
   id,
+  phone,
+  touch,
   creating,
   onClose,
   children,
 }: {
   id?: string;
+  phone: boolean;
+  touch: boolean;
   creating: boolean;
   onClose: (o: { restore: boolean }) => void;
   children: ReactNode;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const close = () => onClose({ restore: !!rootRef.current?.contains(document.activeElement) });
+  const close = () => onClose({ restore: !touch && !!rootRef.current?.contains(document.activeElement) });
   const closeRef = useRef(close);
   closeRef.current = close;
+
+  // A touch screen opens this over the brief with the software keyboard up,
+  // which leaves the panel a strip. Drop the keyboard: the caret is
+  // remembered and a pick still lands where it was; the field waits to be tapped.
+  useEffect(() => {
+    if (touch) (document.activeElement as HTMLElement | null)?.blur?.();
+  }, [touch]);
+
+  // The room above the composer is the panel's, and on a phone it is not a
+  // constant: a four-line brief or a keyboard moves the composer up. Measure
+  // it (the top bar stays clear) and hand it to the stylesheet; a resize, a
+  // keyboard and a growing brief all re-measure.
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    const host = el?.parentElement;
+    if (!phone || !el || !host) return;
+    const measure = () => {
+      const topbar =
+        Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sc-topbar-h')) || 0;
+      const room = host.getBoundingClientRect().top - topbar - 16;
+      el.style.setProperty('--ap-avail', `${Math.max(160, Math.round(room))}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(host);
+    window.addEventListener('resize', measure);
+    window.visualViewport?.addEventListener('resize', measure);
+    window.visualViewport?.addEventListener('scroll', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+      window.visualViewport?.removeEventListener('resize', measure);
+      window.visualViewport?.removeEventListener('scroll', measure);
+    };
+  }, [phone]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -156,57 +196,5 @@ function AttachDock({
     >
       {children}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------- phone
-
-/**
- * A sheet under the thumb, on the shell the shot settings already established.
- *
- * It borrows `.sc-shotsheet` wholesale rather than growing a second sheet, so
- * the drag, both animations, the reduced-motion rule and the scrollbar gutter
- * are the ones already written and already tested.
- */
-function AttachSheet({ creating, onClose, children }: { creating: boolean; onClose: () => void; children: ReactNode }) {
-  const { sheet, grip } = useSheetDrag(onClose);
-  return (
-    <Dialog.Root open onOpenChange={(o) => !o && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="sc-shotsheet-scrim" />
-        <Dialog.Content
-          ref={sheet}
-          className="sc-shotsheet sc-attachsheet"
-          aria-describedby={undefined}
-          // Radix focuses the first tabbable thing it finds, which is the
-          // search field, which raises the keyboard over the grid the sheet
-          // exists to show. Focus the sheet itself instead: the trap and
-          // Escape still work, and the field waits to be tapped.
-          onOpenAutoFocus={(e) => {
-            e.preventDefault();
-            sheet.current?.focus({ preventScroll: true });
-          }}
-          // Radix would hand focus back to the "+", which sits beside a
-          // contenteditable; the composer decides, and on a phone it decides
-          // not to raise the keyboard.
-          onCloseAutoFocus={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => {
-            e.preventDefault();
-            if (!creating) onClose();
-          }}
-          // The shot overlay listens on the window for the same Escape and
-          // the same arrows. Nothing typed into this sheet is for it.
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' || NAV_KEYS.has(e.key)) e.stopPropagation();
-          }}
-        >
-          <div className="sc-shotsheet-grip" {...grip}>
-            <span className="sc-shotsheet-bar" aria-hidden />
-            <Dialog.Title className="sc-vh">Add to shot</Dialog.Title>
-          </div>
-          {children}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
   );
 }

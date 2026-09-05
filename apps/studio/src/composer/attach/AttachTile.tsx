@@ -1,5 +1,5 @@
 import { memo, useEffect, useState, type KeyboardEvent } from 'react';
-import { Check, ImageSquare } from '@phosphor-icons/react';
+import { Check, ImageSquare, X } from '@phosphor-icons/react';
 import { SitOutTooltip } from '../SitOutTooltip.js';
 import { KIND_ONE, type AttachCard } from './attachRules.js';
 
@@ -9,10 +9,11 @@ import { KIND_ONE, type AttachCard } from './attachRules.js';
  * The picture is the tile: a face, a packshot, a scene's light, a swatch.
  * The caption is one fixed line (two for a product, whose brand is the only
  * thing a packshot cannot say), so a row of tiles is a row, whatever their
- * names. A tile already in the shot wears a tick; clicking it again is what
- * it was before, the brief's own refusal, so nothing here needs a second
- * click model. A tile that sits out is inert through aria-disabled, never
- * the attribute, so the tooltip that says why can still open.
+ * names. A tile already in the shot wears a tick and is a toggle: pressing
+ * it again takes the chip back out, and the tick turns into an x under the
+ * pointer so the second press is never a surprise. A tile that sits out is
+ * inert through aria-disabled, never the attribute, so the tooltip that says
+ * why can still open.
  *
  * Memoised on primitives: the composer repaints on every keystroke, and
  * sixty tiles re-rendering with it is what a picker over a brief cannot do.
@@ -49,7 +50,8 @@ export const AttachTile = memo(function AttachTile({
       data-on={ticked ? '' : undefined}
       tabIndex={active ? 0 : -1}
       aria-disabled={why ? true : undefined}
-      title={why ?? card.full}
+      aria-pressed={ticked}
+      title={why ?? (ticked ? `${card.label} is in the shot. Press to remove it.` : card.full)}
       onClick={why ? undefined : () => onPick(index)}
       onFocus={() => onFocus(index)}
       onKeyDown={onKeyDown}
@@ -66,7 +68,8 @@ export const AttachTile = memo(function AttachTile({
       </span>
       {ticked && (
         <span className="sc-ap-tick" aria-hidden>
-          <Check size={11} weight="bold" />
+          <Check className="sc-ap-tick-on" size={11} weight="bold" />
+          <X className="sc-ap-tick-off" size={11} weight="bold" />
         </span>
       )}
       {ticked && <span className="sc-vh">{' In the shot.'}</span>}

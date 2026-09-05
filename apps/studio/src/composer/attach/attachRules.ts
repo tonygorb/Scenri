@@ -51,46 +51,47 @@ export const NOUN: Record<AttachGroup, string> = {
 };
 
 /**
- * How a tile of each kind is drawn. A presenter is recognised by a face, a
- * product by its packshot, both square; a scene by its light, so it gets
- * room sideways; a colour is a swatch and needs no picture at all.
+ * How a tile of each kind is drawn: every picture is a square in one grid,
+ * whatever the tab, so the rhythm never changes as you switch. A scene's
+ * 4:5 preview loses a little top and bottom to the square, which is what the
+ * chip picker already does with it; a 4:3 box lost twice as much and cut
+ * faces in half. A colour is a swatch and needs no picture at all.
  */
-export type TileShape = 'square' | 'wide' | 'swatch';
+export type TileShape = 'square' | 'swatch';
 export const SHAPE: Record<AttachGroup, TileShape> = {
   Products: 'square',
   Presenters: 'square',
-  Scenes: 'wide',
+  Scenes: 'square',
   Colors: 'swatch',
   Brand: 'square',
   Shots: 'square',
 };
 
 /**
- * The narrowest a tile of each kind may be, in CSS pixels. The grid is
+ * The narrowest a tile may be, in CSS pixels. The grid is
  * `repeat(auto-fill, minmax(min, 1fr))` and reads the same number through
  * `--ap-min`, so the column count `columnsFor` predicts is the one the
  * browser draws.
  *
- * Sized for the thing, not for the width: a face and a packshot read at
- * about 112 to 130px, a scene wants its width for the light, a shot and a
- * mark are recognised smaller. The count is whatever that leaves: five
- * presenters across a 696px panel, eight across a 1000px one. Letting the
- * width decide gave ten 88px faces on a wide screen, which is a contact
- * sheet, not a picker.
+ * One number for every picture, sized for the thing rather than the width:
+ * a face and a packshot read comfortably at 150 to 165px, and the count is
+ * whatever that leaves, four across a 720px panel and six across a 1000px
+ * one. Letting the width decide gave ten 88px faces on a wide screen, and a
+ * different count per kind gave a grid that re-flowed on every tab.
  */
 export const TILE_MIN: Record<AttachGroup, number> = {
-  Products: 112,
-  Presenters: 112,
-  Scenes: 160,
+  Products: 132,
+  Presenters: 132,
+  Scenes: 132,
   Colors: 0,
-  Brand: 104,
-  Shots: 104,
+  Brand: 132,
+  Shots: 132,
 };
-/** On a phone the tiles are for a thumb: three squares across at 375, two scenes. */
+/** On a phone the tiles are for a thumb: three across at 375. */
 export const TILE_MIN_PHONE: Record<AttachGroup, number> = {
   Products: 96,
   Presenters: 96,
-  Scenes: 150,
+  Scenes: 96,
   Colors: 0,
   Brand: 96,
   Shots: 96,

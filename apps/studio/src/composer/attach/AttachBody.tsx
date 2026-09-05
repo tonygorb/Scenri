@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ClipboardEvent,
   type CSSProperties,
   type KeyboardEvent,
 } from 'react';
@@ -54,10 +55,16 @@ export interface AttachBodyProps {
   full?: string | null;
   /** What the shot already holds, by identity key: those tiles wear a tick. */
   attached: ReadonlySet<string>;
-  /** The phone sheet: bigger tiles, fewer across. */
+  /** A phone: bigger tiles, fewer across. */
   phone: boolean;
+  /** A thumb, not a mouse: a pick must not leave the brief focused, or the keyboard rises over the panel. */
+  touch: boolean;
   onPick: (card: AttachCard) => void;
+  /** A ticked tile pressed again: take the chip back out of the shot. */
+  onRemove: (card: AttachCard) => void;
   onUpload: () => void;
+  /** Image files pasted while the picker has focus: the same door as Upload image. */
+  onFiles: (files: FileList) => void;
   onClose: () => void;
 }
 
@@ -96,8 +103,11 @@ export function AttachBody({
   full,
   attached,
   phone,
+  touch,
   onPick,
+  onRemove,
   onUpload,
+  onFiles,
   onClose,
 }: AttachBodyProps) {
   const catalog = useIngredientCatalog(activeProductCategory);
@@ -210,13 +220,27 @@ export function AttachBody({
     el.scrollIntoView({ block: 'nearest' });
   }, []);
 
+  // One press per tile: in the shot already, it comes out; otherwise it goes in.
   const pickIndex = useCallback(
     (i: number) => {
       const card = flat[i];
-      if (card) onPick(card);
+      if (!card) return;
+      if (attached.has(card.key)) onRemove(card);
+      else onPick(card);
+      // Placing the caret beside the new chip focuses the brief, which on a
+      // touch screen raises the keyboard over the panel after every tap. The
+      // caret is remembered; the brief waits to be tapped.
+      if (touch) (document.activeElement as HTMLElement | null)?.blur?.();
     },
-    [flat, onPick],
+    [flat, attached, touch, onPick, onRemove],
   );
+
+  const onPaste = (e: ClipboardEvent<HTMLDivElement>) => {
+    const files = e.clipboardData.files;
+    if (!files.length || !Array.from(files).some((f) => f.type.startsWith('image/'))) return;
+    e.preventDefault();
+    onFiles(files);
+  };
 
   /**
    * Bound to the body, never to `window`. Every key it answers stops here:
@@ -243,7 +267,7 @@ export function AttachBody({
         e.stopPropagation();
         // Type three letters, press Enter. The whole point of a search field
         // over a grid you were going to arrow through anyway.
-        if (flat[0]) onPick(flat[0]);
+        pickIndex(0);
       }
       return;
     }
@@ -330,7 +354,7 @@ export function AttachBody({
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a key router, not a control
-    <div className="sc-ap-inner" onKeyDown={onKeyDown}>
+    <div className="sc-ap-inner" onKeyDown={onKeyDown} onPaste={onPaste}>
       <div className="sc-ap-head">
         <div className="sc-ap-actions">
           <label className="sc-ap-search">
@@ -387,47 +411,54 @@ export function AttachBody({
           const style = { '--ap-min': `${min}px`, '--ap-lines': kind === 'product' ? 2 : 1 } as CSSProperties;
           return (
             <section key={l.group} className="sc-ap-group" aria-label={GROUP_LABEL[l.group]}>
-              <div className="sc-ap-sec">
-                <span className="sc-ap-sec-title">
-                  {GROUP_LABEL[l.group]}
-                  <span className="sc-ap-sec-n">{l.total}</span>
-                </span>
-                {tab === 'All' && l.total > l.items.length && (
-                  <button type="button" className="sc-ap-sec-act" onClick={() => onTab(l.group)}>
-                    Show all {l.total}
-                  </button>
-                )}
-                {tab === 'Products' && (
-                  <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={addProduct}>
-                    <Plus size={12} aria-hidden />
-                    Add product
-                  </button>
-                )}
-                {tab === 'Brand' && (
-                  // A label over a hidden input, the same gesture BrandIdentity's
-                  // variant-add uses: one click, a file, and the mark is in the
-                  // kit AND in the brief.
-                  <label
-                    className="sc-btn sc-btn-ghost sc-ap-add"
-                    title="Add your logo to the brand kit"
-                    data-busy={logoBusy || undefined}
-                  >
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      disabled={logoBusy}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = '';
-                        if (file) void addLogo(file);
-                      }}
-                    />
-                    <Plus size={12} aria-hidden />
-                    Add logo
-                  </label>
-                )}
-              </div>
+              {/* On All the row names the group and offers the rest of it. On a
+                  tab the rail has just said the name and the count, so the row
+                  carries only the tab's own action, when it has one. */}
+              {(tab === 'All' || tab === 'Products' || tab === 'Brand') && (
+                <div className="sc-ap-sec" data-bare={tab === 'All' ? undefined : ''}>
+                  {tab === 'All' && (
+                    <span className="sc-ap-sec-title">
+                      {GROUP_LABEL[l.group]}
+                      <span className="sc-ap-sec-n">{l.total}</span>
+                    </span>
+                  )}
+                  {tab === 'All' && l.total > l.items.length && (
+                    <button type="button" className="sc-ap-sec-act" onClick={() => onTab(l.group)}>
+                      Show all {l.total}
+                    </button>
+                  )}
+                  {tab === 'Products' && (
+                    <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={addProduct}>
+                      <Plus size={12} aria-hidden />
+                      Add product
+                    </button>
+                  )}
+                  {tab === 'Brand' && (
+                    // A label over a hidden input, the same gesture BrandIdentity's
+                    // variant-add uses: one click, a file, and the mark is in the
+                    // kit AND in the brief.
+                    <label
+                      className="sc-btn sc-btn-ghost sc-ap-add"
+                      title="Add your logo to the brand kit"
+                      data-busy={logoBusy || undefined}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        disabled={logoBusy}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          if (file) void addLogo(file);
+                        }}
+                      />
+                      <Plus size={12} aria-hidden />
+                      Add logo
+                    </label>
+                  )}
+                </div>
+              )}
               <div className="sc-ap-grid" data-shape={l.items[0]?.shape ?? 'square'} style={style}>
                 {l.items.map((card, i) => (
                   <AttachTile

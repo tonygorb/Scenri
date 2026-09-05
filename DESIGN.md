@@ -240,26 +240,34 @@ A caret (or phone-docked) shortlist, not a command palette. The four triggers sh
 A chip is an inline atom in real text flow that owns its gap as a symmetric 2px margin: two chips that touch in the document sit 4px apart, and the same holds in a right-to-left line. The line keeps no space on a chip's behalf, ever: the spaces beside a chip are the user's, typed or not, the way a mention behaves in any text field. Where the user has typed nothing beside a chip the line keeps a guard there, one zero-width character (`\uFEFF`) that gives the caret text to sit in, because a phone shows no caret anywhere else; the guard is never part of the sentence (readers strip it, the unit maths does not count it, typing into it leaves only what was typed), and between two touching chips the browser draws the caret at the guard, which is where the two margins meet. A chip is one unit to the keyboard: one press crosses it, the key that faces it removes it (keydown for a hardware key, `beforeinput` for a phone's keyboard, since no engine deletes an atom consistently on its own), and a press at a line edge with nothing on its side is swallowed. On touch the platform's caret and word-snap stand, and a tap is corrected only in the line's padding. `composer/line/invariants.ts` keeps the guards and the browser's untidiness straight; `composer/line/keys.ts` holds the key rules; `render.ts` drops the seams older briefs stored.
 
 ### Composer attach picker (the "+")
-One body, two shells, one insertion path. The "+" answers "what do you want to add to this shot": a head
+One panel, one grid, one insertion path. The "+" answers "what do you want to add to this shot": a head
 that stays put (search, the labelled **Upload image** button, close, then the category rail) over the one
-scrolling grid. On a desktop it is the anchored panel above the composer and it is non-modal on purpose: its
-mousedown never takes the caret (`keepCaret`), so a pick lands where you were typing and the panel stays
-open for the next one. On a phone it is a sheet on `.sc-shotsheet`, the shell the shot settings and the chip
-picker already use; the sheet never focuses the brief on close, because that raises the keyboard.
+scrolling grid, in a frame that keeps its size whatever the tab. It is anchored above the composer at its
+full width on every screen and is non-modal on purpose: its mousedown never takes the caret (`keepCaret`),
+so a pick lands where you were typing, the brief stays in view, and the panel stays open for the next one.
+A phone gets the same panel with thumb-sized controls and the keyboard dropped on open; a bottom sheet was
+tried and covered the very composer the picker adds to.
 - **The category rail is the underline rail** (`VerticalsTabs`), scoped to the panel's scale, never pills:
   a tab strip stays underline-style, and the rail already scrolls sideways with edge fades, which is the
-  whole mobile answer.
-- **Tiles are the picture and one fixed caption.** A presenter is a square avatar (the canonical
-  `presenterAvatar` chain, never a torso), a product a square packshot with the brand under it, a scene
-  4:3 for its light, a mark letterboxed on white, a colour a swatch chip. Nothing on a tile manages;
-  management lives on the asset pages. "Recommended" is in the title, not the caption, so a row stays a row.
-- **Already in the shot wears a tick**, the same inverse puck the chip picker uses for what is on, keyed on
-  the brief's own identity rule (`identityKeyOf`), so the tile and the rail can never disagree.
+  whole mobile answer. On a tab the rail has just said the name and the count, so the grid carries no
+  title of its own; on All each group has its row and a "Show all".
+- **Every picture is a square in one grid**, sized for the thing (a face and a packshot read at 112 to
+  130px) so the count follows the width and never changes between tabs. A presenter is the canonical
+  `presenterAvatar`, a product its packshot with the brand under it, a scene its 4:5 preview centred (what
+  the chip picker does with it too), a mark letterboxed on white, a colour a swatch chip. One fixed
+  caption; "Recommended" is in the title, not the caption. Nothing on a tile manages.
+- **Already in the shot wears a tick and is a toggle.** The tick is the inverse puck the chip picker uses
+  for what is on, keyed on the brief's own identity rule (`identityKeyOf`), so the tile and the rail can
+  never disagree; the same press again takes the chip out through the brief's own remove, and the tick
+  becomes an x under the pointer so the second press is never a surprise.
 - **Every key stays in the picker.** Arrows walk the tiles by the grid's real column count (a roving
   tabindex), Up off the first row returns to search, Enter in search picks the first hit, Escape closes.
   All of it stops propagation: the shot overlay walks shots on the same arrows and closes on the same Escape.
 - **Derivatives sized to the tile.** `small` (320) for a product, presenter or scene tile, `micro` for a shot
   or a mark; the curated JPEGs take `?w=` through the same routes.
+- **Your own picture comes in three ways, through one door.** The Upload image button, a file dropped on the
+  brief, and an image pasted into the brief or the picker all go through the composer's `pickFiles` and land
+  as a reference chip at the caret. No second upload path, no references library.
 
 ### Section Headers (`.sc-sec-head`)
 - Flex row, title (15px/600) at the leading edge, an optional right-aligned action (ghost button, "+ Add X" pattern) at the trailing edge. **This is strictly a 2-slot contract**: title-group and trailing-action. A subtitle, when present, belongs inside the title group (its own inline flex with an explicit gap), never as a third top-level flex child, which is what produces glued text.

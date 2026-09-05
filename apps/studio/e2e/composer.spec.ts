@@ -3287,19 +3287,87 @@ test.describe('the attach picker', () => {
     await expect(page.locator('.sc-attachpanel')).toBeVisible();
   });
 
-  test('a thing already in the shot says so, and a second pick adds nothing', async ({ page }) => {
+  test('a thing already in the shot says so, and the same tile pressed again takes it out', async ({ page }) => {
     await plusMenu(page, /products/i);
     await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(0);
     await pickCard(page, 0);
     const on = page.locator('.sc-ap-card[data-on]');
     await expect(on).toHaveCount(1);
+    await expect(on).toHaveAttribute('aria-pressed', 'true');
     await expect(on).toContainText('In the shot');
     await expect(on.locator('.sc-ap-tick')).toBeVisible();
+    // the second press is a removal, through the brief's own remove
     await on.click();
+    await expect(chips(page)).toHaveCount(0);
+    await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(0);
+    // and it goes back in, with the keyboard this time
+    await attachCards(page).first().focus();
+    await page.keyboard.press('Enter');
     await expect(chips(page)).toHaveCount(1);
-    // the rail agrees, through the same identity
+    await page.keyboard.press('Enter');
+    await expect(chips(page)).toHaveCount(0);
+    // a scene is the one template chip, and its tile toggles the same way
+    await page.locator('.sc-ap-tabs button', { hasText: 'Scenes' }).click();
+    await attachCards(page).first().click();
+    await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(1);
+    await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(1);
+    await page.locator('.sc-ap-card[data-on]').click();
+    await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+  });
+
+  test('an image on the clipboard pastes in as a reference, in the brief and in the picker', async ({ page }) => {
+    // a real paste needs the OS clipboard; a ClipboardEvent carrying a
+    // DataTransfer with the file is what the handler sees either way
+    const pasteImage = (sel: string, which: 'png' | 'gif') =>
+      page.evaluate(
+        ([selector, kind]) => {
+          // two different pictures: the store is content-addressed and the
+          // brief refuses a twin, so the same bytes twice would be one chip
+          const b64 =
+            kind === 'png'
+              ? 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+              : 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const dt = new DataTransfer();
+          dt.items.add(new File([bytes], `clip.${kind}`, { type: `image/${kind}` }));
+          const target = document.querySelector<HTMLElement>(selector)!;
+          target.focus();
+          target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+        },
+        [sel, which] as const,
+      );
+    await line(page).click();
+    await page.keyboard.type('on a shelf ');
+    await pasteImage('.sc-brief-line', 'png');
+    await expect(line(page).locator('.sc-token[data-kind="ref"]')).toHaveCount(1);
+    expect(await sentence(page)).toMatch(/^on a shelf\s*clip/);
+    // the picker takes the same paste, through the same door
+    await dock(page).locator('.sc-attach-toggle').click();
+    await pasteImage('.sc-ap-search input', 'gif');
+    await expect(line(page).locator('.sc-token[data-kind="ref"]')).toHaveCount(2);
+    // and it is the real reference role, not text
+    await expect(line(page).locator('.sc-token[data-kind="ref"]').first()).toContainText('clip');
+  });
+
+  test('every tab draws the same grid in the same frame', async ({ page }) => {
+    await dock(page).locator('.sc-attach-toggle').click();
+    const frame = (await page.locator('.sc-attachpanel').boundingBox())!;
+    const cols = async () =>
+      page
+        .locator('.sc-ap-grid[data-shape="square"]')
+        .first()
+        .evaluate((g) => getComputedStyle(g).gridTemplateColumns.split(' ').length);
+    const first = await cols();
+    expect(first).toBeGreaterThanOrEqual(4);
+    for (const tab of ['Products', 'Presenters', 'Scenes', 'Shots', 'Colors', 'Brand', 'All']) {
+      await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
+      const box = (await page.locator('.sc-attachpanel').boundingBox())!;
+      expect(Math.round(box.height), tab).toBe(Math.round(frame.height));
+      expect(Math.round(box.width), tab).toBe(Math.round(frame.width));
+      if (tab !== 'Colors' && tab !== 'Brand') expect(await cols(), tab).toBe(first);
+    }
   });
 
   test('a search with no hits says so and keeps the upload action', async ({ page }) => {

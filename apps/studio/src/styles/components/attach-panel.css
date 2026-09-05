@@ -1,8 +1,8 @@
 /* ---------- attach panel: "+", add to this shot ----------
-   One body, two shells. The anchored panel below is the desktop; the phone
-   sheet (.sc-attachsheet, at the end) borrows .sc-shotsheet and restates only
-   what a thumb needs. Tile widths come from the component (--ap-min), so the
-   column count it predicts for the one-row groups on All is the one drawn. */
+   One panel above the composer at its full width, on every screen; the phone
+   rules at the end restate only what a thumb needs. Tile widths come from the
+   component (--ap-min), so the column count it predicts for the one-row groups
+   on All is the one drawn. */
 .sc-composer {
   position: relative;
 }
@@ -11,9 +11,9 @@
   left: 0;
   right: 0;
   bottom: calc(100% + 8px);
-  /* As tall as its content up to this: two colours do not need a wall, and
-     the bottom edge is the anchored one, so a shorter tab shortens from the top. */
-  max-height: min(440px, 52vh);
+  /* One frame, whatever the tab: a panel that shrank to two colour chips and
+     grew back for the next tab jumped on every switch. */
+  height: min(600px, 60vh);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--sc-line-strong);
@@ -151,6 +151,11 @@
   color: var(--sc-fg3);
   font-variant-numeric: tabular-nums;
 }
+/* A tab's action row without a title: the rail has just said the name. */
+.sc-ap-sec[data-bare] {
+  justify-content: flex-end;
+  min-height: 0;
+}
 .sc-ap-sec-act {
   margin-left: auto;
   border: none;
@@ -159,11 +164,11 @@
   cursor: pointer;
   font-size: var(--sc-text-caption);
   color: var(--sc-fg2);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 .sc-ap-sec-act:hover {
   color: var(--sc-fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 /* The two ways to make something new from here, at the row's end and out of
    the grid: a grid of things to add holds only things to add. */
@@ -221,10 +226,6 @@
   border-radius: var(--sc-radius);
   transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
-/* A scene is its light: give it the width a landscape reads at. */
-.sc-ap-card[data-shape="wide"] .sc-ap-thumb {
-  aspect-ratio: 4 / 3;
-}
 /* A mark cropped is a mark unreadable: ground it and letterbox it. */
 .sc-ap-card[data-group="Brand"] .sc-ap-thumb {
   object-fit: contain;
@@ -278,6 +279,16 @@
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
   box-shadow: 0 0 0 2px var(--sc-panel);
+}
+/* The tile is a toggle: under the pointer the tick becomes the x it will do. */
+.sc-ap-tick-off,
+.sc-ap-card[data-on]:hover .sc-ap-tick-on,
+.sc-ap-card[data-on]:focus-visible .sc-ap-tick-on {
+  display: none;
+}
+.sc-ap-card[data-on]:hover .sc-ap-tick-off,
+.sc-ap-card[data-on]:focus-visible .sc-ap-tick-off {
+  display: block;
 }
 
 /* ---- a colour is a swatch and a name, one chip on the control scale */
@@ -355,37 +366,34 @@
   border-color: var(--sc-line-strong);
 }
 
-/* ---- the phone sheet: .sc-shotsheet wearing this content. The body scrolls,
-   not the sheet, so the search and the rail stay put; the keyboard's height is
-   taken off the top so the grid is never under it. */
-.sc-attachsheet {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(88dvh - var(--sc-kb));
-  overflow: hidden;
-  padding-inline: 0;
-  padding-bottom: 0;
-}
-.sc-attachsheet .sc-ap-head {
-  padding: 0 var(--sc-gutter) 0;
-}
-.sc-attachsheet .sc-ap-body {
-  padding: var(--sc-space-5) var(--sc-gutter) max(var(--sc-space-7), env(safe-area-inset-bottom));
-}
-/* Every control a thumb has to hit is the tap size; the graphic keeps its scale. */
-.sc-attachsheet .sc-ap-search,
-.sc-attachsheet .sc-ap-upload,
-.sc-attachsheet .sc-ap-more,
-.sc-attachsheet .sc-ap-card[data-shape="swatch"] {
-  height: var(--sc-tap);
-}
-.sc-attachsheet .sc-ap-close {
-  width: var(--sc-tap);
-  height: var(--sc-tap);
-}
-.sc-attachsheet .sc-ap-add {
-  height: 34px;
-}
-.sc-attachsheet .sc-ap-grid {
-  column-gap: var(--sc-space-5);
+/* ---- a phone: the same panel, the composer's full width, above it. The
+   keyboard is dropped on open so the room above the composer is the panel's;
+   the component measures that room (--ap-avail: top bar to composer top,
+   re-measured for a keyboard or a growing brief), so a four-line draft
+   never pushes the head off the screen. */
+@media (max-width: 767px) {
+  .sc-attachpanel {
+    height: min(420px, var(--ap-avail, calc(100dvh - 270px)));
+    border-radius: var(--sc-radius-float);
+  }
+  .sc-ap-head {
+    padding: var(--sc-space-5) var(--sc-space-5) 0;
+  }
+  /* Every control a thumb has to hit is the tap size; the graphic keeps its scale. */
+  .sc-ap-search,
+  .sc-ap-upload,
+  .sc-ap-more,
+  .sc-ap-card[data-shape="swatch"] {
+    height: var(--sc-tap);
+  }
+  .sc-ap-close {
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+  .sc-ap-add {
+    height: 34px;
+  }
+  .sc-ap-grid {
+    column-gap: var(--sc-space-5);
+  }
 }

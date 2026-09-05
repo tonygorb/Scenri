@@ -925,6 +925,14 @@ export const Composer = forwardRef<
     if (t.t === 'template') applySceneRef.current(t.id);
     else briefRef.current?.insert(t);
   }, []);
+  // The same tile pressed again: the chip comes out through the brief's own
+  // remove, keyed on identity, so a product picked at another angle still
+  // answers to its tile. A scene is the one template chip.
+  const removeFromPanel = useCallback((card: AttachCard) => {
+    const t = card.token;
+    if (t.t === 'template') briefRef.current?.removeTemplate();
+    else briefRef.current?.remove(t);
+  }, []);
   const pickFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     // the file <input> already filters to accept="image/*"; a drop has no such
@@ -1261,7 +1269,9 @@ export const Composer = forwardRef<
           id={attachPanelId}
           attached={attachedInShot}
           onUpload={() => fileRef.current?.click()}
+          onFiles={(files) => void pickFiles(files)}
           onPick={pickFromPanel}
+          onRemove={removeFromPanel}
           onClose={closeAttach}
         />
       )}

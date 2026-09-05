@@ -85,6 +85,7 @@ describe('cards', () => {
     expect(cards[0].token).toEqual({ t: 'mark', imageHash: HASH });
     expect(cards[0].thumb).toBe(`/api/images/${HASH}/thumb?w=160`);
     expect(cards[1].shape).toBe('swatch');
+    expect(cards[0].shape).toBe('square');
     expect(cards[1].swatch).toBe('#388DDD');
     expect(cards[1].key).toBe(identityKeyOf({ t: 'color', hex: '#388DDD', name: 'Primary' }));
     expect(cards[2].label).toBe('Shot 1');
@@ -154,13 +155,14 @@ describe('arrow keys', () => {
 
 describe('the grid', () => {
   it('predicts auto-fill: how many tiles fit across a width', () => {
-    expect(columnsFor('Presenters', 696, false)).toBe(5);
-    expect(columnsFor('Presenters', 1000, false)).toBe(8);
-    expect(columnsFor('Products', 696, false)).toBe(5);
+    expect(columnsFor('Presenters', 696, false)).toBe(4);
+    expect(columnsFor('Presenters', 976, false)).toBe(6);
+    // one grid whatever the kind: the count never changes between tabs
+    expect(columnsFor('Products', 696, false)).toBe(4);
     expect(columnsFor('Scenes', 696, false)).toBe(4);
-    expect(columnsFor('Shots', 696, false)).toBe(6);
+    expect(columnsFor('Shots', 696, false)).toBe(4);
     expect(columnsFor('Presenters', 347, true)).toBe(3);
-    expect(columnsFor('Scenes', 347, true)).toBe(2);
+    expect(columnsFor('Scenes', 347, true)).toBe(3);
     expect(columnsFor('Colors', 696, false)).toBe(1);
     expect(columnsFor('Presenters', 0, false)).toBe(1);
   });
