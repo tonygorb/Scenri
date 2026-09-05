@@ -494,6 +494,7 @@ export function AttachBody({
                   {tab === 'Colors' && (
                     <ColorPicker
                       className="sc-btn sc-btn-ghost sc-ap-add"
+                      triggerStyle={{ background: 'none' }}
                       value={nextHex(flattenPalette(brand.json?.palette))}
                       presets={flattenPalette(brand.json?.palette).map((c) => c.hex)}
                       commitMode="close"
