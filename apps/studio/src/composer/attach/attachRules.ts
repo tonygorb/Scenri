@@ -58,6 +58,8 @@ export const NOUN: Record<AttachGroup, string> = {
  * faces in half. A colour is a swatch and needs no picture at all.
  */
 export type TileShape = 'square' | 'swatch';
+/* `swatch` is a square too: the colour fills the frame a picture would, so the
+   Colors tab is the same grid as every other and not a row of chips. */
 export const SHAPE: Record<AttachGroup, TileShape> = {
   Products: 'square',
   Presenters: 'square',
@@ -83,7 +85,7 @@ export const TILE_MIN: Record<AttachGroup, number> = {
   Products: 132,
   Presenters: 132,
   Scenes: 132,
-  Colors: 0,
+  Colors: 132,
   Brand: 132,
   Shots: 132,
 };
@@ -92,7 +94,7 @@ export const TILE_MIN_PHONE: Record<AttachGroup, number> = {
   Products: 96,
   Presenters: 96,
   Scenes: 96,
-  Colors: 0,
+  Colors: 96,
   Brand: 96,
   Shots: 96,
 };

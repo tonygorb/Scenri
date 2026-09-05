@@ -43,8 +43,7 @@
 .sc-icon-btn,
 .sc-chip,
 .sc-btn,
-.sc-thumb,
-.sc-ap-card[data-shape="swatch"] {
+.sc-thumb {
   /* Colour eases; the press does not move. Geometry is deliberately absent
      from this list because it is absent from the press itself. */
   transition:
@@ -61,8 +60,7 @@
 .sc-chip:active,
 .sc-icon-btn:active,
 .sc-btn-ghost:active,
-.sc-btn-red:active,
-.sc-ap-card[data-shape="swatch"]:active {
+.sc-btn-red:active {
   background: var(--sc-press);
 }
 /* Gold keeps its own tint, one step deeper, so the urgent variant does not go

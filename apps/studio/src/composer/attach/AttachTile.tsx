@@ -1,5 +1,5 @@
 import { memo, useEffect, useState, type KeyboardEvent } from 'react';
-import { Check, ImageSquare, X } from '@phosphor-icons/react';
+import { Check, ImageSquare, Plus, X } from '@phosphor-icons/react';
 import { SitOutTooltip } from '../SitOutTooltip.js';
 import { KIND_ONE, type AttachCard } from './attachRules.js';
 
@@ -57,7 +57,7 @@ export const AttachTile = memo(function AttachTile({
       onKeyDown={onKeyDown}
     >
       {card.shape === 'swatch' ? (
-        <span className="sc-ap-swatch" style={{ background: card.swatch }} aria-hidden />
+        <span className="sc-ap-thumb sc-ap-swatch" style={{ background: card.swatch }} aria-hidden />
       ) : (
         <Thumb src={card.thumb} crop={card.crop} />
       )}
@@ -66,11 +66,17 @@ export const AttachTile = memo(function AttachTile({
         <b dir="auto">{card.label}</b>
         {card.sub && <span dir="auto">{card.sub}</span>}
       </span>
-      {ticked && (
+      {ticked ? (
         <span className="sc-ap-tick" aria-hidden>
           <Check className="sc-ap-tick-on" size={11} weight="bold" />
           <X className="sc-ap-tick-off" size={11} weight="bold" />
         </span>
+      ) : (
+        !why && (
+          <span className="sc-ap-tick sc-ap-tick-add" aria-hidden>
+            <Plus size={11} weight="bold" />
+          </span>
+        )
       )}
       {ticked && <span className="sc-vh">{' In the shot.'}</span>}
     </button>

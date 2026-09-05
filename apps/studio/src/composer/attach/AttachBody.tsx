@@ -113,7 +113,12 @@ export function AttachBody({
   onFiles,
   onClose,
 }: AttachBodyProps) {
-  const catalog = useIngredientCatalog(activeProductCategory);
+  // The rank the panel opened with. The "suited to this product" band moves a
+  // presenter or a scene up the moment the brief gains a product, which
+  // re-dealt the grid under the pointer mid-pick; the hint is read at open
+  // and held for the panel's life, and the tile's title still carries it.
+  const categoryAtOpen = useRef(activeProductCategory).current;
+  const catalog = useIngredientCatalog(categoryAtOpen);
   const bookmarked = useMemo<ReadonlySet<string>>(() => new Set(bookmarkedScenes(brand.id)), [brand.id]);
   const createAsset = useCreateAsset();
   const { applyBrand } = useAppData();
@@ -205,9 +210,7 @@ export function AttachBody({
    */
   const lists = useMemo<GroupList[]>(() => {
     if (tab === 'All') {
-      return GROUPS.map((g) => listFor(g, g === 'Colors' ? 12 : columnsFor(g, width, phone))).filter(
-        (l) => l.items.length > 0,
-      );
+      return GROUPS.map((g) => listFor(g, columnsFor(g, width, phone))).filter((l) => l.items.length > 0);
     }
     // the Shots tab pages by the server, so it draws every page it holds
     return [listFor(tab, tab === 'Shots' ? Number.MAX_SAFE_INTEGER : shown)];

@@ -2554,13 +2554,15 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   await page.keyboard.type('hero shot on marble ');
   const bare = (await line(page).boundingBox())!.height;
 
-  // insert the chip: the row grows by exactly the chip's vertical margins and
-  // nothing else. The Figma frames pitch chip rows at 28 (a 24px chip with 2px
-  // above and below) over a 24px prose strut, and the margins are the whole
-  // of that difference: the chip's box itself fits INSIDE the strut. Before
-  // the metric fix the chip's synthesized baseline was its bottom edge (no
-  // flex item participated in baseline alignment), so every chip rode above
-  // the text baseline and stretched its row on top of the margins.
+  // insert the chip: the row does not grow at all. The Figma frames pitch
+  // chip rows at 28 (a 24px chip with 2px above and below) over a 24px prose
+  // strut, and the line is one chip row from the start (its floor is the
+  // strut plus those margins), so an empty composer and one holding a chip
+  // are the same height and a first pick moves nothing. The chip's box
+  // itself fits INSIDE the strut: before the metric fix its synthesized
+  // baseline was its bottom edge (no flex item participated in baseline
+  // alignment), so every chip rode above the text baseline and stretched its
+  // row on top of the margins.
   await plusMenu(page, /products/i);
   await pickCard(page);
   await page.keyboard.press('Escape');
@@ -2573,10 +2575,14 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
       return parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
     });
   expect(margins).toBeGreaterThan(0);
-  expect(
-    Math.abs(withChip - bare - margins),
-    `bare ${bare} withChip ${withChip} margins ${margins}`,
-  ).toBeLessThanOrEqual(0.6);
+  expect(Math.abs(withChip - bare), `bare ${bare} withChip ${withChip}`).toBeLessThanOrEqual(0.6);
+  // and the chip, margins included, sits inside that row
+  const chipBox = (await chips(page).first().boundingBox())!.height + margins;
+  const lineBox = await line(page).evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return el.getBoundingClientRect().height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  });
+  expect(chipBox, `chip ${chipBox} row ${lineBox}`).toBeLessThanOrEqual(lineBox + 0.6);
 
   // chip label and neighbouring prose share a midline on the same row
   const mid = await line(page).evaluate((el) => {
@@ -2607,7 +2613,9 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   // measured from the chip row, so the one new row is prose alone
   const grown = wrapped - withChip;
   expect(grown).toBeGreaterThan(0);
-  expect(Math.abs(grown % strut)).toBeLessThanOrEqual(1);
+  // a whole number of struts, allowing the sub-pixel a text row can land on either side of it
+  const off = grown % strut;
+  expect(Math.min(off, strut - off), `grown ${grown} strut ${strut}`).toBeLessThanOrEqual(1);
 });
 
 test('the drag ghost rides the grab point like a platform drag image', async ({ page }) => {
@@ -3388,6 +3396,30 @@ test.describe('the attach picker', () => {
     await expect(line(page).locator('.sc-token[data-kind="ref"]')).toHaveCount(2);
     // and it is the real reference role, not text
     await expect(line(page).locator('.sc-token[data-kind="ref"]').first()).toContainText('clip');
+  });
+
+  test('a first pick grows nothing: the card and the panel stay where they were', async ({ page }) => {
+    await line(page).click();
+    await dock(page).locator('.sc-attach-toggle').click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
+    await attachCards(page).first().waitFor();
+    const card = () => page.locator('.sc-promptcard').first().boundingBox();
+    const panel = () => page.locator('.sc-attachpanel').boundingBox();
+    const card0 = (await card())!;
+    const panel0 = (await panel())!;
+    // an empty line is already one chip row tall, so the first chips add no height
+    for (let i = 0; i < 3; i++) {
+      await attachCards(page).nth(i).click();
+      await expect(chips(page)).toHaveCount(i + 1);
+    }
+    const card1 = (await card())!;
+    const panel1 = (await panel())!;
+    expect(Math.round(card1.y)).toBe(Math.round(card0.y));
+    expect(Math.round(card1.height)).toBe(Math.round(card0.height));
+    expect(Math.round(panel1.y)).toBe(Math.round(panel0.y));
+    // and the frame is 510 wherever the viewport allows it (60vh caps a short one)
+    const vh = page.viewportSize()!.height;
+    expect(Math.round(panel1.height)).toBe(Math.round(Math.min(510, 0.6 * vh)));
   });
 
   test('every tab draws the same grid in the same frame', async ({ page }) => {

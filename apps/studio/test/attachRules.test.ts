@@ -170,7 +170,7 @@ describe('the grid', () => {
     expect(columnsFor('Shots', 696, false)).toBe(4);
     expect(columnsFor('Presenters', 347, true)).toBe(3);
     expect(columnsFor('Scenes', 347, true)).toBe(3);
-    expect(columnsFor('Colors', 696, false)).toBe(1);
+    expect(columnsFor('Colors', 696, false)).toBe(4);
     expect(columnsFor('Presenters', 0, false)).toBe(1);
   });
 });

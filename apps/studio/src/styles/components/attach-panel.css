@@ -12,8 +12,9 @@
   right: 0;
   bottom: calc(100% + 8px);
   /* One frame, whatever the tab: a panel that shrank to two colour chips and
-     grew back for the next tab jumped on every switch. */
-  height: min(600px, 60vh);
+     grew back for the next tab jumped on every switch. 510 is the frame's
+     height wherever it appears; a short viewport caps it. */
+  height: min(510px, 60vh);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--sc-line-strong);
@@ -200,11 +201,6 @@
   column-gap: 10px;
   row-gap: var(--sc-space-6);
 }
-.sc-ap-grid[data-shape="swatch"] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-4);
-}
 
 /* ---- the tile: a picture in a frame, then one fixed caption.
    The states are the rail's, for the same pictures a few pixels away: a
@@ -250,6 +246,13 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: filter var(--sc-dur-fast) var(--sc-ease);
+}
+/* A colour fills the frame a picture would, so the Colors tab is the same
+   grid as every other tab and not a row of chips. */
+.sc-ap-swatch {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  transition: filter var(--sc-dur-fast) var(--sc-ease);
 }
 /* A mark cropped is a mark unreadable: ground it and letterbox it. */
 .sc-ap-card[data-group="Brand"] .sc-ap-thumb {
@@ -268,17 +271,25 @@
   place-items: center;
   color: var(--sc-fg3);
 }
-/* Under the pointer the frame firms up; nothing dims and nothing scales. A
-   touch screen keeps its hover for the tap and would wear it until the next
-   tap, so the pointer rule is for pointers that can hover. */
+/* Under the pointer the frame firms up and the picture brightens a step: a
+   hairline alone was not a hover anyone could see on a photograph, and a
+   zoom read as sloppy. Nothing moves, nothing scales. A touch
+   screen keeps its hover for the tap and would wear it until the next tap,
+   so the pointer rule is for pointers that can hover. */
 @media (hover: hover) {
-  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb {
-    border-color: var(--sc-line-strong);
+  /* a tile the shot holds keeps its ring under the pointer; only the picture answers */
+  .sc-ap-card:not([aria-disabled="true"]):not([data-on]):hover .sc-ap-thumb {
+    border-color: var(--sc-line-hover);
+  }
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb img,
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-swatch {
+    filter: brightness(1.06);
   }
 }
 /* The press is a paint step on the picture: it is its own image, so opacity
-   is the only paint it has. */
-.sc-ap-card:not([aria-disabled="true"]):active .sc-ap-thumb {
+   is the only paint it has. Held or not, the same press. */
+.sc-ap-card:not([aria-disabled="true"]):active .sc-ap-thumb img,
+.sc-ap-card:not([aria-disabled="true"]):active .sc-ap-swatch {
   opacity: 0.86;
 }
 .sc-ap-cap {
@@ -301,12 +312,16 @@
   font-size: var(--sc-text-micro);
   color: var(--sc-fg2);
 }
-/* In the shot already: the selected line on the frame and a tick in the
-   corner, the inverse puck the rail and the chip picker use, arriving with
-   the rail's own 120ms so a pick reads as an answer rather than a flicker.
-   The tile is a toggle, so under the pointer the tick becomes the x it will do. */
+/* The puck in the corner says what a press will do: a plus under the pointer
+   on a tile that is not in the shot yet, a tick on one that is, and the tick
+   becomes an x under the pointer because the tile is a toggle. Same inverse
+   puck the rail and the chip picker use, arriving with their 120ms so it
+   reads as an answer rather than a flicker. */
+/* One ring, one weight, one ink: the same 2px inverse ring inside the edge
+   a picked shot tile draws, for a tile the shot already holds. */
 .sc-ap-card[data-on] .sc-ap-thumb {
-  border-color: var(--sc-sel-line);
+  border-color: var(--sc-inv-bg);
+  box-shadow: inset 0 0 0 1px var(--sc-inv-bg);
 }
 .sc-ap-tick {
   position: absolute;
@@ -346,50 +361,18 @@
   .sc-ap-card[data-on]:hover .sc-ap-tick-off {
     display: block;
   }
-}
-
-/* ---- a colour is a swatch and a name, one chip on the control scale */
-.sc-ap-card[data-shape="swatch"] {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--sc-space-4);
-  height: 34px;
-  padding: 0 var(--sc-space-5) 0 var(--sc-space-3);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-}
-@media (hover: hover) {
-  .sc-ap-card[data-shape="swatch"]:hover {
-    background: var(--sc-hover);
-    border-color: var(--sc-line-strong);
+  /* the plus rides only under a pointer that can hover; a thumb taps the tile itself */
+  .sc-ap-card:not([data-on]):not([aria-disabled="true"]):hover .sc-ap-tick-add {
+    display: grid;
   }
 }
-.sc-ap-card[data-shape="swatch"][data-on] {
-  border-color: var(--sc-sel-line);
+.sc-ap-tick-add {
+  display: none;
 }
-/* the frame is the chip itself here, so the ring goes on it */
-.sc-ap-card[data-shape="swatch"]:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-  border-radius: var(--sc-radius-full);
-}
-.sc-ap-swatch {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--sc-radius-full);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
-}
-.sc-ap-card[data-shape="swatch"] .sc-ap-cap {
-  min-height: 0;
-  line-height: 1;
-}
-.sc-ap-card[data-shape="swatch"] .sc-ap-tick {
-  position: static;
-  width: 16px;
-  height: 16px;
-  box-shadow: none;
-  animation: none;
+/* the picture under a tick or a plus is the same picture; the puck is the
+   only thing that changes, so a hover never re-lights a held tile's ring */
+.sc-ap-card:not([data-on]):focus-visible .sc-ap-tick-add {
+  display: grid;
 }
 
 /* ---- sitting out, hints, empty, more */
@@ -402,8 +385,14 @@
   opacity: var(--sc-disabled);
   cursor: default;
 }
+/* sitting out answers no pointer: no puck, no brightening, no press */
+.sc-ap-card[aria-disabled="true"] .sc-ap-tick-add {
+  display: none;
+}
 @media (prefers-reduced-motion: reduce) {
-  .sc-ap-thumb {
+  .sc-ap-thumb,
+  .sc-ap-thumb img,
+  .sc-ap-swatch {
     transition: none;
   }
   .sc-ap-tick {
@@ -441,7 +430,7 @@
    never pushes the head off the screen. */
 @media (max-width: 767px) {
   .sc-attachpanel {
-    height: min(420px, var(--ap-avail, calc(100dvh - 270px)));
+    height: min(510px, var(--ap-avail, calc(100dvh - 270px)));
     border-radius: var(--sc-radius-float);
   }
   .sc-ap-head {
@@ -449,8 +438,7 @@
   }
   /* Every control a thumb has to hit is the tap size; the graphic keeps its scale. */
   .sc-ap-search,
-  .sc-ap-upload,
-  .sc-ap-card[data-shape="swatch"] {
+  .sc-ap-upload {
     height: var(--sc-tap);
   }
   .sc-ap-close {

@@ -259,11 +259,17 @@ tried and covered the very composer the picker adds to.
   `presenterAvatar`, a product its packshot with the brand under it, a scene its 4:5 preview centred (what
   the chip picker does with it too), a mark letterboxed on white, a colour a swatch chip. One fixed
   caption; "Recommended" is in the title, not the caption. Nothing on a tile manages.
-- **A tile's states are the rail's.** The picture sits in a hairline frame: `--sc-line` at rest,
-  `--sc-line-strong` under a pointer that can hover (never on touch, where a hover would stick to the last
-  tap), the focus ring on the frame rather than the button, a press that is only the picture's opacity, and
-  `--sc-sel-line` when the thing is in the shot. Nothing dims, scales or moves; a swatch chip presses the
-  way every chip does, through the shared list in `foundations/interaction.css`.
+- **A tile's states, every case.** The picture sits in a hairline frame. Rest: `--sc-line`. Hover (only
+  under a pointer that can hover; touch would wear it until the next tap): the frame firms to
+  `--sc-line-hover`, the picture brightens one step, and the puck in the corner says what the press will do
+  (a plus). Pressed: the picture's own opacity, paint only. Focus: the ring on the frame, not the button,
+  and the puck too. In the shot: the 2px inverse ring a picked shot tile wears, the tick in the corner, and
+  under the pointer the tick becomes the x the press will do while the ring holds. Sitting out: dimmed,
+  tooltip says why, answers no pointer. No picture: the frame with a placeholder glyph. Nothing scales or
+  moves, ever. The rail's asset cards share the vocabulary.
+- **Nothing re-deals on a pick.** The order a picker or the rail opened with is the order it keeps: the
+  "suited to this product" band is read once at open, an attached item is ticked where it sits and never
+  lifted to the front. A grid that re-sorts under the pointer reads as losing its place.
 - **Already in the shot wears a tick and is a toggle.** The tick is the inverse puck the chip picker uses
   for what is on, keyed on the brief's own identity rule (`identityKeyOf`), so the tile and the rail can
   never disagree; the same press again takes the chip out through the brief's own remove, and the tick
