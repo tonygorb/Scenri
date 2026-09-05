@@ -388,6 +388,13 @@ export function namesAreNotLetteringDirective(): string {
   );
 }
 
+/**
+ * The role a catalog person-scene is shot around. Catalog templates say
+ * `subject: "person"` and carry no `figure` of their own, so with nobody
+ * attached the compiler needs a role to leave empty.
+ */
+export const PERSON_SCENE_FIGURE = 'the one person this set is shot around';
+
 export function sceneFigureDirectives(opts: {
   figure: string;
   treatment?: string;
@@ -423,10 +430,16 @@ export function sceneFigureDirectives(opts: {
         'from their own attached photograph alone, never from anything the scene direction says about a body.',
     );
   } else {
+    // Nobody attached, nobody invented. Until 2026-09-05 this staged an
+    // anonymous stand-in so a figure-led world would not come back as a bare
+    // wall; reversed on the product call that a presenter is the only way a
+    // person enters a shot, and a scene with nobody attached is a picture of
+    // the world. The brief's own words still win, in the same shape the
+    // presenter case uses: a typed "a woman holds it" is a person asked for.
     out.push(
-      `This world is built around one figure: ${figure}. Someone fills that role in the frame, and they are nobody in ` +
-        'particular: an anonymous person invented for this photograph only, with no recognisable identity to preserve ' +
-        'and nothing about them carried anywhere else. Show them unless the direction above asks for no people.',
+      `This world is built around one figure: ${figure}. Nobody is attached to take that role, and nobody stands in ` +
+        'for them: no person, no hands, no silhouette, unless the direction above itself asks for a person. The frame ' +
+        'holds the set, the light and any treatment this world applies.',
     );
   }
 
@@ -460,8 +473,10 @@ export function sceneFigureDirectives(opts: {
         'of the form. ' +
         'Each piece sits on the plane beneath it, curving and catching light with the surface it is stuck to. ' +
         `${who}` +
-        'The figure is bodily present and in shot: where the treatment covers or hides them, that is the photograph working ' +
-        'as intended and never a reason to leave them out, crop them away, or reduce them to a shadow. ' +
+        (opts.hasPerson
+          ? 'The figure is bodily present and in shot: where the treatment covers or hides them, that is the photograph working ' +
+            'as intended and never a reason to leave them out, crop them away, or reduce them to a shadow. '
+          : '') +
         // The treatment is the art direction, not a property of the person. Ask
         // for this world with no people in it and the stickers should still be
         // there, on whatever the frame does hold - that IS the scene. Suppressing

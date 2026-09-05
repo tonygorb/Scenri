@@ -379,7 +379,7 @@ export function ScenePage() {
                 <p className="sc-ownedbits-note">
                   What this scene was read from, and what its example above was drawn from.
                   {owned.figure
-                    ? ' Because this scene is built around a figure, one of these also goes to the shot as reference for the world and the treatment. The people, products and marks in it are never copied.'
+                    ? ' Because this scene is built around a figure, the example drawn from these goes to the shot beside an attached presenter, as reference for the world and the treatment. The people, products and marks in these are never copied.'
                     : ' A scene reaches a shot as words, never as pixels, so nothing staged in these images can turn up in a render on its own.'}
                 </p>
                 <div className="sc-lookpage-refs">
@@ -396,7 +396,8 @@ export function ScenePage() {
                 <p className="sc-ownedbits-note">
                   {owned.figure}
                   {owned.figureTreatment ? `, and ${owned.figureTreatment}` : ''}. A role, not a person: attach a
-                  presenter and they play it. Their own face stays theirs underneath.
+                  presenter and they play it. Their own face stays theirs underneath. With nobody attached, the set
+                  renders on its own.
                 </p>
               </section>
             )}

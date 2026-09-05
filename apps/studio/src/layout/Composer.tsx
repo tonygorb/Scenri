@@ -996,7 +996,7 @@ export const Composer = forwardRef<
         // so a scene needing a presenter said nothing at all until the picture
         // came back with a stranger in it.
         (stickyPreview?.warnings.some((w) => w.includes('built around a person')) ?? false)
-        ? 'This scene builds around a person. Attach a presenter.'
+        ? 'This scene builds around a person. Without a presenter, only the set renders.'
         : null;
   /**
    * Which chips get a mark, and what it says.
