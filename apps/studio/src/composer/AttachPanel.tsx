@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import { useSearchParams } from 'react-router';
 import type { Brand, FeedNode } from '../api.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
@@ -161,16 +168,32 @@ function AttachDock({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || creating) return;
       // the creation dialog is a real Radix Dialog stacked on top: its own
-      // Escape closes it; this only steps in once nothing is on top
-      if (e.key === 'Escape' && !creating) {
-        e.stopPropagation();
-        closeRef.current();
-      }
+      // Escape closes it; this only steps in once nothing is on top.
+      // A search with text in it takes the first Escape for itself (the body
+      // clears it); the next one closes the panel.
+      const a = document.activeElement;
+      if (a instanceof HTMLInputElement && rootRef.current?.contains(a) && a.value) return;
+      e.stopPropagation();
+      closeRef.current();
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [creating]);
+
+  /**
+   * The caret guard cancels every mousedown in the panel so the brief keeps
+   * its caret, which also meant nothing in the panel could ever take focus
+   * away from the search field: once tapped it wore its ring until the panel
+   * closed. A press anywhere else in the panel lets the field go first.
+   */
+  const onMouseDownCapture = (e: ReactMouseEvent) => {
+    const a = document.activeElement;
+    const target = e.target as HTMLElement;
+    if (a instanceof HTMLInputElement && rootRef.current?.contains(a) && !target.closest('input')) a.blur();
+    keepCaret(e);
+  };
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -192,7 +215,7 @@ function AttachDock({
       role="dialog"
       id={id}
       aria-label="Add to shot"
-      onMouseDownCapture={keepCaret}
+      onMouseDownCapture={onMouseDownCapture}
     >
       {children}
     </div>

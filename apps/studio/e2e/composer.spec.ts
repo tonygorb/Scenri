@@ -3263,6 +3263,45 @@ test.describe('the attach picker', () => {
     await expect(page.locator('.sc-ap-tabs [role="tab"]')).toHaveCount(7);
   });
 
+  test('every tab offers its own way to make one, in the row where Add product lives', async ({ page }) => {
+    await dock(page).locator('.sc-attach-toggle').click();
+    const action = (name: string) => page.locator('.sc-attachpanel .sc-ap-add', { hasText: name });
+    for (const [tab, name] of [
+      ['Products', 'Add product'],
+      ['Presenters', 'Create presenter'],
+      ['Scenes', 'Create scene'],
+      ['Colors', 'Add color'],
+      ['Brand', 'Add logo'],
+    ] as const) {
+      await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
+      await expect(action(name)).toBeVisible();
+      await expect(page.locator('.sc-attachpanel .sc-ap-add')).toHaveCount(1);
+    }
+    // a finished shot is made by generating, not here
+    await page.locator('.sc-ap-tabs button', { hasText: 'Shots' }).click();
+    await expect(page.locator('.sc-attachpanel .sc-ap-add')).toHaveCount(0);
+  });
+
+  test('the search field can be left, and Escape clears it before it closes the panel', async ({ page }) => {
+    await dock(page).locator('.sc-attach-toggle').click();
+    const search = page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' });
+    await search.click();
+    await expect(search).toBeFocused();
+    // a press anywhere else in the panel lets the field go
+    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).click();
+    await expect(search).not.toBeFocused();
+    // Escape in a search with text clears the text and keeps the panel
+    await search.click();
+    await search.fill('marco');
+    await expect(attachCards(page)).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(search).toHaveValue('');
+    await expect(page.locator('.sc-attachpanel')).toBeVisible();
+    // the next Escape closes it
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+  });
+
   test('the keyboard walks the grid and a pick lands at the caret', async ({ page }) => {
     await page.keyboard.type('shoot it in golden light');
     for (let i = 0; i < ' in golden light'.length; i++) await page.keyboard.press('ArrowLeft');

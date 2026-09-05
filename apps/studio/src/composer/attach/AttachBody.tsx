@@ -11,8 +11,10 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { MagnifyingGlass, Plus, UploadSimple, X } from '@phosphor-icons/react';
-import type { Brand, FeedNode } from '../../api.js';
+import { api, type Brand, type FeedNode } from '../../api.js';
 import { uploadLogo } from '../../apiUploads.js';
+import { appendColor, flattenPalette, nextHex } from '../../brand/palette.js';
+import { ColorPicker } from '../../layout/ColorPicker.js';
 import { useAppData } from '../../app/AppShell.js';
 import { bookmarkedScenes } from '../../bookmarks.js';
 import { useCreateAsset } from '../../create/AssetCreateHost.js';
@@ -21,6 +23,7 @@ import { VerticalsTabs } from '../../layout/VerticalsTabs.js';
 import { useToasts } from '../../toasts.js';
 import { PAGE, buildCandidates, filterCandidates, pickList, type IngredientKind } from '../ingredientOptions.js';
 import { useIngredientCatalog } from '../useIngredientCatalog.js';
+import { identityKeyOf, type SentenceToken } from '../line/tokens.js';
 import { AttachTile } from './AttachTile.js';
 import {
   GROUPS,
@@ -250,13 +253,15 @@ export function AttachBody({
    * search field keeps its text keys; both still stop the key from leaving.
    */
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      onClose();
+      // a search with text in it: the first Escape clears, the next one closes
+      if (target === searchRef.current && q) setQ('');
+      else onClose();
       return;
     }
-    const target = e.target as HTMLElement;
     if (target === searchRef.current) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -323,23 +328,64 @@ export function AttachBody({
     }
   };
 
-  const addProduct = () =>
-    // The one caller that genuinely needs an answer back: the chip goes into
-    // a brief that is still in memory, so a URL round-trip would remount the
-    // composer under it.
-    createAsset('product', {
-      onCreated: (made) =>
-        made.kind === 'product' &&
-        onPick({
-          key: `p:${made.id}`,
-          group: 'Products',
-          shape: 'square',
-          label: 'Product',
-          full: 'Product',
-          search: '',
-          token: { t: 'product', id: made.id },
-        }),
+  /**
+   * Make a new one from here. A product is written the moment the flow
+   * finishes, so its chip goes straight into a brief that is still in memory
+   * (the one caller that genuinely needs an answer back; a URL round-trip
+   * would remount the composer under it). A presenter or a scene is a build
+   * the flow starts: the tab is the place to watch, and the tile arrives
+   * when the build lands, announced by the bell.
+   */
+  const create = (kind: 'product' | 'presenter' | 'scene') =>
+    createAsset(kind, {
+      onCreated: (made) => {
+        if (made.kind !== kind) return;
+        if (made.kind === 'product') {
+          const token: SentenceToken = { t: 'product', id: made.id };
+          onPick({
+            key: identityKeyOf(token),
+            group: 'Products',
+            shape: 'square',
+            label: 'Product',
+            full: '',
+            search: '',
+            token,
+          });
+          return;
+        }
+        onTab(made.kind === 'presenter' ? 'Presenters' : 'Scenes');
+      },
     });
+
+  /**
+   * A colour is the one thing made in place: pick it, it joins the kit through
+   * the same route the rail's plus uses, and the chip drops in. An already
+   * known colour is not written twice, and a cancelled pick writes nothing.
+   */
+  const addColour = async (hex: string) => {
+    const result = appendColor(brand.json?.palette, hex);
+    if (!result.swatch) return;
+    if (result.added) {
+      try {
+        const row = await api.updateBrand(brand.id, { ...(brand.json ?? {}), palette: result.palette });
+        applyBrand(row);
+      } catch (e) {
+        push(failureToast(e, 'Could not save the brand'));
+        return;
+      }
+    }
+    const token: SentenceToken = { t: 'color', hex: result.swatch.hex, name: result.swatch.name };
+    onPick({
+      key: identityKeyOf(token),
+      group: 'Colors',
+      shape: 'swatch',
+      label: result.swatch.name,
+      full: '',
+      search: '',
+      swatch: result.swatch.hex,
+      token,
+    });
+  };
 
   /** Two reasons a tile sits out, one way of sitting out. A colour never does. */
   const whyFor = (g: AttachGroup): string | null =>
@@ -414,7 +460,7 @@ export function AttachBody({
               {/* On All the row names the group and offers the rest of it. On a
                   tab the rail has just said the name and the count, so the row
                   carries only the tab's own action, when it has one. */}
-              {(tab === 'All' || tab === 'Products' || tab === 'Brand') && (
+              {tab !== 'Shots' && (
                 <div className="sc-ap-sec" data-bare={tab === 'All' ? undefined : ''}>
                   {tab === 'All' && (
                     <span className="sc-ap-sec-title">
@@ -428,10 +474,36 @@ export function AttachBody({
                     </button>
                   )}
                   {tab === 'Products' && (
-                    <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={addProduct}>
+                    <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('product')}>
                       <Plus size={12} aria-hidden />
                       Add product
                     </button>
+                  )}
+                  {tab === 'Presenters' && (
+                    <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('presenter')}>
+                      <Plus size={12} aria-hidden />
+                      Create presenter
+                    </button>
+                  )}
+                  {tab === 'Scenes' && (
+                    <button type="button" className="sc-btn sc-btn-ghost sc-ap-add" onClick={() => create('scene')}>
+                      <Plus size={12} aria-hidden />
+                      Create scene
+                    </button>
+                  )}
+                  {tab === 'Colors' && (
+                    <ColorPicker
+                      className="sc-btn sc-btn-ghost sc-ap-add"
+                      value={nextHex(flattenPalette(brand.json?.palette))}
+                      presets={flattenPalette(brand.json?.palette).map((c) => c.hex)}
+                      commitMode="close"
+                      align="end"
+                      label="Add color"
+                      onChange={(hex) => void addColour(hex)}
+                    >
+                      <Plus size={12} aria-hidden />
+                      Add color
+                    </ColorPicker>
                   )}
                   {tab === 'Brand' && (
                     // A label over a hidden input, the same gesture BrandIdentity's
