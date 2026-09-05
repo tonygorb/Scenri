@@ -2,13 +2,14 @@ import { existsSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { contentDirList, contentFile } from '../content/overlay.js';
 import { presenterAvatarPath, presenterFacetsOf, presenterRefPath, type Presenter } from '../presenters.js';
-import { mtimeQS, serveJpeg } from './shared.js';
+import type { ThumbStore } from '../thumbs.js';
+import { fileKey, mtimeQS, serveJpeg, serveJpegSized } from './shared.js';
 
 export function registerPresenterRoutes(
   app: FastifyInstance,
-  deps: { templatesRoot: string; presenters: Presenter[] },
+  deps: { templatesRoot: string; presenters: Presenter[]; thumbs: ThumbStore },
 ): void {
-  const { templatesRoot, presenters } = deps;
+  const { templatesRoot, presenters, thumbs } = deps;
   const presenterThumbPath = (id: string) => contentFile(templatesRoot, 'previews', 'presenters', `${id}.jpg`);
   const avatarPath = (id: string) => presenterAvatarPath(templatesRoot, id);
   const decoratePresenter = (p: Presenter) => ({
@@ -24,15 +25,19 @@ export function registerPresenterRoutes(
     presenters: presenters.map(decoratePresenter),
     ...presenterFacetsOf(presenters),
   }));
+  // Both take `?w=`: the catalog card reads the 4:5 thumbnail at 640, the
+  // picker and the chip read the square avatar at 320 and 160.
   app.get('/api/presenter-thumbnails/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
     if (!m || !existsSync(presenterThumbPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
-    return serveJpeg(req, reply, presenterThumbPath(m[1]));
+    const path = presenterThumbPath(m[1]);
+    return serveJpegSized(req, reply, path, thumbs, fileKey('presenter', m[1], path));
   });
   app.get('/api/presenter-avatars/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
     if (!m || !existsSync(avatarPath(m[1]))) return reply.status(404).send({ error: 'no avatar' });
-    return serveJpeg(req, reply, avatarPath(m[1]));
+    const path = avatarPath(m[1]);
+    return serveJpegSized(req, reply, path, thumbs, fileKey('avatar', m[1], path));
   });
   // A presenter's reference set: the same 4-angle identity plan every time.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.

@@ -534,13 +534,27 @@ test('a feed tile keeps its controls inside itself and thumb-sized', async ({ pa
 const briefChips = (p: Page) => p.locator('.sc-brief-line .sc-token');
 const sheet = (p: Page) => p.locator('.sc-swapsheet');
 
+/**
+ * Close the attach picker and wait for it to be gone.
+ *
+ * On a phone it is a modal sheet: Radix keeps the sheet and its scrim mounted
+ * for the 140ms exit, and while the scrim is there it is what a tap lands on
+ * and where a trapped focus goes back to. A tablet gets the anchored panel,
+ * which has no scrim, so the wait costs nothing there.
+ */
+async function closeAttach(p: Page) {
+  await p.keyboard.press('Escape');
+  await expect(p.locator('.sc-attachsheet, .sc-attachpanel')).toHaveCount(0);
+  await expect(p.locator('.sc-shotsheet-scrim')).toHaveCount(0);
+}
+
 /** Put one scene chip in the brief, whatever width we are at. */
 async function seedScene(p: Page) {
   await p.locator('.sc-canvas-dock .sc-attach-toggle').click();
   await p.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
   await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
   await expect(briefChips(p)).not.toHaveCount(0);
-  await p.keyboard.press('Escape');
+  await closeAttach(p);
 }
 
 async function tapChip(p: Page) {
@@ -668,7 +682,7 @@ async function seedMovable(p: Page) {
   await p.locator('.sc-ap-tabs button', { hasText: /products/i }).click();
   await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
   await expect(briefChips(p)).not.toHaveCount(0);
-  await p.keyboard.press('Escape');
+  await closeAttach(p);
 }
 
 test('the sheet is the touch reorder path, and it stays open between steps', async ({ page }) => {
@@ -724,7 +738,7 @@ async function seedRefChip(p: Page) {
   await p.locator('.sc-ap-tabs button', { hasText: /shots/i }).click();
   await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
   await expect(briefChips(p)).not.toHaveCount(0);
-  await p.keyboard.press('Escape');
+  await closeAttach(p);
 }
 
 test('a reference chip gets its own touch sheet: move and remove, no keyboard', async ({ page }) => {
@@ -809,6 +823,8 @@ test('one Backspace removes a chip', async ({ page }) => {
   await cards.nth(1).tap();
   const chips = page.locator('.sc-brief-line .sc-token');
   await expect(chips).toHaveCount(2);
+  // the picker is a modal sheet on a phone: it has to go before the line can take focus
+  await closeAttach(page);
   // the caret at the end, past the last chip's space, without a pointer
   await line(page).evaluate((el) => {
     el.focus();
@@ -832,4 +848,118 @@ test('a tap on the right edge of a chip opens the sheet, never removes', async (
   await page.touchscreen.tap(box.x + box.width - 9, box.y + box.height / 2);
   await expect(sheet(page)).toBeVisible();
   await expect(briefChips(page)).toHaveCount(1);
+});
+
+/**
+ * The "+" picker on a phone: a sheet under the thumb, the same shell the shot
+ * settings and the chip picker use. It used to be the desktop panel squeezed
+ * to 347 by 293, with four of its seven tabs clipped behind the search field
+ * and 28px upload and close buttons.
+ */
+test.describe('the attach sheet', () => {
+  const attachSheet = (p: Page) => p.locator('.sc-attachsheet');
+  const openAttach = async (p: Page) => {
+    await p.locator('.sc-canvas-dock .sc-attach-toggle').tap();
+    await expect(p.locator('.sc-attachsheet, .sc-attachpanel')).toBeVisible();
+  };
+
+  test('a phone gets the sheet, a tablet keeps the anchored panel', async ({ page }) => {
+    await openAttach(page);
+    if (isPhone(page)) {
+      await expect(attachSheet(page)).toBeVisible();
+      await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+    } else {
+      await expect(page.locator('.sc-attachpanel')).toBeVisible();
+      await expect(attachSheet(page)).toHaveCount(0);
+    }
+  });
+
+  test('search, upload, every tab and close are reachable, and nothing spills', async ({ page }) => {
+    test.skip(!isPhone(page), 'the sheet only exists below 768px');
+    await openAttach(page);
+    const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+    for (const sel of ['.sc-ap-search', '.sc-ap-upload', '.sc-ap-close']) {
+      const b = await box(sel);
+      // to the pixel the screen draws: a 44px control can read 43.99998 in layout units
+      expect(Math.round(b.height), sel).toBeGreaterThanOrEqual(44);
+      expect(Math.round(b.width), sel).toBeGreaterThanOrEqual(44);
+    }
+    await expect(attachSheet(page).getByRole('button', { name: 'Upload image' })).toBeVisible();
+    // seven tabs in a rail that scrolls sideways rather than clipping their names
+    await expect(page.locator('.sc-ap-tabs [role="tab"]')).toHaveCount(7);
+    const last = page.locator('.sc-ap-tabs [role="tab"]').last();
+    await last.scrollIntoViewIfNeeded();
+    await expect(last).toBeInViewport();
+    // opening took no keyboard: neither the brief nor the search has focus
+    const active = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      return { cls: el?.className ?? '', tag: el?.tagName ?? '' };
+    });
+    expect(active.cls).not.toContain('sc-brief-line');
+    expect(active.tag).not.toBe('INPUT');
+    // and the page itself grew no sideways scroll
+    const spill = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(spill).toBeLessThanOrEqual(1);
+    // the search still takes the keyboard when it is tapped, at a size Safari will not zoom
+    const input = attachSheet(page).getByRole('textbox', { name: 'Search' });
+    await input.tap();
+    await expect(input).toBeFocused();
+    expect(await input.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+  });
+
+  test('every attach tile is big enough for a thumb', async ({ page }) => {
+    await openAttach(page);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).tap();
+    const cards = page.locator('.sc-ap-card:not(.sc-ap-add)');
+    await cards.first().waitFor();
+    const n = Math.min(await cards.count(), 8);
+    for (let i = 0; i < n; i++) {
+      const b = (await cards.nth(i).boundingBox())!;
+      expect(b.width).toBeGreaterThanOrEqual(44);
+      expect(b.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test('a pick stays open for the next one, and a dismissal leaves the shot as it was', async ({ page }) => {
+    test.skip(!isPhone(page), 'the sheet only exists below 768px');
+    await openAttach(page);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).tap();
+    const cards = page.locator('.sc-ap-card:not(.sc-ap-add)');
+    await cards.first().tap();
+    await expect(briefChips(page)).toHaveCount(1);
+    // still open: the second pick is one tap away
+    await expect(attachSheet(page)).toBeVisible();
+    await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(1);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).tap();
+    await cards.first().tap();
+    await expect(briefChips(page)).toHaveCount(2);
+    // dragged away: the chips stay, and no keyboard came up for the brief
+    await dragSheet(page, '.sc-attachsheet .sc-shotsheet-grip', 200);
+    await expect(attachSheet(page)).toHaveCount(0);
+    await expect(page.locator('.sc-shotsheet-scrim')).toHaveCount(0);
+    await expect(briefChips(page)).toHaveCount(2);
+    const active = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.className ?? '');
+    expect(active).not.toContain('sc-brief-line');
+    // and it opens again straight after
+    await openAttach(page);
+    await expect(attachSheet(page)).toBeVisible();
+  });
+
+  test('inside the shot overlay, the sheet closes on its own and leaves the shot open', async ({ page }) => {
+    test.skip(!isPhone(page), 'the sheet only exists below 768px');
+    await page.locator('.sc-cell').first().tap();
+    await page.waitForURL(/\/shots\//);
+    const editor = page.locator('.sc-ovl-edit');
+    await expect(editor.locator('.sc-brief-line')).toBeVisible();
+    const url = page.url();
+    await editor.locator('.sc-attach-toggle').tap();
+    await expect(attachSheet(page)).toBeVisible();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).tap();
+    await page.locator('.sc-ap-card:not(.sc-ap-add)').first().tap();
+    await expect(editor.locator('.sc-token')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(attachSheet(page)).toHaveCount(0);
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+    expect(page.url()).toBe(url);
+  });
 });

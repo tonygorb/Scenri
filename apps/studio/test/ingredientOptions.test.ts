@@ -253,9 +253,10 @@ describe('buildCandidates — presenters', () => {
 
   it('prefers the square avatar — a 1:1 box crops the head off the 4:5 card', () => {
     const [withAvatar] = buildCandidates('presenter', catalog({ presenters: [presenter()] }));
-    expect(withAvatar.thumb).toBe('/api/presenter-avatars/p1.jpg');
+    // sized through the curated route, the same way a store URL is
+    expect(withAvatar.thumb).toBe('/api/presenter-avatars/p1.jpg?w=640');
     const [noAvatar] = buildCandidates('presenter', catalog({ presenters: [presenter({ avatarUrl: null })] }));
-    expect(noAvatar.thumb).toBe('/api/presenter-thumbnails/p1.jpg');
+    expect(noAvatar.thumb).toBe('/api/presenter-thumbnails/p1.jpg?w=640');
   });
 
   it('includes a legacy brand cast, which the chip already resolves first', () => {
@@ -316,7 +317,7 @@ describe('buildCandidates — scenes', () => {
     const [c] = buildCandidates('scene', catalog({ scenes: [scene()] }));
     expect(c.label).toBe('Ice Core');
     expect(c.sub).toBe('cold raking key');
-    expect(c.thumb).toBe('/api/scene-thumbnails/s1.jpg');
+    expect(c.thumb).toBe('/api/scene-thumbnails/s1.jpg?w=640');
     expect(c.tint).toMatch(/^hsl\(/);
     expect(filterCandidates([c], 'glacier')).toHaveLength(1);
     expect(filterCandidates([c], 'Glacier Ice Core')).toHaveLength(1);

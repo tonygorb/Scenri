@@ -3236,3 +3236,133 @@ test('the shot record reads each ingredient once, and names the world it keeps',
   await expect(page.locator('.sc-source-chip', { hasText: made.sceneName })).toBeVisible();
   await expect(page.locator('.sc-ingredient[data-world]')).toHaveCount(0);
 });
+
+/**
+ * The "+" picker: add something to this shot.
+ *
+ * One body behind two shells; these run the desktop one. The phone sheet has
+ * its own cases in composer-mobile.spec.ts. What they pin: the upload action
+ * is a real labelled button, the keyboard can walk the grid and a pick lands
+ * at the caret, a thing already in the shot says so, a search with no hits
+ * hides nothing that matters, and three picks in a row read as three words.
+ */
+test.describe('the attach picker', () => {
+  const upload = (p: Page) => p.locator('.sc-attachpanel').getByRole('button', { name: 'Upload image' });
+
+  test('the upload action is a labelled button in the picker head, on every tab', async ({ page }) => {
+    await dock(page).locator('.sc-attach-toggle').click();
+    await expect(upload(page)).toBeVisible();
+    await expect(page.locator('.sc-ap-actions .sc-ap-upload')).toHaveCount(1);
+    for (const tab of ['Products', 'Presenters', 'Scenes', 'Colors', 'Brand', 'Shots']) {
+      await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
+      await expect(upload(page)).toBeVisible();
+    }
+    // the search field is one control, labelled, and the rail is a real tablist
+    await expect(page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' })).toBeVisible();
+    await expect(page.locator('.sc-ap-tabs [role="tablist"]')).toHaveCount(1);
+    await expect(page.locator('.sc-ap-tabs [role="tab"]')).toHaveCount(7);
+  });
+
+  test('the keyboard walks the grid and a pick lands at the caret', async ({ page }) => {
+    await page.keyboard.type('shoot it in golden light');
+    for (let i = 0; i < ' in golden light'.length; i++) await page.keyboard.press('ArrowLeft');
+    await dock(page).locator('.sc-attach-toggle').click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
+    await attachCards(page).first().waitFor();
+    await page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' }).click();
+    await page.keyboard.press('ArrowDown');
+    await expect(attachCards(page).nth(0)).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(attachCards(page).nth(1)).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(attachCards(page).nth(0)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(chips(page)).toHaveCount(1);
+    // the caret is back after the chip: typing carries on there, not at the end
+    await page.keyboard.type('X');
+    const text = await sentence(page);
+    expect(text.startsWith('shoot it')).toBe(true);
+    expect(text).toMatch(/X\s*in golden light$/);
+    // the panel stayed open for the next pick
+    await expect(page.locator('.sc-attachpanel')).toBeVisible();
+  });
+
+  test('a thing already in the shot says so, and a second pick adds nothing', async ({ page }) => {
+    await plusMenu(page, /products/i);
+    await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(0);
+    await pickCard(page, 0);
+    const on = page.locator('.sc-ap-card[data-on]');
+    await expect(on).toHaveCount(1);
+    await expect(on).toContainText('In the shot');
+    await expect(on.locator('.sc-ap-tick')).toBeVisible();
+    await on.click();
+    await expect(chips(page)).toHaveCount(1);
+    // the rail agrees, through the same identity
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+  });
+
+  test('a search with no hits says so and keeps the upload action', async ({ page }) => {
+    await plusMenu(page, /presenters/i);
+    const search = page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' });
+    await search.fill('zzqq');
+    await expect(page.locator('.sc-ap-empty')).toHaveText('No matching presenters.');
+    await expect(attachCards(page)).toHaveCount(0);
+    await expect(upload(page)).toBeVisible();
+    // the rail's counts follow the search
+    await expect(page.locator('.sc-ap-tabs button', { hasText: 'Presenters' })).toContainText('0');
+    await search.fill('');
+    await expect(attachCards(page).first()).toBeVisible();
+    // a scoped search: the whole library on All, one kind on a tab
+    await search.fill('marco');
+    await expect(attachCards(page)).toHaveCount(1);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
+    await expect(page.locator('.sc-ap-empty')).toHaveText('No matching products.');
+  });
+
+  test('a product, a presenter and a scene in a row read as three words with one gap each', async ({ page }) => {
+    await line(page).click();
+    await plusMenu(page, /products/i);
+    await pickCard(page, 0);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).click();
+    await attachCards(page).first().click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Scenes' }).click();
+    await attachCards(page).first().click();
+    await page.keyboard.press('Escape');
+    await expect(chips(page)).toHaveCount(3);
+    const gaps = await line(page).evaluate((root) => {
+      const els = [...root.querySelectorAll('.sc-token')];
+      const gap = (i: number, j: number) =>
+        Math.round(els[j].getBoundingClientRect().left - els[i].getBoundingClientRect().right);
+      return [gap(0, 1), gap(1, 2)];
+    });
+    expect(gaps[0]).toBeGreaterThan(0);
+    expect(gaps[1]).toBe(gaps[0]);
+    // three kinds, one chip each, nothing doubled
+    const kinds = await chips(page).evaluateAll((els) => els.map((e) => e.getAttribute('data-kind')));
+    expect(new Set(kinds).size).toBe(3);
+  });
+
+  test('inside the shot overlay, the picker keeps its keys to itself', async ({ page }) => {
+    await page.locator('.sc-cell').first().click();
+    await page.waitForURL(/\/shots\//);
+    const editor = page.locator('.sc-ovl-edit');
+    await expect(editor.locator('.sc-brief-line')).toBeVisible();
+    const url = page.url();
+    await editor.locator('.sc-attach-toggle').click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
+    await attachCards(page).first().waitFor();
+    await page.locator('.sc-attachpanel').getByRole('textbox', { name: 'Search' }).click();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await expect(attachCards(page).nth(1)).toBeFocused();
+    // the overlay walks shots on the same arrows: it did not move
+    expect(page.url()).toBe(url);
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+    // and closes on the same Escape: only the picker went
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+    expect(page.url()).toBe(url);
+  });
+});

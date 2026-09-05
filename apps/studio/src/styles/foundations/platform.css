@@ -56,15 +56,6 @@ textarea:disabled {
   }
 }
 
-/* Honest truncation: both of these say what is not on screen and how to reach
-   it. A list that silently stops at sixty reads as a list of sixty. */
-.sc-ap-capped {
-  font-size: 11.5px;
-  color: var(--sc-fg3);
-  padding: 10px 2px 2px;
-  margin: 0;
-}
-
 /* ---------- 6.2 home without the dock ----------
    On a phone the wall navigates into Create instead of staging into a dock,
    so Home unmounts the composer and the 230px the unmediated .sc-main rule
