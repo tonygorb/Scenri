@@ -115,10 +115,20 @@ describe('what is already in the shot', () => {
       { t: 'color', hex: '#388DDD', name: 'Primary' },
     ];
     const joined = attachedKeyString(sentence);
-    expect(joined).toBe(`p:cup|h:astrid|t:linen|r:${HASH}|m:${HASH2}|c:#388DDD|Primary`);
+    expect(joined.split('\n')).toEqual([
+      'p:cup',
+      'h:astrid',
+      't:linen',
+      `r:${HASH}`,
+      `m:${HASH2}`,
+      'c:#388DDD|Primary',
+    ]);
     const keys = attachedKeys(joined);
     expect(keys.has('p:cup')).toBe(true);
     expect(keys.has('t:linen')).toBe(true);
+    // a colour's key carries a bar of its own, and survives the round trip whole
+    expect(keys.has('c:#388DDD|Primary')).toBe(true);
+    expect(keys.has('c:#388DDD')).toBe(false);
     // the same rule as the brief's own twin check: a colour renamed since it
     // was attached is a different key there too, so it neither ticks nor refuses
     expect(keys.has('c:#388DDD|Brand blue')).toBe(false);

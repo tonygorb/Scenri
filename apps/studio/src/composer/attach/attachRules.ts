@@ -218,14 +218,16 @@ export const matchesCard = (card: AttachCard, q: string): boolean =>
  * the array would repaint every tile as you type. Text keys to nothing and
  * is left out.
  */
+/** Between keys: a colour's own key carries a bar (`c:#hex|name`), so the bar cannot be the seam. */
+const KEY_SEAM = '\n';
 export function attachedKeyString(sentence: readonly SentenceToken[]): string {
   return sentence
     .map(identityKeyOf)
     .filter((k) => k.length > 0)
-    .join('|');
+    .join(KEY_SEAM);
 }
 export function attachedKeys(joined: string): ReadonlySet<string> {
-  return new Set(joined ? joined.split('|') : []);
+  return new Set(joined ? joined.split(KEY_SEAM) : []);
 }
 
 /** A run of tiles in the flat navigation order: one group's grid. `end` is inclusive. */
