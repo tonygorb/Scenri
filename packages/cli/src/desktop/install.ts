@@ -77,7 +77,8 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
     if (!ours) return { ok: false, reason: 'collision', message: COLLISION };
   }
 
-  writeSupportFiles(deps, support);
+  const nodeMajor = runningNodeMajor();
+  writeSupportFiles({ ...deps, nodeMajor }, support);
   try {
     if (darwin) {
       writeMacBundle({
@@ -108,6 +109,7 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
     createdBy: deps.version,
     home: deps.home,
     nodePath: deps.execPath,
+    nodeMajor,
     env: recordedEnv(deps.env),
     artifact: { kind, path: artifact },
   });
@@ -115,13 +117,20 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
 }
 
 /** The support files are ours alone, so they are always rewritten in full. */
+export const runningNodeMajor = (): number => Number(process.versions.node.split('.')[0]);
+
 export function writeSupportFiles(
-  deps: Pick<InstallDeps, 'assetsDir' | 'execPath' | 'platform'>,
+  deps: Pick<InstallDeps, 'assetsDir' | 'execPath' | 'platform'> & { nodeMajor: number },
   support: string,
 ): void {
   mkdirSync(support, { recursive: true });
   for (const f of SUPPORT_FILES) copyFileSync(join(deps.assetsDir, f), join(support, f));
-  if (deps.platform === 'darwin') writeFileSync(join(support, 'node-path'), `${deps.execPath}\n`);
+  if (deps.platform === 'darwin') {
+    // Native modules were built for this node; when the recorded path is gone
+    // the script prefers another node of the same major over any other.
+    writeFileSync(join(support, 'node-path'), `${deps.execPath}\n`);
+    writeFileSync(join(support, 'node-major'), `${deps.nodeMajor}\n`);
+  }
 }
 
 export async function removeDesktop(deps: InstallDeps): Promise<{ removed: boolean; path?: string; message?: string }> {

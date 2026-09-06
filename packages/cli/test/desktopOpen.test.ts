@@ -193,6 +193,19 @@ describe('scenri open', () => {
     expect(state.dialogs[0]).toContain('written by a newer Scenri');
   });
 
+  it('says Node changed when the server dies on a native module, in the words the server already uses', async () => {
+    // Seen on a real Desktop: the recorded node was gone, the fallback found a
+    // node of another major, and better-sqlite3 refused to load.
+    const { deps, state } = harness({
+      childExit: { code: 1, afterMs: 500 },
+      logTail:
+        '  Scenri could not start: a native component failed to load.\n  This usually means Node changed since this copy of Scenri was installed.\n',
+    });
+    expect(await openScenri(deps)).toBe(1);
+    expect(state.dialogs[0]).toContain('Node.js changed');
+    expect(state.dialogs[0]).toContain('npx scenri@latest');
+  });
+
   it('gives up with a plain sentence when the server never answers', async () => {
     const { deps, state } = harness({ timeoutMs: 2_000 });
     expect(await openScenri(deps)).toBe(1);

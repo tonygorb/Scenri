@@ -179,6 +179,9 @@ export function explain(tail: string, port: number): string {
   }
   const newer = tail.match(/This library was written by a newer Scenri[^\n]*/);
   if (newer) return newer[0];
+  if (tail.includes('a native component failed to load') || NATIVE_MARKERS.some((m) => tail.includes(m))) {
+    return 'Node.js changed since Scenri was installed. Open Terminal and run: npx scenri@latest';
+  }
   if (NATIVE_MARKERS.some((m) => tail.includes(m))) {
     return 'Scenri’s files do not match this Node.js. Open Terminal and run: npx scenri';
   }

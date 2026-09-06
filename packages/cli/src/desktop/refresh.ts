@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import type { InstallKind } from '../installKind.js';
 import { compareSemver, newestStaged } from '../update/versionsDir.js';
 import { adoptRunningInstall, type VerifyImpl } from './adopt.js';
-import { type InstallDeps, writeSupportFiles } from './install.js';
+import { type InstallDeps, runningNodeMajor, writeSupportFiles } from './install.js';
 import { isOurMacBundle, writeMacBundle } from './macos.js';
 import { LAUNCHER_SCHEMA, launcherDir, readLauncherRecord, writeLauncherRecord } from './paths.js';
 import { writeLnk } from './windows.js';
@@ -52,9 +52,10 @@ export async function refreshLauncher(
     record.artifact.kind === 'macos-app' &&
     !sameFile(join(artifact, 'Contents', 'Resources', 'Scenri.icns'), join(deps.assetsDir, 'Scenri.icns'));
   const nodePath = nodeGone ? deps.execPath : record.nodePath;
+  const nodeMajor = nodeGone ? runningNodeMajor() : (record.nodeMajor ?? runningNodeMajor());
 
   if (schemaStale || supportStale || nodeGone) {
-    writeSupportFiles({ assetsDir: deps.assetsDir, execPath: nodePath, platform: deps.platform }, support);
+    writeSupportFiles({ assetsDir: deps.assetsDir, execPath: nodePath, platform: deps.platform, nodeMajor }, support);
   }
   if (ours && record.artifact.kind === 'macos-app' && (schemaStale || iconStale)) {
     writeMacBundle({
@@ -74,7 +75,13 @@ export async function refreshLauncher(
     });
   }
   if (schemaStale || supportStale || nodeGone || iconStale) {
-    writeLauncherRecord(deps.homedir, { ...record, schema: LAUNCHER_SCHEMA, createdBy: deps.version, nodePath });
+    writeLauncherRecord(deps.homedir, {
+      ...record,
+      schema: LAUNCHER_SCHEMA,
+      createdBy: deps.version,
+      nodePath,
+      nodeMajor,
+    });
     out.refreshed = true;
   }
   return out;

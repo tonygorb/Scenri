@@ -140,6 +140,7 @@ describe('refreshLauncher', () => {
     expect(await refreshLauncher({ ...d, execPath: other })).toEqual({ refreshed: true });
     expect(readFileSync(supportFile('node-path'), 'utf8')).toBe(`${other}\n`);
     expect(readLauncherRecord(root)?.nodePath).toBe(other);
+    expect(readFileSync(supportFile('node-major'), 'utf8')).toBe(`${process.versions.node.split('.')[0]}\n`);
   });
 
   it('rewrites a Windows shortcut when its node is gone', async () => {

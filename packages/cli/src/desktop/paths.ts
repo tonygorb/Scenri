@@ -25,6 +25,8 @@ export interface LauncherRecord {
   home: string;
   /** process.execPath at install time; the icon's first choice of node. */
   nodePath: string;
+  /** That node's major: native modules were built for it, so a fallback prefers the same. */
+  nodeMajor?: number;
   /** The env the icon replays: SCENRI_PORT and SCENRI_HOST, when set. */
   env: Record<string, string>;
   artifact: { kind: 'macos-app' | 'windows-lnk'; path: string };

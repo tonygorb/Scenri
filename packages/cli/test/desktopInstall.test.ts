@@ -68,6 +68,9 @@ describe('installDesktop on macOS', () => {
     expect(existsSync(join(support, 'starting.html'))).toBe(false);
     expect(readFileSync(join(support, 'launch.mjs'))).toEqual(readFileSync(join(assetsDir, 'launch.mjs')));
     expect(readFileSync(join(support, 'node-path'), 'utf8')).toBe(`${d.execPath}\n`);
+    // the script prefers a node of this major when the recorded one is gone:
+    // native modules were built for it, and another major refuses to load them
+    expect(readFileSync(join(support, 'node-major'), 'utf8')).toBe(`${process.versions.node.split('.')[0]}\n`);
 
     const app = join(desktop, 'Scenri.app', 'Contents');
     const plist = readFileSync(join(app, 'Info.plist'), 'utf8');
@@ -78,6 +81,7 @@ describe('installDesktop on macOS', () => {
     const script = readFileSync(join(app, 'MacOS', 'Scenri'), 'utf8');
     expect(script.startsWith('#!/bin/sh\n')).toBe(true);
     expect(script).toContain('launch.mjs');
+    expect(script).toContain('node-major');
     // the script is a constant: no path, no version, nothing from this machine
     expect(script).not.toContain(root);
     expect(script).not.toContain(d.execPath);
@@ -96,6 +100,7 @@ describe('installDesktop on macOS', () => {
       createdBy: '0.8.4',
       home: join(root, 'data'),
       nodePath: d.execPath,
+      nodeMajor: Number(process.versions.node.split('.')[0]),
       env: { SCENRI_PORT: '4801' },
       artifact: { kind: 'macos-app', path: join(desktop, 'Scenri.app') },
     });
