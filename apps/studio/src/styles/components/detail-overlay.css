@@ -246,11 +246,13 @@
     --sc-rail-w: calc(52px + 2 * 14px);
     grid-template-columns: auto 1fr var(--sc-ovl-panel-w);
   }
-  /* The close and the arrows stand beside the rail, one gutter away from
-     its edge, never over it: the rail is a column of things to aim at, and
-     a control sitting on its first tiles made those tiles unreachable. */
+  /* The close and the arrows stand beside the rail, never over it: the rail
+     is a column of things to aim at, and a control sitting on its first tiles
+     made those tiles unreachable. The rail's own right gutter is the gap, so
+     the tiles sit 14px from the edge and the close sits 14px from the tiles,
+     the same measure on both sides. */
   .sc-ovl[data-rail] .sc-ovl-bar {
-    left: calc(var(--sc-rail-w) + 14px);
+    left: var(--sc-rail-w);
   }
   .sc-rail {
     display: flex;
