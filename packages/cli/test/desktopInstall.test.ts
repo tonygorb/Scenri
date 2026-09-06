@@ -85,7 +85,8 @@ describe('installDesktop on macOS', () => {
     // the script is a constant: no path, no version, nothing from this machine
     expect(script).not.toContain(root);
     expect(script).not.toContain(d.execPath);
-    expect(statSync(join(app, 'MacOS', 'Scenri')).mode & 0o111).toBe(0o111);
+    // the writer runs everywhere the test does, but only POSIX has execute bits
+    if (process.platform !== 'win32') expect(statSync(join(app, 'MacOS', 'Scenri')).mode & 0o111).toBe(0o111);
     // an icon whose support files were removed (rm -rf ~/.scenri, a move) must
     // say so, not fail silently inside node
     expect(script).toMatch(/if \[ ! -f "\$L\/launch\.mjs" \]/);
