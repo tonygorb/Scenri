@@ -26,7 +26,7 @@ import {
   TrashSimple,
   X,
 } from '@phosphor-icons/react';
-import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
+import { AlertDialog, Button, ContextMenu, DropdownMenu, Flex } from '@radix-ui/themes';
 import { imgUrl, nodeLabel, type Brand, type EngineInfo, type FeedNode, thumbUrl } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
@@ -257,8 +257,8 @@ export function DetailOverlay({
     const to = dir > 0 ? step.next : step.prev;
     if (to) onSelect(to.id);
   };
-  /** The picture zooms where it is; a plain wheel over it at fit steps shots. */
-  const zoom = useStageZoom({ hash: node.status === 'done' ? node.images[0] : undefined, onStep: stepTo });
+  /** The picture zooms where it is. */
+  const zoom = useStageZoom({ hash: node.status === 'done' ? node.images[0] : undefined });
   /** Which shot an arrow would step to, as a picture: hovering an arrow peeks its neighbour. */
   const arrowPeek = useHoverPreview<{
     key: string;
@@ -522,6 +522,28 @@ export function DetailOverlay({
     { label: 'Zoom in', onSelect: zoom.stepIn, disabled: !zoom.canIn },
     { label: 'Zoom out', onSelect: zoom.stepOut, disabled: !zoom.canOut },
   ];
+  /** The same verbs on a right click over the picture: what the header carries, then the zoom stops. */
+  const stageMenu = hasImage ? (
+    <ContextMenu.Content>
+      {actions.map((a) => (
+        <ContextMenu.Item
+          key={a.key}
+          onSelect={a.onMenu ?? a.onClick}
+          disabled={a.busy}
+          color={a.tint ? 'red' : undefined}
+        >
+          {a.icon}
+          {a.label}
+        </ContextMenu.Item>
+      ))}
+      <ContextMenu.Separator />
+      {zoomStops.map((z) => (
+        <ContextMenu.Item key={z.label} onSelect={z.onSelect} disabled={z.disabled}>
+          {z.label}
+        </ContextMenu.Item>
+      ))}
+    </ContextMenu.Content>
+  ) : undefined;
 
   return createPortal(
     // `loop` as well as `trapped`: without it Tab reached the last control and
@@ -754,6 +776,7 @@ export function DetailOverlay({
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
             zoom={hasImage ? zoom : undefined}
+            menu={stageMenu}
           />
           {/* The image's own history, right under the image: the original,
               this shot ringed, and its refinements. Hovering peeks a version

@@ -1,5 +1,5 @@
-import { useEffect, useState, type CSSProperties } from 'react';
-import { Box, Flex, Text } from '@radix-ui/themes';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Box, ContextMenu, Flex, Text } from '@radix-ui/themes';
 import { imgUrl, thumbUrl, type FeedNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
@@ -25,6 +25,7 @@ export function StageFrame({
   onCancel,
   engineName,
   zoom,
+  menu,
 }: {
   node: FeedNode;
   onRetry?: () => void;
@@ -33,6 +34,8 @@ export function StageFrame({
   engineName?: string;
   /** Given, the finished picture zooms where it is: the row is its viewport, the frame is what moves. */
   zoom?: StageZoom;
+  /** The shot's verbs, as a `ContextMenu.Content`: a right click or a long press on the picture opens them. */
+  menu?: ReactNode;
 }) {
   const [, force] = useState(0);
 
@@ -143,7 +146,6 @@ export function StageFrame({
       <Box
         ref={zoom?.frameRef}
         className="sc-frame sc-stage-pic"
-        data-pixels={zoom?.pixels || undefined}
         style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px`, ...zoom?.frameStyle } as CSSProperties}
       >
         <StagePicture key={hash} hash={hash} alt={node.promptHead} zoom={zoom} />
@@ -153,7 +155,6 @@ export function StageFrame({
         <Box
           ref={zoom?.frameRef}
           className="sc-frame"
-          data-pixels={zoom?.pixels || undefined}
           style={{ display: 'inline-block', maxWidth: '100%', ...zoom?.frameStyle }}
         >
           {hash && (
@@ -181,7 +182,7 @@ export function StageFrame({
    * scales inside this box and the box clips it. The box takes the keys and
    * the gestures, so it is focusable and says how.
    */
-  return (
+  const view = (
     <figure
       ref={zoom.viewRef}
       className="sc-stage-view"
@@ -190,6 +191,15 @@ export function StageFrame({
     >
       {frame}
     </figure>
+  );
+  if (!menu) return view;
+  // A right click or a long press on the picture opens the shot's own verbs,
+  // the way a tile in the feed does, rather than the browser's.
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger>{view}</ContextMenu.Trigger>
+      {menu}
+    </ContextMenu.Root>
   );
 }
 

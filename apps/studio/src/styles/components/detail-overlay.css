@@ -123,6 +123,16 @@
 .sc-thumb-btn:hover .sc-thumb {
   border-color: var(--sc-line-strong);
 }
+/* Every tile but the ringed one stands a step back, so the shot on screen
+   reads at a glance down a rail of forty; a tile comes forward under the
+   pointer and under focus. Paint only, on the image's own opacity. */
+.sc-thumb-btn:not([aria-pressed="true"]) .sc-thumb {
+  opacity: 0.55;
+}
+.sc-thumb-btn:not([aria-pressed="true"]):hover .sc-thumb,
+.sc-thumb-btn:not([aria-pressed="true"]):focus-visible .sc-thumb {
+  opacity: 1;
+}
 
 /* ---- the rail: the other shots in the feed you came from ----
    Roots only, in the grid's order; the strip under the stage is a version's
@@ -313,14 +323,6 @@
 .sc-stage-view .sc-frame {
   transform-origin: 0 0;
   transition: transform var(--sc-dur-fast) var(--sc-ease);
-}
-/* a shadow scaled three times reads as a smear; the clipped edge is the frame now */
-.sc-stage-view[data-zoomed] .sc-frame {
-  box-shadow: none;
-}
-/* past two device pixels per image pixel, smoothing would invent detail */
-.sc-stage-view .sc-frame[data-pixels] img {
-  image-rendering: pixelated;
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-stage-view .sc-frame {

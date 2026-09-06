@@ -80,9 +80,11 @@
 .sc-thumb:active {
   opacity: 0.86;
 }
-/* Which take you are looking at. This had no selected state anywhere: the
-   strip marked it with data-active and nothing in the stylesheet read it. */
+/* Which shot you are looking at: the feed's own ring, the inverse fill, the
+   one on-state this system has, drawn inside the tile's edge. This had no
+   selected state anywhere once: the strip marked it with data-active and
+   nothing in the stylesheet read it. */
 .sc-thumb[data-active="true"] {
-  outline: 2px solid var(--sc-sel-line);
+  outline: 2px solid var(--sc-inv-bg);
   outline-offset: -2px;
 }

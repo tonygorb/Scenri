@@ -145,21 +145,13 @@ test('the rail is the feed, and the arrows, the keys and the wheel walk it', asy
   await page.keyboard.press('ArrowLeft');
   await expect(page).toHaveURL(new RegExp(`/shots/${prev}$`));
 
-  // a wheel over the picture at fit: exactly one step per gesture, and back
-  const ringed = () =>
-    page.locator('.sc-rail-tile').evaluateAll((els) => els.findIndex((e) => e.getAttribute('aria-pressed') === 'true'));
-  const before = await ringed();
+  // a wheel over the picture is a zoom, never a step: the shot stays put
   const pic = page.locator('.sc-stage-view');
   const box = (await pic.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.wheel(0, 120);
-  await expect.poll(ringed).toBe(before + 1);
-  await page.waitForTimeout(400);
-  expect(await ringed()).toBe(before + 1);
   await page.mouse.wheel(0, -120);
-  await expect.poll(ringed).toBe(before);
-  await page.waitForTimeout(400);
-  expect(await ringed()).toBe(before);
+  await expect(page.locator('.sc-ovl-zoom span')).not.toHaveText('Fit');
+  await page.waitForTimeout(300);
   await expect(page).toHaveURL(new RegExp(`/shots/${prev}$`));
 });
 
@@ -204,7 +196,7 @@ test('the picture zooms where it is: wheel with ctrl, keys, a double click, and 
   await page.keyboard.press('0');
   await expect(reading).toHaveText('Fit');
   await page.keyboard.press('1');
-  // one image pixel per device pixel, which on this runner is one CSS pixel
+  // the picture at its own pixel size, in CSS pixels
   await expect(reading).toHaveText('100%');
   // the frame's own width times its transform, over the picture's pixels:
   // offsets ignore the transform, so this reads true mid-ease as well
@@ -213,7 +205,7 @@ test('the picture zooms where it is: wheel with ctrl, keys, a double click, and 
     const img = el.querySelector('img') as HTMLImageElement;
     return m ? (Number(m[1]) * (el as HTMLElement).offsetWidth) / img.naturalWidth : null;
   });
-  expect(scale).toBeCloseTo(1 / (await page.evaluate(() => devicePixelRatio)), 2);
+  expect(scale).toBeCloseTo(1, 2);
 
   await pic.dblclick({ position: { x: box.width / 2, y: box.height / 2 } });
   await expect(reading).toHaveText('Fit');

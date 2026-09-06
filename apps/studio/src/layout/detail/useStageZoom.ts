@@ -22,13 +22,11 @@ import {
   overflows,
   panBy,
   pinchView,
-  showsPixels,
   toggleTarget,
   zoomBy,
   zoomLabel,
   zoomTo,
 } from './zoomRules.js';
-import { PHONE } from '../../useMediaQuery.js';
 
 /** How far the arrow keys move the picture. */
 const KEY_PAN = 80;
@@ -37,10 +35,6 @@ const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_PX = 24;
 /** A pointer that travelled this far was dragging, not tapping. */
 const DRAG_PX = 4;
-/** Wheel events closer than this are one gesture, and one gesture steps once. */
-const WHEEL_GESTURE_MS = 150;
-/** How much wheel a gesture carries before it steps. */
-const WHEEL_STEP_PX = 40;
 
 type Gesture = { kind: 'drag'; last: Pt; moved: number } | { kind: 'pinch'; base: View; from: { a: Pt; b: Pt } };
 
@@ -74,8 +68,6 @@ export interface StageZoom {
   };
   /** The frame's transform away from fit; undefined at fit, where the layout is the truth. */
   frameStyle: CSSProperties | undefined;
-  /** Past two device pixels per image pixel. */
-  pixels: boolean;
   zoomed: boolean;
   label: string;
   atFit: boolean;
@@ -96,25 +88,21 @@ export interface StageZoom {
  *
  * The stage's own layout decides the fit (the frame's width over the
  * picture's pixels), so at fit nothing is transformed and nothing can drift.
- * From there: ctrl or cmd with the wheel, a trackpad pinch or two fingers
- * zoom about the cursor; a drag or one finger pans when the picture runs
- * past its row; a double click or double tap goes to actual size and back;
- * plus, minus, 0 and 1 do the same from the keyboard. A plain wheel at fit
- * is not a zoom: it steps to the next or previous shot, one step per
- * gesture, the way a feed reads. Fill covers the row, actual size is one
- * image pixel per device pixel, and the range ends at three.
+ * From there: the wheel, with or without ctrl, a trackpad pinch or two
+ * fingers zoom about the cursor, the way an image viewer reads a wheel; a
+ * drag or one finger pans when the picture runs past its row; a double
+ * click or double tap goes to actual size and back; plus, minus, 0 and 1 do
+ * the same from the keyboard. Fill covers the row, 100% is the picture at
+ * its own pixel size, and the range ends at three times that.
  *
  * Every read of the numbers goes through refs, since gestures arrive faster
  * than renders.
  */
 export function useStageZoom({
   hash,
-  onStep,
 }: {
   /** The picture on the stage; a new one starts at fit. */
   hash: string | undefined;
-  /** A plain wheel at fit: the next shot (1) or the previous (-1). */
-  onStep?: (dir: 1 | -1) => void;
 }): StageZoom {
   const [viewEl, setViewEl] = useState<HTMLElement | null>(null);
   const [frameEl, setFrameEl] = useState<HTMLElement | null>(null);
@@ -124,8 +112,7 @@ export function useStageZoom({
   const [view, setView] = useState<View | null>(null);
   const [eased, setEased] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
-  const l = frame && viewport && natural ? limits(frame.fit, viewport, natural, dpr) : null;
+  const l = frame && viewport && natural ? limits(frame.fit, viewport, natural) : null;
 
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -137,8 +124,6 @@ export function useStageZoom({
   limRef.current = l;
   const frameRef = useRef(frame);
   frameRef.current = frame;
-  const stepRef = useRef(onStep);
-  stepRef.current = onStep;
 
   /**
    * Whether the person zoomed, remembered apart from the numbers: the frame
@@ -149,10 +134,13 @@ export function useStageZoom({
   const userZoomed = useRef(false);
   const go = useCallback((next: View, ease: boolean) => {
     const lim = limRef.current;
-    userZoomed.current = !!lim && !isFit(next.scale, lim);
-    viewRef.current = next;
+    const f = frameRef.current;
+    // fit is the layout's own place, wherever the last tick left the picture
+    const at = lim && f && isFit(next.scale, lim) ? { scale: f.fit, tx: f.ox, ty: f.oy } : next;
+    userZoomed.current = !!lim && !isFit(at.scale, lim);
+    viewRef.current = at;
     setEased(ease);
-    setView(next);
+    setView(at);
   }, []);
 
   // A new picture starts at fit, and its frame is measured afresh: a frame
@@ -199,7 +187,6 @@ export function useStageZoom({
   // view fitted and keeps a zoomed one on the picture.
   useLayoutEffect(() => {
     if (!viewport || !natural || !frame) return;
-    const lim = limits(frame.fit, viewport, natural, dpr);
     const atFit: View = { scale: frame.fit, tx: frame.ox, ty: frame.oy };
     setEased(false);
     setView((cur) => {
@@ -207,7 +194,7 @@ export function useStageZoom({
       viewRef.current = next;
       return next;
     });
-  }, [viewport, natural, frame, dpr]);
+  }, [viewport, natural, frame]);
 
   const nums = () => {
     const v = viewRef.current;
@@ -339,44 +326,20 @@ export function useStageZoom({
   };
 
   // Wheel is a native listener: React's is passive, and this one has to stop
-  // the page. A pinch on a trackpad arrives as a wheel with ctrlKey.
-  const wheelGesture = useRef({ at: 0, acc: 0, stepped: false });
+  // the page. A wheel over the picture is a zoom about the cursor, ctrl or
+  // no ctrl (a trackpad pinch arrives as a wheel with ctrlKey); a notch is a
+  // step of about a third, a trackpad's run of small deltas is smooth.
   useEffect(() => {
     const el = viewEl;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       const n = nums();
       if (!n) return;
-      const unit = e.deltaMode === 1 ? 16 : 1;
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const dy = Math.max(-40, Math.min(40, e.deltaY * unit));
-        const r = el.getBoundingClientRect();
-        go(zoomBy(n.v, Math.exp(-dy * 0.008), e.clientX - r.left, e.clientY - r.top, n.vp, n.nat, n.lim), false);
-        return;
-      }
-      if (overflows(n.v, n.vp, n.nat)) {
-        e.preventDefault();
-        go(panBy(n.v, -e.deltaX * unit, -e.deltaY * unit, n.vp, n.nat), false);
-        return;
-      }
-      // On a phone the overlay is a scroll column and the wheel is its own.
-      if (!stepRef.current || window.matchMedia(PHONE).matches) return;
       e.preventDefault();
-      // One step per gesture. A notch is one event; a flick is a run of
-      // them with a long tail, and the tail must not step again.
-      const now = performance.now();
-      const w = wheelGesture.current;
-      if (now - w.at > WHEEL_GESTURE_MS) {
-        w.acc = 0;
-        w.stepped = false;
-      }
-      w.at = now;
-      if (w.stepped) return;
-      w.acc += e.deltaY * unit;
-      if (Math.abs(w.acc) < WHEEL_STEP_PX) return;
-      w.stepped = true;
-      stepRef.current(w.acc > 0 ? 1 : -1);
+      const unit = e.deltaMode === 1 ? 16 : 1;
+      const dy = Math.max(-40, Math.min(40, e.deltaY * unit));
+      const r = el.getBoundingClientRect();
+      go(zoomBy(n.v, Math.exp(-dy * 0.008), e.clientX - r.left, e.clientY - r.top, n.vp, n.nat, n.lim), false);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -447,9 +410,8 @@ export function useStageZoom({
       onKeyDown,
     },
     frameStyle,
-    pixels: !!(view && showsPixels(view.scale, dpr)),
     zoomed,
-    label: view && l ? zoomLabel(view.scale, l, dpr) : 'Fit',
+    label: view && l ? zoomLabel(view.scale, l) : 'Fit',
     atFit: !zoomed,
     atFill: !!(view && l && isFill(view.scale, l)),
     atActual: !!(view && l && isActual(view.scale, l)),

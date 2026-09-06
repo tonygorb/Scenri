@@ -7,6 +7,9 @@
  * at its own top-left, so a picture point `(x, y)` sits at `tx + x * scale`.
  * The fit is not computed here: it is whatever the stage's own layout chose
  * for the frame, so at fit the transform is the identity and nothing moves.
+ * 100% is the picture at its own pixel size in CSS pixels, the size the
+ * browser gives an image it is not asked to resize; the stage never draws a
+ * fit larger than that, so 100% is always at least fit.
  */
 
 export interface Size {
@@ -23,7 +26,7 @@ export interface Limits {
   fit: number;
   /** The picture covering the viewport. */
   fill: number;
-  /** One image pixel per device pixel. */
+  /** The picture at its own pixel size. */
   actual: number;
   min: number;
   max: number;
@@ -31,7 +34,7 @@ export interface Limits {
 
 /** One step of the menu and the keys. */
 export const STEP = 1.25;
-/** How far past actual size the zoom goes: three device pixels per image pixel is enough to read a seam. */
+/** How far past actual size the zoom goes: three CSS pixels per image pixel is enough to read a seam. */
 const MAX_OVER_ACTUAL = 3;
 /** Two scales this close are the same scale: a step in and back out lands on floating-point dust. */
 const near = (a: number, b: number): boolean => Math.abs(a - b) <= 0.002 * Math.max(a, b);
@@ -44,8 +47,8 @@ export const fitScale = (viewport: Size, natural: Size): number =>
 export const fillScale = (viewport: Size, natural: Size): number =>
   Math.max(viewport.w / natural.w, viewport.h / natural.h);
 
-/** One image pixel per device pixel, which is the only honest "100%". */
-export const actualScale = (dpr: number): number => 1 / Math.max(1, dpr);
+/** The picture at its own pixel size. */
+export const ACTUAL = 1;
 
 /**
  * The limits around a fit the layout already chose. The range runs from the
@@ -53,22 +56,46 @@ export const actualScale = (dpr: number): number => 1 / Math.max(1, dpr);
  * actual, so a small picture can still be seen at its pixels and a large
  * one can still cover the stage.
  */
-export function limits(fit: number, viewport: Size, natural: Size, dpr: number): Limits {
+export function limits(fit: number, viewport: Size, natural: Size): Limits {
   const fill = fillScale(viewport, natural);
-  const actual = actualScale(dpr);
-  return { fit, fill, actual, min: Math.min(fit, actual), max: Math.max(fit, fill, actual * MAX_OVER_ACTUAL) };
+  return {
+    fit,
+    fill,
+    actual: ACTUAL,
+    min: Math.min(fit, ACTUAL),
+    max: Math.max(fit, fill, ACTUAL * MAX_OVER_ACTUAL),
+  };
 }
 
 export const clampScale = (s: number, l: Limits): number => Math.min(l.max, Math.max(l.min, s));
 
-/** The picture centred on an axis where it fits, and pinned to the edges where it overflows. */
+/**
+ * The picture kept inside the viewport where it fits, and pinned to the
+ * edges where it overflows. Not centred: a zoom about the cursor keeps the
+ * point under the cursor where it is, and a picture snapped back to the
+ * middle after every tick would slide out from under it.
+ */
 export function clampPan(v: View, viewport: Size, natural: Size): View {
   const w = natural.w * v.scale;
   const h = natural.h * v.scale;
-  const tx = w <= viewport.w ? (viewport.w - w) / 2 : Math.min(0, Math.max(viewport.w - w, v.tx));
-  const ty = h <= viewport.h ? (viewport.h - h) / 2 : Math.min(0, Math.max(viewport.h - h, v.ty));
+  const tx =
+    w <= viewport.w ? Math.min(viewport.w - w, Math.max(0, v.tx)) : Math.min(0, Math.max(viewport.w - w, v.tx));
+  const ty =
+    h <= viewport.h ? Math.min(viewport.h - h, Math.max(0, v.ty)) : Math.min(0, Math.max(viewport.h - h, v.ty));
   return { scale: v.scale, tx, ty };
 }
+
+/** The picture at `scale`, centred in the viewport. */
+export function centred(scale: number, viewport: Size, natural: Size): View {
+  return clampPan(
+    { scale, tx: (viewport.w - natural.w * scale) / 2, ty: (viewport.h - natural.h * scale) / 2 },
+    viewport,
+    natural,
+  );
+}
+
+/** The fitted view: the whole picture, centred. */
+export const fitView = (viewport: Size, natural: Size, l: Limits): View => centred(l.fit, viewport, natural);
 
 /** Scale to `next`, keeping the picture point under `(px, py)` where it is. */
 export function zoomTo(v: View, next: number, px: number, py: number, viewport: Size, natural: Size, l: Limits): View {
@@ -102,12 +129,12 @@ export const isFit = (scale: number, l: Limits): boolean => near(scale, l.fit);
 export const isFill = (scale: number, l: Limits): boolean => near(scale, l.fill);
 export const isActual = (scale: number, l: Limits): boolean => near(scale, l.actual);
 
-/** What the reading says: Fit, Fill, 100%, or the percent of actual size. */
-export function zoomLabel(scale: number, l: Limits, dpr: number): string {
+/** What the reading says: Fit, Fill, 100%, or the percent of the picture's own size. */
+export function zoomLabel(scale: number, l: Limits): string {
   if (isFit(scale, l)) return 'Fit';
   if (isFill(scale, l)) return 'Fill';
   if (isActual(scale, l)) return '100%';
-  return `${Math.round(scale * Math.max(1, dpr) * 100)}%`;
+  return `${Math.round(scale * 100)}%`;
 }
 
 /**
@@ -118,9 +145,6 @@ export function toggleTarget(scale: number, l: Limits): number {
   if (!isFit(scale, l)) return l.fit;
   return l.actual > l.fit * 1.05 ? l.actual : clampScale(l.fit * 2, l);
 }
-
-/** Past two device pixels per image pixel, interpolation would lie about the pixels; the blocks are shown instead. */
-export const showsPixels = (scale: number, dpr: number): boolean => scale * Math.max(1, dpr) >= 2;
 
 export interface Pt {
   x: number;
