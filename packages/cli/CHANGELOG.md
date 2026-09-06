@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.9.0](https://github.com/tonygorb/Scenri/compare/v0.8.3...v0.9.0) (2026-09-06)
+
+
+### Features
+
+* **cli:** a desktop icon that starts Scenri without a terminal ([35e8160](https://github.com/tonygorb/Scenri/commit/35e816086b3d2e10b32e454b4f40e93f4c95082a))
+* **cli:** desktop status, install and quit routes for Settings ([c8478e1](https://github.com/tonygorb/Scenri/commit/c8478e1b2059ba40c85779469e97251c5669152b))
+* **cli:** install, repair, remove and report the desktop launcher on macOS and Windows ([ee03601](https://github.com/tonygorb/Scenri/commit/ee036017dd5be738aff40b1adf2b04b7c45548fc))
+* **cli:** launcher support paths, rotating logs, and adopting the running install into app/versions ([abde8cc](https://github.com/tonygorb/Scenri/commit/abde8cc23a0dd7eccb1e55d4aada1603108b68da))
+* **cli:** offer the desktop icon once at a terminal, and keep an installed one current on every start ([5f56bb9](https://github.com/tonygorb/Scenri/commit/5f56bb9a45432df605c295b8893638cd75c0a2a0))
+* **cli:** scenri desktop and the hidden open command, with a console-less supervisor ([fbe3fcf](https://github.com/tonygorb/Scenri/commit/fbe3fcf7ef16573448c22cd222c0cd6a37ca909c))
+* **cli:** scenri open reuses a running Scenri or starts the supervisor detached and waits for it ([713e4f8](https://github.com/tonygorb/Scenri/commit/713e4f8f12014ceeff36bcea23718b2aac19ccec))
+* **cli:** ship the desktop launcher's icons, an icns and an ico cut from the brand mark ([ef104e2](https://github.com/tonygorb/Scenri/commit/ef104e28654c31350dd103850a22dfa34f54b26e))
+* **cli:** the frozen desktop bootstrap and the starting page ([151b2b9](https://github.com/tonygorb/Scenri/commit/151b2b92445a5f6b7602bedb4cc07c7131a85d61))
+* **studio:** after Shut down the tab closes instead of showing a card ([42bdf89](https://github.com/tonygorb/Scenri/commit/42bdf896d9e6ed7a4cfc98e21b201372097e3c8c))
+* **studio:** Desktop shortcut and Quit rows in About, and a verify hop before a build is adopted ([1587567](https://github.com/tonygorb/Scenri/commit/15875670bb5c3810437f19393440ecbffe51e68d))
+* **studio:** Reuse setup is back under the record, beside Try again ([abe6b03](https://github.com/tonygorb/Scenri/commit/abe6b034490733701b6c990eb6688f0147dd81bc))
+* **studio:** Reuse setup is back, and the shot sidebar and colour chips line up ([13345f2](https://github.com/tonygorb/Scenri/commit/13345f2a24d46cf3ae3f7c7d47ecd6c8a24a6665))
+* **studio:** Shut down Scenri lives at the bottom of the brand menu, not in a Settings pane ([d21914b](https://github.com/tonygorb/Scenri/commit/d21914b9dd1b4e712120e1d1c42208e48f8833fa))
+
+
+### Bug Fixes
+
+* **cli:** a browser that cannot be opened gets the address in a dialog instead of silence ([ef3d6a1](https://github.com/tonygorb/Scenri/commit/ef3d6a11a963611aa73ff025630bf55fc1a92fa5))
+* **cli:** a double-click answers at once, and every click stops paying for node probing ([25685e7](https://github.com/tonygorb/Scenri/commit/25685e7b8087bb1f794b1b5d30cd1252b4ea9b32))
+* **cli:** scenri open logs the sentence it shows, so support reads the log instead of the screen ([b52350c](https://github.com/tonygorb/Scenri/commit/b52350ce16cd67dc8a0f8931d3f7db71975ece07))
+* **cli:** the boot refresh heals node-path and node-major against the record ([4d09985](https://github.com/tonygorb/Scenri/commit/4d09985accf05b9eacd238249a2c61c697710b07))
+* **cli:** the rendered starting page is not a support file, so the boot refresh leaves it alone ([d3b1396](https://github.com/tonygorb/Scenri/commit/d3b13966b778c4c51a49922984f394ac9d0e146d))
+* **cli:** the starting page carries the studio URL in a meta, because open(1) drops a file URL's fragment ([4fa6c68](https://github.com/tonygorb/Scenri/commit/4fa6c682d09c34de76ef00256fb1c0bdd8f84133))
+* **cli:** when the recorded node is gone the icon prefers a node of the same major, and a native-module death says so ([aa1dba0](https://github.com/tonygorb/Scenri/commit/aa1dba06d0d48c2a6ff3c4adcc47409f31f69311))
+* **studio:** a colour chip wears its colour as the thumbnail's circle, and its menu hugs the chip ([e5970c1](https://github.com/tonygorb/Scenri/commit/e5970c14116f9721e5596167b3e821bcd45908b3))
+* **studio:** the lifecycle overlays cover a Settings dialog instead of hiding behind it ([1e89433](https://github.com/tonygorb/Scenri/commit/1e894337948f1feb4816a67584098e4658d63244))
+* **studio:** the shot record clamps by rows, its release is a verb, and its colour chip is the thumbnail's circle ([20da7a1](https://github.com/tonygorb/Scenri/commit/20da7a154272004db5cd22e0185bc08452e0a132))
+* **studio:** the shot sidebar's composer, hairlines and copy control share one inset ([d5c4a99](https://github.com/tonygorb/Scenri/commit/d5c4a99e9bcc1cc43fd8673547cfdb73923b0d8b))
+
 ## [0.8.3](https://github.com/tonygorb/Scenri/compare/v0.8.2...v0.8.3) (2026-09-06)
 
 
