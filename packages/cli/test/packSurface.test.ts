@@ -53,6 +53,14 @@ describe('the published package surface', () => {
     expect(pkg.files).toContain('ASSETS-LICENSE.md');
   });
 
+  // The desktop launcher's icons and bootstrap live in launcher/ and are
+  // committed, so the tarball can prove they pack without a staged tree.
+  it('ships the desktop launcher assets', () => {
+    expect(pkg.files).toContain('launcher');
+    const files = packedFiles();
+    for (const f of ['launcher/Scenri.icns', 'launcher/scenri.ico']) expect(files).toContain(f);
+  }, 30_000);
+
   // dist inlines @scenri/brand (Apache-2.0), so its license text must travel
   // in the tarball next to the app's own — Apache-2.0 section 4(a).
   it('ships the Apache license for the inlined brand-spec code, and the changelog', () => {
