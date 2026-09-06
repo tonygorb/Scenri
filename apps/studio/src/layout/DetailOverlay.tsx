@@ -780,70 +780,78 @@ export function DetailOverlay({
           }}
         />
         <aside className="sc-ovl-meta">
-          {/* A typographic inspector: flat labeled sections divided by
+          {/* The sections scroll in a wrapper of their own and the composer is
+              the column's foot outside it: inside the scroller, the reserved
+              scrollbar gutter stacked on the composer's right inset (21px on
+              the left, 31px on the right, measured). */}
+          <div className="sc-ovl-scroll">
+            {/* A typographic inspector: flat labeled sections divided by
               hairlines, nothing raised, nothing boxed. The engine id, wall
               time, "Free" and the filed-in sets that used to crowd the head
               are gone — facts about the run, not the work. Only money
               actually spent survives: a real price is a budget decision, a
               $0 label was noise. */}
-          <div className="sc-ovl-head">
-            {/* The record's name is its step in the trail under the picture,
+            <div className="sc-ovl-head">
+              {/* The record's name is its step in the trail under the picture,
                 so the panel and the row speak one vocabulary; the number waits
                 for the history, since a bare guess could be wrong on a branch. */}
-            <b>{title}</b>
-            {node.archived && <small className="sc-ovl-flag">archived</small>}
-            {hasImage && node.costUsd > 0 && (
-              <small className="sc-ovl-spend" title="Of your API budget">
-                ${node.costUsd.toFixed(2)}
-              </small>
-            )}
-          </div>
+              <b>{title}</b>
+              {node.archived && <small className="sc-ovl-flag">archived</small>}
+              {hasImage && node.costUsd > 0 && (
+                <small className="sc-ovl-spend" title="Of your API budget">
+                  ${node.costUsd.toFixed(2)}
+                </small>
+              )}
+            </div>
 
-          {/* The whole record as one statement in the composer's voice: the
+            {/* The whole record as one statement in the composer's voice: the
               typed sentence with its chips inline where they were said, and
               what the refinement carried riding after it. Long briefs clamp
               at five lines; "more" appears only when the clamp bites. */}
-          {node.kind !== 'root' && (said || hasContext) && (
-            <div className="sc-ovl-sec sc-ovl-brief">
-              <span className="sc-eyebrow">Prompt</span>
-              <div className="sc-brief-record">
-                <BriefLine
-                  brief={node.brief}
-                  prompt={full?.prompt ?? node.promptHead}
-                  brand={brand}
-                  saidRef={briefRef}
-                  expanded={briefOpen}
-                />
+            {node.kind !== 'root' && (said || hasContext) && (
+              <div className="sc-ovl-sec sc-ovl-brief">
+                <div className="sc-ovl-brief-head">
+                  <span className="sc-eyebrow">Prompt</span>
+                  {/* The same control as the verbs over the picture: a tooltip
+                    that names it, a busy step, and "Copied" said on the control
+                    rather than in a toast. Always there, in the eyebrow's row, so the
+                    record starts under it and no chip can run beneath it. */}
+                  <Tip label={briefCopied ? 'Copied' : 'Copy the prompt'} open={briefCopied || undefined}>
+                    <button
+                      type="button"
+                      className="sc-icon-btn sc-ovl-copy"
+                      aria-label="Copy the prompt"
+                      aria-busy={briefCopying || undefined}
+                      data-busy={briefCopying ? '' : undefined}
+                      onClick={() => void copyBrief()}
+                    >
+                      {briefCopied ? <Check size={14} weight="bold" /> : <CopySimple size={14} />}
+                    </button>
+                  </Tip>
+                </div>
+                <div className="sc-brief-record">
+                  <BriefLine
+                    brief={node.brief}
+                    prompt={full?.prompt ?? node.promptHead}
+                    brand={brand}
+                    saidRef={briefRef}
+                    expanded={briefOpen}
+                  />
+                </div>
+                {(briefOverflows || briefOpen) && (
+                  <button
+                    type="button"
+                    className="sc-ovl-more"
+                    aria-expanded={briefOpen}
+                    onClick={() => setBriefOpen((v) => !v)}
+                  >
+                    {briefOpen ? 'less' : 'more'}
+                  </button>
+                )}
               </div>
-              {(briefOverflows || briefOpen) && (
-                <button
-                  type="button"
-                  className="sc-ovl-more"
-                  aria-expanded={briefOpen}
-                  onClick={() => setBriefOpen((v) => !v)}
-                >
-                  {briefOpen ? 'less' : 'more'}
-                </button>
-              )}
-              {/* The same control as the verbs over the picture: a tooltip
-                  that names it, a busy step, and "Copied" said on the control
-                  rather than in a toast. Always there, in the section's corner. */}
-              <Tip label={briefCopied ? 'Copied' : 'Copy the prompt'} open={briefCopied || undefined}>
-                <button
-                  type="button"
-                  className="sc-icon-btn sc-ovl-copy"
-                  aria-label="Copy the prompt"
-                  aria-busy={briefCopying || undefined}
-                  data-busy={briefCopying ? '' : undefined}
-                  onClick={() => void copyBrief()}
-                >
-                  {briefCopied ? <Check size={14} weight="bold" /> : <CopySimple size={14} />}
-                </button>
-              </Tip>
-            </div>
-          )}
+            )}
 
-          {/* A shot with a picture offers two verbs, repeat before change:
+            {/* A shot with a picture offers two verbs, repeat before change:
               Try again runs the same setup once more; Reuse setup starts a
               new shot from it in the composer, prompt, chips, shape and count,
               focused and announced, which is what people wanted for "like
@@ -858,48 +866,49 @@ export function DetailOverlay({
               refine field under it. Try again on a failure lives on the stage,
               which knows which failures re-running cannot fix. Archive and
               delete live once, in the bar over the shot. */}
-          {(hasImage || canEditPrompt) && (
-            <div className="sc-sugg">
-              {canEditPrompt && (
-                <button
-                  type="button"
-                  className="sc-s"
-                  onClick={() => onRemix(node)}
-                  title="Put this prompt back in the composer, to change and run again"
-                >
-                  <PencilSimple size={12} /> Edit the prompt
-                </button>
-              )}
-              {hasImage && (
-                <button
-                  type="button"
-                  className="sc-s"
-                  onClick={() => onRetry(node)}
-                  title="Run the same setup again for a different take"
-                >
-                  <ArrowCounterClockwise size={12} /> Try again
-                </button>
-              )}
-              {hasImage && (
-                <button
-                  type="button"
-                  className="sc-s"
-                  onClick={() => onRemix(node)}
-                  title="Start a new shot from this setup: same prompt, chips, shape and count, ready to change"
-                >
-                  <ArrowsClockwise size={12} /> Reuse setup
-                </button>
-              )}
-            </div>
-          )}
+            {(hasImage || canEditPrompt) && (
+              <div className="sc-sugg">
+                {canEditPrompt && (
+                  <button
+                    type="button"
+                    className="sc-s"
+                    onClick={() => onRemix(node)}
+                    title="Put this prompt back in the composer, to change and run again"
+                  >
+                    <PencilSimple size={12} /> Edit the prompt
+                  </button>
+                )}
+                {hasImage && (
+                  <button
+                    type="button"
+                    className="sc-s"
+                    onClick={() => onRetry(node)}
+                    title="Run the same setup again for a different take"
+                  >
+                    <ArrowCounterClockwise size={12} /> Try again
+                  </button>
+                )}
+                {hasImage && (
+                  <button
+                    type="button"
+                    className="sc-s"
+                    onClick={() => onRemix(node)}
+                    title="Start a new shot from this setup: same prompt, chips, shape and count, ready to change"
+                  >
+                    <ArrowsClockwise size={12} /> Reuse setup
+                  </button>
+                )}
+              </div>
+            )}
 
-          {/* No versions section in here: the image's history wears the thumb
+            {/* No versions section in here: the image's history wears the thumb
               strip under the stage. The sidebar does not own image navigation. */}
 
-          {/* No station on a dead shot: the stage owns retrying a failure,
+            {/* No station on a dead shot: the stage owns retrying a failure,
               and a Generate field down here made a failed refine read as a
               place to start over. Running keeps the held composer, so the
               field is already waiting when the picture lands. */}
+          </div>
           {(hasImage || node.status === 'running') && (
             <div className="sc-ovl-edit">
               {/* In here the target is the whole screen, so it is stated rather

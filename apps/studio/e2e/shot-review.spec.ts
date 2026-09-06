@@ -296,3 +296,32 @@ test('reuse setup starts a new shot from this one: composer loaded, focused, and
   // ready to type: the caret is in the prompt, not on the tile that was clicked
   await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('.sc-brief-line')))).toBe(true);
 });
+
+test('the refine composer sits the same distance from both edges of the sidebar', async ({ page }) => {
+  await page.goto(shotUrl(shots.a));
+  await expect(page.locator('.sc-ovl-edit .sc-composer')).toBeVisible();
+  // The composer used to live inside the panel's scroll area, so the reserved
+  // scrollbar gutter stacked on its right inset: 21px left, 31px right.
+  const gaps = await page.evaluate(() => {
+    const panel = document.querySelector('.sc-ovl-meta')!.getBoundingClientRect();
+    const box = document.querySelector('.sc-ovl-edit .sc-composer')!.getBoundingClientRect();
+    const copy = document.querySelector('.sc-ovl-copy')!.getBoundingClientRect();
+    const head = document.querySelector('.sc-ovl-head')!.getBoundingClientRect();
+    const record = document.querySelector('.sc-brief-record')!.getBoundingClientRect();
+    return {
+      left: box.left - panel.left,
+      right: panel.right - box.right,
+      copyRight: panel.right - copy.right,
+      headRight: panel.right - head.right,
+      clearance: record.top - copy.bottom,
+    };
+  });
+  expect(Math.abs(gaps.left - gaps.right)).toBeLessThanOrEqual(1);
+  // the record's copy control ends where the composer does, and the hairlines
+  // run the panel's full width: one inset, not a scrollbar's worth of drift
+  expect(Math.abs(gaps.copyRight - gaps.right)).toBeLessThanOrEqual(1);
+  expect(gaps.headRight).toBe(0);
+  // the record starts under the control, so a first row of chips that reaches
+  // the right edge can never run beneath it
+  expect(gaps.clearance).toBeGreaterThanOrEqual(0);
+});

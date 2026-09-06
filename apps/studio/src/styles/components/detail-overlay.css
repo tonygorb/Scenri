@@ -491,12 +491,31 @@
   background: var(--sc-bg);
   display: flex;
   flex-direction: column;
+  /* The panel itself does not scroll: its sections do, in .sc-ovl-scroll,
+     and the composer is the column's foot outside that scroller. Inside it
+     the reserved scrollbar gutter stacked on the composer's right inset.
+     clip, not hidden: hidden is still a scroll container, and the global
+     scrollbar-gutter: stable reserved the same 10px on it. */
+  overflow: clip;
+  scrollbar-gutter: auto;
+  padding: 0;
+  min-height: 0;
+}
+.sc-ovl-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
+  /* No reserved gutter: a record that fits (most do) keeps its hairlines the
+     panel's full width, and one that overflows gets a real scrollbar in the
+     section area alone, with the composer untouched below. A reserved gutter
+     left every hairline 10px short with nothing in the space. */
+  scrollbar-gutter: auto;
   /* No side padding here: each section carries its own 20px gutter, so the
      hairlines between sections run the panel's full width the way the
      frames draw them. */
   padding: var(--sc-space-7) 0 0;
-  min-height: 0;
 }
 /* A typographic inspector: the panel is flat labeled sections divided by
    hairlines, nothing raised, nothing boxed. The title row is the first
@@ -578,26 +597,39 @@
 .sc-ovl-more:hover {
   color: var(--sc-fg);
 }
-/* copy waits invisibly at the section's corner until the section is read */
-.sc-ovl-brief {
-  position: relative;
+/* The record's header row: the eyebrow on the left, the copy control on the
+   right, and the record under both. The control used to float absolutely in
+   the section's corner, level with the eyebrow, and a first chip row that
+   reached the right edge ran beneath it. In the row it takes its own space:
+   the row is the control's height, pulled up so the eyebrow keeps the 20px
+   the other sections set, and the record starts below the control. */
+.sc-ovl-brief-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  /* -9: the 32px control centres a 14px eyebrow, so the row starts 9px above
+     the 20px the other sections' eyebrows sit at; measured, not guessed */
+  margin: -9px 0 var(--sc-space-1);
 }
-/* The brief's copy is the header's icon button, placed: level with the
-   BRIEF eyebrow at the section's right edge. Always visible; it used to
+.sc-ovl-brief-head .sc-eyebrow {
+  display: block;
+  margin: 0;
+}
+/* The brief's copy is the header's icon button. Always visible; it used to
    appear on hover only, with a native title, which read as a different
-   control from the verbs over the picture. */
+   control from the verbs over the picture. Relative for the coarse-pointer
+   reach box. */
 .sc-ovl-copy {
-  position: absolute;
-  top: calc(var(--sc-space-7) - 7px);
-  right: 0;
+  position: relative;
+  flex-shrink: 0;
 }
-/* The panel's one working surface, pinned to its bottom edge: content scrolls
-   beneath it, and when there is little content margin-top:auto keeps it at the
-   foot of the column. Must stay above the media blocks below, so the phone's
-   position:fixed still wins by being later. */
+/* The panel's one working surface, the foot of the column: the sections
+   scroll above it in their own wrapper, and when there is little content
+   margin-top:auto keeps it at the bottom. Must stay above the media blocks
+   below, so the phone's position:fixed still wins by being later. */
 .sc-ovl-edit {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   margin-top: auto;
   background: var(--sc-bg);
   /* the frames inset the composer card 20px on every side */
@@ -678,9 +710,12 @@
   }
   .sc-ovl-meta {
     max-height: 48vh;
+  }
+  .sc-ovl-scroll {
     /* No side padding here either: the sections carry the gutter, so the
        hairlines between them run the panel's full width on the phone too.
-       No bottom padding: the sticky composer sits flush on the panel's edge. */
+       No bottom padding: the composer is the column's foot, flush on the
+       panel's edge. */
     padding: 12px 0 0;
   }
   /* the page edge on a stacked layout is the phone gutter, not the 20 */
@@ -692,9 +727,6 @@
   .sc-ovl-meta .sc-sugg {
     padding-left: var(--sc-gutter);
     padding-right: var(--sc-gutter);
-  }
-  .sc-ovl-edit {
-    flex-shrink: 0;
   }
   .sc-ovl-bar {
     top: 10px;
@@ -790,6 +822,9 @@
   .sc-ovl-meta {
     max-height: none;
     border-left: none;
+    overflow: visible;
+  }
+  .sc-ovl-scroll {
     overflow: visible;
   }
   /* The field you type in stays above the keyboard, always.
