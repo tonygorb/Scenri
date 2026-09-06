@@ -6,7 +6,7 @@ import { nextHex, normalizeHex, type Swatch } from '../brand/palette.js';
 import { ColorPicker } from '../layout/ColorPicker.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useSheetDrag } from '../useSheetDrag.js';
-import { placePanel, type Placed } from './anchorPanel.js';
+import { panelStyle, placePanel, type Placed } from './anchorPanel.js';
 import type { CloseReason } from './IngredientPicker.js';
 import type { SentenceToken } from './line.js';
 
@@ -276,7 +276,7 @@ function ColorPanel(props: ColorChipMenuProps) {
       data-side={pos.side}
       role="dialog"
       aria-label="Change colour"
-      style={{ left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxHeight }}
+      style={panelStyle(pos)}
     >
       <ColorBody {...props} />
     </div>,

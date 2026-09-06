@@ -18,7 +18,7 @@ import { useSheetDrag } from '../useSheetDrag.js';
 const COARSE = '(pointer: coarse)';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { presenterPath, productPath, scenePath } from '../routes.js';
-import { placePanel, type Placed } from './anchorPanel.js';
+import { panelStyle, placePanel, type Placed } from './anchorPanel.js';
 import { NOUN, PAGE, pickList, type Candidate, type IngredientKind } from './ingredientOptions.js';
 
 /**
@@ -479,7 +479,7 @@ function PickerPanel(props: PickerProps) {
       data-side={pos.side}
       role="dialog"
       aria-label={`Change ${NOUN[kind]}`}
-      style={{ left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxHeight }}
+      style={panelStyle(pos)}
     >
       <PickerBody {...props} autoFocusSearch={autoFocus} />
     </div>,

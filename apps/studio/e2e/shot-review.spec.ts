@@ -278,3 +278,131 @@ test('archive closes the shot with an undo, and restore keeps it open', async ({
   await expect(page.locator('.sc-ovl')).toBeVisible();
   await expect.poll(async () => ((await api(page, `/api/nodes/${shots.d1.id}`)) as any).archived).toBe(false);
 });
+
+test('reuse setup starts a new shot from this one: composer loaded, focused, and told where from', async ({ page }) => {
+  await page.goto(shotUrl(shots.c));
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  const verbs = page.locator('.sc-ovl .sc-sugg button');
+  // repeat first, then change: the two verbs under the record, in that order
+  await expect
+    .poll(async () => (await verbs.allTextContents()).map((t) => t.trim()))
+    .toEqual(['Try again', 'Reuse setup']);
+  await verbs.filter({ hasText: 'Reuse setup' }).click();
+  // the shot closes and the hub's composer holds its setup
+  await expect(page.locator('.sc-ovl')).toHaveCount(0);
+  await expect(page.locator('.sc-toast', { hasText: 'Starting from this shot' })).toBeVisible();
+  const line = page.locator('.sc-brief-line').first();
+  await expect(line).toContainText('review battery');
+  // ready to type: the caret is in the prompt, not on the tile that was clicked
+  await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('.sc-brief-line')))).toBe(true);
+});
+
+test('the refine composer sits the same distance from both edges of the sidebar', async ({ page }) => {
+  await page.goto(shotUrl(shots.a));
+  await expect(page.locator('.sc-ovl-edit .sc-composer')).toBeVisible();
+  // The composer used to live inside the panel's scroll area, so the reserved
+  // scrollbar gutter stacked on its right inset: 21px left, 31px right.
+  const gaps = await page.evaluate(() => {
+    const panel = document.querySelector('.sc-ovl-meta')!.getBoundingClientRect();
+    const box = document.querySelector('.sc-ovl-edit .sc-composer')!.getBoundingClientRect();
+    const copy = document.querySelector('.sc-ovl-copy')!.getBoundingClientRect();
+    const head = document.querySelector('.sc-ovl-head')!.getBoundingClientRect();
+    const record = document.querySelector('.sc-brief-record')!.getBoundingClientRect();
+    return {
+      left: box.left - panel.left,
+      right: panel.right - box.right,
+      copyRight: panel.right - copy.right,
+      headRight: panel.right - head.right,
+      clearance: record.top - copy.bottom,
+    };
+  });
+  expect(Math.abs(gaps.left - gaps.right)).toBeLessThanOrEqual(1);
+  // the record's copy control ends where the composer does, and the hairlines
+  // run the panel's full width: one inset, not a scrollbar's worth of drift
+  expect(Math.abs(gaps.copyRight - gaps.right)).toBeLessThanOrEqual(1);
+  expect(gaps.headRight).toBe(0);
+  // the record starts under the control, so a first row of chips that reaches
+  // the right edge can never run beneath it
+  expect(gaps.clearance).toBeGreaterThanOrEqual(0);
+});
+
+test('a long record clamps on whole rows, says Show more legibly, and draws a colour as the same circle as a picture', async ({
+  page,
+}) => {
+  await page.goto(shotUrl(shots.a));
+  // Five chip-bearing rows and then some: enough to clamp at every width.
+  const words = Array.from({ length: 70 }, (_, i) => `word${i + 1}`).join(' ');
+  const made = (await api(
+    page,
+    '/api/nodes',
+    postJson({
+      projectId: ws.project.id,
+      parentId: ws.root ?? null,
+      kind: 'generation',
+      engineId: 'demo',
+      count: 1,
+      brief: {
+        tokens: [
+          { t: 'ref', imageHash: shots.a.hash, label: 'the first shot' },
+          { t: 'text', v: ' beside ' },
+          { t: 'color', hex: '#D96C3B', name: 'Terracotta' },
+          { t: 'text', v: ` ${words}` },
+        ],
+      },
+    }),
+  )) as any;
+  const long = await settled(page, made.siblings?.[0]?.id ?? made.id);
+  await page.goto(shotUrl({ id: long.id, hash: long.images[0] }));
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  const said = page.locator('.sc-brief-said');
+  await expect(said).toBeVisible();
+
+  // the colour swatch is the picture's circle at the picture's size
+  const shapes = await said.evaluate((el) => {
+    const img = el.querySelector('.sc-ingredient img')!.getBoundingClientRect();
+    const dot = el.querySelector('.sc-ingredient i')!;
+    const r = dot.getBoundingClientRect();
+    return { img: img.width, dot: r.width, dotH: r.height, radius: getComputedStyle(dot).borderRadius };
+  });
+  expect(Math.abs(shapes.dot - shapes.img)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(shapes.dot - shapes.dotH)).toBeLessThanOrEqual(0.5);
+  expect(shapes.radius).toBe('50%');
+
+  // clamped: every chip that starts inside the box ends inside it, and the
+  // box is a whole number of lines
+  const rows = await said.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const lh = Number.parseFloat(getComputedStyle(el).lineHeight);
+    const chips = Array.from(el.querySelectorAll('.sc-ingredient')).map((c) => c.getBoundingClientRect());
+    const cut = chips.filter((c) => c.top < box.bottom && c.bottom > box.bottom + 0.5).length;
+    const tall = chips.filter((c) => c.height > lh + 0.5).length;
+    return { clamped: el.scrollHeight > el.clientHeight + 1, cut, tall, remainder: box.height % lh };
+  });
+  expect(rows.clamped).toBe(true);
+  expect(rows.cut).toBe(0);
+  expect(rows.tall).toBe(0);
+  expect(rows.remainder).toBeLessThan(1);
+
+  // the release is one of the panel's verbs: the same height, colour and
+  // size as Try again, with an icon, not a caption you have to find
+  const more = page.locator('.sc-ovl-more');
+  await expect(more).toHaveText(/Show more/);
+  const look = await more.evaluate((el) => {
+    const verb = document.querySelector('.sc-ovl-meta .sc-s')!;
+    return {
+      h: el.getBoundingClientRect().height,
+      verbH: verb.getBoundingClientRect().height,
+      color: getComputedStyle(el).color,
+      verbColor: getComputedStyle(verb).color,
+      font: getComputedStyle(el).fontSize,
+      verbFont: getComputedStyle(verb).fontSize,
+      icon: !!el.querySelector('svg'),
+    };
+  });
+  expect(Math.abs(look.h - look.verbH)).toBeLessThanOrEqual(0.5);
+  expect(look.color).toBe(look.verbColor);
+  expect(look.font).toBe(look.verbFont);
+  expect(look.icon).toBe(true);
+  await more.click();
+  await expect(more).toHaveText(/Show less/);
+});
