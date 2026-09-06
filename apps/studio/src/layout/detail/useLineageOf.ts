@@ -19,6 +19,10 @@ interface LineageOf {
   siblings: FeedNode[];
   sibIndex: number;
   parentShot: FeedNode | null;
+  /** The root's whole history, when the server carries it; null from an older server. */
+  history: FeedNode[] | null;
+  /** The root of the tree: the first ancestor, or the shot itself. */
+  rootId: string;
   loaded: boolean;
 }
 
@@ -55,7 +59,16 @@ export function useLineageOf(node: FeedNode): LineageOf {
 
   const current = held?.id === node.id ? held.lineage : (cache.get(node.id) ?? null);
   if (!current) {
-    return { ancestors: [], children: [], siblings: [node], sibIndex: 0, parentShot: null, loaded: false };
+    return {
+      ancestors: [],
+      children: [],
+      siblings: [node],
+      sibIndex: 0,
+      parentShot: null,
+      history: null,
+      rootId: node.id,
+      loaded: false,
+    };
   }
   const siblings = current.siblings.some((n) => n.id === node.id) ? current.siblings : [node, ...current.siblings];
   return {
@@ -64,6 +77,8 @@ export function useLineageOf(node: FeedNode): LineageOf {
     siblings,
     sibIndex: siblings.findIndex((n) => n.id === node.id),
     parentShot: current.ancestors[current.ancestors.length - 1] ?? null,
+    history: current.history ?? null,
+    rootId: current.ancestors[0]?.id ?? node.id,
     loaded: true,
   };
 }

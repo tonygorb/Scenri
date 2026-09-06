@@ -1191,8 +1191,8 @@ test('a shape chosen while refining one shot does not follow you to the next', a
     brief: { ...(shot.brief ?? { tokens: [] }), format },
   });
   // the first finished shot reads as square, and a twin of it as portrait: on
-  // the feed page, on each one's own record, and in the lineage the overlay's
-  // Next version steps through
+  // the feed page (whose order the overlay's Next shot steps through), on
+  // each one's own record, and in the lineage
   await page.context().route('**/api/brands/*/feed*', async (route) => {
     const res = await route.fetch();
     const feed = await res.json();
@@ -1249,7 +1249,7 @@ test('a shape chosen while refining one shot does not follow you to the next', a
   await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
 
   // step to the 4:5 shot, in the same mounted composer
-  await page.locator('.sc-ovl-bar [aria-label="Next version"]').click();
+  await page.locator('.sc-ovl-bar [aria-label="Next shot"]').click();
   await expect(page).toHaveURL(new RegExp(`/shots/${b}$`));
   await expect(composer.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Portrait 4:5');
   // and nothing is being reshaped, because nothing was asked of this one
@@ -1271,7 +1271,7 @@ test('a shape chosen while refining one shot does not follow you to the next', a
   expect(posted.parentId).toBe(b);
 
   // back to the first shot: its own 16:9 is still there, unmoved by the second
-  await page.locator('.sc-ovl-bar [aria-label="Previous version"]').click();
+  await page.locator('.sc-ovl-bar [aria-label="Previous shot"]').click();
   await expect(page).toHaveURL(new RegExp(`/shots/${a}$`));
   await expect(composer.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Landscape 16:9');
   await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');

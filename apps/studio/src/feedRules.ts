@@ -60,6 +60,20 @@ export function feedSearchParams(q: FeedQuery): string {
   return s ? `?${s}` : '';
 }
 
+/**
+ * Where a shot sits in a list, and the shots either side of it, for stepping
+ * with an arrow: `at` is -1 and both neighbours null when the list does not
+ * hold it, which is what a deep link into a page not yet loaded looks like.
+ */
+export function neighborsOf<T extends { id: string }>(
+  list: readonly T[],
+  id: string,
+): { at: number; prev: T | null; next: T | null } {
+  const at = list.findIndex((n) => n.id === id);
+  if (at < 0) return { at, prev: null, next: null };
+  return { at, prev: list[at - 1] ?? null, next: list[at + 1] ?? null };
+}
+
 /** Newest first — the ordering the feed has always used. The id tiebreak
  * matches the server's own (`ORDER BY created_at, id`), so two shots created
  * in the same second land in one agreed order on every surface. */

@@ -1,4 +1,13 @@
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
@@ -32,6 +41,11 @@ import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { LineageStrip } from './detail/LineageStrip.js';
+import { RootRail } from './detail/RootRail.js';
+import { useSwipe } from './detail/useSwipe.js';
+import { neighborsOf } from '../feedRules.js';
+import { ChipPreview } from '../composer/ChipPreview.js';
+import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { BriefLine, useSourceItems } from './detail/Ingredients.js';
 import { useLineageOf } from './detail/useLineageOf.js';
 import { useFullNode } from './detail/useFullNode.js';
@@ -60,6 +74,9 @@ const tplOf = (b: FeedNode['brief']) =>
 export function DetailOverlay({
   node,
   rootId,
+  items,
+  loadMore,
+  complete,
   recent,
   brand,
   engines,
@@ -80,6 +97,12 @@ export function DetailOverlay({
   node: FeedNode;
   /** The project's root, which a new shot from in here hangs off. */
   rootId: string | null;
+  /** The feed's pages in its order: the rail lists their roots and the arrows walk them. */
+  items: FeedNode[];
+  /** The next page of the feed, asked for as the walk nears the loaded edge. */
+  loadMore: () => void;
+  /** Every page is in. */
+  complete: boolean;
   /** The newest done shots, for the attach panel of the composer in here. */
   recent: FeedNode[];
   brand: Brand;
@@ -104,7 +127,7 @@ export function DetailOverlay({
 }) {
   // One small indexed query each: the tree around this shot, and the whole
   // record behind its summary. Neither is waited for; the summary draws now.
-  const { ancestors, children, siblings, sibIndex, parentShot } = useLineageOf(node);
+  const { ancestors, children, history, rootId: treeRootId, parentShot } = useLineageOf(node);
   const full = useFullNode(node);
   /** What the engine that ran this is called, so a failure can name it in a sentence. */
   const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
@@ -204,23 +227,79 @@ export function DetailOverlay({
     setBriefOverflows(!!el && el.scrollHeight > el.clientHeight + 1);
   }, [said]);
   /**
-   * The image's history in reading order — the original, this shot, its
-   * refinements — worn as the thumb strip under the stage. Only versions with
-   * a picture appear; a failed refinement stays a card in the feed rather
-   * than a hole in the strip.
+   * The image's whole history in reading order, the root first and every
+   * version made from it after, worn as the thumb strip under the stage and
+   * the same whichever version is on the stage. The server carries it; a
+   * server older than that gets the old composition (the ancestors, this
+   * shot, its first refinements). A refinement the pages already hold but the
+   * answer predates, one that landed a moment ago, is folded in by its
+   * parent. Only versions with a picture appear; a failed refinement stays a
+   * card in the feed rather than a hole in the strip.
    */
-  const lineageStrip = useMemo(
-    () => [...ancestors, node, ...children.slice(0, 6)].filter((n) => n.images[0]),
-    [ancestors, node, children],
-  );
-  // Pre-decode the tile derivative of the two versions beside this one. The
-  // stage paints that derivative under the original while the original
-  // decodes, so a step to a neighbour shows a picture at once. Only the
-  // neighbours, and released on cleanup: decoding every version of a long
-  // chain at full resolution held a dozen bitmaps for a strip of 52px thumbs.
+  const lineageStrip = useMemo(() => {
+    const base: FeedNode[] = history ?? [...ancestors, node, ...children.slice(0, 6)];
+    const ids = new Set(base.map((n) => n.id));
+    const fresh = items.filter((n) => !ids.has(n.id) && n.parentId !== null && ids.has(n.parentId));
+    const all = fresh.length
+      ? [...base, ...fresh].sort((x, y) => x.createdAt.localeCompare(y.createdAt) || x.id.localeCompare(y.id))
+      : base;
+    const withSelf = ids.has(node.id) ? all : [...all, node];
+    // the record on screen is the freshest copy of itself
+    return withSelf.map((n) => (n.id === node.id ? node : n)).filter((n) => n.images[0]);
+  }, [history, ancestors, node, children, items]);
+  /** The roots of the feed you came from, in its order: what the rail lists and the arrows walk. */
+  const roots = useMemo(() => items.filter((n) => n.kind === 'generation'), [items]);
+  /** Where this shot's root sits among them, and the roots either side. */
+  const step = useMemo(() => neighborsOf(roots, treeRootId), [roots, treeRootId]);
+  // The next page of the feed as the walk nears the loaded edge: the same
+  // page the grid would have fetched on scroll, and no other read.
+  useEffect(() => {
+    if (step.at >= 0 && !complete && roots.length - step.at <= 6) loadMore();
+  }, [step.at, roots.length, complete, loadMore]);
+  /** Which shot an arrow would step to, as a picture: hovering an arrow peeks its neighbour. */
+  const arrowPeek = useHoverPreview<{
+    key: string;
+    src: string;
+    label: string;
+    noun: string;
+    el: HTMLElement;
+    id: string;
+  }>();
+  const peekOn = (n: FeedNode | null, noun: string) =>
+    n?.images[0]
+      ? {
+          onPointerEnter: (e: ReactPointerEvent<HTMLElement>) => {
+            if (e.pointerType !== 'mouse') return;
+            arrowPeek.open({
+              key: n.id,
+              src: thumbUrl(n.images[0], 'tile'),
+              label: nodeLabel(n),
+              noun,
+              el: e.currentTarget,
+              id: n.id,
+            });
+          },
+          onPointerLeave: (e: ReactPointerEvent<HTMLElement>) => {
+            if (e.pointerType === 'mouse') arrowPeek.close();
+          },
+        }
+      : {};
+  /** On a phone the picture itself steps shots: a swipe left asks for the next. */
+  const swipe = useSwipe({
+    onLeft: () => step.next && onSelect(step.next.id),
+    onRight: () => step.prev && onSelect(step.prev.id),
+  });
+  // Pre-decode the tile derivative of the versions beside this one and the
+  // roots either side. The stage paints that derivative under the original
+  // while the original decodes, so a step to a neighbour shows a picture at
+  // once. Only the neighbours, and released on cleanup: decoding every
+  // version of a long chain at full resolution held a dozen bitmaps for a
+  // strip of 52px thumbs.
   useEffect(() => {
     const at = lineageStrip.findIndex((n) => n.id === node.id);
-    const near = [lineageStrip[at - 1], lineageStrip[at + 1]].filter((n): n is FeedNode => !!n);
+    const near = [lineageStrip[at - 1], lineageStrip[at + 1], step.prev, step.next].filter(
+      (n): n is FeedNode => !!n?.images[0],
+    );
     const held = near.map((n) => {
       const img = new Image();
       img.decoding = 'async';
@@ -233,7 +312,7 @@ export function DetailOverlay({
     return () => {
       for (const img of held) img.src = '';
     };
-  }, [lineageStrip, node.id]);
+  }, [lineageStrip, node.id, step.prev, step.next]);
   const hash = node.images[0];
   const baseName =
     node.promptHead
@@ -451,11 +530,23 @@ export function DetailOverlay({
         role="dialog"
         aria-modal="true"
         aria-label={nodeLabel(node)}
+        data-rail={roots.length > 1 ? '' : undefined}
         style={{ '--sc-ovl-panel-w': `${clampPanel(panelW)}px` } as CSSProperties}
-        // A trail of one is not a trail. The rail held a full-height column for
-        // a single thumbnail of the shot you were already looking at, which is
-        // the sort of furniture that makes a screen feel unplanned.
       >
+        {/* The other shots in the feed you came from, roots only, stood on end
+            where there is room for them. A trail of one is not a trail: the
+            old versions rail held a full-height column for a single thumbnail
+            of the shot you were already looking at, so this one is absent
+            below two, and it lists the feed rather than a lineage. */}
+        {roots.length > 1 && (
+          <RootRail
+            roots={roots}
+            activeId={treeRootId}
+            onSelect={onSelect}
+            onEndReached={loadMore}
+            complete={complete}
+          />
+        )}
         {/* ONE header owns the top of this screen.
 
             It used to be two: a `position: fixed` bar carrying close and the
@@ -474,35 +565,35 @@ export function DetailOverlay({
                 <X size={13} />
               </button>
             </Tip>
-            {/* These step siblings, which are whole runs off the same parent,
-                so they are versions. Variants are the images inside one run
-                and are stepped on the stage with [ and ]. They appear only
-                when there is somewhere to step: two permanently dimmed arrows
-                are two controls' worth of room spent saying "not available". */}
-            {siblings.length > 1 && (
+            {/* The arrows step the roots the rail lists, the shot's own root
+                standing for a version, so the two agree on what "next" is.
+                Hovering an arrow peeks the shot it would step to, which is the
+                whole difference between stepping and guessing. They appear
+                only when there is somewhere to step: two permanently dimmed
+                arrows are two controls' worth of room spent saying "not
+                available". */}
+            {step.at >= 0 && roots.length > 1 && (
               <>
-                <Tip label="Previous version">
-                  <button
-                    type="button"
-                    className="sc-icon-btn"
-                    disabled={sibIndex <= 0}
-                    onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
-                    aria-label="Previous version"
-                  >
-                    <CaretLeft size={13} />
-                  </button>
-                </Tip>
-                <Tip label="Next version">
-                  <button
-                    type="button"
-                    className="sc-icon-btn"
-                    disabled={sibIndex >= siblings.length - 1}
-                    onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
-                    aria-label="Next version"
-                  >
-                    <CaretRight size={13} />
-                  </button>
-                </Tip>
+                <button
+                  type="button"
+                  className="sc-icon-btn"
+                  disabled={!step.prev}
+                  onClick={() => step.prev && onSelect(step.prev.id)}
+                  aria-label="Previous shot"
+                  {...peekOn(step.prev, 'Previous shot')}
+                >
+                  <CaretLeft size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="sc-icon-btn"
+                  disabled={!step.next}
+                  onClick={() => step.next && onSelect(step.next.id)}
+                  aria-label="Next shot"
+                  {...peekOn(step.next, 'Next shot')}
+                >
+                  <CaretRight size={13} />
+                </button>
               </>
             )}
           </div>
@@ -587,11 +678,30 @@ export function DetailOverlay({
           </AlertDialog.Content>
         </AlertDialog.Root>
 
+        {arrowPeek.shown && (
+          <ChipPreview
+            key={arrowPeek.shown.key}
+            anchor={arrowPeek.shown.el}
+            kind="shot"
+            noun={arrowPeek.shown.noun}
+            src={arrowPeek.shown.src}
+            label={arrowPeek.shown.label}
+            onOpen={() => {
+              const id = arrowPeek.shown?.id;
+              arrowPeek.closeNow();
+              if (id) onSelect(id);
+            }}
+            onHoverIn={arrowPeek.keep}
+            onHoverOut={arrowPeek.close}
+            onClose={arrowPeek.closeNow}
+          />
+        )}
         <div
           className="sc-ovl-stage"
           // the shot is capped so the version strip below it always has room;
           // the cap has to know whether that row is there
           data-takes={lineageStrip.length > 1 ? '' : undefined}
+          {...swipe}
         >
           <StageFrame
             node={node}

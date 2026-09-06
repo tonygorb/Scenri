@@ -12,7 +12,7 @@ import { NO_ATTACHMENTS, type AttachedIds } from '../layout/railSections.js';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
 import { generationMessages } from '../liveStatus.js';
-import { isFeedSort, isLens, type FeedSort, type Lens, type TokenNames } from '../feedRules.js';
+import { isFeedSort, isLens, type FeedSort, type Lens, type TokenNames, neighborsOf } from '../feedRules.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
@@ -703,24 +703,41 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   }, [pickedNodes]);
 
   /**
-   * Arrow keys walk the tree around the selected shot. The tree comes from the
-   * server's parent index, one small answer per shot, rather than from a map
-   * over every shot in the brand.
+   * Arrow keys walk the shots. Left and right step through the shots as they
+   * lie on screen: in the overlay that is the roots the rail lists, with a
+   * version's root standing for it; on the grid it is the tiles in their
+   * order. Up and down step through the shot's own history, the version
+   * before and after it, from the server's lineage answer. This used to step
+   * whatever shared the shot's parent, which for a root was every root in the
+   * brand in creation order, whatever lens or search the grid was showing.
    */
   const walk = async (dir: 'left' | 'right' | 'up' | 'down') => {
     const at = selected;
     if (!at) return;
-    if (dir === 'up') {
-      if (at.parentId && at.parentId !== root) goToShot(at.parentId);
+    // a shot the pages do not hold (a deep link) has no neighbours to walk to
+    if (nodeId && at.id !== nodeId) return;
+    if (dir === 'left' || dir === 'right') {
+      let from = at.id;
+      let list = items;
+      if (nodeId) {
+        list = items.filter((n) => n.kind === 'generation');
+        if (at.kind !== 'generation') {
+          const lin = await api.lineage(at.id).catch(() => null);
+          from = lin?.ancestors[0]?.id ?? at.id;
+        }
+      }
+      const { prev, next } = neighborsOf(list, from);
+      const to = dir === 'left' ? prev : next;
+      if (to) goToShot(to.id);
       return;
     }
     const lin = await api.lineage(at.id).catch(() => null);
     if (!lin) return;
-    const sibs = lin.siblings.filter((n) => n.kind !== 'root');
-    const i = sibs.findIndex((n) => n.id === at.id);
-    if (dir === 'left' && i > 0) goToShot(sibs[i - 1].id);
-    else if (dir === 'right' && i >= 0 && i < sibs.length - 1) goToShot(sibs[i + 1].id);
-    else if (dir === 'down' && lin.children[0]) goToShot(lin.children[0].id);
+    // a server without the history answers with the parent above and the first refinement below
+    const history = lin.history ?? [...lin.ancestors, at, ...lin.children.slice(0, 1)];
+    const { prev, next } = neighborsOf(history, at.id);
+    const to = dir === 'up' ? prev : next;
+    if (to) goToShot(to.id);
   };
 
   // keyboard: arrows walk the tree, [ ] step images, esc closes the overlay,
@@ -884,6 +901,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   const shotContext: ShotContext = {
     byId,
+    items,
+    loadMore: feed.loadMore,
+    complete: feed.complete,
     rootId: root,
     recent,
     loaded,

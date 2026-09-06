@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { TreeNode } from '../src/api.js';
-import { FEED_SORTS, LENSES, byNewest, isFeedSort, isLens } from '../src/feedRules.js';
+import { FEED_SORTS, LENSES, byNewest, isFeedSort, isLens, neighborsOf } from '../src/feedRules.js';
 
 let seq = 0;
 function node(overrides: Partial<TreeNode> = {}): TreeNode {
@@ -65,5 +65,20 @@ describe('isLens', () => {
 
   it('rejects "ungrouped", which is a place now and not a lens', () => {
     expect(isLens('ungrouped')).toBe(false);
+  });
+});
+
+describe('neighborsOf', () => {
+  const list = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+
+  it('names the shots either side, and none past an end', () => {
+    expect(neighborsOf(list, 'b')).toEqual({ at: 1, prev: { id: 'a' }, next: { id: 'c' } });
+    expect(neighborsOf(list, 'a')).toEqual({ at: 0, prev: null, next: { id: 'b' } });
+    expect(neighborsOf(list, 'c')).toEqual({ at: 2, prev: { id: 'b' }, next: null });
+  });
+
+  it('answers nothing for a shot the list does not hold', () => {
+    expect(neighborsOf(list, 'zzz')).toEqual({ at: -1, prev: null, next: null });
+    expect(neighborsOf([], 'a')).toEqual({ at: -1, prev: null, next: null });
   });
 });

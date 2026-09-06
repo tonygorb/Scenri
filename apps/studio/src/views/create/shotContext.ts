@@ -8,6 +8,12 @@ import type { TokenNames } from '../../feedRules.js';
 export interface ShotContext {
   /** The shots the feed holds right now, by id: the pages scrolled to, never the whole brand. */
   byId: ReadonlyMap<string, FeedNode>;
+  /** The same pages in the feed's order: what the rail lists and the arrows walk. */
+  items: FeedNode[];
+  /** The next page of the feed, the one the grid would fetch on scroll. */
+  loadMore: () => void;
+  /** Every page is in. */
+  complete: boolean;
   /** The project's root, which every new shot hangs off. */
   rootId: string | null;
   /** The newest done shots, for the overlay composer's attach panel. */

@@ -88,6 +88,20 @@
 .sc-thumbs {
   display: flex;
   gap: 8px;
+  /* Past the stage's width the strip scrolls rather than cuts: twenty
+     versions are twenty. No scrollbar; the wheel and a drag move it, and the
+     ringed version is kept in view. The padding and the matching negative
+     margin give the focus ring room inside the scroll box without moving
+     anything on screen. */
+  max-width: calc(100% + 8px);
+  margin: -4px;
+  padding: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.sc-thumbs::-webkit-scrollbar {
+  display: none;
 }
 .sc-thumb-btn {
   padding: 0;
@@ -108,6 +122,60 @@
 }
 .sc-thumb-btn:hover .sc-thumb {
   border-color: var(--sc-line-strong);
+}
+
+/* ---- the rail: the other shots in the feed you came from ----
+   Roots only, in the grid's order; the strip under the stage is a version's
+   history and never appears here. The same tile as the strip, stood on end:
+   orientation and position say which axis is which, so neither row needs a
+   label. Silent chrome: no border, no ground, no scrollbar, a fade at each
+   end. Only where there is room, from 1280 up, the width at which the
+   assets drawer docks too. Below two shots the rail is not rendered at all. */
+.sc-rail {
+  display: none;
+}
+.sc-rail-tile {
+  flex: none;
+  content-visibility: auto;
+  contain-intrinsic-size: 52px 52px;
+}
+.sc-rail-tile[aria-disabled="true"] {
+  cursor: default;
+}
+.sc-rail-wait,
+.sc-rail-failed {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--sc-fg3);
+}
+.sc-rail-wait .sc-shimmer {
+  position: absolute;
+  inset: 0;
+}
+@media (min-width: 1280px) {
+  .sc-ovl[data-rail] {
+    grid-template-columns: auto 1fr var(--sc-ovl-panel-w);
+  }
+  .sc-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: content-box;
+    width: 52px;
+    /* the header's close and arrows sit over the top of this column */
+    padding: 56px 14px var(--sc-space-7);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    /* the fades, and the scroll padding that keeps the ringed tile out of them */
+    mask-image: linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 40px), transparent);
+    scroll-padding-block: 56px 40px;
+  }
+  .sc-rail::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* The picture's place while it is being made: the box it will occupy, filled
@@ -168,6 +236,8 @@
   min-width: 0;
   padding: 56px var(--sc-space-7) var(--sc-space-7);
   position: relative;
+  /* a sideways swipe on the picture steps shots; up and down still scroll, a pinch still zooms */
+  touch-action: pan-y pinch-zoom;
 }
 .sc-ovl-stage .sc-frame {
   box-shadow: var(--sc-shadow-3);

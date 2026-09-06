@@ -73,6 +73,9 @@ export function ShotDetailRoute() {
     <DetailOverlay
       node={node}
       rootId={ctx.rootId}
+      items={ctx.items}
+      loadMore={ctx.loadMore}
+      complete={ctx.complete}
       recent={ctx.recent}
       brand={ctx.brand}
       engines={ctx.engines}
