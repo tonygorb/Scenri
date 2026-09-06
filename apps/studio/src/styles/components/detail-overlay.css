@@ -242,7 +242,15 @@
 }
 @media (min-width: 1280px) {
   .sc-ovl[data-rail] {
+    /* the column's whole width: a tile and the gutter either side of it */
+    --sc-rail-w: calc(52px + 2 * 14px);
     grid-template-columns: auto 1fr var(--sc-ovl-panel-w);
+  }
+  /* The close and the arrows stand beside the rail, one gutter away from
+     its edge, never over it: the rail is a column of things to aim at, and
+     a control sitting on its first tiles made those tiles unreachable. */
+  .sc-ovl[data-rail] .sc-ovl-bar {
+    left: calc(var(--sc-rail-w) + 14px);
   }
   .sc-rail {
     display: flex;
@@ -250,8 +258,8 @@
     gap: 8px;
     box-sizing: content-box;
     width: 52px;
-    /* the header's close and arrows sit over the top of this column */
-    padding: 56px 14px var(--sc-space-7);
+    /* one gutter on every side: the same 14px the header keeps from the edges */
+    padding: 14px;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
