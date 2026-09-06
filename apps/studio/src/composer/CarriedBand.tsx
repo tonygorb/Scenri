@@ -17,10 +17,12 @@ import { carriedKeyOf, mergeCarried } from './line.js';
  * the person, the mark, the reference) so the engine keeps them the same.
  * That is right until the ask is to take one of them away: "remove the
  * person" used to ship the person along as a reference anyway, and the
- * record then listed them as carried. So the band says what will ride and
- * lets you drop a chip; what is dropped is left out of the request by key
- * (`drop`), and the record afterwards says only what rode. Nothing here is
- * a scene: the world is kept through the photograph, never as a token.
+ * record then listed them as carried. So the band says what the next
+ * refinement keeps and lets you drop a chip; what is dropped is left out of
+ * the request by key (`drop`) and never recorded. Said as "Keeping", forward:
+ * "carried over" read as a fact about this shot, and on the Original there
+ * was nothing carried at all. Nothing here is a scene: the world is kept
+ * through the photograph, never as a token.
  */
 export interface CarriedItem {
   /** The wire key the server leaves it out by. */
@@ -94,7 +96,7 @@ export function CarriedBand({ items, onLeaveOut }: { items: CarriedItem[]; onLea
   if (!items.length) return null;
   return (
     <div className="sc-carried-band" data-testid="carried-band">
-      <span className="sc-carried-lb">Carried over</span>
+      <span className="sc-carried-lb">Keeping</span>
       {items.map((it) => (
         <span key={it.key} className="sc-token sc-target-chip sc-carried-chip" data-kind={it.kind} title={it.label}>
           {it.thumb ? <img src={it.thumb} alt="" data-crop={it.crop} /> : null}
@@ -102,7 +104,7 @@ export function CarriedBand({ items, onLeaveOut }: { items: CarriedItem[]; onLea
           <button
             type="button"
             onClick={() => onLeaveOut(it.key)}
-            aria-label={`Leave ${it.label} out of this refinement`}
+            aria-label={`Stop keeping ${it.label} in this refinement`}
           >
             <X size={12} />
           </button>

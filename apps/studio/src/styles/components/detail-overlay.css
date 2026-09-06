@@ -551,22 +551,6 @@
   overflow: visible;
   -webkit-line-clamp: unset;
 }
-/* What rode along, under the ask, said as such: the line is the distinction,
-   the chips keep the record's one voice. */
-.sc-brief-carried {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-2);
-}
-.sc-brief-said:not(:empty) + .sc-brief-carried {
-  margin-top: var(--sc-space-3);
-}
-.sc-brief-carried-lb {
-  flex-basis: 100%;
-  font-size: var(--sc-text-caption);
-  line-height: 14px;
-  color: var(--sc-fg3);
-}
 .sc-brief-record .sc-ingredient {
   vertical-align: middle;
   margin: 0 1px;

@@ -2274,19 +2274,19 @@ test('a refinement records what it carried, and the shot detail says it', async 
     return { editId: edit.id as string, sceneName: scenes[0].name as string, refHash };
   });
 
-  // the refined shot's record is its own ask and, under it, what rode along
-  // from the record the server wrote: the mark and the reference. The world
-  // is the Original's to say, and nothing carried is listed twice.
+  // the refined shot's record is its own ask; what the next refinement keeps
+  // is the band's to say, over the refine field, once on the screen
   await page.goto(`/${slug}/create/shots/${made.editId}`);
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
-  await expect(page.locator('.sc-brief-carried .sc-ingredient')).toHaveCount(2);
-  await expect(page.locator('.sc-brief-carried .sc-ingredient[data-kind="mark"]')).toBeVisible();
-  await expect(page.locator('.sc-brief-carried .sc-ingredient[data-kind="ref"]')).toBeVisible();
-  await expect(page.locator('.sc-brief-record .sc-ingredient[data-kind="scene"]')).toHaveCount(0);
-  // the band over the refine field says what the next refinement would carry,
-  // and lets one thing out: what is left out is named on the wire by key
+  await expect(page.locator('.sc-brief-record .sc-ingredient')).toHaveCount(0);
+  // the band says what the next refinement would carry (the mark and the
+  // reference; never the world, which the photograph keeps), and lets one
+  // thing out: what is left out is named on the wire by key
   const band = page.locator('.sc-ovl-edit .sc-carried-band');
+  await expect(band).toContainText('Keeping');
   await expect(band.locator('.sc-carried-chip')).toHaveCount(2);
+  await expect(band.locator('.sc-carried-chip[data-kind="mark"]')).toBeVisible();
+  await expect(band.locator('.sc-carried-chip[data-kind="ref"]')).toBeVisible();
   await band.locator('.sc-carried-chip[data-kind="ref"] button').click();
   await expect(band.locator('.sc-carried-chip')).toHaveCount(1);
   let posted: any = null;

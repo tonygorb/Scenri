@@ -5,8 +5,7 @@ import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
 import { findIngredient } from '../../composer/ingredientOptions.js';
 import { isPreviewKind } from '../../composer/ChipPreview.js';
-import { mergeCarried, normalizeTint } from '../../composer/line.js';
-import { byContextOrder } from '../../contextChips.js';
+import { normalizeTint } from '../../composer/line.js';
 import { vibrantTintOf } from '../../composer/sceneTint.js';
 import { type PeekAt, useIngredientPeek } from '../../composer/useIngredientPeek.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
@@ -220,12 +219,9 @@ export function BriefLine({
 
   // The sentence, in the order it was said: text runs stay prose, everything
   // else becomes the chip the composer would show for it. Only what this
-  // shot asked for: a refinement's record never lists what the request
-  // carried along as references, because that is a fact about the request
-  // and not about the picture (after "remove the person" the person is still
-  // a reference the engine was sent, and gone from the picture). What the
-  // thread is made of is said once, on the Original, one step down the
-  // trail.
+  // shot asked for: what a refinement carries is the composer's band to
+  // say, where it can also be left out; saying it here too was the same
+  // list twice on one screen.
   const sentence: ReactNode[] = [];
   for (const t of ownTokens) {
     if (t.t === 'text') {
@@ -237,17 +233,7 @@ export function BriefLine({
     if (c) sentence.push(renderChip(c));
   }
 
-  // What rode along with this refinement, from its own record (the server
-  // writes what it carried, less what was left out), one chip per thing and
-  // never one the ask already names. Identities only: the world is kept
-  // through the photograph and is the Original's to say.
-  const carried: Chip[] = mergeCarried(ownTokens, (brief as { inherited?: any[] } | null)?.inherited ?? [])
-    .carried.filter((t: any) => ['product', 'character', 'mark', 'ref'].includes(t?.t))
-    .map((t: any) => chipOf(t))
-    .filter((c: Chip | null): c is Chip => !!c)
-    .sort(byContextOrder);
-
-  if (!sentence.length && !carried.length && !prompt) return null;
+  if (!sentence.length && !prompt) return null;
 
   // Inline flow, not a flex row: a chip sits in the sentence exactly where it
   // was typed, so the record wraps like prose. Explicit spaces between
@@ -259,12 +245,6 @@ export function BriefLine({
       <div ref={saidRef} className="sc-brief-said" data-expanded={expanded || undefined} dir="auto">
         {spaced.length ? spaced : prompt || ''}
       </div>
-      {carried.length > 0 && (
-        <div className="sc-brief-carried">
-          <span className="sc-brief-carried-lb">Carried over</span>
-          {carried.map((c) => renderChip(c))}
-        </div>
-      )}
       {peek.surface}
     </>
   );
