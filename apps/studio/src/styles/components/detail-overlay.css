@@ -179,6 +179,12 @@
   flex: none;
   position: relative;
 }
+/* A tile fills its square. The phone's stage rule (`.sc-ovl-stage img`,
+   contain) reaches every image in the stage, the trail's included, and
+   letterboxed the thumbs on their dark ground. Said once, stronger. */
+.sc-ovl-stage .sc-thumb {
+  object-fit: cover;
+}
 /* The original stands apart from what was made of it: a hairline after it,
    with a breath on each side. The one structural mark the row carries. */
 .sc-trail-tile[data-original] {
