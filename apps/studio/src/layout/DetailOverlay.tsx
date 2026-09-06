@@ -13,6 +13,7 @@ import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
   Archive,
   ArrowCounterClockwise,
+  ArrowsClockwise,
   CaretLeft,
   CaretRight,
   Check,
@@ -842,9 +843,13 @@ export function DetailOverlay({
             </div>
           )}
 
-          {/* A shot with a picture is changed in the refine field under it,
-              run again with Try again, and its prompt travels by Copy, chips
-              and all, so nothing else is offered here. A shot that failed has
+          {/* A shot with a picture offers two verbs, repeat before change:
+              Try again runs the same setup once more; Reuse setup starts a
+              new shot from it in the composer, prompt, chips, shape and count,
+              focused and announced, which is what people wanted for "like
+              this one, but" that is not a refinement of this picture.
+              Changing the picture itself is the refine field's job, and its
+              prompt travels by Copy, chips and all. A shot that failed has
               no picture to refine: Edit the prompt puts its prompt back in the
               composer, which is exactly what a declined prompt or an unmakeable
               shape needs, and was the one route out a failed shot had no way to
@@ -873,6 +878,16 @@ export function DetailOverlay({
                   title="Run the same setup again for a different take"
                 >
                   <ArrowCounterClockwise size={12} /> Try again
+                </button>
+              )}
+              {hasImage && (
+                <button
+                  type="button"
+                  className="sc-s"
+                  onClick={() => onRemix(node)}
+                  title="Start a new shot from this setup: same prompt, chips, shape and count, ready to change"
+                >
+                  <ArrowsClockwise size={12} /> Reuse setup
                 </button>
               )}
             </div>

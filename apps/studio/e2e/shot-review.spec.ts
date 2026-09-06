@@ -278,3 +278,21 @@ test('archive closes the shot with an undo, and restore keeps it open', async ({
   await expect(page.locator('.sc-ovl')).toBeVisible();
   await expect.poll(async () => ((await api(page, `/api/nodes/${shots.d1.id}`)) as any).archived).toBe(false);
 });
+
+test('reuse setup starts a new shot from this one: composer loaded, focused, and told where from', async ({ page }) => {
+  await page.goto(shotUrl(shots.c));
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  const verbs = page.locator('.sc-ovl .sc-sugg button');
+  // repeat first, then change: the two verbs under the record, in that order
+  await expect
+    .poll(async () => (await verbs.allTextContents()).map((t) => t.trim()))
+    .toEqual(['Try again', 'Reuse setup']);
+  await verbs.filter({ hasText: 'Reuse setup' }).click();
+  // the shot closes and the hub's composer holds its setup
+  await expect(page.locator('.sc-ovl')).toHaveCount(0);
+  await expect(page.locator('.sc-toast', { hasText: 'Starting from this shot' })).toBeVisible();
+  const line = page.locator('.sc-brief-line').first();
+  await expect(line).toContainText('review battery');
+  // ready to type: the caret is in the prompt, not on the tile that was clicked
+  await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('.sc-brief-line')))).toBe(true);
+});
