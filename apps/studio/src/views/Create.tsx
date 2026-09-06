@@ -704,9 +704,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   /**
    * Arrow keys walk the shots. Left and right step through the shots as they
-   * lie on screen: in the overlay that is the roots the rail lists, with a
-   * version's root standing for it; on the grid it is the tiles in their
-   * order. Up and down step through the shot's own history, the version
+   * lie on screen, the feed's own order, in the overlay and on the grid
+   * alike. Up and down step through the shot's own history, the version
    * before and after it, from the server's lineage answer. This used to step
    * whatever shared the shot's parent, which for a root was every root in the
    * brand in creation order, whatever lens or search the grid was showing.
@@ -717,16 +716,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     // a shot the pages do not hold (a deep link) has no neighbours to walk to
     if (nodeId && at.id !== nodeId) return;
     if (dir === 'left' || dir === 'right') {
-      let from = at.id;
-      let list = items;
-      if (nodeId) {
-        list = items.filter((n) => n.kind === 'generation');
-        if (at.kind !== 'generation') {
-          const lin = await api.lineage(at.id).catch(() => null);
-          from = lin?.ancestors[0]?.id ?? at.id;
-        }
-      }
-      const { prev, next } = neighborsOf(list, from);
+      const { prev, next } = neighborsOf(items, at.id);
       const to = dir === 'left' ? prev : next;
       if (to) goToShot(to.id);
       return;

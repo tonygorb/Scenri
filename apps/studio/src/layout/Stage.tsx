@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Box, Flex, Text } from '@radix-ui/themes';
 import { imgUrl, thumbUrl, type FeedNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
@@ -7,6 +7,7 @@ import { FailureNote } from './Failure.js';
 import { elapsedLabel, elapsedSec, runningPhrase } from '../tasks.js';
 // the feed's running tiles hold the same shape, from the same source
 import { aspectOfFormat } from '../composer/formats.js';
+import type { StageZoom } from './detail/useStageZoom.js';
 
 function aspectOf(node: FeedNode): number {
   return aspectOfFormat(node.brief?.format);
@@ -18,25 +19,21 @@ export function recordedSize(node: FeedNode): [number, number] | null {
   return size && size[0] > 0 && size[1] > 0 ? size : null;
 }
 
-type ContentRect = { left: number; top: number; width: number; height: number };
-
 export function StageFrame({
   node,
   onRetry,
   onCancel,
   engineName,
-  onInspect,
+  zoom,
 }: {
   node: FeedNode;
   onRetry?: () => void;
   onCancel?: () => void;
   /** What the engine that ran this is called, so a failure can name it. */
   engineName?: string;
-  /** Given, the finished picture is a button that opens the viewer. */
-  onInspect?: () => void;
+  /** Given, the finished picture zooms where it is: the row is its viewport, the frame is what moves. */
+  zoom?: StageZoom;
 }) {
-  const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
-  const [contentRect, setContentRect] = useState<ContentRect | null>(null);
   const [, force] = useState(0);
 
   useEffect(() => {
@@ -44,28 +41,6 @@ export function StageFrame({
     const t = setInterval(() => force((x) => x + 1), 1000);
     return () => clearInterval(t);
   }, [node.status]);
-
-  // object-fit: contain letterboxes inside the element; the editor must sit on
-  // the actual image content box or DOM position and flatten output disagree.
-  useEffect(() => {
-    if (!imgEl) return;
-    const compute = () => {
-      const { naturalWidth: nw, naturalHeight: nh, clientWidth: cw, clientHeight: ch } = imgEl;
-      if (!nw || !nh || !cw || !ch) return;
-      const k = Math.min(cw / nw, ch / nh);
-      const w = nw * k,
-        h = nh * k;
-      setContentRect({ left: (cw - w) / 2, top: (ch - h) / 2, width: w, height: h });
-    };
-    compute();
-    imgEl.addEventListener('load', compute);
-    const ro = new ResizeObserver(compute);
-    ro.observe(imgEl);
-    return () => {
-      imgEl.removeEventListener('load', compute);
-      ro.disconnect();
-    };
-  }, [imgEl]);
 
   if (node.kind === 'root') {
     return (
@@ -155,119 +130,90 @@ export function StageFrame({
 
   const hash = node.status === 'done' ? node.images[0] : undefined;
   const size = hash ? recordedSize(node) : null;
-  if (hash && size) {
-    /*
-     * The run recorded its pixels, so the frame takes the picture's box
-     * before a byte of it arrives: the same sizing the waiting state uses,
-     * bounded by the room there is, the cap, and the picture's own width.
-     * Under the original sits the feed's tile derivative, already decoded by
-     * the tile that was just clicked, so the stage shows the shot at once
-     * and the original replaces it in place when its decode is done.
-     */
-    return (
+  const frame =
+    hash && size ? (
+      /*
+       * The run recorded its pixels, so the frame takes the picture's box
+       * before a byte of it arrives: the same sizing the waiting state uses,
+       * bounded by the room there is, the cap, and the picture's own width.
+       * Under the original sits the feed's tile derivative, already decoded by
+       * the tile that was just clicked, so the stage shows the shot at once
+       * and the original replaces it in place when its decode is done.
+       */
       <Box
+        ref={zoom?.frameRef}
         className="sc-frame sc-stage-pic"
-        style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties}
+        data-pixels={zoom?.pixels || undefined}
+        style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px`, ...zoom?.frameStyle } as CSSProperties}
       >
-        <StagePicture
-          key={hash}
-          hash={hash}
-          alt={node.promptHead}
-          imgRef={setImgEl}
-          contentRect={contentRect}
-          onInspect={onInspect}
-        />
+        <StagePicture key={hash} hash={hash} alt={node.promptHead} zoom={zoom} />
       </Box>
+    ) : (
+      <Flex justify="center">
+        <Box
+          ref={zoom?.frameRef}
+          className="sc-frame"
+          data-pixels={zoom?.pixels || undefined}
+          style={{ display: 'inline-block', maxWidth: '100%', ...zoom?.frameStyle }}
+        >
+          {hash && (
+            <Box position="relative" style={{ lineHeight: 0 }}>
+              <img
+                ref={zoom?.imgRef}
+                src={imgUrl(hash)}
+                alt={node.promptHead}
+                // the cap itself lives in CSS, where it can know whether a row of
+                // takes sits under the shot: a percentage cannot, because nothing
+                // between here and the stage has a definite height to measure
+                style={{ display: 'block', maxWidth: '100%' }}
+                onLoad={(e) => zoom?.onImgLoad(e.currentTarget)}
+              />
+            </Box>
+          )}
+        </Box>
+      </Flex>
     );
-  }
 
-  const plain = hash && (
-    <img
-      ref={setImgEl}
-      src={imgUrl(hash)}
-      alt={node.promptHead}
-      // the cap itself lives in CSS, where it can know whether a row of
-      // takes sits under the shot: a percentage cannot, because nothing
-      // between here and the stage has a definite height to measure
-      style={{ display: 'block', maxWidth: '100%' }}
-    />
-  );
+  if (!zoom) return frame;
+  /*
+   * The picture's row is its viewport. At fit the frame sits where the
+   * layout put it and nothing is transformed; zoomed, the frame moves and
+   * scales inside this box and the box clips it. The box takes the keys and
+   * the gestures, so it is focusable and says how.
+   */
   return (
-    <Flex justify="center">
-      <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
-        {hash && (
-          <Box position="relative" style={{ lineHeight: 0 }}>
-            {onInspect ? <PictureButton onInspect={onInspect}>{plain}</PictureButton> : plain}
-            {contentRect && <ContentBox rect={contentRect} />}
-          </Box>
-        )}
-      </Box>
-    </Flex>
+    <figure
+      ref={zoom.viewRef}
+      className="sc-stage-view"
+      aria-label="Picture. Plus and minus zoom, 0 fits, 1 is actual size."
+      {...zoom.viewProps}
+    >
+      {frame}
+    </figure>
   );
 }
 
-/**
- * The picture is the way into the viewer: one button around the whole
- * photograph, so the whole photograph is the target and the cursor says so.
- * Nothing interactive inside it, and the derivative under the original rides
- * along, since the button is the box both are positioned in.
- */
-function PictureButton({ onInspect, children }: { onInspect: () => void; children: ReactNode }) {
-  return (
-    <button type="button" className="sc-stage-open" aria-label="Zoom" onClick={onInspect}>
-      {children}
-    </button>
-  );
-}
-
-function StagePicture({
-  hash,
-  alt,
-  imgRef,
-  contentRect,
-  onInspect,
-}: {
-  hash: string;
-  alt: string;
-  imgRef: (el: HTMLImageElement | null) => void;
-  contentRect: ContentRect | null;
-  onInspect?: () => void;
-}) {
+function StagePicture({ hash, alt, zoom }: { hash: string; alt: string; zoom?: StageZoom }) {
   // the derivative stays until the original has pixels; a cached original
   // can be complete before React attaches onLoad, hence the ref check
   const [under, setUnder] = useState(true);
-  const attach = useCallback(
-    (el: HTMLImageElement | null) => {
-      imgRef(el);
-      if (el?.complete && el.naturalWidth) setUnder(false);
-    },
-    [imgRef],
-  );
-  const picture = (
-    <>
-      {under && <img className="sc-stage-under" src={thumbUrl(hash, 'tile')} alt="" aria-hidden decoding="async" />}
-      <img ref={attach} src={imgUrl(hash)} alt={alt} className="sc-stage-img" onLoad={() => setUnder(false)} />
-    </>
-  );
+  const attach = (el: HTMLImageElement | null) => {
+    zoom?.imgRef(el);
+    if (el?.complete && el.naturalWidth) setUnder(false);
+  };
   return (
     <Box position="relative" style={{ lineHeight: 0 }}>
-      {onInspect ? <PictureButton onInspect={onInspect}>{picture}</PictureButton> : picture}
-      {contentRect && <ContentBox rect={contentRect} />}
+      {under && <img className="sc-stage-under" src={thumbUrl(hash, 'tile')} alt="" aria-hidden decoding="async" />}
+      <img
+        ref={attach}
+        src={imgUrl(hash)}
+        alt={alt}
+        className="sc-stage-img"
+        onLoad={(e) => {
+          setUnder(false);
+          zoom?.onImgLoad(e.currentTarget);
+        }}
+      />
     </Box>
-  );
-}
-
-function ContentBox({ rect }: { rect: ContentRect }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
-        lineHeight: 'normal',
-      }}
-    ></div>
   );
 }

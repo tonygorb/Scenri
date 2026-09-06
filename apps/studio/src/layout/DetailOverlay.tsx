@@ -17,11 +17,11 @@ import {
   ArrowsLeftRight,
   CaretLeft,
   CaretRight,
+  CaretDown,
   Check,
   CopySimple,
   DotsThree,
   DownloadSimple,
-  MagnifyingGlassPlus,
   Star,
   TrashSimple,
   X,
@@ -30,9 +30,9 @@ import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
 import { imgUrl, nodeLabel, type Brand, type EngineInfo, type FeedNode, thumbUrl } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
-import { StageFrame, recordedSize } from './Stage.js';
+import { StageFrame } from './Stage.js';
 import { Tip } from './Tip.js';
-import { ImageViewer } from './detail/ImageViewer.js';
+import { useStageZoom } from './detail/useStageZoom.js';
 import { Composer } from './Composer.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
@@ -41,7 +41,7 @@ import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { LineageStrip } from './detail/LineageStrip.js';
-import { RootRail } from './detail/RootRail.js';
+import { ShotRail } from './detail/ShotRail.js';
 import { useSwipe } from './detail/useSwipe.js';
 import { neighborsOf } from '../feedRules.js';
 import { ChipPreview } from '../composer/ChipPreview.js';
@@ -97,7 +97,7 @@ export function DetailOverlay({
   node: FeedNode;
   /** The project's root, which a new shot from in here hangs off. */
   rootId: string | null;
-  /** The feed's pages in its order: the rail lists their roots and the arrows walk them. */
+  /** The feed's pages in its order: the rail lists them and the arrows walk them. */
   items: FeedNode[];
   /** The next page of the feed, asked for as the walk nears the loaded edge. */
   loadMore: () => void;
@@ -127,7 +127,7 @@ export function DetailOverlay({
 }) {
   // One small indexed query each: the tree around this shot, and the whole
   // record behind its summary. Neither is waited for; the summary draws now.
-  const { ancestors, children, history, rootId: treeRootId, parentShot } = useLineageOf(node);
+  const { ancestors, children, history, parentShot } = useLineageOf(node);
   const full = useFullNode(node);
   /** What the engine that ran this is called, so a failure can name it in a sentence. */
   const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
@@ -199,7 +199,6 @@ export function DetailOverlay({
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [viewerOpen, setViewerOpen] = useState(false);
   /** A clipboard write in flight, and the moment after one that landed. */
   const [copying, setCopying] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -207,7 +206,6 @@ export function DetailOverlay({
   const [archiving, setArchiving] = useState(false);
   // The picture on the stage changed under every one of these.
   useEffect(() => {
-    setViewerOpen(false);
     setCopied(false);
     setArchiving(false);
   }, [node.id]);
@@ -247,15 +245,19 @@ export function DetailOverlay({
     // the record on screen is the freshest copy of itself
     return withSelf.map((n) => (n.id === node.id ? node : n)).filter((n) => n.images[0]);
   }, [history, ancestors, node, children, items]);
-  /** The roots of the feed you came from, in its order: what the rail lists and the arrows walk. */
-  const roots = useMemo(() => items.filter((n) => n.kind === 'generation'), [items]);
-  /** Where this shot's root sits among them, and the roots either side. */
-  const step = useMemo(() => neighborsOf(roots, treeRootId), [roots, treeRootId]);
+  /** Where this shot sits in the feed you came from, and the shots either side: what the arrows, the wheel and a swipe step. */
+  const step = useMemo(() => neighborsOf(items, node.id), [items, node.id]);
   // The next page of the feed as the walk nears the loaded edge: the same
   // page the grid would have fetched on scroll, and no other read.
   useEffect(() => {
-    if (step.at >= 0 && !complete && roots.length - step.at <= 6) loadMore();
-  }, [step.at, roots.length, complete, loadMore]);
+    if (step.at >= 0 && !complete && items.length - step.at <= 6) loadMore();
+  }, [step.at, items.length, complete, loadMore]);
+  const stepTo = (dir: 1 | -1) => {
+    const to = dir > 0 ? step.next : step.prev;
+    if (to) onSelect(to.id);
+  };
+  /** The picture zooms where it is; a plain wheel over it at fit steps shots. */
+  const zoom = useStageZoom({ hash: node.status === 'done' ? node.images[0] : undefined, onStep: stepTo });
   /** Which shot an arrow would step to, as a picture: hovering an arrow peeks its neighbour. */
   const arrowPeek = useHoverPreview<{
     key: string;
@@ -286,11 +288,11 @@ export function DetailOverlay({
       : {};
   /** On a phone the picture itself steps shots: a swipe left asks for the next. */
   const swipe = useSwipe({
-    onLeft: () => step.next && onSelect(step.next.id),
-    onRight: () => step.prev && onSelect(step.prev.id),
+    onLeft: () => !zoom.zoomed && stepTo(1),
+    onRight: () => !zoom.zoomed && stepTo(-1),
   });
   // Pre-decode the tile derivative of the versions beside this one and the
-  // roots either side. The stage paints that derivative under the original
+  // shots either side. The stage paints that derivative under the original
   // while the original decodes, so a step to a neighbour shows a picture at
   // once. Only the neighbours, and released on cleanup: decoding every
   // version of a long chain at full resolution held a dozen bitmaps for a
@@ -443,13 +445,6 @@ export function DetailOverlay({
   /** The ones that act on a file, so they are only offered where there is one. */
   const fileActions: Action[] = [
     {
-      key: 'zoom',
-      label: 'Zoom',
-      icon: <MagnifyingGlassPlus size={14} />,
-      onClick: () => setViewerOpen(true),
-      dialog: true,
-    },
-    {
       key: 'export',
       label: 'Export',
       icon: <DownloadSimple size={14} />,
@@ -517,6 +512,15 @@ export function DetailOverlay({
 
   const hasImage = node.status === 'done' && node.images.length > 0;
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
+  /** The ways in to a zoom, by name; the gestures on the picture are the other. */
+  const zoomStops = [
+    { label: 'Fit', onSelect: zoom.toFit, disabled: zoom.atFit },
+    { label: 'Fill', onSelect: zoom.toFill, disabled: zoom.atFill },
+    { label: 'Actual size', onSelect: zoom.toActual, disabled: zoom.atActual },
+    { label: '200%', onSelect: () => zoom.to(200), disabled: false },
+    { label: 'Zoom in', onSelect: zoom.stepIn, disabled: !zoom.canIn },
+    { label: 'Zoom out', onSelect: zoom.stepOut, disabled: !zoom.canOut },
+  ];
 
   return createPortal(
     // `loop` as well as `trapped`: without it Tab reached the last control and
@@ -530,22 +534,16 @@ export function DetailOverlay({
         role="dialog"
         aria-modal="true"
         aria-label={nodeLabel(node)}
-        data-rail={roots.length > 1 ? '' : undefined}
+        data-rail={items.length > 1 ? '' : undefined}
         style={{ '--sc-ovl-panel-w': `${clampPanel(panelW)}px` } as CSSProperties}
       >
-        {/* The other shots in the feed you came from, roots only, stood on end
-            where there is room for them. A trail of one is not a trail: the
-            old versions rail held a full-height column for a single thumbnail
-            of the shot you were already looking at, so this one is absent
-            below two, and it lists the feed rather than a lineage. */}
-        {roots.length > 1 && (
-          <RootRail
-            roots={roots}
-            activeId={treeRootId}
-            onSelect={onSelect}
-            onEndReached={loadMore}
-            complete={complete}
-          />
+        {/* The feed you came from, stood on end where there is room for it.
+            A trail of one is not a trail: the old versions rail held a
+            full-height column for a single thumbnail of the shot you were
+            already looking at, so this one is absent below two, and it lists
+            the feed rather than a lineage. */}
+        {items.length > 1 && (
+          <ShotRail shots={items} activeId={node.id} onSelect={onSelect} onEndReached={loadMore} complete={complete} />
         )}
         {/* ONE header owns the top of this screen.
 
@@ -565,14 +563,13 @@ export function DetailOverlay({
                 <X size={13} />
               </button>
             </Tip>
-            {/* The arrows step the roots the rail lists, the shot's own root
-                standing for a version, so the two agree on what "next" is.
-                Hovering an arrow peeks the shot it would step to, which is the
-                whole difference between stepping and guessing. They appear
-                only when there is somewhere to step: two permanently dimmed
-                arrows are two controls' worth of room spent saying "not
-                available". */}
-            {step.at >= 0 && roots.length > 1 && (
+            {/* The arrows step the feed the rail lists, so the two agree on
+                what "next" is. Hovering an arrow peeks the shot it would step
+                to, which is the whole difference between stepping and
+                guessing. They appear only when there is somewhere to step:
+                two permanently dimmed arrows are two controls' worth of room
+                spent saying "not available". */}
+            {step.at >= 0 && items.length > 1 && (
               <>
                 <button
                   type="button"
@@ -600,6 +597,29 @@ export function DetailOverlay({
 
           {actions.length > 0 && (
             <div className="sc-ovl-bar-r">
+              {/* How close the picture is: Fit, Fill, or a percent of actual
+                  size. A menu, because the stops are the ways in by name; the
+                  gestures on the picture are the other. Absent when there is
+                  no picture, and folded into the overflow on a phone. */}
+              {hasImage && (
+                <DropdownMenu.Root>
+                  <Tip label="Zoom">
+                    <DropdownMenu.Trigger>
+                      <button type="button" className="sc-ovl-zoom" aria-label={`Zoom, ${zoom.label}`}>
+                        <span>{zoom.label}</span>
+                        <CaretDown size={11} weight="bold" />
+                      </button>
+                    </DropdownMenu.Trigger>
+                  </Tip>
+                  <DropdownMenu.Content align="end" sideOffset={6}>
+                    {zoomStops.map((z) => (
+                      <DropdownMenu.Item key={z.label} onSelect={z.onSelect} disabled={z.disabled}>
+                        {z.label}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              )}
               {/* One list, two shells: buttons where the row is wide enough to
                   hold them, one overflow where it is not. Written once, so the
                   two can never drift apart or offer different things. */}
@@ -650,6 +670,16 @@ export function DetailOverlay({
                       {a.label}
                     </DropdownMenu.Item>
                   ))}
+                  {hasImage && (
+                    <>
+                      <DropdownMenu.Separator />
+                      {zoomStops.map((z) => (
+                        <DropdownMenu.Item key={z.label} onSelect={z.onSelect} disabled={z.disabled}>
+                          {z.label}
+                        </DropdownMenu.Item>
+                      ))}
+                    </>
+                  )}
                 </DropdownMenu.Content>
               </DropdownMenu.Root>
             </div>
@@ -708,8 +738,7 @@ export function DetailOverlay({
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
-            // the picture itself is the way into the viewer, beside the Zoom verb in the bar
-            onInspect={hasImage ? () => setViewerOpen(true) : undefined}
+            zoom={hasImage ? zoom : undefined}
           />
           {/* The image's own history, right under the image: the original,
               this shot ringed, and its refinements. Hovering peeks a version
@@ -905,17 +934,6 @@ export function DetailOverlay({
           )}
         </aside>
         <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} />
-        {/* Keyed on the picture: the viewer shows the version on the stage at
-            the moment it opened, and a new version means a new viewer. */}
-        {viewerOpen && hash && (
-          <ImageViewer
-            key={hash}
-            hash={hash}
-            label={nodeLabel(node)}
-            size={recordedSize(node)}
-            onClose={() => setViewerOpen(false)}
-          />
-        )}
         {parentShot && sourceHash && (
           <CompareDialog
             open={compareOpen}

@@ -284,18 +284,77 @@
   aspect-ratio: var(--sc-pic-ar, 1);
   height: auto;
 }
-/* The picture is the way into the viewer: one button around it, the cursor
-   saying so, the focus ring from the floor. No paint of its own, because the
-   photograph is the affordance. */
-.sc-stage-open {
+/* The picture's row is its viewport. At fit the frame sits where the grid
+   centred it and nothing is transformed; zoomed, the frame moves and scales
+   inside this box and the box clips it, so the strip and the panel never
+   move. The box takes the gestures: at fit a finger is the page's (it
+   scrolls, it swipes) and only a pinch is taken; zoomed, every touch is the
+   picture's. Focusable, so the keys have somewhere to land; the floor ring
+   marks it. */
+.sc-stage-view {
   position: relative;
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  line-height: 0;
-  cursor: zoom-in;
+  margin: 0;
+  justify-self: stretch;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  touch-action: pan-y;
+}
+.sc-stage-view[data-zoomed] {
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+.sc-stage-view[data-zoomed][data-dragging] {
+  cursor: grabbing;
+}
+.sc-stage-view .sc-frame {
+  transform-origin: 0 0;
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+/* a shadow scaled three times reads as a smear; the clipped edge is the frame now */
+.sc-stage-view[data-zoomed] .sc-frame {
+  box-shadow: none;
+}
+/* past two device pixels per image pixel, smoothing would invent detail */
+.sc-stage-view .sc-frame[data-pixels] img {
+  image-rendering: pixelated;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-stage-view .sc-frame {
+    transition: none;
+  }
+}
+/* The zoom reading: Fit, Fill, or a percent. A menu trigger in the bar's
+   chip language, tabular so a changing number does not jitter. */
+.sc-ovl-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-well);
+  color: var(--sc-fg2);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-micro);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-ovl-zoom:hover,
+.sc-ovl-zoom[data-state="open"] {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-ovl-zoom:active {
+  background: var(--sc-press);
 }
 .sc-stage-pic .sc-stage-img {
   display: block;
@@ -648,11 +707,15 @@
      icon buttons and a price on a 390px line is what made this area feel
      cramped; the actions did not need to be visible to be reachable, and the
      price is not an action at all — it is in the record below. */
-  .sc-ovl-acts {
+  .sc-ovl-acts,
+  .sc-ovl-zoom {
     display: none;
   }
   .sc-ovl-overflow {
     display: grid;
+  }
+  .sc-stage-view {
+    width: 100%;
   }
   /* the bar rides above the picture with a fade under it, so a scrolled brief
      passes beneath rather than colliding with floating buttons */

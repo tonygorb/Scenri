@@ -1,10 +1,12 @@
 /**
- * The arithmetic behind the image viewer, free of React and the DOM so
- * `test/viewerRules.test.ts` covers it directly.
+ * The arithmetic behind zooming the picture on the stage, free of React and
+ * the DOM so `test/zoomRules.test.ts` covers it directly.
  *
  * Everything is in CSS pixels. The picture is drawn at `natural x scale` and
  * moved by `(tx, ty)` from the viewport's top-left, with its transform origin
  * at its own top-left, so a picture point `(x, y)` sits at `tx + x * scale`.
+ * The fit is not computed here: it is whatever the stage's own layout chose
+ * for the frame, so at fit the transform is the identity and nothing moves.
  */
 
 export interface Size {
@@ -17,37 +19,44 @@ export interface View {
   ty: number;
 }
 export interface Limits {
-  /** The whole picture inside the viewport. */
+  /** The whole picture inside the viewport: the frame the layout drew. */
   fit: number;
+  /** The picture covering the viewport. */
+  fill: number;
   /** One image pixel per device pixel. */
   actual: number;
   min: number;
   max: number;
 }
 
-/** Breathing room around a fitted picture. */
-export const FIT_PAD = 24;
-/** One step of the buttons and the keys. */
+/** One step of the menu and the keys. */
 export const STEP = 1.25;
-/** How far past actual size the viewer goes: three device pixels per image pixel is enough to read a seam. */
+/** How far past actual size the zoom goes: three device pixels per image pixel is enough to read a seam. */
 const MAX_OVER_ACTUAL = 3;
 /** Two scales this close are the same scale: a step in and back out lands on floating-point dust. */
 const near = (a: number, b: number): boolean => Math.abs(a - b) <= 0.002 * Math.max(a, b);
 
-/** The scale at which the whole picture sits inside the viewport with its padding. */
-export function fitScale(viewport: Size, natural: Size, pad = FIT_PAD): number {
-  const w = Math.max(1, viewport.w - pad * 2);
-  const h = Math.max(1, viewport.h - pad * 2);
-  return Math.min(w / natural.w, h / natural.h);
-}
+/** The scale at which the whole picture sits inside the viewport. */
+export const fitScale = (viewport: Size, natural: Size): number =>
+  Math.min(viewport.w / natural.w, viewport.h / natural.h);
+
+/** The scale at which the picture covers the viewport. */
+export const fillScale = (viewport: Size, natural: Size): number =>
+  Math.max(viewport.w / natural.w, viewport.h / natural.h);
 
 /** One image pixel per device pixel, which is the only honest "100%". */
 export const actualScale = (dpr: number): number => 1 / Math.max(1, dpr);
 
-export function limits(viewport: Size, natural: Size, dpr: number): Limits {
-  const fit = fitScale(viewport, natural);
+/**
+ * The limits around a fit the layout already chose. The range runs from the
+ * smaller of fit and actual to the largest of fit, fill and three times
+ * actual, so a small picture can still be seen at its pixels and a large
+ * one can still cover the stage.
+ */
+export function limits(fit: number, viewport: Size, natural: Size, dpr: number): Limits {
+  const fill = fillScale(viewport, natural);
   const actual = actualScale(dpr);
-  return { fit, actual, min: Math.min(fit, actual), max: Math.max(fit, actual * MAX_OVER_ACTUAL) };
+  return { fit, fill, actual, min: Math.min(fit, actual), max: Math.max(fit, fill, actual * MAX_OVER_ACTUAL) };
 }
 
 export const clampScale = (s: number, l: Limits): number => Math.min(l.max, Math.max(l.min, s));
@@ -59,11 +68,6 @@ export function clampPan(v: View, viewport: Size, natural: Size): View {
   const tx = w <= viewport.w ? (viewport.w - w) / 2 : Math.min(0, Math.max(viewport.w - w, v.tx));
   const ty = h <= viewport.h ? (viewport.h - h) / 2 : Math.min(0, Math.max(viewport.h - h, v.ty));
   return { scale: v.scale, tx, ty };
-}
-
-/** The fitted view: the whole picture, centred. */
-export function fitView(viewport: Size, natural: Size, l: Limits): View {
-  return clampPan({ scale: l.fit, tx: 0, ty: 0 }, viewport, natural);
 }
 
 /** Scale to `next`, keeping the picture point under `(px, py)` where it is. */
@@ -95,11 +99,13 @@ export function overflows(v: View, viewport: Size, natural: Size): boolean {
 }
 
 export const isFit = (scale: number, l: Limits): boolean => near(scale, l.fit);
+export const isFill = (scale: number, l: Limits): boolean => near(scale, l.fill);
 export const isActual = (scale: number, l: Limits): boolean => near(scale, l.actual);
 
-/** What the label says: Fit, 100%, or the percent of actual size. */
+/** What the reading says: Fit, Fill, 100%, or the percent of actual size. */
 export function zoomLabel(scale: number, l: Limits, dpr: number): string {
   if (isFit(scale, l)) return 'Fit';
+  if (isFill(scale, l)) return 'Fill';
   if (isActual(scale, l)) return '100%';
   return `${Math.round(scale * Math.max(1, dpr) * 100)}%`;
 }

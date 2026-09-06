@@ -8,14 +8,15 @@ import { useHoverPreview } from '../../composer/useHoverPreview.js';
 const END_PX = 200;
 
 /**
- * The other shots in the feed you came from, stood on end beside the stage.
+ * The feed you came from, stood on end beside the stage.
  *
- * Roots only, in the grid's own order (its lens, its set, its search, its
- * sort): a version never appears here, because the strip under the stage is
- * a version's place, and the two rows would otherwise be the same thumbnails
- * twice. The ring marks the root of the shot on screen, so looking at B2
- * rings B here and B2 below. Same tile as the strip, so orientation and
- * position say which axis is which and neither row needs a label.
+ * Every shot the grid holds, in the grid's own order (its lens, its set, its
+ * search, its sort), originals and refinements alike, because that is what
+ * the grid shows and the rail is the grid seen from inside a shot. The ring
+ * marks the shot on screen; the strip under the stage rings the same shot
+ * inside its own history, which is the other axis. Same tile both places,
+ * so orientation and position say which axis is which and neither row needs
+ * a label.
  *
  * Selection is a click, a tap, or Enter on a focused tile, never a scroll:
  * the rail scrolls to browse, and the shot on the stage does not move until
@@ -25,15 +26,15 @@ const END_PX = 200;
  * Only what the pages hold is here, at the smallest derivative, and reaching
  * the end asks the feed for the page the grid would have fetched next.
  */
-export function RootRail({
-  roots,
+export function ShotRail({
+  shots,
   activeId,
   onSelect,
   onEndReached,
   complete,
 }: {
-  roots: FeedNode[];
-  /** The root of the shot on screen. */
+  shots: FeedNode[];
+  /** The shot on screen. */
   activeId: string;
   onSelect: (id: string) => void;
   onEndReached: () => void;
@@ -76,12 +77,12 @@ export function RootRail({
   };
 
   // one tab stop: the ringed tile, or the first when the shot on screen is not in the pages
-  const stop = roots.some((n) => n.id === activeId) ? activeId : roots[0]?.id;
+  const stop = shots.some((n) => n.id === activeId) ? activeId : shots[0]?.id;
 
   return (
     <>
       <nav ref={ref} className="sc-rail" aria-label="Shots in this view" onScroll={onScroll} onKeyDown={onKeyDown}>
-        {roots.map((n) => {
+        {shots.map((n) => {
           const active = n.id === activeId;
           const running = n.status === 'running';
           const ready = n.status === 'done' && !!n.images[0];
