@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
 import { nodeLabel, type FeedNode, thumbUrl } from '../../api.js';
 import { ChipPreview } from '../../composer/ChipPreview.js';
@@ -6,6 +6,8 @@ import { useHoverPreview } from '../../composer/useHoverPreview.js';
 
 /** How close to the end of the rail asks for the next page of the feed. */
 const END_PX = 200;
+/** How far the list travels from an end before the fade over that end is whole. */
+const FADE_RAMP_PX = 120;
 
 export function ShotRail({
   shots,
@@ -38,18 +40,22 @@ export function ShotRail({
     shown.current = true;
   }, [activeId]);
 
-  // Which end has more shots past it: a fade over that end, and none over
-  // an end the list has reached. The fade says "this continues", so at the
-  // list's own start or end there is nothing to say, and the first or the
-  // last shot on the stage sits whole rather than under a fade.
-  const [more, setMore] = useState<'start' | 'end' | 'both' | null>(null);
+  // How much lies past each end: a fade over that end, grown in with the
+  // travel. The fade says "this continues", so at the list's own start or
+  // end there is nothing to say and the first or last shot on the stage
+  // sits whole; a pixel of travel shows a sliver of fade and the whole of it
+  // arrives over the first stretch of scroll, so it never pops. Written as
+  // two variables on the shell straight from the scroll, never through a
+  // render.
+  const shell = useRef<HTMLDivElement>(null);
   const measure = () => {
     const el = ref.current;
-    if (!el) return;
+    const box = shell.current;
+    if (!el || !box) return;
     const max = el.scrollHeight - el.clientHeight;
-    if (max <= 1) return setMore(null);
     const y = el.scrollTop;
-    setMore(y <= 1 ? 'end' : y >= max - 1 ? 'start' : 'both');
+    box.style.setProperty('--sc-rail-start', max > 1 ? Math.min(1, y / FADE_RAMP_PX).toFixed(3) : '0');
+    box.style.setProperty('--sc-rail-end', max > 1 ? Math.min(1, (max - y) / FADE_RAMP_PX).toFixed(3) : '0');
   };
   useEffect(() => {
     const el = ref.current;
@@ -87,7 +93,7 @@ export function ShotRail({
   return (
     <>
       {/* the shell carries the fades, above the column and outside its scroll */}
-      <div className="sc-rail-shell" data-more={more ?? undefined}>
+      <div ref={shell} className="sc-rail-shell">
         <nav ref={ref} className="sc-rail" aria-label="Shots in this view" onScroll={onScroll} onKeyDown={onKeyDown}>
           {shots.map((n) => {
             const active = n.id === activeId;

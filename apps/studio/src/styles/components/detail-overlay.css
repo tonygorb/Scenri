@@ -263,8 +263,10 @@
      while shots sit below, and none at the list's own ends, so the first and
      the last shot are whole when they are the one on the stage. The fade
      says "this continues"; at an end the list has reached there is nothing
-     to say. Painted over the column by its shell, in the ground's colour,
-     so nothing is scaled or moved and the tiles you aim at hold still; the
+     to say, and it grows in with the travel away from that end (the rail
+     writes how much as a variable, straight from the scroll) so it never
+     pops. Painted over the column by its shell, in the ground's colour, so
+     nothing is scaled or moved and the tiles you aim at hold still; the
      ring is the only thing that says which. A dock's magnification was
      tried and dropped: the largest tile was whatever passed the middle,
      not the selected one, and it argued with the ring. */
@@ -282,11 +284,10 @@
     height: 34%;
     z-index: 1;
     pointer-events: none;
-    opacity: 0;
-    transition: opacity var(--sc-dur-fast) var(--sc-ease);
   }
   .sc-rail-shell::before {
     top: 0;
+    opacity: var(--sc-rail-start, 0);
     background: linear-gradient(
       to bottom,
       var(--sc-bg) 0%,
@@ -297,6 +298,7 @@
   }
   .sc-rail-shell::after {
     bottom: 0;
+    opacity: var(--sc-rail-end, 0);
     background: linear-gradient(
       to top,
       var(--sc-bg) 0%,
@@ -304,12 +306,6 @@
       color-mix(in srgb, var(--sc-bg) 25%, transparent) 70%,
       transparent 100%
     );
-  }
-  .sc-rail-shell[data-more="start"]::before,
-  .sc-rail-shell[data-more="both"]::before,
-  .sc-rail-shell[data-more="end"]::after,
-  .sc-rail-shell[data-more="both"]::after {
-    opacity: 1;
   }
 }
 .sc-stage-wait-say {
