@@ -412,7 +412,7 @@ async function seedTier(tier, pool) {
         });
         return nodes;
       };
-      const finish = (node, brief, engineId, size, failed) => {
+      const finish = (node, brief, engineId, _size, failed) => {
         if (failed) {
           store.setBrief(node.id, brief);
           store.failNode(node.id, r.pick(prose.FAILURES));

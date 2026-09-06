@@ -882,6 +882,63 @@ describe('brief through the API', () => {
     await app.close();
   });
 
+  it('an edit that leaves a carried identity out neither ships nor records it', async () => {
+    const { buildServer } = await import('../src/server.js');
+    const { createDemoEngine } = await import('@scenri/engine-demo');
+    const mock = createDemoEngine((b) => core.images.save(b));
+    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const brand = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            products: [{ id: 'p1', name: 'House Blend', shots: [{ file: `asset:${productHash}`, locked: true }] }],
+          },
+        },
+      })
+    ).json();
+    const proj = (
+      await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
+    ).json();
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.project.id,
+        kind: 'generation',
+        engineId: 'demo',
+        count: 1,
+        brief: { tokens: [{ t: 'product', id: 'p1' }] },
+      },
+    });
+    const genNode = await waitDone(app, gen.json().id);
+    const refine = async (drop?: string[]) => {
+      const edit = await app.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: {
+          projectId: proj.project.id,
+          parentId: genNode.id,
+          kind: 'edit',
+          engineId: 'demo',
+          sourceImage: genNode.images[0],
+          brief: { tokens: [{ t: 'text', v: 'warmer light' }] },
+          ...(drop ? { drop } : {}),
+        },
+      });
+      return waitDone(app, edit.json().id);
+    };
+    // the control: a plain refine carries the product
+    const kept = await refine();
+    expect((kept.brief.inherited ?? []).map((t: any) => t.t)).toContain('product');
+    // left out by key: not recorded, so the record never lists what the picture may no longer hold
+    const without = await refine(['p:p1']);
+    expect((without.brief.inherited ?? []).filter((t: any) => t.t === 'product')).toHaveLength(0);
+    await app.close();
+  });
   it('rejects an empty brief', async () => {
     const { buildServer } = await import('../src/server.js');
     const { createDemoEngine } = await import('@scenri/engine-demo');

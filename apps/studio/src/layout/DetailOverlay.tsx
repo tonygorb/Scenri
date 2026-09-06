@@ -136,10 +136,11 @@ export function DetailOverlay({
   const rootRef = useRef<HTMLDivElement>(null);
   /** Whether the brief line has any chips to say: mirrors BriefLine's own
    *  null condition, so a token-less legacy shot never shows a bare label. */
-  const hasContext = useMemo(
-    () => (node.brief?.tokens ?? []).some((t: { t?: string }) => t?.t && t.t !== 'text' && t.t !== 'format'),
-    [node.brief],
-  );
+  const hasContext = useMemo(() => {
+    const own = (node.brief?.tokens ?? []).some((t: { t?: string }) => t?.t && t.t !== 'text' && t.t !== 'format');
+    const carried = (((node.brief as { inherited?: unknown[] })?.inherited ?? []) as unknown[]).length > 0;
+    return own || carried;
+  }, [node.brief]);
   /** TokenNames plus the brand's marks, so the brief speaks every noun. */
   const proseNames = useMemo(() => {
     const marks = attachableMarks(brand.json);

@@ -5,7 +5,8 @@ import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
 import { findIngredient } from '../../composer/ingredientOptions.js';
 import { isPreviewKind } from '../../composer/ChipPreview.js';
-import { normalizeTint } from '../../composer/line.js';
+import { mergeCarried, normalizeTint } from '../../composer/line.js';
+import { byContextOrder } from '../../contextChips.js';
 import { vibrantTintOf } from '../../composer/sceneTint.js';
 import { type PeekAt, useIngredientPeek } from '../../composer/useIngredientPeek.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
@@ -236,7 +237,17 @@ export function BriefLine({
     if (c) sentence.push(renderChip(c));
   }
 
-  if (!sentence.length && !prompt) return null;
+  // What rode along with this refinement, from its own record (the server
+  // writes what it carried, less what was left out), one chip per thing and
+  // never one the ask already names. Identities only: the world is kept
+  // through the photograph and is the Original's to say.
+  const carried: Chip[] = mergeCarried(ownTokens, (brief as { inherited?: any[] } | null)?.inherited ?? [])
+    .carried.filter((t: any) => ['product', 'character', 'mark', 'ref'].includes(t?.t))
+    .map((t: any) => chipOf(t))
+    .filter((c: Chip | null): c is Chip => !!c)
+    .sort(byContextOrder);
+
+  if (!sentence.length && !carried.length && !prompt) return null;
 
   // Inline flow, not a flex row: a chip sits in the sentence exactly where it
   // was typed, so the record wraps like prose. Explicit spaces between
@@ -248,6 +259,12 @@ export function BriefLine({
       <div ref={saidRef} className="sc-brief-said" data-expanded={expanded || undefined} dir="auto">
         {spaced.length ? spaced : prompt || ''}
       </div>
+      {carried.length > 0 && (
+        <div className="sc-brief-carried">
+          <span className="sc-brief-carried-lb">Carried over</span>
+          {carried.map((c) => renderChip(c))}
+        </div>
+      )}
       {peek.surface}
     </>
   );

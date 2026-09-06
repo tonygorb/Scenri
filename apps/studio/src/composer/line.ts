@@ -21,6 +21,7 @@ export {
   emptySentence,
   briefTokens,
   mergeCarried,
+  carriedKeyOf,
   identityKeyOf,
   CHIP,
   encode,

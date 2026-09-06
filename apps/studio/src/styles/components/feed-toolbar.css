@@ -493,6 +493,25 @@
 }
 /* When something overrules the branch, the chip says so instead of quietly
    doing the other thing. */
+/* The carried band over the refine field: a line saying what the group is,
+   then the target chip pattern once per identity, its x meaning "leave this
+   out of the refinement". */
+.sc-carried-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+}
+.sc-carried-lb {
+  flex-basis: 100%;
+  font-size: var(--sc-text-caption);
+  line-height: 14px;
+  color: var(--sc-fg3);
+}
+/* not a sentence chip: nothing to drag, only the x to press */
+.sc-carried-chip {
+  cursor: default;
+}
 .sc-target-note {
   font-size: 11px;
   color: var(--sc-warn, var(--sc-fg3));

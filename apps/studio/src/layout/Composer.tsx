@@ -24,6 +24,7 @@ import {
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import type { PreviewKind } from '../composer/ChipPreview.js';
 import { RefineChip } from '../composer/RefineChip.js';
+import { CarriedBand, useCarried } from '../composer/CarriedBand.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import {
   CEILING_SENTENCE,
@@ -299,6 +300,11 @@ export const Composer = forwardRef<
     if (refineTarget) setRefineFormats((m) => ({ ...m, [refineTarget.id]: id }));
     else setPrefFormat(id);
   };
+  /** What each target's next refinement leaves out of what it would carry, by wire key. */
+  const [leftOut, setLeftOut] = useState<Record<string, string[]>>({});
+  const dropped = refineTarget ? (leftOut[refineTarget.id] ?? []) : [];
+  const carriedAll = useCarried(brand, refineTarget);
+  const carried = carriedAll.filter((it) => !dropped.includes(it.key));
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
   const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, 2);
   const [busy, setBusy] = useState(false);
@@ -1110,6 +1116,8 @@ export const Composer = forwardRef<
         // the reshape op is explicit on the wire: crop and extend preserve
         // pixels in opposite ways, and the server must never have to guess
         ...(mode === 'edit' && reshapeOp ? { reshape: reshapeOp } : {}),
+        // what the person left out of the carried set: not shipped, not recorded
+        ...(mode === 'edit' && dropped.length ? { drop: dropped } : {}),
       });
       /*
        * A scene used to be able to declare text zones, and this turned them
@@ -1301,10 +1309,24 @@ export const Composer = forwardRef<
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}
+        {/* What the next refinement carries from the shot on the stage, each
+            chip droppable: the one edit the band allows, and the reason it is
+            there at all. */}
+        {variant === 'overlay' && refineTarget && carried.length > 0 && (
+          <div className="sc-target" data-note={targetNote ? '' : undefined}>
+            <CarriedBand
+              items={carried}
+              onLeaveOut={(key) =>
+                setLeftOut((m) => ({ ...m, [refineTarget.id]: [...(m[refineTarget.id] ?? []), key] }))
+              }
+            />
+            {targetNote && <small className="sc-target-note">{targetNote}</small>}
+          </div>
+        )}
         {/* Where there is no band to carry it, the note still has to be said:
             inside an open shot this is the only sign that what is about to
             happen is a new shot rather than a change to the one on screen. */}
-        {branchable && !onClearTarget && targetNote && (
+        {branchable && !onClearTarget && targetNote && !(variant === 'overlay' && carried.length) && (
           <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         {/* The inferred op, stated in two words. The old fieldset asked the

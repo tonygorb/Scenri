@@ -27,6 +27,22 @@ export const emptySentence = (): SentenceToken[] => [{ t: 'text', v: '' }];
  * same product carried at another angle is still the same chip — and every
  * other kind keys on its full encoded form. Text and format key to nothing.
  */
+/**
+ * The key a carried identity is left out by, on the wire: the server's
+ * `carriedKey` (editIdentity.ts), a product or person by id, a mark or a
+ * reference by hash. Distinct from `identityKeyOf`, the dedupe rule.
+ */
+export const carriedKeyOf = (t: { t: string; id?: string; imageHash?: string }): string =>
+  t.t === 'product'
+    ? `p:${t.id}`
+    : t.t === 'character'
+      ? `c:${t.id}`
+      : t.t === 'mark'
+        ? `m:${t.imageHash}`
+        : t.t === 'ref'
+          ? `r:${t.imageHash}`
+          : JSON.stringify(t);
+
 export const identityKeyOf = (t: SentenceToken): string =>
   t.t === 'product' ? `p:${t.id}` : t.t === 'ref' ? `r:${t.imageHash}` : encode(t);
 

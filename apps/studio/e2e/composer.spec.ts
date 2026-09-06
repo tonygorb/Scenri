@@ -2271,17 +2271,35 @@ test('a refinement records what it carried, and the shot detail says it', async 
       })
     ).json();
     await wait(edit.id);
-    return { editId: edit.id as string, sceneName: scenes[0].name as string };
+    return { editId: edit.id as string, sceneName: scenes[0].name as string, refHash };
   });
 
-  // the refined shot's record is its own ask and nothing else: what the
-  // request carried along as references is a fact about the request, not
-  // about the picture, and is never listed here or over the refine field
+  // the refined shot's record is its own ask and, under it, what rode along
+  // from the record the server wrote: the mark and the reference. The world
+  // is the Original's to say, and nothing carried is listed twice.
   await page.goto(`/${slug}/create/shots/${made.editId}`);
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
-  await expect(page.locator('.sc-brief-record .sc-ingredient')).toHaveCount(0);
-  await expect(page.locator('.sc-ovl-edit .sc-carried')).toHaveCount(0);
-  await expect(page.locator('.sc-ovl-edit .sc-source-chip')).toHaveCount(0);
+  await expect(page.locator('.sc-brief-carried .sc-ingredient')).toHaveCount(2);
+  await expect(page.locator('.sc-brief-carried .sc-ingredient[data-kind="mark"]')).toBeVisible();
+  await expect(page.locator('.sc-brief-carried .sc-ingredient[data-kind="ref"]')).toBeVisible();
+  await expect(page.locator('.sc-brief-record .sc-ingredient[data-kind="scene"]')).toHaveCount(0);
+  // the band over the refine field says what the next refinement would carry,
+  // and lets one thing out: what is left out is named on the wire by key
+  const band = page.locator('.sc-ovl-edit .sc-carried-band');
+  await expect(band.locator('.sc-carried-chip')).toHaveCount(2);
+  await band.locator('.sc-carried-chip[data-kind="ref"] button').click();
+  await expect(band.locator('.sc-carried-chip')).toHaveCount(1);
+  let posted: any = null;
+  await page.route('**/api/nodes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posted = route.request().postDataJSON();
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
+  });
+  await page.locator('.sc-ovl .sc-brief-line').click();
+  await page.keyboard.type('cooler light');
+  await page.locator('.sc-ovl .sc-send').click();
+  await expect.poll(() => posted?.drop ?? null).toEqual([`r:${made.refHash}`]);
+  await page.unroute('**/api/nodes');
   // what the thread is made of is said once, on the Original, one step down the trail
   await page.locator('.sc-thumbs .sc-trail-tile[data-original]').click();
   await expect(
@@ -2394,7 +2412,8 @@ test('the refine composer closes the same seam, at its own type scale', async ({
   await attachCards(page).first().waitFor();
   for (const i of [0, 1, 2]) await attachCards(page).nth(i).click();
   await page.keyboard.press('Escape');
-  await expect(editor.locator('.sc-token')).toHaveCount(3);
+  // the sentence's own chips: the carried band over the field wears the same chip and is not the sentence
+  await expect(editLine.locator('.sc-token')).toHaveCount(3);
 
   await editLine.evaluate((el) => {
     const chip = el.querySelectorAll('.sc-token')[1];
@@ -2406,7 +2425,7 @@ test('the refine composer closes the same seam, at its own type scale', async ({
     sel.addRange(r);
   });
   await page.keyboard.press('Backspace');
-  await expect(editor.locator('.sc-token')).toHaveCount(2);
+  await expect(editLine.locator('.sc-token')).toHaveCount(2);
 
   const between = await editLine.evaluate((el) => {
     const next = el.querySelector('.sc-token')!.nextSibling;
