@@ -262,6 +262,66 @@
     display: none;
   }
 }
+/* The rail reads with depth, the way the first-run shelf does: a tile swells
+   toward the middle of the column and sits back at its ends, smaller and
+   dimmer, so the eye lands on the shots level with the picture and the ends
+   read as continuing rather than cut. Driven by a scroll timeline, not a
+   handler, so the browser interpolates it off the compositor however long
+   the feed is. Scale only, never layout: the column keeps its 52px tracks
+   and the scroll distance is the same either way. The ringed tile is
+   scrolled clear of the ends, so the shot on screen is never one of the
+   small ones. Where view timelines are missing the rail is simply flat. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .sc-rail-tile {
+      animation: sc-rail-swell linear both;
+      animation-timeline: view(block);
+      /* entry to exit, so a tile is measured across its whole pass */
+      animation-range: entry 0% exit 100%;
+      will-change: transform;
+    }
+    /* the ringed tile lands inside the middle, where the swell is full */
+    .sc-rail {
+      scroll-padding-block: 30%;
+    }
+    /* a plateau across the middle, not a single peak, so the tiles level
+       with the picture agree with each other */
+    @keyframes sc-rail-swell {
+      0% {
+        transform: scale(0.72);
+        opacity: 0.3;
+      }
+      15% {
+        transform: scale(0.8);
+        opacity: 0.45;
+      }
+      30% {
+        transform: scale(0.93);
+        opacity: 0.82;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      60% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      70% {
+        transform: scale(0.93);
+        opacity: 0.82;
+      }
+      85% {
+        transform: scale(0.8);
+        opacity: 0.45;
+      }
+      100% {
+        transform: scale(0.72);
+        opacity: 0.3;
+      }
+    }
+  }
+}
 
 /* The picture's place while it is being made: the box it will occupy, filled
    with the feed's own shimmer, and what is happening said over it. */
