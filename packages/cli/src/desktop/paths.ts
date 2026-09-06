@@ -71,7 +71,7 @@ export function recordedEnv(env: NodeJS.ProcessEnv): Record<string, string> {
 }
 
 /** Runs an executable with an argv array and resolves its stdout. Never a shell. */
-export type RunImpl = (cmd: string, args: string[]) => Promise<string>;
+export type RunImpl = (cmd: string, args: string[], opts?: { env?: NodeJS.ProcessEnv }) => Promise<string>;
 
 // Windows PowerShell 5.1 is on every supported Windows; inline -Command is not
 // gated by the script execution policy, and nothing here is interpolated.
