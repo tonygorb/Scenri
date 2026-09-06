@@ -140,18 +140,30 @@ export function useStageZoom({
   const stepRef = useRef(onStep);
   stepRef.current = onStep;
 
+  /**
+   * Whether the person zoomed, remembered apart from the numbers: the frame
+   * changes size on its own (the strip arriving under it, the panel being
+   * dragged), and a view that merely no longer matches the new fit is not a
+   * zoom. A fitted picture follows its frame; a zoomed one keeps its scale.
+   */
+  const userZoomed = useRef(false);
   const go = useCallback((next: View, ease: boolean) => {
+    const lim = limRef.current;
+    userZoomed.current = !!lim && !isFit(next.scale, lim);
     viewRef.current = next;
     setEased(ease);
     setView(next);
   }, []);
 
-  // a new picture starts at fit
+  // A new picture starts at fit, and its frame is measured afresh: a frame
+  // left over from the last picture would seed a view at the wrong scale.
   const [seen, setSeen] = useState(hash);
   if (seen !== hash) {
     setSeen(hash);
     setNatural(null);
+    setFrame(null);
     setView(null);
+    userZoomed.current = false;
   }
 
   // the viewport is the picture's row; it changes with the window and the panel
@@ -191,7 +203,7 @@ export function useStageZoom({
     const atFit: View = { scale: frame.fit, tx: frame.ox, ty: frame.oy };
     setEased(false);
     setView((cur) => {
-      const next = cur === null || isFit(cur.scale, lim) ? atFit : clampPan(cur, viewport, natural);
+      const next = cur === null || !userZoomed.current ? atFit : clampPan(cur, viewport, natural);
       viewRef.current = next;
       return next;
     });
@@ -219,7 +231,9 @@ export function useStageZoom({
   };
   const toFit = () => {
     const f = frameRef.current;
-    if (f) go({ scale: f.fit, tx: f.ox, ty: f.oy }, true);
+    if (!f) return;
+    go({ scale: f.fit, tx: f.ox, ty: f.oy }, true);
+    userZoomed.current = false;
   };
   const toFill = () => {
     const n = nums();

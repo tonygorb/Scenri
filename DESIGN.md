@@ -152,6 +152,7 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **Danger:** transparent fill, red text and hover border, otherwise identical to ghost.
 - **Pressed:** paint only. Ghost and danger take `--sc-press` as a fill; primary steps its opacity to 0.75. No movement of any kind.
 - **Focus:** 2px solid outline in `--sc-focus` (one full step below ink), 2px offset. No glow, no color change.
+- **Icon-only controls (`.sc-icon-btn`) say their name in a tooltip,** on hover and on keyboard focus, through `layout/Tip.tsx` (the Radix tooltip in the `.sc-tip` coat). The words are the `aria-label`'s words; never a native `title` beside it, which is the same sentence twice on two clocks. A control with a visible label gets no tooltip. A toggle that is on wears `data-on` and says so with `aria-pressed`; a request in flight holds `data-busy` (the cursor says so, the control does not dim); a verb that opens a dialog says `aria-haspopup="dialog"`; a verb with nowhere to go is `disabled` and dims. For a moment after a verb lands the tooltip may say the result ("Copied"), held open, so nothing else has to appear.
 
 ### Chips / Tabs
 - **Style:** transparent fill, hairline border, muted text (`--sc-fg2`), full pill radius, 5px/12px padding, 12.5px/500 label type.
@@ -228,6 +229,12 @@ hover the marks become controls.**
 - **Facts about a shot belong to the shot's record, not to its tile.** Provenance, version count and
   filing live in the detail overlay, which has the room to name them; a tile that states four facts
   in chips it never hides is a tile that is never just the picture.
+
+### Shot review (the overlay)
+- **Two axes, one tile.** The rail down the left is the feed you came from, every shot the grid holds in the grid's own order, originals and refinements alike, ringed at the shot on screen. The strip under the picture is that shot's own history, the root first and every version made from it after, ringed at the same shot. Both wear the strip's `.sc-thumb` tile; orientation and position say which axis is which, and neither row carries a label. Neither is ever "variations".
+- **The rail is furniture only where there is room:** from 1280px, the width the assets drawer needs to dock, and never below two shots. Below that width the arrows carry the walk, and a phone swipes the picture.
+- **One walk.** The header arrows, the left and right keys, a plain wheel over the picture and a swipe on a phone all step the same feed order; up and down step the history. Hovering an arrow peeks the shot it would step to, in the chip peek card. A wheel gesture steps once, however long its tail. Scrolling the rail or the strip never selects.
+- **The picture zooms where it is.** Its row is the viewport and its layout is the fit, so at fit nothing is transformed. Ctrl or cmd with the wheel, a trackpad pinch or two fingers zoom about the cursor; a drag or a finger pans; a double click or double tap goes to actual size and back; plus, minus, 0 and 1 do the same from the keyboard. The header reads Fit, Fill or a percent of actual size, where 100% is one image pixel per device pixel and nothing else, and its menu names the stops. The range ends at three device pixels per image pixel, past which the blocks are shown as blocks. No modal viewer: inspection and refinement are one surface, and the strip and the panel never move under a zoom.
 
 ### Inputs / Fields
 - **Style:** hairline border, panel background, `--sc-radius` (10px) corners.

@@ -603,14 +603,14 @@ export function DetailOverlay({
                   no picture, and folded into the overflow on a phone. */}
               {hasImage && (
                 <DropdownMenu.Root>
-                  <Tip label="Zoom">
-                    <DropdownMenu.Trigger>
-                      <button type="button" className="sc-ovl-zoom" aria-label={`Zoom, ${zoom.label}`}>
-                        <span>{zoom.label}</span>
-                        <CaretDown size={11} weight="bold" />
-                      </button>
-                    </DropdownMenu.Trigger>
-                  </Tip>
+                  {/* no tooltip: the reading is its own label, and a card
+                      saying Zoom would pop every time the menu handed focus back */}
+                  <DropdownMenu.Trigger>
+                    <button type="button" className="sc-ovl-zoom" aria-label={`Zoom, ${zoom.label}`}>
+                      <span>{zoom.label}</span>
+                      <CaretDown size={11} weight="bold" />
+                    </button>
+                  </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="end" sideOffset={6}>
                     {zoomStops.map((z) => (
                       <DropdownMenu.Item key={z.label} onSelect={z.onSelect} disabled={z.disabled}>
