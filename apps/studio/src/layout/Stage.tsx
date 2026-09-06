@@ -18,16 +18,9 @@ function recordedSize(node: FeedNode): [number, number] | null {
   return size && size[0] > 0 && size[1] > 0 ? size : null;
 }
 
-/**
- * The picture's box as custom properties, from its recorded pixels: the
- * ratio and the width the frame sizes itself from. The overlay sets them on
- * the stage as well, so the trail under the picture can wear the picture's
- * own width. Null for a shot that recorded no size, which sizes the old way.
- */
-export function stagePictureVars(node: FeedNode): CSSProperties | null {
-  const size = recordedSize(node);
-  return size ? ({ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties) : null;
-}
+/** A picture's box as custom properties: the ratio and the width the frame sizes itself from. */
+const pictureVars = (size: [number, number]): CSSProperties =>
+  ({ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` }) as CSSProperties;
 
 export function StageFrame({
   node,
@@ -44,6 +37,8 @@ export function StageFrame({
   /** The shot's verbs, as a `ContextMenu.Content`: a right click or a long press on the picture opens them. */
   menu?: ReactNode;
 }) {
+  /** The last picture that painted here, by its own pixels: the box a shot without recorded pixels borrows. */
+  const [natural, setNatural] = useState<{ hash: string; size: [number, number] } | null>(null);
   const [, force] = useState(0);
 
   useEffect(() => {
@@ -139,39 +134,38 @@ export function StageFrame({
   }
 
   const hash = node.status === 'done' ? node.images[0] : undefined;
-  const size = hash ? recordedSize(node) : null;
-  const frame =
-    hash && size ? (
-      /*
-       * The run recorded its pixels, so the frame takes the picture's box
-       * before a byte of it arrives: the same sizing the waiting state uses,
-       * bounded by the room there is, the cap, and the picture's own width.
-       * Under the original sits the picture that was on the stage before it,
-       * or the feed's tile derivative for the first, so the stage shows a
-       * picture at once and the original fades in over it when its decode
-       * is done.
-       */
-      <Box className="sc-frame sc-stage-pic" style={stagePictureVars(node) ?? undefined}>
-        <StagePicture hash={hash} alt={node.promptHead} />
-      </Box>
-    ) : (
-      <Flex justify="center">
-        <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
-          {hash && (
-            <Box position="relative" style={{ lineHeight: 0 }}>
-              <img
-                src={imgUrl(hash)}
-                alt={node.promptHead}
-                // the cap itself lives in CSS, where it can know whether a row of
-                // takes sits under the shot: a percentage cannot, because nothing
-                // between here and the stage has a definite height to measure
-                style={{ display: 'block', maxWidth: '100%' }}
-              />
-            </Box>
-          )}
-        </Box>
-      </Flex>
-    );
+  /*
+   * The box the picture takes before a byte of it arrives: the run's
+   * recorded pixels, or, for a shot made before sizes were recorded, the
+   * pixels of the last picture that painted here. The frame is then sized
+   * the way the waiting state is, bounded by the room there is, the cap and
+   * the picture's own width. Under the incoming original sits the picture
+   * that was on the stage before it, or the feed's tile derivative for the
+   * first, so the stage shows a picture at once and the original fades in
+   * over it when its decode is done. An unrecorded shot used to be a bare
+   * image with no box at all, so every step to one collapsed the stage to
+   * nothing and sprang back when the picture landed: with the previous box
+   * held, the box takes the new shape in the same commit the picture paints,
+   * a cut at most, never a collapse. Only the very first picture of the
+   * overlay, with nothing painted before it, is its own box.
+   */
+  const size = hash ? (recordedSize(node) ?? natural?.size ?? null) : null;
+  const frame = hash ? (
+    <Box
+      className={size ? 'sc-frame sc-stage-pic' : 'sc-frame sc-stage-free'}
+      style={size ? pictureVars(size) : undefined}
+    >
+      <StagePicture
+        hash={hash}
+        alt={node.promptHead}
+        onPainted={(painted, w, h) => setNatural({ hash: painted, size: [w, h] })}
+      />
+    </Box>
+  ) : (
+    <Flex justify="center">
+      <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }} />
+    </Flex>
+  );
 
   if (!menu) return frame;
   // A right click or a long press on the picture opens the shot's own verbs,
@@ -184,15 +178,27 @@ export function StageFrame({
   );
 }
 
-function StagePicture({ hash, alt }: { hash: string; alt: string }) {
+function StagePicture({
+  hash,
+  alt,
+  onPainted,
+}: {
+  hash: string;
+  alt: string;
+  /** The picture has pixels on screen: its hash and its natural size, once per picture. */
+  onPainted?: (hash: string, width: number, height: number) => void;
+}) {
   /** The hash whose pixels have painted; the last of them stays under the next. */
   const [painted, setPainted] = useState<string | null>(null);
   const last = useRef<string | null>(null);
   const ready = painted === hash;
   const paint = (el: HTMLImageElement | null) => {
     if (!el?.complete || !el.naturalWidth || el.src !== new URL(imgUrl(hash), location.href).href) return;
+    // once per picture: the ref callback runs on every render
+    if (last.current === hash) return;
     last.current = hash;
     setPainted(hash);
+    onPainted?.(hash, el.naturalWidth, el.naturalHeight);
   };
   const underSrc = last.current && last.current !== hash ? imgUrl(last.current) : thumbUrl(hash, 'tile');
   return (

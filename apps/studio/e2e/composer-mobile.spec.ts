@@ -361,7 +361,7 @@ test('the shot header never overlaps itself, and collapses to one overflow on a 
     await expect(overflow).toBeVisible();
 
     await overflow.tap();
-    await expect(page.getByRole('menuitem', { name: 'Export' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Download' })).toBeVisible();
     // and the menu opens fully on screen rather than half off the right edge
     const fits = await page.evaluate(() => {
       const m = document.querySelector('[data-radix-popper-content-wrapper]');

@@ -1094,33 +1094,6 @@ describe('diff + export + settings', () => {
     expect(core.images.has(diff.json().heatmapHash)).toBe(true);
   });
 
-  it('export returns a zip with selected presets', async () => {
-    const brand = await mkBrand();
-    const { project, root } = await mkProject(brand.id);
-    const gen = await app.inject({
-      method: 'POST',
-      url: '/api/nodes',
-      payload: {
-        projectId: project.id,
-        parentId: root.id,
-        kind: 'generation',
-        prompt: 'x',
-        engineId: 'demo',
-        width: 128,
-        height: 128,
-      },
-    });
-    const node = await waitDone(gen.json().id);
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/export',
-      payload: { imageHash: node.images[0], presets: ['original', 'banner'], baseName: 'acme hero!' },
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toBe('application/zip');
-    expect(res.rawPayload.subarray(0, 2).toString()).toBe('PK');
-  });
-
   it('review fixes: null parent anchors to root; in-flight reservations enforce cap; non-PNG normalized', async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => {

@@ -14,7 +14,6 @@ import {
   Archive,
   ArrowCounterClockwise,
   ArrowsClockwise,
-  ArrowsLeftRight,
   CaretLeft,
   CaretRight,
   Check,
@@ -27,8 +26,6 @@ import {
 } from '@phosphor-icons/react';
 import { AlertDialog, Button, ContextMenu, DropdownMenu, Flex } from '@radix-ui/themes';
 import { imgUrl, nodeLabel, type Brand, type EngineInfo, type FeedNode, thumbUrl } from '../api.js';
-import { CompareDialog } from './CompareDialog.js';
-import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
 import { Tip } from './Tip.js';
 import { Composer } from './Composer.js';
@@ -199,8 +196,6 @@ export function DetailOverlay({
    *  leave holes in the prose ("holding a  in a  env"). The USING row stays
    *  the interactive statement of the same nouns. */
   const said = useMemo(() => briefProse(full ?? node, proseNames), [full, node, proseNames]);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   /** A clipboard write in flight, and the moment after one that landed. */
   const [copying, setCopying] = useState(false);
@@ -298,6 +293,26 @@ export function DetailOverlay({
       : {};
   /** On a phone the picture itself steps shots: a swipe left asks for the next. */
   const swipe = useSwipe({ onLeft: () => stepTo(1), onRight: () => stepTo(-1) });
+  // The card on an arrow shows the shot it would step to. After a step the
+  // pointer is still on the arrow and the neighbour is a new shot, so the
+  // card follows: the new neighbour at once, or nothing at the end of the
+  // walk. Keyed on the shot alone: the pointer has not moved.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the card follows the shot on the stage, not the pointer
+  useEffect(() => {
+    const shown = arrowPeek.shown;
+    if (!shown) return;
+    const n = shown.noun === 'Next shot' ? step.next : step.prev;
+    if (n?.images[0]) {
+      arrowPeek.open({
+        key: n.id,
+        src: thumbUrl(n.images[0], 'tile'),
+        label: nodeLabel(n),
+        noun: shown.noun,
+        el: shown.el,
+        id: n.id,
+      });
+    } else arrowPeek.closeNow();
+  }, [node.id]);
   // Pre-decode the tile derivative of the versions beside this one and the
   // shots either side. The stage paints that derivative under the original
   // while the original decodes, so a step to a neighbour shows a picture at
@@ -323,23 +338,6 @@ export function DetailOverlay({
     };
   }, [trail, node.id, step.prev, step.next]);
   const hash = node.images[0];
-  const stageRef = useRef<HTMLDivElement>(null);
-  // The trail under the picture is as wide as the picture and no wider,
-  // measured off the frame whichever way the frame sized itself (recorded
-  // pixels, or the image's own on an older shot) and handed to the trail
-  // as a variable. Re-armed when the picture changes, since the frame is a
-  // new element.
-  useLayoutEffect(() => {
-    const stage = stageRef.current;
-    const frame = stage?.querySelector<HTMLElement>('.sc-frame, .sc-stage-wait');
-    if (!stage || !frame) return;
-    const ro = new ResizeObserver(([e]) => {
-      const { width } = e.contentRect;
-      if (width) stage.style.setProperty('--sc-trail-w', `${Math.round(width)}px`);
-    });
-    ro.observe(frame);
-    return () => ro.disconnect();
-  }, [hash, node.status]);
   const baseName =
     node.promptHead
       .slice(0, 40)
@@ -469,11 +467,18 @@ export function DetailOverlay({
   /** The ones that act on a file, so they are only offered where there is one. */
   const fileActions: Action[] = [
     {
-      key: 'export',
-      label: 'Export',
+      key: 'download',
+      label: 'Download',
       icon: <DownloadSimple size={14} />,
-      onClick: () => setExportOpen(true),
-      dialog: true,
+      // The picture itself, as the file it is, in one click: the store
+      // serves every image as a PNG, so the name can say so without asking.
+      // This was a dialog of presets and a zip; nobody wanted the zip.
+      onClick: () => {
+        const a = document.createElement('a');
+        a.href = imgUrl(hash);
+        a.download = `${baseName}.png`;
+        a.click();
+      },
     },
     {
       key: 'keep',
@@ -493,17 +498,6 @@ export function DetailOverlay({
       busy: copying,
       said: copied ? 'Copied' : undefined,
     },
-    ...(sourceHash
-      ? [
-          {
-            key: 'compare',
-            label: 'Compare with source',
-            icon: <ArrowsLeftRight size={14} />,
-            onClick: () => setCompareOpen(true),
-            dialog: true,
-          },
-        ]
-      : []),
   ];
 
   /**
@@ -743,7 +737,6 @@ export function DetailOverlay({
           // the shot is capped so the version strip below it always has room;
           // the cap has to know whether that row is there
           data-takes={trail.length > 1 ? '' : undefined}
-          ref={stageRef}
           {...swipe}
         >
           <StageFrame
@@ -879,8 +872,8 @@ export function DetailOverlay({
               exactly what a declined brief or an unmakeable shape needs, and it
               was the one route out that a failed shot had no way to reach.
               Try again is not: the stage panel already carries it, and it knows
-              which failures re-running cannot fix. Compare, archive and delete
-              live once, in the bar over the shot. */}
+              which failures re-running cannot fix. Archive and delete live
+              once, in the bar over the shot. */}
           {(hasImage || node.brief) && (
             <div className="sc-sugg">
               {node.brief && (
@@ -957,20 +950,6 @@ export function DetailOverlay({
             </div>
           )}
         </aside>
-        <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} />
-        {parentShot && sourceHash && (
-          <CompareDialog
-            open={compareOpen}
-            onOpenChange={setCompareOpen}
-            a={parentShot}
-            b={node}
-            // the frame this refinement actually started from, so the drift
-            // figure measures the change it made rather than the distance to
-            // some other variant of the same run
-            imageA={sourceHash}
-            imageB={hash}
-          />
-        )}
       </div>
     </FocusScope>,
     document.body,

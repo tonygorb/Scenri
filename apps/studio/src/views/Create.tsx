@@ -21,7 +21,6 @@ import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { FailureRow } from '../layout/Failure.js';
 import { describeFailure, failureToast } from '../failure.js';
 import { Canvas } from '../layout/Canvas.js';
-import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
@@ -147,7 +146,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   /** Feed ordering. A machine preference, not a location, so it lives in prefs. */
   const [sortPref, setSortPref] = useLocalPref<FeedSort>(PREF.feedSort, 'newest');
   const sort: FeedSort = isFeedSort(sortPref) ? sortPref : 'newest';
-  const [compareOpen, setCompareOpen] = useState(false);
   const composerRef = useRef<ComposerHandle>(null);
   const { push } = useToasts();
   const { poke } = useTaskCenter();
@@ -595,7 +593,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   // allNodes, not shots: shots excludes archived nodes, but a selection can be
   // made from the Archived lens too — sourcing from the pages, whatever the
-  // lens, is what makes Keep/Compare/batch-delete work for that selection
+  // lens, is what makes Keep/batch-delete work for that selection
   const pickedNodes = useMemo(
     () => [...picked].map((id) => byId.get(id)).filter((n): n is FeedNode => !!n),
     [byId, picked],
@@ -690,18 +688,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       push(failureToast(e, 'Could not delete the set'));
     }
   };
-
-  /**
-   * Compare answers a question about exactly two things, so it is offered for
-   * exactly two and only when both have an image to compare. Three selected is
-   * not a comparison, and a failed shot has nothing to put on the wall.
-   */
-  const comparable = useMemo(() => {
-    if (pickedNodes.length !== 2) return null;
-    const [a, b] = pickedNodes;
-    if (a.status !== 'done' || b.status !== 'done' || !a.images[0] || !b.images[0]) return null;
-    return [a, b] as const;
-  }, [pickedNodes]);
 
   /**
    * Arrow keys walk the shots. Left and right step through the shots as they
@@ -1092,17 +1078,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         />
       </main>
 
-      {comparable && (
-        <CompareDialog
-          open={compareOpen}
-          onOpenChange={setCompareOpen}
-          a={comparable[0]}
-          b={comparable[1]}
-          imageA={comparable[0].images[0]}
-          imageB={comparable[1].images[0]}
-        />
-      )}
-
       {railOpen && <div className="sc-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
       <Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
@@ -1139,9 +1114,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             onClear={() => setPicked(new Set())}
             onKeep={() => void keepPicked()}
             allKept={pickedNodes.length > 0 && pickedNodes.every((n) => n.kept)}
-            comparable={comparable}
-            onCompare={() => setCompareOpen(true)}
-            // Keep/Compare/Add-to-set are curation actions for active work —
+            // Keep/Add-to-set are curation actions for active work —
             // an archived selection only makes sense as "bring it back" or
             // "get rid of it for good," so the whole bar swaps to that pair.
             archivedLens={lens === 'archived'}

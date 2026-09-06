@@ -1,13 +1,48 @@
 import { useEffect, useState } from 'react';
 import { api, type FeedNode, type Lineage } from '../../api.js';
 
-/** Trees remembered, by shot id. Past this the oldest is forgotten; a Map keeps insertion order. */
-const LINEAGE_CACHE_CAP = 32;
+/** Shots remembered, by id. Past this the oldest is forgotten; a Map keeps insertion order. */
+const LINEAGE_CACHE_CAP = 256;
 const cache = new Map<string, Lineage>();
-function remember(id: string, lineage: Lineage): void {
+function put(id: string, lineage: Lineage): void {
   cache.delete(id);
   cache.set(id, lineage);
   while (cache.size > LINEAGE_CACHE_CAP) cache.delete(cache.keys().next().value as string);
+}
+
+/**
+ * Where a shot sits, read off the tree it is in: its ancestors are a walk of
+ * parent ids up the history, its children and siblings a filter of it. The
+ * server's own answer for the shot says the same; this one is here first.
+ */
+function derived(history: FeedNode[], node: FeedNode): Lineage {
+  const byId = new Map(history.map((n) => [n.id, n]));
+  const ancestors: FeedNode[] = [];
+  for (
+    let p = node.parentId ? byId.get(node.parentId) : undefined;
+    p;
+    p = p.parentId ? byId.get(p.parentId) : undefined
+  ) {
+    ancestors.unshift(p);
+  }
+  return {
+    ancestors,
+    siblings: history.filter((n) => n.parentId === node.parentId),
+    children: history.filter((n) => n.parentId === node.id),
+    history,
+  };
+}
+
+/**
+ * One answer remembers the whole tree. The history holds every shot of it,
+ * so where each one sits is a derivation, not a read: stepping along the
+ * trail is then never a miss. It used to be one, and for the frame the
+ * server took to answer the strip had no history, unmounted to the held
+ * row, and came back: a flash on the first click of every version.
+ */
+function remember(id: string, lineage: Lineage): void {
+  put(id, lineage);
+  for (const n of lineage.history ?? []) if (n.id !== id) put(n.id, derived(lineage.history ?? [], n));
 }
 
 interface LineageOf {

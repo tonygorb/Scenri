@@ -52,13 +52,6 @@ export async function uploadImage(file: File): Promise<string> {
   return (await res.json()).hash as string;
 }
 
-export interface ExportPreset {
-  id: string;
-  label: string;
-  width: number | null;
-  height: number | null;
-}
-
 /**
  * A last-gasp brand save for a page that is going away.
  *
@@ -112,21 +105,6 @@ export function thumbOf<T extends string | null | undefined>(url: T, size: Thumb
   const m = STORE_IMAGE.exec(url);
   if (!m) return url;
   return (size === 'full' ? imgUrl(m[1]) : thumbUrl(m[1], size)) as T;
-}
-
-export async function downloadExport(imageHash: string, presets: string[], baseName: string) {
-  const res = await fetch('/api/export', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ imageHash, presets, baseName }),
-  });
-  if (!res.ok) throw new Error(`export failed: HTTP ${res.status}`);
-  const blob = await res.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${baseName || 'scenri-export'}.zip`;
-  a.click();
-  URL.revokeObjectURL(a.href);
 }
 
 /** True when a brand has made nothing at all yet — any status, not just done-and-imaged. Every caller pairs this with `loaded`: check `loaded` first so a cold fetch isn't mistaken for a genuinely empty brand. */

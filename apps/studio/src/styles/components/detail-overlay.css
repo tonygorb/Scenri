@@ -155,14 +155,18 @@
 }
 
 /* ---- the trail: the history read as a sequence ----
-   One box as wide as the picture (the overlay measures the frame and writes
-   the width here, whichever way the frame sized itself): a line at its left
-   edge saying where you are, and under it the tiles. */
+   One group as wide as its tiles, centred under the picture and never wider
+   than the stage: a line at its left edge saying where you are, and under it
+   the tiles. Sized by what it holds, never by the picture: a history whose
+   versions changed shape used to make the row grow and shrink with each
+   selection, which read as the row itself changing. Past the stage's width
+   it scrolls. */
 .sc-trail {
   display: grid;
   gap: var(--sc-space-4);
   justify-items: start;
-  width: min(100%, var(--sc-trail-w, 100%));
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
 }
 .sc-trail > .sc-thumbs {
@@ -383,6 +387,28 @@
 }
 .sc-stage-pic .sc-stage-img[data-ready] {
   opacity: 1;
+}
+/* While the next picture decodes it takes no part in layout: the box is
+   held at the shape it has (the recorded one, or the last picture's), and
+   the picture before stays under. At the frame it paints it steps into the
+   flow and the box takes its shape, in the same commit. */
+.sc-stage-pic .sc-stage-img:not([data-ready]) {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  object-fit: contain;
+}
+/* No box known yet, the overlay's very first picture from a shot that
+   recorded no size: the picture is its own box, at its natural size within
+   the cap. Every picture after it borrows this one's shape until its own. */
+.sc-stage-free {
+  display: inline-block;
+  max-width: 100%;
+}
+.sc-stage-free .sc-stage-img {
+  display: block;
+  width: auto;
+  max-width: 100%;
 }
 .sc-stage-pic .sc-stage-under {
   position: absolute;
@@ -822,10 +848,10 @@
 /* ---- the trail, stacked ----
    Under 1024 the panel sits right beneath the trail and its title says where
    you are, so the trail's own line is not drawn twice; the held row is a
-   tile tall. On a phone the trail runs edge to edge with the gutter as its
-   padding, the way a scrubber does, instead of boxed to a picture narrower
-   than the screen; the fades sit at the screen's edges and the first tile
-   lands on the gutter. */
+   tile tall. On a phone a long trail runs edge to edge with the gutter as
+   its padding, the way a scrubber does; a short one stays a centred group.
+   The fades sit at the screen's edges and the first tile lands on the
+   gutter. */
 @media (max-width: 1023px) {
   .sc-trail-say {
     display: none;
@@ -836,7 +862,7 @@
 }
 @media (max-width: 767px) {
   .sc-trail {
-    width: calc(100% + 2 * var(--sc-gutter));
+    max-width: calc(100% + 2 * var(--sc-gutter));
     margin-inline: calc(-1 * var(--sc-gutter));
   }
   .sc-trail > .sc-thumbs {
