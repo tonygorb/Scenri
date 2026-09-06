@@ -405,7 +405,8 @@
   width: 18px;
   height: 18px;
   flex: none;
-  border-radius: 5px;
+  /* the chip's circle, not a tile: one shape for a colour everywhere */
+  border-radius: 50%;
   box-shadow: inset 0 0 0 1px var(--sc-line-strong);
 }
 .sc-swap-swatch b {

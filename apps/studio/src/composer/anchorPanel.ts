@@ -54,6 +54,13 @@ export interface Placed {
   width: number;
   maxHeight: number;
   side: 'above' | 'below' | 'beside';
+  /**
+   * Opening above: the y the panel's bottom edge belongs at, a gap over the
+   * anchor. Pin the panel by this (`bottom`), not by `top`: top is where a
+   * panel of maxHeight would start, and a short panel placed by it floats
+   * far above its chip with nothing in between. Below has no such problem.
+   */
+  bottomEdge?: number;
 }
 
 /** Where a card's tail sits: the edge that faces the anchor, and how far along it. */
@@ -122,5 +129,32 @@ export function placePanel(a: AnchorRect, vp: Viewport, opts?: { width?: number;
   const maxHeight = Math.max(MIN_H, Math.min(PANEL_MAX_H, room));
   const left = Math.min(Math.max(a.left, MARGIN), Math.max(MARGIN, vp.width - width - MARGIN));
   const top = side === 'above' ? Math.max(MARGIN, a.top - gap - maxHeight) : a.bottom + gap;
-  return { left, top, width, maxHeight, side };
+  return side === 'above'
+    ? { left, top, width, maxHeight, side, bottomEdge: a.top - gap }
+    : { left, top, width, maxHeight, side };
+}
+
+/**
+ * The inline style for a placed panel. Above, the panel is pinned by its
+ * bottom edge (fixed `bottom` counts from the layout viewport, and
+ * getBoundingClientRect is in the same coordinates), so it hugs its chip
+ * whatever its height; below, by its top.
+ */
+export function panelStyle(pos: Placed): {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number | 'auto';
+  bottom?: number;
+} {
+  if (pos.side === 'above' && pos.bottomEdge !== undefined) {
+    return {
+      left: pos.left,
+      width: pos.width,
+      maxHeight: pos.maxHeight,
+      top: 'auto',
+      bottom: window.innerHeight - pos.bottomEdge,
+    };
+  }
+  return { left: pos.left, width: pos.width, maxHeight: pos.maxHeight, top: pos.top };
 }

@@ -269,3 +269,14 @@ describe('tailFor, above and below', () => {
     expect(t.x).toBe(20);
   });
 });
+
+describe('placePanel, opening above', () => {
+  it('says where the bottom edge belongs, so a short panel hugs its chip instead of floating at maxHeight', () => {
+    // top is anchor.top - gap - maxHeight, which only looks anchored when the
+    // panel fills its maxHeight; the colour menu is four rows and floated far
+    // above its chip. A caller pins the bottom edge instead.
+    const p = placePanel({ top: 800, bottom: 822, left: 60, right: 120 }, { width: 1440, height: 900 });
+    expect(p?.side).toBe('above');
+    expect(p?.bottomEdge).toBe(800 - 8);
+  });
+});

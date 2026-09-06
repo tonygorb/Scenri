@@ -3506,3 +3506,47 @@ test.describe('the attach picker', () => {
     expect(page.url()).toBe(url);
   });
 });
+
+test('a colour chip wears its colour as the same circle a picture chip wears, and its menu hugs the chip', async ({
+  page,
+}) => {
+  await line(page).click();
+  await page.keyboard.type('#');
+  await expect(page.locator('.sc-cmd-swatch').first()).toBeVisible();
+  await page.locator('.sc-cmd-row').first().click();
+  const chip = chips(page)
+    .filter({ has: page.locator('.sc-token-swatch') })
+    .first();
+  await expect(chip).toBeVisible();
+  // The swatch used to be a 0.88em rounded square beside labels whose
+  // picture chips carry a 1.6em circle; one size, one shape, for every chip.
+  const swatch = await chip.locator('.sc-token-swatch').evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const chipFont = Number.parseFloat(getComputedStyle(el.parentElement as HTMLElement).fontSize);
+    return {
+      w: el.getBoundingClientRect().width,
+      h: el.getBoundingClientRect().height,
+      radius: cs.borderRadius,
+      thumb: chipFont * 1.6,
+    };
+  });
+  expect(Math.abs(swatch.w - swatch.h)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(swatch.w - swatch.thumb)).toBeLessThanOrEqual(1);
+  expect(swatch.radius).toBe('50%');
+
+  // The menu opens above the composer; its bottom edge sits a breath over the
+  // chip, however short the menu is. It used to be placed by its top at the
+  // panel's maximum height, so four rows floated far up the screen.
+  await chip.click();
+  const menu = page.locator('.sc-swap[data-kind="color"]');
+  await expect(menu).toBeVisible();
+  const gap = await page.evaluate(() => {
+    const m = document.querySelector('.sc-swap[data-kind="color"]')!.getBoundingClientRect();
+    const c = document
+      .querySelector('.sc-brief-line .sc-token .sc-token-swatch')!
+      .parentElement!.getBoundingClientRect();
+    return c.top - m.bottom;
+  });
+  expect(gap).toBeGreaterThanOrEqual(4);
+  expect(gap).toBeLessThanOrEqual(16);
+});

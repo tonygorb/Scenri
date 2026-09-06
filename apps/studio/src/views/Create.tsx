@@ -103,6 +103,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   /** The composer's identity ceiling, for the rail beside it: the same sentence, the same dimming. */
   const [ceiling, setCeiling] = useState<string | null>(null);
   const [remixBrief, setRemixBrief] = useState<any>(null);
+  const focusAfterRemix = useRef(false);
+  useEffect(() => {
+    if (!focusAfterRemix.current || nodeId) return;
+    focusAfterRemix.current = false;
+    // after paint: the composer has taken the brief in its own effect by now
+    const raf = requestAnimationFrame(() => composerRef.current?.focus());
+    return () => cancelAnimationFrame(raf);
+  }, [nodeId, remixBrief]);
   /** Which use case is sitting in the brief right now, so its card can say so. */
   const [stagedId, setStagedId] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -915,12 +923,29 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     keep: (n) => void keep(n),
     reload,
     remix: (n) => {
-      setRemixBrief({ ...n.brief, _at: Date.now() });
+      // A shot from before briefs existed, or one made through the API, has a
+      // brief with no tokens. Its sentence is still a setup worth starting
+      // from, so the prompt (the feed carries only its head) becomes the one
+      // text token; without this the composer opened empty.
+      const own = n.brief?.tokens;
+      const text = (n as FeedNode & { prompt?: string }).prompt ?? n.promptHead;
+      const brief = own?.length || !text ? n.brief : { ...n.brief, tokens: [{ t: 'text' as const, v: text }] };
+      setRemixBrief({ ...brief, _at: Date.now() });
       // durable against a reload landing between this click and the hub
       // Composer actually consuming the live prop above: the same persisted
       // per-brand draft record loadDraft() already restores from on mount
-      if (n.brief) saveDraft(brand.id, { tokens: briefTokens(n.brief), tplFields: n.brief.templateFields ?? {} });
+      if (brief) saveDraft(brand.id, { tokens: briefTokens(brief), tplFields: brief.templateFields ?? {} });
       closeShot();
+      // Say where the composer's new contents came from, the way an example
+      // does, and put the caret there: the next thing to do is change it. The
+      // focus waits for the shot to be gone (an effect below), because the
+      // overlay still holds focus now and takes it to body when it unmounts.
+      push({
+        kind: 'success',
+        title: 'Starting from this shot',
+        detail: 'Its prompt, chips and settings are in the composer. Change anything, then Generate.',
+      });
+      focusAfterRemix.current = true;
     },
     // branching closes the overlay on purpose: the next thing you do is judge
     // the shot you are changing against everything else, and you cannot do

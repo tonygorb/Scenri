@@ -29,6 +29,7 @@ export function BriefLine({
   brand,
   saidRef,
   expanded,
+  clamped,
 }: {
   brief: FeedNode['brief'];
   /** The compiled prompt, the only record shots made before briefs have. */
@@ -38,6 +39,8 @@ export function BriefLine({
   saidRef?: Ref<HTMLDivElement>;
   /** Whether the caller's more-toggle has released the clamp. */
   expanded?: boolean;
+  /** Whether the clamp is biting, so the last row can dissolve into the release. */
+  clamped?: boolean;
 }) {
   const { scenes, presenters, demoProducts } = useAppData();
   const peek = useIngredientPeek('.sc-ingredient');
@@ -242,7 +245,13 @@ export function BriefLine({
 
   return (
     <>
-      <div ref={saidRef} className="sc-brief-said" data-expanded={expanded || undefined} dir="auto">
+      <div
+        ref={saidRef}
+        className="sc-brief-said"
+        data-expanded={expanded || undefined}
+        data-clamped={clamped || undefined}
+        dir="auto"
+      >
         {spaced.length ? spaced : prompt || ''}
       </div>
       {peek.surface}
