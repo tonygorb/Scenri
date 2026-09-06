@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
 import { thumbUrl } from '../../api.js';
 import { briefProse, type ProseNames } from '../../briefDiff.js';

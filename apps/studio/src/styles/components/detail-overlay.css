@@ -556,6 +556,13 @@
   flex-wrap: wrap;
   gap: var(--sc-space-2);
 }
+/* the line that says what the group under it is; a whole row of its own */
+.sc-brief-carried-lb {
+  flex-basis: 100%;
+  font-size: var(--sc-text-caption);
+  line-height: 14px;
+  color: var(--sc-fg3);
+}
 .sc-brief-said:not(:empty) + .sc-brief-carried {
   margin-top: var(--sc-space-3);
 }
@@ -564,8 +571,9 @@
   margin: 0 1px;
 }
 /* One voice for every chip in the record: what was asked for and what was
-   carried read the same — the distinction lives in the title, not in three
-   competing chip styles between an initial shot and its refinements. */
+   carried read the same, and the distinction lives in the line over the
+   carried group, not in competing chip styles between an initial shot and
+   its refinements. */
 .sc-brief-record .sc-ingredient[data-inherited],
 .sc-brief-record .sc-ingredient[data-world] {
   background: var(--sc-token-bg);

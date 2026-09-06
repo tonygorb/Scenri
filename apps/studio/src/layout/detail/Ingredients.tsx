@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { type Brand, type FeedNode, thumbUrl, assetThumbUrl, thumbOf } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
 import { findIngredient } from '../../composer/ingredientOptions.js';
 import { isPreviewKind } from '../../composer/ChipPreview.js';
-import type { SourceItem } from '../../composer/SourceCards.js';
 import { mergeCarried, normalizeTint } from '../../composer/line.js';
 import { vibrantTintOf } from '../../composer/sceneTint.js';
 import { type PeekAt, useIngredientPeek } from '../../composer/useIngredientPeek.js';
@@ -32,7 +31,6 @@ export function BriefLine({
   worldTemplateId,
   saidRef,
   expanded,
-  hideCarried,
 }: {
   brief: FeedNode['brief'];
   /** The compiled prompt, the only record shots made before briefs have. */
@@ -49,13 +47,6 @@ export function BriefLine({
    * refine keeps. Display only, resolved by the caller from the lineage.
    */
   worldTemplateId?: string | null;
-  /**
-   * The sidebar's header already names the carried identities and the world
-   * as the source's own cards. Saying them again here is duplication, so
-   * carried products, presenters, scenes and the world chip leave the record;
-   * carried marks and references have no card up there and stay.
-   */
-  hideCarried?: boolean;
 }) {
   const { scenes, presenters, demoProducts } = useAppData();
   const peek = useIngredientPeek('.sc-ingredient');
@@ -276,11 +267,8 @@ export function BriefLine({
   // they already name the carried identities and the world, so those leave
   // this row; a carried mark or reference has no card up there and would be
   // said nowhere, so it stays.
-  const trailing: Chip[] = merged.carried
-    .map((t: any) => chipOf(t, true))
-    .filter((c: Chip | null): c is Chip => !!c)
-    .filter((c: Chip) => !hideCarried || (c.kind !== 'product' && c.kind !== 'presenter' && c.kind !== 'scene'));
-  if (worldTemplateId && !hideCarried) {
+  const trailing: Chip[] = merged.carried.map((t: any) => chipOf(t, true)).filter((c: Chip | null): c is Chip => !!c);
+  if (worldTemplateId) {
     const s = ownScenes.find((x) => x.id === worldTemplateId) ?? scenes.find((x) => x.id === worldTemplateId);
     if (s) {
       trailing.push({
@@ -310,76 +298,16 @@ export function BriefLine({
       <div ref={saidRef} className="sc-brief-said" data-expanded={expanded || undefined} dir="auto">
         {spaced.length ? spaced : prompt || ''}
       </div>
-      {trailing.length > 0 && <div className="sc-brief-carried">{trailing.map((c) => renderChip(c))}</div>}
+      {/* What rode along from the shot this one refines, said as such: the
+          ask above is what changed, these are what stayed. Without the line
+          the two groups read as one list said twice. */}
+      {trailing.length > 0 && (
+        <div className="sc-brief-carried">
+          <span className="sc-brief-carried-lb">Carried over</span>
+          {trailing.map((c) => renderChip(c))}
+        </div>
+      )}
       {peek.surface}
     </>
   );
-}
-
-/**
- * What a picture is made of, resolved from its lineage tokens (nearest level
- * first) against the catalogs, the same way the brief record resolves its
- * chips. Products and presenters accumulate; only the nearest scene is the
- * picture's world, so the first one wins and the rest are history.
- */
-export function useSourceItems(brand: Brand | null, tokens: unknown[]): SourceItem[] {
-  const { scenes, presenters, demoProducts } = useAppData();
-  return useMemo(() => {
-    const products: any[] = (brand?.json?.products ?? []) as any[];
-    const cast: any[] = (brand?.json?.characters ?? []) as any[];
-    const sources = { products, demoProducts, cast, presenters, scenes: [...customScenesOf(brand), ...scenes] };
-    const itemOf = (t: any): SourceItem | null => {
-      const found = findIngredient(t, sources);
-      if (found?.kind === 'product') {
-        const { product: p, demo } = found;
-        if (!p && !demo) return null;
-        return {
-          key: `p${t.id}`,
-          kind: 'product',
-          label: p?.name ?? demo?.name ?? 'product',
-          thumb: p ? assetThumbUrl(p?.shots?.[0]?.file, 'micro') : (demo?.previewUrl ?? null),
-          to: brand ? productPath(brand, t.id) : undefined,
-        };
-      }
-      if (found?.kind === 'presenter') {
-        const { character: c, presenter: pr } = found;
-        if (!c && !pr) return null;
-        const av = c ? characterAvatar(c) : pr ? presenterAvatar(pr) : { src: null as string | null };
-        const pid = pr?.id ?? c?.presenterId ?? (c?.origin === 'custom' ? c.id : undefined);
-        return {
-          key: `h${t.id}`,
-          kind: 'presenter',
-          label: c?.name ?? pr?.name ?? 'someone',
-          thumb: av.src,
-          crop: av.crop,
-          to: brand && pid ? presenterPath(brand, pid) : undefined,
-        };
-      }
-      if (found?.kind === 'scene') {
-        const s = found.scene;
-        if (!s) return null;
-        return {
-          key: `t${t.id}`,
-          kind: 'scene',
-          label: s.name,
-          thumb: s.previewUrl ?? null,
-          to: brand ? scenePath(brand, s.id) : undefined,
-        };
-      }
-      return null;
-    };
-    const seen = new Set<string>();
-    const items: SourceItem[] = [];
-    let sceneNamed = false;
-    for (const t of tokens as any[]) {
-      if (t?.t === 'template' && sceneNamed) continue;
-      const it = itemOf(t);
-      if (!it || seen.has(it.key)) continue;
-      if (it.kind === 'scene') sceneNamed = true;
-      seen.add(it.key);
-      items.push(it);
-    }
-    items.sort(byContextOrder);
-    return items;
-  }, [brand, tokens, scenes, presenters, demoProducts]);
 }

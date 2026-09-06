@@ -31,7 +31,7 @@ import { Tip } from './Tip.js';
 import { Composer } from './Composer.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
-import { briefProse, sourceImageOf } from '../briefDiff.js';
+import { briefProse } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
@@ -43,7 +43,7 @@ import { useSwipe } from './detail/useSwipe.js';
 import { neighborsOf } from '../feedRules.js';
 import { ChipPreview } from '../composer/ChipPreview.js';
 import { useHoverPreview } from '../composer/useHoverPreview.js';
-import { BriefLine, useSourceItems } from './detail/Ingredients.js';
+import { BriefLine } from './detail/Ingredients.js';
 import { useLineageOf } from './detail/useLineageOf.js';
 import { useFullNode } from './detail/useFullNode.js';
 import { PREF, useLocalPref } from '../prefs.js';
@@ -126,7 +126,7 @@ export function DetailOverlay({
 }) {
   // One small indexed query each: the tree around this shot, and the whole
   // record behind its summary. Neither is waited for; the summary draws now.
-  const { ancestors, children, history, parentShot } = useLineageOf(node);
+  const { ancestors, children, history } = useLineageOf(node);
   const full = useFullNode(node);
   /** What the engine that ran this is called, so a failure can name it in a sentence. */
   const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
@@ -136,8 +136,6 @@ export function DetailOverlay({
   const dragX = useRef(0);
   const dragRaf = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
-  /** The image this refinement was made from, not merely the run's first. */
-  const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
   /**
    * The scene this thread was shot in, for a refinement that names none of
    * its own: a refine keeps its world through the photograph, never as a
@@ -153,27 +151,6 @@ export function DetailOverlay({
     }
     return null;
   }, [node, ancestors]);
-  /**
-   * What this refinement carried in: the source picture's contents, read
-   * down the ancestors nearest level first. Never this shot's own brief:
-   * what it asked for is the record above, and the band saying it again is
-   * the duplication the two surfaces exist to avoid. A refine's own brief
-   * can be bare text at every level, and older shots recorded no inherited
-   * list at all, so any single brief loses the identities two levels down;
-   * the walk is the one place the picture's contents can always be read
-   * from.
-   */
-  const sourceTokens = useMemo(() => {
-    if (node.kind !== 'edit') return [];
-    const out: unknown[] = [];
-    for (let i = ancestors.length - 1; i >= 0; i--) {
-      const b = ancestors[i].brief as { tokens?: unknown[]; inherited?: unknown[] } | null;
-      out.push(...(b?.tokens ?? []), ...(b?.inherited ?? []));
-    }
-    return out;
-  }, [node.kind, ancestors]);
-  /** The same contents as cards, for the composer's band. */
-  const sourceItems = useSourceItems(brand, sourceTokens);
   /** Whether the brief line has any chips to say: mirrors BriefLine's own
    *  null condition, so a token-less legacy shot never shows a bare label. */
   const hasContext = useMemo(() => {
@@ -297,7 +274,6 @@ export function DetailOverlay({
   // pointer is still on the arrow and the neighbour is a new shot, so the
   // card follows: the new neighbour at once, or nothing at the end of the
   // walk. Keyed on the shot alone: the pointer has not moved.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the card follows the shot on the stage, not the pointer
   useEffect(() => {
     const shown = arrowPeek.shown;
     if (!shown) return;
@@ -842,8 +818,6 @@ export function DetailOverlay({
                   worldTemplateId={worldTemplateId}
                   saidRef={briefRef}
                   expanded={briefOpen}
-                  // the header's source cards already say what was carried
-                  hideCarried={node.kind === 'edit' && !!parentShot && !!sourceHash}
                 />
               </div>
               {(briefOverflows || briefOpen) && (
@@ -917,7 +891,6 @@ export function DetailOverlay({
               island's own surface says where the work area starts. */}
               <Composer
                 variant="overlay"
-                sourceItems={sourceItems}
                 projectId={projectId}
                 brand={brand}
                 engines={engines}

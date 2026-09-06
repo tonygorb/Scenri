@@ -25,7 +25,6 @@ import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import type { PreviewKind } from '../composer/ChipPreview.js';
 import { RefineChip } from '../composer/RefineChip.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
-import { SourceCards, type SourceItem } from '../composer/SourceCards.js';
 import {
   CEILING_SENTENCE,
   IDENTITY_CAP,
@@ -178,14 +177,10 @@ export const Composer = forwardRef<
     /**
      * Which shell this composer wears. The overlay variant is the shot
      * detail's refine composer: 300px wide, engine select folded into More,
-     * and a "Carrying" strip stating what the refinement inherits.
+     * and no band of its own: the record above the field states what the
+     * refinement carries.
      */
     variant?: 'dock' | 'overlay';
-    /**
-     * What the picture being refined is made of, for the overlay's band: the
-     * shot detail resolves it from the lineage, the composer only wears it.
-     */
-    sourceItems?: SourceItem[];
   }
 >(function Composer(
   {
@@ -211,11 +206,11 @@ export const Composer = forwardRef<
     onRestoreBranchId,
     setSlug,
     persistDraft = true,
-    // The shell decides more than styling: the overlay's band wears the
-    // source cards and never the Refining chip, and scenes sit out only on
-    // the hub (see scenesSitOut and the target band below).
+    // The shell decides more than styling: the overlay never wears the
+    // Refining chip (the record above it says what is being refined), and
+    // scenes sit out only on the hub (see scenesSitOut and the target band
+    // below).
     variant = 'dock',
-    sourceItems,
   },
   handleRef,
 ) {
@@ -1306,16 +1301,10 @@ export const Composer = forwardRef<
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}
-        {variant === 'overlay' && sourceItems && sourceItems.length > 0 && (
-          <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            <SourceCards items={sourceItems} />
-            {targetNote && <small className="sc-target-note">{targetNote}</small>}
-          </div>
-        )}
         {/* Where there is no band to carry it, the note still has to be said:
             inside an open shot this is the only sign that what is about to
             happen is a new shot rather than a change to the one on screen. */}
-        {branchable && !onClearTarget && targetNote && !(variant === 'overlay' && sourceItems?.length) && (
+        {branchable && !onClearTarget && targetNote && (
           <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         {/* The inferred op, stated in two words. The old fieldset asked the

@@ -2282,15 +2282,12 @@ test('a refinement records what it carried, and the shot detail says it', async 
   await expect(page.locator('.sc-ingredient[data-inherited][data-kind="ref"]')).toBeVisible();
   // and the BRIEF reads as the sentence that was typed
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
-  // context is stated once, at the top of the record: the composer's old
-  // carried strip is gone, and the record itself names the world the thread
-  // was shot in — a scene never rides a refine as a reference, the photo
-  // carries it
+  // context is stated once, in the record: the composer carries no band of
+  // its own, and the record names the world the thread was shot in — a
+  // scene never rides a refine as a reference, the photo carries it
   await expect(page.locator('.sc-ovl-edit .sc-carried')).toHaveCount(0);
-  // the header's source cards name the world the thread was shot in; the
-  // record repeats nothing the header already says
-  await expect(page.locator('.sc-source-chip', { hasText: made.sceneName })).toBeVisible();
-  await expect(page.locator('.sc-ingredient[data-world]')).toHaveCount(0);
+  await expect(page.locator('.sc-ovl-edit .sc-source-chip')).toHaveCount(0);
+  await expect(page.locator('.sc-ingredient[data-world]', { hasText: made.sceneName })).toHaveCount(1);
 });
 
 test("spaces typed after a chip are the user's, every one of them", async ({ page }) => {
@@ -3230,9 +3227,7 @@ test('the shot record reads each ingredient once, and names the world it keeps',
   // copy wins, the carried angle twin collapses into it
   await expect(page.locator('.sc-ingredient[data-kind="product"]')).toHaveCount(1);
   await expect(page.locator('.sc-ingredient[data-kind="product"]')).not.toHaveAttribute('data-inherited', /.*/);
-  // The header's source cards name the world the thread was shot in: the
-  // refine never re-sends the scene, the photograph carries it, and the
-  // record repeats nothing the header already says.
-  await expect(page.locator('.sc-source-chip', { hasText: made.sceneName })).toBeVisible();
-  await expect(page.locator('.sc-ingredient[data-world]')).toHaveCount(0);
+  // The record names the world the thread was shot in, once: the refine
+  // never re-sends the scene, the photograph carries it.
+  await expect(page.locator('.sc-ingredient[data-world]', { hasText: made.sceneName })).toHaveCount(1);
 });
