@@ -109,11 +109,13 @@ test("the strip is the root's whole history, whichever version is on the stage",
   await expect.poll(() => stripSrcs(page)).toEqual([shots.b, shots.b1, shots.b2].map(thumbOf));
   expect(await pressedIn(page, '.sc-thumbs')).toBe(thumbOf(shots.b));
 
-  // the row reads as a trail: the original, then each refinement by number,
-  // and every tile says its step and what that step asked for
-  const labels = () => page.locator('.sc-thumbs .sc-trail-label').allTextContents();
+  // the row reads as a trail: the original set apart by a hairline, the
+  // refinements after it, one line saying where you are, and every tile
+  // saying its step and what that step asked for
+  const say = page.locator('.sc-trail-say');
   const tile = (i: number) => page.locator('.sc-thumbs .sc-trail-tile').nth(i);
-  await expect.poll(labels).toEqual(['Original', '1', '2']);
+  await expect(say).toHaveText('Original');
+  await expect(page.locator('.sc-thumbs .sc-trail-tile[data-original]')).toHaveCount(1);
   await expect(tile(0)).toHaveAttribute('aria-label', /^Original: /);
   await expect(tile(1)).toHaveAttribute('aria-label', 'Refinement 1: warmer light');
   await expect(page.locator('.sc-ovl-head b')).toHaveText('Shot');
@@ -125,6 +127,7 @@ test("the strip is the root's whole history, whichever version is on the stage",
   expect(await pressedIn(page, '.sc-thumbs')).toBe(thumbOf(shots.b1));
   expect(await pressedIn(page, '.sc-rail')).toBe(thumbOf(shots.b1));
   await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 1');
+  await expect(say).toHaveText('Refinement 1 of 2');
 
   // the keys walk the trail from the ringed tile; a step made from an earlier
   // one than the tile before it says so on its card (B2 was made from B, not B1)
@@ -136,18 +139,19 @@ test("the strip is the root's whole history, whichever version is on the stage",
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.b2.id}$`));
   await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 2');
+  await expect(say).toHaveText('Refinement 2 of 2');
 
   // another root from the rail: its own history, and none of B's
   await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.d)}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.d.id}$`));
   await expect.poll(() => stripSrcs(page)).toEqual([shots.d, shots.d1].map(thumbOf));
-  await expect.poll(labels).toEqual(['Original', '1']);
+  await expect(say).toHaveText('Original');
 
   // a root with no history shows no versions, and the row is held so the stage does not move
   await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.a)}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
   await expect(page.locator('.sc-thumbs .sc-thumb-btn')).toHaveCount(0);
-  await expect(page.locator('.sc-thumbs-empty')).toHaveCount(1);
+  await expect(page.locator('.sc-trail-empty')).toHaveCount(1);
 });
 
 test('the rail is the feed, and the arrows, the keys and the wheel walk it', async ({ page }) => {

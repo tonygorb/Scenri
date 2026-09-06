@@ -29,7 +29,7 @@ import { AlertDialog, Button, ContextMenu, DropdownMenu, Flex } from '@radix-ui/
 import { imgUrl, nodeLabel, type Brand, type EngineInfo, type FeedNode, thumbUrl } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
-import { StageFrame, stagePictureVars } from './Stage.js';
+import { StageFrame } from './Stage.js';
 import { Tip } from './Tip.js';
 import { Composer } from './Composer.js';
 import { useToasts } from '../toasts.js';
@@ -305,8 +305,25 @@ export function DetailOverlay({
     };
   }, [trail, node.id, step.prev, step.next]);
   const hash = node.images[0];
-  /** The picture's ratio and width, on the stage too, so the trail can be as wide as the picture and no wider. */
-  const picVars = useMemo(() => (hash ? stagePictureVars(node) : null), [hash, node]);
+  const stageRef = useRef<HTMLDivElement>(null);
+  // The trail under the picture is as wide as the picture and no wider,
+  // measured off the frame whichever way the frame sized itself (recorded
+  // pixels, or the image's own on an older shot) and handed to the trail
+  // as a variable, with the picture's shape for tiles that recorded none.
+  // Re-armed when the picture changes, since the frame is a new element.
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    const frame = stage?.querySelector<HTMLElement>('.sc-frame, .sc-stage-wait');
+    if (!stage || !frame) return;
+    const ro = new ResizeObserver(([e]) => {
+      const { width, height } = e.contentRect;
+      if (!width) return;
+      stage.style.setProperty('--sc-trail-w', `${Math.round(width)}px`);
+      if (height) stage.style.setProperty('--sc-trail-ar', String(width / height));
+    });
+    ro.observe(frame);
+    return () => ro.disconnect();
+  }, [hash, node.status]);
   const baseName =
     node.promptHead
       .slice(0, 40)
@@ -710,8 +727,7 @@ export function DetailOverlay({
           // the shot is capped so the version strip below it always has room;
           // the cap has to know whether that row is there
           data-takes={trail.length > 1 ? '' : undefined}
-          data-pic={picVars ? '' : undefined}
-          style={picVars ?? undefined}
+          ref={stageRef}
           {...swipe}
         >
           <StageFrame
@@ -722,16 +738,16 @@ export function DetailOverlay({
             menu={stageMenu}
           />
           {/* The image's own history, right under the image: the original,
-              this shot ringed, and its refinements, each under its number.
-              Hovering peeks a step at a readable size with what it asked
-              for; clicking moves the stage to it. */}
+              a hairline, its refinements, this shot ringed, and one line
+              saying where you are. Hovering peeks a step at a readable size
+              with what it asked for; clicking moves the stage to it. */}
           {trail.length > 1 ? (
             <LineageStrip trail={trail} activeId={node.id} names={proseNames} onSelect={onSelect} />
           ) : (
             // The row is held even with nothing in it: the picture's cap and
             // its centre are the same on a shot with a history and one
             // without, so walking the feed never resizes the stage.
-            <div className="sc-thumbs sc-thumbs-empty" aria-hidden />
+            <div className="sc-trail sc-trail-empty" aria-hidden />
           )}
         </div>
 

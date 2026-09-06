@@ -24,6 +24,12 @@ function recordedSize(node: FeedNode): [number, number] | null {
  * the stage as well, so the trail under the picture can wear the picture's
  * own width. Null for a shot that recorded no size, which sizes the old way.
  */
+/** The picture's recorded ratio, or null for a shot that recorded no size. */
+export function recordedRatio(node: FeedNode): number | null {
+  const size = recordedSize(node);
+  return size ? size[0] / size[1] : null;
+}
+
 export function stagePictureVars(node: FeedNode): CSSProperties | null {
   const size = recordedSize(node);
   return size ? ({ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties) : null;

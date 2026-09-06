@@ -103,14 +103,11 @@
 .sc-thumbs::-webkit-scrollbar {
   display: none;
 }
-/* The row held with nothing in it: the trail's own height, and no more. The
-   strip's own box is a 52px tile, a 4px gap and a 12px label inside 4px of
-   padding pulled back by a 4px negative margin; a plain box measured 8px
-   short of that and moved the picture by four. Content-box makes the two
-   boxes the same. */
-.sc-thumbs-empty {
-  box-sizing: content-box;
-  height: 68px;
+/* The row held with nothing in it: the trail's own height, and no more
+   (the line, its gap, and a 52px tile), so a step from a shot with a
+   history to one without never moves the picture. */
+.sc-trail-empty {
+  height: 74px;
 }
 .sc-thumb-btn {
   padding: 0;
@@ -158,28 +155,55 @@
 }
 
 /* ---- the trail: the history read as a sequence ----
-   The tile and, under it, its place: "Original" under the first, a numeral
-   under each refinement, inside the button so the word is part of the
-   target. The label is quiet ink except under the ringed tile, where it is
-   the answer to "which one". The numeral row is the whole orientation cue;
-   no caption above the row, no arrows between the tiles. */
+   One box as wide as the picture (the overlay measures the frame and writes
+   the width here, whichever way the frame sized itself): a line at its left
+   edge saying where you are, and under it the tiles. */
+.sc-trail {
+  display: grid;
+  gap: var(--sc-space-4);
+  justify-items: start;
+  width: min(100%, var(--sc-trail-w, 100%));
+  min-width: 0;
+}
+.sc-trail > .sc-thumbs {
+  justify-self: stretch;
+}
+.sc-trail-say {
+  font-size: var(--sc-text-caption);
+  line-height: 14px;
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
 .sc-trail-tile {
   flex: none;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  line-height: normal;
+  position: relative;
 }
-.sc-trail-label {
-  font-size: var(--sc-text-micro);
-  line-height: 12px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--sc-fg3);
+/* Each tile is the picture at its own shape, 52px tall, not a square crop:
+   the row reads as that picture's versions. The rail's tiles stay square,
+   which is one more way the two axes look unalike. Bounded, so a panorama
+   does not take the row. */
+.sc-trail-pic {
+  width: auto;
+  height: 52px;
+  /* its own recorded shape, else the shape of the picture on the stage */
+  aspect-ratio: var(--sc-tile-ar, var(--sc-trail-ar, 1));
+  max-width: 78px;
+  min-width: 34px;
 }
-.sc-trail-tile[aria-pressed="true"] .sc-trail-label {
-  color: var(--sc-fg);
+/* The original stands apart from what was made of it: a hairline after it,
+   with a breath on each side. The one structural mark the row carries. */
+.sc-trail-tile[data-original] {
+  margin-right: 17px;
+}
+.sc-trail-tile[data-original]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -13px;
+  width: 1px;
+  height: 24px;
+  transform: translateY(-50%);
+  background: var(--sc-line-strong);
 }
 /* More trail past an edge: a fade over that edge, the rail's own, and only
    there; a row that fits is not faded. The strip sets which from a
@@ -196,14 +220,6 @@
 }
 .sc-thumbs[data-more="both"] {
   mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
-}
-/* The trail wears the picture's width: the same formula the frame sizes
-   itself by (the stage carries the picture's ratio and pixels), so the row
-   starts and ends where the picture does and reads as that picture's
-   history rather than as a shelf across the stage. A shot that recorded no
-   pixels runs the stage's width, as before. */
-.sc-ovl-stage[data-pic] .sc-thumbs {
-  max-width: calc(min(100%, calc(var(--sc-stage-cap) * var(--sc-pic-ar, 1)), var(--sc-pic-w, 100%)) + 8px);
 }
 
 /* ---- the rail: the other shots in the feed you came from ----
@@ -346,7 +362,7 @@
   /* One cap whether the strip has versions in it or not: the row under the
      picture is held either way, so a step from a shot with a history to one
      without never resizes or re-centres the stage. */
-  --sc-stage-cap: max(calc(100dvh - 216px), 280px);
+  --sc-stage-cap: max(calc(100dvh - 222px), 280px);
 }
 .sc-ovl-stage img {
   max-height: var(--sc-stage-cap);
@@ -637,7 +653,7 @@
      spend the whole viewport and the panel below kept a 100px sliver. */
   .sc-ovl-stage {
     /* one cap, the row under the picture held either way, as on a desktop */
-    --sc-stage-cap: max(calc(100dvh - 426px), 260px);
+    --sc-stage-cap: max(calc(100dvh - 432px), 260px);
   }
   .sc-ovl-meta {
     max-height: 48vh;
@@ -710,7 +726,7 @@
     --sc-stage-cap: max(44dvh, 260px);
   }
   /* a phone's column scrolls; an empty row there is room taken from the picture */
-  .sc-thumbs-empty {
+  .sc-trail-empty {
     display: none;
   }
   .sc-ovl-stage .sc-frame,

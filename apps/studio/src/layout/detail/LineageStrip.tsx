@@ -1,24 +1,33 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
 import { thumbUrl } from '../../api.js';
 import { briefProse, type ProseNames } from '../../briefDiff.js';
 import { ChipPreview } from '../../composer/ChipPreview.js';
 import { useHoverPreview } from '../../composer/useHoverPreview.js';
+import { recordedRatio } from '../Stage.js';
 import type { TrailStep } from './historyRules.js';
 
 /** The fade over an edge with more trail past it; the stylesheet draws it at the same width. */
 const FADE_PX = 28;
 
 /**
- * The image's history as a trail under the stage: the original first, every
- * refinement after it in the order they were made, the one on the stage
- * ringed. Under each tile its place in the trail, "Original" or a number, so
- * the row reads as a sequence and not as a pile of pictures: the ring says
- * where you are, the numeral which, the last numeral how many, the first
- * word where it began. Hovering or focusing a tile peeks it at a readable
- * size with what that step asked for; clicking moves the stage to it. Past
- * the stage's width the trail scrolls, the ringed step is kept in view, and
- * a fade says there is more.
+ * The image's history as a trail under the stage: the original, a hairline,
+ * then every refinement in the order it was made, the one on the stage
+ * ringed. Each tile is the picture at its own shape, not a square crop, so
+ * the row reads as that picture's versions and not as another gallery (the
+ * rail beside the stage is the feed, and its tiles are square). One line at
+ * the picture's left edge says where you are, "Original" or "Refinement 4 of
+ * 6"; no numeral under any tile. Hovering or focusing a tile peeks it at a
+ * readable size with its name and what that step asked for; clicking moves
+ * the stage to it. Past the picture's width the trail scrolls, the ringed
+ * step is kept in view, and a fade says there is more.
  *
  * One hover peek for the whole trail, owned here rather than by the overlay:
  * shared, so moving between two tiles switches the card at once instead of
@@ -140,9 +149,14 @@ export function LineageStrip({
 
   // one tab stop: the ringed step, or the first when the stage holds something the trail does not
   const stop = trail.some((s) => s.node.id === activeId) ? activeId : trail[0]?.node.id;
+  /** Where you are, in one line: the step on the stage and how many refinements there are. */
+  const here = trail.find((s) => s.node.id === activeId);
+  const last = trail[trail.length - 1]?.index ?? 0;
+  const say = !here ? '' : here.index === 0 ? 'Original' : `Refinement ${here.index} of ${last}`;
 
   return (
-    <>
+    <div className="sc-trail">
+      {say && <span className="sc-trail-say">{say}</span>}
       <nav
         ref={ref}
         className="sc-thumbs"
@@ -154,22 +168,26 @@ export function LineageStrip({
           const n = s.node;
           const active = n.id === activeId;
           const pending = s.state === 'pending';
+          const ratio = recordedRatio(n);
+          const shape = ratio ? ({ '--sc-tile-ar': ratio } as CSSProperties) : undefined;
           return (
             <button
               type="button"
-              key={s.node.id}
+              key={n.id}
               className="sc-thumb-btn sc-trail-tile"
+              // the original stands apart from what was made of it: a hairline after it
+              data-original={s.index === 0 && trail.length > 1 ? '' : undefined}
               // the step's name and what it asked for, so a reader hears the
               // history the tiles show; the name alone when nothing was recorded
               aria-label={said[i] ? `${s.label}: ${said[i]}` : s.label}
               aria-pressed={active}
               aria-disabled={pending || undefined}
-              tabIndex={s.node.id === stop ? 0 : -1}
+              tabIndex={n.id === stop ? 0 : -1}
               onClick={() => {
                 // a picture that is not there yet cannot be looked at; the tile fills in when it lands
                 if (pending) return;
                 peek.closeNow();
-                onSelect(s.node.id);
+                onSelect(n.id);
               }}
               onPointerEnter={(e) => e.pointerType === 'mouse' && s.state === 'ready' && peekAt(s, i, e.currentTarget)}
               onPointerLeave={(e) => e.pointerType === 'mouse' && peek.close()}
@@ -181,23 +199,22 @@ export function LineageStrip({
                 <img
                   src={thumbUrl(n.images[0], 'micro')}
                   alt=""
-                  className="sc-thumb"
+                  className="sc-thumb sc-trail-pic"
+                  style={shape}
                   loading="lazy"
                   decoding="async"
                   data-active={active}
-                  width={52}
                   height={52}
                 />
               ) : pending ? (
-                <span className="sc-thumb sc-thumb-wait" data-active={active}>
+                <span className="sc-thumb sc-trail-pic sc-thumb-wait" style={shape} data-active={active}>
                   <span className="sc-shimmer" />
                 </span>
               ) : (
-                <span className="sc-thumb sc-thumb-failed" data-active={active}>
+                <span className="sc-thumb sc-trail-pic sc-thumb-failed" style={shape} data-active={active}>
                   <WarningCircle size={14} />
                 </span>
               )}
-              <span className="sc-trail-label">{s.index === 0 ? 'Original' : s.index}</span>
             </button>
           );
         })}
@@ -223,6 +240,6 @@ export function LineageStrip({
           onClose={peek.closeNow}
         />
       )}
-    </>
+    </div>
   );
 }
