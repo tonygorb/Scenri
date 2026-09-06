@@ -124,7 +124,23 @@ nowhere else. The full statement is in [PRIVACY.md](../PRIVACY.md).
 
 ## Open it again
 
-Tomorrow, next week, whenever: open the terminal and run the same command.
+The first time Scenri runs on macOS or Windows, it asks in the terminal, once Scenri is already open:
+
+```
+Add Scenri to your desktop? Then you can open it without a terminal. [Y/n]
+```
+
+Say yes and a **Scenri** icon lands on your desktop. From then on, double-click it: Scenri starts
+if it is not running (a "Starting Scenri" page holds the browser for the few seconds that takes),
+or the browser simply opens on the Scenri that is already running. No terminal, and it works
+without an internet connection. Said no, or deleted the icon? Settings, then About, then
+**Add to desktop** puts it back, and so does this in a terminal:
+
+```bash
+npx scenri desktop
+```
+
+Without the icon, tomorrow, next week, whenever: open the terminal and run the same command.
 
 ```bash
 npx scenri
@@ -134,7 +150,9 @@ Your brands, shots and settings are exactly where you left them. They live in a 
 `.scenri` in your home folder (`%USERPROFILE%\.scenri` on Windows), as plain files you can
 back up like anything else.
 
-To stop Scenri, close the terminal window, or press Control and C in it.
+To stop Scenri, close the terminal window, or press Control and C in it. Started from the desktop
+icon, there is no window: Settings, then About, then **Quit Scenri**. A Scenri you forget to quit
+is harmless; the next double-click finds it, and shutting down the computer ends it.
 
 ## Update
 
@@ -151,6 +169,9 @@ npx scenri@latest
 ```
 
 The same command is the fix whenever a start behaves oddly after an update.
+
+The desktop icon needs no attention across updates: it always starts the newest version Scenri
+has installed, and each start quietly refreshes the icon's own files when a release changes them.
 
 ## Prefer a coding assistant?
 
@@ -259,15 +280,34 @@ provider's site (links above), open Settings, then Providers, and paste it again
 **You closed the terminal by accident.** Nothing is lost. Open a new terminal and run `npx scenri`
 again.
 
+**The desktop icon does nothing, or says Scenri's app files are missing.** The icon starts the copy
+of Scenri kept in `~/.scenri/app`. If that folder was removed, run `npx scenri` once in a
+terminal; it puts a copy back and the icon works again. Details of every double-click are in
+`~/.scenri/logs/launcher.log` (`%USERPROFILE%\.scenri\logs\launcher.log` on Windows), and a
+server started from the icon writes to `scenri.log` beside it.
+
+**The icon says Node.js was not found.** The icon remembers the Node.js that installed it. If that
+copy of Node was removed (a version manager switched, an uninstall), install Node.js again or run
+`npx scenri` once from a terminal where Node works; that start repairs the icon.
+
+**macOS asks whether Terminal may access your Desktop.** Creating the icon writes one file into your
+Desktop folder, which macOS guards. Allow it. If you refused, System Settings, then Privacy &
+Security, then Files and Folders, then turn Desktop Folder on for your terminal app, and add the icon
+again.
+
 Anything else: [open an issue](https://github.com/tonygorb/scenri/issues) with the exact text the
 terminal printed.
 
 ## Remove Scenri
 
-Scenri installs nothing global. Without the terminal window running, it is not running.
+Scenri installs nothing global. Without the terminal window or the desktop icon having started it,
+it is not running.
 
 - The downloaded copy lives in npm's cache and gets reused or replaced; there is nothing to
   uninstall.
+- The desktop icon, if you added one, is a small launcher on your Desktop (`Scenri.app` on macOS,
+  `Scenri.lnk` on Windows) plus its support files in `~/.scenri/launcher`. Drag the icon to the
+  bin, or run `npx scenri desktop --remove` to take both away; nothing else is touched.
 - Your library, the folder `.scenri` in your home folder (`%USERPROFILE%\.scenri` on Windows),
   holds your brands, images and keys. It is never deleted by Scenri. Delete that folder only if you want all of that gone, and export
   anything you care about first (Settings, then Library, then Export everything).

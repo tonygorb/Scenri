@@ -38,7 +38,7 @@ execFileSync('node', [join(CLI, 'scripts', 'prepack.mjs')], { cwd: CLI, stdio: '
 const work = mkdtempSync(join(tmpdir(), 'sc-updemo-'));
 const pkgDir = join(work, 'pkg');
 mkdirSync(pkgDir);
-for (const part of ['dist', 'studio-dist', 'templates', 'LICENSE', 'NOTICE', 'README.md']) {
+for (const part of ['dist', 'studio-dist', 'templates', 'launcher', 'LICENSE', 'NOTICE', 'README.md']) {
   cpSync(join(CLI, part), join(pkgDir, part), { recursive: true });
 }
 const manifest = JSON.parse(readFileSync(join(CLI, 'package.json'), 'utf8'));

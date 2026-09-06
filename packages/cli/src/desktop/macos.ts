@@ -24,6 +24,12 @@ export const MAC_MARKER = 'scenri-launcher.json';
 export const MAC_SCRIPT = `#!/bin/sh
 # Scenri desktop launcher. Written by Scenri; deleting it removes only this icon.
 L="$HOME/.scenri/launcher"
+if [ ! -f "$L/launch.mjs" ]; then
+  /usr/bin/osascript -e 'on run argv' \\
+    -e 'display dialog (item 1 of argv) with title "Scenri" buttons {"OK"} default button 1 with icon stop' \\
+    -e 'end run' -- "Scenri's launcher files are missing. Open Terminal and run: npx scenri desktop"
+  exit 1
+fi
 NODE=""
 if [ -r "$L/node-path" ]; then IFS= read -r NODE < "$L/node-path" || NODE=""; fi
 if [ -z "$NODE" ] || [ ! -x "$NODE" ]; then NODE="$(command -v node 2>/dev/null || true)"; fi

@@ -78,6 +78,10 @@ describe('installDesktop on macOS', () => {
     expect(script).not.toContain(root);
     expect(script).not.toContain(d.execPath);
     expect(statSync(join(app, 'MacOS', 'Scenri')).mode & 0o111).toBe(0o111);
+    // an icon whose support files were removed (rm -rf ~/.scenri, a move) must
+    // say so, not fail silently inside node
+    expect(script).toMatch(/if \[ ! -f "\$L\/launch\.mjs" \]/);
+    expect(script).toContain('npx scenri desktop');
     expect(readFileSync(join(app, 'Resources', 'Scenri.icns'))).toEqual(readFileSync(join(assetsDir, 'Scenri.icns')));
     expect(JSON.parse(readFileSync(join(app, 'Resources', 'scenri-launcher.json'), 'utf8'))).toMatchObject({
       schema: LAUNCHER_SCHEMA,
