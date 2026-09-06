@@ -254,27 +254,30 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
-    /* the fades, and the scroll padding that keeps the ringed tile out of them */
-    mask-image: linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 40px), transparent);
-    scroll-padding-block: 56px 40px;
+    /* One size, and the ends dissolve: a tile is whole across the middle of
+       the column and fades to nothing over the top and bottom third, so the
+       column reads outward from the shot on screen (centred on every step)
+       and the ends read as continuing rather than cut. A mask, so nothing is
+       scaled or moved: the tiles you aim at hold still, the spacing is the
+       spacing, and the ring is the only thing that says "this one". A dock's
+       magnification was tried and dropped: the largest tile was whatever
+       passed the middle, not the selected one, and it argued with the ring. */
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgb(0 0 0 / 0.36) 10%,
+      rgb(0 0 0 / 0.75) 25%,
+      rgb(0 0 0 / 0.96) 40%,
+      #000 50%,
+      rgb(0 0 0 / 0.96) 60%,
+      rgb(0 0 0 / 0.75) 75%,
+      rgb(0 0 0 / 0.36) 90%,
+      transparent 100%
+    );
   }
   .sc-rail::-webkit-scrollbar {
     display: none;
   }
-}
-/* The rail reads with depth: a tile swells toward the middle of the column,
-   past its resting size, and sits back toward the ends until it is gone,
-   tiles and the gaps between them shrinking together. That is a fisheye
-   the rail lays in transforms each frame (ShotRail's `swell`): a view
-   timeline could scale a tile in place but not move it, and even spacing
-   is positions moving with sizes. The column's own tracks never change,
-   so the scroll distance is the same either way. `position: relative`
-   makes offsetTop the tile's place in the scrolled column. */
-.sc-rail {
-  position: relative;
-}
-.sc-rail-tile {
-  will-change: transform;
 }
 .sc-stage-wait-say {
   position: absolute;
