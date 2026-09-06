@@ -149,8 +149,8 @@ describe('custom presenters and scenes', () => {
     resetAssetBuilds();
     await app.close();
     core.close();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(templatesDir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   const newBrand = async (json?: any) =>

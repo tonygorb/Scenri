@@ -71,7 +71,7 @@ describe('demo product loader', () => {
     const { demoProducts, warnings } = loadDemoProducts(dir);
     expect(demoProducts.map((p) => p.id)).toEqual(['ok']);
     expect(warnings).toHaveLength(3);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('resolves by id, and answers undefined for an unknown one', () => {
@@ -105,8 +105,8 @@ describe('resolveDemoProductImages', () => {
 
   afterEach(() => {
     core.close();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(templatesDir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('hashes the hero photo into the image store on first use, idempotently', async () => {
@@ -181,8 +181,8 @@ describe('demo product catalog + brief resolution', () => {
   afterEach(async () => {
     await app.close();
     core.close();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(templatesDir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   const newBrand = async () =>

@@ -40,7 +40,7 @@ describe('presenter loader', () => {
     const { presenters, warnings } = loadPresenters(dir);
     expect(presenters.map((p) => p.id)).toEqual(['ok']);
     expect(warnings).toHaveLength(3);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('resolves by id, and answers undefined for an unknown one', () => {
@@ -112,8 +112,8 @@ describe('presenter catalog + direct-attach API', () => {
   afterEach(async () => {
     await app.close();
     core.close();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(templatesDir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   const newBrand = async () =>

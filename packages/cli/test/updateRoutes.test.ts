@@ -42,7 +42,7 @@ beforeEach(() => {
 afterEach(async () => {
   await app?.close();
   core.close();
-  rmSync(home, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 const build = (fetchImpl: typeof fetch) => buildServer({ core, engines: registryWith(), fetchImpl });

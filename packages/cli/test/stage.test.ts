@@ -13,7 +13,7 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'sc-stage-'));
 });
 afterEach(() => {
-  rmSync(home, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 /** A runNpm that "installs" by planting the package tree into the prefix. */
@@ -193,7 +193,7 @@ describe('stageVersion', () => {
       expect(listStaged(home, PKG)).toEqual(['99.0.0']);
       if (prevCache === undefined) delete process.env.npm_config_cache;
       else process.env.npm_config_cache = prevCache;
-      rmSync(src, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     },
     60_000,
   );

@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   core.close();
-  rmSync(home, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 const CAPS: EngineCapabilities = {
