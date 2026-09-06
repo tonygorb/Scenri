@@ -72,18 +72,23 @@ const hangingEngine = (): EngineAdapter => {
 
 describe('GET /api/update/status', () => {
   it('answers with the full verdict once the registry has been asked', async () => {
-    app = build(updateFetch({ latest: '0.9.9' }).impl);
+    // The fixture is one minor above whatever this build is, so the verdict
+    // stays a minor through every release instead of turning into a patch on
+    // the day the package reaches the number a fixture used to hardcode.
+    const [major, minor] = pkg.version.split('.').map(Number);
+    const latest = `..0`;
+    app = build(updateFetch({ latest }).impl);
     const res = await app.inject({ method: 'GET', url: '/api/update/status' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       enabled: true,
       current: pkg.version,
-      latest: '0.9.9',
+      latest,
       available: true,
       kind: 'minor',
       attention: false,
       checkedAt: expect.any(Number),
-      notesUrl: 'https://github.com/tonygorb/scenri/releases/tag/v0.9.9',
+      notesUrl: `https://github.com/tonygorb/scenri/releases/tag/v`,
       error: null,
       canApply: false,
       blockReason: 'unsupervised',
