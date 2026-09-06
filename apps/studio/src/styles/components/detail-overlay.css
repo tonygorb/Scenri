@@ -298,63 +298,6 @@
   aspect-ratio: var(--sc-pic-ar, 1);
   height: auto;
 }
-/* The picture's row is its viewport, and the picture is a loupe.
-
-   The stage never animates geometry. A change of picture, of scale or of
-   place lands whole in one commit; the only motion on the stage is a
-   cross-fade of pixels. Nothing here carries a transform transition and
-   nothing toggles a clip against an easing property: a transform that eases
-   is rasterised blurry and snapped sharp at the end, a clip that drops while
-   it eases spills the picture over the strip, and a scaled compositor layer
-   checkerboards for a frame on a large picture. All three read as flicker.
-
-   At fit the frame sits where the grid centred it and nothing is
-   transformed. The close look is a layer of its own over the row, the same
-   original laid out at its real size and place, clipped by its own box; the
-   fit frame under it is never touched. At fit a finger is the page's (it
-   scrolls, it swipes) and only a pinch is taken; close up, every touch is
-   the picture's. Focusable, so Enter has somewhere to land; the floor ring
-   marks it. The cursor says which click comes next. */
-.sc-stage-view {
-  position: relative;
-  margin: 0;
-  justify-self: stretch;
-  align-self: stretch;
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  place-items: center;
-  touch-action: pan-y;
-}
-.sc-stage-view .sc-frame {
-  cursor: zoom-in;
-}
-.sc-stage-view[data-zoomed] {
-  touch-action: none;
-  cursor: zoom-out;
-}
-.sc-stage-loupe {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  contain: paint;
-  background: var(--sc-bg);
-  cursor: grab;
-}
-.sc-stage-view[data-dragging] .sc-stage-loupe {
-  cursor: grabbing;
-}
-/* laid out at its size, moved by a translate, and free of the stage's caps:
-   those are for the picture at fit, and this is the picture close up */
-.sc-stage-view .sc-stage-loupe img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: block;
-  max-width: none;
-  max-height: none;
-  object-fit: fill;
-}
 .sc-stage-pic .sc-stage-img {
   display: block;
   width: 100%;
@@ -721,9 +664,6 @@
   }
   .sc-ovl-overflow {
     display: grid;
-  }
-  .sc-stage-view {
-    width: 100%;
   }
   /* the bar rides above the picture with a fade under it, so a scrolled brief
      passes beneath rather than colliding with floating buttons */

@@ -146,8 +146,8 @@ test('the rail is the feed, and the arrows, the keys and the wheel walk it', asy
   await page.keyboard.press('ArrowLeft');
   await expect(page).toHaveURL(new RegExp(`/shots/${prev}$`));
 
-  // a wheel over the picture at fit is nobody's: the shot stays put
-  const pic = page.locator('.sc-stage-view');
+  // a wheel over the picture is nobody's: the shot stays put
+  const pic = page.locator('.sc-ovl-stage .sc-frame');
   const box = (await pic.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, 120);
@@ -172,58 +172,6 @@ test('refining after a switch lands under the shot on the stage', async ({ page 
   await expect.poll(() => posted?.kind).toBe('edit');
   expect(posted.parentId).toBe(shots.c.id);
   expect(posted.sourceImage).toBe(shots.c.hash);
-});
-
-test('the picture is a loupe: a click shows actual size about the point, a click again fits it', async ({ page }) => {
-  await page.goto(shotUrl(shots.a));
-  await expect(page.locator('.sc-ovl')).toBeVisible();
-  const pic = page.locator('.sc-stage-view');
-  const frame = page.locator('.sc-stage-view .sc-frame');
-  const img = page.locator('.sc-stage-img');
-  await expect(pic).not.toHaveAttribute('data-zoomed', '');
-  // nothing to read: the loupe carries no chrome
-  await expect(page.locator('.sc-ovl-zoom')).toHaveCount(0);
-
-  const box = (await img.boundingBox())!;
-  const fitRect = await frame.boundingBox();
-  await img.click({ position: { x: box.width * 0.25, y: box.height * 0.25 } });
-  await expect(pic).toHaveAttribute('data-zoomed', '');
-  // the close look is its own layer, laid out at the picture's own pixel size; the fit frame is untouched
-  const loupe = page.locator('.sc-stage-loupe img');
-  await expect(loupe).toHaveCount(1);
-  const scale = await loupe.evaluate(
-    (el) => (el as HTMLImageElement).offsetWidth / (el as HTMLImageElement).naturalWidth,
-  );
-  expect(scale).toBeCloseTo(1, 2);
-  expect(await frame.boundingBox()).toEqual(fitRect);
-  await expect(frame).toHaveAttribute('style', /^((?!transform).)*$/);
-  // the shot did not move: a look is not a step
-  await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
-
-  // close up, a wheel pans and never steps
-  const view = (await pic.boundingBox())!;
-  await page.mouse.move(view.x + view.width / 2, view.y + view.height / 2);
-  await page.mouse.wheel(0, 120);
-  await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
-  await expect(pic).toHaveAttribute('data-zoomed', '');
-
-  // a click takes it back, and the layer is gone
-  await pic.click({ position: { x: view.width / 2, y: view.height / 2 } });
-  await expect(pic).not.toHaveAttribute('data-zoomed', '');
-  await expect(page.locator('.sc-stage-loupe')).toHaveCount(0);
-
-  // Enter is the click from the keyboard
-  await pic.focus();
-  await page.keyboard.press('Enter');
-  await expect(pic).toHaveAttribute('data-zoomed', '');
-  await page.keyboard.press('Enter');
-  await expect(pic).not.toHaveAttribute('data-zoomed', '');
-
-  // at fit the wheel is not the picture's: nothing zooms, nothing steps
-  await page.mouse.wheel(0, -120);
-  await page.waitForTimeout(300);
-  await expect(pic).not.toHaveAttribute('data-zoomed', '');
-  await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
 });
 
 test('every icon in the header says its name on hover and on focus', async ({ page }) => {

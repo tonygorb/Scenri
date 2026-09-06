@@ -7,14 +7,13 @@ import { FailureNote } from './Failure.js';
 import { elapsedLabel, elapsedSec, runningPhrase } from '../tasks.js';
 // the feed's running tiles hold the same shape, from the same source
 import { aspectOfFormat } from '../composer/formats.js';
-import type { StageZoom } from './detail/useStageZoom.js';
 
 function aspectOf(node: FeedNode): number {
   return aspectOfFormat(node.brief?.format);
 }
 
 /** The pixels the run recorded for its first image, when it recorded them. */
-export function recordedSize(node: FeedNode): [number, number] | null {
+function recordedSize(node: FeedNode): [number, number] | null {
   const size = (node.brief as { rendered?: { sizes?: [number, number][] } } | null)?.rendered?.sizes?.[0];
   return size && size[0] > 0 && size[1] > 0 ? size : null;
 }
@@ -24,7 +23,6 @@ export function StageFrame({
   onRetry,
   onCancel,
   engineName,
-  zoom,
   menu,
 }: {
   node: FeedNode;
@@ -32,8 +30,6 @@ export function StageFrame({
   onCancel?: () => void;
   /** What the engine that ran this is called, so a failure can name it. */
   engineName?: string;
-  /** Given, the finished picture zooms where it is: the row is its viewport, the frame is what moves. */
-  zoom?: StageZoom;
   /** The shot's verbs, as a `ContextMenu.Content`: a right click or a long press on the picture opens them. */
   menu?: ReactNode;
 }) {
@@ -139,32 +135,29 @@ export function StageFrame({
        * The run recorded its pixels, so the frame takes the picture's box
        * before a byte of it arrives: the same sizing the waiting state uses,
        * bounded by the room there is, the cap, and the picture's own width.
-       * Under the original sits the feed's tile derivative, already decoded by
-       * the tile that was just clicked, so the stage shows the shot at once
-       * and the original replaces it in place when its decode is done.
+       * Under the original sits the picture that was on the stage before it,
+       * or the feed's tile derivative for the first, so the stage shows a
+       * picture at once and the original fades in over it when its decode
+       * is done.
        */
       <Box
-        ref={zoom?.frameRef}
         className="sc-frame sc-stage-pic"
         style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties}
       >
-        <StagePicture hash={hash} alt={node.promptHead} zoom={zoom} />
+        <StagePicture hash={hash} alt={node.promptHead} />
       </Box>
     ) : (
       <Flex justify="center">
-        <Box ref={zoom?.frameRef} className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
+        <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
           {hash && (
             <Box position="relative" style={{ lineHeight: 0 }}>
               <img
-                ref={zoom?.imgRef}
                 src={imgUrl(hash)}
                 alt={node.promptHead}
-                draggable={false}
                 // the cap itself lives in CSS, where it can know whether a row of
                 // takes sits under the shot: a percentage cannot, because nothing
                 // between here and the stage has a definite height to measure
                 style={{ display: 'block', maxWidth: '100%' }}
-                onLoad={(e) => zoom?.onImgLoad(e.currentTarget)}
               />
             </Box>
           )}
@@ -172,64 +165,18 @@ export function StageFrame({
       </Flex>
     );
 
-  if (!zoom) return frame;
-  /*
-   * The picture's row is its viewport. At fit the frame sits where the
-   * layout put it and nothing is transformed. The close look is a layer of
-   * its own over the row: the same original, laid out at its real size and
-   * place, clipped by its own box. The fit frame under it is never touched,
-   * so a zoom in or out lands whole in one commit and nothing eases,
-   * toggles or spills. The box takes the keys and the gestures, so it is
-   * focusable and says how.
-   */
-  const view = (
-    <figure
-      ref={zoom.viewRef}
-      className="sc-stage-view"
-      aria-label="Picture. Enter shows it at actual size; Enter again fits it."
-      // the browser's own drag of an image (the ghost picture) would take the pointer from the pan
-      onDragStart={(e) => e.preventDefault()}
-      {...zoom.viewProps}
-    >
-      {frame}
-      {zoom.loupe && hash && (
-        <div className="sc-stage-loupe" aria-hidden>
-          <img
-            src={imgUrl(hash)}
-            alt=""
-            draggable={false}
-            style={{
-              width: zoom.loupe.w,
-              height: zoom.loupe.h,
-              transform: `translate(${zoom.loupe.x}px, ${zoom.loupe.y}px)`,
-            }}
-          />
-        </div>
-      )}
-    </figure>
-  );
-  if (!menu) return view;
+  if (!menu) return frame;
   // A right click or a long press on the picture opens the shot's own verbs,
   // the way a tile in the feed does, rather than the browser's.
   return (
     <ContextMenu.Root>
-      <ContextMenu.Trigger>{view}</ContextMenu.Trigger>
+      <ContextMenu.Trigger>{frame}</ContextMenu.Trigger>
       {menu}
     </ContextMenu.Root>
   );
 }
 
-/**
- * The picture, and the one before it.
- *
- * Not remounted per shot: walking the rail used to swap in a bare frame,
- * then the feed's 640px derivative, then the original, which read as a
- * flicker on every step. The picture that was on the stage stays under the
- * new one, already decoded, until the new original has pixels, and the new
- * one fades in over it. The first picture, with nothing before it, sits on
- * the feed's derivative the way it always did.
- */
-function StagePicture({ hash, alt, zoom }: { hash: string; alt: string; zoom?: StageZoom }) {
+function StagePicture({ hash, alt }: { hash: string; alt: string }) {
   /** The hash whose pixels have painted; the last of them stays under the next. */
   const [painted, setPainted] = useState<string | null>(null);
   const last = useRef<string | null>(null);
@@ -238,21 +185,17 @@ function StagePicture({ hash, alt, zoom }: { hash: string; alt: string; zoom?: S
     if (!el?.complete || !el.naturalWidth || el.src !== new URL(imgUrl(hash), location.href).href) return;
     last.current = hash;
     setPainted(hash);
-    zoom?.imgRef(el);
   };
   const underSrc = last.current && last.current !== hash ? imgUrl(last.current) : thumbUrl(hash, 'tile');
   return (
     <Box position="relative" style={{ lineHeight: 0 }}>
-      {!ready && (
-        <img className="sc-stage-under" src={underSrc} alt="" aria-hidden decoding="async" draggable={false} />
-      )}
+      {!ready && <img className="sc-stage-under" src={underSrc} alt="" aria-hidden decoding="async" />}
       <img
         ref={paint}
         src={imgUrl(hash)}
         alt={alt}
         className="sc-stage-img"
         data-ready={ready || undefined}
-        draggable={false}
         onLoad={(e) => paint(e.currentTarget)}
       />
     </Box>

@@ -31,7 +31,6 @@ import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
 import { Tip } from './Tip.js';
-import { useStageZoom } from './detail/useStageZoom.js';
 import { Composer } from './Composer.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
@@ -256,8 +255,6 @@ export function DetailOverlay({
     const to = dir > 0 ? step.next : step.prev;
     if (to) onSelect(to.id);
   };
-  /** The picture zooms where it is. */
-  const zoom = useStageZoom({ hash: node.status === 'done' ? node.images[0] : undefined });
   /** Which shot an arrow would step to, as a picture: hovering an arrow peeks its neighbour. */
   const arrowPeek = useHoverPreview<{
     key: string;
@@ -287,10 +284,7 @@ export function DetailOverlay({
         }
       : {};
   /** On a phone the picture itself steps shots: a swipe left asks for the next. */
-  const swipe = useSwipe({
-    onLeft: () => !zoom.zoomed && stepTo(1),
-    onRight: () => !zoom.zoomed && stepTo(-1),
-  });
+  const swipe = useSwipe({ onLeft: () => stepTo(1), onRight: () => stepTo(-1) });
   // Pre-decode the tile derivative of the versions beside this one and the
   // shots either side. The stage paints that derivative under the original
   // while the original decodes, so a step to a neighbour shows a picture at
@@ -726,7 +720,6 @@ export function DetailOverlay({
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
-            zoom={hasImage ? zoom : undefined}
             menu={stageMenu}
           />
           {/* The image's own history, right under the image: the original,
