@@ -151,7 +151,7 @@ Your brands, shots and settings are exactly where you left them. They live in a 
 back up like anything else.
 
 To stop Scenri, close the terminal window, or press Control and C in it. Started from the desktop
-icon, there is no window: Settings, then About, then **Quit Scenri**. A Scenri you forget to quit
+icon, there is no window: open the brand menu at the top right and choose **Shut down Scenri**. A Scenri you forget to shut down
 is harmless; the next double-click finds it, and shutting down the computer ends it.
 
 ## Update

@@ -58,8 +58,8 @@ interface UpdateCenterValue {
   dismiss(): void;
   /** The one click: download + verify, then restart into the new version. */
   apply(): Promise<void>;
-  /** Settings > About's Quit: drain and stop; the overlay says how to come back. */
-  quit(): Promise<void>;
+  /** The brand menu's Shut down: drain and stop; the overlay says how to come back. Resolves to the server's refusal, or null. */
+  quit(): Promise<string | null>;
   busy: 'idle' | 'applying' | 'restarting' | 'stopped';
   applyError: string | null;
 }
@@ -171,19 +171,18 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const quit = useCallback(async () => {
-    if (busy !== 'idle') return;
-    setApplyError(null);
+    if (busy !== 'idle') return null;
     try {
       await api.quit();
     } catch (err) {
       if (typeof (err as { status?: number }).status === 'number') {
         // alive and refusing (work still running): an answer, not a stop
-        setApplyError(String((err as Error)?.message ?? err));
-        return;
+        return String((err as Error)?.message ?? err);
       }
       /* the socket died mid-reply: that is the stop */
     }
     setBusy('stopped');
+    return null;
   }, [busy]);
 
   const apply = useCallback(async () => {
@@ -303,7 +302,7 @@ function LifecycleOverlay({ children, className }: { children: ReactNode; classN
 }
 
 /**
- * After Quit. The server answered and went away on purpose; nothing here
+ * After Shut down. The server answered and went away on purpose; nothing here
  * reconnects, because nothing is coming back until the person starts Scenri
  * again. The two ways to do that are the whole message.
  */
@@ -311,7 +310,7 @@ function StoppedOverlay() {
   return (
     <LifecycleOverlay className="sc-upd-stopped">
       <Power size={22} />
-      <b>Scenri has stopped</b>
+      <b>Scenri has shut down</b>
       <small>Double-click Scenri on your desktop, or run npx scenri in a terminal, to start it again.</small>
     </LifecycleOverlay>
   );

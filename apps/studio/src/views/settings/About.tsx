@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode, useRef } from 'react';
 import { api, type DesktopStatus, type VersionInfo } from '../../api.js';
-import { Confirm } from '../../Confirm.js';
 import { desktopRow } from '../../app/desktopRules.js';
 import { useUpdateCenter } from '../../app/UpdateCenter.js';
 import { useWhatsNew } from '../../app/WhatsNew.js';
@@ -270,26 +269,6 @@ export function About({ version }: { version: VersionInfo | null }) {
                     : 'Try again'}
           </button>
         )}
-      </div>
-      {/* A Scenri started from the desktop icon has no terminal to close; this
-          is how it stops. Behind a confirm because it ends the session for
-          every tab, and refused by the server over live work. */}
-      <div className="sc-set-row" data-quit="">
-        <span className="txt">
-          <b>Quit</b>
-          <small data-prose="">
-            {updates.applyError && updates.busy === 'idle'
-              ? updates.applyError
-              : 'Stops Scenri on this machine. Open it again from your desktop, or with npx scenri.'}
-          </small>
-        </span>
-        <Confirm
-          label="Quit Scenri"
-          title="Quit Scenri?"
-          body="Scenri stops on this machine and every open tab loses the studio until you start it again."
-          busy={updates.busy !== 'idle'}
-          onConfirm={() => void updates.quit()}
-        />
       </div>
       <div className="sc-set-row">
         <span className="txt">

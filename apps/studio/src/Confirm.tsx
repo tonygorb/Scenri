@@ -11,6 +11,8 @@ export function Confirm({
   busy,
   onConfirm,
   fullWidth,
+  open,
+  onOpenChange,
 }: {
   label: string;
   title: string;
@@ -19,19 +21,24 @@ export function Confirm({
   onConfirm: () => void;
   /** Matches a full-width sibling button stack (e.g. the Info tab's Export/Keep/Archive rows). */
   fullWidth?: boolean;
+  /** Controlled, for a confirm opened from somewhere that unmounts on select (a menu item): no trigger is rendered. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   return (
-    <AlertDialog.Root>
-      <AlertDialog.Trigger>
-        <button
-          type="button"
-          className="sc-btn sc-btn-ghost sc-btn-red"
-          disabled={busy}
-          style={fullWidth ? { width: '100%' } : undefined}
-        >
-          {label}
-        </button>
-      </AlertDialog.Trigger>
+    <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
+      {open === undefined && (
+        <AlertDialog.Trigger>
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost sc-btn-red"
+            disabled={busy}
+            style={fullWidth ? { width: '100%' } : undefined}
+          >
+            {label}
+          </button>
+        </AlertDialog.Trigger>
+      )}
       <AlertDialog.Content maxWidth="420px">
         <AlertDialog.Title>{title}</AlertDialog.Title>
         <AlertDialog.Description size="2">{body}</AlertDialog.Description>

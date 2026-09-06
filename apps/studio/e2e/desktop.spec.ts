@@ -10,7 +10,7 @@ import { isolate } from './harness.js';
  * double-click shows, and the Desktop shortcut and Quit rows in Settings >
  * About. The shared server runs from source, so About shows the source
  * sentence and no Add button here; adding is covered by the CLI suites and the
- * real-machine QA. Quit really stops this spec's server, so it goes last.
+ * real-machine QA. Shutting down really stops this spec's server, so it goes last.
  */
 
 isolate();
@@ -60,20 +60,26 @@ test.describe
       await expect(row.locator('button')).toHaveCount(0);
     });
 
-    test('Quit is a keyboard-reachable button behind a confirm, and it stops the server', async ({ page, baseURL }) => {
+    test('Shut down lives at the bottom of the brand menu, behind a confirm, and stops the server', async ({
+      page,
+      baseURL,
+    }) => {
       await page.goto(`${baseURL}/acme?settings=about`);
-      const button = rows(page).filter({ hasText: 'Quit' }).locator('button', { hasText: 'Quit Scenri' });
-      await button.focus();
-      await expect(button).toBeFocused();
-      await page.keyboard.press('Enter');
+      // machine-level, so it is not a Settings row any more
+      await expect(rows(page).filter({ hasText: /Quit|Shut down/ })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await page.locator('.sc-org-btn').click();
+      const item = page.locator('.sc-menu-item[data-quit]');
+      await expect(item).toContainText('Shut down Scenri');
+      // last thing in the menu: the way out sits at the bottom, under a hairline
+      await expect(page.locator('.sc-menu-item').last()).toHaveAttribute('data-quit', '');
+      await item.click();
       const dialog = page.getByRole('alertdialog');
       await expect(dialog).toBeVisible();
-      await dialog.locator('button', { hasText: 'Quit Scenri' }).click();
+      await dialog.locator('button', { hasText: 'Shut down Scenri' }).click();
       const overlay = page.locator('.sc-upd-stopped');
       await expect(overlay).toBeVisible();
-      await expect(overlay).toContainText('Scenri has stopped');
-      // Over the dialog it was asked from, not behind it: the card must win the
-      // hit test at the centre of the screen, where Settings used to be.
+      await expect(overlay).toContainText('Scenri has shut down');
       await expect
         .poll(() =>
           page.evaluate(() =>
