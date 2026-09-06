@@ -11,8 +11,7 @@ import { thumbUrl } from '../../api.js';
 import { briefProse, type ProseNames } from '../../briefDiff.js';
 import { ChipPreview } from '../../composer/ChipPreview.js';
 import { useHoverPreview } from '../../composer/useHoverPreview.js';
-import { recordedRatio } from '../Stage.js';
-import type { TrailStep } from './historyRules.js';
+import { type TrailStep, whereIs } from './historyRules.js';
 
 /** The fade over an edge with more trail past it; the stylesheet draws it at the same width. */
 const FADE_PX = 28;
@@ -20,14 +19,14 @@ const FADE_PX = 28;
 /**
  * The image's history as a trail under the stage: the original, a hairline,
  * then every refinement in the order it was made, the one on the stage
- * ringed. Each tile is the picture at its own shape, not a square crop, so
- * the row reads as that picture's versions and not as another gallery (the
- * rail beside the stage is the feed, and its tiles are square). One line at
- * the picture's left edge says where you are, "Original" or "Refinement 4 of
- * 6"; no numeral under any tile. Hovering or focusing a tile peeks it at a
- * readable size with its name and what that step asked for; clicking moves
- * the stage to it. Past the picture's width the trail scrolls, the ringed
- * step is kept in view, and a fade says there is more.
+ * ringed, in one box as wide as the picture. One line at the picture's left
+ * edge says where you are, "Original" or "Refinement 4 of 6"; no numeral
+ * under any tile. Where the panel's title sits right under the trail (a
+ * phone, a tablet) the title carries that line and the trail draws none.
+ * Hovering or focusing a tile peeks it at a readable size with its name and
+ * what that step asked for; clicking moves the stage to it. Past the
+ * picture's width the trail scrolls, the ringed step is kept in view, and a
+ * fade says there is more.
  *
  * One hover peek for the whole trail, owned here rather than by the overlay:
  * shared, so moving between two tiles switches the card at once instead of
@@ -149,10 +148,7 @@ export function LineageStrip({
 
   // one tab stop: the ringed step, or the first when the stage holds something the trail does not
   const stop = trail.some((s) => s.node.id === activeId) ? activeId : trail[0]?.node.id;
-  /** Where you are, in one line: the step on the stage and how many refinements there are. */
-  const here = trail.find((s) => s.node.id === activeId);
-  const last = trail[trail.length - 1]?.index ?? 0;
-  const say = !here ? '' : here.index === 0 ? 'Original' : `Refinement ${here.index} of ${last}`;
+  const say = whereIs(trail, activeId);
 
   return (
     <div className="sc-trail">
@@ -168,8 +164,6 @@ export function LineageStrip({
           const n = s.node;
           const active = n.id === activeId;
           const pending = s.state === 'pending';
-          const ratio = recordedRatio(n);
-          const shape = ratio ? ({ '--sc-tile-ar': ratio } as CSSProperties) : undefined;
           return (
             <button
               type="button"
@@ -199,19 +193,19 @@ export function LineageStrip({
                 <img
                   src={thumbUrl(n.images[0], 'micro')}
                   alt=""
-                  className="sc-thumb sc-trail-pic"
-                  style={shape}
+                  className="sc-thumb"
                   loading="lazy"
                   decoding="async"
                   data-active={active}
+                  width={52}
                   height={52}
                 />
               ) : pending ? (
-                <span className="sc-thumb sc-trail-pic sc-thumb-wait" style={shape} data-active={active}>
+                <span className="sc-thumb sc-thumb-wait" data-active={active}>
                   <span className="sc-shimmer" />
                 </span>
               ) : (
-                <span className="sc-thumb sc-trail-pic sc-thumb-failed" style={shape} data-active={active}>
+                <span className="sc-thumb sc-thumb-failed" data-active={active}>
                   <WarningCircle size={14} />
                 </span>
               )}

@@ -39,7 +39,8 @@ import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { LineageStrip } from './detail/LineageStrip.js';
-import { trailOf } from './detail/historyRules.js';
+import { trailOf, whereIs } from './detail/historyRules.js';
+import { useMediaQuery } from '../useMediaQuery.js';
 import { ShotRail } from './detail/ShotRail.js';
 import { useSwipe } from './detail/useSwipe.js';
 import { neighborsOf } from '../feedRules.js';
@@ -56,6 +57,8 @@ import { PREF, useLocalPref } from '../prefs.js';
  * always read, so the grid, the header stop and the divider all follow one
  * number.
  */
+/** Below this the panel stacks under the stage: the overlay's own one-column breakpoint. */
+const STACKED = '(max-width: 1023px)';
 const PANEL_MIN = 380;
 const PANEL_MAX = 480;
 const PANEL_DEFAULT = 380;
@@ -239,6 +242,21 @@ export function DetailOverlay({
   );
   /** This shot's own step in the trail: what the panel calls the record. */
   const here = useMemo(() => trail.find((s) => s.node.id === node.id) ?? null, [trail, node.id]);
+  /**
+   * Stacked, the panel sits right under the trail, so its title is the line
+   * that says where you are and the trail draws none of its own (the
+   * stylesheet hides it at the same width). Side by side, the title is the
+   * record's name and the trail carries the line, next to the tiles.
+   */
+  const stacked = useMediaQuery(STACKED);
+  const title =
+    trail.length > 1 && stacked
+      ? whereIs(trail, node.id)
+      : node.kind !== 'edit'
+        ? 'Shot'
+        : history && here
+          ? here.label
+          : 'Refinement';
   /** Where this shot sits in the feed you came from, and the shots either side: what the arrows, the wheel and a swipe step. */
   const step = useMemo(() => neighborsOf(items, node.id), [items, node.id]);
   // The next page of the feed as the walk nears the loaded edge: the same
@@ -309,17 +327,15 @@ export function DetailOverlay({
   // The trail under the picture is as wide as the picture and no wider,
   // measured off the frame whichever way the frame sized itself (recorded
   // pixels, or the image's own on an older shot) and handed to the trail
-  // as a variable, with the picture's shape for tiles that recorded none.
-  // Re-armed when the picture changes, since the frame is a new element.
+  // as a variable. Re-armed when the picture changes, since the frame is a
+  // new element.
   useLayoutEffect(() => {
     const stage = stageRef.current;
     const frame = stage?.querySelector<HTMLElement>('.sc-frame, .sc-stage-wait');
     if (!stage || !frame) return;
     const ro = new ResizeObserver(([e]) => {
-      const { width, height } = e.contentRect;
-      if (!width) return;
-      stage.style.setProperty('--sc-trail-w', `${Math.round(width)}px`);
-      if (height) stage.style.setProperty('--sc-trail-ar', String(width / height));
+      const { width } = e.contentRect;
+      if (width) stage.style.setProperty('--sc-trail-w', `${Math.round(width)}px`);
     });
     ro.observe(frame);
     return () => ro.disconnect();
@@ -809,7 +825,7 @@ export function DetailOverlay({
             {/* The record's name is its step in the trail under the picture,
                 so the panel and the row speak one vocabulary; the number waits
                 for the history, since a bare guess could be wrong on a branch. */}
-            <b>{node.kind !== 'edit' ? 'Shot' : history && here ? here.label : 'Refinement'}</b>
+            <b>{title}</b>
             {node.archived && <small className="sc-ovl-flag">archived</small>}
             {hasImage && node.costUsd > 0 && (
               <small className="sc-ovl-spend" title="Of your API budget">

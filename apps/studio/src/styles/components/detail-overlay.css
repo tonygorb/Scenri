@@ -171,24 +171,13 @@
 .sc-trail-say {
   font-size: var(--sc-text-caption);
   line-height: 14px;
-  color: var(--sc-fg3);
+  font-weight: 500;
+  color: var(--sc-fg2);
   font-variant-numeric: tabular-nums;
 }
 .sc-trail-tile {
   flex: none;
   position: relative;
-}
-/* Each tile is the picture at its own shape, 52px tall, not a square crop:
-   the row reads as that picture's versions. The rail's tiles stay square,
-   which is one more way the two axes look unalike. Bounded, so a panorama
-   does not take the row. */
-.sc-trail-pic {
-  width: auto;
-  height: 52px;
-  /* its own recorded shape, else the shape of the picture on the stage */
-  aspect-ratio: var(--sc-tile-ar, var(--sc-trail-ar, 1));
-  max-width: 78px;
-  min-width: 34px;
 }
 /* The original stands apart from what was made of it: a hairline after it,
    with a breath on each side. The one structural mark the row carries. */
@@ -653,7 +642,7 @@
      spend the whole viewport and the panel below kept a 100px sliver. */
   .sc-ovl-stage {
     /* one cap, the row under the picture held either way, as on a desktop */
-    --sc-stage-cap: max(calc(100dvh - 432px), 260px);
+    --sc-stage-cap: max(calc(100dvh - 410px), 260px);
   }
   .sc-ovl-meta {
     max-height: 48vh;
@@ -822,4 +811,32 @@
 /* narrow composer, any display: the sidebar where a refinement is written */
 .sc-ovl-edit .sc-prompt-pills {
   display: none;
+}
+
+/* ---- the trail, stacked ----
+   Under 1024 the panel sits right beneath the trail and its title says where
+   you are, so the trail's own line is not drawn twice; the held row is a
+   tile tall. On a phone the trail runs edge to edge with the gutter as its
+   padding, the way a scrubber does, instead of boxed to a picture narrower
+   than the screen; the fades sit at the screen's edges and the first tile
+   lands on the gutter. */
+@media (max-width: 1023px) {
+  .sc-trail-say {
+    display: none;
+  }
+  .sc-trail-empty {
+    height: 52px;
+  }
+}
+@media (max-width: 767px) {
+  .sc-trail {
+    width: calc(100% + 2 * var(--sc-gutter));
+    margin-inline: calc(-1 * var(--sc-gutter));
+  }
+  .sc-trail > .sc-thumbs {
+    max-width: 100%;
+    margin: -4px 0;
+    padding: 4px var(--sc-gutter);
+    scroll-padding-inline: var(--sc-gutter);
+  }
 }

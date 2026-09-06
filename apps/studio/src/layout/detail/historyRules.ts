@@ -83,3 +83,14 @@ export function trailOf(base: FeedNode[], node: FeedNode, items: FeedNode[]): Tr
     return parent === undefined ? s : { ...s, from: spokenOf(steps[parent].index) };
   });
 }
+
+/**
+ * Where you are, in one line: "Original", or "Refinement 4 of 6". Empty when
+ * the shot on the stage is not a step of the trail.
+ */
+export function whereIs(trail: TrailStep[], activeId: string): string {
+  const here = trail.find((s) => s.node.id === activeId);
+  if (!here) return '';
+  const last = trail[trail.length - 1]?.index ?? 0;
+  return here.index === 0 ? 'Original' : `Refinement ${here.index} of ${last}`;
+}
