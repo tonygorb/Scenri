@@ -68,12 +68,27 @@ describe('the published package surface', () => {
 
   // The desktop launcher's icons and bootstrap live in launcher/ and are
   // committed, so the tarball can prove they pack without a staged tree.
-  it('ships the desktop launcher assets', () => {
+  it('lists the desktop launcher assets in files', () => {
     expect(pkg.files).toContain('launcher');
-    const files = packedFiles();
-    for (const f of ['launcher/launch.mjs', 'launcher/starting.html', 'launcher/Scenri.icns', 'launcher/scenri.ico'])
-      expect(files).toContain(f);
-  }, 30_000);
+  });
+
+  // The tarball listing is the same on every OS, and npm pack on the Windows
+  // runner has taken over half a minute, so the listing is proven on POSIX.
+  it.skipIf(process.platform === 'win32')(
+    'ships the desktop launcher assets',
+    () => {
+      const files = packedFiles();
+      for (const f of [
+        'launcher/launch.mjs',
+        'launcher/starting.html',
+        'launcher/Scenri.icns',
+        'launcher/scenri.ico',
+      ]) {
+        expect(files).toContain(f);
+      }
+    },
+    30_000,
+  );
 
   // dist inlines @scenri/brand (Apache-2.0), so its license text must travel
   // in the tarball next to the app's own — Apache-2.0 section 4(a).
