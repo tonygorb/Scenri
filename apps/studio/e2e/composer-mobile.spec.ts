@@ -968,7 +968,7 @@ test.describe('the attach panel on a phone', () => {
     await expect(panel(page)).toBeVisible();
     await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).tap();
     await page.locator('.sc-ap-card:not(.sc-ap-add)').first().tap();
-    await expect(editor.locator('.sc-token')).toHaveCount(1);
+    await expect(editor.locator('.sc-brief-line .sc-token')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(panel(page)).toHaveCount(0);
     await expect(page.locator('.sc-ovl')).toBeVisible();
