@@ -97,12 +97,23 @@ describe('refreshLauncher', () => {
   it('refreshes a stale bootstrap or icon even on the same schema', async () => {
     const d = deps();
     await installDesktop(d);
-    writeFileSync(supportFile('starting.html'), '<!-- old -->');
+    writeFileSync(supportFile('scenri.ico'), 'old ico');
     expect(await refreshLauncher(d)).toEqual({ refreshed: true });
-    expect(readFileSync(supportFile('starting.html'))).toEqual(readFileSync(join(assetsDir, 'starting.html')));
+    expect(readFileSync(supportFile('scenri.ico'))).toEqual(readFileSync(join(assetsDir, 'scenri.ico')));
     writeFileSync(bundleIcon(), 'old icon');
     expect(await refreshLauncher(d)).toEqual({ refreshed: true });
     expect(readFileSync(bundleIcon())).toEqual(readFileSync(join(assetsDir, 'Scenri.icns')));
+  });
+
+  it('leaves the page scenri open rendered for the browser alone', async () => {
+    // Found on a real Desktop: the server the icon started refreshed the
+    // launcher on boot, took the rendered page for a stale copy of the
+    // template, and overwrote it before Chrome had loaded it.
+    const d = deps();
+    await installDesktop(d);
+    writeFileSync(supportFile('starting.html'), '<meta name="scenri-studio" content="http://127.0.0.1:4801/">');
+    expect(await refreshLauncher(d)).toEqual({});
+    expect(readFileSync(supportFile('starting.html'), 'utf8')).toContain('content="http://127.0.0.1:4801/"');
   });
 
   it('never recreates an icon the user deleted', async () => {

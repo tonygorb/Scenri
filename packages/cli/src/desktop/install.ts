@@ -56,7 +56,9 @@ const COLLISION = 'Something else named Scenri is already on your desktop. Move 
 const DENIED =
   'macOS did not allow writing to your Desktop. Allow it under System Settings > Privacy & Security > Files and Folders, then try again.';
 
-const SUPPORT_FILES = ['launch.mjs', 'starting.html', 'Scenri.icns', 'scenri.ico'] as const;
+// The starting page is not here: scenri open renders it per launch from the
+// package template, and a copy would read as stale to the refresh.
+const SUPPORT_FILES = ['launch.mjs', 'Scenri.icns', 'scenri.ico'] as const;
 
 export async function installDesktop(deps: InstallDeps): Promise<InstallResult> {
   if (!isSupportedPlatform(deps.platform)) return { ok: false, reason: 'unsupported', message: UNSUPPORTED };

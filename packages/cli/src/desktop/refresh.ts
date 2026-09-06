@@ -16,7 +16,7 @@ import { isOurMacBundle, writeMacBundle } from './macos.js';
 import { LAUNCHER_SCHEMA, launcherDir, readLauncherRecord, writeLauncherRecord } from './paths.js';
 import { writeLnk } from './windows.js';
 
-const ASSETS = ['launch.mjs', 'starting.html', 'Scenri.icns', 'scenri.ico'] as const;
+const ASSETS = ['launch.mjs', 'Scenri.icns', 'scenri.ico'] as const;
 
 export async function refreshLauncher(
   deps: InstallDeps & { ownEntry: string; installKind: InstallKind; pkg: string; verifyImpl?: VerifyImpl },

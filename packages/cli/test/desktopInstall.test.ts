@@ -59,9 +59,13 @@ describe('installDesktop on macOS', () => {
     expect(res).toEqual({ ok: true, kind: 'macos-app', path: join(desktop, 'Scenri.app') });
 
     const support = launcherDir(root);
-    for (const f of ['launch.mjs', 'starting.html', 'Scenri.icns', 'scenri.ico', 'launcher.json', 'node-path']) {
+    for (const f of ['launch.mjs', 'Scenri.icns', 'scenri.ico', 'launcher.json', 'node-path']) {
       expect(existsSync(join(support, f)), f).toBe(true);
     }
+    // the starting page is rendered per launch by scenri open from the package
+    // template, never copied here: a copy would read as a stale support file
+    // to the refresh and be overwritten under the browser's feet
+    expect(existsSync(join(support, 'starting.html'))).toBe(false);
     expect(readFileSync(join(support, 'launch.mjs'))).toEqual(readFileSync(join(assetsDir, 'launch.mjs')));
     expect(readFileSync(join(support, 'node-path'), 'utf8')).toBe(`${d.execPath}\n`);
 
