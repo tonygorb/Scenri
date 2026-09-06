@@ -1,7 +1,6 @@
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -13,18 +12,13 @@ import {
   type Pt,
   type Size,
   type View,
-  STEP,
   clampPan,
-  isActual,
-  isFill,
   isFit,
   limits,
   overflows,
   panBy,
   pinchView,
   toggleTarget,
-  zoomBy,
-  zoomLabel,
   zoomTo,
 } from './zoomRules.js';
 
@@ -33,8 +27,10 @@ const KEY_PAN = 80;
 /** Two taps this close in time and space are one double tap. */
 const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_PX = 24;
-/** A pointer that travelled this far was dragging, not tapping. */
+/** A pointer that travelled this far was dragging, not clicking. */
 const DRAG_PX = 4;
+/** A pinch that lets go this close to fit has gone back to fit. */
+const SNAP = 1.05;
 
 type Gesture = { kind: 'drag'; last: Pt; moved: number } | { kind: 'pinch'; base: View; from: { a: Pt; b: Pt } };
 
@@ -48,7 +44,7 @@ interface Frame {
 export interface StageZoom {
   /** The viewport: the stage's picture row. */
   viewRef: (el: HTMLElement | null) => void;
-  /** The frame the layout sizes to fit; the zoom transforms it. */
+  /** The frame the layout sizes to fit; the loupe transforms it. */
   frameRef: (el: HTMLElement | null) => void;
   /** The picture, for its pixels. */
   imgRef: (el: HTMLImageElement | null) => void;
@@ -56,45 +52,32 @@ export interface StageZoom {
   /** Everything the viewport element wears. */
   viewProps: {
     tabIndex: 0;
-    'aria-keyshortcuts': string;
     'data-zoomed'?: '';
     'data-dragging'?: '';
     onPointerDown: (e: ReactPointerEvent<HTMLElement>) => void;
     onPointerMove: (e: ReactPointerEvent<HTMLElement>) => void;
     onPointerUp: (e: ReactPointerEvent<HTMLElement>) => void;
     onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => void;
-    onDoubleClick: (e: ReactMouseEvent<HTMLElement>) => void;
     onKeyDown: (e: ReactKeyboardEvent<HTMLElement>) => void;
   };
   /** The frame's transform away from fit; undefined at fit, where the layout is the truth. */
   frameStyle: CSSProperties | undefined;
   zoomed: boolean;
-  label: string;
-  atFit: boolean;
-  atFill: boolean;
-  atActual: boolean;
-  canIn: boolean;
-  canOut: boolean;
-  toFit: () => void;
-  toFill: () => void;
-  toActual: () => void;
-  to: (percent: number) => void;
-  stepIn: () => void;
-  stepOut: () => void;
 }
 
 /**
- * Zooming the picture where it is.
+ * The loupe: one gesture, one state.
+ *
+ * A click on the picture shows it at actual size (or at twice fit, when
+ * actual size is no closer a look), about the point clicked; a click takes
+ * it back. Close up, a drag pans and so does the wheel. On touch a double
+ * tap does what the click does, one finger pans, and a pinch sets the scale
+ * itself, settling on fit when it lets go near it. Enter or Space is the
+ * click from the keyboard and the arrows pan. Nothing to read and nothing
+ * to choose: the way every photo tool's loupe reads.
  *
  * The stage's own layout decides the fit (the frame's width over the
  * picture's pixels), so at fit nothing is transformed and nothing can drift.
- * From there: the wheel, with or without ctrl, a trackpad pinch or two
- * fingers zoom about the cursor, the way an image viewer reads a wheel; a
- * drag or one finger pans when the picture runs past its row; a double
- * click or double tap goes to actual size and back; plus, minus, 0 and 1 do
- * the same from the keyboard. Fill covers the row, 100% is the picture at
- * its own pixel size, and the range ends at three times that.
- *
  * Every read of the numbers goes through refs, since gestures arrive faster
  * than renders.
  */
@@ -112,7 +95,7 @@ export function useStageZoom({
   const [view, setView] = useState<View | null>(null);
   const [eased, setEased] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const l = frame && viewport && natural ? limits(frame.fit, viewport, natural) : null;
+  const l = frame ? limits(frame.fit) : null;
 
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -135,7 +118,7 @@ export function useStageZoom({
   const go = useCallback((next: View, ease: boolean) => {
     const lim = limRef.current;
     const f = frameRef.current;
-    // fit is the layout's own place, wherever the last tick left the picture
+    // fit is the layout's own place, wherever the last move left the picture
     const at = lim && f && isFit(next.scale, lim) ? { scale: f.fit, tx: f.ox, ty: f.oy } : next;
     userZoomed.current = !!lim && !isFit(at.scale, lim);
     viewRef.current = at;
@@ -203,18 +186,9 @@ export function useStageZoom({
     const lim = limRef.current;
     return v && vp && nat && lim ? { v, vp, nat, lim } : null;
   };
-  const centre = (): Pt => ({ x: (vpRef.current?.w ?? 0) / 2, y: (vpRef.current?.h ?? 0) / 2 });
-  const zoomStep = (dir: 1 | -1, at?: Pt) => {
+  const zoomedNow = () => {
     const n = nums();
-    if (!n) return;
-    const p = at ?? centre();
-    go(zoomBy(n.v, dir > 0 ? STEP : 1 / STEP, p.x, p.y, n.vp, n.nat, n.lim), true);
-  };
-  const toScale = (scale: number) => {
-    const n = nums();
-    if (!n) return;
-    const c = centre();
-    go(zoomTo(n.v, scale, c.x, c.y, n.vp, n.nat, n.lim), true);
+    return !!n && !isFit(n.v.scale, n.lim);
   };
   const toFit = () => {
     const f = frameRef.current;
@@ -222,18 +196,7 @@ export function useStageZoom({
     go({ scale: f.fit, tx: f.ox, ty: f.oy }, true);
     userZoomed.current = false;
   };
-  const toFill = () => {
-    const n = nums();
-    if (n) toScale(n.lim.fill);
-  };
-  const toActual = () => {
-    const n = nums();
-    if (n) toScale(n.lim.actual);
-  };
-  const to = (percent: number) => {
-    const n = nums();
-    if (n) toScale((percent / 100) * n.lim.actual);
-  };
+  /** The click: the look about a point, or fit again. */
   const toggle = (at: Pt) => {
     const n = nums();
     if (!n) return;
@@ -241,15 +204,16 @@ export function useStageZoom({
     if (isFit(target, n.lim)) toFit();
     else go(zoomTo(n.v, target, at.x, at.y, n.vp, n.nat, n.lim), true);
   };
-  const zoomedNow = () => {
-    const n = nums();
-    return !!n && !isFit(n.v.scale, n.lim);
+  /** At fit only a click on the picture itself is a click; zoomed, the whole row answers. */
+  const onPicture = (e: { clientX: number; clientY: number }) => {
+    if (zoomedNow()) return true;
+    const r = frameEl?.getBoundingClientRect();
+    return !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
   };
 
   const pointers = useRef(new Map<number, Pt>());
   const gesture = useRef<Gesture | null>(null);
   const lastTap = useRef<{ t: number; at: Pt } | null>(null);
-  const lastType = useRef<string>('mouse');
   const local = (e: { clientX: number; clientY: number }): Pt => {
     const r = viewEl?.getBoundingClientRect();
     return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) };
@@ -257,7 +221,6 @@ export function useStageZoom({
 
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    lastType.current = e.pointerType;
     const p = local(e);
     pointers.current.set(e.pointerId, p);
     const v = viewRef.current;
@@ -301,15 +264,25 @@ export function useStageZoom({
       // a pinch that lost a finger carries on as a drag from the finger that stayed
       const [rest] = [...pointers.current.values()];
       gesture.current = { kind: 'drag', last: rest, moved: DRAG_PX + 1 };
-      return { p, tap: false };
+      return { g, p, still: false };
     }
     gesture.current = null;
     setDragging(false);
-    return { p, tap: g?.kind === 'drag' && g.moved <= DRAG_PX && e.pointerType !== 'mouse' };
+    // a pinch that let go near fit has gone back to fit
+    if (g?.kind === 'pinch') {
+      const n = nums();
+      if (n && n.v.scale < n.lim.fit * SNAP) toFit();
+    }
+    return { g, p, still: g?.kind === 'drag' && g.moved <= DRAG_PX };
   };
   const onPointerUp = (e: ReactPointerEvent<HTMLElement>) => {
-    const { p, tap } = release(e);
-    if (!tap || !p) return;
+    const { p, still } = release(e);
+    if (!still || !p || !onPicture(e)) return;
+    if (e.pointerType === 'mouse') {
+      toggle(p);
+      return;
+    }
+    // a touch double tap: the browser's own is switched off with touch-action
     const now = performance.now();
     const prev = lastTap.current;
     if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(p.x - prev.at.x, p.y - prev.at.y) < DOUBLE_TAP_PX) {
@@ -320,66 +293,40 @@ export function useStageZoom({
   const onPointerCancel = (e: ReactPointerEvent<HTMLElement>) => {
     release(e);
   };
-  const onDoubleClick = (e: ReactMouseEvent<HTMLElement>) => {
-    // a touch double tap is handled above; Chrome fires dblclick for it too
-    if (lastType.current === 'mouse') toggle(local(e));
-  };
 
-  // Wheel is a native listener: React's is passive, and this one has to stop
-  // the page. A wheel over the picture is a zoom about the cursor, ctrl or
-  // no ctrl (a trackpad pinch arrives as a wheel with ctrlKey); a notch is a
-  // step of about a third, a trackpad's run of small deltas is smooth.
+  // Close up, the wheel pans, which is what a wheel over a picture larger
+  // than its box has always done. At fit it is not the picture's. Native,
+  // because React's wheel listener is passive and cannot stop the page.
   useEffect(() => {
     const el = viewEl;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       const n = nums();
-      if (!n) return;
+      if (!n || !overflows(n.v, n.vp, n.nat)) return;
       e.preventDefault();
       const unit = e.deltaMode === 1 ? 16 : 1;
-      const dy = Math.max(-40, Math.min(40, e.deltaY * unit));
-      const r = el.getBoundingClientRect();
-      go(zoomBy(n.v, Math.exp(-dy * 0.008), e.clientX - r.left, e.clientY - r.top, n.vp, n.nat, n.lim), false);
+      go(panBy(n.v, -e.deltaX * unit, -e.deltaY * unit, n.vp, n.nat), false);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, [viewEl, go]);
 
-  // Zoom keys are the picture's. The arrows are its only when it is zoomed;
-  // at fit they fall through to the overlay, which walks shots on them.
+  // Enter or Space is the click, about the middle. The arrows are the
+  // picture's only close up; at fit they fall through to the overlay, which
+  // walks shots on them.
   const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
-    const pan = (dx: number, dy: number) => {
-      const n = nums();
-      if (n) go(panBy(n.v, dx, dy, n.vp, n.nat), true);
-    };
-    switch (e.key) {
-      case '+':
-      case '=':
-        zoomStep(1);
-        break;
-      case '-':
-      case '_':
-        zoomStep(-1);
-        break;
-      case '0':
-        toFit();
-        break;
-      case '1':
-        toActual();
-        break;
-      case 'ArrowLeft':
-      case 'ArrowRight':
-      case 'ArrowUp':
-      case 'ArrowDown': {
-        if (!zoomedNow()) return;
-        const dx = e.key === 'ArrowLeft' ? KEY_PAN : e.key === 'ArrowRight' ? -KEY_PAN : 0;
-        const dy = e.key === 'ArrowUp' ? KEY_PAN : e.key === 'ArrowDown' ? -KEY_PAN : 0;
-        pan(dx, dy);
-        break;
-      }
-      default:
-        return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      const vp = vpRef.current;
+      if (vp) toggle({ x: vp.w / 2, y: vp.h / 2 });
+      e.preventDefault();
+      return;
     }
+    if (!zoomedNow()) return;
+    const dx = e.key === 'ArrowLeft' ? KEY_PAN : e.key === 'ArrowRight' ? -KEY_PAN : 0;
+    const dy = e.key === 'ArrowUp' ? KEY_PAN : e.key === 'ArrowDown' ? -KEY_PAN : 0;
+    if (!dx && !dy) return;
+    const n = nums();
+    if (n) go(panBy(n.v, dx, dy, n.vp, n.nat), true);
     e.preventDefault();
   };
 
@@ -399,29 +346,15 @@ export function useStageZoom({
     onImgLoad: readNatural,
     viewProps: {
       tabIndex: 0,
-      'aria-keyshortcuts': '+ - 0 1',
       'data-zoomed': zoomed ? '' : undefined,
       'data-dragging': dragging ? '' : undefined,
       onPointerDown,
       onPointerMove,
       onPointerUp,
       onPointerCancel,
-      onDoubleClick,
       onKeyDown,
     },
     frameStyle,
     zoomed,
-    label: view && l ? zoomLabel(view.scale, l) : 'Fit',
-    atFit: !zoomed,
-    atFill: !!(view && l && isFill(view.scale, l)),
-    atActual: !!(view && l && isActual(view.scale, l)),
-    canIn: !!(view && l && view.scale < l.max * 0.999),
-    canOut: !!(view && l && view.scale > l.min * 1.001),
-    toFit,
-    toFill,
-    toActual,
-    to,
-    stepIn: () => zoomStep(1),
-    stepOut: () => zoomStep(-1),
   };
 }

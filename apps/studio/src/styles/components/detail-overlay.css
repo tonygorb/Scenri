@@ -294,13 +294,13 @@
   aspect-ratio: var(--sc-pic-ar, 1);
   height: auto;
 }
-/* The picture's row is its viewport. At fit the frame sits where the grid
-   centred it and nothing is transformed; zoomed, the frame moves and scales
-   inside this box and the box clips it, so the strip and the panel never
-   move. The box takes the gestures: at fit a finger is the page's (it
-   scrolls, it swipes) and only a pinch is taken; zoomed, every touch is the
-   picture's. Focusable, so the keys have somewhere to land; the floor ring
-   marks it. */
+/* The picture's row is its viewport, and the picture is a loupe. At fit the
+   frame sits where the grid centred it and nothing is transformed; a click
+   takes it close up, and then the frame moves and scales inside this box and
+   the box clips it, so the strip and the panel never move. At fit a finger
+   is the page's (it scrolls, it swipes) and only a pinch is taken; close up,
+   every touch is the picture's. Focusable, so Enter has somewhere to land;
+   the floor ring marks it. The cursor says which click comes next. */
 .sc-stage-view {
   position: relative;
   margin: 0;
@@ -312,9 +312,15 @@
   place-items: center;
   touch-action: pan-y;
 }
+.sc-stage-view .sc-frame {
+  cursor: zoom-in;
+}
 .sc-stage-view[data-zoomed] {
   overflow: hidden;
   touch-action: none;
+  cursor: zoom-out;
+}
+.sc-stage-view[data-zoomed] .sc-frame {
   cursor: grab;
 }
 .sc-stage-view[data-zoomed][data-dragging] {
@@ -328,35 +334,6 @@
   .sc-stage-view .sc-frame {
     transition: none;
   }
-}
-/* The zoom reading: Fit, Fill, or a percent. A menu trigger in the bar's
-   chip language, tabular so a changing number does not jitter. */
-.sc-ovl-zoom {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 8px 0 12px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-well);
-  color: var(--sc-fg2);
-  font-family: var(--sc-font-mono);
-  font-size: var(--sc-text-micro);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition:
-    background var(--sc-dur-fast) var(--sc-ease),
-    color var(--sc-dur-fast) var(--sc-ease);
-}
-.sc-ovl-zoom:hover,
-.sc-ovl-zoom[data-state="open"] {
-  background: var(--sc-hover);
-  color: var(--sc-fg);
-}
-.sc-ovl-zoom:active {
-  background: var(--sc-press);
 }
 .sc-stage-pic .sc-stage-img {
   display: block;
@@ -709,8 +686,7 @@
      icon buttons and a price on a 390px line is what made this area feel
      cramped; the actions did not need to be visible to be reachable, and the
      price is not an action at all — it is in the record below. */
-  .sc-ovl-acts,
-  .sc-ovl-zoom {
+  .sc-ovl-acts {
     display: none;
   }
   .sc-ovl-overflow {

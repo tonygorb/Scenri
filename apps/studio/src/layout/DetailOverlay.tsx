@@ -17,7 +17,6 @@ import {
   ArrowsLeftRight,
   CaretLeft,
   CaretRight,
-  CaretDown,
   Check,
   CopySimple,
   DotsThree,
@@ -513,16 +512,7 @@ export function DetailOverlay({
 
   const hasImage = node.status === 'done' && node.images.length > 0;
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
-  /** The ways in to a zoom, by name; the gestures on the picture are the other. */
-  const zoomStops = [
-    { label: 'Fit', onSelect: zoom.toFit, disabled: zoom.atFit },
-    { label: 'Fill', onSelect: zoom.toFill, disabled: zoom.atFill },
-    { label: 'Actual size', onSelect: zoom.toActual, disabled: zoom.atActual },
-    { label: '200%', onSelect: () => zoom.to(200), disabled: false },
-    { label: 'Zoom in', onSelect: zoom.stepIn, disabled: !zoom.canIn },
-    { label: 'Zoom out', onSelect: zoom.stepOut, disabled: !zoom.canOut },
-  ];
-  /** The same verbs on a right click over the picture: what the header carries, then the zoom stops. */
+  /** The same verbs on a right click over the picture, the ones the header carries. */
   const stageMenu = hasImage ? (
     <ContextMenu.Content>
       {actions.map((a) => (
@@ -534,12 +524,6 @@ export function DetailOverlay({
         >
           {a.icon}
           {a.label}
-        </ContextMenu.Item>
-      ))}
-      <ContextMenu.Separator />
-      {zoomStops.map((z) => (
-        <ContextMenu.Item key={z.label} onSelect={z.onSelect} disabled={z.disabled}>
-          {z.label}
         </ContextMenu.Item>
       ))}
     </ContextMenu.Content>
@@ -634,29 +618,6 @@ export function DetailOverlay({
 
           {actions.length > 0 && (
             <div className="sc-ovl-bar-r">
-              {/* How close the picture is: Fit, Fill, or a percent of actual
-                  size. A menu, because the stops are the ways in by name; the
-                  gestures on the picture are the other. Absent when there is
-                  no picture, and folded into the overflow on a phone. */}
-              {hasImage && (
-                <DropdownMenu.Root>
-                  {/* no tooltip: the reading is its own label, and a card
-                      saying Zoom would pop every time the menu handed focus back */}
-                  <DropdownMenu.Trigger>
-                    <button type="button" className="sc-ovl-zoom" aria-label={`Zoom, ${zoom.label}`}>
-                      <span>{zoom.label}</span>
-                      <CaretDown size={11} weight="bold" />
-                    </button>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content align="end" sideOffset={6}>
-                    {zoomStops.map((z) => (
-                      <DropdownMenu.Item key={z.label} onSelect={z.onSelect} disabled={z.disabled}>
-                        {z.label}
-                      </DropdownMenu.Item>
-                    ))}
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
-              )}
               {/* One list, two shells: buttons where the row is wide enough to
                   hold them, one overflow where it is not. Written once, so the
                   two can never drift apart or offer different things. */}
@@ -707,16 +668,6 @@ export function DetailOverlay({
                       {a.label}
                     </DropdownMenu.Item>
                   ))}
-                  {hasImage && (
-                    <>
-                      <DropdownMenu.Separator />
-                      {zoomStops.map((z) => (
-                        <DropdownMenu.Item key={z.label} onSelect={z.onSelect} disabled={z.disabled}>
-                          {z.label}
-                        </DropdownMenu.Item>
-                      ))}
-                    </>
-                  )}
                 </DropdownMenu.Content>
               </DropdownMenu.Root>
             </div>

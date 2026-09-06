@@ -145,12 +145,11 @@ test('the rail is the feed, and the arrows, the keys and the wheel walk it', asy
   await page.keyboard.press('ArrowLeft');
   await expect(page).toHaveURL(new RegExp(`/shots/${prev}$`));
 
-  // a wheel over the picture is a zoom, never a step: the shot stays put
+  // a wheel over the picture at fit is nobody's: the shot stays put
   const pic = page.locator('.sc-stage-view');
   const box = (await pic.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.wheel(0, -120);
-  await expect(page.locator('.sc-ovl-zoom span')).not.toHaveText('Fit');
+  await page.mouse.wheel(0, 120);
   await page.waitForTimeout(300);
   await expect(page).toHaveURL(new RegExp(`/shots/${prev}$`));
 });
@@ -174,52 +173,53 @@ test('refining after a switch lands under the shot on the stage', async ({ page 
   expect(posted.sourceImage).toBe(shots.c.hash);
 });
 
-test('the picture zooms where it is: wheel with ctrl, keys, a double click, and the menu', async ({ page }) => {
+test('the picture is a loupe: a click shows actual size about the point, a click again fits it', async ({ page }) => {
   await page.goto(shotUrl(shots.a));
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  const reading = page.locator('.sc-ovl-zoom span');
   const pic = page.locator('.sc-stage-view');
-  await expect(reading).toHaveText('Fit');
+  const frame = page.locator('.sc-stage-view .sc-frame');
+  const img = page.locator('.sc-stage-img');
   await expect(pic).not.toHaveAttribute('data-zoomed', '');
+  // nothing to read: the loupe carries no chrome
+  await expect(page.locator('.sc-ovl-zoom')).toHaveCount(0);
 
-  const box = (await pic.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.keyboard.down('Control');
-  await page.mouse.wheel(0, -200);
-  await page.keyboard.up('Control');
-  await expect(reading).not.toHaveText('Fit');
+  const box = (await img.boundingBox())!;
+  await img.click({ position: { x: box.width * 0.25, y: box.height * 0.25 } });
   await expect(pic).toHaveAttribute('data-zoomed', '');
-  // the shot did not move: a zoom is not a step
-  await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
-
-  await pic.focus();
-  await page.keyboard.press('0');
-  await expect(reading).toHaveText('Fit');
-  await page.keyboard.press('1');
-  // the picture at its own pixel size, in CSS pixels
-  await expect(reading).toHaveText('100%');
-  // the frame's own width times its transform, over the picture's pixels:
-  // offsets ignore the transform, so this reads true mid-ease as well
-  const scale = await page.locator('.sc-stage-view .sc-frame').evaluate((el) => {
+  // the picture at its own pixel size: the frame's width times its transform over the pixels
+  const scale = await frame.evaluate((el) => {
     const m = /scale\(([\d.]+)\)/.exec((el as HTMLElement).style.transform);
-    const img = el.querySelector('img') as HTMLImageElement;
-    return m ? (Number(m[1]) * (el as HTMLElement).offsetWidth) / img.naturalWidth : null;
+    const i = el.querySelector('img') as HTMLImageElement;
+    return m ? (Number(m[1]) * (el as HTMLElement).offsetWidth) / i.naturalWidth : null;
   });
   expect(scale).toBeCloseTo(1, 2);
+  // the shot did not move: a look is not a step
+  await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
 
-  await pic.dblclick({ position: { x: box.width / 2, y: box.height / 2 } });
-  await expect(reading).toHaveText('Fit');
-  await pic.dblclick({ position: { x: box.width / 2, y: box.height / 2 } });
-  await expect(reading).toHaveText('100%');
+  // close up, a wheel pans and never steps
+  const view = (await pic.boundingBox())!;
+  await page.mouse.move(view.x + view.width / 2, view.y + view.height / 2);
+  await page.mouse.wheel(0, 120);
+  await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
+  await expect(pic).toHaveAttribute('data-zoomed', '');
 
-  await page.locator('.sc-ovl-zoom').click();
-  await page.getByRole('menuitem', { name: 'Fill' }).click();
-  await expect(reading).toHaveText('Fill');
-  // the menu is still on its way out for a beat; a click that lands then is swallowed
-  await expect(page.getByRole('menu')).toHaveCount(0);
-  await page.locator('.sc-ovl-zoom').click();
-  await page.getByRole('menuitem', { name: 'Fit' }).click();
-  await expect(reading).toHaveText('Fit');
+  // a click takes it back
+  await pic.click({ position: { x: view.width / 2, y: view.height / 2 } });
+  await expect(pic).not.toHaveAttribute('data-zoomed', '');
+  await expect(frame).toHaveAttribute('style', /^((?!scale).)*$/);
+
+  // Enter is the click from the keyboard
+  await pic.focus();
+  await page.keyboard.press('Enter');
+  await expect(pic).toHaveAttribute('data-zoomed', '');
+  await page.keyboard.press('Enter');
+  await expect(pic).not.toHaveAttribute('data-zoomed', '');
+
+  // at fit the wheel is not the picture's: nothing zooms, nothing steps
+  await page.mouse.wheel(0, -120);
+  await page.waitForTimeout(300);
+  await expect(pic).not.toHaveAttribute('data-zoomed', '');
+  await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
 });
 
 test('every icon in the header says its name on hover and on focus', async ({ page }) => {

@@ -186,7 +186,7 @@ export function StageFrame({
     <figure
       ref={zoom.viewRef}
       className="sc-stage-view"
-      aria-label="Picture. Plus and minus zoom, 0 fits, 1 is actual size."
+      aria-label="Picture. Enter shows it at actual size; Enter again fits it."
       {...zoom.viewProps}
     >
       {frame}
