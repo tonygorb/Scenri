@@ -52,7 +52,7 @@ export function ShotRail({
   useEffect(() => {
     const tile = ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
     if (!tile) return;
-    tile.scrollIntoView({ block: shown.current ? 'nearest' : 'center' });
+    tile.scrollIntoView({ block: shown.current ? 'nearest' : 'center', behavior: shown.current ? 'smooth' : 'auto' });
     shown.current = true;
   }, [activeId]);
 

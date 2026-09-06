@@ -426,7 +426,9 @@ test('the shot has room around it on a phone', async ({ page }) => {
     const stage = document.querySelector('.sc-ovl-stage') as HTMLElement;
     const bar = document.querySelector('.sc-ovl-bar')!.getBoundingClientRect();
     const img = stage.querySelector('img')!.getBoundingClientRect();
-    const kids = [...stage.children];
+    // the row of takes, when it is on screen: an empty row is held on a
+    // desktop and hidden on a phone, and a hidden box measures at nothing
+    const kids = [...stage.children].filter((k) => getComputedStyle(k).display !== 'none');
     const takes = kids.length > 1 ? kids[kids.length - 1].getBoundingClientRect() : null;
     return {
       headerToShot: Math.round(img.top - bar.bottom),

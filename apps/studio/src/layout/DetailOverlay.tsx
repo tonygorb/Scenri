@@ -732,7 +732,14 @@ export function DetailOverlay({
           {/* The image's own history, right under the image: the original,
               this shot ringed, and its refinements. Hovering peeks a version
               at a readable size; clicking moves the stage to it. */}
-          {lineageStrip.length > 1 && <LineageStrip strip={lineageStrip} activeId={node.id} onSelect={onSelect} />}
+          {lineageStrip.length > 1 ? (
+            <LineageStrip strip={lineageStrip} activeId={node.id} onSelect={onSelect} />
+          ) : (
+            // The row is held even with nothing in it: the picture's cap and
+            // its centre are the same on a shot with a history and one
+            // without, so walking the feed never resizes the stage.
+            <div className="sc-thumbs sc-thumbs-empty" aria-hidden />
+          )}
         </div>
 
         {/* The seam between picture and panel is the handle: drag to size the

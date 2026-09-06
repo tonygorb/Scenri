@@ -103,6 +103,10 @@
 .sc-thumbs::-webkit-scrollbar {
   display: none;
 }
+/* the row held with nothing in it: the tile's own height, and no more */
+.sc-thumbs-empty {
+  height: 52px;
+}
 .sc-thumb-btn {
   padding: 0;
   border: none;
@@ -275,9 +279,9 @@
    height the page would have if the browser chrome were collapsed — so on iOS
    Chrome it promises room that is not on screen. */
 .sc-ovl-stage {
-  --sc-stage-cap: max(calc(100dvh - 124px), 320px);
-}
-.sc-ovl-stage[data-takes] {
+  /* One cap whether the strip has versions in it or not: the row under the
+     picture is held either way, so a step from a shot with a history to one
+     without never resizes or re-centres the stage. */
   --sc-stage-cap: max(calc(100dvh - 200px), 280px);
 }
 .sc-ovl-stage img {
@@ -323,6 +327,15 @@
 .sc-stage-view[data-zoomed] .sc-frame {
   cursor: grab;
 }
+.sc-stage-view[data-zoomed][data-dragging] .sc-frame {
+  cursor: grabbing;
+}
+/* a drag close up is a pan, never the browser's ghost of the picture or a text selection */
+.sc-stage-view img {
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
 .sc-stage-view[data-zoomed][data-dragging] {
   cursor: grabbing;
 }
@@ -339,6 +352,12 @@
   display: block;
   width: 100%;
   height: auto;
+  /* invisible until it has pixels; the picture before it holds the stage */
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-stage-pic .sc-stage-img[data-ready] {
+  opacity: 1;
 }
 .sc-stage-pic .sc-stage-under {
   position: absolute;
@@ -346,6 +365,8 @@
   width: 100%;
   height: 100%;
   display: block;
+  /* the last picture may be another shape; it sits inside the new box, whole */
+  object-fit: contain;
 }
 .sc-ovl-stage > * {
   min-height: 0;
@@ -601,9 +622,7 @@
      leaves the panel its room: without this the desktop cap let the image
      spend the whole viewport and the panel below kept a 100px sliver. */
   .sc-ovl-stage {
-    --sc-stage-cap: max(calc(100dvh - 340px), 300px);
-  }
-  .sc-ovl-stage[data-takes] {
+    /* one cap, the row under the picture held either way, as on a desktop */
     --sc-stage-cap: max(calc(100dvh - 410px), 260px);
   }
   .sc-ovl-meta {
@@ -675,6 +694,10 @@
   }
   .sc-ovl-stage[data-takes] {
     --sc-stage-cap: max(44dvh, 260px);
+  }
+  /* a phone's column scrolls; an empty row there is room taken from the picture */
+  .sc-thumbs-empty {
+    display: none;
   }
   .sc-ovl-stage .sc-frame,
   .sc-ovl-stage img {

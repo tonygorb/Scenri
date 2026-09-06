@@ -33,7 +33,7 @@ export function LineageStrip({
   useEffect(() => {
     ref.current
       ?.querySelector<HTMLElement>('[aria-pressed="true"]')
-      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }, [activeId]);
 
   // A mouse only speaks vertically, so a strip that overflows takes the

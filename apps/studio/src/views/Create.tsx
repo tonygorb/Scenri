@@ -443,7 +443,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * Arrow keys also walk the closed canvas grid, where there is no overlay
    * route to update; `select`'s plain local-state move still owns that case.
    */
-  const goToShot = (id: string) => (nodeId ? openShot(id, true) : select(id));
+  const goToShot = (id: string) =>
+    nodeId || /\/shots\//.test(window.location.pathname) ? openShot(id, true) : select(id);
 
   /**
    * Shots that did not exist a moment ago: a send, a refine, a retry. Seated
@@ -711,10 +712,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * brand in creation order, whatever lens or search the grid was showing.
    */
   const walk = async (dir: 'left' | 'right' | 'up' | 'down') => {
-    // With a shot open the URL names it; `selected` follows a render later,
-    // and a second arrow inside that gap stepped from the shot before. A
-    // shot the pages do not hold (a deep link) has no neighbours to walk to.
-    const at = nodeId ? (byId.get(nodeId) ?? null) : selected;
+    // With a shot open the URL names it, and the URL is read live: the
+    // address changes the moment a step is taken, the render that would hand
+    // this closure the new id comes a frame later, and a second arrow inside
+    // that gap (a held key) stepped from the shot before. A shot the pages
+    // do not hold (a deep link) has no neighbours to walk to.
+    const openId = /\/shots\/([^/?#]+)/.exec(window.location.pathname)?.[1] ?? null;
+    const at = openId ? (byId.get(openId) ?? null) : selected;
     if (!at) return;
     if (dir === 'left' || dir === 'right') {
       const { prev, next } = neighborsOf(items, at.id);

@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Box, ContextMenu, Flex, Text } from '@radix-ui/themes';
 import { imgUrl, thumbUrl, type FeedNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
@@ -148,7 +148,7 @@ export function StageFrame({
         className="sc-frame sc-stage-pic"
         style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px`, ...zoom?.frameStyle } as CSSProperties}
       >
-        <StagePicture key={hash} hash={hash} alt={node.promptHead} zoom={zoom} />
+        <StagePicture hash={hash} alt={node.promptHead} zoom={zoom} />
       </Box>
     ) : (
       <Flex justify="center">
@@ -163,6 +163,7 @@ export function StageFrame({
                 ref={zoom?.imgRef}
                 src={imgUrl(hash)}
                 alt={node.promptHead}
+                draggable={false}
                 // the cap itself lives in CSS, where it can know whether a row of
                 // takes sits under the shot: a percentage cannot, because nothing
                 // between here and the stage has a definite height to measure
@@ -187,6 +188,8 @@ export function StageFrame({
       ref={zoom.viewRef}
       className="sc-stage-view"
       aria-label="Picture. Enter shows it at actual size; Enter again fits it."
+      // the browser's own drag of an image (the ghost picture) would take the pointer from the pan
+      onDragStart={(e) => e.preventDefault()}
       {...zoom.viewProps}
     >
       {frame}
@@ -203,26 +206,41 @@ export function StageFrame({
   );
 }
 
+/**
+ * The picture, and the one before it.
+ *
+ * Not remounted per shot: walking the rail used to swap in a bare frame,
+ * then the feed's 640px derivative, then the original, which read as a
+ * flicker on every step. The picture that was on the stage stays under the
+ * new one, already decoded, until the new original has pixels, and the new
+ * one fades in over it. The first picture, with nothing before it, sits on
+ * the feed's derivative the way it always did.
+ */
 function StagePicture({ hash, alt, zoom }: { hash: string; alt: string; zoom?: StageZoom }) {
-  // the derivative stays until the original has pixels; a cached original
-  // can be complete before React attaches onLoad, hence the ref check
-  const [under, setUnder] = useState(true);
-  const attach = (el: HTMLImageElement | null) => {
+  /** The hash whose pixels have painted; the last of them stays under the next. */
+  const [painted, setPainted] = useState<string | null>(null);
+  const last = useRef<string | null>(null);
+  const ready = painted === hash;
+  const paint = (el: HTMLImageElement | null) => {
+    if (!el?.complete || !el.naturalWidth || el.src !== new URL(imgUrl(hash), location.href).href) return;
+    last.current = hash;
+    setPainted(hash);
     zoom?.imgRef(el);
-    if (el?.complete && el.naturalWidth) setUnder(false);
   };
+  const underSrc = last.current && last.current !== hash ? imgUrl(last.current) : thumbUrl(hash, 'tile');
   return (
     <Box position="relative" style={{ lineHeight: 0 }}>
-      {under && <img className="sc-stage-under" src={thumbUrl(hash, 'tile')} alt="" aria-hidden decoding="async" />}
+      {!ready && (
+        <img className="sc-stage-under" src={underSrc} alt="" aria-hidden decoding="async" draggable={false} />
+      )}
       <img
-        ref={attach}
+        ref={paint}
         src={imgUrl(hash)}
         alt={alt}
         className="sc-stage-img"
-        onLoad={(e) => {
-          setUnder(false);
-          zoom?.onImgLoad(e.currentTarget);
-        }}
+        data-ready={ready || undefined}
+        draggable={false}
+        onLoad={(e) => paint(e.currentTarget)}
       />
     </Box>
   );

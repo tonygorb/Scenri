@@ -122,10 +122,11 @@ test("the strip is the root's whole history, whichever version is on the stage",
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.d.id}$`));
   await expect.poll(() => stripSrcs(page)).toEqual([shots.d, shots.d1].map(thumbOf));
 
-  // a root with no history has no strip at all
+  // a root with no history shows no versions, and the row is held so the stage does not move
   await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.a)}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
-  await expect(page.locator('.sc-thumbs')).toHaveCount(0);
+  await expect(page.locator('.sc-thumbs .sc-thumb-btn')).toHaveCount(0);
+  await expect(page.locator('.sc-thumbs-empty')).toHaveCount(1);
 });
 
 test('the rail is the feed, and the arrows, the keys and the wheel walk it', async ({ page }) => {
