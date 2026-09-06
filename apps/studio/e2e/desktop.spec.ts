@@ -67,7 +67,9 @@ test.describe
       await page.goto(`${baseURL}/acme?settings=about`);
       // machine-level, so it is not a Settings row any more
       await expect(rows(page).filter({ hasText: /Quit|Shut down/ })).toHaveCount(0);
-      await page.keyboard.press('Escape');
+      // a fresh page rather than Escape: on the CI runner the closing dialog's
+      // scroll layer still sat over the menu button when the click came
+      await page.goto(`${baseURL}/acme`);
       await page.locator('.sc-org-btn').click();
       const item = page.locator('.sc-menu-item[data-quit]');
       await expect(item).toContainText('Shut down Scenri');
