@@ -25,6 +25,10 @@ export const PANEL_MAX_H = 460;
 export const PREVIEW_W = 156;
 /** Chip to panel. */
 const GAP = 8;
+/** Anchor to preview card: room for the card's tail and a breath beside it. */
+export const PREVIEW_GAP = 14;
+/** How far in from a card's corner the tail may sit, so it never lands on the rounding. */
+const TAIL_INSET = 20;
 /** Never flush against a viewport edge. */
 const MARGIN = 12;
 /** Below this a scroller shows too little to choose from; flip instead. */
@@ -50,8 +54,15 @@ export interface Placed {
   width: number;
   maxHeight: number;
   side: 'above' | 'below' | 'beside';
-  /** Beside a tile: where the tail points, as a distance down the card's edge, and which edge. */
-  tail?: { y: number; edge: 'left' | 'right' };
+}
+
+/** Where a card's tail sits: the edge that faces the anchor, and how far along it. */
+export interface Tail {
+  edge: 'top' | 'bottom' | 'left' | 'right';
+  /** Along a top or bottom edge, from the card's left. */
+  x: number;
+  /** Along a left or right edge, from the card's top. */
+  y: number;
 }
 
 /** A preview card's height: the square face plus its two-line caption and insets. */
@@ -68,12 +79,25 @@ export const PREVIEW_H = 204;
 export function placeBeside(a: AnchorRect, vp: Viewport, opts?: { width?: number }): Placed | null {
   if (a.bottom < 0 || a.top > vp.height) return null;
   const width = Math.min(opts?.width ?? PREVIEW_W, vp.width - MARGIN * 2);
-  const fitsRight = a.right + GAP + width + MARGIN <= vp.width;
-  const left = fitsRight ? a.right + GAP : Math.max(MARGIN, a.left - GAP - width);
+  const fitsRight = a.right + PREVIEW_GAP + width + MARGIN <= vp.width;
+  const left = fitsRight ? a.right + PREVIEW_GAP : Math.max(MARGIN, a.left - PREVIEW_GAP - width);
   const top = Math.max(MARGIN, Math.min(a.top, vp.height - MARGIN - PREVIEW_H));
-  // the tail points at the tile's middle, wherever the card had to sit
-  const tail = { y: (a.top + a.bottom) / 2 - top, edge: fitsRight ? ('left' as const) : ('right' as const) };
-  return { left, top, width, maxHeight: Math.max(MIN_H, vp.height - top - MARGIN), side: 'beside', tail };
+  return { left, top, width, maxHeight: Math.max(MIN_H, vp.height - top - MARGIN), side: 'beside' };
+}
+
+/**
+ * The tail a preview card wears, pointing at its anchor: on the edge that
+ * faces the anchor, level with the anchor's middle, kept off the card's
+ * rounded corners. Above or below, that is the bottom or top edge at the
+ * anchor's centre; beside, the left or right edge at the anchor's middle.
+ */
+export function tailFor(a: AnchorRect, p: Placed): Tail {
+  const clamp = (v: number, max: number) => Math.min(Math.max(v, TAIL_INSET), Math.max(TAIL_INSET, max - TAIL_INSET));
+  if (p.side === 'beside') {
+    const edge = p.left >= a.right ? 'left' : 'right';
+    return { edge, x: 0, y: clamp((a.top + a.bottom) / 2 - p.top, PREVIEW_H) };
+  }
+  return { edge: p.side === 'above' ? 'bottom' : 'top', x: clamp((a.left + a.right) / 2 - p.left, p.width), y: 0 };
 }
 
 /**
@@ -81,12 +105,13 @@ export function placeBeside(a: AnchorRect, vp: Viewport, opts?: { width?: number
  * scroller, so a chip can leave the viewport while its panel is open, and a
  * panel pointing at nothing should close rather than drift.
  */
-export function placePanel(a: AnchorRect, vp: Viewport, opts?: { width?: number }): Placed | null {
+export function placePanel(a: AnchorRect, vp: Viewport, opts?: { width?: number; gap?: number }): Placed | null {
   if (a.bottom < 0 || a.top > vp.height) return null;
 
   const width = Math.min(opts?.width ?? PANEL_W, vp.width - MARGIN * 2);
-  const roomAbove = a.top - GAP - MARGIN;
-  const roomBelow = vp.height - a.bottom - GAP - MARGIN;
+  const gap = opts?.gap ?? GAP;
+  const roomAbove = a.top - gap - MARGIN;
+  const roomBelow = vp.height - a.bottom - gap - MARGIN;
 
   // Prefer above. The composer sits at the bottom of the screen in all three
   // of its mounts, so opening upward is the only side that never covers the
@@ -96,6 +121,6 @@ export function placePanel(a: AnchorRect, vp: Viewport, opts?: { width?: number 
   const room = side === 'above' ? roomAbove : roomBelow;
   const maxHeight = Math.max(MIN_H, Math.min(PANEL_MAX_H, room));
   const left = Math.min(Math.max(a.left, MARGIN), Math.max(MARGIN, vp.width - width - MARGIN));
-  const top = side === 'above' ? Math.max(MARGIN, a.top - GAP - maxHeight) : a.bottom + GAP;
+  const top = side === 'above' ? Math.max(MARGIN, a.top - gap - maxHeight) : a.bottom + gap;
   return { left, top, width, maxHeight, side };
 }

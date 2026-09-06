@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ImageSquare } from '@phosphor-icons/react';
-import { placeBeside, placePanel, PREVIEW_W, type Placed } from './anchorPanel.js';
+import { placeBeside, placePanel, PREVIEW_W, type Placed, PREVIEW_GAP, tailFor, type Tail } from './anchorPanel.js';
 
 /**
  * The picture a chip is holding, shown beside the chip on hover.
@@ -105,7 +105,7 @@ export function ChipPreview({
   onHoverOut: () => void;
   onClose: () => void;
 }) {
-  const [pos, setPos] = useState<Placed | null>(null);
+  const [pos, setPos] = useState<(Placed & { tail: Tail }) | null>(null);
   const [broken, setBroken] = useState(false);
 
   useEffect(() => setBroken(false), [src]);
@@ -115,19 +115,19 @@ export function ChipPreview({
       const vv = window.visualViewport;
       // The visual viewport, so a software keyboard cannot put the card under
       // itself. The rect and `position: fixed` are both layout coordinates.
-      const place = side === 'beside' ? placeBeside : placePanel;
-      const p = place(
-        anchor.getBoundingClientRect(),
-        { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight },
-        { width: PREVIEW_W },
-      );
+      const rect = anchor.getBoundingClientRect();
+      const viewport = { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight };
+      const p =
+        side === 'beside'
+          ? placeBeside(rect, viewport, { width: PREVIEW_W })
+          : placePanel(rect, viewport, { width: PREVIEW_W, gap: PREVIEW_GAP });
       // The brief is its own 30vh scroller: a chip can leave the screen while
       // its card is open, and a card pointing at nothing should go.
       if (!p) {
         onClose();
         return;
       }
-      setPos(p);
+      setPos({ ...p, tail: tailFor(rect, p) });
     };
     measure();
     window.addEventListener('resize', measure);
@@ -171,12 +171,18 @@ export function ChipPreview({
       onPointerEnter={onHoverIn}
       onPointerLeave={onHoverOut}
     >
-      {/* Beside a tile the card wears a tail pointing at it: the card sits a
-          gap away from what it is about, and the tail is what says whose it
-          is. A chip's card sits flush over its chip and needs none. */}
-      {pos.tail && (
-        <span className="sc-chip-preview-tail" data-edge={pos.tail.edge} style={{ top: Math.round(pos.tail.y) }} />
-      )}
+      {/* The tail, pointing at what the card is about: the card sits a gap
+          away from its chip or tile, and among a row of chips or a column of
+          tiles the tail is what says whose it is. */}
+      <span
+        className="sc-chip-preview-tail"
+        data-edge={pos.tail.edge}
+        style={
+          pos.tail.edge === 'left' || pos.tail.edge === 'right'
+            ? { top: Math.round(pos.tail.y) }
+            : { left: Math.round(pos.tail.x) }
+        }
+      />
       {/* Pointer-only by design, the way the chip's own x is. `tabIndex={-1}`
           is what keeps a focusable control from sitting inside a hidden
           subtree: a keyboard never reaches this, and never needs to. */}
