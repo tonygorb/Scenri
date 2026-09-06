@@ -76,7 +76,7 @@ describe('GET /api/update/status', () => {
     // stays a minor through every release instead of turning into a patch on
     // the day the package reaches the number a fixture used to hardcode.
     const [major, minor] = pkg.version.split('.').map(Number);
-    const latest = `..0`;
+    const latest = `${major}.${minor + 1}.0`;
     app = build(updateFetch({ latest }).impl);
     const res = await app.inject({ method: 'GET', url: '/api/update/status' });
     expect(res.statusCode).toBe(200);
@@ -88,7 +88,7 @@ describe('GET /api/update/status', () => {
       kind: 'minor',
       attention: false,
       checkedAt: expect.any(Number),
-      notesUrl: `https://github.com/tonygorb/scenri/releases/tag/v`,
+      notesUrl: `https://github.com/tonygorb/scenri/releases/tag/v${latest}`,
       error: null,
       canApply: false,
       blockReason: 'unsupervised',
