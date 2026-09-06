@@ -58,6 +58,9 @@ import { reshapeOpFor } from '../composer/reshape.js';
 import { failureToast } from '../failure.js';
 import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.js';
 
+/** The keys a refinement leaves out when none are: one value, so it compares equal every render. */
+const NO_KEYS: readonly string[] = [];
+
 export interface ComposerHandle {
   /** Append a token to the brief (assets panel click path). */
   insertToken: (t: SentenceToken) => void;
@@ -302,9 +305,18 @@ export const Composer = forwardRef<
   };
   /** What each target's next refinement leaves out of what it would carry, by wire key. */
   const [leftOut, setLeftOut] = useState<Record<string, string[]>>({});
-  const dropped = refineTarget ? (leftOut[refineTarget.id] ?? []) : [];
-  const carriedAll = useCarried(brand, refineTarget);
-  const carried = carriedAll.filter((it) => !dropped.includes(it.key));
+  // one shared empty list, so an untouched target reads as the same value
+  // render after render and the preview effect below never re-fires on it
+  const dropped = refineTarget ? (leftOut[refineTarget.id] ?? NO_KEYS) : NO_KEYS;
+  const carried = useCarried(brand, refineTarget);
+  /** Switch a kept identity off, or back on: the chip stays in the band either way. */
+  const toggleKept = (key: string) => {
+    if (!refineTarget) return;
+    setLeftOut((m) => {
+      const now = m[refineTarget.id] ?? [];
+      return { ...m, [refineTarget.id]: now.includes(key) ? now.filter((k) => k !== key) : [...now, key] };
+    });
+  };
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
   const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, 2);
   const [busy, setBusy] = useState(false);
@@ -851,14 +863,14 @@ export const Composer = forwardRef<
     const requested = brief;
     debounce.current = setTimeout(() => {
       void api
-        .previewBrief(brief, engineId, brand.id, refining ? target.id : undefined)
+        .previewBrief(brief, engineId, brand.id, refining ? target.id : undefined, refining ? dropped : undefined)
         .then((p) => setPreview({ ...p, forBrief: requested }))
         .catch(() => setPreview(null));
     }, 280);
     return () => {
       if (debounce.current) clearTimeout(debounce.current);
     };
-  }, [brief, engineId, brand.id, hasContent, mode, target, cropping]);
+  }, [brief, engineId, brand.id, hasContent, mode, target, cropping, dropped]);
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -1309,17 +1321,12 @@ export const Composer = forwardRef<
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}
-        {/* What the next refinement carries from the shot on the stage, each
-            chip droppable: the one edit the band allows, and the reason it is
-            there at all. */}
+        {/* What the next refinement keeps from the shot on the stage, each
+            chip a switch: off, it stays in the band muted and out of the
+            request; on again with one more press. */}
         {variant === 'overlay' && refineTarget && carried.length > 0 && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            <CarriedBand
-              items={carried}
-              onLeaveOut={(key) =>
-                setLeftOut((m) => ({ ...m, [refineTarget.id]: [...(m[refineTarget.id] ?? []), key] }))
-              }
-            />
+            <CarriedBand items={carried} off={dropped} onToggle={toggleKept} />
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}

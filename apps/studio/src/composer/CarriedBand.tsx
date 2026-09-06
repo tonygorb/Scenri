@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { X } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, X } from '@phosphor-icons/react';
 import { type Brand, type FeedNode, assetThumbUrl, thumbOf, thumbUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
@@ -20,8 +20,11 @@ import { type PeekAt, useIngredientPeek } from './useIngredientPeek.js';
  * That is right until the ask is to take one of them away: "remove the
  * person" used to ship the person along as a reference anyway, and the
  * record then listed them as carried. So the band says what the next
- * refinement keeps and lets you drop a chip; what is dropped is left out of
- * the request by key (`drop`) and never recorded. Said as "Keeping",
+ * refinement keeps and lets you switch a chip off; a chip that is off stays
+ * in the band, muted, so it can be switched back on before the send, and is
+ * left out of the request by key (`drop`) and never recorded. The
+ * refinement made without it does not list it at all: it was never carried
+ * into that version, so there is nothing to switch. Said as "Keeping",
  * forward: "carried over" read as a fact about this shot, and on the
  * Original there was nothing carried at all. Nothing here is a scene: the
  * world is kept through the photograph, never as a token.
@@ -117,7 +120,16 @@ export function useCarried(brand: Brand | null, target: FeedNode | null): Carrie
   }, [brand, target, presenters, demoProducts]);
 }
 
-export function CarriedBand({ items, onLeaveOut }: { items: CarriedItem[]; onLeaveOut: (key: string) => void }) {
+export function CarriedBand({
+  items,
+  off,
+  onToggle,
+}: {
+  items: CarriedItem[];
+  /** The keys switched off: still shown, muted, and left out of the request. */
+  off: readonly string[];
+  onToggle: (key: string) => void;
+}) {
   // The same peek every read-only ingredient chip has: hovering shows the
   // picture, a click pins the card, and the card is the door to the page.
   const peek = useIngredientPeek('.sc-carried-chip');
@@ -126,6 +138,7 @@ export function CarriedBand({ items, onLeaveOut }: { items: CarriedItem[]; onLea
     <div className="sc-carried-band" data-testid="carried-band">
       <span className="sc-carried-lb">Keeping</span>
       {items.map((it) => {
+        const isOff = off.includes(it.key);
         const at: PeekAt | null = it.src
           ? { key: it.key, src: it.src, kind: it.kind, label: it.label, to: it.to }
           : null;
@@ -134,7 +147,8 @@ export function CarriedBand({ items, onLeaveOut }: { items: CarriedItem[]; onLea
             key={it.key}
             className="sc-token sc-target-chip sc-carried-chip"
             data-kind={it.kind}
-            title={peek.isOpen(it.key) ? undefined : it.label}
+            data-off={isOff || undefined}
+            title={peek.isOpen(it.key) ? undefined : isOff ? `${it.label}: not kept in this refinement` : it.label}
             {...(at ? peek.bind(at) : {})}
           >
             {it.thumb ? <img src={it.thumb} alt="" data-crop={it.crop} /> : null}
@@ -143,11 +157,12 @@ export function CarriedBand({ items, onLeaveOut }: { items: CarriedItem[]; onLea
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onLeaveOut(it.key);
+                onToggle(it.key);
               }}
-              aria-label={`Stop keeping ${it.label} in this refinement`}
+              aria-pressed={isOff}
+              aria-label={isOff ? `Keep ${it.label} again` : `Stop keeping ${it.label} in this refinement`}
             >
-              <X size={12} />
+              {isOff ? <ArrowCounterClockwise size={12} /> : <X size={12} />}
             </button>
           </span>
         );

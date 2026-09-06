@@ -508,9 +508,20 @@
   line-height: 14px;
   color: var(--sc-fg3);
 }
-/* not a sentence chip: nothing to drag, only the x to press */
+/* not a sentence chip: nothing to drag, only the switch to press */
 .sc-carried-chip {
   cursor: default;
+}
+/* Switched off: still there, so it can be switched back, but plainly not
+   riding: muted, its picture drained, its switch now the way back. */
+.sc-carried-chip[data-off] {
+  opacity: 0.5;
+}
+.sc-carried-chip[data-off] img {
+  filter: grayscale(1);
+}
+.sc-carried-chip[data-off]:hover {
+  opacity: 0.75;
 }
 .sc-target-note {
   font-size: 11px;

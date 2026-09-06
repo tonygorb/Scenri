@@ -2287,8 +2287,16 @@ test('a refinement records what it carried, and the shot detail says it', async 
   await expect(band.locator('.sc-carried-chip')).toHaveCount(2);
   await expect(band.locator('.sc-carried-chip[data-kind="mark"]')).toBeVisible();
   await expect(band.locator('.sc-carried-chip[data-kind="ref"]')).toBeVisible();
-  await band.locator('.sc-carried-chip[data-kind="ref"] button').click();
-  await expect(band.locator('.sc-carried-chip')).toHaveCount(1);
+  // the switch: off keeps the chip in the band, muted, and one more press is the way back
+  const refChip = band.locator('.sc-carried-chip[data-kind="ref"]');
+  await refChip.locator('button').click();
+  await expect(band.locator('.sc-carried-chip')).toHaveCount(2);
+  await expect(refChip).toHaveAttribute('data-off', 'true');
+  await expect(refChip.locator('button')).toHaveAttribute('aria-label', 'Keep Reference again');
+  await refChip.locator('button').click();
+  await expect(refChip).not.toHaveAttribute('data-off', /.*/);
+  await refChip.locator('button').click();
+  await expect(refChip).toHaveAttribute('data-off', 'true');
   let posted: any = null;
   await page.route('**/api/nodes', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
@@ -2300,6 +2308,38 @@ test('a refinement records what it carried, and the shot detail says it', async 
   await page.locator('.sc-ovl .sc-send').click();
   await expect.poll(() => posted?.drop ?? null).toEqual([`r:${made.refHash}`]);
   await page.unroute('**/api/nodes');
+  // the refinement made without it does not list it at all: it was never
+  // carried into that version, so there is nothing there to switch
+  const without = await page.evaluate(
+    async ({ editId, drop }) => {
+      const parent = await (await fetch(`/api/nodes/${editId}`)).json();
+      const r = await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: parent.projectId,
+          parentId: parent.id,
+          kind: 'edit',
+          engineId: 'demo',
+          sourceImage: parent.images[0],
+          brief: { tokens: [{ t: 'text', v: 'cooler light' }] },
+          drop,
+        }),
+      });
+      const { id } = await r.json();
+      for (let i = 0; i < 80; i++) {
+        const n = await (await fetch(`/api/nodes/${id}`)).json();
+        if (n.status !== 'running') return n;
+        await new Promise((res) => setTimeout(res, 250));
+      }
+      throw new Error('never finished');
+    },
+    { editId: made.editId, drop: [`r:${made.refHash}`] },
+  );
+  expect((without.brief.inherited ?? []).map((t: any) => t.t)).toEqual(['mark']);
+  await page.goto(`/${slug}/create/shots/${without.id}`);
+  await expect(page.locator('.sc-ovl-edit .sc-carried-chip')).toHaveCount(1);
+  await expect(page.locator('.sc-ovl-edit .sc-carried-chip[data-kind="mark"]')).toBeVisible();
   // what the thread is made of is said once, on the Original, one step down the trail
   await page.locator('.sc-thumbs .sc-trail-tile[data-original]').click();
   await expect(
