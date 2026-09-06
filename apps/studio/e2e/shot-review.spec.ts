@@ -128,6 +128,12 @@ test("the strip is the root's whole history, whichever version is on the stage",
   expect(await pressedIn(page, '.sc-rail')).toBe(thumbOf(shots.b1));
   await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 1');
   await expect(say).toHaveText('Refinement 1 of 2');
+  // the refine field says which picture the words are about: the one on the
+  // stage, as a chip that follows every step, with no X (nothing else in
+  // here to refine)
+  const refining = page.locator('.sc-ovl-edit .sc-target-chip');
+  await expect(refining.locator('img')).toHaveAttribute('src', thumbOf(shots.b1));
+  await expect(refining.locator('button')).toHaveCount(0);
 
   // the keys walk the trail from the ringed tile; a step made from an earlier
   // one than the tile before it says so on its card (B2 was made from B, not B1)
@@ -140,6 +146,7 @@ test("the strip is the root's whole history, whichever version is on the stage",
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.b2.id}$`));
   await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 2');
   await expect(say).toHaveText('Refinement 2 of 2');
+  await expect(refining.locator('img')).toHaveAttribute('src', thumbOf(shots.b2));
 
   // another root from the rail: its own history, and none of B's
   await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.d)}"]`).click();

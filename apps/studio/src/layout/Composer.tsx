@@ -206,10 +206,9 @@ export const Composer = forwardRef<
     onRestoreBranchId,
     setSlug,
     persistDraft = true,
-    // The shell decides more than styling: the overlay never wears the
-    // Refining chip (the record above it says what is being refined), and
-    // scenes sit out only on the hub (see scenesSitOut and the target band
-    // below).
+    // The shell decides more than styling: the overlay's Refining chip has
+    // no X (there is nothing else in there to refine), and scenes sit out
+    // only on the hub (see scenesSitOut and the target band below).
     variant = 'dock',
   },
   handleRef,
@@ -1288,23 +1287,26 @@ export const Composer = forwardRef<
         </div>
       )}
       <div className="sc-promptcard">
-        {/* What this brief is about to do, stated before it does it. The hub
-            wears the one Refining chip, with its X; the overlay wears the
-            picture's own contents as cards, the deeper level of the same
-            band. */}
-        {branchable && onClearTarget && (
+        {/* What this brief is about to do, stated before it does it: the
+            picture being refined, as the one chip pattern the app has. The
+            hub's chip has an X, which lets go of the thread and makes a new
+            shot; inside an open shot there is nothing else to refine, so the
+            chip has none, and it simply says which picture the words are
+            about, following the stage as you step. Only while the send is a
+            refine: a scene in the brief makes it a new shot, and then the
+            note below says so alone, with no chip claiming otherwise. */}
+        {branchable && (onClearTarget || (variant === 'overlay' && mode === 'edit')) && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            {/* The version being refined, as the one chip pattern the app has.
-                Its hover peek is its own (RefineChip), so resting the pointer
+            {/* Its hover peek is its own (RefineChip), so resting the pointer
                 on it no longer re-renders this whole composer. */}
             <RefineChip target={target} onOpenImage={openTargetImage} onClear={onClearTarget} />
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}
-        {/* Where there is no band to carry it, the note still has to be said:
-            inside an open shot this is the only sign that what is about to
-            happen is a new shot rather than a change to the one on screen. */}
-        {branchable && !onClearTarget && targetNote && (
+        {/* Where there is no chip to carry it, the note still has to be said:
+            the only sign that what is about to happen is a new shot rather
+            than a change to the one on screen. */}
+        {branchable && !onClearTarget && targetNote && !(variant === 'overlay' && mode === 'edit') && (
           <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         {/* The inferred op, stated in two words. The old fieldset asked the
