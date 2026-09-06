@@ -110,8 +110,7 @@ describe('presenter catalog + direct-attach API', () => {
   });
 
   afterEach(async () => {
-    await app.close();
-    core.close();
+    await app.drain();
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });

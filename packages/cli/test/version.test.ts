@@ -49,8 +49,7 @@ beforeEach(() => {
 afterEach(async () => {
   // drain tests already closed both; closing twice must stay harmless
   try {
-    await app.close();
-    core.close();
+    await app.drain();
   } catch {
     /* already closed */
   }

@@ -187,8 +187,7 @@ describe('product uploads + scene generation via API', () => {
     app = buildServer({ core, engines: { all: () => [spy], get: (id) => (id === 'spy' ? spy : null) } });
   });
   afterEach(async () => {
-    await app.close();
-    core.close();
+    await app.drain();
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 

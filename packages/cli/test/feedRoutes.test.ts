@@ -29,8 +29,7 @@ beforeEach(() => {
   app = buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))) });
 });
 afterEach(async () => {
-  await app.close();
-  core.close();
+  await app.drain();
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 

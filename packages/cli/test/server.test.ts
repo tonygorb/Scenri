@@ -33,8 +33,10 @@ beforeEach(() => {
   app = buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))) });
 });
 afterEach(async () => {
-  await app.close();
-  core.close();
+  // drain, not close: a finished shot is still writing its thumbs after the
+  // reply, and removing the home under the writer is ENOTEMPTY on Linux and
+  // EBUSY on Windows. drain settles the writer, then closes the app and core.
+  await app.drain();
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
