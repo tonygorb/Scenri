@@ -2274,20 +2274,19 @@ test('a refinement records what it carried, and the shot detail says it', async 
     return { editId: edit.id as string, sceneName: scenes[0].name as string };
   });
 
-  // the refined shot's detail names what it carried, quieter than its own ask
+  // the refined shot's record is its own ask and nothing else: what the
+  // request carried along as references is a fact about the request, not
+  // about the picture, and is never listed here or over the refine field
   await page.goto(`/${slug}/create/shots/${made.editId}`);
-  const inherited = page.locator('.sc-ingredient[data-inherited]');
-  await expect(inherited).toHaveCount(2);
-  await expect(page.locator('.sc-ingredient[data-inherited][data-kind="mark"]')).toBeVisible();
-  await expect(page.locator('.sc-ingredient[data-inherited][data-kind="ref"]')).toBeVisible();
-  // and the BRIEF reads as the sentence that was typed
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
-  // context is stated once, in the record: the composer carries no band of
-  // its own, and the record names the world the thread was shot in — a
-  // scene never rides a refine as a reference, the photo carries it
+  await expect(page.locator('.sc-brief-record .sc-ingredient')).toHaveCount(0);
   await expect(page.locator('.sc-ovl-edit .sc-carried')).toHaveCount(0);
   await expect(page.locator('.sc-ovl-edit .sc-source-chip')).toHaveCount(0);
-  await expect(page.locator('.sc-ingredient[data-world]', { hasText: made.sceneName })).toHaveCount(1);
+  // what the thread is made of is said once, on the Original, one step down the trail
+  await page.locator('.sc-thumbs .sc-trail-tile[data-original]').click();
+  await expect(
+    page.locator('.sc-brief-record .sc-ingredient[data-kind="scene"]', { hasText: made.sceneName }),
+  ).toHaveCount(1);
 });
 
 test("spaces typed after a chip are the user's, every one of them", async ({ page }) => {
@@ -3223,11 +3222,8 @@ test('the shot record reads each ingredient once, and names the world it keeps',
   });
 
   await page.goto(`/${slug}/create/shots/${made.editId}`);
-  // one product chip, however many token shapes recorded it: the asked-for
-  // copy wins, the carried angle twin collapses into it
+  // one product chip, the asked-for one: a carried angle twin is never listed
   await expect(page.locator('.sc-ingredient[data-kind="product"]')).toHaveCount(1);
-  await expect(page.locator('.sc-ingredient[data-kind="product"]')).not.toHaveAttribute('data-inherited', /.*/);
-  // The record names the world the thread was shot in, once: the refine
-  // never re-sends the scene, the photograph carries it.
-  await expect(page.locator('.sc-ingredient[data-world]', { hasText: made.sceneName })).toHaveCount(1);
+  // the world the thread was shot in is the Original's to say, not this record's
+  await expect(page.locator('.sc-brief-record .sc-ingredient[data-kind="scene"]')).toHaveCount(0);
 });

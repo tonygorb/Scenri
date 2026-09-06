@@ -573,22 +573,6 @@
 .sc-ingredient img[data-crop="top"] {
   object-position: 50% 12%;
 }
-/* Carried from the shot this one refines: part of the truth, said quieter.
-   Hairline outline, no fill — monochrome, never a colour. */
-.sc-ingredient[data-inherited] {
-  background: none;
-  box-shadow: inset 0 0 0 1px var(--sc-line);
-  color: var(--sc-fg2);
-}
-/* The thread's world rides inside the photograph, not as a token: quieter
-   still, and dashed so it never claims to be part of this brief's ask. */
-.sc-ingredient[data-world] {
-  background: none;
-  box-shadow: none;
-  outline: 1px dashed var(--sc-line);
-  outline-offset: -1px;
-  color: var(--sc-fg3);
-}
 /* a brand mark is usually dark art on transparency: ground it in white */
 .sc-ingredient[data-kind="mark"] img {
   background: #fff;

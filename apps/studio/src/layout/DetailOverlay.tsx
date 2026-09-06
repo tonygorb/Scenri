@@ -62,8 +62,6 @@ const PANEL_DEFAULT = 380;
 const clampPanel = (w: number) => Math.min(PANEL_MAX, Math.max(PANEL_MIN, Math.round(w)));
 
 /** The scene a brief names, in either of the shapes briefs have carried it. */
-const tplOf = (b: FeedNode['brief']) =>
-  b?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? b?.templateId ?? null;
 
 /**
  * Full-screen takeover for one shot: lineage filmstrip left, stage with the
@@ -136,28 +134,12 @@ export function DetailOverlay({
   const dragX = useRef(0);
   const dragRaf = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
-  /**
-   * The scene this thread was shot in, for a refinement that names none of
-   * its own: a refine keeps its world through the photograph, never as a
-   * token, so the record said nothing about the one ingredient every refine
-   * keeps. Nearest ancestor wins — a deeper re-scene overrides the original.
-   */
-  const worldTemplateId = useMemo(() => {
-    if (node.kind !== 'edit') return null;
-    if (tplOf(node.brief)) return null;
-    for (let i = ancestors.length - 1; i >= 0; i--) {
-      const tid = tplOf(ancestors[i].brief);
-      if (tid) return tid;
-    }
-    return null;
-  }, [node, ancestors]);
   /** Whether the brief line has any chips to say: mirrors BriefLine's own
    *  null condition, so a token-less legacy shot never shows a bare label. */
-  const hasContext = useMemo(() => {
-    const own = (node.brief?.tokens ?? []).some((t: { t?: string }) => t?.t && t.t !== 'text' && t.t !== 'format');
-    const carried = (((node.brief as { inherited?: unknown[] })?.inherited ?? []) as unknown[]).length > 0;
-    return own || carried || !!worldTemplateId;
-  }, [node.brief, worldTemplateId]);
+  const hasContext = useMemo(
+    () => (node.brief?.tokens ?? []).some((t: { t?: string }) => t?.t && t.t !== 'text' && t.t !== 'format'),
+    [node.brief],
+  );
   /** TokenNames plus the brand's marks, so the brief speaks every noun. */
   const proseNames = useMemo(() => {
     const marks = attachableMarks(brand.json);
@@ -815,7 +797,6 @@ export function DetailOverlay({
                   brief={node.brief}
                   prompt={full?.prompt ?? node.promptHead}
                   brand={brand}
-                  worldTemplateId={worldTemplateId}
                   saidRef={briefRef}
                   expanded={briefOpen}
                 />

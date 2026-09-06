@@ -5,10 +5,9 @@ import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
 import { findIngredient } from '../../composer/ingredientOptions.js';
 import { isPreviewKind } from '../../composer/ChipPreview.js';
-import { mergeCarried, normalizeTint } from '../../composer/line.js';
+import { normalizeTint } from '../../composer/line.js';
 import { vibrantTintOf } from '../../composer/sceneTint.js';
 import { type PeekAt, useIngredientPeek } from '../../composer/useIngredientPeek.js';
-import { byContextOrder } from '../../contextChips.js';
 import { characterAvatar, presenterAvatar } from '../../presenterVisual.js';
 import { presenterPath, productPath, scenePath } from '../../routes.js';
 
@@ -28,7 +27,6 @@ export function BriefLine({
   brief,
   prompt,
   brand,
-  worldTemplateId,
   saidRef,
   expanded,
 }: {
@@ -40,13 +38,6 @@ export function BriefLine({
   saidRef?: Ref<HTMLDivElement>;
   /** Whether the caller's more-toggle has released the clamp. */
   expanded?: boolean;
-  /**
-   * The scene the thread was shot in, for a refinement whose own brief names
-   * none: a refine keeps its world through the photograph, never as a token,
-   * so without this the record was silent about the one ingredient every
-   * refine keeps. Display only, resolved by the caller from the lineage.
-   */
-  worldTemplateId?: string | null;
 }) {
   const { scenes, presenters, demoProducts } = useAppData();
   const peek = useIngredientPeek('.sc-ingredient');
@@ -54,7 +45,6 @@ export function BriefLine({
   const ownTokens: any[] = brief?.tokens ?? [];
   // What a refinement carried from the shot it refines, recorded apart from
   // what it asked for. Both are the shot's truth, spoken in one voice.
-  const carriedTokens: any[] = (brief as any)?.inherited ?? [];
   const products: any[] = (brand?.json?.products ?? []) as any[];
   const cast: any[] = (brand?.json?.characters ?? []) as any[];
   const ownScenes = customScenesOf(brand);
@@ -65,7 +55,7 @@ export function BriefLine({
   // bails when the key already resolved, so re-renders cost nothing.
   const [autoTints, setAutoTints] = useState<Record<string, string>>({});
   useEffect(() => {
-    for (const t of [...ownTokens, ...carriedTokens]) {
+    for (const t of ownTokens) {
       if (t?.t !== 'template') continue;
       const own = ownScenes.find((x) => x.id === t.id);
       if (!own?.previewUrl || normalizeTint(own.previewColor)) continue;
@@ -90,10 +80,6 @@ export function BriefLine({
     tint?: string;
     /** The image the chip itself IS, for the hover peek and the lightbox. */
     previewHash?: string;
-    /** Carried from the shot this one refines, not attached in its own brief. */
-    inherited?: boolean;
-    /** The thread's world, kept through the photograph rather than any token. */
-    world?: boolean;
     /** A brand-owned scene, wearing the iris treatment the composer gives it. */
     custom?: boolean;
   };
@@ -104,14 +90,13 @@ export function BriefLine({
   // generation time — so without the fallback every Scenri Library product
   // credited itself as the bare word "product".
   const sources = { products, demoProducts, cast, presenters, scenes: [...ownScenes, ...scenes] };
-  const chipOf = (t: any, inherited: boolean): Chip | null => {
+  const chipOf = (t: any): Chip | null => {
     const found = findIngredient(t, sources);
     if (found?.kind === 'product') {
       const { product: p, demo } = found;
       return {
         key: `p${t.id}`,
         kind: 'product',
-        inherited,
         label: p?.name ?? demo?.name ?? 'product',
         thumb: p ? assetThumbUrl(p?.shots?.[0]?.file, 'micro') : (demo?.previewUrl ?? null),
         // ProductPage resolves demo ids too, so a library product is as
@@ -131,7 +116,6 @@ export function BriefLine({
       return {
         key: `h${t.id}`,
         kind: 'presenter',
-        inherited,
         label: c?.name ?? pr?.name ?? 'someone',
         thumb: av.src,
         crop: av.crop,
@@ -143,7 +127,6 @@ export function BriefLine({
       return {
         key: `t${t.id}`,
         kind: 'scene',
-        inherited,
         label: s?.name ?? 'a scene no longer in the catalog',
         thumb: s?.previewUrl ?? null,
         to: brand && s ? scenePath(brand, s.id) : undefined,
@@ -154,7 +137,7 @@ export function BriefLine({
       };
     }
     if (t?.t === 'color') {
-      return { key: `c${t.hex}`, kind: 'color', inherited, label: t.name ?? t.hex, swatch: t.hex };
+      return { key: `c${t.hex}`, kind: 'color', label: t.name ?? t.hex, swatch: t.hex };
     }
     // A custom reference and a brand mark are as much of the shot's truth as
     // a product is; they used to be the two ingredients the record silently
@@ -163,7 +146,6 @@ export function BriefLine({
       return {
         key: `r${t.imageHash}`,
         kind: 'ref',
-        inherited,
         label: t.label ?? 'reference image',
         thumb: thumbUrl(t.imageHash, 'micro'),
         previewHash: t.imageHash,
@@ -174,7 +156,6 @@ export function BriefLine({
       return {
         key: `m${t.imageHash}`,
         kind: 'mark',
-        inherited,
         label: m ? markLabel(brand?.json, m) : 'brand mark',
         thumb: thumbUrl(t.imageHash, 'micro'),
         previewHash: t.imageHash,
@@ -198,11 +179,6 @@ export function BriefLine({
     // scoring that authored the catalog colours; catalog chips carry theirs.
     const tint = c.tint ?? (c.custom ? autoTints[c.key] : undefined);
     const style = tint ? ({ '--tint': tint } as CSSProperties) : undefined;
-    const said = c.world
-      ? `The world this thread was shot in: ${c.label}. A refine keeps it in the picture without asking for it again.`
-      : c.inherited
-        ? `Carried from the shot it refines: ${c.label}`
-        : undefined;
     // A missing thumbnail is not a missing door: the card shows its blank
     // plate and still opens the page, so every catalog chip behaves the same
     // way whether or not its picture loaded.
@@ -218,10 +194,8 @@ export function BriefLine({
           key={c.key}
           data-kind={c.kind}
           data-tinted={tint ? '' : undefined}
-          data-inherited={c.inherited || undefined}
-          data-world={c.world || undefined}
           style={style}
-          title={open ? undefined : (said ?? `${c.label}. Preview.`)}
+          title={open ? undefined : `${c.label}. Preview.`}
           aria-label={`${c.label}. Preview.`}
           {...peek.bind(at)}
         >
@@ -235,55 +209,34 @@ export function BriefLine({
         key={c.key}
         data-kind={c.kind}
         data-tinted={tint ? '' : undefined}
-        data-inherited={c.inherited || undefined}
-        data-world={c.world || undefined}
         style={style}
-        title={said ?? `${c.kind}: ${c.label}`}
+        title={`${c.kind}: ${c.label}`}
       >
         {body}
       </span>
     );
   };
 
-  // One chip per thing, the composer's own rule: the record and the brief
-  // it reopens come through the same merge, so they never disagree.
-  const merged = mergeCarried(ownTokens, carriedTokens);
-
   // The sentence, in the order it was said: text runs stay prose, everything
-  // else becomes the chip the composer would show for it.
+  // else becomes the chip the composer would show for it. Only what this
+  // shot asked for: a refinement's record never lists what the request
+  // carried along as references, because that is a fact about the request
+  // and not about the picture (after "remove the person" the person is still
+  // a reference the engine was sent, and gone from the picture). What the
+  // thread is made of is said once, on the Original, one step down the
+  // trail.
   const sentence: ReactNode[] = [];
-  for (const t of merged.own) {
+  for (const t of ownTokens) {
     if (t.t === 'text') {
       const v = t.v.trim();
       if (v) sentence.push(v);
       continue;
     }
-    const c = chipOf(t, false);
+    const c = chipOf(t);
     if (c) sentence.push(renderChip(c));
   }
 
-  // What the refinement carried rides after the ask, in the same voice, in
-  // the one canonical context order. When the header's source cards are up
-  // they already name the carried identities and the world, so those leave
-  // this row; a carried mark or reference has no card up there and would be
-  // said nowhere, so it stays.
-  const trailing: Chip[] = merged.carried.map((t: any) => chipOf(t, true)).filter((c: Chip | null): c is Chip => !!c);
-  if (worldTemplateId) {
-    const s = ownScenes.find((x) => x.id === worldTemplateId) ?? scenes.find((x) => x.id === worldTemplateId);
-    if (s) {
-      trailing.push({
-        key: `w${worldTemplateId}`,
-        kind: 'scene',
-        world: true,
-        label: s.name,
-        thumb: s.previewUrl ?? null,
-        to: brand ? scenePath(brand, s.id) : undefined,
-      });
-    }
-  }
-  trailing.sort(byContextOrder);
-
-  if (!sentence.length && !trailing.length && !prompt) return null;
+  if (!sentence.length && !prompt) return null;
 
   // Inline flow, not a flex row: a chip sits in the sentence exactly where it
   // was typed, so the record wraps like prose. Explicit spaces between
@@ -292,21 +245,9 @@ export function BriefLine({
 
   return (
     <>
-      {/* Only the sentence clamps: the carried chips live in their own row
-          below it, so a long brief can never swallow the references behind
-          the five-line fold — which is exactly what it used to do. */}
       <div ref={saidRef} className="sc-brief-said" data-expanded={expanded || undefined} dir="auto">
         {spaced.length ? spaced : prompt || ''}
       </div>
-      {/* What rode along from the shot this one refines, said as such: the
-          ask above is what changed, these are what stayed. Without the line
-          the two groups read as one list said twice. */}
-      {trailing.length > 0 && (
-        <div className="sc-brief-carried">
-          <span className="sc-brief-carried-lb">Carried over</span>
-          {trailing.map((c) => renderChip(c))}
-        </div>
-      )}
       {peek.surface}
     </>
   );
