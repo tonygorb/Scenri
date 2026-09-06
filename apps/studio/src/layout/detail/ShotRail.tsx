@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
 import { nodeLabel, type FeedNode, thumbUrl } from '../../api.js';
 import { ChipPreview } from '../../composer/ChipPreview.js';
@@ -38,7 +38,30 @@ export function ShotRail({
     shown.current = true;
   }, [activeId]);
 
+  // Which end has more shots past it: a fade over that end, and none over
+  // an end the list has reached. The fade says "this continues", so at the
+  // list's own start or end there is nothing to say, and the first or the
+  // last shot on the stage sits whole rather than under a fade.
+  const [more, setMore] = useState<'start' | 'end' | 'both' | null>(null);
+  const measure = () => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    if (max <= 1) return setMore(null);
+    const y = el.scrollTop;
+    setMore(y <= 1 ? 'end' : y >= max - 1 ? 'start' : 'both');
+  };
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [shots.length]);
+
   const onScroll = () => {
+    measure();
     const el = ref.current;
     if (!el || complete) return;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - END_PX) onEndReached();
@@ -63,54 +86,57 @@ export function ShotRail({
 
   return (
     <>
-      <nav ref={ref} className="sc-rail" aria-label="Shots in this view" onScroll={onScroll} onKeyDown={onKeyDown}>
-        {shots.map((n) => {
-          const active = n.id === activeId;
-          const running = n.status === 'running';
-          const ready = n.status === 'done' && !!n.images[0];
-          return (
-            <button
-              type="button"
-              key={n.id}
-              className="sc-thumb-btn sc-rail-tile"
-              aria-label={running ? `${nodeLabel(n)}, still rendering` : nodeLabel(n)}
-              aria-pressed={active}
-              aria-disabled={running || undefined}
-              tabIndex={n.id === stop ? 0 : -1}
-              onClick={() => {
-                // a picture that is not there yet cannot be looked at; the tile fills in when it lands
-                if (running) return;
-                peek.closeNow();
-                onSelect(n.id);
-              }}
-              onPointerEnter={(e) => e.pointerType === 'mouse' && ready && peekAt(n, e.currentTarget)}
-              onPointerLeave={(e) => e.pointerType === 'mouse' && peek.close()}
-              onFocus={(e) => e.currentTarget.matches(':focus-visible') && ready && peekAt(n, e.currentTarget)}
-            >
-              {ready ? (
-                <img
-                  src={thumbUrl(n.images[0], 'micro')}
-                  alt=""
-                  className="sc-thumb"
-                  loading="lazy"
-                  decoding="async"
-                  data-active={active}
-                  width={52}
-                  height={52}
-                />
-              ) : running ? (
-                <span className="sc-thumb sc-thumb-wait" data-active={active}>
-                  <span className="sc-shimmer" />
-                </span>
-              ) : (
-                <span className="sc-thumb sc-thumb-failed" data-active={active}>
-                  <WarningCircle size={14} />
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      {/* the shell carries the fades, above the column and outside its scroll */}
+      <div className="sc-rail-shell" data-more={more ?? undefined}>
+        <nav ref={ref} className="sc-rail" aria-label="Shots in this view" onScroll={onScroll} onKeyDown={onKeyDown}>
+          {shots.map((n) => {
+            const active = n.id === activeId;
+            const running = n.status === 'running';
+            const ready = n.status === 'done' && !!n.images[0];
+            return (
+              <button
+                type="button"
+                key={n.id}
+                className="sc-thumb-btn sc-rail-tile"
+                aria-label={running ? `${nodeLabel(n)}, still rendering` : nodeLabel(n)}
+                aria-pressed={active}
+                aria-disabled={running || undefined}
+                tabIndex={n.id === stop ? 0 : -1}
+                onClick={() => {
+                  // a picture that is not there yet cannot be looked at; the tile fills in when it lands
+                  if (running) return;
+                  peek.closeNow();
+                  onSelect(n.id);
+                }}
+                onPointerEnter={(e) => e.pointerType === 'mouse' && ready && peekAt(n, e.currentTarget)}
+                onPointerLeave={(e) => e.pointerType === 'mouse' && peek.close()}
+                onFocus={(e) => e.currentTarget.matches(':focus-visible') && ready && peekAt(n, e.currentTarget)}
+              >
+                {ready ? (
+                  <img
+                    src={thumbUrl(n.images[0], 'micro')}
+                    alt=""
+                    className="sc-thumb"
+                    loading="lazy"
+                    decoding="async"
+                    data-active={active}
+                    width={52}
+                    height={52}
+                  />
+                ) : running ? (
+                  <span className="sc-thumb sc-thumb-wait" data-active={active}>
+                    <span className="sc-shimmer" />
+                  </span>
+                ) : (
+                  <span className="sc-thumb sc-thumb-failed" data-active={active}>
+                    <WarningCircle size={14} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
       {peek.shown && (
         <ChipPreview
           key={peek.shown.key}

@@ -228,7 +228,7 @@
    label. Silent chrome: no border, no ground, no scrollbar, a fade at each
    end. Only where there is room, from 1280 up, the width at which the
    assets drawer docks too. Below two shots the rail is not rendered at all. */
-.sc-rail {
+.sc-rail-shell {
   display: none;
 }
 .sc-rail-tile {
@@ -254,29 +254,62 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
-    /* One size, and the ends dissolve: a tile is whole across the middle of
-       the column and fades to nothing over the top and bottom third, so the
-       column reads outward from the shot on screen (centred on every step)
-       and the ends read as continuing rather than cut. A mask, so nothing is
-       scaled or moved: the tiles you aim at hold still, the spacing is the
-       spacing, and the ring is the only thing that says "this one". A dock's
-       magnification was tried and dropped: the largest tile was whatever
-       passed the middle, not the selected one, and it argued with the ring. */
-    mask-image: linear-gradient(
-      to bottom,
-      transparent 0%,
-      rgb(0 0 0 / 0.36) 10%,
-      rgb(0 0 0 / 0.75) 25%,
-      rgb(0 0 0 / 0.96) 40%,
-      #000 50%,
-      rgb(0 0 0 / 0.96) 60%,
-      rgb(0 0 0 / 0.75) 75%,
-      rgb(0 0 0 / 0.36) 90%,
-      transparent 100%
-    );
   }
   .sc-rail::-webkit-scrollbar {
     display: none;
+  }
+  /* One size, one gap, and an end dissolves only where there is more past
+     it: a fade over the top while shots sit above the view, over the bottom
+     while shots sit below, and none at the list's own ends, so the first and
+     the last shot are whole when they are the one on the stage. The fade
+     says "this continues"; at an end the list has reached there is nothing
+     to say. Painted over the column by its shell, in the ground's colour,
+     so nothing is scaled or moved and the tiles you aim at hold still; the
+     ring is the only thing that says which. A dock's magnification was
+     tried and dropped: the largest tile was whatever passed the middle,
+     not the selected one, and it argued with the ring. */
+  .sc-rail-shell {
+    display: grid;
+    position: relative;
+    min-height: 0;
+  }
+  .sc-rail-shell::before,
+  .sc-rail-shell::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 34%;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--sc-dur-fast) var(--sc-ease);
+  }
+  .sc-rail-shell::before {
+    top: 0;
+    background: linear-gradient(
+      to bottom,
+      var(--sc-bg) 0%,
+      color-mix(in srgb, var(--sc-bg) 64%, transparent) 30%,
+      color-mix(in srgb, var(--sc-bg) 25%, transparent) 70%,
+      transparent 100%
+    );
+  }
+  .sc-rail-shell::after {
+    bottom: 0;
+    background: linear-gradient(
+      to top,
+      var(--sc-bg) 0%,
+      color-mix(in srgb, var(--sc-bg) 64%, transparent) 30%,
+      color-mix(in srgb, var(--sc-bg) 25%, transparent) 70%,
+      transparent 100%
+    );
+  }
+  .sc-rail-shell[data-more="start"]::before,
+  .sc-rail-shell[data-more="both"]::before,
+  .sc-rail-shell[data-more="end"]::after,
+  .sc-rail-shell[data-more="both"]::after {
+    opacity: 1;
   }
 }
 .sc-stage-wait-say {
