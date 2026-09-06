@@ -89,6 +89,7 @@ const env = {
   SCENRI_HOME: home,
   SCENRI_PORT: String(PORT),
   SCENRI_NO_CONTENT_FETCH: '1',
+  SCENRI_NO_DESKTOP: '1',
   SCENRI_DEMO_ENGINE: '1',
   SCENRI_REGISTRY: `http://127.0.0.1:${REG_PORT}`,
 };

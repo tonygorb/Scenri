@@ -106,6 +106,7 @@ const env = {
   SCENRI_PORT: String(PORT),
   SCENRI_NO_OPEN: '1',
   SCENRI_NO_CONTENT_FETCH: '1',
+  SCENRI_NO_DESKTOP: '1',
   SCENRI_DEMO_ENGINE: '1',
   SCENRI_REGISTRY: `http://127.0.0.1:${REG_PORT}`,
   // Harness cadence: the real schedule at test speed. Clamps do not apply off

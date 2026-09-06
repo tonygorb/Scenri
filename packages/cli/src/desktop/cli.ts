@@ -13,7 +13,7 @@ import { compareSemver, defaultHome, entryOf, listStaged } from '../update/versi
 import { adoptRunningInstall } from './adopt.js';
 import { openInBrowser } from './browser.js';
 import { showDialog } from './dialog.js';
-import { type InstallDeps, installDesktop, removeDesktop } from './install.js';
+import { type InstallDeps, type InstallResult, installDesktop, removeDesktop } from './install.js';
 import { appendLog } from './log.js';
 import { openScenri } from './open.js';
 import { type RunImpl, launcherDir, logsDir } from './paths.js';
@@ -45,19 +45,34 @@ export function installDeps(ownEntry: string): InstallDeps {
 }
 
 export async function runDesktopCommand(opts: { remove: boolean }, ownEntry: string): Promise<number> {
-  const deps = installDeps(ownEntry);
   if (opts.remove) {
+    const deps = installDeps(ownEntry);
     const res = await removeDesktop(deps);
     console.log(res.removed ? `  Removed Scenri from your desktop (${res.path}).` : '  Nothing to remove.');
     if (res.message) console.log(`  ${res.message}`);
     await rememberDecline(deps.home);
     return 0;
   }
+  return (await addToDesktop(ownEntry)).ok ? 0 : 1;
+}
+
+/**
+ * Add or repair the icon: adopt the running build into app/versions first
+ * when it runs from the npx cache or a global install, then write the
+ * launcher. Shared by the command and the first-run offer, so both say the
+ * same things.
+ */
+export async function addToDesktop(
+  ownEntry: string,
+  say: (line: string) => void = console.log,
+): Promise<InstallResult> {
+  const deps = installDeps(ownEntry);
   const meta = readMeta();
   const installKind = detectInstallKind(ownEntry, deps.home);
   if (installKind === 'dev') {
-    console.error('  Running from a source checkout; there is no installed build to put on a desktop.');
-    return 1;
+    const message = 'Running from a source checkout; there is no installed build to put on a desktop.';
+    say(`  ${message}`);
+    return { ok: false, reason: 'unsupported', message };
   }
   const adopted = adoptRunningInstall({
     home: deps.home,
@@ -66,16 +81,17 @@ export async function runDesktopCommand(opts: { remove: boolean }, ownEntry: str
     ownEntry,
     installKind,
   });
-  if (adopted.adopted)
-    console.log(`  keeping a copy of Scenri ${meta.version} in ${join(deps.home, 'app')} so the icon works offline`);
-  const res = await installDesktop(deps);
-  if (!res.ok) {
-    console.error(`  ${res.message}`);
-    return 1;
+  if (adopted.adopted) {
+    say(`  keeping a copy of Scenri ${meta.version} in ${join(deps.home, 'app')} so the icon works offline`);
   }
-  console.log(`  Added Scenri to your desktop: ${res.path}`);
-  console.log('  Next time, double-click it; no terminal needed.');
-  return 0;
+  const res = await installDesktop(deps);
+  if (res.ok) {
+    say(`  Added Scenri to your desktop: ${res.path}`);
+    say('  Next time, double-click it; no terminal needed.');
+  } else {
+    say(`  ${res.message}`);
+  }
+  return res;
 }
 
 /** After an explicit remove the next run must not ask again. Best effort: the setting lives in the library. */
