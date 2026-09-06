@@ -135,6 +135,7 @@ export function ShotRail({
           anchor={peek.shown.el}
           kind="shot"
           noun="Shot"
+          side="beside"
           src={peek.shown.src}
           label={peek.shown.label}
           onOpen={() => {

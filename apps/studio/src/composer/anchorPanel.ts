@@ -49,7 +49,27 @@ export interface Placed {
   top: number;
   width: number;
   maxHeight: number;
-  side: 'above' | 'below';
+  side: 'above' | 'below' | 'beside';
+}
+
+/** A preview card's height: the square face plus its two-line caption and insets. */
+export const PREVIEW_H = 204;
+
+/**
+ * Where a card goes beside a tile in a column: to the right of it, its top
+ * level with the tile's top, the way a sidebar or a dock peeks. Opening
+ * above or below would stack the card over the column's other tiles, which
+ * is what the chip placement does and what reads wrong here. Pulled up when
+ * the tile sits near the bottom so the card stays on screen, and put on the
+ * left when there is no room on the right.
+ */
+export function placeBeside(a: AnchorRect, vp: Viewport, opts?: { width?: number }): Placed | null {
+  if (a.bottom < 0 || a.top > vp.height) return null;
+  const width = Math.min(opts?.width ?? PREVIEW_W, vp.width - MARGIN * 2);
+  const fitsRight = a.right + GAP + width + MARGIN <= vp.width;
+  const left = fitsRight ? a.right + GAP : Math.max(MARGIN, a.left - GAP - width);
+  const top = Math.max(MARGIN, Math.min(a.top, vp.height - MARGIN - PREVIEW_H));
+  return { left, top, width, maxHeight: Math.max(MIN_H, vp.height - top - MARGIN), side: 'beside' };
 }
 
 /**

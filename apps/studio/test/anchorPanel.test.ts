@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { placePanel, PANEL_W, PANEL_MAX_H, type AnchorRect } from '../src/composer/anchorPanel.js';
+import {
+  placePanel,
+  PANEL_W,
+  PANEL_MAX_H,
+  type AnchorRect,
+  placeBeside,
+  PREVIEW_H,
+} from '../src/composer/anchorPanel.js';
 import {
   INSERT_MENU_MAX_H,
   INSERT_MENU_PHONE_MAX_H,
@@ -207,5 +214,30 @@ describe('placeInsertMenu', () => {
     expect(p?.shell).toBe('dock');
     expect(p?.maxHeight).toBe(80);
     expect(p!.top + 80).toBe(brief.top - 8);
+  });
+});
+
+describe('placeBeside', () => {
+  const vp = { width: 1440, height: 900 };
+  const tile = (top: number) => ({ top, bottom: top + 52, left: 14, right: 66 });
+
+  it('opens to the right of the tile, level with its top', () => {
+    const p = placeBeside(tile(300), vp)!;
+    expect(p.side).toBe('beside');
+    expect(p.left).toBe(66 + 8);
+    expect(p.top).toBe(300);
+  });
+
+  it('pulls up at the bottom of the screen so the whole card stays on it', () => {
+    const p = placeBeside(tile(860), vp)!;
+    expect(p.top).toBe(900 - 12 - PREVIEW_H);
+    expect(p.top + PREVIEW_H).toBeLessThanOrEqual(900 - 12);
+  });
+
+  it('goes to the left when there is no room on the right, and closes when the tile has left the screen', () => {
+    const p = placeBeside({ top: 300, bottom: 352, left: 1380, right: 1432 }, vp)!;
+    expect(p.left).toBe(1380 - 8 - p.width);
+    expect(placeBeside(tile(-100), vp)).toBeNull();
+    expect(placeBeside(tile(950), vp)).toBeNull();
   });
 });

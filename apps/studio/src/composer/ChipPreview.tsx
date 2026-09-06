@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ImageSquare } from '@phosphor-icons/react';
-import { PREVIEW_W, placePanel, type Placed } from './anchorPanel.js';
+import { placeBeside, placePanel, PREVIEW_W, type Placed } from './anchorPanel.js';
 
 /**
  * The picture a chip is holding, shown beside the chip on hover.
@@ -56,7 +56,8 @@ export const PREVIEW_NOUN: Record<PreviewKind, string> = {
  */
 function offsetStyle(p: Placed): { top: number } | { bottom: number } {
   // Whole pixels: a card on a half pixel renders its hairline border blurred.
-  return p.side === 'below'
+  // Beside a tile the card is anchored by its top, level with the tile.
+  return p.side === 'below' || p.side === 'beside'
     ? { top: Math.round(p.top) }
     : { bottom: Math.round(window.innerHeight - (p.top + p.maxHeight)) };
 }
@@ -69,12 +70,19 @@ export function ChipPreview({
   warning,
   note,
   noun: nounHere,
+  side = 'auto',
   onOpen,
   onHoverIn,
   onHoverOut,
   onClose,
 }: {
   anchor: HTMLElement;
+  /**
+   * Where the card goes. `auto` opens above the anchor, or below when there
+   * is no room, which suits a chip in a sentence; `beside` opens to the
+   * right of it, level with its top, which suits a tile in a column.
+   */
+  side?: 'auto' | 'beside';
   kind: PreviewKind;
   /** Always `imgUrl(hash)` off the token or the attachment. Never a lookup by position. */
   src: string;
@@ -107,7 +115,8 @@ export function ChipPreview({
       const vv = window.visualViewport;
       // The visual viewport, so a software keyboard cannot put the card under
       // itself. The rect and `position: fixed` are both layout coordinates.
-      const p = placePanel(
+      const place = side === 'beside' ? placeBeside : placePanel;
+      const p = place(
         anchor.getBoundingClientRect(),
         { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight },
         { width: PREVIEW_W },
@@ -131,7 +140,7 @@ export function ChipPreview({
       window.visualViewport?.removeEventListener('resize', measure);
       window.visualViewport?.removeEventListener('scroll', measure);
     };
-  }, [anchor, onClose]);
+  }, [anchor, side, onClose]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
