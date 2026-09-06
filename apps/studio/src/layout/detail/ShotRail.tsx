@@ -45,14 +45,15 @@ export function ShotRail({
   const peekAt = (n: FeedNode, el: HTMLElement) =>
     peek.open({ key: n.id, src: thumbUrl(n.images[0], 'tile'), label: nodeLabel(n), el, id: n.id });
 
-  // The ringed tile stays in view as the stage moves: centred when the rail
-  // first shows, the least scroll after that, and never under the fades
-  // (the rail's scroll padding keeps it clear of them).
+  // The ringed tile sits in the middle of the rail, always: placed there at
+  // once when the rail first shows, and slid there on every step after. The
+  // middle is where the rail's swell peaks, so the shot on screen is the
+  // large tile and the column reads outward from it in both directions.
   const shown = useRef(false);
   useEffect(() => {
     const tile = ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
     if (!tile) return;
-    tile.scrollIntoView({ block: shown.current ? 'nearest' : 'center', behavior: shown.current ? 'smooth' : 'auto' });
+    tile.scrollIntoView({ block: 'center', behavior: shown.current ? 'smooth' : 'auto' });
     shown.current = true;
   }, [activeId]);
 
