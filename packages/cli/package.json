@@ -53,6 +53,7 @@
     "!templates/**/.DS_Store",
     "!templates/previews/*.mjs",
     "studio-dist",
+    "launcher",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",

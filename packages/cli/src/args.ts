@@ -1,6 +1,6 @@
 /**
- * Hand-rolled argv parsing. The surface is five commands and two flags; a
- * dependency would cost more than these forty lines. Configuration stays in
+ * Hand-rolled argv parsing. The surface is seven commands and three flags; a
+ * dependency would cost more than these fifty lines. Configuration stays in
  * env vars (SCENRI_PORT etc.) — argv only selects what to run.
  */
 export type Command =
@@ -8,6 +8,8 @@ export type Command =
   | { cmd: 'serve' }
   | { cmd: 'update'; check: boolean; from: string | undefined }
   | { cmd: 'verify' }
+  | { cmd: 'desktop'; remove: boolean }
+  | { cmd: 'open' }
   | { cmd: 'version' }
   | { cmd: 'help' }
   | { cmd: 'error'; message: string };
@@ -19,6 +21,15 @@ export function parseArgs(argv: string[]): Command {
   if (first === '--help' || first === '-h') return { cmd: 'help' };
   if (first === 'serve') return { cmd: 'serve' };
   if (first === 'verify') return { cmd: 'verify' };
+  if (first === 'open') return { cmd: 'open' };
+  if (first === 'desktop') {
+    let remove = false;
+    for (const a of rest) {
+      if (a === '--remove') remove = true;
+      else return { cmd: 'error', message: `unknown option '${a}' (try --help)` };
+    }
+    return { cmd: 'desktop', remove };
+  }
   if (first === 'update') {
     let check = false;
     let from: string | undefined;
@@ -35,8 +46,8 @@ export function parseArgs(argv: string[]): Command {
   return { cmd: 'error', message: `unknown command '${first}' (try --help)` };
 }
 
-// `verify` is deliberately absent: it exists for the updater to probe a staged
-// install, not for people.
+// `verify` and `open` are deliberately absent: one exists for the updater to
+// probe a staged install, the other for the desktop icon's bootstrap to call.
 export function helpText(): string {
   return `Scenri: local brand studio
 
@@ -45,11 +56,13 @@ Usage
   scenri serve          start this exact build, no supervision
   scenri update         download and stage the newest version
     --check             only check, do not download
+  scenri desktop        add Scenri to your desktop (or repair the icon)
+    --remove            take it off again
   scenri --version      print the installed version
   scenri --help         this text
 
 Configuration is via environment variables: SCENRI_PORT, SCENRI_HOST,
 SCENRI_HOME, SCENRI_NO_OPEN, SCENRI_NO_UPDATE_CHECK, SCENRI_NO_CONTENT_FETCH,
-SCENRI_CONTENT_URL.
+SCENRI_CONTENT_URL, SCENRI_NO_DESKTOP.
 `;
 }

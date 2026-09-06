@@ -123,4 +123,84 @@ write(join(repo, 'docs/media/logo-on-dark.svg'), lockup(DARK_INK));
 // GitHub's social preview is a repository setting, uploaded by hand, and that
 // hand-made file is the one to upload.
 
+// ---- the desktop launcher's icons, shipped inside the npm package ----------
+// Both land in packages/cli/launcher/ and are committed like everything above.
+// The launcher is the .app on a Mac Desktop and the .lnk on a Windows one, so
+// these are the first Scenri icons an OS draws rather than a browser.
+
+const cliLauncher = join(repo, 'packages', 'cli', 'launcher');
+
+/**
+ * The inner artwork of the symbol, ready to nest inside another <svg>. The
+ * <title> stays out: it belongs to the outer document, once.
+ */
+function symbolInner(ink = INK) {
+  const inner = symbol(ink).match(/<svg[^>]*>([\s\S]*)<\/svg>/)?.[1] ?? '';
+  return inner.replace(/<title>[\s\S]*?<\/title>/, '');
+}
+
+/**
+ * A macOS app icon is a rounded square drawn by the app, not masked by the OS,
+ * on a transparent canvas with air around it: Apple's 1024 grid puts the body
+ * at 824 with a 100 px margin and a corner radius near 22.5 % of the body.
+ * Rendering the whole thing as one SVG at each target size keeps the corners
+ * and the mark crisp instead of resampling a big bitmap down.
+ */
+async function macTile(size) {
+  const body = 824;
+  const margin = (1024 - body) / 2;
+  const box = Math.round(body * (1 - 0.19 * 2));
+  const at = margin + (body - box) / 2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 1024 1024">
+  <rect x="${margin}" y="${margin}" width="${body}" height="${body}" rx="185" fill="${TILE}"/>
+  <svg x="${at}" y="${at}" width="${box}" height="${box}" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet"><g fill="${INK}">${symbolInner()}</g></svg>
+</svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+/**
+ * An .icns is an eight byte header ('icns' + total length) and then entries of
+ * four byte type, four byte big-endian length (header included) and payload.
+ * Since 10.7 the ic* payloads are whole PNG files, which is what iconutil
+ * writes for every retina slot; the two 1x slots below 128 px want raw ARGB,
+ * so they are left out and macOS downsamples the @2x neighbour instead.
+ */
+function icns(entries) {
+  const chunks = entries.map(({ type, data }) => {
+    const head = Buffer.alloc(8);
+    head.write(type, 0, 4, 'latin1');
+    head.writeUInt32BE(8 + data.length, 4);
+    return Buffer.concat([head, data]);
+  });
+  const total = 8 + chunks.reduce((n, c) => n + c.length, 0);
+  const head = Buffer.alloc(8);
+  head.write('icns', 0, 4, 'latin1');
+  head.writeUInt32BE(total, 4);
+  return Buffer.concat([head, ...chunks]);
+}
+
+const ICNS_TYPES = [
+  ['ic11', 32], // 16@2x
+  ['ic12', 64], // 32@2x
+  ['ic07', 128],
+  ['ic13', 256], // 128@2x
+  ['ic08', 256],
+  ['ic14', 512], // 256@2x
+  ['ic09', 512],
+  ['ic10', 1024], // 512@2x
+];
+const macPngs = new Map();
+for (const [, px] of ICNS_TYPES) if (!macPngs.has(px)) macPngs.set(px, await macTile(px));
+write(join(cliLauncher, 'Scenri.icns'), icns(ICNS_TYPES.map(([type, px]) => ({ type, data: macPngs.get(px) }))));
+
+// Windows fills the box and rounds nothing, so the square tile serves again.
+// 16 to 48 are the list and Desktop sizes; 256 is the large-icon slot Vista
+// introduced, PNG-compressed, and the only one Explorer scales the rest from
+// when a size is missing.
+const winSizes = [16, 24, 32, 48, 64, 256];
+const winPngs = await Promise.all(
+  winSizes.map(async (size) => ({ size, data: await tile({ svg: symbol(), size, inset: size <= 32 ? 0.08 : 0.12 }) })),
+);
+write(join(cliLauncher, 'scenri.ico'), ico(winPngs));
+
 console.log('');

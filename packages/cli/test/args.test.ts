@@ -59,3 +59,31 @@ describe('argv dispatcher', () => {
     expect(t).not.toContain('verify');
   });
 });
+
+describe('the desktop launcher commands', () => {
+  it('desktop adds or repairs the desktop launcher', () => {
+    expect(parseArgs(['desktop'])).toEqual({ cmd: 'desktop', remove: false });
+  });
+
+  it('desktop --remove takes it away again', () => {
+    expect(parseArgs(['desktop', '--remove'])).toEqual({ cmd: 'desktop', remove: true });
+  });
+
+  it('an unknown flag on desktop is an error', () => {
+    expect(parseArgs(['desktop', '--force'])).toEqual({
+      cmd: 'error',
+      message: "unknown option '--force' (try --help)",
+    });
+  });
+
+  it('open is the hidden bootstrap contract the desktop icon runs', () => {
+    expect(parseArgs(['open'])).toEqual({ cmd: 'open' });
+  });
+
+  it('help names desktop and its flag, and hides open like verify', () => {
+    const t = helpText();
+    expect(t).toContain('scenri desktop');
+    expect(t).toContain('--remove');
+    expect(t).not.toContain('scenri open');
+  });
+});

@@ -1,12 +1,13 @@
 import { createCore, SchemaTooNewError } from '@scenri/core';
-import { dirname, join, sep } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync, realpathSync } from 'node:fs';
-import { networkInterfaces } from 'node:os';
+import { existsSync } from 'node:fs';
+import { homedir, networkInterfaces } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { createEngineRegistry } from './engines.js';
 import { createDemoEngine, demoOptionsFromEnv } from '@scenri/engine-demo';
-import { buildServer, type InstallKind } from './server.js';
+import { buildServer } from './server.js';
+import { detectInstallKind } from './installKind.js';
 import { repairPresenterCrops } from './presenterRepair.js';
 import { readMeta } from './meta.js';
 import { portBusyLines } from './bootError.js';
@@ -35,26 +36,7 @@ function lanAddresses(): string[] {
   return out;
 }
 
-/**
- * Where this build came from, judged by where it runs from. Decides which
- * update story the UI tells: a checkout gets git guidance, never an Update
- * button that would overwrite someone's working tree.
- */
-export function detectInstallKind(entryPath: string, home: string): InstallKind {
-  if (!entryPath.includes(`${sep}dist${sep}`) && !entryPath.endsWith(`${sep}dist`)) return 'dev';
-  // Module paths arrive realpathed; SCENRI_HOME may travel through a symlink
-  // (macOS /tmp does), so compare like with like.
-  let homeReal = home;
-  try {
-    homeReal = realpathSync(home);
-  } catch {
-    /* a home that does not exist yet cannot hold a managed install */
-  }
-  if (entryPath.startsWith(join(homeReal, 'app', 'versions') + sep)) return 'managed';
-  if (entryPath.includes(`${sep}_npx${sep}`)) return 'npx';
-  if (entryPath.includes(`${sep}node_modules${sep}`)) return 'global';
-  return 'unknown';
-}
+export { detectInstallKind } from './installKind.js';
 
 export async function serve(): Promise<void> {
   try {
@@ -103,6 +85,7 @@ async function run(): Promise<void> {
       installKind,
       supervised,
       launcherProtocol: Number(process.env.SCENRI_LAUNCHER_PROTOCOL ?? '1') || 1,
+      entry: fileURLToPath(import.meta.url),
     },
   });
 
@@ -218,6 +201,41 @@ async function run(): Promise<void> {
     } catch {
       tellUrl();
     }
+  }
+
+  // The desktop icon. An installed launcher is quietly kept current (a new
+  // bootstrap or icon, a node that moved, a newer build to adopt); one that
+  // was never installed is offered exactly once, at a terminal, after the
+  // browser is already open. SCENRI_NO_DESKTOP=1 silences both.
+  const ownEntry = fileURLToPath(import.meta.url);
+  const { addToDesktop, installDeps } = await import('./desktop/cli.js');
+  const { refreshLauncher } = await import('./desktop/refresh.js');
+  const { askOnTerminal, offerDesktop, shouldOfferDesktop } = await import('./desktop/offer.js');
+  const { launcherInstalled } = await import('./desktop/paths.js');
+  const meta = readMeta();
+  void refreshLauncher({ ...installDeps(ownEntry), ownEntry, installKind, pkg: meta.name })
+    .then((r) => {
+      if (r.adopted)
+        console.log(`  keeping a copy of Scenri ${meta.version} in ${join(core.home, 'app')} for the desktop icon`);
+    })
+    .catch(() => undefined);
+  const offer = shouldOfferDesktop({
+    env: process.env,
+    stdinTTY: Boolean(process.stdin.isTTY),
+    stdoutTTY: Boolean(process.stdout.isTTY),
+    platform: process.platform,
+    installKind,
+    launcherInstalled: launcherInstalled(homedir()),
+    declined: core.store.getSetting('desktop.prompt') === 'declined',
+  });
+  if (offer) {
+    await offerDesktop({
+      ask: askOnTerminal,
+      add: () => addToDesktop(ownEntry),
+      decline: () => core.store.setSetting('desktop.prompt', 'declined'),
+      say: (line) => console.log(line),
+    });
+    console.log('');
   }
 }
 

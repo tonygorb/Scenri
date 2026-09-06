@@ -11,6 +11,8 @@ asks for a restart. Application code and your library never share a directory:
   app/
     staging/next/                  npm's workbench while an update downloads
     versions/<version>/            installed app versions, newest wins
+  launcher/                        the desktop icon's bootstrap and record (see below)
+  logs/                            launcher.log and scenri.log, for a start with no terminal
 ```
 
 `rm -rf ~/.scenri/app` is always safe. It removes staged app versions only;
@@ -198,3 +200,29 @@ contract between launcher and app changes only with a protocol bump:
 The app refuses one-click updates when it is not supervised, or when the
 supervising launcher's protocol is older than it needs: the manual
 `scenri update` path always remains.
+
+## Desktop bootstrap v1 (frozen)
+
+A Desktop icon (`Scenri.app` on macOS, `Scenri.lnk` on Windows) runs a copy of
+`launcher/launch.mjs` from `~/.scenri/launcher`, always beside the *default*
+home whatever `SCENRI_HOME` said, because a constant script can find only one
+place. Copies of that file live on Desktops indefinitely, so its contract is
+as frozen as the launcher's:
+
+1. `launcher.json` beside it records `schema`, the data `home` to boot, the
+   `nodePath` that installed it, the `env` to replay (`SCENRI_PORT`,
+   `SCENRI_HOST`) and the artifact it made.
+2. It picks the newest valid version under `<home>/app/versions/` by the same
+   rule as the launcher, and hands off to `node <entry> open`, detached, with
+   its output in `<home>/logs/scenri.log`. `open` must exist in every future
+   version: it holds every decision (reuse a running server, start the
+   supervising launcher hidden, wait for readiness, show the browser) and is
+   versioned with the app.
+3. No valid version means one dialog and exit 1, never a start through npx.
+
+Adding the icon copies the running build into `app/versions/<v>/` once, after
+`node <entry> verify` proves the copy loads, so the icon works offline and
+after `npm cache clean`. Every start refreshes a stale bootstrap, page or
+icon, follows a recorded node that disappeared, and adopts a newer npx build.
+It never recreates an icon the user deleted. `SCENRI_NO_DESKTOP=1` silences
+the first-run question and the refresh.

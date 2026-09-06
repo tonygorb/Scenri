@@ -73,8 +73,12 @@ class Fixture {
   }
 
   async start(): Promise<void> {
-    this.regPort = await freePort(this.regPort);
+    // The app port first, then the registry strictly above it. Both used to be
+    // probed before the registry bound, so a busy neighbour (another local
+    // server on the preferred app port) moved the app onto the registry's own
+    // port, whose 500 answers made serve leave as "port busy".
     this.port = await freePort(this.port);
+    this.regPort = await freePort(Math.max(this.regPort, this.port + 1));
     this.registry = createServer((req, res) => {
       if (this.down) {
         res.statusCode = 500;
@@ -111,6 +115,7 @@ class Fixture {
         // run that finishes in seconds, and teardown deletes a directory still
         // being written into.
         SCENRI_NO_CONTENT_FETCH: '1',
+        SCENRI_NO_DESKTOP: '1',
         SCENRI_REGISTRY: `http://127.0.0.1:${this.regPort}`,
         ...this.extraEnv,
       },

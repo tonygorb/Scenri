@@ -160,6 +160,7 @@ class ScenriFixture {
         // keys must not turn a deterministic run into a real generation.
         // Asset builds take their no-engine fallback (photos become shots).
         SCENRI_NO_CODEX: '1',
+        SCENRI_NO_DESKTOP: '1',
         OPENROUTER_API_KEY: '',
         REPLICATE_API_TOKEN: '',
         FAL_KEY: '',

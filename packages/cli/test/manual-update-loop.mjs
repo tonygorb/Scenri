@@ -45,7 +45,7 @@ execFileSync('node', [join(CLI, 'scripts', 'prepack.mjs')], { cwd: CLI, stdio: '
 const work = mkdtempSync(join(tmpdir(), 'sc-loop-'));
 const pkgDir = join(work, 'pkg');
 mkdirSync(pkgDir);
-for (const part of ['dist', 'studio-dist', 'templates', 'LICENSE', 'NOTICE', 'README.md']) {
+for (const part of ['dist', 'studio-dist', 'templates', 'launcher', 'LICENSE', 'NOTICE', 'README.md']) {
   cpSync(join(CLI, part), join(pkgDir, part), { recursive: true });
 }
 const manifest = JSON.parse(readFileSync(join(CLI, 'package.json'), 'utf8'));
@@ -106,6 +106,7 @@ const env = {
   SCENRI_PORT: String(PORT),
   SCENRI_NO_OPEN: '1',
   SCENRI_NO_CONTENT_FETCH: '1',
+  SCENRI_NO_DESKTOP: '1',
   SCENRI_DEMO_ENGINE: '1',
   SCENRI_REGISTRY: `http://127.0.0.1:${REG_PORT}`,
   // Harness cadence: the real schedule at test speed. Clamps do not apply off
@@ -202,8 +203,85 @@ if (!Array.isArray(brands.body) || !brands.body.some((b) => b.slug === 'acme')) 
 }
 ok('user data survived the update');
 
+// -- 8. the desktop bootstrap, what a Desktop icon runs. Its support dir sits
+// beside the *default* home, so HOME points into the work dir. With the server
+// up it must find it and step aside; with the server gone it must boot the
+// version the update staged, supervised, without npx anywhere.
+const iconHome = join(work, 'home');
+const iconSupport = join(iconHome, '.scenri', 'launcher');
+mkdirSync(iconSupport, { recursive: true });
+cpSync(join(CLI, 'launcher', 'launch.mjs'), join(iconSupport, 'launch.mjs'));
+writeFileSync(
+  join(iconSupport, 'launcher.json'),
+  JSON.stringify({
+    schema: 1,
+    createdBy: '99.0.0',
+    home,
+    nodePath: process.execPath,
+    env: { SCENRI_PORT: String(PORT) },
+    artifact: { kind: 'macos-app', path: join(work, 'nowhere') },
+  }),
+);
+const iconEnv = { ...env, HOME: iconHome, USERPROFILE: iconHome, SCENRI_NO_DIALOG: '1' };
+const iconLog = () => readFileSync(join(home, 'logs', 'launcher.log'), 'utf8');
+const clickIcon = () =>
+  spawnSync(process.execPath, [join(iconSupport, 'launch.mjs')], { env: iconEnv, stdio: 'inherit' });
+if (clickIcon().status !== 0) fail('the bootstrap failed while the server was up');
+let joined = false;
+for (let i = 0; i < 40 && !joined; i++) {
+  await new Promise((r) => setTimeout(r, 250));
+  joined = /open: Scenri 99\.0\.0 already running/.test(iconLog());
+}
+if (!joined) fail(`the bootstrap did not join the running server:\n${iconLog()}`);
+if ((await api('/api/version')).body.version !== '99.0.0') fail('a second server appeared');
+ok('the desktop bootstrap joined the running server instead of starting another');
+
 launcher.kill('SIGTERM');
 await new Promise((r) => launcher.once('exit', r));
+for (
+  let i = 0;
+  i < 50 &&
+  (await api('/api/version').then(
+    () => true,
+    () => false,
+  ));
+  i++
+) {
+  await new Promise((r) => setTimeout(r, 100));
+}
+if (clickIcon().status !== 0) fail('the bootstrap failed with the server down');
+let booted = null;
+for (let i = 0; i < 120 && !booted; i++) {
+  await new Promise((r) => setTimeout(r, 500));
+  const r = await api('/api/version').catch(() => null);
+  if (r?.status === 200) booted = r.body;
+}
+if (!booted) fail(`the bootstrap never brought a server up:\n${iconLog()}`);
+if (booted.version !== '99.0.0' || !booted.supervised || booted.installKind !== 'managed') {
+  fail(`the bootstrap booted the wrong thing: ${JSON.stringify(booted)}`);
+}
+ok(`the desktop bootstrap booted ${booted.version} from app/versions, supervised, no npx`);
+const pid = Number(
+  iconLog()
+    .match(/started the supervisor, pid (\d+)/g)
+    ?.pop()
+    ?.match(/(\d+)$/)?.[1],
+);
+if (!pid) fail(`no supervisor pid in the launcher log:\n${iconLog()}`);
+process.kill(pid, 'SIGTERM');
+for (
+  let i = 0;
+  i < 80 &&
+  (await api('/api/version').then(
+    () => true,
+    () => false,
+  ));
+  i++
+) {
+  await new Promise((r) => setTimeout(r, 100));
+}
+ok('the icon-started server stopped on SIGTERM');
+
 await new Promise((r) => registry.close(r));
 rmSync(work, { recursive: true, force: true });
 rmSync(home, { recursive: true, force: true });

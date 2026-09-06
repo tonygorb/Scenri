@@ -145,3 +145,32 @@ describe('runLauncher', () => {
     expect(lines.join('\n')).toContain('rm -rf');
   });
 });
+
+describe('runLauncher without a console', () => {
+  /** Records the full spawn options, which scriptedSpawn deliberately does not. */
+  function optionSpawn() {
+    const seen: Record<string, unknown>[] = [];
+    const spawnImpl = (_cmd: string, _args: string[], opts: object) => {
+      const child = new EventEmitter() as any;
+      child.kill = () => undefined;
+      seen.push(opts as Record<string, unknown>);
+      setImmediate(() => child.emit('exit', 0, null));
+      return child;
+    };
+    return { spawnImpl, seen };
+  }
+
+  it('hides the child console when the desktop icon started it headless', async () => {
+    // A supervisor with no console of its own must not let Windows allocate
+    // one for serve: that is the window the desktop icon exists to avoid.
+    const s = optionSpawn();
+    await runLauncher(base({ spawnImpl: s.spawnImpl, env: { SCENRI_HEADLESS: '1' } }));
+    expect(s.seen[0].windowsHide).toBe(true);
+  });
+
+  it('leaves the console alone under a terminal, so Ctrl-C still reaches serve', async () => {
+    const s = optionSpawn();
+    await runLauncher(base({ spawnImpl: s.spawnImpl, env: {} }));
+    expect(s.seen[0].windowsHide).toBeFalsy();
+  });
+});
