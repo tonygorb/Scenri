@@ -50,6 +50,15 @@ test.describe
       const overlay = page.locator('.sc-upd-stopped');
       await expect(overlay).toBeVisible();
       await expect(overlay).toContainText('Scenri has stopped');
+      // Over the dialog it was asked from, not behind it: the card must win the
+      // hit test at the centre of the screen, where Settings used to be.
+      await expect
+        .poll(() =>
+          page.evaluate(() =>
+            Boolean(document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest('.sc-upd-stopped')),
+          ),
+        )
+        .toBe(true);
       await expect
         .poll(
           async () => {

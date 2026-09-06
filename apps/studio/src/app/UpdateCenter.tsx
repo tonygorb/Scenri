@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowCircleUp, Gift, Power } from '@phosphor-icons/react';
 import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
@@ -278,13 +279,26 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
  */
 function RestartOverlay({ version }: { version: string | null }) {
   return (
-    <div className="sc-upd-overlay" role="status" aria-live="polite">
-      <div className="sc-upd-overlay-card">
-        <ArrowCircleUp size={22} />
-        <b>{version ? `Updating to Scenri ${version}` : 'Updating Scenri'}</b>
-        <small>Restarting. This page reconnects by itself.</small>
-      </div>
-    </div>
+    <LifecycleOverlay>
+      <ArrowCircleUp size={22} />
+      <b>{version ? `Updating to Scenri ${version}` : 'Updating Scenri'}</b>
+      <small>Restarting. This page reconnects by itself.</small>
+    </LifecycleOverlay>
+  );
+}
+
+/**
+ * Full-bleed over everything, dialogs included. The app tree sits inside the
+ * Radix theme root, which is a stacking context of its own, so an overlay
+ * rendered in place lost to a Settings dialog portaled to body whatever its
+ * z-index said. Portal it to body too: the token then means what it says.
+ */
+function LifecycleOverlay({ children, className }: { children: ReactNode; className?: string }) {
+  return createPortal(
+    <div className={className ? `sc-upd-overlay ${className}` : 'sc-upd-overlay'} role="status" aria-live="polite">
+      <div className="sc-upd-overlay-card">{children}</div>
+    </div>,
+    document.body,
   );
 }
 
@@ -295,13 +309,11 @@ function RestartOverlay({ version }: { version: string | null }) {
  */
 function StoppedOverlay() {
   return (
-    <div className="sc-upd-overlay sc-upd-stopped" role="status" aria-live="polite">
-      <div className="sc-upd-overlay-card">
-        <Power size={22} />
-        <b>Scenri has stopped</b>
-        <small>Double-click Scenri on your desktop, or run npx scenri in a terminal, to start it again.</small>
-      </div>
-    </div>
+    <LifecycleOverlay className="sc-upd-stopped">
+      <Power size={22} />
+      <b>Scenri has stopped</b>
+      <small>Double-click Scenri on your desktop, or run npx scenri in a terminal, to start it again.</small>
+    </LifecycleOverlay>
   );
 }
 
