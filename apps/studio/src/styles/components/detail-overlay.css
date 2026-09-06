@@ -103,8 +103,12 @@
 .sc-thumbs::-webkit-scrollbar {
   display: none;
 }
-/* the row held with nothing in it: the tile's own height, and no more */
+/* The row held with nothing in it: the tile's own height, and no more. The
+   strip's own box is 52px of tiles inside 4px of padding pulled back by a
+   4px negative margin; a plain 52px box measured 8px short of that and
+   moved the picture by four. Content-box makes the two boxes the same. */
 .sc-thumbs-empty {
+  box-sizing: content-box;
   height: 52px;
 }
 .sc-thumb-btn {
