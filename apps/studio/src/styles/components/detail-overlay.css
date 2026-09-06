@@ -562,40 +562,38 @@
   color: var(--sc-fg);
   overflow-wrap: break-word;
 }
-/* Only the sentence clamps. The carried chips live in their own row below,
-   so a long brief can never swallow the references behind the fold. Roomy
-   lines are what let a chip sit inside prose without shearing its
-   neighbours. */
+/* Only the sentence clamps, and it clamps by rows: five of them, each two
+   lines tall, so a chip sits inside prose without shearing its neighbours.
+   A row budget (max-height) rather than -webkit-line-clamp: the clamp counts
+   lines and paints its ellipsis engine by engine, and with atomic chips in
+   the flow that cut landed mid-row on a phone; a height that is a whole
+   number of rows cuts between rows everywhere. While the clamp bites, the
+   last row dissolves into the release under it instead of ending at an
+   edge. */
 .sc-brief-said {
   line-height: 2;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
+  max-height: 10em;
   overflow: hidden;
 }
 .sc-brief-said:empty {
   display: none;
 }
+.sc-brief-said[data-clamped] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2em), transparent);
+}
 .sc-brief-said[data-expanded] {
-  display: block;
+  max-height: none;
   overflow: visible;
-  -webkit-line-clamp: unset;
 }
 .sc-brief-record .sc-ingredient {
   vertical-align: middle;
   margin: 0 1px;
 }
-/* the clamp's release, in the caption voice, only when the clamp bites */
+/* The clamp's release is one of the panel's verbs, in the voice of Try
+   again, not a caption: on a phone it is the only way to the rest of the
+   prompt, so it has to be findable and tappable. */
 .sc-ovl-more {
-  background: none;
-  border: none;
-  padding: var(--sc-space-1) 0 0;
-  color: var(--sc-fg3);
-  font-size: var(--sc-text-caption);
-  cursor: pointer;
-}
-.sc-ovl-more:hover {
-  color: var(--sc-fg);
+  margin-top: var(--sc-space-1);
 }
 /* The record's header row: the eyebrow on the left, the copy control on the
    right, and the record under both. The control used to float absolutely in

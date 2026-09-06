@@ -14,6 +14,8 @@ import {
   Archive,
   ArrowCounterClockwise,
   ArrowsClockwise,
+  CaretDown,
+  CaretUp,
   CaretLeft,
   CaretRight,
   Check,
@@ -185,10 +187,19 @@ export function DetailOverlay({
   const [briefOpen, setBriefOpen] = useState(false);
   const [briefOverflows, setBriefOverflows] = useState(false);
   useEffect(() => setBriefOpen(false), [node.id]);
+  // Measured while the clamp is on (an open record never overflows, and a
+  // verdict taken then would drop the release under the pointer that just
+  // pressed it), and again whenever the box changes width, so a phone
+  // sheet that settles its width after the first paint gets a fresh one.
   useLayoutEffect(() => {
     const el = briefRef.current;
-    setBriefOverflows(!!el && el.scrollHeight > el.clientHeight + 1);
-  }, [said]);
+    if (!el || briefOpen) return;
+    const measure = () => setBriefOverflows(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [said, briefOpen]);
   /**
    * The image's whole history as a trail, the root first and every version
    * made from it after, worn under the stage and the same whichever version
@@ -836,16 +847,25 @@ export function DetailOverlay({
                     brand={brand}
                     saidRef={briefRef}
                     expanded={briefOpen}
+                    clamped={briefOverflows && !briefOpen}
                   />
                 </div>
                 {(briefOverflows || briefOpen) && (
                   <button
                     type="button"
-                    className="sc-ovl-more"
+                    className="sc-s sc-ovl-more"
                     aria-expanded={briefOpen}
                     onClick={() => setBriefOpen((v) => !v)}
                   >
-                    {briefOpen ? 'less' : 'more'}
+                    {briefOpen ? (
+                      <>
+                        <CaretUp size={12} /> Show less
+                      </>
+                    ) : (
+                      <>
+                        <CaretDown size={12} /> Show more
+                      </>
+                    )}
                   </button>
                 )}
               </div>
