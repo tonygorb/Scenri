@@ -91,13 +91,25 @@ describe('the desktop bootstrap', () => {
     expect(launcherLog()).toMatch(/bootstrap v1: handing off to .*0\.8\.4/);
   });
 
-  it('returns at once: the child outlives it', async () => {
-    plant('0.8.4');
+  it('on macOS stays alive until open is done, so the Dock icon bounces meanwhile; elsewhere it returns at once', async () => {
+    const entry = plant('0.8.4');
+    // the stub takes 400 ms before it reports, like a real open waiting for readiness
+    writeFileSync(
+      entry,
+      `await new Promise((r) => setTimeout(r, 400));
+import('node:fs').then(({ writeFileSync }) => writeFileSync(process.env.SCENRI_BOOT_PROBE, JSON.stringify({ argv: process.argv.slice(1), home: process.env.SCENRI_HOME, port: process.env.SCENRI_PORT, cwd: process.cwd() })));`,
+    );
     const t0 = Date.now();
     const res = run();
     expect(res.status).toBe(0);
-    expect(Date.now() - t0).toBeLessThan(5_000);
-    await probed();
+    const took = Date.now() - t0;
+    if (process.platform === 'darwin') {
+      expect(took).toBeGreaterThanOrEqual(400);
+      expect(existsSync(probe)).toBe(true);
+    } else {
+      expect(took).toBeLessThan(400);
+      await probed();
+    }
   });
 
   it('explains missing app files instead of doing nothing', () => {

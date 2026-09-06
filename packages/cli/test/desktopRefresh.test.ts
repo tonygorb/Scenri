@@ -116,6 +116,20 @@ describe('refreshLauncher', () => {
     expect(readFileSync(supportFile('starting.html'), 'utf8')).toContain('content="http://127.0.0.1:4801/"');
   });
 
+  it('rewrites a bundle whose script or plist differs from this version, without a schema bump', async () => {
+    const d = deps();
+    await installDesktop(d);
+    const script = join(desktop, 'Scenri.app', 'Contents', 'MacOS', 'Scenri');
+    writeFileSync(script, '#!/bin/sh\necho old\n');
+    expect(await refreshLauncher(d)).toEqual({ refreshed: true });
+    expect(readFileSync(script, 'utf8')).toContain('launch.mjs');
+    const plist = join(desktop, 'Scenri.app', 'Contents', 'Info.plist');
+    writeFileSync(plist, readFileSync(plist, 'utf8').replace('<string>0.8.4</string>', '<string>0.7.0</string>'));
+    expect(await refreshLauncher(d)).toEqual({ refreshed: true });
+    expect(readFileSync(plist, 'utf8')).toContain('<string>0.8.4</string>');
+    expect(await refreshLauncher(d)).toEqual({});
+  });
+
   it('never recreates an icon the user deleted', async () => {
     const d = deps();
     await installDesktop(d);

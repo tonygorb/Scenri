@@ -12,7 +12,7 @@ import type { InstallKind } from '../installKind.js';
 import { compareSemver, newestStaged } from '../update/versionsDir.js';
 import { adoptRunningInstall, type VerifyImpl } from './adopt.js';
 import { type InstallDeps, runningNodeMajor, writeSupportFiles } from './install.js';
-import { isOurMacBundle, writeMacBundle } from './macos.js';
+import { MAC_SCRIPT, isOurMacBundle, macPlist, writeMacBundle } from './macos.js';
 import { LAUNCHER_SCHEMA, launcherDir, readLauncherRecord, writeLauncherRecord } from './paths.js';
 import { writeLnk } from './windows.js';
 
@@ -55,15 +55,21 @@ export async function refreshLauncher(
     (readText(join(support, 'node-path')) !== `${nodePath}\n` ||
       readText(join(support, 'node-major')) !== `${nodeMajor}\n`);
   const supportStale = nodeFilesStale || ASSETS.some((f) => !sameFile(join(support, f), join(deps.assetsDir, f)));
+  const mac = ours && record.artifact.kind === 'macos-app';
   const iconStale =
-    ours &&
-    record.artifact.kind === 'macos-app' &&
-    !sameFile(join(artifact, 'Contents', 'Resources', 'Scenri.icns'), join(deps.assetsDir, 'Scenri.icns'));
+    mac && !sameFile(join(artifact, 'Contents', 'Resources', 'Scenri.icns'), join(deps.assetsDir, 'Scenri.icns'));
+  // The script and plist are this version's text; a release that changes
+  // either reaches an installed bundle here, no schema bump needed.
+  const bundleStale =
+    mac &&
+    (readText(join(artifact, 'Contents', 'MacOS', 'Scenri')) !== MAC_SCRIPT ||
+      readText(join(artifact, 'Contents', 'Info.plist')) !==
+        macPlist({ version: deps.version, schema: LAUNCHER_SCHEMA }));
 
   if (schemaStale || supportStale || nodeGone) {
     writeSupportFiles({ assetsDir: deps.assetsDir, execPath: nodePath, platform: deps.platform, nodeMajor }, support);
   }
-  if (ours && record.artifact.kind === 'macos-app' && (schemaStale || iconStale)) {
+  if (mac && (schemaStale || iconStale || bundleStale)) {
     writeMacBundle({
       path: artifact,
       icns: join(support, 'Scenri.icns'),
@@ -80,7 +86,7 @@ export async function refreshLauncher(
       icon: `${join(support, 'scenri.ico')},0`,
     });
   }
-  if (schemaStale || supportStale || nodeGone || iconStale) {
+  if (schemaStale || supportStale || nodeGone || iconStale || bundleStale) {
     writeLauncherRecord(deps.homedir, {
       ...record,
       schema: LAUNCHER_SCHEMA,

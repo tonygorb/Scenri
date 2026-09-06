@@ -38,15 +38,23 @@ try {
 } catch {
   /* no log: launch anyway */
 }
+// On macOS the bundle's process is what the Dock bounces, so it stays alive
+// until \`open\` has put something in the browser. On Windows the shortcut's
+// minimised console lives as long as this process, so hand off and leave.
+const wait = process.platform === 'darwin';
 const child = spawn(process.execPath, [entry, 'open'], {
-  detached: true,
+  detached: !wait,
   stdio: ['ignore', fd ?? 'ignore', fd ?? 'ignore'],
   windowsHide: true,
   env,
 });
-child.unref();
 if (fd !== null) closeSync(fd);
 log(`bootstrap v${SCHEMA}: handing off to ${entry} (pid ${child.pid ?? 'unknown'})`);
+if (wait) {
+  child.on('exit', (code) => process.exit(code ?? 1));
+} else {
+  child.unref();
+}
 
 // ---- helpers, duplicated from the package on purpose: this file stands alone
 

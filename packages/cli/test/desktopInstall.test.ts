@@ -75,7 +75,9 @@ describe('installDesktop on macOS', () => {
     const app = join(desktop, 'Scenri.app', 'Contents');
     const plist = readFileSync(join(app, 'Info.plist'), 'utf8');
     expect(plist).toContain('<string>co.scenri.desktop-launcher</string>');
-    expect(plist).toContain('<key>LSUIElement</key>');
+    // in the Dock on purpose: the bouncing icon is the only feedback a
+    // double-click gets before the browser shows something
+    expect(plist).not.toContain('LSUIElement');
     expect(plist).toContain('<string>Scenri.icns</string>');
     expect(readFileSync(join(app, 'PkgInfo'), 'utf8')).toBe('APPL????');
     const script = readFileSync(join(app, 'MacOS', 'Scenri'), 'utf8');

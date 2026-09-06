@@ -3,6 +3,9 @@
  * is a constant shell script. Finder runs it through LaunchServices with no
  * Terminal, the bundle carries the real icon, and because every byte is
  * written locally there is no quarantine attribute for Gatekeeper to act on.
+ * It is a normal Dock citizen on purpose: its icon bounces from the instant of
+ * the click until the browser is opening, which is the only feedback a
+ * double-click gets, so the bootstrap keeps the process alive until then.
  * Unsigned and unnotarised, and the docs say so.
  *
  * The script is a constant on purpose: paths, versions and the node to use
@@ -24,45 +27,50 @@ export const MAC_MARKER = 'scenri-launcher.json';
 export const MAC_SCRIPT = `#!/bin/sh
 # Scenri desktop launcher. Written by Scenri; deleting it removes only this icon.
 L="$HOME/.scenri/launcher"
-if [ ! -f "$L/launch.mjs" ]; then
+say() {
+  if [ "$SCENRI_NO_DIALOG" = "1" ]; then return 0; fi
   /usr/bin/osascript -e 'on run argv' \\
     -e 'display dialog (item 1 of argv) with title "Scenri" buttons {"OK"} default button 1 with icon stop' \\
-    -e 'end run' -- "Scenri's launcher files are missing. Open Terminal and run: npx scenri desktop"
+    -e 'end run' -- "$1"
+}
+if [ ! -f "$L/launch.mjs" ]; then
+  say "Scenri's launcher files are missing. Open Terminal and run: npx scenri desktop"
   exit 1
 fi
+# The node that installed the icon, while it still exists: no probing, no delay.
 NODE=""
-MAJOR=""
-if [ -r "$L/node-major" ]; then IFS= read -r MAJOR < "$L/node-major" || MAJOR=""; fi
-# Native modules were built for the node that installed the icon. When that
-# node is gone, a node of the same major runs them and another major refuses,
-# so: every candidate once demanding that major, then once taking any.
-candidates() {
-  if [ -r "$L/node-path" ]; then IFS= read -r c < "$L/node-path" && echo "$c"; fi
-  command -v node 2>/dev/null || true
-  echo /opt/homebrew/bin/node
-  echo /usr/local/bin/node
-  echo "$HOME/.volta/bin/node"
-  echo "$HOME/.local/share/fnm/aliases/default/bin/node"
-  echo "$HOME/Library/Application Support/fnm/aliases/default/bin/node"
-  for c in "$HOME"/.nvm/versions/node/*/bin/node; do echo "$c"; done
-}
-pick() {
-  want="$1"
-  candidates | while IFS= read -r c; do
-    [ -n "$c" ] && [ -x "$c" ] || continue
-    if [ -n "$want" ]; then
-      v="$("$c" -p 'process.versions.node.split(".")[0]' 2>/dev/null)" || continue
-      [ "$v" = "$want" ] || continue
-    fi
-    echo "$c"
-  done | tail -n 1
-}
-if [ -n "$MAJOR" ]; then NODE="$(pick "$MAJOR")"; fi
-if [ -z "$NODE" ]; then NODE="$(pick "")"; fi
+if [ -r "$L/node-path" ]; then IFS= read -r NODE < "$L/node-path" || NODE=""; fi
 if [ -z "$NODE" ] || [ ! -x "$NODE" ]; then
-  /usr/bin/osascript -e 'on run argv' \\
-    -e 'display dialog (item 1 of argv) with title "Scenri" buttons {"OK"} default button 1 with icon stop' \\
-    -e 'end run' -- "Scenri needs Node.js, and none was found on this Mac. Install it from nodejs.org, then open Terminal and run: npx scenri"
+  MAJOR=""
+  if [ -r "$L/node-major" ]; then IFS= read -r MAJOR < "$L/node-major" || MAJOR=""; fi
+  # Native modules were built for that node's major and another major refuses
+  # them: every candidate once demanding the same major, then once taking any.
+  candidates() {
+    command -v node 2>/dev/null || true
+    echo /opt/homebrew/bin/node
+    echo /usr/local/bin/node
+    echo "$HOME/.volta/bin/node"
+    echo "$HOME/.local/share/fnm/aliases/default/bin/node"
+    echo "$HOME/Library/Application Support/fnm/aliases/default/bin/node"
+    for c in "$HOME"/.nvm/versions/node/*/bin/node; do echo "$c"; done
+  }
+  pick() {
+    want="$1"
+    candidates | while IFS= read -r c; do
+      [ -n "$c" ] && [ -x "$c" ] || continue
+      if [ -n "$want" ]; then
+        v="$("$c" -p 'process.versions.node.split(".")[0]' 2>/dev/null)" || continue
+        [ "$v" = "$want" ] || continue
+      fi
+      echo "$c"
+    done | tail -n 1
+  }
+  NODE=""
+  if [ -n "$MAJOR" ]; then NODE="$(pick "$MAJOR")"; fi
+  if [ -z "$NODE" ]; then NODE="$(pick "")"; fi
+fi
+if [ -z "$NODE" ] || [ ! -x "$NODE" ]; then
+  say "Scenri needs Node.js, and none was found on this Mac. Install it from nodejs.org, then open Terminal and run: npx scenri"
   exit 1
 fi
 exec "$NODE" "$L/launch.mjs"
@@ -95,8 +103,6 @@ export function macPlist(opts: { version: string; schema: number }): string {
   <string>${opts.schema}</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
-  <key>LSUIElement</key>
-  <true/>
   <key>NSHighResolutionCapable</key>
   <true/>
 </dict>
