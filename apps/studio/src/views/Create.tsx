@@ -1087,6 +1087,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         <AssetsPanel
           brand={brand}
           shots={recent}
+          shotsTotal={lensCounts.all}
           attached={attached}
           full={ceiling}
           onToken={(t) => composerRef.current?.insertToken(t)}
@@ -1129,7 +1130,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           brand={brand}
           engines={engines}
           parentId={root}
-          shots={recent}
           initialBrief={remixBrief}
           suppressDraftRestore={showcaseIdParam !== null}
           startScene={params.get('scene') ?? undefined}

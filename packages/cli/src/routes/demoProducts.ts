@@ -7,7 +7,8 @@ import {
   primaryAngleFor,
   type DemoProduct,
 } from '../demoProducts.js';
-import { mtimeQS, serveJpeg } from './shared.js';
+import type { ThumbStore } from '../thumbs.js';
+import { fileKey, mtimeQS, serveJpeg, serveJpegSized } from './shared.js';
 
 export function registerDemoProductRoutes(
   app: FastifyInstance,
@@ -15,9 +16,10 @@ export function registerDemoProductRoutes(
     templatesRoot: string;
     demoProducts: DemoProduct[];
     demoProductById: (id: string) => DemoProduct | undefined;
+    thumbs: ThumbStore;
   },
 ): void {
-  const { templatesRoot, demoProducts, demoProductById } = deps;
+  const { templatesRoot, demoProducts, demoProductById, thumbs } = deps;
   const demoProductThumbPath = (id: string) => {
     const p = demoProductById(id);
     if (!p) return null;
@@ -46,9 +48,10 @@ export function registerDemoProductRoutes(
   }));
   app.get('/api/demo-product-thumbnails/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
-    const path = m ? demoProductThumbPath(m[1]) : null;
+    if (!m) return reply.status(404).send({ error: 'no preview' });
+    const path = demoProductThumbPath(m[1]);
     if (!path || !existsSync(path)) return reply.status(404).send({ error: 'no preview' });
-    return serveJpeg(req, reply, path);
+    return serveJpegSized(req, reply, path, thumbs, fileKey('demo', m[1], path));
   });
 
   // A demo product's full reference set. The thumbnail route above exposes one

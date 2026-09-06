@@ -536,13 +536,27 @@ test('a feed tile keeps its controls inside itself and thumb-sized', async ({ pa
 const briefChips = (p: Page) => p.locator('.sc-brief-line .sc-token');
 const sheet = (p: Page) => p.locator('.sc-swapsheet');
 
+/**
+ * Close the attach picker and wait for it to be gone.
+ *
+ * On a phone it is a modal sheet: Radix keeps the sheet and its scrim mounted
+ * for the 140ms exit, and while the scrim is there it is what a tap lands on
+ * and where a trapped focus goes back to. A tablet gets the anchored panel,
+ * which has no scrim, so the wait costs nothing there.
+ */
+async function closeAttach(p: Page) {
+  await p.keyboard.press('Escape');
+  await expect(p.locator('.sc-attachsheet, .sc-attachpanel')).toHaveCount(0);
+  await expect(p.locator('.sc-shotsheet-scrim')).toHaveCount(0);
+}
+
 /** Put one scene chip in the brief, whatever width we are at. */
 async function seedScene(p: Page) {
   await p.locator('.sc-canvas-dock .sc-attach-toggle').click();
   await p.locator('.sc-ap-tabs button', { hasText: /scenes/i }).click();
   await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
   await expect(briefChips(p)).not.toHaveCount(0);
-  await p.keyboard.press('Escape');
+  await closeAttach(p);
 }
 
 async function tapChip(p: Page) {
@@ -670,7 +684,7 @@ async function seedMovable(p: Page) {
   await p.locator('.sc-ap-tabs button', { hasText: /products/i }).click();
   await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
   await expect(briefChips(p)).not.toHaveCount(0);
-  await p.keyboard.press('Escape');
+  await closeAttach(p);
 }
 
 test('the sheet is the touch reorder path, and it stays open between steps', async ({ page }) => {
@@ -726,7 +740,7 @@ async function seedRefChip(p: Page) {
   await p.locator('.sc-ap-tabs button', { hasText: /shots/i }).click();
   await p.locator('.sc-ap-card:not(.sc-ap-add)').first().click();
   await expect(briefChips(p)).not.toHaveCount(0);
-  await p.keyboard.press('Escape');
+  await closeAttach(p);
 }
 
 test('a reference chip gets its own touch sheet: move and remove, no keyboard', async ({ page }) => {
@@ -811,6 +825,8 @@ test('one Backspace removes a chip', async ({ page }) => {
   await cards.nth(1).tap();
   const chips = page.locator('.sc-brief-line .sc-token');
   await expect(chips).toHaveCount(2);
+  // the picker is a modal sheet on a phone: it has to go before the line can take focus
+  await closeAttach(page);
   // the caret at the end, past the last chip's space, without a pointer
   await line(page).evaluate((el) => {
     el.focus();
@@ -834,4 +850,128 @@ test('a tap on the right edge of a chip opens the sheet, never removes', async (
   await page.touchscreen.tap(box.x + box.width - 9, box.y + box.height / 2);
   await expect(sheet(page)).toBeVisible();
   await expect(briefChips(page)).toHaveCount(1);
+});
+
+/**
+ * The "+" picker on a phone: the same panel as the desktop, the composer's
+ * full width, anchored above it so the brief stays in view while things go
+ * in. It used to be the desktop panel squeezed to 347 by 293 with four of
+ * its seven tabs clipped, then briefly a bottom sheet, which covered the very
+ * composer it was adding to.
+ */
+test.describe('the attach panel on a phone', () => {
+  const panel = (p: Page) => p.locator('.sc-attachpanel');
+  const openAttach = async (p: Page) => {
+    await p.locator('.sc-canvas-dock .sc-attach-toggle').tap();
+    await expect(panel(p)).toBeVisible();
+  };
+
+  test('the panel sits above the composer and leaves the brief in view', async ({ page }) => {
+    await openAttach(page);
+    await expect(page.locator('.sc-attachsheet, .sc-shotsheet-scrim')).toHaveCount(0);
+    const p = (await panel(page).boundingBox())!;
+    const brief = (await line(page).boundingBox())!;
+    // above, not over: the brief is under the panel's bottom edge and still visible
+    expect(p.y + p.height).toBeLessThanOrEqual(brief.y + 1);
+    await expect(line(page)).toBeInViewport();
+    // and the panel is on screen, head first
+    expect(p.y).toBeGreaterThanOrEqual(0);
+    await expect(panel(page).getByRole('button', { name: /^Search/ })).toBeInViewport();
+  });
+
+  test('search, upload, every tab and close are reachable, and nothing spills', async ({ page }) => {
+    test.skip(!isPhone(page), 'thumb sizes are the phone rule');
+    await openAttach(page);
+    const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+    // the search's tap size is its wrapper's; Upload image is the grid's first tile, at tile size
+    for (const sel of ['.sc-attachpanel .sc-libsearch', '.sc-ap-upload-tile']) {
+      const b = await box(sel);
+      // to the pixel the screen draws: a 44px control can read 43.99998 in layout units
+      expect(Math.round(b.height), sel).toBeGreaterThanOrEqual(34);
+      expect(Math.round(b.width), sel).toBeGreaterThanOrEqual(44);
+    }
+    await expect(panel(page).getByRole('button', { name: 'Upload image' })).toBeVisible();
+    // no head button doubles the composer's own +, which is the close here
+    await expect(panel(page).getByRole('button', { name: 'Close' })).toHaveCount(0);
+    await expect(page.locator('.sc-attach-toggle')).toHaveAttribute('aria-expanded', 'true');
+    // seven tabs in a rail that scrolls sideways rather than clipping their names
+    await expect(page.locator('.sc-ap-tabs [role="tab"]')).toHaveCount(7);
+    const last = page.locator('.sc-ap-tabs [role="tab"]').last();
+    await last.scrollIntoViewIfNeeded();
+    await expect(last).toBeInViewport();
+    // opening dropped the keyboard: neither the brief nor the search has focus
+    const active = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      return { cls: el?.className ?? '', tag: el?.tagName ?? '' };
+    });
+    expect(active.cls).not.toContain('sc-brief-line');
+    expect(active.tag).not.toBe('INPUT');
+    // and the page itself grew no sideways scroll
+    const spill = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(spill).toBeLessThanOrEqual(1);
+    // the search still takes the keyboard when it is tapped, at a size Safari will not zoom,
+    // and open it takes the row: the rail steps aside until the field folds
+    await panel(page).locator('.sc-libsearch-toggle').tap();
+    const input = panel(page).getByRole('searchbox', { name: /^Search/ });
+    await expect(input).toBeFocused();
+    expect(await input.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+    await expect(page.locator('.sc-ap-tabs')).toBeHidden();
+  });
+
+  test('every attach tile is big enough for a thumb', async ({ page }) => {
+    await openAttach(page);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).tap();
+    const cards = page.locator('.sc-ap-card:not(.sc-ap-add)');
+    await cards.first().waitFor();
+    const n = Math.min(await cards.count(), 8);
+    for (let i = 0; i < n; i++) {
+      const b = (await cards.nth(i).boundingBox())!;
+      expect(b.width).toBeGreaterThanOrEqual(44);
+      expect(b.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test('a pick stays open for the next one, a second tap takes it out, and close leaves the shot as it was', async ({
+    page,
+  }) => {
+    await openAttach(page);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).tap();
+    const cards = page.locator('.sc-ap-card:not(.sc-ap-add)');
+    await cards.first().tap();
+    await expect(briefChips(page)).toHaveCount(1);
+    // still open: the second pick is one tap away
+    await expect(panel(page)).toBeVisible();
+    await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(1);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).tap();
+    await cards.first().tap();
+    await expect(briefChips(page)).toHaveCount(2);
+    // the same tile again: out it comes
+    await page.locator('.sc-ap-card[data-on]').tap();
+    await expect(briefChips(page)).toHaveCount(1);
+    // closed with the composer's own + (an x while the panel is up): the chip stays, and no keyboard came up for the brief
+    await page.locator('.sc-attach-toggle').tap();
+    await expect(panel(page)).toHaveCount(0);
+    await expect(briefChips(page)).toHaveCount(1);
+    const active = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.className ?? '');
+    expect(active).not.toContain('sc-brief-line');
+    // and it opens again straight after
+    await openAttach(page);
+  });
+
+  test('inside the shot overlay, the panel closes on its own and leaves the shot open', async ({ page }) => {
+    await page.locator('.sc-cell').first().tap();
+    await page.waitForURL(/\/shots\//);
+    const editor = page.locator('.sc-ovl-edit');
+    await expect(editor.locator('.sc-brief-line')).toBeVisible();
+    const url = page.url();
+    await editor.locator('.sc-attach-toggle').tap();
+    await expect(panel(page)).toBeVisible();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).tap();
+    await page.locator('.sc-ap-card:not(.sc-ap-add)').first().tap();
+    await expect(editor.locator('.sc-token')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(panel(page)).toHaveCount(0);
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+    expect(page.url()).toBe(url);
+  });
 });

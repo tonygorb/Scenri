@@ -5,7 +5,7 @@ import type { Core } from '@scenri/core';
 import { driftDiff } from '../diff.js';
 import { toMarkPng } from './shared.js';
 import { buildBrandBundle } from '../exportBrand.js';
-import { fileSize, isThumbWidth, type ThumbStore } from '../thumbs.js';
+import { fileSize, isThumbWidth, THUMB_WIDTH_LIST, type ThumbStore } from '../thumbs.js';
 
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 
@@ -39,7 +39,7 @@ export function registerImageRoutes(app: FastifyInstance, deps: { core: Core; th
   app.get('/api/images/:hash/thumb', async (req, reply) => {
     const hash = String((req.params as any).hash);
     const w = Number((req.query as any)?.w);
-    if (!isThumbWidth(w)) return reply.status(400).send({ error: 'w must be 640 or 160' });
+    if (!isThumbWidth(w)) return reply.status(400).send({ error: `w must be one of ${THUMB_WIDTH_LIST}` });
     if (!/^[a-f0-9]{32}$/.test(hash)) return reply.status(404).send({ error: 'image not found' });
     const etag = `"${hash}-w${w}"`;
     if (req.headers['if-none-match'] === etag) return reply.status(304).header('cache-control', IMMUTABLE).send();

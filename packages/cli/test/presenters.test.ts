@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -132,6 +132,36 @@ describe('presenter catalog + direct-attach API', () => {
     expect(body.presenters[0].previewUrl).toMatch(/^\/api\/presenter-thumbnails\/sana\.jpg\?v=\d+$/);
     expect(body.categories).toContain('Beauty');
     expect(body.styles).toContain('Editorial');
+  });
+
+  it('serves the avatar and the card thumbnail at a derivative width on request', async () => {
+    const jpeg = await app.inject({ method: 'GET', url: '/api/presenter-avatars/sana.jpg' });
+    expect(jpeg.headers['content-type']).toBe('image/jpeg');
+
+    const sized = await app.inject({ method: 'GET', url: '/api/presenter-avatars/sana.jpg?v=1&w=320' });
+    expect(sized.statusCode).toBe(200);
+    expect(sized.headers['content-type']).toBe('image/webp');
+    expect(sized.headers['cache-control']).toContain('immutable');
+    expect(sized.headers.etag).toMatch(/^"avatar-sana-\d+-w320"$/);
+    const meta = await sharp(sized.rawPayload).metadata();
+    expect(meta.format).toBe('webp');
+    // a 4px fixture is never enlarged
+    expect(meta.width).toBe(4);
+    expect(readdirSync(join(home, 'thumbs')).some((f) => /^f-avatar-sana-\d+-w320\.webp$/.test(f))).toBe(true);
+
+    const cached = await app.inject({
+      method: 'GET',
+      url: '/api/presenter-avatars/sana.jpg?w=320',
+      headers: { 'if-none-match': String(sized.headers.etag) },
+    });
+    expect(cached.statusCode).toBe(304);
+    expect((await app.inject({ method: 'GET', url: '/api/presenter-avatars/sana.jpg?w=999' })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'GET', url: '/api/presenter-avatars/nope.jpg?w=320' })).statusCode).toBe(404);
+
+    const card = await app.inject({ method: 'GET', url: '/api/presenter-thumbnails/sana.jpg?w=640' });
+    expect(card.statusCode).toBe(200);
+    expect(card.headers['content-type']).toBe('image/webp');
+    expect(card.headers.etag).toMatch(/^"presenter-sana-\d+-w640"$/);
   });
 
   it('exposes the square avatar without letting it become a reference frame', async () => {

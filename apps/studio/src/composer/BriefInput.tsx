@@ -1219,6 +1219,15 @@ export const BriefInput = forwardRef<
 
   const onPaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
+    // A picture on the clipboard (a screenshot, an image copied from a page)
+    // is an upload, through the same door a dropped file takes: it lands as
+    // a reference chip at the caret. The html a browser copies beside the
+    // picture is not the picture, so the files are read first.
+    const files = e.clipboardData.files;
+    if (files.length && Array.from(files).some((f) => f.type.startsWith('image/'))) {
+      onDropFiles?.(files);
+      return;
+    }
     pasted.current = true;
     const parts = parseBriefHtml(e.clipboardData.getData('text/html'));
     if (parts && pasteParts(parts)) {

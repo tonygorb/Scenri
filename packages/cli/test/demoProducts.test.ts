@@ -208,6 +208,14 @@ describe('demo product catalog + brief resolution', () => {
     expect(ok.headers['content-type']).toBe('image/jpeg');
     const missing = await app.inject({ method: 'GET', url: '/api/demo-product-thumbnails/nope.jpg' });
     expect(missing.statusCode).toBe(404);
+    // the picker and the cards ask for a derivative width through the same route
+    const sized = await app.inject({ method: 'GET', url: '/api/demo-product-thumbnails/aurelia.jpg?v=1&w=320' });
+    expect(sized.statusCode).toBe(200);
+    expect(sized.headers['content-type']).toBe('image/webp');
+    expect(sized.headers.etag).toMatch(/^"demo-aurelia-\d+-w320"$/);
+    expect((await app.inject({ method: 'GET', url: '/api/demo-product-thumbnails/aurelia.jpg?w=7' })).statusCode).toBe(
+      400,
+    );
   });
 
   it('a brief can name a curated demo product directly, with no upload step first', async () => {

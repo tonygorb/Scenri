@@ -234,10 +234,6 @@
     height: 40px !important;
     max-width: none !important;
   }
-  /* the panel shares this screen with a keyboard */
-  .sc-attachpanel {
-    height: min(340px, 44vh);
-  }
 }
 
 /* A tablet keeps the full row, so its pills are the ones short of reach. Same

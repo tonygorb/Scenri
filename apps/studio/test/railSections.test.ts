@@ -120,15 +120,13 @@ describe('railSlice', () => {
     expect(railSlice([], none, RAIL_COMPACT)).toEqual({ visible: [], more: 0 });
   });
 
-  it('lifts an attached asset into view from far down the list', () => {
+  it('keeps the ranked order whatever is attached: a tick never re-deals the row', () => {
+    // an attached asset far down the list stays there, ticked where it sits
     const { visible } = railSlice(tiles(100), new Set(['i77']), RAIL_COMPACT);
-    expect(ids(visible)[0]).toBe('i77');
-    expect(visible).toHaveLength(4);
-  });
-
-  it('lifts several, keeping their catalog order between them', () => {
-    const { visible } = railSlice(tiles(100), new Set(['i50', 'i9']), RAIL_COMPACT);
-    expect(ids(visible).slice(0, 2)).toEqual(['i9', 'i50']);
+    expect(ids(visible)).toEqual(['i0', 'i1', 'i2', 'i3']);
+    const several = railSlice(tiles(100), new Set(['i50', 'i9', 'i1']), RAIL_COMPACT);
+    expect(ids(several.visible)).toEqual(['i0', 'i1', 'i2', 'i3']);
+    expect(several.more).toBe(96);
   });
 
   it('leaves the order alone when nothing is attached', () => {

@@ -1,4 +1,8 @@
-/* ---------- attach panel: opens above the composer, full width ---------- */
+/* ---------- attach panel: "+", add to this shot ----------
+   One panel above the composer at its full width, on every screen; the phone
+   rules at the end restate only what a thumb needs. Tile widths come from the
+   component (--ap-min), so the column count it predicts for the one-row groups
+   on All is the one drawn. */
 .sc-composer {
   position: relative;
 }
@@ -7,7 +11,10 @@
   left: 0;
   right: 0;
   bottom: calc(100% + 8px);
-  height: min(480px, 55vh);
+  /* One frame, whatever the tab: a panel that shrank to two colour chips and
+     grew back for the next tab jumped on every switch. 510 is the frame's
+     height wherever it appears; a short viewport caps it. */
+  height: min(510px, 60vh);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--sc-line-strong);
@@ -17,196 +24,497 @@
   z-index: 70;
   overflow: hidden;
 }
-.sc-ap-head {
+.sc-ap-inner {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- head: one row, the rail leading and the actions trailing, on the
+   composer's Figma metrics: 16px padding over a hairline, the rail's ink at
+   the row's floor, 34px controls. The gaps are 12 rather than the Figma's
+   16: seven tabs and three controls total 492px at 16 and the panel gives
+   the rail 449, which clipped Shots behind the fade at rest. At 12, with the
+   counts 3px off their labels and the labels tracked -0.02em, every tab is
+   on screen at 1440 with 4px to spare; narrower than that the rail scrolls
+   with its fades, as it does on the library pages. Stays put; the body scrolls. */
+.sc-ap-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-5);
+  padding: var(--sc-space-6);
   border-bottom: 1px solid var(--sc-line);
-  flex-shrink: 0;
 }
 .sc-ap-tabs {
-  display: flex;
-  gap: 2px;
+  flex: 1 1 auto;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.sc-ap-tabs::-webkit-scrollbar {
-  display: none;
-}
-.sc-ap-tabs button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 5px 11px;
-  border-radius: var(--sc-radius-full);
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--sc-fg2);
-  white-space: nowrap;
-}
-.sc-ap-tabs button:hover {
-  color: var(--sc-fg);
-}
-.sc-ap-tabs button[data-active="true"] {
-  background: var(--sc-inv-bg);
-  color: var(--sc-inv-fg);
-}
-.sc-ap-search {
-  margin-left: auto;
+.sc-ap-actions {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  height: 28px;
-  padding: 0 10px;
-  color: var(--sc-fg3);
-  flex-shrink: 1;
-  min-width: 90px;
+  gap: var(--sc-space-5);
 }
-.sc-ap-search input {
-  border: none;
-  background: none;
-  outline: none;
-  color: var(--sc-fg);
-  font-size: 12px;
-  width: 110px;
-  max-width: 100%;
+.sc-ap-actions-add {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
 }
-.sc-ap-search input::placeholder {
-  color: var(--sc-fg3);
+/* The search is the library pages' own 34px target that opens into a field
+   over the rail. In a panel it sits on the raised tone, not the page's, and
+   it floats over the rail at every desktop width: the library's sub-1280
+   rule that lets the field take the row is the page's answer, not this one. */
+.sc-ap-head .sc-libsearch-toggle {
+  background: var(--sc-raised);
+}
+.sc-ap-head .sc-libsearch[data-open] {
+  flex: none;
+  width: 34px;
+}
+.sc-ap-head .sc-libsearch[data-open] .sc-libsearch-field {
+  position: absolute;
+  width: 280px;
+  box-shadow: var(--sc-shadow-2);
+}
+/* Upload image is the primary insertion, and says so in the primary fill. */
+.sc-ap-upload {
+  padding: 0 13px;
+  font-weight: 500;
 }
 .sc-ap-close {
-  flex-shrink: 0;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
 }
+/* The rail's page-level rules (sticky, its 24px margin, page-colour fades,
+   17px labels) do not apply inside a panel; the toolbar scopes it the same
+   way. Specificity wins here whatever the manifest order. */
+.sc-ap-tabs .sc-verticals-shell {
+  position: relative;
+  z-index: auto;
+  margin: 0;
+  background: none;
+}
+.sc-ap-tabs .sc-verticals-shell::before {
+  background: linear-gradient(to right, var(--sc-panel) 45%, transparent);
+}
+.sc-ap-tabs .sc-verticals-shell::after {
+  background: linear-gradient(to left, var(--sc-panel) 45%, transparent);
+}
+.sc-ap-tabs .sc-verticals {
+  gap: var(--sc-space-5);
+  padding: 0 0 7px;
+}
+.sc-ap-tabs .sc-verticals button {
+  padding: 6px 0 4px;
+  font-size: var(--sc-text-control);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.sc-ap-tabs .sc-verticals-ink {
+  height: 1px;
+  bottom: 6px;
+}
+.sc-ap-tabs .sc-vcount {
+  margin-left: 3px;
+  font-size: 9.5px;
+}
+
+/* The composer's + is this panel's opener, and while the panel is up it is
+   the close too: on a phone the only one. It says so by turning into an x. */
+.sc-attach-toggle svg {
+  transition: transform 160ms ease;
+}
+.sc-attach-toggle[aria-expanded="true"] svg {
+  transform: rotate(45deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-attach-toggle svg {
+    transition: none;
+  }
+}
+
+/* ---- body: the one scroll container */
 .sc-ap-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px;
+  padding: var(--sc-space-6);
 }
-.sc-ap-group {
-  margin-bottom: 14px;
+.sc-ap-group + .sc-ap-group {
+  margin-top: var(--sc-space-7);
 }
-.sc-ap-group .sc-eyebrow {
-  margin-bottom: 8px;
+/* The group row: what this is and how many, and one quiet action at the end.
+   Two slots, the .sc-sec-head contract, never a third. */
+.sc-ap-sec {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  min-height: 24px;
+  margin-bottom: var(--sc-space-4);
 }
-.sc-ap-group .sc-amore {
-  padding-top: 18px;
+.sc-ap-sec-title {
+  font-size: var(--sc-text-body);
+  font-weight: 600;
+  color: var(--sc-fg);
 }
-.sc-ap-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  column-gap: 10px;
-  row-gap: 18px;
+.sc-ap-sec-n {
+  margin-left: 5px;
+  font-size: var(--sc-text-micro);
+  font-weight: 500;
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
 }
-.sc-ap-card {
+.sc-ap-sec-act {
+  margin-left: auto;
   border: none;
   background: none;
   padding: 0;
   cursor: pointer;
-  text-align: left;
-  color: var(--sc-fg);
-  overflow: hidden;
+  font: inherit;
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  color: var(--sc-fg2);
 }
-.sc-ap-card:focus-visible {
+@media (hover: hover) {
+  .sc-ap-sec-act:hover {
+    color: var(--sc-fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+/* the Add logo verb is a label whose input holds the focus */
+.sc-ap-sec-act:focus-within {
   outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: 1px;
-  border-radius: var(--sc-radius);
+  outline-offset: var(--sc-ring-off);
+  border-radius: var(--sc-radius-xs);
 }
-.sc-ap-add {
-  border: 1px dashed var(--sc-line);
-  border-radius: var(--sc-radius);
+/* The ways to make something new from here wear the same quiet verb "Show
+   all" wears on All, so the row is the same row on every tab and nothing
+   shifts when the tab changes. The grid holds only things to add. */
+.sc-ap-sec-act {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
 }
-/* the add-logo tile is a label over a file input; while its upload runs it
-   goes quiet instead of accepting a second file */
 .sc-ap-add[data-busy] {
   opacity: var(--sc-dim);
   pointer-events: none;
 }
+
+/* ---- grids: as many as fit, never fewer than the kind can read at */
+.sc-ap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--ap-min, 96px), 1fr));
+  column-gap: 10px;
+  row-gap: var(--sc-space-6);
+}
+
+/* ---- the tile: a picture in a frame, then one fixed caption.
+   The states are the rail's, for the same pictures a few pixels away: a
+   hairline at rest, a stronger one under the pointer, the ring on the frame
+   when focused, a paint-only press, and when the thing is in the shot the
+   selected line plus a tick that arrives rather than appears. Nothing here
+   moves a box. */
+.sc-ap-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: start;
+  color: var(--sc-fg);
+}
+.sc-ap-card:focus-visible {
+  outline: none;
+}
+.sc-ap-card:focus-visible .sc-ap-thumb {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: 1px;
+}
 .sc-ap-thumb {
+  position: relative;
   display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
-  object-fit: cover;
-  background: var(--sc-raised);
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius);
-  margin-bottom: 8px;
-  transition: opacity 120ms ease;
+  background: var(--sc-raised);
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    opacity var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-ap-card:hover .sc-ap-thumb {
-  opacity: 0.85;
+.sc-ap-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter var(--sc-dur-fast) var(--sc-ease);
+}
+/* A colour fills the frame a picture would, so the Colors tab is the same
+   grid as every other tab and not a row of chips. */
+.sc-ap-swatch {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  transition: filter var(--sc-dur-fast) var(--sc-ease);
+}
+/* A mark cropped is a mark unreadable: ground it and letterbox it. */
+.sc-ap-card[data-group="Brand"] .sc-ap-thumb {
+  background: #fff;
+}
+.sc-ap-card[data-group="Brand"] .sc-ap-thumb img {
+  object-fit: contain;
+  padding: 10%;
 }
 /* A 4:5 card standing in for a square avatar reads face-first, not torso-first. */
-.sc-ap-thumb[data-crop="top"] {
+.sc-ap-thumb img[data-crop="top"] {
   object-position: 50% 12%;
 }
-.sc-ap-thumb-empty {
+.sc-ap-thumb[data-empty] {
   display: grid;
   place-items: center;
   color: var(--sc-fg3);
 }
-.sc-ap-card b {
+/* Under the pointer the frame firms up and the picture brightens a step: a
+   hairline alone was not a hover anyone could see on a photograph, and a
+   zoom read as sloppy. Nothing moves, nothing scales. A touch
+   screen keeps its hover for the tap and would wear it until the next tap,
+   so the pointer rule is for pointers that can hover. */
+@media (hover: hover) {
+  /* a tile the shot holds keeps its ring under the pointer; only the picture answers */
+  .sc-ap-card:not([aria-disabled="true"]):not([data-on]):hover .sc-ap-thumb {
+    border-color: var(--sc-line-hover);
+  }
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb img,
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-swatch {
+    filter: brightness(1.06);
+  }
+}
+/* The press paints the control, not the picture: a picture that dipped
+   and sprang back on every pick read as a flash. The puck under the pointer
+   is what the press is about, and it steps its opacity the way a primary
+   button does. */
+.sc-ap-card:not([aria-disabled="true"]):active .sc-ap-puck {
+  opacity: 0.75;
+}
+.sc-ap-cap {
   display: block;
-  font-size: 11.5px;
-  font-weight: 500;
+  min-height: calc(var(--ap-lines, 1) * 1.35em);
+  line-height: 1.35;
+}
+.sc-ap-cap b,
+.sc-ap-cap span:not(.sc-vh) {
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* A hint on a card rather than a heading over a group, so it stays sentence
-   case — it is telling you something about this one thing, not naming a
-   section. On the type scale, and in a colour that exists: it used to ask for
-   --sc-accent, which is defined nowhere, and quietly fall back every time. */
-.sc-ap-rec {
-  display: inline-block;
-  font: 600 var(--sc-text-micro) var(--sc-font);
-  letter-spacing: 0.01em;
-  color: var(--sc-fg2);
-  margin-bottom: var(--sc-space-1);
+.sc-ap-cap b {
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
 }
+.sc-ap-cap span:not(.sc-vh) {
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg2);
+}
+/* The puck in the corner says what a press will do: a plus under the pointer
+   on a tile that is not in the shot yet, a tick on one that is, and the tick
+   becomes an x under the pointer because the tile is a toggle. Same inverse
+   puck the rail and the chip picker use. One element, its glyph swapped in
+   place, with no arrival animation: it is already under the pointer when
+   the press lands, and anything that pops there reads as a flash. */
+.sc-ap-card[data-on] .sc-ap-thumb {
+  border-color: var(--sc-inv-bg);
+  box-shadow: inset 0 0 0 1px var(--sc-inv-bg);
+}
+.sc-ap-puck {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  box-shadow: 0 0 0 2px var(--sc-panel);
+}
+.sc-ap-puck svg {
+  display: none;
+}
+/* held: the tick, always */
+.sc-ap-card[data-on] .sc-ap-puck {
+  display: grid;
+}
+.sc-ap-card[data-on] .sc-ap-puck-on {
+  display: block;
+}
+/* aimed at, by a pointer that can hover or by the keyboard: the plus on a
+   tile not yet held, the x on one that is */
+@media (hover: hover) {
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-puck {
+    display: grid;
+  }
+  .sc-ap-card:not([data-on]):hover .sc-ap-puck-add {
+    display: block;
+  }
+  .sc-ap-card[data-on]:hover .sc-ap-puck-on {
+    display: none;
+  }
+  .sc-ap-card[data-on]:hover .sc-ap-puck-off {
+    display: block;
+  }
+}
+.sc-ap-card:not([aria-disabled="true"]):focus-visible .sc-ap-puck {
+  display: grid;
+}
+.sc-ap-card:not([data-on]):focus-visible .sc-ap-puck-add {
+  display: block;
+}
+.sc-ap-card[data-on]:focus-visible .sc-ap-puck-on {
+  display: none;
+}
+.sc-ap-card[data-on]:focus-visible .sc-ap-puck-off {
+  display: block;
+}
+
+/* ---- sitting out, hints, empty, more */
 /* Scenes sit out while a refine is armed: visible so the catalog is never a
    mystery, dimmed and disabled so no click can flip the mode as a side
-   effect. The hint above the grid says how to use one; the card's own title
+   effect. The hint above the grid says how to use one; the tile's own title
    repeats it for a hover. */
 .sc-ap-card:disabled,
 .sc-ap-card[aria-disabled="true"] {
-  opacity: 0.45;
+  opacity: var(--sc-disabled);
   cursor: default;
 }
+/* sitting out answers no pointer: no puck, no brightening, no press */
+.sc-ap-card[aria-disabled="true"] .sc-ap-puck {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-ap-thumb,
+  .sc-ap-thumb img,
+  .sc-ap-swatch {
+    transition: none;
+  }
+}
 .sc-ap-hint {
-  margin: 0 0 var(--sc-space-3);
+  margin: 0 0 var(--sc-space-4);
   font-size: var(--sc-text-caption);
   color: var(--sc-fg2);
 }
 .sc-ap-empty {
+  margin: 0;
   padding: 30px 0;
   text-align: center;
   color: var(--sc-fg3);
-  font-size: 12.5px;
+  font-size: var(--sc-text-body);
+}
+.sc-ap-sentinel {
+  height: 1px;
+}
+/* how far in you are, while there is more: a caption, never a control */
+.sc-ap-foot {
+  margin: var(--sc-space-4) 0 0;
+  text-align: center;
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ---- from composer-polish.css (dissolved 2026-08-18, css-restructure) ----
-   Appended in original pass order; relative order among dissolved passes is
-   preserved by dissolving passes in manifest order. */
-.sc-ap-head {
-  gap: 8px;
-  padding: 10px 10px 10px 12px;
-}
-.sc-ap-body {
-  padding: 12px;
-}
-.sc-ap-group + .sc-ap-group {
-  margin-top: 4px;
-}
-
-/* ---- from composer-island.css (dissolved 2026-08-18, css-restructure) ----
-   Appended in original pass order; relative order among dissolved passes is
-   preserved by dissolving passes in manifest order. */
+/* ---- a phone: the same panel, the composer's full width, above it. The
+   keyboard is dropped on open so the room above the composer is the panel's;
+   the component measures that room (--ap-avail: top bar to composer top,
+   re-measured for a keyboard or a growing brief), so a four-line draft
+   never pushes the head off the screen. */
 @media (max-width: 767px) {
+  .sc-attachpanel {
+    height: min(510px, var(--ap-avail, calc(100dvh - 270px)));
+    border-radius: var(--sc-radius-float);
+  }
+  /* One row does not fit seven tabs and three controls, and a toolbar
+     squeezed onto two read as the desktop panel folded in half. A phone gets
+     the rail and the search on one thumb-high row; Upload image is the
+     grid's first tile, at the size of what it joins; the composer's own +
+     under the panel is the close, and it says so by turning. */
+  .sc-ap-head {
+    align-items: flex-end;
+    gap: var(--sc-space-4);
+    /* the same inset as the grid under it, so the rail and the tiles share an edge */
+    padding: 0 var(--sc-space-6);
+  }
+  .sc-ap-tabs .sc-verticals {
+    padding: 0 0 6px;
+  }
+  .sc-ap-tabs .sc-verticals button {
+    padding: 13px 0 8px;
+  }
+  .sc-ap-tabs .sc-verticals-ink {
+    bottom: 5px;
+  }
+  .sc-ap-actions {
+    padding-bottom: 5px;
+  }
+  /* the 34px button keeps its scale; the tap size is the wrapper's */
+  .sc-ap-head .sc-libsearch {
+    width: var(--sc-tap);
+    height: 34px;
+  }
+  .sc-ap-head .sc-libsearch-toggle {
+    left: auto;
+    width: 34px;
+  }
+  /* Open, the field takes the row and the rail steps aside until it closes:
+     the library's own phone answer, a field over the row read as a thing
+     that landed on top of it. */
+  .sc-ap-head:has(.sc-libsearch[data-open]) .sc-ap-tabs {
+    display: none;
+  }
+  .sc-ap-head:has(.sc-libsearch[data-open]) .sc-ap-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 9px 0 6px;
+  }
+  .sc-ap-head .sc-libsearch[data-open],
+  .sc-ap-head .sc-libsearch[data-open] .sc-ap-actions-add {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  .sc-ap-actions-add {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .sc-ap-head .sc-libsearch[data-open] .sc-libsearch-field {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+  }
+  /* The upload tile: a frame with nothing in it yet, which is what it is for. */
+  .sc-ap-upload-tile .sc-ap-thumb {
+    display: grid;
+    place-items: center;
+    border-style: dashed;
+    border-color: var(--sc-line-strong);
+    background: var(--sc-well);
+    color: var(--sc-fg2);
+  }
+  .sc-ap-upload-tile:active .sc-ap-thumb {
+    background: var(--sc-hover);
+  }
+  /* a thumb's target for the quiet verbs, without growing the row's type */
+  .sc-ap-sec-act {
+    min-height: 32px;
+  }
   .sc-ap-grid {
-    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    column-gap: var(--sc-space-5);
   }
 }

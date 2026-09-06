@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { api, type Brand, type FeedNode, thumbUrl } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -18,7 +18,8 @@ import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
 import { PREF, useSessionPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { ColorPicker } from './ColorPicker.js';
-import { NO_ATTACHMENTS, RAIL_COMPACT, type AttachedIds } from './railSections.js';
+import { NO_ATTACHMENTS, RAIL_BATCH, RAIL_COMPACT, RAIL_EXPANDED, type AttachedIds } from './railSections.js';
+import { useShotPages } from '../composer/attach/useShotPages.js';
 import { Group } from './assets/Group.js';
 import { Section } from './assets/Section.js';
 import { useRailMotion } from './assets/useRailMotion.js';
@@ -26,9 +27,6 @@ import { AssetCard } from './assets/AssetCard.js';
 import type { SentenceToken } from '../composer/BriefInput.js';
 export type { SectionMode } from './assets/useShape.js';
 import type { SectionMode } from './assets/useShape.js';
-
-/** The last shots, offered as style references. Not a history; a shelf. */
-const RECENT_SHOTS = 12;
 
 /**
  * The creative-ingredients palette: what are we photographing, who appears,
@@ -49,6 +47,7 @@ const RECENT_SHOTS = 12;
 export function AssetsPanel({
   brand,
   shots,
+  shotsTotal,
   attached = NO_ATTACHMENTS,
   full,
   onToken,
@@ -58,7 +57,10 @@ export function AssetsPanel({
   onClose,
 }: {
   brand: Brand;
+  /** The workspace's shelf of newest shots: what landed a moment ago is here first. */
   shots: FeedNode[];
+  /** How many shots the brand has, from the feed's counts; the section's number. */
+  shotsTotal?: number;
   /** What the brief holds right now, so the rail can say so. */
   attached?: AttachedIds;
   /**
@@ -207,8 +209,33 @@ export function AssetsPanel({
     })();
   };
 
-  // newest first and already done: the workspace answer carries the shelf
-  const recent = shots.filter((s) => s.status === 'done' && s.images.length > 0).slice(0, RECENT_SHOTS);
+  // The shelf the workspace answer carries is the newest few dozen, which is
+  // what the closed row and the first open page need; past that the section
+  // turns the feed's own pages, the same ones the composer's picker turns, so
+  // a brand with four hundred shots offers four hundred. A shot that landed a
+  // moment ago is on the shelf before any page knows it, so the shelf leads.
+  const shotsOpen = modeOf('shots') === 'open';
+  const pages = useShotPages(brand.id, '', shotsOpen);
+  const recent = useMemo(() => {
+    const seen = new Set<string>();
+    const out: FeedNode[] = [];
+    for (const s of [...shots, ...pages.items]) {
+      if (s.status !== 'done' || s.images.length === 0 || seen.has(s.id)) continue;
+      seen.add(s.id);
+      out.push(s);
+    }
+    return out;
+  }, [shots, pages.items]);
+  const shotCount = Math.max(shotsTotal ?? 0, pages.total, recent.length);
+  const [shownShots, setShownShots] = useState(RAIL_EXPANDED);
+  useEffect(() => {
+    if (!shotsOpen) setShownShots(RAIL_EXPANDED);
+  }, [shotsOpen]);
+  const moreShots = () => {
+    setShownShots((n) => n + RAIL_BATCH);
+    // a page ahead of the unroll, so the next press has tiles waiting
+    if (pages.hasMore && recent.length < shownShots + 2 * RAIL_BATCH) pages.loadMore();
+  };
 
   /** Nothing in the rail answered. Said once, rather than five times over. */
   const nothingFound =
@@ -395,18 +422,18 @@ export function AssetsPanel({
       )}
 
       {recent.length > 0 && !searching && (
-        <Group name="Recent shots" count={recent.length} mode={modeOf('shots')} onToggle={() => toggle('shots')}>
+        <Group name="Recent shots" count={shotCount} mode={modeOf('shots')} onToggle={() => toggle('shots')}>
           {(shape) => (
             <div className={shape === 'open' ? 'sc-acard-grid' : 'sc-arow'}>
-              {(shape === 'open' ? recent : recent.slice(0, RAIL_COMPACT)).map((s, i) => {
+              {recent.slice(0, shape === 'open' ? shownShots : RAIL_COMPACT).map((s, i) => {
                 const hash = s.images[0];
                 const on = attached.ref.includes(hash);
                 return (
                   <AssetCard
                     key={s.id}
                     candidate={{
-                      label: `Shot ${recent.length - i}`,
-                      full: `Shot ${recent.length - i} · as reference`,
+                      label: `Shot ${shotCount - i}`,
+                      full: `Shot ${shotCount - i} · as reference`,
                       thumb: thumbUrl(hash, 'micro'),
                     }}
                     on={on}
@@ -421,6 +448,18 @@ export function AssetsPanel({
                   />
                 );
               })}
+              {shape === 'open' && (recent.length > shownShots || pages.hasMore) && (
+                <button
+                  type="button"
+                  className="sc-amore-tile"
+                  onClick={moreShots}
+                  aria-label={`Show ${RAIL_BATCH} more shots`}
+                  aria-busy={pages.loading || undefined}
+                >
+                  <span className="sc-amore-n">+{Math.max(1, shotCount - Math.min(recent.length, shownShots))}</span>
+                  <span className="sc-amore-t">more</span>
+                </button>
+              )}
             </div>
           )}
         </Group>

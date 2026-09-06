@@ -74,7 +74,6 @@ export function DetailOverlay({
   items,
   loadMore,
   complete,
-  recent,
   brand,
   engines,
   projectId,
@@ -101,7 +100,6 @@ export function DetailOverlay({
   /** Every page is in. */
   complete: boolean;
   /** The newest done shots, for the attach panel of the composer in here. */
-  recent: FeedNode[];
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
@@ -905,7 +903,6 @@ export function DetailOverlay({
                 target={node}
                 // the variant on the stage is the one a refine works from
                 sourceImage={hash}
-                shots={recent}
                 // The dock's composer is still mounted behind this one and there
                 // is one saved draft per brand: without this, merely opening a
                 // shot overwrote a half-typed brief with this composer's empty

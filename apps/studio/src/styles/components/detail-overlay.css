@@ -659,7 +659,7 @@
    specificity alone. */
 @media (min-width: 768px) {
   .sc-ovl-edit .sc-attachpanel {
-    height: min(380px, 48vh);
+    height: min(510px, 48vh);
   }
 }
 @media (max-width: 1023px) {
