@@ -134,16 +134,10 @@ export const api = {
   demoProductFrames: (id: string) =>
     req<{ frames: { angle: string; url: string }[] }>('GET', `/api/demo-product-previews/${id}`),
   showcase: () => req<{ showcase: ShowcaseEntry[]; categories: string[] }>('GET', '/api/showcase'),
-  previewBrief: (brief: unknown, engineId: string, brandId: string, parentId?: string, drop?: readonly string[]) =>
+  previewBrief: (brief: unknown, engineId: string, brandId: string, parentId?: string) =>
     // a parentId makes it a REFINE preview: the server runs the same
-    // inheritance and budget path the send will run, less what was switched off
-    req<BriefPreview>('POST', '/api/brief/preview', {
-      brief,
-      engineId,
-      brandId,
-      ...(parentId ? { parentId } : {}),
-      ...(drop?.length ? { drop: [...drop] } : {}),
-    }),
+    // inheritance and budget path the send will run
+    req<BriefPreview>('POST', '/api/brief/preview', { brief, engineId, brandId, ...(parentId ? { parentId } : {}) }),
   keep: (nodeId: string, kept: boolean) => req<FeedNode>('POST', `/api/nodes/${nodeId}/keep`, { kept }),
   archiveNode: (nodeId: string, archived: boolean) =>
     req<FeedNode>('POST', `/api/nodes/${nodeId}/archive`, { archived }),

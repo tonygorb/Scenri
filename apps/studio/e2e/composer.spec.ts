@@ -2271,75 +2271,16 @@ test('a refinement records what it carried, and the shot detail says it', async 
       })
     ).json();
     await wait(edit.id);
-    return { editId: edit.id as string, sceneName: scenes[0].name as string, refHash };
+    return { editId: edit.id as string, sceneName: scenes[0].name as string };
   });
 
-  // the refined shot's record is its own ask; what the next refinement keeps
-  // is the band's to say, over the refine field, once on the screen
+  // the refined shot's record is its own ask, nothing more: what the
+  // refinement borrows from the shot it refines is the server's business,
+  // and the field is only for what changes
   await page.goto(`/${slug}/create/shots/${made.editId}`);
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
   await expect(page.locator('.sc-brief-record .sc-ingredient')).toHaveCount(0);
-  // the band says what the next refinement would carry (the mark and the
-  // reference; never the world, which the photograph keeps), and lets one
-  // thing out: what is left out is named on the wire by key
-  const band = page.locator('.sc-ovl-edit .sc-carried-band');
-  await expect(band).toContainText('Keeping');
-  await expect(band.locator('.sc-carried-chip')).toHaveCount(2);
-  await expect(band.locator('.sc-carried-chip[data-kind="mark"]')).toBeVisible();
-  await expect(band.locator('.sc-carried-chip[data-kind="ref"]')).toBeVisible();
-  // the switch: off keeps the chip in the band, muted, and one more press is the way back
-  const refChip = band.locator('.sc-carried-chip[data-kind="ref"]');
-  await refChip.locator('button').click();
-  await expect(band.locator('.sc-carried-chip')).toHaveCount(2);
-  await expect(refChip).toHaveAttribute('data-off', 'true');
-  await expect(refChip.locator('button')).toHaveAttribute('aria-label', 'Keep Reference again');
-  await refChip.locator('button').click();
-  await expect(refChip).not.toHaveAttribute('data-off', /.*/);
-  await refChip.locator('button').click();
-  await expect(refChip).toHaveAttribute('data-off', 'true');
-  let posted: any = null;
-  await page.route('**/api/nodes', async (route) => {
-    if (route.request().method() !== 'POST') return route.fallback();
-    posted = route.request().postDataJSON();
-    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'not today' }) });
-  });
-  await page.locator('.sc-ovl .sc-brief-line').click();
-  await page.keyboard.type('cooler light');
-  await page.locator('.sc-ovl .sc-send').click();
-  await expect.poll(() => posted?.drop ?? null).toEqual([`r:${made.refHash}`]);
-  await page.unroute('**/api/nodes');
-  // the refinement made without it does not list it at all: it was never
-  // carried into that version, so there is nothing there to switch
-  const without = await page.evaluate(
-    async ({ editId, drop }) => {
-      const parent = await (await fetch(`/api/nodes/${editId}`)).json();
-      const r = await fetch('/api/nodes', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          projectId: parent.projectId,
-          parentId: parent.id,
-          kind: 'edit',
-          engineId: 'demo',
-          sourceImage: parent.images[0],
-          brief: { tokens: [{ t: 'text', v: 'cooler light' }] },
-          drop,
-        }),
-      });
-      const { id } = await r.json();
-      for (let i = 0; i < 80; i++) {
-        const n = await (await fetch(`/api/nodes/${id}`)).json();
-        if (n.status !== 'running') return n;
-        await new Promise((res) => setTimeout(res, 250));
-      }
-      throw new Error('never finished');
-    },
-    { editId: made.editId, drop: [`r:${made.refHash}`] },
-  );
-  expect((without.brief.inherited ?? []).map((t: any) => t.t)).toEqual(['mark']);
-  await page.goto(`/${slug}/create/shots/${without.id}`);
-  await expect(page.locator('.sc-ovl-edit .sc-carried-chip')).toHaveCount(1);
-  await expect(page.locator('.sc-ovl-edit .sc-carried-chip[data-kind="mark"]')).toBeVisible();
+  await expect(page.locator('.sc-ovl-edit .sc-carried-band')).toHaveCount(0);
   // what the thread is made of is said once, on the Original, one step down the trail
   await page.locator('.sc-thumbs .sc-trail-tile[data-original]').click();
   await expect(

@@ -52,21 +52,6 @@ const identityOf = (list: unknown): BriefToken[] =>
 export const identityTokenKey = (t: BriefToken): string =>
   t?.t === 'product' ? `p:${(t as { id: string }).id}` : JSON.stringify(t);
 
-/**
- * The key a carried identity is named by on the wire when a refinement
- * leaves it out: what the studio sends in `drop`, one per chip. Stable and
- * readable rather than the dedupe key above, which serialises the whole
- * token: a product by id, a person by id, a mark or a reference by hash.
- */
-export const carriedKey = (t: BriefToken): string => {
-  const x = t as { t: string; id?: string; imageHash?: string };
-  if (x.t === 'product') return `p:${x.id}`;
-  if (x.t === 'character') return `c:${x.id}`;
-  if (x.t === 'mark') return `m:${x.imageHash}`;
-  if (x.t === 'ref') return `r:${x.imageHash}`;
-  return JSON.stringify(t);
-};
-
 export interface InheritedIdentity {
   tokens: BriefToken[];
   /** The walk hit the ceiling with tokens possibly still above it. */

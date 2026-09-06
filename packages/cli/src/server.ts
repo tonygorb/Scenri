@@ -38,7 +38,7 @@ import {
 } from './customAssets.js';
 import type { CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
-import { carriedKey, identityTokenKey, inheritedIdentityTokens } from './editIdentity.js';
+import { identityTokenKey, inheritedIdentityTokens } from './editIdentity.js';
 import {
   characterEditIdentityDirective,
   characterFactDirectives,
@@ -552,14 +552,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     parentId: string,
     brief: Brief,
     engineCaps: EngineCapabilities,
-    opts?: { reshape?: 'crop' | 'extend'; drop?: string[] },
+    opts?: { reshape?: 'crop' | 'extend' },
   ) {
     const inherited = inheritedIdentityTokens(parentId, (id) => core.store.getNode(id));
-    // What the person left out of the carried set, by key: a refinement that
-    // removes the person must not ship the person as a reference, and the
-    // record then says truthfully what rode along.
-    const leftOut = new Set(opts?.drop ?? []);
-    const borrowed = inherited.tokens.filter((t) => !leftOut.has(carriedKey(t)));
+    const borrowed = inherited.tokens;
     // The studio's own identity rule: a product keys on its id, so re-asking
     // for a carried product at another angle never records it twice.
     const already = new Set(
@@ -755,10 +751,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // composer draws is the request the engine will receive.
     if (parentId && core.store.getNode(String(parentId))) {
       const previewReshape = (req.body as any).reshape;
-      const previewDrop = (req.body as any).drop;
       const edit = await compileEditBrief(brand.id, String(parentId), brief as Brief, engine.capabilities(), {
         reshape: previewReshape === 'extend' ? 'extend' : previewReshape === 'crop' ? 'crop' : undefined,
-        drop: Array.isArray(previewDrop) ? previewDrop.map(String) : undefined,
       });
       const { referenceImages, ...rest } = edit.compiled;
       return {
@@ -1370,10 +1364,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       if (kind === 'edit') {
         // A refinement borrows the identity of the shot it refines, through
         // the same helper the preview route uses — one path, one truth.
-        const drop = (req.body as any).drop;
         const edit = await compileEditBrief(project.brandId, resolvedParentId, brief as Brief, engine.capabilities(), {
           reshape,
-          drop: Array.isArray(drop) ? drop.map(String) : undefined,
         });
         compiled = edit.compiled;
         inheritedTokens = edit.inheritedTokens;

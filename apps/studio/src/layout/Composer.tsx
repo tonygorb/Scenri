@@ -24,7 +24,6 @@ import {
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
 import type { PreviewKind } from '../composer/ChipPreview.js';
 import { RefineChip } from '../composer/RefineChip.js';
-import { CarriedBand, useCarried } from '../composer/CarriedBand.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import {
   CEILING_SENTENCE,
@@ -57,9 +56,6 @@ import { aspectOfFormat, formatOfShot } from '../composer/formats.js';
 import { reshapeOpFor } from '../composer/reshape.js';
 import { failureToast } from '../failure.js';
 import { attachedIdsKey, attachedIdsOf, type AttachedIds } from './railSections.js';
-
-/** The keys a refinement leaves out when none are: one value, so it compares equal every render. */
-const NO_KEYS: readonly string[] = [];
 
 export interface ComposerHandle {
   /** Append a token to the brief (assets panel click path). */
@@ -181,8 +177,8 @@ export const Composer = forwardRef<
     /**
      * Which shell this composer wears. The overlay variant is the shot
      * detail's refine composer: 300px wide, engine select folded into More,
-     * and no band of its own: the record above the field states what the
-     * refinement carries.
+     * and no band of its own: a refinement borrows the identity of the shot
+     * on the stage on the server, and the field is only for what changes.
      */
     variant?: 'dock' | 'overlay';
   }
@@ -302,20 +298,6 @@ export const Composer = forwardRef<
   const setFormatId = (id: string) => {
     if (refineTarget) setRefineFormats((m) => ({ ...m, [refineTarget.id]: id }));
     else setPrefFormat(id);
-  };
-  /** What each target's next refinement leaves out of what it would carry, by wire key. */
-  const [leftOut, setLeftOut] = useState<Record<string, string[]>>({});
-  // one shared empty list, so an untouched target reads as the same value
-  // render after render and the preview effect below never re-fires on it
-  const dropped = refineTarget ? (leftOut[refineTarget.id] ?? NO_KEYS) : NO_KEYS;
-  const carried = useCarried(brand, refineTarget);
-  /** Switch a kept identity off, or back on: the chip stays in the band either way. */
-  const toggleKept = (key: string) => {
-    if (!refineTarget) return;
-    setLeftOut((m) => {
-      const now = m[refineTarget.id] ?? [];
-      return { ...m, [refineTarget.id]: now.includes(key) ? now.filter((k) => k !== key) : [...now, key] };
-    });
   };
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
   const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, 2);
@@ -863,14 +845,14 @@ export const Composer = forwardRef<
     const requested = brief;
     debounce.current = setTimeout(() => {
       void api
-        .previewBrief(brief, engineId, brand.id, refining ? target.id : undefined, refining ? dropped : undefined)
+        .previewBrief(brief, engineId, brand.id, refining ? target.id : undefined)
         .then((p) => setPreview({ ...p, forBrief: requested }))
         .catch(() => setPreview(null));
     }, 280);
     return () => {
       if (debounce.current) clearTimeout(debounce.current);
     };
-  }, [brief, engineId, brand.id, hasContent, mode, target, cropping, dropped]);
+  }, [brief, engineId, brand.id, hasContent, mode, target, cropping]);
 
   /**
    * Choosing from one of these menus hands the caret straight back, rather than
@@ -1128,8 +1110,6 @@ export const Composer = forwardRef<
         // the reshape op is explicit on the wire: crop and extend preserve
         // pixels in opposite ways, and the server must never have to guess
         ...(mode === 'edit' && reshapeOp ? { reshape: reshapeOp } : {}),
-        // what the person left out of the carried set: not shipped, not recorded
-        ...(mode === 'edit' && dropped.length ? { drop: dropped } : {}),
       });
       /*
        * A scene used to be able to declare text zones, and this turned them
@@ -1321,19 +1301,10 @@ export const Composer = forwardRef<
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}
-        {/* What the next refinement keeps from the shot on the stage, each
-            chip a switch: off, it stays in the band muted and out of the
-            request; on again with one more press. */}
-        {variant === 'overlay' && refineTarget && carried.length > 0 && (
-          <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            <CarriedBand items={carried} off={dropped} onToggle={toggleKept} />
-            {targetNote && <small className="sc-target-note">{targetNote}</small>}
-          </div>
-        )}
         {/* Where there is no band to carry it, the note still has to be said:
             inside an open shot this is the only sign that what is about to
             happen is a new shot rather than a change to the one on screen. */}
-        {branchable && !onClearTarget && targetNote && !(variant === 'overlay' && carried.length) && (
+        {branchable && !onClearTarget && targetNote && (
           <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         {/* The inferred op, stated in two words. The old fieldset asked the
