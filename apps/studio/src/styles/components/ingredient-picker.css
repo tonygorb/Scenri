@@ -551,6 +551,27 @@
 
 /* The card is a shortcut to the same thing the chip does, so it says so. The
    hit area is a button carrying no chrome of its own: the card is the frame. */
+/* Beside a tile the card wears a tail: a rotated square in the card's own
+   surface and stroke, straddling the edge that faces the tile, level with
+   the tile's middle. */
+.sc-chip-preview-tail {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  background: var(--sc-panel);
+  border-left: 1px solid var(--sc-line-strong);
+  border-bottom: 1px solid var(--sc-line-strong);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.sc-chip-preview-tail[data-edge="left"] {
+  left: -6px;
+}
+.sc-chip-preview-tail[data-edge="right"] {
+  right: -6px;
+  transform: rotate(225deg);
+}
 .sc-chip-preview-hit {
   display: flex;
   flex-direction: column;

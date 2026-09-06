@@ -171,6 +171,12 @@ export function ChipPreview({
       onPointerEnter={onHoverIn}
       onPointerLeave={onHoverOut}
     >
+      {/* Beside a tile the card wears a tail pointing at it: the card sits a
+          gap away from what it is about, and the tail is what says whose it
+          is. A chip's card sits flush over its chip and needs none. */}
+      {pos.tail && (
+        <span className="sc-chip-preview-tail" data-edge={pos.tail.edge} style={{ top: Math.round(pos.tail.y) }} />
+      )}
       {/* Pointer-only by design, the way the chip's own x is. `tabIndex={-1}`
           is what keeps a focusable control from sitting inside a hidden
           subtree: a keyboard never reaches this, and never needs to. */}

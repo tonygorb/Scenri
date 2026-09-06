@@ -50,6 +50,8 @@ export interface Placed {
   width: number;
   maxHeight: number;
   side: 'above' | 'below' | 'beside';
+  /** Beside a tile: where the tail points, as a distance down the card's edge, and which edge. */
+  tail?: { y: number; edge: 'left' | 'right' };
 }
 
 /** A preview card's height: the square face plus its two-line caption and insets. */
@@ -69,7 +71,9 @@ export function placeBeside(a: AnchorRect, vp: Viewport, opts?: { width?: number
   const fitsRight = a.right + GAP + width + MARGIN <= vp.width;
   const left = fitsRight ? a.right + GAP : Math.max(MARGIN, a.left - GAP - width);
   const top = Math.max(MARGIN, Math.min(a.top, vp.height - MARGIN - PREVIEW_H));
-  return { left, top, width, maxHeight: Math.max(MIN_H, vp.height - top - MARGIN), side: 'beside' };
+  // the tail points at the tile's middle, wherever the card had to sit
+  const tail = { y: (a.top + a.bottom) / 2 - top, edge: fitsRight ? ('left' as const) : ('right' as const) };
+  return { left, top, width, maxHeight: Math.max(MIN_H, vp.height - top - MARGIN), side: 'beside', tail };
 }
 
 /**
