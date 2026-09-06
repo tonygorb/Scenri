@@ -389,7 +389,15 @@ test('a long record clamps on whole rows, says Show more legibly, and draws a co
   await expect(more).toHaveText(/Show more/);
   const look = await more.evaluate((el) => {
     const verb = document.querySelector('.sc-ovl-meta .sc-s')!;
-    return { h: el.getBoundingClientRect().height, verbH: verb.getBoundingClientRect().height, color: getComputedStyle(el).color, verbColor: getComputedStyle(verb).color, font: getComputedStyle(el).fontSize, verbFont: getComputedStyle(verb).fontSize, icon: !!el.querySelector('svg') };
+    return {
+      h: el.getBoundingClientRect().height,
+      verbH: verb.getBoundingClientRect().height,
+      color: getComputedStyle(el).color,
+      verbColor: getComputedStyle(verb).color,
+      font: getComputedStyle(el).fontSize,
+      verbFont: getComputedStyle(verb).fontSize,
+      icon: !!el.querySelector('svg'),
+    };
   });
   expect(Math.abs(look.h - look.verbH)).toBeLessThanOrEqual(0.5);
   expect(look.color).toBe(look.verbColor);
