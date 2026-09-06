@@ -6,8 +6,14 @@ import { useHoverPreview } from '../../composer/useHoverPreview.js';
 
 /** How close to the end of the rail asks for the next page of the feed. */
 const END_PX = 200;
-/** How far the list travels from an end before the fade over that end is whole. */
-const FADE_RAMP_PX = 120;
+/**
+ * How far the list travels from an end before the fade over that end is
+ * whole: less than a tile, so one step completes it within its first
+ * frames and a long slide has it from the start, while a nudge of a few
+ * pixels still shows only a sliver. Tied to a longer travel it arrived
+ * well into the motion and sat half-formed after a single step.
+ */
+const FADE_RAMP_PX = 32;
 
 export function ShotRail({
   shots,
