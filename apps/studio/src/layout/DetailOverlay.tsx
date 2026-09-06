@@ -136,6 +136,7 @@ export function DetailOverlay({
   const [panelW, setPanelW] = useLocalPref<number>(PREF.ovlPanelW, PANEL_DEFAULT);
   const dragX = useRef(0);
   const dragRaf = useRef(0);
+  const rootRef = useRef<HTMLDivElement>(null);
   /** The image this refinement was made from, not merely the run's first. */
   const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
   /**
@@ -526,8 +527,22 @@ export function DetailOverlay({
     // `loop` as well as `trapped`: without it Tab reached the last control and
     // then did nothing at all — eighteen further presses moved focus nowhere,
     // which reads as a frozen page rather than a contained one.
-    <FocusScope trapped loop asChild>
+    <FocusScope
+      trapped
+      loop
+      asChild
+      // The surface takes focus on open, silently, the way every dialog here
+      // does (app/dialogs.ts). Aimed at the first control instead, the Close
+      // button, its tooltip opened on arrival and the first Escape closed the
+      // tooltip rather than the shot.
+      onMountAutoFocus={(e) => {
+        e.preventDefault();
+        rootRef.current?.focus({ preventScroll: true });
+      }}
+    >
       <div
+        ref={rootRef}
+        tabIndex={-1}
         className="sc-ovl"
         data-fb="shot-overlay"
         data-fb-node={node.id}
