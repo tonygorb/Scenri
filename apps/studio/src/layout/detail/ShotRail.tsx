@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useLayoutEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
 import { nodeLabel, type FeedNode, thumbUrl } from '../../api.js';
 import { ChipPreview } from '../../composer/ChipPreview.js';
@@ -28,12 +28,14 @@ export function ShotRail({
   const peekAt = (n: FeedNode, el: HTMLElement) =>
     peek.open({ key: n.id, src: thumbUrl(n.images[0], 'tile'), label: nodeLabel(n), el, id: n.id });
 
-  // The ringed tile sits in the middle of the rail, always: placed there at
-  // once when the rail first shows, and slid there on every step after. The
+  // The ringed tile sits in the middle of the rail, always: placed there
+  // before the rail's first paint, and slid there on every step after. The
   // ends of the column dissolve, so the middle is where a tile is whole and
   // the column reads outward from the shot on screen in both directions.
+  // A layout effect, so the first frame is already centred: after paint,
+  // the rail showed its top for a frame and then jumped.
   const shown = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const tile = ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
     if (!tile) return;
     tile.scrollIntoView({ block: 'center', behavior: shown.current ? 'smooth' : 'auto' });
@@ -57,7 +59,9 @@ export function ShotRail({
     box.style.setProperty('--sc-rail-start', max > 1 ? Math.min(1, y / FADE_RAMP_PX).toFixed(3) : '0');
     box.style.setProperty('--sc-rail-end', max > 1 ? Math.min(1, (max - y) / FADE_RAMP_PX).toFixed(3) : '0');
   };
-  useEffect(() => {
+  // Also before paint, and declared after the centring so it reads the
+  // centred scroll: the fades are then right in the first frame too.
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     measure();
