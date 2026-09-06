@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isolate } from './harness.js';
@@ -23,6 +25,26 @@ test.describe
       await page.goto(`${STARTING}#${baseURL}/`);
       await expect(page).toHaveURL(new RegExp(`^${baseURL}/`), { timeout: 15_000 });
       await expect(page.locator('.sc-greet, .sc-wiz').first()).toBeVisible();
+    });
+
+    test('the page scenri open writes carries the studio URL in its meta, no fragment needed', async ({
+      page,
+      baseURL,
+    }) => {
+      // The same substitution open.ts makes; open(1) would drop a fragment.
+      const rendered = readFileSync(fileURLToPath(STARTING), 'utf8').replace(
+        '<meta name="scenri-studio" content="">',
+        `<meta name="scenri-studio" content="${baseURL}/">`,
+      );
+      const dir = mkdtempSync(join(tmpdir(), 'sc-starting-'));
+      const file = join(dir, 'starting.html');
+      writeFileSync(file, rendered);
+      try {
+        await page.goto(pathToFileURL(file).href);
+        await expect(page).toHaveURL(new RegExp(`^${baseURL}/`), { timeout: 15_000 });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     });
 
     test('the starting page refuses to send anyone anywhere but loopback', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, delimiter, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -16,6 +16,7 @@ import { openScenri, type OpenDeps } from '../src/desktop/open.js';
 let root: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'sc-open-'));
+  mkdirSync(join(root, 'launcher'));
 });
 afterEach(() => {
   rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -52,8 +53,9 @@ function harness(opts: {
       p.fire();
     }
   };
-  const page = join(root, 'starting.html');
-  if (opts.page !== false) writeFileSync(page, '<!-- page -->');
+  const template = join(root, 'template.html');
+  if (opts.page !== false) writeFileSync(template, '<meta name="scenri-studio" content="">\n<!-- page -->');
+  const page = join(root, 'launcher', 'starting.html');
   let nextPid = 100;
   const deps: OpenDeps = {
     home: join(root, 'home'),
@@ -99,7 +101,8 @@ function harness(opts: {
     pidAlive: (pid) => opts.alivePids?.includes(pid) ?? false,
     serverLogPath: join(root, 'home', 'logs', 'scenri.log'),
     readLogTail: () => opts.logTail ?? '',
-    startingPage: opts.page === false ? null : page,
+    startingTemplate: opts.page === false ? null : template,
+    startingPage: page,
     previousEntries: opts.previousEntries ?? [],
     readyTimeoutMs: opts.timeoutMs ?? 90_000,
     pollMs: 250,
@@ -138,7 +141,11 @@ describe('scenri open', () => {
     expect(typeof stdio[1]).toBe('number');
     expect(stdio[2]).toBe(stdio[1]);
     expect(existsSync(deps.serverLogPath)).toBe(true);
-    expect(state.opened).toEqual([`${pathToFileURL(page).href}#http://127.0.0.1:4747/`]);
+    // open(1) on macOS and Start-Process on Windows turn a file URL into a
+    // path and drop its fragment, so the studio URL rides inside the page
+    expect(state.opened).toEqual([pathToFileURL(page).href]);
+    expect(readFileSync(page, 'utf8')).toContain('<meta name="scenri-studio" content="http://127.0.0.1:4747/">');
+    expect(readFileSync(page, 'utf8')).toContain('<!-- page -->');
     expect(state.probes.length).toBe(4);
     expect(state.logs.some((l) => /ready in \d+ms/.test(l))).toBe(true);
   });
@@ -153,7 +160,7 @@ describe('scenri open', () => {
     const { deps, state } = harness({ readyAfter: 2, env: { SCENRI_PORT: '4800' } });
     expect(await openScenri(deps)).toBe(0);
     expect(state.probes[0]).toBe('http://127.0.0.1:4800/api/version');
-    expect(state.opened[0]).toMatch(/#http:\/\/127\.0\.0\.1:4800\/$/);
+    expect(readFileSync(join(root, 'launcher', 'starting.html'), 'utf8')).toContain('content="http://127.0.0.1:4800/"');
     expect((state.spawns[0].opts.env as Record<string, string>).SCENRI_PORT).toBe('4800');
   });
 

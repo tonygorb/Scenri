@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Starting Scenri</title>
 <meta name="color-scheme" content="light dark">
+<meta name="scenri-studio" content="">
 <style>
   :root { color-scheme: light dark; --bg: #ffffff; --fg: #0a0a0a; --mute: #6b6b6b; --tile: #0d0d0d; --ink: #ffffff; }
   @media (prefers-color-scheme: dark) { :root { --bg: #0d0d0d; --fg: #f5f5f5; --mute: #8a8a8a; --tile: #1a1a1a; } }
@@ -37,7 +38,11 @@
   // The studio URL rides in the fragment, put there by `scenri open` after it
   // verified the port was free or already Scenri's. Only a loopback URL is
   // accepted, so this file can never be made to send someone elsewhere.
-  var target = location.hash.slice(1);
+  // Written into the meta by scenri open for each launch: a file URL's
+  // fragment does not survive open(1) or Start-Process. The fragment is the
+  // fallback for a page opened by hand.
+  var meta = document.querySelector('meta[name="scenri-studio"]');
+  var target = (meta && meta.getAttribute('content')) || location.hash.slice(1);
   var ok = /^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}\/$/.test(target);
   var title = document.getElementById('title');
   var text = document.getElementById('text');

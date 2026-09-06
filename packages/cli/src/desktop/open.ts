@@ -10,7 +10,7 @@
  * Node builtins only, so it loads before anything native has a chance to fail.
  */
 import type { SpawnOptions } from 'node:child_process';
-import { closeSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { openLogFd } from './log.js';
@@ -43,8 +43,10 @@ export interface OpenDeps {
   /** Where the detached server's stdout and stderr go. */
   serverLogPath: string;
   readLogTail: () => string;
-  /** The "Starting Scenri" page, or null when no launcher is installed. */
-  startingPage: string | null;
+  /** The package's starting.html template, or null when there is none to show. */
+  startingTemplate: string | null;
+  /** Where the rendered "Starting Scenri" page is written before it is opened. */
+  startingPage: string;
   /** Older valid versions' entries, newest first, for the quick-death fallback. */
   previousEntries: string[];
   readyTimeoutMs?: number;
@@ -101,10 +103,19 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
     deps.log(`open: started the supervisor, pid ${child.pid ?? 'unknown'}, log ${deps.serverLogPath}`);
 
     let shown = false;
-    if (!noOpen && deps.startingPage && existsSync(deps.startingPage)) {
-      await deps.openBrowser(`${pathToFileURL(deps.startingPage).href}#${url}`);
-      shown = true;
-      deps.log('open: showing the starting page');
+    if (!noOpen && deps.startingTemplate && existsSync(deps.startingTemplate)) {
+      // Rendered per launch: open(1) on macOS and Start-Process on Windows turn
+      // a file URL into a path and drop its fragment, so the studio URL has to
+      // travel inside the page. The only thing that changes is that one meta.
+      try {
+        mkdirSync(dirname(deps.startingPage), { recursive: true });
+        writeFileSync(deps.startingPage, renderStartingPage(readFileSync(deps.startingTemplate, 'utf8'), url));
+        await deps.openBrowser(pathToFileURL(deps.startingPage).href);
+        shown = true;
+        deps.log('open: showing the starting page');
+      } catch (err) {
+        deps.log(`open: could not show the starting page (${err instanceof Error ? err.message : String(err)})`);
+      }
     }
 
     const deadline = started + (deps.readyTimeoutMs ?? 90_000);
@@ -149,6 +160,16 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
   } finally {
     releaseLock(deps.lockPath);
   }
+}
+
+const STUDIO_URL = /^http:\/\/127\.0\.0\.1:\d{2,5}\/$/;
+const STUDIO_META = '<meta name="scenri-studio" content="">';
+
+/** The template with the studio URL in its meta. Only a loopback URL is ever written. */
+export function renderStartingPage(template: string, url: string): string {
+  if (!STUDIO_URL.test(url)) throw new Error(`not a studio URL: ${url}`);
+  if (!template.includes(STUDIO_META)) throw new Error('starting page template has no scenri-studio meta');
+  return template.replace(STUDIO_META, `<meta name="scenri-studio" content="${url}">`);
 }
 
 /** One plain sentence with the fix, from what the server printed on its way out. */

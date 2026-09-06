@@ -155,6 +155,7 @@ export async function runOpenCommand(ownEntry: string): Promise<number> {
     pidAlive,
     serverLogPath,
     readLogTail: () => tail(serverLogPath),
+    startingTemplate: join(assetsDirFor(ownEntry), 'starting.html'),
     startingPage: join(support, 'starting.html'),
     previousEntries: previous,
   });
