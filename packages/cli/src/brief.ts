@@ -37,6 +37,7 @@ import {
   referenceIdentityGuard,
   sceneFigureDirectives,
   sceneGuardDirectives,
+  shotAsksForAPerson,
   shotSpecifiesCamera,
 } from './briefDirectives.js';
 
@@ -324,6 +325,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   let hasPerson = false;
   let people = 0;
   let sentence = '';
+  /** The text the user typed, on its own: scene prose is appended to `sentence`, never here. */
+  let userWords = '';
   // Tokens compile independently and never know what text preceded them, so
   // every append goes through here to guarantee a separating space — raw
   // concatenation (e.g. a product name directly followed by scene prose)
@@ -347,6 +350,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     switch (tok.t) {
       case 'text':
         append(tok.v);
+        userWords += ` ${tok.v}`;
         break;
 
       case 'product': {
@@ -797,11 +801,25 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
   }
 
+  // The figure a scene is built around. A catalog person-scene carries no
+  // `figure` of its own; with nobody attached it gets the generic role, so the
+  // model is told rather than left to invent someone from the prose. With a
+  // presenter the catalog scene says nothing about a figure: the guards own
+  // the cast, and the showcase golden fixture holds that prompt byte for byte.
+  const figureRole = scene?.figure ?? (scene?.subject === 'person' && !hasPerson ? PERSON_SCENE_FIGURE : undefined);
+  // Nobody attached and the brief's own words ask for nobody: the role stays
+  // empty. On a fresh generation only; a refinement's source frame already
+  // holds whatever was rendered, and "no person" read there is an order to
+  // paint someone out. When the words do ask ("a woman holds it"), an
+  // anonymous stand-in fills the role instead (sceneFigureDirectives).
+  const asked = shotAsksForAPerson(userWords);
+  const emptyRole = figureRole && !hasPerson && !asked && ctx.mode !== 'edit' ? figureRole : undefined;
   const guard = scene
     ? sceneGuardDirectives({
         hasProduct: !!productId,
         hasPerson,
         hasScenePhoto: kept.some((a) => a.role === 'scene'),
+        emptyRole,
       })
     : [];
   // Product and presenter are otherwise two independent identity locks with no
@@ -829,21 +847,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // attached things to each other, and before the guards, which must keep the
   // last word on cast (briefDirectives.ts: a scene composing an attached
   // presenter out of their own shot was a real reported failure).
-  // A catalog person-scene carries no `figure` of its own; with nobody attached
-  // it gets the same empty-role line under a generic role, so the model is told
-  // rather than left to invent someone from the prose. With a presenter the
-  // catalog scene says nothing here: the guards below own the cast, and the
-  // showcase golden fixture holds that prompt byte for byte.
-  const figureRole = scene?.figure ?? (scene?.subject === 'person' && !hasPerson ? PERSON_SCENE_FIGURE : undefined);
-  // The empty-role line is for a fresh generation only: a refinement's source
-  // frame already holds whatever was rendered, and "no person" read there is an
-  // order to paint someone out.
+  // The figure head line sits here, with the treatment; the empty-role rule
+  // itself rides in the guard group, after the camera note. Fresh generations
+  // only when nobody is attached (see emptyRole above).
   const figureDirectives =
     figureRole && (hasPerson || ctx.mode !== 'edit')
       ? sceneFigureDirectives({
           figure: figureRole,
           treatment: scene?.figureTreatment,
           hasPerson,
+          asked,
           people,
           // The treatment's fictional-brands rule needs to know a real mark is
           // deliberately in play - and only one that actually rides counts,

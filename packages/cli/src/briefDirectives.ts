@@ -395,6 +395,20 @@ export function namesAreNotLetteringDirective(): string {
  */
 export const PERSON_SCENE_FIGURE = 'the one person this set is shot around';
 
+/**
+ * Whether the brief's own words put a person in the shot. Read over the text
+ * the user typed only, never the scene prose, which describes a role (see the
+ * empty-role guard in sceneGuardDirectives). "a woman holds it" with nobody
+ * attached is an ask for an anonymous person, and the empty-role rule stands
+ * down for it. Hyphenated compounds are excluded so "hand-painted" and
+ * "arm-rest" stay furniture; "face" is left out because a watch has one.
+ */
+export function shotAsksForAPerson(text: string): boolean {
+  return /\b(?:person|people|man|men|woman|women|models?|figures?|someone|somebody|anyone|hands?(?!-)|arms?(?!-)|portrait|girls?|boys?|guys?|lady|ladies|couple|family|child|children|kids?|baby|crowd|presenter|character|athlete|dancer|customer|shopper|wearer|wearing|holding|holds)\b/i.test(
+    text,
+  );
+}
+
 export function sceneFigureDirectives(opts: {
   figure: string;
   treatment?: string;
@@ -402,6 +416,8 @@ export function sceneFigureDirectives(opts: {
   /** How many presenters are attached; the figure is a role one of them takes, the rest stand with them. */
   people?: number;
   hasMark?: boolean;
+  /** Nobody attached, but the brief's own words ask for a person (shotAsksForAPerson). */
+  asked?: boolean;
 }): string[] {
   const figure = opts.figure.trim().replace(/[.\s]+$/, '');
   if (!figure) return [];
@@ -429,17 +445,27 @@ export function sceneFigureDirectives(opts: {
         'Any person the scene direction describes IS the presenter and never a second person, and their identity comes ' +
         'from their own attached photograph alone, never from anything the scene direction says about a body.',
     );
+  } else if (opts.asked) {
+    // Nobody attached, but the brief's own words put a person in the shot: an
+    // anonymous one, invented for this photograph only. The compiler decides
+    // this, never the model: a line that deferred to "the direction above" was
+    // read against the scene's own prose, which describes the figure, and the
+    // first battery painted the figure every time.
+    out.push(
+      `This world is built around one figure: ${figure}. The brief asks for a person and nobody is attached, so someone ` +
+        'fills that role in the frame, and they are nobody in particular: an anonymous person invented for this ' +
+        'photograph only, with no recognisable identity to preserve and nothing about them carried anywhere else.',
+    );
   } else {
     // Nobody attached, nobody invented. Until 2026-09-05 this staged an
     // anonymous stand-in so a figure-led world would not come back as a bare
     // wall; reversed on the product call that a presenter is the only way a
     // person enters a shot, and a scene with nobody attached is a picture of
-    // the world. The brief's own words still win, in the same shape the
-    // presenter case uses: a typed "a woman holds it" is a person asked for.
+    // the world. The guard in sceneGuardDirectives repeats it after the camera
+    // note, where it outranks the scene prose that still describes the role.
     out.push(
-      `This world is built around one figure: ${figure}. Nobody is attached to take that role, and nobody stands in ` +
-        'for them: no person, no hands, no silhouette, unless the direction above itself asks for a person. The frame ' +
-        'holds the set, the light and any treatment this world applies.',
+      `This world is built around one figure: ${figure}. Nobody is attached to take that role, so the role stays empty ` +
+        'and nobody is in this image. The frame holds the set, the light and any treatment this world applies.',
     );
   }
 
@@ -526,6 +552,8 @@ export function sceneGuardDirectives(opts: {
   hasProduct: boolean;
   hasPerson: boolean;
   hasScenePhoto?: boolean;
+  /** The figure role a scene is built around, when nobody is attached to take it and the brief asks for nobody. */
+  emptyRole?: string;
 }): string[] {
   const out: string[] = [];
   if (opts.hasProduct) {
@@ -566,6 +594,22 @@ export function sceneGuardDirectives(opts: {
         'Any person in the scene photograph lends their role, never their face: the attached presenter takes their place, wearing whatever treatment this world applies, with their identity drawn from their own photographs alone.',
       );
     }
+  }
+  // With nobody attached, the figure a scene is built around is a role left
+  // empty, and the scene's own prose still describes it: a figure stepping in,
+  // a reaching hand, a face at portrait range. The first battery (2026-09-06)
+  // painted that figure from the prose alone, past a figure line that deferred
+  // to "the direction above". So it is said here, after the camera note, in the
+  // shape the product guard uses: name the scope of the earlier text and
+  // overrule it.
+  const emptyRole = (opts.emptyRole ?? '').trim().replace(/[.\s]+$/, '');
+  if (emptyRole) {
+    out.push(
+      'Disregard any person, figure, hand, face or silhouette described in the scene direction or the camera note ' +
+        `above: that is the role this world is built around (${emptyRole}), nobody is attached to take it, and it ` +
+        'stays empty. Nobody is in this image: no person, no hands, no reflection or shadow of anyone. The set, the ' +
+        'light and any treatment this world applies fill the frame on their own.',
+    );
   }
   return out;
 }

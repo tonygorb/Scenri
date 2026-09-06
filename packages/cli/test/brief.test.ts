@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
 import { compileBrief, brandRuleDirectives, validateBrief, PRODUCT_REF_MAX, type Brief } from '../src/brief.js';
+import { shotAsksForAPerson } from '../src/briefDirectives.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 import { waitDone } from './helpers.js';
 
@@ -115,9 +116,21 @@ describe('compileBrief', () => {
     const r = compileBrief({ tokens: [{ t: 'text', v: 'x' }] }, ctx({ template: personScene() }));
     expect(r.warnings.join(' ')).toContain('built around a person');
     expect(r.prompt).toContain('This world is built around one figure: the one person this set is shot around');
-    expect(r.prompt).toContain('nobody stands in for them: no person, no hands, no silhouette');
-    expect(r.prompt).toContain('unless the direction above itself asks for a person');
+    expect(r.prompt).toContain('Nobody is attached to take that role, so the role stays empty');
+    expect(r.prompt).toContain(
+      'Disregard any person, figure, hand, face or silhouette described in the scene direction',
+    );
     expect(r.prompt).not.toContain('nobody in particular');
+  });
+
+  it("a person-only scene still gets a person when the brief's own words ask for one", () => {
+    const r = compileBrief({ tokens: [{ t: 'text', v: 'a woman holds the jar' }] }, ctx({ template: personScene() }));
+    // Anonymous, invented for this photograph: the compiler decided, not the
+    // model reading the scene prose as "the direction above".
+    expect(r.prompt).toContain('The brief asks for a person and nobody is attached');
+    expect(r.prompt).toContain('nobody in particular');
+    expect(r.prompt).not.toContain('role stays empty');
+    expect(r.prompt).not.toContain('Disregard any person, figure');
   });
 
   it('a person-only scene with a presenter attached leaves the cast to the guards', () => {
@@ -133,7 +146,7 @@ describe('compileBrief', () => {
       ctx({ template: allScenes.find((s) => s.id === 'interiors-marble-kitchen-counter')! }),
     );
     expect(r.prompt).not.toContain('built around one figure');
-    expect(r.prompt).not.toContain('nobody stands in for them');
+    expect(r.prompt).not.toContain('role stays empty');
   });
 
   it('a person-only scene on a refinement says nothing about the empty role', () => {
@@ -141,7 +154,8 @@ describe('compileBrief', () => {
     // there is an order to paint someone out.
     const r = compileBrief({ tokens: [{ t: 'text', v: 'x' }] }, ctx({ template: personScene(), mode: 'edit' }));
     expect(r.prompt).not.toContain('built around one figure');
-    expect(r.prompt).not.toContain('nobody stands in for them');
+    expect(r.prompt).not.toContain('role stays empty');
+    expect(r.prompt).not.toContain('Disregard any person, figure');
   });
 
   it('product plus character still respects what the engine will read', () => {
@@ -1127,18 +1141,58 @@ describe('compileBrief: a world built around a figure', () => {
     // only way a person enters a shot, and the brief's own words stay the one
     // way to ask for one without a presenter.
     expect(r.prompt).toContain('This world is built around one figure: one person at close portrait range');
-    expect(r.prompt).toContain('nobody stands in for them: no person, no hands, no silhouette');
-    expect(r.prompt).toContain('unless the direction above itself asks for a person');
+    expect(r.prompt).toContain('Nobody is attached to take that role, so the role stays empty');
     expect(r.prompt).toContain('The frame holds the set, the light and any treatment this world applies');
     expect(r.prompt).not.toContain('nobody in particular');
     expect(r.prompt).not.toContain('Show them unless');
+    // The guard repeats it after the camera note, where it outranks the scene
+    // prose that still describes the role (the first battery painted that
+    // figure from the prose alone).
+    const head = r.prompt.indexOf('the role stays empty');
+    const guard = r.prompt.indexOf('Disregard any person, figure, hand, face or silhouette');
+    expect(guard).toBeGreaterThan(head);
+    expect(r.prompt.slice(guard)).toContain(
+      '(one person at close portrait range, squared to camera, filling the frame)',
+    );
+    expect(r.prompt.slice(guard)).toContain(
+      'Nobody is in this image: no person, no hands, no reflection or shadow of anyone',
+    );
+  });
+
+  it("the brief's own words can still ask for a person, and get an anonymous one", () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'text', v: 'a man in a green shirt reaches for ' },
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      withScene(),
+    );
+    expect(r.prompt).toContain('The brief asks for a person and nobody is attached');
+    expect(r.prompt).toContain('nobody in particular');
+    expect(r.prompt).not.toContain('role stays empty');
+    expect(r.prompt).not.toContain('Disregard any person, figure');
+  });
+
+  it('scene prose naming a figure is not the brief asking for one', () => {
+    // The scene's own prose describes the role; only the user's text counts.
+    const r = compileBrief(
+      { tokens: [{ t: 'template', id: base.id }] },
+      withScene({ prompt: 'A seamless ground; one figure stands mid-frame, a hand raised.' }),
+    );
+    expect(r.prompt).toContain('role stays empty');
+    expect(r.prompt).toContain('Disregard any person, figure, hand, face or silhouette');
+    expect(r.prompt).not.toContain('nobody in particular');
   });
 
   it('on a refinement the empty role goes unsaid, and an attached presenter still takes it', () => {
     const tokens = (cast: Brief['tokens']) => [...cast, { t: 'template' as const, id: base.id }];
     const nobody = compileBrief({ tokens: tokens([{ t: 'product', id: 'p1' }]) }, { ...withScene(), mode: 'edit' });
     expect(nobody.prompt).not.toContain('built around one figure');
-    expect(nobody.prompt).not.toContain('nobody stands in for them');
+    expect(nobody.prompt).not.toContain('role stays empty');
+    expect(nobody.prompt).not.toContain('Disregard any person, figure');
     const someone = compileBrief({ tokens: tokens([{ t: 'character', id: 'c1' }]) }, { ...withScene(), mode: 'edit' });
     expect(someone.prompt).toContain('The attached presenter is that figure');
   });
@@ -1393,7 +1447,7 @@ describe('compileBrief: a world built around a figure', () => {
       expect(r.prompt).not.toContain("the scene's own photograph");
       // quiet degrade: the only warning naming the scene is the subject one
       expect(r.warnings.filter((w) => !w.includes('built around a person')).join(' ')).not.toContain(base.name);
-      expect(r.prompt).toContain('nobody stands in for them');
+      expect(r.prompt).toContain('role stays empty');
     }
   });
 
@@ -1838,5 +1892,22 @@ describe('directives stay truthful to what actually rides', () => {
     );
     expect(r.attachments.map((a) => a.role)).toEqual(['brand']);
     expect(r.prompt).not.toContain('attached brand mark');
+  });
+});
+
+describe('shotAsksForAPerson: the words that put a person in the shot', () => {
+  it('reads people, hands and wearers', () => {
+    for (const t of [
+      'a woman holds the jar',
+      'someone reaching in',
+      'two hands cradle it',
+      'a model wearing it',
+      'the customer',
+    ])
+      expect(shotAsksForAPerson(t), t).toBe(true);
+  });
+  it('leaves objects and compounds alone', () => {
+    for (const t of ['hand-painted label', 'the watch face', 'an armchair by the window', 'worn kraft edges', 'x'])
+      expect(shotAsksForAPerson(t), t).toBe(false);
   });
 });
