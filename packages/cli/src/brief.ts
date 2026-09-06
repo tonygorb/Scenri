@@ -29,6 +29,7 @@ import {
   inheritedIdentityDirective,
   markLabel,
   namesAreNotLetteringDirective,
+  PERSON_SCENE_FIGURE,
   personSkinDirective,
   productFactDirectives,
   productFidelityDirective,
@@ -36,6 +37,7 @@ import {
   referenceIdentityGuard,
   sceneFigureDirectives,
   sceneGuardDirectives,
+  shotAsksForAPerson,
   shotSpecifiesCamera,
 } from './briefDirectives.js';
 
@@ -80,16 +82,6 @@ export const PRODUCT_REF_MAX = 3;
  * boarding after every identity's essential and every hand-attached thing.
  */
 export const CHARACTER_REF_MAX = 3;
-/**
- * One. A scene reference is context, never identity, and the budget it spends
- * has to come out of something. At the codex cap of five with a product and a
- * presenter attached, the allocator pays for this out of the product's third
- * angle. When a brand mark also rides, the mark takes that seat instead and
- * the presenter's second view is what pays - both identities keep their
- * essential first image, and the loss is corroboration, named honestly in
- * the generation warning.
- */
-export const SCENE_REF_MAX = 1;
 
 export interface Attachment {
   /**
@@ -320,8 +312,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const attachments: Attachment[] = [];
   /** Identities that exist in the kit but have no usable photo - see below. */
   const unattachable: Attachment[] = [];
-  /** Scene attachments that are the RAW upload (no plate drawn) - see below. */
-  const rawSceneFallback: Attachment[] = [];
   const productDirectives: DeferredDirective[] = [];
   const personDirectives: string[] = [];
   const otherDirectives: DeferredDirective[] = [];
@@ -335,6 +325,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   let hasPerson = false;
   let people = 0;
   let sentence = '';
+  /** The text the user typed, on its own: scene prose is appended to `sentence`, never here. */
+  let userWords = '';
   // Tokens compile independently and never know what text preceded them, so
   // every append goes through here to guarantee a separating space — raw
   // concatenation (e.g. a product name directly followed by scene prose)
@@ -358,6 +350,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     switch (tok.t) {
       case 'text':
         append(tok.v);
+        userWords += ` ${tok.v}`;
         break;
 
       case 'product': {
@@ -613,13 +606,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         append(composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' }));
 
         /*
-         * A figure-led scene sends a picture, because its prose cannot carry it.
+         * A figure-led scene with a presenter attached sends its drawn plate,
+         * because its prose cannot carry it.
          *
          * Measured, not assumed. A scene whose whole art direction is a dense
          * graphic treatment - a face tiled with printed stickers - compiled to
          * words came back as blank pastel paper every time, because three
          * separate rules in this prompt argue about lettering and the treatment
-         * loses. The same brief with the reference attached produced the
+         * loses. The same brief with the picture attached produced the
          * treatment correctly, kept the presenter's face, and invented its own
          * graphics. That is the same mechanism a hand-attached reference already
          * uses, and it is why one of those "just works".
@@ -630,30 +624,27 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * is one slot smaller. Not essential, so it degrades instead of refusing.
          *
          * THE CONDITIONING IMAGE, deliberate and pinned by tests: exactly one
-         * image conditions the generation - the scene's own drawn preview
-         * when one exists, else refs[0], the first upload. The preview is the
+         * image conditions the generation, the scene's own drawn preview, the
          * identity-neutral plate ("they are nobody in particular",
-         * scenePreviewPrompt): it lends the world and the treatment but never
-         * a face, where the raw upload is a full-bleed photograph of a real
-         * person the model demonstrably borrowed. References 2..N reach only
-         * the analyzer, which is instructed to build order-neutral consensus,
-         * so they shape the scene's PROSE and never its pixels. The card
-         * shows the same preview, so what the user sees IS what conditions.
+         * scenePreviewPrompt): it lends the world and the treatment but never a
+         * face. The raw uploads never ride: the first one is a full-bleed
+         * photograph of a real person the model demonstrably borrowed. They
+         * reach only the analyzer, which is instructed to build order-neutral
+         * consensus, so they shape the scene's PROSE and never its pixels. The
+         * card shows the same preview, so what the user sees IS what conditions.
+         *
+         * And only with a presenter attached to take the figure's role. With
+         * nobody attached the plate is a picture of an anonymous person the
+         * model would keep, and since 2026-09-05 no presenter means no person:
+         * the scene reaches the shot as words, the way every catalog scene does.
+         * Whether anyone is attached is only known after the whole token loop
+         * (a character token may follow the scene), so the plate is pushed here
+         * and judged there.
          */
         if (ctx.mode !== 'edit' && t.figure) {
           const plate = assetHash(t.preview);
-          const hasPlate = !!plate && ctx.images.has(plate);
-          const candidates = hasPlate ? [plate] : (t.refs ?? []).slice(0, SCENE_REF_MAX).map((r) => assetHash(r?.file));
-          for (const h of candidates) {
-            if (h && ctx.images.has(h)) {
-              const a: Attachment = { role: 'scene', id: t.id, label: t.name, hash: h, essential: false };
-              attachments.push(a);
-              // The raw upload may be a photograph of a real person. Whether
-              // it can ride depends on who else is in the brief, and that is
-              // only known after the whole token loop - so it is remembered
-              // here and judged there.
-              if (!hasPlate) rawSceneFallback.push(a);
-            }
+          if (plate && ctx.images.has(plate)) {
+            attachments.push({ role: 'scene', id: t.id, label: t.name, hash: plate, essential: false });
           }
         }
         break;
@@ -713,7 +704,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   if (scene?.subject === 'product' && !productId) {
     warnings.push(`${scene.name} is built around a product. Add one to this brief.`);
   } else if (scene?.subject === 'person' && !hasPerson) {
-    warnings.push(`${scene.name} is built around a person. Add a presenter.`);
+    warnings.push(`${scene.name} is built around a person. With nobody attached, the set renders on its own.`);
   }
 
   // The scene's own prose may name a demo product or wardrobe brand of its
@@ -737,19 +728,13 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // own photograph" may only be said when that photograph survived the budget —
   // a directive about an image the engine never received is the composer lying
   // about what was sent.
-  // No plate exists for this scene, so its conditioning image would be the
-  // raw upload - possibly a full-bleed photograph of a real person nobody
-  // selected. With a presenter attached that is a competing identity in the
-  // payload, and identity is the one thing a scene must never lend: the scene
-  // degrades to prose, quietly, the same way a budget-dropped scene ref does.
-  // With nobody attached the upload still rides: a dense treatment compiled
-  // to words alone came back as blank paper (measured, see the scene case),
-  // and there is no selected identity to protect.
-  if (hasPerson && rawSceneFallback.length) {
-    for (const a of rawSceneFallback) {
-      const i = attachments.indexOf(a);
-      if (i !== -1) attachments.splice(i, 1);
-    }
+  // A scene lends a world, never a cast. With nobody attached there is no role
+  // for the figure in its plate to hand over, and the plate is a picture of an
+  // anonymous person the model would keep: the scene degrades to prose,
+  // quietly, the same way a budget-dropped scene ref does (its name never
+  // appears in a left-out warning, brief.test pins it).
+  if (!hasPerson) {
+    for (let i = attachments.length - 1; i >= 0; i--) if (attachments[i].role === 'scene') attachments.splice(i, 1);
   }
   // A reference that is byte-identical to an attached identity's own photo
   // would spend a second slot on pixels the identity already carries, under a
@@ -816,11 +801,25 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
   }
 
+  // The figure a scene is built around. A catalog person-scene carries no
+  // `figure` of its own; with nobody attached it gets the generic role, so the
+  // model is told rather than left to invent someone from the prose. With a
+  // presenter the catalog scene says nothing about a figure: the guards own
+  // the cast, and the showcase golden fixture holds that prompt byte for byte.
+  const figureRole = scene?.figure ?? (scene?.subject === 'person' && !hasPerson ? PERSON_SCENE_FIGURE : undefined);
+  // Nobody attached and the brief's own words ask for nobody: the role stays
+  // empty. On a fresh generation only; a refinement's source frame already
+  // holds whatever was rendered, and "no person" read there is an order to
+  // paint someone out. When the words do ask ("a woman holds it"), an
+  // anonymous stand-in fills the role instead (sceneFigureDirectives).
+  const asked = shotAsksForAPerson(userWords);
+  const emptyRole = figureRole && !hasPerson && !asked && ctx.mode !== 'edit' ? figureRole : undefined;
   const guard = scene
     ? sceneGuardDirectives({
         hasProduct: !!productId,
         hasPerson,
         hasScenePhoto: kept.some((a) => a.role === 'scene'),
+        emptyRole,
       })
     : [];
   // Product and presenter are otherwise two independent identity locks with no
@@ -848,18 +847,23 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // attached things to each other, and before the guards, which must keep the
   // last word on cast (briefDirectives.ts: a scene composing an attached
   // presenter out of their own shot was a real reported failure).
-  const figureDirectives = scene?.figure
-    ? sceneFigureDirectives({
-        figure: scene.figure,
-        treatment: scene.figureTreatment,
-        hasPerson,
-        people,
-        // The treatment's fictional-brands rule needs to know a real mark is
-        // deliberately in play - and only one that actually rides counts,
-        // same honesty rule as the photo guard above.
-        hasMark: [...presentKeys].some((k) => k.startsWith('brand:')),
-      })
-    : [];
+  // The figure head line sits here, with the treatment; the empty-role rule
+  // itself rides in the guard group, after the camera note. Fresh generations
+  // only when nobody is attached (see emptyRole above).
+  const figureDirectives =
+    figureRole && (hasPerson || ctx.mode !== 'edit')
+      ? sceneFigureDirectives({
+          figure: figureRole,
+          treatment: scene?.figureTreatment,
+          hasPerson,
+          asked,
+          people,
+          // The treatment's fictional-brands rule needs to know a real mark is
+          // deliberately in play - and only one that actually rides counts,
+          // same honesty rule as the photo guard above.
+          hasMark: [...presentKeys].some((k) => k.startsWith('brand:')),
+        })
+      : [];
 
   // "Closeup zoom with DOF holding the bottle" reads, to a model, like an
   // invitation to shoot the bottle alone: the tight crop satisfies the framing
