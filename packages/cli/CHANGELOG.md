@@ -1,5 +1,77 @@
 # Changelog
 
+## [0.8.3](https://github.com/tonygorb/Scenri/compare/v0.8.2...v0.8.3) (2026-09-06)
+
+
+### Features
+
+* **composer:** rebuild the attach picker as an add-to-shot surface ([35cf31b](https://github.com/tonygorb/Scenri/commit/35cf31bc43766f8b9144eedac1531c4c63415ce0))
+* **core:** carry the root's whole history on a lineage answer ([e5eab8b](https://github.com/tonygorb/Scenri/commit/e5eab8b4536e67dedc9d1c70cf67555f3f726412))
+* **studio:** a Keeping chip switches off and back on, and the preview follows ([372db20](https://github.com/tonygorb/Scenri/commit/372db20aa7b27448de134d3211d8cc756bfa5ba0))
+* **studio:** a rail of the feed's roots beside the shot, and a strip that is the root's whole history ([c4a8c6d](https://github.com/tonygorb/Scenri/commit/c4a8c6d7b5aec772d2791ff36197c4ae2fafa5a7))
+* **studio:** Carried over is what rode, and you decide what rides ([1ba1b5f](https://github.com/tonygorb/Scenri/commit/1ba1b5fc0514854e906e1d96891bcdafeb3508c6))
+* **studio:** no zoom on the stage ([de7a965](https://github.com/tonygorb/Scenri/commit/de7a965d8de740bc800030116754809b9be0f0f0))
+* **studio:** one-click download, no Compare, and a stage that never collapses between versions ([73c82ef](https://github.com/tonygorb/Scenri/commit/73c82ef54fd30eb6af78896e5862cfd7bfc1ac5d))
+* **studio:** read a shot's history as a trail, the original and each refinement by number ([039fd8e](https://github.com/tonygorb/Scenri/commit/039fd8e4e506a6b76d6e64fc53602a2f9dcf5630))
+* **studio:** review a shot with a feed rail, in-place zoom and true actions ([02544f9](https://github.com/tonygorb/Scenri/commit/02544f99b06cbaa5e30f2b4f11d579309facb100))
+* **studio:** square trail tiles, and on a phone the trail is a scrubber ([0d674c7](https://github.com/tonygorb/Scenri/commit/0d674c7d7cf0e5317d877539a02883259028e8a0))
+* **studio:** the picture answers a right click, the wheel zooms, the ring is the feed's ([1cde7a2](https://github.com/tonygorb/Scenri/commit/1cde7a21c21214b2f088ffa30bdba37564b4e25a))
+* **studio:** the picture is a loupe ([074c37b](https://github.com/tonygorb/Scenri/commit/074c37b8dd8929e5bb728c2d5b4b555f2dd7f322))
+* **studio:** the rail is a fisheye, tiles and gaps shrinking together toward the ends ([e78ed46](https://github.com/tonygorb/Scenri/commit/e78ed46bba1ecbb1a0aad1fb2774b20f1b6c025f))
+* **studio:** the rail is flat, its ends dissolving through a mask, the ringed tile centred ([90d3e05](https://github.com/tonygorb/Scenri/commit/90d3e05f9f533c0f314244e307d8e73b164b4745))
+* **studio:** the rail swells toward the middle and sits back at its ends, the shelf's own depth ([d2c70c4](https://github.com/tonygorb/Scenri/commit/d2c70c4d2a84927ddf12a08bfd02ca94b9af81a2))
+* **studio:** the rail's swell is one curve, transparent at the ends and magnified at the centred shot ([4ab3bee](https://github.com/tonygorb/Scenri/commit/4ab3beeed137461644d27dbc86f5ef7d71ce6ce3))
+* **studio:** the refine field carries no band; the record says what was carried ([f9d23bd](https://github.com/tonygorb/Scenri/commit/f9d23bdc463dd55eeb4ea9efd8db9e934bca6603))
+* **studio:** the refine field says which picture it is about ([f58cfde](https://github.com/tonygorb/Scenri/commit/f58cfdedb3e1e783421cd776f05f12f216a030b1))
+* **studio:** the trail is one line and the picture's own tiles, not a row of numerals ([809221e](https://github.com/tonygorb/Scenri/commit/809221e1721bb0143983640ece20f492ca9a8eee))
+* **studio:** tooltips, true states and a zoom viewer for the shot's actions ([f07133c](https://github.com/tonygorb/Scenri/commit/f07133c321305b6a9c1d74f9f16801f2047ad4ce))
+* **studio:** zoom the picture where it is, wheel through the feed, rail every shot ([552caaa](https://github.com/tonygorb/Scenri/commit/552caaa5f13fc63fa250e25d16551c9033230b1c))
+
+
+### Bug Fixes
+
+* **brief:** a scene with nobody attached renders its set alone ([9c2c9cc](https://github.com/tonygorb/Scenri/commit/9c2c9cc6c1c263cd29c1db726440cb4f273e020c))
+* **brief:** the empty role is decided by the compiler, and guarded after the camera note ([606a9d7](https://github.com/tonygorb/Scenri/commit/606a9d76888af92c840c27a1e105d26dd0834cb8))
+* **composer:** a colour tile ticks and toggles like every other tile ([65dfdbe](https://github.com/tonygorb/Scenri/commit/65dfdbeca2e116c50a553b45e9c9928083b38ab0))
+* **composer:** a pick in the picker no longer flashes, and a held tile can always be taken out ([a4c5846](https://github.com/tonygorb/Scenri/commit/a4c5846b6baf99b8e8cb4495066158de695d87c9))
+* **composer:** Add logo is reachable from the keyboard ([2db04a7](https://github.com/tonygorb/Scenri/commit/2db04a762bd9ddfe168c2e3676ac4192bb27da81))
+* **composer:** one composer height, one 510px frame, every tile state, and nothing re-deals on a pick ([2c254b0](https://github.com/tonygorb/Scenri/commit/2c254b006cc3912be7467cc2eca7629ff16fb51e))
+* **composer:** one grid, one frame, tiles that toggle, paste to upload, and a phone that keeps the composer in view ([34ad69a](https://github.com/tonygorb/Scenri/commit/34ad69a9975b19fd69b7f069364cc21538e2349e))
+* **composer:** size picker tiles for the face, not for the panel width ([9915d33](https://github.com/tonygorb/Scenri/commit/9915d338b99a6de6ddc36f98feb05b69b6fda015))
+* **composer:** the Add color trigger is a ghost button, not a swatch ([ccee0d9](https://github.com/tonygorb/Scenri/commit/ccee0d915bb2c18ca91bf282fd1fc859de895349))
+* **composer:** the make-one action sits in the group's own row, beside its name ([65f5b95](https://github.com/tonygorb/Scenri/commit/65f5b956386b32776d807f4f46583454541e855c))
+* **composer:** the make-one verbs wear the quiet look Show all wears, so no row shifts between tabs ([3d1b3f2](https://github.com/tonygorb/Scenri/commit/3d1b3f223a9350b7a0f67953b5ec7c05d2949fe3))
+* **composer:** the picker pages by scroll, not by a button ([b238f1c](https://github.com/tonygorb/Scenri/commit/b238f1cc1452b48023307ec94b162776ea29dda6))
+* **composer:** the picker's head on the Figma row, and a phone head of its own ([2c74888](https://github.com/tonygorb/Scenri/commit/2c748882cbaeec8ff08fe207108717b92455a0fc))
+* **composer:** the picker's Shots tab reaches every finished shot, a page at a time ([0b887e3](https://github.com/tonygorb/Scenri/commit/0b887e31d14cc4719d53fe369c55124771f36caa))
+* **composer:** the picker's tiles take the rail's states ([dabfafe](https://github.com/tonygorb/Scenri/commit/dabfafe189adc9424669535bc4da67e381088d5f))
+* **composer:** the search field can be left, and every tab can make one of its own ([4dca6a4](https://github.com/tonygorb/Scenri/commit/4dca6a47ca8d242106fa8089eb668baedd454892))
+* **create:** the rail's Recent shots count and page the whole feed ([94aac66](https://github.com/tonygorb/Scenri/commit/94aac66cebecc3ddd9e976ef88b415e13f5abe96))
+* **studio:** a drag close up pans, a step never flickers, a held key never skips ([df63c70](https://github.com/tonygorb/Scenri/commit/df63c70308eebec53b35d541050a53b2d3b109aa))
+* **studio:** a Keeping chip peeks its picture on hover, the way every ingredient chip does ([137b8f0](https://github.com/tonygorb/Scenri/commit/137b8f075033a5169ff0893fc7216f2dacd52003))
+* **studio:** a refinement's record is its ask, never the references it sent along ([349c6fc](https://github.com/tonygorb/Scenri/commit/349c6fc3d985b67c02491f45b81f2dec4f3477d4))
+* **studio:** every preview card wears a tail, a breath away from its anchor ([ce30a3d](https://github.com/tonygorb/Scenri/commit/ce30a3d98ba381a96e2d9658aef01aaa3b00fbdb))
+* **studio:** no tooltip on the zoom reading, and the review spec seeds within budget ([096dc8c](https://github.com/tonygorb/Scenri/commit/096dc8c224b626fc9ef403552f71d2c5e98be7e4))
+* **studio:** the band says Keeping, once; the record is the ask alone ([bdd1fe3](https://github.com/tonygorb/Scenri/commit/bdd1fe3911bf5678e56dc0dc9a42c1a6dd5f89b4))
+* **studio:** the close and the arrows stand beside the rail, not over it ([a805340](https://github.com/tonygorb/Scenri/commit/a805340e9cd6984ddd019e66485a21100bc8f813))
+* **studio:** the held row under the picture measures exactly like the strip ([eb325e7](https://github.com/tonygorb/Scenri/commit/eb325e780dc0d9b8d4687d15c114f9a35b13d062))
+* **studio:** the rail fades only the side that has more, so the first and last shot stay whole ([33f8964](https://github.com/tonygorb/Scenri/commit/33f89640dca9284e7f40206c8a33bba4461d5d93))
+* **studio:** the rail is centred and faded before its first paint ([0328d86](https://github.com/tonygorb/Scenri/commit/0328d8656c319283cf5351e68c87315a3a982fd3))
+* **studio:** the rail's fade is whole within a step, not a hundred pixels later ([0c81256](https://github.com/tonygorb/Scenri/commit/0c8125654f7141e34f93536c50271033aef2720d))
+* **studio:** the rail's fades grow in with the scroll instead of popping at the first pixel ([9f29b96](https://github.com/tonygorb/Scenri/commit/9f29b96c272ac68cc37b0974c9f5944f98ced7e4))
+* **studio:** the rail's own gutter is the gap to the close ([89455f0](https://github.com/tonygorb/Scenri/commit/89455f08c4c75b8b74faca516b29e1f7fd3e84b0))
+* **studio:** the rail's peek card opens beside the tile ([449e3d2](https://github.com/tonygorb/Scenri/commit/449e3d251ba088a7ed76b9008702bc2080071a1a))
+* **studio:** the rail's peek card wears a tail ([aa42969](https://github.com/tonygorb/Scenri/commit/aa429698b6db7551a938ede5ce86c1891c8a4c2c))
+* **studio:** the record is the prompt, copied like the header verbs ([5bddad4](https://github.com/tonygorb/Scenri/commit/5bddad421e7f4c36b9d34154dc9f36ce873cfbe6))
+* **studio:** the shot overlay takes focus itself on open ([aeb3c28](https://github.com/tonygorb/Scenri/commit/aeb3c287c6ebb16582bb0d9c3eeb2073b7c5a84e))
+* **studio:** the stage never animates geometry ([9d5e3dc](https://github.com/tonygorb/Scenri/commit/9d5e3dc545e1475fd90b4f96647a507b9faca5b3))
+* **studio:** trail tiles always cover their square ([93fcce1](https://github.com/tonygorb/Scenri/commit/93fcce145871f8f5d4fc91877101bb8bf9dcfb9e))
+
+
+### Miscellaneous Chores
+
+* **release:** pin the next version to 0.8.3 ([0d6449b](https://github.com/tonygorb/Scenri/commit/0d6449b767fb3cc04e31c058fe9277dead5fce4e))
+
 ## [0.8.2](https://github.com/tonygorb/Scenri/compare/v0.8.1...v0.8.2) (2026-09-03)
 
 
