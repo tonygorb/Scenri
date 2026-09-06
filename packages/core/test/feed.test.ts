@@ -279,6 +279,26 @@ describe('lineageOf, recentShots, usageByDay', () => {
     expect(core.store.lineageOf('nope')).toBeNull();
   });
 
+  it("carries the root's whole history: the root first, then every live descendant in creation order", () => {
+    const a = shot();
+    const kid1 = shot({ kind: 'edit', parentId: a.id });
+    const kid2 = shot({ kind: 'edit', parentId: a.id });
+    const grand = shot({ kind: 'edit', parentId: kid1.id });
+    const b = shot();
+    const bKid = shot({ kind: 'edit', parentId: b.id });
+    // the same history whether you are looking at the root, a version or a version of a version
+    for (const id of [a.id, kid1.id, grand.id]) {
+      expect(core.store.lineageOf(id)!.history.map((n) => n.id)).toEqual([a.id, kid1.id, kid2.id, grand.id]);
+    }
+    expect(core.store.lineageOf(b.id)!.history.map((n) => n.id)).toEqual([b.id, bKid.id]);
+    // an archived version leaves the history, unless it is the one being looked at
+    core.store.setArchived(kid2.id, true);
+    expect(core.store.lineageOf(a.id)!.history.map((n) => n.id)).toEqual([a.id, kid1.id, grand.id]);
+    expect(core.store.lineageOf(kid2.id)!.history.map((n) => n.id)).toEqual([a.id, kid1.id, kid2.id, grand.id]);
+    // the project root has no history of its own
+    expect(core.store.lineageOf(rootId)!.history).toEqual([]);
+  });
+
   it('lists the newest finished shots first and counts a year by day', () => {
     const a = shot();
     const b = shot();
@@ -330,6 +350,20 @@ describe('what stays bounded on a big brand', () => {
     // and a step to a neighbour re-centres the window
     const next = core.store.lineageOf(mid.siblings[26].id)!;
     expect(next.siblings.map((n) => n.id)).toEqual(ids.slice(6, 57));
+  });
+
+  it('a long history is capped, and the shot being looked at is never cut from it', () => {
+    const root = shot();
+    const kids: string[] = [];
+    for (let i = 0; i < 70; i++) kids.push(shot({ kind: 'edit', parentId: root.id, prompt: `v${i}` }).id);
+    const fromRoot = core.store.lineageOf(root.id)!.history.map((n) => n.id);
+    expect(fromRoot).toHaveLength(60);
+    expect(fromRoot[0]).toBe(root.id);
+    expect(fromRoot.slice(1)).toEqual(kids.slice(0, 59));
+    const late = core.store.lineageOf(kids[65])!.history.map((n) => n.id);
+    expect(late).toHaveLength(60);
+    expect(late[0]).toBe(root.id);
+    expect(late).toContain(kids[65]);
   });
 
   it('activity is the running shots plus the recent ones, from two indexed reads', () => {
@@ -388,7 +422,7 @@ describe('what boot and the root cost on a big brand', () => {
     raw.prepare("UPDATE nodes SET created_at = datetime('now', '+1 day') WHERE id = ?").run(rootId);
     raw.close();
     expect(core.store.rootFor(projectId)?.id).toBe(rootId);
-    expect(core.store.lineageOf(rootId)).toEqual({ ancestors: [], siblings: [], children: [] });
+    expect(core.store.lineageOf(rootId)).toEqual({ ancestors: [], siblings: [], children: [], history: [] });
   });
 
   it('marks the image split as done and skips the scan from then on', () => {

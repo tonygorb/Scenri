@@ -172,6 +172,12 @@ export interface Lineage {
   siblings: FeedNode[];
   /** Live refinements of the shot, in feed order. */
   children: FeedNode[];
+  /**
+   * The root of the shot's tree first, then every live descendant of it in
+   * creation order, the shot itself always included. Absent from a server
+   * older than the strip that reads it, which then composes the old way.
+   */
+  history?: FeedNode[];
 }
 
 /** One day of runs, for the usage heat map. */

@@ -145,6 +145,9 @@ describe('the frame, the tree and the usage', () => {
     const parent = await app.inject({ method: 'GET', url: `/api/nodes/${ids[0]}/lineage` });
     expect(parent.json().children.map((n: any) => n.id)).toEqual([edit.id]);
     expect(parent.json().siblings.map((n: any) => n.id)).toEqual([ids[0], ids[1]]);
+    // the whole history of the root rides on every answer in the tree
+    expect(parent.json().history.map((n: any) => n.id)).toEqual([ids[0], edit.id]);
+    expect(res.json().history.map((n: any) => n.id)).toEqual([ids[0], edit.id]);
     expect((await app.inject({ method: 'GET', url: '/api/nodes/nope/lineage' })).statusCode).toBe(404);
   });
 
