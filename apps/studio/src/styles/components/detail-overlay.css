@@ -298,13 +298,23 @@
   aspect-ratio: var(--sc-pic-ar, 1);
   height: auto;
 }
-/* The picture's row is its viewport, and the picture is a loupe. At fit the
-   frame sits where the grid centred it and nothing is transformed; a click
-   takes it close up, and then the frame moves and scales inside this box and
-   the box clips it, so the strip and the panel never move. At fit a finger
-   is the page's (it scrolls, it swipes) and only a pinch is taken; close up,
-   every touch is the picture's. Focusable, so Enter has somewhere to land;
-   the floor ring marks it. The cursor says which click comes next. */
+/* The picture's row is its viewport, and the picture is a loupe.
+
+   The stage never animates geometry. A change of picture, of scale or of
+   place lands whole in one commit; the only motion on the stage is a
+   cross-fade of pixels. Nothing here carries a transform transition and
+   nothing toggles a clip against an easing property: a transform that eases
+   is rasterised blurry and snapped sharp at the end, a clip that drops while
+   it eases spills the picture over the strip, and a scaled compositor layer
+   checkerboards for a frame on a large picture. All three read as flicker.
+
+   At fit the frame sits where the grid centred it and nothing is
+   transformed. The close look is a layer of its own over the row, the same
+   original laid out at its real size and place, clipped by its own box; the
+   fit frame under it is never touched. At fit a finger is the page's (it
+   scrolls, it swipes) and only a pinch is taken; close up, every touch is
+   the picture's. Focusable, so Enter has somewhere to land; the floor ring
+   marks it. The cursor says which click comes next. */
 .sc-stage-view {
   position: relative;
   margin: 0;
@@ -320,33 +330,30 @@
   cursor: zoom-in;
 }
 .sc-stage-view[data-zoomed] {
-  overflow: hidden;
   touch-action: none;
   cursor: zoom-out;
 }
-.sc-stage-view[data-zoomed] .sc-frame {
+.sc-stage-loupe {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  contain: paint;
+  background: var(--sc-bg);
   cursor: grab;
 }
-.sc-stage-view[data-zoomed][data-dragging] .sc-frame {
+.sc-stage-view[data-dragging] .sc-stage-loupe {
   cursor: grabbing;
 }
-/* a drag close up is a pan, never the browser's ghost of the picture or a text selection */
-.sc-stage-view img {
-  -webkit-user-drag: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.sc-stage-view[data-zoomed][data-dragging] {
-  cursor: grabbing;
-}
-.sc-stage-view .sc-frame {
-  transform-origin: 0 0;
-  transition: transform var(--sc-dur-fast) var(--sc-ease);
-}
-@media (prefers-reduced-motion: reduce) {
-  .sc-stage-view .sc-frame {
-    transition: none;
-  }
+/* laid out at its size, moved by a translate, and free of the stage's caps:
+   those are for the picture at fit, and this is the picture close up */
+.sc-stage-view .sc-stage-loupe img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
 }
 .sc-stage-pic .sc-stage-img {
   display: block;

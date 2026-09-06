@@ -146,17 +146,13 @@ export function StageFrame({
       <Box
         ref={zoom?.frameRef}
         className="sc-frame sc-stage-pic"
-        style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px`, ...zoom?.frameStyle } as CSSProperties}
+        style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties}
       >
         <StagePicture hash={hash} alt={node.promptHead} zoom={zoom} />
       </Box>
     ) : (
       <Flex justify="center">
-        <Box
-          ref={zoom?.frameRef}
-          className="sc-frame"
-          style={{ display: 'inline-block', maxWidth: '100%', ...zoom?.frameStyle }}
-        >
+        <Box ref={zoom?.frameRef} className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
           {hash && (
             <Box position="relative" style={{ lineHeight: 0 }}>
               <img
@@ -179,9 +175,12 @@ export function StageFrame({
   if (!zoom) return frame;
   /*
    * The picture's row is its viewport. At fit the frame sits where the
-   * layout put it and nothing is transformed; zoomed, the frame moves and
-   * scales inside this box and the box clips it. The box takes the keys and
-   * the gestures, so it is focusable and says how.
+   * layout put it and nothing is transformed. The close look is a layer of
+   * its own over the row: the same original, laid out at its real size and
+   * place, clipped by its own box. The fit frame under it is never touched,
+   * so a zoom in or out lands whole in one commit and nothing eases,
+   * toggles or spills. The box takes the keys and the gestures, so it is
+   * focusable and says how.
    */
   const view = (
     <figure
@@ -193,6 +192,20 @@ export function StageFrame({
       {...zoom.viewProps}
     >
       {frame}
+      {zoom.loupe && hash && (
+        <div className="sc-stage-loupe" aria-hidden>
+          <img
+            src={imgUrl(hash)}
+            alt=""
+            draggable={false}
+            style={{
+              width: zoom.loupe.w,
+              height: zoom.loupe.h,
+              transform: `translate(${zoom.loupe.x}px, ${zoom.loupe.y}px)`,
+            }}
+          />
+        </div>
+      )}
     </figure>
   );
   if (!menu) return view;

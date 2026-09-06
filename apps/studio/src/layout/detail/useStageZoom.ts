@@ -1,5 +1,4 @@
 import {
-  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -60,8 +59,12 @@ export interface StageZoom {
     onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => void;
     onKeyDown: (e: ReactKeyboardEvent<HTMLElement>) => void;
   };
-  /** The frame's transform away from fit; undefined at fit, where the layout is the truth. */
-  frameStyle: CSSProperties | undefined;
+  /**
+   * The close look, when there is one: the picture's box in the viewport,
+   * laid out at that size and place rather than transformed. Null at fit,
+   * where the frame the layout drew is the whole truth.
+   */
+  loupe: { w: number; h: number; x: number; y: number } | null;
   zoomed: boolean;
 }
 
@@ -77,9 +80,13 @@ export interface StageZoom {
  * to choose: the way every photo tool's loupe reads.
  *
  * The stage's own layout decides the fit (the frame's width over the
- * picture's pixels), so at fit nothing is transformed and nothing can drift.
- * Every read of the numbers goes through refs, since gestures arrive faster
- * than renders.
+ * picture's pixels), and the fit frame is never touched: the close look is
+ * a layer of its own over the row, laid out at its real size and place, so
+ * a zoom lands whole in one commit. Nothing here eases: a transform that
+ * animates is rasterised blurry and snapped sharp at the end, a clip that
+ * toggles against it spills for a frame, and both read as flicker. Every
+ * read of the numbers goes through refs, since gestures arrive faster than
+ * renders.
  */
 export function useStageZoom({
   hash,
@@ -93,7 +100,6 @@ export function useStageZoom({
   const [natural, setNatural] = useState<Size | null>(null);
   const [frame, setFrame] = useState<Frame | null>(null);
   const [view, setView] = useState<View | null>(null);
-  const [eased, setEased] = useState(false);
   const [dragging, setDragging] = useState(false);
   const l = frame ? limits(frame.fit) : null;
 
@@ -115,14 +121,13 @@ export function useStageZoom({
    * zoom. A fitted picture follows its frame; a zoomed one keeps its scale.
    */
   const userZoomed = useRef(false);
-  const go = useCallback((next: View, ease: boolean) => {
+  const go = useCallback((next: View) => {
     const lim = limRef.current;
     const f = frameRef.current;
     // fit is the layout's own place, wherever the last move left the picture
     const at = lim && f && isFit(next.scale, lim) ? { scale: f.fit, tx: f.ox, ty: f.oy } : next;
     userZoomed.current = !!lim && !isFit(at.scale, lim);
     viewRef.current = at;
-    setEased(ease);
     setView(at);
   }, []);
 
@@ -171,7 +176,6 @@ export function useStageZoom({
   useLayoutEffect(() => {
     if (!viewport || !natural || !frame) return;
     const atFit: View = { scale: frame.fit, tx: frame.ox, ty: frame.oy };
-    setEased(false);
     setView((cur) => {
       const next = cur === null || !userZoomed.current ? atFit : clampPan(cur, viewport, natural);
       viewRef.current = next;
@@ -193,7 +197,7 @@ export function useStageZoom({
   const toFit = () => {
     const f = frameRef.current;
     if (!f) return;
-    go({ scale: f.fit, tx: f.ox, ty: f.oy }, true);
+    go({ scale: f.fit, tx: f.ox, ty: f.oy });
     userZoomed.current = false;
   };
   /** The click: the look about a point, or fit again. */
@@ -202,7 +206,7 @@ export function useStageZoom({
     if (!n) return;
     const target = toggleTarget(n.v.scale, n.lim);
     if (isFit(target, n.lim)) toFit();
-    else go(zoomTo(n.v, target, at.x, at.y, n.vp, n.nat, n.lim), true);
+    else go(zoomTo(n.v, target, at.x, at.y, n.vp, n.nat, n.lim));
   };
   /** At fit only a click on the picture itself is a click; zoomed, the whole row answers. */
   const onPicture = (e: { clientX: number; clientY: number }) => {
@@ -243,7 +247,7 @@ export function useStageZoom({
     if (!g || !n) return;
     if (g.kind === 'pinch' && pointers.current.size >= 2) {
       const [a, b] = [...pointers.current.values()];
-      go(pinchView(g.base, g.from, { a, b }, n.vp, n.nat, n.lim), false);
+      go(pinchView(g.base, g.from, { a, b }, n.vp, n.nat, n.lim));
     } else if (g.kind === 'drag') {
       const dx = p.x - g.last.x;
       const dy = p.y - g.last.y;
@@ -251,7 +255,7 @@ export function useStageZoom({
       g.last = p;
       if (overflows(n.v, n.vp, n.nat)) {
         if (!dragging && g.moved > DRAG_PX) setDragging(true);
-        go(panBy(n.v, dx, dy, n.vp, n.nat), false);
+        go(panBy(n.v, dx, dy, n.vp, n.nat));
       }
     }
   };
@@ -305,7 +309,7 @@ export function useStageZoom({
       if (!n || !overflows(n.v, n.vp, n.nat)) return;
       e.preventDefault();
       const unit = e.deltaMode === 1 ? 16 : 1;
-      go(panBy(n.v, -e.deltaX * unit, -e.deltaY * unit, n.vp, n.nat), false);
+      go(panBy(n.v, -e.deltaX * unit, -e.deltaY * unit, n.vp, n.nat));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -326,18 +330,13 @@ export function useStageZoom({
     const dy = e.key === 'ArrowUp' ? KEY_PAN : e.key === 'ArrowDown' ? -KEY_PAN : 0;
     if (!dx && !dy) return;
     const n = nums();
-    if (n) go(panBy(n.v, dx, dy, n.vp, n.nat), true);
+    if (n) go(panBy(n.v, dx, dy, n.vp, n.nat));
     e.preventDefault();
   };
 
   const zoomed = !!(view && l && !isFit(view.scale, l));
-  const frameStyle: CSSProperties | undefined =
-    zoomed && view && frame
-      ? {
-          transform: `translate(${view.tx - frame.ox}px, ${view.ty - frame.oy}px) scale(${view.scale / frame.fit})`,
-          transition: eased ? undefined : 'none',
-        }
-      : undefined;
+  const loupe =
+    zoomed && view && natural ? { w: natural.w * view.scale, h: natural.h * view.scale, x: view.tx, y: view.ty } : null;
 
   return {
     viewRef: setViewEl,
@@ -354,7 +353,7 @@ export function useStageZoom({
       onPointerCancel,
       onKeyDown,
     },
-    frameStyle,
+    loupe,
     zoomed,
   };
 }

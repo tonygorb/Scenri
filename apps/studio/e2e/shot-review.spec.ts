@@ -185,15 +185,18 @@ test('the picture is a loupe: a click shows actual size about the point, a click
   await expect(page.locator('.sc-ovl-zoom')).toHaveCount(0);
 
   const box = (await img.boundingBox())!;
+  const fitRect = await frame.boundingBox();
   await img.click({ position: { x: box.width * 0.25, y: box.height * 0.25 } });
   await expect(pic).toHaveAttribute('data-zoomed', '');
-  // the picture at its own pixel size: the frame's width times its transform over the pixels
-  const scale = await frame.evaluate((el) => {
-    const m = /scale\(([\d.]+)\)/.exec((el as HTMLElement).style.transform);
-    const i = el.querySelector('img') as HTMLImageElement;
-    return m ? (Number(m[1]) * (el as HTMLElement).offsetWidth) / i.naturalWidth : null;
-  });
+  // the close look is its own layer, laid out at the picture's own pixel size; the fit frame is untouched
+  const loupe = page.locator('.sc-stage-loupe img');
+  await expect(loupe).toHaveCount(1);
+  const scale = await loupe.evaluate(
+    (el) => (el as HTMLImageElement).offsetWidth / (el as HTMLImageElement).naturalWidth,
+  );
   expect(scale).toBeCloseTo(1, 2);
+  expect(await frame.boundingBox()).toEqual(fitRect);
+  await expect(frame).toHaveAttribute('style', /^((?!transform).)*$/);
   // the shot did not move: a look is not a step
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
 
@@ -204,10 +207,10 @@ test('the picture is a loupe: a click shows actual size about the point, a click
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
   await expect(pic).toHaveAttribute('data-zoomed', '');
 
-  // a click takes it back
+  // a click takes it back, and the layer is gone
   await pic.click({ position: { x: view.width / 2, y: view.height / 2 } });
   await expect(pic).not.toHaveAttribute('data-zoomed', '');
-  await expect(frame).toHaveAttribute('style', /^((?!scale).)*$/);
+  await expect(page.locator('.sc-stage-loupe')).toHaveCount(0);
 
   // Enter is the click from the keyboard
   await pic.focus();
