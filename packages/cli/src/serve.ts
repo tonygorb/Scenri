@@ -85,6 +85,7 @@ async function run(): Promise<void> {
       installKind,
       supervised,
       launcherProtocol: Number(process.env.SCENRI_LAUNCHER_PROTOCOL ?? '1') || 1,
+      entry: fileURLToPath(import.meta.url),
     },
   });
 

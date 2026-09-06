@@ -93,6 +93,7 @@ import { registerImageRoutes } from './routes/images.js';
 import { createThumbStore } from './thumbs.js';
 import { registerUpdateRoutes } from './routes/updates.js';
 import { registerSystemRoutes } from './routes/system.js';
+import { registerDesktopRoutes } from './routes/desktop.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -116,7 +117,7 @@ export interface ServerOptions {
   templatesDir?: string; // override for tests
   access?: AccessOptions; // host allowlist + LAN token; loopback-only by default
   /** Posture serve.ts works out from its own entry path; tests leave it unset. */
-  runtime?: { installKind: InstallKind; supervised: boolean; launcherProtocol?: number };
+  runtime?: { installKind: InstallKind; supervised: boolean; launcherProtocol?: number; entry?: string };
   /** The staging function, injected in tests so no npm runs. */
   stageImpl?: typeof stageVersion;
   /** process.exit, injected in tests so the restart route can be observed. */
@@ -2438,6 +2439,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   registerSystemRoutes(app, { core, thumbs });
+  registerDesktopRoutes(app, {
+    core,
+    runtime,
+    exitImpl: opts.exitImpl,
+    busyCount: () => new Set(runningGenerations.values()).size + runningImportCount() + runningAssetBuildCount(),
+  });
 
   // ---- studio SPA
   if (opts.studioDist && existsSync(opts.studioDist)) {
