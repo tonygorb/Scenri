@@ -60,6 +60,18 @@ const QUICK_DEATH_MS = 10_000;
 
 const NATIVE_MARKERS = ['NODE_MODULE_VERSION', 'Could not locate the bindings file', 'ERR_DLOPEN_FAILED'];
 
+/** The last step, and the one a person actually sees: a browser that will not open gets the address in a dialog. */
+async function showBrowser(deps: OpenDeps, url: string): Promise<void> {
+  try {
+    await deps.openBrowser(url);
+  } catch (err) {
+    deps.log(`open: the browser could not be opened (${err instanceof Error ? err.message : String(err)})`);
+    const message = `Scenri is running at ${url} but the browser could not be opened. Open that address in your browser.`;
+    deps.log(`open: dialog: ${message}`);
+    await deps.showDialog(message);
+  }
+}
+
 export async function openScenri(deps: OpenDeps): Promise<number> {
   const port = Number(deps.env.SCENRI_PORT || 4747);
   const url = `http://127.0.0.1:${port}/`;
@@ -74,7 +86,7 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
     const running = await deps.probe(`${url}api/version`, 2000);
     if (running?.name === deps.pkg) {
       deps.log(`open: Scenri ${running.version ?? ''} already running, opening the browser`);
-      if (!noOpen) await deps.openBrowser(url);
+      if (!noOpen) await showBrowser(deps, url);
       return 0;
     }
 
@@ -123,7 +135,7 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
       const info = await deps.probe(`${url}api/version`, 1000);
       if (info?.name === deps.pkg) {
         deps.log(`open: ready in ${deps.now() - started}ms`);
-        if (!noOpen && !shown) await deps.openBrowser(url);
+        if (!noOpen && !shown) await showBrowser(deps, url);
         return 0;
       }
       if (exit) break;

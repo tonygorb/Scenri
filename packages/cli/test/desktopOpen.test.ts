@@ -206,6 +206,26 @@ describe('scenri open', () => {
     expect(state.dialogs[0]).toContain('npx scenri@latest');
   });
 
+  it('names the address in a dialog when the browser itself cannot be opened', async () => {
+    // The server is fine; only the last step failed. Silence here would look
+    // exactly like a launcher that did nothing.
+    const running = harness({ running: true });
+    running.deps.openBrowser = async () => {
+      throw new Error('no opener');
+    };
+    expect(await openScenri(running.deps)).toBe(0);
+    expect(running.state.dialogs).toHaveLength(1);
+    expect(running.state.dialogs[0]).toContain('http://127.0.0.1:4747/');
+    expect(running.state.logs.some((l) => l.includes('browser'))).toBe(true);
+
+    const cold = harness({ readyAfter: 3, page: false });
+    cold.deps.openBrowser = async () => {
+      throw new Error('no opener');
+    };
+    expect(await openScenri(cold.deps)).toBe(0);
+    expect(cold.state.dialogs[0]).toContain('http://127.0.0.1:4747/');
+  });
+
   it('gives up with a plain sentence when the server never answers', async () => {
     const { deps, state } = harness({ timeoutMs: 2_000 });
     expect(await openScenri(deps)).toBe(1);
