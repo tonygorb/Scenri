@@ -143,6 +143,18 @@ describe('refreshLauncher', () => {
     expect(readFileSync(supportFile('node-major'), 'utf8')).toBe(`${process.versions.node.split('.')[0]}\n`);
   });
 
+  it('heals node-path and node-major when they disagree with the record', async () => {
+    const d = deps();
+    await installDesktop(d);
+    writeFileSync(supportFile('node-path'), '/nonexistent/bin/node\n');
+    expect(await refreshLauncher(d)).toEqual({ refreshed: true });
+    expect(readFileSync(supportFile('node-path'), 'utf8')).toBe(`${d.execPath}\n`);
+    writeFileSync(supportFile('node-major'), '7\n');
+    expect(await refreshLauncher(d)).toEqual({ refreshed: true });
+    expect(readFileSync(supportFile('node-major'), 'utf8')).toBe(`${process.versions.node.split('.')[0]}\n`);
+    expect(await refreshLauncher(d)).toEqual({});
+  });
+
   it('rewrites a Windows shortcut when its node is gone', async () => {
     const d = deps({ platform: 'win32', execPath: join(root, 'bin', 'node') });
     d.runImpl = async (_cmd, args, opts) => {

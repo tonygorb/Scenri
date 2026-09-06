@@ -45,14 +45,20 @@ export async function refreshLauncher(
   const artifact = record.artifact.path;
   const ours = existsSync(artifact) && (record.artifact.kind === 'macos-app' ? isOurMacBundle(artifact) : true);
   const schemaStale = record.schema !== LAUNCHER_SCHEMA;
-  const supportStale = ASSETS.some((f) => !sameFile(join(support, f), join(deps.assetsDir, f)));
   const nodeGone = !existsSync(record.nodePath);
+  const nodePath = nodeGone ? deps.execPath : record.nodePath;
+  const nodeMajor = nodeGone ? runningNodeMajor() : (record.nodeMajor ?? runningNodeMajor());
+  // The two files the .app script reads must agree with the record; a file
+  // edited or lost by hand is healed here rather than at the next click.
+  const nodeFilesStale =
+    deps.platform === 'darwin' &&
+    (readText(join(support, 'node-path')) !== `${nodePath}\n` ||
+      readText(join(support, 'node-major')) !== `${nodeMajor}\n`);
+  const supportStale = nodeFilesStale || ASSETS.some((f) => !sameFile(join(support, f), join(deps.assetsDir, f)));
   const iconStale =
     ours &&
     record.artifact.kind === 'macos-app' &&
     !sameFile(join(artifact, 'Contents', 'Resources', 'Scenri.icns'), join(deps.assetsDir, 'Scenri.icns'));
-  const nodePath = nodeGone ? deps.execPath : record.nodePath;
-  const nodeMajor = nodeGone ? runningNodeMajor() : (record.nodeMajor ?? runningNodeMajor());
 
   if (schemaStale || supportStale || nodeGone) {
     writeSupportFiles({ assetsDir: deps.assetsDir, execPath: nodePath, platform: deps.platform, nodeMajor }, support);
@@ -85,6 +91,14 @@ export async function refreshLauncher(
     out.refreshed = true;
   }
   return out;
+}
+
+function readText(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 function sameFile(a: string, b: string): boolean {
