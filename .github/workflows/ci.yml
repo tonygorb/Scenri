@@ -100,6 +100,8 @@ jobs:
                 apps/studio/src/app/updateRules.ts) updater=true ;;
                 apps/studio/src/views/settings/About.tsx) updater=true ;;
                 apps/studio/e2e/updates.spec.ts) updater=true ;;
+                apps/studio/src/app/desktopRules.ts) updater=true ;;
+                apps/studio/e2e/desktop.spec.ts) updater=true ;;
                 .github/workflows/ci.yml|.github/workflows/publish.yml) updater=true ;;
               esac
               if [ "$e2e" = "true" ] && [ "$updater" = "true" ]; then break; fi

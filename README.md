@@ -65,6 +65,8 @@ npx scenri
 
 That is the whole install. npm asks once whether to proceed, downloads the current release, and opens `http://127.0.0.1:4747`. Keep the terminal window open while you work; closing it stops Scenri. Tomorrow the same command opens it again, with everything where you left it.
 
+On macOS and Windows, Scenri then asks once whether to put a **Scenri icon on your desktop**. Say yes and from then on a double-click starts Scenri and opens it in your browser, no terminal needed; the icon works offline and keeps working across updates. Said no? Settings, then About, then **Add to desktop**, or `npx scenri desktop` in a terminal. Scenri stays what it is, a local server and your browser: the icon is a launcher, not an app.
+
 Generation runs on **Codex CLI**, an official helper from OpenAI that draws on your own ChatGPT plan. No API key to paste, and Scenri never charges you. Each image draws on your plan's Codex usage. You do not have to set it up by hand: if it is missing, Scenri offers to install it and to sign you in, both from the app. No ChatGPT plan? Add your own key from an image provider in Settings instead, see [Engines](#engines).
 
 Two dependencies (`better-sqlite3` and `sharp`) ship native binaries, so on recent npm you may be asked to approve their install scripts once. Something not starting? See [troubleshooting](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md#troubleshooting).

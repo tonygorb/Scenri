@@ -36,6 +36,7 @@ import type {
   ShotSet,
   ShowcaseEntry,
   TreeNode,
+  DesktopStatus,
   UpdateStatus,
   UsageDay,
   VersionInfo,
@@ -155,6 +156,10 @@ export const api = {
   updateCheck: () => req<UpdateStatus>('POST', '/api/update/check'),
   updateApply: () => req<{ ok: true; staging: string }>('POST', '/api/update/apply'),
   updateRestart: () => req<{ ok: true }>('POST', '/api/update/restart'),
+  desktop: () => req<DesktopStatus>('GET', '/api/desktop'),
+  desktopInstall: () => req<{ ok: true; path: string }>('POST', '/api/desktop/install'),
+  /** Drain and stop the server; the overlay says how to come back. */
+  quit: () => req<{ ok: true }>('POST', '/api/system/quit'),
   releaseNotes: () => req<ReleaseNotesResponse>('GET', '/api/release/notes'),
   releaseSeen: (version: string) => req<{ ok: true }>('POST', '/api/release/seen', { version }),
   /** The reference frames a scene has on disk, if any. */

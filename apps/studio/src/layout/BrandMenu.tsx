@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { ArrowCircleUp, CaretDown, Check, GearSix, Plus, Sparkle } from '@phosphor-icons/react';
+import { ArrowCircleUp, CaretDown, Check, GearSix, Plus, Power, Sparkle } from '@phosphor-icons/react';
+import { Confirm } from '../Confirm.js';
+import { useToasts } from '../toasts.js';
 import { BrandAvatar, brandName } from './nav.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -44,6 +47,14 @@ export function BrandMenu() {
   const openSettings = useOpenSettings();
   const updates = useUpdateCenter();
   const whatsNew = useWhatsNew();
+  const { push } = useToasts();
+  // The confirm lives beside the menu, not inside it: a menu item unmounts on
+  // select, and a dialog mounted in it would go with it.
+  const [quitAsk, setQuitAsk] = useState(false);
+  const quit = async () => {
+    const refused = await updates.quit();
+    if (refused) push({ kind: 'error', title: 'Scenri is still working', detail: refused });
+  };
   // Display names that appear on more than one brand need their slug shown,
   // or two rows read as one brand listed twice and the click is a coin toss.
   const nameKey = (b: (typeof brands)[number]) => brandName(b).trim().toLowerCase();
@@ -57,83 +68,104 @@ export function BrandMenu() {
   const showDot = (updateAvailable && !updates.dismissed) || whatsNew.unread;
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <button type="button" className="sc-org-btn" aria-label={`${brandName(brand)}, brand and settings`}>
-          <BrandAvatar brand={brand} size={22} />
-          <span dir="auto" className="sc-org-name">
-            {brandName(brand)}
-          </span>
-          <CaretDown size={11} className="sc-caret" />
-          {showDot && <span className="sc-upd-dot" aria-hidden="true" />}
-        </button>
-      </DropdownMenu.Trigger>
+    <>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger>
+          <button type="button" className="sc-org-btn" aria-label={`${brandName(brand)}, brand and settings`}>
+            <BrandAvatar brand={brand} size={22} />
+            <span dir="auto" className="sc-org-name">
+              {brandName(brand)}
+            </span>
+            <CaretDown size={11} className="sc-caret" />
+            {showDot && <span className="sc-upd-dot" aria-hidden="true" />}
+          </button>
+        </DropdownMenu.Trigger>
 
-      <DropdownMenu.Content align="end" sideOffset={8} className="sc-menu">
-        {brands.map((b) => {
-          const current = b.id === brand.id;
-          const twoLine = (counts.get(nameKey(b)) ?? 0) > 1;
-          return (
-            <DropdownMenu.Item
-              key={b.id}
-              className="sc-menu-item"
-              data-current={current || undefined}
-              data-two-line={twoLine || undefined}
-              // Selecting the brand you are in changes nothing except closing
-              // the menu. Anything else here — a navigate, a refetch — is how
-              // the phantom-workspace bug felt possible in the first place.
-              onSelect={current ? undefined : () => navigate(brandPath(b))}
-            >
-              <BrandAvatar brand={b} size={20} />
-              <span className="sc-menu-brand-lb">
-                <span dir="auto">{brandName(b)}</span>
-                {twoLine && <span className="sc-menu-brand-sub">/{b.slug}</span>}
-              </span>
-              {current && (
-                <>
-                  <Check size={14} className="sc-menu-check" aria-hidden="true" />
-                  <span className="sc-vh">, current brand</span>
-                </>
-              )}
-            </DropdownMenu.Item>
-          );
-        })}
+        <DropdownMenu.Content align="end" sideOffset={8} className="sc-menu">
+          {brands.map((b) => {
+            const current = b.id === brand.id;
+            const twoLine = (counts.get(nameKey(b)) ?? 0) > 1;
+            return (
+              <DropdownMenu.Item
+                key={b.id}
+                className="sc-menu-item"
+                data-current={current || undefined}
+                data-two-line={twoLine || undefined}
+                // Selecting the brand you are in changes nothing except closing
+                // the menu. Anything else here — a navigate, a refetch — is how
+                // the phantom-workspace bug felt possible in the first place.
+                onSelect={current ? undefined : () => navigate(brandPath(b))}
+              >
+                <BrandAvatar brand={b} size={20} />
+                <span className="sc-menu-brand-lb">
+                  <span dir="auto">{brandName(b)}</span>
+                  {twoLine && <span className="sc-menu-brand-sub">/{b.slug}</span>}
+                </span>
+                {current && (
+                  <>
+                    <Check size={14} className="sc-menu-check" aria-hidden="true" />
+                    <span className="sc-vh">, current brand</span>
+                  </>
+                )}
+              </DropdownMenu.Item>
+            );
+          })}
 
-        {/* Setting up is a different kind of act from switching, and the
+          {/* Setting up is a different kind of act from switching, and the
             hairline says so: the phantom-workspace tester reached /setup by
             clicking what read as part of the brand list. */}
-        <div className="sc-menu-sep" />
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => navigate('/setup')}>
-          <Plus size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">Set up a brand</span>
-        </DropdownMenu.Item>
-
-        <div className="sc-menu-sep" />
-
-        {updateAvailable && (
-          <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('about')}>
-            <ArrowCircleUp size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Update available · {updates.status?.latest}</span>
+          <div className="sc-menu-sep" />
+          <DropdownMenu.Item className="sc-menu-item" onSelect={() => navigate('/setup')}>
+            <Plus size={18} className="sc-menu-ic" />
+            <span className="sc-menu-lb">Set up a brand</span>
           </DropdownMenu.Item>
-        )}
-        {/* Permanent, and gated on nothing: the release you are running is
-            always a thing you are allowed to read about. */}
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => whatsNew.open()}>
-          <Sparkle size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">What's new</span>
-          {whatsNew.unread && (
-            <>
-              <span className="sc-menu-new" aria-hidden="true" />
-              {/* unread must survive a monochrome display and a screen reader */}
-              <span className="sc-vh">, not read yet</span>
-            </>
+
+          <div className="sc-menu-sep" />
+
+          {updateAvailable && (
+            <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('about')}>
+              <ArrowCircleUp size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">Update available · {updates.status?.latest}</span>
+            </DropdownMenu.Item>
           )}
-        </DropdownMenu.Item>
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings()}>
-          <GearSix size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">Settings</span>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+          {/* Permanent, and gated on nothing: the release you are running is
+            always a thing you are allowed to read about. */}
+          <DropdownMenu.Item className="sc-menu-item" onSelect={() => whatsNew.open()}>
+            <Sparkle size={18} className="sc-menu-ic" />
+            <span className="sc-menu-lb">What's new</span>
+            {whatsNew.unread && (
+              <>
+                <span className="sc-menu-new" aria-hidden="true" />
+                {/* unread must survive a monochrome display and a screen reader */}
+                <span className="sc-vh">, not read yet</span>
+              </>
+            )}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings()}>
+            <GearSix size={18} className="sc-menu-ic" />
+            <span className="sc-menu-lb">Settings</span>
+          </DropdownMenu.Item>
+
+          {/* The way out, last and under its own hairline. A Scenri started from
+            the desktop icon has no terminal window to close; this is how the server
+            stops, and it is machine-level, so it lives here rather than in a
+            Settings pane. */}
+          <div className="sc-menu-sep" />
+          <DropdownMenu.Item className="sc-menu-item" data-quit="" onSelect={() => setQuitAsk(true)}>
+            <Power size={18} className="sc-menu-ic" />
+            <span className="sc-menu-lb">Shut down Scenri</span>
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+      <Confirm
+        open={quitAsk}
+        onOpenChange={setQuitAsk}
+        label="Shut down Scenri"
+        title="Shut down Scenri?"
+        body="This stops the Scenri server on this machine. Every open tab loses the studio until you start it again, from your desktop icon or with npx scenri."
+        busy={updates.busy !== 'idle'}
+        onConfirm={() => void quit()}
+      />
+    </>
   );
 }

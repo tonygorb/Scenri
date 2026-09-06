@@ -271,6 +271,17 @@ export type VersionInfo = {
   home: string;
 };
 
+/** The desktop launcher's state on this machine, from GET /api/desktop. */
+export type DesktopStatus = {
+  supported: boolean;
+  platform: string;
+  installed: boolean;
+  path: string | null;
+  /** The first-run question was answered Not now; About offers the icon regardless. */
+  declined: boolean;
+  installKind: VersionInfo['installKind'];
+};
+
 export type UpdateStatus = {
   enabled: boolean;
   current: string;

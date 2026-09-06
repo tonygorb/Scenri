@@ -118,6 +118,9 @@
   position: fixed;
   inset: 0;
   z-index: var(--sc-z-update-overlay);
+  /* A modal dialog underneath switches body to pointer-events: none; this is
+     the one thing on screen that still means something, so it opts back in. */
+  pointer-events: auto;
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--sc-bg) 82%, transparent);

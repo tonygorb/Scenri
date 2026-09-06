@@ -40,7 +40,7 @@ fi
 # fence a command or a path, in source they are an ordinary template literal.
 # This is the early warning; copyHygiene.test.ts is the authority.
 name_re='(^|[^@/._~:[:alnum:]-])scenri([^/._:@[:alnum:]-]|\.[^[:alnum:]]|\.$|$)'
-allow='npx scenri|scenri (serve|update|--version|--help)|["'"'"']scenri["'"'"']|^\+\s*(cd|npm|pnpm|npx|git|node) '
+allow='npx scenri|scenri (serve|update|open|desktop|--version|--help)|["'"'"']scenri["'"'"']|^\+\s*(cd|npm|pnpm|npx|git|node) '
 
 md=$(git diff --cached --unified=0 -- '*.md' | grep -E '^\+' | grep -v '^+++' | sed 's/`[^`]*`//g')
 src=$(git diff --cached --unified=0 -- '*.ts' '*.tsx' '*.mjs' '*.css' '*.html' '*.svg' '*.yml' \

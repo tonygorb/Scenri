@@ -31,6 +31,8 @@ interface ChildLike {
 export interface LauncherSpawnOptions {
   stdio: 'inherit';
   env: Record<string, string | undefined>;
+  /** Set when the desktop icon started us without a console of our own. */
+  windowsHide?: boolean;
 }
 
 export interface LauncherDeps {
@@ -88,6 +90,10 @@ export async function runLauncher(deps: LauncherDeps): Promise<number> {
 
     child = spawnImpl(process.execPath, [entry, 'serve'], {
       stdio: 'inherit',
+      // A supervisor the desktop icon started has no console; without this
+      // Windows would open one for serve, the very window the icon avoids.
+      // Under a terminal the console stays shared so Ctrl-C reaches serve.
+      windowsHide: baseEnv.SCENRI_HEADLESS === '1',
       env: {
         ...baseEnv,
         SCENRI_SUPERVISED: '1',

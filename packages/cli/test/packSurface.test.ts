@@ -20,10 +20,23 @@ const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
 const distDir = join(pkgDir, 'dist');
 const builtMaps = existsSync(distDir) ? readdirSync(distDir).filter((f) => f.endsWith('.map')) : [];
 
+/**
+ * npm on Windows is npm.cmd, which execFile cannot run and which this package
+ * refuses to run through a shell (see update/stage.ts). npm-cli.js sits beside
+ * node.exe on every standard install and on the CI runner, so run that.
+ */
+const npmArgv = (): [string, string[]] => {
+  if (process.platform !== 'win32') return ['npm', []];
+  const cli = join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  if (!existsSync(cli)) throw new Error(`npm-cli.js not found beside ${process.execPath}`);
+  return [process.execPath, [cli]];
+};
+
 let packedCache: { files: string[]; size: number } | undefined;
 const packed = (): { files: string[]; size: number } => {
   if (!packedCache) {
-    const out = execFileSync('npm', ['pack', '--dry-run', '--ignore-scripts', '--json'], {
+    const [npm, pre] = npmArgv();
+    const out = execFileSync(npm, [...pre, 'pack', '--dry-run', '--ignore-scripts', '--json'], {
       cwd: pkgDir,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
@@ -52,6 +65,30 @@ describe('the published package surface', () => {
     expect(pkg.files).toContain('!templates/previews/*.mjs');
     expect(pkg.files).toContain('ASSETS-LICENSE.md');
   });
+
+  // The desktop launcher's icons and bootstrap live in launcher/ and are
+  // committed, so the tarball can prove they pack without a staged tree.
+  it('lists the desktop launcher assets in files', () => {
+    expect(pkg.files).toContain('launcher');
+  });
+
+  // The tarball listing is the same on every OS, and npm pack on the Windows
+  // runner has taken over half a minute, so the listing is proven on POSIX.
+  it.skipIf(process.platform === 'win32')(
+    'ships the desktop launcher assets',
+    () => {
+      const files = packedFiles();
+      for (const f of [
+        'launcher/launch.mjs',
+        'launcher/starting.html',
+        'launcher/Scenri.icns',
+        'launcher/scenri.ico',
+      ]) {
+        expect(files).toContain(f);
+      }
+    },
+    30_000,
+  );
 
   // dist inlines @scenri/brand (Apache-2.0), so its license text must travel
   // in the tarball next to the app's own — Apache-2.0 section 4(a).

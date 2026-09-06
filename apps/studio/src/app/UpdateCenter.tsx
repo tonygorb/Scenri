@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowCircleUp, Gift } from '@phosphor-icons/react';
 import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
@@ -57,6 +58,8 @@ interface UpdateCenterValue {
   dismiss(): void;
   /** The one click: download + verify, then restart into the new version. */
   apply(): Promise<void>;
+  /** The brand menu's Shut down: drain and stop, then this tab goes away. Resolves to the server's refusal, or null. */
+  quit(): Promise<string | null>;
   busy: 'idle' | 'applying' | 'restarting';
   applyError: string | null;
 }
@@ -167,6 +170,28 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
     setApplyError('The restart did not complete. Check the terminal Scenri runs in.');
   }, []);
 
+  const quit = useCallback(async () => {
+    if (busy !== 'idle') return null;
+    try {
+      await api.quit();
+    } catch (err) {
+      if (typeof (err as { status?: number }).status === 'number') {
+        // alive and refusing (work still running): an answer, not a stop
+        return String((err as Error)?.message ?? err);
+      }
+      /* the socket died mid-reply: that is the stop */
+    }
+    // Nothing to show once the server is gone: the tab goes with it. A page
+    // may close itself only when the browser allows (Chrome: a tab with no
+    // history of its own, which the desktop icon's tab is); otherwise it is
+    // emptied, which reads the same: nothing of Scenri left on screen.
+    window.close();
+    setTimeout(() => {
+      if (!window.closed) location.replace('about:blank');
+    }, 300);
+    return null;
+  }, [busy]);
+
   const apply = useCallback(async () => {
     if (busy !== 'idle') return;
     setApplyError(null);
@@ -243,7 +268,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   const onSetup = pathname === P.setup;
 
   return (
-    <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, busy, applyError }}>
+    <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, quit, busy, applyError }}>
       {children}
       {busy !== 'restarting' && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
@@ -259,13 +284,26 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
  */
 function RestartOverlay({ version }: { version: string | null }) {
   return (
-    <div className="sc-upd-overlay" role="status" aria-live="polite">
-      <div className="sc-upd-overlay-card">
-        <ArrowCircleUp size={22} />
-        <b>{version ? `Updating to Scenri ${version}` : 'Updating Scenri'}</b>
-        <small>Restarting. This page reconnects by itself.</small>
-      </div>
-    </div>
+    <LifecycleOverlay>
+      <ArrowCircleUp size={22} />
+      <b>{version ? `Updating to Scenri ${version}` : 'Updating Scenri'}</b>
+      <small>Restarting. This page reconnects by itself.</small>
+    </LifecycleOverlay>
+  );
+}
+
+/**
+ * Full-bleed over everything, dialogs included. The app tree sits inside the
+ * Radix theme root, which is a stacking context of its own, so an overlay
+ * rendered in place lost to a Settings dialog portaled to body whatever its
+ * z-index said. Portal it to body too: the token then means what it says.
+ */
+function LifecycleOverlay({ children, className }: { children: ReactNode; className?: string }) {
+  return createPortal(
+    <div className={className ? `sc-upd-overlay ${className}` : 'sc-upd-overlay'} role="status" aria-live="polite">
+      <div className="sc-upd-overlay-card">{children}</div>
+    </div>,
+    document.body,
   );
 }
 
