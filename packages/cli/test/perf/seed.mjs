@@ -413,18 +413,25 @@ async function seedTier(tier, pool) {
         return nodes;
       };
       const finish = (node, brief, engineId, size, failed) => {
-        store.setBrief(node.id, brief);
         if (failed) {
+          store.setBrief(node.id, brief);
           store.failNode(node.id, r.pick(prose.FAILURES));
           counts.errors++;
           return null;
         }
         const file = poolFor();
         link(file.hash);
+        // The pixels the record claims are the pixels the file has. The stage
+        // sizes its frame from the record and its zoom from the file, and a
+        // record that named the format's dims over a pool image of another
+        // shape drew a frame the picture did not fit.
+        const pixels = [file.w, file.h];
+        if (brief.rendered) brief.rendered.sizes = [pixels];
+        store.setBrief(node.id, brief);
         const durationMs =
           engineId === 'codex-cli' ? r.int(25, 120) * 1000 : engineId === 'openrouter' ? r.int(8, 30) * 1000 : 1000;
         store.completeNode(node.id, { images: [file.hash], costUsd: 0, durationMs });
-        const rec = { id: node.id, hash: file.hash, size, brief, t: createdAt.get(node.id) };
+        const rec = { id: node.id, hash: file.hash, size: pixels, brief, t: createdAt.get(node.id) };
         done.push(rec);
         return rec;
       };
