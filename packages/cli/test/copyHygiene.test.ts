@@ -64,7 +64,7 @@ const SOURCE = globSync(['apps/studio/src/**/*.{ts,tsx}', 'packages/*/src/**/*.t
  * literal, an invocation, and the left column of the help table in args.ts,
  * where `scenri` is the word you type.
  */
-const IDENTIFIER_FORMS = /(['"`])scenri\1|npx scenri|scenri (?:serve|update|--version|--help)|^\s+scenri(?=\s{2,})/g;
+const IDENTIFIER_FORMS = /(['"`])scenri\1|npx scenri|scenri (?:serve|update|open|desktop|--version|--help)|^\s+scenri(?=\s{2,})/g;
 
 describe('public copy hygiene', () => {
   // A missing listed file throws in readFileSync, which keeps the list honest.
