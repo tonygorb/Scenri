@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.9.0',
+    date: '2026-09-06',
+    title: 'Scenri on your desktop',
+    sections: [
+      {
+        heading: 'Desktop',
+        body: 'On macOS and Windows, Scenri offers once to put an icon on your desktop the first time it starts from a terminal, and Settings can add it any time later. A double-click opens the browser on a running Scenri or starts one without a terminal, with a Starting page until it answers, and Shut down Scenri at the bottom of the brand menu stops it.',
+      },
+      {
+        heading: 'Shots',
+        body: 'Reuse setup is back under the record of an open shot, beside Try again: a new shot from the same prompt, chips, shape and count, ready to change. A long record ends on a whole row with Show more, a colour chip is the same circle a picture chip is, and a chip menu opens against its chip.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'The composer, dividers and copy control in the shot sidebar share one edge. The update and shutdown overlays sit over an open Settings dialog instead of behind it, and a browser that cannot be opened is told the address in a dialog.',
+      },
+    ],
+  },
+  {
     version: '0.8.3',
     date: '2026-09-06',
     sections: [
