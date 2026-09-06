@@ -23,6 +23,7 @@ afterEach(() => {
 });
 
 const PKG = 'scenri';
+const yes = async () => true;
 
 /** An npx cache: the package and its dependencies hoisted side by side. */
 function plantNpx(version: string, opts: { entry?: boolean } = {}) {
@@ -48,9 +49,16 @@ function plantGlobal(version: string) {
 }
 
 describe('adoptRunningInstall', () => {
-  it('copies an npx install, dependencies included, into app/versions/<v>', () => {
+  it('copies an npx install, dependencies included, into app/versions/<v>', async () => {
     const ownEntry = plantNpx('0.8.4');
-    const res = adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx' });
+    const res = await adoptRunningInstall({
+      home,
+      pkg: PKG,
+      version: '0.8.4',
+      ownEntry,
+      installKind: 'npx',
+      verifyImpl: yes,
+    });
     expect(res).toEqual({ adopted: true });
     expect(existsSync(entryOf(home, PKG, '0.8.4'))).toBe(true);
     expect(existsSync(join(versionsDir(home), '0.8.4', 'node_modules', 'fastify', 'package.json'))).toBe(true);
@@ -58,9 +66,11 @@ describe('adoptRunningInstall', () => {
     expect(existsSync(stagingDir(home))).toBe(false);
   });
 
-  it('copies a global install with its nested dependencies', () => {
+  it('copies a global install with its nested dependencies', async () => {
     const ownEntry = plantGlobal('0.8.4');
-    expect(adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'global' })).toEqual({
+    expect(
+      await adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'global', verifyImpl: yes }),
+    ).toEqual({
       adopted: true,
     });
     expect(existsSync(entryOf(home, PKG, '0.8.4'))).toBe(true);
@@ -69,31 +79,69 @@ describe('adoptRunningInstall', () => {
     expect(existsSync(join(versionsDir(home), '0.8.4', 'node_modules', 'fastify'))).toBe(false);
   });
 
-  it('is a no-op when that version is already staged', () => {
+  it('is a no-op when that version is already staged', async () => {
     const ownEntry = plantNpx('0.8.4');
-    adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx' });
-    expect(adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx' })).toEqual({
+    await adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx', verifyImpl: yes });
+    expect(
+      await adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx', verifyImpl: yes }),
+    ).toEqual({
       adopted: false,
       reason: 'present',
     });
   });
 
-  it('never adopts a source checkout or a build that already runs from versions/', () => {
+  it('never adopts a source checkout or a build that already runs from versions/', async () => {
     const ownEntry = plantNpx('0.8.4');
-    expect(adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'dev' })).toEqual({
+    expect(
+      await adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'dev', verifyImpl: yes }),
+    ).toEqual({
       adopted: false,
       reason: 'dev',
     });
-    expect(adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'managed' })).toEqual({
+    expect(
+      await adoptRunningInstall({
+        home,
+        pkg: PKG,
+        version: '0.8.4',
+        ownEntry,
+        installKind: 'managed',
+        verifyImpl: yes,
+      }),
+    ).toEqual({
       adopted: false,
       reason: 'managed',
     });
     expect(existsSync(versionsDir(home))).toBe(false);
   });
 
-  it('leaves nothing behind when the running tree is not a valid package', () => {
+  it('discards a copy that does not verify under this node, like a staged update would', async () => {
+    // A checkout's dist copied out from under its pnpm symlinks looks valid
+    // and cannot load: only running `verify` on the copy knows.
+    const ownEntry = plantNpx('0.8.4');
+    const verified: string[] = [];
+    const res = await adoptRunningInstall({
+      home,
+      pkg: PKG,
+      version: '0.8.4',
+      ownEntry,
+      installKind: 'npx',
+      verifyImpl: async (entry) => {
+        verified.push(entry);
+        return false;
+      },
+    });
+    expect(res).toEqual({ adopted: false, reason: 'no-source' });
+    expect(verified).toHaveLength(1);
+    expect(verified[0]).toContain(join('app', 'staging', 'adopt-0.8.4'));
+    expect(existsSync(join(versionsDir(home), '0.8.4'))).toBe(false);
+    expect(existsSync(stagingDir(home)) ? readdirSync(stagingDir(home)) : []).toEqual([]);
+  });
+
+  it('leaves nothing behind when the running tree is not a valid package', async () => {
     const ownEntry = plantNpx('0.8.4', { entry: false });
-    expect(adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx' })).toEqual({
+    expect(
+      await adoptRunningInstall({ home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx', verifyImpl: yes }),
+    ).toEqual({
       adopted: false,
       reason: 'no-source',
     });

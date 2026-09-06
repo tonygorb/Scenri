@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { InstallKind } from '../installKind.js';
 import { compareSemver, newestStaged } from '../update/versionsDir.js';
-import { adoptRunningInstall } from './adopt.js';
+import { adoptRunningInstall, type VerifyImpl } from './adopt.js';
 import { type InstallDeps, writeSupportFiles } from './install.js';
 import { isOurMacBundle, writeMacBundle } from './macos.js';
 import { LAUNCHER_SCHEMA, launcherDir, readLauncherRecord, writeLauncherRecord } from './paths.js';
@@ -19,7 +19,7 @@ import { writeLnk } from './windows.js';
 const ASSETS = ['launch.mjs', 'starting.html', 'Scenri.icns', 'scenri.ico'] as const;
 
 export async function refreshLauncher(
-  deps: InstallDeps & { ownEntry: string; installKind: InstallKind; pkg: string },
+  deps: InstallDeps & { ownEntry: string; installKind: InstallKind; pkg: string; verifyImpl?: VerifyImpl },
 ): Promise<{ adopted?: true; refreshed?: true }> {
   if (deps.env.SCENRI_NO_DESKTOP === '1') return {};
   const record = readLauncherRecord(deps.homedir);
@@ -29,12 +29,13 @@ export async function refreshLauncher(
   if (deps.installKind === 'npx' || deps.installKind === 'global') {
     const newest = newestStaged(deps.home, deps.pkg);
     if (!newest || compareSemver(deps.version, newest) > 0) {
-      const r = adoptRunningInstall({
+      const r = await adoptRunningInstall({
         home: deps.home,
         pkg: deps.pkg,
         version: deps.version,
         ownEntry: deps.ownEntry,
         installKind: deps.installKind,
+        verifyImpl: deps.verifyImpl,
       });
       if (r.adopted) out.adopted = true;
     }

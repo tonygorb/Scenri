@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode, useRef } from 'react';
-import { api, type VersionInfo } from '../../api.js';
+import { api, type DesktopStatus, type VersionInfo } from '../../api.js';
+import { Confirm } from '../../Confirm.js';
+import { desktopRow } from '../../app/desktopRules.js';
 import { useUpdateCenter } from '../../app/UpdateCenter.js';
 import { useWhatsNew } from '../../app/WhatsNew.js';
 import { canOneClick } from '../../app/updateRules.js';
@@ -32,6 +34,16 @@ export function About({ version }: { version: VersionInfo | null }) {
   const s = updates.status;
   const [autoCheck, setAutoCheck] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
+  const [desktop, setDesktop] = useState<DesktopStatus | null>(null);
+  const [desktopError, setDesktopError] = useState<string | null>(null);
+  const [desktopBusy, setDesktopBusy] = useState(false);
+  const [added, setAdded] = useState(false);
+  useEffect(() => {
+    void api
+      .desktop()
+      .then(setDesktop)
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     void api
       .settings()
@@ -58,6 +70,30 @@ export function About({ version }: { version: VersionInfo | null }) {
     [],
   );
   const command = updateCommand(version?.installKind);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (addedTimer.current) clearTimeout(addedTimer.current);
+    },
+    [],
+  );
+  const addToDesktop = async () => {
+    if (desktopBusy) return;
+    setDesktopBusy(true);
+    setDesktopError(null);
+    try {
+      await api.desktopInstall();
+      setAdded(true);
+      if (addedTimer.current) clearTimeout(addedTimer.current);
+      addedTimer.current = setTimeout(() => setAdded(false), 1600);
+      setDesktop(await api.desktop());
+    } catch (err) {
+      setDesktopError(String((err as Error)?.message ?? err));
+    } finally {
+      setDesktopBusy(false);
+    }
+  };
+  const shortcut = desktopRow(desktop, desktopError);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(command);
@@ -207,6 +243,53 @@ export function About({ version }: { version: VersionInfo | null }) {
         >
           {autoCheck === null ? '…' : autoCheck ? 'Turn off' : 'Turn on'}
         </button>
+      </div>
+      {/* The same rule as Updates: one sentence, at most one button. An
+          earlier Not now at the terminal never hides Add: it silenced the
+          question, not the offer. */}
+      <div className="sc-set-row" data-desktop="">
+        <span className="txt">
+          <b>Desktop shortcut</b>
+          <small data-prose="">{shortcut.body}</small>
+        </span>
+        {shortcut.action && (
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost"
+            disabled={desktopBusy}
+            onClick={() => void addToDesktop()}
+          >
+            {added
+              ? 'Added'
+              : desktopBusy
+                ? 'Adding…'
+                : shortcut.action === 'add'
+                  ? 'Add to desktop'
+                  : shortcut.action === 'recreate'
+                    ? 'Recreate'
+                    : 'Try again'}
+          </button>
+        )}
+      </div>
+      {/* A Scenri started from the desktop icon has no terminal to close; this
+          is how it stops. Behind a confirm because it ends the session for
+          every tab, and refused by the server over live work. */}
+      <div className="sc-set-row" data-quit="">
+        <span className="txt">
+          <b>Quit</b>
+          <small data-prose="">
+            {updates.applyError && updates.busy === 'idle'
+              ? updates.applyError
+              : 'Stops Scenri on this machine. Open it again from your desktop, or with npx scenri.'}
+          </small>
+        </span>
+        <Confirm
+          label="Quit Scenri"
+          title="Quit Scenri?"
+          body="Scenri stops on this machine and every open tab loses the studio until you start it again."
+          busy={updates.busy !== 'idle'}
+          onConfirm={() => void updates.quit()}
+        />
       </div>
       <div className="sc-set-row">
         <span className="txt">

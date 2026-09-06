@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowCircleUp, Gift } from '@phosphor-icons/react';
+import { ArrowCircleUp, Gift, Power } from '@phosphor-icons/react';
 import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
 import { P } from '../routes.js';
@@ -57,7 +57,9 @@ interface UpdateCenterValue {
   dismiss(): void;
   /** The one click: download + verify, then restart into the new version. */
   apply(): Promise<void>;
-  busy: 'idle' | 'applying' | 'restarting';
+  /** Settings > About's Quit: drain and stop; the overlay says how to come back. */
+  quit(): Promise<void>;
+  busy: 'idle' | 'applying' | 'restarting' | 'stopped';
   applyError: string | null;
 }
 
@@ -130,7 +132,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
 
   const dismissed = status?.latest != null && status.latest === dismissedVersion;
 
-  const [busy, setBusy] = useState<'idle' | 'applying' | 'restarting'>('idle');
+  const [busy, setBusy] = useState<'idle' | 'applying' | 'restarting' | 'stopped'>('idle');
   const [applyError, setApplyError] = useState<string | null>(null);
 
   const restart = useCallback(async (oldVersion: string | undefined) => {
@@ -166,6 +168,22 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
     setBusy('idle');
     setApplyError('The restart did not complete. Check the terminal Scenri runs in.');
   }, []);
+
+  const quit = useCallback(async () => {
+    if (busy !== 'idle') return;
+    setApplyError(null);
+    try {
+      await api.quit();
+    } catch (err) {
+      if (typeof (err as { status?: number }).status === 'number') {
+        // alive and refusing (work still running): an answer, not a stop
+        setApplyError(String((err as Error)?.message ?? err));
+        return;
+      }
+      /* the socket died mid-reply: that is the stop */
+    }
+    setBusy('stopped');
+  }, [busy]);
 
   const apply = useCallback(async () => {
     if (busy !== 'idle') return;
@@ -243,10 +261,11 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   const onSetup = pathname === P.setup;
 
   return (
-    <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, busy, applyError }}>
+    <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, quit, busy, applyError }}>
       {children}
-      {busy !== 'restarting' && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
+      {busy !== 'restarting' && busy !== 'stopped' && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
+      {busy === 'stopped' && <StoppedOverlay />}
     </Ctx.Provider>
   );
 }
@@ -264,6 +283,23 @@ function RestartOverlay({ version }: { version: string | null }) {
         <ArrowCircleUp size={22} />
         <b>{version ? `Updating to Scenri ${version}` : 'Updating Scenri'}</b>
         <small>Restarting. This page reconnects by itself.</small>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * After Quit. The server answered and went away on purpose; nothing here
+ * reconnects, because nothing is coming back until the person starts Scenri
+ * again. The two ways to do that are the whole message.
+ */
+function StoppedOverlay() {
+  return (
+    <div className="sc-upd-overlay sc-upd-stopped" role="status" aria-live="polite">
+      <div className="sc-upd-overlay-card">
+        <Power size={22} />
+        <b>Scenri has stopped</b>
+        <small>Double-click Scenri on your desktop, or run npx scenri in a terminal, to start it again.</small>
       </div>
     </div>
   );

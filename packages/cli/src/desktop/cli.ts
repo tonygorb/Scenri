@@ -7,10 +7,10 @@ import { execFile, spawn } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { detectInstallKind } from '../installKind.js';
+import { type InstallKind, detectInstallKind } from '../installKind.js';
 import { readMeta } from '../meta.js';
-import { compareSemver, defaultHome, entryOf, listStaged } from '../update/versionsDir.js';
-import { adoptRunningInstall } from './adopt.js';
+import { compareSemver, defaultHome, entryOf, listStaged, newestStaged } from '../update/versionsDir.js';
+import { adoptRunningInstall, type VerifyImpl } from './adopt.js';
 import { openInBrowser } from './browser.js';
 import { showDialog } from './dialog.js';
 import { type InstallDeps, type InstallResult, installDesktop, removeDesktop } from './install.js';
@@ -65,24 +65,34 @@ export async function runDesktopCommand(opts: { remove: boolean }, ownEntry: str
 export async function addToDesktop(
   ownEntry: string,
   say: (line: string) => void = console.log,
+  over: Partial<InstallDeps & { installKind: InstallKind; pkg: string; verifyImpl: VerifyImpl }> = {},
 ): Promise<InstallResult> {
-  const deps = installDeps(ownEntry);
-  const meta = readMeta();
-  const installKind = detectInstallKind(ownEntry, deps.home);
+  const deps: InstallDeps = { ...installDeps(ownEntry), ...over };
+  const pkg = over.pkg ?? readMeta().name;
+  const installKind = over.installKind ?? detectInstallKind(ownEntry, deps.home);
   if (installKind === 'dev') {
     const message = 'Running from a source checkout; there is no installed build to put on a desktop.';
     say(`  ${message}`);
     return { ok: false, reason: 'unsupported', message };
   }
-  const adopted = adoptRunningInstall({
+  const adopted = await adoptRunningInstall({
     home: deps.home,
-    pkg: meta.name,
-    version: meta.version,
+    pkg,
+    version: deps.version,
     ownEntry,
     installKind,
+    verifyImpl: over.verifyImpl,
   });
   if (adopted.adopted) {
-    say(`  keeping a copy of Scenri ${meta.version} in ${join(deps.home, 'app')} so the icon works offline`);
+    say(`  keeping a copy of Scenri ${deps.version} in ${join(deps.home, 'app')} so the icon works offline`);
+  }
+  // An icon with nothing runnable behind it would say "app files are missing"
+  // on its first click. Better no icon and one sentence now.
+  if (!newestStaged(deps.home, pkg)) {
+    const message =
+      'Scenri could not keep a runnable copy of this build for the icon. Run npx scenri once in a terminal, then try again.';
+    say(`  ${message}`);
+    return { ok: false, reason: 'failed', message };
   }
   const res = await installDesktop(deps);
   if (res.ok) {

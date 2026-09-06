@@ -29,7 +29,16 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
-function deps(over: Partial<InstallDeps & { ownEntry: string; installKind: 'npx' | 'managed'; pkg: string }> = {}) {
+function deps(
+  over: Partial<
+    InstallDeps & {
+      ownEntry: string;
+      installKind: 'npx' | 'managed';
+      pkg: string;
+      verifyImpl: (entry: string) => Promise<boolean>;
+    }
+  > = {},
+) {
   const calls: { env: Record<string, string | undefined> }[] = [];
   return {
     platform: 'darwin' as NodeJS.Platform,
@@ -146,7 +155,11 @@ describe('refreshLauncher', () => {
     mkdirSync(join(nm, 'fastify'), { recursive: true });
     writeFileSync(join(nm, 'scenri', 'package.json'), JSON.stringify({ name: 'scenri', version: '0.8.4' }));
     writeFileSync(join(nm, 'scenri', 'dist', 'index.js'), '');
-    const d = deps({ installKind: 'npx', ownEntry: join(nm, 'scenri', 'dist', 'index.js') });
+    const d = deps({
+      installKind: 'npx',
+      ownEntry: join(nm, 'scenri', 'dist', 'index.js'),
+      verifyImpl: async () => true,
+    });
     await installDesktop(d);
     rmSync(join(d.home, 'app'), { recursive: true, force: true });
     expect(await refreshLauncher(d)).toEqual({ adopted: true });
