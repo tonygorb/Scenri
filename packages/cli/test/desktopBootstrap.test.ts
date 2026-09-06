@@ -30,7 +30,14 @@ beforeEach(() => {
   copyFileSync(BOOTSTRAP, join(launcher, 'launch.mjs'));
   writeFileSync(
     join(launcher, 'launcher.json'),
-    JSON.stringify({ schema: 1, createdBy: '0.8.4', home, nodePath: process.execPath, env: { SCENRI_PORT: '4801' }, artifact: { kind: 'macos-app', path: '/nowhere' } }),
+    JSON.stringify({
+      schema: 1,
+      createdBy: '0.8.4',
+      home,
+      nodePath: process.execPath,
+      env: { SCENRI_PORT: '4801' },
+      artifact: { kind: 'macos-app', path: '/nowhere' },
+    }),
   );
 });
 afterEach(() => {

@@ -78,7 +78,12 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
   writeSupportFiles(deps, support);
   try {
     if (darwin) {
-      writeMacBundle({ path: artifact, icns: join(support, 'Scenri.icns'), version: deps.version, schema: LAUNCHER_SCHEMA });
+      writeMacBundle({
+        path: artifact,
+        icns: join(support, 'Scenri.icns'),
+        version: deps.version,
+        schema: LAUNCHER_SCHEMA,
+      });
     } else {
       await writeLnk(deps.runImpl, {
         path: artifact,
@@ -90,7 +95,8 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
     }
   } catch (err) {
     const code = (err as { code?: string }).code;
-    if (darwin && (code === 'EPERM' || code === 'EACCES')) return { ok: false, reason: 'desktop-denied', message: DENIED };
+    if (darwin && (code === 'EPERM' || code === 'EACCES'))
+      return { ok: false, reason: 'desktop-denied', message: DENIED };
     const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
     return { ok: false, reason: 'failed', message: `Scenri could not write ${artifact} (${detail}).` };
   }
@@ -107,15 +113,16 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
 }
 
 /** The support files are ours alone, so they are always rewritten in full. */
-export function writeSupportFiles(deps: Pick<InstallDeps, 'assetsDir' | 'execPath' | 'platform'>, support: string): void {
+export function writeSupportFiles(
+  deps: Pick<InstallDeps, 'assetsDir' | 'execPath' | 'platform'>,
+  support: string,
+): void {
   mkdirSync(support, { recursive: true });
   for (const f of SUPPORT_FILES) copyFileSync(join(deps.assetsDir, f), join(support, f));
   if (deps.platform === 'darwin') writeFileSync(join(support, 'node-path'), `${deps.execPath}\n`);
 }
 
-export async function removeDesktop(
-  deps: InstallDeps,
-): Promise<{ removed: boolean; path?: string; message?: string }> {
+export async function removeDesktop(deps: InstallDeps): Promise<{ removed: boolean; path?: string; message?: string }> {
   const record = readLauncherRecord(deps.homedir);
   const support = launcherDir(deps.homedir);
   let removed = false;

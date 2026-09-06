@@ -91,14 +91,20 @@ export async function desktopDir(deps: {
   if (deps.env.SCENRI_DESKTOP_DIR) return deps.env.SCENRI_DESKTOP_DIR;
   if (deps.platform === 'darwin') return join(deps.homedir, 'Desktop');
   if (deps.platform === 'win32') {
-    const out = await deps.runImpl('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', KNOWN_FOLDER_DESKTOP]);
+    const out = await deps.runImpl('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      KNOWN_FOLDER_DESKTOP,
+    ]);
     const dir = out.trim();
     return dir || null;
   }
   return null;
 }
 
-export const isSupportedPlatform = (platform: NodeJS.Platform): boolean => platform === 'darwin' || platform === 'win32';
+export const isSupportedPlatform = (platform: NodeJS.Platform): boolean =>
+  platform === 'darwin' || platform === 'win32';
 
 /** True once the launcher dir holds a record; the artifact is checked separately. */
 export const launcherInstalled = (homedir: string): boolean => existsSync(launcherRecordPath(homedir));

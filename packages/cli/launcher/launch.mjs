@@ -106,13 +106,27 @@ function dialog(message) {
     if (process.platform === 'darwin') {
       spawnSync(
         '/usr/bin/osascript',
-        ['-e', 'on run argv', '-e', 'display dialog (item 1 of argv) with title "Scenri" buttons {"OK"} default button 1 with icon stop', '-e', 'end run', '--', message],
+        [
+          '-e',
+          'on run argv',
+          '-e',
+          'display dialog (item 1 of argv) with title "Scenri" buttons {"OK"} default button 1 with icon stop',
+          '-e',
+          'end run',
+          '--',
+          message,
+        ],
         { stdio: 'ignore' },
       );
     } else if (process.platform === 'win32') {
       spawnSync(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-Command', "Add-Type -AssemblyName System.Windows.Forms | Out-Null; [System.Windows.Forms.MessageBox]::Show($env:SCENRI_MESSAGE, 'Scenri') | Out-Null"],
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          "Add-Type -AssemblyName System.Windows.Forms | Out-Null; [System.Windows.Forms.MessageBox]::Show($env:SCENRI_MESSAGE, 'Scenri') | Out-Null",
+        ],
         { stdio: 'ignore', windowsHide: true, env: { ...process.env, SCENRI_MESSAGE: message } },
       );
     }

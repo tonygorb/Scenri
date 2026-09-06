@@ -177,7 +177,8 @@ describe('scenri open', () => {
   it('passes a newer-library refusal through in its own words', async () => {
     const { deps, state } = harness({
       childExit: { code: 1, afterMs: 300 },
-      logTail: 'This library was written by a newer Scenri (schema 3; this build understands 2). Update and retry: npx scenri@latest',
+      logTail:
+        'This library was written by a newer Scenri (schema 3; this build understands 2). Update and retry: npx scenri@latest',
     });
     expect(await openScenri(deps)).toBe(1);
     expect(state.dialogs[0]).toContain('written by a newer Scenri');
@@ -243,7 +244,7 @@ describe('scenri open', () => {
     }) as OpenDeps['probe'];
     await openScenri(deps);
     expect(seen).not.toBeNull();
-    expect(JSON.parse(seen as string).pid).toBe(process.pid);
+    expect(JSON.parse(String(seen)).pid).toBe(process.pid);
     expect(existsSync(deps.lockPath)).toBe(false);
   });
 });

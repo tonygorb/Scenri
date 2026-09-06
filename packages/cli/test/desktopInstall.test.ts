@@ -129,7 +129,8 @@ describe('installDesktop on Windows', () => {
     const d = deps('win32', {
       runImpl: async (cmd, args, opts) => {
         d.calls.push({ cmd, args, env: (opts?.env ?? {}) as Record<string, string> });
-        if (args.join(' ').includes('CreateShortcut') && opts?.env?.SCENRI_TARGET) writeFileSync(opts.env.SCENRI_LNK as string, 'lnk');
+        if (args.join(' ').includes('CreateShortcut') && opts?.env?.SCENRI_TARGET)
+          writeFileSync(opts.env.SCENRI_LNK as string, 'lnk');
         return '';
       },
     });
@@ -163,7 +164,8 @@ describe('installDesktop on Windows', () => {
     const d = deps('win32', {
       runImpl: async (cmd, args, opts) => {
         d.calls.push({ cmd, args, env: (opts?.env ?? {}) as Record<string, string> });
-        if (args.join(' ').includes('CreateShortcut') && !opts?.env?.SCENRI_TARGET) return 'C:\\Games\\scenri.exe\n--fullscreen\n';
+        if (args.join(' ').includes('CreateShortcut') && !opts?.env?.SCENRI_TARGET)
+          return 'C:\\Games\\scenri.exe\n--fullscreen\n';
         return '';
       },
     });

@@ -37,6 +37,16 @@ try {
       process.exit(await runUpdateCommand(command));
       break;
     }
+    case 'desktop': {
+      const { runDesktopCommand } = await import('./desktop/cli.js');
+      process.exit(await runDesktopCommand(command, fileURLToPath(import.meta.url)));
+      break;
+    }
+    case 'open': {
+      const { runOpenCommand } = await import('./desktop/cli.js');
+      process.exit(await runOpenCommand(fileURLToPath(import.meta.url)));
+      break;
+    }
     case 'launch': {
       // The module's own path, not process.argv[1]: the loader realpaths it,
       // argv keeps the bin symlink, and the symlink path has no dist/ segment.

@@ -96,9 +96,9 @@ describe('desktopDir', () => {
   });
 
   it('lets SCENRI_DESKTOP_DIR override the lookup, for tests and odd setups', async () => {
-    expect(await desktopDir({ platform: 'win32', env: { SCENRI_DESKTOP_DIR: '/tmp/d' }, homedir: '/h', runImpl: never })).toBe(
-      '/tmp/d',
-    );
+    expect(
+      await desktopDir({ platform: 'win32', env: { SCENRI_DESKTOP_DIR: '/tmp/d' }, homedir: '/h', runImpl: never }),
+    ).toBe('/tmp/d');
   });
 
   it('is null on an unsupported platform', async () => {

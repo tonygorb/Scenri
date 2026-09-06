@@ -58,7 +58,8 @@ describe('the published package surface', () => {
   it('ships the desktop launcher assets', () => {
     expect(pkg.files).toContain('launcher');
     const files = packedFiles();
-    for (const f of ['launcher/launch.mjs', 'launcher/starting.html', 'launcher/Scenri.icns', 'launcher/scenri.ico']) expect(files).toContain(f);
+    for (const f of ['launcher/launch.mjs', 'launcher/starting.html', 'launcher/Scenri.icns', 'launcher/scenri.ico'])
+      expect(files).toContain(f);
   }, 30_000);
 
   // dist inlines @scenri/brand (Apache-2.0), so its license text must travel
