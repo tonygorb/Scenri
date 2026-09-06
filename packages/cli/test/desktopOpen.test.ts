@@ -172,6 +172,8 @@ describe('scenri open', () => {
     expect(state.dialogs).toHaveLength(1);
     expect(state.dialogs[0]).toContain('Port 4747 is in use by another app');
     expect(state.dialogs[0]).toContain('SCENRI_PORT=4748 npx scenri');
+    // support reads the log, not the screen: the sentence shown is the sentence logged
+    expect(state.logs.some((l) => l.includes('dialog: Port 4747 is in use by another app'))).toBe(true);
   });
 
   it('passes a newer-library refusal through in its own words', async () => {

@@ -117,10 +117,9 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
       }
       if (exit) break;
       if (deps.now() >= deadline) {
-        deps.log('open: gave up waiting for the server');
-        await deps.showDialog(
-          'Scenri is taking too long to start. Open Terminal and run npx scenri to see what it is doing.',
-        );
+        const message = 'Scenri is taking too long to start. Open Terminal and run npx scenri to see what it is doing.';
+        deps.log(`open: dialog: ${message}`);
+        await deps.showDialog(message);
         return 1;
       }
       await deps.sleep(deps.pollMs ?? 250);
@@ -143,7 +142,9 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
       });
       return await new Promise<number>((resolve) => fallback.on('exit', (code) => resolve(code ?? 1)));
     }
-    await deps.showDialog(explain(deps.readLogTail(), port));
+    const message = explain(deps.readLogTail(), port);
+    deps.log(`open: dialog: ${message}`);
+    await deps.showDialog(message);
     return 1;
   } finally {
     releaseLock(deps.lockPath);
