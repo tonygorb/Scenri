@@ -261,7 +261,7 @@ export const Composer = forwardRef<
       : {
           icon: <Lightning size={15} />,
           title: 'No image provider connected',
-          detail: 'Add a provider key and this brief is ready to run.',
+          detail: 'Add a provider key and this prompt is ready to run.',
           action: 'Open settings' as const,
           onAct: () => openSettings('engines'),
           info: false,
@@ -817,9 +817,9 @@ export const Composer = forwardRef<
           : targetPending
             ? 'Wait for this version to finish, or press X to start a new shot'
             : cropWithWords
-              ? 'This shape is reached by cropping, and a crop uses no words. Clear the brief, or keep the current shape.'
+              ? 'This shape is reached by cropping, and a crop uses no words. Clear the prompt, or keep the current shape.'
               : !hasContent && !aspectOnly
-                ? 'Write a brief first'
+                ? 'Write a prompt first'
                 : null;
 
   /**

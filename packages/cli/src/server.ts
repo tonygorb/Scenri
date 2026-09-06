@@ -1386,7 +1386,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         // An explicit extension needs no prose: the instruction is the
         // expansion's own, and the user's words are only an optional direction.
         if (!compiled.prompt.trim() && reshape !== 'extend')
-          return reply.status(400).send({ error: 'the brief is empty' });
+          return reply.status(400).send({ error: 'the prompt is empty' });
       } else {
         /*
          * The last link in the chain, and it must be last: it reads the roster
@@ -1427,7 +1427,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
           templateById: sceneById,
         });
-        if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
+        if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the prompt is empty' });
       }
     }
 
@@ -1477,7 +1477,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       });
       if (productId && !compiled.attachments.some((a) => a.role === 'product'))
         return reply.status(400).send({ error: 'product has no usable shots' });
-      if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
+      if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the prompt is empty' });
     }
 
     let estimate: number;

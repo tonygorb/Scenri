@@ -63,7 +63,8 @@
 /* A finger needs 44px; the bar's chips are 32. The reach is an invisible box
    centred on the control, the same rule the topbar uses, so nothing grows. */
 @media (pointer: coarse) {
-  .sc-ovl-bar .sc-icon-btn::after {
+  .sc-ovl-bar .sc-icon-btn::after,
+  .sc-ovl-copy::after {
     content: "";
     position: absolute;
     top: 50%;
@@ -571,24 +572,14 @@
 .sc-ovl-brief {
   position: relative;
 }
+/* The brief's copy is the header's icon button, placed: level with the
+   BRIEF eyebrow at the section's right edge. Always visible; it used to
+   appear on hover only, with a native title, which read as a different
+   control from the verbs over the picture. */
 .sc-ovl-copy {
   position: absolute;
-  top: var(--sc-space-7);
+  top: calc(var(--sc-space-7) - 7px);
   right: 0;
-  background: none;
-  border: none;
-  padding: var(--sc-space-1);
-  color: var(--sc-fg3);
-  opacity: 0;
-  cursor: pointer;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
-}
-.sc-ovl-brief:hover .sc-ovl-copy,
-.sc-ovl-copy:focus-visible {
-  opacity: 1;
-}
-.sc-ovl-copy:hover {
-  color: var(--sc-fg);
 }
 /* The panel's one working surface, pinned to its bottom edge: content scrolls
    beneath it, and when there is little content margin-top:auto keeps it at the

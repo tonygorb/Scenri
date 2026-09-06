@@ -245,6 +245,20 @@ test('copy says Copied on the control itself', async ({ page, context }) => {
     return items[0]?.types.join(',');
   });
   expect(kind).toContain('image/png');
+
+  // the brief's copy is the same control: named on hover, Copied on the
+  // control, no native title, and the sentence lands in the clipboard
+  const briefCopy = page.locator('.sc-ovl-brief .sc-ovl-copy');
+  // the picture's own "Copied" is still held open from the click above, and a
+  // held tooltip is the one tooltip on screen until it lets go
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await briefCopy.hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Copy the prompt');
+  await briefCopy.click();
+  await expect(page.getByRole('tooltip')).toHaveText('Copied');
+  await expect(page.locator('.sc-toast')).toHaveCount(0);
+  expect(await page.locator('.sc-ovl-brief button[title]').count()).toBe(0);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('review battery');
 });
 
 test('archive closes the shot with an undo, and restore keeps it open', async ({ page }) => {

@@ -300,7 +300,7 @@ export function AttachPanel({
       className="sc-attachpanel"
       role="dialog"
       id={id}
-      aria-label="Attach to brief"
+      aria-label="Attach to prompt"
       onMouseDownCapture={keepCaret}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {

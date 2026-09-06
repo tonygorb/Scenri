@@ -13,13 +13,13 @@ import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
   Archive,
   ArrowCounterClockwise,
-  ArrowsClockwise,
   CaretLeft,
   CaretRight,
   Check,
   CopySimple,
   DotsThree,
   DownloadSimple,
+  PencilSimple,
   Star,
   TrashSimple,
   X,
@@ -161,9 +161,13 @@ export function DetailOverlay({
   const [copied, setCopied] = useState(false);
   /** An archive or a restore in flight. */
   const [archiving, setArchiving] = useState(false);
+  /** The brief's own copy: in flight, and the moment after it landed. Same control, same feedback as the picture's. */
+  const [briefCopying, setBriefCopying] = useState(false);
+  const [briefCopied, setBriefCopied] = useState(false);
   // The picture on the stage changed under every one of these.
   useEffect(() => {
     setCopied(false);
+    setBriefCopied(false);
     setArchiving(false);
   }, [node.id]);
   useEffect(() => {
@@ -171,6 +175,11 @@ export function DetailOverlay({
     const t = setTimeout(() => setCopied(false), 1400);
     return () => clearTimeout(t);
   }, [copied]);
+  useEffect(() => {
+    if (!briefCopied) return;
+    const t = setTimeout(() => setBriefCopied(false), 1400);
+    return () => clearTimeout(t);
+  }, [briefCopied]);
   /** Long briefs clamp at five lines; the toggle appears only when the clamp
    *  actually bites, so short briefs never grow a dangling "more". */
   const briefRef = useRef<HTMLDivElement>(null);
@@ -341,13 +350,14 @@ export function DetailOverlay({
   };
 
   /**
-   * Copy the brief in the composer's own clipboard grammar: the HTML flavour
-   * pastes back into any brief line as real chips, the plain flavour pastes
-   * everywhere else as the sentence you read. The chips are the setup's
-   * canonical tokens (own plus carried, deduped) — the same set Reuse setup
-   * rebuilds from.
+   * Copy the prompt in the composer's own clipboard grammar: the HTML flavour
+   * pastes back into any prompt line as real chips, the plain flavour pastes
+   * everywhere else as the sentence you read. The chips are the record's
+   * canonical tokens, the same set Edit the prompt rebuilds from.
    */
   const copyBrief = async () => {
+    if (briefCopying) return;
+    setBriefCopying(true);
     try {
       const tokens = node.brief ? briefTokens(node.brief as Parameters<typeof briefTokens>[0]) : null;
       if (!tokens || tokens.every((t) => t.t === 'text' && !t.v.trim())) {
@@ -379,9 +389,12 @@ export function DetailOverlay({
           }),
         ]);
       }
-      push({ kind: 'success', title: 'Brief copied' });
+      // the control itself says so, the way the picture's copy does
+      setBriefCopied(true);
     } catch (e: any) {
       push(failureToast(e, 'Copy failed'));
+    } finally {
+      setBriefCopying(false);
     }
   };
 
@@ -487,6 +500,8 @@ export function DetailOverlay({
   ];
 
   const hasImage = node.status === 'done' && node.images.length > 0;
+
+  const canEditPrompt = !hasImage && node.kind !== 'edit' && !!node.brief;
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
   /** The same verbs on a right click over the picture, the ones the header carries. */
   const stageMenu = hasImage ? (
@@ -791,7 +806,7 @@ export function DetailOverlay({
               at five lines; "more" appears only when the clamp bites. */}
           {node.kind !== 'root' && (said || hasContext) && (
             <div className="sc-ovl-sec sc-ovl-brief">
-              <span className="sc-eyebrow">Brief</span>
+              <span className="sc-eyebrow">Prompt</span>
               <div className="sc-brief-record">
                 <BriefLine
                   brief={node.brief}
@@ -811,34 +826,45 @@ export function DetailOverlay({
                   {briefOpen ? 'less' : 'more'}
                 </button>
               )}
-              <button
-                type="button"
-                className="sc-ovl-copy"
-                title="Copy the brief"
-                aria-label="Copy the brief"
-                onClick={() => void copyBrief()}
-              >
-                <CopySimple size={13} />
-              </button>
+              {/* The same control as the verbs over the picture: a tooltip
+                  that names it, a busy step, and "Copied" said on the control
+                  rather than in a toast. Always there, in the section's corner. */}
+              <Tip label={briefCopied ? 'Copied' : 'Copy the prompt'} open={briefCopied || undefined}>
+                <button
+                  type="button"
+                  className="sc-icon-btn sc-ovl-copy"
+                  aria-label="Copy the prompt"
+                  aria-busy={briefCopying || undefined}
+                  data-busy={briefCopying ? '' : undefined}
+                  onClick={() => void copyBrief()}
+                >
+                  {briefCopied ? <Check size={14} weight="bold" /> : <CopySimple size={14} />}
+                </button>
+              </Tip>
             </div>
           )}
 
-          {/* Reuse setup is offered on a failure too — changing the setup is
-              exactly what a declined brief or an unmakeable shape needs, and it
-              was the one route out that a failed shot had no way to reach.
-              Try again is not: the stage panel already carries it, and it knows
-              which failures re-running cannot fix. Archive and delete live
-              once, in the bar over the shot. */}
-          {(hasImage || node.brief) && (
+          {/* A shot with a picture is changed in the refine field under it,
+              run again with Try again, and its prompt travels by Copy, chips
+              and all, so nothing else is offered here. A shot that failed has
+              no picture to refine: Edit the prompt puts its prompt back in the
+              composer, which is exactly what a declined prompt or an unmakeable
+              shape needs, and was the one route out a failed shot had no way to
+              reach. A failed refinement gets no such verb: its ask was about a
+              picture, and that picture is one step back on the trail with the
+              refine field under it. Try again on a failure lives on the stage,
+              which knows which failures re-running cannot fix. Archive and
+              delete live once, in the bar over the shot. */}
+          {(hasImage || canEditPrompt) && (
             <div className="sc-sugg">
-              {node.brief && (
+              {canEditPrompt && (
                 <button
                   type="button"
                   className="sc-s"
                   onClick={() => onRemix(node)}
-                  title="Put this shot's setup back in the brief, to change and run again"
+                  title="Put this prompt back in the composer, to change and run again"
                 >
-                  <ArrowsClockwise size={12} /> Reuse setup
+                  <PencilSimple size={12} /> Edit the prompt
                 </button>
               )}
               {hasImage && (
