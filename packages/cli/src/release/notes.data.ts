@@ -51,6 +51,28 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.8.3',
+    date: '2026-09-06',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'The + beside the prompt is a picker for adding to the shot: products, presenters, scenes, brand colours, your logo and finished shots in one grid, with search, Upload image and paste. A tile pressed again takes its chip out, and every tab can make a new one of its own.',
+      },
+      {
+        heading: 'Shots',
+        body: 'An open shot has the rest of the feed beside it as a rail, and its own history under the picture as a trail of tiles, the original and each refinement. A right click on the picture holds its actions, Download is one click, and Compare is gone.',
+      },
+      {
+        heading: 'Refine',
+        body: 'Refining is the ask alone. The field names the picture it is about and follows the stage as you step, and a refinement is recorded as what you asked, not the references that rode along.',
+      },
+      {
+        heading: 'Scenes',
+        body: 'A scene with nobody attached renders its set alone. No stand-in person appears.',
+      },
+    ],
+  },
+  {
     version: '0.8.2',
     date: '2026-09-03',
     sections: [
