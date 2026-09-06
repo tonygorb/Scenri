@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowCircleUp, Gift, Power } from '@phosphor-icons/react';
+import { ArrowCircleUp, Gift } from '@phosphor-icons/react';
 import { useLocation } from 'react-router';
 import { api, type UpdateStatus } from '../api.js';
 import { P } from '../routes.js';
@@ -58,9 +58,9 @@ interface UpdateCenterValue {
   dismiss(): void;
   /** The one click: download + verify, then restart into the new version. */
   apply(): Promise<void>;
-  /** The brand menu's Shut down: drain and stop; the overlay says how to come back. Resolves to the server's refusal, or null. */
+  /** The brand menu's Shut down: drain and stop, then this tab goes away. Resolves to the server's refusal, or null. */
   quit(): Promise<string | null>;
-  busy: 'idle' | 'applying' | 'restarting' | 'stopped';
+  busy: 'idle' | 'applying' | 'restarting';
   applyError: string | null;
 }
 
@@ -133,7 +133,7 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
 
   const dismissed = status?.latest != null && status.latest === dismissedVersion;
 
-  const [busy, setBusy] = useState<'idle' | 'applying' | 'restarting' | 'stopped'>('idle');
+  const [busy, setBusy] = useState<'idle' | 'applying' | 'restarting'>('idle');
   const [applyError, setApplyError] = useState<string | null>(null);
 
   const restart = useCallback(async (oldVersion: string | undefined) => {
@@ -181,7 +181,14 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
       }
       /* the socket died mid-reply: that is the stop */
     }
-    setBusy('stopped');
+    // Nothing to show once the server is gone: the tab goes with it. A page
+    // may close itself only when the browser allows (Chrome: a tab with no
+    // history of its own, which the desktop icon's tab is); otherwise it is
+    // emptied, which reads the same: nothing of Scenri left on screen.
+    window.close();
+    setTimeout(() => {
+      if (!window.closed) location.replace('about:blank');
+    }, 300);
     return null;
   }, [busy]);
 
@@ -263,9 +270,8 @@ export function UpdateCenterProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ status, checking, checkNow, checkError, dismissed, dismiss, apply, quit, busy, applyError }}>
       {children}
-      {busy !== 'restarting' && busy !== 'stopped' && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
+      {busy !== 'restarting' && floatVisible(status) && !dismissed && !onSetup && <UpdateFloat />}
       {busy === 'restarting' && <RestartOverlay version={status?.stagedVersion ?? status?.latest ?? null} />}
-      {busy === 'stopped' && <StoppedOverlay />}
     </Ctx.Provider>
   );
 }
@@ -298,21 +304,6 @@ function LifecycleOverlay({ children, className }: { children: ReactNode; classN
       <div className="sc-upd-overlay-card">{children}</div>
     </div>,
     document.body,
-  );
-}
-
-/**
- * After Shut down. The server answered and went away on purpose; nothing here
- * reconnects, because nothing is coming back until the person starts Scenri
- * again. The two ways to do that are the whole message.
- */
-function StoppedOverlay() {
-  return (
-    <LifecycleOverlay className="sc-upd-stopped">
-      <Power size={22} />
-      <b>Scenri has shut down</b>
-      <small>Double-click Scenri on your desktop, or run npx scenri in a terminal, to start it again.</small>
-    </LifecycleOverlay>
   );
 }
 

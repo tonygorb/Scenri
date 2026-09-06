@@ -60,7 +60,7 @@ test.describe
       await expect(row.locator('button')).toHaveCount(0);
     });
 
-    test('Shut down lives at the bottom of the brand menu, behind a confirm, and stops the server', async ({
+    test('Shut down lives at the bottom of the brand menu, behind a confirm, stops the server and closes the tab', async ({
       page,
       baseURL,
     }) => {
@@ -77,16 +77,9 @@ test.describe
       const dialog = page.getByRole('alertdialog');
       await expect(dialog).toBeVisible();
       await dialog.locator('button', { hasText: 'Shut down Scenri' }).click();
-      const overlay = page.locator('.sc-upd-stopped');
-      await expect(overlay).toBeVisible();
-      await expect(overlay).toContainText('Scenri has shut down');
-      await expect
-        .poll(() =>
-          page.evaluate(() =>
-            Boolean(document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest('.sc-upd-stopped')),
-          ),
-        )
-        .toBe(true);
+      // the tab goes away when the browser allows a page to close itself, and
+      // is emptied to a blank page otherwise; either way nothing of Scenri is left
+      await Promise.race([page.waitForEvent('close'), page.waitForURL('about:blank', { timeout: 10_000 })]);
       await expect
         .poll(
           async () => {
