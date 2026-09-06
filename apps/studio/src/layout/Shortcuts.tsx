@@ -13,7 +13,7 @@ const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Presenter menu', keys: ['@'] },
   { label: 'Colour menu', keys: ['#'] },
   { label: 'Previous or next shot', keys: ['←', '→'] },
-  { label: 'Previous or next version', keys: ['↑', '↓'] },
+  { label: 'Previous or next in the history', keys: ['↑', '↓'] },
   { label: 'Refine this shot', keys: ['b'] },
   { label: 'Keep or unkeep', keys: ['k'] },
   { label: 'Open the shot', keys: ['enter'] },

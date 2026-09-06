@@ -18,6 +18,17 @@ function recordedSize(node: FeedNode): [number, number] | null {
   return size && size[0] > 0 && size[1] > 0 ? size : null;
 }
 
+/**
+ * The picture's box as custom properties, from its recorded pixels: the
+ * ratio and the width the frame sizes itself from. The overlay sets them on
+ * the stage as well, so the trail under the picture can wear the picture's
+ * own width. Null for a shot that recorded no size, which sizes the old way.
+ */
+export function stagePictureVars(node: FeedNode): CSSProperties | null {
+  const size = recordedSize(node);
+  return size ? ({ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties) : null;
+}
+
 export function StageFrame({
   node,
   onRetry,
@@ -140,10 +151,7 @@ export function StageFrame({
        * picture at once and the original fades in over it when its decode
        * is done.
        */
-      <Box
-        className="sc-frame sc-stage-pic"
-        style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties}
-      >
+      <Box className="sc-frame sc-stage-pic" style={stagePictureVars(node) ?? undefined}>
         <StagePicture hash={hash} alt={node.promptHead} />
       </Box>
     ) : (

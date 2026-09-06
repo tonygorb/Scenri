@@ -103,13 +103,14 @@
 .sc-thumbs::-webkit-scrollbar {
   display: none;
 }
-/* The row held with nothing in it: the tile's own height, and no more. The
-   strip's own box is 52px of tiles inside 4px of padding pulled back by a
-   4px negative margin; a plain 52px box measured 8px short of that and
-   moved the picture by four. Content-box makes the two boxes the same. */
+/* The row held with nothing in it: the trail's own height, and no more. The
+   strip's own box is a 52px tile, a 4px gap and a 12px label inside 4px of
+   padding pulled back by a 4px negative margin; a plain box measured 8px
+   short of that and moved the picture by four. Content-box makes the two
+   boxes the same. */
 .sc-thumbs-empty {
   box-sizing: content-box;
-  height: 52px;
+  height: 68px;
 }
 .sc-thumb-btn {
   padding: 0;
@@ -141,6 +142,69 @@
 .sc-thumb-btn:not([aria-pressed="true"]):focus-visible .sc-thumb {
   opacity: 1;
 }
+/* A tile with no picture yet, or none at all: the feed's own shimmer while
+   it renders, the warning glyph after it failed. Both rows wear these. */
+.sc-thumb-wait,
+.sc-thumb-failed {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--sc-fg3);
+}
+.sc-thumb-wait .sc-shimmer {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- the trail: the history read as a sequence ----
+   The tile and, under it, its place: "Original" under the first, a numeral
+   under each refinement, inside the button so the word is part of the
+   target. The label is quiet ink except under the ringed tile, where it is
+   the answer to "which one". The numeral row is the whole orientation cue;
+   no caption above the row, no arrows between the tiles. */
+.sc-trail-tile {
+  flex: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  line-height: normal;
+}
+.sc-trail-label {
+  font-size: var(--sc-text-micro);
+  line-height: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-fg3);
+}
+.sc-trail-tile[aria-pressed="true"] .sc-trail-label {
+  color: var(--sc-fg);
+}
+/* More trail past an edge: a fade over that edge, the rail's own, and only
+   there; a row that fits is not faded. The strip sets which from a
+   measurement, and keeps the ringed tile clear of the fade when it scrolls
+   it into view. */
+.sc-thumbs {
+  scroll-padding-inline: 28px;
+}
+.sc-thumbs[data-more="end"] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.sc-thumbs[data-more="start"] {
+  mask-image: linear-gradient(to right, transparent, #000 28px);
+}
+.sc-thumbs[data-more="both"] {
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+/* The trail wears the picture's width: the same formula the frame sizes
+   itself by (the stage carries the picture's ratio and pixels), so the row
+   starts and ends where the picture does and reads as that picture's
+   history rather than as a shelf across the stage. A shot that recorded no
+   pixels runs the stage's width, as before. */
+.sc-ovl-stage[data-pic] .sc-thumbs {
+  max-width: calc(min(100%, calc(var(--sc-stage-cap) * var(--sc-pic-ar, 1)), var(--sc-pic-w, 100%)) + 8px);
+}
 
 /* ---- the rail: the other shots in the feed you came from ----
    Roots only, in the grid's order; the strip under the stage is a version's
@@ -159,18 +223,6 @@
 }
 .sc-rail-tile[aria-disabled="true"] {
   cursor: default;
-}
-.sc-rail-wait,
-.sc-rail-failed {
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  color: var(--sc-fg3);
-}
-.sc-rail-wait .sc-shimmer {
-  position: absolute;
-  inset: 0;
 }
 @media (min-width: 1280px) {
   .sc-ovl[data-rail] {
@@ -247,10 +299,18 @@
      stage and painted over the row of takes, which measured as visible and
      could not be clicked. */
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* The picture and its trail are one thing, centred together: a content
+     row for the picture (its own cap is its ceiling) and a row for the trail,
+     packed to the middle of the stage. With the picture in a stretched row
+     the trail sat on the stage floor, forty pixels under a landscape shot and
+     a hundred under a wide one, and read as a second gallery rather than as
+     that picture's history. The row is held empty when there is none, so the
+     picture's place is the same either way. */
+  grid-template-rows: minmax(0, auto) auto;
+  align-content: center;
   justify-items: center;
   align-items: center;
-  gap: var(--sc-space-5);
+  gap: var(--sc-space-6);
   min-width: 0;
   padding: 56px var(--sc-space-7) var(--sc-space-7);
   position: relative;
@@ -286,7 +346,7 @@
   /* One cap whether the strip has versions in it or not: the row under the
      picture is held either way, so a step from a shot with a history to one
      without never resizes or re-centres the stage. */
-  --sc-stage-cap: max(calc(100dvh - 200px), 280px);
+  --sc-stage-cap: max(calc(100dvh - 216px), 280px);
 }
 .sc-ovl-stage img {
   max-height: var(--sc-stage-cap);
@@ -577,7 +637,7 @@
      spend the whole viewport and the panel below kept a 100px sliver. */
   .sc-ovl-stage {
     /* one cap, the row under the picture held either way, as on a desktop */
-    --sc-stage-cap: max(calc(100dvh - 410px), 260px);
+    --sc-stage-cap: max(calc(100dvh - 426px), 260px);
   }
   .sc-ovl-meta {
     max-height: 48vh;

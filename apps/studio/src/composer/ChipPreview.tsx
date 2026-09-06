@@ -39,7 +39,7 @@ export const PREVIEW_NOUN: Record<PreviewKind, string> = {
   product: 'Product',
   presenter: 'Presenter',
   scene: 'Scene',
-  shot: 'Version',
+  shot: 'Shot',
 };
 
 /**
@@ -200,7 +200,7 @@ export function ChipPreview({
         {/* The picker card's caption, because this is the same object said
             bigger: the picture, its name, and what kind of thing it is. */}
         {label && <b dir="auto">{label}</b>}
-        <span>{noun}</span>
+        {noun && <span>{noun}</span>}
       </button>
       {note && <p className="sc-chip-preview-note">{note}</p>}
       {warning && <p className="sc-swap-warn">{warning}</p>}

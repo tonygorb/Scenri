@@ -511,6 +511,15 @@
   font-size: var(--sc-text-micro);
   color: var(--sc-fg3);
 }
+/* A step's ask on the history card is a sentence, not a noun: three lines of
+   it, then an ellipsis. Never the whole brief; the panel has that. */
+.sc-chip-preview[data-kind="shot"] .sc-chip-preview-hit > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .sc-chip-preview .sc-swap-warn {
   margin-top: var(--swap-step);
   font-size: var(--sc-text-micro);

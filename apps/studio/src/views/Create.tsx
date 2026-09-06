@@ -730,7 +730,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     if (!lin) return;
     // a server without the history answers with the parent above and the first refinement below
     const history = lin.history ?? [...lin.ancestors, at, ...lin.children.slice(0, 1)];
-    const { prev, next } = neighborsOf(history, at.id);
+    // the steps the trail under the picture shows: a refinement that made no picture is not one
+    const { prev, next } = neighborsOf(
+      history.filter((n) => n.id === at.id || n.images[0]),
+      at.id,
+    );
     const to = dir === 'up' ? prev : next;
     if (to) goToShot(to.id);
   };

@@ -2,9 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
 
 /**
- * Reviewing a shot: the actions in its header, the picture zooming where it
- * is, the rail of the feed beside it and the strip of its own history under
- * it. Four roots from one Generate, two refinements of B and one of D, so
+ * Reviewing a shot: the actions in its header, the rail of the feed beside
+ * it and the trail of its own history under it. Four roots from one Generate, two refinements of B and one of D, so
  * the two axes can be told apart: the rail walks the feed, the strip walks
  * the history of the shot on screen, and neither moves the other.
  */
@@ -110,17 +109,39 @@ test("the strip is the root's whole history, whichever version is on the stage",
   await expect.poll(() => stripSrcs(page)).toEqual([shots.b, shots.b1, shots.b2].map(thumbOf));
   expect(await pressedIn(page, '.sc-thumbs')).toBe(thumbOf(shots.b));
 
-  // a version on the stage: the same strip, a different ring; the rail rings it too
-  await page.locator('.sc-thumbs .sc-thumb-btn').nth(1).click();
+  // the row reads as a trail: the original, then each refinement by number,
+  // and every tile says its step and what that step asked for
+  const labels = () => page.locator('.sc-thumbs .sc-trail-label').allTextContents();
+  const tile = (i: number) => page.locator('.sc-thumbs .sc-trail-tile').nth(i);
+  await expect.poll(labels).toEqual(['Original', '1', '2']);
+  await expect(tile(0)).toHaveAttribute('aria-label', /^Original: /);
+  await expect(tile(1)).toHaveAttribute('aria-label', 'Refinement 1: warmer light');
+  await expect(page.locator('.sc-ovl-head b')).toHaveText('Shot');
+
+  // a version on the stage: the same strip, a different ring; the rail rings it too, and the panel names the step
+  await tile(1).click();
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.b1.id}$`));
   await expect.poll(() => stripSrcs(page)).toEqual([shots.b, shots.b1, shots.b2].map(thumbOf));
   expect(await pressedIn(page, '.sc-thumbs')).toBe(thumbOf(shots.b1));
   expect(await pressedIn(page, '.sc-rail')).toBe(thumbOf(shots.b1));
+  await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 1');
+
+  // the keys walk the trail from the ringed tile; a step made from an earlier
+  // one than the tile before it says so on its card (B2 was made from B, not B1)
+  await page.locator('.sc-thumbs [aria-pressed="true"]').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(tile(2)).toBeFocused();
+  await expect(page.locator('.sc-chip-preview')).toContainText('Refinement 2');
+  await expect(page.locator('.sc-chip-preview-note')).toHaveText('From the original');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`/shots/${shots.b2.id}$`));
+  await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 2');
 
   // another root from the rail: its own history, and none of B's
   await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.d)}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.d.id}$`));
   await expect.poll(() => stripSrcs(page)).toEqual([shots.d, shots.d1].map(thumbOf));
+  await expect.poll(labels).toEqual(['Original', '1']);
 
   // a root with no history shows no versions, and the row is held so the stage does not move
   await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.a)}"]`).click();

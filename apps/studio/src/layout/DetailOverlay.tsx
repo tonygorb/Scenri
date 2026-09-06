@@ -29,7 +29,7 @@ import { AlertDialog, Button, ContextMenu, DropdownMenu, Flex } from '@radix-ui/
 import { imgUrl, nodeLabel, type Brand, type EngineInfo, type FeedNode, thumbUrl } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
-import { StageFrame } from './Stage.js';
+import { StageFrame, stagePictureVars } from './Stage.js';
 import { Tip } from './Tip.js';
 import { Composer } from './Composer.js';
 import { useToasts } from '../toasts.js';
@@ -39,6 +39,7 @@ import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { LineageStrip } from './detail/LineageStrip.js';
+import { trailOf } from './detail/historyRules.js';
 import { ShotRail } from './detail/ShotRail.js';
 import { useSwipe } from './detail/useSwipe.js';
 import { neighborsOf } from '../feedRules.js';
@@ -224,26 +225,20 @@ export function DetailOverlay({
     setBriefOverflows(!!el && el.scrollHeight > el.clientHeight + 1);
   }, [said]);
   /**
-   * The image's whole history in reading order, the root first and every
-   * version made from it after, worn as the thumb strip under the stage and
-   * the same whichever version is on the stage. The server carries it; a
-   * server older than that gets the old composition (the ancestors, this
-   * shot, its first refinements). A refinement the pages already hold but the
-   * answer predates, one that landed a moment ago, is folded in by its
-   * parent. Only versions with a picture appear; a failed refinement stays a
-   * card in the feed rather than a hole in the strip.
+   * The image's whole history as a trail, the root first and every version
+   * made from it after, worn under the stage and the same whichever version
+   * is on the stage. The server carries the set; a server older than that
+   * gets the old composition (the ancestors, this shot, its first
+   * refinements). A refinement the pages already hold but the answer
+   * predates is folded in by its parent; the rest of the reading (which tile
+   * is the original, which number, which source) is `trailOf`'s.
    */
-  const lineageStrip = useMemo(() => {
-    const base: FeedNode[] = history ?? [...ancestors, node, ...children.slice(0, 6)];
-    const ids = new Set(base.map((n) => n.id));
-    const fresh = items.filter((n) => !ids.has(n.id) && n.parentId !== null && ids.has(n.parentId));
-    const all = fresh.length
-      ? [...base, ...fresh].sort((x, y) => x.createdAt.localeCompare(y.createdAt) || x.id.localeCompare(y.id))
-      : base;
-    const withSelf = ids.has(node.id) ? all : [...all, node];
-    // the record on screen is the freshest copy of itself
-    return withSelf.map((n) => (n.id === node.id ? node : n)).filter((n) => n.images[0]);
-  }, [history, ancestors, node, children, items]);
+  const trail = useMemo(
+    () => trailOf(history ?? [...ancestors, node, ...children.slice(0, 6)], node, items),
+    [history, ancestors, node, children, items],
+  );
+  /** This shot's own step in the trail: what the panel calls the record. */
+  const here = useMemo(() => trail.find((s) => s.node.id === node.id) ?? null, [trail, node.id]);
   /** Where this shot sits in the feed you came from, and the shots either side: what the arrows, the wheel and a swipe step. */
   const step = useMemo(() => neighborsOf(items, node.id), [items, node.id]);
   // The next page of the feed as the walk nears the loaded edge: the same
@@ -292,8 +287,8 @@ export function DetailOverlay({
   // version of a long chain at full resolution held a dozen bitmaps for a
   // strip of 52px thumbs.
   useEffect(() => {
-    const at = lineageStrip.findIndex((n) => n.id === node.id);
-    const near = [lineageStrip[at - 1], lineageStrip[at + 1], step.prev, step.next].filter(
+    const at = trail.findIndex((s) => s.node.id === node.id);
+    const near = [trail[at - 1]?.node, trail[at + 1]?.node, step.prev, step.next].filter(
       (n): n is FeedNode => !!n?.images[0],
     );
     const held = near.map((n) => {
@@ -308,8 +303,10 @@ export function DetailOverlay({
     return () => {
       for (const img of held) img.src = '';
     };
-  }, [lineageStrip, node.id, step.prev, step.next]);
+  }, [trail, node.id, step.prev, step.next]);
   const hash = node.images[0];
+  /** The picture's ratio and width, on the stage too, so the trail can be as wide as the picture and no wider. */
+  const picVars = useMemo(() => (hash ? stagePictureVars(node) : null), [hash, node]);
   const baseName =
     node.promptHead
       .slice(0, 40)
@@ -712,7 +709,9 @@ export function DetailOverlay({
           className="sc-ovl-stage"
           // the shot is capped so the version strip below it always has room;
           // the cap has to know whether that row is there
-          data-takes={lineageStrip.length > 1 ? '' : undefined}
+          data-takes={trail.length > 1 ? '' : undefined}
+          data-pic={picVars ? '' : undefined}
+          style={picVars ?? undefined}
           {...swipe}
         >
           <StageFrame
@@ -723,10 +722,11 @@ export function DetailOverlay({
             menu={stageMenu}
           />
           {/* The image's own history, right under the image: the original,
-              this shot ringed, and its refinements. Hovering peeks a version
-              at a readable size; clicking moves the stage to it. */}
-          {lineageStrip.length > 1 ? (
-            <LineageStrip strip={lineageStrip} activeId={node.id} onSelect={onSelect} />
+              this shot ringed, and its refinements, each under its number.
+              Hovering peeks a step at a readable size with what it asked
+              for; clicking moves the stage to it. */}
+          {trail.length > 1 ? (
+            <LineageStrip trail={trail} activeId={node.id} names={proseNames} onSelect={onSelect} />
           ) : (
             // The row is held even with nothing in it: the picture's cap and
             // its centre are the same on a shot with a history and one
@@ -790,7 +790,10 @@ export function DetailOverlay({
               actually spent survives: a real price is a budget decision, a
               $0 label was noise. */}
           <div className="sc-ovl-head">
-            <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
+            {/* The record's name is its step in the trail under the picture,
+                so the panel and the row speak one vocabulary; the number waits
+                for the history, since a bare guess could be wrong on a branch. */}
+            <b>{node.kind !== 'edit' ? 'Shot' : history && here ? here.label : 'Refinement'}</b>
             {node.archived && <small className="sc-ovl-flag">archived</small>}
             {hasImage && node.costUsd > 0 && (
               <small className="sc-ovl-spend" title="Of your API budget">

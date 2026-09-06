@@ -117,11 +117,11 @@ export function ShotRail({
                   height={52}
                 />
               ) : running ? (
-                <span className="sc-thumb sc-rail-wait" data-active={active}>
+                <span className="sc-thumb sc-thumb-wait" data-active={active}>
                   <span className="sc-shimmer" />
                 </span>
               ) : (
-                <span className="sc-thumb sc-rail-failed" data-active={active}>
+                <span className="sc-thumb sc-thumb-failed" data-active={active}>
                   <WarningCircle size={14} />
                 </span>
               )}
