@@ -262,90 +262,19 @@
     display: none;
   }
 }
-/* The rail reads with depth, the way the first-run shelf does: a tile
-   swells toward the middle of the column, past its resting size, and sits
-   back toward the ends, smaller and dimmer, until it is gone at the very
-   top and bottom. Driven by a scroll timeline, not a handler, so the
-   browser interpolates it off the compositor however long the feed is.
-   Scale only, never layout: the column keeps its tracks and the scroll
-   distance is the same either way; the track's gap leaves room for the
-   swell, so two tiles at the middle never touch. One continuous curve, so
-   the spacing between tiles opens toward the ends as steadily as their
-   size closes, which reads as depth rather than as steps. The ringed tile
-   is scrolled to the middle, so the shot on screen is always the large
-   one. Where view timelines are missing the rail is simply flat. */
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    /* Room for the swell, so two tiles at the middle never touch. No extra
-       scroll padding here: a view timeline's range is inset by the scroll
-       container's padding, so padding meant to place the ringed tile
-       squeezed the whole curve into the band it left open. The rail centres
-       the ringed tile itself. */
-    .sc-rail {
-      gap: 14px;
-    }
-    .sc-rail-tile {
-      animation: sc-rail-swell linear both;
-      animation-timeline: view(block);
-      /* entry to exit, so a tile is measured across its whole pass */
-      animation-range: entry 0% exit 100%;
-      will-change: transform;
-    }
-    @keyframes sc-rail-swell {
-      0% {
-        transform: scale(0.5);
-        opacity: 0;
-      }
-      10% {
-        transform: scale(0.62);
-        opacity: 0.25;
-      }
-      20% {
-        transform: scale(0.76);
-        opacity: 0.5;
-      }
-      30% {
-        transform: scale(0.9);
-        opacity: 0.75;
-      }
-      40% {
-        transform: scale(1.05);
-        opacity: 0.92;
-      }
-      47% {
-        transform: scale(1.2);
-        opacity: 1;
-      }
-      53% {
-        transform: scale(1.2);
-        opacity: 1;
-      }
-      60% {
-        transform: scale(1.05);
-        opacity: 0.92;
-      }
-      70% {
-        transform: scale(0.9);
-        opacity: 0.75;
-      }
-      80% {
-        transform: scale(0.76);
-        opacity: 0.5;
-      }
-      90% {
-        transform: scale(0.62);
-        opacity: 0.25;
-      }
-      100% {
-        transform: scale(0.5);
-        opacity: 0;
-      }
-    }
-  }
+/* The rail reads with depth: a tile swells toward the middle of the column,
+   past its resting size, and sits back toward the ends until it is gone,
+   tiles and the gaps between them shrinking together. That is a fisheye
+   the rail lays in transforms each frame (ShotRail's `swell`): a view
+   timeline could scale a tile in place but not move it, and even spacing
+   is positions moving with sizes. The column's own tracks never change,
+   so the scroll distance is the same either way. `position: relative`
+   makes offsetTop the tile's place in the scrolled column. */
+.sc-rail {
+  position: relative;
 }
-.sc-stage-wait .sc-shimmer {
-  position: absolute;
-  inset: 0;
+.sc-rail-tile {
+  will-change: transform;
 }
 .sc-stage-wait-say {
   position: absolute;
