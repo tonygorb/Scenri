@@ -926,8 +926,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     },
     // leaving the overlay makes sense here: the shot just left whatever feed
     // it was being viewed from
-    archive: (n) => void archive(n).then(() => closeShot()),
-    unarchive: (n) => void unarchive(n),
+    archive: (n) =>
+      archive(n).then((ok) => {
+        if (ok) closeShot();
+      }),
+    unarchive: (n) => unarchive(n).then(() => undefined),
     delete: (n) => void remove(n).then(() => closeShot()),
     landed,
     // whichever surface a refine was pulled from, the workspace follows the

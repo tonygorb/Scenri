@@ -12,8 +12,11 @@ import { failureToast } from './failure.js';
 export function useArchiveNode(onNode: (node: FeedNode) => void) {
   const { push } = useToasts();
 
+  // Both answer whether it happened. The overlay closes after an archive,
+  // and used to close after a refused one too: the failure was caught and
+  // toasted in here, so the caller's `.then` ran either way.
   const archive = useCallback(
-    (node: FeedNode) =>
+    (node: FeedNode): Promise<boolean> =>
       api
         .archiveNode(node.id, true)
         .then((next) => {
@@ -29,17 +32,27 @@ export function useArchiveNode(onNode: (node: FeedNode) => void) {
               onClick: () => void api.archiveNode(node.id, false).then(onNode),
             },
           });
+          return true;
         })
-        .catch((e: any) => push(failureToast(e, 'Could not archive this shot'))),
+        .catch((e: any) => {
+          push(failureToast(e, 'Could not archive this shot'));
+          return false;
+        }),
     [onNode, push],
   );
 
   const unarchive = useCallback(
-    (node: FeedNode) =>
+    (node: FeedNode): Promise<boolean> =>
       api
         .archiveNode(node.id, false)
-        .then(onNode)
-        .catch((e: any) => push(failureToast(e, 'Could not restore this shot'))),
+        .then((next) => {
+          onNode(next);
+          return true;
+        })
+        .catch((e: any) => {
+          push(failureToast(e, 'Could not restore this shot'));
+          return false;
+        }),
     [onNode, push],
   );
 

@@ -8,9 +8,11 @@ import {
   ArrowsLeftRight,
   CaretLeft,
   CaretRight,
+  Check,
   CopySimple,
   DotsThree,
   DownloadSimple,
+  MagnifyingGlassPlus,
   Star,
   TrashSimple,
   X,
@@ -19,7 +21,9 @@ import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
 import { imgUrl, nodeLabel, type Brand, type EngineInfo, type FeedNode, thumbUrl } from '../api.js';
 import { CompareDialog } from './CompareDialog.js';
 import { ExportDialog } from './ExportDialog.js';
-import { StageFrame } from './Stage.js';
+import { StageFrame, recordedSize } from './Stage.js';
+import { Tip } from './Tip.js';
+import { ImageViewer } from './detail/ImageViewer.js';
 import { Composer } from './Composer.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
@@ -89,8 +93,9 @@ export function DetailOverlay({
   /** Shots that did not exist a moment ago were made from in here. */
   onLanded: (nodes: FeedNode[]) => void;
   onRemix: (n: FeedNode) => void;
-  onArchive: (n: FeedNode) => void;
-  onUnarchive: (n: FeedNode) => void;
+  /** Settle once the record has moved or the refusal has been said, so the control can stop waiting. */
+  onArchive: (n: FeedNode) => Promise<void> | void;
+  onUnarchive: (n: FeedNode) => Promise<void> | void;
   onDelete: (n: FeedNode) => void;
   /** A shot was made from in here, so the workspace can follow the same thread. */
   onRefined?: (nodeId: string, kind?: 'generation' | 'edit') => void;
@@ -171,6 +176,23 @@ export function DetailOverlay({
   const [exportOpen, setExportOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  /** A clipboard write in flight, and the moment after one that landed. */
+  const [copying, setCopying] = useState(false);
+  const [copied, setCopied] = useState(false);
+  /** An archive or a restore in flight. */
+  const [archiving, setArchiving] = useState(false);
+  // The picture on the stage changed under every one of these.
+  useEffect(() => {
+    setViewerOpen(false);
+    setCopied(false);
+    setArchiving(false);
+  }, [node.id]);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1400);
+    return () => clearTimeout(t);
+  }, [copied]);
   /** Long briefs clamp at five lines; the toggle appears only when the clamp
    *  actually bites, so short briefs never grow a dangling "more". */
   const briefRef = useRef<HTMLDivElement>(null);
@@ -219,13 +241,41 @@ export function DetailOverlay({
       .replace(/\s+/g, '-')
       .replace(/[^a-zA-Z0-9-]/g, '') || 'shot';
 
-  const copyImage = async () => {
+  /**
+   * The original onto the clipboard, as the PNG the engine made.
+   *
+   * The blob is promised to the clipboard rather than awaited first: Safari
+   * only lets the clipboard be written inside the click that asked, and an
+   * await before the write is where that permission used to run out. From
+   * the button, the tooltip says Copied and the glyph ticks; from the menu,
+   * which has closed by then, a toast says it instead.
+   */
+  const copyImage = async (viaMenu = false) => {
+    if (copying) return;
+    setCopying(true);
     try {
-      const blob = await (await fetch(imgUrl(hash))).blob();
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      push({ kind: 'success', title: 'Copied to clipboard' });
+      const png = fetch(imgUrl(hash)).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      });
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+      if (viaMenu) push({ kind: 'success', title: 'Copied to clipboard' });
+      else setCopied(true);
     } catch (e: any) {
       push(failureToast(e, 'Copy failed'));
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  /** Archive or restore, holding the control until the answer is in. */
+  const putAway = async () => {
+    if (archiving) return;
+    setArchiving(true);
+    try {
+      await (node.archived ? onUnarchive(node) : onArchive(node));
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -292,19 +342,59 @@ export function DetailOverlay({
    * remembering to add it in two places. Order is priority order: what people
    * reach for most is first, and the destructive one is last.
    */
-  type Action = { key: string; label: string; icon: ReactNode; onClick: () => void; tint?: string };
+  type Action = {
+    key: string;
+    /** The accessible name, and the tooltip's words. */
+    label: string;
+    icon: ReactNode;
+    onClick: () => void;
+    /** The same verb from the menu, when it has to say its result differently. */
+    onMenu?: () => void;
+    tint?: string;
+    /** A toggle, and whether it is on. */
+    on?: boolean;
+    /** A request is out; the control waits and takes no second press. */
+    busy?: boolean;
+    /** Opens a dialog rather than acting at once. */
+    dialog?: boolean;
+    /** The tooltip's words for a moment after the verb landed, held open. */
+    said?: string;
+  };
 
   /** The ones that act on a file, so they are only offered where there is one. */
   const fileActions: Action[] = [
-    { key: 'export', label: 'Export', icon: <DownloadSimple size={14} />, onClick: () => setExportOpen(true) },
+    {
+      key: 'zoom',
+      label: 'Zoom',
+      icon: <MagnifyingGlassPlus size={14} />,
+      onClick: () => setViewerOpen(true),
+      dialog: true,
+    },
+    {
+      key: 'export',
+      label: 'Export',
+      icon: <DownloadSimple size={14} />,
+      onClick: () => setExportOpen(true),
+      dialog: true,
+    },
     {
       key: 'keep',
       label: node.kept ? 'Remove from keepers' : 'Keep',
       icon: <Star size={14} weight={node.kept ? 'fill' : 'regular'} />,
       onClick: () => onKeep(node),
+      // the keeper mark keeps its gold: the one on-state that is a colour
       tint: node.kept ? 'var(--sc-star)' : undefined,
+      on: node.kept,
     },
-    { key: 'copy', label: 'Copy image', icon: <CopySimple size={14} />, onClick: () => void copyImage() },
+    {
+      key: 'copy',
+      label: 'Copy image',
+      icon: copied ? <Check size={14} weight="bold" /> : <CopySimple size={14} />,
+      onClick: () => void copyImage(),
+      onMenu: () => void copyImage(true),
+      busy: copying,
+      said: copied ? 'Copied' : undefined,
+    },
     ...(sourceHash
       ? [
           {
@@ -312,6 +402,7 @@ export function DetailOverlay({
             label: 'Compare with source',
             icon: <ArrowsLeftRight size={14} />,
             onClick: () => setCompareOpen(true),
+            dialog: true,
           },
         ]
       : []),
@@ -328,7 +419,8 @@ export function DetailOverlay({
       key: 'archive',
       label: node.archived ? 'Restore' : 'Archive',
       icon: node.archived ? <ArrowCounterClockwise size={14} /> : <Archive size={14} />,
-      onClick: () => (node.archived ? onUnarchive(node) : onArchive(node)),
+      onClick: () => void putAway(),
+      busy: archiving,
     },
     ...(node.archived
       ? [
@@ -338,6 +430,7 @@ export function DetailOverlay({
             icon: <TrashSimple size={14} />,
             onClick: () => setDeleteConfirmOpen(true),
             tint: 'var(--sc-red)',
+            dialog: true,
           },
         ]
       : []),
@@ -376,9 +469,11 @@ export function DetailOverlay({
             collide, at any width, by construction. */}
         <header className="sc-ovl-bar">
           <div className="sc-ovl-bar-l">
-            <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
-              <X size={13} />
-            </button>
+            <Tip label="Close (esc)">
+              <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close">
+                <X size={13} />
+              </button>
+            </Tip>
             {/* These step siblings, which are whole runs off the same parent,
                 so they are versions. Variants are the images inside one run
                 and are stepped on the stage with [ and ]. They appear only
@@ -386,26 +481,28 @@ export function DetailOverlay({
                 are two controls' worth of room spent saying "not available". */}
             {siblings.length > 1 && (
               <>
-                <button
-                  type="button"
-                  className="sc-icon-btn"
-                  disabled={sibIndex <= 0}
-                  onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
-                  aria-label="Previous version"
-                  title="Previous version"
-                >
-                  <CaretLeft size={13} />
-                </button>
-                <button
-                  type="button"
-                  className="sc-icon-btn"
-                  disabled={sibIndex >= siblings.length - 1}
-                  onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
-                  aria-label="Next version"
-                  title="Next version"
-                >
-                  <CaretRight size={13} />
-                </button>
+                <Tip label="Previous version">
+                  <button
+                    type="button"
+                    className="sc-icon-btn"
+                    disabled={sibIndex <= 0}
+                    onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
+                    aria-label="Previous version"
+                  >
+                    <CaretLeft size={13} />
+                  </button>
+                </Tip>
+                <Tip label="Next version">
+                  <button
+                    type="button"
+                    className="sc-icon-btn"
+                    disabled={sibIndex >= siblings.length - 1}
+                    onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
+                    aria-label="Next version"
+                  >
+                    <CaretRight size={13} />
+                  </button>
+                </Tip>
               </>
             )}
           </div>
@@ -416,30 +513,48 @@ export function DetailOverlay({
                   hold them, one overflow where it is not. Written once, so the
                   two can never drift apart or offer different things. */}
               <div className="sc-ovl-acts">
+                {/* Each verb says its name on hover and on focus, and its
+                    state on the control itself: a toggle that is on wears the
+                    lit look and says so, a request in flight holds the cursor,
+                    a verb that opens a dialog says that too. The words in the
+                    tooltip are the words in aria-label, or for a moment the
+                    result ("Copied"), held open so nothing else has to appear. */}
                 {actions.map((a) => (
-                  <button
-                    type="button"
-                    key={a.key}
-                    className="sc-icon-btn"
-                    onClick={a.onClick}
-                    aria-label={a.label}
-                    title={a.label}
-                    style={a.tint ? { color: a.tint } : undefined}
-                  >
-                    {a.icon}
-                  </button>
+                  <Tip key={a.key} label={a.said ?? a.label} open={!!a.said}>
+                    <button
+                      type="button"
+                      className="sc-icon-btn"
+                      onClick={a.onClick}
+                      aria-label={a.label}
+                      aria-pressed={a.on === undefined ? undefined : a.on}
+                      data-on={a.on || undefined}
+                      aria-haspopup={a.dialog ? 'dialog' : undefined}
+                      aria-busy={a.busy || undefined}
+                      data-busy={a.busy || undefined}
+                      style={a.tint ? { color: a.tint } : undefined}
+                    >
+                      {a.icon}
+                    </button>
+                  </Tip>
                 ))}
               </div>
 
               <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                  <button type="button" className="sc-icon-btn sc-ovl-overflow" aria-label="More actions">
-                    <DotsThree size={18} weight="bold" />
-                  </button>
-                </DropdownMenu.Trigger>
+                <Tip label="More actions">
+                  <DropdownMenu.Trigger>
+                    <button type="button" className="sc-icon-btn sc-ovl-overflow" aria-label="More actions">
+                      <DotsThree size={18} weight="bold" />
+                    </button>
+                  </DropdownMenu.Trigger>
+                </Tip>
                 <DropdownMenu.Content align="end" sideOffset={6}>
                   {actions.map((a) => (
-                    <DropdownMenu.Item key={a.key} onSelect={a.onClick} color={a.tint ? 'red' : undefined}>
+                    <DropdownMenu.Item
+                      key={a.key}
+                      onSelect={a.onMenu ?? a.onClick}
+                      disabled={a.busy}
+                      color={a.tint ? 'red' : undefined}
+                    >
                       {a.icon}
                       {a.label}
                     </DropdownMenu.Item>
@@ -483,6 +598,8 @@ export function DetailOverlay({
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
+            // the picture itself is the way into the viewer, beside the Zoom verb in the bar
+            onInspect={hasImage ? () => setViewerOpen(true) : undefined}
           />
           {/* The image's own history, right under the image: the original,
               this shot ringed, and its refinements. Hovering peeks a version
@@ -678,6 +795,17 @@ export function DetailOverlay({
           )}
         </aside>
         <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} />
+        {/* Keyed on the picture: the viewer shows the version on the stage at
+            the moment it opened, and a new version means a new viewer. */}
+        {viewerOpen && hash && (
+          <ImageViewer
+            key={hash}
+            hash={hash}
+            label={nodeLabel(node)}
+            size={recordedSize(node)}
+            onClose={() => setViewerOpen(false)}
+          />
+        )}
         {parentShot && sourceHash && (
           <CompareDialog
             open={compareOpen}

@@ -60,6 +60,19 @@
 .sc-ovl-overflow {
   display: none;
 }
+/* A finger needs 44px; the bar's chips are 32. The reach is an invisible box
+   centred on the control, the same rule the topbar uses, so nothing grows. */
+@media (pointer: coarse) {
+  .sc-ovl-bar .sc-icon-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
 /* Where the panel is a column beside the stage, the header belongs over the
    stage only. Spanning the whole overlay put the actions on top of the panel's
    heading. */
@@ -200,6 +213,19 @@
   width: min(100%, calc(var(--sc-stage-cap) * var(--sc-pic-ar, 1)), var(--sc-pic-w, 100%));
   aspect-ratio: var(--sc-pic-ar, 1);
   height: auto;
+}
+/* The picture is the way into the viewer: one button around it, the cursor
+   saying so, the focus ring from the floor. No paint of its own, because the
+   photograph is the affordance. */
+.sc-stage-open {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  cursor: zoom-in;
 }
 .sc-stage-pic .sc-stage-img {
   display: block;

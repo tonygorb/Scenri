@@ -27,8 +27,9 @@ export interface ShotContext {
   reload: () => Promise<void>;
   remix: (node: FeedNode) => void;
   branch: (node: FeedNode) => void;
-  archive: (node: FeedNode) => void;
-  unarchive: (node: FeedNode) => void;
+  /** Settles once the record has moved, or the refusal has been said, so a control can stop waiting. */
+  archive: (node: FeedNode) => Promise<void>;
+  unarchive: (node: FeedNode) => Promise<void>;
   delete: (node: FeedNode) => void;
   /** Shots that did not exist a moment ago were made from inside the overlay. */
   landed: (nodes: FeedNode[]) => void;

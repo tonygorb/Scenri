@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Box, Flex, Text } from '@radix-ui/themes';
 import { imgUrl, thumbUrl, type FeedNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
@@ -13,7 +13,7 @@ function aspectOf(node: FeedNode): number {
 }
 
 /** The pixels the run recorded for its first image, when it recorded them. */
-function recordedSize(node: FeedNode): [number, number] | null {
+export function recordedSize(node: FeedNode): [number, number] | null {
   const size = (node.brief as { rendered?: { sizes?: [number, number][] } } | null)?.rendered?.sizes?.[0];
   return size && size[0] > 0 && size[1] > 0 ? size : null;
 }
@@ -25,12 +25,15 @@ export function StageFrame({
   onRetry,
   onCancel,
   engineName,
+  onInspect,
 }: {
   node: FeedNode;
   onRetry?: () => void;
   onCancel?: () => void;
   /** What the engine that ran this is called, so a failure can name it. */
   engineName?: string;
+  /** Given, the finished picture is a button that opens the viewer. */
+  onInspect?: () => void;
 }) {
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
   const [contentRect, setContentRect] = useState<ContentRect | null>(null);
@@ -166,25 +169,35 @@ export function StageFrame({
         className="sc-frame sc-stage-pic"
         style={{ '--sc-pic-ar': size[0] / size[1], '--sc-pic-w': `${size[0]}px` } as CSSProperties}
       >
-        <StagePicture key={hash} hash={hash} alt={node.promptHead} imgRef={setImgEl} contentRect={contentRect} />
+        <StagePicture
+          key={hash}
+          hash={hash}
+          alt={node.promptHead}
+          imgRef={setImgEl}
+          contentRect={contentRect}
+          onInspect={onInspect}
+        />
       </Box>
     );
   }
 
+  const plain = hash && (
+    <img
+      ref={setImgEl}
+      src={imgUrl(hash)}
+      alt={node.promptHead}
+      // the cap itself lives in CSS, where it can know whether a row of
+      // takes sits under the shot: a percentage cannot, because nothing
+      // between here and the stage has a definite height to measure
+      style={{ display: 'block', maxWidth: '100%' }}
+    />
+  );
   return (
     <Flex justify="center">
       <Box className="sc-frame" style={{ display: 'inline-block', maxWidth: '100%' }}>
         {hash && (
           <Box position="relative" style={{ lineHeight: 0 }}>
-            <img
-              ref={setImgEl}
-              src={imgUrl(hash)}
-              alt={node.promptHead}
-              // the cap itself lives in CSS, where it can know whether a row of
-              // takes sits under the shot: a percentage cannot, because nothing
-              // between here and the stage has a definite height to measure
-              style={{ display: 'block', maxWidth: '100%' }}
-            />
+            {onInspect ? <PictureButton onInspect={onInspect}>{plain}</PictureButton> : plain}
             {contentRect && <ContentBox rect={contentRect} />}
           </Box>
         )}
@@ -193,16 +206,32 @@ export function StageFrame({
   );
 }
 
+/**
+ * The picture is the way into the viewer: one button around the whole
+ * photograph, so the whole photograph is the target and the cursor says so.
+ * Nothing interactive inside it, and the derivative under the original rides
+ * along, since the button is the box both are positioned in.
+ */
+function PictureButton({ onInspect, children }: { onInspect: () => void; children: ReactNode }) {
+  return (
+    <button type="button" className="sc-stage-open" aria-label="Zoom" onClick={onInspect}>
+      {children}
+    </button>
+  );
+}
+
 function StagePicture({
   hash,
   alt,
   imgRef,
   contentRect,
+  onInspect,
 }: {
   hash: string;
   alt: string;
   imgRef: (el: HTMLImageElement | null) => void;
   contentRect: ContentRect | null;
+  onInspect?: () => void;
 }) {
   // the derivative stays until the original has pixels; a cached original
   // can be complete before React attaches onLoad, hence the ref check
@@ -214,10 +243,15 @@ function StagePicture({
     },
     [imgRef],
   );
-  return (
-    <Box position="relative" style={{ lineHeight: 0 }}>
+  const picture = (
+    <>
       {under && <img className="sc-stage-under" src={thumbUrl(hash, 'tile')} alt="" aria-hidden decoding="async" />}
       <img ref={attach} src={imgUrl(hash)} alt={alt} className="sc-stage-img" onLoad={() => setUnder(false)} />
+    </>
+  );
+  return (
+    <Box position="relative" style={{ lineHeight: 0 }}>
+      {onInspect ? <PictureButton onInspect={onInspect}>{picture}</PictureButton> : picture}
       {contentRect && <ContentBox rect={contentRect} />}
     </Box>
   );

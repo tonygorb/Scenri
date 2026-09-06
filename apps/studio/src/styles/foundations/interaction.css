@@ -36,7 +36,9 @@
 .rt-BaseDialogContent:focus,
 .rt-BaseDialogContent:focus-visible,
 .sc-newdlg-layer:focus,
-.sc-newdlg-layer:focus-visible {
+.sc-newdlg-layer:focus-visible,
+.sc-viewer:focus,
+.sc-viewer:focus-visible {
   outline: none;
 }
 

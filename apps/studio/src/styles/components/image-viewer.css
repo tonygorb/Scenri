@@ -1,0 +1,143 @@
+/* ---------- image viewer ----------
+   Looking at the shot properly: the whole viewport, the overlay's own ground
+   (so it follows the theme rather than going photo-site black), the picture
+   at fit, and as close as three device pixels per image pixel. Chrome is a
+   close chip and a three-piece zoom cluster, both the overlay's own icon
+   button, because this surface is the overlay continued rather than a place
+   of its own. Nothing else: no caption, no actions, no strip. The Refine
+   workspace is one Escape away and still holds all of that. */
+.sc-viewer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: var(--sc-bg);
+}
+.sc-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  overflow: hidden;
+  outline: none;
+}
+/* The canvas takes every gesture itself: the browser's own pinch and scroll
+   would fight the ones here, and there is nothing behind it to scroll. */
+.sc-viewer-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: contain;
+  cursor: zoom-in;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sc-viewer-canvas[data-pan] {
+  cursor: grab;
+}
+.sc-viewer-canvas[data-pan][data-dragging] {
+  cursor: grabbing;
+}
+/* Laid out at its natural size and moved by one transform, so a zoom never
+   reflows anything: the compositor moves a bitmap. */
+.sc-viewer-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  max-width: none;
+  transform-origin: 0 0;
+  will-change: transform;
+  -webkit-user-drag: none;
+}
+/* A button or key zoom eases; a finger or wheel does not, since it is the
+   hand that is moving the picture. */
+.sc-viewer-img[data-eased] {
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+/* Past two device pixels per image pixel, smoothing would invent detail;
+   the pixels are shown as the blocks they are. */
+.sc-viewer-img[data-pixels] {
+  image-rendering: pixelated;
+}
+.sc-viewer-blank {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-3);
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-caption);
+}
+.sc-viewer-close {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top));
+  left: calc(14px + env(safe-area-inset-left));
+  z-index: 2;
+}
+.sc-viewer-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--sc-bottom-inset) + 14px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  translate: -50% 0;
+}
+/* The reading: Fit, 100%, or a percent. A button, because it is also the way
+   between fit and actual size; tabular so a changing number does not jitter. */
+.sc-viewer-zoom {
+  height: 32px;
+  min-width: 64px;
+  padding: 0 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-well);
+  color: var(--sc-fg2);
+  font-family: var(--sc-font-mono);
+  font-size: var(--sc-text-micro);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-viewer-zoom:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-viewer-zoom:active {
+  background: var(--sc-press);
+}
+/* The dialog's name and the zoom announcement, for assistive tech only. */
+.sc-viewer-title,
+.sc-viewer-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (pointer: coarse) {
+  .sc-viewer .sc-icon-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-viewer-img[data-eased] {
+    transition: none;
+  }
+}
