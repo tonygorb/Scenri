@@ -479,13 +479,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   // ---- scenes (+ their preview imagery when generated)
   const templatesRoot = opts.templatesDir ?? defaultScenesDir();
-  registerSceneRoutes(app, { templatesRoot, scenes });
+  registerSceneRoutes(app, { templatesRoot, scenes, thumbs });
 
   // ---- presenters (curated identity catalog). A presenter attaches straight
   // into a brief like a Scene does — see brandJsonWithResolvedPresenters below.
   const presentersDir = join(templatesRoot, 'presenters');
   const { presenters } = loadPresenters(presentersDir);
-  registerPresenterRoutes(app, { templatesRoot, presenters });
+  registerPresenterRoutes(app, { templatesRoot, presenters, thumbs });
 
   // ---- custom presenters and scenes (the ones a brand builds for itself)
   //
@@ -504,7 +504,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // Thumbnail is always the category's "primary" angle (three-quarter where
   // the category has one, else front) — a slightly dimensional hero shot,
   // never a creative-campaign image. See primaryAngleFor/demoProductRefPath.
-  registerDemoProductRoutes(app, { templatesRoot, demoProducts, demoProductById });
+  registerDemoProductRoutes(app, { templatesRoot, demoProducts, demoProductById, thumbs });
 
   registerShowcaseRoutes(app, { templatesRoot });
 
@@ -1386,7 +1386,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         // An explicit extension needs no prose: the instruction is the
         // expansion's own, and the user's words are only an optional direction.
         if (!compiled.prompt.trim() && reshape !== 'extend')
-          return reply.status(400).send({ error: 'the brief is empty' });
+          return reply.status(400).send({ error: 'the prompt is empty' });
       } else {
         /*
          * The last link in the chain, and it must be last: it reads the roster
@@ -1427,7 +1427,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           template: brief.templateId ? sceneById(String(brief.templateId)) : undefined,
           templateById: sceneById,
         });
-        if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
+        if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the prompt is empty' });
       }
     }
 
@@ -1477,7 +1477,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       });
       if (productId && !compiled.attachments.some((a) => a.role === 'product'))
         return reply.status(400).send({ error: 'product has no usable shots' });
-      if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the brief is empty' });
+      if (!compiled.prompt.trim()) return reply.status(400).send({ error: 'the prompt is empty' });
     }
 
     let estimate: number;

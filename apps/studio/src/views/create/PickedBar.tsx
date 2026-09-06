@@ -1,5 +1,5 @@
 import { DropdownMenu } from '@radix-ui/themes';
-import type { ShotSet, FeedNode } from '../../api.js';
+import type { ShotSet } from '../../api.js';
 import { Confirm } from '../../Confirm.js';
 
 /** What you can do with a handful of shots. Only ever about membership. */
@@ -11,8 +11,6 @@ export function PickedBar({
   onClear,
   onKeep,
   allKept,
-  comparable,
-  onCompare,
   archivedLens,
   pickedIds,
   onRestoreBatch,
@@ -25,9 +23,7 @@ export function PickedBar({
   onClear: () => void;
   onKeep: () => void;
   allKept: boolean;
-  comparable: readonly [FeedNode, FeedNode] | null;
-  onCompare: () => void;
-  /** Keep/Compare/Add-to-set are curation for active work — an archived
+  /** Keep/Add-to-set are curation for active work — an archived
    * selection only has two sensible actions, so the bar swaps entirely. */
   archivedLens: boolean;
   pickedIds: string[];
@@ -46,24 +42,6 @@ export function PickedBar({
           <button type="button" className="sc-btn" onClick={onKeep}>
             {allKept ? 'Remove from keepers' : 'Keep'}
           </button>
-          {/* shown at two, so the bar does not carry a control that spends most of
-              its life disabled and unexplained */}
-          {count === 2 && (
-            <button
-              type="button"
-              className="sc-btn"
-              // aria-disabled: keeps the button tab-reachable so its title —
-              // the only explanation for why Compare is inert — stays
-              // discoverable to keyboard/screen-reader users, not just mouse hover
-              aria-disabled={!comparable || undefined}
-              onClick={() => {
-                if (comparable) onCompare();
-              }}
-              title={comparable ? 'Show the drift between these two' : 'Both shots need to have finished'}
-            >
-              Compare
-            </button>
-          )}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <button type="button" className="sc-btn sc-btn-primary">

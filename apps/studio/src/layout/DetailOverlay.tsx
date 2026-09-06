@@ -1,34 +1,49 @@
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import {
   Archive,
   ArrowCounterClockwise,
-  ArrowsClockwise,
-  ArrowsLeftRight,
   CaretLeft,
   CaretRight,
+  Check,
   CopySimple,
   DotsThree,
   DownloadSimple,
+  PencilSimple,
   Star,
   TrashSimple,
   X,
 } from '@phosphor-icons/react';
-import { AlertDialog, Button, DropdownMenu, Flex } from '@radix-ui/themes';
+import { AlertDialog, Button, ContextMenu, DropdownMenu, Flex } from '@radix-ui/themes';
 import { imgUrl, nodeLabel, type Brand, type EngineInfo, type FeedNode, thumbUrl } from '../api.js';
-import { CompareDialog } from './CompareDialog.js';
-import { ExportDialog } from './ExportDialog.js';
 import { StageFrame } from './Stage.js';
+import { Tip } from './Tip.js';
 import { Composer } from './Composer.js';
 import { useToasts } from '../toasts.js';
 import { failureToast } from '../failure.js';
-import { briefProse, sourceImageOf } from '../briefDiff.js';
+import { briefProse } from '../briefDiff.js';
 import type { TokenNames } from '../feedRules.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { briefTokens, serializeBriefTokens, type SentenceToken } from '../composer/line.js';
 import { LineageStrip } from './detail/LineageStrip.js';
-import { BriefLine, useSourceItems } from './detail/Ingredients.js';
+import { trailOf, whereIs } from './detail/historyRules.js';
+import { useMediaQuery } from '../useMediaQuery.js';
+import { ShotRail } from './detail/ShotRail.js';
+import { useSwipe } from './detail/useSwipe.js';
+import { neighborsOf } from '../feedRules.js';
+import { ChipPreview } from '../composer/ChipPreview.js';
+import { useHoverPreview } from '../composer/useHoverPreview.js';
+import { BriefLine } from './detail/Ingredients.js';
 import { useLineageOf } from './detail/useLineageOf.js';
 import { useFullNode } from './detail/useFullNode.js';
 import { PREF, useLocalPref } from '../prefs.js';
@@ -39,14 +54,14 @@ import { PREF, useLocalPref } from '../prefs.js';
  * always read, so the grid, the header stop and the divider all follow one
  * number.
  */
+/** Below this the panel stacks under the stage: the overlay's own one-column breakpoint. */
+const STACKED = '(max-width: 1023px)';
 const PANEL_MIN = 380;
 const PANEL_MAX = 480;
 const PANEL_DEFAULT = 380;
 const clampPanel = (w: number) => Math.min(PANEL_MAX, Math.max(PANEL_MIN, Math.round(w)));
 
 /** The scene a brief names, in either of the shapes briefs have carried it. */
-const tplOf = (b: FeedNode['brief']) =>
-  b?.tokens?.find((t: { t?: string; id?: string }) => t?.t === 'template')?.id ?? b?.templateId ?? null;
 
 /**
  * Full-screen takeover for one shot: lineage filmstrip left, stage with the
@@ -56,7 +71,9 @@ const tplOf = (b: FeedNode['brief']) =>
 export function DetailOverlay({
   node,
   rootId,
-  recent,
+  items,
+  loadMore,
+  complete,
   brand,
   engines,
   projectId,
@@ -76,8 +93,13 @@ export function DetailOverlay({
   node: FeedNode;
   /** The project's root, which a new shot from in here hangs off. */
   rootId: string | null;
+  /** The feed's pages in its order: the rail lists them and the arrows walk them. */
+  items: FeedNode[];
+  /** The next page of the feed, asked for as the walk nears the loaded edge. */
+  loadMore: () => void;
+  /** Every page is in. */
+  complete: boolean;
   /** The newest done shots, for the attach panel of the composer in here. */
-  recent: FeedNode[];
   brand: Brand;
   engines: EngineInfo[];
   projectId: string;
@@ -89,8 +111,9 @@ export function DetailOverlay({
   /** Shots that did not exist a moment ago were made from in here. */
   onLanded: (nodes: FeedNode[]) => void;
   onRemix: (n: FeedNode) => void;
-  onArchive: (n: FeedNode) => void;
-  onUnarchive: (n: FeedNode) => void;
+  /** Settle once the record has moved or the refusal has been said, so the control can stop waiting. */
+  onArchive: (n: FeedNode) => Promise<void> | void;
+  onUnarchive: (n: FeedNode) => Promise<void> | void;
   onDelete: (n: FeedNode) => void;
   /** A shot was made from in here, so the workspace can follow the same thread. */
   onRefined?: (nodeId: string, kind?: 'generation' | 'edit') => void;
@@ -99,7 +122,7 @@ export function DetailOverlay({
 }) {
   // One small indexed query each: the tree around this shot, and the whole
   // record behind its summary. Neither is waited for; the summary draws now.
-  const { ancestors, children, siblings, sibIndex, parentShot } = useLineageOf(node);
+  const { ancestors, children, history } = useLineageOf(node);
   const full = useFullNode(node);
   /** What the engine that ran this is called, so a failure can name it in a sentence. */
   const engine = useMemo(() => engines.find((e) => e.id === node.engineId), [engines, node.engineId]);
@@ -108,51 +131,13 @@ export function DetailOverlay({
   const [panelW, setPanelW] = useLocalPref<number>(PREF.ovlPanelW, PANEL_DEFAULT);
   const dragX = useRef(0);
   const dragRaf = useRef(0);
-  /** The image this refinement was made from, not merely the run's first. */
-  const sourceHash = useMemo(() => sourceImageOf(node, parentShot), [node, parentShot]);
-  /**
-   * The scene this thread was shot in, for a refinement that names none of
-   * its own: a refine keeps its world through the photograph, never as a
-   * token, so the record said nothing about the one ingredient every refine
-   * keeps. Nearest ancestor wins — a deeper re-scene overrides the original.
-   */
-  const worldTemplateId = useMemo(() => {
-    if (node.kind !== 'edit') return null;
-    if (tplOf(node.brief)) return null;
-    for (let i = ancestors.length - 1; i >= 0; i--) {
-      const tid = tplOf(ancestors[i].brief);
-      if (tid) return tid;
-    }
-    return null;
-  }, [node, ancestors]);
-  /**
-   * What this refinement carried in: the source picture's contents, read
-   * down the ancestors nearest level first. Never this shot's own brief:
-   * what it asked for is the record above, and the band saying it again is
-   * the duplication the two surfaces exist to avoid. A refine's own brief
-   * can be bare text at every level, and older shots recorded no inherited
-   * list at all, so any single brief loses the identities two levels down;
-   * the walk is the one place the picture's contents can always be read
-   * from.
-   */
-  const sourceTokens = useMemo(() => {
-    if (node.kind !== 'edit') return [];
-    const out: unknown[] = [];
-    for (let i = ancestors.length - 1; i >= 0; i--) {
-      const b = ancestors[i].brief as { tokens?: unknown[]; inherited?: unknown[] } | null;
-      out.push(...(b?.tokens ?? []), ...(b?.inherited ?? []));
-    }
-    return out;
-  }, [node.kind, ancestors]);
-  /** The same contents as cards, for the composer's band. */
-  const sourceItems = useSourceItems(brand, sourceTokens);
+  const rootRef = useRef<HTMLDivElement>(null);
   /** Whether the brief line has any chips to say: mirrors BriefLine's own
    *  null condition, so a token-less legacy shot never shows a bare label. */
-  const hasContext = useMemo(() => {
-    const own = (node.brief?.tokens ?? []).some((t: { t?: string }) => t?.t && t.t !== 'text' && t.t !== 'format');
-    const carried = (((node.brief as { inherited?: unknown[] })?.inherited ?? []) as unknown[]).length > 0;
-    return own || carried || !!worldTemplateId;
-  }, [node.brief, worldTemplateId]);
+  const hasContext = useMemo(
+    () => (node.brief?.tokens ?? []).some((t: { t?: string }) => t?.t && t.t !== 'text' && t.t !== 'format'),
+    [node.brief],
+  );
   /** TokenNames plus the brand's marks, so the brief speaks every noun. */
   const proseNames = useMemo(() => {
     const marks = attachableMarks(brand.json);
@@ -168,9 +153,31 @@ export function DetailOverlay({
    *  leave holes in the prose ("holding a  in a  env"). The USING row stays
    *  the interactive statement of the same nouns. */
   const said = useMemo(() => briefProse(full ?? node, proseNames), [full, node, proseNames]);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [compareOpen, setCompareOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  /** A clipboard write in flight, and the moment after one that landed. */
+  const [copying, setCopying] = useState(false);
+  const [copied, setCopied] = useState(false);
+  /** An archive or a restore in flight. */
+  const [archiving, setArchiving] = useState(false);
+  /** The brief's own copy: in flight, and the moment after it landed. Same control, same feedback as the picture's. */
+  const [briefCopying, setBriefCopying] = useState(false);
+  const [briefCopied, setBriefCopied] = useState(false);
+  // The picture on the stage changed under every one of these.
+  useEffect(() => {
+    setCopied(false);
+    setBriefCopied(false);
+    setArchiving(false);
+  }, [node.id]);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1400);
+    return () => clearTimeout(t);
+  }, [copied]);
+  useEffect(() => {
+    if (!briefCopied) return;
+    const t = setTimeout(() => setBriefCopied(false), 1400);
+    return () => clearTimeout(t);
+  }, [briefCopied]);
   /** Long briefs clamp at five lines; the toggle appears only when the clamp
    *  actually bites, so short briefs never grow a dangling "more". */
   const briefRef = useRef<HTMLDivElement>(null);
@@ -182,23 +189,106 @@ export function DetailOverlay({
     setBriefOverflows(!!el && el.scrollHeight > el.clientHeight + 1);
   }, [said]);
   /**
-   * The image's history in reading order — the original, this shot, its
-   * refinements — worn as the thumb strip under the stage. Only versions with
-   * a picture appear; a failed refinement stays a card in the feed rather
-   * than a hole in the strip.
+   * The image's whole history as a trail, the root first and every version
+   * made from it after, worn under the stage and the same whichever version
+   * is on the stage. The server carries the set; a server older than that
+   * gets the old composition (the ancestors, this shot, its first
+   * refinements). A refinement the pages already hold but the answer
+   * predates is folded in by its parent; the rest of the reading (which tile
+   * is the original, which number, which source) is `trailOf`'s.
    */
-  const lineageStrip = useMemo(
-    () => [...ancestors, node, ...children.slice(0, 6)].filter((n) => n.images[0]),
-    [ancestors, node, children],
+  const trail = useMemo(
+    () => trailOf(history ?? [...ancestors, node, ...children.slice(0, 6)], node, items),
+    [history, ancestors, node, children, items],
   );
-  // Pre-decode the tile derivative of the two versions beside this one. The
-  // stage paints that derivative under the original while the original
-  // decodes, so a step to a neighbour shows a picture at once. Only the
-  // neighbours, and released on cleanup: decoding every version of a long
-  // chain at full resolution held a dozen bitmaps for a strip of 52px thumbs.
+  /** This shot's own step in the trail: what the panel calls the record. */
+  const here = useMemo(() => trail.find((s) => s.node.id === node.id) ?? null, [trail, node.id]);
+  /**
+   * Stacked, the panel sits right under the trail, so its title is the line
+   * that says where you are and the trail draws none of its own (the
+   * stylesheet hides it at the same width). Side by side, the title is the
+   * record's name and the trail carries the line, next to the tiles.
+   */
+  const stacked = useMediaQuery(STACKED);
+  const title =
+    trail.length > 1 && stacked
+      ? whereIs(trail, node.id)
+      : node.kind !== 'edit'
+        ? 'Shot'
+        : history && here
+          ? here.label
+          : 'Refinement';
+  /** Where this shot sits in the feed you came from, and the shots either side: what the arrows, the wheel and a swipe step. */
+  const step = useMemo(() => neighborsOf(items, node.id), [items, node.id]);
+  // The next page of the feed as the walk nears the loaded edge: the same
+  // page the grid would have fetched on scroll, and no other read.
   useEffect(() => {
-    const at = lineageStrip.findIndex((n) => n.id === node.id);
-    const near = [lineageStrip[at - 1], lineageStrip[at + 1]].filter((n): n is FeedNode => !!n);
+    if (step.at >= 0 && !complete && items.length - step.at <= 6) loadMore();
+  }, [step.at, items.length, complete, loadMore]);
+  const stepTo = (dir: 1 | -1) => {
+    const to = dir > 0 ? step.next : step.prev;
+    if (to) onSelect(to.id);
+  };
+  /** Which shot an arrow would step to, as a picture: hovering an arrow peeks its neighbour. */
+  const arrowPeek = useHoverPreview<{
+    key: string;
+    src: string;
+    label: string;
+    noun: string;
+    el: HTMLElement;
+    id: string;
+  }>();
+  const peekOn = (n: FeedNode | null, noun: string) =>
+    n?.images[0]
+      ? {
+          onPointerEnter: (e: ReactPointerEvent<HTMLElement>) => {
+            if (e.pointerType !== 'mouse') return;
+            arrowPeek.open({
+              key: n.id,
+              src: thumbUrl(n.images[0], 'tile'),
+              label: nodeLabel(n),
+              noun,
+              el: e.currentTarget,
+              id: n.id,
+            });
+          },
+          onPointerLeave: (e: ReactPointerEvent<HTMLElement>) => {
+            if (e.pointerType === 'mouse') arrowPeek.close();
+          },
+        }
+      : {};
+  /** On a phone the picture itself steps shots: a swipe left asks for the next. */
+  const swipe = useSwipe({ onLeft: () => stepTo(1), onRight: () => stepTo(-1) });
+  // The card on an arrow shows the shot it would step to. After a step the
+  // pointer is still on the arrow and the neighbour is a new shot, so the
+  // card follows: the new neighbour at once, or nothing at the end of the
+  // walk. Keyed on the shot alone: the pointer has not moved.
+  useEffect(() => {
+    const shown = arrowPeek.shown;
+    if (!shown) return;
+    const n = shown.noun === 'Next shot' ? step.next : step.prev;
+    if (n?.images[0]) {
+      arrowPeek.open({
+        key: n.id,
+        src: thumbUrl(n.images[0], 'tile'),
+        label: nodeLabel(n),
+        noun: shown.noun,
+        el: shown.el,
+        id: n.id,
+      });
+    } else arrowPeek.closeNow();
+  }, [node.id]);
+  // Pre-decode the tile derivative of the versions beside this one and the
+  // shots either side. The stage paints that derivative under the original
+  // while the original decodes, so a step to a neighbour shows a picture at
+  // once. Only the neighbours, and released on cleanup: decoding every
+  // version of a long chain at full resolution held a dozen bitmaps for a
+  // strip of 52px thumbs.
+  useEffect(() => {
+    const at = trail.findIndex((s) => s.node.id === node.id);
+    const near = [trail[at - 1]?.node, trail[at + 1]?.node, step.prev, step.next].filter(
+      (n): n is FeedNode => !!n?.images[0],
+    );
     const held = near.map((n) => {
       const img = new Image();
       img.decoding = 'async';
@@ -211,7 +301,7 @@ export function DetailOverlay({
     return () => {
       for (const img of held) img.src = '';
     };
-  }, [lineageStrip, node.id]);
+  }, [trail, node.id, step.prev, step.next]);
   const hash = node.images[0];
   const baseName =
     node.promptHead
@@ -219,24 +309,53 @@ export function DetailOverlay({
       .replace(/\s+/g, '-')
       .replace(/[^a-zA-Z0-9-]/g, '') || 'shot';
 
-  const copyImage = async () => {
+  /**
+   * The original onto the clipboard, as the PNG the engine made.
+   *
+   * The blob is promised to the clipboard rather than awaited first: Safari
+   * only lets the clipboard be written inside the click that asked, and an
+   * await before the write is where that permission used to run out. From
+   * the button, the tooltip says Copied and the glyph ticks; from the menu,
+   * which has closed by then, a toast says it instead.
+   */
+  const copyImage = async (viaMenu = false) => {
+    if (copying) return;
+    setCopying(true);
     try {
-      const blob = await (await fetch(imgUrl(hash))).blob();
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      push({ kind: 'success', title: 'Copied to clipboard' });
+      const png = fetch(imgUrl(hash)).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      });
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+      if (viaMenu) push({ kind: 'success', title: 'Copied to clipboard' });
+      else setCopied(true);
     } catch (e: any) {
       push(failureToast(e, 'Copy failed'));
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  /** Archive or restore, holding the control until the answer is in. */
+  const putAway = async () => {
+    if (archiving) return;
+    setArchiving(true);
+    try {
+      await (node.archived ? onUnarchive(node) : onArchive(node));
+    } finally {
+      setArchiving(false);
     }
   };
 
   /**
-   * Copy the brief in the composer's own clipboard grammar: the HTML flavour
-   * pastes back into any brief line as real chips, the plain flavour pastes
-   * everywhere else as the sentence you read. The chips are the setup's
-   * canonical tokens (own plus carried, deduped) — the same set Reuse setup
-   * rebuilds from.
+   * Copy the prompt in the composer's own clipboard grammar: the HTML flavour
+   * pastes back into any prompt line as real chips, the plain flavour pastes
+   * everywhere else as the sentence you read. The chips are the record's
+   * canonical tokens, the same set Edit the prompt rebuilds from.
    */
   const copyBrief = async () => {
+    if (briefCopying) return;
+    setBriefCopying(true);
     try {
       const tokens = node.brief ? briefTokens(node.brief as Parameters<typeof briefTokens>[0]) : null;
       if (!tokens || tokens.every((t) => t.t === 'text' && !t.v.trim())) {
@@ -268,9 +387,12 @@ export function DetailOverlay({
           }),
         ]);
       }
-      push({ kind: 'success', title: 'Brief copied' });
+      // the control itself says so, the way the picture's copy does
+      setBriefCopied(true);
     } catch (e: any) {
       push(failureToast(e, 'Copy failed'));
+    } finally {
+      setBriefCopying(false);
     }
   };
 
@@ -292,29 +414,59 @@ export function DetailOverlay({
    * remembering to add it in two places. Order is priority order: what people
    * reach for most is first, and the destructive one is last.
    */
-  type Action = { key: string; label: string; icon: ReactNode; onClick: () => void; tint?: string };
+  type Action = {
+    key: string;
+    /** The accessible name, and the tooltip's words. */
+    label: string;
+    icon: ReactNode;
+    onClick: () => void;
+    /** The same verb from the menu, when it has to say its result differently. */
+    onMenu?: () => void;
+    tint?: string;
+    /** A toggle, and whether it is on. */
+    on?: boolean;
+    /** A request is out; the control waits and takes no second press. */
+    busy?: boolean;
+    /** Opens a dialog rather than acting at once. */
+    dialog?: boolean;
+    /** The tooltip's words for a moment after the verb landed, held open. */
+    said?: string;
+  };
 
   /** The ones that act on a file, so they are only offered where there is one. */
   const fileActions: Action[] = [
-    { key: 'export', label: 'Export', icon: <DownloadSimple size={14} />, onClick: () => setExportOpen(true) },
+    {
+      key: 'download',
+      label: 'Download',
+      icon: <DownloadSimple size={14} />,
+      // The picture itself, as the file it is, in one click: the store
+      // serves every image as a PNG, so the name can say so without asking.
+      // This was a dialog of presets and a zip; nobody wanted the zip.
+      onClick: () => {
+        const a = document.createElement('a');
+        a.href = imgUrl(hash);
+        a.download = `${baseName}.png`;
+        a.click();
+      },
+    },
     {
       key: 'keep',
       label: node.kept ? 'Remove from keepers' : 'Keep',
       icon: <Star size={14} weight={node.kept ? 'fill' : 'regular'} />,
       onClick: () => onKeep(node),
+      // the keeper mark keeps its gold: the one on-state that is a colour
       tint: node.kept ? 'var(--sc-star)' : undefined,
+      on: node.kept,
     },
-    { key: 'copy', label: 'Copy image', icon: <CopySimple size={14} />, onClick: () => void copyImage() },
-    ...(sourceHash
-      ? [
-          {
-            key: 'compare',
-            label: 'Compare with source',
-            icon: <ArrowsLeftRight size={14} />,
-            onClick: () => setCompareOpen(true),
-          },
-        ]
-      : []),
+    {
+      key: 'copy',
+      label: 'Copy image',
+      icon: copied ? <Check size={14} weight="bold" /> : <CopySimple size={14} />,
+      onClick: () => void copyImage(),
+      onMenu: () => void copyImage(true),
+      busy: copying,
+      said: copied ? 'Copied' : undefined,
+    },
   ];
 
   /**
@@ -328,7 +480,8 @@ export function DetailOverlay({
       key: 'archive',
       label: node.archived ? 'Restore' : 'Archive',
       icon: node.archived ? <ArrowCounterClockwise size={14} /> : <Archive size={14} />,
-      onClick: () => (node.archived ? onUnarchive(node) : onArchive(node)),
+      onClick: () => void putAway(),
+      busy: archiving,
     },
     ...(node.archived
       ? [
@@ -338,31 +491,70 @@ export function DetailOverlay({
             icon: <TrashSimple size={14} />,
             onClick: () => setDeleteConfirmOpen(true),
             tint: 'var(--sc-red)',
+            dialog: true,
           },
         ]
       : []),
   ];
 
   const hasImage = node.status === 'done' && node.images.length > 0;
+
+  const canEditPrompt = !hasImage && node.kind !== 'edit' && !!node.brief;
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
+  /** The same verbs on a right click over the picture, the ones the header carries. */
+  const stageMenu = hasImage ? (
+    <ContextMenu.Content>
+      {actions.map((a) => (
+        <ContextMenu.Item
+          key={a.key}
+          onSelect={a.onMenu ?? a.onClick}
+          disabled={a.busy}
+          color={a.tint ? 'red' : undefined}
+        >
+          {a.icon}
+          {a.label}
+        </ContextMenu.Item>
+      ))}
+    </ContextMenu.Content>
+  ) : undefined;
 
   return createPortal(
     // `loop` as well as `trapped`: without it Tab reached the last control and
     // then did nothing at all — eighteen further presses moved focus nowhere,
     // which reads as a frozen page rather than a contained one.
-    <FocusScope trapped loop asChild>
+    <FocusScope
+      trapped
+      loop
+      asChild
+      // The surface takes focus on open, silently, the way every dialog here
+      // does (app/dialogs.ts). Aimed at the first control instead, the Close
+      // button, its tooltip opened on arrival and the first Escape closed the
+      // tooltip rather than the shot.
+      onMountAutoFocus={(e) => {
+        e.preventDefault();
+        rootRef.current?.focus({ preventScroll: true });
+      }}
+    >
       <div
+        ref={rootRef}
+        tabIndex={-1}
         className="sc-ovl"
         data-fb="shot-overlay"
         data-fb-node={node.id}
         role="dialog"
         aria-modal="true"
         aria-label={nodeLabel(node)}
+        data-rail={items.length > 1 ? '' : undefined}
         style={{ '--sc-ovl-panel-w': `${clampPanel(panelW)}px` } as CSSProperties}
-        // A trail of one is not a trail. The rail held a full-height column for
-        // a single thumbnail of the shot you were already looking at, which is
-        // the sort of furniture that makes a screen feel unplanned.
       >
+        {/* The feed you came from, stood on end where there is room for it.
+            A trail of one is not a trail: the old versions rail held a
+            full-height column for a single thumbnail of the shot you were
+            already looking at, so this one is absent below two, and it lists
+            the feed rather than a lineage. */}
+        {items.length > 1 && (
+          <ShotRail shots={items} activeId={node.id} onSelect={onSelect} onEndReached={loadMore} complete={complete} />
+        )}
         {/* ONE header owns the top of this screen.
 
             It used to be two: a `position: fixed` bar carrying close and the
@@ -376,33 +568,36 @@ export function DetailOverlay({
             collide, at any width, by construction. */}
         <header className="sc-ovl-bar">
           <div className="sc-ovl-bar-l">
-            <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close" title="Close (esc)">
-              <X size={13} />
-            </button>
-            {/* These step siblings, which are whole runs off the same parent,
-                so they are versions. Variants are the images inside one run
-                and are stepped on the stage with [ and ]. They appear only
-                when there is somewhere to step: two permanently dimmed arrows
-                are two controls' worth of room spent saying "not available". */}
-            {siblings.length > 1 && (
+            <Tip label="Close (esc)">
+              <button type="button" className="sc-icon-btn" onClick={onClose} aria-label="Close">
+                <X size={13} />
+              </button>
+            </Tip>
+            {/* The arrows step the feed the rail lists, so the two agree on
+                what "next" is. Hovering an arrow peeks the shot it would step
+                to, which is the whole difference between stepping and
+                guessing. They appear only when there is somewhere to step:
+                two permanently dimmed arrows are two controls' worth of room
+                spent saying "not available". */}
+            {step.at >= 0 && items.length > 1 && (
               <>
                 <button
                   type="button"
                   className="sc-icon-btn"
-                  disabled={sibIndex <= 0}
-                  onClick={() => sibIndex > 0 && onSelect(siblings[sibIndex - 1].id)}
-                  aria-label="Previous version"
-                  title="Previous version"
+                  disabled={!step.prev}
+                  onClick={() => step.prev && onSelect(step.prev.id)}
+                  aria-label="Previous shot"
+                  {...peekOn(step.prev, 'Previous shot')}
                 >
                   <CaretLeft size={13} />
                 </button>
                 <button
                   type="button"
                   className="sc-icon-btn"
-                  disabled={sibIndex >= siblings.length - 1}
-                  onClick={() => sibIndex < siblings.length - 1 && onSelect(siblings[sibIndex + 1].id)}
-                  aria-label="Next version"
-                  title="Next version"
+                  disabled={!step.next}
+                  onClick={() => step.next && onSelect(step.next.id)}
+                  aria-label="Next shot"
+                  {...peekOn(step.next, 'Next shot')}
                 >
                   <CaretRight size={13} />
                 </button>
@@ -416,30 +611,48 @@ export function DetailOverlay({
                   hold them, one overflow where it is not. Written once, so the
                   two can never drift apart or offer different things. */}
               <div className="sc-ovl-acts">
+                {/* Each verb says its name on hover and on focus, and its
+                    state on the control itself: a toggle that is on wears the
+                    lit look and says so, a request in flight holds the cursor,
+                    a verb that opens a dialog says that too. The words in the
+                    tooltip are the words in aria-label, or for a moment the
+                    result ("Copied"), held open so nothing else has to appear. */}
                 {actions.map((a) => (
-                  <button
-                    type="button"
-                    key={a.key}
-                    className="sc-icon-btn"
-                    onClick={a.onClick}
-                    aria-label={a.label}
-                    title={a.label}
-                    style={a.tint ? { color: a.tint } : undefined}
-                  >
-                    {a.icon}
-                  </button>
+                  <Tip key={a.key} label={a.said ?? a.label} open={!!a.said}>
+                    <button
+                      type="button"
+                      className="sc-icon-btn"
+                      onClick={a.onClick}
+                      aria-label={a.label}
+                      aria-pressed={a.on === undefined ? undefined : a.on}
+                      data-on={a.on || undefined}
+                      aria-haspopup={a.dialog ? 'dialog' : undefined}
+                      aria-busy={a.busy || undefined}
+                      data-busy={a.busy || undefined}
+                      style={a.tint ? { color: a.tint } : undefined}
+                    >
+                      {a.icon}
+                    </button>
+                  </Tip>
                 ))}
               </div>
 
               <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                  <button type="button" className="sc-icon-btn sc-ovl-overflow" aria-label="More actions">
-                    <DotsThree size={18} weight="bold" />
-                  </button>
-                </DropdownMenu.Trigger>
+                <Tip label="More actions">
+                  <DropdownMenu.Trigger>
+                    <button type="button" className="sc-icon-btn sc-ovl-overflow" aria-label="More actions">
+                      <DotsThree size={18} weight="bold" />
+                    </button>
+                  </DropdownMenu.Trigger>
+                </Tip>
                 <DropdownMenu.Content align="end" sideOffset={6}>
                   {actions.map((a) => (
-                    <DropdownMenu.Item key={a.key} onSelect={a.onClick} color={a.tint ? 'red' : undefined}>
+                    <DropdownMenu.Item
+                      key={a.key}
+                      onSelect={a.onMenu ?? a.onClick}
+                      disabled={a.busy}
+                      color={a.tint ? 'red' : undefined}
+                    >
                       {a.icon}
                       {a.label}
                     </DropdownMenu.Item>
@@ -472,22 +685,50 @@ export function DetailOverlay({
           </AlertDialog.Content>
         </AlertDialog.Root>
 
+        {arrowPeek.shown && (
+          <ChipPreview
+            key={arrowPeek.shown.key}
+            anchor={arrowPeek.shown.el}
+            kind="shot"
+            noun={arrowPeek.shown.noun}
+            src={arrowPeek.shown.src}
+            label={arrowPeek.shown.label}
+            onOpen={() => {
+              const id = arrowPeek.shown?.id;
+              arrowPeek.closeNow();
+              if (id) onSelect(id);
+            }}
+            onHoverIn={arrowPeek.keep}
+            onHoverOut={arrowPeek.close}
+            onClose={arrowPeek.closeNow}
+          />
+        )}
         <div
           className="sc-ovl-stage"
           // the shot is capped so the version strip below it always has room;
           // the cap has to know whether that row is there
-          data-takes={lineageStrip.length > 1 ? '' : undefined}
+          data-takes={trail.length > 1 ? '' : undefined}
+          {...swipe}
         >
           <StageFrame
             node={node}
             onRetry={() => onRetry(node)}
             onCancel={() => onCancel(node)}
             engineName={engine?.displayName}
+            menu={stageMenu}
           />
           {/* The image's own history, right under the image: the original,
-              this shot ringed, and its refinements. Hovering peeks a version
-              at a readable size; clicking moves the stage to it. */}
-          {lineageStrip.length > 1 && <LineageStrip strip={lineageStrip} activeId={node.id} onSelect={onSelect} />}
+              a hairline, its refinements, this shot ringed, and one line
+              saying where you are. Hovering peeks a step at a readable size
+              with what it asked for; clicking moves the stage to it. */}
+          {trail.length > 1 ? (
+            <LineageStrip trail={trail} activeId={node.id} names={proseNames} onSelect={onSelect} />
+          ) : (
+            // The row is held even with nothing in it: the picture's cap and
+            // its centre are the same on a shot with a history and one
+            // without, so walking the feed never resizes the stage.
+            <div className="sc-trail sc-trail-empty" aria-hidden />
+          )}
         </div>
 
         {/* The seam between picture and panel is the handle: drag to size the
@@ -545,7 +786,10 @@ export function DetailOverlay({
               actually spent survives: a real price is a budget decision, a
               $0 label was noise. */}
           <div className="sc-ovl-head">
-            <b>{node.kind === 'edit' ? 'Refined shot' : 'Shot'}</b>
+            {/* The record's name is its step in the trail under the picture,
+                so the panel and the row speak one vocabulary; the number waits
+                for the history, since a bare guess could be wrong on a branch. */}
+            <b>{title}</b>
             {node.archived && <small className="sc-ovl-flag">archived</small>}
             {hasImage && node.costUsd > 0 && (
               <small className="sc-ovl-spend" title="Of your API budget">
@@ -560,17 +804,14 @@ export function DetailOverlay({
               at five lines; "more" appears only when the clamp bites. */}
           {node.kind !== 'root' && (said || hasContext) && (
             <div className="sc-ovl-sec sc-ovl-brief">
-              <span className="sc-eyebrow">Brief</span>
+              <span className="sc-eyebrow">Prompt</span>
               <div className="sc-brief-record">
                 <BriefLine
                   brief={node.brief}
                   prompt={full?.prompt ?? node.promptHead}
                   brand={brand}
-                  worldTemplateId={worldTemplateId}
                   saidRef={briefRef}
                   expanded={briefOpen}
-                  // the header's source cards already say what was carried
-                  hideCarried={node.kind === 'edit' && !!parentShot && !!sourceHash}
                 />
               </div>
               {(briefOverflows || briefOpen) && (
@@ -583,34 +824,45 @@ export function DetailOverlay({
                   {briefOpen ? 'less' : 'more'}
                 </button>
               )}
-              <button
-                type="button"
-                className="sc-ovl-copy"
-                title="Copy the brief"
-                aria-label="Copy the brief"
-                onClick={() => void copyBrief()}
-              >
-                <CopySimple size={13} />
-              </button>
+              {/* The same control as the verbs over the picture: a tooltip
+                  that names it, a busy step, and "Copied" said on the control
+                  rather than in a toast. Always there, in the section's corner. */}
+              <Tip label={briefCopied ? 'Copied' : 'Copy the prompt'} open={briefCopied || undefined}>
+                <button
+                  type="button"
+                  className="sc-icon-btn sc-ovl-copy"
+                  aria-label="Copy the prompt"
+                  aria-busy={briefCopying || undefined}
+                  data-busy={briefCopying ? '' : undefined}
+                  onClick={() => void copyBrief()}
+                >
+                  {briefCopied ? <Check size={14} weight="bold" /> : <CopySimple size={14} />}
+                </button>
+              </Tip>
             </div>
           )}
 
-          {/* Reuse setup is offered on a failure too — changing the setup is
-              exactly what a declined brief or an unmakeable shape needs, and it
-              was the one route out that a failed shot had no way to reach.
-              Try again is not: the stage panel already carries it, and it knows
-              which failures re-running cannot fix. Compare, archive and delete
-              live once, in the bar over the shot. */}
-          {(hasImage || node.brief) && (
+          {/* A shot with a picture is changed in the refine field under it,
+              run again with Try again, and its prompt travels by Copy, chips
+              and all, so nothing else is offered here. A shot that failed has
+              no picture to refine: Edit the prompt puts its prompt back in the
+              composer, which is exactly what a declined prompt or an unmakeable
+              shape needs, and was the one route out a failed shot had no way to
+              reach. A failed refinement gets no such verb: its ask was about a
+              picture, and that picture is one step back on the trail with the
+              refine field under it. Try again on a failure lives on the stage,
+              which knows which failures re-running cannot fix. Archive and
+              delete live once, in the bar over the shot. */}
+          {(hasImage || canEditPrompt) && (
             <div className="sc-sugg">
-              {node.brief && (
+              {canEditPrompt && (
                 <button
                   type="button"
                   className="sc-s"
                   onClick={() => onRemix(node)}
-                  title="Put this shot's setup back in the brief, to change and run again"
+                  title="Put this prompt back in the composer, to change and run again"
                 >
-                  <ArrowsClockwise size={12} /> Reuse setup
+                  <PencilSimple size={12} /> Edit the prompt
                 </button>
               )}
               {hasImage && (
@@ -644,7 +896,6 @@ export function DetailOverlay({
               island's own surface says where the work area starts. */}
               <Composer
                 variant="overlay"
-                sourceItems={sourceItems}
                 projectId={projectId}
                 brand={brand}
                 engines={engines}
@@ -652,7 +903,6 @@ export function DetailOverlay({
                 target={node}
                 // the variant on the stage is the one a refine works from
                 sourceImage={hash}
-                shots={recent}
                 // The dock's composer is still mounted behind this one and there
                 // is one saved draft per brand: without this, merely opening a
                 // shot overwrote a half-typed brief with this composer's empty
@@ -677,20 +927,6 @@ export function DetailOverlay({
             </div>
           )}
         </aside>
-        <ExportDialog open={exportOpen} onOpenChange={setExportOpen} hash={hash} baseName={baseName} />
-        {parentShot && sourceHash && (
-          <CompareDialog
-            open={compareOpen}
-            onOpenChange={setCompareOpen}
-            a={parentShot}
-            b={node}
-            // the frame this refinement actually started from, so the drift
-            // figure measures the change it made rather than the distance to
-            // some other variant of the same run
-            imageA={sourceHash}
-            imageB={hash}
-          />
-        )}
       </div>
     </FocusScope>,
     document.body,

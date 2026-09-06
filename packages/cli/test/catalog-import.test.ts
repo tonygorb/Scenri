@@ -89,9 +89,8 @@ describe('catalog import API', () => {
     await app.ready();
   });
   afterEach(async () => {
-    await app.close();
-    core.close();
-    rmSync(home, { recursive: true, force: true });
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('imports full catalog into unified library without duplicates on re-run', async () => {

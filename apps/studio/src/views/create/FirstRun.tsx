@@ -50,7 +50,7 @@ export function FirstRun({
       {/* No "start writing" button: the caret is already in the brief below.
           A button whose only job is to focus something already focused is one
           more thing to read on the emptiest screen in the app. */}
-      <p>Describe what you want in the brief below, or open one of these.</p>
+      <p>Describe what you want in the prompt below, or open one of these.</p>
       {shelf.length > 0 && (
         <div className="sc-shelf">
           {/* A mouse has no sideways gesture. The wheel is redirected in the

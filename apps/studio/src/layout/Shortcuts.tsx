@@ -7,13 +7,13 @@ import { Dialog } from '@radix-ui/themes';
  */
 const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Generate', keys: ['cmd', 'enter'] },
-  { label: 'Jump to the brief', keys: ['/'] },
+  { label: 'Jump to the prompt', keys: ['/'] },
   { label: 'Product menu', keys: ['$'] },
   { label: 'Scene menu', keys: ['/'] },
   { label: 'Presenter menu', keys: ['@'] },
   { label: 'Colour menu', keys: ['#'] },
-  { label: 'Walk versions', keys: ['←', '→'] },
-  { label: 'Walk lineage', keys: ['↑', '↓'] },
+  { label: 'Previous or next shot', keys: ['←', '→'] },
+  { label: 'Previous or next in the history', keys: ['↑', '↓'] },
   { label: 'Refine this shot', keys: ['b'] },
   { label: 'Keep or unkeep', keys: ['k'] },
   { label: 'Open the shot', keys: ['enter'] },

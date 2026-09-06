@@ -21,7 +21,13 @@
    owning its gap as a margin; the line keeps no space on a chip's behalf. */
 .sc-brief-line {
   display: block;
-  min-height: 24px;
+  /* One chip row, not one text row: the 1.6em strut plus the chip's symmetric
+     2px margins (a chip is 1.92 of its own 0.8333em, which is 1.6em of the
+     line's). An empty line used to be the strut alone and grew 4px on the
+     first chip, which moved the card and the picker hanging off it mid-pick.
+     Content box, so the floor is the row itself whatever the padding. */
+  box-sizing: content-box;
+  min-height: calc(1.6em + 4px);
   cursor: text;
   line-height: 1.6;
 }
@@ -530,7 +536,7 @@
   outline: none;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  min-height: 24px;
+  min-height: calc(1.6em + 4px);
   cursor: text;
 }
 /* Placeholder is driven by data-empty from syncEmpty(), not :empty — Chromium
@@ -614,7 +620,7 @@
      controls. Same total rhythm, stated on the static element. */
   font-size: var(--sc-text-input);
   padding: var(--sc-space-6) var(--sc-space-6) 0;
-  min-height: 24px;
+  min-height: calc(1.6em + 4px);
 }
 /* When the Refining band sits above, the band's own bottom padding is the
    gap, so the line starts flush; its top padding would double the space and,

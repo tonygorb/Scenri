@@ -33,7 +33,7 @@ describe('showcase loader', () => {
     const { showcase, warnings } = loadShowcase(dir);
     expect(showcase.map((s) => s.id)).toEqual(['ok']);
     expect(warnings).toHaveLength(3);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('reports the categories actually in use, sorted', () => {
@@ -50,7 +50,7 @@ describe('showcase loader', () => {
     writeFileSync(join(dir, 'ccc.json'), JSON.stringify({ ...base, id: 'ccc' }));
     const { showcase } = loadShowcase(dir);
     expect(showcase.map((s) => s.id)).toEqual(['bbb', 'aaa', 'ccc']);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 });
 
@@ -98,10 +98,9 @@ describe('showcase catalog API', () => {
   });
 
   afterEach(async () => {
-    await app.close();
-    core.close();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(templatesDir, { recursive: true, force: true });
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('lists the catalog with facets and a preview url', async () => {

@@ -84,7 +84,7 @@ describe('capReferenceEdge', () => {
   });
   afterEach(() => {
     core.close();
-    rmSync(home, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('hands back a source already inside the cap untouched', async () => {

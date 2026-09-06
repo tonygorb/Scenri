@@ -152,6 +152,7 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **Danger:** transparent fill, red text and hover border, otherwise identical to ghost.
 - **Pressed:** paint only. Ghost and danger take `--sc-press` as a fill; primary steps its opacity to 0.75. No movement of any kind.
 - **Focus:** 2px solid outline in `--sc-focus` (one full step below ink), 2px offset. No glow, no color change.
+- **Icon-only controls (`.sc-icon-btn`) say their name in a tooltip,** on hover and on keyboard focus, through `layout/Tip.tsx` (the Radix tooltip in the `.sc-tip` coat). The words are the `aria-label`'s words; never a native `title` beside it, which is the same sentence twice on two clocks. A control with a visible label gets no tooltip. A **preview card** (the chip peek, `composer/ChipPreview.tsx`) is the one floating card that wears a tail: it sits a preview gap away from the chip or tile it is about, among a row of chips or a column of tiles, and the tail on the edge that faces its anchor is what says whose it is. Tooltips and menus stay tail-less. A toggle that is on wears `data-on` and says so with `aria-pressed`; a request in flight holds `data-busy` (the cursor says so, the control does not dim); a verb that opens a dialog says `aria-haspopup="dialog"`; a verb with nowhere to go is `disabled` and dims. For a moment after a verb lands the tooltip may say the result ("Copied"), held open, so nothing else has to appear.
 
 ### Chips / Tabs
 - **Style:** transparent fill, hairline border, muted text (`--sc-fg2`), full pill radius, 5px/12px padding, 12.5px/500 label type.
@@ -229,6 +230,15 @@ hover the marks become controls.**
   filing live in the detail overlay, which has the room to name them; a tile that states four facts
   in chips it never hides is a tile that is never just the picture.
 
+### Shot review (the overlay)
+- **Two axes, one tile.** The rail down the left is the feed you came from, every shot the grid holds in the grid's own order, originals and refinements alike. The strip under the picture is that shot's own history, the root first and every version made from it after. Both wear the strip's `.sc-thumb` tile and ring the shot on screen with the feed's own ring, the inverse fill, while every other tile stands back at 0.55 opacity and comes forward under the pointer. Orientation and position say which axis is which: the rail carries no words, the trail carries one line. Neither is ever "variations".
+- **The history is a trail, read left to right.** One group as wide as its tiles, centred under the picture and never wider than the stage (sized by what it holds, never by the picture, so a version of another shape does not resize the row): a line at its left edge saying where you are (`Original`, `Refinement 4 of 6`), and under it the square tiles, the original set apart from what was made of it by a hairline. No numeral under any tile, no caption over the row, no arrows between tiles, no tree. The ring says where you are, the line says which and how many, the hairline says where it began. Side by side, the panel's title is the record's name (`Shot`, `Refinement 3`); stacked (under 1024), the title sits right under the trail and carries the line itself, the trail draws none, and on a phone the trail runs edge to edge with the gutter as its padding, the way a scrubber does. Refining from an earlier step makes a branch in the record and the row stays one row, chronological; the step names its source on its card (`From Refinement 1`) only when that is not the tile before it. Hovering or focusing a tile peeks it at a readable size with its name and what that step asked for, the sentence that was typed, never a description read off the picture; a record without one shows the name alone. The step on the stage is always in the row, as a shimmer tile while it renders and the warning tile after it fails; any other step without a picture stays out. Left and right inside a focused trail move focus along it and stop there, the rail's own rule stood on its side. The words on this surface are Original, Refinement and history; never version, lineage, node, parent or branch. One read of the tree answers for every shot in it, so stepping along the trail is never a miss and the row never blinks. Hovering an arrow peeks the shot it would step to, and after the step the card follows to the new neighbour.
+- **The rail is furniture only where there is room:** from 1280px, the width the assets drawer needs to dock, and never below two shots. Below that width the arrows carry the walk, and a phone swipes the picture. The rail is flat: one size, one gap, never a scale, so the tiles you aim at hold still and the ring is the only thing that says which. An end dissolves only where there is more past it: a fade over the top while shots sit above the view, over the bottom while shots sit below, none at the list's own ends, so the first and the last shot are whole when they are the one on the stage; the fade grows in with the first stretch of travel away from an end rather than popping at the first pixel. The ringed tile is centred on every step, so the column reads outward from the shot on screen. The rail keeps one 14px gutter on every side and nothing sits over it: the close and the arrows stand beside it, the rail's own right gutter being the gap, so the tiles sit 14px from the edge and the close 14px from the tiles, because a control over the first tiles made those tiles unreachable. A dock's magnification was tried and dropped: the largest tile was whatever passed the middle, not the selected one, and it argued with the ring.
+- **One walk.** The header arrows, the left and right keys and a swipe on a phone all step the same feed order; up and down step the history. Hovering an arrow peeks the shot it would step to, in the chip peek card. Hovering a rail tile peeks it beside the tile, level with its top. Scrolling the rail or the strip never selects, and neither does the wheel: over the picture the wheel is a zoom.
+- **The stage never animates geometry.** A change of picture or of place lands whole in one commit; the only motion on the stage is a cross-fade of pixels (the picture before stays under the next until it has painted, then the next fades in). The box is held too: a shot that recorded its pixels takes its own box before a byte arrives, and one that did not borrows the shape of the last picture painted, so a step never collapses the stage; a different shape lands as one cut in the same commit the picture paints. Nothing on the stage carries a transform transition and nothing toggles a clip against an easing property: a transform that eases is rasterised blurry and snapped sharp at the end, a clip that drops while it eases spills the picture, and a scaled compositor layer checkerboards for a frame on a large picture. All three read as flicker, and the rule holds for whatever the stage grows next. There is no zoom: an engine's output is about 1.5 MP, which a 2x display already shows pixel for pixel at fit, so a close look could only enlarge pixels and make the work read as blurry. More detail is more pixels, an upscale, not a magnifier.
+- **The refine field says which picture it is about, then takes only what changes.** Above the field sits the Refining chip, the picture on the stage as a small thumbnail, the one chip pattern the app has (peek on hover, the image on click); it follows every step of the trail, and inside an open shot it has no X, because there is nothing else in there to refine. That chip is the whole statement of "based on this version": what you type is about that picture, and the server borrows its identity. The record under PROMPT is the ask alone. A band of "carried" or "keeping" chips over the field was built and taken out: it read as a second list of the record, and a switch per chip made refining feel like configuration. What the thread is made of is said once, on the Original, one step down the trail. Making a removal ask stop sending the removed identity as a reference is the compiler's job, measured by a battery, not a control.
+- **The picture answers a right click.** A right click or a long press on it opens the shot's own verbs, the ones the header carries, the way a tile in the feed does; the browser's menu never shows over a shot. The verbs are Download (one click, the PNG itself), Keep, Copy, Archive and, once archived, Delete. The record's own copy, in the corner of PROMPT, is the same icon control with the same tooltip, busy step and held "Copied"; it puts the sentence on the clipboard with its chips, so pasting into any prompt line gets the chips back. Under the record a live shot offers Try again alone: changing it is the refine field's job and carrying its prompt elsewhere is Copy's. A failed shot, with no picture to refine, offers Edit the prompt instead, which puts the prompt back in the composer. There is no Compare: the trail puts the source one click away and the stage cross-fades between the two, which is the before and after.
+
 ### Inputs / Fields
 - **Style:** hairline border, panel background, `--sc-radius` (10px) corners.
 - **Focus:** border shifts to `--sc-focus` (ink), no glow/ring beyond the border itself, consistent with the no-decoration-at-rest posture.
@@ -238,6 +248,66 @@ A caret (or phone-docked) shortlist, not a command palette. The four triggers sh
 
 ### Composer chips in the sentence
 A chip is an inline atom in real text flow that owns its gap as a symmetric 2px margin: two chips that touch in the document sit 4px apart, and the same holds in a right-to-left line. The line keeps no space on a chip's behalf, ever: the spaces beside a chip are the user's, typed or not, the way a mention behaves in any text field. Where the user has typed nothing beside a chip the line keeps a guard there, one zero-width character (`\uFEFF`) that gives the caret text to sit in, because a phone shows no caret anywhere else; the guard is never part of the sentence (readers strip it, the unit maths does not count it, typing into it leaves only what was typed), and between two touching chips the browser draws the caret at the guard, which is where the two margins meet. A chip is one unit to the keyboard: one press crosses it, the key that faces it removes it (keydown for a hardware key, `beforeinput` for a phone's keyboard, since no engine deletes an atom consistently on its own), and a press at a line edge with nothing on its side is swallowed. On touch the platform's caret and word-snap stand, and a tap is corrected only in the line's padding. `composer/line/invariants.ts` keeps the guards and the browser's untidiness straight; `composer/line/keys.ts` holds the key rules; `render.ts` drops the seams older briefs stored.
+
+### Composer attach picker (the "+")
+One panel, one grid, one insertion path. The "+" answers "what do you want to add to this shot": a head
+that stays put over the one scrolling grid, in a frame that keeps its size whatever the tab. It is anchored
+above the composer at its full width on every screen and is non-modal on purpose: its mousedown never takes
+the caret (`keepCaret`), so a pick lands where you were typing, the brief stays in view, and the panel stays
+open for the next one. A phone gets the same panel with the keyboard dropped on open; a bottom sheet was
+tried and covered the very composer the picker adds to.
+- **The head is one row, the composer's Figma row.** The category rail leads and takes the slack; trailing,
+  the library pages' own search (the 34px square that opens into a field over the rail, so nothing moves),
+  the primary **Upload image** pill (the one insertion the grid cannot offer, so it wears the primary fill),
+  then the 32px square close. 16px padding over a hairline; 12px gaps rather than the Figma's 16, because
+  at 16 the seventh tab sat behind the fade at 1440. Nothing in the head is the panel's own control: search
+  is `LibrarySearch`, the buttons are `.sc-btn` and `.sc-icon-btn`.
+- **A phone is not the desktop head folded.** A toolbar of a 44px pill and two circles over the rail was
+  built and dropped the same hour: it read as a desktop panel squeezed. The phone head is one thumb-high
+  row, the rail and the search (open, the field takes the row and the rail steps aside, the library's own
+  phone answer); **Upload image is the grid's first tile**, a dashed frame at the size of what it joins,
+  the camera roll's idiom; and the composer's own + is the close, turning into an x while the panel is up,
+  so no head button doubles it.
+- **The category rail is the underline rail** (`VerticalsTabs`), scoped to the panel's scale, never pills:
+  a tab strip stays underline-style, and the rail already scrolls sideways with edge fades, which is the
+  whole mobile answer. Every grid sits under the same two-slot row: the group's name and count leading,
+  one action trailing. On All that action is "Show all"; on a tab it is the tab's own way to make one (Add
+  product, Create presenter, Create scene, Add color, Add logo; a shot is made by generating, so Shots has
+  none). An action with no title beside it read as a stray, so the title stays even under a rail that has
+  just said the name.
+- **Every picture is a square in one grid**, sized for the thing (a face and a packshot read at 112 to
+  130px) so the count follows the width and never changes between tabs. A presenter is the canonical
+  `presenterAvatar`, a product its packshot with the brand under it, a scene its 4:5 preview centred (what
+  the chip picker does with it too), a mark letterboxed on white, a colour a swatch chip. One fixed
+  caption; "Recommended" is in the title, not the caption. Nothing on a tile manages.
+- **A tile's states, every case.** The picture sits in a hairline frame. Rest: `--sc-line`. Hover (only
+  under a pointer that can hover; touch would wear it until the next tap): the frame firms to
+  `--sc-line-hover`, the picture brightens one step, and the puck in the corner says what the press will do
+  (a plus). Pressed: the picture's own opacity, paint only. Focus: the ring on the frame, not the button,
+  and the puck too. In the shot: the 2px inverse ring a picked shot tile wears, the tick in the corner, and
+  under the pointer the tick becomes the x the press will do while the ring holds. Sitting out: dimmed,
+  tooltip says why, answers no pointer. No picture: the frame with a placeholder glyph. Nothing scales or
+  moves, ever. The rail's asset cards share the vocabulary.
+- **Nothing re-deals on a pick.** The order a picker or the rail opened with is the order it keeps: the
+  "suited to this product" band is read once at open, an attached item is ticked where it sits and never
+  lifted to the front. A grid that re-sorts under the pointer reads as losing its place.
+- **Already in the shot wears a tick and is a toggle.** The tick is the inverse puck the chip picker uses
+  for what is on, keyed on the brief's own identity rule (`identityKeyOf`), so the tile and the rail can
+  never disagree; the same press again takes the chip out through the brief's own remove, and the tick
+  becomes an x under the pointer so the second press is never a surprise.
+- **Every key stays in the picker.** Arrows walk the tiles by the grid's real column count (a roving
+  tabindex), Up off the first row returns to search, Enter in search picks the first hit, Escape closes.
+  All of it stops propagation: the shot overlay walks shots on the same arrows and closes on the same Escape.
+- **Shots are the feed's own query.** Every finished shot of the brand, newest first, searched on the server
+  and keyset paged 48 at a time, the way the Create grid turns its pages. The Create rail's Recent shots
+  reads the same pages once its section is open, under the feed's own count, so the two doors agree; the
+  workspace's recent shelf still leads there, because a shot that landed a moment ago is on the shelf
+  before any page knows it. A brand with four hundred shots offered twelve in both places once.
+- **Derivatives sized to the tile.** `small` (320) for a product, presenter or scene tile, `micro` for a shot
+  or a mark; the curated JPEGs take `?w=` through the same routes.
+- **Your own picture comes in three ways, through one door.** The Upload image button, a file dropped on the
+  brief, and an image pasted into the brief or the picker all go through the composer's `pickFiles` and land
+  as a reference chip at the caret. No second upload path, no references library.
 
 ### Section Headers (`.sc-sec-head`)
 - Flex row, title (15px/600) at the leading edge, an optional right-aligned action (ghost button, "+ Add X" pattern) at the trailing edge. **This is strictly a 2-slot contract**: title-group and trailing-action. A subtitle, when present, belongs inside the title group (its own inline flex with an explicit gap), never as a third top-level flex child, which is what produces glued text.
@@ -285,8 +355,11 @@ Product copy is part of the design system. The voice is plain, factual and speci
 happened and what to do next, in the words the interface already uses. Contractions are fine.
 Sentences are short.
 
-- **Talk about the work, not the technology.** A shot rendered, a brief was kept, a key was
+- **Talk about the work, not the technology.** A shot rendered, a prompt was kept, a key was
   refused. Never AI magic, never marvel at the model.
+- **On screen the sentence is the prompt.** PROMPT over a shot's record, Copy the prompt, Write a
+  prompt first, Jump to the prompt. "Brief" is the code's name for the record (`brief`,
+  `compileBrief`, `BriefLine`) and never reaches a person.
 - **No decorative emoji and no AI-flavored symbols** (sparkles, rockets, robots) in product or
   public copy. Phosphor icons carry the iconography.
 - **No em or en dashes in authored copy.** Use a period, comma, colon, semicolon or parentheses,

@@ -33,9 +33,8 @@ describe('product references', () => {
     app = buildServer({ core, engines: { all: () => [], get: () => null } });
   });
   afterEach(async () => {
-    await app.close();
-    core.close();
-    rmSync(home, { recursive: true, force: true });
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   const newBrand = async () =>

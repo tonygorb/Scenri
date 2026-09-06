@@ -90,20 +90,17 @@ export interface RailSlice<T> {
 /**
  * The tiles one section draws: what is attached, then the ranked rest.
  *
- * Attached items are lifted rather than left where they rank, so an asset you
- * just put in the brief is always the one you can see and un-tick — a tick
- * that only appears when the item happened to land in the top five would be a
- * selection state you cannot trust. Array#sort is stable, so the incoming rank
- * survives inside both halves.
+ * The order is the rank's and never moves: attached items used to be lifted
+ * to the front so the one you just ticked was always in the preview, and
+ * every tick made the row re-deal itself under the pointer, which read as
+ * the rail losing its place. The tick still marks an attached item wherever
+ * it sits, and the open shape shows all of them.
  */
 export function railSlice<T extends { id: string }>(
   items: readonly T[],
-  attached: ReadonlySet<string>,
+  _attached: ReadonlySet<string>,
   preview: number,
 ): RailSlice<T> {
-  const lifted = attached.size
-    ? [...items].sort((a, b) => Number(attached.has(b.id)) - Number(attached.has(a.id)))
-    : items;
-  const visible = lifted.slice(0, preview);
+  const visible = items.slice(0, preview);
   return { visible, more: Math.max(0, items.length - visible.length) };
 }

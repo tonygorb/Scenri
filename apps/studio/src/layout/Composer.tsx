@@ -22,10 +22,10 @@ import {
   type SentenceToken,
 } from '../composer/BriefInput.js';
 import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
+import { attachedKeyString, attachedKeys, type AttachCard } from '../composer/attach/attachRules.js';
 import type { PreviewKind } from '../composer/ChipPreview.js';
 import { RefineChip } from '../composer/RefineChip.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
-import { SourceCards, type SourceItem } from '../composer/SourceCards.js';
 import {
   CEILING_SENTENCE,
   IDENTITY_CAP,
@@ -86,7 +86,6 @@ export const Composer = forwardRef<
     engines: EngineInfo[];
     /** The project's root, which every new shot hangs off. */
     parentId: string | null;
-    shots: FeedNode[];
     initialBrief?: {
       tokens: BriefToken[];
       templateId?: string;
@@ -178,14 +177,10 @@ export const Composer = forwardRef<
     /**
      * Which shell this composer wears. The overlay variant is the shot
      * detail's refine composer: 300px wide, engine select folded into More,
-     * and a "Carrying" strip stating what the refinement inherits.
+     * and no band of its own: a refinement borrows the identity of the shot
+     * on the stage on the server, and the field is only for what changes.
      */
     variant?: 'dock' | 'overlay';
-    /**
-     * What the picture being refined is made of, for the overlay's band: the
-     * shot detail resolves it from the lineage, the composer only wears it.
-     */
-    sourceItems?: SourceItem[];
   }
 >(function Composer(
   {
@@ -193,7 +188,6 @@ export const Composer = forwardRef<
     brand,
     engines,
     parentId,
-    shots,
     initialBrief,
     suppressDraftRestore,
     startScene,
@@ -211,11 +205,10 @@ export const Composer = forwardRef<
     onRestoreBranchId,
     setSlug,
     persistDraft = true,
-    // The shell decides more than styling: the overlay's band wears the
-    // source cards and never the Refining chip, and scenes sit out only on
-    // the hub (see scenesSitOut and the target band below).
+    // The shell decides more than styling: the overlay's Refining chip has
+    // no X (there is nothing else in there to refine), and scenes sit out
+    // only on the hub (see scenesSitOut and the target band below).
     variant = 'dock',
-    sourceItems,
   },
   handleRef,
 ) {
@@ -267,7 +260,7 @@ export const Composer = forwardRef<
       : {
           icon: <Lightning size={15} />,
           title: 'No image provider connected',
-          detail: 'Add a provider key and this brief is ready to run.',
+          detail: 'Add a provider key and this prompt is ready to run.',
           action: 'Open settings' as const,
           onAct: () => openSettings('engines'),
           info: false,
@@ -594,6 +587,10 @@ export const Composer = forwardRef<
   // around the chips publishes nothing.
   const attached = useMemo(() => attachedIdsOf(sentence), [sentence]);
   const attachedKey = attachedIdsKey(attached);
+  // The same answer for the attach panel, by identity key: the join is what
+  // the memo watches, so typing prose around the chips repaints no tile.
+  const attachedJoined = attachedKeyString(sentence);
+  const attachedInShot = useMemo(() => attachedKeys(attachedJoined), [attachedJoined]);
   const attachedRef = useRef(attached);
   attachedRef.current = attached;
   useEffect(() => {
@@ -823,9 +820,9 @@ export const Composer = forwardRef<
           : targetPending
             ? 'Wait for this version to finish, or press X to start a new shot'
             : cropWithWords
-              ? 'This shape is reached by cropping, and a crop uses no words. Clear the brief, or keep the current shape.'
+              ? 'This shape is reached by cropping, and a crop uses no words. Clear the prompt, or keep the current shape.'
               : !hasContent && !aspectOnly
-                ? 'Write a brief first'
+                ? 'Write a prompt first'
                 : null;
 
   /**
@@ -891,6 +888,43 @@ export const Composer = forwardRef<
     setAttachTab(tab);
     setAttachOpen(true);
   };
+  const attachOpenRef = useRef(false);
+  attachOpenRef.current = attachOpen;
+  /**
+   * One close for every way out of the panel, and idempotent: on a phone the
+   * sheet's own Escape and the body's key router both answer the same press.
+   * `restore` is the shell's call. The anchored panel asks for the caret back
+   * when the close came from inside it (Escape in its search, its X), so
+   * typing carries on where the last chip landed; the phone sheet never
+   * does, because focusing the brief raises the keyboard.
+   */
+  const closeAttach = useCallback(({ restore }: { restore: boolean }) => {
+    if (!attachOpenRef.current) return;
+    attachOpenRef.current = false;
+    setAttachOpen(false);
+    if (restore) briefRef.current?.restoreCaret();
+  }, []);
+  const applySceneRef = useRef(applyScene);
+  applySceneRef.current = applyScene;
+  /**
+   * Stable on purpose: the panel's lists are built without it, so a keystroke
+   * in the brief behind an open panel rebuilds nothing. A scene is a swap
+   * with a policy and an Undo; everything else is the caret-aware insert
+   * every other pick uses.
+   */
+  const pickFromPanel = useCallback((card: AttachCard) => {
+    const t = card.token;
+    if (t.t === 'template') applySceneRef.current(t.id);
+    else briefRef.current?.insert(t);
+  }, []);
+  // The same tile pressed again: the chip comes out through the brief's own
+  // remove, keyed on identity, so a product picked at another angle still
+  // answers to its tile. A scene is the one template chip.
+  const removeFromPanel = useCallback((card: AttachCard) => {
+    const t = card.token;
+    if (t.t === 'template') briefRef.current?.removeTemplate();
+    else briefRef.current?.remove(t);
+  }, []);
   const pickFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     // the file <input> already filters to accept="image/*"; a drop has no such
@@ -996,7 +1030,7 @@ export const Composer = forwardRef<
         // so a scene needing a presenter said nothing at all until the picture
         // came back with a stranger in it.
         (stickyPreview?.warnings.some((w) => w.includes('built around a person')) ?? false)
-        ? 'This scene builds around a person. Attach a presenter.'
+        ? 'This scene builds around a person. Without a presenter, only the set renders.'
         : null;
   /**
    * Which chips get a mark, and what it says.
@@ -1222,19 +1256,14 @@ export const Composer = forwardRef<
           activeProductCategory={activeProductCategory}
           refining={scenesSitOut}
           full={ceilingFull}
-          shots={shots}
           initialTab={attachTab}
           id={attachPanelId}
+          attached={attachedInShot}
           onUpload={() => fileRef.current?.click()}
-          onToken={(t) => briefRef.current?.insert(t)}
-          onTemplate={(id) => applyScene(id)}
-          onClose={() => {
-            // A close issued from inside the panel (Escape, the X) would drop
-            // keyboard focus to body with the panel; hand it to the opener.
-            const wasInside = !!document.activeElement?.closest?.('.sc-attachpanel');
-            setAttachOpen(false);
-            if (wasInside) attachRef.current?.focus();
-          }}
+          onFiles={(files) => void pickFiles(files)}
+          onPick={pickFromPanel}
+          onRemove={removeFromPanel}
+          onClose={closeAttach}
         />
       )}
       {/* A refusal is written for a person to act on — which engine cannot carry
@@ -1293,29 +1322,26 @@ export const Composer = forwardRef<
         </div>
       )}
       <div className="sc-promptcard">
-        {/* What this brief is about to do, stated before it does it. The hub
-            wears the one Refining chip, with its X; the overlay wears the
-            picture's own contents as cards, the deeper level of the same
-            band. */}
-        {branchable && onClearTarget && (
+        {/* What this brief is about to do, stated before it does it: the
+            picture being refined, as the one chip pattern the app has. The
+            hub's chip has an X, which lets go of the thread and makes a new
+            shot; inside an open shot there is nothing else to refine, so the
+            chip has none, and it simply says which picture the words are
+            about, following the stage as you step. Only while the send is a
+            refine: a scene in the brief makes it a new shot, and then the
+            note below says so alone, with no chip claiming otherwise. */}
+        {branchable && (onClearTarget || (variant === 'overlay' && mode === 'edit')) && (
           <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            {/* The version being refined, as the one chip pattern the app has.
-                Its hover peek is its own (RefineChip), so resting the pointer
+            {/* Its hover peek is its own (RefineChip), so resting the pointer
                 on it no longer re-renders this whole composer. */}
             <RefineChip target={target} onOpenImage={openTargetImage} onClear={onClearTarget} />
             {targetNote && <small className="sc-target-note">{targetNote}</small>}
           </div>
         )}
-        {variant === 'overlay' && sourceItems && sourceItems.length > 0 && (
-          <div className="sc-target" data-note={targetNote ? '' : undefined}>
-            <SourceCards items={sourceItems} />
-            {targetNote && <small className="sc-target-note">{targetNote}</small>}
-          </div>
-        )}
-        {/* Where there is no band to carry it, the note still has to be said:
-            inside an open shot this is the only sign that what is about to
-            happen is a new shot rather than a change to the one on screen. */}
-        {branchable && !onClearTarget && targetNote && !(variant === 'overlay' && sourceItems?.length) && (
+        {/* Where there is no chip to carry it, the note still has to be said:
+            the only sign that what is about to happen is a new shot rather
+            than a change to the one on screen. */}
+        {branchable && !onClearTarget && targetNote && !(variant === 'overlay' && mode === 'edit') && (
           <small className="sc-target-note sc-target-note-alone">{targetNote}</small>
         )}
         {/* The inferred op, stated in two words. The old fieldset asked the
@@ -1375,9 +1401,9 @@ export const Composer = forwardRef<
               className="sc-icon-btn sc-attach-toggle"
               aria-expanded={attachOpen}
               aria-controls={attachOpen ? attachPanelId : undefined}
-              aria-label="Attach"
-              title="Attach a product, a scene, a colour or an image"
-              onClick={() => (attachOpen ? setAttachOpen(false) : openAttach('All'))}
+              aria-label="Add to shot"
+              title="Add a product, a presenter, a scene, a colour or an image"
+              onClick={() => (attachOpen ? closeAttach({ restore: false }) : openAttach('All'))}
             >
               {uploading ? <Spinner size="1" /> : <Plus size={16} />}
             </button>

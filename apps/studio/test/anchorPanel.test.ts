@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { placePanel, PANEL_W, PANEL_MAX_H, type AnchorRect } from '../src/composer/anchorPanel.js';
+import {
+  placePanel,
+  PANEL_W,
+  PANEL_MAX_H,
+  type AnchorRect,
+  placeBeside,
+  PREVIEW_H,
+  tailFor,
+  PREVIEW_GAP,
+} from '../src/composer/anchorPanel.js';
 import {
   INSERT_MENU_MAX_H,
   INSERT_MENU_PHONE_MAX_H,
@@ -207,5 +216,56 @@ describe('placeInsertMenu', () => {
     expect(p?.shell).toBe('dock');
     expect(p?.maxHeight).toBe(80);
     expect(p!.top + 80).toBe(brief.top - 8);
+  });
+});
+
+describe('placeBeside', () => {
+  const vp = { width: 1440, height: 900 };
+  const tile = (top: number) => ({ top, bottom: top + 52, left: 14, right: 66 });
+
+  it('opens to the right of the tile, a preview gap away, level with its top, with a tail at its middle', () => {
+    const p = placeBeside(tile(300), vp)!;
+    expect(p.side).toBe('beside');
+    expect(p.left).toBe(66 + PREVIEW_GAP);
+    expect(p.top).toBe(300);
+    expect(tailFor(tile(300), p)).toEqual({ edge: 'left', x: 0, y: 26 });
+  });
+
+  it('pulls up at the bottom of the screen so the whole card stays on it, the tail following the tile', () => {
+    const p = placeBeside(tile(860), vp)!;
+    expect(p.top).toBe(900 - 12 - PREVIEW_H);
+    expect(p.top + PREVIEW_H).toBeLessThanOrEqual(900 - 12);
+    expect(tailFor(tile(860), p).y).toBe(PREVIEW_H - 20);
+  });
+
+  it('goes to the left when there is no room on the right, and closes when the tile has left the screen', () => {
+    const far = { top: 300, bottom: 352, left: 1380, right: 1432 };
+    const p = placeBeside(far, vp)!;
+    expect(p.left).toBe(1380 - PREVIEW_GAP - p.width);
+    expect(tailFor(far, p).edge).toBe('right');
+    expect(placeBeside(tile(-100), vp)).toBeNull();
+    expect(placeBeside(tile(950), vp)).toBeNull();
+  });
+});
+
+describe('tailFor, above and below', () => {
+  const vp = { width: 1440, height: 900 };
+  const chip = { top: 700, bottom: 728, left: 400, right: 480 };
+
+  it('a card above wears the tail on its bottom edge, under the middle of the chip', () => {
+    const p = placePanel(chip, vp, { width: 156, gap: PREVIEW_GAP })!;
+    expect(p.side).toBe('above');
+    expect(p.top + p.maxHeight).toBe(700 - PREVIEW_GAP);
+    expect(tailFor(chip, p)).toEqual({ edge: 'bottom', x: 440 - p.left, y: 0 });
+  });
+
+  it('a card below wears it on its top edge, and the tail stays off the corners', () => {
+    const high = { top: 40, bottom: 68, left: 8, right: 30 };
+    const p = placePanel(high, vp, { width: 156, gap: PREVIEW_GAP })!;
+    expect(p.side).toBe('below');
+    expect(p.top).toBe(68 + PREVIEW_GAP);
+    const t = tailFor(high, p);
+    expect(t.edge).toBe('top');
+    expect(t.x).toBe(20);
   });
 });

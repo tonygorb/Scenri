@@ -71,7 +71,7 @@ describe('demo product loader', () => {
     const { demoProducts, warnings } = loadDemoProducts(dir);
     expect(demoProducts.map((p) => p.id)).toEqual(['ok']);
     expect(warnings).toHaveLength(3);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('resolves by id, and answers undefined for an unknown one', () => {
@@ -105,8 +105,8 @@ describe('resolveDemoProductImages', () => {
 
   afterEach(() => {
     core.close();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(templatesDir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('hashes the hero photo into the image store on first use, idempotently', async () => {
@@ -179,10 +179,9 @@ describe('demo product catalog + brief resolution', () => {
   });
 
   afterEach(async () => {
-    await app.close();
-    core.close();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(templatesDir, { recursive: true, force: true });
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   const newBrand = async () =>
@@ -209,6 +208,14 @@ describe('demo product catalog + brief resolution', () => {
     expect(ok.headers['content-type']).toBe('image/jpeg');
     const missing = await app.inject({ method: 'GET', url: '/api/demo-product-thumbnails/nope.jpg' });
     expect(missing.statusCode).toBe(404);
+    // the picker and the cards ask for a derivative width through the same route
+    const sized = await app.inject({ method: 'GET', url: '/api/demo-product-thumbnails/aurelia.jpg?v=1&w=320' });
+    expect(sized.statusCode).toBe(200);
+    expect(sized.headers['content-type']).toBe('image/webp');
+    expect(sized.headers.etag).toMatch(/^"demo-aurelia-\d+-w320"$/);
+    expect((await app.inject({ method: 'GET', url: '/api/demo-product-thumbnails/aurelia.jpg?w=7' })).statusCode).toBe(
+      400,
+    );
   });
 
   it('a brief can name a curated demo product directly, with no upload step first', async () => {

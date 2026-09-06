@@ -49,12 +49,11 @@ beforeEach(() => {
 afterEach(async () => {
   // drain tests already closed both; closing twice must stay harmless
   try {
-    await app.close();
-    core.close();
+    await app.drain();
   } catch {
     /* already closed */
   }
-  rmSync(home, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 describe('detectInstallKind', () => {

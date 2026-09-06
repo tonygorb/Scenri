@@ -223,7 +223,7 @@ const RULES: Rule[] = [
     re: /\brun aborted\b/i,
     kind: 'cancelled',
     title: () => 'You stopped this shot.',
-    fix: 'The brief is kept. Run it again whenever.',
+    fix: 'The prompt is kept. Run it again whenever.',
     retryable: true,
   },
   // Three different blown budgets, three different stories — collapsed into
@@ -338,7 +338,7 @@ export function describeCancelled(): Failure {
   return {
     kind: 'cancelled',
     title: 'You stopped this shot.',
-    fix: 'The brief is kept. Run it again whenever.',
+    fix: 'The prompt is kept. Run it again whenever.',
     raw: '',
     retryable: true,
   };

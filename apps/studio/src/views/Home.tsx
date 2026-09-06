@@ -65,7 +65,7 @@ export function HomeView() {
     showcaseError,
     refetchShowcase,
   } = useAppData();
-  const { brand, workspace, root, recent, products: library } = useBrand();
+  const { brand, workspace, root, products: library } = useBrand();
   const createAsset = useCreateAsset();
   const navigate = useNavigate();
   const { push } = useToasts();
@@ -446,7 +446,6 @@ export function HomeView() {
               brand={brand}
               engines={engines}
               parentId={root}
-              shots={recent}
               initialBrief={dockBrief}
               onQueued={() => navigate(hubPath(brand))}
             />

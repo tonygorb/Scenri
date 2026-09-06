@@ -26,7 +26,7 @@ export function Library() {
       <div className="sc-set-row">
         <span className="txt">
           <b>Export everything</b>
-          <small>One zip: brands, cast, briefs, shots. Never keys.</small>
+          <small>One zip: brands, cast, prompts, shots. Never keys.</small>
         </span>
         <a className="sc-btn sc-btn-ghost" href="/api/export/all" download>
           Export

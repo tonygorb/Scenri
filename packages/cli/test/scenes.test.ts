@@ -110,7 +110,7 @@ describe('scene loader + composer', () => {
     const { scenes, warnings } = loadScenes(dir);
     expect(scenes.map((s) => s.id)).toEqual(['ok']);
     expect(warnings).toEqual(['invalid scene skipped: coupled.json']);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('skips broken files and bad subjects with warnings', () => {
@@ -122,7 +122,7 @@ describe('scene loader + composer', () => {
     const { scenes, warnings } = loadScenes(dir);
     expect(scenes.map((s) => s.id)).toEqual(['ok']);
     expect(warnings).toHaveLength(3);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('resolves a scene by a former id, so stored briefs keep working', () => {
@@ -187,9 +187,8 @@ describe('product uploads + scene generation via API', () => {
     app = buildServer({ core, engines: { all: () => [spy], get: (id) => (id === 'spy' ? spy : null) } });
   });
   afterEach(async () => {
-    await app.close();
-    core.close();
-    rmSync(home, { recursive: true, force: true });
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   async function upload(brandId: string, kind: 'products' | 'characters', name: string): Promise<any> {

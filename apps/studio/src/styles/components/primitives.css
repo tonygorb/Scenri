@@ -22,6 +22,24 @@
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
 }
+/* A verb that does not apply right now is dim and still, and does not light
+   under the pointer: the arrow at the end of a row, the last step of a zoom.
+   Opacity rather than a colour swap, so the glyph stays the glyph. */
+.sc-icon-btn:disabled,
+.sc-icon-btn[aria-disabled="true"] {
+  opacity: var(--sc-disabled);
+  cursor: not-allowed;
+}
+.sc-icon-btn:disabled:hover,
+.sc-icon-btn[aria-disabled="true"]:hover {
+  background: var(--sc-well);
+  color: var(--sc-fg2);
+}
+/* Working: the request is out and the glyph waits for the answer. Not dim,
+   because the control is not refusing; the cursor alone says so. */
+.sc-icon-btn[data-busy] {
+  cursor: progress;
+}
 /* Actions are rounded squares, not pills, so a glance tells a place from a verb.
    No resting outline: twelve hairline boxes in one row is clutter, and the hover
    halo says "pressable" at the moment it matters. Chrome elsewhere (the detail

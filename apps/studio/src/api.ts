@@ -9,7 +9,6 @@ export * from './apiUploads.js';
 export * from './apiLabels.js';
 import { req } from './apiReq.js';
 import { feedSearchParams } from './feedRules.js';
-import type { ExportPreset } from './apiUploads.js';
 import type {
   ActivityNode,
   AssetBuild,
@@ -135,7 +134,6 @@ export const api = {
   demoProductFrames: (id: string) =>
     req<{ frames: { angle: string; url: string }[] }>('GET', `/api/demo-product-previews/${id}`),
   showcase: () => req<{ showcase: ShowcaseEntry[]; categories: string[] }>('GET', '/api/showcase'),
-  exportPresets: () => req<ExportPreset[]>('GET', '/api/export/presets'),
   previewBrief: (brief: unknown, engineId: string, brandId: string, parentId?: string) =>
     // a parentId makes it a REFINE preview: the server runs the same
     // inheritance and budget path the send will run
@@ -146,8 +144,6 @@ export const api = {
   deleteNode: (nodeId: string) => req<{ ok: true }>('DELETE', `/api/nodes/${nodeId}`),
   deleteNodesBatch: (nodeIds: string[]) =>
     req<{ ok: true; deleted: number }>('POST', '/api/nodes/delete-batch', { nodeIds }),
-  diff: (imageA: string, imageB: string) =>
-    req<{ score: number; heatmapHash: string }>('POST', '/api/diff', { imageA, imageB }),
   settings: () => req<Record<string, boolean>>('GET', '/api/settings'),
   saveSettings: (s: Record<string, string | boolean>) => req<{ ok: true }>('PUT', '/api/settings', s),
   costs: () => req<{ byEngine: Record<string, number>; caps: Record<string, number> }>('GET', '/api/costs/summary'),

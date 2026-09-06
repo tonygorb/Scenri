@@ -208,6 +208,20 @@ test('every shot of a batch made inside a set is filed in that set', async ({ pa
 });
 
 test("a brand's late answer never lands on another brand's feed", async ({ page }) => {
+  // This test has gone red on CI's loaded runners with the app leaving the
+  // new brand's home for the old brand's create page on its own, before the
+  // late answer even arrived, and green alone every time. Until the caller
+  // is named, every navigation the app makes logs its stack to the console,
+  // which the trace keeps: the next red says who did it.
+  await page.addInitScript(() => {
+    for (const m of ['pushState', 'replaceState'] as const) {
+      const orig = history[m];
+      history[m] = function (this: History, ...a: Parameters<History['pushState']>) {
+        console.warn(`[nav] ${m} -> ${String(a[2])}\n${new Error().stack ?? ''}`);
+        return orig.apply(this, a);
+      };
+    }
+  });
   const slug = await brandSlug(page);
   const a = (await (await page.request.get('/api/brands')).json())[0];
   const made = await page.request.post('/api/brands', {

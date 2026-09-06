@@ -33,9 +33,11 @@ beforeEach(() => {
   app = buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))) });
 });
 afterEach(async () => {
-  await app.close();
-  core.close();
-  rmSync(home, { recursive: true, force: true });
+  // drain, not close: a finished shot is still writing its thumbs after the
+  // reply, and removing the home under the writer is ENOTEMPTY on Linux and
+  // EBUSY on Windows. drain settles the writer, then closes the app and core.
+  await app.drain();
+  rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 const mkBrand = async () => {
@@ -1092,33 +1094,6 @@ describe('diff + export + settings', () => {
     });
     expect(diff.json().score).toBeGreaterThan(0);
     expect(core.images.has(diff.json().heatmapHash)).toBe(true);
-  });
-
-  it('export returns a zip with selected presets', async () => {
-    const brand = await mkBrand();
-    const { project, root } = await mkProject(brand.id);
-    const gen = await app.inject({
-      method: 'POST',
-      url: '/api/nodes',
-      payload: {
-        projectId: project.id,
-        parentId: root.id,
-        kind: 'generation',
-        prompt: 'x',
-        engineId: 'demo',
-        width: 128,
-        height: 128,
-      },
-    });
-    const node = await waitDone(gen.json().id);
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/export',
-      payload: { imageHash: node.images[0], presets: ['original', 'banner'], baseName: 'acme hero!' },
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toBe('application/zip');
-    expect(res.rawPayload.subarray(0, 2).toString()).toBe('PK');
   });
 
   it('review fixes: null parent anchors to root; in-flight reservations enforce cap; non-PNG normalized', async () => {

@@ -52,13 +52,6 @@ export async function uploadImage(file: File): Promise<string> {
   return (await res.json()).hash as string;
 }
 
-export interface ExportPreset {
-  id: string;
-  label: string;
-  width: number | null;
-  height: number | null;
-}
-
 /**
  * A last-gasp brand save for a page that is going away.
  *
@@ -86,15 +79,16 @@ export const imgUrl = (hash: string) => `/api/images/${hash}`;
 export const assetUrl = (ref?: string) => (ref?.startsWith('asset:') ? imgUrl(ref.slice(6)) : null);
 
 /**
- * The store's derivatives: `tile` for a feed cell and a catalog card, `micro`
+ * The store's derivatives: `tile` for a feed cell and a catalog card, `small`
+ * for a picker tile (a square around 100px, sharp on a 3x screen), `micro`
  * for the surfaces that show a picture at 64px or less (the rail, the version
  * strip, a chip, a notification row). The original stays on `imgUrl` for the
  * stage, Compare, the clipboard and export: those are the surfaces that show
  * the pixels the engine made. A tile used to fetch the same 2 MB PNG the
  * stage does, so one screen of feed was ten megabytes of decode.
  */
-type ThumbSize = 'tile' | 'micro';
-const THUMB_WIDTH: Record<ThumbSize, number> = { tile: 640, micro: 160 };
+export type ThumbSize = 'tile' | 'small' | 'micro';
+const THUMB_WIDTH: Record<ThumbSize, number> = { tile: 640, small: 320, micro: 160 };
 export const thumbUrl = (hash: string, size: ThumbSize) => `${imgUrl(hash)}/thumb?w=${THUMB_WIDTH[size]}`;
 /** Renders an `asset:<hash>` brand ref at a derivative size, or null. */
 export const assetThumbUrl = (ref: string | undefined, size: ThumbSize) =>
@@ -102,31 +96,29 @@ export const assetThumbUrl = (ref: string | undefined, size: ThumbSize) =>
 
 const STORE_IMAGE = /^\/api\/images\/([a-f0-9]{32})(?:\/thumb\?w=\d+)?$/;
 /**
+ * The curated catalog's JPEGs (a presenter's avatar and card, a scene's
+ * preview, a demo product's hero): `v` is the file's mtime and stays, `w`
+ * asks the same routes for a WebP at a derivative width. A 1024px avatar
+ * was 200 KB in an 88px picker tile, and one tab of them 4 MB.
+ */
+const CURATED_IMAGE =
+  /^(\/api\/(?:presenter-avatars|presenter-thumbnails|scene-thumbnails|demo-product-thumbnails)\/[a-z0-9-]+\.jpg)(?:\?v=(\d+))?(?:[?&]w=\d+)?$/;
+/**
  * The same picture at another size when the URL is one of the store's, in
- * either of its shapes; `full` is the original. Any other URL (a curated
- * catalog file, a blob) passes through unchanged, which is what lets a card
- * that only holds a URL ask for the size it needs.
+ * either of its shapes, or one of the curated catalog's; `full` is the
+ * original. Any other URL (a blob, an outside file) passes through
+ * unchanged, which is what lets a card that only holds a URL ask for the
+ * size it needs.
  */
 export function thumbOf<T extends string | null | undefined>(url: T, size: ThumbSize | 'full'): T {
   if (!url) return url;
   const m = STORE_IMAGE.exec(url);
-  if (!m) return url;
-  return (size === 'full' ? imgUrl(m[1]) : thumbUrl(m[1], size)) as T;
-}
-
-export async function downloadExport(imageHash: string, presets: string[], baseName: string) {
-  const res = await fetch('/api/export', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ imageHash, presets, baseName }),
-  });
-  if (!res.ok) throw new Error(`export failed: HTTP ${res.status}`);
-  const blob = await res.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${baseName || 'scenri-export'}.zip`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  if (m) return (size === 'full' ? imgUrl(m[1]) : thumbUrl(m[1], size)) as T;
+  const c = CURATED_IMAGE.exec(url);
+  if (!c) return url;
+  const base = c[2] ? `${c[1]}?v=${c[2]}` : c[1];
+  if (size === 'full') return base as T;
+  return `${base}${c[2] ? '&' : '?'}w=${THUMB_WIDTH[size]}` as T;
 }
 
 /** True when a brand has made nothing at all yet — any status, not just done-and-imaged. Every caller pairs this with `loaded`: check `loaded` first so a cold fetch isn't mistaken for a genuinely empty brand. */

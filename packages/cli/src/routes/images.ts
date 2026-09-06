@@ -4,15 +4,14 @@ import sharp from 'sharp';
 import type { Core } from '@scenri/core';
 import { driftDiff } from '../diff.js';
 import { toMarkPng } from './shared.js';
-import { buildExportZip, EXPORT_PRESETS } from '../exportPack.js';
 import { buildBrandBundle } from '../exportBrand.js';
-import { fileSize, isThumbWidth, type ThumbStore } from '../thumbs.js';
+import { fileSize, isThumbWidth, THUMB_WIDTH_LIST, type ThumbStore } from '../thumbs.js';
 
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 
 export function registerImageRoutes(app: FastifyInstance, deps: { core: Core; thumbs: ThumbStore }): void {
   const { core, thumbs } = deps;
-  // ---- images / diff / export
+  // ---- images / diff / the brand bundle
   /**
    * The original, streamed. It used to be read whole into memory on the
    * event loop with readFileSync, 2 MB at a time, once per tile. The hash is
@@ -40,7 +39,7 @@ export function registerImageRoutes(app: FastifyInstance, deps: { core: Core; th
   app.get('/api/images/:hash/thumb', async (req, reply) => {
     const hash = String((req.params as any).hash);
     const w = Number((req.query as any)?.w);
-    if (!isThumbWidth(w)) return reply.status(400).send({ error: 'w must be 640 or 160' });
+    if (!isThumbWidth(w)) return reply.status(400).send({ error: `w must be one of ${THUMB_WIDTH_LIST}` });
     if (!/^[a-f0-9]{32}$/.test(hash)) return reply.status(404).send({ error: 'image not found' });
     const etag = `"${hash}-w${w}"`;
     if (req.headers['if-none-match'] === etag) return reply.status(304).header('cache-control', IMMUTABLE).send();
@@ -93,7 +92,6 @@ export function registerImageRoutes(app: FastifyInstance, deps: { core: Core; th
     return { score: d.score, heatmapHash, width: d.width, height: d.height };
   });
 
-  app.get('/api/export/presets', async () => EXPORT_PRESETS);
   /**
    * The brand as a portable `.brand` bundle.
    *
@@ -105,26 +103,6 @@ export function registerImageRoutes(app: FastifyInstance, deps: { core: Core; th
     if (!core.store.getBrand(brandId)) return reply.status(404).send({ error: 'brand not found' });
     const { zip, filename } = await buildBrandBundle(core, brandId);
     reply.header('content-type', 'application/zip').header('content-disposition', `attachment; filename="${filename}"`);
-    return reply.send(zip);
-  });
-
-  app.post('/api/export', async (req, reply) => {
-    const { imageHash, presets, baseName = 'scenri-export' } = req.body as any;
-    if (!core.images.has(String(imageHash))) return reply.status(404).send({ error: 'image not found' });
-    // one sanitized name for the zip entries and the header alike: a quote or
-    // separator in a user-supplied name must not reach content-disposition
-    const safeBase =
-      String(baseName)
-        .replace(/[^a-zA-Z0-9_-]+/g, '-')
-        .slice(0, 60) || 'export';
-    const zip = await buildExportZip(
-      core.images.read(String(imageHash)),
-      safeBase,
-      Array.isArray(presets) ? presets.map(String) : [],
-    );
-    reply
-      .header('content-type', 'application/zip')
-      .header('content-disposition', `attachment; filename="${safeBase}.zip"`);
     return reply.send(zip);
   });
 }

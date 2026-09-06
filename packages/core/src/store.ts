@@ -124,6 +124,14 @@ export interface Lineage {
   siblings: FeedNode[];
   /** Refinements of the shot, oldest first. */
   children: FeedNode[];
+  /**
+   * The whole history of the shot's tree: its root first, then every live
+   * descendant of that root in creation order, capped. The shot itself is
+   * always in it, archived or past the cap. The same answer from anywhere in
+   * the tree, which is what lets the strip under the stage stay put while
+   * the version on the stage changes.
+   */
+  history: FeedNode[];
 }
 
 export interface UsageDay {
@@ -220,6 +228,8 @@ const CHILD_COUNT_SQL =
 const LINEAGE_SIBLINGS_RADIUS = 25;
 /** How many children a lineage answer carries; the strip shows six. */
 const LINEAGE_CHILDREN_MAX = 60;
+/** How much of a root's history a lineage answer carries; the strip scrolls past that. */
+const LINEAGE_HISTORY_MAX = 60;
 
 /** What every list reads: no prompt, no overlays, two JSON columns instead of three. */
 const FEED_COLS = `n.id, n.project_id, n.parent_id, n.kind, substr(n.prompt, 1, ${PROMPT_HEAD_CHARS}) AS prompt_head,
@@ -766,7 +776,7 @@ export function createStore(db: DB) {
       const node = this.getFeedNode(id);
       if (!node) return null;
       // the root has no siblings worth the name and its children are the feed
-      if (node.kind === 'root') return { ancestors: [], siblings: [], children: [] };
+      if (node.kind === 'root') return { ancestors: [], siblings: [], children: [], history: [] };
       const ancestors: FeedNode[] = [];
       let cur = node.parentId ? this.getFeedNode(node.parentId) : null;
       for (let hops = 0; cur && cur.kind !== 'root' && hops < 64; hops++) {
@@ -799,7 +809,27 @@ export function createStore(db: DB) {
           .prepare(`SELECT ${FEED_COLS} FROM nodes n WHERE n.parent_id = ? ORDER BY n.created_at, n.id LIMIT ?`)
           .all(node.id, LINEAGE_CHILDREN_MAX) as any[]
       ).map(rowToFeedNode);
-      return { ancestors, siblings, children };
+      // The root of this tree is the first ancestor, or the shot itself. Its
+      // subtree comes off the parent index by the same recursive walk the
+      // feed's lineage place uses; archived versions are put away and stay
+      // out, except the one being looked at, which the strip has to ring.
+      const rootShot = ancestors[0] ?? node;
+      const history = (
+        db
+          .prepare(
+            `WITH RECURSIVE d(id) AS (SELECT @root UNION ALL SELECT c.id FROM nodes c JOIN d ON c.parent_id = d.id)
+             SELECT ${FEED_COLS} FROM nodes n
+              WHERE n.id IN (SELECT id FROM d) AND (n.archived = 0 OR n.id = @self)
+              ORDER BY n.created_at, n.id LIMIT @limit`,
+          )
+          .all({ root: rootShot.id, self: node.id, limit: LINEAGE_HISTORY_MAX }) as any[]
+      ).map(rowToFeedNode);
+      // past the cap the shot still belongs in its own history: it takes the last place
+      if (!history.some((n) => n.id === node.id)) {
+        history.pop();
+        history.push(node);
+      }
+      return { ancestors, siblings, children, history };
     },
     /** The newest finished shots, newest first, for the rail and the attach panel. */
     recentShots(projectId: string, limit = 48): FeedNode[] {

@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import sharp from 'sharp';
 import type { BrandContext, Core, GenerateRequest } from '@scenri/core';
+import { fileSize, isThumbWidth, THUMB_WIDTH_LIST, type ThumbStore } from '../thumbs.js';
 
 /** Human-readable "A", "A and B", "A, B and C" for error copy. */
 export function joinNames(labels: string[]): string {
@@ -175,4 +176,49 @@ export const serveJpeg = (req: FastifyRequest, reply: FastifyReply, path: string
   reply.header('cache-control', 'public, max-age=31536000, immutable').header('etag', etag);
   if (req.headers['if-none-match'] === etag) return reply.status(304).send();
   return reply.header('content-type', 'image/jpeg').send(readFileSync(path));
+};
+
+/**
+ * The key a curated file's derivatives are filed under: the file's own mtime
+ * is part of it, the same way `mtimeQS` puts it in the URL, so a regenerated
+ * preview gets fresh derivatives without anyone invalidating anything.
+ */
+export const fileKey = (prefix: string, id: string, path: string) =>
+  `${prefix}-${id}-${Math.round(statSync(path).mtimeMs)}`;
+
+/**
+ * A curated JPEG at the size a surface asked for. Without `w` it is the JPEG
+ * exactly as before; with a valid `w` it is a WebP derivative made through the
+ * thumb store (a 1024px avatar was 200 KB in an 88px picker tile, twenty of
+ * them a 4 MB tab). Same immutable caching as the store's own derivatives; a
+ * derivative that cannot be made falls back to the JPEG with `no-store`, so
+ * the tile still shows and the next load tries again.
+ */
+export const serveJpegSized = async (
+  req: FastifyRequest,
+  reply: FastifyReply,
+  path: string,
+  thumbs: ThumbStore,
+  key: string,
+) => {
+  const raw = (req.query as { w?: unknown } | undefined)?.w;
+  if (raw === undefined || raw === '') return serveJpeg(req, reply, path);
+  const w = Number(raw);
+  if (!isThumbWidth(w)) return reply.status(400).send({ error: `w must be one of ${THUMB_WIDTH_LIST}` });
+  const immutable = 'public, max-age=31536000, immutable';
+  const etag = `"${key}-w${w}"`;
+  if (req.headers['if-none-match'] === etag) return reply.status(304).header('cache-control', immutable).send();
+  const made = await thumbs.ensureFile(key, path, w);
+  const size = made ? await fileSize(made) : null;
+  if (!made || size === null) {
+    const back = new URL(req.url, 'http://scenri.local');
+    back.searchParams.delete('w');
+    return reply.header('cache-control', 'no-store').redirect(`${back.pathname}${back.search}`, 307);
+  }
+  reply
+    .header('content-type', 'image/webp')
+    .header('cache-control', immutable)
+    .header('etag', etag)
+    .header('content-length', String(size));
+  return reply.send(thumbs.stream(made));
 };

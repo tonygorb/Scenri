@@ -60,6 +60,20 @@
 .sc-ovl-overflow {
   display: none;
 }
+/* A finger needs 44px; the bar's chips are 32. The reach is an invisible box
+   centred on the control, the same rule the topbar uses, so nothing grows. */
+@media (pointer: coarse) {
+  .sc-ovl-bar .sc-icon-btn::after,
+  .sc-ovl-copy::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
 /* Where the panel is a column beside the stage, the header belongs over the
    stage only. Spanning the whole overlay put the actions on top of the panel's
    heading. */
@@ -75,6 +89,26 @@
 .sc-thumbs {
   display: flex;
   gap: 8px;
+  /* Past the stage's width the strip scrolls rather than cuts: twenty
+     versions are twenty. No scrollbar; the wheel and a drag move it, and the
+     ringed version is kept in view. The padding and the matching negative
+     margin give the focus ring room inside the scroll box without moving
+     anything on screen. */
+  max-width: calc(100% + 8px);
+  margin: -4px;
+  padding: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.sc-thumbs::-webkit-scrollbar {
+  display: none;
+}
+/* The row held with nothing in it: the trail's own height, and no more
+   (the line, its gap, and a 52px tile), so a step from a shot with a
+   history to one without never moves the picture. */
+.sc-trail-empty {
+  height: 74px;
 }
 .sc-thumb-btn {
   padding: 0;
@@ -96,34 +130,194 @@
 .sc-thumb-btn:hover .sc-thumb {
   border-color: var(--sc-line-strong);
 }
-
-/* The picture's place while it is being made: the box it will occupy, filled
-   with the feed's own shimmer, and what is happening said over it. */
-.sc-stage-wait {
-  position: relative;
-  /* Sized from the cap, not from the parent: the frame around this is an
-     inline-block that shrink-wraps its child, so a percentage width resolved
-     against an auto width and collapsed the box to nothing. A definite height
-     plus an aspect-ratio gives the width, and max-width clamps it back on a
-     narrow screen with the ratio kept. */
-  /* Fit a box of this ratio inside the room there is: take the smaller of the
-     column's width and what the cap allows, then let the ratio give the
-     height. Clamping a width while an explicit height stayed put is what bent
-     a 16:9 placeholder to 1.37. */
-  width: min(100%, calc(var(--sc-stage-cap) * var(--sc-wait-ar, 1)));
-  aspect-ratio: var(--sc-wait-ar, 1);
-  height: auto;
-  margin-inline: auto;
-  /* The shimmer is only a travelling highlight — it paints over a surface it
-     assumes is already there, which a feed tile has and this did not, so the
-     placeholder was a correctly-sized rectangle of nothing. */
-  background: var(--sc-raised);
-  border-radius: 14px;
-  overflow: hidden;
+/* Every tile but the ringed one stands a step back, so the shot on screen
+   reads at a glance down a rail of forty; a tile comes forward under the
+   pointer and under focus. Paint only, on the image's own opacity. */
+.sc-thumb-btn:not([aria-pressed="true"]) .sc-thumb {
+  opacity: 0.55;
 }
-.sc-stage-wait .sc-shimmer {
+.sc-thumb-btn:not([aria-pressed="true"]):hover .sc-thumb,
+.sc-thumb-btn:not([aria-pressed="true"]):focus-visible .sc-thumb {
+  opacity: 1;
+}
+/* A tile with no picture yet, or none at all: the feed's own shimmer while
+   it renders, the warning glyph after it failed. Both rows wear these. */
+.sc-thumb-wait,
+.sc-thumb-failed {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--sc-fg3);
+}
+.sc-thumb-wait .sc-shimmer {
   position: absolute;
   inset: 0;
+}
+
+/* ---- the trail: the history read as a sequence ----
+   One group as wide as its tiles, centred under the picture and never wider
+   than the stage: a line at its left edge saying where you are, and under it
+   the tiles. Sized by what it holds, never by the picture: a history whose
+   versions changed shape used to make the row grow and shrink with each
+   selection, which read as the row itself changing. Past the stage's width
+   it scrolls. */
+.sc-trail {
+  display: grid;
+  gap: var(--sc-space-4);
+  justify-items: start;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+.sc-trail > .sc-thumbs {
+  justify-self: stretch;
+}
+.sc-trail-say {
+  font-size: var(--sc-text-caption);
+  line-height: 14px;
+  font-weight: 500;
+  color: var(--sc-fg2);
+  font-variant-numeric: tabular-nums;
+}
+.sc-trail-tile {
+  flex: none;
+  position: relative;
+}
+/* A tile fills its square. The phone's stage rule (`.sc-ovl-stage img`,
+   contain) reaches every image in the stage, the trail's included, and
+   letterboxed the thumbs on their dark ground. Said once, stronger. */
+.sc-ovl-stage .sc-thumb {
+  object-fit: cover;
+}
+/* The original stands apart from what was made of it: a hairline after it,
+   with a breath on each side. The one structural mark the row carries. */
+.sc-trail-tile[data-original] {
+  margin-right: 17px;
+}
+.sc-trail-tile[data-original]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -13px;
+  width: 1px;
+  height: 24px;
+  transform: translateY(-50%);
+  background: var(--sc-line-strong);
+}
+/* More trail past an edge: a fade over that edge, the rail's own, and only
+   there; a row that fits is not faded. The strip sets which from a
+   measurement, and keeps the ringed tile clear of the fade when it scrolls
+   it into view. */
+.sc-thumbs {
+  scroll-padding-inline: 28px;
+}
+.sc-thumbs[data-more="end"] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.sc-thumbs[data-more="start"] {
+  mask-image: linear-gradient(to right, transparent, #000 28px);
+}
+.sc-thumbs[data-more="both"] {
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+
+/* ---- the rail: the other shots in the feed you came from ----
+   Roots only, in the grid's order; the strip under the stage is a version's
+   history and never appears here. The same tile as the strip, stood on end:
+   orientation and position say which axis is which, so neither row needs a
+   label. Silent chrome: no border, no ground, no scrollbar, a fade at each
+   end. Only where there is room, from 1280 up, the width at which the
+   assets drawer docks too. Below two shots the rail is not rendered at all. */
+.sc-rail-shell {
+  display: none;
+}
+.sc-rail-tile {
+  flex: none;
+  content-visibility: auto;
+  contain-intrinsic-size: 52px 52px;
+}
+.sc-rail-tile[aria-disabled="true"] {
+  cursor: default;
+}
+@media (min-width: 1280px) {
+  .sc-ovl[data-rail] {
+    /* the column's whole width: a tile and the gutter either side of it */
+    --sc-rail-w: calc(52px + 2 * 14px);
+    grid-template-columns: auto 1fr var(--sc-ovl-panel-w);
+  }
+  /* The close and the arrows stand beside the rail, never over it: the rail
+     is a column of things to aim at, and a control sitting on its first tiles
+     made those tiles unreachable. The rail's own right gutter is the gap, so
+     the tiles sit 14px from the edge and the close sits 14px from the tiles,
+     the same measure on both sides. */
+  .sc-ovl[data-rail] .sc-ovl-bar {
+    left: var(--sc-rail-w);
+  }
+  .sc-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: content-box;
+    width: 52px;
+    /* one gutter on every side: the same 14px the header keeps from the edges */
+    padding: 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .sc-rail::-webkit-scrollbar {
+    display: none;
+  }
+  /* One size, one gap, and an end dissolves only where there is more past
+     it: a fade over the top while shots sit above the view, over the bottom
+     while shots sit below, and none at the list's own ends, so the first and
+     the last shot are whole when they are the one on the stage. The fade
+     says "this continues"; at an end the list has reached there is nothing
+     to say, and it grows in with the travel away from that end (the rail
+     writes how much as a variable, straight from the scroll) so it never
+     pops. Painted over the column by its shell, in the ground's colour, so
+     nothing is scaled or moved and the tiles you aim at hold still; the
+     ring is the only thing that says which. A dock's magnification was
+     tried and dropped: the largest tile was whatever passed the middle,
+     not the selected one, and it argued with the ring. */
+  .sc-rail-shell {
+    display: grid;
+    position: relative;
+    min-height: 0;
+  }
+  .sc-rail-shell::before,
+  .sc-rail-shell::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 34%;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .sc-rail-shell::before {
+    top: 0;
+    opacity: var(--sc-rail-start, 0);
+    background: linear-gradient(
+      to bottom,
+      var(--sc-bg) 0%,
+      color-mix(in srgb, var(--sc-bg) 64%, transparent) 30%,
+      color-mix(in srgb, var(--sc-bg) 25%, transparent) 70%,
+      transparent 100%
+    );
+  }
+  .sc-rail-shell::after {
+    bottom: 0;
+    opacity: var(--sc-rail-end, 0);
+    background: linear-gradient(
+      to top,
+      var(--sc-bg) 0%,
+      color-mix(in srgb, var(--sc-bg) 64%, transparent) 30%,
+      color-mix(in srgb, var(--sc-bg) 25%, transparent) 70%,
+      transparent 100%
+    );
+  }
 }
 .sc-stage-wait-say {
   position: absolute;
@@ -148,13 +342,23 @@
      stage and painted over the row of takes, which measured as visible and
      could not be clicked. */
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* The picture and its trail are one thing, centred together: a content
+     row for the picture (its own cap is its ceiling) and a row for the trail,
+     packed to the middle of the stage. With the picture in a stretched row
+     the trail sat on the stage floor, forty pixels under a landscape shot and
+     a hundred under a wide one, and read as a second gallery rather than as
+     that picture's history. The row is held empty when there is none, so the
+     picture's place is the same either way. */
+  grid-template-rows: minmax(0, auto) auto;
+  align-content: center;
   justify-items: center;
   align-items: center;
-  gap: var(--sc-space-5);
+  gap: var(--sc-space-6);
   min-width: 0;
   padding: 56px var(--sc-space-7) var(--sc-space-7);
   position: relative;
+  /* a sideways swipe on the picture steps shots; up and down still scroll, a pinch still zooms */
+  touch-action: pan-y pinch-zoom;
 }
 .sc-ovl-stage .sc-frame {
   box-shadow: var(--sc-shadow-3);
@@ -182,10 +386,10 @@
    height the page would have if the browser chrome were collapsed — so on iOS
    Chrome it promises room that is not on screen. */
 .sc-ovl-stage {
-  --sc-stage-cap: max(calc(100dvh - 124px), 320px);
-}
-.sc-ovl-stage[data-takes] {
-  --sc-stage-cap: max(calc(100dvh - 200px), 280px);
+  /* One cap whether the strip has versions in it or not: the row under the
+     picture is held either way, so a step from a shot with a history to one
+     without never resizes or re-centres the stage. */
+  --sc-stage-cap: max(calc(100dvh - 222px), 280px);
 }
 .sc-ovl-stage img {
   max-height: var(--sc-stage-cap);
@@ -205,6 +409,34 @@
   display: block;
   width: 100%;
   height: auto;
+  /* invisible until it has pixels; the picture before it holds the stage */
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-stage-pic .sc-stage-img[data-ready] {
+  opacity: 1;
+}
+/* While the next picture decodes it takes no part in layout: the box is
+   held at the shape it has (the recorded one, or the last picture's), and
+   the picture before stays under. At the frame it paints it steps into the
+   flow and the box takes its shape, in the same commit. */
+.sc-stage-pic .sc-stage-img:not([data-ready]) {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  object-fit: contain;
+}
+/* No box known yet, the overlay's very first picture from a shot that
+   recorded no size: the picture is its own box, at its natural size within
+   the cap. Every picture after it borrows this one's shape until its own. */
+.sc-stage-free {
+  display: inline-block;
+  max-width: 100%;
+}
+.sc-stage-free .sc-stage-img {
+  display: block;
+  width: auto;
+  max-width: 100%;
 }
 .sc-stage-pic .sc-stage-under {
   position: absolute;
@@ -212,6 +444,8 @@
   width: 100%;
   height: 100%;
   display: block;
+  /* the last picture may be another shape; it sits inside the new box, whole */
+  object-fit: contain;
 }
 .sc-ovl-stage > * {
   min-height: 0;
@@ -328,27 +562,9 @@
   overflow: visible;
   -webkit-line-clamp: unset;
 }
-.sc-brief-carried {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-2);
-}
-.sc-brief-said:not(:empty) + .sc-brief-carried {
-  margin-top: var(--sc-space-3);
-}
 .sc-brief-record .sc-ingredient {
   vertical-align: middle;
   margin: 0 1px;
-}
-/* One voice for every chip in the record: what was asked for and what was
-   carried read the same — the distinction lives in the title, not in three
-   competing chip styles between an initial shot and its refinements. */
-.sc-brief-record .sc-ingredient[data-inherited],
-.sc-brief-record .sc-ingredient[data-world] {
-  background: var(--sc-token-bg);
-  box-shadow: none;
-  outline: none;
-  color: var(--sc-fg);
 }
 /* the clamp's release, in the caption voice, only when the clamp bites */
 .sc-ovl-more {
@@ -366,24 +582,14 @@
 .sc-ovl-brief {
   position: relative;
 }
+/* The brief's copy is the header's icon button, placed: level with the
+   BRIEF eyebrow at the section's right edge. Always visible; it used to
+   appear on hover only, with a native title, which read as a different
+   control from the verbs over the picture. */
 .sc-ovl-copy {
   position: absolute;
-  top: var(--sc-space-7);
+  top: calc(var(--sc-space-7) - 7px);
   right: 0;
-  background: none;
-  border: none;
-  padding: var(--sc-space-1);
-  color: var(--sc-fg3);
-  opacity: 0;
-  cursor: pointer;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
-}
-.sc-ovl-brief:hover .sc-ovl-copy,
-.sc-ovl-copy:focus-visible {
-  opacity: 1;
-}
-.sc-ovl-copy:hover {
-  color: var(--sc-fg);
 }
 /* The panel's one working surface, pinned to its bottom edge: content scrolls
    beneath it, and when there is little content margin-top:auto keeps it at the
@@ -453,7 +659,7 @@
    specificity alone. */
 @media (min-width: 768px) {
   .sc-ovl-edit .sc-attachpanel {
-    height: min(380px, 48vh);
+    height: min(510px, 48vh);
   }
 }
 @media (max-width: 1023px) {
@@ -467,9 +673,7 @@
      leaves the panel its room: without this the desktop cap let the image
      spend the whole viewport and the panel below kept a 100px sliver. */
   .sc-ovl-stage {
-    --sc-stage-cap: max(calc(100dvh - 340px), 300px);
-  }
-  .sc-ovl-stage[data-takes] {
+    /* one cap, the row under the picture held either way, as on a desktop */
     --sc-stage-cap: max(calc(100dvh - 410px), 260px);
   }
   .sc-ovl-meta {
@@ -541,6 +745,10 @@
   }
   .sc-ovl-stage[data-takes] {
     --sc-stage-cap: max(44dvh, 260px);
+  }
+  /* a phone's column scrolls; an empty row there is room taken from the picture */
+  .sc-trail-empty {
+    display: none;
   }
   .sc-ovl-stage .sc-frame,
   .sc-ovl-stage img {
@@ -635,4 +843,32 @@
 /* narrow composer, any display: the sidebar where a refinement is written */
 .sc-ovl-edit .sc-prompt-pills {
   display: none;
+}
+
+/* ---- the trail, stacked ----
+   Under 1024 the panel sits right beneath the trail and its title says where
+   you are, so the trail's own line is not drawn twice; the held row is a
+   tile tall. On a phone a long trail runs edge to edge with the gutter as
+   its padding, the way a scrubber does; a short one stays a centred group.
+   The fades sit at the screen's edges and the first tile lands on the
+   gutter. */
+@media (max-width: 1023px) {
+  .sc-trail-say {
+    display: none;
+  }
+  .sc-trail-empty {
+    height: 52px;
+  }
+}
+@media (max-width: 767px) {
+  .sc-trail {
+    max-width: calc(100% + 2 * var(--sc-gutter));
+    margin-inline: calc(-1 * var(--sc-gutter));
+  }
+  .sc-trail > .sc-thumbs {
+    max-width: 100%;
+    margin: -4px 0;
+    padding: 4px var(--sc-gutter);
+    scroll-padding-inline: var(--sc-gutter);
+  }
 }

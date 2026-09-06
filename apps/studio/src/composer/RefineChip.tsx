@@ -28,6 +28,16 @@ export function RefineChip({
 }) {
   const hover = useHoverPreview<{ anchor: HTMLElement }>();
   const image = target.images[0];
+  // What the chip calls the shot: the sentence that was typed for it when
+  // there is one, since the compiled prompt's first words read as the
+  // engine's directives ("Remove the person. This is a"); the shot's label
+  // otherwise.
+  const said = ((target.brief?.tokens ?? []) as { t?: string; v?: string }[])
+    .filter((t) => t.t === 'text' && typeof t.v === 'string')
+    .map((t) => (t.v as string).trim())
+    .join(' ')
+    .trim();
+  const name = said || nodeLabel(target);
   const open = useCallback(() => {
     if (!image) return;
     hover.closeNow();
@@ -41,7 +51,11 @@ export function RefineChip({
         role="button"
         tabIndex={0}
         aria-haspopup="dialog"
-        aria-label={`Version being refined: ${nodeLabel(target)}. Open the image, or remove to make a new shot.`}
+        aria-label={
+          onClear
+            ? `Version being refined: ${name}. Open the image, or remove to make a new shot.`
+            : `Version being refined: ${name}. Open the image.`
+        }
         onPointerEnter={(e) => {
           if (e.pointerType === 'mouse' && image) hover.open({ anchor: e.currentTarget });
         }}
@@ -80,7 +94,7 @@ export function RefineChip({
           anchor={hover.shown.anchor}
           kind="shot"
           src={thumbUrl(image, 'tile')}
-          label={nodeLabel(target)}
+          label={name}
           noun="Refining this shot"
           onOpen={open}
           onHoverIn={hover.keep}

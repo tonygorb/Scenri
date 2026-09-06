@@ -20,7 +20,7 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'sc-vdir-'));
 });
 afterEach(() => {
-  rmSync(home, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 /** Lay down a staged version dir; broken=true skips the package.json. */

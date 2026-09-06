@@ -3,10 +3,14 @@ import type { FastifyInstance } from 'fastify';
 import { contentDirList, contentFile } from '../content/overlay.js';
 import { facetsOf, type Scene } from '../scenes.js';
 import { vibrantColor } from '../swatch.js';
-import { mtimeQS, serveJpeg } from './shared.js';
+import type { ThumbStore } from '../thumbs.js';
+import { fileKey, mtimeQS, serveJpeg, serveJpegSized } from './shared.js';
 
-export function registerSceneRoutes(app: FastifyInstance, deps: { templatesRoot: string; scenes: Scene[] }): void {
-  const { templatesRoot, scenes } = deps;
+export function registerSceneRoutes(
+  app: FastifyInstance,
+  deps: { templatesRoot: string; scenes: Scene[]; thumbs: ThumbStore },
+): void {
+  const { templatesRoot, scenes, thumbs } = deps;
   const previewPath = (id: string) => contentFile(templatesRoot, 'previews', `${id}.jpg`);
   // chips tint from their template's own preview; extracted once per process
   const previewColors = new Map<string, string | null>();
@@ -31,7 +35,9 @@ export function registerSceneRoutes(app: FastifyInstance, deps: { templatesRoot:
   app.get('/api/scene-thumbnails/:file', async (req, reply) => {
     const m = /^([a-z0-9-]+)\.jpg$/.exec(String((req.params as any).file));
     if (!m || !existsSync(previewPath(m[1]))) return reply.status(404).send({ error: 'no preview' });
-    return serveJpeg(req, reply, previewPath(m[1]));
+    // `?w=` for the cards and the picker: a 720px preview is 90 KB, a page of them 4 MB
+    const path = previewPath(m[1]);
+    return serveJpegSized(req, reply, path, thumbs, fileKey('scene', m[1], path));
   });
   // A scene's reference set: several frames sharing one light, one per subject.
   // Both segments are pattern-guarded, so nothing outside previews/ is reachable.

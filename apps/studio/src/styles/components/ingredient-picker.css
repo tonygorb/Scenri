@@ -511,6 +511,15 @@
   font-size: var(--sc-text-micro);
   color: var(--sc-fg3);
 }
+/* A step's ask on the history card is a sentence, not a noun: three lines of
+   it, then an ellipsis. Never the whole brief; the panel has that. */
+.sc-chip-preview[data-kind="shot"] .sc-chip-preview-hit > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .sc-chip-preview .sc-swap-warn {
   margin-top: var(--swap-step);
   font-size: var(--sc-text-micro);
@@ -551,6 +560,41 @@
 
 /* The card is a shortcut to the same thing the chip does, so it says so. The
    hit area is a button carrying no chrome of its own: the card is the frame. */
+/* The card's tail: a rotated square in the card's own surface and stroke,
+   straddling the edge that faces the chip or tile, level with its middle.
+   The two stroked sides are the ones that show; the square's other half
+   sits inside the card, over its padding, and covers the card's own border
+   there so the outline runs on through the tail. Which way it points is
+   which way the stroked corner is turned. */
+.sc-chip-preview-tail {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--sc-panel);
+  border-left: 1px solid var(--sc-line-strong);
+  border-bottom: 1px solid var(--sc-line-strong);
+  pointer-events: none;
+}
+.sc-chip-preview-tail[data-edge="left"] {
+  left: -6px;
+  margin-top: -5px;
+  transform: rotate(45deg);
+}
+.sc-chip-preview-tail[data-edge="right"] {
+  right: -6px;
+  margin-top: -5px;
+  transform: rotate(225deg);
+}
+.sc-chip-preview-tail[data-edge="bottom"] {
+  bottom: -6px;
+  margin-left: -5px;
+  transform: rotate(-45deg);
+}
+.sc-chip-preview-tail[data-edge="top"] {
+  top: -6px;
+  margin-left: -5px;
+  transform: rotate(135deg);
+}
 .sc-chip-preview-hit {
   display: flex;
   flex-direction: column;

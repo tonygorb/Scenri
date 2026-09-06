@@ -1191,8 +1191,8 @@ test('a shape chosen while refining one shot does not follow you to the next', a
     brief: { ...(shot.brief ?? { tokens: [] }), format },
   });
   // the first finished shot reads as square, and a twin of it as portrait: on
-  // the feed page, on each one's own record, and in the lineage the overlay's
-  // Next version steps through
+  // the feed page (whose order the overlay's Next shot steps through), on
+  // each one's own record, and in the lineage
   await page.context().route('**/api/brands/*/feed*', async (route) => {
     const res = await route.fetch();
     const feed = await res.json();
@@ -1249,7 +1249,7 @@ test('a shape chosen while refining one shot does not follow you to the next', a
   await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
 
   // step to the 4:5 shot, in the same mounted composer
-  await page.locator('.sc-ovl-bar [aria-label="Next version"]').click();
+  await page.locator('.sc-ovl-bar [aria-label="Next shot"]').click();
   await expect(page).toHaveURL(new RegExp(`/shots/${b}$`));
   await expect(composer.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Portrait 4:5');
   // and nothing is being reshaped, because nothing was asked of this one
@@ -1271,7 +1271,7 @@ test('a shape chosen while refining one shot does not follow you to the next', a
   expect(posted.parentId).toBe(b);
 
   // back to the first shot: its own 16:9 is still there, unmoved by the second
-  await page.locator('.sc-ovl-bar [aria-label="Previous version"]').click();
+  await page.locator('.sc-ovl-bar [aria-label="Previous shot"]').click();
   await expect(page).toHaveURL(new RegExp(`/shots/${a}$`));
   await expect(composer.locator('.sc-more')).toHaveAttribute('aria-label', 'Shot settings. Aspect Landscape 16:9');
   await expect(composer.locator('.sc-reshape-hint')).toHaveText('Will extend to Landscape 16:9');
@@ -2274,23 +2274,18 @@ test('a refinement records what it carried, and the shot detail says it', async 
     return { editId: edit.id as string, sceneName: scenes[0].name as string };
   });
 
-  // the refined shot's detail names what it carried, quieter than its own ask
+  // the refined shot's record is its own ask, nothing more: what the
+  // refinement borrows from the shot it refines is the server's business,
+  // and the field is only for what changes
   await page.goto(`/${slug}/create/shots/${made.editId}`);
-  const inherited = page.locator('.sc-ingredient[data-inherited]');
-  await expect(inherited).toHaveCount(2);
-  await expect(page.locator('.sc-ingredient[data-inherited][data-kind="mark"]')).toBeVisible();
-  await expect(page.locator('.sc-ingredient[data-inherited][data-kind="ref"]')).toBeVisible();
-  // and the BRIEF reads as the sentence that was typed
   await expect(page.locator('.sc-brief-record')).toContainText('warmer light');
-  // context is stated once, at the top of the record: the composer's old
-  // carried strip is gone, and the record itself names the world the thread
-  // was shot in — a scene never rides a refine as a reference, the photo
-  // carries it
-  await expect(page.locator('.sc-ovl-edit .sc-carried')).toHaveCount(0);
-  // the header's source cards name the world the thread was shot in; the
-  // record repeats nothing the header already says
-  await expect(page.locator('.sc-source-chip', { hasText: made.sceneName })).toBeVisible();
-  await expect(page.locator('.sc-ingredient[data-world]')).toHaveCount(0);
+  await expect(page.locator('.sc-brief-record .sc-ingredient')).toHaveCount(0);
+  await expect(page.locator('.sc-ovl-edit .sc-carried-band')).toHaveCount(0);
+  // what the thread is made of is said once, on the Original, one step down the trail
+  await page.locator('.sc-thumbs .sc-trail-tile[data-original]').click();
+  await expect(
+    page.locator('.sc-brief-record .sc-ingredient[data-kind="scene"]', { hasText: made.sceneName }),
+  ).toHaveCount(1);
 });
 
 test("spaces typed after a chip are the user's, every one of them", async ({ page }) => {
@@ -2398,7 +2393,8 @@ test('the refine composer closes the same seam, at its own type scale', async ({
   await attachCards(page).first().waitFor();
   for (const i of [0, 1, 2]) await attachCards(page).nth(i).click();
   await page.keyboard.press('Escape');
-  await expect(editor.locator('.sc-token')).toHaveCount(3);
+  // the sentence's own chips: the carried band over the field wears the same chip and is not the sentence
+  await expect(editLine.locator('.sc-token')).toHaveCount(3);
 
   await editLine.evaluate((el) => {
     const chip = el.querySelectorAll('.sc-token')[1];
@@ -2410,7 +2406,7 @@ test('the refine composer closes the same seam, at its own type scale', async ({
     sel.addRange(r);
   });
   await page.keyboard.press('Backspace');
-  await expect(editor.locator('.sc-token')).toHaveCount(2);
+  await expect(editLine.locator('.sc-token')).toHaveCount(2);
 
   const between = await editLine.evaluate((el) => {
     const next = el.querySelector('.sc-token')!.nextSibling;
@@ -2554,13 +2550,15 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   await page.keyboard.type('hero shot on marble ');
   const bare = (await line(page).boundingBox())!.height;
 
-  // insert the chip: the row grows by exactly the chip's vertical margins and
-  // nothing else. The Figma frames pitch chip rows at 28 (a 24px chip with 2px
-  // above and below) over a 24px prose strut, and the margins are the whole
-  // of that difference: the chip's box itself fits INSIDE the strut. Before
-  // the metric fix the chip's synthesized baseline was its bottom edge (no
-  // flex item participated in baseline alignment), so every chip rode above
-  // the text baseline and stretched its row on top of the margins.
+  // insert the chip: the row does not grow at all. The Figma frames pitch
+  // chip rows at 28 (a 24px chip with 2px above and below) over a 24px prose
+  // strut, and the line is one chip row from the start (its floor is the
+  // strut plus those margins), so an empty composer and one holding a chip
+  // are the same height and a first pick moves nothing. The chip's box
+  // itself fits INSIDE the strut: before the metric fix its synthesized
+  // baseline was its bottom edge (no flex item participated in baseline
+  // alignment), so every chip rode above the text baseline and stretched its
+  // row on top of the margins.
   await plusMenu(page, /products/i);
   await pickCard(page);
   await page.keyboard.press('Escape');
@@ -2573,10 +2571,14 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
       return parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
     });
   expect(margins).toBeGreaterThan(0);
-  expect(
-    Math.abs(withChip - bare - margins),
-    `bare ${bare} withChip ${withChip} margins ${margins}`,
-  ).toBeLessThanOrEqual(0.6);
+  expect(Math.abs(withChip - bare), `bare ${bare} withChip ${withChip}`).toBeLessThanOrEqual(0.6);
+  // and the chip, margins included, sits inside that row
+  const chipBox = (await chips(page).first().boundingBox())!.height + margins;
+  const lineBox = await line(page).evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return el.getBoundingClientRect().height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  });
+  expect(chipBox, `chip ${chipBox} row ${lineBox}`).toBeLessThanOrEqual(lineBox + 0.6);
 
   // chip label and neighbouring prose share a midline on the same row
   const mid = await line(page).evaluate((el) => {
@@ -2607,7 +2609,9 @@ test('a chip fits inside the line box and shares the sentence baseline', async (
   // measured from the chip row, so the one new row is prose alone
   const grown = wrapped - withChip;
   expect(grown).toBeGreaterThan(0);
-  expect(Math.abs(grown % strut)).toBeLessThanOrEqual(1);
+  // a whole number of struts, allowing the sub-pixel a text row can land on either side of it
+  const off = grown % strut;
+  expect(Math.min(off, strut - off), `grown ${grown} strut ${strut}`).toBeLessThanOrEqual(1);
 });
 
 test('the drag ghost rides the grab point like a platform drag image', async ({ page }) => {
@@ -2932,6 +2936,13 @@ const REF_B = Buffer.from(
   'base64',
 );
 const upload = (name: string, buffer: Buffer) => ({ name, mimeType: 'image/png', buffer });
+/** The picker's search is the library's 34px button that opens into a field; press it, get the field. */
+const openSearch = async (page: Page) => {
+  await page.locator('.sc-attachpanel .sc-libsearch-toggle').click();
+  const field = page.locator('.sc-attachpanel').getByRole('searchbox', { name: /^Search/ });
+  await expect(field).toBeFocused();
+  return field;
+};
 
 /** The hover card. */
 const peek = (p: Page) => p.locator('.sc-chip-preview');
@@ -3226,13 +3237,272 @@ test('the shot record reads each ingredient once, and names the world it keeps',
   });
 
   await page.goto(`/${slug}/create/shots/${made.editId}`);
-  // one product chip, however many token shapes recorded it: the asked-for
-  // copy wins, the carried angle twin collapses into it
+  // one product chip, the asked-for one: a carried angle twin is never listed
   await expect(page.locator('.sc-ingredient[data-kind="product"]')).toHaveCount(1);
-  await expect(page.locator('.sc-ingredient[data-kind="product"]')).not.toHaveAttribute('data-inherited', /.*/);
-  // The header's source cards name the world the thread was shot in: the
-  // refine never re-sends the scene, the photograph carries it, and the
-  // record repeats nothing the header already says.
-  await expect(page.locator('.sc-source-chip', { hasText: made.sceneName })).toBeVisible();
-  await expect(page.locator('.sc-ingredient[data-world]')).toHaveCount(0);
+  // the world the thread was shot in is the Original's to say, not this record's
+  await expect(page.locator('.sc-brief-record .sc-ingredient[data-kind="scene"]')).toHaveCount(0);
+});
+
+/**
+ * The "+" picker: add something to this shot.
+ *
+ * One body behind two shells; these run the desktop one. The phone sheet has
+ * its own cases in composer-mobile.spec.ts. What they pin: the upload action
+ * is a real labelled button, the keyboard can walk the grid and a pick lands
+ * at the caret, a thing already in the shot says so, a search with no hits
+ * hides nothing that matters, and three picks in a row read as three words.
+ */
+test.describe('the attach picker', () => {
+  const upload = (p: Page) => p.locator('.sc-attachpanel').getByRole('button', { name: 'Upload image' });
+
+  test('the upload action is a labelled button in the picker head, on every tab', async ({ page }) => {
+    await dock(page).locator('.sc-attach-toggle').click();
+    await expect(upload(page)).toBeVisible();
+    await expect(page.locator('.sc-ap-actions .sc-ap-upload')).toHaveCount(1);
+    for (const tab of ['Products', 'Presenters', 'Scenes', 'Colors', 'Brand', 'Shots']) {
+      await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
+      await expect(upload(page)).toBeVisible();
+    }
+    // the search is one labelled button that opens into a field, and the rail is a real tablist
+    await expect(page.locator('.sc-attachpanel').getByRole('button', { name: /^Search/ })).toBeVisible();
+    await expect(page.locator('.sc-ap-tabs [role="tablist"]')).toHaveCount(1);
+    await expect(page.locator('.sc-ap-tabs [role="tab"]')).toHaveCount(7);
+  });
+
+  test('every tab offers its own way to make one, in the row where Add product lives', async ({ page }) => {
+    await dock(page).locator('.sc-attach-toggle').click();
+    const action = (name: string) => page.locator('.sc-attachpanel .sc-ap-add', { hasText: name });
+    for (const [tab, name] of [
+      ['Products', 'Add product'],
+      ['Presenters', 'Create presenter'],
+      ['Scenes', 'Create scene'],
+      ['Colors', 'Add color'],
+      ['Brand', 'Add logo'],
+    ] as const) {
+      await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
+      await expect(action(name)).toBeVisible();
+      await expect(page.locator('.sc-attachpanel .sc-ap-add')).toHaveCount(1);
+    }
+    // a finished shot is made by generating, not here
+    await page.locator('.sc-ap-tabs button', { hasText: 'Shots' }).click();
+    await expect(page.locator('.sc-attachpanel .sc-ap-add')).toHaveCount(0);
+  });
+
+  test('the search field can be left, and Escape clears it before it closes the panel', async ({ page }) => {
+    await dock(page).locator('.sc-attach-toggle').click();
+    const search = await openSearch(page);
+    const open = page.locator('.sc-attachpanel .sc-libsearch[data-open]');
+    // a press anywhere else in the panel lets the field go, and an empty field folds back into its button
+    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).click();
+    await expect(search).not.toBeFocused();
+    await expect(open).toHaveCount(0);
+    // Escape in a search with text clears the text and keeps the panel
+    await openSearch(page);
+    await search.fill('marco');
+    await expect(attachCards(page)).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(search).toHaveValue('');
+    await expect(page.locator('.sc-attachpanel')).toBeVisible();
+    // the next folds the field; the one after that closes the panel
+    await page.keyboard.press('Escape');
+    await expect(open).toHaveCount(0);
+    await expect(page.locator('.sc-attachpanel')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+  });
+
+  test('the keyboard walks the grid and a pick lands at the caret', async ({ page }) => {
+    await page.keyboard.type('shoot it in golden light');
+    for (let i = 0; i < ' in golden light'.length; i++) await page.keyboard.press('ArrowLeft');
+    await dock(page).locator('.sc-attach-toggle').click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
+    await attachCards(page).first().waitFor();
+    await openSearch(page);
+    await page.keyboard.press('ArrowDown');
+    await expect(attachCards(page).nth(0)).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(attachCards(page).nth(1)).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(attachCards(page).nth(0)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(chips(page)).toHaveCount(1);
+    // the caret is back after the chip: typing carries on there, not at the end
+    await page.keyboard.type('X');
+    const text = await sentence(page);
+    expect(text.startsWith('shoot it')).toBe(true);
+    expect(text).toMatch(/X\s*in golden light$/);
+    // the panel stayed open for the next pick
+    await expect(page.locator('.sc-attachpanel')).toBeVisible();
+  });
+
+  test('a thing already in the shot says so, and the same tile pressed again takes it out', async ({ page }) => {
+    await plusMenu(page, /products/i);
+    await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(0);
+    await pickCard(page, 0);
+    const on = page.locator('.sc-ap-card[data-on]');
+    await expect(on).toHaveCount(1);
+    await expect(on).toHaveAttribute('aria-pressed', 'true');
+    await expect(on).toContainText('In the shot');
+    await expect(on.locator('.sc-ap-puck')).toBeVisible();
+    // the second press is a removal, through the brief's own remove
+    await on.click();
+    await expect(chips(page)).toHaveCount(0);
+    await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(0);
+    // and it goes back in, with the keyboard this time
+    await attachCards(page).first().focus();
+    await page.keyboard.press('Enter');
+    await expect(chips(page)).toHaveCount(1);
+    await page.keyboard.press('Enter');
+    await expect(chips(page)).toHaveCount(0);
+    // a scene is the one template chip, and its tile toggles the same way
+    await page.locator('.sc-ap-tabs button', { hasText: 'Scenes' }).click();
+    await attachCards(page).first().click();
+    await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(1);
+    await expect(page.locator('.sc-ap-card[data-on]')).toHaveCount(1);
+    await page.locator('.sc-ap-card[data-on]').click();
+    await expect(line(page).locator('.sc-token[data-kind="template"]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+  });
+
+  test('an image on the clipboard pastes in as a reference, in the brief and in the picker', async ({ page }) => {
+    // a real paste needs the OS clipboard; a ClipboardEvent carrying a
+    // DataTransfer with the file is what the handler sees either way
+    const pasteImage = (sel: string, which: 'png' | 'gif') =>
+      page.evaluate(
+        ([selector, kind]) => {
+          // two different pictures: the store is content-addressed and the
+          // brief refuses a twin, so the same bytes twice would be one chip
+          const b64 =
+            kind === 'png'
+              ? 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+              : 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const dt = new DataTransfer();
+          dt.items.add(new File([bytes], `clip.${kind}`, { type: `image/${kind}` }));
+          const target = document.querySelector<HTMLElement>(selector)!;
+          target.focus();
+          target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+        },
+        [sel, which] as const,
+      );
+    await line(page).click();
+    await page.keyboard.type('on a shelf ');
+    await pasteImage('.sc-brief-line', 'png');
+    await expect(line(page).locator('.sc-token[data-kind="ref"]')).toHaveCount(1);
+    expect(await sentence(page)).toMatch(/^on a shelf\s*clip/);
+    // the picker takes the same paste, through the same door
+    await dock(page).locator('.sc-attach-toggle').click();
+    await pasteImage('.sc-attachpanel .sc-libsearch input', 'gif');
+    await expect(line(page).locator('.sc-token[data-kind="ref"]')).toHaveCount(2);
+    // and it is the real reference role, not text
+    await expect(line(page).locator('.sc-token[data-kind="ref"]').first()).toContainText('clip');
+  });
+
+  test('a first pick grows nothing: the card and the panel stay where they were', async ({ page }) => {
+    await line(page).click();
+    await dock(page).locator('.sc-attach-toggle').click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
+    await attachCards(page).first().waitFor();
+    const card = () => page.locator('.sc-promptcard').first().boundingBox();
+    const panel = () => page.locator('.sc-attachpanel').boundingBox();
+    const card0 = (await card())!;
+    const panel0 = (await panel())!;
+    // an empty line is already one chip row tall, so the first chips add no height
+    for (let i = 0; i < 3; i++) {
+      await attachCards(page).nth(i).click();
+      await expect(chips(page)).toHaveCount(i + 1);
+    }
+    const card1 = (await card())!;
+    const panel1 = (await panel())!;
+    expect(Math.round(card1.y)).toBe(Math.round(card0.y));
+    expect(Math.round(card1.height)).toBe(Math.round(card0.height));
+    expect(Math.round(panel1.y)).toBe(Math.round(panel0.y));
+    // and the frame is 510 wherever the viewport allows it (60vh caps a short one)
+    const vh = page.viewportSize()!.height;
+    expect(Math.round(panel1.height)).toBe(Math.round(Math.min(510, 0.6 * vh)));
+  });
+
+  test('every tab draws the same grid in the same frame', async ({ page }) => {
+    await dock(page).locator('.sc-attach-toggle').click();
+    const frame = (await page.locator('.sc-attachpanel').boundingBox())!;
+    const cols = async () =>
+      page
+        .locator('.sc-ap-grid[data-shape="square"]')
+        .first()
+        .evaluate((g) => getComputedStyle(g).gridTemplateColumns.split(' ').length);
+    const first = await cols();
+    expect(first).toBeGreaterThanOrEqual(4);
+    for (const tab of ['Products', 'Presenters', 'Scenes', 'Shots', 'Colors', 'Brand', 'All']) {
+      await page.locator('.sc-ap-tabs button', { hasText: tab }).click();
+      const box = (await page.locator('.sc-attachpanel').boundingBox())!;
+      expect(Math.round(box.height), tab).toBe(Math.round(frame.height));
+      expect(Math.round(box.width), tab).toBe(Math.round(frame.width));
+      if (tab !== 'Colors' && tab !== 'Brand') expect(await cols(), tab).toBe(first);
+    }
+  });
+
+  test('a search with no hits says so and keeps the upload action', async ({ page }) => {
+    await plusMenu(page, /presenters/i);
+    const search = await openSearch(page);
+    await search.fill('zzqq');
+    await expect(page.locator('.sc-ap-empty')).toHaveText('No matching presenters.');
+    await expect(attachCards(page)).toHaveCount(0);
+    await expect(upload(page)).toBeVisible();
+    // the rail's counts follow the search
+    await expect(page.locator('.sc-ap-tabs button', { hasText: 'Presenters' })).toContainText('0');
+    await search.fill('');
+    await expect(attachCards(page).first()).toBeVisible();
+    // a scoped search: the whole library on All, one kind on a tab
+    await search.fill('marco');
+    await expect(attachCards(page)).toHaveCount(1);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
+    await expect(page.locator('.sc-ap-empty')).toHaveText('No matching products.');
+  });
+
+  test('a product, a presenter and a scene in a row read as three words with one gap each', async ({ page }) => {
+    await line(page).click();
+    await plusMenu(page, /products/i);
+    await pickCard(page, 0);
+    await page.locator('.sc-ap-tabs button', { hasText: 'Presenters' }).click();
+    await attachCards(page).first().click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Scenes' }).click();
+    await attachCards(page).first().click();
+    await page.keyboard.press('Escape');
+    await expect(chips(page)).toHaveCount(3);
+    const gaps = await line(page).evaluate((root) => {
+      const els = [...root.querySelectorAll('.sc-token')];
+      const gap = (i: number, j: number) =>
+        Math.round(els[j].getBoundingClientRect().left - els[i].getBoundingClientRect().right);
+      return [gap(0, 1), gap(1, 2)];
+    });
+    expect(gaps[0]).toBeGreaterThan(0);
+    expect(gaps[1]).toBe(gaps[0]);
+    // three kinds, one chip each, nothing doubled
+    const kinds = await chips(page).evaluateAll((els) => els.map((e) => e.getAttribute('data-kind')));
+    expect(new Set(kinds).size).toBe(3);
+  });
+
+  test('inside the shot overlay, the picker keeps its keys to itself', async ({ page }) => {
+    await page.locator('.sc-cell').first().click();
+    await page.waitForURL(/\/shots\//);
+    const editor = page.locator('.sc-ovl-edit');
+    await expect(editor.locator('.sc-brief-line')).toBeVisible();
+    const url = page.url();
+    await editor.locator('.sc-attach-toggle').click();
+    await page.locator('.sc-ap-tabs button', { hasText: 'Products' }).click();
+    await attachCards(page).first().waitFor();
+    await openSearch(page);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await expect(attachCards(page).nth(1)).toBeFocused();
+    // the overlay walks shots on the same arrows: it did not move
+    expect(page.url()).toBe(url);
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+    // and closes on the same Escape: only the picker went
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+    await expect(page.locator('.sc-ovl')).toBeVisible();
+    expect(page.url()).toBe(url);
+  });
 });

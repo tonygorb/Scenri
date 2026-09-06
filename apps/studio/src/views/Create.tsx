@@ -12,7 +12,7 @@ import { NO_ATTACHMENTS, type AttachedIds } from '../layout/railSections.js';
 import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
 import { generationMessages } from '../liveStatus.js';
-import { isFeedSort, isLens, type FeedSort, type Lens, type TokenNames } from '../feedRules.js';
+import { isFeedSort, isLens, type FeedSort, type Lens, type TokenNames, neighborsOf } from '../feedRules.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
@@ -21,7 +21,6 @@ import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { FailureRow } from '../layout/Failure.js';
 import { describeFailure, failureToast } from '../failure.js';
 import { Canvas } from '../layout/Canvas.js';
-import { CompareDialog } from '../layout/CompareDialog.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
@@ -147,7 +146,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   /** Feed ordering. A machine preference, not a location, so it lives in prefs. */
   const [sortPref, setSortPref] = useLocalPref<FeedSort>(PREF.feedSort, 'newest');
   const sort: FeedSort = isFeedSort(sortPref) ? sortPref : 'newest';
-  const [compareOpen, setCompareOpen] = useState(false);
   const composerRef = useRef<ComposerHandle>(null);
   const { push } = useToasts();
   const { poke } = useTaskCenter();
@@ -443,7 +441,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * Arrow keys also walk the closed canvas grid, where there is no overlay
    * route to update; `select`'s plain local-state move still owns that case.
    */
-  const goToShot = (id: string) => (nodeId ? openShot(id, true) : select(id));
+  const goToShot = (id: string) =>
+    nodeId || /\/shots\//.test(window.location.pathname) ? openShot(id, true) : select(id);
 
   /**
    * Shots that did not exist a moment ago: a send, a refine, a retry. Seated
@@ -594,7 +593,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   // allNodes, not shots: shots excludes archived nodes, but a selection can be
   // made from the Archived lens too — sourcing from the pages, whatever the
-  // lens, is what makes Keep/Compare/batch-delete work for that selection
+  // lens, is what makes Keep/batch-delete work for that selection
   const pickedNodes = useMemo(
     () => [...picked].map((id) => byId.get(id)).filter((n): n is FeedNode => !!n),
     [byId, picked],
@@ -691,36 +690,39 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   };
 
   /**
-   * Compare answers a question about exactly two things, so it is offered for
-   * exactly two and only when both have an image to compare. Three selected is
-   * not a comparison, and a failed shot has nothing to put on the wall.
-   */
-  const comparable = useMemo(() => {
-    if (pickedNodes.length !== 2) return null;
-    const [a, b] = pickedNodes;
-    if (a.status !== 'done' || b.status !== 'done' || !a.images[0] || !b.images[0]) return null;
-    return [a, b] as const;
-  }, [pickedNodes]);
-
-  /**
-   * Arrow keys walk the tree around the selected shot. The tree comes from the
-   * server's parent index, one small answer per shot, rather than from a map
-   * over every shot in the brand.
+   * Arrow keys walk the shots. Left and right step through the shots as they
+   * lie on screen, the feed's own order, in the overlay and on the grid
+   * alike. Up and down step through the shot's own history, the version
+   * before and after it, from the server's lineage answer. This used to step
+   * whatever shared the shot's parent, which for a root was every root in the
+   * brand in creation order, whatever lens or search the grid was showing.
    */
   const walk = async (dir: 'left' | 'right' | 'up' | 'down') => {
-    const at = selected;
+    // With a shot open the URL names it, and the URL is read live: the
+    // address changes the moment a step is taken, the render that would hand
+    // this closure the new id comes a frame later, and a second arrow inside
+    // that gap (a held key) stepped from the shot before. A shot the pages
+    // do not hold (a deep link) has no neighbours to walk to.
+    const openId = /\/shots\/([^/?#]+)/.exec(window.location.pathname)?.[1] ?? null;
+    const at = openId ? (byId.get(openId) ?? null) : selected;
     if (!at) return;
-    if (dir === 'up') {
-      if (at.parentId && at.parentId !== root) goToShot(at.parentId);
+    if (dir === 'left' || dir === 'right') {
+      const { prev, next } = neighborsOf(items, at.id);
+      const to = dir === 'left' ? prev : next;
+      if (to) goToShot(to.id);
       return;
     }
     const lin = await api.lineage(at.id).catch(() => null);
     if (!lin) return;
-    const sibs = lin.siblings.filter((n) => n.kind !== 'root');
-    const i = sibs.findIndex((n) => n.id === at.id);
-    if (dir === 'left' && i > 0) goToShot(sibs[i - 1].id);
-    else if (dir === 'right' && i >= 0 && i < sibs.length - 1) goToShot(sibs[i + 1].id);
-    else if (dir === 'down' && lin.children[0]) goToShot(lin.children[0].id);
+    // a server without the history answers with the parent above and the first refinement below
+    const history = lin.history ?? [...lin.ancestors, at, ...lin.children.slice(0, 1)];
+    // the steps the trail under the picture shows: a refinement that made no picture is not one
+    const { prev, next } = neighborsOf(
+      history.filter((n) => n.id === at.id || n.images[0]),
+      at.id,
+    );
+    const to = dir === 'up' ? prev : next;
+    if (to) goToShot(to.id);
   };
 
   // keyboard: arrows walk the tree, [ ] step images, esc closes the overlay,
@@ -884,6 +886,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   const shotContext: ShotContext = {
     byId,
+    items,
+    loadMore: feed.loadMore,
+    complete: feed.complete,
     rootId: root,
     recent,
     loaded,
@@ -926,8 +931,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     },
     // leaving the overlay makes sense here: the shot just left whatever feed
     // it was being viewed from
-    archive: (n) => void archive(n).then(() => closeShot()),
-    unarchive: (n) => void unarchive(n),
+    archive: (n) =>
+      archive(n).then((ok) => {
+        if (ok) closeShot();
+      }),
+    unarchive: (n) => unarchive(n).then(() => undefined),
     delete: (n) => void remove(n).then(() => closeShot()),
     landed,
     // whichever surface a refine was pulled from, the workspace follows the
@@ -1070,17 +1078,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         />
       </main>
 
-      {comparable && (
-        <CompareDialog
-          open={compareOpen}
-          onOpenChange={setCompareOpen}
-          a={comparable[0]}
-          b={comparable[1]}
-          imageA={comparable[0].images[0]}
-          imageB={comparable[1].images[0]}
-        />
-      )}
-
       {railOpen && <div className="sc-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
       <Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
@@ -1090,6 +1087,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         <AssetsPanel
           brand={brand}
           shots={recent}
+          shotsTotal={lensCounts.all}
           attached={attached}
           full={ceiling}
           onToken={(t) => composerRef.current?.insertToken(t)}
@@ -1117,9 +1115,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             onClear={() => setPicked(new Set())}
             onKeep={() => void keepPicked()}
             allKept={pickedNodes.length > 0 && pickedNodes.every((n) => n.kept)}
-            comparable={comparable}
-            onCompare={() => setCompareOpen(true)}
-            // Keep/Compare/Add-to-set are curation actions for active work —
+            // Keep/Add-to-set are curation actions for active work —
             // an archived selection only makes sense as "bring it back" or
             // "get rid of it for good," so the whole bar swaps to that pair.
             archivedLens={lens === 'archived'}
@@ -1134,7 +1130,6 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           brand={brand}
           engines={engines}
           parentId={root}
-          shots={recent}
           initialBrief={remixBrief}
           suppressDraftRestore={showcaseIdParam !== null}
           startScene={params.get('scene') ?? undefined}
