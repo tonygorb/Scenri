@@ -159,7 +159,8 @@ const ourProcesses = () =>
       const [pid, ...cmd] = l.split('\t');
       return { pid: Number(pid), cmd: cmd.join('\t') };
     })
-    .filter((p) => p.pid !== process.pid);
+    // never this script, and never the helper PowerShell that is listing right now
+    .filter((p) => p.pid !== process.pid && !p.cmd.includes(scripts));
 const killOurs = () => {
   for (const p of ourProcesses()) spawnSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' });
 };
