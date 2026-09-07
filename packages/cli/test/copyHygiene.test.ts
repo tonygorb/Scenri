@@ -12,6 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 // the showcase golden fixture).
 const FILES = [
   'README.md',
+  'AGENTS.md',
   'ROADMAP.md',
   'DESIGN.md',
   'CONTRIBUTING.md',

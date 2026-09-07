@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { laneEnv } from '../../packages/cli/scripts/worktree.js';
 
 /**
  * Visual-regression harness for the CSS restructure (2026-08 migration).
@@ -13,6 +14,15 @@ import { defineConfig, devices } from '@playwright/test';
  * regenerated mid-migration: the golden set is captured once from the
  * pre-restructure CSS and every chunk compares against it.
  */
+// The baselines are darwin-local pixels captured once in the primary checkout.
+// A linked worktree has none, and Playwright would *write* them on a first run
+// and pass every run after, so this suite refuses to run there.
+if (Object.keys(laneEnv()).length > 0) {
+  throw new Error(
+    'pnpm test:visual runs in the primary checkout only: a worktree has no baselines to compare against.',
+  );
+}
+
 export default defineConfig({
   testDir: './visual',
   timeout: 30_000,

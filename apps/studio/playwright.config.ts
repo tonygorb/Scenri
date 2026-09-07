@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { laneEnv } from '../../packages/cli/scripts/worktree.js';
 
 /**
  * Runs against a real Scenri server, because the whole point of this suite is
@@ -16,6 +17,10 @@ import { defineConfig, devices } from '@playwright/test';
  * The studio has to be built first: the CLI serves prebuilt `dist` and never
  * builds. `pnpm build`, then `pnpm --filter @scenri/studio test:e2e`.
  */
+// A linked worktree runs on its own lane (6000+), so two checkouts can run the
+// suite at once without meeting on 4757. Empty in the primary and on CI.
+const lane = laneEnv();
+if (lane.SCENRI_E2E_PORT) process.env.SCENRI_E2E_PORT = lane.SCENRI_E2E_PORT;
 const PORT = Number(process.env.SCENRI_E2E_PORT ?? 4757);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 

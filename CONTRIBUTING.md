@@ -46,6 +46,27 @@ the same data, with CSS and components hot swapping in about a tenth of a second
 Build and reload on 4747 only when you need what the browser suites need: the E2E
 run, `pnpm test:visual`, or a video capture.
 
+## Working in parallel checkouts
+
+To work on more than one thing at once, or to let several coding agents work at once, give each
+task its own git worktree beside the main checkout:
+
+```bash
+pnpm worktree add feat/my-change        # ../scenri-worktrees/feat-my-change, branched off origin/main
+cd ../scenri-worktrees/feat-my-change
+pnpm dev                                # on that worktree's own ports, printed at start
+pnpm dev:ui                             # in a second terminal, proxying to that server
+pnpm worktree remove feat-my-change     # from any other checkout, once the pull request has merged
+```
+
+A worktree gets a lane: its own server and Vite ports (4748 and 5174 for the first, 4749 and 5175
+for the second, and so on), its own e2e port range, and its own library in `.scenri-home/`, copied
+from `~/.scenri` at creation (`--empty` skips the copy). `pnpm dev`, `pnpm dev:ui` and the
+Playwright configs apply the lane on their own; nothing else changes, and the main checkout keeps
+4747, 5173 and `~/.scenri`. `pnpm test:visual` and the performance rig run in the main checkout
+only. A branch that changes the lockfile needs one plain `pnpm install` in its worktree. The rules
+agents follow inside a checkout are in `AGENTS.md`.
+
 ## Before you open a pull request
 
 ```bash
